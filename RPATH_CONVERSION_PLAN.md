@@ -8,7 +8,7 @@
 
 ## Current Implementation Status
 
-### ✅ Completed (Phase 1 & 2)
+### ✅ Completed (Phase 1, 2 & 3)
 
 #### Core Package (`src/pypath/core/`)
 - [x] **`params.py`** - RpathParams dataclass with full I/O
@@ -35,13 +35,32 @@
   - `rsim_fishing()` - create fishing matrices
   - `rsim_scenario()` - build complete scenario
   - `rsim_run()` - execute simulation
-- [x] **`ecosim_deriv.py`** - Numerical engine
+- [x] **`ecosim_deriv.py`** - Numerical engine (Phase 3 enhanced)
   - `deriv_vector()` - core derivative calculation (ported from C++)
   - `integrate_rk4()` - Runge-Kutta 4th order integrator
   - `integrate_ab()` - Adams-Bashforth method
   - `run_ecosim()` - main simulation loop
-  - Fast equilibrium approximation for high-turnover groups
-  - Prey switching and handling time calculations
+  - `prey_switching()` - power switching (0-2 scale) for diet shifts
+  - `mediation_function()` - third-party mediation effects (4 types)
+  - `primary_production_forcing()` - producer forcing with density dependence
+- [x] **`stanzas.py`** - Multi-stanza (age-structured) groups (NEW Phase 3)
+  - `StanzaGroup`, `StanzaIndividual`, `StanzaParams`, `RsimStanzas` dataclasses
+  - `von_bertalanffy_weight()` - VB growth model
+  - `von_bertalanffy_consumption()` - consumption scaling
+  - `calculate_survival()` - mortality-based survival
+  - `rpath_stanzas()` - initialize stanza parameters
+  - `rsim_stanzas()` - create simulation stanza arrays
+  - `split_update()` - biomass redistribution across age classes
+  - `create_stanza_params()` - build from Rpath params
+- [x] **`adjustments.py`** - Scenario modifications (NEW Phase 3)
+  - `adjust_fishing()` - modify ForcedEffort, ForcedFRate, ForcedCatch
+  - `adjust_forcing()` - modify environmental forcing parameters
+  - `adjust_scenario()` - modify global scenario parameters
+  - `set_vulnerability()` - change predator-prey vulnerability
+  - `set_handling_time()` - change predator handling time
+  - `create_fishing_ramp()` - linear interpolation of fishing pressure
+  - `create_pulse_forcing()` - periodic pulse events
+  - `create_seasonal_forcing()` - 12-month seasonal patterns
 
 #### Testing (`tests/`)
 - [x] **`test_ecopath.py`** - 8 passing tests
@@ -55,6 +74,18 @@
   - Forcing and fishing matrix setup
   - Full simulation run (RK4 and Adams-Bashforth)
   - Biomass conservation checks
+- [x] **`test_stanzas.py`** - 14 passing tests (NEW Phase 3)
+  - Von Bertalanffy growth functions
+  - Survival calculations
+  - StanzaGroup/Individual/Params creation
+  - RsimStanzas structure
+  - Integration tests for growth models
+- [x] **`test_adjustments.py`** - 19 passing tests (NEW Phase 3)
+  - Scenario parameter adjustments
+  - Fishing matrix modifications
+  - Forcing matrix modifications
+  - Linear ramps and seasonal patterns
+  - Integration tests for complete scenarios
 
 #### Shiny Dashboard (`app/`)
 - [x] **`app/app.py`** - Main Shiny for Python dashboard
@@ -91,13 +122,13 @@
 - [x] **`.gitignore`** - Git configuration
 - [x] **GitHub Repository** - https://github.com/razinkele/PyPath
 
-### 🔄 In Progress (Phase 3)
-- [ ] Fine-tuning of foraging arena functional response
-- [ ] Prey mediation functions
-- [ ] Complete prey switching calculations
-- [ ] Primary production forcing validation
+### 🔄 In Progress (Phase 4)
+- [ ] Complete stanza integration into Ecosim simulation loop
+- [ ] Climate forcing scenarios
+- [ ] Monte Carlo uncertainty analysis
+- [ ] Model fitting/calibration tools
 
-### ❌ Not Started (Phase 4+)
+### ❌ Not Started (Phase 5+)
 - [ ] **Stanza module** (`stanzas.py`)
   - `rpath_stanzas()` - calculate stanza B and Q
   - `rsim_stanzas()` - dynamic stanza parameters
