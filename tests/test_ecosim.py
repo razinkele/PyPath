@@ -15,8 +15,11 @@ from pypath.core.ecosim import (
     rsim_fishing,
     rsim_scenario,
     rsim_run,
+    RsimScenario,
+    RsimState,
 )
 from pypath.core.ecosim_deriv import deriv_vector, integrate_rk4
+from pypath.core.stanzas import RsimStanzas
 
 
 @pytest.fixture
@@ -205,6 +208,92 @@ class TestDerivVector:
         deriv = deriv_vector(state, params_dict, forcing_dict, fishing_dict)
         
         assert len(deriv) == 6  # Should match state length
+
+
+class TestStanzaIntegration:
+    """Tests for stanza integration in simulation."""
+    
+    def test_scenario_with_stanzas(self, simple_model):
+        """Test that scenario can hold RsimStanzas."""
+        model, rpath_params = simple_model
+        scenario = rsim_scenario(model, rpath_params, years=range(1, 6))
+        
+        # Create a minimal stanza structure
+        stanzas = RsimStanzas(n_split=0)
+        scenario.stanzas = stanzas
+        
+        assert scenario.stanzas is not None
+        assert scenario.stanzas.n_split == 0
+    
+    def test_simulation_with_empty_stanzas(self, simple_model):
+        """Test simulation runs with empty stanza structure."""
+        model, rpath_params = simple_model
+        scenario = rsim_scenario(model, rpath_params, years=range(1, 6))
+        
+        # Add empty stanza structure
+        stanzas = RsimStanzas(n_split=0)
+        scenario.stanzas = stanzas
+        
+        # Should run without error (stanzas are skipped when n_split=0)
+        output = rsim_run(scenario, method='RK4')
+        
+        assert output.out_Biomass.shape[0] == 5 * 12 + 1
+        assert np.all(output.out_Biomass >= 0)
+    
+    def test_simulation_with_stanza_groups(self, simple_model):
+        """Test simulation runs with initialized stanza groups."""
+        model, rpath_params = simple_model
+        scenario = rsim_scenario(model, rpath_params, years=range(1, 6))
+        
+        # Create stanza structure with 1 split group
+        n_groups = 6
+        max_age = 121  # 10 years in months + 1 (0-indexed, need 0 to 120)
+        
+        stanzas = RsimStanzas(
+            n_split=1,
+            n_stanzas=np.array([0, 2]),  # 2 stanzas for group 1
+            ecopath_code=np.zeros((2, 3)),
+            age1=np.zeros((2, 3)),
+            age2=np.zeros((2, 3)),
+            base_wage_s=np.zeros((max_age, 2)),
+            base_nage_s=np.zeros((max_age, 2)),
+            base_qage_s=np.zeros((max_age, 2)),  # Consumption at age
+            base_spawn_bio=np.zeros(2),
+            vbm=np.array([0.0, 0.2]),  # VB M parameter
+            vbgf_d=np.array([0.0, 0.667]),
+            wmat=np.array([0.0, 0.5]),
+            spawn_x=np.array([0.0, 2.0]),  # Beverton-Holt parameter
+            r_zero_s=np.array([0.0, 1000.0]),
+            base_eggs_stanza=np.array([0.0, 100.0]),
+            recruits=np.array([0.0, 100.0]),
+            split_alpha=np.zeros((2, 3)),
+            spawn_energy=np.zeros(2),
+            r_scale_split=np.zeros(2),
+            base_stanza_pred=np.zeros(2),
+            rec_power=np.array([0.0, 1.0]),
+        )
+        
+        # Set up ecopath codes and ages
+        stanzas.ecopath_code[1, 1] = 2  # juvenile = group 2 (Zoo)
+        stanzas.ecopath_code[1, 2] = 3  # adult = group 3 (Fish)
+        stanzas.age1[1, 1] = 0
+        stanzas.age2[1, 1] = 24  # juvenile 0-24 months
+        stanzas.age1[1, 2] = 25
+        stanzas.age2[1, 2] = 119  # adult 25-119 months (within bounds)
+        
+        # Initialize weight, numbers and consumption at age
+        for age in range(max_age):
+            stanzas.base_wage_s[age, 1] = 0.01 * (age + 1)
+            stanzas.base_nage_s[age, 1] = 1000 * np.exp(-0.01 * age)
+            stanzas.base_qage_s[age, 1] = (0.01 * (age + 1)) ** 0.667  # Q = W^d
+        
+        scenario.stanzas = stanzas
+        
+        # Should run without error
+        output = rsim_run(scenario, method='RK4')
+        
+        assert output.out_Biomass.shape[0] == 5 * 12 + 1
+        assert np.all(output.out_Biomass >= 0)
 
 
 if __name__ == '__main__':

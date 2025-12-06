@@ -16,6 +16,7 @@ import pandas as pd
 
 from pypath.core.ecopath import Rpath
 from pypath.core.params import RpathParams
+from pypath.core.stanzas import RsimStanzas, split_update, split_set_pred
 
 
 # Constants for simulation
@@ -258,7 +259,7 @@ class RsimScenario:
     start_state: RsimState
     forcing: RsimForcing
     fishing: RsimFishing
-    stanzas: Optional[dict] = None
+    stanzas: Optional[RsimStanzas] = None
     eco_name: str = ""
     start_year: int = 1
 
@@ -814,6 +815,20 @@ def rsim_run(
         
         # Ensure non-negative biomass
         state = np.maximum(state, EPSILON)
+        
+        # Update stanza groups (age structure dynamics)
+        if scenario.stanzas is not None and scenario.stanzas.n_split > 0:
+            # Update state in a temporary state object
+            temp_state = RsimState(
+                Biomass=state.copy(),
+                N=np.zeros_like(state),
+                Ftime=forcing_dict['Ftime']
+            )
+            # Call stanza update for this month
+            split_update(scenario.stanzas, temp_state, params, month)
+            # Update predation rates based on new stanza structure
+            split_set_pred(scenario.stanzas, temp_state, params)
+            # Note: Biomass redistribution among stanza groups handled in split_update
         
         # Check for crash (biomass < 1e-6)
         if crash_year < 0 and np.any(state[1:params.NUM_LIVING + 1] < 1e-6):
