@@ -60,6 +60,30 @@ from pypath.core.ecosim_deriv import (
     mediation_function,
     primary_production_forcing,
 )
+from pypath.core.analysis import (
+    mixed_trophic_impacts,
+    keystoneness_index,
+    calculate_network_indices,
+    NetworkIndices,
+    summarize_ecosim_output,
+    compare_scenarios,
+    check_ecopath_balance,
+    check_ecosim_stability,
+    export_ecopath_to_dataframe,
+    export_ecosim_to_dataframe,
+)
+from pypath.core.plotting import (
+    plot_foodweb,
+    plot_biomass,
+    plot_catch,
+    plot_biomass_grid,
+    plot_trophic_spectrum,
+    plot_mti_heatmap,
+    plot_ecosim_summary,
+    save_plots,
+    HAS_NETWORKX,
+    HAS_PLOTLY,
+)
 
 __all__ = [
     # Ecopath
@@ -114,4 +138,26 @@ __all__ = [
     "prey_switching",
     "mediation_function",
     "primary_production_forcing",
+    # Analysis
+    "mixed_trophic_impacts",
+    "keystoneness_index",
+    "calculate_network_indices",
+    "NetworkIndices",
+    "summarize_ecosim_output",
+    "compare_scenarios",
+    "check_ecopath_balance",
+    "check_ecosim_stability",
+    "export_ecopath_to_dataframe",
+    "export_ecosim_to_dataframe",
+    # Plotting
+    "plot_foodweb",
+    "plot_biomass",
+    "plot_catch",
+    "plot_biomass_grid",
+    "plot_trophic_spectrum",
+    "plot_mti_heatmap",
+    "plot_ecosim_summary",
+    "save_plots",
+    "HAS_NETWORKX",
+    "HAS_PLOTLY",
 ]
