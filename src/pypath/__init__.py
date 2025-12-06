@@ -75,6 +75,14 @@ from pypath.io.ecobase import (
     search_ecobase_models,
     download_ecobase_model_to_file,
 )
+from pypath.io.ewemdb import (
+    read_ewemdb,
+    list_ewemdb_tables,
+    read_ewemdb_table,
+    get_ewemdb_metadata,
+    check_ewemdb_support,
+    EwEDatabaseError,
+)
 
 __all__ = [
     # Version
@@ -140,4 +148,11 @@ __all__ = [
     "ecobase_to_rpath",
     "search_ecobase_models",
     "download_ecobase_model_to_file",
+    # I/O - EwE database
+    "read_ewemdb",
+    "list_ewemdb_tables",
+    "read_ewemdb_table",
+    "get_ewemdb_metadata",
+    "check_ewemdb_support",
+    "EwEDatabaseError",
 ]
