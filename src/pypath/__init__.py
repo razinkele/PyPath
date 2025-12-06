@@ -65,6 +65,17 @@ from pypath.core.ecosim_deriv import (
     primary_production_forcing,
 )
 
+# I/O imports
+from pypath.io.ecobase import (
+    EcoBaseModel,
+    EcoBaseGroupData,
+    list_ecobase_models,
+    get_ecobase_model,
+    ecobase_to_rpath,
+    search_ecobase_models,
+    download_ecobase_model_to_file,
+)
+
 __all__ = [
     # Version
     "__version__",
@@ -121,4 +132,12 @@ __all__ = [
     "prey_switching",
     "mediation_function",
     "primary_production_forcing",
+    # I/O - EcoBase
+    "EcoBaseModel",
+    "EcoBaseGroupData",
+    "list_ecobase_models",
+    "get_ecobase_model",
+    "ecobase_to_rpath",
+    "search_ecobase_models",
+    "download_ecobase_model_to_file",
 ]
