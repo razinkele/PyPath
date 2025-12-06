@@ -4,13 +4,15 @@ Ecosim derivative calculation and integration routines.
 This module contains the core numerical routines for Ecosim simulation:
 - deriv_vector: Calculate derivatives for all state variables
 - RK4 and Adams-Bashforth integration methods
+- Prey switching and mediation functions
+- Primary production forcing
 
 These are ported from the C++ ecosim.cpp file in Rpath.
 """
 
 import numpy as np
-from typing import Tuple, Optional
-from dataclasses import dataclass
+from typing import Tuple, Optional, Dict, Any
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -28,6 +30,183 @@ class SimState:
     force_byprey: np.ndarray  # Prey-specific forcing
 
 
+# =============================================================================
+# MEDIATION FUNCTIONS
+# =============================================================================
+
+def prey_switching(
+    BB: np.ndarray,
+    Bbase: np.ndarray,
+    pred: int,
+    ActiveLink: np.ndarray,
+    switch_power: float = 2.0
+) -> np.ndarray:
+    """
+    Calculate prey switching factors.
+    
+    Prey switching occurs when predators preferentially consume more abundant
+    prey, stabilizing the system. Uses a power function of relative abundance.
+    
+    Parameters
+    ----------
+    BB : np.ndarray
+        Current biomass array
+    Bbase : np.ndarray
+        Baseline biomass array
+    pred : int
+        Predator index
+    ActiveLink : np.ndarray
+        Active link matrix [prey, pred]
+    switch_power : float
+        Prey switching power (default 2.0, range 0-2)
+        - 0: No switching
+        - 1: Linear switching
+        - 2: Strong switching (Murdoch switching)
+        
+    Returns
+    -------
+    np.ndarray
+        Switching factors for each prey (indexed by prey)
+    """
+    n_groups = len(BB)
+    switch_factor = np.ones(n_groups)
+    
+    if switch_power <= 0:
+        return switch_factor
+    
+    # Sum of relative prey abundance for this predator
+    total_rel = 0.0
+    for prey in range(1, n_groups):
+        if ActiveLink[prey, pred] and Bbase[prey] > 0:
+            total_rel += (BB[prey] / Bbase[prey]) ** switch_power
+    
+    if total_rel <= 0:
+        return switch_factor
+    
+    # Calculate switching factor for each prey
+    for prey in range(1, n_groups):
+        if ActiveLink[prey, pred] and Bbase[prey] > 0:
+            rel_abund = (BB[prey] / Bbase[prey]) ** switch_power
+            switch_factor[prey] = rel_abund / total_rel * len([p for p in range(1, n_groups) 
+                                                               if ActiveLink[p, pred] and Bbase[p] > 0])
+    
+    return switch_factor
+
+
+def mediation_function(
+    mediation_type: int,
+    med_bio: float,
+    med_base: float,
+    med_params: Dict[str, float]
+) -> float:
+    """
+    Calculate mediation effect on predation.
+    
+    Mediation allows a third party (mediator) to affect the predator-prey
+    interaction, representing effects like habitat provision or fear.
+    
+    Parameters
+    ----------
+    mediation_type : int
+        Type of mediation function:
+        - 0: No mediation (returns 1.0)
+        - 1: Positive mediation (more mediator = more predation)
+        - 2: Negative mediation (more mediator = less predation)
+        - 3: U-shaped (optimal at intermediate mediator biomass)
+    med_bio : float
+        Current mediator biomass
+    med_base : float
+        Baseline mediator biomass
+    med_params : dict
+        Parameters including 'low', 'high', 'shape'
+    
+    Returns
+    -------
+    float
+        Mediation multiplier (>0)
+    """
+    if mediation_type == 0 or med_base <= 0:
+        return 1.0
+    
+    low = med_params.get('low', 0.5)
+    high = med_params.get('high', 2.0)
+    shape = med_params.get('shape', 1.0)
+    
+    x = med_bio / med_base  # Relative biomass
+    
+    if mediation_type == 1:  # Positive mediation
+        # Saturating increase
+        med_mult = low + (high - low) * (x ** shape) / (1.0 + x ** shape)
+    elif mediation_type == 2:  # Negative mediation
+        # Saturating decrease
+        med_mult = high - (high - low) * (x ** shape) / (1.0 + x ** shape)
+    elif mediation_type == 3:  # U-shaped
+        # Optimal at x=1, declines at extremes
+        diff = abs(x - 1.0)
+        med_mult = high - (high - low) * (diff ** shape) / (1.0 + diff ** shape)
+    else:
+        med_mult = 1.0
+    
+    return max(med_mult, 0.001)  # Ensure positive
+
+
+def primary_production_forcing(
+    BB: np.ndarray,
+    Bbase: np.ndarray,
+    PB: np.ndarray,
+    PP_forcing: np.ndarray,
+    PP_type: np.ndarray,
+    NUM_LIVING: int
+) -> np.ndarray:
+    """
+    Calculate primary production with environmental forcing.
+    
+    Parameters
+    ----------
+    BB : np.ndarray
+        Current biomass
+    Bbase : np.ndarray
+        Baseline biomass
+    PB : np.ndarray
+        Production/biomass ratios
+    PP_forcing : np.ndarray
+        Primary production forcing multipliers by group
+    PP_type : np.ndarray
+        Producer type by group:
+        - 0: Not a producer (consumer)
+        - 1: Primary producer (nutrients unlimited)
+        - 2: Primary producer (nutrient limited/density dependent)
+    NUM_LIVING : int
+        Number of living groups
+        
+    Returns
+    -------
+    np.ndarray
+        Primary production rates
+    """
+    n_groups = len(BB)
+    production = np.zeros(n_groups)
+    
+    for i in range(1, min(NUM_LIVING + 1, n_groups)):
+        if PP_type[i] == 0:
+            # Not a producer - production calculated from consumption
+            continue
+        elif PP_type[i] == 1:
+            # Unlimited primary production (linear in forcing)
+            production[i] = PB[i] * BB[i] * PP_forcing[i]
+        elif PP_type[i] == 2:
+            # Density-dependent production (logistic-like)
+            if Bbase[i] > 0:
+                rel_bio = BB[i] / Bbase[i]
+                # Production decreases as biomass exceeds carrying capacity
+                dd_factor = max(0, 2.0 - rel_bio)
+                production[i] = PB[i] * BB[i] * PP_forcing[i] * dd_factor
+            else:
+                production[i] = PB[i] * BB[i] * PP_forcing[i]
+    
+    return production
+
+
 def deriv_vector(
     state: np.ndarray,
     params: dict,
@@ -39,10 +218,10 @@ def deriv_vector(
     Calculate derivatives for all state variables in Ecosim.
     
     This is the core function that implements the Ecosim differential equations
-    based on foraging arena theory.
+    based on foraging arena theory with prey switching and mediation support.
     
     The functional response is:
-        C_ij = (a_ij * v_ij * B_i * B_j * T_j * S_ij * D_j) / 
+        C_ij = (a_ij * v_ij * B_i * B_j * T_j * S_ij * D_j * M_ij) / 
                (v_ij + v_ij*T_j*D_j + a_ij*B_j*D_j + a_ij*d_ij*B_j*D_j^2)
     
     Where:
@@ -51,9 +230,10 @@ def deriv_vector(
         B_i = prey biomass
         B_j = predator biomass
         T_j = time forcing on predator
-        S_ij = prey switching/vulnerability scaling
+        S_ij = prey switching factor
         D_j = handling time factor
         d_ij = handling time for this link
+        M_ij = mediation multiplier
     
     Parameters
     ----------
@@ -71,23 +251,24 @@ def deriv_vector(
         - DC: Diet composition matrix [prey, pred]
         - VV: Vulnerability parameters [prey, pred]
         - DD: Handling time parameters [prey, pred]
-        - PredPredWeight: Predator-prey weight ratio
-        - PreyPreyWeight: Prey competition weight
+        - Bbase: Baseline biomass [group]
         - DetFrac: Fraction to detritus [group]
         - Unassim: Unassimilated fraction [group]
+        - SwitchPower: Prey switching power (0-2, default 0)
+        - PP_type: Producer type array [group]
+        - Mediation: Mediation configuration dict
     forcing : dict
         Forcing arrays:
         - ForcedBio: Forced biomass values [group]
         - ForcedMigrate: Migration forcing [group]
         - ForcedCatch: Forced catch [group]
         - ForcedEffort: Forced effort [gear]
+        - PP_forcing: Primary production forcing [group]
+        - Ftime: Time forcing [group]
     fishing : dict
         Fishing parameters:
-        - FishFrom: Fishing mortality source [link]
-        - FishThrough: Effort multiplier [link]
-        - FishQ: Catchability [link]
-        - EffortCap: Effort cap [gear]
         - FishingMort: Base fishing mortality [group]
+        - EffortCap: Effort cap [gear]
     t : float
         Current time (for time-varying forcing)
     
@@ -111,6 +292,10 @@ def deriv_vector(
     VV = params['VV']
     DD = params['DD']
     Unassim = params.get('Unassim', np.zeros(NUM_GROUPS + 1))
+    Bbase = params.get('Bbase', state.copy())  # Baseline biomass
+    SwitchPower = params.get('SwitchPower', 0.0)  # Prey switching power
+    PP_type = params.get('PP_type', np.zeros(NUM_GROUPS + 1, dtype=int))
+    Mediation = params.get('Mediation', {})  # Mediation configuration
     
     # Current biomass (state variable)
     BB = state.copy()
@@ -120,12 +305,13 @@ def deriv_vector(
     
     # =========================================================================
     # STEP 1: Calculate predation pressure from each predator on each prey
-    # Using foraging arena functional response
+    # Using foraging arena functional response with prey switching
     # =========================================================================
     
     # Get time-varying forcing (default to 1.0)
     Ftime = forcing.get('Ftime', np.ones(NUM_GROUPS + 1))
     ForcedBio = forcing.get('ForcedBio', np.zeros(NUM_GROUPS + 1))
+    PP_forcing = forcing.get('PP_forcing', np.ones(NUM_GROUPS + 1))
     
     # For each predator-prey pair with an active link
     for pred in range(1, NUM_LIVING + 1):
@@ -134,6 +320,12 @@ def deriv_vector(
             
         pred_bio = BB[pred]
         pred_time = Ftime[pred]
+        
+        # Calculate prey switching factors for this predator
+        if SwitchPower > 0:
+            switch_factors = prey_switching(BB, Bbase, pred, ActiveLink, SwitchPower)
+        else:
+            switch_factors = np.ones(NUM_GROUPS + 1)
         
         for prey in range(1, NUM_GROUPS + 1):  # prey can include detritus
             if not ActiveLink[prey, pred]:
@@ -147,24 +339,36 @@ def deriv_vector(
             vv = VV[prey, pred]
             dd = DD[prey, pred]
             
+            # Get prey switching factor
+            sw = switch_factors[prey]
+            
+            # Calculate mediation multiplier
+            med_mult = 1.0
+            med_key = (prey, pred)
+            if med_key in Mediation:
+                med_cfg = Mediation[med_key]
+                med_idx = med_cfg.get('mediator', 0)
+                med_type = med_cfg.get('type', 0)
+                med_params = med_cfg.get('params', {})
+                if med_idx > 0 and med_idx < len(BB):
+                    med_mult = mediation_function(
+                        med_type, BB[med_idx], Bbase[med_idx], med_params
+                    )
+            
             # Calculate base consumption rate
             # This comes from Q0/B0 setup in rsim_params
             base_qb = params.get('QQ_base', QB[pred] * params.get('DC', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))[prey, pred])
             
-            if base_qb is np.ndarray:
-                base_qb = base_qb[prey, pred] if base_qb.ndim == 2 else base_qb
+            if isinstance(base_qb, np.ndarray):
+                base_qb = base_qb[prey, pred] if base_qb.ndim == 2 else float(base_qb)
             
-            # Foraging arena functional response
-            # Q = (a * v * Bprey * Bpred * T) / (v + a*Bpred*D + v*T*D)
-            # Where a is the search rate derived from baseline consumption
-            
-            # Simplified version matching Rpath:
-            # QQ[prey,pred] = (VV * QQ0 * Bprey * Bpred) / 
-            #                 (VV * Bprey0 + QQ0 * Bpred0 + DD * QQ0 * Bpred)
+            # Foraging arena functional response with prey switching and mediation
+            # Q = (VV * QQ0 * Bprey * Bpred * sw * med) / 
+            #     (VV * Bprey0 + QQ0 * Bpred0 + DD * QQ0 * Bpred)
             
             # Get baseline values (should be stored in params)
-            Bprey0 = params.get('Bbase', BB)[prey]
-            Bpred0 = params.get('Bbase', BB)[pred]
+            Bprey0 = Bbase[prey]
+            Bpred0 = Bbase[pred]
             QQ0 = params.get('QQbase', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
             
             if isinstance(QQ0, np.ndarray) and QQ0.ndim == 2:
@@ -177,8 +381,9 @@ def deriv_vector(
             if qbase <= 0:
                 continue
             
-            # Functional response numerator
+            # Functional response numerator with prey switching and mediation
             numer = vv * qbase * (prey_bio / max(Bprey0, 1e-10)) * (pred_bio / max(Bpred0, 1e-10))
+            numer *= sw * med_mult  # Apply switching and mediation
             
             # Functional response denominator with handling time
             denom = vv + vv * pred_time * dd + (qbase / max(Bprey0, 1e-10)) * pred_bio * dd
@@ -209,6 +414,10 @@ def deriv_vector(
     # =========================================================================
     # STEP 4: Calculate derivatives for living groups
     # =========================================================================
+    
+    # Calculate primary production for producers
+    pp_rates = primary_production_forcing(BB, Bbase, PB, PP_forcing, PP_type, NUM_LIVING)
+    
     for i in range(1, NUM_LIVING + 1):
         # Total consumption BY this predator
         consumption = np.sum(QQ[1:, i])
@@ -216,15 +425,11 @@ def deriv_vector(
         # Total predation ON this prey (losses)
         predation_loss = np.sum(QQ[i, 1:NUM_LIVING + 1])
         
-        # Production = PB * B (for producers, this is primary production)
-        # For consumers, production comes from consumption * (1 - unassim) * GE
-        
         # Assimilated consumption
         assim_consump = consumption * (1.0 - Unassim[i])
         
         # Calculate derivative:
-        # dB/dt = GE * Q_in - (M0 + M2*B) * B - predation - fishing
-        # Where GE = PB/QB (gross efficiency)
+        # dB/dt = Production - (M0 + M2*B) * B - predation - fishing
         
         # Other mortality (non-predation, non-fishing)
         M0 = params.get('M0', PB * 0.0)  # Base other mortality
@@ -233,14 +438,16 @@ def deriv_vector(
         else:
             m0 = 0.0
         
-        # For producers: production = PB * B
-        # For consumers: production = GE * assimilated consumption
-        if QB[i] > 0:
-            # Consumer: GE = PB/QB
+        # Calculate production based on group type
+        if PP_type[i] > 0:
+            # Producer: use primary production with forcing
+            production = pp_rates[i]
+        elif QB[i] > 0:
+            # Consumer: GE = PB/QB, production from assimilated consumption
             GE = PB[i] / QB[i] if QB[i] > 0 else 0
             production = GE * assim_consump
         else:
-            # Producer: direct production
+            # Default: direct production
             production = PB[i] * BB[i]
         
         # Derivative

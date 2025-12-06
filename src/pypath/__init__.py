@@ -30,6 +30,40 @@ from pypath.core.ecosim import (
     rsim_scenario,
     rsim_run,
 )
+from pypath.core.stanzas import (
+    StanzaGroup,
+    StanzaIndividual,
+    StanzaParams,
+    RsimStanzas,
+    von_bertalanffy_weight,
+    von_bertalanffy_consumption,
+    calculate_survival,
+    rpath_stanzas,
+    rsim_stanzas,
+    split_update,
+    split_set_pred,
+    create_stanza_params,
+)
+from pypath.core.adjustments import (
+    adjust_fishing,
+    adjust_forcing,
+    adjust_scenario,
+    set_vulnerability,
+    set_handling_time,
+    adjust_group_parameter,
+    create_fishing_ramp,
+    create_pulse_forcing,
+    create_seasonal_forcing,
+)
+from pypath.core.ecosim_deriv import (
+    deriv_vector,
+    integrate_rk4,
+    integrate_ab,
+    run_ecosim,
+    prey_switching,
+    mediation_function,
+    primary_production_forcing,
+)
 
 __all__ = [
     # Version
@@ -56,4 +90,35 @@ __all__ = [
     "rsim_fishing",
     "rsim_scenario",
     "rsim_run",
+    # Stanzas
+    "StanzaGroup",
+    "StanzaIndividual",
+    "StanzaParams",
+    "RsimStanzas",
+    "von_bertalanffy_weight",
+    "von_bertalanffy_consumption",
+    "calculate_survival",
+    "rpath_stanzas",
+    "rsim_stanzas",
+    "split_update",
+    "split_set_pred",
+    "create_stanza_params",
+    # Adjustments
+    "adjust_fishing",
+    "adjust_forcing",
+    "adjust_scenario",
+    "set_vulnerability",
+    "set_handling_time",
+    "adjust_group_parameter",
+    "create_fishing_ramp",
+    "create_pulse_forcing",
+    "create_seasonal_forcing",
+    # Derivatives
+    "deriv_vector",
+    "integrate_rk4",
+    "integrate_ab",
+    "run_ecosim",
+    "prey_switching",
+    "mediation_function",
+    "primary_production_forcing",
 ]
