@@ -8,32 +8,123 @@
 
 ## Current Implementation Status
 
-### ✅ Completed
-- [x] Package structure setup (`pyproject.toml`, `README.md`)
-- [x] Core parameter classes (`RpathParams`, `create_rpath_params`, etc.)
-- [x] Ecopath mass-balance model (`rpath()`, `Rpath` class)
-- [x] Trophic level calculations
-- [x] Ecosim parameter conversion (`rsim_params()`)
-- [x] Ecosim state and forcing setup (`rsim_state()`, `rsim_forcing()`, `rsim_fishing()`)
-- [x] Ecosim scenario creation (`rsim_scenario()`)
-- [x] Ecosim derivative calculation (`deriv_vector()`)
-- [x] RK4 and Adams-Bashforth integration methods
-- [x] Basic `rsim_run()` simulation function
-- [x] Unit tests for Ecopath and Ecosim (17 passing tests)
+### ✅ Completed (Phase 1 & 2)
 
-### 🔄 In Progress
+#### Core Package (`src/pypath/core/`)
+- [x] **`params.py`** - RpathParams dataclass with full I/O
+  - `create_rpath_params()` - create parameter structure
+  - `read_rpath_params()` - load from CSV files
+  - `write_rpath_params()` - save to CSV files
+  - `check_rpath_params()` - validation with detailed error messages
+- [x] **`ecopath.py`** - Ecopath mass-balance model
+  - `Rpath` dataclass - balanced model container
+  - `rpath()` - main balancing function using matrix algebra
+  - Trophic level calculation (prey-weighted matrix solve)
+  - EE calculation for detritus groups
+  - Mortality breakdown (M0, M2, F)
+- [x] **`ecosim.py`** - Ecosim simulation setup
+  - `RsimParams` dataclass - simulation parameters
+  - `RsimState` dataclass - initial state vectors
+  - `RsimForcing` dataclass - forcing matrices
+  - `RsimFishing` dataclass - fishing matrices
+  - `RsimScenario` dataclass - complete scenario
+  - `RsimOutput` dataclass - results container
+  - `rsim_params()` - convert Rpath to sim parameters
+  - `rsim_state()` - initialize state vectors
+  - `rsim_forcing()` - create forcing matrices
+  - `rsim_fishing()` - create fishing matrices
+  - `rsim_scenario()` - build complete scenario
+  - `rsim_run()` - execute simulation
+- [x] **`ecosim_deriv.py`** - Numerical engine
+  - `deriv_vector()` - core derivative calculation (ported from C++)
+  - `integrate_rk4()` - Runge-Kutta 4th order integrator
+  - `integrate_ab()` - Adams-Bashforth method
+  - `run_ecosim()` - main simulation loop
+  - Fast equilibrium approximation for high-turnover groups
+  - Prey switching and handling time calculations
+
+#### Testing (`tests/`)
+- [x] **`test_ecopath.py`** - 8 passing tests
+  - Parameter creation and validation
+  - Mass-balance solving
+  - Trophic level calculations
+  - Diet matrix handling
+- [x] **`test_ecosim.py`** - 9 passing tests
+  - Simulation parameter setup
+  - State vector initialization
+  - Forcing and fishing matrix setup
+  - Full simulation run (RK4 and Adams-Bashforth)
+  - Biomass conservation checks
+
+#### Shiny Dashboard (`app/`)
+- [x] **`app/app.py`** - Main Shiny for Python dashboard
+  - Multi-page navbar navigation
+  - PyPath SVG logo/icon integration
+  - Shared reactive values for model data
+- [x] **`app/pages/home.py`** - Welcome/landing page
+  - Feature cards and workflow guide
+  - Quick-start navigation buttons
+- [x] **`app/pages/ecopath.py`** - Ecopath model builder
+  - Group management (add/remove by type)
+  - Parameter data grids (biomass, P/B, EE, etc.)
+  - Diet matrix editor
+  - Model validation and balancing
+  - Save/Load parameters
+- [x] **`app/pages/ecosim.py`** - Ecosim simulation setup
+  - Scenario configuration (years, time steps)
+  - Forcing functions editor
+  - Fishing mortality controls
+  - Run simulation button
+- [x] **`app/pages/results.py`** - Results visualization
+  - Biomass time series plots
+  - Catch time series plots
+  - Summary statistics tables
+  - Data export (CSV download)
+- [x] **`app/pages/about.py`** - Documentation/help page
+- [x] **`app/static/logo.svg`** - PyPath logo (fish + food web)
+- [x] **`app/static/icon.svg`** - Navbar icon
+
+#### Infrastructure
+- [x] **`pyproject.toml`** - Package configuration
+- [x] **`README.md`** - Documentation with logo
+- [x] **`run_app.py`** - Dashboard launcher script
+- [x] **`.gitignore`** - Git configuration
+- [x] **GitHub Repository** - https://github.com/razinkele/PyPath
+
+### 🔄 In Progress (Phase 3)
 - [ ] Fine-tuning of foraging arena functional response
-- [ ] Complete prey switching and handling time calculations
-- [ ] Stanza module for age-structured groups
+- [ ] Prey mediation functions
+- [ ] Complete prey switching calculations
+- [ ] Primary production forcing validation
 
-### ❌ Not Started
-- [ ] Multi-stanza calculations (`rpath_stanzas()`, `rsim_stanzas()`)
-- [ ] Adjustment functions (`adjust_*` family)
-- [ ] Plotting modules (food web diagrams, time series)
-- [ ] Sensitivity analysis (Ecosense Monte Carlo)
-- [ ] Parameter file I/O (CSV/Excel export)
-- [ ] Mixed Trophic Impacts analysis
-- [ ] Example notebooks with sample models
+### ❌ Not Started (Phase 4+)
+- [ ] **Stanza module** (`stanzas.py`)
+  - `rpath_stanzas()` - calculate stanza B and Q
+  - `rsim_stanzas()` - dynamic stanza parameters
+  - `split_update()` - monthly age updates
+  - Von Bertalanffy growth model
+- [ ] **Adjustment functions**
+  - `adjust_fishing()` - modify F rates over time
+  - `adjust_forcing()` - environmental forcing
+  - `adjust_scenario()` - scenario parameter changes
+- [ ] **Analysis tools** (`analysis/`)
+  - Mixed Trophic Impacts (MTI)
+  - `ecosense()` - Monte Carlo sensitivity analysis
+  - Network indices (connectance, omnivory, etc.)
+- [ ] **Plotting modules** (`plotting/`)
+  - Food web network diagrams (NetworkX/Plotly)
+  - Interactive time series (Plotly)
+  - Webplot for food web visualization
+- [ ] **Example notebooks**
+  - Georges Bank model
+  - Simple 4-group tutorial
+  - Full workflow examples
+- [ ] **Parameter file I/O enhancements**
+  - Excel import/export
+  - EwE database import
+- [ ] **Performance optimization**
+  - Numba JIT for `deriv_vector()`
+  - Parallel Monte Carlo runs
 
 ---
 
@@ -63,48 +154,65 @@
 | `matrix` | Diet, landings, discards | `numpy.ndarray` |
 | `S3 class` | Rpath, Rsim.output | Python classes with `__repr__` |
 
-### 1.3 Key Classes to Create
+### 1.3 Current Package Structure
 
 ```
 PyPath/
-├── pypath/
+├── src/pypath/                 # Core Python package
 │   ├── __init__.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── ecopath.py          # Rpath (balanced model) class
-│   │   ├── ecosim.py           # Rsim simulation engine
-│   │   ├── stanzas.py          # Multi-stanza calculations
-│   │   └── params.py           # RpathParams class
-│   ├── data/
-│   │   ├── __init__.py
-│   │   ├── io.py               # CSV/Excel read/write
-│   │   └── validators.py       # Parameter checking
-│   ├── simulation/
-│   │   ├── __init__.py
-│   │   ├── scenario.py         # RsimScenario class
-│   │   ├── forcing.py          # Forcing matrices
-│   │   ├── fishing.py          # Fishing matrices
-│   │   └── integrators.py      # RK4, Adams-Bashforth
-│   ├── analysis/
-│   │   ├── __init__.py
-│   │   ├── mti.py              # Mixed Trophic Impacts
-│   │   ├── sensitivity.py      # Ecosense Monte Carlo
-│   │   └── diagnostics.py      # Balance checks
-│   ├── plotting/
-│   │   ├── __init__.py
-│   │   ├── ecopath_plots.py    # Food web diagrams
-│   │   └── ecosim_plots.py     # Time series plots
-│   └── utils/
+│   └── core/
 │       ├── __init__.py
-│       └── helpers.py          # Common utilities
-├── tests/
-│   ├── test_ecopath.py
-│   ├── test_ecosim.py
-│   └── test_data/              # Sample models
-├── examples/
+│       ├── params.py           # ✅ RpathParams, I/O functions
+│       ├── ecopath.py          # ✅ Rpath class, mass balance
+│       ├── ecosim.py           # ✅ Rsim classes, scenario setup
+│       └── ecosim_deriv.py     # ✅ Derivative, integrators
+├── app/                        # ✅ Shiny Dashboard
+│   ├── __init__.py
+│   ├── app.py                  # Main dashboard app
+│   ├── pages/
+│   │   ├── __init__.py
+│   │   ├── home.py             # Landing page
+│   │   ├── ecopath.py          # Model builder UI
+│   │   ├── ecosim.py           # Simulation setup UI
+│   │   ├── results.py          # Visualization UI
+│   │   └── about.py            # Documentation
+│   └── static/
+│       ├── logo.svg            # PyPath logo
+│       └── icon.svg            # Navbar icon
+├── tests/                      # ✅ Unit tests
+│   ├── __init__.py
+│   ├── test_ecopath.py         # 8 tests
+│   └── test_ecosim.py          # 9 tests
+├── pyproject.toml              # ✅ Package config
+├── README.md                   # ✅ Documentation
+├── run_app.py                  # ✅ Dashboard launcher
+└── RPATH_CONVERSION_PLAN.md    # This file
+```
+
+### 1.4 Planned Additions
+
+```
+PyPath/
+├── src/pypath/
+│   ├── core/
+│   │   └── stanzas.py          # 🔲 Multi-stanza groups
+│   ├── simulation/             # 🔲 Advanced simulation
+│   │   ├── adjustments.py      # Fishing/forcing adjustments
+│   │   └── scenarios.py        # Scenario management
+│   ├── analysis/               # 🔲 Analysis tools
+│   │   ├── mti.py              # Mixed Trophic Impacts
+│   │   ├── sensitivity.py      # Monte Carlo
+│   │   └── diagnostics.py      # Balance checks
+│   ├── plotting/               # 🔲 Visualization
+│   │   ├── foodweb.py          # Network diagrams
+│   │   └── timeseries.py       # Dynamic plots
+│   └── data/                   # 🔲 Enhanced I/O
+│       └── ewe_import.py       # EwE database import
+├── examples/                   # 🔲 Tutorials
 │   └── notebooks/
-├── pyproject.toml
-└── README.md
+│       ├── 01_simple_model.ipynb
+│       └── 02_georges_bank.ipynb
+└── docs/                       # 🔲 Sphinx documentation
 ```
 
 ---
