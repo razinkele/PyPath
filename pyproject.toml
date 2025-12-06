@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pypath-ecopath"
+version = "0.1.0"
+description = "Python implementation of Ecopath with Ecosim for food web modeling"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "PyPath Development Team"}
+]
+keywords = ["ecology", "ecosystem", "food web", "ecopath", "ecosim", "modeling"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+]
+numba = [
+    "numba>=0.57",
+]
+interactive = [
+    "plotly>=5.0",
+    "networkx>=3.0",
+]
+all = [
+    "pypath-ecopath[dev,numba,interactive]",
+]
+
+[project.urls]
+Homepage = "https://github.com/pypath-ecopath/pypath"
+Documentation = "https://pypath-ecopath.readthedocs.io"
+Repository = "https://github.com/pypath-ecopath/pypath"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true

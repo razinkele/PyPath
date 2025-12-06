@@ -1,0 +1,1 @@
+"""PyPath Shiny Dashboard Application."""

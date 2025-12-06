@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3498db;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2c3e50;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="45" fill="url(#grad1)"/>
+  
+  <!-- Stylized fish/network icon -->
+  <g fill="white" transform="translate(15, 20)">
+    <!-- Nodes representing food web -->
+    <circle cx="35" cy="10" r="6"/>
+    <circle cx="15" cy="30" r="5"/>
+    <circle cx="55" cy="30" r="5"/>
+    <circle cx="25" cy="50" r="4"/>
+    <circle cx="45" cy="50" r="4"/>
+    
+    <!-- Connecting lines -->
+    <line x1="35" y1="16" x2="15" y2="25" stroke="white" stroke-width="2" opacity="0.7"/>
+    <line x1="35" y1="16" x2="55" y2="25" stroke="white" stroke-width="2" opacity="0.7"/>
+    <line x1="15" y1="35" x2="25" y2="46" stroke="white" stroke-width="2" opacity="0.7"/>
+    <line x1="55" y1="35" x2="45" y2="46" stroke="white" stroke-width="2" opacity="0.7"/>
+    <line x1="15" y1="35" x2="45" y2="46" stroke="white" stroke-width="1.5" opacity="0.5"/>
+    <line x1="55" y1="35" x2="25" y2="46" stroke="white" stroke-width="1.5" opacity="0.5"/>
+  </g>
+  
+  <!-- P letter for PyPath -->
+  <text x="50" y="85" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">PyPath</text>
+</svg>

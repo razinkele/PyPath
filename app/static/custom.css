@@ -1,0 +1,130 @@
+/* PyPath Dashboard Custom Styles */
+
+/* General styling */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Value boxes */
+.value-box {
+    transition: transform 0.2s ease-in-out;
+}
+
+.value-box:hover {
+    transform: translateY(-2px);
+}
+
+/* Cards */
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Tables */
+.table {
+    font-size: 0.9em;
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+/* Navigation */
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* Sidebar */
+.sidebar {
+    background-color: #f8f9fa;
+}
+
+/* Plots */
+.shiny-plot-output {
+    border-radius: 4px;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: #2c3e50;
+    border-color: #2c3e50;
+}
+
+.btn-primary:hover {
+    background-color: #1a252f;
+    border-color: #1a252f;
+}
+
+.btn-success {
+    background-color: #27ae60;
+    border-color: #27ae60;
+}
+
+.btn-success:hover {
+    background-color: #1e8449;
+    border-color: #1e8449;
+}
+
+/* Alerts */
+.alert {
+    border-radius: 8px;
+}
+
+/* Input styling */
+.form-control:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+}
+
+/* Data tables */
+.dataTable {
+    font-size: 0.85em;
+}
+
+/* Hero section */
+.jumbotron, .rounded-3 {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+/* Feature icons */
+.bi {
+    vertical-align: middle;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .value-box {
+        margin-bottom: 1rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Loading states */
+.shiny-busy .progress {
+    display: block;
+}
+
+/* Tab panels */
+.nav-tabs .nav-link.active {
+    font-weight: 600;
+    border-bottom: 3px solid #3498db;
+}
+
+/* Tooltips */
+.tooltip {
+    font-size: 0.85em;
+}
+
+/* Footer */
+footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
