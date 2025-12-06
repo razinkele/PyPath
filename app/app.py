@@ -6,9 +6,13 @@ implementing Ecopath mass-balance and Ecosim dynamic simulation.
 """
 
 from shiny import App, Inputs, Outputs, Session, reactive, render, ui
+from pathlib import Path
 
 # Import page modules
 from app.pages import home, ecopath, ecosim, results, about
+
+# App directory for static assets
+APP_DIR = Path(__file__).parent
 
 # App UI with dashboard layout
 app_ui = ui.page_navbar(
@@ -22,17 +26,17 @@ app_ui = ui.page_navbar(
     
     # Navbar settings
     title=ui.tags.span(
-        ui.tags.span("🌊 ", style="font-size: 1.5em;"),
-        "PyPath Dashboard"
+        ui.tags.img(src="icon.svg", height="32px", style="margin-right: 8px; vertical-align: middle;"),
+        ui.tags.span("PyPath", style="font-weight: 600; vertical-align: middle;")
     ),
     id="main_navbar",
     footer=ui.div(
         ui.tags.hr(),
         ui.tags.p(
             "PyPath © 2025 | ",
-            ui.tags.a("Documentation", href="https://github.com/your-repo/pypath"),
+            ui.tags.a("Documentation", href="https://github.com/razinkele/PyPath"),
             " | ",
-            ui.tags.a("Report Issue", href="https://github.com/your-repo/pypath/issues"),
+            ui.tags.a("Report Issue", href="https://github.com/razinkele/PyPath/issues"),
             style="text-align: center; color: #666; font-size: 0.85em;"
         ),
         style="padding: 10px;"
@@ -56,5 +60,5 @@ def server(input: Inputs, output: Outputs, session: Session):
     about.about_server(input, output, session)
 
 
-# Create the app
-app = App(app_ui, server)
+# Create the app with static assets
+app = App(app_ui, server, static_assets=APP_DIR / "static")

@@ -1,7 +1,13 @@
 # PyPath - Python Ecopath with Ecosim
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <img src="app/static/logo.svg" alt="PyPath Logo" width="300"/>
+</p>
+
+<p align="center">
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
 **PyPath** is a Python implementation of the Ecopath with Ecosim (EwE) ecosystem modeling approach. It is a port of the R package [Rpath](https://github.com/NOAA-EDAB/Rpath) developed by NOAA-EDAB.
 
