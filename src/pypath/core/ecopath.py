@@ -138,6 +138,7 @@ def rpath(
     """Balance an Ecopath model.
     
     Performs initial mass balance using an RpathParams object.
+    Preserves the original group order from the input parameters.
     
     The mass balance equation solved is:
     
@@ -177,15 +178,22 @@ def rpath(
     model_df = rpath_params.model.copy()
     diet_df = rpath_params.diet.copy()
     
-    # Get dimensions
+    # Get dimensions - PRESERVE ORIGINAL ORDER
     ngroups = len(model_df)
-    nliving = len(model_df[model_df['Type'] < 2])
-    ndead = len(model_df[model_df['Type'] == 2])
-    ngear = len(model_df[model_df['Type'] == 3])
     
-    # Extract arrays from model DataFrame
+    # Create index arrays for each group type (preserving original order)
+    types_arr = model_df['Type'].values.astype(float)
+    living_idx = np.where(types_arr < 2)[0]  # Indices of living groups
+    dead_idx = np.where(types_arr == 2)[0]   # Indices of detritus groups
+    fleet_idx = np.where(types_arr == 3)[0]  # Indices of fleet groups
+    
+    nliving = len(living_idx)
+    ndead = len(dead_idx)
+    ngear = len(fleet_idx)
+    
+    # Extract arrays from model DataFrame (original order)
     groups = model_df['Group'].values
-    types = model_df['Type'].values.astype(float)
+    types = types_arr
     biomass = model_df['Biomass'].values.astype(float)
     pb = model_df['PB'].values.astype(float)
     qb = model_df['QB'].values.astype(float)
@@ -198,20 +206,49 @@ def rpath(
     bioacc = np.where(np.isnan(bioacc), 0.0, bioacc)
     unassim = np.where(np.isnan(unassim), 0.0, unassim)
     
-    # Get diet matrix (excluding Import row initially)
-    diet_cols = [g for g in groups[:nliving]]
-    diet_values = diet_df[diet_cols].values.astype(float)
+    # Get diet matrix - columns are predators (living groups only)
+    living_group_names = groups[living_idx].tolist()
+    diet_cols = [g for g in living_group_names if g in diet_df.columns]
+    
+    # Build diet matrix with rows matching original group order
+    diet_prey_names = diet_df['Group'].tolist()
+    all_group_names = groups.tolist()
+    
+    # Create mapping from diet prey names to row indices in diet_df
+    prey_name_to_diet_row = {name: i for i, name in enumerate(diet_prey_names)}
+    
+    # Build diet matrix (rows = prey in original order, cols = predators in living_idx order)
+    n_prey = len(diet_prey_names)  # Includes Import row
+    n_pred = len(diet_cols)
+    diet_values = np.zeros((n_prey, n_pred))
+    
+    # Map each group to its diet row
+    for new_row_idx, group_name in enumerate(all_group_names):
+        if group_name in prey_name_to_diet_row:
+            old_row_idx = prey_name_to_diet_row[group_name]
+            diet_values[new_row_idx, :] = diet_df.loc[old_row_idx, diet_cols].values.astype(float)
+    
+    # Add Import row at the end if present
+    if 'Import' in prey_name_to_diet_row:
+        import_row_idx = prey_name_to_diet_row['Import']
+        # Import goes at index ngroups (after all groups)
+        if n_prey > ngroups:
+            diet_values[ngroups, :] = diet_df.loc[import_row_idx, diet_cols].values.astype(float)
+    
     diet_values = np.nan_to_num(diet_values, nan=0.0)
     
     # Adjust diet for mixotrophs (Type between 0 and 1)
-    mixotrophs = np.where((types > 0) & (types < 1))[0]
-    for idx in mixotrophs:
-        if idx < nliving:
-            mix_q = 1 - types[idx]
-            diet_values[:, idx] *= mix_q
+    for col_idx, grp_idx in enumerate(living_idx):
+        if 0 < types[grp_idx] < 1:
+            mix_q = 1 - types[grp_idx]
+            diet_values[:, col_idx] *= mix_q
     
-    # Extract diet for living groups only (no detritus prey rows for living preds)
-    nodetrdiet = diet_values[:nliving, :nliving]
+    # Extract diet for living groups only (prey rows are living groups)
+    # nodetrdiet[i, j] = fraction of predator j's diet from prey i (both living)
+    nodetrdiet = np.zeros((nliving, nliving))
+    for i, prey_idx in enumerate(living_idx):
+        for j, pred_idx in enumerate(living_idx):
+            nodetrdiet[i, j] = diet_values[prey_idx, j]
     
     # Fill in GE (P/Q), QB, or PB from other inputs
     ge = np.where(
@@ -223,15 +260,22 @@ def rpath(
     pb = np.where(np.isnan(pb), prodcons * qb, pb)
     
     # Get landings and discards matrices
-    det_groups = [g for g in groups if model_df[model_df['Group'] == g]['Type'].values[0] == 2]
-    fleet_groups = [g for g in groups if model_df[model_df['Group'] == g]['Type'].values[0] == 3]
+    det_groups = groups[dead_idx].tolist()
+    fleet_groups = groups[fleet_idx].tolist()
     
-    # Find landings columns (fleet names without .disc suffix)
+    # Find landings columns (fleet names)
     landing_cols = fleet_groups
     discard_cols = [f"{f}.disc" for f in fleet_groups]
     
-    landmat = model_df[landing_cols].values[:ngroups, :].astype(float)
-    discardmat = model_df[discard_cols].values[:ngroups, :].astype(float)
+    landmat = np.zeros((ngroups, ngear))
+    discardmat = np.zeros((ngroups, ngear))
+    
+    for g_idx, col in enumerate(landing_cols):
+        if col in model_df.columns:
+            landmat[:, g_idx] = model_df[col].values.astype(float)
+    for g_idx, col in enumerate(discard_cols):
+        if col in model_df.columns:
+            discardmat[:, g_idx] = model_df[col].values.astype(float)
     
     landmat = np.nan_to_num(landmat, nan=0.0)
     discardmat = np.nan_to_num(discardmat, nan=0.0)
@@ -244,16 +288,17 @@ def rpath(
     # Flag missing parameters
     no_b = np.isnan(biomass)
     no_ee = np.isnan(ee)
-    alive = types < 2
     
     # Set up system of equations for living groups
-    # Right-hand side: b = catch + BioAcc + consumption by predators
-    living_biomass = biomass[:nliving]
-    living_qb = qb[:nliving]
-    living_pb = pb[:nliving]
-    living_ee = ee[:nliving]
-    living_bioacc = bioacc[:nliving]
-    living_catch = totcatch[:nliving]
+    # Extract living group values
+    living_biomass = biomass[living_idx]
+    living_qb = qb[living_idx]
+    living_pb = pb[living_idx]
+    living_ee = ee[living_idx]
+    living_bioacc = bioacc[living_idx]
+    living_catch = totcatch[living_idx]
+    living_no_b = no_b[living_idx]
+    living_no_ee = no_ee[living_idx]
     
     # Consumption matrix: each column j shows consumption by predator j
     bio_qb = np.where(np.isnan(living_biomass * living_qb), 0.0, living_biomass * living_qb)
@@ -267,7 +312,7 @@ def rpath(
     
     # Diagonal elements
     for i in range(nliving):
-        if no_ee[i]:  # Solve for EE
+        if living_no_ee[i]:  # Solve for EE
             A[i, i] = living_biomass[i] * living_pb[i] if not np.isnan(living_biomass[i]) else living_pb[i] * living_ee[i]
         else:  # Solve for B
             A[i, i] = living_pb[i] * living_ee[i]
@@ -277,7 +322,7 @@ def rpath(
     qb_dc = np.nan_to_num(qb_dc, nan=0.0)
     
     for j in range(nliving):
-        if no_b[j]:  # If biomass unknown, predation term goes in A matrix
+        if living_no_b[j]:  # If biomass unknown, predation term goes in A matrix
             A[:, j] -= qb_dc[:, j]
     
     # Check for missing info
@@ -291,74 +336,104 @@ def rpath(
     try:
         x = np.linalg.lstsq(A, b_vec, rcond=None)[0]
     except np.linalg.LinAlgError:
-        # Try pseudo-inverse
         x = np.linalg.pinv(A) @ b_vec
     
-    # Assign solved values
-    solved_ee = np.where(no_ee[:nliving], x, ee[:nliving])
-    solved_b = np.where(no_b[:nliving], x, biomass[:nliving])
+    # Assign solved values back to living groups
+    for i, idx in enumerate(living_idx):
+        if no_ee[idx]:
+            ee[idx] = x[i]
+        if no_b[idx]:
+            biomass[idx] = x[i]
     
-    # Update living values
-    ee[:nliving] = solved_ee
-    biomass[:nliving] = solved_b
+    # Calculate M0 (other mortality) for living groups
+    m0 = np.zeros(ngroups)
+    for i, idx in enumerate(living_idx):
+        m0[idx] = pb[idx] * (1 - ee[idx])
     
-    # Calculate M0 (other mortality)
-    m0 = pb[:nliving] * (1 - ee[:nliving])
-    
-    # Detritus EE calculations
-    qb_loss = np.where(np.isnan(qb[:nliving]), 0.0, qb[:nliving])
-    
-    # Flows to detritus
-    loss = (m0 * biomass[:nliving]) + (biomass[:nliving] * qb_loss * unassim[:nliving])
-    loss = np.concatenate([loss, np.zeros(ndead), discards[nliving + ndead:]])
+    # Flows to detritus from living groups
+    qb_loss = np.where(np.isnan(qb), 0.0, qb)
+    loss = np.zeros(ngroups)
+    for idx in living_idx:
+        loss[idx] = (m0[idx] * biomass[idx]) + (biomass[idx] * qb_loss[idx] * unassim[idx])
+    # Add discards from fleets
+    for idx in fleet_idx:
+        loss[idx] = discards[idx]
     
     # Get detritus fate matrix
-    detfate = model_df[det_groups].values[:nliving + ndead, :].astype(float)
+    detfate = np.zeros((ngroups, ndead))
+    for d_idx, det_name in enumerate(det_groups):
+        if det_name in model_df.columns:
+            detfate[:, d_idx] = model_df[det_name].values.astype(float)
     detfate = np.nan_to_num(detfate, nan=0.0)
     
     # Detrital inputs
-    det_input = model_df['DetInput'].values[nliving:nliving + ndead].astype(float)
+    det_input = np.zeros(ndead)
+    for d_idx, det_idx in enumerate(dead_idx):
+        det_input[d_idx] = model_df['DetInput'].values[det_idx] if 'DetInput' in model_df.columns else 0.0
     det_input = np.nan_to_num(det_input, nan=0.0)
     
-    detinputs = np.sum(loss[:nliving + ndead, np.newaxis] * detfate, axis=0) + det_input
+    # Total inputs to each detritus group
+    living_dead_loss = loss[np.concatenate([living_idx, dead_idx])]
+    living_dead_detfate = detfate[np.concatenate([living_idx, dead_idx]), :]
+    detinputs = np.sum(living_dead_loss[:, np.newaxis] * living_dead_detfate, axis=0) + det_input
     
-    # Detritus consumption
-    det_diet = diet_values[nliving:nliving + ndead, :nliving]
-    bio_qb_living = biomass[:nliving] * qb[:nliving]
-    bio_qb_living = np.nan_to_num(bio_qb_living, nan=0.0)
-    detcons = det_diet * bio_qb_living[np.newaxis, :]
-    detoutputs = np.sum(detcons, axis=1)
+    # Detritus consumption by living groups
+    # diet_values rows are in original order, columns are in living_idx order
+    detcons = np.zeros(ndead)
+    for d_local_idx, det_global_idx in enumerate(dead_idx):
+        # Get diet fraction from this detritus for each living predator
+        for pred_local_idx, pred_global_idx in enumerate(living_idx):
+            dc_frac = diet_values[det_global_idx, pred_local_idx]
+            pred_bio_qb = biomass[pred_global_idx] * qb[pred_global_idx]
+            if not np.isnan(pred_bio_qb):
+                detcons[d_local_idx] += dc_frac * pred_bio_qb
     
     # Detritus EE
-    det_ee = np.where(detinputs > 0, detoutputs / detinputs, 0.0)
-    ee[nliving:nliving + ndead] = det_ee
+    det_ee = np.where(detinputs > 0, detcons / detinputs, 0.0)
+    for d_idx, det_idx in enumerate(dead_idx):
+        ee[det_idx] = det_ee[d_idx]
     
     # Set detritus biomass and PB
     default_det_pb = 0.5
-    det_pb_input = pb[nliving:nliving + ndead]
-    det_b_input = biomass[nliving:nliving + ndead]
-    
-    det_pb = np.where(np.isnan(det_pb_input), default_det_pb, det_pb_input)
-    det_b = np.where(np.isnan(det_b_input), detinputs / det_pb, det_b_input)
-    det_pb = detinputs / det_b
-    
-    biomass[nliving:nliving + ndead] = det_b
-    pb[nliving:nliving + ndead] = det_pb
+    det_pb = np.zeros(ndead)
+    det_b = np.zeros(ndead)
+    for d_idx, det_idx in enumerate(dead_idx):
+        det_pb_input = pb[det_idx]
+        det_b_input = biomass[det_idx]
+        
+        if np.isnan(det_pb_input):
+            det_pb[d_idx] = default_det_pb
+        else:
+            det_pb[d_idx] = det_pb_input
+            
+        if np.isnan(det_b_input):
+            det_b[d_idx] = detinputs[d_idx] / det_pb[d_idx] if det_pb[d_idx] > 0 else 0
+        else:
+            det_b[d_idx] = det_b_input
+        
+        # Recalculate PB based on actual inputs and biomass
+        if det_b[d_idx] > 0:
+            det_pb[d_idx] = detinputs[d_idx] / det_b[d_idx]
+        
+        biomass[det_idx] = det_b[d_idx]
+        pb[det_idx] = det_pb[d_idx]
     
     # Trophic level calculations
     # TL = 1 + sum_i(DC_ij * TL_i) for each predator j
-    # This is solved as: (I - DC^T) * TL = 1
-    # where DC_ij is the fraction of predator j's diet from prey i
+    # Build full diet matrix for all groups (living + dead)
+    n_bio = nliving + ndead
+    bio_idx = np.concatenate([living_idx, dead_idx])  # Indices of living+dead in original order
     
-    # Build the diet matrix for TL calculation
-    # Rows = prey, Columns = predator (consumers)
-    full_diet = np.zeros((nliving + ndead, nliving + ndead))
+    full_diet = np.zeros((n_bio, n_bio))
     
-    # Diet for living consumers (exclude Import row)
-    full_diet[:nliving + ndead, :nliving] = diet_values[:nliving + ndead, :]
+    # Fill in diet values - rows are prey (in bio_idx order), cols are predators (living only)
+    for i, prey_global_idx in enumerate(bio_idx):
+        for j, pred_idx in enumerate(living_idx):
+            col_local_idx = np.where(living_idx == pred_idx)[0][0]
+            full_diet[i, j] = diet_values[prey_global_idx, col_local_idx]
     
-    # Normalize to exclude import (diet should sum to 1 for each predator)
-    import_row = diet_values[-1, :] if diet_values.shape[0] > nliving + ndead else np.zeros(nliving)
+    # Normalize to exclude import
+    import_row = diet_values[ngroups, :] if diet_values.shape[0] > ngroups else np.zeros(nliving)
     for j in range(nliving):
         total_diet = np.sum(full_diet[:, j])
         import_frac = import_row[j] if j < len(import_row) else 0
@@ -366,9 +441,7 @@ def rpath(
             full_diet[:, j] = full_diet[:, j] / (1 - import_frac) if import_frac < 1 else 0
     
     # Set up linear system: (I - DC^T) * TL = 1
-    # Where DC^T[j,i] = DC[i,j] = diet fraction of prey i in predator j's diet
-    n_bio = nliving + ndead
-    tl_matrix = np.eye(n_bio) - full_diet[:n_bio, :n_bio].T
+    tl_matrix = np.eye(n_bio) - full_diet.T
     b_tl = np.ones(n_bio)
     
     try:
@@ -376,32 +449,33 @@ def rpath(
     except np.linalg.LinAlgError:
         tl_bio = np.linalg.lstsq(tl_matrix, b_tl, rcond=None)[0]
     
+    # Map TL back to original order
+    tl = np.ones(ngroups)
+    for i, idx in enumerate(bio_idx):
+        tl[idx] = tl_bio[i]
+    
     # TL for fleets = weighted average of caught groups
-    tl_gear = np.ones(ngear)
-    geartot = np.sum(landmat[:nliving + ndead, :] + discardmat[:nliving + ndead, :], axis=0)
-    for g in range(ngear):
-        if geartot[g] > 0:
-            caught = (landmat[:nliving + ndead, g] + discardmat[:nliving + ndead, g]) / geartot[g]
-            tl_gear[g] = 1 + np.sum(caught * tl_bio)
+    for g_idx, fleet_global_idx in enumerate(fleet_idx):
+        geartot = np.sum(landmat[:, g_idx] + discardmat[:, g_idx])
+        if geartot > 0:
+            caught = (landmat[:, g_idx] + discardmat[:, g_idx]) / geartot
+            tl[fleet_global_idx] = 1 + np.sum(caught * tl)
     
-    tl = np.concatenate([tl_bio, tl_gear])
-    
-    # Prepare final arrays
-    biomass_out = np.concatenate([biomass[:nliving], det_b, np.zeros(ngear)])
-    pb_out = np.concatenate([pb[:nliving], det_pb, np.zeros(ngear)])
+    # Prepare output arrays (in original order)
+    biomass_out = biomass.copy()
+    pb_out = pb.copy()
     qb_out = qb.copy()
     qb_out[np.isnan(qb_out)] = 0.0
-    ee_out = np.concatenate([ee[:nliving + ndead], np.zeros(ngear)])
+    ee_out = ee.copy()
     
     ge_out = np.where(qb_out > 0, pb_out / qb_out, 0.0)
     ge_out = np.nan_to_num(ge_out, nan=0.0)
     
-    # Prepare matrices
-    diet_out = np.zeros((nliving + ndead + 1, nliving))
-    diet_out[:nliving + ndead + 1, :] = diet_values[:nliving + ndead + 1, :]
-    
-    detfate_out = np.zeros((ngroups, ndead))
-    detfate_out[:nliving + ndead, :] = detfate
+    # Prepare diet matrix output (rows = groups + import, cols = living predators)
+    diet_out = np.zeros((ngroups + 1, nliving))
+    diet_out[:ngroups, :] = diet_values[:ngroups, :]
+    if diet_values.shape[0] > ngroups:
+        diet_out[ngroups, :] = diet_values[ngroups, :]  # Import row
     
     return Rpath(
         NUM_GROUPS=ngroups,
@@ -419,7 +493,7 @@ def rpath(
         BA=bioacc,
         Unassim=unassim,
         DC=diet_out,
-        DetFate=detfate_out,
+        DetFate=detfate,
         Landings=landmat,
         Discards=discardmat,
         eco_name=eco_name,

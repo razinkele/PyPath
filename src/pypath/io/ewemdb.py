@@ -646,6 +646,88 @@ def read_ewemdb(
                             idx = params.model[params.model['Group'] == group].index[0]
                             params.model.loc[idx, fleet] = landing
     
+    # Read multi-stanza data
+    try:
+        stanza_df = read_ewemdb_table(filepath, 'Stanza')
+        stanza_life_df = read_ewemdb_table(filepath, 'StanzaLifeStage')
+        
+        if len(stanza_df) > 0 and len(stanza_life_df) > 0:
+            print(f"[DEBUG] Found {len(stanza_df)} stanza groups, {len(stanza_life_df)} life stages")
+            
+            # Get ID to name mapping
+            id_col = next((c for c in ['GroupID', 'ID', 'Sequence', 'GroupSeq'] if c in groups_df.columns), None)
+            if id_col:
+                id_to_name = dict(zip(groups_df[id_col].tolist(), group_names))
+            else:
+                id_to_name = {i+1: name for i, name in enumerate(group_names)}
+            
+            # Build stgroups DataFrame (one row per stanza group)
+            stgroups_data = []
+            for _, row in stanza_df.iterrows():
+                stanza_id = row.get('StanzaID', row.get('ID', 0))
+                stanza_name = row.get('StanzaName', row.get('Name', f'Stanza{stanza_id}'))
+                
+                # Count life stages for this stanza
+                life_stages = stanza_life_df[stanza_life_df['StanzaID'] == stanza_id]
+                n_stanzas = len(life_stages)
+                
+                # Get VBGF K from life stages (usually same for all stages)
+                vbk = None
+                if 'vbK' in life_stages.columns and len(life_stages) > 0:
+                    vbk = life_stages['vbK'].iloc[0]
+                
+                stgroups_data.append({
+                    'StGroupNum': stanza_id,
+                    'StanzaGroup': stanza_name,
+                    'nstanzas': n_stanzas,
+                    'VBGF_Ksp': vbk,
+                    'VBGF_d': row.get('WmatWinf', np.nan),
+                    'Wmat': row.get('WmatWinf', np.nan),
+                    'RecPower': row.get('RecPower', np.nan),
+                })
+            
+            # Build stindiv DataFrame (one row per life stage)
+            stindiv_data = []
+            for _, row in stanza_life_df.iterrows():
+                stanza_id = row.get('StanzaID', 0)
+                group_id = row.get('GroupID', 0)
+                group_name = id_to_name.get(group_id, f'Group{group_id}')
+                
+                # Find stanza name
+                stanza_row = stanza_df[stanza_df['StanzaID'] == stanza_id]
+                stanza_name = stanza_row['StanzaName'].iloc[0] if len(stanza_row) > 0 else f'Stanza{stanza_id}'
+                
+                stindiv_data.append({
+                    'StGroupNum': stanza_id,
+                    'StanzaGroup': stanza_name,
+                    'StanzaNum': row.get('Sequence', 1),
+                    'Group': group_name,
+                    'First': row.get('AgeStart', 0),
+                    'Last': np.nan,  # Will be calculated from next stage's First
+                    'Z': row.get('Mortality', np.nan),
+                    'Leading': row.get('Sequence', 1) == stanza_df[stanza_df['StanzaID'] == stanza_id]['LeadingLifeStage'].iloc[0] if len(stanza_df[stanza_df['StanzaID'] == stanza_id]) > 0 else False,
+                })
+            
+            # Calculate Last values (First of next stage - 1, or max for last stage)
+            stindiv_data_df = pd.DataFrame(stindiv_data)
+            for stanza_id in stindiv_data_df['StGroupNum'].unique():
+                mask = stindiv_data_df['StGroupNum'] == stanza_id
+                stages = stindiv_data_df[mask].sort_values('StanzaNum')
+                for i, (idx, stage) in enumerate(stages.iterrows()):
+                    if i < len(stages) - 1:
+                        next_first = stages.iloc[i + 1]['First']
+                        stindiv_data_df.loc[idx, 'Last'] = next_first - 1
+                    else:
+                        stindiv_data_df.loc[idx, 'Last'] = 999  # Max age for last stage
+            
+            params.stanzas.n_stanza_groups = len(stanza_df)
+            params.stanzas.stgroups = pd.DataFrame(stgroups_data)
+            params.stanzas.stindiv = stindiv_data_df
+            
+            print(f"[DEBUG] Populated stanza params: {params.stanzas.n_stanza_groups} groups")
+    except Exception as e:
+        print(f"[DEBUG] Could not read stanza tables: {e}")
+    
     return params
 
 
@@ -679,6 +761,10 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
         'version': '',
         'num_groups': 0,
         'num_fleets': 0,
+        'num_scenarios': 0,
+        'scenarios': [],
+        'has_ecosim': False,
+        'has_ecospace': False,
         'filepath': filepath,
     }
     
@@ -725,6 +811,27 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
         try:
             fleet_df = read_ewemdb_table(filepath, 'EcopathFleet')
             metadata['num_fleets'] = len(fleet_df)
+        except:
+            pass
+        
+        # Check for Ecosim scenarios
+        try:
+            ecosim_df = read_ewemdb_table(filepath, 'EcosimScenario')
+            if len(ecosim_df) > 0:
+                metadata['has_ecosim'] = True
+                metadata['num_scenarios'] = len(ecosim_df)
+                # Get scenario names
+                name_col = next((c for c in ['ScenarioName', 'Name'] if c in ecosim_df.columns), None)
+                if name_col:
+                    metadata['scenarios'] = ecosim_df[name_col].tolist()
+        except:
+            pass
+        
+        # Check for Ecospace
+        try:
+            ecospace_df = read_ewemdb_table(filepath, 'EcospaceScenario')
+            if len(ecospace_df) > 0:
+                metadata['has_ecospace'] = True
         except:
             pass
     

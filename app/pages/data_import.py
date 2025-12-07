@@ -4,7 +4,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui, req
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 # Import pypath
 import sys
@@ -30,6 +30,14 @@ NO_DATA_VALUE = 9999
 NO_DATA_STYLE = {"background-color": "#f0f0f0", "color": "#999"}  # Light gray for no data cells
 REMARK_STYLE = {"background-color": "#fff9e6", "border-bottom": "2px dashed #f0ad4e"}  # Yellow tint for cells with remarks
 
+# Type code to category name mapping
+TYPE_LABELS: Dict[int, str] = {
+    0: 'Consumer',
+    1: 'Producer',
+    2: 'Detritus',
+    3: 'Fleet'
+}
+
 
 def format_dataframe_for_display(
     df: pd.DataFrame, 
@@ -41,6 +49,7 @@ def format_dataframe_for_display(
     - Replacing 9999 (no data) values with empty string
     - Rounding numbers to specified decimal places
     - Adding remark indicators to cells with comments
+    - Converting Type column to category labels
     
     Args:
         df: DataFrame to format
@@ -48,16 +57,27 @@ def format_dataframe_for_display(
         remarks_df: Optional DataFrame with remarks (same structure as df)
     
     Returns:
-        tuple: (formatted_df, no_data_mask_df, remarks_mask_df)
+        tuple: (formatted_df, no_data_mask_df, remarks_mask_df, stanza_mask_df)
         - formatted_df: DataFrame with formatted values
         - no_data_mask_df: Boolean DataFrame where True indicates original 9999 value
         - remarks_mask_df: Boolean DataFrame where True indicates cell has a remark
+        - stanza_mask_df: Boolean DataFrame (always False for import, kept for API consistency)
     """
     formatted = df.copy()
     no_data_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
     remarks_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    stanza_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    
+    # Convert Type column to category labels
+    if 'Type' in formatted.columns:
+        formatted['Type'] = formatted['Type'].apply(
+            lambda x: TYPE_LABELS.get(int(x), str(x)) if pd.notna(x) and x != '' else x
+        )
     
     for col in formatted.columns:
+        if col == 'Type':
+            # Type column already converted to labels, skip numeric processing
+            continue
         if formatted[col].dtype in ['float64', 'float32', 'int64', 'int32'] or col not in ['Group', 'Type']:
             # Convert to numeric where possible
             numeric_col = pd.to_numeric(formatted[col], errors='coerce')
@@ -75,6 +95,12 @@ def format_dataframe_for_display(
             
             formatted[col] = numeric_col
     
+    # Keep NaN values in numeric columns (DataGrid handles them properly)
+    # Only fill NaN in string columns if needed
+    for col in formatted.columns:
+        if formatted[col].dtype == 'object':
+            formatted[col] = formatted[col].fillna('')
+    
     # Check for remarks
     if remarks_df is not None:
         for col in formatted.columns:
@@ -85,7 +111,7 @@ def format_dataframe_for_display(
                         if isinstance(remark, str) and remark.strip():
                             remarks_mask.iloc[row_idx, list(formatted.columns).index(col)] = True
     
-    return formatted, no_data_mask, remarks_mask
+    return formatted, no_data_mask, remarks_mask, stanza_mask
 
 
 def create_cell_styles(
@@ -250,6 +276,14 @@ def import_ui():
             ui.nav_panel(
                 "Diet Matrix",
                 ui.output_data_frame("imported_diet_table"),
+            ),
+            ui.nav_panel(
+                "Multi-Stanza",
+                ui.output_ui("imported_stanza_status"),
+                ui.h6("Stanza Groups", class_="mt-3"),
+                ui.output_data_frame("imported_stanza_groups_table"),
+                ui.h6("Life Stages", class_="mt-3"),
+                ui.output_data_frame("imported_stanza_indiv_table"),
             ),
             ui.nav_panel(
                 "Summary",
@@ -484,8 +518,16 @@ def import_server(
             else:
                 print(f"[DEBUG] Imported model has NO remarks")
             
+            # Check for stanza data
+            stanza_info = ""
+            if hasattr(params, 'stanzas') and params.stanzas is not None and params.stanzas.n_stanza_groups > 0:
+                n_stanza = params.stanzas.n_stanza_groups
+                n_stages = len(params.stanzas.stindiv) if params.stanzas.stindiv is not None else 0
+                stanza_info = f", {n_stanza} stanza group(s)"
+                print(f"[DEBUG] Imported model has {n_stanza} stanza groups with {n_stages} life stages")
+            
             ui.notification_show(
-                f"Imported model with {len(params.model)} groups{remarks_info}",
+                f"Imported model with {len(params.model)} groups{remarks_info}{stanza_info}",
                 type="message"
             )
         except EwEDatabaseError as e:
@@ -505,12 +547,29 @@ def import_server(
             filepath = file_info[0]["datapath"]
             metadata = get_ewemdb_metadata(filepath)
             
+            # Build ecosim/ecospace indicators
+            ecosim_badge = ""
+            if metadata.get('has_ecosim'):
+                n_scen = metadata.get('num_scenarios', 0)
+                ecosim_badge = ui.tags.span(
+                    f"Ecosim ({n_scen} scenarios)",
+                    class_="badge bg-success me-1"
+                )
+            
+            ecospace_badge = ""
+            if metadata.get('has_ecospace'):
+                ecospace_badge = ui.tags.span(
+                    "Ecospace",
+                    class_="badge bg-info"
+                )
+            
             return ui.div(
                 ui.tags.table(
                     ui.tags.tr(ui.tags.td("Name:"), ui.tags.td(metadata.get('name', 'N/A'))),
                     ui.tags.tr(ui.tags.td("Author:"), ui.tags.td(metadata.get('author', 'N/A'))),
                     ui.tags.tr(ui.tags.td("Groups:"), ui.tags.td(str(metadata.get('num_groups', 'N/A')))),
                     ui.tags.tr(ui.tags.td("Fleets:"), ui.tags.td(str(metadata.get('num_fleets', 'N/A')))),
+                    ui.tags.tr(ui.tags.td("Contains:"), ui.tags.td(ecosim_badge, ecospace_badge if ecospace_badge else "Ecopath only")),
                     class_="table table-sm"
                 )
             )
@@ -536,9 +595,16 @@ def import_server(
         n_detritus = len(params.model[params.model['Type'] == 2])
         n_fleets = len(params.model[params.model['Type'] == 3])
         
+        # Check for stanza data
+        stanza_info = ""
+        if hasattr(params, 'stanzas') and params.stanzas is not None and params.stanzas.n_stanza_groups > 0:
+            n_stanza = params.stanzas.n_stanza_groups
+            n_stages = len(params.stanzas.stindiv) if params.stanzas.stindiv is not None else 0
+            stanza_info = f", {n_stanza} multi-stanza group(s) with {n_stages} life stages"
+        
         return ui.div(
             ui.tags.i(class_="bi bi-check-circle-fill text-success me-2"),
-            f"Model loaded: {n_groups} groups ({n_living} living, {n_detritus} detritus, {n_fleets} fleets)",
+            f"Model loaded: {n_groups} groups ({n_living} living, {n_detritus} detritus, {n_fleets} fleets){stanza_info}",
             class_="alert alert-success"
         )
     
@@ -560,7 +626,7 @@ def import_server(
         remarks_df = params.remarks if hasattr(params, 'remarks') and params.remarks is not None else None
         
         # Format for display: handle 9999 values and round to 3 decimals
-        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(
+        formatted_df, no_data_mask, remarks_mask, _ = format_dataframe_for_display(
             df, decimal_places=3, remarks_df=remarks_df
         )
         styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
@@ -576,10 +642,95 @@ def import_server(
             return pd.DataFrame()
         
         # Format for display: handle 9999 values and round to 3 decimals
-        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(
+        formatted_df, no_data_mask, remarks_mask, _ = format_dataframe_for_display(
             params.diet.copy(), decimal_places=3
         )
         styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
+        
+        return render.DataGrid(formatted_df, styles=styles)
+    
+    @output
+    @render.ui
+    def imported_stanza_status():
+        """Show multi-stanza status in import preview."""
+        params = imported_params.get()
+        if params is None:
+            return ui.p("No model imported.", class_="text-muted")
+        
+        has_stanzas = (
+            hasattr(params, 'stanzas') and 
+            params.stanzas is not None and 
+            params.stanzas.n_stanza_groups > 0
+        )
+        
+        if not has_stanzas:
+            return ui.div(
+                ui.tags.i(class_="bi bi-info-circle me-2"),
+                "This model has no multi-stanza groups defined.",
+                class_="alert alert-info"
+            )
+        
+        n_groups = params.stanzas.n_stanza_groups
+        n_stages = len(params.stanzas.stindiv) if params.stanzas.stindiv is not None else 0
+        
+        return ui.div(
+            ui.tags.i(class_="bi bi-check-circle-fill text-success me-2"),
+            f"Found {n_groups} multi-stanza group(s) with {n_stages} total life stages.",
+            class_="alert alert-success"
+        )
+    
+    @output
+    @render.data_frame
+    def imported_stanza_groups_table():
+        """Show imported stanza groups."""
+        params = imported_params.get()
+        if params is None:
+            return pd.DataFrame()
+        
+        has_stanzas = (
+            hasattr(params, 'stanzas') and 
+            params.stanzas is not None and 
+            params.stanzas.stgroups is not None and
+            len(params.stanzas.stgroups) > 0
+        )
+        
+        if not has_stanzas:
+            return render.DataGrid(pd.DataFrame({'Message': ['No multi-stanza groups']}))
+        
+        df = params.stanzas.stgroups.copy()
+        formatted_df, no_data_mask, _, _ = format_dataframe_for_display(df, decimal_places=3)
+        styles = create_cell_styles(formatted_df, no_data_mask, None)
+        
+        return render.DataGrid(formatted_df, styles=styles)
+    
+    @output
+    @render.data_frame
+    def imported_stanza_indiv_table():
+        """Show imported stanza life stages."""
+        params = imported_params.get()
+        if params is None:
+            return pd.DataFrame()
+        
+        has_stanzas = (
+            hasattr(params, 'stanzas') and 
+            params.stanzas is not None and 
+            params.stanzas.stindiv is not None and
+            len(params.stanzas.stindiv) > 0
+        )
+        
+        if not has_stanzas:
+            return render.DataGrid(pd.DataFrame({'Message': ['No multi-stanza life stages']}))
+        
+        df = params.stanzas.stindiv.copy()
+        
+        # Reorder columns for better display
+        preferred_order = ['StanzaGroup', 'Group', 'StanzaNum', 'First', 'Last', 'Z', 'Leading']
+        cols = [c for c in preferred_order if c in df.columns]
+        cols += [c for c in df.columns if c not in cols]
+        df = df[cols]
+        
+        formatted_df, no_data_mask, _, _ = format_dataframe_for_display(df, decimal_places=3)
+        styles = create_cell_styles(formatted_df, no_data_mask, None)
         
         return render.DataGrid(formatted_df, styles=styles)
     
@@ -602,6 +753,11 @@ def import_server(
         else:
             production = 0
         
+        # Count stanzas
+        n_stanza = 0
+        if hasattr(params, 'stanzas') and params.stanzas is not None:
+            n_stanza = params.stanzas.n_stanza_groups
+        
         return ui.div(
             ui.h5("Model Summary"),
             ui.layout_columns(
@@ -622,6 +778,27 @@ def import_server(
                 ),
                 col_widths=[4, 4, 4]
             ),
+            ui.layout_columns(
+                ui.value_box(
+                    "Detritus Groups",
+                    str(len(model[model['Type'] == 2])),
+                    showcase=ui.tags.i(class_="bi bi-recycle"),
+                    theme="bg-secondary",
+                ),
+                ui.value_box(
+                    "Fleets",
+                    str(len(model[model['Type'] == 3])),
+                    showcase=ui.tags.i(class_="bi bi-tsunami"),
+                    theme="bg-secondary",
+                ),
+                ui.value_box(
+                    "Multi-Stanza Groups",
+                    str(n_stanza),
+                    showcase=ui.tags.i(class_="bi bi-diagram-3"),
+                    theme="bg-secondary",
+                ),
+                col_widths=[4, 4, 4]
+            ),
         )
     
     @output
@@ -630,7 +807,7 @@ def import_server(
         """Show 'Use Model' button in EcoBase tab when model is loaded."""
         params = imported_params.get()
         if params is None:
-            return None
+            return ui.div()  # Return empty div instead of None
         
         return ui.input_action_button(
             "btn_use_imported",
@@ -644,7 +821,7 @@ def import_server(
         """Show 'Use Model' button in EwE tab when model is loaded."""
         params = imported_params.get()
         if params is None:
-            return None
+            return ui.div()  # Return empty div instead of None
         
         return ui.input_action_button(
             "btn_use_imported",

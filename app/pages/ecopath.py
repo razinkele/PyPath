@@ -3,7 +3,7 @@
 from shiny import Inputs, Outputs, Session, reactive, render, ui, req
 import pandas as pd
 import numpy as np
-from typing import Optional
+from typing import Optional, Dict
 
 # Import pypath
 import sys
@@ -12,6 +12,54 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from pypath.core.params import create_rpath_params, check_rpath_params, RpathParams
 from pypath.core.ecopath import rpath, Rpath
+
+
+# Column header tooltips - explanations for each parameter
+COLUMN_TOOLTIPS: Dict[str, str] = {
+    # Model Parameters
+    'Group': 'Name of the functional group in the ecosystem model',
+    'Type': 'Group type: Consumer, Producer, Detritus, or Fleet',
+    'Biomass': 'Biomass density (t/km² for aquatic, t/km² for terrestrial)',
+    'PB': 'Production/Biomass ratio (year⁻¹) - annual production divided by biomass',
+    'QB': 'Consumption/Biomass ratio (year⁻¹) - annual consumption divided by biomass',
+    'EE': 'Ecotrophic Efficiency (0-1) - fraction of production used in the system',
+    'ProdCons': 'Production/Consumption ratio (P/Q or GE) - gross food conversion efficiency',
+    'Unassim': 'Unassimilated consumption (0-1) - fraction of food not assimilated',
+    'BioAcc': 'Biomass accumulation rate (t/km²/year) - change in biomass over time',
+    'DetInput': 'Detrital input from outside the system (t/km²/year)',
+    
+    # Balanced Model Results
+    'TL': 'Trophic Level - position in the food web (1=primary producer/detritus, 2+=consumers)',
+    'GE': 'Gross Efficiency (P/Q) - production divided by consumption',
+    'Removals': 'Total removals by fishing (t/km²/year) - landings plus discards',
+    
+    # Diet Matrix
+    'Import': 'Fraction of diet imported from outside the model area',
+    
+    # Stanza Parameters - stgroups
+    'StGroupNum': 'Unique identifier for the multi-stanza group',
+    'StanzaGroup': 'Name of the multi-stanza configuration (e.g., "Blue mussel")',
+    'nstanzas': 'Number of life stages in this stanza group',
+    'VBGF_Ksp': 'Von Bertalanffy growth parameter K (year⁻¹)',
+    'VBGF_d': 'Ratio of weight at maturity to asymptotic weight (Wmat/Winf)',
+    'Wmat': 'Weight at maturity relative to asymptotic weight',
+    'RecPower': 'Recruitment power function parameter',
+    
+    # Stanza Parameters - stindiv (individual stages)
+    'StanzaNum': 'Sequential number of this life stage within the stanza group',
+    'First': 'Age at start of this life stage (months)',
+    'Last': 'Age at end of this life stage (months)',
+    'Z': 'Total mortality rate for this life stage (year⁻¹)',
+    'Leading': 'Whether this is the leading (reference) life stage for the stanza',
+}
+
+# Type code to category name mapping
+TYPE_LABELS: Dict[int, str] = {
+    0: 'Consumer',
+    1: 'Producer',
+    2: 'Detritus',
+    3: 'Fleet'
+}
 
 
 # Constants for "no data" handling
@@ -23,30 +71,52 @@ REMARK_STYLE = {"background-color": "#fff9e6", "border-bottom": "2px dashed #f0a
 def format_dataframe_for_display(
     df: pd.DataFrame, 
     decimal_places: int = 3,
-    remarks_df: Optional[pd.DataFrame] = None
+    remarks_df: Optional[pd.DataFrame] = None,
+    stanza_groups: Optional[list] = None
 ) -> tuple:
     """
     Format a DataFrame for display by:
     - Replacing 9999 (no data) values with empty string
     - Rounding numbers to specified decimal places
     - Adding remark indicators (asterisk) to cells with comments
+    - Converting Type column from numeric codes to category names
+    - Optionally marking groups that are part of multi-stanza configurations
     
     Args:
         df: DataFrame to format
         decimal_places: Number of decimal places for rounding
         remarks_df: Optional DataFrame with remarks (same structure as df)
+        stanza_groups: Optional list of group names that are part of multi-stanza configurations
     
     Returns:
-        tuple: (formatted_df, no_data_mask_df, remarks_mask_df)
+        tuple: (formatted_df, no_data_mask_df, remarks_mask_df, stanza_mask_df)
         - formatted_df: DataFrame with formatted values
         - no_data_mask_df: Boolean DataFrame where True indicates original 9999 value
         - remarks_mask_df: Boolean DataFrame where True indicates cell has a remark
+        - stanza_mask_df: Boolean DataFrame where True indicates group is part of multi-stanza
     """
     formatted = df.copy()
     no_data_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
     remarks_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    stanza_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    
+    # Convert Type column to category labels
+    if 'Type' in formatted.columns:
+        formatted['Type'] = formatted['Type'].apply(
+            lambda x: TYPE_LABELS.get(int(x), str(x)) if pd.notna(x) and x != '' else x
+        )
+    
+    # Mark stanza groups (entire row)
+    if stanza_groups and 'Group' in formatted.columns:
+        for row_idx, group_name in enumerate(formatted['Group']):
+            if group_name in stanza_groups:
+                for col in formatted.columns:
+                    stanza_mask.iloc[row_idx, list(formatted.columns).index(col)] = True
     
     for col in formatted.columns:
+        if col == 'Type':
+            # Type column already converted to labels, skip numeric processing
+            continue
         if formatted[col].dtype in ['float64', 'float32', 'int64', 'int32'] or col not in ['Group', 'Type']:
             # Convert to numeric where possible
             numeric_col = pd.to_numeric(formatted[col], errors='coerce')
@@ -64,6 +134,12 @@ def format_dataframe_for_display(
             
             formatted[col] = numeric_col
     
+    # Keep NaN values in numeric columns (DataGrid handles them properly)
+    # Only fill NaN in string columns if needed
+    for col in formatted.columns:
+        if formatted[col].dtype == 'object':
+            formatted[col] = formatted[col].fillna('')
+    
     # Check for remarks
     if remarks_df is not None:
         for col in formatted.columns:
@@ -74,23 +150,28 @@ def format_dataframe_for_display(
                         if isinstance(remark, str) and remark.strip():
                             remarks_mask.iloc[row_idx, list(formatted.columns).index(col)] = True
     
-    return formatted, no_data_mask, remarks_mask
+    return formatted, no_data_mask, remarks_mask, stanza_mask
+
+
+# Style for multi-stanza group rows
+STANZA_STYLE = {"background-color": "#e6f3ff", "border-left": "3px solid #0066cc"}  # Light blue for stanza groups
 
 
 def create_cell_styles(
     df: pd.DataFrame, 
     no_data_mask: pd.DataFrame,
-    remarks_mask: Optional[pd.DataFrame] = None
+    remarks_mask: Optional[pd.DataFrame] = None,
+    stanza_mask: Optional[pd.DataFrame] = None
 ) -> list:
     """
-    Create cell style rules for DataGrid based on no-data mask and remarks mask.
+    Create cell style rules for DataGrid based on no-data mask, remarks mask, and stanza mask.
     
     Returns list of style dictionaries for styled cells.
     """
     styles = []
     for row_idx in range(len(df)):
         for col_idx, col in enumerate(df.columns):
-            # Check for no-data cells (priority)
+            # Check for no-data cells (highest priority)
             if col in no_data_mask.columns and no_data_mask.iloc[row_idx][col]:
                 styles.append({
                     "location": "body",
@@ -98,13 +179,21 @@ def create_cell_styles(
                     "cols": col_idx,
                     "style": NO_DATA_STYLE
                 })
-            # Check for cells with remarks
+            # Check for cells with remarks (second priority)
             elif remarks_mask is not None and col in remarks_mask.columns and remarks_mask.iloc[row_idx][col]:
                 styles.append({
                     "location": "body",
                     "rows": row_idx,
                     "cols": col_idx,
                     "style": REMARK_STYLE
+                })
+            # Check for stanza group rows (lowest priority for styling)
+            elif stanza_mask is not None and col in stanza_mask.columns and stanza_mask.iloc[row_idx][col]:
+                styles.append({
+                    "location": "body",
+                    "rows": row_idx,
+                    "cols": col_idx,
+                    "style": STANZA_STYLE
                 })
     return styles
 
@@ -221,7 +310,21 @@ def ecopath_ui():
                     "Model Results",
                     ui.h4("Balanced Model Results", class_="mt-3"),
                     ui.output_ui("balance_status"),
-                    ui.output_table("model_results_table"),
+                    ui.output_data_frame("model_results_table"),
+                ),
+                ui.nav_panel(
+                    "Multi-Stanza",
+                    ui.h4("Multi-Stanza Groups", class_="mt-3"),
+                    ui.p(
+                        "Multi-stanza groups link age-structured life stages (e.g., juvenile/adult) "
+                        "that share growth and mortality parameters.",
+                        class_="text-muted"
+                    ),
+                    ui.output_ui("stanza_status"),
+                    ui.h5("Stanza Group Configuration", class_="mt-3"),
+                    ui.output_data_frame("stanza_groups_table"),
+                    ui.h5("Individual Life Stages", class_="mt-3"),
+                    ui.output_data_frame("stanza_indiv_table"),
                 ),
                 ui.nav_panel(
                     "Diagnostics",
@@ -303,6 +406,19 @@ def ecopath_server(
         except Exception as e:
             ui.notification_show(f"Error creating parameters: {str(e)}", type="error")
     
+    def add_header_tooltips(columns: list) -> list:
+        """Create column definitions with tooltips for DataGrid headers."""
+        col_defs = []
+        for col in columns:
+            tooltip = COLUMN_TOOLTIPS.get(col, f'{col} parameter')
+            col_defs.append({
+                "id": col,
+                "name": col,
+                "header": col,
+                "headerTitle": tooltip,  # This adds tooltip on hover
+            })
+        return col_defs
+    
     @output
     @render.data_frame
     def model_params_table():
@@ -320,14 +436,18 @@ def ecopath_server(
         # Get remarks if available
         remarks_df = p.remarks if hasattr(p, 'remarks') and p.remarks is not None else None
         
-        # Format for display: handle 9999 values, round to 3 decimals, mark cells with remarks
-        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(
-            df, decimal_places=3, remarks_df=remarks_df
-        )
-        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
+        # Get stanza group names if available
+        stanza_groups = None
+        if hasattr(p, 'stanzas') and p.stanzas is not None:
+            stindiv = p.stanzas.stindiv  # StanzaParams is a dataclass, access attribute directly
+            if stindiv is not None and len(stindiv) > 0:
+                stanza_groups = stindiv['Group'].tolist() if 'Group' in stindiv.columns else []
         
-        # Set column widths - make Group column wider
-        col_widths = {"Group": "180px"}
+        # Format for display: handle 9999 values, round to 3 decimals, mark cells with remarks
+        formatted_df, no_data_mask, remarks_mask, stanza_mask = format_dataframe_for_display(
+            df, decimal_places=3, remarks_df=remarks_df, stanza_groups=stanza_groups
+        )
+        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask, stanza_mask)
         
         return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles, width="100%")
     
@@ -337,7 +457,7 @@ def ecopath_server(
         """Show remarks if any exist in the model."""
         p = params.get()
         if p is None:
-            return None
+            return ui.div()  # Return empty div instead of None
         
         remarks_df = p.remarks if hasattr(p, 'remarks') and p.remarks is not None else None
         if remarks_df is None:
@@ -350,15 +470,15 @@ def ecopath_server(
         # Build list of non-empty remarks
         remarks_list = []
         for idx, row in remarks_df.iterrows():
-            group_name = row.get('Group', f'Row {idx}')
+            group_name = str(row.get('Group', f'Row {idx}'))  # Ensure string
             for col in remarks_df.columns:
                 if col != 'Group':
                     remark = row.get(col, '')
                     if isinstance(remark, str) and remark.strip():
                         remarks_list.append({
                             'group': group_name,
-                            'parameter': col,
-                            'remark': remark.strip()
+                            'parameter': str(col),
+                            'remark': str(remark.strip())
                         })
         
         if not remarks_list:
@@ -368,28 +488,11 @@ def ecopath_server(
                 class_="text-muted small mt-3"
             )
         
-        # Show remarks in a collapsible panel
-        return ui.div(
-            ui.tags.details(
-                ui.tags.summary(
-                    ui.tags.i(class_="bi bi-chat-quote me-1"),
-                    f"Remarks ({len(remarks_list)} entries)",
-                    style="cursor: pointer; font-weight: 500; color: #f0ad4e;"
-                ),
-                ui.div(
-                    *[
-                        ui.div(
-                            ui.tags.strong(f"{r['group']} - {r['parameter']}: "),
-                            r['remark'],
-                            class_="small mb-1",
-                            style="padding-left: 10px; border-left: 2px solid #f0ad4e;"
-                        )
-                        for r in remarks_list
-                    ],
-                    style="max-height: 200px; overflow-y: auto; padding: 10px; background: #fff9e6; border-radius: 4px; margin-top: 8px;"
-                )
-            ),
-            class_="mt-3"
+        # Show remarks count
+        return ui.p(
+            ui.tags.i(class_="bi bi-chat-quote me-1"),
+            f"Model has {len(remarks_list)} remarks.",
+            class_="text-muted small mt-3"
         )
     
     @output
@@ -402,7 +505,7 @@ def ecopath_server(
         
         # Format for display: handle 9999 values and round to 3 decimals
         df = p.diet.copy()
-        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(df, decimal_places=3)
+        formatted_df, no_data_mask, remarks_mask, _ = format_dataframe_for_display(df, decimal_places=3)
         styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
         
         return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles)
@@ -458,10 +561,113 @@ def ecopath_server(
         
         df = pd.DataFrame(data)
         # Format for display: handle 9999 values and round to 3 decimals
-        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(df, decimal_places=3)
+        formatted_df, no_data_mask, remarks_mask, _ = format_dataframe_for_display(df, decimal_places=3)
         styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
         
         return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles)
+        
+        return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles)
+    
+    # === Multi-Stanza Functions ===
+    
+    @output
+    @render.ui
+    def stanza_status():
+        """Show multi-stanza status."""
+        p = params.get()
+        if p is None:
+            return ui.div(
+                ui.tags.i(class_="bi bi-info-circle me-2"),
+                "Load a model to see multi-stanza information.",
+                class_="alert alert-info"
+            )
+        
+        # Check if stanza data exists
+        has_stanzas = (
+            hasattr(p, 'stanzas') and 
+            p.stanzas is not None and 
+            p.stanzas.n_stanza_groups > 0
+        )
+        
+        if not has_stanzas:
+            return ui.div(
+                ui.tags.i(class_="bi bi-info-circle me-2"),
+                "This model has no multi-stanza groups defined. "
+                "Multi-stanza groups are used to model age-structured populations "
+                "(e.g., juvenile and adult life stages of the same species).",
+                class_="alert alert-info"
+            )
+        
+        n_groups = int(p.stanzas.n_stanza_groups)
+        n_stages = int(len(p.stanzas.stindiv)) if p.stanzas.stindiv is not None else 0
+        
+        return ui.div(
+            ui.tags.i(class_="bi bi-check-circle-fill text-success me-2"),
+            f"Model has {n_groups} multi-stanza group(s) with {n_stages} total life stages.",
+            class_="alert alert-success"
+        )
+    
+    @output
+    @render.data_frame
+    def stanza_groups_table():
+        """Render stanza groups configuration table."""
+        p = params.get()
+        if p is None:
+            return render.DataGrid(pd.DataFrame({'Message': ['Load a model first']}))
+        
+        has_stanzas = (
+            hasattr(p, 'stanzas') and 
+            p.stanzas is not None and 
+            p.stanzas.stgroups is not None and
+            len(p.stanzas.stgroups) > 0
+        )
+        
+        if not has_stanzas:
+            return render.DataGrid(pd.DataFrame({
+                'Message': ['No multi-stanza groups in this model']
+            }))
+        
+        df = p.stanzas.stgroups.copy()
+        
+        # Format for display
+        formatted_df, no_data_mask, _, _ = format_dataframe_for_display(df, decimal_places=3)
+        styles = create_cell_styles(formatted_df, no_data_mask, None)
+        
+        return render.DataGrid(formatted_df, styles=styles)
+    
+    @output
+    @render.data_frame
+    def stanza_indiv_table():
+        """Render individual stanza life stages table."""
+        p = params.get()
+        if p is None:
+            return render.DataGrid(pd.DataFrame({'Message': ['Load a model first']}))
+        
+        has_stanzas = (
+            hasattr(p, 'stanzas') and 
+            p.stanzas is not None and 
+            p.stanzas.stindiv is not None and
+            len(p.stanzas.stindiv) > 0
+        )
+        
+        if not has_stanzas:
+            return render.DataGrid(pd.DataFrame({
+                'Message': ['No multi-stanza life stages in this model']
+            }))
+        
+        df = p.stanzas.stindiv.copy()
+        
+        # Reorder columns for better display
+        preferred_order = ['StanzaGroup', 'Group', 'StanzaNum', 'First', 'Last', 'Z', 'Leading']
+        cols = [c for c in preferred_order if c in df.columns]
+        cols += [c for c in df.columns if c not in cols]
+        df = df[cols]
+        
+        # Format for display
+        formatted_df, no_data_mask, _, _ = format_dataframe_for_display(df, decimal_places=3)
+        styles = create_cell_styles(formatted_df, no_data_mask, None)
+        
+        return render.DataGrid(formatted_df, styles=styles)
     
     # Track cell edits from DataGrids and update params
     @reactive.effect
@@ -580,8 +786,8 @@ def ecopath_server(
                 class_="alert alert-info"
             )
         
-        # Check for issues
-        ee_issues = np.sum((model.EE > 1) | (model.EE < 0))
+        # Check for issues - convert to int for display
+        ee_issues = int(np.sum((model.EE > 1) | (model.EE < 0)))
         
         if ee_issues > 0:
             return ui.div(
@@ -590,21 +796,79 @@ def ecopath_server(
                 class_="alert alert-warning"
             )
         
+        # Use model name or default
+        model_name = model.eco_name if model.eco_name else "Ecopath"
         return ui.div(
             ui.tags.i(class_="bi bi-check-circle me-2"),
-            f"Model '{model.eco_name}' balanced successfully!",
+            f"Model '{model_name}' balanced successfully!",
             class_="alert alert-success"
         )
     
     @output
-    @render.table
+    @render.data_frame
     def model_results_table():
-        """Display balanced model results."""
+        """Display balanced model results with formatting."""
         model = balanced_model.get()
         if model is None:
-            return pd.DataFrame()
+            return render.DataGrid(pd.DataFrame({'Message': ['Balance the model to see results']}))
         
-        return model.summary()
+        # Get the summary DataFrame
+        df = model.summary()
+        
+        # Get stanza group names if available (from params)
+        p = params.get()
+        stanza_groups = None
+        if p is not None and hasattr(p, 'stanzas') and p.stanzas is not None:
+            stindiv = p.stanzas.stindiv  # StanzaParams is a dataclass, access attribute directly
+            if stindiv is not None and len(stindiv) > 0:
+                stanza_groups = stindiv['Group'].tolist() if 'Group' in stindiv.columns else []
+        
+        # Format for display: handle 9999 values, round decimals, convert Type, mark stanza groups
+        formatted_df, no_data_mask, _, stanza_mask = format_dataframe_for_display(
+            df, decimal_places=3, stanza_groups=stanza_groups
+        )
+        
+        # Create styles - check mask values carefully using bool() conversion
+        styles = []
+        
+        # Style no-data cells and stanza cells
+        for row_idx in range(len(formatted_df)):
+            for col_idx, col in enumerate(formatted_df.columns):
+                is_no_data = bool(no_data_mask.iloc[row_idx][col]) if col in no_data_mask.columns else False
+                is_stanza = bool(stanza_mask.iloc[row_idx][col]) if (stanza_mask is not None and col in stanza_mask.columns) else False
+                
+                if is_no_data:
+                    styles.append({
+                        "location": "body",
+                        "rows": row_idx,
+                        "cols": col_idx,
+                        "style": NO_DATA_STYLE
+                    })
+                elif is_stanza:
+                    styles.append({
+                        "location": "body",
+                        "rows": row_idx,
+                        "cols": col_idx,
+                        "style": STANZA_STYLE
+                    })
+        
+        # Add special styling for calculated columns (EE, GE, TL)
+        calculated_cols = ['EE', 'GE', 'TL']
+        for col in calculated_cols:
+            if col in formatted_df.columns:
+                col_idx = list(formatted_df.columns).index(col)
+                for row_idx in range(len(formatted_df)):
+                    is_no_data = bool(no_data_mask.iloc[row_idx][col]) if col in no_data_mask.columns else False
+                    is_stanza = bool(stanza_mask.iloc[row_idx][col]) if (stanza_mask is not None and col in stanza_mask.columns) else False
+                    if not is_no_data and not is_stanza:
+                        styles.append({
+                            "location": "body",
+                            "rows": row_idx,
+                            "cols": col_idx,
+                            "style": {"background-color": "#f0fff0"}  # Light green for calculated values
+                        })
+        
+        return render.DataGrid(formatted_df, filters=False, styles=styles, width="100%")
     
     @output
     @render.ui
@@ -614,20 +878,20 @@ def ecopath_server(
         if model is None:
             return ui.p("Balance the model to see diagnostics.", class_="text-muted")
         
-        # Calculate diagnostics
-        total_biomass = np.sum(model.Biomass[:model.NUM_LIVING])
-        total_production = np.sum(model.Biomass[:model.NUM_LIVING] * model.PB[:model.NUM_LIVING])
+        # Calculate diagnostics - convert numpy values to Python types
+        total_biomass = float(np.sum(model.Biomass[:model.NUM_LIVING]))
+        total_production = float(np.sum(model.Biomass[:model.NUM_LIVING] * model.PB[:model.NUM_LIVING]))
         
         return ui.div(
             ui.layout_columns(
                 ui.value_box(
                     "Total Groups",
-                    model.NUM_GROUPS,
+                    str(model.NUM_GROUPS),
                     showcase=ui.tags.i(class_="bi bi-diagram-3"),
                 ),
                 ui.value_box(
                     "Living Groups",
-                    model.NUM_LIVING,
+                    str(model.NUM_LIVING),
                     showcase=ui.tags.i(class_="bi bi-heart"),
                 ),
                 ui.value_box(
