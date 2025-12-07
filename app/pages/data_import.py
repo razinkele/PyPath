@@ -24,126 +24,15 @@ from pypath.io.ewemdb import (
     EwEDatabaseError,
 )
 
-
-# Constants for "no data" handling
-NO_DATA_VALUE = 9999
-NO_DATA_STYLE = {"background-color": "#f0f0f0", "color": "#999"}  # Light gray for no data cells
-REMARK_STYLE = {"background-color": "#fff9e6", "border-bottom": "2px dashed #f0ad4e"}  # Yellow tint for cells with remarks
-
-# Type code to category name mapping
-TYPE_LABELS: Dict[int, str] = {
-    0: 'Consumer',
-    1: 'Producer',
-    2: 'Detritus',
-    3: 'Fleet'
-}
-
-
-def format_dataframe_for_display(
-    df: pd.DataFrame, 
-    decimal_places: int = 3,
-    remarks_df: Optional[pd.DataFrame] = None
-) -> tuple:
-    """
-    Format a DataFrame for display by:
-    - Replacing 9999 (no data) values with empty string
-    - Rounding numbers to specified decimal places
-    - Adding remark indicators to cells with comments
-    - Converting Type column to category labels
-    
-    Args:
-        df: DataFrame to format
-        decimal_places: Number of decimal places for rounding
-        remarks_df: Optional DataFrame with remarks (same structure as df)
-    
-    Returns:
-        tuple: (formatted_df, no_data_mask_df, remarks_mask_df, stanza_mask_df)
-        - formatted_df: DataFrame with formatted values
-        - no_data_mask_df: Boolean DataFrame where True indicates original 9999 value
-        - remarks_mask_df: Boolean DataFrame where True indicates cell has a remark
-        - stanza_mask_df: Boolean DataFrame (always False for import, kept for API consistency)
-    """
-    formatted = df.copy()
-    no_data_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
-    remarks_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
-    stanza_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
-    
-    # Convert Type column to category labels
-    if 'Type' in formatted.columns:
-        formatted['Type'] = formatted['Type'].apply(
-            lambda x: TYPE_LABELS.get(int(x), str(x)) if pd.notna(x) and x != '' else x
-        )
-    
-    for col in formatted.columns:
-        if col == 'Type':
-            # Type column already converted to labels, skip numeric processing
-            continue
-        if formatted[col].dtype in ['float64', 'float32', 'int64', 'int32'] or col not in ['Group', 'Type']:
-            # Convert to numeric where possible
-            numeric_col = pd.to_numeric(formatted[col], errors='coerce')
-            
-            # Mark 9999 values as no data
-            is_no_data = (numeric_col == NO_DATA_VALUE) | (numeric_col == -9999)
-            no_data_mask[col] = is_no_data
-            
-            # Replace 9999 with NaN, then round
-            numeric_col = numeric_col.replace([NO_DATA_VALUE, -9999], np.nan)
-            
-            # Round non-NaN values
-            if col not in ['Group', 'Type']:
-                numeric_col = numeric_col.round(decimal_places)
-            
-            formatted[col] = numeric_col
-    
-    # Keep NaN values in numeric columns (DataGrid handles them properly)
-    # Only fill NaN in string columns if needed
-    for col in formatted.columns:
-        if formatted[col].dtype == 'object':
-            formatted[col] = formatted[col].fillna('')
-    
-    # Check for remarks
-    if remarks_df is not None:
-        for col in formatted.columns:
-            if col in remarks_df.columns:
-                for row_idx in range(len(formatted)):
-                    if row_idx < len(remarks_df):
-                        remark = remarks_df.iloc[row_idx].get(col, '')
-                        if isinstance(remark, str) and remark.strip():
-                            remarks_mask.iloc[row_idx, list(formatted.columns).index(col)] = True
-    
-    return formatted, no_data_mask, remarks_mask, stanza_mask
-
-
-def create_cell_styles(
-    df: pd.DataFrame, 
-    no_data_mask: pd.DataFrame,
-    remarks_mask: Optional[pd.DataFrame] = None
-) -> list:
-    """
-    Create cell style rules for DataGrid based on no-data mask and remarks mask.
-    
-    Returns list of style dictionaries for styled cells.
-    """
-    styles = []
-    for row_idx in range(len(df)):
-        for col_idx, col in enumerate(df.columns):
-            # Check for no-data cells (priority)
-            if col in no_data_mask.columns and no_data_mask.iloc[row_idx][col]:
-                styles.append({
-                    "location": "body",
-                    "rows": row_idx,
-                    "cols": col_idx,
-                    "style": NO_DATA_STYLE
-                })
-            # Check for cells with remarks
-            elif remarks_mask is not None and col in remarks_mask.columns and remarks_mask.iloc[row_idx][col]:
-                styles.append({
-                    "location": "body",
-                    "rows": row_idx,
-                    "cols": col_idx,
-                    "style": REMARK_STYLE
-                })
-    return styles
+# Import shared utilities
+from .utils import (
+    format_dataframe_for_display,
+    create_cell_styles,
+    TYPE_LABELS,
+    NO_DATA_VALUE,
+    NO_DATA_STYLE,
+    REMARK_STYLE,
+)
 
 
 def import_ui():

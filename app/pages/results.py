@@ -8,52 +8,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-
-def get_model_info(model):
-    """Extract model info from either Rpath or RpathParams object.
-    
-    Returns dict with: groups, num_living, num_dead, trophic_level, biomass, type_codes
-    """
-    if model is None:
-        return None
-    
-    # Check if it's an Rpath (balanced model) or RpathParams
-    if hasattr(model, 'NUM_LIVING'):
-        # It's an Rpath object
-        return {
-            'groups': list(model.Group),
-            'num_living': model.NUM_LIVING,
-            'num_dead': model.NUM_DEAD,
-            'num_groups': model.NUM_GROUPS,
-            'trophic_level': model.TL if hasattr(model, 'TL') else None,
-            'biomass': model.Biomass if hasattr(model, 'Biomass') else None,
-            'type_codes': model.Type if hasattr(model, 'Type') else None,
-            'eco_name': model.eco_name if hasattr(model, 'eco_name') else 'Model',
-            'is_balanced': True,
-            'params': model.params if hasattr(model, 'params') else None,
-        }
-    elif hasattr(model, 'model') and hasattr(model.model, 'columns'):
-        # It's an RpathParams object
-        groups = list(model.model['Group'].values)
-        types = model.model['Type'].values
-        num_living = int(np.sum(types == 0))  # Type 0 = living
-        num_dead = int(np.sum(types == 1))    # Type 1 = detritus
-        num_groups = len(groups)
-        
-        return {
-            'groups': groups,
-            'num_living': num_living,
-            'num_dead': num_dead,
-            'num_groups': num_groups,
-            'trophic_level': None,  # Not calculated until balanced
-            'biomass': model.model['Biomass'].values if 'Biomass' in model.model.columns else None,
-            'type_codes': types,
-            'eco_name': model.model_name if hasattr(model, 'model_name') else 'Model',
-            'is_balanced': False,
-            'params': model,
-        }
-    else:
-        return None
+# Import shared utilities
+from .utils import get_model_info
 
 
 def results_ui():

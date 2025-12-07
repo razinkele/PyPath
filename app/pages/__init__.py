@@ -1,6 +1,6 @@
 """Page modules for the PyPath dashboard."""
 
-from pages import (
+from . import (
     home,
     ecopath,
     ecosim,
@@ -8,6 +8,7 @@ from pages import (
     about,
     data_import,
     analysis,
+    utils,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "about",
     "data_import",
     "analysis",
+    "utils",
 ]
