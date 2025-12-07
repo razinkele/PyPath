@@ -9,6 +9,53 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 
+def get_model_info(model):
+    """Extract model info from either Rpath or RpathParams object.
+    
+    Returns dict with: groups, num_living, num_dead, trophic_level, biomass, type_codes
+    """
+    if model is None:
+        return None
+    
+    # Check if it's an Rpath (balanced model) or RpathParams
+    if hasattr(model, 'NUM_LIVING'):
+        # It's an Rpath object
+        return {
+            'groups': list(model.Group),
+            'num_living': model.NUM_LIVING,
+            'num_dead': model.NUM_DEAD,
+            'num_groups': model.NUM_GROUPS,
+            'trophic_level': model.TL if hasattr(model, 'TL') else None,
+            'biomass': model.Biomass if hasattr(model, 'Biomass') else None,
+            'type_codes': model.Type if hasattr(model, 'Type') else None,
+            'eco_name': model.eco_name if hasattr(model, 'eco_name') else 'Model',
+            'is_balanced': True,
+            'params': model.params if hasattr(model, 'params') else None,
+        }
+    elif hasattr(model, 'model') and hasattr(model.model, 'columns'):
+        # It's an RpathParams object
+        groups = list(model.model['Group'].values)
+        types = model.model['Type'].values
+        num_living = int(np.sum(types == 0))  # Type 0 = living
+        num_dead = int(np.sum(types == 1))    # Type 1 = detritus
+        num_groups = len(groups)
+        
+        return {
+            'groups': groups,
+            'num_living': num_living,
+            'num_dead': num_dead,
+            'num_groups': num_groups,
+            'trophic_level': None,  # Not calculated until balanced
+            'biomass': model.model['Biomass'].values if 'Biomass' in model.model.columns else None,
+            'type_codes': types,
+            'eco_name': model.model_name if hasattr(model, 'model_name') else 'Model',
+            'is_balanced': False,
+            'params': model,
+        }
+    else:
+        return None
+
+
 def results_ui():
     """Results page UI."""
     return ui.page_fluid(
@@ -197,17 +244,19 @@ def results_server(
     def model_summary_status():
         """Display model status."""
         model = model_data.get()
+        info = get_model_info(model)
         
-        if model is None:
+        if info is None:
             return ui.div(
                 ui.tags.i(class_="bi bi-info-circle me-2"),
                 "No model data available. Create and balance an Ecopath model first.",
                 class_="alert alert-info"
             )
         
+        status = "Balanced" if info['is_balanced'] else "Not balanced"
         return ui.div(
             ui.tags.i(class_="bi bi-check-circle me-2"),
-            f"Model: {model.eco_name} ({model.NUM_GROUPS} groups)",
+            f"Model: {info['eco_name']} ({info['num_groups']} groups) - {status}",
             class_="alert alert-success"
         )
     
@@ -216,11 +265,19 @@ def results_server(
     def model_summary_table():
         """Display model summary table."""
         model = model_data.get()
+        info = get_model_info(model)
         
-        if model is None:
+        if info is None:
             return pd.DataFrame()
         
-        return model.summary()
+        if info['is_balanced'] and hasattr(model, 'summary'):
+            return model.summary()
+        elif info['params'] is not None:
+            # Return params model table
+            params = info['params'] if not info['is_balanced'] else info['params']
+            if hasattr(params, 'model'):
+                return params.model[['Group', 'Type', 'Biomass', 'PB', 'QB', 'EE']].head(20)
+        return pd.DataFrame()
     
     @output
     @render.plot
@@ -229,11 +286,16 @@ def results_server(
         import matplotlib.pyplot as plt
         
         model = model_data.get()
+        info = get_model_info(model)
         
         fig, ax = plt.subplots(figsize=(8, 5))
         
-        if model is None:
+        if info is None:
             ax.text(0.5, 0.5, "No model data", ha='center', va='center', transform=ax.transAxes)
+            return fig
+        
+        if not info['is_balanced'] or info['trophic_level'] is None:
+            ax.text(0.5, 0.5, "Balance model first to see trophic levels", ha='center', va='center', transform=ax.transAxes)
             return fig
         
         # Apply plot style
@@ -241,9 +303,9 @@ def results_server(
         if style != "default":
             plt.style.use(style)
         
-        n_bio = model.NUM_LIVING + model.NUM_DEAD
-        groups = model.Group[:n_bio]
-        tl = model.TL[:n_bio]
+        n_bio = info['num_living'] + info['num_dead']
+        groups = info['groups'][:n_bio]
+        tl = info['trophic_level'][:n_bio]
         
         # Sort by TL
         sorted_idx = np.argsort(tl)[::-1]
@@ -267,17 +329,22 @@ def results_server(
         import matplotlib.pyplot as plt
         
         model = model_data.get()
+        info = get_model_info(model)
         
         fig, ax = plt.subplots(figsize=(8, 5))
         
-        if model is None:
+        if info is None:
             ax.text(0.5, 0.5, "No model data", ha='center', va='center', transform=ax.transAxes)
             return fig
         
-        n_living = model.NUM_LIVING
+        if not info['is_balanced'] or info['trophic_level'] is None:
+            ax.text(0.5, 0.5, "Balance model first to see trophic flows", ha='center', va='center', transform=ax.transAxes)
+            return fig
+        
+        n_living = info['num_living']
         
         # Group by trophic level bins
-        tl = model.TL[:n_living]
+        tl = info['trophic_level'][:n_living]
         biomass = model.Biomass[:n_living]
         production = biomass * model.PB[:n_living]
         
@@ -312,11 +379,18 @@ def results_server(
         import matplotlib.pyplot as plt
         
         model = model_data.get()
+        info = get_model_info(model)
         
         fig, ax = plt.subplots(figsize=(12, 10))
         
-        if model is None:
+        if info is None:
             ax.text(0.5, 0.5, "No model data", ha='center', va='center', transform=ax.transAxes)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            return fig
+        
+        if not info['is_balanced']:
+            ax.text(0.5, 0.5, "Balance model first to see food web", ha='center', va='center', transform=ax.transAxes)
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             return fig
@@ -328,15 +402,16 @@ def results_server(
                    ha='center', va='center', transform=ax.transAxes)
             return fig
         
-        n_bio = model.NUM_LIVING + model.NUM_DEAD
-        n_living = model.NUM_LIVING
+        n_bio = info['num_living'] + info['num_dead']
+        n_living = info['num_living']
+        groups = info['groups']
         
         # Create graph
         G = nx.DiGraph()
         
         # Add nodes
         for i in range(n_bio):
-            G.add_node(model.Group[i], 
+            G.add_node(groups[i], 
                       tl=model.TL[i], 
                       biomass=model.Biomass[i])
         
@@ -344,12 +419,12 @@ def results_server(
         min_flow = input.foodweb_min_flow()
         
         for pred_idx in range(n_living):
-            pred = model.Group[pred_idx]
+            pred = groups[pred_idx]
             for prey_idx in range(n_bio):
                 if prey_idx < model.DC.shape[0] and pred_idx < model.DC.shape[1]:
                     flow = model.DC[prey_idx, pred_idx]
                     if flow > min_flow:
-                        prey = model.Group[prey_idx]
+                        prey = groups[prey_idx]
                         G.add_edge(prey, pred, weight=flow)
         
         if len(G.edges()) == 0:
@@ -427,10 +502,12 @@ def results_server(
         """Update group choices when simulation results change."""
         sim = sim_results.get()
         model = model_data.get()
+        info = get_model_info(model)
         
-        if model is not None:
-            groups = list(model.Group[:model.NUM_LIVING + model.NUM_DEAD])
-            ui.update_selectize("results_groups", choices=groups, selected=groups[:3])
+        if info is not None:
+            n_bio = info['num_living'] + info['num_dead']
+            groups = info['groups'][:n_bio]
+            ui.update_selectize("results_groups", choices=groups, selected=groups[:3] if len(groups) >= 3 else groups)
     
     @output
     @render.plot
@@ -440,10 +517,11 @@ def results_server(
         
         sim = sim_results.get()
         model = model_data.get()
+        info = get_model_info(model)
         
         fig, ax = plt.subplots(figsize=(12, 6))
         
-        if sim is None or model is None:
+        if sim is None or info is None:
             ax.text(0.5, 0.5, "No simulation data", ha='center', va='center', transform=ax.transAxes)
             return fig
         
@@ -463,7 +541,7 @@ def results_server(
         n_months = sim.out_Biomass.shape[0]
         time = np.arange(n_months) / 12
         
-        group_list = list(model.Group)
+        group_list = info['groups']
         colors = plt.cm.get_cmap(input.color_palette())(np.linspace(0, 1, len(selected)))
         
         for i, group in enumerate(selected):
@@ -528,25 +606,41 @@ def results_server(
     def params_data_table():
         """Model parameters data table."""
         model = model_data.get()
-        if model is None:
+        info = get_model_info(model)
+        if info is None:
             return pd.DataFrame()
-        return model.summary()
+        if info['is_balanced'] and hasattr(model, 'summary'):
+            return model.summary()
+        elif info['params'] is not None:
+            params = info['params'] if not info['is_balanced'] else model.params
+            if hasattr(params, 'model'):
+                return params.model
+        return pd.DataFrame()
     
     @output
     @render.data_frame
     def diet_data_table():
         """Diet matrix data table."""
         model = model_data.get()
-        if model is None:
+        info = get_model_info(model)
+        if info is None:
             return pd.DataFrame()
         
-        n_living = model.NUM_LIVING
-        n_bio = model.NUM_LIVING + model.NUM_DEAD
+        if not info['is_balanced']:
+            # Return diet from params
+            params = info['params']
+            if hasattr(params, 'diet'):
+                return params.diet
+            return pd.DataFrame({'Message': ['Balance model to see diet matrix']})
+        
+        n_living = info['num_living']
+        n_bio = info['num_living'] + info['num_dead']
+        groups = info['groups']
         
         diet_df = pd.DataFrame(
             model.DC[:n_bio, :n_living],
-            index=model.Group[:n_bio],
-            columns=model.Group[:n_living]
+            index=groups[:n_bio],
+            columns=groups[:n_living]
         ).round(4)
         diet_df.insert(0, 'Prey', diet_df.index)
         
@@ -558,15 +652,17 @@ def results_server(
         """Monthly biomass data table."""
         sim = sim_results.get()
         model = model_data.get()
+        info = get_model_info(model)
         
-        if sim is None or model is None:
+        if sim is None or info is None:
             return pd.DataFrame()
         
-        n_bio = model.NUM_LIVING + model.NUM_DEAD
+        n_bio = info['num_living'] + info['num_dead']
+        groups = info['groups']
         
         df = pd.DataFrame(
             sim.out_Biomass[:, 1:n_bio + 1],
-            columns=model.Group[:n_bio]
+            columns=groups[:n_bio]
         ).round(4)
         df.insert(0, 'Month', range(len(df)))
         df.insert(1, 'Year', df['Month'] / 12)
@@ -580,15 +676,17 @@ def results_server(
         """Annual catch data table."""
         sim = sim_results.get()
         model = model_data.get()
+        info = get_model_info(model)
         
-        if sim is None or model is None:
+        if sim is None or info is None:
             return pd.DataFrame()
         
-        n_living = model.NUM_LIVING
+        n_living = info['num_living']
+        groups = info['groups']
         
         df = pd.DataFrame(
             sim.annual_Catch[:, 1:n_living + 1],
-            columns=model.Group[:n_living]
+            columns=groups[:n_living]
         ).round(4)
         df.insert(0, 'Year', range(1, len(df) + 1))
         
@@ -598,8 +696,14 @@ def results_server(
     def download_model_csv():
         """Download model as CSV."""
         model = model_data.get()
-        if model is not None:
-            return model.summary().to_csv(index=False)
+        info = get_model_info(model)
+        if info is not None:
+            if info['is_balanced'] and hasattr(model, 'summary'):
+                return model.summary().to_csv(index=False)
+            elif info['params'] is not None:
+                params = info['params'] if not info['is_balanced'] else model.params
+                if hasattr(params, 'model'):
+                    return params.model.to_csv(index=False)
         return ""
     
     @render.download(filename="pypath_simulation.csv")
@@ -607,12 +711,14 @@ def results_server(
         """Download simulation results as CSV."""
         sim = sim_results.get()
         model = model_data.get()
+        info = get_model_info(model)
         
-        if sim is not None and model is not None:
-            n_bio = model.NUM_LIVING + model.NUM_DEAD
+        if sim is not None and info is not None:
+            n_bio = info['num_living'] + info['num_dead']
+            groups = info['groups']
             df = pd.DataFrame(
                 sim.out_Biomass[:, 1:n_bio + 1],
-                columns=model.Group[:n_bio]
+                columns=groups[:n_bio]
             )
             df.insert(0, 'Month', range(len(df)))
             return df.to_csv(index=False)
@@ -623,12 +729,14 @@ def results_server(
         """Download annual summary as CSV."""
         sim = sim_results.get()
         model = model_data.get()
+        info = get_model_info(model)
         
-        if sim is not None and model is not None:
-            n_living = model.NUM_LIVING
+        if sim is not None and info is not None:
+            n_living = info['num_living']
+            groups = info['groups']
             df = pd.DataFrame(
                 sim.annual_Catch[:, 1:n_living + 1],
-                columns=model.Group[:n_living]
+                columns=groups[:n_living]
             )
             df.insert(0, 'Year', range(1, len(df) + 1))
             return df.to_csv(index=False)

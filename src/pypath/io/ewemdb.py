@@ -308,7 +308,7 @@ def read_ewemdb(
     
     # Check file extension
     suffix = Path(filepath).suffix.lower()
-    if suffix not in ['.ewemdb', '.ewe', '.mdb', '.accdb']:
+    if suffix not in ['.ewemdb', '.eweaccdb', '.ewe', '.mdb', '.accdb']:
         warnings.warn(f"Unexpected file extension: {suffix}")
     
     # Read main tables
@@ -345,6 +345,16 @@ def read_ewemdb(
             catch_df = read_ewemdb_table(filepath, 'Catch')
         except:
             catch_df = None
+    
+    # Try to read Auxillary table (contains cell-level remarks in EwE 6.6+)
+    auxillary_df = None
+    try:
+        auxillary_df = read_ewemdb_table(filepath, 'Auxillary')
+        # Filter to only rows with remarks
+        auxillary_df = auxillary_df[auxillary_df['Remark'].notna() & (auxillary_df['Remark'] != '')]
+        print(f"[DEBUG] Found Auxillary table with {len(auxillary_df)} remarks")
+    except Exception as e:
+        print(f"[DEBUG] Could not read Auxillary table: {e}")
     
     # Filter by scenario if needed
     if 'ScenarioID' in groups_df.columns:
@@ -413,6 +423,19 @@ def read_ewemdb(
         'DetInput': ['DetInput', 'DetritalInput', 'ImmigEmig'],
     }
     
+    # Map remarks columns - EwE stores remarks as separate columns
+    # Different EwE versions use different column names
+    remarks_mapping = {
+        'Biomass': ['BRemarks', 'BiomassRemarks', 'BRemark', 'Remark', 'Remarks', 'Comment', 'Comments', 'Note', 'Notes'],
+        'PB': ['PBRemarks', 'PBRemark', 'ProductionRemarks'],
+        'QB': ['QBRemarks', 'QBRemark', 'ConsumptionRemarks'],
+        'EE': ['EERemarks', 'EERemark', 'EcotrophicRemarks'],
+        'ProdCons': ['GERemarks', 'ProdConsRemarks'],
+        'Unassim': ['GSRemarks', 'UnassimRemarks'],
+        'BioAcc': ['BARemarks', 'BioAccRemarks'],
+        'DetInput': ['DetInputRemarks'],
+    }
+    
     for param_name, possible_cols in column_mapping.items():
         for col in possible_cols:
             if col in groups_df.columns:
@@ -420,20 +443,103 @@ def read_ewemdb(
                 params.model[param_name] = values
                 break
     
+    # Extract remarks if available and create remarks DataFrame
+    remarks_data = {'Group': group_names}
+    has_any_remarks = False
+    found_remarks_cols = []
+    
+    # Create ID to group name mapping
+    id_col = next((c for c in ['GroupID', 'ID', 'Sequence', 'GroupSeq'] if c in groups_df.columns), None)
+    if id_col:
+        id_to_name = dict(zip(groups_df[id_col].tolist(), group_names))
+    else:
+        id_to_name = {i+1: name for i, name in enumerate(group_names)}
+    
+    # Map VarName to our parameter names
+    varname_to_param = {
+        'BiomassAreaInput': 'Biomass', 'Biomass': 'Biomass', 'B': 'Biomass',
+        'PBInput': 'PB', 'PB': 'PB', 'ProdBiom': 'PB',
+        'QBInput': 'QB', 'QB': 'QB', 'ConsBiom': 'QB',
+        'EEInput': 'EE', 'EE': 'EE', 'EcotrophEff': 'EE',
+        'GE': 'ProdCons', 'ProdCons': 'ProdCons', 'GEInput': 'ProdCons',
+        'GS': 'Unassim', 'Unassim': 'Unassim', 'GSInput': 'Unassim',
+        'BA': 'BioAcc', 'BioAcc': 'BioAcc', 'BAInput': 'BioAcc',
+        'BioAccRate': 'BioAcc', 'BiomassAccum': 'BioAcc',
+        'DetInput': 'DetInput', 'DetritalInput': 'DetInput',
+        'Area': 'Area', 'HabitatArea': 'Area', 'BiomassHabArea': 'Area',
+    }
+    
+    # Initialize remarks lists for each parameter
+    for param in ['Biomass', 'PB', 'QB', 'EE', 'ProdCons', 'Unassim', 'BioAcc', 'DetInput', 'Area']:
+        remarks_data[param] = [''] * len(group_names)
+    
+    # PRIMARY METHOD: Extract remarks from Auxillary table (EwE 6.6+)
+    # ValueID format: "EcoPathGroupInput:<GroupID>:<VarName>"
+    if auxillary_df is not None and len(auxillary_df) > 0:
+        print(f"[DEBUG] Processing {len(auxillary_df)} remarks from Auxillary table")
+        
+        import re
+        # Pattern to match: EcoPathGroupInput:<GroupID>:<VarName>
+        pattern = re.compile(r'EcoPathGroupInput:(\d+):(\w+)')
+        
+        for _, row in auxillary_df.iterrows():
+            value_id = str(row.get('ValueID', ''))
+            remark = str(row.get('Remark', '')).strip()
+            
+            if not remark:
+                continue
+            
+            match = pattern.match(value_id)
+            if match:
+                group_id = int(match.group(1))
+                var_name = match.group(2)
+                
+                # Find group name
+                group_name = id_to_name.get(group_id)
+                if group_name and group_name in group_names:
+                    group_idx = group_names.index(group_name)
+                    
+                    # Map variable name to parameter
+                    param_name = varname_to_param.get(var_name, var_name)
+                    
+                    if param_name in remarks_data:
+                        remarks_data[param_name][group_idx] = remark
+                        has_any_remarks = True
+                        if param_name not in found_remarks_cols:
+                            found_remarks_cols.append(param_name)
+        
+        if found_remarks_cols:
+            print(f"[DEBUG] Found remarks for parameters: {found_remarks_cols}")
+    
+    if has_any_remarks:
+        params.remarks = pd.DataFrame(remarks_data)
+        print(f"[DEBUG] Created remarks DataFrame with {len(found_remarks_cols)} parameter columns")
+        # Count total non-empty remarks
+        total_remarks = sum(1 for param in found_remarks_cols 
+                          for r in remarks_data.get(param, []) if r)
+        print(f"[DEBUG] Total non-empty remarks: {total_remarks}")
+    else:
+        print(f"[DEBUG] No remarks found in EwE database file")
+    
     # Read diet composition
     if diet_df is not None and len(diet_df) > 0:
         # Diet table structure varies:
         # Option 1: PreyID, PredID, Diet
         # Option 2: PreyName, PredName, Proportion
         # Option 3: Wide format with predators as columns
+        # Option 4: GroupID, PreyID, Diet (EwE 6 format)
         
-        prey_cols = ['PreyID', 'PreyGroupID', 'Prey', 'PreyName', 'prey_id']
-        pred_cols = ['PredID', 'PredGroupID', 'Predator', 'PredName', 'pred_id']
-        value_cols = ['Diet', 'Proportion', 'DietComp', 'Value', 'DC']
+        prey_cols = ['PreyID', 'PreyGroupID', 'Prey', 'PreyName', 'prey_id', 'GroupIDPrey']
+        pred_cols = ['PredID', 'PredGroupID', 'Predator', 'PredName', 'pred_id', 'GroupID', 'GroupIDPred']
+        value_cols = ['Diet', 'Proportion', 'DietComp', 'Value', 'DC', 'DietValue']
         
         prey_col = next((c for c in prey_cols if c in diet_df.columns), None)
         pred_col = next((c for c in pred_cols if c in diet_df.columns), None)
         value_col = next((c for c in value_cols if c in diet_df.columns), None)
+        
+        # Debug: show what columns were found
+        # print(f"Diet columns: {diet_df.columns.tolist()}")
+        # print(f"Found prey={prey_col}, pred={pred_col}, value={value_col}")
         
         if prey_col and pred_col and value_col:
             # Long format - pivot to wide
@@ -441,26 +547,55 @@ def read_ewemdb(
             if 'ScenarioID' in diet_df.columns:
                 diet_df = diet_df[diet_df['ScenarioID'] == scenario]
             
-            # Convert IDs to names if needed
-            if 'ID' in prey_col:
-                # Create ID to name mapping
-                id_col = next((c for c in ['GroupID', 'ID', 'Sequence'] 
-                               if c in groups_df.columns), None)
-                if id_col:
-                    id_to_name = dict(zip(groups_df[id_col], groups_df[name_col]))
+            # Create ID to name mapping
+            id_col = next((c for c in ['GroupID', 'ID', 'Sequence', 'GroupSeq'] 
+                           if c in groups_df.columns), None)
+            
+            if id_col:
+                id_to_name = dict(zip(groups_df[id_col], groups_df[name_col]))
+                
+                # Convert IDs to names if columns contain IDs
+                if 'ID' in prey_col or prey_col in ['GroupIDPrey']:
+                    diet_df = diet_df.copy()
                     diet_df['PreyName'] = diet_df[prey_col].map(id_to_name)
-                    diet_df['PredName'] = diet_df[pred_col].map(id_to_name)
                     prey_col = 'PreyName'
+                    
+                if 'ID' in pred_col or pred_col in ['GroupID', 'GroupIDPred']:
+                    diet_df = diet_df.copy()
+                    diet_df['PredName'] = diet_df[pred_col].map(id_to_name)
                     pred_col = 'PredName'
             
             # Build diet matrix
+            # Note: params.diet has 'Group' as a column with prey names, not as index
+            diet_groups = params.diet['Group'].tolist()
+            
             for pred_name in group_names:
                 pred_diet = diet_df[diet_df[pred_col] == pred_name]
                 for _, row in pred_diet.iterrows():
                     prey_name = row[prey_col]
                     value = row[value_col]
-                    if prey_name in params.diet.index and pred_name in params.diet.columns:
-                        params.diet.loc[prey_name, pred_name] = value
+                    if pd.notna(prey_name) and pd.notna(value) and float(value) > 0:
+                        # Find the row index for this prey
+                        if prey_name in diet_groups and pred_name in params.diet.columns:
+                            row_idx = diet_groups.index(prey_name)
+                            params.diet.iloc[row_idx, params.diet.columns.get_loc(pred_name)] = float(value)
+        
+        # Alternative: Try wide format where columns are predator names
+        elif len(diet_df.columns) > 2:
+            # Wide format: rows are prey, columns are predators
+            # First column might be prey names
+            diet_groups = params.diet['Group'].tolist()
+            first_col = diet_df.columns[0]
+            if first_col.lower() in ['group', 'prey', 'preyname', 'groupname', 'name']:
+                for col in diet_df.columns[1:]:
+                    if col in params.diet.columns:
+                        for idx, row in diet_df.iterrows():
+                            prey_name = row[first_col]
+                            value = row[col]
+                            if pd.notna(prey_name) and pd.notna(value) and value > 0:
+                                if prey_name in diet_groups:
+                                    row_idx = diet_groups.index(prey_name)
+                                    params.diet.iloc[row_idx, params.diet.columns.get_loc(col)] = float(value)
     
     # Read fleet/catch data
     if fleet_df is not None and catch_df is not None:

@@ -47,6 +47,38 @@ ECOBASE_LIST_URL = "http://sirs.agrocampus-ouest.fr/EcoBase/php/webser/soap-clie
 ECOBASE_MODEL_URL = "http://sirs.agrocampus-ouest.fr/EcoBase/php/webser/soap-client.php?no_model="
 
 
+def _safe_float(value: Any, default: float = 0.0) -> Optional[float]:
+    """Safely convert a value to float, handling booleans and strings.
+    
+    Parameters
+    ----------
+    value : Any
+        Value to convert
+    default : float
+        Default value if conversion fails (use None to return None on failure)
+    
+    Returns
+    -------
+    float or None
+        Converted value or default
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None  # Booleans are not valid numeric values
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        value_lower = value.lower().strip()
+        if value_lower in ('true', 'false', 'yes', 'no', 'none', ''):
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            return default if default is not None else None
+    return default if default is not None else None
+
+
 @dataclass
 class EcoBaseModel:
     """Container for EcoBase model metadata.
@@ -309,29 +341,153 @@ def get_ecobase_model(
         'raw_xml': xml_content,
     }
     
-    # Extract groups
+    # First pass: Build group_seq to group_name mapping
+    group_seq_to_name = {}
+    for group_elem in root.iter('group'):
+        group_name = None
+        group_seq = None
+        for child in group_elem:
+            if child.tag == 'group_name':
+                group_name = child.text
+            elif child.tag == 'group_seq':
+                try:
+                    group_seq = int(child.text) if child.text else None
+                except ValueError:
+                    group_seq = None
+        if group_name and group_seq is not None:
+            group_seq_to_name[group_seq] = group_name
+    
+    # Extract groups and diet data
     for group_elem in root.iter('group'):
         group_data = {}
+        pred_name = None
+        
         for child in group_elem:
             tag = child.tag
             text = child.text
             
-            # Try to convert numeric values
+            # Store group name for diet processing
+            if tag == 'group_name':
+                pred_name = text
+            
+            # Handle diet_descr specially - extract nested diet elements
+            if tag == 'diet_descr':
+                # Process nested diet elements
+                for diet_elem in child.iter('diet'):
+                    prey_seq = None
+                    proportion = 0.0
+                    
+                    for diet_child in diet_elem:
+                        if diet_child.tag == 'prey_seq':
+                            try:
+                                prey_seq = int(diet_child.text) if diet_child.text else None
+                            except ValueError:
+                                prey_seq = None
+                        elif diet_child.tag == 'proportion':
+                            try:
+                                proportion = float(diet_child.text) if diet_child.text else 0.0
+                            except ValueError:
+                                proportion = 0.0
+                    
+                    # Map prey_seq to prey_name and store diet
+                    if prey_seq is not None and proportion > 0 and pred_name:
+                        prey_name = group_seq_to_name.get(prey_seq, f"Group_{prey_seq}")
+                        if pred_name not in result['diet']:
+                            result['diet'][pred_name] = {}
+                        result['diet'][pred_name][prey_name] = proportion
+                continue
+            
+            # Try to convert values appropriately
             if text:
-                try:
-                    if '.' in text or 'e' in text.lower():
-                        group_data[tag] = float(text)
-                    else:
-                        group_data[tag] = int(text)
-                except ValueError:
-                    group_data[tag] = text
+                text_lower = text.lower().strip()
+                # Handle boolean strings first
+                if text_lower in ('true', 'false', 'yes', 'no'):
+                    group_data[tag] = text_lower in ('true', 'yes')
+                else:
+                    # Try numeric conversion
+                    try:
+                        if '.' in text or ('e' in text_lower and text_lower not in ('true', 'false')):
+                            group_data[tag] = float(text)
+                        else:
+                            group_data[tag] = int(text)
+                    except ValueError:
+                        group_data[tag] = text
             else:
                 group_data[tag] = None
         
         if group_data:
             result['groups'].append(group_data)
     
-    # Extract diet matrix
+    # Build group_id to group_name mapping for diet matrix
+    group_id_to_name = {}
+    for g in result['groups']:
+        gid = g.get('group_seq', g.get('group_id', g.get('sequence', g.get('no', None))))
+        gname = g.get('group_name', g.get('name', None))
+        if gid is not None and gname is not None:
+            group_id_to_name[int(gid)] = gname
+    
+    # Extract diet from dc (diet composition) fields in groups
+    # Format: dc fields contain "prey_id proportion" pairs
+    for g in result['groups']:
+        pred_name = g.get('group_name', g.get('name', None))
+        if not pred_name:
+            continue
+        
+        # Look for dc fields (dc1, dc2, ... or dc_1, dc_2, ...)
+        for key, value in g.items():
+            if key.lower().startswith('dc') and value is not None:
+                # Try to parse as "prey_id proportion" or just get prey_id
+                try:
+                    if isinstance(value, str) and ' ' in value:
+                        parts = value.strip().split()
+                        if len(parts) >= 2:
+                            prey_id = int(parts[0])
+                            proportion = float(parts[1])
+                        else:
+                            prey_id = int(parts[0])
+                            proportion = 1.0
+                    elif isinstance(value, (int, float)):
+                        # Could be just a proportion or an ID
+                        continue
+                    else:
+                        continue
+                    
+                    # Map prey_id to name
+                    prey_name = group_id_to_name.get(prey_id, f"Group_{prey_id}")
+                    
+                    if proportion > 0:
+                        if pred_name not in result['diet']:
+                            result['diet'][pred_name] = {}
+                        result['diet'][pred_name][prey_name] = proportion
+                except (ValueError, TypeError):
+                    continue
+    
+    # Also try DietComp fields (another common format)
+    for g in result['groups']:
+        pred_name = g.get('group_name', g.get('name', None))
+        if not pred_name:
+            continue
+        
+        # Look for DietComp, dietcomp fields
+        for key, value in g.items():
+            key_lower = key.lower()
+            if ('dietcomp' in key_lower or 'diet_comp' in key_lower) and value is not None:
+                try:
+                    if isinstance(value, str) and ' ' in value:
+                        parts = value.strip().split()
+                        if len(parts) >= 2:
+                            prey_id = int(parts[0])
+                            proportion = float(parts[1])
+                            prey_name = group_id_to_name.get(prey_id, f"Group_{prey_id}")
+                            
+                            if proportion > 0:
+                                if pred_name not in result['diet']:
+                                    result['diet'][pred_name] = {}
+                                result['diet'][pred_name][prey_name] = proportion
+                except (ValueError, TypeError):
+                    continue
+    
+    # Extract diet matrix from dedicated diet elements (alternative format)
     for diet_elem in root.iter('diet'):
         prey_name = None
         pred_name = None
@@ -379,12 +535,65 @@ def get_ecobase_model(
                         result['diet'][group_name] = {}
                     result['diet'][group_name][prey_name] = value
     
-    # Extract fleet/fishery data
+    # Extract fleet/fishery data with catches from catch_descr
     for fleet_elem in root.iter('fleet'):
         fleet_data = {}
+        fleet_name = None
+        
         for child in fleet_elem:
-            fleet_data[child.tag] = child.text
-        if fleet_data:
+            if child.tag == 'fleet_name':
+                fleet_name = child.text
+            elif child.tag == 'catch_descr':
+                # Parse catch entries within fleet
+                for catch_elem in child.findall('catch'):
+                    group_seq = None
+                    catch_value = 0.0
+                    catch_type = None
+                    
+                    for catch_child in catch_elem:
+                        if catch_child.tag == 'group_seq':
+                            try:
+                                group_seq = int(catch_child.text) if catch_child.text else None
+                            except ValueError:
+                                group_seq = None
+                        elif catch_child.tag == 'catch_value':
+                            try:
+                                catch_value = float(catch_child.text) if catch_child.text else 0.0
+                            except ValueError:
+                                catch_value = 0.0
+                        elif catch_child.tag == 'catch_type':
+                            catch_type = catch_child.text.strip() if catch_child.text else None
+                    
+                    # Store catches by fleet and group
+                    if fleet_name and group_seq is not None and catch_type:
+                        group_name = group_seq_to_name.get(group_seq, f"Group_{group_seq}")
+                        catch_key = (fleet_name, group_name, catch_type)
+                        
+                        if group_name not in result['catches']:
+                            result['catches'][group_name] = {}
+                        if fleet_name not in result['catches'][group_name]:
+                            result['catches'][group_name][fleet_name] = {
+                                'landings': 0.0, 
+                                'discards': 0.0,
+                                'discard_mort': 0.0,
+                                'market': 0.0,
+                                'prop_mort': 0.0
+                            }
+                        
+                        # Map catch types to our structure
+                        if catch_type == 'total landings':
+                            result['catches'][group_name][fleet_name]['landings'] = catch_value
+                        elif catch_type == 'discards':
+                            result['catches'][group_name][fleet_name]['discards'] = catch_value
+                        elif catch_type == 'market':
+                            result['catches'][group_name][fleet_name]['market'] = catch_value
+                        elif catch_type == 'prop mort':
+                            result['catches'][group_name][fleet_name]['prop_mort'] = catch_value
+            else:
+                fleet_data[child.tag] = child.text
+        
+        if fleet_name:
+            fleet_data['fleet_name'] = fleet_name
             result['fleets'].append(fleet_data)
     
     # Extract catch data
@@ -413,17 +622,26 @@ def get_ecobase_model(
         if group_name and fleet_name:
             if group_name not in result['catches']:
                 result['catches'][group_name] = {}
-            result['catches'][group_name][fleet_name] = {
-                'landings': landings,
-                'discards': discards
-            }
+            # Only add if not already present from fleet/catch_descr parsing
+            if fleet_name not in result['catches'][group_name]:
+                result['catches'][group_name][fleet_name] = {
+                    'landings': landings,
+                    'discards': discards
+                }
+            else:
+                # Update only if values are provided
+                if landings > 0:
+                    result['catches'][group_name][fleet_name]['landings'] = landings
+                if discards > 0:
+                    result['catches'][group_name][fleet_name]['discards'] = discards
     
     return result
 
 
 def ecobase_to_rpath(
     model_data: Dict[str, Any],
-    include_fleets: bool = True
+    include_fleets: bool = True,
+    use_input_values: bool = True
 ) -> RpathParams:
     """Convert EcoBase model data to RpathParams.
     
@@ -433,6 +651,9 @@ def ecobase_to_rpath(
         Model data from get_ecobase_model()
     include_fleets : bool
         Whether to include fishing fleets
+    use_input_values : bool
+        If True, prefer input values (before balancing) over output values.
+        EcoBase stores both input (original) and output (balanced) parameters.
     
     Returns
     -------
@@ -497,43 +718,61 @@ def ecobase_to_rpath(
     )
     
     # Fill in group parameters
+    # EcoBase field names:
+    # - Numeric values are stored in: biomass, pb, qb, ee, gs, etc.
+    # - Boolean flags (*_input) indicate if user entered the value or it was calculated
+    # The actual values are ALWAYS in pb, qb, ee, biomass - the _input suffix is a boolean flag!
     for i, g in enumerate(groups_data):
-        # Biomass
+        # Biomass - the numeric value is in 'biomass', not 'biomass_input'
         biomass = g.get('biomass', g.get('b', None))
-        if biomass is not None:
-            params.model.loc[i, 'Biomass'] = float(biomass)
+        biomass_val = _safe_float(biomass)
+        if biomass_val is not None:
+            params.model.loc[i, 'Biomass'] = biomass_val
         
-        # PB
-        pb = g.get('prod_biom', g.get('pb', None))
-        if pb is not None:
-            params.model.loc[i, 'PB'] = float(pb)
+        # PB (P/B ratio) - the numeric value is in 'pb', not 'pb_input'  
+        pb = g.get('pb', g.get('prod_biom', None))
+        pb_val = _safe_float(pb)
+        if pb_val is not None:
+            params.model.loc[i, 'PB'] = pb_val
         
-        # QB
-        qb = g.get('cons_biom', g.get('qb', None))
-        if qb is not None and group_types[i] != 1:  # Not for producers
-            params.model.loc[i, 'QB'] = float(qb)
+        # QB (Q/B ratio) - the numeric value is in 'qb', not 'qb_input'
+        qb = g.get('qb', g.get('cons_biom', None))
+        qb_val = _safe_float(qb)
+        if qb_val is not None and group_types[i] != 1:  # Not for producers
+            params.model.loc[i, 'QB'] = qb_val
         
-        # EE
-        ee = g.get('ecotrophic_eff', g.get('ee', None))
-        if ee is not None:
-            params.model.loc[i, 'EE'] = float(ee)
+        # EE (Ecotrophic efficiency) - the numeric value is in 'ee', not 'ee_input'
+        ee = g.get('ee', g.get('ecotrophic_eff', None))
+        ee_val = _safe_float(ee)
+        if ee_val is not None:
+            params.model.loc[i, 'EE'] = ee_val
         
-        # Unassimilated fraction
-        unassim = g.get('unassim_cons', g.get('gs', 0.2))
-        if unassim is not None:
-            params.model.loc[i, 'Unassim'] = float(unassim)
+        # Unassimilated fraction (GS in EcoBase)
+        unassim = g.get('gs', g.get('unassim_cons', 0.2))
+        unassim_val = _safe_float(unassim, default=0.2)
+        if unassim_val is not None:
+            params.model.loc[i, 'Unassim'] = unassim_val
         
         # Biomass accumulation
-        ba = g.get('biomass_acc', g.get('ba', 0.0))
-        if ba is not None:
-            params.model.loc[i, 'BioAcc'] = float(ba)
+        ba = g.get('biomass_accum', g.get('biomass_acc', g.get('ba', 0.0)))
+        ba_val = _safe_float(ba, default=0.0)
+        if ba_val is not None:
+            params.model.loc[i, 'BioAcc'] = ba_val
     
     # Fill diet matrix
+    # Note: params.diet has 'Group' as a column with prey names, not as index
+    # We need to find the row by matching the Group column
+    diet_groups = params.diet['Group'].tolist()
+    
     for pred_name, prey_dict in diet_data.items():
         if pred_name in params.diet.columns:
             for prey_name, proportion in prey_dict.items():
-                if prey_name in params.diet.index:
-                    params.diet.loc[prey_name, pred_name] = float(proportion)
+                # Find the row index for this prey
+                if prey_name in diet_groups:
+                    row_idx = diet_groups.index(prey_name)
+                    prop_val = _safe_float(proportion, default=0.0)
+                    if prop_val is not None and prop_val > 0:
+                        params.diet.iloc[row_idx, params.diet.columns.get_loc(pred_name)] = prop_val
     
     # Fill catch data
     if include_fleets and catches_data:
@@ -542,8 +781,12 @@ def ecobase_to_rpath(
                 group_idx = params.model[params.model['Group'] == group_name].index[0]
                 for fleet_name, catch_data in fleet_catches.items():
                     if fleet_name in params.model.columns:
-                        landings = catch_data.get('landings', 0)
-                        params.model.loc[group_idx, fleet_name] = landings
+                        landings = _safe_float(catch_data.get('landings', 0), default=0.0)
+                        if landings is not None:
+                            params.model.loc[group_idx, fleet_name] = landings
+    
+    # Store model name
+    params.model_name = f"EcoBase Model {model_data.get('model_id', 'Unknown')}"
     
     return params
 
@@ -579,18 +822,22 @@ def search_ecobase_models(
     
     query_lower = query.lower()
     
+    # Reset index to avoid alignment issues
+    models_df = models_df.reset_index(drop=True)
+    
     if field == 'all':
         # Search across all text fields
-        mask = pd.Series([False] * len(models_df))
+        mask = pd.Series([False] * len(models_df), index=models_df.index)
         for col in ['model_name', 'country', 'ecosystem_type', 'author', 'reference']:
             if col in models_df.columns:
-                mask |= models_df[col].astype(str).str.lower().str.contains(query_lower, na=False)
-        return models_df[mask].copy()
+                col_mask = models_df[col].astype(str).str.lower().str.contains(query_lower, na=False)
+                mask = mask | col_mask
+        return models_df[mask].copy().reset_index(drop=True)
     else:
         if field not in models_df.columns:
             raise ValueError(f"Unknown field: {field}")
         mask = models_df[field].astype(str).str.lower().str.contains(query_lower, na=False)
-        return models_df[mask].copy()
+        return models_df[mask].copy().reset_index(drop=True)
 
 
 def download_ecobase_model_to_file(

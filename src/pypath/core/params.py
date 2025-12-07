@@ -66,6 +66,10 @@ class RpathParams:
     pedigree : pd.DataFrame
         Data quality/pedigree information for parameters.
     
+    remarks : pd.DataFrame
+        Comments/remarks for parameter values. Has same structure as model
+        with string values containing remarks for each cell.
+    
     Examples
     --------
     >>> params = create_rpath_params(
@@ -78,6 +82,7 @@ class RpathParams:
     diet: pd.DataFrame
     stanzas: StanzaParams = field(default_factory=StanzaParams)
     pedigree: Optional[pd.DataFrame] = None
+    remarks: Optional[pd.DataFrame] = None
     
     def __repr__(self) -> str:
         n_groups = len(self.model)

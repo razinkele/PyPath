@@ -4,6 +4,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui, req
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from typing import Optional
 
 # Import pypath
 import sys
@@ -24,31 +25,119 @@ from pypath.io.ewemdb import (
 )
 
 
+# Constants for "no data" handling
+NO_DATA_VALUE = 9999
+NO_DATA_STYLE = {"background-color": "#f0f0f0", "color": "#999"}  # Light gray for no data cells
+REMARK_STYLE = {"background-color": "#fff9e6", "border-bottom": "2px dashed #f0ad4e"}  # Yellow tint for cells with remarks
+
+
+def format_dataframe_for_display(
+    df: pd.DataFrame, 
+    decimal_places: int = 3,
+    remarks_df: Optional[pd.DataFrame] = None
+) -> tuple:
+    """
+    Format a DataFrame for display by:
+    - Replacing 9999 (no data) values with empty string
+    - Rounding numbers to specified decimal places
+    - Adding remark indicators to cells with comments
+    
+    Args:
+        df: DataFrame to format
+        decimal_places: Number of decimal places for rounding
+        remarks_df: Optional DataFrame with remarks (same structure as df)
+    
+    Returns:
+        tuple: (formatted_df, no_data_mask_df, remarks_mask_df)
+        - formatted_df: DataFrame with formatted values
+        - no_data_mask_df: Boolean DataFrame where True indicates original 9999 value
+        - remarks_mask_df: Boolean DataFrame where True indicates cell has a remark
+    """
+    formatted = df.copy()
+    no_data_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    remarks_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    
+    for col in formatted.columns:
+        if formatted[col].dtype in ['float64', 'float32', 'int64', 'int32'] or col not in ['Group', 'Type']:
+            # Convert to numeric where possible
+            numeric_col = pd.to_numeric(formatted[col], errors='coerce')
+            
+            # Mark 9999 values as no data
+            is_no_data = (numeric_col == NO_DATA_VALUE) | (numeric_col == -9999)
+            no_data_mask[col] = is_no_data
+            
+            # Replace 9999 with NaN, then round
+            numeric_col = numeric_col.replace([NO_DATA_VALUE, -9999], np.nan)
+            
+            # Round non-NaN values
+            if col not in ['Group', 'Type']:
+                numeric_col = numeric_col.round(decimal_places)
+            
+            formatted[col] = numeric_col
+    
+    # Check for remarks
+    if remarks_df is not None:
+        for col in formatted.columns:
+            if col in remarks_df.columns:
+                for row_idx in range(len(formatted)):
+                    if row_idx < len(remarks_df):
+                        remark = remarks_df.iloc[row_idx].get(col, '')
+                        if isinstance(remark, str) and remark.strip():
+                            remarks_mask.iloc[row_idx, list(formatted.columns).index(col)] = True
+    
+    return formatted, no_data_mask, remarks_mask
+
+
+def create_cell_styles(
+    df: pd.DataFrame, 
+    no_data_mask: pd.DataFrame,
+    remarks_mask: Optional[pd.DataFrame] = None
+) -> list:
+    """
+    Create cell style rules for DataGrid based on no-data mask and remarks mask.
+    
+    Returns list of style dictionaries for styled cells.
+    """
+    styles = []
+    for row_idx in range(len(df)):
+        for col_idx, col in enumerate(df.columns):
+            # Check for no-data cells (priority)
+            if col in no_data_mask.columns and no_data_mask.iloc[row_idx][col]:
+                styles.append({
+                    "location": "body",
+                    "rows": row_idx,
+                    "cols": col_idx,
+                    "style": NO_DATA_STYLE
+                })
+            # Check for cells with remarks
+            elif remarks_mask is not None and col in remarks_mask.columns and remarks_mask.iloc[row_idx][col]:
+                styles.append({
+                    "location": "body",
+                    "rows": row_idx,
+                    "cols": col_idx,
+                    "style": REMARK_STYLE
+                })
+    return styles
+
+
 def import_ui():
     """Data import page UI."""
-    return ui.page_fluid(
-        ui.h2("Import Ecopath Models", class_="mb-4"),
-        
-        ui.layout_columns(
-            # EcoBase section
-            ui.card(
-                ui.card_header(
-                    ui.tags.i(class_="bi bi-cloud-download me-2"),
-                    "EcoBase Online Database"
-                ),
-                ui.card_body(
-                    ui.p(
-                        "Download published Ecopath models from the ",
-                        ui.tags.a("EcoBase database", href="http://ecobase.ecopath.org/", target="_blank"),
-                        ". This database contains hundreds of models from ecosystems worldwide."
-                    ),
-                    
-                    ui.tags.hr(),
-                    
-                    # Search section
-                    ui.h5("Search Models"),
-                    ui.layout_columns(
-                        ui.input_text("ecobase_search", "Search Term", placeholder="e.g., Baltic, coral, tropical"),
+    return ui.page_sidebar(
+        # Sidebar with import options (tabs)
+        ui.sidebar(
+            ui.navset_pill(
+                # EcoBase tab
+                ui.nav_panel(
+                    "EcoBase",
+                    ui.div(
+                        ui.p(
+                            "Download models from ",
+                            ui.tags.a("EcoBase", href="http://ecobase.ecopath.org/", target="_blank"),
+                            class_="small text-muted"
+                        ),
+                        
+                        # Search section
+                        ui.input_text("ecobase_search", "Search", placeholder="e.g., Baltic, coral"),
                         ui.input_select(
                             "ecobase_ecosystem",
                             "Ecosystem Type",
@@ -59,99 +148,98 @@ def import_ui():
                                 "estuarine": "Estuarine",
                             }
                         ),
-                        col_widths=[6, 6]
+                        ui.div(
+                            ui.input_action_button(
+                                "btn_search_ecobase",
+                                ui.tags.span(ui.tags.i(class_="bi bi-search me-1"), "Search"),
+                                class_="btn-primary btn-sm"
+                            ),
+                            ui.input_action_button(
+                                "btn_list_all",
+                                "All Models",
+                                class_="btn-outline-secondary btn-sm ms-1"
+                            ),
+                            class_="mb-3"
+                        ),
+                        
+                        ui.tags.hr(),
+                        
+                        # Results table
+                        ui.h6("Available Models"),
+                        ui.p("Click a row to select, then download.", class_="small text-muted"),
+                        ui.output_data_frame("ecobase_models_table"),
+                        
+                        ui.tags.hr(),
+                        
+                        # Selected model info and download
+                        ui.output_ui("ecobase_selected_info"),
+                        
+                        ui.tags.hr(),
+                        
+                        # Use imported model button
+                        ui.output_ui("use_model_button_ecobase"),
+                        
+                        class_="mt-2"
                     ),
-                    ui.input_action_button(
-                        "btn_search_ecobase",
-                        "Search EcoBase",
-                        class_="btn-primary mb-3"
-                    ),
-                    ui.input_action_button(
-                        "btn_list_all",
-                        "List All Models",
-                        class_="btn-outline-secondary mb-3 ms-2"
-                    ),
-                    
-                    ui.tags.hr(),
-                    
-                    # Results table
-                    ui.h5("Available Models"),
-                    ui.output_ui("ecobase_results_ui"),
-                    
-                    ui.tags.hr(),
-                    
-                    # Download section
-                    ui.layout_columns(
+                ),
+                
+                # EwE File tab
+                ui.nav_panel(
+                    "EwE File",
+                    ui.div(
+                        ui.p(
+                            "Import from EwE 6.x database files (.ewemdb, .eweaccdb, .mdb, .accdb)",
+                            class_="small text-muted"
+                        ),
+                        
+                        # Check driver support
+                        ui.output_ui("ewemdb_support_status"),
+                        
+                        ui.tags.hr(),
+                        
+                        # File upload
+                        ui.input_file(
+                            "ewemdb_upload",
+                            "Select file",
+                            accept=[".ewemdb", ".eweaccdb", ".mdb", ".accdb", ".ewe"],
+                            multiple=False
+                        ),
+                        
                         ui.input_numeric(
-                            "ecobase_model_id",
-                            "Model ID to Download",
-                            value=None,
+                            "ewemdb_scenario",
+                            "Scenario Number",
+                            value=1,
                             min=1
                         ),
+                        
                         ui.input_action_button(
-                            "btn_download_ecobase",
-                            "Download Model",
-                            class_="btn-success mt-4"
+                            "btn_import_ewemdb",
+                            ui.tags.span(ui.tags.i(class_="bi bi-upload me-1"), "Import Model"),
+                            class_="btn-success mt-2"
                         ),
-                        col_widths=[6, 6]
+                        
+                        ui.tags.hr(),
+                        
+                        # Metadata preview
+                        ui.h6("File Information"),
+                        ui.output_ui("ewemdb_metadata_ui"),
+                        
+                        ui.tags.hr(),
+                        
+                        # Use imported model button
+                        ui.output_ui("use_model_button_ewe"),
+                        
+                        class_="mt-2"
                     ),
-                    ui.output_ui("ecobase_download_status"),
                 ),
+                id="import_tabs"
             ),
-            
-            # EwE Database section
-            ui.card(
-                ui.card_header(
-                    ui.tags.i(class_="bi bi-database me-2"),
-                    "EwE Database Files (.ewemdb)"
-                ),
-                ui.card_body(
-                    ui.p(
-                        "Import models from Ecopath with Ecosim 6.x database files. "
-                        "These are Microsoft Access database files (.ewemdb, .mdb, .accdb)."
-                    ),
-                    
-                    # Check driver support
-                    ui.output_ui("ewemdb_support_status"),
-                    
-                    ui.tags.hr(),
-                    
-                    # File upload
-                    ui.h5("Upload EwE Database"),
-                    ui.input_file(
-                        "ewemdb_upload",
-                        "Select .ewemdb file",
-                        accept=[".ewemdb", ".mdb", ".accdb", ".ewe"],
-                        multiple=False
-                    ),
-                    
-                    ui.input_numeric(
-                        "ewemdb_scenario",
-                        "Scenario Number",
-                        value=1,
-                        min=1
-                    ),
-                    
-                    ui.input_action_button(
-                        "btn_import_ewemdb",
-                        "Import Model",
-                        class_="btn-success mt-3"
-                    ),
-                    
-                    ui.tags.hr(),
-                    
-                    # Metadata preview
-                    ui.h5("File Information"),
-                    ui.output_ui("ewemdb_metadata_ui"),
-                ),
-            ),
-            col_widths=[6, 6]
+            width=400,
+            title="Import Source"
         ),
         
-        ui.tags.hr(class_="my-4"),
-        
-        # Preview section
-        ui.h3("Imported Model Preview", class_="mb-3"),
+        # Main content - Preview pane
+        ui.h3("Model Preview", class_="mb-3"),
         ui.output_ui("import_preview_status"),
         
         ui.navset_card_tab(
@@ -169,15 +257,8 @@ def import_ui():
             ),
         ),
         
-        # Use imported model
-        ui.div(
-            ui.input_action_button(
-                "btn_use_imported",
-                "Use This Model in Ecopath →",
-                class_="btn-primary btn-lg mt-3"
-            ),
-            class_="text-center mt-4"
-        ),
+        title="Import Ecopath Models",
+        fillable=True,
     )
 
 
@@ -192,6 +273,7 @@ def import_server(
     # Reactive values
     ecobase_models = reactive.Value(None)
     imported_params = reactive.Value(None)
+    selected_model_id = reactive.Value(None)
     
     # === EcoBase Functions ===
     
@@ -203,6 +285,7 @@ def import_server(
             ui.notification_show("Fetching models from EcoBase...", duration=3)
             models_df = list_ecobase_models()
             ecobase_models.set(models_df)
+            selected_model_id.set(None)
             ui.notification_show(
                 f"Found {len(models_df)} public models",
                 type="message"
@@ -230,34 +313,20 @@ def import_server(
             if search_term:
                 results = search_ecobase_models(search_term, models_df=all_models)
             else:
-                results = all_models
+                results = all_models.copy()
+            
+            # Reset index before filtering to avoid alignment issues
+            results = results.reset_index(drop=True)
             
             if ecosystem:
-                results = results[
-                    results['ecosystem_type'].str.lower().str.contains(ecosystem.lower(), na=False)
-                ]
+                mask = results['ecosystem_type'].str.lower().str.contains(ecosystem.lower(), na=False)
+                results = results[mask].reset_index(drop=True)
             
             ecobase_models.set(results)
+            selected_model_id.set(None)
             ui.notification_show(f"Found {len(results)} matching models", type="message")
         except Exception as e:
             ui.notification_show(f"Error: {str(e)}", type="error")
-    
-    @output
-    @render.ui
-    def ecobase_results_ui():
-        """Render EcoBase search results."""
-        models = ecobase_models.get()
-        if models is None:
-            return ui.p("Click 'List All Models' or search to see available models.", class_="text-muted")
-        
-        if len(models) == 0:
-            return ui.p("No models found matching your criteria.", class_="text-muted")
-        
-        # Show subset of columns
-        display_cols = ['model_number', 'model_name', 'country', 'ecosystem_type', 'num_groups']
-        display_cols = [c for c in display_cols if c in models.columns]
-        
-        return ui.output_data_frame("ecobase_models_table")
     
     @output
     @render.data_frame
@@ -265,20 +334,67 @@ def import_server(
         """Render EcoBase models as data frame."""
         models = ecobase_models.get()
         if models is None or len(models) == 0:
-            return pd.DataFrame()
+            return render.DataGrid(pd.DataFrame({"Message": ["Click 'All Models' or search to load models"]}))
         
-        display_cols = ['model_number', 'model_name', 'country', 'ecosystem_type', 'num_groups', 'author']
+        display_cols = ['model_number', 'model_name', 'country', 'ecosystem_type', 'num_groups']
         display_cols = [c for c in display_cols if c in models.columns]
-        return render.DataGrid(models[display_cols].head(100), selection_mode="row")
+        return render.DataGrid(
+            models[display_cols].head(100), 
+            selection_mode="row",
+            height="300px"
+        )
+    
+    @reactive.effect
+    def _update_selected_model():
+        """Update selected model when row is clicked."""
+        models = ecobase_models.get()
+        selected_rows = input.ecobase_models_table_selected_rows()
+        
+        if models is not None and selected_rows and len(selected_rows) > 0:
+            row_idx = selected_rows[0]
+            if row_idx < len(models):
+                model_id = models.iloc[row_idx]['model_number']
+                selected_model_id.set(int(model_id))
+    
+    @output
+    @render.ui
+    def ecobase_selected_info():
+        """Show selected model info and download button."""
+        model_id = selected_model_id.get()
+        models = ecobase_models.get()
+        
+        if model_id is None or models is None:
+            return ui.p("Select a model from the table above", class_="text-muted small")
+        
+        # Find model info
+        model_row = models[models['model_number'] == model_id]
+        if len(model_row) == 0:
+            return ui.p("Select a model from the table above", class_="text-muted small")
+        
+        model_name = model_row.iloc[0].get('model_name', f'Model {model_id}')
+        
+        return ui.div(
+            ui.div(
+                ui.tags.strong("Selected: "),
+                f"{model_name} (ID: {model_id})",
+                class_="mb-2"
+            ),
+            ui.input_action_button(
+                "btn_download_ecobase",
+                ui.tags.span(ui.tags.i(class_="bi bi-cloud-download me-1"), "Download Selected Model"),
+                class_="btn-success w-100"
+            ),
+            class_="p-2 bg-light rounded"
+        )
     
     @reactive.effect
     @reactive.event(input.btn_download_ecobase)
     def _download_ecobase():
         """Download and import model from EcoBase."""
         try:
-            model_id = input.ecobase_model_id()
+            model_id = selected_model_id.get()
             if not model_id:
-                ui.notification_show("Enter a model ID", type="warning")
+                ui.notification_show("Select a model first", type="warning")
                 return
             
             ui.notification_show(f"Downloading model {model_id}...", duration=5)
@@ -288,27 +404,24 @@ def import_server(
             
             # Convert to RpathParams
             params = ecobase_to_rpath(model_data_dict)
+            
+            # Debug: count diet values
+            diet_count = 0
+            for col in params.diet.columns:
+                if col != 'Group':
+                    for idx in params.diet.index:
+                        val = params.diet.at[idx, col]
+                        if pd.notna(val) and val > 0:
+                            diet_count += 1
+            
             imported_params.set(params)
             
             ui.notification_show(
-                f"Downloaded model with {len(params.model)} groups",
+                f"Downloaded model: {len(params.model)} groups, {diet_count} diet entries",
                 type="message"
             )
         except Exception as e:
             ui.notification_show(f"Download error: {str(e)}", type="error")
-    
-    @output
-    @render.ui
-    def ecobase_download_status():
-        """Show download status."""
-        params = imported_params.get()
-        if params is not None:
-            return ui.div(
-                ui.tags.i(class_="bi bi-check-circle-fill text-success me-2"),
-                f"Model loaded: {len(params.model)} groups",
-                class_="alert alert-success mt-2"
-            )
-        return None
     
     # === EwE Database Functions ===
     
@@ -357,8 +470,22 @@ def import_server(
             params = read_ewemdb(filepath, scenario=scenario)
             imported_params.set(params)
             
+            # Debug: Check for remarks
+            has_remarks = hasattr(params, 'remarks') and params.remarks is not None
+            remarks_info = ""
+            if has_remarks:
+                # Count non-empty remarks
+                non_empty_count = 0
+                for col in params.remarks.columns:
+                    if col != 'Group':
+                        non_empty_count += sum(1 for v in params.remarks[col] if str(v).strip())
+                remarks_info = f", {non_empty_count} remarks"
+                print(f"[DEBUG] Imported model has remarks: {params.remarks.columns.tolist()}")
+            else:
+                print(f"[DEBUG] Imported model has NO remarks")
+            
             ui.notification_show(
-                f"Imported model with {len(params.model)} groups",
+                f"Imported model with {len(params.model)} groups{remarks_info}",
                 type="message"
             )
         except EwEDatabaseError as e:
@@ -427,7 +554,18 @@ def import_server(
         cols = ['Group', 'Type', 'Biomass', 'PB', 'QB', 'EE', 'ProdCons']
         cols = [c for c in cols if c in params.model.columns]
         
-        return render.DataGrid(params.model[cols])
+        df = params.model[cols].copy()
+        
+        # Get remarks if available
+        remarks_df = params.remarks if hasattr(params, 'remarks') and params.remarks is not None else None
+        
+        # Format for display: handle 9999 values and round to 3 decimals
+        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(
+            df, decimal_places=3, remarks_df=remarks_df
+        )
+        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
+        
+        return render.DataGrid(formatted_df, styles=styles)
     
     @output
     @render.data_frame
@@ -437,7 +575,13 @@ def import_server(
         if params is None:
             return pd.DataFrame()
         
-        return render.DataGrid(params.diet)
+        # Format for display: handle 9999 values and round to 3 decimals
+        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(
+            params.diet.copy(), decimal_places=3
+        )
+        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
+        
+        return render.DataGrid(formatted_df, styles=styles)
     
     @output
     @render.ui
@@ -478,6 +622,34 @@ def import_server(
                 ),
                 col_widths=[4, 4, 4]
             ),
+        )
+    
+    @output
+    @render.ui
+    def use_model_button_ecobase():
+        """Show 'Use Model' button in EcoBase tab when model is loaded."""
+        params = imported_params.get()
+        if params is None:
+            return None
+        
+        return ui.input_action_button(
+            "btn_use_imported",
+            ui.tags.span(ui.tags.i(class_="bi bi-arrow-right-circle me-1"), "Use This Model in Ecopath"),
+            class_="btn-primary w-100"
+        )
+    
+    @output
+    @render.ui
+    def use_model_button_ewe():
+        """Show 'Use Model' button in EwE tab when model is loaded."""
+        params = imported_params.get()
+        if params is None:
+            return None
+        
+        return ui.input_action_button(
+            "btn_use_imported",
+            ui.tags.span(ui.tags.i(class_="bi bi-arrow-right-circle me-1"), "Use This Model in Ecopath"),
+            class_="btn-primary w-100"
         )
     
     @reactive.effect

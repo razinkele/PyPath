@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<doc>
+  <Platform>Microsoft Windows NT 10.0.26200.0</Platform>
+  <Is64BitOS>True</Is64BitOS>
+  <ModelName>LT2022_0.5ST_final7</ModelName>
+  <Created>10:28:08 PM Sunday, December 7, 2025</Created>
+<Session_Started
+  Date="10:28:08 PM Sunday, December 7, 2025">
+  <Model>LT2022_0.5ST_final7</Model>
+  <LogFile>C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Data\LT2022_0.5ST_final7_log.xml</LogFile>
+  <Is64BitExe>True</Is64BitExe>
+  <CultureOS>English (United States)</CultureOS>
+  <CultureUI>English (United Kingdom)</CultureUI>
+  <DecimalSeparator>.</DecimalSeparator>
+</Session_Started>
+<Information_Message
+  Date="10:28:08 PM Sunday, December 7, 2025">
+  <Message>Ecopath model 'C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Data\LT2022_0.5ST_final7.eweaccdb' loaded.</Message>
+  <Message_Type>DataAddedOrRemoved</Message_Type>
+  <Message_Source>Ecopath</Message_Source>
+  <Message_DataType>NotSet</Message_DataType>
+</Information_Message>
+<Log_Message
+  Date="10:29:00 PM Sunday, December 7, 2025">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="10:29:00 PM Sunday, December 7, 2025">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="10:29:00 PM Sunday, December 7, 2025">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="10:29:00 PM Sunday, December 7, 2025">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="10:29:00 PM Sunday, December 7, 2025">
+  <Message>Ecosim scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="10:29:00 PM Sunday, December 7, 2025">
+  <Message>Model closed</Message>
+</Log_Message>
+<Session_Started
+  Date="10:34:38 PM Sunday, December 7, 2025">
+  <Model>LT2022_0.5ST_final7</Model>
+  <LogFile>C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Data\LT2022_0.5ST_final7_log.xml</LogFile>
+  <Is64BitExe>True</Is64BitExe>
+  <CultureOS>English (United States)</CultureOS>
+  <CultureUI>English (United Kingdom)</CultureUI>
+  <DecimalSeparator>.</DecimalSeparator>
+</Session_Started>
+<Information_Message
+  Date="10:34:38 PM Sunday, December 7, 2025">
+  <Message>Ecopath model 'C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Data\LT2022_0.5ST_final7.eweaccdb' loaded.</Message>
+  <Message_Type>DataAddedOrRemoved</Message_Type>
+  <Message_Source>Ecopath</Message_Source>
+  <Message_DataType>NotSet</Message_DataType>
+</Information_Message>
+<Log_Message
+  Date="10:34:41 PM Sunday, December 7, 2025">
+  <Message>Unable to obtain server time</Message>
+</Log_Message>
+<Information_Message
+  Date="10:41:48 PM Sunday, December 7, 2025">
+  <Message>Ecopath run completed.</Message>
+  <Message_Type>Any</Message_Type>
+  <Message_Source>Ecopath</Message_Source>
+  <Message_DataType>NotSet</Message_DataType>
+</Information_Message>
+<Entry>
+  <Formcannotberesolved>frmEwE6 cmdNavigate OnInvoke</Formcannotberesolved>
+</Entry>
+</doc>

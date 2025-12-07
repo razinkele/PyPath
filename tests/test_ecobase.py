@@ -322,6 +322,17 @@ class TestEcobaseToRpath:
         assert len(params.model) == 2
         assert 'Phytoplankton' in params.model['Group'].values
         assert 'Zooplankton' in params.model['Group'].values
+        
+        # Check diet was converted
+        assert 'Zooplankton' in params.diet.columns, "Zooplankton should be a predator column"
+        
+        # Find Phytoplankton row and check diet value
+        phyto_row = params.diet[params.diet['Group'] == 'Phytoplankton']
+        assert len(phyto_row) == 1, "Should have one Phytoplankton row"
+        phyto_idx = phyto_row.index[0]
+        diet_val = params.diet.at[phyto_idx, 'Zooplankton']
+        assert pd.notna(diet_val), f"Diet value should not be NaN, got: {diet_val}"
+        assert diet_val == 1.0, f"Expected 1.0, got: {diet_val}"
     
     def test_convert_with_detritus(self):
         """Test converting model with detritus."""

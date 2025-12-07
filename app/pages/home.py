@@ -9,7 +9,6 @@ def home_ui():
         ui.div(
             # Hero section
             ui.div(
-                ui.h1("Welcome to PyPath", class_="display-4"),
                 ui.p(
                     "A Python implementation of Ecopath with Ecosim for ecosystem modeling",
                     class_="lead"
@@ -49,7 +48,7 @@ def home_ui():
                         ui.tags.ul(
                             ui.tags.li("Connect to EcoBase database (350+ models)"),
                             ui.tags.li("Search and download published models"),
-                            ui.tags.li("Import EwE database files (.ewemdb)"),
+                            ui.tags.li("Import EwE database files (.ewemdb, .eweaccdb)"),
                             ui.tags.li("Automatic format conversion"),
                             ui.tags.li("Pre-configured ecosystem models"),
                         ),

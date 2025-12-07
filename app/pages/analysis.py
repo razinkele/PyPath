@@ -61,7 +61,7 @@ def analysis_ui():
                 ),
                 
                 ui.h5("Food Web Structure", class_="mt-4"),
-                ui.output_plot("foodweb_plot", height="500px"),
+                ui.output_plot("analysis_foodweb_plot", height="500px"),
             ),
             
             # Trophic Analysis
@@ -163,7 +163,7 @@ def analysis_ui():
                 ui.h4("Ecopath Balance Diagnostics", class_="mt-3"),
                 ui.p("Check mass balance status and identify potential issues."),
                 
-                ui.output_ui("balance_status"),
+                ui.output_ui("analysis_balance_status"),
                 
                 ui.layout_columns(
                     ui.card(
@@ -175,7 +175,7 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("EE Values"),
                         ui.card_body(
-                            ui.output_plot("ee_plot", height="400px"),
+                            ui.output_plot("analysis_ee_plot", height="400px"),
                         ),
                     ),
                     col_widths=[5, 7]
@@ -386,7 +386,7 @@ def analysis_server(
     
     @output
     @render.plot
-    def foodweb_plot():
+    def analysis_foodweb_plot():
         """Plot food web structure."""
         model = get_balanced_model()
         if model is None:
@@ -638,7 +638,7 @@ def analysis_server(
     
     @output
     @render.ui
-    def balance_status():
+    def analysis_balance_status():
         """Show balance check status."""
         model = get_balanced_model()
         if model is None:
@@ -683,7 +683,7 @@ def analysis_server(
     
     @output
     @render.plot
-    def ee_plot():
+    def analysis_ee_plot():
         """Plot ecotrophic efficiency values."""
         model = get_balanced_model()
         if model is None:

@@ -3,6 +3,7 @@
 from shiny import Inputs, Outputs, Session, reactive, render, ui, req
 import pandas as pd
 import numpy as np
+from typing import Optional
 
 # Import pypath
 import sys
@@ -13,6 +14,101 @@ from pypath.core.params import create_rpath_params, check_rpath_params, RpathPar
 from pypath.core.ecopath import rpath, Rpath
 
 
+# Constants for "no data" handling
+NO_DATA_VALUE = 9999
+NO_DATA_STYLE = {"background-color": "#f0f0f0", "color": "#999"}  # Light gray for no data cells
+REMARK_STYLE = {"background-color": "#fff9e6", "border-bottom": "2px dashed #f0ad4e"}  # Yellow tint with dashed border for cells with remarks
+
+
+def format_dataframe_for_display(
+    df: pd.DataFrame, 
+    decimal_places: int = 3,
+    remarks_df: Optional[pd.DataFrame] = None
+) -> tuple:
+    """
+    Format a DataFrame for display by:
+    - Replacing 9999 (no data) values with empty string
+    - Rounding numbers to specified decimal places
+    - Adding remark indicators (asterisk) to cells with comments
+    
+    Args:
+        df: DataFrame to format
+        decimal_places: Number of decimal places for rounding
+        remarks_df: Optional DataFrame with remarks (same structure as df)
+    
+    Returns:
+        tuple: (formatted_df, no_data_mask_df, remarks_mask_df)
+        - formatted_df: DataFrame with formatted values
+        - no_data_mask_df: Boolean DataFrame where True indicates original 9999 value
+        - remarks_mask_df: Boolean DataFrame where True indicates cell has a remark
+    """
+    formatted = df.copy()
+    no_data_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    remarks_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    
+    for col in formatted.columns:
+        if formatted[col].dtype in ['float64', 'float32', 'int64', 'int32'] or col not in ['Group', 'Type']:
+            # Convert to numeric where possible
+            numeric_col = pd.to_numeric(formatted[col], errors='coerce')
+            
+            # Mark 9999 values as no data
+            is_no_data = (numeric_col == NO_DATA_VALUE) | (numeric_col == -9999)
+            no_data_mask[col] = is_no_data
+            
+            # Replace 9999 with NaN, then round
+            numeric_col = numeric_col.replace([NO_DATA_VALUE, -9999], np.nan)
+            
+            # Round non-NaN values
+            if col not in ['Group', 'Type']:
+                numeric_col = numeric_col.round(decimal_places)
+            
+            formatted[col] = numeric_col
+    
+    # Check for remarks
+    if remarks_df is not None:
+        for col in formatted.columns:
+            if col in remarks_df.columns:
+                for row_idx in range(len(formatted)):
+                    if row_idx < len(remarks_df):
+                        remark = remarks_df.iloc[row_idx].get(col, '')
+                        if isinstance(remark, str) and remark.strip():
+                            remarks_mask.iloc[row_idx, list(formatted.columns).index(col)] = True
+    
+    return formatted, no_data_mask, remarks_mask
+
+
+def create_cell_styles(
+    df: pd.DataFrame, 
+    no_data_mask: pd.DataFrame,
+    remarks_mask: Optional[pd.DataFrame] = None
+) -> list:
+    """
+    Create cell style rules for DataGrid based on no-data mask and remarks mask.
+    
+    Returns list of style dictionaries for styled cells.
+    """
+    styles = []
+    for row_idx in range(len(df)):
+        for col_idx, col in enumerate(df.columns):
+            # Check for no-data cells (priority)
+            if col in no_data_mask.columns and no_data_mask.iloc[row_idx][col]:
+                styles.append({
+                    "location": "body",
+                    "rows": row_idx,
+                    "cols": col_idx,
+                    "style": NO_DATA_STYLE
+                })
+            # Check for cells with remarks
+            elif remarks_mask is not None and col in remarks_mask.columns and remarks_mask.iloc[row_idx][col]:
+                styles.append({
+                    "location": "body",
+                    "rows": row_idx,
+                    "cols": col_idx,
+                    "style": REMARK_STYLE
+                })
+    return styles
+
+
 def ecopath_ui():
     """Ecopath model page UI."""
     return ui.page_fluid(
@@ -21,48 +117,7 @@ def ecopath_ui():
         ui.layout_sidebar(
             # Sidebar for model setup
             ui.sidebar(
-                ui.h4("Model Setup"),
-                
-                # Model name
-                ui.input_text("eco_name", "Model Name", value="My Ecosystem"),
-                
-                ui.tags.hr(),
-                
-                # Group definition section
-                ui.h5("Define Groups"),
-                ui.input_text_area(
-                    "group_names",
-                    "Group Names (one per line)",
-                    value="Phytoplankton\nZooplankton\nSmall Fish\nLarge Fish\nDetritus\nFleet",
-                    rows=6
-                ),
-                ui.input_text_area(
-                    "group_types",
-                    "Group Types (one per line: 1=producer, 0=consumer, 2=detritus, 3=fleet)",
-                    value="1\n0\n0\n0\n2\n3",
-                    rows=6
-                ),
-                
-                ui.input_action_button(
-                    "btn_create_params",
-                    "Create Parameter Template",
-                    class_="btn-primary w-100 mt-3"
-                ),
-                
-                ui.tags.hr(),
-                
-                # File upload
-                ui.h5("Or Load from File"),
-                ui.input_file(
-                    "upload_params",
-                    "Upload Parameters (CSV)",
-                    accept=[".csv"],
-                    multiple=False
-                ),
-                
-                ui.tags.hr(),
-                
-                # Balance model
+                # Run Model section at the top
                 ui.h5("Run Model"),
                 ui.input_action_button(
                     "btn_balance",
@@ -76,6 +131,55 @@ def ecopath_ui():
                     class_="btn-outline-secondary w-100 mt-2"
                 ),
                 
+                ui.tags.hr(),
+                
+                # Collapsible Model Setup section
+                ui.tags.details(
+                    ui.tags.summary(
+                        ui.tags.strong("Model Setup"),
+                        style="cursor: pointer; padding: 5px 0;"
+                    ),
+                    ui.div(
+                        # Model name
+                        ui.input_text("eco_name", "Model Name", value="My Ecosystem"),
+                        
+                        ui.tags.hr(),
+                        
+                        # Group definition section
+                        ui.h6("Define Groups"),
+                        ui.input_text_area(
+                            "group_names",
+                            "Group Names (one per line)",
+                            value="Phytoplankton\nZooplankton\nSmall Fish\nLarge Fish\nDetritus\nFleet",
+                            rows=6
+                        ),
+                        ui.input_text_area(
+                            "group_types",
+                            "Group Types (one per line: 1=producer, 0=consumer, 2=detritus, 3=fleet)",
+                            value="1\n0\n0\n0\n2\n3",
+                            rows=6
+                        ),
+                        
+                        ui.input_action_button(
+                            "btn_create_params",
+                            "Create Parameter Template",
+                            class_="btn-primary w-100 mt-3"
+                        ),
+                        
+                        ui.tags.hr(),
+                        
+                        # File upload
+                        ui.h6("Or Load from File"),
+                        ui.input_file(
+                            "upload_params",
+                            "Upload Parameters (CSV)",
+                            accept=[".csv"],
+                            multiple=False
+                        ),
+                        style="padding-top: 10px;"
+                    )
+                ),
+                
                 width=300,
             ),
             
@@ -84,18 +188,34 @@ def ecopath_ui():
                 ui.nav_panel(
                     "Model Parameters",
                     ui.h4("Basic Parameters", class_="mt-3"),
-                    ui.output_ui("model_params_table"),
+                    # Legend for cell styling
+                    ui.div(
+                        ui.tags.span(
+                            ui.tags.span("", style="display: inline-block; width: 16px; height: 16px; background-color: #f0f0f0; border: 1px solid #ccc; margin-right: 4px; vertical-align: middle;"),
+                            " No data (was 9999)",
+                            style="margin-right: 16px; font-size: 0.85em; color: #666;"
+                        ),
+                        ui.tags.span(
+                            ui.tags.span("", style="display: inline-block; width: 16px; height: 16px; background-color: #fff9e6; border-bottom: 2px dashed #f0ad4e; border-left: 1px solid #ccc; border-right: 1px solid #ccc; border-top: 1px solid #ccc; margin-right: 4px; vertical-align: middle;"),
+                            " Has remark (from EwE file)",
+                            style="font-size: 0.85em; color: #666;"
+                        ),
+                        class_="mb-2"
+                    ),
+                    ui.output_data_frame("model_params_table"),
+                    # Show remarks panel if any exist
+                    ui.output_ui("remarks_panel"),
                 ),
                 ui.nav_panel(
                     "Diet Matrix",
                     ui.h4("Diet Composition", class_="mt-3"),
                     ui.p("Enter diet fractions (columns must sum to 1.0 for each predator)"),
-                    ui.output_ui("diet_matrix_table"),
+                    ui.output_data_frame("diet_matrix_table"),
                 ),
                 ui.nav_panel(
                     "Fisheries",
                     ui.h4("Landings & Discards", class_="mt-3"),
-                    ui.output_ui("fisheries_table"),
+                    ui.output_data_frame("fisheries_table"),
                 ),
                 ui.nav_panel(
                     "Model Results",
@@ -130,6 +250,30 @@ def ecopath_server(
     params = reactive.Value(None)
     balanced_model = reactive.Value(None)
     
+    # Watch for changes in model_data (from imports or other sources)
+    @reactive.effect
+    def _sync_model_data():
+        """Sync local params with shared model_data."""
+        imported = model_data.get()
+        if imported is not None:
+            # Check if it's an RpathParams (not a balanced Rpath model)
+            if hasattr(imported, 'model') and hasattr(imported, 'diet'):
+                # It's RpathParams - use it
+                params.set(imported)
+                n_groups = len(imported.model)
+                n_diet = imported.diet.iloc[:, 1:].notna().sum().sum()
+                ui.notification_show(
+                    f"Loaded model: {n_groups} groups, {n_diet} diet values",
+                    type="message"
+                )
+            elif hasattr(imported, 'params'):
+                # It's a balanced Rpath model - extract params
+                params.set(imported.params)
+                ui.notification_show(
+                    "Loaded balanced model params",
+                    type="message"
+                )
+    
     @reactive.effect
     @reactive.event(input.btn_create_params)
     def _create_params():
@@ -160,165 +304,209 @@ def ecopath_server(
             ui.notification_show(f"Error creating parameters: {str(e)}", type="error")
     
     @output
-    @render.ui
+    @render.data_frame
     def model_params_table():
         """Render editable model parameters table."""
         p = params.get()
         if p is None:
-            return ui.p("Click 'Create Parameter Template' to start, or upload a file.", 
-                       class_="text-muted")
+            return render.DataGrid(pd.DataFrame({'Message': ['Load or create a model first']}))
         
-        # Create input fields for each parameter
-        model_df = p.model
-        n_groups = len(model_df)
+        # Select key columns for display
+        display_cols = ['Group', 'Type', 'Biomass', 'PB', 'QB', 'EE', 'Unassim', 'BioAcc']
+        cols = [c for c in display_cols if c in p.model.columns]
         
-        # Build table rows
-        rows = []
-        for i in range(n_groups):
-            group = model_df.loc[i, 'Group']
-            gtype = model_df.loc[i, 'Type']
-            
-            # Different inputs based on group type
-            if gtype == 3:  # Fleet - minimal inputs
-                row = ui.tags.tr(
-                    ui.tags.td(group),
-                    ui.tags.td(f"Fleet ({gtype})"),
-                    ui.tags.td("-"),
-                    ui.tags.td("-"),
-                    ui.tags.td("-"),
-                    ui.tags.td("-"),
-                )
-            elif gtype == 2:  # Detritus
-                row = ui.tags.tr(
-                    ui.tags.td(group),
-                    ui.tags.td(f"Detritus ({gtype})"),
-                    ui.tags.td(
-                        ui.input_numeric(f"biomass_{i}", None, value=100.0, min=0, width="100px")
-                    ),
-                    ui.tags.td("-"),
-                    ui.tags.td("-"),
-                    ui.tags.td("-"),
-                )
-            else:  # Living groups
-                row = ui.tags.tr(
-                    ui.tags.td(group),
-                    ui.tags.td(f"{'Producer' if gtype == 1 else 'Consumer'} ({gtype})"),
-                    ui.tags.td(
-                        ui.input_numeric(f"biomass_{i}", None, value=None, min=0, width="100px")
-                    ),
-                    ui.tags.td(
-                        ui.input_numeric(f"pb_{i}", None, value=None, min=0, width="100px")
-                    ),
-                    ui.tags.td(
-                        ui.input_numeric(f"qb_{i}", None, value=None, min=0, width="100px")
-                    ) if gtype < 1 else ui.tags.td("-"),
-                    ui.tags.td(
-                        ui.input_numeric(f"ee_{i}", None, value=None, min=0, max=1, width="100px")
-                    ),
-                )
-            rows.append(row)
+        df = p.model[cols].copy()
         
-        return ui.tags.table(
-            ui.tags.thead(
-                ui.tags.tr(
-                    ui.tags.th("Group"),
-                    ui.tags.th("Type"),
-                    ui.tags.th("Biomass"),
-                    ui.tags.th("P/B"),
-                    ui.tags.th("Q/B"),
-                    ui.tags.th("EE"),
-                )
-            ),
-            ui.tags.tbody(*rows),
-            class_="table table-striped table-hover"
+        # Get remarks if available
+        remarks_df = p.remarks if hasattr(p, 'remarks') and p.remarks is not None else None
+        
+        # Format for display: handle 9999 values, round to 3 decimals, mark cells with remarks
+        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(
+            df, decimal_places=3, remarks_df=remarks_df
         )
+        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
+        
+        # Set column widths - make Group column wider
+        col_widths = {"Group": "180px"}
+        
+        return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles, width="100%")
     
     @output
     @render.ui
+    def remarks_panel():
+        """Show remarks if any exist in the model."""
+        p = params.get()
+        if p is None:
+            return None
+        
+        remarks_df = p.remarks if hasattr(p, 'remarks') and p.remarks is not None else None
+        if remarks_df is None:
+            return ui.p(
+                ui.tags.i(class_="bi bi-info-circle me-1"),
+                "No remarks available. Remarks are imported from EwE database files.",
+                class_="text-muted small mt-3"
+            )
+        
+        # Build list of non-empty remarks
+        remarks_list = []
+        for idx, row in remarks_df.iterrows():
+            group_name = row.get('Group', f'Row {idx}')
+            for col in remarks_df.columns:
+                if col != 'Group':
+                    remark = row.get(col, '')
+                    if isinstance(remark, str) and remark.strip():
+                        remarks_list.append({
+                            'group': group_name,
+                            'parameter': col,
+                            'remark': remark.strip()
+                        })
+        
+        if not remarks_list:
+            return ui.p(
+                ui.tags.i(class_="bi bi-info-circle me-1"),
+                "No remarks found in this model.",
+                class_="text-muted small mt-3"
+            )
+        
+        # Show remarks in a collapsible panel
+        return ui.div(
+            ui.tags.details(
+                ui.tags.summary(
+                    ui.tags.i(class_="bi bi-chat-quote me-1"),
+                    f"Remarks ({len(remarks_list)} entries)",
+                    style="cursor: pointer; font-weight: 500; color: #f0ad4e;"
+                ),
+                ui.div(
+                    *[
+                        ui.div(
+                            ui.tags.strong(f"{r['group']} - {r['parameter']}: "),
+                            r['remark'],
+                            class_="small mb-1",
+                            style="padding-left: 10px; border-left: 2px solid #f0ad4e;"
+                        )
+                        for r in remarks_list
+                    ],
+                    style="max-height: 200px; overflow-y: auto; padding: 10px; background: #fff9e6; border-radius: 4px; margin-top: 8px;"
+                )
+            ),
+            class_="mt-3"
+        )
+    
+    @output
+    @render.data_frame
     def diet_matrix_table():
         """Render editable diet matrix."""
         p = params.get()
         if p is None:
-            return ui.p("Create or load parameters first.", class_="text-muted")
+            return render.DataGrid(pd.DataFrame({'Message': ['Load or create a model first']}))
         
-        diet_df = p.diet
+        # Format for display: handle 9999 values and round to 3 decimals
+        df = p.diet.copy()
+        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(df, decimal_places=3)
+        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
         
-        # Build header with predator names
-        header_cells = [ui.tags.th("Prey / Predator")]
-        pred_cols = [c for c in diet_df.columns if c != 'Group']
-        for pred in pred_cols:
-            header_cells.append(ui.tags.th(pred))
-        
-        # Build rows
-        rows = []
-        for i, row_data in diet_df.iterrows():
-            prey = row_data['Group']
-            cells = [ui.tags.td(prey)]
-            
-            for j, pred in enumerate(pred_cols):
-                input_id = f"diet_{i}_{j}"
-                cells.append(
-                    ui.tags.td(
-                        ui.input_numeric(input_id, None, value=0.0, min=0, max=1, 
-                                        step=0.01, width="80px")
-                    )
-                )
-            rows.append(ui.tags.tr(*cells))
-        
-        return ui.tags.div(
-            ui.tags.table(
-                ui.tags.thead(ui.tags.tr(*header_cells)),
-                ui.tags.tbody(*rows),
-                class_="table table-sm table-bordered"
-            ),
-            style="overflow-x: auto;"
-        )
+        return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles)
     
     @output
-    @render.ui
+    @render.data_frame
     def fisheries_table():
         """Render fisheries (landings/discards) table."""
         p = params.get()
         if p is None:
-            return ui.p("Create or load parameters first.", class_="text-muted")
+            return render.DataGrid(pd.DataFrame({'Message': ['Load or create a model first']}))
         
         model_df = p.model
         
-        # Find fleet columns
+        # Find fleet columns by looking for columns that are also Type==3 groups
         fleet_groups = model_df[model_df['Type'] == 3]['Group'].tolist()
         
-        if not fleet_groups:
-            return ui.p("No fleets defined in the model.", class_="text-muted")
+        # Also check for columns that look like fleet names (not standard params)
+        standard_cols = {'Group', 'Type', 'Biomass', 'PB', 'QB', 'EE', 'ProdCons', 
+                        'BioAcc', 'Unassim', 'DetInput', 'Detritus'}
+        potential_fleets = [c for c in model_df.columns 
+                          if c not in standard_cols and not c.endswith('.disc')]
         
-        # Build table
-        header_cells = [ui.tags.th("Group")]
-        for fleet in fleet_groups:
-            header_cells.append(ui.tags.th(f"{fleet} Landings"))
-            header_cells.append(ui.tags.th(f"{fleet} Discards"))
+        # Use fleet groups if available, otherwise use potential fleet columns
+        if fleet_groups:
+            fleet_names = fleet_groups
+        elif potential_fleets:
+            fleet_names = potential_fleets
+        else:
+            return render.DataGrid(pd.DataFrame({'Message': ['No fleets defined in the model.']}))
         
-        rows = []
-        living_groups = model_df[model_df['Type'] < 2]['Group'].tolist()
+        # Build a DataFrame with Group + fleet landings/discards
+        living_groups = model_df[model_df['Type'] < 2]
         
-        for i, group in enumerate(living_groups):
-            cells = [ui.tags.td(group)]
-            for j, fleet in enumerate(fleet_groups):
-                cells.append(
-                    ui.tags.td(
-                        ui.input_numeric(f"landing_{i}_{j}", None, value=0.0, min=0, width="80px")
-                    )
-                )
-                cells.append(
-                    ui.tags.td(
-                        ui.input_numeric(f"discard_{i}_{j}", None, value=0.0, min=0, width="80px")
-                    )
-                )
-            rows.append(ui.tags.tr(*cells))
+        data = {'Group': living_groups['Group'].tolist()}
+        for fleet in fleet_names:
+            # Landings
+            if fleet in model_df.columns:
+                data[f'{fleet}_Land'] = living_groups.index.map(
+                    lambda idx: model_df.at[idx, fleet] if pd.notna(model_df.at[idx, fleet]) else None
+                ).tolist()
+            else:
+                data[f'{fleet}_Land'] = [None] * len(living_groups)
+            
+            # Discards
+            disc_col = f"{fleet}.disc"
+            if disc_col in model_df.columns:
+                data[f'{fleet}_Disc'] = living_groups.index.map(
+                    lambda idx: model_df.at[idx, disc_col] if pd.notna(model_df.at[idx, disc_col]) else None
+                ).tolist()
+            else:
+                data[f'{fleet}_Disc'] = [None] * len(living_groups)
         
-        return ui.tags.table(
-            ui.tags.thead(ui.tags.tr(*header_cells)),
-            ui.tags.tbody(*rows),
-            class_="table table-sm table-bordered"
-        )
+        df = pd.DataFrame(data)
+        # Format for display: handle 9999 values and round to 3 decimals
+        formatted_df, no_data_mask, remarks_mask = format_dataframe_for_display(df, decimal_places=3)
+        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
+        
+        return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles)
+    
+    # Track cell edits from DataGrids and update params
+    @reactive.effect
+    def _handle_model_params_edit():
+        """Handle edits to model parameters table."""
+        edit = input.model_params_table_cell_edit()
+        if edit is None:
+            return
+        
+        p = params.get()
+        if p is None:
+            return
+        
+        row = edit['row']
+        col_name = edit['column']
+        new_value = edit['value']
+        
+        # Update the params
+        if col_name in p.model.columns and col_name != 'Group':
+            try:
+                p.model.loc[row, col_name] = float(new_value) if new_value else np.nan
+            except (ValueError, TypeError):
+                pass
+    
+    @reactive.effect
+    def _handle_diet_matrix_edit():
+        """Handle edits to diet matrix table."""
+        edit = input.diet_matrix_table_cell_edit()
+        if edit is None:
+            return
+        
+        p = params.get()
+        if p is None:
+            return
+        
+        row = edit['row']
+        col_name = edit['column']
+        new_value = edit['value']
+        
+        # Update the diet matrix
+        if col_name in p.diet.columns and col_name != 'Group':
+            try:
+                p.diet.loc[row, col_name] = float(new_value) if new_value else 0.0
+            except (ValueError, TypeError):
+                pass
     
     @reactive.effect
     @reactive.event(input.btn_balance)
@@ -330,60 +518,43 @@ def ecopath_server(
             return
         
         try:
-            # Update parameters from inputs
-            model_df = p.model.copy()
-            n_groups = len(model_df)
-            
-            for i in range(n_groups):
-                gtype = model_df.loc[i, 'Type']
-                
-                if gtype < 2:  # Living groups
-                    biomass_val = input[f"biomass_{i}"]()
-                    pb_val = input[f"pb_{i}"]()
-                    ee_val = input[f"ee_{i}"]()
-                    
-                    if biomass_val is not None:
-                        model_df.loc[i, 'Biomass'] = biomass_val
-                    if pb_val is not None:
-                        model_df.loc[i, 'PB'] = pb_val
-                    if ee_val is not None:
-                        model_df.loc[i, 'EE'] = ee_val
-                    
-                    if gtype < 1:  # Consumer
-                        qb_val = input[f"qb_{i}"]()
-                        if qb_val is not None:
-                            model_df.loc[i, 'QB'] = qb_val
-                
-                elif gtype == 2:  # Detritus
-                    biomass_val = input[f"biomass_{i}"]()
-                    if biomass_val is not None:
-                        model_df.loc[i, 'Biomass'] = biomass_val
-            
-            # Update diet matrix
-            diet_df = p.diet.copy()
-            pred_cols = [c for c in diet_df.columns if c != 'Group']
-            
-            for i in range(len(diet_df)):
-                for j, pred in enumerate(pred_cols):
-                    input_id = f"diet_{i}_{j}"
-                    val = input[input_id]()
-                    if val is not None:
-                        diet_df.loc[i, pred] = val
-            
-            # Create updated params
-            p.model = model_df
-            p.diet = diet_df
-            
             # Set defaults for missing values
-            p.model['BioAcc'] = p.model['BioAcc'].fillna(0.0)
-            p.model['Unassim'] = p.model['Unassim'].fillna(0.2)
+            if 'BioAcc' not in p.model.columns:
+                p.model['BioAcc'] = 0.0
+            else:
+                p.model['BioAcc'] = p.model['BioAcc'].fillna(0.0)
             
-            # Set detritus fate to first detritus group
+            if 'Unassim' not in p.model.columns:
+                p.model['Unassim'] = 0.2
+            else:
+                p.model['Unassim'] = p.model['Unassim'].fillna(0.2)
+            
+            if 'DetInput' not in p.model.columns:
+                p.model['DetInput'] = 0.0
+            else:
+                p.model['DetInput'] = p.model['DetInput'].fillna(0.0)
+            
+            # For living groups, set a default Unassim if needed
+            living_mask = p.model['Type'] < 2
+            p.model.loc[living_mask & (p.model['Unassim'] == 0), 'Unassim'] = 0.2
+            
+            # Set detritus fate columns if missing
             det_groups = p.model[p.model['Type'] == 2]['Group'].tolist()
             if det_groups:
                 for det in det_groups:
-                    if det in p.model.columns:
-                        p.model[det] = p.model[det].fillna(1.0 / len(det_groups))
+                    if det not in p.model.columns:
+                        # Add the detritus fate column
+                        p.model[det] = np.nan
+                    
+                    # Set default detritus fate for living/detritus groups
+                    n_det = len(det_groups)
+                    for idx in p.model.index:
+                        gtype = p.model.loc[idx, 'Type']
+                        if gtype < 3:  # Not a fleet
+                            if pd.isna(p.model.loc[idx, det]):
+                                p.model.loc[idx, det] = 1.0 / n_det
+                        else:
+                            p.model.loc[idx, det] = np.nan
             
             # Balance the model
             model = rpath(p, eco_name=input.eco_name())
@@ -393,6 +564,8 @@ def ecopath_server(
             ui.notification_show("Model balanced successfully!", type="message")
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             ui.notification_show(f"Error balancing model: {str(e)}", type="error")
     
     @output

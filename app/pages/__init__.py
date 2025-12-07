@@ -1,6 +1,6 @@
-"""Page modules for PyPath dashboard."""
+"""Page modules for the PyPath dashboard."""
 
-from app.pages import (
+from pages import (
     home,
     ecopath,
     ecosim,
