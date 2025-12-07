@@ -36,9 +36,31 @@ def home_ui():
                 class_="p-5 mb-4 bg-light rounded-3"
             ),
             
-            # Feature cards
+            # Feature cards - Row 1
             ui.h2("Features", class_="mb-4"),
             ui.layout_columns(
+                # Data Import card
+                ui.card(
+                    ui.card_header(
+                        ui.tags.i(class_="bi bi-cloud-download me-2"),
+                        "Data Import"
+                    ),
+                    ui.card_body(
+                        ui.tags.ul(
+                            ui.tags.li("Connect to EcoBase database (350+ models)"),
+                            ui.tags.li("Search and download published models"),
+                            ui.tags.li("Import EwE database files (.ewemdb)"),
+                            ui.tags.li("Automatic format conversion"),
+                            ui.tags.li("Pre-configured ecosystem models"),
+                        ),
+                        ui.input_action_button(
+                            "btn_goto_import",
+                            "Import Model",
+                            class_="btn-success mt-3"
+                        )
+                    ),
+                ),
+                
                 # Ecopath card
                 ui.card(
                     ui.card_header(
@@ -47,11 +69,11 @@ def home_ui():
                     ),
                     ui.card_body(
                         ui.tags.ul(
-                            ui.tags.li("Define functional groups and food web structure"),
-                            ui.tags.li("Set biomass, production, and consumption rates"),
+                            ui.tags.li("Define functional groups and food web"),
+                            ui.tags.li("Set biomass, P/B, Q/B ratios"),
                             ui.tags.li("Automatic mass-balance calculations"),
                             ui.tags.li("Trophic level computation"),
-                            ui.tags.li("Parameter validation and diagnostics"),
+                            ui.tags.li("Multi-stanza age structure"),
                         ),
                         ui.input_action_button(
                             "btn_goto_ecopath",
@@ -71,14 +93,40 @@ def home_ui():
                         ui.tags.ul(
                             ui.tags.li("Dynamic ecosystem simulations"),
                             ui.tags.li("Foraging arena functional response"),
-                            ui.tags.li("Fishing scenarios and effort forcing"),
+                            ui.tags.li("Fishing scenarios and forcing"),
                             ui.tags.li("Environmental forcing effects"),
-                            ui.tags.li("Multiple integration methods (RK4, AB)"),
+                            ui.tags.li("Multiple integration methods"),
                         ),
                         ui.input_action_button(
                             "btn_goto_ecosim",
                             "Run Simulation",
                             class_="btn-primary mt-3"
+                        )
+                    ),
+                ),
+                col_widths=[4, 4, 4]
+            ),
+            
+            # Feature cards - Row 2
+            ui.layout_columns(
+                # Analysis card
+                ui.card(
+                    ui.card_header(
+                        ui.tags.i(class_="bi bi-diagram-2 me-2"),
+                        "Network Analysis"
+                    ),
+                    ui.card_body(
+                        ui.tags.ul(
+                            ui.tags.li("Food web topology metrics"),
+                            ui.tags.li("Ecosystem health indicators"),
+                            ui.tags.li("Trophic impact analysis (MTI)"),
+                            ui.tags.li("Keystone species identification"),
+                            ui.tags.li("Lindeman spine diagrams"),
+                        ),
+                        ui.input_action_button(
+                            "btn_goto_analysis",
+                            "Run Analysis",
+                            class_="btn-info mt-3"
                         )
                     ),
                 ),
@@ -104,7 +152,30 @@ def home_ui():
                         )
                     ),
                 ),
-                col_widths=[4, 4, 4]
+                
+                # About card
+                ui.card(
+                    ui.card_header(
+                        ui.tags.i(class_="bi bi-info-circle me-2"),
+                        "About PyPath"
+                    ),
+                    ui.card_body(
+                        ui.tags.ul(
+                            ui.tags.li("Python port of R Rpath package"),
+                            ui.tags.li("NOAA/EwE ecosystem modeling"),
+                            ui.tags.li("Open source (MIT License)"),
+                            ui.tags.li("GitHub repository"),
+                            ui.tags.li("Active development"),
+                        ),
+                        ui.input_action_button(
+                            "btn_goto_about",
+                            "Learn More",
+                            class_="btn-secondary mt-3"
+                        )
+                    ),
+                ),
+                col_widths=[4, 4, 4],
+                class_="mt-4"
             ),
             
             # Quick start section
@@ -162,6 +233,11 @@ def home_server(input: Inputs, output: Outputs, session: Session):
     """Home page server logic."""
     
     @reactive.effect
+    @reactive.event(input.btn_goto_import)
+    def _goto_import():
+        ui.update_navs("main_navbar", selected="Data Import")
+    
+    @reactive.effect
     @reactive.event(input.btn_start_ecopath, input.btn_goto_ecopath)
     def _goto_ecopath():
         ui.update_navs("main_navbar", selected="Ecopath Model")
@@ -172,6 +248,16 @@ def home_server(input: Inputs, output: Outputs, session: Session):
         ui.update_navs("main_navbar", selected="Ecosim Simulation")
     
     @reactive.effect
+    @reactive.event(input.btn_goto_analysis)
+    def _goto_analysis():
+        ui.update_navs("main_navbar", selected="Analysis")
+    
+    @reactive.effect
     @reactive.event(input.btn_goto_results)
     def _goto_results():
         ui.update_navs("main_navbar", selected="Results")
+    
+    @reactive.effect
+    @reactive.event(input.btn_goto_about)
+    def _goto_about():
+        ui.update_navs("main_navbar", selected="About")

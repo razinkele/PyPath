@@ -10,6 +10,7 @@ from pathlib import Path
 
 # Import page modules
 from app.pages import home, ecopath, ecosim, results, about
+from app.pages import data_import, analysis
 
 # App directory for static assets
 APP_DIR = Path(__file__).parent
@@ -18,8 +19,10 @@ APP_DIR = Path(__file__).parent
 app_ui = ui.page_navbar(
     # Navigation pages
     ui.nav_panel("Home", home.home_ui()),
+    ui.nav_panel("Data Import", data_import.import_ui()),
     ui.nav_panel("Ecopath Model", ecopath.ecopath_ui()),
     ui.nav_panel("Ecosim Simulation", ecosim.ecosim_ui()),
+    ui.nav_panel("Analysis", analysis.analysis_ui()),
     ui.nav_panel("Results", results.results_ui()),
     ui.nav_spacer(),
     ui.nav_panel("About", about.about_ui()),
@@ -54,8 +57,10 @@ def server(input: Inputs, output: Outputs, session: Session):
     
     # Initialize page servers
     home.home_server(input, output, session)
+    data_import.import_server(input, output, session, model_data)
     ecopath.ecopath_server(input, output, session, model_data)
     ecosim.ecosim_server(input, output, session, model_data, sim_results)
+    analysis.analysis_server(input, output, session, model_data, sim_results)
     results.results_server(input, output, session, model_data, sim_results)
     about.about_server(input, output, session)
 
