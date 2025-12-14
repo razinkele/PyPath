@@ -12,6 +12,7 @@ import shinyswatch
 # Import page modules
 from pages import home, ecopath, ecosim, results, about
 from pages import data_import, analysis
+from pages import multistanza, forcing_demo, diet_rewiring_demo, optimization_demo
 
 # App directory for static assets
 APP_DIR = Path(__file__).parent
@@ -44,6 +45,14 @@ app_ui = ui.page_navbar(
     ui.nav_panel("Data Import", data_import.import_ui()),
     ui.nav_panel("Ecopath Model", ecopath.ecopath_ui()),
     ui.nav_panel("Ecosim Simulation", ecosim.ecosim_ui()),
+    ui.nav_menu(
+        "Advanced Features",
+        ui.nav_panel("Multi-Stanza Groups", multistanza.multistanza_ui()),
+        ui.nav_panel("State-Variable Forcing", forcing_demo.forcing_demo_ui()),
+        ui.nav_panel("Dynamic Diet Rewiring", diet_rewiring_demo.diet_rewiring_demo_ui()),
+        ui.nav_panel("Bayesian Optimization", optimization_demo.optimization_demo_ui()),
+        icon=ui.tags.i(class_="bi bi-stars")
+    ),
     ui.nav_panel("Analysis", analysis.analysis_ui()),
     ui.nav_panel("Results", results.results_ui()),
     ui.nav_spacer(),
@@ -104,12 +113,50 @@ def server(input: Inputs, output: Outputs, session: Session):
     # Shared reactive values across pages
     model_data = reactive.Value(None)
     sim_results = reactive.Value(None)
-    
+
+    # Create shared data object for new pages
+    class SharedData:
+        def __init__(self):
+            self._params = reactive.Value(None)
+            self._model = reactive.Value(None)
+
+        def params(self):
+            return self._params()
+
+        def set_params(self, value):
+            self._params.set(value)
+
+        def model(self):
+            return self._model()
+
+        def set_model(self, value):
+            self._model.set(value)
+
+    shared_data = SharedData()
+
+    # Sync model_data with shared_data
+    @reactive.effect
+    def sync_model_data():
+        if model_data() is not None:
+            data = model_data()
+            if hasattr(data, 'params'):
+                shared_data.set_params(data.params)
+            if hasattr(data, 'model'):
+                shared_data.set_model(data.model)
+
     # Initialize page servers
     home.home_server(input, output, session, model_data)
     data_import.import_server(input, output, session, model_data)
     ecopath.ecopath_server(input, output, session, model_data)
     ecosim.ecosim_server(input, output, session, model_data, sim_results)
+
+    # Advanced features servers
+    multistanza.multistanza_server(input, output, session, shared_data)
+    forcing_demo.forcing_demo_server(input, output, session)
+    diet_rewiring_demo.diet_rewiring_demo_server(input, output, session)
+    optimization_demo.optimization_demo_server(input, output, session)
+
+    # Other page servers
     analysis.analysis_server(input, output, session, model_data, sim_results)
     results.results_server(input, output, session, model_data, sim_results)
     about.about_server(input, output, session)
