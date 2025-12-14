@@ -1,0 +1,14 @@
+# Diet matrix for REcosystem-style test model
+# Rows are prey, columns are predators
+# Values are diet proportions (sum to 1.0 for each predator)
+Prey,Seals,JuvRoundfish1,AduRoundfish1,OtherGroundfish,Foragefish1,Megabenthos,Zooplankton
+Seals,0,0,0,0,0,0,0
+JuvRoundfish1,0,0,0,0,0,0,0
+AduRoundfish1,0.3,0,0,0,0,0,0
+OtherGroundfish,0.3,0,0,0,0,0,0
+Foragefish1,0.4,0,0.5,0.4,0,0,0
+Megabenthos,0,0.1,0.2,0.3,0,0,0
+Zooplankton,0,0.9,0.3,0.3,1.0,0,0
+Phytoplankton,0,0,0,0,0,0.3,0.9
+Detritus,0,0,0,0,0,0.7,0.1
+Import,0,0,0,0,0,0,0

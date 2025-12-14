@@ -1,6 +1,10 @@
 """Home page module."""
 
 from shiny import Inputs, Outputs, Session, reactive, render, ui
+from pypath.core.params import create_rpath_params
+from pypath.core.ecopath import rpath
+from pypath.core.ecosim import rsim_scenario
+import warnings
 
 
 def home_ui():
@@ -228,7 +232,7 @@ def home_ui():
     )
 
 
-def home_server(input: Inputs, output: Outputs, session: Session):
+def home_server(input: Inputs, output: Outputs, session: Session, model_data: reactive.Value):
     """Home page server logic."""
     
     @reactive.effect
@@ -260,3 +264,232 @@ def home_server(input: Inputs, output: Outputs, session: Session):
     @reactive.event(input.btn_goto_about)
     def _goto_about():
         ui.update_navs("main_navbar", selected="About")
+    
+    @reactive.effect
+    @reactive.event(input.btn_load_example)
+    def _load_example_model():
+        """Load an example marine ecosystem model."""
+        print("DEBUG: Load Example Model button clicked")  # Debug print
+        
+        # Simple test first
+        ui.notification_show("Button clicked! Loading example model...", type="message", duration=3)
+        
+        try:
+            # Create example marine ecosystem model
+            groups = [
+                'Seals',           # Top predator
+                'JuvRoundfish1',   # Juvenile fish
+                'AduRoundfish1',   # Adult fish
+                'OtherGroundfish', # Groundfish
+                'Foragefish1',     # Forage fish
+                'Megabenthos',     # Large benthos
+                'Zooplankton',     # Zooplankton
+                'Phytoplankton',   # Primary producer
+                'Detritus',        # Detritus
+                'Trawlers',        # Fishing fleet
+            ]
+            
+            types = [0, 0, 0, 0, 0, 0, 0, 1, 2, 3]  # consumer, producer, detritus, fleet
+            
+            params = create_rpath_params(groups, types)
+            
+            # Set model parameters
+            biomass_data = {
+                'Seals': 0.025, 'JuvRoundfish1': 0.1304, 'AduRoundfish1': 1.39,
+                'OtherGroundfish': 7.4, 'Foragefish1': 5.1, 'Megabenthos': 19.765,
+                'Zooplankton': 23.0, 'Phytoplankton': 10.0, 'Detritus': 500.0,
+            }
+            pb_data = {
+                'Seals': 0.15, 'JuvRoundfish1': 1.5, 'AduRoundfish1': 0.35,
+                'OtherGroundfish': 0.4, 'Foragefish1': 0.7, 'Megabenthos': 0.2,
+                'Zooplankton': 30.0, 'Phytoplankton': 200.0,
+            }
+            qb_data = {
+                'Seals': 25.0, 'JuvRoundfish1': 10.0, 'AduRoundfish1': 3.5,
+                'OtherGroundfish': 2.0, 'Foragefish1': 5.0, 'Megabenthos': 1.5,
+                'Zooplankton': 100.0,
+            }
+            ee_data = {
+                'Seals': 0.1, 'JuvRoundfish1': 0.9, 'AduRoundfish1': 0.8,
+                'OtherGroundfish': 0.8, 'Foragefish1': 0.9, 'Megabenthos': 0.6,
+                'Zooplankton': 0.9, 'Phytoplankton': 0.8,
+            }
+            
+            for i, group in enumerate(groups):
+                if group in biomass_data:
+                    params.model.loc[i, 'Biomass'] = biomass_data[group]
+                if group in pb_data:
+                    params.model.loc[i, 'PB'] = pb_data[group]
+                if group in qb_data:
+                    params.model.loc[i, 'QB'] = qb_data[group]
+                if group in ee_data:
+                    params.model.loc[i, 'EE'] = ee_data[group]
+            
+            # Set defaults - consumers get 0.2, producers/detritus get 0.0
+            params.model['BioAcc'] = 0.0
+            params.model.loc[params.model['Type'] == 0, 'Unassim'] = 0.2  # Consumers
+            params.model.loc[params.model['Type'] == 1, 'Unassim'] = 0.0  # Producers
+            params.model.loc[params.model['Type'] == 2, 'Unassim'] = 0.0  # Detritus
+            params.model.loc[params.model['Type'] == 3, 'BioAcc'] = float('nan')
+            params.model.loc[params.model['Type'] == 3, 'Unassim'] = float('nan')
+            params.model['Detritus'] = 1.0
+            params.model.loc[params.model['Type'] == 3, 'Detritus'] = float('nan')
+            
+            # Set diet matrix
+            prey_names = list(params.diet['Group'])
+            n_prey = len(prey_names)
+            
+            def make_diet(diet_dict):
+                diet = [0.0] * n_prey
+                for prey, prop in diet_dict.items():
+                    if prey in prey_names:
+                        diet[prey_names.index(prey)] = prop
+                return diet
+            
+            params.diet['Seals'] = make_diet({'Foragefish1': 0.4, 'AduRoundfish1': 0.3, 'OtherGroundfish': 0.3})
+            params.diet['JuvRoundfish1'] = make_diet({'Zooplankton': 0.9, 'Megabenthos': 0.1})
+            params.diet['AduRoundfish1'] = make_diet({'Foragefish1': 0.5, 'Zooplankton': 0.3, 'Megabenthos': 0.2})
+            params.diet['OtherGroundfish'] = make_diet({'Foragefish1': 0.4, 'Megabenthos': 0.3, 'Zooplankton': 0.3})
+            params.diet['Foragefish1'] = make_diet({'Zooplankton': 1.0})
+            params.diet['Megabenthos'] = make_diet({'Phytoplankton': 0.3, 'Detritus': 0.7})
+            params.diet['Zooplankton'] = make_diet({'Phytoplankton': 0.9, 'Detritus': 0.1})
+            params.diet['Phytoplankton'] = [0.0] * n_prey
+            
+            # Set fishing catches
+            catches = {'AduRoundfish1': 0.145, 'OtherGroundfish': 0.38, 'Megabenthos': 0.19,
+                       'Seals': 0.002, 'JuvRoundfish1': 0.003, 'Foragefish1': 0.1}
+            for group, catch in catches.items():
+                if group in groups:
+                    idx = groups.index(group)
+            params.model.loc[params.model['Type'] == 3, 'Detritus'] = float('nan')
+            
+            # Balance the model
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                model = rpath(params)
+            
+            # Store the balanced model in shared state
+            # Ecopath page will extract params from it, Ecosim page uses it directly
+            model_data.set(model)
+            
+            ui.notification_show(
+                "Example marine ecosystem model loaded! Navigate to Ecopath or Ecosim tabs.",
+                type="message",
+                duration=5
+            )
+            
+            # Navigate to Ecopath tab
+            ui.update_navs("main_navbar", selected="Ecopath Model")
+            
+        except Exception as e:
+            ui.notification_show(f"Error loading example model: {str(e)}", type="error")
+        
+        try:
+            # Create example marine ecosystem model
+            groups = [
+                'Seals',           # Top predator
+                'JuvRoundfish1',   # Juvenile fish
+                'AduRoundfish1',   # Adult fish
+                'OtherGroundfish', # Groundfish
+                'Foragefish1',     # Forage fish
+                'Megabenthos',     # Large benthos
+                'Zooplankton',     # Zooplankton
+                'Phytoplankton',   # Primary producer
+                'Detritus',        # Detritus
+                'Trawlers',        # Fishing fleet
+            ]
+            
+            types = [0, 0, 0, 0, 0, 0, 0, 1, 2, 3]  # consumer, producer, detritus, fleet
+            
+            params = create_rpath_params(groups, types)
+            
+            # Set model parameters
+            biomass_data = {
+                'Seals': 0.025, 'JuvRoundfish1': 0.1304, 'AduRoundfish1': 1.39,
+                'OtherGroundfish': 7.4, 'Foragefish1': 5.1, 'Megabenthos': 19.765,
+                'Zooplankton': 23.0, 'Phytoplankton': 10.0, 'Detritus': 500.0,
+            }
+            pb_data = {
+                'Seals': 0.15, 'JuvRoundfish1': 1.5, 'AduRoundfish1': 0.35,
+                'OtherGroundfish': 0.4, 'Foragefish1': 0.7, 'Megabenthos': 0.2,
+                'Zooplankton': 30.0, 'Phytoplankton': 200.0,
+            }
+            qb_data = {
+                'Seals': 25.0, 'JuvRoundfish1': 10.0, 'AduRoundfish1': 3.5,
+                'OtherGroundfish': 2.0, 'Foragefish1': 5.0, 'Megabenthos': 1.5,
+                'Zooplankton': 100.0,
+            }
+            ee_data = {
+                'Seals': 0.1, 'JuvRoundfish1': 0.9, 'AduRoundfish1': 0.8,
+                'OtherGroundfish': 0.8, 'Foragefish1': 0.9, 'Megabenthos': 0.6,
+                'Zooplankton': 0.9, 'Phytoplankton': 0.8,
+            }
+            
+            for i, group in enumerate(groups):
+                if group in biomass_data:
+                    params.model.loc[i, 'Biomass'] = biomass_data[group]
+                if group in pb_data:
+                    params.model.loc[i, 'PB'] = pb_data[group]
+                if group in qb_data:
+                    params.model.loc[i, 'QB'] = qb_data[group]
+                if group in ee_data:
+                    params.model.loc[i, 'EE'] = ee_data[group]
+            
+            # Set defaults - consumers get 0.2, producers/detritus get 0.0
+            params.model['BioAcc'] = 0.0
+            params.model.loc[params.model['Type'] == 0, 'Unassim'] = 0.2  # Consumers
+            params.model.loc[params.model['Type'] == 1, 'Unassim'] = 0.0  # Producers
+            params.model.loc[params.model['Type'] == 2, 'Unassim'] = 0.0  # Detritus
+            params.model.loc[params.model['Type'] == 3, 'BioAcc'] = float('nan')
+            params.model.loc[params.model['Type'] == 3, 'Unassim'] = float('nan')
+            params.model['Detritus'] = 1.0
+            params.model.loc[params.model['Type'] == 3, 'Detritus'] = float('nan')
+            
+            # Set diet matrix
+            prey_names = list(params.diet['Group'])
+            n_prey = len(prey_names)
+            
+            def make_diet(diet_dict):
+                diet = [0.0] * n_prey
+                for prey, prop in diet_dict.items():
+                    if prey in prey_names:
+                        diet[prey_names.index(prey)] = prop
+                return diet
+            
+            params.diet['Seals'] = make_diet({'Foragefish1': 0.4, 'AduRoundfish1': 0.3, 'OtherGroundfish': 0.3})
+            params.diet['JuvRoundfish1'] = make_diet({'Zooplankton': 0.9, 'Megabenthos': 0.1})
+            params.diet['AduRoundfish1'] = make_diet({'Foragefish1': 0.5, 'Zooplankton': 0.3, 'Megabenthos': 0.2})
+            params.diet['OtherGroundfish'] = make_diet({'Foragefish1': 0.4, 'Megabenthos': 0.3, 'Zooplankton': 0.3})
+            params.diet['Foragefish1'] = make_diet({'Zooplankton': 1.0})
+            params.diet['Megabenthos'] = make_diet({'Phytoplankton': 0.3, 'Detritus': 0.7})
+            params.diet['Zooplankton'] = make_diet({'Phytoplankton': 0.9, 'Detritus': 0.1})
+            params.diet['Phytoplankton'] = [0.0] * n_prey
+            
+            # Set fishing catches
+            catches = {'AduRoundfish1': 0.145, 'OtherGroundfish': 0.38, 'Megabenthos': 0.19,
+                       'Seals': 0.002, 'JuvRoundfish1': 0.003, 'Foragefish1': 0.1}
+            for group, catch in catches.items():
+                if group in groups:
+                    idx = groups.index(group)
+                    params.model.loc[idx, 'Trawlers'] = catch
+            
+            # Balance the model
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                model = rpath(params)
+            
+            # Store the params (not the balanced model) in shared state
+            # The ecopath page needs the editable parameters, not the balanced results
+            model_data.set(params)
+            
+            ui.notification_show(
+                "Example marine ecosystem model parameters loaded! Navigate to Ecopath tab to balance and view results.",
+                type="message",
+                duration=5
+            )
+            
+            # Navigate to Ecopath tab
+            ui.update_navs("main_navbar", selected="Ecopath Model")
+            
+        except Exception as e:
+            ui.notification_show(f"Error loading example model: {str(e)}", type="error")

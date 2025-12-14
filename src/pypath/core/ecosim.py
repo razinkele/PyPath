@@ -153,6 +153,10 @@ class RsimParams:
     DetTo: np.ndarray
     NumDetLinks: int
     
+    # Group type information
+    # PP_type: 0=consumer, 1=producer, 2=detritus
+    PP_type: np.ndarray = None
+    
     # Integration parameters
     BURN_YEARS: int = -1
     COUPLED: int = 1
@@ -288,6 +292,8 @@ class RsimOutput:
         Final state at end of simulation
     crash_year : int
         Year of crash (-1 if no crash)
+    crashed_groups : set
+        Set of group indices that crashed (biomass < threshold)
     pred : np.ndarray
         Predator names for Qlink columns
     prey : np.ndarray
@@ -306,6 +312,7 @@ class RsimOutput:
     annual_Qlink: np.ndarray
     end_state: RsimState
     crash_year: int
+    crashed_groups: set
     pred: np.ndarray
     prey: np.ndarray
     Gear_Catch_sp: np.ndarray
@@ -370,8 +377,23 @@ def rsim_params(
     # Unassimilated fraction
     unassim = np.concatenate([[0.0], rpath.Unassim])
     
+    # Build PP_type array: 0=consumer, 1=producer, 2=detritus
+    # This is based on the actual group types from the Rpath model
+    pp_type = np.zeros(ngroups + 1, dtype=int)
+    for i in range(ngroups):
+        grp_type = int(rpath.type[i])
+        if grp_type == 0:
+            pp_type[i + 1] = 0  # Consumer
+        elif grp_type == 1:
+            pp_type[i + 1] = 1  # Producer (primary producer)
+        else:  # type == 2 (detritus) or type == 3 (fleet)
+            pp_type[i + 1] = 2  # Detritus / non-living
+    
     # Active respiration = 1 - P/Q - Unassim (for consumers)
-    qb = rpath.QB
+    qb = rpath.QB.copy()
+    # Replace invalid QB values (-9999 or negative) with 0 for non-consumers
+    qb = np.where((qb < 0) | (qb == -9999) | np.isnan(qb), 0.0, qb)
+    
     pb = rpath.PB
     active_resp = np.zeros(ngroups + 1)
     for i in range(nliving):
@@ -380,8 +402,17 @@ def rsim_params(
     
     # Foraging time parameters
     ftime_adj = np.zeros(ngroups + 1)
-    ftime_qbopt = np.concatenate([[1.0], 
-        np.where(rpath.type == 1, rpath.PB, rpath.QB)])
+    # For producers (type=1), use PB as the "consumption" rate
+    # For consumers (type=0), use QB
+    # For detritus (type=2) and fleets (type=3), use 1.0 as default
+    ftime_qbopt_values = np.where(
+        rpath.type == 1, rpath.PB,
+        np.where(
+            (rpath.type == 0) & (qb > 0), qb,
+            1.0  # Default for detritus, fleets, or invalid QB
+        )
+    )
+    ftime_qbopt = np.concatenate([[1.0], ftime_qbopt_values])
     pbopt = np.concatenate([[1.0], rpath.PB])
     
     # NoIntegrate flag: 0 for fast turnover groups
@@ -412,28 +443,74 @@ def rsim_params(
             prim_q.append(q)
     
     # Predator-prey links from diet matrix
+    # NOTE: Only consumers (type=0) can be predators in the diet matrix
     pred_to = []
     pred_from = []
     pred_q = []
-    
-    dc = rpath.DC[:nliving + ndead, :nliving]
+
+    dc = rpath.DC[:nliving + ndead, :nliving].copy()
+
+    # Normalize incomplete diets to sum to 1.0 (excluding import)
+    # This ensures proper mass balance at equilibrium
+    import_row = rpath.DC[-1, :nliving] if len(rpath.DC) > nliving + ndead else np.zeros(nliving)
+    for pred_idx in range(nliving):
+        if rpath.type[pred_idx] != 0:  # Skip non-consumers
+            continue
+        if qb[pred_idx] <= 0 or qb[pred_idx] == -9999 or np.isnan(qb[pred_idx]):
+            continue
+
+        # Calculate diet sum (excluding import)
+        diet_sum = np.sum(dc[:, pred_idx])
+        import_frac = import_row[pred_idx] if pred_idx < len(import_row) else 0
+        total_diet = diet_sum + import_frac
+
+        # Normalize if diet is incomplete (sums to less than 1.0)
+        # This can happen with incomplete data or data entry errors
+        if total_diet > 0 and abs(total_diet - 1.0) > 1e-6:
+            # Normalize DC column to make total sum to 1.0
+            scale_factor = 1.0 / total_diet
+            dc[:, pred_idx] *= scale_factor
+            import_row[pred_idx] *= scale_factor
     for prey_idx in range(nliving + ndead):
         for pred_idx in range(nliving):
+            # Skip if this "predator" is not a consumer (type=0)
+            # Producers and detritus don't consume prey
+            if rpath.type[pred_idx] != 0:
+                continue
+            # Skip if predator has invalid QB value
+            if qb[pred_idx] <= 0 or qb[pred_idx] == -9999 or np.isnan(qb[pred_idx]):
+                continue
             if dc[prey_idx, pred_idx] > 0:
                 pred_from.append(prey_idx + 1)
                 pred_to.append(pred_idx + 1)
                 q = dc[prey_idx, pred_idx] * qb[pred_idx] * rpath.Biomass[pred_idx]
-                pred_q.append(q)
+                # Ensure Q is non-negative
+                if q > 0:
+                    pred_q.append(q)
+                else:
+                    # Remove the last appended pred_from and pred_to
+                    pred_from.pop()
+                    pred_to.pop()
     
     # Handle import (last row of DC = nrow)
     # Import links: prey from Outside (index 0)
-    import_row = rpath.DC[-1, :nliving] if len(rpath.DC) > nliving + ndead else np.zeros(nliving)
+    # Note: import_row was already normalized above
     for pred_idx in range(nliving):
+        # Skip if this "predator" is not a consumer (type=0)
+        if rpath.type[pred_idx] != 0:
+            continue
+        # Skip if predator has invalid QB value
+        if qb[pred_idx] <= 0 or qb[pred_idx] == -9999 or np.isnan(qb[pred_idx]):
+            continue
         if import_row[pred_idx] > 0:
             pred_from.append(0)  # From Outside
             pred_to.append(pred_idx + 1)
             q = import_row[pred_idx] * qb[pred_idx] * rpath.Biomass[pred_idx]
-            pred_q.append(q)
+            if q > 0:
+                pred_q.append(q)
+            else:
+                pred_from.pop()
+                pred_to.pop()
     
     # Combine links
     prey_from = np.array([0] + prim_from + pred_from)
@@ -574,6 +651,7 @@ def rsim_params(
         DetFrom=det_from,
         DetTo=det_to,
         NumDetLinks=len(det_from) - 1,
+        PP_type=pp_type,
     )
 
 
@@ -666,9 +744,10 @@ def rsim_scenario(
     rpath: Rpath,
     rpath_params: RpathParams,
     years: range = range(1, 101),
+    vulnerability: float = 2.0,
 ) -> RsimScenario:
     """Create a complete Ecosim scenario.
-    
+
     Parameters
     ----------
     rpath : Rpath
@@ -677,7 +756,13 @@ def rsim_scenario(
         Original model parameters
     years : range
         Years to simulate
-    
+    vulnerability : float, optional
+        Base vulnerability parameter (default 2.0 = mixed response)
+        Controls predator-prey functional response:
+        - 1.0 = donor control (top-down)
+        - 2.0 = mixed control
+        - Higher values = more bottom-up control
+
     Returns
     -------
     RsimScenario
@@ -685,8 +770,8 @@ def rsim_scenario(
     """
     if len(years) < 2:
         raise ValueError("Years must be a range of at least 2 years")
-    
-    params = rsim_params(rpath)
+
+    params = rsim_params(rpath, mscramble=vulnerability)
     state = rsim_state(params)
     forcing = rsim_forcing(params, years)
     fishing = rsim_fishing(params, years)
@@ -752,6 +837,7 @@ def rsim_run(
     out_biomass[0] = state
     
     # Build params dict for derivative function
+    # Use PP_type from params (already correctly computed based on rpath.type)
     params_dict = {
         'NUM_GROUPS': params.NUM_GROUPS,
         'NUM_LIVING': params.NUM_LIVING,
@@ -766,25 +852,29 @@ def rsim_run(
         'DD': _build_link_matrix(params, params.DD),
         'QQbase': _build_link_matrix(params, params.QQ),
         'Bbase': params.B_BaseRef,
+        'PP_type': params.PP_type,
     }
     
     # Build fishing dict
     fishing_dict = {
         'FishFrom': params.FishFrom,
+        'FishThrough': params.FishThrough,
         'FishQ': params.FishQ,
-        'FishingMort': np.zeros(n_groups),  # Calculated per step
+        'FishingMort': np.zeros(n_groups),  # Base fishing mortality (no effort scaling)
     }
     
-    # Calculate base fishing mortality
+    # Calculate base fishing mortality (without effort scaling)
     for i in range(1, len(params.FishFrom)):
         grp = params.FishFrom[i]
         fishing_dict['FishingMort'][grp] += params.FishQ[i]
     
     # History for Adams-Bashforth
     derivs_history = []
-    
+
     dt = 1.0 / 12.0  # Monthly timestep
     crash_year = -1
+    crashed_groups = set()  # Track which groups have crashed
+    crash_threshold = 1e-4  # More reasonable threshold (0.0001 vs 0.000001)
     
     # Main simulation loop
     for month in range(1, n_months + 1):
@@ -830,9 +920,16 @@ def rsim_run(
             split_set_pred(scenario.stanzas, temp_state, params)
             # Note: Biomass redistribution among stanza groups handled in split_update
         
-        # Check for crash (biomass < 1e-6)
-        if crash_year < 0 and np.any(state[1:params.NUM_LIVING + 1] < 1e-6):
-            crash_year = year_idx + scenario.start_year
+        # Check for crash (biomass < threshold)
+        # Use more reasonable threshold to avoid false alarms from numerical noise
+        if crash_year < 0:
+            low_biomass_groups = np.where(state[1:params.NUM_LIVING + 1] < crash_threshold)[0]
+            if len(low_biomass_groups) > 0:
+                # Record first crash year
+                crash_year = year_idx + scenario.start_year
+                # Track which groups crashed
+                for grp_idx in low_biomass_groups:
+                    crashed_groups.add(grp_idx + 1)  # +1 because we sliced from index 1
         
         # Store results
         out_biomass[month] = state
@@ -884,6 +981,7 @@ def rsim_run(
         annual_Qlink=np.zeros((n_years, len(params.PreyTo))),  # TODO: Implement Qlink tracking
         end_state=end_state,
         crash_year=crash_year,
+        crashed_groups=crashed_groups,
         pred=pred_names,
         prey=prey_names,
         Gear_Catch_sp=gear_catch_sp,

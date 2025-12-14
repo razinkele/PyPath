@@ -168,7 +168,8 @@ def create_cell_styles(
     stanza_mask: Optional[pd.DataFrame] = None
 ) -> list:
     """
-    Create cell style rules for DataGrid based on no-data mask, remarks mask, and stanza mask.
+    Create cell style rules for DataGrid based on no-data mask, remarks mask, stanza mask,
+    and parameter applicability by group type.
     
     Args:
         df: The formatted DataFrame
@@ -180,7 +181,25 @@ def create_cell_styles(
         list: Style dictionaries for DataGrid
     """
     styles = []
+    
+    # Define parameters that don't apply to certain group types
+    NON_APPLICABLE_PARAMS = {
+        'QB': [1, 2],      # QB doesn't apply to producers (1) and detritus (2)
+        'Unassim': [1, 2], # Unassim doesn't apply to producers (1) and detritus (2)
+    }
+    
+    # Grey style for non-applicable parameters
+    GREY_STYLE = {"background-color": "#f8f9fa", "color": "#6c757d", "font-style": "italic"}
+    
     for row_idx in range(len(df)):
+        # Get the group type for this row if available
+        group_type = None
+        if 'Type' in df.columns:
+            type_str = df.iloc[row_idx]['Type']
+            # Convert back from label to numeric code
+            type_map = {v: k for k, v in TYPE_LABELS.items()}
+            group_type = type_map.get(type_str)
+        
         for col_idx, col in enumerate(df.columns):
             # Check for no-data cells (highest priority)
             if col in no_data_mask.columns and no_data_mask.iloc[row_idx][col]:
@@ -190,7 +209,17 @@ def create_cell_styles(
                     "cols": col_idx,
                     "style": NO_DATA_STYLE
                 })
-            # Check for cells with remarks (second priority)
+            # Check for non-applicable parameters by group type
+            elif (col in NON_APPLICABLE_PARAMS and 
+                  group_type is not None and 
+                  group_type in NON_APPLICABLE_PARAMS[col]):
+                styles.append({
+                    "location": "body",
+                    "rows": row_idx,
+                    "cols": col_idx,
+                    "style": GREY_STYLE
+                })
+            # Check for cells with remarks (third priority)
             elif remarks_mask is not None and col in remarks_mask.columns and remarks_mask.iloc[row_idx][col]:
                 styles.append({
                     "location": "body",

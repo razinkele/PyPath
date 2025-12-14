@@ -106,7 +106,7 @@ def server(input: Inputs, output: Outputs, session: Session):
     sim_results = reactive.Value(None)
     
     # Initialize page servers
-    home.home_server(input, output, session)
+    home.home_server(input, output, session, model_data)
     data_import.import_server(input, output, session, model_data)
     ecopath.ecopath_server(input, output, session, model_data)
     ecosim.ecosim_server(input, output, session, model_data, sim_results)

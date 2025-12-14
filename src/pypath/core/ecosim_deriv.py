@@ -161,6 +161,10 @@ def primary_production_forcing(
     """
     Calculate primary production with environmental forcing.
     
+    In Ecosim/Rpath, primary producers use density-dependent production
+    to ensure stability. The production rate decreases as biomass
+    increases above baseline, mimicking nutrient limitation.
+    
     Parameters
     ----------
     BB : np.ndarray
@@ -174,8 +178,8 @@ def primary_production_forcing(
     PP_type : np.ndarray
         Producer type by group:
         - 0: Not a producer (consumer)
-        - 1: Primary producer (nutrients unlimited)
-        - 2: Primary producer (nutrient limited/density dependent)
+        - 1: Primary producer (density-dependent, default)
+        - 2: Detritus (no production)
     NUM_LIVING : int
         Number of living groups
         
@@ -192,17 +196,22 @@ def primary_production_forcing(
             # Not a producer - production calculated from consumption
             continue
         elif PP_type[i] == 1:
-            # Unlimited primary production (linear in forcing)
-            production[i] = PB[i] * BB[i] * PP_forcing[i]
-        elif PP_type[i] == 2:
-            # Density-dependent production (logistic-like)
+            # Primary producer: density-dependent production
+            # In Rpath/EwE, this follows: P = PB * B * forcing * (2 - B/Bbase)
+            # This gives equilibrium at B = Bbase when forcing = 1
+            # and ensures stability by reducing growth as B increases
             if Bbase[i] > 0:
                 rel_bio = BB[i] / Bbase[i]
-                # Production decreases as biomass exceeds carrying capacity
+                # Production is PB * B at baseline, decreases as B increases
+                # This factor = 2 - rel_bio ensures:
+                # - At B = Bbase: factor = 1.0, production = PB * B
+                # - At B = 2*Bbase: factor = 0.0, production = 0
+                # - At B = 0: factor = 2.0, production = 2 * PB * B (rapid recovery)
                 dd_factor = max(0, 2.0 - rel_bio)
                 production[i] = PB[i] * BB[i] * PP_forcing[i] * dd_factor
             else:
                 production[i] = PB[i] * BB[i] * PP_forcing[i]
+        # PP_type == 2 is detritus, no production
     
     return production
 
@@ -306,90 +315,84 @@ def deriv_vector(
     # =========================================================================
     # STEP 1: Calculate predation pressure from each predator on each prey
     # Using foraging arena functional response with prey switching
+    # 
+    # From Rpath ecosim.cpp (vectorized version):
+    # Q = QQ * PDY * pow(PYY, HandleSwitch * COUPLED) *
+    #     ( DD / ( DD-1.0 + pow((1-Hself)*PYY + Hself*PySuite, HandleSwitch*COUPLED)) ) *
+    #     ( VV / ( VV-1.0 + (1-Sself)*PDY + Sself*PdSuite) );
+    #
+    # Where:
+    #   QQ = base consumption rate (DC * QB * Bpred_baseline)  
+    #   PDY = predYY = Ftime * Bpred / Bpred_baseline (relative predator biomass)
+    #   PYY = preyYY = Bprey / Bprey_baseline * force_byprey (relative prey biomass)
+    #   DD = handling time (large = no handling time effect, approaching 1.0)
+    #   VV = vulnerability (large = no density dependence)
     # =========================================================================
     
     # Get time-varying forcing (default to 1.0)
     Ftime = forcing.get('Ftime', np.ones(NUM_GROUPS + 1))
     ForcedBio = forcing.get('ForcedBio', np.zeros(NUM_GROUPS + 1))
     PP_forcing = forcing.get('PP_forcing', np.ones(NUM_GROUPS + 1))
+    ForcedPrey = forcing.get('ForcedPrey', np.ones(NUM_GROUPS + 1))
+    
+    # Calculate relative biomass arrays
+    # preyYY = B / Bbase * prey_forcing
+    preyYY = np.zeros(NUM_GROUPS + 1)
+    for i in range(1, NUM_GROUPS + 1):
+        if Bbase[i] > 0:
+            preyYY[i] = BB[i] / Bbase[i] * ForcedPrey[i]
+    
+    # predYY = Ftime * B / Bbase
+    predYY = np.zeros(NUM_GROUPS + 1)
+    for i in range(1, NUM_LIVING + 1):
+        if Bbase[i] > 0:
+            predYY[i] = Ftime[i] * BB[i] / Bbase[i]
+    
+    # Get base consumption matrix
+    QQbase = params.get('QQbase', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
     
     # For each predator-prey pair with an active link
     for pred in range(1, NUM_LIVING + 1):
         if BB[pred] <= 0:
             continue
             
-        pred_bio = BB[pred]
-        pred_time = Ftime[pred]
-        
-        # Calculate prey switching factors for this predator
-        if SwitchPower > 0:
-            switch_factors = prey_switching(BB, Bbase, pred, ActiveLink, SwitchPower)
-        else:
-            switch_factors = np.ones(NUM_GROUPS + 1)
-        
         for prey in range(1, NUM_GROUPS + 1):  # prey can include detritus
             if not ActiveLink[prey, pred]:
                 continue
             if BB[prey] <= 0:
                 continue
             
-            prey_bio = BB[prey]
-            
             # Get vulnerability and handling time for this link
             vv = VV[prey, pred]
             dd = DD[prey, pred]
             
-            # Get prey switching factor
-            sw = switch_factors[prey]
-            
-            # Calculate mediation multiplier
-            med_mult = 1.0
-            med_key = (prey, pred)
-            if med_key in Mediation:
-                med_cfg = Mediation[med_key]
-                med_idx = med_cfg.get('mediator', 0)
-                med_type = med_cfg.get('type', 0)
-                med_params = med_cfg.get('params', {})
-                if med_idx > 0 and med_idx < len(BB):
-                    med_mult = mediation_function(
-                        med_type, BB[med_idx], Bbase[med_idx], med_params
-                    )
-            
-            # Calculate base consumption rate
-            # This comes from Q0/B0 setup in rsim_params
-            base_qb = params.get('QQ_base', QB[pred] * params.get('DC', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))[prey, pred])
-            
-            if isinstance(base_qb, np.ndarray):
-                base_qb = base_qb[prey, pred] if base_qb.ndim == 2 else float(base_qb)
-            
-            # Foraging arena functional response with prey switching and mediation
-            # Q = (VV * QQ0 * Bprey * Bpred * sw * med) / 
-            #     (VV * Bprey0 + QQ0 * Bpred0 + DD * QQ0 * Bpred)
-            
-            # Get baseline values (should be stored in params)
-            Bprey0 = Bbase[prey]
-            Bpred0 = Bbase[pred]
-            QQ0 = params.get('QQbase', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
-            
-            if isinstance(QQ0, np.ndarray) and QQ0.ndim == 2:
-                qbase = QQ0[prey, pred]
-            else:
-                # Calculate from QB and DC
-                dc = params.get('DC', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
-                qbase = QB[pred] * Bpred0 * dc[prey, pred] if Bpred0 > 0 else 0
-            
+            # Get base consumption (QQ from Rpath)
+            qbase = QQbase[prey, pred]
             if qbase <= 0:
                 continue
             
-            # Functional response numerator with prey switching and mediation
-            numer = vv * qbase * (prey_bio / max(Bprey0, 1e-10)) * (pred_bio / max(Bpred0, 1e-10))
-            numer *= sw * med_mult  # Apply switching and mediation
+            # Rpath functional response formula:
+            # Q = QQ * PDY * pow(PYY, HandleSwitch) *
+            #     ( DD / (DD - 1.0 + pow(PYY, HandleSwitch)) ) *  
+            #     ( VV / (VV - 1.0 + PDY) )
+            #
+            # Simplified (HandleSwitch=1, no self-weights):
+            # Q = QQ * predYY * preyYY * (DD / (DD - 1 + preyYY)) * (VV / (VV - 1 + predYY))
             
-            # Functional response denominator with handling time
-            denom = vv + vv * pred_time * dd + (qbase / max(Bprey0, 1e-10)) * pred_bio * dd
+            PYY = preyYY[prey]
+            PDY = predYY[pred]
             
-            if denom > 0:
-                QQ[prey, pred] = numer / denom * Bprey0
+            # Handling time term: approaches 1.0 when DD is large
+            dd_term = dd / (dd - 1.0 + max(PYY, 1e-10)) if dd > 1.0 else 1.0
+            
+            # Vulnerability term: VV/(VV-1+predYY)
+            # When VV=2: 2/(1+predYY) - gives density dependence
+            vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
+            
+            # Final consumption: Q = QQbase * predYY * preyYY * dd_term * vv_term
+            Q_calc = qbase * PDY * PYY * dd_term * vv_term
+            
+            QQ[prey, pred] = max(Q_calc, 0.0)
     
     # =========================================================================
     # STEP 2: Apply forced biomass adjustments
@@ -399,16 +402,27 @@ def deriv_vector(
             BB[i] = ForcedBio[i]
     
     # =========================================================================
-    # STEP 3: Calculate fishing mortality
+    # STEP 3: Calculate fishing mortality with forced effort
     # =========================================================================
     FishMort = np.zeros(NUM_GROUPS + 1)
     Catch = np.zeros(NUM_GROUPS + 1)
     
-    base_fish_mort = fishing.get('FishingMort', np.zeros(NUM_GROUPS + 1))
     ForcedEffort = forcing.get('ForcedEffort', np.ones(max(NUM_GEARS + 1, 1)))
+    FishFrom = fishing.get('FishFrom', np.array([0]))
+    FishThrough = fishing.get('FishThrough', np.array([0]))
+    FishQ = fishing.get('FishQ', np.array([0.0]))
+    
+    # Calculate fishing mortality with effort scaling per gear
+    # Note: FishThrough contains GROUP indices of gears, not gear indices
+    # To get gear index: gear_idx = FishThrough[i] - NUM_LIVING - NUM_DEAD
+    for i in range(1, len(FishFrom)):
+        grp = int(FishFrom[i])
+        gear_group_idx = int(FishThrough[i])
+        gear_idx = gear_group_idx - NUM_LIVING - NUM_DEAD  # Convert to gear index (1-based)
+        effort_mult = ForcedEffort[gear_idx] if 0 < gear_idx < len(ForcedEffort) else 1.0
+        FishMort[grp] += FishQ[i] * effort_mult
     
     for i in range(1, NUM_LIVING + 1):
-        FishMort[i] = base_fish_mort[i]
         Catch[i] = FishMort[i] * BB[i]
     
     # =========================================================================
@@ -425,11 +439,10 @@ def deriv_vector(
         # Total predation ON this prey (losses)
         predation_loss = np.sum(QQ[i, 1:NUM_LIVING + 1])
         
-        # Assimilated consumption
-        assim_consump = consumption * (1.0 - Unassim[i])
-        
         # Calculate derivative:
-        # dB/dt = Production - (M0 + M2*B) * B - predation - fishing
+        # In Rpath: NetProd = FoodGain - UnAssimLoss - ActiveRespLoss - MzeroLoss - FoodLoss
+        # Where UnAssimLoss = Q * Unassim, ActiveRespLoss = Q * ActiveResp
+        # So net production = Q * (1 - Unassim - ActiveResp) = Q * PB/QB = Q * GE
         
         # Other mortality (non-predation, non-fishing)
         M0 = params.get('M0', PB * 0.0)  # Base other mortality
@@ -443,9 +456,10 @@ def deriv_vector(
             # Producer: use primary production with forcing
             production = pp_rates[i]
         elif QB[i] > 0:
-            # Consumer: GE = PB/QB, production from assimilated consumption
-            GE = PB[i] / QB[i] if QB[i] > 0 else 0
-            production = GE * assim_consump
+            # Consumer: Production = GE * Consumption (GE = PB/QB)
+            # This gives production = Q * PB/QB = P at equilibrium
+            GE = PB[i] / QB[i]
+            production = GE * consumption
         else:
             # Default: direct production
             production = PB[i] * BB[i]

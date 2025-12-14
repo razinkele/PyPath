@@ -1,0 +1,12 @@
+# Fishing catch data for REcosystem-style test model
+# Catch by fleet (values are catch in model units)
+Group,Trawlers
+Seals,0.002
+JuvRoundfish1,0.003
+AduRoundfish1,0.145
+OtherGroundfish,0.38
+Foragefish1,0.1
+Megabenthos,0.19
+Zooplankton,0
+Phytoplankton,0
+Detritus,0

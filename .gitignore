@@ -99,3 +99,23 @@ Thumbs.db
 *.csv
 *.xlsx
 !tests/data/*.csv
+!example_model_data/*.csv
+
+# Debug and temporary files
+debug_*.py
+check_*.py
+test_results*.txt
+*.log
+nul
+
+# Temporary data files
+*.pkl
+*.eweaccdb.lock
+*.ldb
+
+# Temporary visualizations (keep demo_*.png)
+*_test_result.png
+test_timeseries_*.png
+
+# Claude AI artifacts
+.claude/

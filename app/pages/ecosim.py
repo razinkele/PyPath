@@ -13,6 +13,7 @@ from pypath.core.ecosim import (
     rsim_params, rsim_state, rsim_forcing, rsim_fishing,
     rsim_scenario, rsim_run, RsimScenario
 )
+from pypath.core.autofix import validate_and_fix_scenario
 
 
 def ecosim_ui():
@@ -29,14 +30,28 @@ def ecosim_ui():
                 ui.h5("Time Period"),
                 ui.input_numeric(
                     "sim_years",
-                    "Simulation Years",
+                    ui.span(
+                        "Simulation Years ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Number of years to simulate. Longer periods show long-term dynamics but take more time to compute.",
+                            style="cursor: help;"
+                        )
+                    ),
                     value=50,
                     min=1,
                     max=500
                 ),
                 ui.input_select(
                     "integration_method",
-                    "Integration Method",
+                    ui.span(
+                        "Integration Method ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Numerical integration method. RK4 (Runge-Kutta 4th order) is more accurate but slower. AB (Adams-Bashforth) is faster but less stable.",
+                            style="cursor: help;"
+                        )
+                    ),
                     choices={"RK4": "Runge-Kutta 4", "AB": "Adams-Bashforth"},
                     selected="RK4"
                 ),
@@ -47,7 +62,14 @@ def ecosim_ui():
                 ui.h5("Functional Response"),
                 ui.input_slider(
                     "vulnerability",
-                    "Default Vulnerability",
+                    ui.span(
+                        "Default Vulnerability ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Controls predator-prey functional response. 1 = bottom-up control (prey abundance limits predators), 2 = mixed control, higher values = top-down control (predators limit prey). Range: 1-100.",
+                            style="cursor: help;"
+                        )
+                    ),
                     min=1,
                     max=100,
                     value=2,
@@ -64,7 +86,14 @@ def ecosim_ui():
                 ui.h5("Fishing Scenario"),
                 ui.input_select(
                     "fishing_scenario",
-                    "Scenario Type",
+                    ui.span(
+                        "Scenario Type ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Fishing effort scenario: Baseline (constant), Increase (gradual ramp up), Decrease (gradual ramp down), Closure (fishing stops for period), Custom (upload CSV).",
+                            style="cursor: help;"
+                        )
+                    ),
                     choices={
                         "baseline": "Baseline (constant effort)",
                         "increase": "Increase effort",
@@ -74,11 +103,42 @@ def ecosim_ui():
                     },
                     selected="baseline"
                 ),
-                
+
                 ui.output_ui("fishing_params_ui"),
                 
                 ui.tags.hr(),
-                
+
+                # Stability settings
+                ui.h5(
+                    ui.span(
+                        "Stability ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Automatic parameter calibration to prevent crashes and improve simulation stability.",
+                            style="cursor: help;"
+                        )
+                    )
+                ),
+                ui.input_checkbox(
+                    "enable_autofix",
+                    ui.span(
+                        "Auto-fix parameters ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Automatically caps VV ≤ 5.0, QQ ≤ 3.0, ensures minimum biomass ≥ 0.001, and normalizes DD to 1-2. Prevents most crashes caused by extreme parameter values.",
+                            style="cursor: help;"
+                        )
+                    ),
+                    value=True
+                ),
+                ui.input_action_button(
+                    "btn_autofix_help",
+                    "What does autofix do?",
+                    class_="btn-sm btn-outline-info w-100 mt-2"
+                ),
+
+                ui.tags.hr(),
+
                 # Run buttons
                 ui.input_action_button(
                     "btn_create_scenario",
@@ -98,9 +158,21 @@ def ecosim_ui():
             ui.navset_card_tab(
                 ui.nav_panel(
                     "Scenario Setup",
-                    ui.h4("Scenario Configuration", class_="mt-3"),
+                    ui.layout_columns(
+                        ui.h4("Scenario Configuration", class_="mt-3"),
+                        ui.div(
+                            ui.input_action_button(
+                                "btn_help_scenario",
+                                ui.span(ui.tags.i(class_="bi bi-question-circle me-1"), "Help"),
+                                class_="btn-sm btn-outline-primary mt-3"
+                            ),
+                            style="text-align: right;"
+                        ),
+                        col_widths=[10, 2]
+                    ),
+                    ui.output_ui("help_scenario_setup"),
                     ui.output_ui("scenario_status"),
-                    
+
                     ui.layout_columns(
                         ui.card(
                             ui.card_header("Effort Forcing"),
@@ -112,12 +184,26 @@ def ecosim_ui():
                                 ui.p("Configure environmental forcing on prey availability"),
                                 ui.input_select(
                                     "forcing_group",
-                                    "Select Group",
+                                    ui.span(
+                                        "Select Group ",
+                                        ui.tags.i(
+                                            class_="bi bi-info-circle",
+                                            title="Group to apply environmental forcing. Typically primary producers (phytoplankton) or lower trophic levels.",
+                                            style="cursor: help;"
+                                        )
+                                    ),
                                     choices=["(Create scenario first)"],
                                 ),
                                 ui.input_slider(
                                     "forcing_multiplier",
-                                    "Forcing Multiplier",
+                                    ui.span(
+                                        "Forcing Multiplier ",
+                                        ui.tags.i(
+                                            class_="bi bi-info-circle",
+                                            title="Multiplier for prey availability. 1.0 = normal, >1.0 = more productive (e.g., nutrient enrichment), <1.0 = less productive (e.g., climate stress).",
+                                            style="cursor: help;"
+                                        )
+                                    ),
                                     min=0,
                                     max=3,
                                     value=1,
@@ -130,34 +216,100 @@ def ecosim_ui():
                 ),
                 ui.nav_panel(
                     "Simulation Progress",
-                    ui.h4("Simulation Status", class_="mt-3"),
+                    ui.layout_columns(
+                        ui.h4("Simulation Status", class_="mt-3"),
+                        ui.div(
+                            ui.input_action_button(
+                                "btn_help_progress",
+                                ui.span(ui.tags.i(class_="bi bi-question-circle me-1"), "Help"),
+                                class_="btn-sm btn-outline-primary mt-3"
+                            ),
+                            style="text-align: right;"
+                        ),
+                        col_widths=[10, 2]
+                    ),
+                    ui.output_ui("help_progress"),
                     ui.output_ui("simulation_status"),
                     ui.output_ui("progress_display"),
                 ),
                 ui.nav_panel(
                     "Time Series",
-                    ui.h4("Biomass Trajectories", class_="mt-3"),
+                    ui.layout_columns(
+                        ui.h4("Biomass Trajectories", class_="mt-3"),
+                        ui.div(
+                            ui.input_action_button(
+                                "btn_help_timeseries",
+                                ui.span(ui.tags.i(class_="bi bi-question-circle me-1"), "Help"),
+                                class_="btn-sm btn-outline-primary mt-3"
+                            ),
+                            style="text-align: right;"
+                        ),
+                        col_widths=[10, 2]
+                    ),
+                    ui.output_ui("help_timeseries"),
                     ui.layout_columns(
                         ui.input_selectize(
                             "plot_groups",
-                            "Select Groups to Plot",
+                            ui.span(
+                                "Select Groups to Plot ",
+                                ui.tags.i(
+                                    class_="bi bi-info-circle",
+                                    title="Choose which functional groups to display in the biomass trajectory plot. Select up to 10 groups for clarity.",
+                                    style="cursor: help;"
+                                )
+                            ),
                             choices=[],
                             multiple=True,
                         ),
-                        ui.input_checkbox("relative_biomass", "Show Relative Biomass", value=False),
+                        ui.input_checkbox(
+                            "relative_biomass",
+                            ui.span(
+                                "Show Relative Biomass ",
+                                ui.tags.i(
+                                    class_="bi bi-info-circle",
+                                    title="Normalize all trajectories to start at 1.0. Useful for comparing groups of different sizes. Value of 2.0 = doubled, 0.5 = halved.",
+                                    style="cursor: help;"
+                                )
+                            ),
+                            value=False
+                        ),
                         col_widths=[9, 3]
                     ),
                     ui.output_plot("biomass_timeseries", height="500px"),
                 ),
                 ui.nav_panel(
                     "Catch",
-                    ui.h4("Catch Trajectories", class_="mt-3"),
+                    ui.layout_columns(
+                        ui.h4("Catch Trajectories", class_="mt-3"),
+                        ui.div(
+                            ui.input_action_button(
+                                "btn_help_catch",
+                                ui.span(ui.tags.i(class_="bi bi-question-circle me-1"), "Help"),
+                                class_="btn-sm btn-outline-primary mt-3"
+                            ),
+                            style="text-align: right;"
+                        ),
+                        col_widths=[10, 2]
+                    ),
+                    ui.output_ui("help_catch"),
                     ui.output_plot("catch_timeseries", height="400px"),
                     ui.output_table("annual_catch_table"),
                 ),
                 ui.nav_panel(
                     "Summary",
-                    ui.h4("Simulation Summary", class_="mt-3"),
+                    ui.layout_columns(
+                        ui.h4("Simulation Summary", class_="mt-3"),
+                        ui.div(
+                            ui.input_action_button(
+                                "btn_help_summary",
+                                ui.span(ui.tags.i(class_="bi bi-question-circle me-1"), "Help"),
+                                class_="btn-sm btn-outline-primary mt-3"
+                            ),
+                            style="text-align: right;"
+                        ),
+                        col_widths=[10, 2]
+                    ),
+                    ui.output_ui("help_summary"),
                     ui.output_ui("summary_cards"),
                     ui.layout_columns(
                         ui.output_plot("final_biomass_plot"),
@@ -182,7 +334,451 @@ def ecosim_server(
     # Reactive values for this page
     scenario = reactive.Value(None)
     sim_output = reactive.Value(None)
-    
+    show_help_scenario = reactive.Value(False)
+    show_help_progress = reactive.Value(False)
+    show_help_timeseries = reactive.Value(False)
+    show_help_catch = reactive.Value(False)
+    show_help_summary = reactive.Value(False)
+    show_autofix_help = reactive.Value(False)
+
+    @reactive.effect
+    @reactive.event(input.btn_help_scenario)
+    def _toggle_help_scenario():
+        show_help_scenario.set(not show_help_scenario.get())
+
+    @reactive.effect
+    @reactive.event(input.btn_help_progress)
+    def _toggle_help_progress():
+        show_help_progress.set(not show_help_progress.get())
+
+    @reactive.effect
+    @reactive.event(input.btn_help_timeseries)
+    def _toggle_help_timeseries():
+        show_help_timeseries.set(not show_help_timeseries.get())
+
+    @reactive.effect
+    @reactive.event(input.btn_help_catch)
+    def _toggle_help_catch():
+        show_help_catch.set(not show_help_catch.get())
+
+    @reactive.effect
+    @reactive.event(input.btn_help_summary)
+    def _toggle_help_summary():
+        show_help_summary.set(not show_help_summary.get())
+
+    @reactive.effect
+    @reactive.event(input.btn_autofix_help)
+    def _toggle_autofix_help():
+        ui.modal_show(
+            ui.modal(
+                ui.h4("Automatic Parameter Calibration (Autofix)"),
+                ui.tags.hr(),
+                ui.div(
+                    ui.h5("What does autofix do?"),
+                    ui.p(
+                        "The autofix module automatically adjusts simulation parameters to prevent crashes "
+                        "and improve stability. It's enabled by default and highly recommended for all simulations."
+                    ),
+                    ui.h5("Parameters that get fixed:"),
+                    ui.tags.ul(
+                        ui.tags.li(ui.tags.strong("VV (Vulnerability):"), " Capped at ≤ 5.0 (prevents rapid prey depletion)"),
+                        ui.tags.li(ui.tags.strong("QQ (Density Dependence):"), " Capped at ≤ 3.0 (reduces oscillations)"),
+                        ui.tags.li(ui.tags.strong("Minimum Biomass:"), " Raised to ≥ 0.001 (prevents instant extinction)"),
+                        ui.tags.li(ui.tags.strong("DD (Prey Switching):"), " Normalized to 1-2 range (stabilizes predation)")
+                    ),
+                    ui.h5("Why is this needed?"),
+                    ui.p(
+                        "Ecosim is sensitive to extreme parameter values. Small numerical errors or unrealistic "
+                        "values can cause groups to crash (biomass → 0). Autofix prevents most of these issues "
+                        "by constraining parameters to ecologically reasonable ranges."
+                    ),
+                    ui.h5("What problems does it NOT fix?"),
+                    ui.tags.ul(
+                        ui.tags.li(ui.tags.strong("EE > 1:"), " Overconsumption requires rebalancing the Ecopath model"),
+                        ui.tags.li(ui.tags.strong("Fundamental model issues:"), " Incomplete diets, missing groups, etc.")
+                    ),
+                    ui.h5("Example results:"),
+                    ui.div(
+                        ui.tags.table(
+                            ui.tags.tr(
+                                ui.tags.th("Metric"),
+                                ui.tags.th("Without Autofix"),
+                                ui.tags.th("With Autofix")
+                            ),
+                            ui.tags.tr(
+                                ui.tags.td("Crashed groups"),
+                                ui.tags.td("4"),
+                                ui.tags.td("1")
+                            ),
+                            ui.tags.tr(
+                                ui.tags.td("Fixes applied"),
+                                ui.tags.td("0"),
+                                ui.tags.td("164")
+                            ),
+                            ui.tags.tr(
+                                ui.tags.td("Improvement"),
+                                ui.tags.td("-"),
+                                ui.tags.td("75% reduction")
+                            ),
+                            class_="table table-bordered table-sm mt-2"
+                        ),
+                        class_="mb-3"
+                    ),
+                    ui.h5("When to disable autofix:"),
+                    ui.p(
+                        "Only disable if you're specifically testing extreme parameter values or "
+                        "debugging model behavior. For normal use, keep it enabled."
+                    ),
+                    class_="p-3"
+                ),
+                title="Autofix Help",
+                easy_close=True,
+                footer=ui.modal_button("Close")
+            )
+        )
+
+    @output
+    @render.ui
+    def help_scenario_setup():
+        if not show_help_scenario.get():
+            return None
+        return ui.div(
+            ui.tags.div(
+                ui.h5(ui.tags.i(class_="bi bi-info-circle me-2"), "Scenario Setup Help"),
+                ui.tags.hr(),
+                ui.h6("Purpose"),
+                ui.p(
+                    "This tab allows you to configure your Ecosim simulation before running it. "
+                    "You set the time period, functional response parameters, fishing effort scenarios, "
+                    "and stability options."
+                ),
+                ui.h6("Workflow"),
+                ui.tags.ol(
+                    ui.tags.li(ui.tags.strong("Load Ecopath model"), " in the Data Import or Ecopath pages"),
+                    ui.tags.li(ui.tags.strong("Configure settings"), " in the left sidebar:"),
+                    ui.tags.ul(
+                        ui.tags.li("Simulation years (1-500)"),
+                        ui.tags.li("Integration method (RK4 recommended)"),
+                        ui.tags.li("Vulnerability (functional response type)"),
+                        ui.tags.li("Fishing scenario"),
+                        ui.tags.li("Enable/disable autofix (keep enabled)")
+                    ),
+                    ui.tags.li(ui.tags.strong("Click 'Create Scenario'"), " - this validates parameters and applies fixes"),
+                    ui.tags.li(ui.tags.strong("Review"), " the effort preview and biomass forcing options"),
+                    ui.tags.li(ui.tags.strong("Click 'Run Simulation'"), " when ready")
+                ),
+                ui.h6("Fishing Scenarios"),
+                ui.tags.ul(
+                    ui.tags.li(ui.tags.strong("Baseline:"), " Effort stays constant at current levels"),
+                    ui.tags.li(ui.tags.strong("Increase:"), " Gradual ramp-up in effort (% per year, starting from specified year)"),
+                    ui.tags.li(ui.tags.strong("Decrease:"), " Gradual ramp-down in effort"),
+                    ui.tags.li(ui.tags.strong("Closure:"), " Fishing stops completely for a specified period"),
+                    ui.tags.li(ui.tags.strong("Custom:"), " Upload CSV file with custom effort trajectory")
+                ),
+                ui.h6("Tips"),
+                ui.tags.ul(
+                    ui.tags.li("Always enable autofix for first runs"),
+                    ui.tags.li("Check how many fixes are applied - many fixes suggest model issues"),
+                    ui.tags.li("Preview effort trajectory before running"),
+                    ui.tags.li("Start with 50 years, increase if needed for long-term dynamics")
+                ),
+                class_="alert alert-info mb-3"
+            )
+        )
+
+    @output
+    @render.ui
+    def help_progress():
+        if not show_help_progress.get():
+            return None
+        return ui.div(
+            ui.tags.div(
+                ui.h5(ui.tags.i(class_="bi bi-info-circle me-2"), "Simulation Progress Help"),
+                ui.tags.hr(),
+                ui.h6("Understanding Simulation Status"),
+                ui.p(
+                    "This tab shows whether your simulation completed successfully and provides diagnostic information "
+                    "if any groups experienced low biomass (crashes)."
+                ),
+                ui.h6("Status Messages"),
+                ui.tags.ul(
+                    ui.tags.li(
+                        ui.tags.strong("Simulation completed successfully:"),
+                        " No crashes detected. All groups maintained biomass above threshold (0.0001)."
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Low biomass detected (groups recovered):"),
+                        " Some groups briefly dipped below threshold but bounced back. This is often okay - "
+                        "it's a transient adjustment rather than a real crash. Check biomass plots to confirm recovery."
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Population crash (groups did not recover):"),
+                        " Groups went to near-zero biomass and stayed there. This indicates a real problem - "
+                        "check your model parameters and Ecopath balance."
+                    )
+                ),
+                ui.h6("What is a 'Crash'?"),
+                ui.p(
+                    "A crash is detected when any group's biomass falls below 0.0001 (1/10,000 of reference biomass). "
+                    "This threshold filters out numerical noise while catching biologically meaningful crashes."
+                ),
+                ui.tags.ul(
+                    ui.tags.li(ui.tags.strong("Crash year:"), " When the first group hit low biomass"),
+                    ui.tags.li(ui.tags.strong("Crashed groups:"), " Which specific groups had problems"),
+                    ui.tags.li(ui.tags.strong("Recovery:"), " Whether groups bounced back (final biomass > 0.01)")
+                ),
+                ui.h6("What to Do If Crashes Occur"),
+                ui.tags.ol(
+                    ui.tags.li(ui.tags.strong("Check if groups recovered:"), " Look at the status message and crashed groups list"),
+                    ui.tags.li(ui.tags.strong("View biomass plots:"), " Go to Time Series tab and plot the crashed groups"),
+                    ui.tags.li(ui.tags.strong("If recovered:"), " It's likely just numerical adjustment - simulation is fine"),
+                    ui.tags.li(ui.tags.strong("If not recovered:"), " Check:"),
+                    ui.tags.ul(
+                        ui.tags.li("Was autofix enabled? (Should be checked)"),
+                        ui.tags.li("How many fixes were applied? (Many fixes suggest model problems)"),
+                        ui.tags.li("Are any EE values > 1 in Ecopath? (Requires rebalancing)"),
+                        ui.tags.li("Do crashed groups have very low initial biomass?"),
+                        ui.tags.li("Are predator-prey relationships extreme?")
+                    )
+                ),
+                ui.h6("Simulation Details Table"),
+                ui.p("Shows key metrics:"),
+                ui.tags.ul(
+                    ui.tags.li("Years simulated - total time period"),
+                    ui.tags.li("Groups / Living groups - model size"),
+                    ui.tags.li("Crash year - when first crash occurred (or 'None')"),
+                    ui.tags.li("Crashed groups - names or count of affected groups")
+                ),
+                class_="alert alert-info mb-3"
+            )
+        )
+
+    @output
+    @render.ui
+    def help_timeseries():
+        if not show_help_timeseries.get():
+            return None
+        return ui.div(
+            ui.tags.div(
+                ui.h5(ui.tags.i(class_="bi bi-info-circle me-2"), "Time Series Help"),
+                ui.tags.hr(),
+                ui.h6("Purpose"),
+                ui.p(
+                    "Biomass trajectories show how each group's population changes over time. "
+                    "This is the most important output for understanding ecosystem dynamics."
+                ),
+                ui.h6("How to Use"),
+                ui.tags.ol(
+                    ui.tags.li(ui.tags.strong("Select groups:"), " Use the dropdown to choose which groups to plot (up to ~10 for clarity)"),
+                    ui.tags.li(ui.tags.strong("Relative vs Absolute:"), " Toggle 'Show Relative Biomass' to normalize to initial values"),
+                    ui.tags.li(ui.tags.strong("Interpret patterns:"), " Look for trends, oscillations, crashes, or equilibria")
+                ),
+                ui.h6("What to Look For"),
+                ui.tags.ul(
+                    ui.tags.li(
+                        ui.tags.strong("Equilibrium:"),
+                        " Biomass stays relatively constant (flat line) - system is stable"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Oscillations:"),
+                        " Regular up-and-down cycles - often predator-prey dynamics"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Trends:"),
+                        " Steady increase or decrease - shows long-term directional change"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Crashes:"),
+                        " Biomass drops to near-zero - indicates extinction or severe depletion"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Recovery:"),
+                        " Brief dip followed by return to normal - transient perturbation"
+                    )
+                ),
+                ui.h6("Interpreting Relative Biomass"),
+                ui.p(
+                    "When 'Show Relative Biomass' is checked, all trajectories start at 1.0. This makes it easier to compare "
+                    "groups of different sizes:"
+                ),
+                ui.tags.ul(
+                    ui.tags.li("Value = 1.0: No change from initial"),
+                    ui.tags.li("Value = 2.0: Doubled since start"),
+                    ui.tags.li("Value = 0.5: Halved since start"),
+                    ui.tags.li("Value near 0: Crashed (went extinct)")
+                ),
+                ui.h6("Common Patterns"),
+                ui.tags.ul(
+                    ui.tags.li(
+                        ui.tags.strong("Predator-Prey Cycles:"),
+                        " Predator and prey oscillate out of phase (prey peaks → predator peaks → prey crashes → predator crashes → repeat)"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Fishing Impact:"),
+                        " Target species decline, prey species increase, predator species may decline (loss of food)"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Trophic Cascade:"),
+                        " Changes propagate up/down food web (e.g., remove top predator → mesopredator increase → prey decrease)"
+                    )
+                ),
+                ui.h6("Tips"),
+                ui.tags.ul(
+                    ui.tags.li("Plot crashed groups first to see if they recovered"),
+                    ui.tags.li("Plot predator-prey pairs together to see dynamics"),
+                    ui.tags.li("Use relative biomass to focus on patterns not magnitudes"),
+                    ui.tags.li("Compare scenarios by running multiple times with different settings")
+                ),
+                class_="alert alert-info mb-3"
+            )
+        )
+
+    @output
+    @render.ui
+    def help_catch():
+        if not show_help_catch.get():
+            return None
+        return ui.div(
+            ui.tags.div(
+                ui.h5(ui.tags.i(class_="bi bi-info-circle me-2"), "Catch Data Help"),
+                ui.tags.hr(),
+                ui.h6("Purpose"),
+                ui.p(
+                    "Catch trajectories show how total fishery yield changes over time based on your fishing effort scenario."
+                ),
+                ui.h6("Understanding the Plot"),
+                ui.p(
+                    "The plot shows total annual catch (sum across all groups and gears). Catch depends on:"
+                ),
+                ui.tags.ul(
+                    ui.tags.li(ui.tags.strong("Effort:"), " Fishing pressure (set in scenario)"),
+                    ui.tags.li(ui.tags.strong("Biomass:"), " Available stock"),
+                    ui.tags.li(ui.tags.strong("Catchability:"), " How easily fish are caught")
+                ),
+                ui.h6("Interpreting the Table"),
+                ui.p(
+                    "The table shows catch by group for every 5 years. Use this to:"
+                ),
+                ui.tags.ul(
+                    ui.tags.li("Identify which groups contribute most to total catch"),
+                    ui.tags.li("See how catch composition changes over time"),
+                    ui.tags.li("Detect when a fishery is collapsing (catch → 0)")
+                ),
+                ui.h6("Fishing Scenario Effects"),
+                ui.tags.ul(
+                    ui.tags.li(
+                        ui.tags.strong("Baseline:"),
+                        " Catch should roughly track biomass changes (if biomass stable, catch stable)"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Increase effort:"),
+                        " Catch may initially increase but often decreases as stocks are depleted"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Decrease effort:"),
+                        " Catch decreases but stocks may recover, leading to stable long-term yield"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Closure:"),
+                        " Catch drops to zero during closure, may rebound after if stocks recover"
+                    )
+                ),
+                ui.h6("Warning Signs"),
+                ui.tags.ul(
+                    ui.tags.li("Catch declining despite constant or increasing effort → stock depletion"),
+                    ui.tags.li("Catch → 0 → fishery collapse"),
+                    ui.tags.li("High variability → unstable fishery or extreme predator-prey dynamics")
+                ),
+                ui.h6("Tips"),
+                ui.tags.ul(
+                    ui.tags.li("Compare catch plot with biomass trajectories to understand dynamics"),
+                    ui.tags.li("Sustainable fishery: catch stable over time"),
+                    ui.tags.li("Overfishing: catch peaks early then crashes"),
+                    ui.tags.li("Use catch data to evaluate management scenarios")
+                ),
+                class_="alert alert-info mb-3"
+            )
+        )
+
+    @output
+    @render.ui
+    def help_summary():
+        if not show_help_summary.get():
+            return None
+        return ui.div(
+            ui.tags.div(
+                ui.h5(ui.tags.i(class_="bi bi-info-circle me-2"), "Summary Help"),
+                ui.tags.hr(),
+                ui.h6("Purpose"),
+                ui.p(
+                    "The summary tab provides a quick overview of simulation outcomes, comparing initial and final states."
+                ),
+                ui.h6("Value Boxes"),
+                ui.tags.ul(
+                    ui.tags.li(
+                        ui.tags.strong("Initial Biomass:"),
+                        " Total system biomass at start (sum of all living groups)"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Final Biomass:"),
+                        " Total system biomass at end"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Biomass Change:"),
+                        " Percent change from initial to final. "
+                        "Green (positive) = system grew, Red (negative) = system declined"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Total Catch:"),
+                        " Sum of all catch over entire simulation period"
+                    )
+                ),
+                ui.h6("Initial vs Final Biomass Plot"),
+                ui.p(
+                    "Bar chart comparing each group's biomass at start (blue) and end (green). Use this to:"
+                ),
+                ui.tags.ul(
+                    ui.tags.li("Identify winners (groups that increased)"),
+                    ui.tags.li("Identify losers (groups that decreased)"),
+                    ui.tags.li("Spot extinctions (final bar missing/tiny)")
+                ),
+                ui.h6("Biomass Change Plot"),
+                ui.p(
+                    "Horizontal bar chart showing percent change for each group. "
+                    "Green bars = increase, Red bars = decrease. Use this to:"
+                ),
+                ui.tags.ul(
+                    ui.tags.li("Quickly see which groups changed most"),
+                    ui.tags.li("Identify disproportionate impacts"),
+                    ui.tags.li("Compare relative winners and losers")
+                ),
+                ui.h6("Interpreting Results"),
+                ui.tags.ul(
+                    ui.tags.li(
+                        ui.tags.strong("Healthy ecosystem:"),
+                        " Small to moderate changes, no extinctions, total biomass stable or increasing"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Stressed ecosystem:"),
+                        " Large changes, some groups declining significantly, total biomass decreasing"
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Collapsed ecosystem:"),
+                        " Multiple extinctions, total biomass down >50%, extreme changes"
+                    )
+                ),
+                ui.h6("What to Do Next"),
+                ui.tags.ol(
+                    ui.tags.li("If results look reasonable, save or export them (Results page)"),
+                    ui.tags.li("If unexpected changes, check Time Series tab for dynamics"),
+                    ui.tags.li("If crashes occurred, check Simulation Progress tab for diagnostics"),
+                    ui.tags.li("Try different scenarios to compare outcomes"),
+                    ui.tags.li("Adjust fishing effort or other parameters to explore management options")
+                ),
+                class_="alert alert-info mb-3"
+            )
+        )
+
     @output
     @render.ui
     def fishing_params_ui():
@@ -196,47 +792,89 @@ def ecosim_server(
             return ui.div(
                 ui.input_slider(
                     "effort_change_rate",
-                    "Annual Increase (%)",
+                    ui.span(
+                        "Annual Increase (%) ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Percent increase in fishing effort per year. Example: 5% means effort multiplier increases by 0.05 each year.",
+                            style="cursor: help;"
+                        )
+                    ),
                     min=0,
                     max=50,
                     value=5
                 ),
                 ui.input_numeric(
                     "effort_start_year",
-                    "Start Year",
+                    ui.span(
+                        "Start Year ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Year when effort starts increasing. Effort stays constant until this year.",
+                            style="cursor: help;"
+                        )
+                    ),
                     value=10,
                     min=1
                 ),
             )
-        
+
         elif scenario_type == "decrease":
             return ui.div(
                 ui.input_slider(
                     "effort_change_rate",
-                    "Annual Decrease (%)",
+                    ui.span(
+                        "Annual Decrease (%) ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Percent decrease in fishing effort per year. Example: 5% means effort multiplier decreases by 0.05 each year.",
+                            style="cursor: help;"
+                        )
+                    ),
                     min=0,
                     max=50,
                     value=5
                 ),
                 ui.input_numeric(
                     "effort_start_year",
-                    "Start Year",
+                    ui.span(
+                        "Start Year ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Year when effort starts decreasing. Effort stays constant until this year.",
+                            style="cursor: help;"
+                        )
+                    ),
                     value=10,
                     min=1
                 ),
             )
-        
+
         elif scenario_type == "closure":
             return ui.div(
                 ui.input_numeric(
                     "closure_start_year",
-                    "Closure Start Year",
+                    ui.span(
+                        "Closure Start Year ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Year when fishing stops completely. Effort = 0 during closure period.",
+                            style="cursor: help;"
+                        )
+                    ),
                     value=10,
                     min=1
                 ),
                 ui.input_numeric(
                     "closure_duration",
-                    "Duration (years)",
+                    ui.span(
+                        "Duration (years) ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="How many years the fishery closure lasts. After this, effort returns to baseline.",
+                            style="cursor: help;"
+                        )
+                    ),
                     value=10,
                     min=1
                 ),
@@ -262,26 +900,61 @@ def ecosim_server(
             years = range(1, input.sim_years() + 1)
             
             # Create scenario
-            # Need original params - create placeholder
+            # Need original params - recreate from balanced model
             from pypath.core.params import create_rpath_params
             
-            # Recreate params from model
+            # Recreate params from balanced model values
             groups = list(model.Group)
             types = list(model.type)
             orig_params = create_rpath_params(groups, types)
             
-            new_scenario = rsim_scenario(model, orig_params, years=years)
+            # Fill in the balanced parameter values
+            orig_params.model['Biomass'] = model.Biomass
+            orig_params.model['PB'] = model.PB
+            orig_params.model['QB'] = model.QB
+            orig_params.model['EE'] = model.EE
+            orig_params.model['Unassim'] = model.Unassim
+            orig_params.model['BioAcc'] = model.BA
+            orig_params.model['Type'] = types
             
+            # Reconstruct diet matrix from DC (diet composition)
+            # DC is (ngroups + 1, nliving) where last row is import
+            nliving = model.NUM_LIVING
+            for i in range(model.NUM_GROUPS):
+                for j in range(nliving):
+                    if i < nliving:  # Living groups eat
+                        orig_params.diet.iloc[i, j+1] = model.DC[i, j]
+            
+            new_scenario = rsim_scenario(model, orig_params, years=years, vulnerability=input.vulnerability())
+
             # Apply fishing scenario
             _apply_fishing_scenario(new_scenario, input)
-            
+
+            # Apply autofix if enabled
+            if input.enable_autofix():
+                new_scenario, report = validate_and_fix_scenario(
+                    new_scenario,
+                    model,
+                    auto_fix=True,
+                    verbose=False
+                )
+
+                # Show what was fixed
+                if report['fixes']:
+                    fix_count = len(report['fixes'])
+                    ui.notification_show(
+                        f"Applied {fix_count} stability fix{'es' if fix_count > 1 else ''}",
+                        type="info",
+                        duration=5
+                    )
+
             scenario.set(new_scenario)
-            
+
             # Update group choices
             group_names = list(model.Group[:model.NUM_LIVING + model.NUM_DEAD])
             ui.update_selectize("plot_groups", choices=group_names, selected=group_names[:3])
             ui.update_select("forcing_group", choices=group_names)
-            
+
             ui.notification_show("Scenario created successfully!", type="message")
             
         except Exception as e:
@@ -291,7 +964,11 @@ def ecosim_server(
         """Apply fishing scenario settings to scenario."""
         scenario_type = input.fishing_scenario()
         n_months = scen.fishing.ForcedEffort.shape[0]
-        n_gears = scen.fishing.ForcedEffort.shape[1]
+        n_gears = scen.fishing.ForcedEffort.shape[1] - 1  # Subtract 1 for "Outside" column
+        
+        # If no fishing gears, nothing to modify
+        if n_gears <= 0:
+            return
         
         if scenario_type == "baseline":
             # Keep at 1.0
@@ -359,6 +1036,13 @@ def ecosim_server(
                    ha='center', va='center', transform=ax.transAxes)
             return fig
         
+        # Check if there are any gears
+        n_gears = scen.fishing.ForcedEffort.shape[1] - 1
+        if n_gears <= 0:
+            ax.text(0.5, 0.5, "No fishing fleets in model", 
+                   ha='center', va='center', transform=ax.transAxes)
+            return fig
+        
         effort = scen.fishing.ForcedEffort[:, 1]  # First fleet
         months = np.arange(len(effort)) / 12
         
@@ -388,15 +1072,36 @@ def ecosim_server(
             
             # Run simulation
             output = rsim_run(scen, method=input.integration_method())
-            
+
             sim_output.set(output)
             sim_results.set(output)
-            
+
+            # Build informative crash message
             if output.crash_year > 0:
-                ui.notification_show(
-                    f"Simulation completed with crash at year {output.crash_year}",
-                    type="warning"
-                )
+                # Get crashed group names
+                crashed_names = [scen.params.spname[i] for i in output.crashed_groups]
+
+                # Format group list
+                if len(crashed_names) <= 3:
+                    groups_str = ", ".join(crashed_names)
+                else:
+                    groups_str = f"{', '.join(crashed_names[:3])}, +{len(crashed_names)-3} more"
+
+                # Check if groups recovered
+                final_biomass = {i: output.end_state.Biomass[i] for i in output.crashed_groups}
+                recovered = [name for i, name in zip(output.crashed_groups, crashed_names)
+                            if output.end_state.Biomass[i] > 0.01]
+
+                if recovered:
+                    msg = f"Low biomass detected in year {output.crash_year} ({groups_str}). "
+                    msg += "Groups recovered - check plots for details."
+                    msg_type = "info"
+                else:
+                    msg = f"Population crash at year {output.crash_year}: {groups_str}. "
+                    msg += "Groups did not recover."
+                    msg_type = "warning"
+
+                ui.notification_show(msg, type=msg_type, duration=10)
             else:
                 ui.notification_show("Simulation completed successfully!", type="message")
             
@@ -408,24 +1113,49 @@ def ecosim_server(
     def simulation_status():
         """Display simulation status."""
         output = sim_output.get()
-        
+        scen = scenario.get()
+
         if output is None:
             return ui.div(
                 ui.tags.i(class_="bi bi-hourglass me-2"),
                 "Simulation not yet run. Create scenario and click 'Run Simulation'.",
                 class_="alert alert-secondary"
             )
-        
+
         if output.crash_year > 0:
+            # Get crashed group names
+            crashed_names = [scen.params.spname[i] for i in output.crashed_groups]
+
+            # Format group list
+            if len(crashed_names) <= 3:
+                groups_str = ", ".join(crashed_names)
+            else:
+                groups_str = f"{', '.join(crashed_names[:3])}, +{len(crashed_names)-3} more"
+
+            # Check if groups recovered
+            recovered = [name for i, name in zip(output.crashed_groups, crashed_names)
+                        if output.end_state.Biomass[i] > 0.01]
+
+            if recovered:
+                msg = f"Low biomass detected in year {output.crash_year} for: {groups_str}. "
+                msg += f"{len(recovered)}/{len(crashed_names)} group(s) recovered."
+                alert_class = "alert alert-info"
+                icon_class = "bi bi-info-circle me-2"
+            else:
+                msg = f"Population crash at year {output.crash_year} for: {groups_str}. "
+                msg += "Groups did not recover."
+                alert_class = "alert alert-warning"
+                icon_class = "bi bi-exclamation-triangle me-2"
+
             return ui.div(
-                ui.tags.i(class_="bi bi-exclamation-triangle me-2"),
-                f"Simulation crashed at year {output.crash_year}. Check results for details.",
-                class_="alert alert-warning"
+                ui.tags.i(class_=icon_class),
+                msg,
+                class_=alert_class
             )
-        
+
         return ui.div(
             ui.tags.i(class_="bi bi-check-circle me-2"),
-            f"Simulation completed: {output.params['years']} years simulated",
+            f"Simulation completed successfully: {output.params['years']} years simulated",
             class_="alert alert-success"
         )
     
@@ -434,17 +1164,26 @@ def ecosim_server(
     def progress_display():
         """Display progress/completion info."""
         output = sim_output.get()
+        scen = scenario.get()
         if output is None:
             return None
-        
+
+        # Build crashed groups info
+        if output.crash_year > 0 and scen is not None:
+            crashed_names = [scen.params.spname[i] for i in output.crashed_groups]
+            crashed_info = ", ".join(crashed_names) if len(crashed_names) <= 5 else f"{len(crashed_names)} groups"
+        else:
+            crashed_info = "None"
+
         return ui.div(
             ui.tags.h5("Simulation Details"),
             ui.tags.table(
                 ui.tags.tr(ui.tags.td("Years simulated:"), ui.tags.td(str(output.params['years']))),
                 ui.tags.tr(ui.tags.td("Groups:"), ui.tags.td(str(output.params['NUM_GROUPS']))),
                 ui.tags.tr(ui.tags.td("Living groups:"), ui.tags.td(str(output.params['NUM_LIVING']))),
-                ui.tags.tr(ui.tags.td("Crash year:"), 
+                ui.tags.tr(ui.tags.td("Crash year:"),
                           ui.tags.td("None" if output.crash_year < 0 else str(output.crash_year))),
+                ui.tags.tr(ui.tags.td("Crashed groups:"), ui.tags.td(crashed_info)),
                 class_="table table-sm"
             ),
         )

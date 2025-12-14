@@ -51,6 +51,8 @@ class Rpath:
         Ecotrophic efficiencies
     GE : np.ndarray
         Gross efficiencies (P/Q)
+    M0 : np.ndarray
+        Other mortality rates (M0 = PB * (1 - EE))
     BA : np.ndarray
         Biomass accumulation rates
     Unassim : np.ndarray
@@ -80,6 +82,7 @@ class Rpath:
     QB: np.ndarray
     EE: np.ndarray
     GE: np.ndarray
+    M0: np.ndarray
     BA: np.ndarray
     Unassim: np.ndarray
     DC: np.ndarray
@@ -217,10 +220,11 @@ def rpath(
     # Create mapping from diet prey names to row indices in diet_df
     prey_name_to_diet_row = {name: i for i, name in enumerate(diet_prey_names)}
     
-    # Build diet matrix (rows = prey in original order, cols = predators in living_idx order)
-    n_prey = len(diet_prey_names)  # Includes Import row
+    # Build diet matrix (rows = ALL groups + Import, cols = predators in living_idx order)
+    # Need ngroups rows (one per group) + 1 row for Import
+    n_prey = len(diet_prey_names)  # Number of rows in diet_df (includes Import)
     n_pred = len(diet_cols)
-    diet_values = np.zeros((n_prey, n_pred))
+    diet_values = np.zeros((ngroups + 1, n_pred))  # ngroups rows for groups + 1 for Import
     
     # Map each group to its diet row
     for new_row_idx, group_name in enumerate(all_group_names):
@@ -351,13 +355,17 @@ def rpath(
         m0[idx] = pb[idx] * (1 - ee[idx])
     
     # Flows to detritus from living groups
+    # M0 can be negative if EE > 1, but loss flows should be non-negative
     qb_loss = np.where(np.isnan(qb), 0.0, qb)
     loss = np.zeros(ngroups)
     for idx in living_idx:
-        loss[idx] = (m0[idx] * biomass[idx]) + (biomass[idx] * qb_loss[idx] * unassim[idx])
+        # Only positive M0 contributes to detrital flow
+        m0_pos = max(0.0, m0[idx])
+        loss[idx] = (m0_pos * biomass[idx]) + (biomass[idx] * qb_loss[idx] * unassim[idx])
     # Add discards from fleets
-    for idx in fleet_idx:
-        loss[idx] = discards[idx]
+    # For each fleet, sum discards across all living groups
+    for f_idx, fleet_global_idx in enumerate(fleet_idx):
+        loss[fleet_global_idx] = np.sum(discardmat[living_idx, f_idx])
     
     # Get detritus fate matrix
     detfate = np.zeros((ngroups, ndead))
@@ -372,10 +380,11 @@ def rpath(
         det_input[d_idx] = model_df['DetInput'].values[det_idx] if 'DetInput' in model_df.columns else 0.0
     det_input = np.nan_to_num(det_input, nan=0.0)
     
-    # Total inputs to each detritus group
-    living_dead_loss = loss[np.concatenate([living_idx, dead_idx])]
-    living_dead_detfate = detfate[np.concatenate([living_idx, dead_idx]), :]
-    detinputs = np.sum(living_dead_loss[:, np.newaxis] * living_dead_detfate, axis=0) + det_input
+    # Total inputs to each detritus group (include fleets for fishing discards)
+    all_source_idx = np.concatenate([living_idx, dead_idx, fleet_idx])
+    all_source_loss = loss[all_source_idx]
+    all_source_detfate = detfate[all_source_idx, :]
+    detinputs = np.sum(all_source_loss[:, np.newaxis] * all_source_detfate, axis=0) + det_input
     
     # Detritus consumption by living groups
     # diet_values rows are in original order, columns are in living_idx order
@@ -401,19 +410,26 @@ def rpath(
         det_pb_input = pb[det_idx]
         det_b_input = biomass[det_idx]
         
-        if np.isnan(det_pb_input):
+        # Ensure detinputs is non-negative
+        det_in = max(0.0, detinputs[d_idx])
+        
+        if np.isnan(det_pb_input) or det_pb_input <= 0:
             det_pb[d_idx] = default_det_pb
         else:
             det_pb[d_idx] = det_pb_input
             
-        if np.isnan(det_b_input):
-            det_b[d_idx] = detinputs[d_idx] / det_pb[d_idx] if det_pb[d_idx] > 0 else 0
+        if np.isnan(det_b_input) or det_b_input <= 0:
+            det_b[d_idx] = det_in / det_pb[d_idx] if det_pb[d_idx] > 0 else 0
         else:
             det_b[d_idx] = det_b_input
         
         # Recalculate PB based on actual inputs and biomass
-        if det_b[d_idx] > 0:
-            det_pb[d_idx] = detinputs[d_idx] / det_b[d_idx]
+        # PB for detritus = total inputs / biomass (turnover rate)
+        if det_b[d_idx] > 0 and det_in > 0:
+            det_pb[d_idx] = det_in / det_b[d_idx]
+        elif det_b[d_idx] > 0:
+            # No inputs calculated, use default or input PB
+            det_pb[d_idx] = default_det_pb if np.isnan(det_pb_input) else max(0.01, det_pb_input)
         
         biomass[det_idx] = det_b[d_idx]
         pb[det_idx] = det_pb[d_idx]
@@ -467,9 +483,13 @@ def rpath(
     qb_out = qb.copy()
     qb_out[np.isnan(qb_out)] = 0.0
     ee_out = ee.copy()
-    
+    ee_out[fleet_idx] = 0.0  # Fleet EE is always 0
+
     ge_out = np.where(qb_out > 0, pb_out / qb_out, 0.0)
     ge_out = np.nan_to_num(ge_out, nan=0.0)
+
+    # M0 (other mortality) for living groups, 0 for others
+    m0_out = m0.copy()
     
     # Prepare diet matrix output (rows = groups + import, cols = living predators)
     diet_out = np.zeros((ngroups + 1, nliving))
@@ -490,6 +510,7 @@ def rpath(
         QB=qb_out,
         EE=ee_out,
         GE=ge_out,
+        M0=m0_out,
         BA=bioacc,
         Unassim=unassim,
         DC=diet_out,

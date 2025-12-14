@@ -72,6 +72,28 @@ from pypath.core.analysis import (
     export_ecopath_to_dataframe,
     export_ecosim_to_dataframe,
 )
+from pypath.core.autofix import (
+    AutofixResult,
+    diagnose_crash_causes,
+    autofix_parameters,
+    validate_and_fix_scenario,
+)
+
+# Optimization (optional - requires scikit-optimize)
+try:
+    from pypath.core.optimization import (
+        EcosimOptimizer,
+        OptimizationResult,
+        mean_squared_error,
+        mean_absolute_percentage_error,
+        normalized_root_mean_squared_error,
+        log_likelihood,
+        plot_optimization_results,
+        plot_fit,
+    )
+    HAS_OPTIMIZATION = True
+except ImportError:
+    HAS_OPTIMIZATION = False
 from pypath.core.plotting import (
     plot_foodweb,
     plot_biomass,
@@ -149,6 +171,21 @@ __all__ = [
     "check_ecosim_stability",
     "export_ecopath_to_dataframe",
     "export_ecosim_to_dataframe",
+    # Autofix
+    "AutofixResult",
+    "diagnose_crash_causes",
+    "autofix_parameters",
+    "validate_and_fix_scenario",
+    # Optimization
+    "HAS_OPTIMIZATION",
+    "EcosimOptimizer",
+    "OptimizationResult",
+    "mean_squared_error",
+    "mean_absolute_percentage_error",
+    "normalized_root_mean_squared_error",
+    "log_likelihood",
+    "plot_optimization_results",
+    "plot_fit",
     # Plotting
     "plot_foodweb",
     "plot_biomass",

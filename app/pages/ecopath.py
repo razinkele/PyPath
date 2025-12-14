@@ -26,6 +26,41 @@ from .utils import (
 )
 
 
+def _recreate_params_from_model(model):
+    """Recreate RpathParams from a balanced Rpath model.
+    
+    This allows editing of parameters that were originally balanced.
+    """
+    # Create basic params structure
+    groups = list(model.Group)
+    types = list(model.type)
+    params = create_rpath_params(groups, types)
+    
+    # Fill in the balanced parameter values
+    params.model['Biomass'] = model.Biomass
+    params.model['PB'] = model.PB
+    params.model['QB'] = model.QB
+    params.model['EE'] = model.EE
+    params.model['Unassim'] = model.Unassim
+    params.model['BioAcc'] = model.BA
+    
+    # Set types
+    params.model['Type'] = types
+    
+    # Reconstruct diet matrix from DC (diet composition)
+    # DC is (ngroups + 1, nliving) where last row is import
+    nliving = model.NUM_LIVING
+    for i in range(model.NUM_GROUPS):
+        for j in range(nliving):
+            if i < nliving:  # Living groups eat
+                params.diet.iloc[i, j+1] = model.DC[i, j]
+    
+    # Note: Fishing catches would need to be reconstructed from Landings/Discards
+    # For now, we'll leave them as-is (they can be edited later)
+    
+    return params
+
+
 def ecopath_ui():
     """Ecopath model page UI."""
     return ui.page_fluid(
@@ -120,6 +155,31 @@ def ecopath_ui():
                         class_="mb-2"
                     ),
                     ui.output_data_frame("model_params_table"),
+                    # Parameter help section
+                    ui.div(
+                        ui.tags.details(
+                            ui.tags.summary(
+                                ui.tags.i(class_="bi bi-info-circle me-2"),
+                                "Parameter Descriptions",
+                                style="cursor: pointer; color: #0066cc;"
+                            ),
+                            ui.div(
+                                ui.tags.dl(
+                                    ui.tags.dt("Group"), ui.tags.dd("Name of the functional group (species or group of species)"),
+                                    ui.tags.dt("Type"), ui.tags.dd("Group type: 0=Consumer, 1=Producer, 2=Detritus, 3=Fleet"),
+                                    ui.tags.dt("Biomass"), ui.tags.dd("Biomass (t/km²) - standing stock of the group"),
+                                    ui.tags.dt("PB"), ui.tags.dd("Production/Biomass ratio (1/year) - turnover rate"),
+                                    ui.tags.dt("QB"), ui.tags.dd("Consumption/Biomass ratio (1/year) - feeding rate (grey for producers/detritus)"),
+                                    ui.tags.dt("EE"), ui.tags.dd("Ecotrophic Efficiency (0-1) - fraction of production used in the system"),
+                                    ui.tags.dt("Unassim"), ui.tags.dd("Unassimilated consumption (0-1) - fraction of food not assimilated (grey for producers/detritus)"),
+                                    ui.tags.dt("BioAcc"), ui.tags.dd("Biomass accumulation rate (t/km²/year) - change in biomass over time"),
+                                    class_="row"
+                                ),
+                                class_="mt-3 p-3 border rounded"
+                            )
+                        ),
+                        class_="mt-2"
+                    ),
                     # Show remarks panel if any exist
                     ui.output_ui("remarks_panel"),
                 ),
@@ -197,11 +257,12 @@ def ecopath_server(
                     f"Loaded model: {n_groups} groups, {n_diet} diet values",
                     type="message"
                 )
-            elif hasattr(imported, 'params'):
-                # It's a balanced Rpath model - extract params
-                params.set(imported.params)
+            elif hasattr(imported, 'NUM_GROUPS'):
+                # It's a balanced Rpath model - recreate params from balanced values
+                recreated_params = _recreate_params_from_model(imported)
+                params.set(recreated_params)
                 ui.notification_show(
-                    "Loaded balanced model params",
+                    f"Loaded balanced model: {imported.NUM_GROUPS} groups",
                     type="message"
                 )
     
@@ -242,8 +303,7 @@ def ecopath_server(
             col_defs.append({
                 "id": col,
                 "name": col,
-                "header": col,
-                "headerTitle": tooltip,  # This adds tooltip on hover
+                "title": tooltip,  # Tooltip on hover
             })
         return col_defs
     
@@ -277,7 +337,13 @@ def ecopath_server(
         )
         styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask, stanza_mask)
         
-        return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles, width="100%")
+        return render.DataGrid(
+            formatted_df, 
+            editable=True, 
+            filters=False, 
+            styles=styles, 
+            width="100%"
+        )
     
     @output
     @render.ui
@@ -391,8 +457,6 @@ def ecopath_server(
         # Format for display: handle 9999 values and round to 3 decimals
         formatted_df, no_data_mask, remarks_mask, _ = format_dataframe_for_display(df, decimal_places=3)
         styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
-        
-        return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles)
         
         return render.DataGrid(formatted_df, editable=True, filters=False, styles=styles)
     
