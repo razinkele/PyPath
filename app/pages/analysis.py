@@ -9,10 +9,7 @@ import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend
 import matplotlib.pyplot as plt
 
-# Import pypath
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
+# pypath imports (path setup handled by app/__init__.py)
 from pypath.core.analysis import (
     calculate_network_indices,
     summarize_ecosim_output,
@@ -28,6 +25,19 @@ from pypath.core.plotting import (
     plot_mti_heatmap,
     plot_trophic_spectrum,
 )
+
+# Import centralized logger
+try:
+    from app.logger import get_logger
+    logger = get_logger(__name__)
+except ModuleNotFoundError:
+    import sys
+    from pathlib import Path as PathLib
+    app_dir = PathLib(__file__).parent.parent
+    if str(app_dir) not in sys.path:
+        sys.path.insert(0, str(app_dir))
+    from logger import get_logger
+    logger = get_logger(__name__)
 
 
 def analysis_ui():
@@ -247,7 +257,7 @@ def analysis_server(
         try:
             return calculate_network_indices(model)
         except Exception as e:
-            print(f"Error calculating network indices: {e}")
+            logger.error(f"Error calculating network indices: {e}", exc_info=True)
             return None
     
     @reactive.calc
@@ -259,7 +269,7 @@ def analysis_server(
         try:
             return mixed_trophic_impacts(model)
         except Exception as e:
-            print(f"Error calculating MTI: {e}")
+            logger.error(f"Error calculating MTI: {e}", exc_info=True)
             return None
     
     @reactive.calc
@@ -271,7 +281,7 @@ def analysis_server(
         try:
             return keystoneness_index(model)
         except Exception as e:
-            print(f"Error calculating keystoneness: {e}")
+            logger.error(f"Error calculating keystoneness: {e}", exc_info=True)
             return None
     
     @reactive.calc
@@ -283,7 +293,7 @@ def analysis_server(
         try:
             return check_ecopath_balance(model)
         except Exception as e:
-            print(f"Error checking balance: {e}")
+            logger.error(f"Error checking balance: {e}", exc_info=True)
             return None
     
     # === Network Analysis ===
@@ -436,7 +446,8 @@ def analysis_server(
             })
             df = df.sort_values('Trophic Level', ascending=False).head(15)
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting trophic data: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract trophic data']})
     
     @output
@@ -519,7 +530,8 @@ def analysis_server(
             df = df.nlargest(10, 'Impact')
             df['Impact'] = df['Impact'].round(4)
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting positive impacts: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract impacts']})
     
     @output
@@ -549,7 +561,8 @@ def analysis_server(
             df = df.nsmallest(10, 'Impact')
             df['Impact'] = df['Impact'].round(4)
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting negative impacts: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract impacts']})
     
     # === Keystoneness ===
@@ -586,7 +599,8 @@ def analysis_server(
             })
             df = df.sort_values('Keystoneness', ascending=False).head(10)
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting keystoneness data: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract keystoneness']})
     
     @output
@@ -744,9 +758,10 @@ def analysis_server(
             
             # Mark issues
             df['Status'] = np.where(ee > 1, '⚠️ EE>1', '✓')
-            
+
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting balance diagnostics: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract diagnostics']})
     
     # === Export Data ===
@@ -776,7 +791,8 @@ def analysis_server(
             df = model.params.model[['Group', 'Type', 'Biomass', 'PB', 'QB', 'EE']].copy()
             df = df.round(3)
             return df.head(15)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting model parameters: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract parameters']})
     
     @output
@@ -793,7 +809,8 @@ def analysis_server(
             # Show only first 10 columns
             cols = diet.columns[:10].tolist()
             return diet[cols].head(10)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting diet matrix: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract diet matrix']})
     
     @output

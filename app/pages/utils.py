@@ -6,26 +6,29 @@ to avoid code duplication.
 
 import pandas as pd
 import numpy as np
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Tuple
+
+# Import centralized configuration
+try:
+    from app.config import DISPLAY, TYPE_LABELS, NO_DATA_VALUE, THRESHOLDS
+except ModuleNotFoundError:
+    # When running from app directory, use relative import
+    import sys
+    from pathlib import Path
+    app_dir = Path(__file__).parent.parent
+    if str(app_dir) not in sys.path:
+        sys.path.insert(0, str(app_dir))
+    from config import DISPLAY, TYPE_LABELS, NO_DATA_VALUE, THRESHOLDS
 
 
 # =============================================================================
 # CONSTANTS
 # =============================================================================
 
-# Constants for "no data" handling
-NO_DATA_VALUE = 9999
+# Style constants (UI-specific, not in config)
 NO_DATA_STYLE = {"background-color": "#f0f0f0", "color": "#999"}  # Light gray for no data cells
 REMARK_STYLE = {"background-color": "#fff9e6", "border-bottom": "2px dashed #f0ad4e"}  # Yellow tint for cells with remarks
 STANZA_STYLE = {"background-color": "#e6f3ff", "border-left": "3px solid #0066cc"}  # Light blue for stanza groups
-
-# Type code to category name mapping
-TYPE_LABELS: Dict[int, str] = {
-    0: 'Consumer',
-    1: 'Producer',
-    2: 'Detritus',
-    3: 'Fleet'
-}
 
 # Column tooltips for parameter documentation
 COLUMN_TOOLTIPS: Dict[str, str] = {
@@ -77,32 +80,60 @@ COLUMN_TOOLTIPS: Dict[str, str] = {
 # =============================================================================
 
 def format_dataframe_for_display(
-    df: pd.DataFrame, 
-    decimal_places: int = 3,
+    df: pd.DataFrame,
+    decimal_places: Optional[int] = None,
     remarks_df: Optional[pd.DataFrame] = None,
-    stanza_groups: Optional[list] = None
-) -> tuple:
+    stanza_groups: Optional[List[str]] = None
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Format a DataFrame for display with number formatting and cell styling.
+
+    This function processes a DataFrame to prepare it for display in the Shiny app by:
+    - Replacing 9999 (no data) sentinel values with NaN
+    - Rounding numeric values to specified decimal places
+    - Converting Type column from numeric codes to category labels
+    - Creating boolean masks for special cell highlighting (no data, remarks, stanza groups)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to format for display
+    decimal_places : Optional[int], default None
+        Number of decimal places for rounding numeric values.
+        If None, uses DISPLAY.decimal_places from config (default: 3)
+    remarks_df : Optional[pd.DataFrame], default None
+        DataFrame with same structure as df containing remark text.
+        Cells with non-empty remarks will be marked in the remarks mask
+    stanza_groups : Optional[List[str]], default None
+        List of group names that are part of multi-stanza configurations.
+        These groups will be highlighted in the output
+
+    Returns
+    -------
+    Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        A 4-tuple containing:
+        - formatted_df : DataFrame with formatted values (9999→NaN, rounded decimals)
+        - no_data_mask_df : Boolean DataFrame, True where original value was 9999
+        - remarks_mask_df : Boolean DataFrame, True where cell has a remark
+        - stanza_mask_df : Boolean DataFrame, True for stanza group rows
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({
+    ...     'Group': ['Fish', 'Plankton'],
+    ...     'Type': [0, 1],
+    ...     'Biomass': [10.12345, 9999]
+    ... })
+    >>> formatted, no_data, remarks, stanza = format_dataframe_for_display(df, decimal_places=2)
+    >>> formatted['Biomass'].tolist()
+    [10.12, nan]
+    >>> no_data['Biomass'].tolist()
+    [False, True]
     """
-    Format a DataFrame for display by:
-    - Replacing 9999 (no data) values with NaN
-    - Rounding numbers to specified decimal places
-    - Adding remark indicators to cells with comments
-    - Converting Type column from numeric codes to category names
-    - Optionally marking groups that are part of multi-stanza configurations
-    
-    Args:
-        df: DataFrame to format
-        decimal_places: Number of decimal places for rounding
-        remarks_df: Optional DataFrame with remarks (same structure as df)
-        stanza_groups: Optional list of group names that are part of multi-stanza configurations
-    
-    Returns:
-        tuple: (formatted_df, no_data_mask_df, remarks_mask_df, stanza_mask_df)
-        - formatted_df: DataFrame with formatted values
-        - no_data_mask_df: Boolean DataFrame where True indicates original 9999 value
-        - remarks_mask_df: Boolean DataFrame where True indicates cell has a remark
-        - stanza_mask_df: Boolean DataFrame where True indicates group is part of multi-stanza
-    """
+    # Use config default if not specified
+    if decimal_places is None:
+        decimal_places = DISPLAY.decimal_places
+
     formatted = df.copy()
     no_data_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
     remarks_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
@@ -130,11 +161,11 @@ def format_dataframe_for_display(
             numeric_col = pd.to_numeric(formatted[col], errors='coerce')
             
             # Mark 9999 values as no data
-            is_no_data = (numeric_col == NO_DATA_VALUE) | (numeric_col == -9999)
+            is_no_data = (numeric_col == NO_DATA_VALUE) | (numeric_col == THRESHOLDS.negative_no_data_value)
             no_data_mask[col] = is_no_data
-            
+
             # Replace 9999 with NaN, then round
-            numeric_col = numeric_col.replace([NO_DATA_VALUE, -9999], np.nan)
+            numeric_col = numeric_col.replace([NO_DATA_VALUE, THRESHOLDS.negative_no_data_value], np.nan)
             
             # Round non-NaN values
             if col not in ['Group', 'Type']:
@@ -162,23 +193,59 @@ def format_dataframe_for_display(
 
 
 def create_cell_styles(
-    df: pd.DataFrame, 
+    df: pd.DataFrame,
     no_data_mask: pd.DataFrame,
     remarks_mask: Optional[pd.DataFrame] = None,
     stanza_mask: Optional[pd.DataFrame] = None
-) -> list:
-    """
-    Create cell style rules for DataGrid based on no-data mask, remarks mask, stanza mask,
-    and parameter applicability by group type.
-    
-    Args:
-        df: The formatted DataFrame
-        no_data_mask: Boolean DataFrame where True indicates no data (9999 values)
-        remarks_mask: Optional Boolean DataFrame where True indicates cell has a remark
-        stanza_mask: Optional Boolean DataFrame where True indicates stanza group row
-    
-    Returns:
-        list: Style dictionaries for DataGrid
+) -> List[Dict[str, Any]]:
+    """Create cell style rules for Shiny DataGrid component.
+
+    Generates style dictionaries for highlighting special cells in the DataGrid:
+    - No data cells (9999 values) → gray background
+    - Non-applicable parameters by group type → italicized gray
+    - Cells with remarks → yellow tint with dashed border
+    - Stanza group rows → light blue background with left border
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The formatted DataFrame to generate styles for
+    no_data_mask : pd.DataFrame
+        Boolean DataFrame where True indicates cell originally contained 9999 (no data)
+    remarks_mask : Optional[pd.DataFrame], default None
+        Boolean DataFrame where True indicates cell has an associated remark
+    stanza_mask : Optional[pd.DataFrame], default None
+        Boolean DataFrame where True indicates row is part of a multi-stanza group
+
+    Returns
+    -------
+    List[Dict[str, Any]]
+        List of style dictionaries for DataGrid. Each dict has:
+        - 'location': str - Always 'body'
+        - 'rows': int - Row index to style
+        - 'cols': int - Column index to style
+        - 'style': Dict[str, str] - CSS style properties
+
+    Notes
+    -----
+    Style priority (highest to lowest):
+    1. No data cells (gray)
+    2. Non-applicable parameters (gray italic)
+    3. Cells with remarks (yellow)
+    4. Stanza group rows (blue)
+
+    Non-applicable parameters by group type:
+    - QB (Consumption): Not applicable to producers (type=1) and detritus (type=2)
+    - Unassim: Not applicable to producers (type=1) and detritus (type=2)
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'Group': ['Fish'], 'Type': ['Consumer'], 'Biomass': [10.5]})
+    >>> no_data = pd.DataFrame({'Group': [False], 'Type': [False], 'Biomass': [False]})
+    >>> styles = create_cell_styles(df, no_data)
+    >>> len(styles)
+    0  # No special styling needed
     """
     styles = []
     
@@ -242,15 +309,76 @@ def create_cell_styles(
 # MODEL INFO EXTRACTION
 # =============================================================================
 
-def get_model_info(model) -> Optional[Dict[str, Any]]:
-    """Extract model info from either Rpath or RpathParams object.
-    
-    Args:
-        model: Rpath (balanced model) or RpathParams object
-    
-    Returns:
-        dict with: groups, num_living, num_dead, trophic_level, biomass, type_codes, etc.
-        Returns None if model is None
+def get_model_info(model: Any) -> Optional[Dict[str, Any]]:
+    """Extract comprehensive model information from Rpath or RpathParams object.
+
+    This utility function provides a unified interface for accessing model properties
+    regardless of whether the model is a balanced Rpath object or unbalanced RpathParams.
+    It handles the different attribute structures of these two object types.
+
+    Parameters
+    ----------
+    model : Any
+        Either an Rpath object (balanced model) or RpathParams object (unbalanced model).
+        Can also be None, in which case None is returned.
+
+    Returns
+    -------
+    Optional[Dict[str, Any]]
+        Dictionary containing model information with the following keys:
+
+        - 'groups' : List[str]
+            Names of all functional groups in the model
+        - 'num_living' : int
+            Number of living groups (consumers and producers)
+        - 'num_dead' : int
+            Number of detritus groups
+        - 'num_groups' : int
+            Total number of groups
+        - 'trophic_level' : Optional[np.ndarray]
+            Trophic levels (only for balanced models, None otherwise)
+        - 'biomass' : Optional[np.ndarray]
+            Biomass values for each group
+        - 'type_codes' : np.ndarray
+            Group type codes (0=consumer, 1=producer, 2=detritus, 3=fleet)
+        - 'eco_name' : str
+            Model name/identifier
+        - 'is_balanced' : bool
+            True if Rpath object (balanced), False if RpathParams (unbalanced)
+        - 'params' : Any
+            Reference to the parameter object
+
+        Returns None if model is None.
+
+    Notes
+    -----
+    **Rpath vs RpathParams:**
+    - **Rpath** (balanced): Has attributes like Group, NUM_LIVING, TL directly
+    - **RpathParams** (unbalanced): Properties are in params.model DataFrame
+
+    Type Codes:
+    - 0: Consumer (fish, invertebrates)
+    - 1: Producer (phytoplankton, macroalgae)
+    - 2: Detritus (organic matter)
+    - 3: Fleet (fishing gear)
+
+    Examples
+    --------
+    >>> from pypath.core.params import create_params
+    >>> params = create_params(n_groups=3, n_living=2)
+    >>> info = get_model_info(params)
+    >>> info['is_balanced']
+    False
+    >>> info['num_groups']
+    3
+
+    >>> # After balancing
+    >>> model = rpath(params)
+    >>> info = get_model_info(model)
+    >>> info['is_balanced']
+    True
+    >>> 'trophic_level' in info and info['trophic_level'] is not None
+    True
     """
     if model is None:
         return None
