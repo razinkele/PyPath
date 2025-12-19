@@ -21,7 +21,7 @@ if str(root_dir) not in sys.path:
 
 # Import page modules - organized by category
 # Core pages
-from pages import home, data_import, ecopath, ecosim, results, analysis, about
+from pages import home, data_import, ecopath, prebalance, ecosim, results, analysis, about
 # Advanced features
 from pages import multistanza, forcing_demo, diet_rewiring_demo, optimization_demo, ecospace
 
@@ -60,6 +60,7 @@ app_ui = ui.page_navbar(
     ui.nav_panel("Home", home.home_ui()),
     ui.nav_panel("Data Import", data_import.import_ui()),
     ui.nav_panel("Ecopath Model", ecopath.ecopath_ui()),
+    ui.nav_panel("Pre-Balance Diagnostics", prebalance.prebalance_ui()),
     ui.nav_panel("Ecosim Simulation", ecosim.ecosim_ui()),
     ui.nav_menu(
         "Advanced Features",
@@ -197,6 +198,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         ("Home", lambda: home.home_server(input, output, session, model_data)),
         ("Data Import", lambda: data_import.import_server(input, output, session, model_data)),
         ("Ecopath", lambda: ecopath.ecopath_server(input, output, session, model_data)),
+        ("Pre-Balance Diagnostics", lambda: prebalance.prebalance_server(input, output, session, model_data)),
         ("Ecosim", lambda: ecosim.ecosim_server(input, output, session, model_data, sim_results)),
         ("Ecospace", lambda: ecospace.ecospace_server(input, output, session, model_data, sim_results)),
         ("Multi-Stanza", lambda: multistanza.multistanza_server(input, output, session, shared_data)),

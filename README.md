@@ -29,6 +29,7 @@
 
 ### Ecopath with Ecosim
 - **Ecopath**: Mass-balance food web modeling with multi-stanza support
+- **Pre-Balance Diagnostics**: Comprehensive model validation before balancing (NEW)
 - **Ecosim**: Dynamic simulation using foraging arena theory
 - **Multi-stanza groups**: Age-structured populations with von Bertalanffy growth
 - **Fishing fleets**: Multiple gears with effort dynamics
@@ -185,6 +186,29 @@ output = pp.rsim_run(scenario, method='RK4')
 pp.plot_biomass(output, groups=['Fish', 'Zooplankton'])
 ```
 
+### Pre-Balance Diagnostics
+```python
+from pypath.analysis import generate_prebalance_report, print_prebalance_summary
+
+# Read unbalanced model
+params = pp.read_eweaccdb('my_model.eweaccdb')
+
+# Run diagnostics BEFORE balancing
+report = generate_prebalance_report(params)
+print_prebalance_summary(report)
+
+# Check for issues
+if len(report['warnings']) > 0:
+    print("Issues detected - fix before balancing!")
+    for warning in report['warnings']:
+        print(f"  - {warning}")
+
+# Visualize diagnostics
+from pypath.analysis import plot_biomass_vs_trophic_level
+fig = plot_biomass_vs_trophic_level(params)
+fig.savefig('prebalance_diagnostics.png')
+```
+
 ### Advanced: Forcing + Diet Rewiring
 ```python
 from pypath.core.forcing import create_biomass_forcing, create_diet_rewiring
@@ -337,6 +361,7 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 | Core Ecopath/Ecosim | ✅ | ✅ |
 | Multi-stanza groups | ✅ | ✅ |
 | .eweaccdb import | ✅ | ✅ |
+| Pre-balance diagnostics | Limited | Comprehensive ⭐ |
 | State-variable forcing | ❌ | ✅ ⭐ |
 | Dynamic diet rewiring | ❌ | ✅ ⭐ |
 | Bayesian optimization | ❌ | ✅ ⭐ |
