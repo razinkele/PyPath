@@ -76,6 +76,94 @@ COLUMN_TOOLTIPS: Dict[str, str] = {
 
 
 # =============================================================================
+# MODEL TYPE HELPERS
+# =============================================================================
+
+def is_balanced_model(model) -> bool:
+    """Check if model is a balanced Rpath model.
+
+    Parameters
+    ----------
+    model : object
+        Model to check
+
+    Returns
+    -------
+    bool
+        True if model is balanced (has NUM_LIVING attribute)
+
+    Examples
+    --------
+    >>> from pypath.core.ecopath import rpath
+    >>> from pypath.core.params import create_rpath_params
+    >>> params = create_rpath_params(...)
+    >>> balanced = rpath(params)
+    >>> is_balanced_model(balanced)
+    True
+    >>> is_balanced_model(params)
+    False
+    """
+    return hasattr(model, 'NUM_LIVING')
+
+
+def is_rpath_params(model) -> bool:
+    """Check if model is RpathParams (unbalanced).
+
+    Parameters
+    ----------
+    model : object
+        Model to check
+
+    Returns
+    -------
+    bool
+        True if model is RpathParams
+
+    Examples
+    --------
+    >>> from pypath.core.params import create_rpath_params
+    >>> params = create_rpath_params(...)
+    >>> is_rpath_params(params)
+    True
+    """
+    return (hasattr(model, 'model') and
+            hasattr(model.model, 'columns') and
+            'Group' in model.model.columns)
+
+
+def get_model_type(model) -> str:
+    """Get model type as string.
+
+    Parameters
+    ----------
+    model : object
+        Model to identify
+
+    Returns
+    -------
+    str
+        'balanced', 'params', or 'unknown'
+
+    Examples
+    --------
+    >>> from pypath.core.ecopath import rpath
+    >>> from pypath.core.params import create_rpath_params
+    >>> params = create_rpath_params(...)
+    >>> get_model_type(params)
+    'params'
+    >>> balanced = rpath(params)
+    >>> get_model_type(balanced)
+    'balanced'
+    """
+    if is_balanced_model(model):
+        return 'balanced'
+    elif is_rpath_params(model):
+        return 'params'
+    else:
+        return 'unknown'
+
+
+# =============================================================================
 # DATAFRAME FORMATTING
 # =============================================================================
 

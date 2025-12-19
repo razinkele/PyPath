@@ -29,6 +29,7 @@ from pypath.core.plotting import (
 # Import centralized logger
 try:
     from app.logger import get_logger
+    from app.pages.utils import is_balanced_model
     logger = get_logger(__name__)
 except ModuleNotFoundError:
     import sys
@@ -37,6 +38,7 @@ except ModuleNotFoundError:
     if str(app_dir) not in sys.path:
         sys.path.insert(0, str(app_dir))
     from logger import get_logger
+    from pages.utils import is_balanced_model
     logger = get_logger(__name__)
 
 
@@ -244,7 +246,7 @@ def analysis_server(
         if data is None:
             return None
         # Check if it's a balanced model (Rpath) or just params
-        if hasattr(data, 'trophic_level'):
+        if is_balanced_model(data):
             return data
         return None
     
