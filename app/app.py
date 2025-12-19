@@ -50,10 +50,10 @@ app_ui = ui.page_navbar(
                 max-width: {UI.table_col_max_width_px} !important;
             }}
             /* Style for numeric columns */
-            .shiny-data-grid td:not(:first-child) {
+            .shiny-data-grid td:not(:first-child) {{
                 text-align: right;
                 font-family: monospace;
-            }
+            }}
         """)
     ),
     # Navigation pages
