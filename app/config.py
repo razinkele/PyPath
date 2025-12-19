@@ -163,8 +163,8 @@ class UIConfig:
     """User interface layout and styling constants."""
 
     # Sidebar dimensions
-    sidebar_width_px: str = "300px"
-    sidebar_min_width_px: str = "250px"
+    sidebar_width: int = 300  # Shiny expects integer pixels
+    sidebar_min_width: int = 250
 
     # Plot heights
     plot_height_small_px: str = "400px"

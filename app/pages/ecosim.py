@@ -200,7 +200,7 @@ def ecosim_ui() -> ui.Tag:
                         "Auto-fix parameters ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title="Automatically caps VV ≤ 5.0, QQ ≤ 3.0, ensures minimum biomass ≥ 0.001, and normalizes DD to 1-2. Prevents most crashes caused by extreme parameter values.",
+                            title=f"Automatically caps VV ≤ {THRESHOLDS.vv_cap}, QQ ≤ {THRESHOLDS.qq_cap}, ensures minimum biomass ≥ {THRESHOLDS.min_biomass}, and normalizes DD to 1-2. Prevents most crashes caused by extreme parameter values.",
                             style="cursor: help;"
                         )
                     ),
@@ -225,8 +225,8 @@ def ecosim_ui() -> ui.Tag:
                     "Run Simulation",
                     class_="btn-success w-100 mt-2"
                 ),
-                
-                width=300,
+
+                width=UI.sidebar_width,
             ),
             
             # Main content
@@ -350,7 +350,7 @@ def ecosim_ui() -> ui.Tag:
                         ),
                         col_widths=[9, 3]
                     ),
-                    ui.output_plot("biomass_timeseries", height="500px"),
+                    ui.output_plot("biomass_timeseries", height=UI.plot_height_medium_px),
                 ),
                 ui.nav_panel(
                     "Catch",
@@ -367,7 +367,7 @@ def ecosim_ui() -> ui.Tag:
                         col_widths=[10, 2]
                     ),
                     ui.output_ui("help_catch"),
-                    ui.output_plot("catch_timeseries", height="400px"),
+                    ui.output_plot("catch_timeseries", height=UI.plot_height_small_px),
                     ui.output_table("annual_catch_table"),
                 ),
                 ui.nav_panel(
@@ -478,9 +478,9 @@ def ecosim_server(
                     ),
                     ui.h5("Parameters that get fixed:"),
                     ui.tags.ul(
-                        ui.tags.li(ui.tags.strong("VV (Vulnerability):"), " Capped at ≤ 5.0 (prevents rapid prey depletion)"),
-                        ui.tags.li(ui.tags.strong("QQ (Density Dependence):"), " Capped at ≤ 3.0 (reduces oscillations)"),
-                        ui.tags.li(ui.tags.strong("Minimum Biomass:"), " Raised to ≥ 0.001 (prevents instant extinction)"),
+                        ui.tags.li(ui.tags.strong("VV (Vulnerability):"), f" Capped at ≤ {THRESHOLDS.vv_cap} (prevents rapid prey depletion)"),
+                        ui.tags.li(ui.tags.strong("QQ (Density Dependence):"), f" Capped at ≤ {THRESHOLDS.qq_cap} (reduces oscillations)"),
+                        ui.tags.li(ui.tags.strong("Minimum Biomass:"), f" Raised to ≥ {THRESHOLDS.min_biomass} (prevents instant extinction)"),
                         ui.tags.li(ui.tags.strong("DD (Prey Switching):"), " Normalized to 1-2 range (stabilizes predation)")
                     ),
                     ui.h5("Why is this needed?"),
@@ -611,7 +611,7 @@ def ecosim_server(
                 ui.tags.ul(
                     ui.tags.li(
                         ui.tags.strong("Simulation completed successfully:"),
-                        " No crashes detected. All groups maintained biomass above threshold (0.0001)."
+                        f" No crashes detected. All groups maintained biomass above threshold ({THRESHOLDS.crash_threshold})."
                     ),
                     ui.tags.li(
                         ui.tags.strong("Low biomass detected (groups recovered):"),
@@ -626,13 +626,13 @@ def ecosim_server(
                 ),
                 ui.h6("What is a 'Crash'?"),
                 ui.p(
-                    "A crash is detected when any group's biomass falls below 0.0001 (1/10,000 of reference biomass). "
+                    f"A crash is detected when any group's biomass falls below {THRESHOLDS.crash_threshold} (1/10,000 of reference biomass). "
                     "This threshold filters out numerical noise while catching biologically meaningful crashes."
                 ),
                 ui.tags.ul(
                     ui.tags.li(ui.tags.strong("Crash year:"), " When the first group hit low biomass"),
                     ui.tags.li(ui.tags.strong("Crashed groups:"), " Which specific groups had problems"),
-                    ui.tags.li(ui.tags.strong("Recovery:"), " Whether groups bounced back (final biomass > 0.01)")
+                    ui.tags.li(ui.tags.strong("Recovery:"), f" Whether groups bounced back (final biomass > {THRESHOLDS.recovery_threshold})")
                 ),
                 ui.h6("What to Do If Crashes Occur"),
                 ui.tags.ol(
@@ -1108,7 +1108,7 @@ def ecosim_server(
             
             for m in range(start_month, n_months):
                 years_since = (m - start_month) / 12
-                multiplier = max(0.01, 1.0 - rate * years_since)
+                multiplier = max(THRESHOLDS.minimum_effort_multiplier, 1.0 - rate * years_since)
                 scen.fishing.ForcedEffort[m, 1:] = multiplier
         
         elif scenario_type == "closure":
@@ -1229,7 +1229,7 @@ def ecosim_server(
                 # Check if groups recovered
                 final_biomass = {i: output.end_state.Biomass[i] for i in output.crashed_groups}
                 recovered = [name for i, name in zip(output.crashed_groups, crashed_names)
-                            if output.end_state.Biomass[i] > 0.01]
+                            if output.end_state.Biomass[i] > THRESHOLDS.recovery_threshold]
 
                 if recovered:
                     msg = f"Low biomass detected in year {output.crash_year} ({groups_str}). "
@@ -1276,7 +1276,7 @@ def ecosim_server(
 
             # Check if groups recovered
             recovered = [name for i, name in zip(output.crashed_groups, crashed_names)
-                        if output.end_state.Biomass[i] > 0.01]
+                        if output.end_state.Biomass[i] > THRESHOLDS.recovery_threshold]
 
             if recovered:
                 msg = f"Low biomass detected in year {output.crash_year} for: {groups_str}. "
