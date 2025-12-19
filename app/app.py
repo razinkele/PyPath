@@ -10,6 +10,10 @@ from pathlib import Path
 from datetime import datetime
 import shinyswatch
 import sys
+import logging
+
+# Get logger
+logger = logging.getLogger('pypath_app')
 
 # App directory for static assets
 APP_DIR = Path(__file__).parent
@@ -215,9 +219,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         try:
             server_init()
         except Exception as e:
-            print(f"ERROR: Failed to initialize {page_name} server: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Failed to initialize {page_name} server: {e}", exc_info=True)
 
 
 # Create the app with static assets

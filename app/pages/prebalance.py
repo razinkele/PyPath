@@ -11,6 +11,10 @@ from shiny import ui, render, reactive, Inputs, Outputs, Session
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import logging
+
+# Get logger
+logger = logging.getLogger('pypath_app.prebalance')
 
 try:
     from app.config import UI, PLOTS, COLORS
@@ -295,14 +299,12 @@ def prebalance_server(
                 )
 
         except Exception as e:
+            logger.error(f"Error running diagnostics: {e}", exc_info=True)
             ui.notification_show(
                 f"Error running diagnostics: {str(e)}",
                 type="error",
                 duration=5
             )
-            print(f"ERROR in prebalance diagnostics: {e}")
-            import traceback
-            traceback.print_exc()
 
     @output
     @render.ui
@@ -555,7 +557,5 @@ def prebalance_server(
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             ax.axis('off')
-            print(f"ERROR in diagnostic plot: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error generating diagnostic plot: {e}", exc_info=True)
             return fig

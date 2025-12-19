@@ -21,7 +21,7 @@ from .utils import (
     COLUMN_TOOLTIPS,
     is_balanced_model,
 )
-from .validation import validate_model_parameters
+from .validation import validate_model_parameters, validate_biomass, validate_pb, validate_ee
 
 # Configuration imports
 try:
@@ -671,21 +671,54 @@ def ecopath_server(
         edit = input.model_params_table_cell_edit()
         if edit is None:
             return
-        
+
         p = params.get()
         if p is None:
             return
-        
+
         row = edit['row']
         col_name = edit['column']
         new_value = edit['value']
-        
+        group_name = p.model.loc[row, 'Group'] if 'Group' in p.model.columns else f"Row {row}"
+
         # Update the params
         if col_name in p.model.columns and col_name != 'Group':
             try:
-                p.model.loc[row, col_name] = float(new_value) if new_value else np.nan
-            except (ValueError, TypeError):
-                pass
+                # Convert value
+                numeric_value = float(new_value) if new_value else np.nan
+
+                # Validate based on column type
+                is_valid = True
+                error_msg = None
+
+                if col_name == 'Biomass' and not np.isnan(numeric_value):
+                    is_valid, error_msg = validate_biomass(numeric_value, group_name)
+                elif col_name == 'PB' and not np.isnan(numeric_value):
+                    group_type = p.model.loc[row, 'Type'] if 'Type' in p.model.columns else None
+                    is_valid, error_msg = validate_pb(numeric_value, group_name, group_type)
+                elif col_name == 'EE' and not np.isnan(numeric_value):
+                    is_valid, error_msg = validate_ee(numeric_value, group_name)
+
+                if is_valid:
+                    p.model.loc[row, col_name] = numeric_value
+                    ui.notification_show(
+                        f"Updated {col_name} for {group_name}",
+                        type="message",
+                        duration=2
+                    )
+                else:
+                    ui.notification_show(
+                        f"Invalid value for {col_name}: {error_msg}",
+                        type="warning",
+                        duration=5
+                    )
+
+            except (ValueError, TypeError) as e:
+                ui.notification_show(
+                    f"Invalid numeric value for {col_name}: '{new_value}'",
+                    type="error",
+                    duration=4
+                )
     
     @reactive.effect
     def _handle_diet_matrix_edit():
@@ -693,21 +726,52 @@ def ecopath_server(
         edit = input.diet_matrix_table_cell_edit()
         if edit is None:
             return
-        
+
         p = params.get()
         if p is None:
             return
-        
+
         row = edit['row']
         col_name = edit['column']
         new_value = edit['value']
-        
+        prey_name = p.diet.loc[row, 'Group'] if 'Group' in p.diet.columns else f"Row {row}"
+
         # Update the diet matrix
         if col_name in p.diet.columns and col_name != 'Group':
             try:
-                p.diet.loc[row, col_name] = float(new_value) if new_value else 0.0
-            except (ValueError, TypeError):
-                pass
+                # Convert value
+                numeric_value = float(new_value) if new_value else 0.0
+
+                # Validate diet proportion (0-1)
+                if numeric_value < 0:
+                    ui.notification_show(
+                        f"Diet proportion cannot be negative: {numeric_value:.3f}",
+                        type="error",
+                        duration=4
+                    )
+                    return
+
+                if numeric_value > 1:
+                    ui.notification_show(
+                        f"Diet proportion cannot exceed 1.0: {numeric_value:.3f}",
+                        type="warning",
+                        duration=4
+                    )
+                    return
+
+                p.diet.loc[row, col_name] = numeric_value
+                ui.notification_show(
+                    f"Updated diet: {prey_name} → {col_name}",
+                    type="message",
+                    duration=2
+                )
+
+            except (ValueError, TypeError) as e:
+                ui.notification_show(
+                    f"Invalid numeric value for diet: '{new_value}'",
+                    type="error",
+                    duration=4
+                )
     
     @reactive.effect
     @reactive.event(input.btn_balance)
