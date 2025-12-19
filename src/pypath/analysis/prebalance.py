@@ -16,6 +16,71 @@ from matplotlib.figure import Figure
 from ..core.params import RpathParams
 
 
+def _calculate_trophic_levels(model: RpathParams) -> pd.Series:
+    """Calculate trophic levels for unbalanced model.
+
+    This is a simplified TL calculation for pre-balance diagnostics.
+    Uses iterative method based on diet composition.
+
+    Parameters
+    ----------
+    model : RpathParams
+        Unbalanced Rpath parameters
+
+    Returns
+    -------
+    pd.Series
+        Trophic levels indexed by group name
+    """
+    groups = model.model['Group'].values
+    n_groups = len(groups)
+
+    # Initialize trophic levels
+    tl = np.ones(n_groups)
+
+    # Set producers (Type=1) to TL=1
+    for i, row in model.model.iterrows():
+        if row['Type'] == 1:  # Producer
+            tl[i] = 1.0
+
+    # Iteratively calculate TL for consumers
+    # TL = 1 + weighted average of prey TLs
+    max_iterations = 50
+    for iteration in range(max_iterations):
+        tl_old = tl.copy()
+
+        for i, group in enumerate(groups):
+            group_type = model.model.iloc[i]['Type']
+
+            # Skip producers and detritus
+            if group_type in [1, 2]:
+                continue
+
+            # Get diet for this consumer
+            if group in model.diet.columns:
+                diet = model.diet[group]
+
+                # Calculate weighted TL from prey
+                prey_tl_sum = 0.0
+                diet_sum = 0.0
+
+                for prey_name, diet_frac in diet.items():
+                    if diet_frac > 0 and prey_name in groups:
+                        prey_idx = np.where(groups == prey_name)[0]
+                        if len(prey_idx) > 0:
+                            prey_tl_sum += diet_frac * tl_old[prey_idx[0]]
+                            diet_sum += diet_frac
+
+                if diet_sum > 0:
+                    tl[i] = 1.0 + (prey_tl_sum / diet_sum)
+
+        # Check convergence
+        if np.max(np.abs(tl - tl_old)) < 0.001:
+            break
+
+    return pd.Series(tl, index=groups, name='TL')
+
+
 def calculate_biomass_slope(model: RpathParams) -> float:
     """Calculate the biomass decline slope across trophic levels.
 
@@ -39,6 +104,12 @@ def calculate_biomass_slope(model: RpathParams) -> float:
     """
     # Get groups with biomass data (exclude detritus and fleets)
     df = model.model[model.model['Type'].isin([0, 1, 2])].copy()
+
+    # Calculate TL if not present
+    if 'TL' not in df.columns:
+        tl_series = _calculate_trophic_levels(model)
+        df = df.merge(tl_series.to_frame(), left_on='Group', right_index=True, how='left')
+
     df = df[df['Biomass'] > 0].sort_values('TL')
 
     if len(df) < 2:
@@ -221,6 +292,11 @@ def plot_biomass_vs_trophic_level(
     df = model.model[model.model['Type'].isin([0, 1, 2])].copy()
     df = df[df['Biomass'] > 0]
 
+    # Calculate TL if not present
+    if 'TL' not in df.columns:
+        tl_series = _calculate_trophic_levels(model)
+        df = df.merge(tl_series.to_frame(), left_on='Group', right_index=True, how='left')
+
     if exclude_groups:
         df = df[~df['Group'].isin(exclude_groups)]
 
@@ -282,6 +358,11 @@ def plot_vital_rate_vs_trophic_level(
         raise ValueError(f"Rate '{rate_name}' not found in model")
 
     df = df[df[rate_name] > 0]
+
+    # Calculate TL if not present
+    if 'TL' not in df.columns:
+        tl_series = _calculate_trophic_levels(model)
+        df = df.merge(tl_series.to_frame(), left_on='Group', right_index=True, how='left')
 
     if exclude_groups:
         df = df[~df['Group'].isin(exclude_groups)]
