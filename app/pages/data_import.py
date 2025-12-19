@@ -6,10 +6,7 @@ import numpy as np
 from pathlib import Path
 from typing import Optional, Dict
 
-# Import pypath
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
+# pypath imports (path setup handled by app/__init__.py)
 from pypath.core.params import RpathParams
 from pypath.io.ecobase import (
     list_ecobase_models,
@@ -23,6 +20,14 @@ from pypath.io.ewemdb import (
     check_ewemdb_support,
     EwEDatabaseError,
 )
+from pypath.io.biodata import (
+    get_species_info,
+    batch_get_species_info,
+    biodata_to_rpath,
+    BiodataError,
+    SpeciesNotFoundError,
+    APIConnectionError,
+)
 
 # Import shared utilities
 from .utils import (
@@ -33,6 +38,12 @@ from .utils import (
     NO_DATA_STYLE,
     REMARK_STYLE,
 )
+
+# Configuration imports
+try:
+    from app.config import UI, PARAM_RANGES
+except ModuleNotFoundError:
+    from config import UI, PARAM_RANGES
 
 
 def import_ui():
@@ -144,6 +155,92 @@ def import_ui():
                         # Use imported model button
                         ui.output_ui("use_model_button_ewe"),
                         
+                        class_="mt-2"
+                    ),
+                ),
+
+                # Biodiversity Data tab
+                ui.nav_panel(
+                    "Biodiversity",
+                    ui.div(
+                        ui.p(
+                            "Build models from global biodiversity databases: ",
+                            ui.tags.a("WoRMS", href="https://www.marinespecies.org/", target="_blank"),
+                            ", ",
+                            ui.tags.a("OBIS", href="https://obis.org/", target="_blank"),
+                            ", ",
+                            ui.tags.a("FishBase", href="https://www.fishbase.org/", target="_blank"),
+                            class_="small text-muted"
+                        ),
+
+                        # Example data button
+                        ui.input_action_button(
+                            "btn_load_example_species",
+                            ui.tags.span(ui.tags.i(class_="bi bi-file-earmark-text me-1"), "Load Example"),
+                            class_="btn-outline-secondary btn-sm mb-2"
+                        ),
+
+                        # Species list input
+                        ui.input_text_area(
+                            "biodata_species_list",
+                            "Species List (one per line, common names)",
+                            placeholder="Atlantic cod\nAtlantic herring\nEuropean sprat\nZooplankton\nPhytoplankton",
+                            rows=UI.textarea_rows_default,
+                            resize="vertical"
+                        ),
+
+                        # Model area
+                        ui.input_numeric(
+                            "biodata_area",
+                            "Model Area (km²)",
+                            value=1000,
+                            min=1,
+                            step=100
+                        ),
+
+                        # Options
+                        ui.input_checkbox(
+                            "biodata_include_occurrences",
+                            "Include OBIS occurrence data",
+                            value=True
+                        ),
+                        ui.input_checkbox(
+                            "biodata_include_traits",
+                            "Include FishBase trait data",
+                            value=True
+                        ),
+
+                        ui.tags.hr(),
+
+                        # Fetch data button
+                        ui.input_action_button(
+                            "btn_fetch_biodata",
+                            ui.tags.span(ui.tags.i(class_="bi bi-cloud-download me-1"), "Fetch Species Data"),
+                            class_="btn-primary w-100 mb-2"
+                        ),
+
+                        # Progress and status
+                        ui.output_ui("biodata_fetch_status"),
+
+                        ui.tags.hr(),
+
+                        # Results preview
+                        ui.h6("Fetched Species Data"),
+                        ui.output_data_frame("biodata_results_table"),
+
+                        ui.tags.hr(),
+
+                        # Biomass estimates section
+                        ui.output_ui("biodata_biomass_section"),
+
+                        ui.tags.hr(),
+
+                        # Create model button
+                        ui.output_ui("biodata_create_button"),
+
+                        # Use imported model button
+                        ui.output_ui("use_model_button_biodata"),
+
                         class_="mt-2"
                     ),
                 ),
@@ -262,9 +359,9 @@ def import_server(
         display_cols = ['model_number', 'model_name', 'country', 'ecosystem_type', 'num_groups']
         display_cols = [c for c in display_cols if c in models.columns]
         return render.DataGrid(
-            models[display_cols].head(100), 
+            models[display_cols].head(100),
             selection_mode="row",
-            height="300px"
+            height=UI.datagrid_height_default_px
         )
     
     @reactive.effect
@@ -403,17 +500,13 @@ def import_server(
                     if col != 'Group':
                         non_empty_count += sum(1 for v in params.remarks[col] if str(v).strip())
                 remarks_info = f", {non_empty_count} remarks"
-                print(f"[DEBUG] Imported model has remarks: {params.remarks.columns.tolist()}")
-            else:
-                print(f"[DEBUG] Imported model has NO remarks")
-            
+
             # Check for stanza data
             stanza_info = ""
             if hasattr(params, 'stanzas') and params.stanzas is not None and params.stanzas.n_stanza_groups > 0:
                 n_stanza = params.stanzas.n_stanza_groups
                 n_stages = len(params.stanzas.stindiv) if params.stanzas.stindiv is not None else 0
                 stanza_info = f", {n_stanza} stanza group(s)"
-                print(f"[DEBUG] Imported model has {n_stanza} stanza groups with {n_stages} life stages")
             
             ui.notification_show(
                 f"Imported model with {len(params.model)} groups{remarks_info}{stanza_info}",
@@ -665,7 +758,7 @@ def import_server(
                     str(len(living)),
                     showcase=ui.tags.i(class_="bi bi-circle-fill"),
                 ),
-                col_widths=[4, 4, 4]
+                col_widths=[UI.col_width_narrow, UI.col_width_narrow, UI.col_width_narrow]
             ),
             ui.layout_columns(
                 ui.value_box(
@@ -686,7 +779,7 @@ def import_server(
                     showcase=ui.tags.i(class_="bi bi-diagram-3"),
                     theme="bg-secondary",
                 ),
-                col_widths=[4, 4, 4]
+                col_widths=[UI.col_width_narrow, UI.col_width_narrow, UI.col_width_narrow]
             ),
         )
     
@@ -726,7 +819,241 @@ def import_server(
         if params is None:
             ui.notification_show("No model to use", type="warning")
             return
-        
+
+        model_data.set(params)
+        ui.notification_show(
+            "Model transferred! Go to 'Ecopath Model' tab to edit and balance.",
+            type="message"
+        )
+
+    # === Biodiversity Database Functions ===
+
+    # Reactive values for biodiversity data
+    biodata_df = reactive.Value(None)
+    biodata_model = reactive.Value(None)
+
+    @reactive.effect
+    @reactive.event(input.btn_load_example_species)
+    def _load_example_species():
+        """Load example species list."""
+        example_species = """Atlantic cod
+Atlantic herring
+European sprat
+Zooplankton
+Phytoplankton"""
+        ui.update_text_area("biodata_species_list", value=example_species)
+        ui.notification_show("Example species loaded", type="message", duration=2)
+
+    @reactive.effect
+    @reactive.event(input.btn_fetch_biodata)
+    def _fetch_biodata():
+        """Fetch species data from biodiversity databases."""
+        species_text = input.biodata_species_list()
+        if not species_text or not species_text.strip():
+            ui.notification_show("Please enter species names", type="warning")
+            return
+
+        # Parse species list
+        species_list = [s.strip() for s in species_text.split('\n') if s.strip()]
+
+        if len(species_list) == 0:
+            ui.notification_show("No valid species names found", type="warning")
+            return
+
+        try:
+            ui.notification_show(
+                f"Fetching data for {len(species_list)} species from WoRMS, OBIS, and FishBase...",
+                duration=5
+            )
+
+            # Fetch data using batch function
+            df = batch_get_species_info(
+                species_list,
+                include_occurrences=input.biodata_include_occurrences(),
+                include_traits=input.biodata_include_traits(),
+                strict=False,  # Allow partial data
+                max_workers=5,
+                timeout=45
+            )
+
+            if df is None or len(df) == 0:
+                ui.notification_show(
+                    "No species data retrieved. Check species names and try again.",
+                    type="warning",
+                    duration=5
+                )
+                return
+
+            biodata_df.set(df)
+            ui.notification_show(
+                f"Successfully fetched data for {len(df)}/{len(species_list)} species!",
+                type="message",
+                duration=3
+            )
+
+        except SpeciesNotFoundError as e:
+            ui.notification_show(f"Species not found: {str(e)}", type="warning", duration=5)
+        except APIConnectionError as e:
+            ui.notification_show(f"API connection error: {str(e)}", type="error", duration=5)
+        except Exception as e:
+            ui.notification_show(f"Error fetching data: {str(e)}", type="error", duration=5)
+
+    @output
+    @render.ui
+    def biodata_fetch_status():
+        """Show fetch status."""
+        df = biodata_df.get()
+        if df is None:
+            return ui.div()
+
+        n_species = len(df)
+        n_with_tl = df['trophic_level'].notna().sum()
+        n_with_obis = df['occurrence_count'].notna().sum()
+
+        return ui.div(
+            ui.tags.i(class_="bi bi-check-circle-fill text-success me-2"),
+            f"Retrieved: {n_species} species, {n_with_tl} with trophic level, {n_with_obis} with OBIS data",
+            class_="alert alert-success small"
+        )
+
+    @output
+    @render.data_frame
+    def biodata_results_table():
+        """Show fetched species data."""
+        df = biodata_df.get()
+        if df is None:
+            return pd.DataFrame({"Message": ["Click 'Fetch Species Data' to retrieve biodiversity data"]})
+
+        # Select key columns for display
+        display_cols = ['common_name', 'scientific_name', 'trophic_level', 'max_length', 'occurrence_count']
+        display_cols = [c for c in display_cols if c in df.columns]
+        display_df = df[display_cols].copy()
+
+        # Rename for better display
+        display_df = display_df.rename(columns={
+            'common_name': 'Common Name',
+            'scientific_name': 'Scientific Name',
+            'trophic_level': 'TL',
+            'max_length': 'Max Length (cm)',
+            'occurrence_count': 'OBIS Records'
+        })
+
+        return render.DataGrid(display_df, height=UI.datagrid_height_default_px)
+
+    @output
+    @render.ui
+    def biodata_biomass_section():
+        """Show biomass input section."""
+        df = biodata_df.get()
+        if df is None:
+            return ui.p("Fetch species data first to enter biomass estimates.", class_="text-muted small")
+
+        # Create biomass inputs for each species
+        inputs = []
+        inputs.append(ui.h6("Biomass Estimates (t/km²)", class_="mb-2"))
+        inputs.append(ui.p("Enter estimated biomass for each species:", class_="small text-muted mb-2"))
+
+        for idx, row in df.iterrows():
+            sp_name = row['common_name']
+            # Create safe input ID
+            input_id = f"biomass_{sp_name.replace(' ', '_').replace('-', '_').lower()}"
+
+            inputs.append(
+                ui.input_numeric(
+                    input_id,
+                    sp_name,
+                    value=1.0,
+                    min=PARAM_RANGES.biomass_input_min,
+                    step=PARAM_RANGES.biomass_input_step,
+                    width="100%"
+                )
+            )
+
+        return ui.div(*inputs)
+
+    @output
+    @render.ui
+    def biodata_create_button():
+        """Show create model button when data is fetched."""
+        df = biodata_df.get()
+        if df is None:
+            return ui.div()
+
+        return ui.input_action_button(
+            "btn_create_biodata_model",
+            ui.tags.span(ui.tags.i(class_="bi bi-gear me-1"), "Create Ecopath Model"),
+            class_="btn-success w-100"
+        )
+
+    @reactive.effect
+    @reactive.event(input.btn_create_biodata_model)
+    def _create_biodata_model():
+        """Create Ecopath model from biodiversity data."""
+        df = biodata_df.get()
+        if df is None:
+            ui.notification_show("No species data available", type="warning")
+            return
+
+        try:
+            # Collect biomass estimates from inputs
+            biomass_estimates = {}
+            for idx, row in df.iterrows():
+                sp_name = row['common_name']
+                input_id = f"biomass_{sp_name.replace(' ', '_').replace('-', '_').lower()}"
+
+                # Get the input value
+                try:
+                    biomass_val = input[input_id]()
+                    if biomass_val is not None and biomass_val > 0:
+                        biomass_estimates[sp_name] = biomass_val
+                except Exception:
+                    # If input doesn't exist or error, use default
+                    biomass_estimates[sp_name] = 1.0
+
+            ui.notification_show("Creating Ecopath model...", duration=3)
+
+            # Create model using biodata_to_rpath
+            params = biodata_to_rpath(
+                df,
+                biomass_estimates=biomass_estimates,
+                area_km2=input.biodata_area()
+            )
+
+            biodata_model.set(params)
+            imported_params.set(params)  # Also set imported_params for preview
+
+            ui.notification_show(
+                f"Model created successfully with {len(params.model)} groups!",
+                type="message",
+                duration=3
+            )
+
+        except Exception as e:
+            ui.notification_show(f"Error creating model: {str(e)}", type="error", duration=5)
+
+    @output
+    @render.ui
+    def use_model_button_biodata():
+        """Show 'Use Model' button in Biodiversity tab when model is created."""
+        params = biodata_model.get()
+        if params is None:
+            return ui.div()
+
+        return ui.input_action_button(
+            "btn_use_biodata_model",
+            ui.tags.span(ui.tags.i(class_="bi bi-arrow-right-circle me-1"), "Use This Model in Ecopath"),
+            class_="btn-primary w-100"
+        )
+
+    @reactive.effect
+    @reactive.event(input.btn_use_biodata_model)
+    def _use_biodata_model():
+        """Transfer biodata model to main model data."""
+        params = biodata_model.get()
+        if params is None:
+            ui.notification_show("No model to use", type="warning")
+            return
+
         model_data.set(params)
         ui.notification_show(
             "Model transferred! Go to 'Ecopath Model' tab to edit and balance.",

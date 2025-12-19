@@ -26,10 +26,11 @@ from pypath.core.plotting import (
     plot_trophic_spectrum,
 )
 
-# Import centralized logger
+# Import centralized logger and config
 try:
     from app.logger import get_logger
     from app.pages.utils import is_balanced_model
+    from app.config import UI, THRESHOLDS
     logger = get_logger(__name__)
 except ModuleNotFoundError:
     import sys
@@ -39,6 +40,7 @@ except ModuleNotFoundError:
         sys.path.insert(0, str(app_dir))
     from logger import get_logger
     from pages.utils import is_balanced_model
+    from config import UI, THRESHOLDS
     logger = get_logger(__name__)
 
 
@@ -69,11 +71,11 @@ def analysis_ui():
                             ui.output_ui("flow_indices"),
                         ),
                     ),
-                    col_widths=[6, 6]
+                    col_widths=[UI.col_width_medium, UI.col_width_medium]
                 ),
-                
+
                 ui.h5("Food Web Structure", class_="mt-4"),
-                ui.output_plot("analysis_foodweb_plot", height="500px"),
+                ui.output_plot("analysis_foodweb_plot", height=UI.plot_height_medium_px),
             ),
             
             # Trophic Analysis
@@ -101,7 +103,7 @@ def analysis_ui():
                                     "production": "Production",
                                 }
                             ),
-                            ui.output_plot("trophic_spectrum_plot", height="400px"),
+                            ui.output_plot("trophic_spectrum_plot", height=UI.plot_height_small_px),
                         ),
                     ),
                     col_widths=[5, 7]
@@ -119,7 +121,7 @@ def analysis_ui():
                 
                 ui.output_ui("mti_status"),
                 
-                ui.output_plot("mti_heatmap_plot", height="600px"),
+                ui.output_plot("mti_heatmap_plot", height=UI.plot_height_large_px),
                 
                 ui.tags.hr(),
                 
@@ -137,10 +139,11 @@ def analysis_ui():
                             ui.output_table("mti_negative_table"),
                         ),
                     ),
-                    col_widths=[6, 6]
+                    col_widths=[UI.col_width_medium, UI.col_width_medium]
                 ),
             ),
-            
+
+
             # Keystoneness
             ui.nav_panel(
                 "Keystoneness",
@@ -162,7 +165,7 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("Keystoneness vs Biomass"),
                         ui.card_body(
-                            ui.output_plot("keystoneness_plot", height="400px"),
+                            ui.output_plot("keystoneness_plot", height=UI.plot_height_small_px),
                         ),
                     ),
                     col_widths=[5, 7]
@@ -187,7 +190,7 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("EE Values"),
                         ui.card_body(
-                            ui.output_plot("analysis_ee_plot", height="400px"),
+                            ui.output_plot("analysis_ee_plot", height=UI.plot_height_small_px),
                         ),
                     ),
                     col_widths=[5, 7]
@@ -218,9 +221,9 @@ def analysis_ui():
                             ui.output_table("export_diet_table"),
                         ),
                     ),
-                    col_widths=[6, 6]
+                    col_widths=[UI.col_width_medium, UI.col_width_medium]
                 ),
-                
+
                 ui.tags.hr(),
                 
                 ui.download_button("download_model_data", "Download All Data (CSV)", class_="btn-primary"),
@@ -624,17 +627,17 @@ def analysis_server(
             valid = (biomass > 0) & (~np.isnan(ks[:len(biomass)]))
             
             scatter = ax.scatter(
-                np.log10(biomass[valid] + 0.001), 
-                ks[:len(biomass)][valid], 
-                s=100, 
+                np.log10(biomass[valid] + THRESHOLDS.log_offset_small),
+                ks[:len(biomass)][valid],
+                s=100,
                 alpha=0.7,
                 c='steelblue'
             )
-            
+
             # Annotate top species
             for i, (g, b, k) in enumerate(zip(groups[valid], biomass[valid], ks[:len(biomass)][valid])):
                 if k > np.percentile(ks[~np.isnan(ks)], 75):
-                    ax.annotate(g, (np.log10(b + 0.001), k), fontsize=8, ha='left')
+                    ax.annotate(g, (np.log10(b + THRESHOLDS.log_offset_small), k), fontsize=8, ha='left')
             
             ax.set_xlabel('Log10(Biomass)')
             ax.set_ylabel('Keystoneness Index')
