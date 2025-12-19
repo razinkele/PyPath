@@ -10,6 +10,12 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# Configuration imports
+try:
+    from app.config import PARAM_RANGES
+except ModuleNotFoundError:
+    from config import PARAM_RANGES
+
 
 def optimization_demo_ui():
     """UI for Bayesian optimization demonstration page."""
@@ -43,17 +49,17 @@ def optimization_demo_ui():
                 ui.input_slider(
                     "n_iterations",
                     "Number of Iterations",
-                    min=10,
-                    max=100,
-                    value=30,
-                    step=5
+                    min=PARAM_RANGES.optimization_iterations_min,
+                    max=PARAM_RANGES.optimization_iterations_max,
+                    value=PARAM_RANGES.optimization_iterations_default,
+                    step=PARAM_RANGES.optimization_iterations_step
                 ),
                 ui.input_slider(
                     "n_initial",
                     "Initial Random Points",
-                    min=5,
-                    max=20,
-                    value=10,
+                    min=PARAM_RANGES.optimization_init_points_min,
+                    max=PARAM_RANGES.optimization_init_points_max,
+                    value=PARAM_RANGES.optimization_init_points_default,
                     step=1
                 ),
                 ui.input_select(
@@ -68,7 +74,7 @@ def optimization_demo_ui():
                 ),
                 ui.hr(),
                 ui.input_action_button(
-                    "run_demo",
+                    "opt_run_demo",
                     "Run Demo Optimization",
                     class_="btn-primary w-100"
                 ),
@@ -108,7 +114,7 @@ def optimization_demo_ui():
                     "Results Comparison",
                     ui.card(
                         ui.card_header("Optimized vs Observed"),
-                        ui.output_ui("comparison_plot"),
+                        ui.output_ui("opt_comparison_plot"),
                         ui.output_data_frame("results_table")
                     )
                 ),
@@ -116,8 +122,8 @@ def optimization_demo_ui():
                     "Code Example",
                     ui.card(
                         ui.card_header("Python Code"),
-                        ui.output_code("code_example"),
-                        ui.download_button("download_code", "Download Code", class_="mt-2")
+                        ui.output_code("opt_code_example"),
+                        ui.download_button("opt_download_code", "Download Code", class_="mt-2")
                     )
                 ),
                 ui.nav_panel(
@@ -400,12 +406,24 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         synthetic_data.set(df)
 
     @reactive.effect
-    @reactive.event(input.run_demo)
+    @reactive.event(input.opt_run_demo)
     def run_optimization():
         """Run demonstration optimization."""
         # Generate data if not already generated
         if synthetic_data() is None:
-            generate_synthetic_data()
+            # Generate synthetic data inline
+            years = np.arange(2000, 2021)
+            n_years = len(years)
+            true_param = 2.2
+            baseline = 20.0
+            biomass = baseline * np.exp(-true_param * 0.05 * np.arange(n_years))
+            noise = np.random.normal(0, 0.5, n_years)
+            biomass = biomass + noise
+            df = pd.DataFrame({
+                'Year': years,
+                'Observed_Biomass': biomass
+            })
+            synthetic_data.set(df)
 
         n_iterations = input.n_iterations()
         n_initial = input.n_initial()
@@ -599,7 +617,7 @@ Objective Function: {input.objective().upper()}
 
     @output
     @render.ui
-    def comparison_plot():
+    def opt_comparison_plot():
         """Plot observed vs optimized."""
         results = optimization_results()
         data = synthetic_data()
@@ -669,7 +687,7 @@ Objective Function: {input.objective().upper()}
 
     @output
     @render.code
-    def code_example():
+    def opt_code_example():
         """Generate Python code example."""
         param_type = input.param_type()
         objective = input.objective()
@@ -728,8 +746,8 @@ plt.show()
 """
         return code
 
-    @session.download(filename="optimization_example.py")
-    def download_code():
+    @render.download(filename="optimization_example.py")
+    def opt_download_code():
         """Download code example."""
-        code = code_example()
-        yield code
+        code = opt_code_example()
+        return code

@@ -4,11 +4,18 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui, req
 import pandas as pd
 import numpy as np
 
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+# Import centralized configuration
+try:
+    from app.config import PLOTS, COLORS, UI
+except ModuleNotFoundError:
+    import sys
+    from pathlib import Path
+    app_dir = Path(__file__).parent.parent
+    if str(app_dir) not in sys.path:
+        sys.path.insert(0, str(app_dir))
+    from config import PLOTS, COLORS, UI
 
-# Import shared utilities
+# Import shared utilities (pypath path setup handled by app/__init__.py)
 from .utils import get_model_info
 
 
@@ -88,7 +95,7 @@ def results_ui():
                     ui.layout_columns(
                         ui.output_plot("tl_bar_plot"),
                         ui.output_plot("tl_flow_plot"),
-                        col_widths=[6, 6]
+                        col_widths=[UI.col_width_medium, UI.col_width_medium]
                     ),
                 ),
                 ui.nav_panel(
@@ -109,7 +116,7 @@ def results_ui():
                         ),
                         col_widths=[12]
                     ),
-                    ui.output_plot("foodweb_plot", height="600px"),
+                    ui.output_plot("foodweb_plot", height=UI.plot_height_large_px),
                 ),
                 ui.nav_panel(
                     "Simulation Results",
@@ -153,10 +160,10 @@ def results_ui():
                                 ui.input_file("upload_scenario_b", "Upload Results B"),
                             ),
                         ),
-                        col_widths=[6, 6]
+                        col_widths=[UI.col_width_medium, UI.col_width_medium]
                     ),
-                    
-                    ui.output_plot("comparison_plot", height="400px"),
+
+                    ui.output_plot("results_comparison_plot", height=UI.plot_height_small_px),
                 ),
                 ui.nav_panel(
                     "Data Tables",
@@ -244,7 +251,7 @@ def results_server(
         model = model_data.get()
         info = get_model_info(model)
         
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
         
         if info is None:
             ax.text(0.5, 0.5, "No model data", ha='center', va='center', transform=ax.transAxes)
@@ -287,7 +294,7 @@ def results_server(
         model = model_data.get()
         info = get_model_info(model)
         
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
         
         if info is None:
             ax.text(0.5, 0.5, "No model data", ha='center', va='center', transform=ax.transAxes)
@@ -491,8 +498,10 @@ def results_server(
         if style != "default":
             try:
                 plt.style.use(style)
-            except:
-                pass
+            except (OSError, KeyError) as e:
+                # Style not available, use default
+                import logging
+                logging.warning(f"Plot style '{style}' not available: {e}. Using default.")
         
         n_months = sim.out_Biomass.shape[0]
         time = np.arange(n_months) / 12
@@ -549,7 +558,7 @@ def results_server(
     
     @output
     @render.plot
-    def comparison_plot():
+    def results_comparison_plot():
         """Scenario comparison plot."""
         import matplotlib.pyplot as plt
         

@@ -10,6 +10,12 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# Configuration imports
+try:
+    from app.config import PARAM_RANGES
+except ModuleNotFoundError:
+    from config import PARAM_RANGES
+
 
 def multistanza_ui():
     """UI for multi-stanza groups page."""
@@ -29,47 +35,47 @@ def multistanza_ui():
                     "n_stanzas",
                     "Number of Stanzas",
                     value=3,
-                    min=1,
-                    max=10
+                    min=PARAM_RANGES.stanzas_min,
+                    max=PARAM_RANGES.stanzas_max
                 ),
                 ui.input_numeric(
                     "vb_k",
                     "von Bertalanffy K (growth rate)",
-                    value=0.5,
-                    min=0.01,
-                    max=2.0,
+                    value=PARAM_RANGES.vbgf_k_default,
+                    min=PARAM_RANGES.vbgf_k_min,
+                    max=PARAM_RANGES.vbgf_k_max,
                     step=0.01
                 ),
                 ui.input_numeric(
                     "vb_linf",
                     "L∞ (asymptotic length, cm)",
-                    value=100,
-                    min=1,
-                    max=500,
+                    value=PARAM_RANGES.asymptotic_length_default,
+                    min=PARAM_RANGES.asymptotic_length_min,
+                    max=PARAM_RANGES.asymptotic_length_max,
                     step=1
                 ),
                 ui.input_numeric(
                     "vb_t0",
                     "t₀ (theoretical age at length 0)",
                     value=0,
-                    min=-5,
-                    max=5,
+                    min=PARAM_RANGES.t0_min,
+                    max=PARAM_RANGES.t0_max,
                     step=0.1
                 ),
                 ui.input_numeric(
                     "length_weight_a",
                     "Length-Weight a",
                     value=0.01,
-                    min=0.0001,
-                    max=1.0,
+                    min=PARAM_RANGES.length_weight_a_min,
+                    max=PARAM_RANGES.length_weight_a_max,
                     step=0.001
                 ),
                 ui.input_numeric(
                     "length_weight_b",
                     "Length-Weight b",
                     value=3.0,
-                    min=1.0,
-                    max=5.0,
+                    min=PARAM_RANGES.length_weight_b_min,
+                    max=PARAM_RANGES.length_weight_b_max,
                     step=0.1
                 ),
                 ui.hr(),
@@ -200,7 +206,12 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         """Update available groups when model changes."""
         if shared_data.params() is not None:
             params = shared_data.params()
-            if hasattr(params, 'Group'):
+            # Check if it's RpathParams (has model DataFrame)
+            if hasattr(params, 'model') and 'Group' in params.model.columns:
+                groups = params.model['Group'].tolist()
+                ui.update_select("stanza_group", choices=groups)
+            elif hasattr(params, 'Group'):
+                # Fallback for direct DataFrame
                 groups = params.Group.tolist()
                 ui.update_select("stanza_group", choices=groups)
 
@@ -404,9 +415,9 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="biomass_plot"))
 
-    @session.download(filename="stanza_configuration.csv")
+    @render.download(filename="stanza_configuration.csv")
     def download_stanzas():
         """Download stanza configuration as CSV."""
         df = stanza_data()
         if df is not None:
-            yield df.to_csv(index=False)
+            return df.to_csv(index=False)
