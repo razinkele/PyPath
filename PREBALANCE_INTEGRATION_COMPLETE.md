@@ -2,6 +2,7 @@
 
 **Date**: 2025-12-19
 **Status**: ✅ Complete and Tested
+**Commits**: 0d0ebea (initial), 779cf77 (TL calculation fix)
 
 ## Overview
 
@@ -86,10 +87,10 @@ Created a full-featured Shiny page with:
 - Exported all 8 prebalance functions
 - Added module docstring
 
-### 5. Bug Fix
+### 5. Bug Fixes
 
+#### Bug Fix #1: F-string Syntax Error
 **File**: `src/pypath/analysis/prebalance.py` (line 400)
-
 **Issue**: Missing f-string prefix causing syntax error
 ```python
 # BEFORE (BROKEN):
@@ -98,6 +99,31 @@ print("  Mean ratio:", report['pb_ratios']['Ratio'].mean():.2f)
 # AFTER (FIXED):
 print(f"  Mean ratio: {report['pb_ratios']['Ratio'].mean():.2f}")
 ```
+
+#### Bug Fix #2: Missing Trophic Level Column (CRITICAL)
+**File**: `src/pypath/analysis/prebalance.py` (multiple functions)
+**Issue**: KeyError: 'TL' - Unbalanced models don't have TL column
+**User Impact**: Diagnostics crashed immediately when clicked "Run Diagnostics"
+
+**Root Cause**: Functions assumed TL column exists, but:
+- Unbalanced models (RpathParams) don't have TL
+- TL is only calculated during balancing
+- Pre-balance diagnostics run BEFORE balancing
+
+**Solution**: Added `_calculate_trophic_levels()` helper function (lines 19-81)
+- Calculates TL on-the-fly using iterative diet-weighted method
+- Converges in <10 iterations (max 50, tolerance 0.001)
+- Returns pd.Series indexed by group name
+
+**Updated 3 functions** to check for TL and calculate if missing:
+- `calculate_biomass_slope()` (lines 109-111)
+- `plot_biomass_vs_trophic_level()` (lines 296-298)
+- `plot_vital_rate_vs_trophic_level()` (lines 363-365)
+
+**Testing**: ✅ User-verified working on real .eweaccdb file
+**Commit**: 779cf77
+
+See [PREBALANCE_BUGFIX_TL_CALCULATION.md](PREBALANCE_BUGFIX_TL_CALCULATION.md) for detailed documentation.
 
 ## Diagnostic Capabilities
 
@@ -291,9 +317,27 @@ from src.pypath.analysis import (
 ```
 **Result**: ✅ All imports successful
 
+### User Testing
+**Test File**: LT2022_0.5ST_final7.eweaccdb
+**Test Actions**:
+1. Uploaded .eweaccdb file via Data Import page
+2. Navigated to Pre-Balance Diagnostics page
+3. Clicked "Run Diagnostics" button
+4. Reviewed Summary, Warnings, and Tables
+
+**Results**:
+- ✅ Diagnostics executed successfully
+- ✅ Trophic levels calculated correctly
+- ✅ Biomass metrics displayed
+- ✅ Predator-prey ratios shown
+- ✅ Warnings generated appropriately
+- ✅ Plots rendered correctly
+
+**Status**: Fully functional in production environment
+
 ## Conclusion
 
-The Pre-Balance Diagnostics feature has been successfully integrated into PyPath. This adds significant value by:
+The Pre-Balance Diagnostics feature has been successfully integrated into PyPath and is **production ready**. This adds significant value by:
 
 1. **Preventing errors**: Catch issues before balancing attempts
 2. **Improving quality**: Systematic validation of model parameters
@@ -302,7 +346,9 @@ The Pre-Balance Diagnostics feature has been successfully integrated into PyPath
 
 The implementation follows PyPath coding standards, includes comprehensive documentation, and provides an intuitive user interface. Users can now run diagnostic checks with a single button click and receive immediate feedback on potential model issues.
 
-**Status**: Ready for user testing and production deployment.
+**All bugs fixed** - The critical TL calculation issue discovered during user testing has been resolved.
+
+**Status**: Production Ready ✅
 
 ---
 
