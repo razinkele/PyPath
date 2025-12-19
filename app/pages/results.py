@@ -8,11 +8,6 @@ import numpy as np
 try:
     from app.config import PLOTS, COLORS, UI
 except ModuleNotFoundError:
-    import sys
-    from pathlib import Path
-    app_dir = Path(__file__).parent.parent
-    if str(app_dir) not in sys.path:
-        sys.path.insert(0, str(app_dir))
     from config import PLOTS, COLORS, UI
 
 # Import shared utilities (pypath path setup handled by app/__init__.py)

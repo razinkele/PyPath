@@ -11,12 +11,6 @@ import numpy as np
 try:
     from app.config import VALIDATION, VALID_GROUP_TYPES, NO_DATA_VALUE
 except ModuleNotFoundError:
-    # When running from app directory, use relative import
-    import sys
-    from pathlib import Path
-    app_dir = Path(__file__).parent.parent
-    if str(app_dir) not in sys.path:
-        sys.path.insert(0, str(app_dir))
     from config import VALIDATION, VALID_GROUP_TYPES, NO_DATA_VALUE
 
 

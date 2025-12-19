@@ -9,12 +9,14 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import sys
-from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+# Import centralized configuration
+try:
+    from app.config import DEFAULTS
+except ModuleNotFoundError:
+    from config import DEFAULTS
 
+# pypath imports (path setup handled by app/__init__.py)
 from pypath.core.forcing import create_diet_rewiring, DietRewiring
 
 
@@ -25,11 +27,11 @@ def diet_rewiring_demo_ui():
             ui.sidebar(
                 ui.h4("Diet Rewiring Configuration"),
                 ui.input_slider(
-                    "switching_power",
+                    "demo_switching_power",
                     "Switching Power",
                     min=1.0,
-                    max=5.0,
-                    value=2.5,
+                    max=DEFAULTS.max_dc,  # was: 5.0
+                    value=DEFAULTS.switching_power,  # was: 2.5
                     step=0.1
                 ),
                 ui.input_slider(
@@ -37,13 +39,13 @@ def diet_rewiring_demo_ui():
                     "Update Interval (months)",
                     min=1,
                     max=24,
-                    value=12,
+                    value=DEFAULTS.diet_update_interval,  # was: 12
                     step=1
                 ),
                 ui.input_numeric(
                     "min_proportion",
                     "Minimum Diet Proportion",
-                    value=0.001,
+                    value=DEFAULTS.min_diet_proportion,  # was: 0.001
                     min=0.0001,
                     max=0.1,
                     step=0.001
@@ -145,8 +147,8 @@ def diet_rewiring_demo_ui():
                     "Code Example",
                     ui.card(
                         ui.card_header("Python Code"),
-                        ui.output_code("code_example"),
-                        ui.download_button("download_code", "Download Code", class_="mt-2")
+                        ui.output_code("diet_code_example"),
+                        ui.download_button("diet_download_code", "Download Code", class_="mt-2")
                     )
                 ),
                 ui.nav_panel(
@@ -365,7 +367,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
             ])
 
         # Create diet rewiring object
-        switching_power = input.switching_power()
+        switching_power = input.demo_switching_power()
         min_proportion = input.min_proportion()
 
         rewiring = DietRewiring(
@@ -451,7 +453,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
             summary += f"{name:<15} {base_pct:>6.1f}%    {curr_pct:>6.1f}%    {change:>+6.1f}% {arrow}\n"
 
         summary += "-" * 50 + "\n"
-        summary += f"Switching Power: {input.switching_power():.1f}\n"
+        summary += f"Switching Power: {input.demo_switching_power():.1f}\n"
         summary += f"Update Interval: {input.update_interval()} months\n"
 
         return summary
@@ -460,7 +462,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
     @render.ui
     def switching_curve_plot():
         """Plot prey switching response curves."""
-        switching_power = input.switching_power()
+        switching_power = input.demo_switching_power()
 
         # Range of relative biomass
         relative_biomass = np.linspace(0.1, 5.0, 100)
@@ -510,7 +512,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
         prey2 = 10 + 3 * np.sin(2 * np.pi * months / 24 + np.pi)
         prey3 = np.ones_like(months) * 10
 
-        switching_power = input.switching_power()
+        switching_power = input.demo_switching_power()
         min_proportion = input.min_proportion()
 
         # Calculate diet over time
@@ -592,9 +594,9 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
 
     @output
     @render.code
-    def code_example():
+    def diet_code_example():
         """Generate Python code example."""
-        switching_power = input.switching_power()
+        switching_power = input.demo_switching_power()
         update_interval = input.update_interval()
         min_proportion = input.min_proportion()
 
@@ -640,8 +642,8 @@ plt.show()
 """
         return code
 
-    @session.download(filename="diet_rewiring_example.py")
-    def download_code():
+    @render.download(filename="diet_rewiring_example.py")
+    def diet_download_code():
         """Download code example."""
-        code = code_example()
-        yield code
+        code = diet_code_example()
+        return code
