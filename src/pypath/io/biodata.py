@@ -354,7 +354,35 @@ def _fetch_worms_vernacular(
 
     # Query WoRMS
     try:
-        results = pyworms.aphiaRecordsByVernacular(common_name)
+        try:
+            # Preferred call (positional arg)
+            results = pyworms.aphiaRecordsByVernacular(common_name)
+        except TypeError:
+            # Some pyworms versions accept a keyword arg or different signature
+            try:
+                results = pyworms.aphiaRecordsByVernacular(vernacular=common_name)
+            except TypeError:
+                try:
+                    results = pyworms.aphiaRecordsByVernacular(vernaculars=[common_name])
+                except Exception:
+                    # Last-resort: try the public WoRMS REST API if requests is available
+                    if HAS_REQUESTS:
+                        from urllib.parse import quote
+
+                        url = (
+                            f"https://www.marinespecies.org/rest/AphiaRecordsByVernacular/{quote(common_name)}"
+                        )
+                        resp = requests.get(url, timeout=timeout)
+                        resp.raise_for_status()
+                        try:
+                            results = resp.json()
+                        except ValueError:
+                            # Empty or invalid JSON -> treat as no matches
+                            results = []
+                    else:
+                        # Re-raise the original error to be handled below
+                        raise
+
         if not results:
             raise SpeciesNotFoundError(
                 f"No species found for common name: {common_name}"
@@ -485,46 +513,82 @@ def _fetch_obis_occurrences(
             "last_year": None,
         }
 
-        if data and "data" in data:
+        # Normalize different return types from pyobis
+        if isinstance(data, pd.DataFrame):
+            records = data.to_dict(orient="records")
+        elif isinstance(data, dict) and "data" in data:
             records = data["data"]
-            summary["total_occurrences"] = len(records)
+        else:
+            records = []
 
-            if records:
-                # Depth range
-                depths = [r.get("depth") for r in records if r.get("depth") is not None]
-                if depths:
-                    summary["depth_range"] = (min(depths), max(depths))
+        summary["total_occurrences"] = len(records)
 
-                # Geographic extent
-                lons = [
-                    r.get("decimalLongitude")
-                    for r in records
-                    if r.get("decimalLongitude") is not None
-                ]
-                lats = [
-                    r.get("decimalLatitude")
-                    for r in records
-                    if r.get("decimalLatitude") is not None
-                ]
-                if lons and lats:
-                    summary["geographic_extent"] = {
-                        "min_lon": min(lons),
-                        "max_lon": max(lons),
-                        "min_lat": min(lats),
-                        "max_lat": max(lats),
-                    }
+        if records:
+            # Depth range (robust to strings and NaNs)
+            import math
 
-                # Temporal range
-                years = [r.get("year") for r in records if r.get("year") is not None]
-                if years:
-                    summary["first_year"] = min(years)
-                    summary["last_year"] = max(years)
+            depths_raw = [r.get("depth") for r in records if r.get("depth") is not None]
+            valid_depths = []
+            for d in depths_raw:
+                try:
+                    dv = float(d)
+                    if math.isfinite(dv):
+                        # OBIS may report depths as negative values (below surface); use absolute depth
+                        valid_depths.append(abs(dv))
+                except Exception:
+                    continue
 
-        # Cache results
-        if cache:
-            _biodata_cache.set("obis", scientific_name, summary)
+            if valid_depths:
+                summary["depth_range"] = (min(valid_depths), max(valid_depths))
 
-        return summary
+            # Geographic extent
+            lons = [
+                r.get("decimalLongitude")
+                for r in records
+                if r.get("decimalLongitude") is not None
+            ]
+            lats = [
+                r.get("decimalLatitude")
+                for r in records
+                if r.get("decimalLatitude") is not None
+            ]
+            if lons and lats:
+                summary["geographic_extent"] = {
+                    "min_lon": min(lons),
+                    "max_lon": max(lons),
+                    "min_lat": min(lats),
+                    "max_lat": max(lats),
+                }
+
+            # Temporal range - robustly parse years (API may return strings/floats)
+            years_raw = [r.get("year") for r in records if r.get("year") is not None]
+            valid_years = []
+            import datetime
+            current_year = datetime.datetime.utcnow().year
+
+            for y in years_raw:
+                try:
+                    # Try integer first
+                    val = int(y)
+                except Exception:
+                    try:
+                        val = int(float(y))
+                    except Exception:
+                        continue
+                # Ignore obviously bad years (e.g., pre-1800 or in the future)
+                if val < 1800 or val > current_year:
+                    continue
+                valid_years.append(val)
+
+            if valid_years:
+                summary["first_year"] = min(valid_years)
+                summary["last_year"] = max(valid_years)
+
+            # Cache results
+            if cache:
+                _biodata_cache.set("obis", scientific_name, summary)
+
+            return summary
 
     except Exception as e:
         raise APIConnectionError(f"Failed to query OBIS for {scientific_name}: {e}")
