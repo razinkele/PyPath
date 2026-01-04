@@ -13,7 +13,7 @@ import sys
 import logging
 
 # Get logger
-logger = logging.getLogger('pypath_app')
+logger = logging.getLogger("pypath_app")
 
 # App directory for static assets
 APP_DIR = Path(__file__).parent
@@ -25,9 +25,25 @@ if str(root_dir) not in sys.path:
 
 # Import page modules - organized by category
 # Core pages
-from app.pages import home, data_import, ecopath, prebalance, ecosim, results, analysis, about
+from app.pages import (
+    home,
+    data_import,
+    ecopath,
+    prebalance,
+    ecosim,
+    results,
+    analysis,
+    about,
+)
+
 # Advanced features
-from app.pages import multistanza, forcing_demo, diet_rewiring_demo, optimization_demo, ecospace
+from app.pages import (
+    multistanza,
+    forcing_demo,
+    diet_rewiring_demo,
+    optimization_demo,
+    ecospace,
+)
 
 # Configuration imports
 from app.config import UI
@@ -38,15 +54,13 @@ app_ui = ui.page_navbar(
     ui.head_content(
         ui.tags.link(
             rel="stylesheet",
-            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
         ),
         # Load custom CSS file
-        ui.tags.link(
-            rel="stylesheet",
-            href="custom.css"
-        ),
+        ui.tags.link(rel="stylesheet", href="custom.css"),
         # Additional CSS for DataGrid styling
-        ui.tags.style(f"""
+        ui.tags.style(
+            f"""
             /* Make Group column wider in DataGrids */
             .shiny-data-grid td:first-child,
             .shiny-data-grid th:first-child {{
@@ -58,7 +72,8 @@ app_ui = ui.page_navbar(
                 text-align: right;
                 font-family: monospace;
             }}
-        """)
+        """
+        ),
     ),
     # Navigation pages
     ui.nav_panel("Home", home.home_ui()),
@@ -71,9 +86,11 @@ app_ui = ui.page_navbar(
         ui.nav_panel("ECOSPACE Spatial Modeling", ecospace.ecospace_ui()),
         ui.nav_panel("Multi-Stanza Groups", multistanza.multistanza_ui()),
         ui.nav_panel("State-Variable Forcing", forcing_demo.forcing_demo_ui()),
-        ui.nav_panel("Dynamic Diet Rewiring", diet_rewiring_demo.diet_rewiring_demo_ui()),
+        ui.nav_panel(
+            "Dynamic Diet Rewiring", diet_rewiring_demo.diet_rewiring_demo_ui()
+        ),
         ui.nav_panel("Bayesian Optimization", optimization_demo.optimization_demo_ui()),
-        icon=ui.tags.i(class_="bi bi-stars")
+        icon=ui.tags.i(class_="bi bi-stars"),
     ),
     ui.nav_panel("Analysis", analysis.analysis_ui()),
     ui.nav_panel("Results", results.results_ui()),
@@ -84,27 +101,38 @@ app_ui = ui.page_navbar(
             "btn_settings",
             ui.tags.i(class_="bi bi-gear-fill"),
             class_="btn btn-link nav-link p-2",
-            title="Settings"
+            title="Settings",
         )
     ),
     ui.nav_panel("About", about.about_ui()),
-    
     # Navbar settings
     title=ui.tags.span(
-        ui.tags.img(src="icon.svg", height=UI.icon_height_px, style="margin-right: 8px; vertical-align: middle;"),
-        ui.tags.span("PyPath", style="font-weight: 600; vertical-align: middle;")
+        ui.tags.img(
+            src="icon.svg",
+            height=UI.icon_height_px,
+            style="margin-right: 8px; vertical-align: middle;",
+        ),
+        ui.tags.span("PyPath", style="font-weight: 600; vertical-align: middle;"),
     ),
     id="main_navbar",
     footer=ui.div(
         ui.tags.hr(),
         ui.tags.p(
             f"PyPath © {datetime.now().year} | ",
-            ui.tags.a("Documentation", href="https://github.com/razinkele/PyPath", class_="text-decoration-none"),
+            ui.tags.a(
+                "Documentation",
+                href="https://github.com/razinkele/PyPath",
+                class_="text-decoration-none",
+            ),
             " | ",
-            ui.tags.a("Report Issue", href="https://github.com/razinkele/PyPath/issues", class_="text-decoration-none"),
-            class_="text-center text-muted small"
+            ui.tags.a(
+                "Report Issue",
+                href="https://github.com/razinkele/PyPath/issues",
+                class_="text-decoration-none",
+            ),
+            class_="text-center text-muted small",
         ),
-        class_="p-2"
+        class_="p-2",
     ),
     fillable=True,
     # Apply a clean modern theme - 'flatly' is professional and readable
@@ -175,7 +203,10 @@ def server(input: Inputs, output: Outputs, session: Session):
             sim_results: Reactive value for simulation results (shared with core pages)
             params: Reactive value for model parameters (for advanced features)
         """
-        def __init__(self, model_data_ref: reactive.Value, sim_results_ref: reactive.Value):
+
+        def __init__(
+            self, model_data_ref: reactive.Value, sim_results_ref: reactive.Value
+        ):
             # Reference the primary reactive values (no duplication)
             self.model_data = model_data_ref
             self.sim_results = sim_results_ref
@@ -191,7 +222,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         data = model_data()
         if data is not None:
             # For RpathParams objects (have model and diet attributes), store directly
-            if hasattr(data, 'model') and hasattr(data, 'diet'):
+            if hasattr(data, "model") and hasattr(data, "diet"):
                 shared_data.params.set(data)
             else:
                 # For other data structures, store as-is
@@ -200,17 +231,57 @@ def server(input: Inputs, output: Outputs, session: Session):
     # Initialize page servers with error handling
     server_modules = [
         ("Home", lambda: home.home_server(input, output, session, model_data)),
-        ("Data Import", lambda: data_import.import_server(input, output, session, model_data)),
+        (
+            "Data Import",
+            lambda: data_import.import_server(input, output, session, model_data),
+        ),
         ("Ecopath", lambda: ecopath.ecopath_server(input, output, session, model_data)),
-        ("Pre-Balance Diagnostics", lambda: prebalance.prebalance_server(input, output, session, model_data)),
-        ("Ecosim", lambda: ecosim.ecosim_server(input, output, session, model_data, sim_results)),
-        ("Ecospace", lambda: ecospace.ecospace_server(input, output, session, model_data, sim_results)),
-        ("Multi-Stanza", lambda: multistanza.multistanza_server(input, output, session, shared_data)),
-        ("Forcing Demo", lambda: forcing_demo.forcing_demo_server(input, output, session)),
-        ("Diet Rewiring Demo", lambda: diet_rewiring_demo.diet_rewiring_demo_server(input, output, session)),
-        ("Optimization Demo", lambda: optimization_demo.optimization_demo_server(input, output, session)),
-        ("Analysis", lambda: analysis.analysis_server(input, output, session, model_data, sim_results)),
-        ("Results", lambda: results.results_server(input, output, session, model_data, sim_results)),
+        (
+            "Pre-Balance Diagnostics",
+            lambda: prebalance.prebalance_server(input, output, session, model_data),
+        ),
+        (
+            "Ecosim",
+            lambda: ecosim.ecosim_server(
+                input, output, session, model_data, sim_results
+            ),
+        ),
+        (
+            "Ecospace",
+            lambda: ecospace.ecospace_server(
+                input, output, session, model_data, sim_results
+            ),
+        ),
+        (
+            "Multi-Stanza",
+            lambda: multistanza.multistanza_server(input, output, session, shared_data),
+        ),
+        (
+            "Forcing Demo",
+            lambda: forcing_demo.forcing_demo_server(input, output, session),
+        ),
+        (
+            "Diet Rewiring Demo",
+            lambda: diet_rewiring_demo.diet_rewiring_demo_server(
+                input, output, session
+            ),
+        ),
+        (
+            "Optimization Demo",
+            lambda: optimization_demo.optimization_demo_server(input, output, session),
+        ),
+        (
+            "Analysis",
+            lambda: analysis.analysis_server(
+                input, output, session, model_data, sim_results
+            ),
+        ),
+        (
+            "Results",
+            lambda: results.results_server(
+                input, output, session, model_data, sim_results
+            ),
+        ),
         ("About", lambda: about.about_server(input, output, session)),
     ]
 
