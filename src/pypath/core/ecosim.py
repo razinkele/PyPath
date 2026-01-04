@@ -906,7 +906,10 @@ def rsim_run(
     crash_year = -1
     crashed_groups = set()  # Track which groups have crashed
     crash_threshold = 1e-4  # More reasonable threshold (0.0001 vs 0.000001)
-    
+
+    # Initialize annual Qlink accumulator if links exist
+    annual_qlink = np.zeros((n_years, len(params.PreyFrom))) if len(params.PreyFrom) > 0 else None
+
     # Main simulation loop
     for month in range(1, n_months + 1):
         t = month * dt
