@@ -175,6 +175,9 @@ def format_dataframe_for_display(
     - Converting Type column from numeric codes to category labels
     - Creating boolean masks for special cell highlighting (no data, remarks, stanza groups)
 
+    OPTIMIZED VERSION: Uses vectorized operations and single-pass processing for better
+    performance with large DataFrames (100+ rows).
+
     Parameters
     ----------
     df : pd.DataFrame
@@ -216,61 +219,66 @@ def format_dataframe_for_display(
     if decimal_places is None:
         decimal_places = DISPLAY.decimal_places
 
+    # Create output DataFrames
     formatted = df.copy()
     no_data_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
     remarks_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
     stanza_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
-    
-    # Convert Type column to category labels
-    if 'Type' in formatted.columns:
-        formatted['Type'] = formatted['Type'].apply(
-            lambda x: TYPE_LABELS.get(int(x), str(x)) if pd.notna(x) and x != '' else x
-        )
-    
-    # Mark stanza groups (entire row)
-    if stanza_groups and 'Group' in formatted.columns:
-        for row_idx, group_name in enumerate(formatted['Group']):
-            if group_name in stanza_groups:
-                for col in formatted.columns:
-                    stanza_mask.iloc[row_idx, list(formatted.columns).index(col)] = True
-    
-    for col in formatted.columns:
-        if col == 'Type':
-            # Type column already converted to labels, skip numeric processing
-            continue
-        if formatted[col].dtype in ['float64', 'float32', 'int64', 'int32'] or col not in ['Group', 'Type']:
-            # Convert to numeric where possible
-            numeric_col = pd.to_numeric(formatted[col], errors='coerce')
-            
-            # Mark 9999 values as no data
-            is_no_data = (numeric_col == NO_DATA_VALUE) | (numeric_col == THRESHOLDS.negative_no_data_value)
-            no_data_mask[col] = is_no_data
 
-            # Replace 9999 with NaN, then round
-            numeric_col = numeric_col.replace([NO_DATA_VALUE, THRESHOLDS.negative_no_data_value], np.nan)
-            
-            # Round non-NaN values
-            if col not in ['Group', 'Type']:
-                numeric_col = numeric_col.round(decimal_places)
-            
-            formatted[col] = numeric_col
-    
-    # Keep NaN values in numeric columns (DataGrid handles them properly)
-    # Only fill NaN in string columns if needed
+    # OPTIMIZATION 1: Vectorized Type column conversion
+    if 'Type' in formatted.columns:
+        # Use vectorized map instead of apply for better performance
+        type_col = pd.to_numeric(formatted['Type'], errors='coerce')
+        formatted['Type'] = type_col.map(TYPE_LABELS).fillna(formatted['Type'])
+
+    # OPTIMIZATION 2: Vectorized stanza group marking
+    if stanza_groups and 'Group' in formatted.columns:
+        # Create boolean mask for stanza rows in one operation
+        is_stanza_row = formatted['Group'].isin(stanza_groups)
+        # Broadcast mask across all columns
+        stanza_mask.loc[:, :] = is_stanza_row.values[:, np.newaxis]
+
+    # OPTIMIZATION 3: Single-pass numeric column processing
+    # Identify special columns that don't need numeric processing
+    skip_cols = {'Group', 'Type'}
+
+    # Process all columns in a single pass
     for col in formatted.columns:
-        if formatted[col].dtype == 'object':
-            formatted[col] = formatted[col].fillna('')
-    
-    # Check for remarks
+        if col in skip_cols:
+            continue
+
+        # Convert to numeric (works for both numeric and object dtypes)
+        numeric_col = pd.to_numeric(formatted[col], errors='coerce')
+
+        # VECTORIZED: Mark no-data values
+        is_no_data = (numeric_col == NO_DATA_VALUE) | (numeric_col == THRESHOLDS.negative_no_data_value)
+        no_data_mask[col] = is_no_data
+
+        # VECTORIZED: Replace sentinel values with NaN and round
+        numeric_col = numeric_col.replace([NO_DATA_VALUE, THRESHOLDS.negative_no_data_value], np.nan)
+        numeric_col = numeric_col.round(decimal_places)
+
+        formatted[col] = numeric_col
+
+    # OPTIMIZATION 4: Vectorized NaN filling for object columns
+    # Only fill NaN in object/string columns
+    object_cols = formatted.select_dtypes(include=['object']).columns
+    formatted[object_cols] = formatted[object_cols].fillna('')
+
+    # OPTIMIZATION 5: Vectorized remarks mask creation
     if remarks_df is not None:
-        for col in formatted.columns:
-            if col in remarks_df.columns:
-                for row_idx in range(len(formatted)):
-                    if row_idx < len(remarks_df):
-                        remark = remarks_df.iloc[row_idx].get(col, '')
-                        if isinstance(remark, str) and remark.strip():
-                            remarks_mask.iloc[row_idx, list(formatted.columns).index(col)] = True
-    
+        # Find common columns between data and remarks
+        common_cols = formatted.columns.intersection(remarks_df.columns)
+
+        for col in common_cols:
+            # VECTORIZED: Check for non-empty remarks
+            # Use pandas vectorized string operations
+            if len(remarks_df) > 0:
+                has_remark = remarks_df[col].astype(str).str.strip().ne('')
+                # Only set mask for rows that exist in both DataFrames
+                max_rows = min(len(formatted), len(has_remark))
+                remarks_mask.loc[:max_rows-1, col] = has_remark.iloc[:max_rows].values
+
     return formatted, no_data_mask, remarks_mask, stanza_mask
 
 
@@ -287,6 +295,9 @@ def create_cell_styles(
     - Non-applicable parameters by group type → italicized gray
     - Cells with remarks → yellow tint with dashed border
     - Stanza group rows → light blue background with left border
+
+    OPTIMIZED VERSION: Uses numpy boolean indexing and pre-computed lookups
+    for significantly faster performance with large DataFrames.
 
     Parameters
     ----------
@@ -330,60 +341,115 @@ def create_cell_styles(
     0  # No special styling needed
     """
     styles = []
-    
+
     # Define parameters that don't apply to certain group types
     NON_APPLICABLE_PARAMS = {
         'QB': [1, 2],      # QB doesn't apply to producers (1) and detritus (2)
         'Unassim': [1, 2], # Unassim doesn't apply to producers (1) and detritus (2)
     }
-    
+
     # Grey style for non-applicable parameters
     GREY_STYLE = {"background-color": "#f8f9fa", "color": "#6c757d", "font-style": "italic"}
-    
-    for row_idx in range(len(df)):
-        # Get the group type for this row if available
-        group_type = None
-        if 'Type' in df.columns:
-            type_str = df.iloc[row_idx]['Type']
-            # Convert back from label to numeric code
-            type_map = {v: k for k, v in TYPE_LABELS.items()}
-            group_type = type_map.get(type_str)
-        
-        for col_idx, col in enumerate(df.columns):
-            # Check for no-data cells (highest priority)
-            if col in no_data_mask.columns and no_data_mask.iloc[row_idx][col]:
-                styles.append({
-                    "location": "body",
-                    "rows": row_idx,
-                    "cols": col_idx,
-                    "style": NO_DATA_STYLE
-                })
-            # Check for non-applicable parameters by group type
-            elif (col in NON_APPLICABLE_PARAMS and 
-                  group_type is not None and 
-                  group_type in NON_APPLICABLE_PARAMS[col]):
-                styles.append({
-                    "location": "body",
-                    "rows": row_idx,
-                    "cols": col_idx,
-                    "style": GREY_STYLE
-                })
-            # Check for cells with remarks (third priority)
-            elif remarks_mask is not None and col in remarks_mask.columns and remarks_mask.iloc[row_idx][col]:
-                styles.append({
-                    "location": "body",
-                    "rows": row_idx,
-                    "cols": col_idx,
-                    "style": REMARK_STYLE
-                })
-            # Check for stanza group rows (lowest priority for styling)
-            elif stanza_mask is not None and col in stanza_mask.columns and stanza_mask.iloc[row_idx][col]:
-                styles.append({
-                    "location": "body",
-                    "rows": row_idx,
-                    "cols": col_idx,
-                    "style": STANZA_STYLE
-                })
+
+    # OPTIMIZATION 1: Pre-compute type mapping and group types array
+    type_map = {v: k for k, v in TYPE_LABELS.items()}
+    group_types = None
+    if 'Type' in df.columns:
+        # Vectorized conversion of all type labels to codes
+        group_types = df['Type'].map(type_map).values
+
+    # OPTIMIZATION 2: Convert masks to numpy arrays for faster indexing
+    no_data_array = no_data_mask.values
+    remarks_array = remarks_mask.values if remarks_mask is not None else None
+    stanza_array = stanza_mask.values if stanza_mask is not None else None
+
+    # OPTIMIZATION 3: Pre-compute column indices for non-applicable params
+    non_app_col_indices = {}
+    for param, _ in NON_APPLICABLE_PARAMS.items():
+        if param in df.columns:
+            non_app_col_indices[param] = df.columns.get_loc(param)
+
+    # OPTIMIZATION 4: Create column index lookup
+    col_list = df.columns.tolist()
+
+    # OPTIMIZATION 5: Batch process cells by mask type using numpy where
+    n_rows, n_cols = df.shape
+
+    # Process no_data cells (highest priority)
+    if no_data_array is not None:
+        no_data_coords = np.argwhere(no_data_array)
+        for row_idx, col_idx in no_data_coords:
+            styles.append({
+                "location": "body",
+                "rows": int(row_idx),
+                "cols": int(col_idx),
+                "style": NO_DATA_STYLE
+            })
+
+    # Process non-applicable params
+    if group_types is not None:
+        for param, types in NON_APPLICABLE_PARAMS.items():
+            if param in non_app_col_indices:
+                col_idx = non_app_col_indices[param]
+                # Find rows where this parameter doesn't apply
+                for group_type in types:
+                    row_indices = np.where(group_types == group_type)[0]
+                    for row_idx in row_indices:
+                        # Skip if already styled as no_data
+                        if not (no_data_array is not None and no_data_array[row_idx, col_idx]):
+                            styles.append({
+                                "location": "body",
+                                "rows": int(row_idx),
+                                "cols": int(col_idx),
+                                "style": GREY_STYLE
+                            })
+
+    # Process remark cells
+    if remarks_array is not None:
+        # Get coordinates of cells with remarks
+        remark_coords = np.argwhere(remarks_array)
+        for row_idx, col_idx in remark_coords:
+            # Skip if already styled as no_data or non-applicable
+            if not (no_data_array is not None and no_data_array[row_idx, col_idx]):
+                col_name = col_list[col_idx]
+                group_type = group_types[row_idx] if group_types is not None else None
+                is_non_app = (col_name in NON_APPLICABLE_PARAMS and
+                             group_type is not None and
+                             group_type in NON_APPLICABLE_PARAMS[col_name])
+
+                if not is_non_app:
+                    styles.append({
+                        "location": "body",
+                        "rows": int(row_idx),
+                        "cols": int(col_idx),
+                        "style": REMARK_STYLE
+                    })
+
+    # Process stanza group cells (lowest priority)
+    if stanza_array is not None:
+        stanza_coords = np.argwhere(stanza_array)
+        for row_idx, col_idx in stanza_coords:
+            # Skip if already styled
+            has_higher_priority = (
+                (no_data_array is not None and no_data_array[row_idx, col_idx]) or
+                (remarks_array is not None and remarks_array[row_idx, col_idx])
+            )
+
+            if not has_higher_priority:
+                col_name = col_list[col_idx]
+                group_type = group_types[row_idx] if group_types is not None else None
+                is_non_app = (col_name in NON_APPLICABLE_PARAMS and
+                             group_type is not None and
+                             group_type in NON_APPLICABLE_PARAMS[col_name])
+
+                if not is_non_app:
+                    styles.append({
+                        "location": "body",
+                        "rows": int(row_idx),
+                        "cols": int(col_idx),
+                        "style": STANZA_STYLE
+                    })
+
     return styles
 
 

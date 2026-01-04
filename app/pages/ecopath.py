@@ -164,6 +164,24 @@ def _recreate_params_from_model(model: Rpath) -> RpathParams:
     return params
 
 
+# Public helper to convert DataGrid edits to numeric values
+def _convert_input_to_numeric(new_value):
+    """Convert a new_value from a DataGrid edit to a numeric value.
+
+    Treat explicit zeros (0 or '0') as valid numeric zero. Treat blank
+    strings and None as np.nan.
+    """
+    if new_value is None:
+        return np.nan
+    if isinstance(new_value, str) and new_value.strip() == "":
+        return np.nan
+    try:
+        return float(new_value)
+    except (ValueError, TypeError):
+        # Let caller handle exceptions for invalid numeric formats
+        raise
+
+
 def ecopath_ui():
     """Ecopath model page UI."""
     return ui.page_fluid(
@@ -664,21 +682,6 @@ def ecopath_server(
         
         return render.DataGrid(formatted_df, styles=styles)
     
-    def _convert_input_to_numeric(new_value):
-        """Convert a new_value from a DataGrid edit to a numeric value.
-
-        Treat explicit zeros (0 or '0') as valid numeric zero. Treat blank
-        strings and None as np.nan.
-        """
-        if new_value is None:
-            return np.nan
-        if isinstance(new_value, str) and new_value.strip() == "":
-            return np.nan
-        try:
-            return float(new_value)
-        except (ValueError, TypeError):
-            # Let caller handle exceptions for invalid numeric formats
-            raise
 
     # Track cell edits from DataGrids and update params
     @reactive.effect

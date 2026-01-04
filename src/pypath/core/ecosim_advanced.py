@@ -9,11 +9,15 @@ This module extends the base Ecosim functionality with:
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
 import numpy as np
 
 from pypath.core.ecosim import RsimScenario, RsimOutput, DELTA_T, STEPS_PER_YEAR
 from pypath.core.forcing import StateForcing, DietRewiring, StateVariable, ForcingMode
+
+# Get logger
+logger = logging.getLogger(__name__)
 
 
 def apply_state_forcing(
@@ -204,7 +208,7 @@ def rsim_run_advanced(
         diet_rewiring.initialize(base_diet)
 
         if verbose:
-            print(f"Initialized diet rewiring (power={diet_rewiring.switching_power})")
+            logger.info(f"Initialized diet rewiring (power={diet_rewiring.switching_power})")
 
     # Determine years to run
     if years is None:
@@ -288,6 +292,20 @@ def rsim_run_advanced(
     # Create output (simplified - real version fills all fields)
     from pypath.core.ecosim import RsimState
 
+    # Create end state with all required fields
+    # Use start_state N and Ftime since this simplified version doesn't track them
+    end_state = RsimState(
+        Biomass=state.copy(),
+        N=scenario.start_state.N.copy(),
+        Ftime=scenario.start_state.Ftime.copy(),
+        SpawnBio=scenario.start_state.SpawnBio.copy() if scenario.start_state.SpawnBio is not None else None,
+        StanzaPred=scenario.start_state.StanzaPred.copy() if scenario.start_state.StanzaPred is not None else None,
+        EggsStanza=scenario.start_state.EggsStanza.copy() if scenario.start_state.EggsStanza is not None else None,
+        NageS=scenario.start_state.NageS.copy() if scenario.start_state.NageS is not None else None,
+        WageS=scenario.start_state.WageS.copy() if scenario.start_state.WageS is not None else None,
+        QageS=scenario.start_state.QageS.copy() if scenario.start_state.QageS is not None else None
+    )
+
     output = RsimOutput(
         out_Biomass=out_biomass,
         out_Catch=out_catch,
@@ -296,7 +314,7 @@ def rsim_run_advanced(
         annual_Catch=np.zeros_like(annual_biomass),
         annual_QB=np.zeros((n_years + 1, n_groups)),
         annual_Qlink=np.zeros((n_years + 1, params.NumPredPreyLinks + 1)),
-        end_state=RsimState(Biomass=state.copy()),
+        end_state=end_state,
         crash_year=-1,
         crashed_groups=set(),
         pred=np.array([]),
@@ -305,7 +323,11 @@ def rsim_run_advanced(
         Gear_Catch_gear=np.array([]),
         Gear_Catch_disp=np.array([]),
         start_state=scenario.start_state,
-        params={}
+        params={
+            'NUM_GROUPS': params.NUM_GROUPS,
+            'NUM_LIVING': params.NUM_LIVING,
+            'years': n_years,
+        }
     )
 
     if verbose:

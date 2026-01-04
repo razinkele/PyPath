@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60">
+  <defs>
+    <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0077B6;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#00B4D8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#48CAE4;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="fishGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#023E8A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0077B6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Icon: Food web network with fish shape -->
+  <g transform="translate(5, 5)">
+    <!-- Fish body outline -->
+    <ellipse cx="25" cy="25" rx="22" ry="18" fill="url(#oceanGrad)" opacity="0.9"/>
+    <!-- Fish tail -->
+    <polygon points="45,25 55,15 55,35" fill="url(#oceanGrad)" opacity="0.9"/>
+    
+    <!-- Food web nodes inside fish -->
+    <circle cx="18" cy="20" r="4" fill="white" opacity="0.95"/>
+    <circle cx="30" cy="18" r="3.5" fill="white" opacity="0.95"/>
+    <circle cx="25" cy="28" r="3" fill="white" opacity="0.95"/>
+    <circle cx="35" cy="26" r="2.5" fill="white" opacity="0.95"/>
+    <circle cx="15" cy="30" r="2.5" fill="white" opacity="0.95"/>
+    
+    <!-- Connecting lines (food web) -->
+    <line x1="18" y1="20" x2="30" y2="18" stroke="white" stroke-width="1.5" opacity="0.7"/>
+    <line x1="18" y1="20" x2="25" y2="28" stroke="white" stroke-width="1.5" opacity="0.7"/>
+    <line x1="30" y1="18" x2="35" y2="26" stroke="white" stroke-width="1.5" opacity="0.7"/>
+    <line x1="25" y1="28" x2="35" y2="26" stroke="white" stroke-width="1.5" opacity="0.7"/>
+    <line x1="15" y1="30" x2="25" y2="28" stroke="white" stroke-width="1.2" opacity="0.6"/>
+    <line x1="18" y1="20" x2="15" y2="30" stroke="white" stroke-width="1.2" opacity="0.6"/>
+    
+    <!-- Fish eye -->
+    <circle cx="12" cy="22" r="3" fill="white"/>
+    <circle cx="12" cy="22" r="1.5" fill="#023E8A"/>
+  </g>
+  
+  <!-- Text: PyPath -->
+  <text x="70" y="40" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="700" fill="url(#fishGrad)">
+    <tspan fill="#023E8A">Py</tspan><tspan fill="#0077B6">Path</tspan>
+  </text>
+  
+  <!-- Tagline -->
+  <text x="70" y="52" font-family="Segoe UI, Arial, sans-serif" font-size="9" fill="#666" letter-spacing="0.5">
+    Ecosystem Modeling in Python
+  </text>
+</svg>

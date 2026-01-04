@@ -40,6 +40,7 @@ except ImportError:
     import urllib.error
 
 from pypath.core.params import RpathParams, create_rpath_params
+from pypath.io.utils import safe_float, fetch_url
 
 
 # EcoBase API endpoints
@@ -47,36 +48,8 @@ ECOBASE_LIST_URL = "http://sirs.agrocampus-ouest.fr/EcoBase/php/webser/soap-clie
 ECOBASE_MODEL_URL = "http://sirs.agrocampus-ouest.fr/EcoBase/php/webser/soap-client.php?no_model="
 
 
-def _safe_float(value: Any, default: float = 0.0) -> Optional[float]:
-    """Safely convert a value to float, handling booleans and strings.
-    
-    Parameters
-    ----------
-    value : Any
-        Value to convert
-    default : float
-        Default value if conversion fails (use None to return None on failure)
-    
-    Returns
-    -------
-    float or None
-        Converted value or default
-    """
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return None  # Booleans are not valid numeric values
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        value_lower = value.lower().strip()
-        if value_lower in ('true', 'false', 'yes', 'no', 'none', ''):
-            return None
-        try:
-            return float(value)
-        except ValueError:
-            return default if default is not None else None
-    return default if default is not None else None
+# Note: safe_float and fetch_url are now imported from pypath.io.utils
+# to avoid code duplication
 
 
 @dataclass
@@ -161,30 +134,6 @@ class EcoBaseGroupData:
     group_type: int = 0  # 0=consumer, 1=producer, 2=detritus, 3=fleet
 
 
-def _fetch_url(url: str, timeout: int = 30) -> str:
-    """Fetch content from URL.
-    
-    Parameters
-    ----------
-    url : str
-        URL to fetch
-    timeout : int
-        Request timeout in seconds
-    
-    Returns
-    -------
-    str
-        Response content as string
-    """
-    if HAS_REQUESTS:
-        response = requests.get(url, timeout=timeout)
-        response.raise_for_status()
-        return response.text
-    else:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            return response.read().decode('utf-8')
-
-
 def list_ecobase_models(
     filter_public: bool = True,
     timeout: int = 60
@@ -222,7 +171,7 @@ def list_ecobase_models(
     >>> marine = models[models['ecosystem_type'].str.contains('marine', case=False)]
     """
     try:
-        xml_content = _fetch_url(ECOBASE_LIST_URL, timeout=timeout)
+        xml_content = fetch_url(ECOBASE_LIST_URL, timeout=timeout, parse_json=False)
     except Exception as e:
         raise ConnectionError(f"Failed to connect to EcoBase: {e}")
     
@@ -321,7 +270,7 @@ def get_ecobase_model(
     url = f"{ECOBASE_MODEL_URL}{model_id}"
     
     try:
-        xml_content = _fetch_url(url, timeout=timeout)
+        xml_content = fetch_url(url, timeout=timeout, parse_json=False)
     except Exception as e:
         raise ConnectionError(f"Failed to download model {model_id}: {e}")
     
@@ -725,37 +674,37 @@ def ecobase_to_rpath(
     for i, g in enumerate(groups_data):
         # Biomass - the numeric value is in 'biomass', not 'biomass_input'
         biomass = g.get('biomass', g.get('b', None))
-        biomass_val = _safe_float(biomass)
+        biomass_val = safe_float(biomass)
         if biomass_val is not None:
             params.model.loc[i, 'Biomass'] = biomass_val
         
         # PB (P/B ratio) - the numeric value is in 'pb', not 'pb_input'  
         pb = g.get('pb', g.get('prod_biom', None))
-        pb_val = _safe_float(pb)
+        pb_val = safe_float(pb)
         if pb_val is not None:
             params.model.loc[i, 'PB'] = pb_val
         
         # QB (Q/B ratio) - the numeric value is in 'qb', not 'qb_input'
         qb = g.get('qb', g.get('cons_biom', None))
-        qb_val = _safe_float(qb)
+        qb_val = safe_float(qb)
         if qb_val is not None and group_types[i] != 1:  # Not for producers
             params.model.loc[i, 'QB'] = qb_val
         
         # EE (Ecotrophic efficiency) - the numeric value is in 'ee', not 'ee_input'
         ee = g.get('ee', g.get('ecotrophic_eff', None))
-        ee_val = _safe_float(ee)
+        ee_val = safe_float(ee)
         if ee_val is not None:
             params.model.loc[i, 'EE'] = ee_val
         
         # Unassimilated fraction (GS in EcoBase)
         unassim = g.get('gs', g.get('unassim_cons', 0.2))
-        unassim_val = _safe_float(unassim, default=0.2)
+        unassim_val = safe_float(unassim, default=0.2)
         if unassim_val is not None:
             params.model.loc[i, 'Unassim'] = unassim_val
         
         # Biomass accumulation
         ba = g.get('biomass_accum', g.get('biomass_acc', g.get('ba', 0.0)))
-        ba_val = _safe_float(ba, default=0.0)
+        ba_val = safe_float(ba, default=0.0)
         if ba_val is not None:
             params.model.loc[i, 'BioAcc'] = ba_val
     
@@ -770,7 +719,7 @@ def ecobase_to_rpath(
                 # Find the row index for this prey
                 if prey_name in diet_groups:
                     row_idx = diet_groups.index(prey_name)
-                    prop_val = _safe_float(proportion, default=0.0)
+                    prop_val = safe_float(proportion, default=0.0)
                     if prop_val is not None and prop_val > 0:
                         params.diet.iloc[row_idx, params.diet.columns.get_loc(pred_name)] = prop_val
     
@@ -781,7 +730,7 @@ def ecobase_to_rpath(
                 group_idx = params.model[params.model['Group'] == group_name].index[0]
                 for fleet_name, catch_data in fleet_catches.items():
                     if fleet_name in params.model.columns:
-                        landings = _safe_float(catch_data.get('landings', 0), default=0.0)
+                        landings = safe_float(catch_data.get('landings', 0), default=0.0)
                         if landings is not None:
                             params.model.loc[group_idx, fleet_name] = landings
     

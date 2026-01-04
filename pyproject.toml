@@ -46,8 +46,19 @@ interactive = [
     "plotly>=5.0",
     "networkx>=3.0",
 ]
+web = [
+    "shiny>=1.0.0",
+    "shinyswatch>=0.7.0",
+    "httpx>=0.24",
+    "uvicorn>=0.23",
+]
+biodata = [
+    "pyworms>=0.2.1",
+    "pyobis>=0.3.0",
+    "requests>=2.28",
+]
 all = [
-    "pypath-ecopath[dev,numba,interactive]",
+    "pypath-ecopath[dev,numba,interactive,web,biodata]",
 ]
 
 [project.urls]
@@ -61,6 +72,15 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+markers = [
+    "integration: marks tests that require internet connection and real API calls (deselect with '-m \"not integration\"')",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "worms: marks tests that use WoRMS API",
+    "obis: marks tests that use OBIS API",
+    "fishbase: marks tests that use FishBase API",
+]
+# Timeout for integration tests
+timeout = 300
 
 [tool.black]
 line-length = 88

@@ -21,11 +21,10 @@ def test_convert_input_numeric_zero_and_blank():
 def test_convert_input_invalid_raises():
     with pytest.raises(ValueError):
         _convert_input_to_numeric('abc')
-    with pytest.raises(TypeError):
-        # Simulate an object that cannot be converted
-        class Bad:
-            def __float__(self):
-                raise TypeError()
+    # Simulate an object that cannot be converted
+    class Bad:
+        def __float__(self):
+            raise TypeError()
 
-        with pytest.raises(TypeError):
-            _convert_input_to_numeric(Bad())
+    with pytest.raises(TypeError):
+        _convert_input_to_numeric(Bad())

@@ -795,8 +795,11 @@ def rsim_scenario(
             rpath_stanzas(rpath_params)
             # Initialize Rsim-compatible stanza parameters
             stanzas = rsim_stanzas(rpath_params, state, params)
-    except Exception:
+    except Exception as e:
         # If stanza initialization fails, continue without stanzas but log via debug
+        import traceback
+        print('DEBUG: stanza initialization failed:', e)
+        traceback.print_exc()
         stanzas = None
     
     return RsimScenario(
@@ -871,6 +874,11 @@ def rsim_run(
                 bio = np.nansum(scenario.stanzas.base_nage_s[first:last + 1, isp] * scenario.stanzas.base_wage_s[first:last + 1, isp])
                 if ieco >= 0 and ieco < n_groups:
                     stanza_biomass[0, ieco] += bio
+
+    
+    # Build params dict for derivative and matrix computations
+    params_dict = {
+        'NUM_GROUPS': params.NUM_GROUPS,
         'NUM_LIVING': params.NUM_LIVING,
         'NUM_DEAD': params.NUM_DEAD,
         'NUM_GEARS': params.NUM_GEARS,
@@ -885,7 +893,7 @@ def rsim_run(
         'Bbase': params.B_BaseRef,
         'PP_type': params.PP_type,
     }
-    
+
     # Build fishing dict
     fishing_dict = {
         'FishFrom': params.FishFrom,

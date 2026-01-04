@@ -218,7 +218,7 @@ class EcosimOptimizer:
         # Validate observed data
         self._validate_observed_data()
 
-    def _validate_observed_data(self):
+    def _validate_observed_data(self) -> None:
         """Validate observed data format and dimensions."""
         n_years = len(self.years)
         for group_idx, data in self.observed_data.items():
@@ -270,7 +270,7 @@ class EcosimOptimizer:
             # Return high penalty for failed simulations
             return None
 
-    def _update_scenario_parameter(self, scenario: RsimScenario, param_name: str, value: float):
+    def _update_scenario_parameter(self, scenario: RsimScenario, param_name: str, value: float) -> None:
         """Update a parameter in the scenario.
 
         Parameters

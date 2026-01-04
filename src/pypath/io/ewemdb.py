@@ -27,6 +27,7 @@ Example:
 
 from __future__ import annotations
 
+import logging
 import warnings
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union
@@ -36,6 +37,8 @@ import numpy as np
 import pandas as pd
 
 from pypath.core.params import RpathParams, create_rpath_params
+
+logger = logging.getLogger(__name__)
 
 
 # Try to import database drivers
@@ -104,53 +107,98 @@ def _get_connection_string(filepath: str) -> str:
 
 def _read_mdb_with_tools(filepath: str, table: str) -> pd.DataFrame:
     """Read Access table using mdb-tools (Linux/Mac).
-    
+
     Parameters
     ----------
     filepath : str
         Path to the database file
     table : str
         Table name to read
-    
+
     Returns
     -------
     pd.DataFrame
         Table data as DataFrame
+
+    Raises
+    ------
+    EwEDatabaseError
+        If file path is invalid or table read fails
+    ValueError
+        If inputs contain invalid characters
     """
     import subprocess
     import io
-    
+    import re
+
+    # Validate filepath
+    filepath_obj = Path(filepath).resolve()
+    if not filepath_obj.exists():
+        raise EwEDatabaseError(f"Database file not found: {filepath}")
+    if not filepath_obj.is_file():
+        raise EwEDatabaseError(f"Path is not a file: {filepath}")
+    if filepath_obj.suffix.lower() not in ['.ewemdb', '.mdb', '.accdb']:
+        raise EwEDatabaseError(f"Invalid database file extension: {filepath_obj.suffix}")
+
+    # Validate table name - only allow alphanumeric, underscore, and space
+    if not re.match(r'^[A-Za-z0-9_ ]+$', table):
+        raise ValueError(f"Invalid table name: {table}. Only alphanumeric characters, underscores, and spaces allowed.")
+
+    # Use absolute path string for subprocess
+    safe_filepath = str(filepath_obj)
+
     result = subprocess.run(
-        ['mdb-export', filepath, table],
+        ['mdb-export', safe_filepath, table],
         capture_output=True,
-        text=True
+        text=True,
+        timeout=30  # Add timeout to prevent hanging
     )
-    
+
     if result.returncode != 0:
         raise EwEDatabaseError(f"Failed to read table {table}: {result.stderr}")
-    
+
     return pd.read_csv(io.StringIO(result.stdout))
 
 
 def _list_mdb_tables(filepath: str) -> List[str]:
     """List tables using mdb-tools.
-    
+
     Parameters
     ----------
     filepath : str
         Path to the database file
-    
+
     Returns
     -------
     list
         List of table names
+
+    Raises
+    ------
+    EwEDatabaseError
+        If file path is invalid or listing fails
     """
+    import subprocess
+
+    # Validate filepath
+    filepath_obj = Path(filepath).resolve()
+    if not filepath_obj.exists():
+        raise EwEDatabaseError(f"Database file not found: {filepath}")
+    if not filepath_obj.is_file():
+        raise EwEDatabaseError(f"Path is not a file: {filepath}")
+    if filepath_obj.suffix.lower() not in ['.ewemdb', '.mdb', '.accdb']:
+        raise EwEDatabaseError(f"Invalid database file extension: {filepath_obj.suffix}")
+
+    # Use absolute path string for subprocess
+    safe_filepath = str(filepath_obj)
+
     result = subprocess.run(
-        ['mdb-tables', '-1', filepath],
+        ['mdb-tables', '-1', safe_filepath],
         capture_output=True,
-        text=True
+        text=True,
+        timeout=30  # Add timeout to prevent hanging
     )
-    
+
     if result.returncode != 0:
         raise EwEDatabaseError(f"Failed to list tables: {result.stderr}")
     
@@ -318,33 +366,35 @@ def read_ewemdb(
         # Try alternative table names
         try:
             groups_df = read_ewemdb_table(filepath, 'Group')
-        except:
+        except Exception as e:
             raise EwEDatabaseError(f"Could not find group data: {e}")
     
     try:
         diet_df = read_ewemdb_table(filepath, 'EcopathDietComp')
-    except Exception:
+    except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
         try:
             diet_df = read_ewemdb_table(filepath, 'DietComp')
-        except:
+        except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
             diet_df = None
-            warnings.warn("Could not read diet composition data")
+            logger.warning(f"Could not read diet composition data: {e}")
     
     try:
         fleet_df = read_ewemdb_table(filepath, 'EcopathFleet')
-    except Exception:
+    except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
         try:
             fleet_df = read_ewemdb_table(filepath, 'Fleet')
-        except:
+        except (EwEDatabaseError, KeyError, ValueError, Exception):
             fleet_df = None
-    
+            logger.debug(f"Could not read fleet data: {e}")
+
     try:
         catch_df = read_ewemdb_table(filepath, 'EcopathCatch')
-    except Exception:
+    except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
         try:
             catch_df = read_ewemdb_table(filepath, 'Catch')
-        except:
+        except (EwEDatabaseError, KeyError, ValueError, Exception):
             catch_df = None
+            logger.debug(f"Could not read catch data: {e}")
     
     # Try to read Auxillary table (contains cell-level remarks in EwE 6.6+)
     auxillary_df = None
@@ -352,9 +402,9 @@ def read_ewemdb(
         auxillary_df = read_ewemdb_table(filepath, 'Auxillary')
         # Filter to only rows with remarks
         auxillary_df = auxillary_df[auxillary_df['Remark'].notna() & (auxillary_df['Remark'] != '')]
-        print(f"[DEBUG] Found Auxillary table with {len(auxillary_df)} remarks")
-    except Exception as e:
-        print(f"[DEBUG] Could not read Auxillary table: {e}")
+        logger.debug(f"Found Auxillary table with {len(auxillary_df)} remarks")
+    except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
+        logger.debug(f"Could not read Auxillary table: {e}")
     
     # Filter by scenario if needed
     if 'ScenarioID' in groups_df.columns:
@@ -398,15 +448,14 @@ def read_ewemdb(
             group_types = raw_types
     else:
         # Guess types based on Q/B values
-        group_types = []
-        qb_col = next((c for c in ['QB', 'QoverB', 'ConsumptionBiomass'] 
+        qb_col = next((c for c in ['QB', 'QoverB', 'ConsumptionBiomass']
                        if c in groups_df.columns), None)
-        for i, row in groups_df.iterrows():
-            qb = row.get(qb_col, 0) if qb_col else 0
-            if pd.isna(qb) or qb == 0:
-                group_types.append(1)  # Producer or detritus
-            else:
-                group_types.append(0)  # Consumer
+        if qb_col:
+            qb_values = groups_df[qb_col].fillna(0)
+            # Producer/detritus if QB is 0 or NaN, consumer otherwise
+            group_types = [1 if qb == 0 else 0 for qb in qb_values]
+        else:
+            group_types = [0] * len(groups_df)  # Default to consumer
     
     # Create RpathParams
     params = create_rpath_params(group_names, group_types)
@@ -476,7 +525,7 @@ def read_ewemdb(
     # PRIMARY METHOD: Extract remarks from Auxillary table (EwE 6.6+)
     # ValueID format: "EcoPathGroupInput:<GroupID>:<VarName>"
     if auxillary_df is not None and len(auxillary_df) > 0:
-        print(f"[DEBUG] Processing {len(auxillary_df)} remarks from Auxillary table")
+        logger.debug(f"Processing {len(auxillary_df)} remarks from Auxillary table")
         
         import re
         # Pattern to match: EcoPathGroupInput:<GroupID>:<VarName>
@@ -507,19 +556,19 @@ def read_ewemdb(
                         has_any_remarks = True
                         if param_name not in found_remarks_cols:
                             found_remarks_cols.append(param_name)
-        
+
         if found_remarks_cols:
-            print(f"[DEBUG] Found remarks for parameters: {found_remarks_cols}")
+            logger.debug(f"Found remarks for parameters: {found_remarks_cols}")
     
     if has_any_remarks:
         params.remarks = pd.DataFrame(remarks_data)
-        print(f"[DEBUG] Created remarks DataFrame with {len(found_remarks_cols)} parameter columns")
+        logger.debug(f"Created remarks DataFrame with {len(found_remarks_cols)} parameter columns")
         # Count total non-empty remarks
-        total_remarks = sum(1 for param in found_remarks_cols 
+        total_remarks = sum(1 for param in found_remarks_cols
                           for r in remarks_data.get(param, []) if r)
-        print(f"[DEBUG] Total non-empty remarks: {total_remarks}")
+        logger.debug(f"Total non-empty remarks: {total_remarks}")
     else:
-        print(f"[DEBUG] No remarks found in EwE database file")
+        logger.debug("No remarks found in EwE database file")
     
     # Read diet composition
     if diet_df is not None and len(diet_df) > 0:
@@ -650,9 +699,9 @@ def read_ewemdb(
     try:
         stanza_df = read_ewemdb_table(filepath, 'Stanza')
         stanza_life_df = read_ewemdb_table(filepath, 'StanzaLifeStage')
-        
+
         if len(stanza_df) > 0 and len(stanza_life_df) > 0:
-            print(f"[DEBUG] Found {len(stanza_df)} stanza groups, {len(stanza_life_df)} life stages")
+            logger.debug(f"Found {len(stanza_df)} stanza groups, {len(stanza_life_df)} life stages")
             
             # Get ID to name mapping
             id_col = next((c for c in ['GroupID', 'ID', 'Sequence', 'GroupSeq'] if c in groups_df.columns), None)
@@ -723,10 +772,10 @@ def read_ewemdb(
             params.stanzas.n_stanza_groups = len(stanza_df)
             params.stanzas.stgroups = pd.DataFrame(stgroups_data)
             params.stanzas.stindiv = stindiv_data_df
-            
-            print(f"[DEBUG] Populated stanza params: {params.stanzas.n_stanza_groups} groups")
-    except Exception as e:
-        print(f"[DEBUG] Could not read stanza tables: {e}")
+
+            logger.debug(f"Populated stanza params: {params.stanzas.n_stanza_groups} groups")
+    except (EwEDatabaseError, KeyError, ValueError, IndexError, Exception) as e:
+        logger.debug(f"Could not read stanza tables: {e}")
     
     return params
 
@@ -777,7 +826,7 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
             try:
                 info_df = read_ewemdb_table(filepath, table)
                 break
-            except:
+            except Exception:
                 continue
         
         if info_df is not None and len(info_df) > 0:
@@ -805,15 +854,15 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
         try:
             groups_df = read_ewemdb_table(filepath, 'EcopathGroup')
             metadata['num_groups'] = len(groups_df)
-        except:
+        except Exception:
             pass
-        
+
         try:
             fleet_df = read_ewemdb_table(filepath, 'EcopathFleet')
             metadata['num_fleets'] = len(fleet_df)
-        except:
+        except Exception:
             pass
-        
+
         # Check for Ecosim scenarios
         try:
             ecosim_df = read_ewemdb_table(filepath, 'EcosimScenario')
@@ -824,7 +873,7 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
                 name_col = next((c for c in ['ScenarioName', 'Name'] if c in ecosim_df.columns), None)
                 if name_col:
                     metadata['scenarios'] = ecosim_df[name_col].tolist()
-        except:
+        except Exception:
             pass
         
         # Check for Ecospace
@@ -832,7 +881,7 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
             ecospace_df = read_ewemdb_table(filepath, 'EcospaceScenario')
             if len(ecospace_df) > 0:
                 metadata['has_ecospace'] = True
-        except:
+        except (EwEDatabaseError, KeyError, ValueError, Exception):
             pass
     
     except Exception as e:
