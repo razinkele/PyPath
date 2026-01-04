@@ -155,7 +155,7 @@ class ValidationConfig:
     def __post_init__(self):
         """Initialize validation sets."""
         if self.valid_group_types is None:
-            self.valid_group_types = {0, 1, 2, 3}
+            self.valid_group_types = frozenset({0, 1, 2, 3})
 
 
 @dataclass
