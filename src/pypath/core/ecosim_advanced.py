@@ -24,7 +24,7 @@ def apply_state_forcing(
     state: np.ndarray,
     year: float,
     state_forcing: Optional[StateForcing],
-    variable: StateVariable = StateVariable.BIOMASS
+    variable: StateVariable = StateVariable.BIOMASS,
 ) -> np.ndarray:
     """Apply state forcing to current state vector.
 
@@ -88,9 +88,7 @@ def apply_state_forcing(
 
 
 def apply_diet_rewiring(
-    biomass: np.ndarray,
-    diet_rewiring: Optional[DietRewiring],
-    month: int
+    biomass: np.ndarray, diet_rewiring: Optional[DietRewiring], month: int
 ) -> Optional[np.ndarray]:
     """Update diet matrix based on current biomass.
 
@@ -125,9 +123,9 @@ def rsim_run_advanced(
     scenario: RsimScenario,
     state_forcing: Optional[StateForcing] = None,
     diet_rewiring: Optional[DietRewiring] = None,
-    method: str = 'RK4',
+    method: str = "RK4",
     years: Optional[range] = None,
-    verbose: bool = False
+    verbose: bool = False,
 ) -> RsimOutput:
     """Run Ecosim simulation with advanced forcing and diet rewiring.
 
@@ -208,7 +206,9 @@ def rsim_run_advanced(
         diet_rewiring.initialize(base_diet)
 
         if verbose:
-            logger.info(f"Initialized diet rewiring (power={diet_rewiring.switching_power})")
+            logger.info(
+                f"Initialized diet rewiring (power={diet_rewiring.switching_power})"
+            )
 
     # Determine years to run
     if years is None:
@@ -239,7 +239,9 @@ def rsim_run_advanced(
         current_year = scenario.start_year + year_num + month_in_year / 12.0
 
         if verbose and month % 12 == 0:
-            print(f"Year {year_num + 1}/{n_years}: mean biomass = {np.mean(state[1:params.NUM_LIVING+1]):.2f}")
+            print(
+                f"Year {year_num + 1}/{n_years}: mean biomass = {np.mean(state[1:params.NUM_LIVING+1]):.2f}"
+            )
 
         # Apply diet rewiring if enabled
         if diet_rewiring is not None:
@@ -270,17 +272,14 @@ def rsim_run_advanced(
         # Apply biomass forcing AFTER integration (replace computed biomass)
         if state_forcing is not None:
             state = apply_state_forcing(
-                state,
-                current_year,
-                state_forcing,
-                StateVariable.BIOMASS
+                state, current_year, state_forcing, StateVariable.BIOMASS
             )
 
         # Store results
         out_biomass[month + 1] = state
 
         # Check for crashes
-        living_biomass = state[1:params.NUM_LIVING + 1]
+        living_biomass = state[1 : params.NUM_LIVING + 1]
         if np.any(living_biomass < 1e-4):
             if verbose:
                 crashed = np.where(living_biomass < 1e-4)[0]
@@ -298,12 +297,36 @@ def rsim_run_advanced(
         Biomass=state.copy(),
         N=scenario.start_state.N.copy(),
         Ftime=scenario.start_state.Ftime.copy(),
-        SpawnBio=scenario.start_state.SpawnBio.copy() if scenario.start_state.SpawnBio is not None else None,
-        StanzaPred=scenario.start_state.StanzaPred.copy() if scenario.start_state.StanzaPred is not None else None,
-        EggsStanza=scenario.start_state.EggsStanza.copy() if scenario.start_state.EggsStanza is not None else None,
-        NageS=scenario.start_state.NageS.copy() if scenario.start_state.NageS is not None else None,
-        WageS=scenario.start_state.WageS.copy() if scenario.start_state.WageS is not None else None,
-        QageS=scenario.start_state.QageS.copy() if scenario.start_state.QageS is not None else None
+        SpawnBio=(
+            scenario.start_state.SpawnBio.copy()
+            if scenario.start_state.SpawnBio is not None
+            else None
+        ),
+        StanzaPred=(
+            scenario.start_state.StanzaPred.copy()
+            if scenario.start_state.StanzaPred is not None
+            else None
+        ),
+        EggsStanza=(
+            scenario.start_state.EggsStanza.copy()
+            if scenario.start_state.EggsStanza is not None
+            else None
+        ),
+        NageS=(
+            scenario.start_state.NageS.copy()
+            if scenario.start_state.NageS is not None
+            else None
+        ),
+        WageS=(
+            scenario.start_state.WageS.copy()
+            if scenario.start_state.WageS is not None
+            else None
+        ),
+        QageS=(
+            scenario.start_state.QageS.copy()
+            if scenario.start_state.QageS is not None
+            else None
+        ),
     )
 
     output = RsimOutput(
@@ -324,10 +347,10 @@ def rsim_run_advanced(
         Gear_Catch_disp=np.array([]),
         start_state=scenario.start_state,
         params={
-            'NUM_GROUPS': params.NUM_GROUPS,
-            'NUM_LIVING': params.NUM_LIVING,
-            'years': n_years,
-        }
+            "NUM_GROUPS": params.NUM_GROUPS,
+            "NUM_LIVING": params.NUM_LIVING,
+            "years": n_years,
+        },
     )
 
     if verbose:
@@ -342,7 +365,7 @@ def rsim_run_advanced(
 def create_advanced_scenario(
     base_scenario: RsimScenario,
     state_forcing: Optional[StateForcing] = None,
-    diet_rewiring: Optional[DietRewiring] = None
+    diet_rewiring: Optional[DietRewiring] = None,
 ) -> tuple[RsimScenario, StateForcing, DietRewiring]:
     """Create advanced scenario with forcing and rewiring.
 
@@ -375,8 +398,8 @@ def create_advanced_scenario(
 
 # Export main functions
 __all__ = [
-    'rsim_run_advanced',
-    'create_advanced_scenario',
-    'apply_state_forcing',
-    'apply_diet_rewiring',
+    "rsim_run_advanced",
+    "create_advanced_scenario",
+    "apply_state_forcing",
+    "apply_diet_rewiring",
 ]

@@ -17,12 +17,13 @@ sys.path.insert(0, str(app_dir))
 from pages.validation import validate_pb
 from config import VALIDATION
 
+
 def test_pb_validation():
     """Test P/B validation with type-specific thresholds."""
 
-    print("="*60)
+    print("=" * 60)
     print("Testing P/B Validation Fix")
-    print("="*60)
+    print("=" * 60)
 
     # Test 1: Consumer with P/B = 50 (should pass)
     print("\n✓ Test 1: Consumer with P/B = 50")
@@ -64,15 +65,15 @@ def test_pb_validation():
     assert not is_valid, f"P/B=150 should be invalid with no type"
     print(f"  Result: PASS (correctly rejected)")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Configuration Values:")
-    print("="*60)
+    print("=" * 60)
     print(f"  VALIDATION.max_pb (consumers): {VALIDATION.max_pb}")
     print(f"  VALIDATION.max_pb_producer:     {VALIDATION.max_pb_producer}")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("✅ ALL TESTS PASSED!")
-    print("="*60)
+    print("=" * 60)
     print("\nThe fix is working correctly:")
     print("  • Phytoplankton with P/B=200 will no longer trigger false warnings")
     print("  • Consumers still have stricter P/B limits")
@@ -80,6 +81,7 @@ def test_pb_validation():
     print("\nYou can now balance your example model without warnings for")
     print("Phytoplankton P/B values in the typical range (20-200).")
     print()
+
 
 if __name__ == "__main__":
     test_pb_validation()
