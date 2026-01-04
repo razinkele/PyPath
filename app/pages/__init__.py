@@ -7,9 +7,19 @@ from . import ecopath, utils
 # failing tests that only exercise core functionality.
 _optional_modules = {}
 for _m in [
-    'home', 'about', 'data_import', 'prebalance', 'ecosim', 'ecospace',
-    'results', 'analysis', 'multistanza', 'forcing_demo', 'diet_rewiring_demo',
-    'optimization_demo', 'validation',
+    "home",
+    "about",
+    "data_import",
+    "prebalance",
+    "ecosim",
+    "ecospace",
+    "results",
+    "analysis",
+    "multistanza",
+    "forcing_demo",
+    "diet_rewiring_demo",
+    "optimization_demo",
+    "validation",
 ]:
     try:
         _optional_modules[_m] = __import__(f"app.pages.{_m}", fromlist=[_m])

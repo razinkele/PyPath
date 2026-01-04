@@ -1,4 +1,5 @@
 """PyPath Shiny Dashboard Application."""
+
 import sys
 from pathlib import Path
 
