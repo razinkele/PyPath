@@ -17,7 +17,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 logger = logging.getLogger("pypath_app.prebalance")
 
 try:
-    from app.config import COLORS, PLOTS, UI
+    from app.config import PLOTS, UI
     from app.pages.utils import is_rpath_params
 except ModuleNotFoundError:
     from config import PLOTS, UI

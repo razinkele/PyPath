@@ -481,7 +481,7 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
             # (Real implementation uses proper acquisition functions)
 
             # Find best so far
-            best_y = np.min(y)
+            _best_y = np.min(y)
             best_idx = np.argmin(y)
 
             # Propose new point (simplified - real uses GP + acquisition)
@@ -582,7 +582,7 @@ Objective Function: {input.objective().upper()}
             )
 
         # Create dense grid for plotting
-        x_plot = np.linspace(1.0, 3.0, 200)
+        _x_plot = np.linspace(1.0, 3.0, 200)
 
         # Simplified GP visualization (real would use actual GP predictions)
         # Show evaluated points and trend

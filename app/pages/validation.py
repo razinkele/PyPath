@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 try:
-    from app.config import NO_DATA_VALUE, VALID_GROUP_TYPES, VALIDATION
+    from app.config import NO_DATA_VALUE, VALIDATION
 except ModuleNotFoundError:
     from config import NO_DATA_VALUE, VALIDATION
 

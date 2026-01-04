@@ -12,7 +12,7 @@ Implements spatially-explicit fishing with multiple allocation strategies:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 import numpy as np
 

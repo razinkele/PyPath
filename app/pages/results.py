@@ -521,7 +521,7 @@ def results_server(
     @reactive.effect
     def _update_group_choices():
         """Update group choices when simulation results change."""
-        sim = sim_results.get()
+        _sim = sim_results.get()
         model = model_data.get()
         info = get_model_info(model)
 

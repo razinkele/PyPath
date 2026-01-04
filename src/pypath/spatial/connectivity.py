@@ -7,7 +7,7 @@ calculating edge properties, and spatial indexing.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Tuple
 
 import numpy as np
 import scipy.sparse

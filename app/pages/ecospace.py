@@ -20,7 +20,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, req, ui
 
 # Import centralized configuration
 try:
-    from app.config import COLORS, PARAM_RANGES, SPATIAL, UI
+    from app.config import PARAM_RANGES, SPATIAL
 except ModuleNotFoundError:
     from config import PARAM_RANGES, SPATIAL
 
@@ -37,12 +37,13 @@ from pypath.spatial import (
 
 try:
     import geopandas as gpd
-    import scipy.sparse
-    from shapely.geometry import MultiPolygon, Polygon
+    from shapely.geometry import Polygon
 
     _HAS_GIS = True
 except ImportError:
     _HAS_GIS = False
+    gpd = None
+    Polygon = None
 
 
 def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
@@ -585,12 +586,12 @@ def ecospace_server(
     # Reactive values for spatial state
     grid = reactive.Value(None)
     boundary_polygon = reactive.Value(None)  # Store uploaded boundary for visualization
-    ecospace_params = reactive.Value(
+    _ecospace_params = reactive.Value(
         None
-    )  # TODO: reserved for future use  # noqa: F841
-    spatial_results = reactive.Value(
+    )  # TODO: reserved for future use
+    _spatial_results = reactive.Value(
         None
-    )  # TODO: reserved for future use  # noqa: F841
+    )  # TODO: reserved for future use
 
     # Load and display boundary polygon immediately on file upload
     @reactive.effect
@@ -1326,7 +1327,7 @@ def ecospace_server(
 
         else:
             # Regular grid - use scatter plot
-            scatter = ax.scatter(
+            _scatter = ax.scatter(
                 g.patch_centroids[:, 0],
                 g.patch_centroids[:, 1],
                 c=habitat,

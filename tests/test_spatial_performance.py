@@ -154,7 +154,7 @@ class TestFluxCalculationPerformance:
 
         start = time.time()
         for _ in range(10):
-            flux = calculate_spatial_flux(state, ecospace, params, t=0.0)
+            _flux = calculate_spatial_flux(state, ecospace, params, t=0.0)
         elapsed = time.time() - start
 
         time_per_call = elapsed / 10

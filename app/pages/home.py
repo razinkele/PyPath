@@ -669,9 +669,7 @@ def home_server(
             # Balance the model
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                model = rpath(params)
-
-            # Store the params (not the balanced model) in shared state
+                _model = rpath(params)
             # The ecopath page needs the editable parameters, not the balanced results
             model_data.set(params)
 

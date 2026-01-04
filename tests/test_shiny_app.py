@@ -461,7 +461,7 @@ class TestThemeAndSettings:
 
             # The app uses flatly theme by default
             # This is verified in the source code
-            ui_str = str(app_ui)
+            _ui_str = str(app_ui)
             # Theme is applied via shinyswatch.theme.flatly
             assert True  # Theme is structural, hard to test without running app
         except ImportError:

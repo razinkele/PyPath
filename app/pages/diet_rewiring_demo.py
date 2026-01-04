@@ -351,7 +351,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
 
     # Reactive values
     current_diet = reactive.Value(base_diet.copy())
-    diet_history = reactive.Value(None)
+    _diet_history = reactive.Value(None)
 
     @reactive.effect
     @reactive.event(input.run_rewiring)

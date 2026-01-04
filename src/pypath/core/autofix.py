@@ -13,13 +13,13 @@ import numpy as np
 from .constants import (
     DEFAULT_PREY_SWITCHING_POWER,
     DIET_SUM_THRESHOLD,
+    MAX_PREY_SWITCHING_POWER,
     MAX_QB_PB_RATIO,
     MAX_QQ_SAFE,
     MAX_VULNERABILITY_SAFE,
     MIN_BIOMASS_VIABLE,
     MIN_PREY_SWITCHING_POWER,
     MIN_QB_PB_RATIO,
-    MAX_PREY_SWITCHING_POWER,
 )
 from .ecopath import Rpath
 from .ecosim import RsimParams, RsimScenario

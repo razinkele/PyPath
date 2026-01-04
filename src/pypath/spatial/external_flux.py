@@ -9,7 +9,7 @@ Functions for loading flux timeseries from:
 
 from __future__ import annotations
 
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
 import scipy.sparse

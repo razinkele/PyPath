@@ -623,7 +623,7 @@ def analysis_server(
             # Filter valid points
             valid = (biomass > 0) & (~np.isnan(ks[: len(biomass)]))
 
-            scatter = ax.scatter(
+            _scatter = ax.scatter(
                 np.log10(biomass[valid] + THRESHOLDS.log_offset_small),
                 ks[: len(biomass)][valid],
                 s=100,

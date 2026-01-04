@@ -6,7 +6,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
 try:
-    from app.config import DEFAULTS, PARAM_RANGES, THRESHOLDS, UI
+    from app.config import PARAM_RANGES, THRESHOLDS, UI
 except ModuleNotFoundError:
     from config import PARAM_RANGES, THRESHOLDS, UI
 
@@ -441,7 +441,7 @@ def ecosim_server(
     show_help_timeseries = reactive.Value(False)
     show_help_catch = reactive.Value(False)
     show_help_summary = reactive.Value(False)
-    show_autofix_help = reactive.Value(False)
+    _show_autofix_help = reactive.Value(False)
 
     @reactive.effect
     @reactive.event(input.btn_help_scenario)
@@ -1384,7 +1384,7 @@ def ecosim_server(
                     groups_str = f"{', '.join(crashed_names[:3])}, +{len(crashed_names) - 3} more"
 
                 # Check if groups recovered
-                final_biomass = {
+                _final_biomass = {
                     i: output.end_state.Biomass[i] for i in output.crashed_groups
                 }
                 recovered = [

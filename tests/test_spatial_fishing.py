@@ -374,7 +374,7 @@ class TestIntegration:
 
     def test_seasonal_fishing_pattern(self):
         """Test seasonal variation in fishing effort."""
-        grid = create_1d_grid(n_patches=10)
+        _grid = create_1d_grid(n_patches=10)
 
         # Seasonal forcing: higher effort in summer months
         months = np.arange(12)

@@ -243,7 +243,7 @@ class TestCompleteWorkflow:
 
         # Both should show eastward movement
         west_patches = [0, 4, 8, 12]  # Western column
-        east_patches = [3, 7, 11, 15]  # Eastern column
+        _east_patches = [3, 7, 11, 15]  # Eastern column
 
         # Larvae: outflow from west due to currents
         assert np.sum(flux[1, west_patches]) < 0
@@ -326,7 +326,7 @@ class TestExternalFluxWorkflows:
 
         times = np.arange(n_timesteps) / 12.0
 
-        external_flux = ExternalFluxTimeseries(
+        _external_flux = ExternalFluxTimeseries(
             flux_data=flux_data, times=times, group_indices=np.array([0, 1])
         )
 

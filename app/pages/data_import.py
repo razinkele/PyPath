@@ -513,7 +513,7 @@ def import_server(
                 and params.stanzas.n_stanza_groups > 0
             ):
                 n_stanza = params.stanzas.n_stanza_groups
-                n_stages = (
+                _n_stages = (
                     len(params.stanzas.stindiv)
                     if params.stanzas.stindiv is not None
                     else 0
