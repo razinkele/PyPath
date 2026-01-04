@@ -582,7 +582,7 @@ class TestEcosimSimulation:
             try:
                 model = rpath(params)
                 # Set up and run Ecosim for 5 years
-                sim_params = rsim_params(model)
+                _ = rsim_params(model)
                 scenario = rsim_scenario(model, params, years=range(1, 6))
 
                 # Run simulation
@@ -766,7 +766,7 @@ class TestIntegration:
 
             # Step 4: Set up Ecosim
             try:
-                sim_params = rsim_params(model)
+                _ = rsim_params(model)
                 scenario = rsim_scenario(model, params, years=range(1, 4))
             except Exception as e:
                 pytest.skip(f"Ecosim setup failed: {e}")
