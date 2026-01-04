@@ -70,14 +70,18 @@ jobs:
           gh label create "ci-fail" --color ee0000 --description "CI failure requires human triage" || true
           gh pr create --title "ci: investigate failing CI run #${{ github.event.workflow_run.id }}" --body "PR created automatically to investigate CI failure (workflow_run id: ${{ github.event.workflow_run.id }}). Please see workflow run logs for details." --base main --head "$BRANCH" --label "ci-fail" --web || true
 
-      - name: Comment on original run
+      - name: Comment on related PRs (if any)
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const runId = context.payload.workflow_run.id
+            const prs = context.payload.workflow_run.pull_requests || []
             const owner = context.repo.owner
             const repo = context.repo.repo
-            await github.rest.actions.createWorkflowRunComment({
-              owner, repo, run_id: runId, body: 'CI Auto-Fix ran: formatting fixes applied or diagnostic PR created.'
-            })
+            const body = `CI Auto-Fix ran for workflow run ${runId}: formatting fixes applied or diagnostic PR created.`
+            for (const pr of prs) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body })
+            }
+            // If there are no associated PRs, do not attempt to comment on the workflow run (API not available)
+
