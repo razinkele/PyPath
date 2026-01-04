@@ -21,6 +21,21 @@ from pypath.core.forcing import DietRewiring
 from pypath.core.autofix import validate_and_fix_scenario
 
 
+# Helper to check model balance and show notification if not
+def _require_balanced_model_or_notify(model) -> bool:
+    """Return True if model is balanced, otherwise show a UI error and return False."""
+    from app.pages.utils import is_balanced_model
+
+    if not is_balanced_model(model):
+        ui.notification_show(
+            "Ecosim requires a balanced Ecopath model. Balance the model on the Ecopath page first.",
+            type="error",
+            duration=6,
+        )
+        return False
+    return True
+
+
 def ecosim_ui() -> ui.Tag:
     """Ecosim simulation page UI."""
     return ui.page_fluid(
@@ -996,6 +1011,10 @@ def ecosim_server(
                 "No Ecopath model available. Please balance a model first.",
                 type="error"
             )
+            return
+
+        # Require a balanced Rpath model for Ecosim
+        if not _require_balanced_model_or_notify(model):
             return
         
         try:
