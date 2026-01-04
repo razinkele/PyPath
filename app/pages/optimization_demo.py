@@ -30,9 +30,9 @@ def optimization_demo_ui():
                         "vulnerabilities": "Vulnerabilities",
                         "search_rates": "Search Rates",
                         "Q0": "Feeding Time (Q0)",
-                        "mortality": "Mortality Rates"
+                        "mortality": "Mortality Rates",
                     },
-                    selected="vulnerabilities"
+                    selected="vulnerabilities",
                 ),
                 ui.input_select(
                     "objective",
@@ -42,9 +42,9 @@ def optimization_demo_ui():
                         "nrmse": "NRMSE - Normalized RMSE",
                         "mape": "MAPE - Mean Absolute % Error",
                         "mae": "MAE - Mean Absolute Error",
-                        "loglik": "Log-Likelihood"
+                        "loglik": "Log-Likelihood",
                     },
-                    selected="nrmse"
+                    selected="nrmse",
                 ),
                 ui.input_slider(
                     "n_iterations",
@@ -52,7 +52,7 @@ def optimization_demo_ui():
                     min=PARAM_RANGES.optimization_iterations_min,
                     max=PARAM_RANGES.optimization_iterations_max,
                     value=PARAM_RANGES.optimization_iterations_default,
-                    step=PARAM_RANGES.optimization_iterations_step
+                    step=PARAM_RANGES.optimization_iterations_step,
                 ),
                 ui.input_slider(
                     "n_initial",
@@ -60,7 +60,7 @@ def optimization_demo_ui():
                     min=PARAM_RANGES.optimization_init_points_min,
                     max=PARAM_RANGES.optimization_init_points_max,
                     value=PARAM_RANGES.optimization_init_points_default,
-                    step=1
+                    step=1,
                 ),
                 ui.input_select(
                     "acquisition",
@@ -68,22 +68,20 @@ def optimization_demo_ui():
                     choices={
                         "EI": "Expected Improvement",
                         "UCB": "Upper Confidence Bound",
-                        "PI": "Probability of Improvement"
+                        "PI": "Probability of Improvement",
                     },
-                    selected="EI"
+                    selected="EI",
                 ),
                 ui.hr(),
                 ui.input_action_button(
-                    "opt_run_demo",
-                    "Run Demo Optimization",
-                    class_="btn-primary w-100"
+                    "opt_run_demo", "Run Demo Optimization", class_="btn-primary w-100"
                 ),
                 ui.input_action_button(
                     "generate_data",
                     "Generate Synthetic Data",
-                    class_="btn-secondary w-100 mt-2"
+                    class_="btn-secondary w-100 mt-2",
                 ),
-                width=300
+                width=300,
             ),
             # Main content
             ui.navset_tab(
@@ -92,45 +90,53 @@ def optimization_demo_ui():
                     ui.card(
                         ui.card_header("Convergence Plot"),
                         ui.output_ui("convergence_plot"),
-                        ui.output_text_verbatim("optimization_summary")
-                    )
+                        ui.output_text_verbatim("optimization_summary"),
+                    ),
                 ),
                 ui.nav_panel(
                     "Parameter Space",
                     ui.card(
                         ui.card_header("Gaussian Process Model"),
                         ui.output_ui("gp_plot"),
-                        ui.markdown("""
+                        ui.markdown(
+                            """
                         **Gaussian Process Visualization:**
 
                         - **Black dots**: Evaluated points
                         - **Red star**: Best point found
                         - **Blue line**: GP mean prediction
                         - **Shaded area**: 95% confidence interval
-                        """)
-                    )
+                        """
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Results Comparison",
                     ui.card(
                         ui.card_header("Optimized vs Observed"),
                         ui.output_ui("opt_comparison_plot"),
-                        ui.output_data_frame("results_table")
-                    )
+                        ui.output_data_frame("results_table"),
+                    ),
                 ),
                 ui.nav_panel(
                     "Code Example",
                     ui.card(
                         ui.card_header("Python Code"),
                         ui.output_code("opt_code_example"),
-                        ui.download_button("opt_download_code", "Download Code", class_="mt-2")
-                    )
+                        ui.download_button(
+                            "opt_download_code", "Download Code", class_="mt-2"
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Help",
                     ui.card(
-                        ui.card_header(ui.tags.i(class_="bi bi-graph-up me-2"), "Bayesian Optimization Guide"),
-                        ui.markdown("""
+                        ui.card_header(
+                            ui.tags.i(class_="bi bi-graph-up me-2"),
+                            "Bayesian Optimization Guide",
+                        ),
+                        ui.markdown(
+                            """
                         ## What is Bayesian Optimization?
 
                         Bayesian optimization is an **efficient method for finding optimal parameters**
@@ -363,10 +369,11 @@ def optimization_demo_ui():
                         - Species distribution models
                         - Population dynamics
                         - Resource management
-                        """)
-                    )
-                )
-            )
+                        """
+                        ),
+                    ),
+                ),
+            ),
         )
     )
 
@@ -398,10 +405,7 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         noise = np.random.normal(0, 0.5, n_years)
         biomass = biomass + noise
 
-        df = pd.DataFrame({
-            'Year': years,
-            'Observed_Biomass': biomass
-        })
+        df = pd.DataFrame({"Year": years, "Observed_Biomass": biomass})
 
         synthetic_data.set(df)
 
@@ -419,10 +423,7 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
             biomass = baseline * np.exp(-true_param * 0.05 * np.arange(n_years))
             noise = np.random.normal(0, 0.5, n_years)
             biomass = biomass + noise
-            df = pd.DataFrame({
-                'Year': years,
-                'Observed_Biomass': biomass
-            })
+            df = pd.DataFrame({"Year": years, "Observed_Biomass": biomass})
             synthetic_data.set(df)
 
         n_iterations = input.n_iterations()
@@ -449,18 +450,28 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
             predicted = 20.0 * np.exp(-param * 0.05 * years)
 
             if input.objective() == "rmse":
-                return np.sqrt(np.mean((data['Observed_Biomass'] - predicted)**2))
+                return np.sqrt(np.mean((data["Observed_Biomass"] - predicted) ** 2))
             elif input.objective() == "nrmse":
-                rmse = np.sqrt(np.mean((data['Observed_Biomass'] - predicted)**2))
-                return (rmse / np.mean(data['Observed_Biomass'])) * 100
+                rmse = np.sqrt(np.mean((data["Observed_Biomass"] - predicted) ** 2))
+                return (rmse / np.mean(data["Observed_Biomass"])) * 100
             elif input.objective() == "mape":
-                return np.mean(np.abs((data['Observed_Biomass'] - predicted) / data['Observed_Biomass'])) * 100
+                return (
+                    np.mean(
+                        np.abs(
+                            (data["Observed_Biomass"] - predicted)
+                            / data["Observed_Biomass"]
+                        )
+                    )
+                    * 100
+                )
             elif input.objective() == "mae":
-                return np.mean(np.abs(data['Observed_Biomass'] - predicted))
+                return np.mean(np.abs(data["Observed_Biomass"] - predicted))
             else:  # loglik
-                residuals = data['Observed_Biomass'] - predicted
+                residuals = data["Observed_Biomass"] - predicted
                 sigma = np.std(residuals)
-                return -np.sum(-0.5 * np.log(2 * np.pi * sigma**2) - residuals**2 / (2 * sigma**2))
+                return -np.sum(
+                    -0.5 * np.log(2 * np.pi * sigma**2) - residuals**2 / (2 * sigma**2)
+                )
 
         # Evaluate initial points
         y = np.array([objective(x) for x in X])
@@ -486,12 +497,12 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
 
         # Store results
         results = {
-            'X': X,
-            'y': y,
-            'best_x': X[np.argmin(y)],
-            'best_y': np.min(y),
-            'true_optimum': true_optimum,
-            'convergence': [np.min(y[:i+1]) for i in range(len(y))]
+            "X": X,
+            "y": y,
+            "best_x": X[np.argmin(y)],
+            "best_y": np.min(y),
+            "true_optimum": true_optimum,
+            "convergence": [np.min(y[: i + 1]) for i in range(len(y))],
         }
 
         optimization_results.set(results)
@@ -503,31 +514,35 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         results = optimization_results()
         if results is None:
             return ui.div(
-                ui.tags.p("Click 'Run Demo Optimization' to start",
-                         class_="text-muted text-center p-5")
+                ui.tags.p(
+                    "Click 'Run Demo Optimization' to start",
+                    class_="text-muted text-center p-5",
+                )
             )
 
-        convergence = results['convergence']
+        convergence = results["convergence"]
         iterations = np.arange(1, len(convergence) + 1)
 
         fig = go.Figure()
 
-        fig.add_trace(go.Scatter(
-            x=iterations,
-            y=convergence,
-            mode='lines+markers',
-            name='Best Score',
-            line=dict(color='#E63946', width=2),
-            marker=dict(size=6)
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=iterations,
+                y=convergence,
+                mode="lines+markers",
+                name="Best Score",
+                line=dict(color="#E63946", width=2),
+                marker=dict(size=6),
+            )
+        )
 
         fig.update_layout(
             xaxis_title="Iteration",
             yaxis_title="Best Objective Value",
-            template='plotly_white',
+            template="plotly_white",
             height=400,
             showlegend=True,
-            hovermode='x unified'
+            hovermode="x unified",
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
@@ -564,8 +579,7 @@ Objective Function: {input.objective().upper()}
         results = optimization_results()
         if results is None:
             return ui.div(
-                ui.tags.p("Run optimization first",
-                         class_="text-muted text-center p-5")
+                ui.tags.p("Run optimization first", class_="text-muted text-center p-5")
             )
 
         # Create dense grid for plotting
@@ -573,44 +587,48 @@ Objective Function: {input.objective().upper()}
 
         # Simplified GP visualization (real would use actual GP predictions)
         # Show evaluated points and trend
-        X = results['X']
-        y = results['y']
+        X = results["X"]
+        y = results["y"]
 
         fig = go.Figure()
 
         # Evaluated points
-        fig.add_trace(go.Scatter(
-            x=X,
-            y=y,
-            mode='markers',
-            name='Evaluated Points',
-            marker=dict(color='black', size=8)
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=X,
+                y=y,
+                mode="markers",
+                name="Evaluated Points",
+                marker=dict(color="black", size=8),
+            )
+        )
 
         # Best point
-        fig.add_trace(go.Scatter(
-            x=[results['best_x']],
-            y=[results['best_y']],
-            mode='markers',
-            name='Best Point',
-            marker=dict(color='red', size=15, symbol='star')
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=[results["best_x"]],
+                y=[results["best_y"]],
+                mode="markers",
+                name="Best Point",
+                marker=dict(color="red", size=15, symbol="star"),
+            )
+        )
 
         # True optimum (for demo)
         fig.add_vline(
-            x=results['true_optimum'],
+            x=results["true_optimum"],
             line_dash="dash",
             line_color="green",
             opacity=0.5,
-            annotation_text="True Optimum"
+            annotation_text="True Optimum",
         )
 
         fig.update_layout(
             xaxis_title="Parameter Value",
             yaxis_title="Objective Value",
-            template='plotly_white',
+            template="plotly_white",
             height=400,
-            showlegend=True
+            showlegend=True,
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
@@ -624,39 +642,42 @@ Objective Function: {input.objective().upper()}
 
         if results is None or data is None:
             return ui.div(
-                ui.tags.p("Run optimization first",
-                         class_="text-muted text-center p-5")
+                ui.tags.p("Run optimization first", class_="text-muted text-center p-5")
             )
 
-        best_param = results['best_x']
+        best_param = results["best_x"]
         years = np.arange(len(data))
         predicted = 20.0 * np.exp(-best_param * 0.05 * years)
 
         fig = go.Figure()
 
-        fig.add_trace(go.Scatter(
-            x=data['Year'],
-            y=data['Observed_Biomass'],
-            mode='markers',
-            name='Observed',
-            marker=dict(color='black', size=8)
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=data["Year"],
+                y=data["Observed_Biomass"],
+                mode="markers",
+                name="Observed",
+                marker=dict(color="black", size=8),
+            )
+        )
 
-        fig.add_trace(go.Scatter(
-            x=data['Year'],
-            y=predicted,
-            mode='lines',
-            name='Optimized Model',
-            line=dict(color='#E63946', width=3)
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=data["Year"],
+                y=predicted,
+                mode="lines",
+                name="Optimized Model",
+                line=dict(color="#E63946", width=3),
+            )
+        )
 
         fig.update_layout(
             xaxis_title="Year",
             yaxis_title="Biomass",
-            template='plotly_white',
+            template="plotly_white",
             height=400,
             showlegend=True,
-            hovermode='x unified'
+            hovermode="x unified",
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
@@ -669,19 +690,25 @@ Objective Function: {input.objective().upper()}
         data = synthetic_data()
 
         if results is None or data is None:
-            return pd.DataFrame({'Message': ['Run optimization first']})
+            return pd.DataFrame({"Message": ["Run optimization first"]})
 
-        best_param = results['best_x']
+        best_param = results["best_x"]
         years = np.arange(len(data))
         predicted = 20.0 * np.exp(-best_param * 0.05 * years)
 
-        df = pd.DataFrame({
-            'Year': data['Year'],
-            'Observed': data['Observed_Biomass'].round(2),
-            'Predicted': predicted.round(2),
-            'Error': (data['Observed_Biomass'] - predicted).round(2),
-            'Error_%': ((data['Observed_Biomass'] - predicted) / data['Observed_Biomass'] * 100).round(1)
-        })
+        df = pd.DataFrame(
+            {
+                "Year": data["Year"],
+                "Observed": data["Observed_Biomass"].round(2),
+                "Predicted": predicted.round(2),
+                "Error": (data["Observed_Biomass"] - predicted).round(2),
+                "Error_%": (
+                    (data["Observed_Biomass"] - predicted)
+                    / data["Observed_Biomass"]
+                    * 100
+                ).round(1),
+            }
+        )
 
         return render.DataGrid(df, width="100%", height="400px")
 
