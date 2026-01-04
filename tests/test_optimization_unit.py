@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Check if optimization is available
 try:
     from pypath.core import HAS_OPTIMIZATION
+
     if not HAS_OPTIMIZATION:
         pytest.skip("scikit-optimize not available", allow_module_level=True)
 except ImportError:
@@ -158,16 +159,16 @@ class TestOptimizationResult:
     def test_creation(self):
         """Should create OptimizationResult correctly."""
         result = OptimizationResult(
-            best_params={'vulnerability': 2.5, 'VV_1': 3.0},
+            best_params={"vulnerability": 2.5, "VV_1": 3.0},
             best_score=0.123,
             n_iterations=50,
             convergence=[0.5, 0.3, 0.2, 0.123],
-            all_params=[{'vulnerability': 1.0}, {'vulnerability': 2.0}],
+            all_params=[{"vulnerability": 1.0}, {"vulnerability": 2.0}],
             all_scores=[0.5, 0.3],
-            optimization_time=120.5
+            optimization_time=120.5,
         )
 
-        assert result.best_params == {'vulnerability': 2.5, 'VV_1': 3.0}
+        assert result.best_params == {"vulnerability": 2.5, "VV_1": 3.0}
         assert result.best_score == 0.123
         assert result.n_iterations == 50
         assert len(result.convergence) == 4
@@ -182,16 +183,16 @@ class TestOptimizationResult:
             convergence=[],
             all_params=[],
             all_scores=[],
-            optimization_time=0.0
+            optimization_time=0.0,
         )
 
-        assert hasattr(result, 'best_params')
-        assert hasattr(result, 'best_score')
-        assert hasattr(result, 'n_iterations')
-        assert hasattr(result, 'convergence')
-        assert hasattr(result, 'all_params')
-        assert hasattr(result, 'all_scores')
-        assert hasattr(result, 'optimization_time')
+        assert hasattr(result, "best_params")
+        assert hasattr(result, "best_score")
+        assert hasattr(result, "n_iterations")
+        assert hasattr(result, "convergence")
+        assert hasattr(result, "all_params")
+        assert hasattr(result, "all_scores")
+        assert hasattr(result, "optimization_time")
 
 
 class TestParameterValidation:
@@ -199,48 +200,48 @@ class TestParameterValidation:
 
     def test_vulnerability_parameter(self):
         """Should recognize global vulnerability parameter."""
-        param_name = 'vulnerability'
-        assert 'vulnerability' in param_name.lower()
+        param_name = "vulnerability"
+        assert "vulnerability" in param_name.lower()
 
     def test_vv_parameter_parsing(self):
         """Should parse VV_<index> parameters correctly."""
-        param_name = 'VV_3'
-        assert param_name.startswith('VV_')
+        param_name = "VV_3"
+        assert param_name.startswith("VV_")
 
         # Extract index
-        index = int(param_name.split('_')[1])
+        index = int(param_name.split("_")[1])
         assert index == 3
 
     def test_qq_parameter_parsing(self):
         """Should parse QQ_<index> parameters correctly."""
-        param_name = 'QQ_5'
-        assert param_name.startswith('QQ_')
+        param_name = "QQ_5"
+        assert param_name.startswith("QQ_")
 
-        index = int(param_name.split('_')[1])
+        index = int(param_name.split("_")[1])
         assert index == 5
 
     def test_dd_parameter_parsing(self):
         """Should parse DD_<index> parameters correctly."""
-        param_name = 'DD_2'
-        assert param_name.startswith('DD_')
+        param_name = "DD_2"
+        assert param_name.startswith("DD_")
 
-        index = int(param_name.split('_')[1])
+        index = int(param_name.split("_")[1])
         assert index == 2
 
     def test_pb_parameter_parsing(self):
         """Should parse PB_<index> parameters correctly."""
-        param_name = 'PB_4'
-        assert param_name.startswith('PB_')
+        param_name = "PB_4"
+        assert param_name.startswith("PB_")
 
-        index = int(param_name.split('_')[1])
+        index = int(param_name.split("_")[1])
         assert index == 4
 
     def test_qb_parameter_parsing(self):
         """Should parse QB_<index> parameters correctly."""
-        param_name = 'QB_1'
-        assert param_name.startswith('QB_')
+        param_name = "QB_1"
+        assert param_name.startswith("QB_")
 
-        index = int(param_name.split('_')[1])
+        index = int(param_name.split("_")[1])
         assert index == 1
 
 
@@ -278,9 +279,9 @@ class TestParameterBounds:
     def test_bounds_format(self):
         """Bounds should be tuples of (min, max)."""
         param_bounds = {
-            'vulnerability': (1.0, 5.0),
-            'VV_1': (1.0, 10.0),
-            'QQ_2': (0.0, 3.0),
+            "vulnerability": (1.0, 5.0),
+            "VV_1": (1.0, 10.0),
+            "QQ_2": (0.0, 3.0),
         }
 
         for param, bounds in param_bounds.items():
@@ -334,7 +335,7 @@ class TestDataValidation:
         """Years should be a range or list of integers."""
         years = range(1, 31)
 
-        assert hasattr(years, '__iter__')
+        assert hasattr(years, "__iter__")
         assert len(list(years)) == 30
         assert list(years)[0] == 1
         assert list(years)[-1] == 30
@@ -365,10 +366,10 @@ class TestOptimizationConfiguration:
 
     def test_objective_function_choices(self):
         """Should support multiple objective functions."""
-        valid_objectives = ['mse', 'mape', 'nrmse', 'loglik']
+        valid_objectives = ["mse", "mape", "nrmse", "loglik"]
 
         for obj in valid_objectives:
-            assert obj in ['mse', 'mape', 'nrmse', 'loglik']
+            assert obj in ["mse", "mape", "nrmse", "loglik"]
 
     def test_verbose_flag(self):
         """Verbose should be boolean."""
@@ -383,11 +384,11 @@ def test_numpy_operations():
     assert len(arr) == 3
 
     # Test arithmetic
-    result = np.mean((arr - arr)**2)
+    result = np.mean((arr - arr) ** 2)
     assert result == 0.0
 
     # Test sqrt
-    result = np.sqrt(np.mean((arr - arr)**2))
+    result = np.sqrt(np.mean((arr - arr) ** 2))
     assert result == 0.0
 
     # Test absolute
@@ -404,5 +405,5 @@ def test_numpy_operations():
     assert np.all(np.isfinite(log_arr))
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
