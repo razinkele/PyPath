@@ -23,7 +23,8 @@ class TestHomePage:
         """Test that home UI function exists."""
         try:
             from pages import home
-            assert hasattr(home, 'home_ui')
+
+            assert hasattr(home, "home_ui")
             assert callable(home.home_ui)
         except ImportError:
             pytest.skip("Home page module not available")
@@ -32,7 +33,8 @@ class TestHomePage:
         """Test that home server function exists."""
         try:
             from pages import home
-            assert hasattr(home, 'home_server')
+
+            assert hasattr(home, "home_server")
             assert callable(home.home_server)
         except ImportError:
             pytest.skip("Home page module not available")
@@ -48,10 +50,10 @@ class TestHomePage:
 
             # Should have: input, output, session, model_data
             assert len(params) == 4
-            assert 'input' in params
-            assert 'output' in params
-            assert 'session' in params
-            assert 'model_data' in params
+            assert "input" in params
+            assert "output" in params
+            assert "session" in params
+            assert "model_data" in params
         except ImportError:
             pytest.skip("Home page module not available")
 
@@ -63,7 +65,8 @@ class TestDataImportPage:
         """Test that import UI function exists."""
         try:
             from pages import data_import
-            assert hasattr(data_import, 'import_ui')
+
+            assert hasattr(data_import, "import_ui")
             assert callable(data_import.import_ui)
         except ImportError:
             pytest.skip("Data import page module not available")
@@ -79,7 +82,7 @@ class TestDataImportPage:
 
             # Should have: input, output, session, model_data
             assert len(params) == 4
-            assert 'model_data' in params
+            assert "model_data" in params
         except ImportError:
             pytest.skip("Data import page module not available")
 
@@ -91,7 +94,8 @@ class TestEcopathPage:
         """Test that Ecopath UI function exists."""
         try:
             from pages import ecopath
-            assert hasattr(ecopath, 'ecopath_ui')
+
+            assert hasattr(ecopath, "ecopath_ui")
             assert callable(ecopath.ecopath_ui)
         except ImportError:
             pytest.skip("Ecopath page module not available")
@@ -107,7 +111,7 @@ class TestEcopathPage:
 
             # Should have: input, output, session, model_data
             assert len(params) == 4
-            assert 'model_data' in params
+            assert "model_data" in params
         except ImportError:
             pytest.skip("Ecopath page module not available")
 
@@ -119,7 +123,8 @@ class TestEcosimPage:
         """Test that Ecosim UI function exists."""
         try:
             from pages import ecosim
-            assert hasattr(ecosim, 'ecosim_ui')
+
+            assert hasattr(ecosim, "ecosim_ui")
             assert callable(ecosim.ecosim_ui)
         except ImportError:
             pytest.skip("Ecosim page module not available")
@@ -135,8 +140,8 @@ class TestEcosimPage:
 
             # Should have: input, output, session, model_data, sim_results
             assert len(params) == 5
-            assert 'model_data' in params
-            assert 'sim_results' in params
+            assert "model_data" in params
+            assert "sim_results" in params
         except ImportError:
             pytest.skip("Ecosim page module not available")
 
@@ -148,7 +153,8 @@ class TestResultsPage:
         """Test that results UI function exists."""
         try:
             from pages import results
-            assert hasattr(results, 'results_ui')
+
+            assert hasattr(results, "results_ui")
             assert callable(results.results_ui)
         except ImportError:
             pytest.skip("Results page module not available")
@@ -164,8 +170,8 @@ class TestResultsPage:
 
             # Should have: input, output, session, model_data, sim_results
             assert len(params) == 5
-            assert 'model_data' in params
-            assert 'sim_results' in params
+            assert "model_data" in params
+            assert "sim_results" in params
         except ImportError:
             pytest.skip("Results page module not available")
 
@@ -177,7 +183,8 @@ class TestAnalysisPage:
         """Test that analysis UI function exists."""
         try:
             from pages import analysis
-            assert hasattr(analysis, 'analysis_ui')
+
+            assert hasattr(analysis, "analysis_ui")
             assert callable(analysis.analysis_ui)
         except ImportError:
             pytest.skip("Analysis page module not available")
@@ -193,8 +200,8 @@ class TestAnalysisPage:
 
             # Should have: input, output, session, model_data, sim_results
             assert len(params) == 5
-            assert 'model_data' in params
-            assert 'sim_results' in params
+            assert "model_data" in params
+            assert "sim_results" in params
         except ImportError:
             pytest.skip("Analysis page module not available")
 
@@ -206,7 +213,8 @@ class TestAboutPage:
         """Test that about UI function exists."""
         try:
             from pages import about
-            assert hasattr(about, 'about_ui')
+
+            assert hasattr(about, "about_ui")
             assert callable(about.about_ui)
         except ImportError:
             pytest.skip("About page module not available")
@@ -222,9 +230,9 @@ class TestAboutPage:
 
             # Should have: input, output, session (minimal params)
             assert len(params) == 3
-            assert 'input' in params
-            assert 'output' in params
-            assert 'session' in params
+            assert "input" in params
+            assert "output" in params
+            assert "session" in params
         except ImportError:
             pytest.skip("About page module not available")
 
@@ -236,7 +244,8 @@ class TestMultiStanzaPage:
         """Test that multi-stanza UI function exists."""
         try:
             from pages import multistanza
-            assert hasattr(multistanza, 'multistanza_ui')
+
+            assert hasattr(multistanza, "multistanza_ui")
             assert callable(multistanza.multistanza_ui)
         except ImportError:
             pytest.skip("Multi-stanza page module not available")
@@ -252,7 +261,7 @@ class TestMultiStanzaPage:
 
             # Should have: input, output, session, shared_data
             assert len(params) == 4
-            assert 'shared_data' in params
+            assert "shared_data" in params
         except ImportError:
             pytest.skip("Multi-stanza page module not available")
 
@@ -264,7 +273,8 @@ class TestEcospacePage:
         """Test that Ecospace UI function exists."""
         try:
             from pages import ecospace
-            assert hasattr(ecospace, 'ecospace_ui')
+
+            assert hasattr(ecospace, "ecospace_ui")
             assert callable(ecospace.ecospace_ui)
         except ImportError:
             pytest.skip("Ecospace page module not available")
@@ -280,8 +290,8 @@ class TestEcospacePage:
 
             # Should have: input, output, session, model_data, sim_results
             assert len(params) == 5
-            assert 'model_data' in params
-            assert 'sim_results' in params
+            assert "model_data" in params
+            assert "sim_results" in params
         except ImportError:
             pytest.skip("Ecospace page module not available")
 
@@ -293,8 +303,9 @@ class TestDemoPages:
         """Test that forcing demo page exists."""
         try:
             from pages import forcing_demo
-            assert hasattr(forcing_demo, 'forcing_demo_ui')
-            assert hasattr(forcing_demo, 'forcing_demo_server')
+
+            assert hasattr(forcing_demo, "forcing_demo_ui")
+            assert hasattr(forcing_demo, "forcing_demo_server")
             assert callable(forcing_demo.forcing_demo_ui)
             assert callable(forcing_demo.forcing_demo_server)
         except ImportError:
@@ -304,8 +315,9 @@ class TestDemoPages:
         """Test that diet rewiring demo page exists."""
         try:
             from pages import diet_rewiring_demo
-            assert hasattr(diet_rewiring_demo, 'diet_rewiring_demo_ui')
-            assert hasattr(diet_rewiring_demo, 'diet_rewiring_demo_server')
+
+            assert hasattr(diet_rewiring_demo, "diet_rewiring_demo_ui")
+            assert hasattr(diet_rewiring_demo, "diet_rewiring_demo_server")
             assert callable(diet_rewiring_demo.diet_rewiring_demo_ui)
             assert callable(diet_rewiring_demo.diet_rewiring_demo_server)
         except ImportError:
@@ -315,8 +327,9 @@ class TestDemoPages:
         """Test that optimization demo page exists."""
         try:
             from pages import optimization_demo
-            assert hasattr(optimization_demo, 'optimization_demo_ui')
-            assert hasattr(optimization_demo, 'optimization_demo_server')
+
+            assert hasattr(optimization_demo, "optimization_demo_ui")
+            assert hasattr(optimization_demo, "optimization_demo_server")
             assert callable(optimization_demo.optimization_demo_ui)
             assert callable(optimization_demo.optimization_demo_server)
         except ImportError:
@@ -330,14 +343,16 @@ class TestDemoPages:
 
             # All demo pages should have: input, output, session (no shared state)
             for module in [forcing_demo, diet_rewiring_demo, optimization_demo]:
-                server_func = getattr(module, f"{module.__name__.split('.')[-1]}_server")
+                server_func = getattr(
+                    module, f"{module.__name__.split('.')[-1]}_server"
+                )
                 sig = inspect.signature(server_func)
                 params = list(sig.parameters.keys())
 
                 assert len(params) == 3
-                assert 'input' in params
-                assert 'output' in params
-                assert 'session' in params
+                assert "input" in params
+                assert "output" in params
+                assert "session" in params
         except ImportError:
             pytest.skip("Demo pages not available")
 
@@ -349,29 +364,39 @@ class TestPageConsistency:
         """Test that all pages follow naming conventions."""
         try:
             pages_to_test = [
-                ('home', 'home'),
-                ('data_import', 'import'),
-                ('ecopath', 'ecopath'),
-                ('ecosim', 'ecosim'),
-                ('results', 'results'),
-                ('analysis', 'analysis'),
-                ('about', 'about'),
+                ("home", "home"),
+                ("data_import", "import"),
+                ("ecopath", "ecopath"),
+                ("ecosim", "ecosim"),
+                ("results", "results"),
+                ("analysis", "analysis"),
+                ("about", "about"),
             ]
 
             for module_name, prefix in pages_to_test:
-                module = __import__(f'pages.{module_name}', fromlist=[module_name])
+                module = __import__(f"pages.{module_name}", fromlist=[module_name])
                 ui_func = f"{prefix}_ui"
                 server_func = f"{prefix}_server"
 
                 assert hasattr(module, ui_func), f"{module_name} missing {ui_func}"
-                assert hasattr(module, server_func), f"{module_name} missing {server_func}"
+                assert hasattr(
+                    module, server_func
+                ), f"{module_name} missing {server_func}"
         except ImportError:
             pytest.skip("Page modules not available")
 
     def test_no_pages_return_none_from_ui(self):
         """Test that all UI functions return valid UI objects."""
         try:
-            from pages import home, data_import, ecopath, ecosim, results, analysis, about
+            from pages import (
+                home,
+                data_import,
+                ecopath,
+                ecosim,
+                results,
+                analysis,
+                about,
+            )
 
             pages = [
                 home.home_ui,
@@ -397,6 +422,7 @@ class TestUtilsModule:
         """Test that utils module exists."""
         try:
             from pages import utils
+
             assert utils is not None
         except ImportError:
             pytest.skip("Utils module not available")
@@ -408,8 +434,11 @@ class TestUtilsModule:
             import inspect
 
             # Check that utils has functions (not empty)
-            functions = [name for name, obj in inspect.getmembers(utils)
-                        if inspect.isfunction(obj)]
+            functions = [
+                name
+                for name, obj in inspect.getmembers(utils)
+                if inspect.isfunction(obj)
+            ]
 
             # Should have at least some utility functions
             assert len(functions) > 0, "Utils module should contain utility functions"
@@ -430,13 +459,15 @@ class TestPageInteractions:
 
             class MockRpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({
-                        'Group': ['Phytoplankton', 'Fish'],
-                        'TL': [1.0, 3.5],
-                        'Biomass': [100.0, 10.0],
-                        'PB': [1.0, 0.5],
-                        'QB': [0.0, 2.0]
-                    })
+                    self.model = pd.DataFrame(
+                        {
+                            "Group": ["Phytoplankton", "Fish"],
+                            "TL": [1.0, 3.5],
+                            "Biomass": [100.0, 10.0],
+                            "PB": [1.0, 0.5],
+                            "QB": [0.0, 2.0],
+                        }
+                    )
                     self.diet = pd.DataFrame()
 
             # Data import sets model_data
@@ -446,7 +477,7 @@ class TestPageInteractions:
             # Ecopath page should be able to read model_data
             retrieved_data = model_data()
             assert retrieved_data is not None
-            assert hasattr(retrieved_data, 'model')
+            assert hasattr(retrieved_data, "model")
             assert len(retrieved_data.model) == 2
         except ImportError:
             pytest.skip("Shiny not installed")
@@ -460,11 +491,9 @@ class TestPageInteractions:
 
             class MockRpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({
-                        'Group': ['Fish'],
-                        'TL': [3.5],
-                        'Biomass': [10.0]
-                    })
+                    self.model = pd.DataFrame(
+                        {"Group": ["Fish"], "TL": [3.5], "Biomass": [10.0]}
+                    )
                     self.diet = pd.DataFrame()
                     self.balanced = True  # Ecopath marks as balanced
 
@@ -474,7 +503,7 @@ class TestPageInteractions:
 
             # Ecosim should be able to check if balanced
             data = model_data()
-            assert hasattr(data, 'balanced')
+            assert hasattr(data, "balanced")
             assert data.balanced is True
         except ImportError:
             pytest.skip("Shiny not installed")
@@ -488,24 +517,23 @@ class TestPageInteractions:
 
             # Ecosim sets simulation results
             mock_results = {
-                'biomass': pd.DataFrame({
-                    'time': [0, 1, 2],
-                    'Phytoplankton': [100, 105, 110],
-                    'Fish': [10, 11, 12]
-                }),
-                'catch': pd.DataFrame({
-                    'time': [0, 1, 2],
-                    'Fish': [5, 5.5, 6]
-                })
+                "biomass": pd.DataFrame(
+                    {
+                        "time": [0, 1, 2],
+                        "Phytoplankton": [100, 105, 110],
+                        "Fish": [10, 11, 12],
+                    }
+                ),
+                "catch": pd.DataFrame({"time": [0, 1, 2], "Fish": [5, 5.5, 6]}),
             }
             sim_results.set(mock_results)
 
             # Results page should be able to access results
             results = sim_results()
             assert results is not None
-            assert 'biomass' in results
-            assert 'catch' in results
-            assert len(results['biomass']) == 3
+            assert "biomass" in results
+            assert "catch" in results
+            assert len(results["biomass"]) == 3
         except ImportError:
             pytest.skip("Shiny not installed")
 
