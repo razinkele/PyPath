@@ -732,7 +732,7 @@ def ecopath_server(
                         duration=5
                     )
 
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError):
                 ui.notification_show(
                     f"Invalid numeric value for {col_name}: '{new_value}'",
                     type="error",
@@ -785,7 +785,7 @@ def ecopath_server(
                     duration=2
                 )
 
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError):
                 ui.notification_show(
                     f"Invalid numeric value for diet: '{new_value}'",
                     type="error",
@@ -952,9 +952,10 @@ def ecopath_server(
         
         # Add special styling for calculated columns (EE, GE, TL)
         calculated_cols = ['EE', 'GE', 'TL']
+        col_positions = {c: i for i, c in enumerate(formatted_df.columns)}
         for col in calculated_cols:
             if col in formatted_df.columns:
-                col_idx = list(formatted_df.columns).index(col)
+                col_idx = col_positions[col]
                 for row_idx in range(len(formatted_df)):
                     is_no_data = bool(no_data_mask.iloc[row_idx][col]) if col in no_data_mask.columns else False
                     is_stanza = bool(stanza_mask.iloc[row_idx][col]) if (stanza_mask is not None and col in stanza_mask.columns) else False

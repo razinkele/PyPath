@@ -46,7 +46,7 @@ def _calculate_trophic_levels(model: RpathParams) -> pd.Series:
     # Iteratively calculate TL for consumers
     # TL = 1 + weighted average of prey TLs
     max_iterations = 50
-    for iteration in range(max_iterations):
+    for _iteration in range(max_iterations):
         tl_old = tl.copy()
 
         for i, group in enumerate(groups):
@@ -313,7 +313,7 @@ def plot_biomass_vs_trophic_level(
 
     # Add group labels (sample if too many)
     if len(df) <= 30:
-        for idx, row in df.iterrows():
+        for _idx, row in df.iterrows():
             ax.annotate(
                 row['Group'],
                 (row['TL'], row['Biomass']),
@@ -379,7 +379,7 @@ def plot_vital_rate_vs_trophic_level(
 
     # Add labels for interesting points
     if len(df) <= 20:
-        for idx, row in df.iterrows():
+        for _idx, row in df.iterrows():
             ax.annotate(
                 row['Group'],
                 (row['TL'], row[rate_name]),
