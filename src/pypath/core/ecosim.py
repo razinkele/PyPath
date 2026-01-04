@@ -550,11 +550,8 @@ def rsim_params(
 
     # Calculate predator and prey weights for scramble
     btmp = b_baseref
-    py = prey_from + 1  # Adjust for 0-indexing
-    pd = prey_to + 1
 
     # Safe division for VV calculation
-    vv_safe = np.where(vv > 0, vv, 1.0)
     aa = np.zeros(len(qq))
 
     for i in range(1, len(qq)):
