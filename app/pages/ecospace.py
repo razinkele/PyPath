@@ -234,7 +234,7 @@ def create_hexagon(center_x: float, center_y: float, radius: float) -> "Polygon"
     angles = np.linspace(0, 2 * np.pi, 7) + np.pi / 6  # Rotate by 30 degrees
     x_coords = center_x + radius * np.cos(angles)
     y_coords = center_y + radius * np.sin(angles)
-    return Polygon(zip(x_coords, y_coords))
+    return Polygon(zip(x_coords, y_coords, strict=True))
 
 
 def ecospace_ui():
@@ -578,14 +578,14 @@ def ecospace_ui():
     )
 
 
-def ecospace_server(input: Inputs, output: Outputs, session: Session, model_data: reactive.Value, sim_results: reactive.Value):
+def ecospace_server(input: Inputs, _output: Outputs, _session: Session, _model_data: reactive.Value, _sim_results: reactive.Value):
     """Server logic for ECOSPACE page."""
 
     # Reactive values for spatial state
     grid = reactive.Value(None)
     boundary_polygon = reactive.Value(None)  # Store uploaded boundary for visualization
-    ecospace_params = reactive.Value(None)
-    spatial_results = reactive.Value(None)
+    ecospace_params = reactive.Value(None)  # TODO: reserved for future use  # noqa: F841
+    spatial_results = reactive.Value(None)  # TODO: reserved for future use  # noqa: F841
 
     # Load and display boundary polygon immediately on file upload
     @reactive.effect
@@ -655,9 +655,9 @@ def ecospace_server(input: Inputs, output: Outputs, session: Session, model_data
                 # Clean up temporary directory
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
-        except Exception as e:
+        except (ValueError, IOError, OSError, zipfile.BadZipFile) as e:
             ui.notification_show(
-                f"Error loading boundary: {str(e)}",
+                f"Error loading boundary: {e!s}",
                 type="warning",
                 duration=5
             )
@@ -838,9 +838,9 @@ def ecospace_server(input: Inputs, output: Outputs, session: Session, model_data
                         # Clean up temporary directory
                         shutil.rmtree(temp_dir, ignore_errors=True)
 
-                except Exception as e:
+                except (ValueError, IOError, OSError, zipfile.BadZipFile) as e:
                     ui.notification_show(
-                        f"Error processing spatial file: {str(e)}",
+                        f"Error processing spatial file: {e!s}",
                         type="error",
                         duration=6
                     )
@@ -849,9 +849,9 @@ def ecospace_server(input: Inputs, output: Outputs, session: Session, model_data
             # Enable run button
             ui.update_action_button("run_spatial_sim", disabled=False)
 
-        except Exception as e:
+        except (ValueError, OSError) as e:
             ui.notification_show(
-                f"Error creating grid: {str(e)}",
+                f"Error creating grid: {e!s}",
                 type="error",
                 duration=5
             )
@@ -929,7 +929,7 @@ def ecospace_server(input: Inputs, output: Outputs, session: Session, model_data
             folium.GeoJson(
                 boundary_geojson,
                 name='Boundary',
-                style_function=lambda x: {
+                style_function=lambda _x: {
                     'fillColor': 'red',
                     'color': 'red',
                     'weight': 2.5,
@@ -971,7 +971,7 @@ def ecospace_server(input: Inputs, output: Outputs, session: Session, model_data
                     folium.GeoJson(
                         geojson_data,
                         name='Grid Patches',
-                        style_function=lambda x: {
+                        style_function=lambda _x: {
                             'fillColor': 'lightblue',
                             'color': 'steelblue',
                             'weight': 0.5,  # Thinner lines for large grids
@@ -1003,7 +1003,7 @@ def ecospace_server(input: Inputs, output: Outputs, session: Session, model_data
                             # Add polygon to map
                             folium.GeoJson(
                                 geojson_data,
-                                style_function=lambda x: {
+                                style_function=lambda _x: {
                                     'fillColor': 'lightblue',
                                     'color': 'steelblue',
                                     'weight': 1.5,
@@ -1284,7 +1284,7 @@ def ecospace_server(input: Inputs, output: Outputs, session: Session, model_data
                     x, y = geom.exterior.xy
                     color = cmap(norm(habitat[idx]))
                     polygon = MplPolygon(
-                        list(zip(x, y)),
+                        list(zip(x, y, strict=True)),
                         facecolor=color,
                         edgecolor='darkgreen',
                         linewidth=1.2,

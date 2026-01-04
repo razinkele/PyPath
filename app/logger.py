@@ -31,16 +31,9 @@ if not log_dir.exists():
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-    except Exception:
-        # If can't create logs directory, just use console
-        pass
-
-
-def get_logger(name: str = None):
-    """Get a logger instance.
-
-    Parameters
-    ----------
+    except OSError as e:
+        # If can't create logs directory, log a warning and continue using console
+        logger.warning(f"Could not create log directory '{log_dir}': {e!s}")
     name : str, optional
         Logger name (typically __name__). If None, returns root app logger.
 

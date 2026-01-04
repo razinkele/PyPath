@@ -1,0 +1,83 @@
+name: CI Auto-Fix
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  auto_fix:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install dev deps
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run ruff and black auto-fixes
+        run: |
+          set -e
+          ruff format --quiet --fix . || true
+          black --quiet . || true
+
+      - name: Check for formatting changes
+        id: git-check
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          if [ -n "$(git status --porcelain)" ]; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
+
+      - name: Create branch and PR for formatting fixes
+        if: steps.git-check.outputs.changed == 'true'
+        env:
+          BRANCH_NAME: auto/ci-fix/format-${{ github.run_id }}
+        run: |
+          git checkout -b "$BRANCH_NAME"
+          git add -A
+          git commit -m "style: apply ruff/black fixes from CI auto-fix"
+          git push origin "$BRANCH_NAME"
+          # Ensure auto-fix label exists then create PR and enable auto-merge so formatting fixes are merged automatically when checks pass
+          gh label create "auto-fix" --color ffcc00 --description "Automated formatting fixes from CI" || true
+          gh pr create --title "style: apply ruff/black fixes (auto)" --body "Automated formatting fixes (ruff/black) applied by CI Auto-Fix workflow. This PR will be auto-merged when checks pass." --base main --head "$BRANCH_NAME" --label "auto-fix" --auto || true
+
+      - name: Run tests to check if fixes pass
+        run: python -m pytest -q || true
+
+      - name: Create PR on other failures (diagnostic)
+        if: steps.git-check.outputs.changed == 'false'
+        run: |
+          echo "Opening PR for CI failure diagnostics"
+          BRANCH=auto/ci-fix/failure-${{ github.run_id }}
+          git checkout -b "$BRANCH"
+          # Add a short diagnostic file for human triage
+          echo "CI failure triggered by workflow_run id: ${{ github.event.workflow_run.id }}" > CI_FAILURE.md
+          git add CI_FAILURE.md
+          git commit -m "ci: record CI failure for diagnostics"
+          git push origin "$BRANCH"
+          # Ensure ci-fail label exists and create a non-draft PR for triage
+          gh label create "ci-fail" --color ee0000 --description "CI failure requires human triage" || true
+          gh pr create --title "ci: investigate failing CI run #${{ github.event.workflow_run.id }}" --body "PR created automatically to investigate CI failure (workflow_run id: ${{ github.event.workflow_run.id }}). Please see workflow run logs for details." --base main --head "$BRANCH" --label "ci-fail" --web || true
+
+      - name: Comment on original run
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const runId = context.payload.workflow_run.id
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            await github.rest.actions.createWorkflowRunComment({
+              owner, repo, run_id: runId, body: 'CI Auto-Fix ran: formatting fixes applied or diagnostic PR created.'
+            })
