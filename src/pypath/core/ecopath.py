@@ -336,8 +336,8 @@ def rpath(
 
     totcatchmat = landmat + discardmat
     totcatch = np.sum(totcatchmat, axis=1)
-    landings = np.sum(landmat, axis=1)
-    discards = np.sum(discardmat, axis=1)
+    _landings = np.sum(landmat, axis=1)
+    _discards = np.sum(discardmat, axis=1)
 
     # Flag missing parameters
     no_b = np.isnan(biomass)

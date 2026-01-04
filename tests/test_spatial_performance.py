@@ -168,7 +168,7 @@ class TestFishingAllocationPerformance:
 
     def test_gravity_allocation_fast(self):
         """Gravity allocation should be fast."""
-        grid = create_regular_grid(bounds=(0, 0, 10, 10), nx=10, ny=10)
+        _grid = create_regular_grid(bounds=(0, 0, 10, 10), nx=10, ny=10)
         biomass = np.random.rand(2, 100) * 100
 
         start = time.time()

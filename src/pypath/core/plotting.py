@@ -32,9 +32,7 @@ except ImportError:
 
 # Try to import plotly for interactive plots
 try:
-    import plotly.express as px
     import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
 
     HAS_PLOTLY = True
 except ImportError:

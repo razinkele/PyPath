@@ -350,7 +350,7 @@ class TestStanzaIntegration:
         scenario = rsim_scenario(model, rpath_params, years=range(1, 6))
 
         # Create stanza structure with 1 split group
-        n_groups = 6
+        _n_groups = 6
         max_age = 121  # 10 years in months + 1 (0-indexed, need 0 to 120)
 
         stanzas = RsimStanzas(
@@ -490,7 +490,7 @@ class TestForcingScenarios:
         scenario = rsim_scenario(model, rpath_params, years=range(1, 21))
 
         # Double fishing effort in years 10-20
-        n_months = scenario.forcing.ForcedBio.shape[0]
+        _n_months = scenario.forcing.ForcedBio.shape[0]
         scenario.fishing.ForcedEffort[120:, :] = 2.0  # After year 10
 
         output = rsim_run(scenario, method="RK4")
@@ -521,7 +521,7 @@ class TestForcingScenarios:
         scenario = rsim_scenario(model, rpath_params, years=range(1, 6))
 
         # Force phytoplankton (group 1) to double biomass in second half
-        n_months = scenario.forcing.ForcedBio.shape[0]
+        _n_months = scenario.forcing.ForcedBio.shape[0]
         # Set forced biomass (positive value means forced)
         scenario.forcing.ForcedBio[30:, 1] = 20.0  # Double phyto biomass
 

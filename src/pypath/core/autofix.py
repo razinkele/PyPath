@@ -19,6 +19,7 @@ from .constants import (
     MIN_BIOMASS_VIABLE,
     MIN_PREY_SWITCHING_POWER,
     MIN_QB_PB_RATIO,
+    MAX_PREY_SWITCHING_POWER,
 )
 from .ecopath import Rpath
 from .ecosim import RsimParams, RsimScenario

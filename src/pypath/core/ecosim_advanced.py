@@ -80,7 +80,7 @@ def apply_state_forcing(
                 # Rescale to match forced value
                 # (maintains relative proportions)
                 if state[idx] > 0:
-                    scale = forced_value / state[idx]
+                    _scale = forced_value / state[idx]
                     state_modified[idx] = forced_value
                 else:
                     state_modified[idx] = forced_value
@@ -179,7 +179,7 @@ def rsim_run_advanced(
 
     params = scenario.params
     forcing = scenario.forcing
-    fishing = scenario.fishing
+    _fishing = scenario.fishing
 
     # Initialize diet rewiring with base diet
     if diet_rewiring is not None and diet_rewiring.enabled:

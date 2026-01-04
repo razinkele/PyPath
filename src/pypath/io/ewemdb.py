@@ -481,7 +481,7 @@ def read_ewemdb(
 
     # Map remarks columns - EwE stores remarks as separate columns
     # Different EwE versions use different column names
-    remarks_mapping = {
+    _remarks_mapping = {
         "Biomass": [
             "BRemarks",
             "BiomassRemarks",

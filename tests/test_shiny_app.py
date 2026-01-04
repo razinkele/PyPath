@@ -254,8 +254,8 @@ class TestErrorHandling:
 
             # Create mock objects
             mock_input = Mock(spec=Inputs)
-            mock_output = Mock(spec=Outputs)
-            mock_session = Mock(spec=Session)
+            _mock_output = Mock(spec=Outputs)
+            _mock_session = Mock(spec=Session)
 
             # Mock the settings button
             mock_input.btn_settings = Mock()

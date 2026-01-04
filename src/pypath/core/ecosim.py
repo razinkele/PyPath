@@ -9,9 +9,13 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from pypath.spatial.ecospace_params import EcospaceParams
+    from pypath.spatial.environmental import EnvironmentalDrivers
 
 from pypath.core.ecopath import Rpath
 from pypath.core.params import RpathParams

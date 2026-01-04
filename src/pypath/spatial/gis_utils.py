@@ -7,9 +7,12 @@ regular grids for testing.
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from pypath.spatial.ecospace_params import EcospaceGrid
 import scipy.sparse
 
 # Optional GIS support

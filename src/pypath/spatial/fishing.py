@@ -12,9 +12,12 @@ Implements spatially-explicit fishing with multiple allocation strategies:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from pypath.spatial.ecospace_params import EcospaceGrid
 
 
 @dataclass

@@ -7,10 +7,13 @@ calculating edge properties, and spatial indexing.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, TYPE_CHECKING
 
 import numpy as np
 import scipy.sparse
+
+if TYPE_CHECKING:
+    from pypath.spatial.ecospace_params import EcospaceGrid
 
 # Optional GIS support
 try:

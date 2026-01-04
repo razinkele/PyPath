@@ -12,7 +12,7 @@ import numpy as np
 
 try:
     from skopt import gp_minimize
-    from skopt.space import Categorical, Integer, Real
+    from skopt.space import Real
     from skopt.utils import use_named_args
 
     HAS_SKOPT = True

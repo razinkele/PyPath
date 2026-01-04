@@ -211,7 +211,7 @@ def rpath_stanzas(rpath_params: Any) -> Any:
         ]
         group_stanzas.sort(key=lambda x: x.stanza_num)
 
-        n_stanzas = len(group_stanzas)
+        _n_stanzas = len(group_stanzas)
 
         # Find the leading stanza
         leading_stanza = None
@@ -553,8 +553,8 @@ def split_update(stanzas: RsimStanzas, state: Any, params: Any, sim_month: int) 
             continue
 
         # Get Von Bertalanffy parameters
-        vbm = stanzas.vbm[isp]
-        vbgf_d = stanzas.vbgf_d[isp]
+        _vbm = stanzas.vbm[isp]
+        _vbgf_d = stanzas.vbgf_d[isp]
 
         # Get current spawning biomass
         spawn_bio = 0.0

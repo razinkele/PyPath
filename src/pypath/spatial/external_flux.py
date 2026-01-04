@@ -9,10 +9,13 @@ Functions for loading flux timeseries from:
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Optional, TYPE_CHECKING
 
 import numpy as np
 import scipy.sparse
+
+if TYPE_CHECKING:
+    from pypath.spatial.ecospace_params import ExternalFluxTimeseries
 
 # Optional NetCDF support
 try:

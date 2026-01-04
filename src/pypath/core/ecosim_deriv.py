@@ -307,9 +307,9 @@ def deriv_vector(
     DD = params["DD"]
     Unassim = params.get("Unassim", np.zeros(NUM_GROUPS + 1))
     Bbase = params.get("Bbase", state.copy())  # Baseline biomass
-    SwitchPower = params.get("SwitchPower", 0.0)  # Prey switching power
+    _SwitchPower = params.get("SwitchPower", 0.0)  # Prey switching power
     PP_type = params.get("PP_type", np.zeros(NUM_GROUPS + 1, dtype=int))
-    Mediation = params.get("Mediation", {})  # Mediation configuration
+    _Mediation = params.get("Mediation", {})  # Mediation configuration
 
     # Current biomass (state variable)
     BB = state.copy()
