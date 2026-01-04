@@ -24,13 +24,20 @@ if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
 # Import page modules - organized by category
-# Core pages
-from app.pages import home, data_import, ecopath, prebalance, ecosim, results, analysis, about
-# Advanced features
-from app.pages import multistanza, forcing_demo, diet_rewiring_demo, optimization_demo, ecospace
-
-# Configuration imports
-from app.config import UI
+# Try absolute imports first (normal when app is a package).
+# Fall back to local imports when running app/app.py directly (e.g., 'uvicorn app.app:app' run from inside the app/ directory).
+try:
+    # Core pages
+    from app.pages import home, data_import, ecopath, prebalance, ecosim, results, analysis, about
+    # Advanced features
+    from app.pages import multistanza, forcing_demo, diet_rewiring_demo, optimization_demo, ecospace
+    # Configuration imports
+    from app.config import UI
+except ModuleNotFoundError:
+    # Fallback: import modules as top-level local modules (when script is executed from the app/ dir)
+    from pages import home, data_import, ecopath, prebalance, ecosim, results, analysis, about
+    from pages import multistanza, forcing_demo, diet_rewiring_demo, optimization_demo, ecospace
+    from config import UI
 
 # App UI with dashboard layout and Bootstrap theme
 app_ui = ui.page_navbar(
