@@ -4,7 +4,7 @@ PyPath - Python Ecopath with Ecosim
 A Python implementation of the Rpath ecosystem modeling package.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.2"
 __author__ = "PyPath Development Team"
 
 # Core imports

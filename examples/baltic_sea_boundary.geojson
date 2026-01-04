@@ -1,0 +1,32 @@
+{
+  "type": "FeatureCollection",
+  "name": "Baltic Sea Study Area",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Baltic Sea Coastal Zone",
+        "area_name": "Lithuanian Economic Zone",
+        "description": "Simplified boundary for hexagonal grid demonstration"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [19.5, 54.8],
+          [21.5, 54.8],
+          [21.8, 55.0],
+          [22.0, 55.3],
+          [22.2, 55.6],
+          [22.0, 55.9],
+          [21.5, 56.2],
+          [20.5, 56.3],
+          [19.8, 56.1],
+          [19.5, 55.8],
+          [19.3, 55.4],
+          [19.4, 55.0],
+          [19.5, 54.8]
+        ]]
+      }
+    }
+  ]
+}

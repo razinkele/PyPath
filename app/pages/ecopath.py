@@ -3,13 +3,9 @@
 from shiny import Inputs, Outputs, Session, reactive, render, ui, req
 import pandas as pd
 import numpy as np
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Union, Any
 
-# Import pypath
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
+# pypath imports (path setup handled by app/__init__.py)
 from pypath.core.params import create_rpath_params, check_rpath_params, RpathParams
 from pypath.core.ecopath import rpath, Rpath
 
@@ -23,17 +19,124 @@ from .utils import (
     REMARK_STYLE,
     STANZA_STYLE,
     COLUMN_TOOLTIPS,
+    is_balanced_model,
 )
+from .validation import validate_model_parameters, validate_biomass, validate_pb, validate_ee
+
+# Configuration imports
+try:
+    from app.config import DEFAULTS, PLOTS, THRESHOLDS
+except ModuleNotFoundError:
+    from config import DEFAULTS, PLOTS, THRESHOLDS
 
 
-def _recreate_params_from_model(model):
+def _get_groups_from_model(model: Union[Rpath, RpathParams]) -> List[str]:
+    """Safely extract group names from Rpath or RpathParams object.
+
+    This helper function provides a unified interface for getting group names
+    from either a balanced Rpath model or an unbalanced RpathParams object,
+    handling their different internal structures.
+
+    Parameters
+    ----------
+    model : Union[Rpath, RpathParams]
+        Either a balanced Rpath object or unbalanced RpathParams object
+
+    Returns
+    -------
+    List[str]
+        List of group names in the order they appear in the model
+
+    Raises
+    ------
+    ValueError
+        If the model object doesn't have recognizable group information
+
+    Notes
+    -----
+    **Rpath objects** store group names directly in the `Group` attribute.
+    **RpathParams objects** store them in `model` DataFrame under 'Group' column.
+
+    Examples
+    --------
+    >>> from pypath.core.params import create_rpath_params
+    >>> params = create_rpath_params(['Fish', 'Plankton'], [0, 1])
+    >>> groups = _get_groups_from_model(params)
+    >>> groups
+    ['Fish', 'Plankton']
+    """
+    if hasattr(model, 'Group'):
+        # It's a balanced Rpath object
+        return list(model.Group)
+    elif hasattr(model, 'model') and 'Group' in model.model.columns:
+        # It's an RpathParams object
+        return list(model.model['Group'])
+    else:
+        raise ValueError("Cannot determine group names from model object")
+
+
+def _recreate_params_from_model(model: Rpath) -> RpathParams:
     """Recreate RpathParams from a balanced Rpath model.
-    
-    This allows editing of parameters that were originally balanced.
+
+    This function reconstructs an editable RpathParams object from a balanced
+    Rpath model, allowing users to modify parameters and re-balance. The
+    reconstruction preserves biomass, production, consumption, and diet
+    information from the balanced model.
+
+    Parameters
+    ----------
+    model : Rpath
+        A balanced Rpath model object with computed parameters
+
+    Returns
+    -------
+    RpathParams
+        Unbalanced parameter object with values populated from the balanced model.
+        This can be edited and re-balanced.
+
+    Raises
+    ------
+    ValueError
+        If model doesn't have required attributes (Group, type, etc.)
+
+    Notes
+    -----
+    **Reconstructed Parameters:**
+    - Biomass, PB, QB, EE, Unassim, BioAcc from balanced model
+    - Diet matrix from DC (diet composition) matrix
+    - Group types preserved
+
+    **Not Reconstructed:**
+    - Fishing catches (landings/discards) - can be edited afterward
+    - Multi-stanza parameters - would need separate handling
+
+    The resulting RpathParams object is unbalanced and will need to be
+    re-balanced with `rpath()` after any modifications.
+
+    Examples
+    --------
+    >>> from pypath.core.params import create_rpath_params
+    >>> from pypath.core.ecopath import rpath
+    >>> params = create_rpath_params(['Fish', 'Plankton'], [0, 1])
+    >>> # ... set parameters ...
+    >>> balanced = rpath(params)
+    >>> # Now recreate editable params
+    >>> params_copy = _recreate_params_from_model(balanced)
+    >>> # Modify and re-balance
+    >>> params_copy.model.loc[0, 'PB'] = 1.5
+    >>> new_balanced = rpath(params_copy)
     """
     # Create basic params structure
-    groups = list(model.Group)
-    types = list(model.type)
+    groups = _get_groups_from_model(model)
+
+    # Get types
+    if hasattr(model, 'type'):
+        types = list(model.type)
+    elif hasattr(model, 'model') and 'Type' in model.model.columns:
+        types = list(model.model['Type'])
+    else:
+        raise ValueError("Cannot determine types from model object")
+
     params = create_rpath_params(groups, types)
     
     # Fill in the balanced parameter values
@@ -59,6 +162,24 @@ def _recreate_params_from_model(model):
     # For now, we'll leave them as-is (they can be edited later)
     
     return params
+
+
+# Public helper to convert DataGrid edits to numeric values
+def _convert_input_to_numeric(new_value):
+    """Convert a new_value from a DataGrid edit to a numeric value.
+
+    Treat explicit zeros (0 or '0') as valid numeric zero. Treat blank
+    strings and None as np.nan.
+    """
+    if new_value is None:
+        return np.nan
+    if isinstance(new_value, str) and new_value.strip() == "":
+        return np.nan
+    try:
+        return float(new_value)
+    except (ValueError, TypeError):
+        # Let caller handle exceptions for invalid numeric formats
+        raise
 
 
 def ecopath_ui():
@@ -561,6 +682,7 @@ def ecopath_server(
         
         return render.DataGrid(formatted_df, styles=styles)
     
+
     # Track cell edits from DataGrids and update params
     @reactive.effect
     def _handle_model_params_edit():
@@ -568,21 +690,54 @@ def ecopath_server(
         edit = input.model_params_table_cell_edit()
         if edit is None:
             return
-        
+
         p = params.get()
         if p is None:
             return
-        
+
         row = edit['row']
         col_name = edit['column']
         new_value = edit['value']
-        
+        group_name = p.model.loc[row, 'Group'] if 'Group' in p.model.columns else f"Row {row}"
+
         # Update the params
         if col_name in p.model.columns and col_name != 'Group':
             try:
-                p.model.loc[row, col_name] = float(new_value) if new_value else np.nan
-            except (ValueError, TypeError):
-                pass
+                # Convert value
+                numeric_value = _convert_input_to_numeric(new_value)
+
+                # Validate based on column type
+                is_valid = True
+                error_msg = None
+
+                if col_name == 'Biomass' and not np.isnan(numeric_value):
+                    is_valid, error_msg = validate_biomass(numeric_value, group_name)
+                elif col_name == 'PB' and not np.isnan(numeric_value):
+                    group_type = p.model.loc[row, 'Type'] if 'Type' in p.model.columns else None
+                    is_valid, error_msg = validate_pb(numeric_value, group_name, group_type)
+                elif col_name == 'EE' and not np.isnan(numeric_value):
+                    is_valid, error_msg = validate_ee(numeric_value, group_name)
+
+                if is_valid:
+                    p.model.loc[row, col_name] = numeric_value
+                    ui.notification_show(
+                        f"Updated {col_name} for {group_name}",
+                        type="message",
+                        duration=2
+                    )
+                else:
+                    ui.notification_show(
+                        f"Invalid value for {col_name}: {error_msg}",
+                        type="warning",
+                        duration=5
+                    )
+
+            except (ValueError, TypeError) as e:
+                ui.notification_show(
+                    f"Invalid numeric value for {col_name}: '{new_value}'",
+                    type="error",
+                    duration=4
+                )
     
     @reactive.effect
     def _handle_diet_matrix_edit():
@@ -590,21 +745,52 @@ def ecopath_server(
         edit = input.diet_matrix_table_cell_edit()
         if edit is None:
             return
-        
+
         p = params.get()
         if p is None:
             return
-        
+
         row = edit['row']
         col_name = edit['column']
         new_value = edit['value']
-        
+        prey_name = p.diet.loc[row, 'Group'] if 'Group' in p.diet.columns else f"Row {row}"
+
         # Update the diet matrix
         if col_name in p.diet.columns and col_name != 'Group':
             try:
-                p.diet.loc[row, col_name] = float(new_value) if new_value else 0.0
-            except (ValueError, TypeError):
-                pass
+                # Convert value
+                numeric_value = float(new_value) if new_value else 0.0
+
+                # Validate diet proportion (0-1)
+                if numeric_value < 0:
+                    ui.notification_show(
+                        f"Diet proportion cannot be negative: {numeric_value:.3f}",
+                        type="error",
+                        duration=4
+                    )
+                    return
+
+                if numeric_value > 1:
+                    ui.notification_show(
+                        f"Diet proportion cannot exceed 1.0: {numeric_value:.3f}",
+                        type="warning",
+                        duration=4
+                    )
+                    return
+
+                p.diet.loc[row, col_name] = numeric_value
+                ui.notification_show(
+                    f"Updated diet: {prey_name} → {col_name}",
+                    type="message",
+                    duration=2
+                )
+
+            except (ValueError, TypeError) as e:
+                ui.notification_show(
+                    f"Invalid numeric value for diet: '{new_value}'",
+                    type="error",
+                    duration=4
+                )
     
     @reactive.effect
     @reactive.event(input.btn_balance)
@@ -618,23 +804,23 @@ def ecopath_server(
         try:
             # Set defaults for missing values
             if 'BioAcc' not in p.model.columns:
-                p.model['BioAcc'] = 0.0
+                p.model['BioAcc'] = DEFAULTS.ba_consumers
             else:
-                p.model['BioAcc'] = p.model['BioAcc'].fillna(0.0)
-            
+                p.model['BioAcc'] = p.model['BioAcc'].fillna(DEFAULTS.ba_consumers)
+
             if 'Unassim' not in p.model.columns:
-                p.model['Unassim'] = 0.2
+                p.model['Unassim'] = DEFAULTS.unassim_consumers
             else:
-                p.model['Unassim'] = p.model['Unassim'].fillna(0.2)
-            
+                p.model['Unassim'] = p.model['Unassim'].fillna(DEFAULTS.unassim_consumers)
+
             if 'DetInput' not in p.model.columns:
                 p.model['DetInput'] = 0.0
             else:
                 p.model['DetInput'] = p.model['DetInput'].fillna(0.0)
-            
+
             # For living groups, set a default Unassim if needed
             living_mask = p.model['Type'] < 2
-            p.model.loc[living_mask & (p.model['Unassim'] == 0), 'Unassim'] = 0.2
+            p.model.loc[living_mask & (p.model['Unassim'] == 0), 'Unassim'] = DEFAULTS.unassim_consumers
             
             # Set detritus fate columns if missing
             det_groups = p.model[p.model['Type'] == 2]['Group'].tolist()
@@ -653,12 +839,32 @@ def ecopath_server(
                                 p.model.loc[idx, det] = 1.0 / n_det
                         else:
                             p.model.loc[idx, det] = np.nan
-            
+
+            # Validate model parameters before balancing
+            is_valid, validation_errors = validate_model_parameters(
+                p.model,
+                check_groups=True,
+                check_biomass=True,
+                check_pb=True,
+                check_ee=False  # EE is calculated, not input
+            )
+
+            if not is_valid:
+                # Show first error in notification
+                error_summary = validation_errors[0] if len(validation_errors) == 1 else \
+                               f"{len(validation_errors)} validation errors found. First error:\n{validation_errors[0]}"
+                ui.notification_show(
+                    error_summary,
+                    type="error",
+                    duration=10
+                )
+                return
+
             # Balance the model
             model = rpath(p, eco_name=input.eco_name())
             balanced_model.set(model)
             model_data.set(model)
-            
+
             ui.notification_show("Model balanced successfully!", type="message")
             
         except Exception as e:
@@ -812,12 +1018,15 @@ def ecopath_server(
             ax.text(0.5, 0.5, "No model data", ha='center', va='center')
             return fig
         
-        fig, ax = plt.subplots(figsize=(8, 5))
-        
-        groups = model.Group[:model.NUM_LIVING + model.NUM_DEAD]
-        tl = model.TL[:model.NUM_LIVING + model.NUM_DEAD]
-        
-        colors = ['#2ecc71' if t == 1 else '#3498db' if t < 2.5 else '#e74c3c' 
+        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
+
+        # Get group names safely
+        all_groups = _get_groups_from_model(model)
+        num_living_dead = model.NUM_LIVING + model.NUM_DEAD if is_balanced_model(model) else len(all_groups)
+        groups = all_groups[:num_living_dead]
+        tl = model.TL[:num_living_dead]
+
+        colors = ['#2ecc71' if t == 1 else '#3498db' if t < THRESHOLDS.type_threshold_consumer_toppred else '#e74c3c'
                   for t in tl]
         
         ax.barh(groups, tl, color=colors)
@@ -840,11 +1049,14 @@ def ecopath_server(
             ax.text(0.5, 0.5, "No model data", ha='center', va='center')
             return fig
         
-        fig, ax = plt.subplots(figsize=(8, 5))
-        
-        groups = model.Group[:model.NUM_LIVING + model.NUM_DEAD]
-        ee = model.EE[:model.NUM_LIVING + model.NUM_DEAD]
-        
+        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
+
+        # Get group names safely
+        all_groups = _get_groups_from_model(model)
+        num_living_dead = model.NUM_LIVING + model.NUM_DEAD if is_balanced_model(model) else len(all_groups)
+        groups = all_groups[:num_living_dead]
+        ee = model.EE[:num_living_dead]
+
         colors = ['#2ecc71' if 0 <= e <= 1 else '#e74c3c' for e in ee]
         
         ax.barh(groups, ee, color=colors)

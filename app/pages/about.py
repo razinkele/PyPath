@@ -91,8 +91,8 @@ def about_ui():
                             " - Projects the ecosystem forward in time under various scenarios"
                         ),
                         ui.tags.li(
-                            ui.tags.strong("Ecospace"), 
-                            " - Adds spatial dynamics (not yet implemented in PyPath)"
+                            ui.tags.strong("Ecospace"),
+                            " - Spatial dynamics with irregular grids and hexagonal grids"
                         ),
                     ),
                     

@@ -3,20 +3,40 @@
 from shiny import Inputs, Outputs, Session, reactive, render, ui, req
 import pandas as pd
 import numpy as np
+from typing import Optional
 
-# Import pypath
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+# Import centralized configuration
+try:
+    from app.config import DEFAULTS, THRESHOLDS, PARAM_RANGES, UI
+except ModuleNotFoundError:
+    from config import DEFAULTS, THRESHOLDS, PARAM_RANGES, UI
 
+# pypath imports (path setup handled by app/__init__.py)
 from pypath.core.ecosim import (
     rsim_params, rsim_state, rsim_forcing, rsim_fishing,
     rsim_scenario, rsim_run, RsimScenario
 )
+from pypath.core.ecosim_advanced import rsim_run_advanced
+from pypath.core.forcing import DietRewiring
 from pypath.core.autofix import validate_and_fix_scenario
 
 
-def ecosim_ui():
+# Helper to check model balance and show notification if not
+def _require_balanced_model_or_notify(model) -> bool:
+    """Return True if model is balanced, otherwise show a UI error and return False."""
+    from app.pages.utils import is_balanced_model
+
+    if not is_balanced_model(model):
+        ui.notification_show(
+            "Ecosim requires a balanced Ecopath model. Balance the model on the Ecopath page first.",
+            type="error",
+            duration=6,
+        )
+        return False
+    return True
+
+
+def ecosim_ui() -> ui.Tag:
     """Ecosim simulation page UI."""
     return ui.page_fluid(
         ui.h2("Ecosim Dynamic Simulation", class_="mb-4"),
@@ -38,9 +58,9 @@ def ecosim_ui():
                             style="cursor: help;"
                         )
                     ),
-                    value=50,
-                    min=1,
-                    max=500
+                    value=PARAM_RANGES.years_default,
+                    min=PARAM_RANGES.years_min,
+                    max=PARAM_RANGES.years_max
                 ),
                 ui.input_select(
                     "integration_method",
@@ -70,18 +90,83 @@ def ecosim_ui():
                             style="cursor: help;"
                         )
                     ),
-                    min=1,
-                    max=100,
-                    value=2,
+                    min=PARAM_RANGES.vulnerability_min,
+                    max=PARAM_RANGES.vulnerability_max,
+                    value=PARAM_RANGES.vulnerability_default,
                     step=0.5
                 ),
                 ui.p(
                     "1 = Bottom-up, 2 = Mixed, High = Top-down",
                     class_="text-muted small"
                 ),
-                
+
                 ui.tags.hr(),
-                
+
+                # Diet Rewiring settings
+                ui.h5("Dynamic Diet Rewiring"),
+                ui.input_checkbox(
+                    "enable_diet_rewiring",
+                    ui.span(
+                        "Enable Diet Rewiring ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Allow predator diet preferences to change based on prey availability (prey switching, adaptive foraging). Predators shift to more abundant prey species.",
+                            style="cursor: help;"
+                        )
+                    ),
+                    value=False
+                ),
+                ui.panel_conditional(
+                    "input.enable_diet_rewiring",
+                    ui.input_slider(
+                        "switching_power",
+                        ui.span(
+                            "Switching Power ",
+                            ui.tags.i(
+                                class_="bi bi-info-circle",
+                                title="Controls strength of prey switching. 1.0 = proportional (no switching), 2-3 = moderate switching (typical), >3 = strong switching (opportunistic predators).",
+                                style="cursor: help;"
+                            )
+                        ),
+                        min=PARAM_RANGES.switching_power_min,
+                        max=PARAM_RANGES.switching_power_max,
+                        value=PARAM_RANGES.switching_power_default,
+                        step=0.1
+                    ),
+                    ui.input_slider(
+                        "rewiring_interval",
+                        ui.span(
+                            "Update Interval (months) ",
+                            ui.tags.i(
+                                class_="bi bi-info-circle",
+                                title="How often diet is recalculated. 1 = monthly (responsive but slow), 12 = annual (fast but less responsive).",
+                                style="cursor: help;"
+                            )
+                        ),
+                        min=PARAM_RANGES.rewiring_interval_min,
+                        max=PARAM_RANGES.rewiring_interval_max,
+                        value=PARAM_RANGES.rewiring_interval_default,
+                        step=1
+                    ),
+                    ui.input_numeric(
+                        "min_diet_proportion",
+                        ui.span(
+                            "Minimum Diet Proportion ",
+                            ui.tags.i(
+                                class_="bi bi-info-circle",
+                                title="Minimum fraction to maintain in diet. Prevents complete elimination of prey types.",
+                                style="cursor: help;"
+                            )
+                        ),
+                        value=THRESHOLDS.min_diet_proportion_range_default,
+                        min=THRESHOLDS.min_diet_proportion_range_min,
+                        max=THRESHOLDS.min_diet_proportion_range_max,
+                        step=0.001
+                    ),
+                ),
+
+                ui.tags.hr(),
+
                 # Fishing scenarios
                 ui.h5("Fishing Scenario"),
                 ui.input_select(
@@ -125,7 +210,7 @@ def ecosim_ui():
                         "Auto-fix parameters ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title="Automatically caps VV ≤ 5.0, QQ ≤ 3.0, ensures minimum biomass ≥ 0.001, and normalizes DD to 1-2. Prevents most crashes caused by extreme parameter values.",
+                            title=f"Automatically caps VV ≤ {THRESHOLDS.vv_cap}, QQ ≤ {THRESHOLDS.qq_cap}, ensures minimum biomass ≥ {THRESHOLDS.min_biomass}, and normalizes DD to 1-2. Prevents most crashes caused by extreme parameter values.",
                             style="cursor: help;"
                         )
                     ),
@@ -150,8 +235,8 @@ def ecosim_ui():
                     "Run Simulation",
                     class_="btn-success w-100 mt-2"
                 ),
-                
-                width=300,
+
+                width=UI.sidebar_width,
             ),
             
             # Main content
@@ -275,7 +360,7 @@ def ecosim_ui():
                         ),
                         col_widths=[9, 3]
                     ),
-                    ui.output_plot("biomass_timeseries", height="500px"),
+                    ui.output_plot("biomass_timeseries", height=UI.plot_height_medium_px),
                 ),
                 ui.nav_panel(
                     "Catch",
@@ -292,7 +377,7 @@ def ecosim_ui():
                         col_widths=[10, 2]
                     ),
                     ui.output_ui("help_catch"),
-                    ui.output_plot("catch_timeseries", height="400px"),
+                    ui.output_plot("catch_timeseries", height=UI.plot_height_small_px),
                     ui.output_table("annual_catch_table"),
                 ),
                 ui.nav_panel(
@@ -328,8 +413,30 @@ def ecosim_server(
     session: Session,
     model_data: reactive.Value,
     sim_results: reactive.Value
-):
-    """Ecosim simulation page server logic."""
+) -> None:
+    """Ecosim simulation page server logic.
+
+    Handles all server-side logic for the Ecosim simulation page including
+    scenario creation, simulation execution, and results visualization.
+
+    Parameters
+    ----------
+    input : Inputs
+        Shiny input object containing user interface values
+    output : Outputs
+        Shiny output object for rendering UI elements
+    session : Session
+        Shiny session object for reactive programming
+    model_data : reactive.Value
+        Reactive value containing the balanced Ecopath model
+    sim_results : reactive.Value
+        Reactive value for storing simulation results
+
+    Returns
+    -------
+    None
+        This is a server function that sets up reactive effects and outputs
+    """
     
     # Reactive values for this page
     scenario = reactive.Value(None)
@@ -381,9 +488,9 @@ def ecosim_server(
                     ),
                     ui.h5("Parameters that get fixed:"),
                     ui.tags.ul(
-                        ui.tags.li(ui.tags.strong("VV (Vulnerability):"), " Capped at ≤ 5.0 (prevents rapid prey depletion)"),
-                        ui.tags.li(ui.tags.strong("QQ (Density Dependence):"), " Capped at ≤ 3.0 (reduces oscillations)"),
-                        ui.tags.li(ui.tags.strong("Minimum Biomass:"), " Raised to ≥ 0.001 (prevents instant extinction)"),
+                        ui.tags.li(ui.tags.strong("VV (Vulnerability):"), f" Capped at ≤ {THRESHOLDS.vv_cap} (prevents rapid prey depletion)"),
+                        ui.tags.li(ui.tags.strong("QQ (Density Dependence):"), f" Capped at ≤ {THRESHOLDS.qq_cap} (reduces oscillations)"),
+                        ui.tags.li(ui.tags.strong("Minimum Biomass:"), f" Raised to ≥ {THRESHOLDS.min_biomass} (prevents instant extinction)"),
                         ui.tags.li(ui.tags.strong("DD (Prey Switching):"), " Normalized to 1-2 range (stabilizes predation)")
                     ),
                     ui.h5("Why is this needed?"),
@@ -460,12 +567,22 @@ def ecosim_server(
                         ui.tags.li("Simulation years (1-500)"),
                         ui.tags.li("Integration method (RK4 recommended)"),
                         ui.tags.li("Vulnerability (functional response type)"),
+                        ui.tags.li("Dynamic diet rewiring (optional - for adaptive foraging)"),
                         ui.tags.li("Fishing scenario"),
                         ui.tags.li("Enable/disable autofix (keep enabled)")
                     ),
                     ui.tags.li(ui.tags.strong("Click 'Create Scenario'"), " - this validates parameters and applies fixes"),
                     ui.tags.li(ui.tags.strong("Review"), " the effort preview and biomass forcing options"),
                     ui.tags.li(ui.tags.strong("Click 'Run Simulation'"), " when ready")
+                ),
+                ui.h6("Dynamic Diet Rewiring"),
+                ui.p(
+                    ui.tags.strong("Optional feature:"), " Allows predator diet preferences to adapt based on prey availability (prey switching)."
+                ),
+                ui.tags.ul(
+                    ui.tags.li(ui.tags.strong("Switching Power (1-5):"), " Controls how strongly predators switch to abundant prey. 1.0 = no switching, 2-3 = typical, >3 = opportunistic"),
+                    ui.tags.li(ui.tags.strong("Update Interval:"), " How often diet is recalculated. Monthly (1) = responsive but slower, Annual (12) = faster but less responsive"),
+                    ui.tags.li(ui.tags.strong("Min Proportion:"), " Prevents complete elimination of prey types from diet")
                 ),
                 ui.h6("Fishing Scenarios"),
                 ui.tags.ul(
@@ -504,7 +621,7 @@ def ecosim_server(
                 ui.tags.ul(
                     ui.tags.li(
                         ui.tags.strong("Simulation completed successfully:"),
-                        " No crashes detected. All groups maintained biomass above threshold (0.0001)."
+                        f" No crashes detected. All groups maintained biomass above threshold ({THRESHOLDS.crash_threshold})."
                     ),
                     ui.tags.li(
                         ui.tags.strong("Low biomass detected (groups recovered):"),
@@ -519,13 +636,13 @@ def ecosim_server(
                 ),
                 ui.h6("What is a 'Crash'?"),
                 ui.p(
-                    "A crash is detected when any group's biomass falls below 0.0001 (1/10,000 of reference biomass). "
+                    f"A crash is detected when any group's biomass falls below {THRESHOLDS.crash_threshold} (1/10,000 of reference biomass). "
                     "This threshold filters out numerical noise while catching biologically meaningful crashes."
                 ),
                 ui.tags.ul(
                     ui.tags.li(ui.tags.strong("Crash year:"), " When the first group hit low biomass"),
                     ui.tags.li(ui.tags.strong("Crashed groups:"), " Which specific groups had problems"),
-                    ui.tags.li(ui.tags.strong("Recovery:"), " Whether groups bounced back (final biomass > 0.01)")
+                    ui.tags.li(ui.tags.strong("Recovery:"), f" Whether groups bounced back (final biomass > {THRESHOLDS.recovery_threshold})")
                 ),
                 ui.h6("What to Do If Crashes Occur"),
                 ui.tags.ol(
@@ -895,17 +1012,30 @@ def ecosim_server(
                 type="error"
             )
             return
+
+        # Require a balanced Rpath model for Ecosim
+        if not _require_balanced_model_or_notify(model):
+            return
         
         try:
             years = range(1, input.sim_years() + 1)
-            
+
             # Create scenario
             # Need original params - recreate from balanced model
             from pypath.core.params import create_rpath_params
-            
-            # Recreate params from balanced model values
-            groups = list(model.Group)
-            types = list(model.type)
+
+            # Get groups and types safely
+            if hasattr(model, 'Group'):
+                # It's a balanced Rpath object
+                groups = list(model.Group)
+                types = list(model.type)
+            elif hasattr(model, 'model') and 'Group' in model.model.columns:
+                # It's an RpathParams object
+                groups = list(model.model['Group'])
+                types = list(model.model['Type'])
+            else:
+                raise ValueError("Model object must be either Rpath or RpathParams type")
+
             orig_params = create_rpath_params(groups, types)
             
             # Fill in the balanced parameter values
@@ -950,8 +1080,9 @@ def ecosim_server(
 
             scenario.set(new_scenario)
 
-            # Update group choices
-            group_names = list(model.Group[:model.NUM_LIVING + model.NUM_DEAD])
+            # Update group choices (use groups extracted earlier)
+            num_living_dead = model.NUM_LIVING + model.NUM_DEAD if hasattr(model, 'NUM_LIVING') else len(groups)
+            group_names = groups[:num_living_dead]
             ui.update_selectize("plot_groups", choices=group_names, selected=group_names[:3])
             ui.update_select("forcing_group", choices=group_names)
 
@@ -991,7 +1122,7 @@ def ecosim_server(
             
             for m in range(start_month, n_months):
                 years_since = (m - start_month) / 12
-                multiplier = max(0.01, 1.0 - rate * years_since)
+                multiplier = max(THRESHOLDS.minimum_effort_multiplier, 1.0 - rate * years_since)
                 scen.fishing.ForcedEffort[m, 1:] = multiplier
         
         elif scenario_type == "closure":
@@ -1068,10 +1199,32 @@ def ecosim_server(
             return
         
         try:
-            ui.notification_show("Running simulation...", type="message", duration=2)
-            
-            # Run simulation
-            output = rsim_run(scen, method=input.integration_method())
+            # Check if diet rewiring is enabled
+            diet_rewiring_enabled = input.enable_diet_rewiring()
+
+            if diet_rewiring_enabled:
+                ui.notification_show("Running simulation with diet rewiring...", type="message", duration=2)
+
+                # Create diet rewiring configuration
+                diet_rewiring = DietRewiring(
+                    enabled=True,
+                    switching_power=input.switching_power(),
+                    update_interval=int(input.rewiring_interval()),
+                    min_proportion=input.min_diet_proportion()
+                )
+
+                # Run advanced simulation with diet rewiring
+                output = rsim_run_advanced(
+                    scen,
+                    state_forcing=None,
+                    diet_rewiring=diet_rewiring,
+                    method=input.integration_method()
+                )
+            else:
+                ui.notification_show("Running simulation...", type="message", duration=2)
+
+                # Run standard simulation
+                output = rsim_run(scen, method=input.integration_method())
 
             sim_output.set(output)
             sim_results.set(output)
@@ -1090,7 +1243,7 @@ def ecosim_server(
                 # Check if groups recovered
                 final_biomass = {i: output.end_state.Biomass[i] for i in output.crashed_groups}
                 recovered = [name for i, name in zip(output.crashed_groups, crashed_names)
-                            if output.end_state.Biomass[i] > 0.01]
+                            if output.end_state.Biomass[i] > THRESHOLDS.recovery_threshold]
 
                 if recovered:
                     msg = f"Low biomass detected in year {output.crash_year} ({groups_str}). "
@@ -1103,7 +1256,10 @@ def ecosim_server(
 
                 ui.notification_show(msg, type=msg_type, duration=10)
             else:
-                ui.notification_show("Simulation completed successfully!", type="message")
+                success_msg = "Simulation completed successfully!"
+                if diet_rewiring_enabled:
+                    success_msg += " Diet rewiring was applied."
+                ui.notification_show(success_msg, type="message")
             
         except Exception as e:
             ui.notification_show(f"Simulation error: {str(e)}", type="error")
@@ -1134,7 +1290,7 @@ def ecosim_server(
 
             # Check if groups recovered
             recovered = [name for i, name in zip(output.crashed_groups, crashed_names)
-                        if output.end_state.Biomass[i] > 0.01]
+                        if output.end_state.Biomass[i] > THRESHOLDS.recovery_threshold]
 
             if recovered:
                 msg = f"Low biomass detected in year {output.crash_year} for: {groups_str}. "

@@ -9,10 +9,7 @@ import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend
 import matplotlib.pyplot as plt
 
-# Import pypath
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
+# pypath imports (path setup handled by app/__init__.py)
 from pypath.core.analysis import (
     calculate_network_indices,
     summarize_ecosim_output,
@@ -28,6 +25,23 @@ from pypath.core.plotting import (
     plot_mti_heatmap,
     plot_trophic_spectrum,
 )
+
+# Import centralized logger and config
+try:
+    from app.logger import get_logger
+    from app.pages.utils import is_balanced_model
+    from app.config import UI, THRESHOLDS
+    logger = get_logger(__name__)
+except ModuleNotFoundError:
+    import sys
+    from pathlib import Path as PathLib
+    app_dir = PathLib(__file__).parent.parent
+    if str(app_dir) not in sys.path:
+        sys.path.insert(0, str(app_dir))
+    from logger import get_logger
+    from pages.utils import is_balanced_model
+    from config import UI, THRESHOLDS
+    logger = get_logger(__name__)
 
 
 def analysis_ui():
@@ -57,11 +71,11 @@ def analysis_ui():
                             ui.output_ui("flow_indices"),
                         ),
                     ),
-                    col_widths=[6, 6]
+                    col_widths=[UI.col_width_medium, UI.col_width_medium]
                 ),
-                
+
                 ui.h5("Food Web Structure", class_="mt-4"),
-                ui.output_plot("analysis_foodweb_plot", height="500px"),
+                ui.output_plot("analysis_foodweb_plot", height=UI.plot_height_medium_px),
             ),
             
             # Trophic Analysis
@@ -89,7 +103,7 @@ def analysis_ui():
                                     "production": "Production",
                                 }
                             ),
-                            ui.output_plot("trophic_spectrum_plot", height="400px"),
+                            ui.output_plot("trophic_spectrum_plot", height=UI.plot_height_small_px),
                         ),
                     ),
                     col_widths=[5, 7]
@@ -107,7 +121,7 @@ def analysis_ui():
                 
                 ui.output_ui("mti_status"),
                 
-                ui.output_plot("mti_heatmap_plot", height="600px"),
+                ui.output_plot("mti_heatmap_plot", height=UI.plot_height_large_px),
                 
                 ui.tags.hr(),
                 
@@ -125,10 +139,11 @@ def analysis_ui():
                             ui.output_table("mti_negative_table"),
                         ),
                     ),
-                    col_widths=[6, 6]
+                    col_widths=[UI.col_width_medium, UI.col_width_medium]
                 ),
             ),
-            
+
+
             # Keystoneness
             ui.nav_panel(
                 "Keystoneness",
@@ -150,7 +165,7 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("Keystoneness vs Biomass"),
                         ui.card_body(
-                            ui.output_plot("keystoneness_plot", height="400px"),
+                            ui.output_plot("keystoneness_plot", height=UI.plot_height_small_px),
                         ),
                     ),
                     col_widths=[5, 7]
@@ -175,7 +190,7 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("EE Values"),
                         ui.card_body(
-                            ui.output_plot("analysis_ee_plot", height="400px"),
+                            ui.output_plot("analysis_ee_plot", height=UI.plot_height_small_px),
                         ),
                     ),
                     col_widths=[5, 7]
@@ -206,9 +221,9 @@ def analysis_ui():
                             ui.output_table("export_diet_table"),
                         ),
                     ),
-                    col_widths=[6, 6]
+                    col_widths=[UI.col_width_medium, UI.col_width_medium]
                 ),
-                
+
                 ui.tags.hr(),
                 
                 ui.download_button("download_model_data", "Download All Data (CSV)", class_="btn-primary"),
@@ -234,7 +249,7 @@ def analysis_server(
         if data is None:
             return None
         # Check if it's a balanced model (Rpath) or just params
-        if hasattr(data, 'trophic_level'):
+        if is_balanced_model(data):
             return data
         return None
     
@@ -247,7 +262,7 @@ def analysis_server(
         try:
             return calculate_network_indices(model)
         except Exception as e:
-            print(f"Error calculating network indices: {e}")
+            logger.error(f"Error calculating network indices: {e}", exc_info=True)
             return None
     
     @reactive.calc
@@ -259,7 +274,7 @@ def analysis_server(
         try:
             return mixed_trophic_impacts(model)
         except Exception as e:
-            print(f"Error calculating MTI: {e}")
+            logger.error(f"Error calculating MTI: {e}", exc_info=True)
             return None
     
     @reactive.calc
@@ -271,7 +286,7 @@ def analysis_server(
         try:
             return keystoneness_index(model)
         except Exception as e:
-            print(f"Error calculating keystoneness: {e}")
+            logger.error(f"Error calculating keystoneness: {e}", exc_info=True)
             return None
     
     @reactive.calc
@@ -283,7 +298,7 @@ def analysis_server(
         try:
             return check_ecopath_balance(model)
         except Exception as e:
-            print(f"Error checking balance: {e}")
+            logger.error(f"Error checking balance: {e}", exc_info=True)
             return None
     
     # === Network Analysis ===
@@ -436,7 +451,8 @@ def analysis_server(
             })
             df = df.sort_values('Trophic Level', ascending=False).head(15)
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting trophic data: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract trophic data']})
     
     @output
@@ -519,7 +535,8 @@ def analysis_server(
             df = df.nlargest(10, 'Impact')
             df['Impact'] = df['Impact'].round(4)
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting positive impacts: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract impacts']})
     
     @output
@@ -549,7 +566,8 @@ def analysis_server(
             df = df.nsmallest(10, 'Impact')
             df['Impact'] = df['Impact'].round(4)
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting negative impacts: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract impacts']})
     
     # === Keystoneness ===
@@ -586,7 +604,8 @@ def analysis_server(
             })
             df = df.sort_values('Keystoneness', ascending=False).head(10)
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting keystoneness data: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract keystoneness']})
     
     @output
@@ -608,17 +627,17 @@ def analysis_server(
             valid = (biomass > 0) & (~np.isnan(ks[:len(biomass)]))
             
             scatter = ax.scatter(
-                np.log10(biomass[valid] + 0.001), 
-                ks[:len(biomass)][valid], 
-                s=100, 
+                np.log10(biomass[valid] + THRESHOLDS.log_offset_small),
+                ks[:len(biomass)][valid],
+                s=100,
                 alpha=0.7,
                 c='steelblue'
             )
-            
+
             # Annotate top species
             for i, (g, b, k) in enumerate(zip(groups[valid], biomass[valid], ks[:len(biomass)][valid])):
                 if k > np.percentile(ks[~np.isnan(ks)], 75):
-                    ax.annotate(g, (np.log10(b + 0.001), k), fontsize=8, ha='left')
+                    ax.annotate(g, (np.log10(b + THRESHOLDS.log_offset_small), k), fontsize=8, ha='left')
             
             ax.set_xlabel('Log10(Biomass)')
             ax.set_ylabel('Keystoneness Index')
@@ -744,9 +763,10 @@ def analysis_server(
             
             # Mark issues
             df['Status'] = np.where(ee > 1, '⚠️ EE>1', '✓')
-            
+
             return df
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting balance diagnostics: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract diagnostics']})
     
     # === Export Data ===
@@ -776,7 +796,8 @@ def analysis_server(
             df = model.params.model[['Group', 'Type', 'Biomass', 'PB', 'QB', 'EE']].copy()
             df = df.round(3)
             return df.head(15)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting model parameters: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract parameters']})
     
     @output
@@ -793,7 +814,8 @@ def analysis_server(
             # Show only first 10 columns
             cols = diet.columns[:10].tolist()
             return diet[cols].head(10)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error extracting diet matrix: {e}", exc_info=True)
             return pd.DataFrame({'Message': ['Could not extract diet matrix']})
     
     @output

@@ -1,0 +1,185 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 0,
+        "name": "Nearshore North",
+        "habitat_type": "shallow"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [20.0, 55.5],
+          [20.5, 55.5],
+          [20.5, 56.0],
+          [20.0, 56.0],
+          [20.0, 55.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "name": "Nearshore Central",
+        "habitat_type": "shallow"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [20.0, 55.0],
+          [20.5, 55.0],
+          [20.5, 55.5],
+          [20.0, 55.5],
+          [20.0, 55.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "name": "Nearshore South",
+        "habitat_type": "shallow"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [20.0, 54.5],
+          [20.5, 54.5],
+          [20.5, 55.0],
+          [20.0, 55.0],
+          [20.0, 54.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "name": "Shelf North",
+        "habitat_type": "mid_depth"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [20.5, 55.5],
+          [21.5, 55.5],
+          [21.5, 56.0],
+          [20.5, 56.0],
+          [20.5, 55.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 4,
+        "name": "Shelf Central",
+        "habitat_type": "mid_depth"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [20.5, 55.0],
+          [21.5, 55.0],
+          [21.5, 55.5],
+          [20.5, 55.5],
+          [20.5, 55.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 5,
+        "name": "Shelf South",
+        "habitat_type": "mid_depth"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [20.5, 54.5],
+          [21.5, 54.5],
+          [21.5, 55.0],
+          [20.5, 55.0],
+          [20.5, 54.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 6,
+        "name": "Offshore North",
+        "habitat_type": "deep"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [21.5, 55.5],
+          [22.5, 55.5],
+          [22.5, 56.0],
+          [21.5, 56.0],
+          [21.5, 55.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 7,
+        "name": "Offshore Central",
+        "habitat_type": "deep"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [21.5, 55.0],
+          [22.5, 55.0],
+          [22.5, 55.5],
+          [21.5, 55.5],
+          [21.5, 55.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 8,
+        "name": "Offshore South",
+        "habitat_type": "deep"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [21.5, 54.5],
+          [22.5, 54.5],
+          [22.5, 55.0],
+          [21.5, 55.0],
+          [21.5, 54.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 9,
+        "name": "Small Bay",
+        "habitat_type": "sheltered"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [20.2, 55.2],
+          [20.4, 55.2],
+          [20.4, 55.4],
+          [20.2, 55.4],
+          [20.2, 55.2]
+        ]]
+      }
+    }
+  ]
+}

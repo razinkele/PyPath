@@ -29,6 +29,7 @@
 
 ### Ecopath with Ecosim
 - **Ecopath**: Mass-balance food web modeling with multi-stanza support
+- **Pre-Balance Diagnostics**: Comprehensive model validation before balancing (NEW)
 - **Ecosim**: Dynamic simulation using foraging arena theory
 - **Multi-stanza groups**: Age-structured populations with von Bertalanffy growth
 - **Fishing fleets**: Multiple gears with effort dynamics
@@ -109,8 +110,17 @@ result = bayesian_optimize_ecosim(
 Modern Shiny interface with advanced features.
 
 ```bash
-# Launch interactive dashboard
-python -m app.app
+# Method 1: Using CLI (recommended)
+shiny run app/app.py
+
+# Method 2: Using run script
+python run_app.py
+
+# Custom port
+python run_app.py --port 8080
+
+# Development mode with auto-reload (not for production)
+python run_app.py --reload
 ```
 
 **Features:**
@@ -124,21 +134,36 @@ python -m app.app
 
 ### From PyPI (recommended)
 ```bash
+# Core package
 pip install pypath-ecopath
+
+# With web dashboard
+pip install pypath-ecopath[web]
+
+# Everything (including dev tools)
+pip install pypath-ecopath[all]
 ```
 
 ### From source
 ```bash
 git clone https://github.com/your-org/pypath.git
 cd pypath
+
+# Core only
+pip install -e .
+
+# With web dashboard
+pip install -e ".[web]"
+
+# Everything
 pip install -e ".[all]"
 ```
 
 ### Requirements
 - Python 3.10+
-- NumPy, SciPy, pandas
+- NumPy, SciPy, pandas (core dependencies)
+- shiny, shinyswatch, uvicorn (web dashboard - install with `[web]` extra)
 - scikit-optimize (for Bayesian optimization)
-- shiny (for web interface)
 
 ## Quick Start
 
@@ -159,6 +184,29 @@ output = pp.rsim_run(scenario, method='RK4')
 
 # Visualize results
 pp.plot_biomass(output, groups=['Fish', 'Zooplankton'])
+```
+
+### Pre-Balance Diagnostics
+```python
+from pypath.analysis import generate_prebalance_report, print_prebalance_summary
+
+# Read unbalanced model
+params = pp.read_eweaccdb('my_model.eweaccdb')
+
+# Run diagnostics BEFORE balancing
+report = generate_prebalance_report(params)
+print_prebalance_summary(report)
+
+# Check for issues
+if len(report['warnings']) > 0:
+    print("Issues detected - fix before balancing!")
+    for warning in report['warnings']:
+        print(f"  - {warning}")
+
+# Visualize diagnostics
+from pypath.analysis import plot_biomass_vs_trophic_level
+fig = plot_biomass_vs_trophic_level(params)
+fig.savefig('prebalance_diagnostics.png')
 ```
 
 ### Advanced: Forcing + Diet Rewiring
@@ -313,6 +361,7 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 | Core Ecopath/Ecosim | ✅ | ✅ |
 | Multi-stanza groups | ✅ | ✅ |
 | .eweaccdb import | ✅ | ✅ |
+| Pre-balance diagnostics | Limited | Comprehensive ⭐ |
 | State-variable forcing | ❌ | ✅ ⭐ |
 | Dynamic diet rewiring | ❌ | ✅ ⭐ |
 | Bayesian optimization | ❌ | ✅ ⭐ |
@@ -336,11 +385,40 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 - ✅ Automatic model fixing (tested)
 
 **Roadmap:**
-- [ ] Spatial Ecosim
-- [ ] Ecospace integration
+- [x] Spatial Ecospace (completed Dec 2025)
+- [x] Comprehensive code refactoring (completed Dec 2025)
 - [ ] Advanced fishing gear selectivity
 - [ ] Real-time data streaming
 - [ ] Cloud deployment tools
+
+## Code Quality & Maintainability
+
+PyPath underwent comprehensive refactoring (December 2025) to establish professional-grade code quality and maintainability standards.
+
+### Refactoring Highlights
+- ✅ **Centralized Configuration** - 60+ constants in unified config system
+- ✅ **Zero Magic Numbers** - 64 hardcoded values eliminated
+- ✅ **Helper Functions** - Reusable utilities eliminate code duplication
+- ✅ **Comprehensive Style Guide** - 600+ line coding standards document
+- ✅ **Standardized Patterns** - Consistent imports, error handling, documentation
+- ✅ **Production-Ready Codebase** - Clean, maintainable, extensible
+
+### Configuration System
+All application constants are centralized in `app/config.py`:
+- **UIConfig**: Layout dimensions, plot heights, column widths
+- **ThresholdsConfig**: Algorithmic thresholds, model parameters
+- **ParameterRangesConfig**: UI slider bounds, input validation ranges
+- **Plus 6 more**: Display, Plots, Colors, Defaults, Spatial, Validation
+
+**Benefits**: Single source of truth, easy global changes, self-documenting code
+
+### Developer Resources
+- **Style Guide**: `app/STYLE_GUIDE.md` - Complete coding conventions
+- **Helper Functions**: `app/pages/utils.py` - Reusable utilities
+- **Type Checking**: `is_balanced_model()`, `is_rpath_params()`, `get_model_type()`
+- **Error Handling**: Centralized logging with `app/logger.py`
+
+See [PHASE2_COMPLETE_2025-12-19.md](PHASE2_COMPLETE_2025-12-19.md) for full refactoring details.
 
 ## Contributing
 

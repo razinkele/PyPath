@@ -399,8 +399,8 @@ def rsim_stanzas(rpath_params: Any, state: Any, params: Any) -> RsimStanzas:
     rstan.base_qage_s = np.full((max_months, n_split + 1), np.nan)
     rstan.split_alpha = np.full((max_months, n_split + 1), np.nan)
     
-    # Stanza pred accumulator
-    s_pred = np.zeros(params.NUM_GROUPS + 1)
+    # Stanza pred accumulator (extra leading slot for 1-based indexing)
+    s_pred = np.zeros(params.NUM_GROUPS + 2)
     
     # Process each stanza group
     for isp in range(n_split):
@@ -586,8 +586,8 @@ def split_update(
             first = int(stanzas.age1[isp, ist])
             last = int(stanzas.age2[isp, ist])
             
-            # Get current mortality from state
-            if hasattr(params, 'MzeroMort') and len(params.MzeroMort) > ieco:
+            # Get current mortality from state (guard against indexing issues)
+            if hasattr(params, 'MzeroMort') and (ieco + 1) < len(params.MzeroMort):
                 m0 = params.MzeroMort[ieco + 1]
             else:
                 m0 = 0.0
@@ -621,7 +621,7 @@ def split_set_pred(
     if stanzas.n_split == 0:
         return
     
-    s_pred = np.zeros(params.NUM_GROUPS + 1)
+    s_pred = np.zeros(params.NUM_GROUPS + 2)
     
     for isp in range(1, stanzas.n_split + 1):
         n_stanzas = stanzas.n_stanzas[isp]

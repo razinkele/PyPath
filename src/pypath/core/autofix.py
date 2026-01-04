@@ -4,6 +4,7 @@ This module provides diagnostic and automatic fixing routines to prevent
 simulation crashes and improve model stability.
 """
 
+import logging
 import numpy as np
 from typing import Dict, Any, Tuple
 from dataclasses import dataclass
@@ -11,6 +12,19 @@ from dataclasses import dataclass
 from .ecopath import Rpath
 from .ecosim import RsimScenario, RsimParams
 from .params import RpathParams
+from .constants import (
+    MAX_VULNERABILITY_SAFE,
+    MIN_BIOMASS_VIABLE,
+    MAX_QQ_SAFE,
+    DEFAULT_PREY_SWITCHING_POWER,
+    MIN_PREY_SWITCHING_POWER,
+    MIN_QB_PB_RATIO,
+    MAX_QB_PB_RATIO,
+    DIET_SUM_THRESHOLD
+)
+
+# Get logger
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -80,65 +94,79 @@ def diagnose_crash_causes(
                 'fix': 'Increase initial biomass or remove group'
             })
 
-    # 3. Check for very high vulnerability (VV >> 2)
-    for i in range(len(params.VV)):
-        if params.VV[i] > 10.0:
-            prey_idx = params.PreyFrom[i]
-            pred_idx = params.PreyTo[i]
-            issues['warnings'].append({
-                'type': 'high_vulnerability',
-                'link': i,
-                'prey': prey_idx,
-                'predator': pred_idx,
-                'value': params.VV[i],
-                'message': f"Link {i}: VV = {params.VV[i]:.2f} (very high vulnerability)",
-                'fix': 'Reduce vulnerability to prevent rapid depletion'
+    # 3. Check for very high vulnerability (VV >> 2) - vectorized
+    high_vv_mask = params.VV > MAX_VULNERABILITY_SAFE
+    high_vv_indices = np.where(high_vv_mask)[0]
+    for i in high_vv_indices:
+        prey_idx = params.PreyFrom[i]
+        pred_idx = params.PreyTo[i]
+        issues['warnings'].append({
+            'type': 'high_vulnerability',
+            'link': i,
+            'prey': prey_idx,
+            'predator': pred_idx,
+            'value': params.VV[i],
+            'message': f"Link {i}: VV = {params.VV[i]:.2f} (very high vulnerability)",
+            'fix': 'Reduce vulnerability to prevent rapid depletion'
+        })
+
+    # 4. Check for unrealistic QB/PB ratios - vectorized
+    living_indices = np.arange(1, rpath.NUM_LIVING + 1)
+    qb = np.array(rpath.QB[1:rpath.NUM_LIVING + 1])
+    pb = np.array(rpath.PB[1:rpath.NUM_LIVING + 1])
+
+    # Only check where both QB and PB are positive
+    valid_mask = (qb > 0) & (pb > 0)
+    qb_pb_ratio = np.divide(qb, pb, where=valid_mask, out=np.zeros_like(qb))
+
+    # GE = PB/QB should be between 0.05 and 0.5 for most consumers
+    unrealistic_mask = valid_mask & ((qb_pb_ratio < MIN_QB_PB_RATIO) | (qb_pb_ratio > MAX_QB_PB_RATIO))
+    unrealistic_indices = living_indices[unrealistic_mask]
+
+    for idx, i in enumerate(unrealistic_indices):
+        ratio = qb_pb_ratio[i - 1]  # Adjust index for 0-based array
+        issues['warnings'].append({
+            'type': 'unrealistic_qb_pb',
+            'group': i,
+            'qb': rpath.QB[i],
+            'pb': rpath.PB[i],
+            'ratio': ratio,
+            'message': f"Group {i} ({rpath.Group[i]}): QB/PB = {ratio:.2f} (unusual)",
+            'fix': 'Check QB and PB values - GE should be 0.05-0.5'
+        })
+
+    # 5. Check for very high QQ (density-dependent catchability) - vectorized
+    high_qq_mask = params.QQ > MAX_QQ_SAFE
+    high_qq_indices = np.where(high_qq_mask)[0]
+    for i in high_qq_indices:
+        prey_idx = params.PreyFrom[i]
+        pred_idx = params.PreyTo[i]
+        issues['recommendations'].append({
+            'type': 'high_qq',
+            'link': i,
+            'value': params.QQ[i],
+            'message': f"Link {i}: QQ = {params.QQ[i]:.2f} (strong density dependence)",
+            'fix': 'Consider reducing QQ to avoid rapid crashes'
+        })
+
+    # 6. Check for missing prey (predator with no food) - vectorized
+    # Identify consumers (QB > 0)
+    consumer_mask = np.array([rpath.QB[i] > 0 for i in range(1, rpath.NUM_LIVING + 1)])
+    consumer_indices = np.arange(1, rpath.NUM_LIVING + 1)[consumer_mask]
+
+    # Calculate diet totals for all consumers at once
+    for pred in consumer_indices:
+        # Sum diet proportions (only living groups can be prey in DC)
+        total_diet = np.sum(rpath.DC[pred, :rpath.NUM_LIVING])
+
+        if total_diet < DIET_SUM_THRESHOLD:  # Diet should sum to ~1
+            issues['critical'].append({
+                'type': 'incomplete_diet',
+                'group': pred,
+                'diet_sum': total_diet,
+                'message': f"Group {pred} ({rpath.Group[pred]}): Diet sums to {total_diet:.3f} < 1.0",
+                'fix': 'Complete diet composition or add import'
             })
-
-    # 4. Check for unrealistic QB/PB ratios
-    for i in range(1, rpath.NUM_LIVING + 1):
-        if rpath.QB[i] > 0 and rpath.PB[i] > 0:
-            qb_pb_ratio = rpath.QB[i] / rpath.PB[i]
-            # GE = PB/QB should be between 0.05 and 0.5 for most consumers
-            if qb_pb_ratio < 2.0 or qb_pb_ratio > 20.0:
-                issues['warnings'].append({
-                    'type': 'unrealistic_qb_pb',
-                    'group': i,
-                    'qb': rpath.QB[i],
-                    'pb': rpath.PB[i],
-                    'ratio': qb_pb_ratio,
-                    'message': f"Group {i} ({rpath.Group[i]}): QB/PB = {qb_pb_ratio:.2f} (unusual)",
-                    'fix': 'Check QB and PB values - GE should be 0.05-0.5'
-                })
-
-    # 5. Check for very high QQ (density-dependent catchability)
-    for i in range(len(params.QQ)):
-        if params.QQ[i] > 5.0:
-            prey_idx = params.PreyFrom[i]
-            pred_idx = params.PreyTo[i]
-            issues['recommendations'].append({
-                'type': 'high_qq',
-                'link': i,
-                'value': params.QQ[i],
-                'message': f"Link {i}: QQ = {params.QQ[i]:.2f} (strong density dependence)",
-                'fix': 'Consider reducing QQ to avoid rapid crashes'
-            })
-
-    # 6. Check for missing prey (predator with no food)
-    for pred in range(1, rpath.NUM_LIVING + 1):
-        if rpath.QB[pred] > 0:  # Is a consumer
-            total_diet = 0
-            for prey in range(rpath.NUM_LIVING):  # Only living groups can be prey in DC
-                total_diet += rpath.DC[pred, prey]
-
-            if total_diet < 0.9:  # Diet should sum to ~1
-                issues['critical'].append({
-                    'type': 'incomplete_diet',
-                    'group': pred,
-                    'diet_sum': total_diet,
-                    'message': f"Group {pred} ({rpath.Group[pred]}): Diet sums to {total_diet:.3f} < 1.0",
-                    'fix': 'Complete diet composition or add import'
-                })
 
     return issues
 
@@ -183,12 +211,11 @@ def autofix_parameters(
             fixes_applied.append(f"Capped VV[{i}] from {original[f'VV_{i}']:.2f} to {max_vv}")
 
     # Fix 2: Ensure minimum biomass
-    min_biomass = 0.001
     for i in range(1, rpath.NUM_LIVING + 1):
-        if fixed_params.B_BaseRef[i] < min_biomass and fixed_params.B_BaseRef[i] > 0:
+        if fixed_params.B_BaseRef[i] < MIN_BIOMASS_VIABLE and fixed_params.B_BaseRef[i] > 0:
             original[f'B_{i}'] = fixed_params.B_BaseRef[i]
-            fixed_params.B_BaseRef[i] = min_biomass
-            fixes_applied.append(f"Increased B[{i}] from {original[f'B_{i}']:.6f} to {min_biomass}")
+            fixed_params.B_BaseRef[i] = MIN_BIOMASS_VIABLE
+            fixes_applied.append(f"Increased B[{i}] from {original[f'B_{i}']:.6f} to {MIN_BIOMASS_VIABLE}")
 
     # Fix 3: Reduce QQ for very strong density dependence
     max_qq = 3.0 if not aggressive else 2.0
@@ -200,11 +227,11 @@ def autofix_parameters(
 
     # Fix 4: Adjust DD (prey switching) for extreme values
     for i in range(len(fixed_params.DD)):
-        if fixed_params.DD[i] > 5.0:
+        if fixed_params.DD[i] > MAX_PREY_SWITCHING_POWER:
             original[f'DD_{i}'] = fixed_params.DD[i]
-            fixed_params.DD[i] = 2.0  # More moderate prey switching
-            fixes_applied.append(f"Reduced DD[{i}] from {original[f'DD_{i}']:.2f} to 2.0")
-        elif fixed_params.DD[i] < 0.1:
+            fixed_params.DD[i] = DEFAULT_PREY_SWITCHING_POWER  # More moderate prey switching
+            fixes_applied.append(f"Reduced DD[{i}] from {original[f'DD_{i}']:.2f} to {DEFAULT_PREY_SWITCHING_POWER}")
+        elif fixed_params.DD[i] < MIN_PREY_SWITCHING_POWER:
             original[f'DD_{i}'] = fixed_params.DD[i]
             fixed_params.DD[i] = 1.0
             fixes_applied.append(f"Increased DD[{i}] from {original[f'DD_{i}']:.2f} to 1.0")
@@ -269,19 +296,19 @@ def validate_and_fix_scenario(
         report['issues'] = diagnosis['critical']
 
         if verbose:
-            print("=" * 70)
-            print("CRITICAL ISSUES DETECTED")
-            print("=" * 70)
+            logger.warning("=" * 70)
+            logger.warning("CRITICAL ISSUES DETECTED")
+            logger.warning("=" * 70)
             for issue in diagnosis['critical']:
-                print(f"  • {issue['message']}")
-                print(f"    Fix: {issue['fix']}")
+                logger.warning(f"  • {issue['message']}")
+                logger.warning(f"    Fix: {issue['fix']}")
 
     # Apply automatic fixes if requested
     if auto_fix and (diagnosis['critical'] or diagnosis['warnings']):
         if verbose:
-            print("\n" + "=" * 70)
-            print("APPLYING AUTOMATIC FIXES")
-            print("=" * 70)
+            logger.info("=" * 70)
+            logger.info("APPLYING AUTOMATIC FIXES")
+            logger.info("=" * 70)
 
         fixed_params, fix_result = autofix_parameters(rpath, scenario.params)
 
@@ -292,29 +319,29 @@ def validate_and_fix_scenario(
 
             if verbose:
                 for fix in fix_result.fixes_applied:
-                    print(f"  ✓ {fix}")
+                    logger.info(f"  ✓ {fix}")
 
         if fix_result.warnings:
             report['warnings'] = fix_result.warnings
             if verbose:
-                print("\nWARNINGS:")
+                logger.warning("WARNINGS:")
                 for warning in fix_result.warnings:
-                    print(f"  ⚠ {warning}")
+                    logger.warning(f"  ⚠ {warning}")
 
-    # Print recommendations
+    # Log recommendations
     if verbose and diagnosis['recommendations']:
-        print("\n" + "=" * 70)
-        print("RECOMMENDATIONS")
-        print("=" * 70)
+        logger.info("=" * 70)
+        logger.info("RECOMMENDATIONS")
+        logger.info("=" * 70)
         for rec in diagnosis['recommendations']:
-            print(f"  • {rec['message']}")
+            logger.info(f"  • {rec['message']}")
 
     if verbose:
-        print("\n" + "=" * 70)
+        logger.info("=" * 70)
         if report['valid']:
-            print("VALIDATION: PASSED ✓")
+            logger.info("VALIDATION: PASSED ✓")
         else:
-            print("VALIDATION: FAILED - Manual fixes required")
-        print("=" * 70)
+            logger.warning("VALIDATION: FAILED - Manual fixes required")
+        logger.info("=" * 70)
 
     return scenario, report

@@ -16,7 +16,7 @@ import pandas as pd
 
 from pypath.core.ecopath import Rpath
 from pypath.core.params import RpathParams
-from pypath.core.stanzas import RsimStanzas, split_update, split_set_pred
+from pypath.core.stanzas import RsimStanzas, split_update, split_set_pred, rpath_stanzas, rsim_stanzas
 
 
 # Constants for simulation
@@ -241,7 +241,7 @@ class RsimFishing:
 @dataclass
 class RsimScenario:
     """Complete Ecosim simulation scenario.
-    
+
     Attributes
     ----------
     params : RsimParams
@@ -258,14 +258,22 @@ class RsimScenario:
         Ecosystem name
     start_year : int
         First year of simulation
+    ecospace : EcospaceParams, optional
+        Spatial ECOSPACE parameters (if None, runs non-spatial Ecosim)
+    environmental_drivers : EnvironmentalDrivers, optional
+        Time-varying environmental layers for habitat capacity
     """
     params: RsimParams
     start_state: RsimState
     forcing: RsimForcing
     fishing: RsimFishing
     stanzas: Optional[RsimStanzas] = None
+    # Optional stanza biomass time series (filled during run if stanzas present)
+    stanza_biomass: Optional[np.ndarray] = None
     eco_name: str = ""
     start_year: int = 1
+    ecospace: Optional['EcospaceParams'] = None  # Forward reference to avoid circular import
+    environmental_drivers: Optional['EnvironmentalDrivers'] = None
 
 
 @dataclass
@@ -288,6 +296,8 @@ class RsimOutput:
         Annual Q/B values
     annual_Qlink : np.ndarray
         Annual consumption by pred-prey pair
+    stanza_biomass : np.ndarray or None
+        Optional monthly stanza-resolved biomass (n_months x n_groups+1)
     end_state : RsimState
         Final state at end of simulation
     crash_year : int
@@ -310,6 +320,7 @@ class RsimOutput:
     annual_Catch: np.ndarray
     annual_QB: np.ndarray
     annual_Qlink: np.ndarray
+    stanza_biomass: Optional[np.ndarray]
     end_state: RsimState
     crash_year: int
     crashed_groups: set
@@ -776,8 +787,20 @@ def rsim_scenario(
     forcing = rsim_forcing(params, years)
     fishing = rsim_fishing(params, years)
     
-    # TODO: Add stanza handling
+    # Stanza handling: initialize if rpath_params contains stanza definitions
     stanzas = None
+    try:
+        if getattr(rpath_params, 'stanzas', None) is not None and rpath_params.stanzas.n_stanza_groups > 0:
+            # Compute rpath stanza diagnostics (biomass/Q distribution)
+            rpath_stanzas(rpath_params)
+            # Initialize Rsim-compatible stanza parameters
+            stanzas = rsim_stanzas(rpath_params, state, params)
+    except Exception as e:
+        # If stanza initialization fails, continue without stanzas but log via debug
+        import traceback
+        print('DEBUG: stanza initialization failed:', e)
+        traceback.print_exc()
+        stanzas = None
     
     return RsimScenario(
         params=params,
@@ -832,12 +855,28 @@ def rsim_run(
     out_catch = np.zeros((n_months + 1, n_groups))
     out_gear_catch = np.zeros((n_months + 1, params.NumFishingLinks + 1))
     
+    # Optional stanza biomass time series
+    stanza_biomass = np.zeros((n_months + 1, n_groups)) if scenario.stanzas is not None and scenario.stanzas.n_split > 0 else None
+
     # Initialize state
     state = scenario.start_state.Biomass.copy()
     out_biomass[0] = state
+
+    # If stanzas present, compute initial stanza biomass snapshot
+    if stanza_biomass is not None:
+        for isp in range(1, scenario.stanzas.n_split + 1):
+            nst = scenario.stanzas.n_stanzas[isp]
+            for ist in range(1, nst + 1):
+                ieco = int(scenario.stanzas.ecopath_code[isp, ist])
+                first = int(scenario.stanzas.age1[isp, ist])
+                last = int(scenario.stanzas.age2[isp, ist])
+                # Sum biomass across ages for this stanza
+                bio = np.nansum(scenario.stanzas.base_nage_s[first:last + 1, isp] * scenario.stanzas.base_wage_s[first:last + 1, isp])
+                if ieco >= 0 and ieco < n_groups:
+                    stanza_biomass[0, ieco] += bio
+
     
-    # Build params dict for derivative function
-    # Use PP_type from params (already correctly computed based on rpath.type)
+    # Build params dict for derivative and matrix computations
     params_dict = {
         'NUM_GROUPS': params.NUM_GROUPS,
         'NUM_LIVING': params.NUM_LIVING,
@@ -854,7 +893,7 @@ def rsim_run(
         'Bbase': params.B_BaseRef,
         'PP_type': params.PP_type,
     }
-    
+
     # Build fishing dict
     fishing_dict = {
         'FishFrom': params.FishFrom,
@@ -875,7 +914,10 @@ def rsim_run(
     crash_year = -1
     crashed_groups = set()  # Track which groups have crashed
     crash_threshold = 1e-4  # More reasonable threshold (0.0001 vs 0.000001)
-    
+
+    # Initialize annual Qlink accumulator if links exist
+    annual_qlink = np.zeros((n_years, len(params.PreyFrom))) if len(params.PreyFrom) > 0 else None
+
     # Main simulation loop
     for month in range(1, n_months + 1):
         t = month * dt
@@ -919,7 +961,18 @@ def rsim_run(
             # Update predation rates based on new stanza structure
             split_set_pred(scenario.stanzas, temp_state, params)
             # Note: Biomass redistribution among stanza groups handled in split_update
-        
+
+            # Record stanza-resolved biomass for this month
+            for isp in range(1, scenario.stanzas.n_split + 1):
+                nst = scenario.stanzas.n_stanzas[isp]
+                for ist in range(1, nst + 1):
+                    ieco = int(scenario.stanzas.ecopath_code[isp, ist])
+                    first = int(scenario.stanzas.age1[isp, ist])
+                    last = int(scenario.stanzas.age2[isp, ist])
+                    bio = np.nansum(scenario.stanzas.base_nage_s[first:last + 1, isp] * scenario.stanzas.base_wage_s[first:last + 1, isp])
+                    if ieco >= 0 and ieco < n_groups and stanza_biomass is not None:
+                        stanza_biomass[month, ieco] += bio
+
         # Check for crash (biomass < threshold)
         # Use more reasonable threshold to avoid false alarms from numerical noise
         if crash_year < 0:
@@ -933,7 +986,17 @@ def rsim_run(
         
         # Store results
         out_biomass[month] = state
-        
+
+        # Compute consumption QQ matrix for this month to track Qlinks
+        QQ_month = _compute_Q_matrix(params_dict, state, forcing_dict)
+        # Accumulate monthly Q (converted to monthly by dividing by 12)
+        if annual_qlink is not None:
+            for li in range(len(params.PreyFrom)):
+                prey = params.PreyFrom[li]
+                pred = params.PreyTo[li]
+                if prey < QQ_month.shape[0] and pred < QQ_month.shape[1]:
+                    annual_qlink[year_idx, li] += QQ_month[prey, pred] / 12.0
+
         # Calculate catch for this month
         for i in range(1, len(params.FishFrom)):
             grp = params.FishFrom[i]
@@ -953,6 +1016,17 @@ def rsim_run(
         end_m = (yr + 1) * 12 + 1
         annual_biomass[yr] = np.mean(out_biomass[start_m:end_m], axis=0)
         annual_catch[yr] = np.sum(out_catch[start_m:end_m], axis=0)
+
+    # If Qlink accumulation was tracked, ensure shape is set
+    if 'annual_qlink' not in locals():
+        annual_qlink = np.zeros((n_years, len(params.PreyFrom)))
+
+    # If stanza_biomass was not computed (no stanzas), set to None
+    if stanza_biomass is None:
+        stanza_biomass_out = None
+    else:
+        stanza_biomass_out = stanza_biomass
+
     
     # Create end state
     end_state = RsimState(
@@ -978,7 +1052,8 @@ def rsim_run(
         annual_Biomass=annual_biomass,
         annual_Catch=annual_catch,
         annual_QB=annual_qb,
-        annual_Qlink=np.zeros((n_years, len(params.PreyTo))),  # TODO: Implement Qlink tracking
+        annual_Qlink=annual_qlink,
+        stanza_biomass=stanza_biomass_out,
         end_state=end_state,
         crash_year=crash_year,
         crashed_groups=crashed_groups,
@@ -1018,3 +1093,59 @@ def _build_link_matrix(params: RsimParams, link_values: np.ndarray) -> np.ndarra
         if prey < n and pred < n and i < len(link_values):
             matrix[prey, pred] = link_values[i]
     return matrix
+
+
+def _compute_Q_matrix(params_dict: dict, state: np.ndarray, forcing: dict) -> np.ndarray:
+    """Compute consumption matrix QQ for the current state and forcing.
+
+    This mirrors the QQ calculation in `deriv_vector` and is used to
+    accumulate Qlink values for diagnostics.
+    """
+    NUM_GROUPS = params_dict['NUM_GROUPS']
+    NUM_LIVING = params_dict['NUM_LIVING']
+
+    Bbase = params_dict.get('Bbase', state.copy())
+    ActiveLink = params_dict.get('ActiveLink', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1), dtype=bool))
+    VV = params_dict.get('VV', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
+    DD = params_dict.get('DD', np.ones((NUM_GROUPS + 1, NUM_GROUPS + 1)))
+    QQbase = params_dict.get('QQbase', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
+
+    Ftime = forcing.get('Ftime', np.ones(NUM_GROUPS + 1))
+    ForcedPrey = forcing.get('ForcedPrey', np.ones(NUM_GROUPS + 1))
+
+    BB = state.copy()
+
+    # preyYY and predYY
+    preyYY = np.zeros(NUM_GROUPS + 1)
+    for i in range(1, NUM_GROUPS + 1):
+        if Bbase[i] > 0:
+            preyYY[i] = BB[i] / Bbase[i] * ForcedPrey[i]
+
+    predYY = np.zeros(NUM_GROUPS + 1)
+    for i in range(1, NUM_LIVING + 1):
+        if Bbase[i] > 0:
+            predYY[i] = Ftime[i] * BB[i] / Bbase[i]
+
+    QQ = np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1))
+
+    for pred in range(1, NUM_LIVING + 1):
+        if BB[pred] <= 0:
+            continue
+        for prey in range(1, NUM_GROUPS + 1):
+            if not ActiveLink[prey, pred]:
+                continue
+            if BB[prey] <= 0:
+                continue
+            vv = VV[prey, pred]
+            dd = DD[prey, pred]
+            qbase = QQbase[prey, pred]
+            if qbase <= 0:
+                continue
+            PYY = preyYY[prey]
+            PDY = predYY[pred]
+            dd_term = dd / (dd - 1.0 + max(PYY, 1e-10)) if dd > 1.0 else 1.0
+            vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
+            Q_calc = qbase * PDY * PYY * dd_term * vv_term
+            QQ[prey, pred] = max(Q_calc, 0.0)
+
+    return QQ

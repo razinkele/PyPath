@@ -162,7 +162,7 @@ class TestEcoBaseDataClasses:
 class TestListModels:
     """Tests for list_ecobase_models function."""
     
-    @patch('pypath.io.ecobase._fetch_url')
+    @patch('pypath.io.ecobase.fetch_url')
     def test_list_models_success(self, mock_fetch):
         """Test successful model listing."""
         mock_fetch.return_value = SAMPLE_MODEL_LIST_XML
@@ -176,7 +176,7 @@ class TestListModels:
         assert 456 in models['model_number'].values
         assert 789 not in models['model_number'].values  # Private
     
-    @patch('pypath.io.ecobase._fetch_url')
+    @patch('pypath.io.ecobase.fetch_url')
     def test_list_models_no_filter(self, mock_fetch):
         """Test listing all models without public filter."""
         mock_fetch.return_value = SAMPLE_MODEL_LIST_XML
@@ -185,7 +185,7 @@ class TestListModels:
         
         assert len(models) == 3  # All models including private
     
-    @patch('pypath.io.ecobase._fetch_url')
+    @patch('pypath.io.ecobase.fetch_url')
     def test_list_models_network_error(self, mock_fetch):
         """Test network error handling."""
         mock_fetch.side_effect = Exception("Network error")
@@ -198,7 +198,7 @@ class TestListModels:
 class TestGetModel:
     """Tests for get_ecobase_model function."""
     
-    @patch('pypath.io.ecobase._fetch_url')
+    @patch('pypath.io.ecobase.fetch_url')
     def test_get_model_success(self, mock_fetch):
         """Test successful model retrieval."""
         mock_fetch.return_value = SAMPLE_MODEL_DATA_XML
@@ -217,7 +217,7 @@ class TestGetModel:
         first_group = model_data['groups'][0]
         assert first_group['group_name'] == 'Phytoplankton'
     
-    @patch('pypath.io.ecobase._fetch_url')
+    @patch('pypath.io.ecobase.fetch_url')
     def test_get_model_network_error(self, mock_fetch):
         """Test network error handling."""
         mock_fetch.side_effect = Exception("Connection refused")

@@ -9,12 +9,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import sys
-from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
+# pypath imports (path setup handled by app/__init__.py)
 from pypath.core.forcing import (
     create_biomass_forcing,
     create_recruitment_forcing,
@@ -22,6 +18,12 @@ from pypath.core.forcing import (
     StateVariable,
     ForcingMode
 )
+
+# Configuration imports
+try:
+    from app.config import PARAM_RANGES
+except ModuleNotFoundError:
+    from config import PARAM_RANGES
 
 
 def forcing_demo_ui():
@@ -79,14 +81,14 @@ def forcing_demo_ui():
                         "seasonal_amplitude",
                         "Amplitude",
                         min=0.1,
-                        max=2.0,
+                        max=PARAM_RANGES.seasonal_amplitude_max,
                         value=0.5,
                         step=0.1
                     ),
                     ui.input_numeric(
                         "seasonal_baseline",
                         "Baseline Value",
-                        value=15.0,
+                        value=PARAM_RANGES.seasonal_baseline_default,
                         min=0.1,
                         step=0.5
                     )
@@ -111,9 +113,9 @@ def forcing_demo_ui():
                     ui.input_slider(
                         "pulse_strength",
                         "Pulse Strength (multiplier)",
-                        min=0.5,
-                        max=5.0,
-                        value=2.5,
+                        min=PARAM_RANGES.pulse_strength_min,
+                        max=PARAM_RANGES.pulse_strength_max,
+                        value=PARAM_RANGES.pulse_strength_default,
                         step=0.1
                     )
                 ),
@@ -124,7 +126,7 @@ def forcing_demo_ui():
                     class_="btn-primary w-100"
                 ),
                 ui.input_action_button(
-                    "run_demo",
+                    "forcing_run_demo",
                     "Run Demo Simulation",
                     class_="btn-success w-100 mt-2"
                 ),
@@ -144,7 +146,7 @@ def forcing_demo_ui():
                     "Simulation Comparison",
                     ui.card(
                         ui.card_header("Effect of Forcing on Simulation"),
-                        ui.output_ui("comparison_plot"),
+                        ui.output_ui("forcing_comparison_plot"),
                         ui.markdown("""
                         **Blue**: Standard simulation (no forcing)
 
@@ -158,8 +160,8 @@ def forcing_demo_ui():
                     "Code Example",
                     ui.card(
                         ui.card_header("Python Code for This Configuration"),
-                        ui.output_code("code_example"),
-                        ui.download_button("download_code", "Download Code", class_="mt-2")
+                        ui.output_code("forcing_code_example"),
+                        ui.download_button("forcing_download_code", "Download Code", class_="mt-2")
                     )
                 ),
                 ui.nav_panel(
@@ -451,7 +453,7 @@ Data Points: {len(df)}
 
     @output
     @render.ui
-    def comparison_plot():
+    def forcing_comparison_plot():
         """Plot comparison of forced vs unforced simulation."""
         df = time_series_data()
         if df is None:
@@ -533,7 +535,7 @@ Data Points: {len(df)}
 
     @output
     @render.code
-    def code_example():
+    def forcing_code_example():
         """Generate Python code example."""
         forcing_type = input.forcing_type()
         mode = input.forcing_mode()
@@ -611,8 +613,8 @@ plt.show()
 """
         return code
 
-    @session.download(filename="forcing_example.py")
-    def download_code():
+    @render.download(filename="forcing_example.py")
+    def forcing_download_code():
         """Download code example."""
-        code = code_example()
-        yield code
+        code = forcing_code_example()
+        return code
