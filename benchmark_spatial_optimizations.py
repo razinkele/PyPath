@@ -27,7 +27,8 @@ def create_test_grid(n_patches: int) -> EcospaceGrid:
 
     # Create adjacency (connect nearby patches)
     from scipy.spatial.distance import cdist
-    distances = cdist(centroids, centroids, metric='euclidean')
+
+    distances = cdist(centroids, centroids, metric="euclidean")
 
     # Connect patches within threshold distance
     threshold = 2.0
@@ -50,7 +51,7 @@ def create_test_grid(n_patches: int) -> EcospaceGrid:
         patch_areas=patch_areas,
         patch_centroids=centroids,
         adjacency_matrix=adjacency,
-        edge_lengths=edge_lengths
+        edge_lengths=edge_lengths,
     )
 
     return grid
@@ -61,8 +62,8 @@ def benchmark_distance_matrix(grid: EcospaceGrid):
     print(f"\n=== Distance Matrix Calculation ({grid.n_patches} patches) ===")
 
     # Clear cache if exists
-    if hasattr(grid, '_distance_matrix'):
-        delattr(grid, '_distance_matrix')
+    if hasattr(grid, "_distance_matrix"):
+        delattr(grid, "_distance_matrix")
 
     # Benchmark
     start = time.time()
@@ -77,7 +78,9 @@ def benchmark_distance_matrix(grid: EcospaceGrid):
 
 def benchmark_dispersal_flux(grid: EcospaceGrid, n_iterations: int = 100):
     """Benchmark dispersal flux calculation."""
-    print(f"\n=== Dispersal Flux Calculation ({grid.n_patches} patches, {n_iterations} iterations) ===")
+    print(
+        f"\n=== Dispersal Flux Calculation ({grid.n_patches} patches, {n_iterations} iterations) ==="
+    )
 
     # Create test biomass
     biomass = np.random.rand(grid.n_patches) * 100.0
@@ -129,11 +132,13 @@ def main():
         n_iter = max(10, 1000 // n_patches)  # Fewer iterations for large grids
         time_flux = benchmark_dispersal_flux(grid, n_iterations=n_iter)
 
-        results.append({
-            'n_patches': n_patches,
-            'time_dist': time_dist,
-            'time_flux_per_iter': time_flux / n_iter
-        })
+        results.append(
+            {
+                "n_patches": n_patches,
+                "time_dist": time_dist,
+                "time_flux_per_iter": time_flux / n_iter,
+            }
+        )
 
     # Summary
     print(f"\n{'='*70}")
@@ -144,7 +149,9 @@ def main():
     print("-" * 70)
 
     for r in results:
-        print(f"{r['n_patches']:<10} {r['time_dist']:<20.4f} {r['time_flux_per_iter']*1000:<20.2f}")
+        print(
+            f"{r['n_patches']:<10} {r['time_dist']:<20.4f} {r['time_flux_per_iter']*1000:<20.2f}"
+        )
 
     print(f"\n{'='*70}")
     print("KEY FINDINGS:")
@@ -155,8 +162,12 @@ def main():
     print(f"   - Speedup vs nested loops: ~50-100x (estimated)")
 
     print("\n2. Dispersal Flux Calculation:")
-    print(f"   - 100 patches: {results[1]['time_flux_per_iter']*1000:.2f}ms per iteration")
-    print(f"   - 1000 patches: {results[4]['time_flux_per_iter']*1000:.2f}ms per iteration")
+    print(
+        f"   - 100 patches: {results[1]['time_flux_per_iter']*1000:.2f}ms per iteration"
+    )
+    print(
+        f"   - 1000 patches: {results[4]['time_flux_per_iter']*1000:.2f}ms per iteration"
+    )
     print(f"   - Speedup vs nested loops: ~10-30x (estimated)")
 
     print("\n3. Memory Usage:")

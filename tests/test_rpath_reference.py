@@ -38,6 +38,7 @@ BIOMASS_TOLERANCE = 1e-4  # Slightly relaxed for trajectories
 # Fixtures for loading reference data
 # =============================================================================
 
+
 @pytest.fixture(scope="module")
 def reference_data_available():
     """Check if reference data is available."""
@@ -55,8 +56,8 @@ def rpath_params(reference_data_available):
     diet_df = pd.read_csv(ECOPATH_DIR / "diet_matrix.csv")
 
     # Create RpathParams with groups and types from model_df
-    groups = model_df['Group'].tolist()
-    types = model_df['Type'].tolist()
+    groups = model_df["Group"].tolist()
+    types = model_df["Type"].tolist()
 
     params = create_rpath_params(groups, types)
     params.model = model_df
@@ -79,7 +80,7 @@ def rpath_reference(reference_data_available):
     if not reference_data_available:
         pytest.skip("Reference data not available")
 
-    with open(ECOPATH_DIR / "balanced_model.json", 'r') as f:
+    with open(ECOPATH_DIR / "balanced_model.json", "r") as f:
         return json.load(f)
 
 
@@ -95,7 +96,7 @@ def ecosim_reference(reference_data_available):
     if not reference_data_available:
         pytest.skip("Reference data not available")
 
-    with open(ECOSIM_DIR / "ecosim_params.json", 'r') as f:
+    with open(ECOSIM_DIR / "ecosim_params.json", "r") as f:
         return json.load(f)
 
 
@@ -109,93 +110,103 @@ def pypath_ecosim(pypath_model, rpath_params):
 # Test Ecopath Balance
 # =============================================================================
 
+
 @pytest.mark.skipif(not REFERENCE_DIR.exists(), reason="Reference data not available")
 class TestEcopathBalance:
     """Test Ecopath balancing against Rpath outputs."""
 
     def test_biomass_matches(self, pypath_model, rpath_reference):
         """Test that balanced biomass matches Rpath."""
-        rpath_biomass = np.array(rpath_reference['Biomass'])
+        rpath_biomass = np.array(rpath_reference["Biomass"])
         pypath_biomass = pypath_model.Biomass
 
         # Compare non-zero biomass values
         for i, (r_bio, p_bio) in enumerate(zip(rpath_biomass, pypath_biomass)):
             if r_bio > 0:
-                assert np.isclose(p_bio, r_bio, rtol=TOLERANCE, atol=TOLERANCE), \
-                    f"Group {i}: PyPath biomass {p_bio:.6f} != Rpath {r_bio:.6f}"
+                assert np.isclose(
+                    p_bio, r_bio, rtol=TOLERANCE, atol=TOLERANCE
+                ), f"Group {i}: PyPath biomass {p_bio:.6f} != Rpath {r_bio:.6f}"
 
     def test_pb_matches(self, pypath_model, rpath_reference):
         """Test that PB values match Rpath."""
-        rpath_pb = np.array(rpath_reference['PB'])
+        rpath_pb = np.array(rpath_reference["PB"])
         pypath_pb = pypath_model.PB
 
         for i, (r_pb, p_pb) in enumerate(zip(rpath_pb, pypath_pb)):
             if r_pb > 0:
-                assert np.isclose(p_pb, r_pb, rtol=TOLERANCE, atol=TOLERANCE), \
-                    f"Group {i}: PyPath PB {p_pb:.6f} != Rpath {r_pb:.6f}"
+                assert np.isclose(
+                    p_pb, r_pb, rtol=TOLERANCE, atol=TOLERANCE
+                ), f"Group {i}: PyPath PB {p_pb:.6f} != Rpath {r_pb:.6f}"
 
     def test_qb_matches(self, pypath_model, rpath_reference):
         """Test that QB values match Rpath."""
-        rpath_qb = np.array(rpath_reference['QB'])
+        rpath_qb = np.array(rpath_reference["QB"])
         pypath_qb = pypath_model.QB
 
         for i, (r_qb, p_qb) in enumerate(zip(rpath_qb, pypath_qb)):
             if not np.isnan(r_qb) and r_qb > 0:
-                assert np.isclose(p_qb, r_qb, rtol=TOLERANCE, atol=TOLERANCE), \
-                    f"Group {i}: PyPath QB {p_qb:.6f} != Rpath {r_qb:.6f}"
+                assert np.isclose(
+                    p_qb, r_qb, rtol=TOLERANCE, atol=TOLERANCE
+                ), f"Group {i}: PyPath QB {p_qb:.6f} != Rpath {r_qb:.6f}"
 
     def test_ee_matches(self, pypath_model, rpath_reference):
         """Test that EE values match Rpath."""
-        rpath_ee = np.array(rpath_reference['EE'])
+        rpath_ee = np.array(rpath_reference["EE"])
         pypath_ee = pypath_model.EE
 
         for i, (r_ee, p_ee) in enumerate(zip(rpath_ee, pypath_ee)):
             if not np.isnan(r_ee):
-                assert np.isclose(p_ee, r_ee, rtol=TOLERANCE, atol=TOLERANCE), \
-                    f"Group {i}: PyPath EE {p_ee:.6f} != Rpath {r_ee:.6f}"
+                assert np.isclose(
+                    p_ee, r_ee, rtol=TOLERANCE, atol=TOLERANCE
+                ), f"Group {i}: PyPath EE {p_ee:.6f} != Rpath {r_ee:.6f}"
 
     def test_ge_matches(self, pypath_model, rpath_reference):
         """Test that GE (gross efficiency) matches Rpath."""
-        rpath_ge = np.array(rpath_reference['GE'])
+        rpath_ge = np.array(rpath_reference["GE"])
         pypath_ge = pypath_model.GE
 
         for i, (r_ge, p_ge) in enumerate(zip(rpath_ge, pypath_ge)):
             if not np.isnan(r_ge) and r_ge > 0:
-                assert np.isclose(p_ge, r_ge, rtol=TOLERANCE, atol=TOLERANCE), \
-                    f"Group {i}: PyPath GE {p_ge:.6f} != Rpath {r_ge:.6f}"
+                assert np.isclose(
+                    p_ge, r_ge, rtol=TOLERANCE, atol=TOLERANCE
+                ), f"Group {i}: PyPath GE {p_ge:.6f} != Rpath {r_ge:.6f}"
 
     def test_m0_matches(self, pypath_model, rpath_reference):
         """Test that M0 (other mortality) matches Rpath."""
-        rpath_m0 = np.array(rpath_reference['M0'])
+        rpath_m0 = np.array(rpath_reference["M0"])
         pypath_m0 = pypath_model.M0
 
         for i, (r_m0, p_m0) in enumerate(zip(rpath_m0, pypath_m0)):
             if not np.isnan(r_m0):
-                assert np.isclose(p_m0, r_m0, rtol=TOLERANCE, atol=TOLERANCE), \
-                    f"Group {i}: PyPath M0 {p_m0:.6f} != Rpath {r_m0:.6f}"
+                assert np.isclose(
+                    p_m0, r_m0, rtol=TOLERANCE, atol=TOLERANCE
+                ), f"Group {i}: PyPath M0 {p_m0:.6f} != Rpath {r_m0:.6f}"
 
     def test_tl_matches(self, pypath_model, rpath_reference):
         """Test that trophic levels match Rpath."""
-        rpath_tl = np.array(rpath_reference['TL'])
+        rpath_tl = np.array(rpath_reference["TL"])
         pypath_tl = pypath_model.TL
 
         for i, (r_tl, p_tl) in enumerate(zip(rpath_tl, pypath_tl)):
             if not np.isnan(r_tl):
-                assert np.isclose(p_tl, r_tl, rtol=TOLERANCE, atol=TOLERANCE), \
-                    f"Group {i}: PyPath TL {p_tl:.6f} != Rpath {r_tl:.6f}"
+                assert np.isclose(
+                    p_tl, r_tl, rtol=TOLERANCE, atol=TOLERANCE
+                ), f"Group {i}: PyPath TL {p_tl:.6f} != Rpath {r_tl:.6f}"
 
     def test_group_names_match(self, pypath_model, rpath_reference):
         """Test that group names match."""
-        rpath_groups = rpath_reference['Group']
+        rpath_groups = rpath_reference["Group"]
         pypath_groups = pypath_model.Group.tolist()
 
-        assert pypath_groups == rpath_groups, \
-            f"Group names don't match:\nPyPath: {pypath_groups}\nRpath: {rpath_groups}"
+        assert (
+            pypath_groups == rpath_groups
+        ), f"Group names don't match:\nPyPath: {pypath_groups}\nRpath: {rpath_groups}"
 
 
 # =============================================================================
 # Test Ecosim Parameters
 # =============================================================================
+
 
 @pytest.mark.skipif(not REFERENCE_DIR.exists(), reason="Reference data not available")
 class TestEcosimParameters:
@@ -203,80 +214,106 @@ class TestEcosimParameters:
 
     def test_num_groups_matches(self, pypath_ecosim, ecosim_reference):
         """Test that number of groups matches."""
-        assert pypath_ecosim.params.NUM_GROUPS == ecosim_reference['NUM_GROUPS']
+        assert pypath_ecosim.params.NUM_GROUPS == ecosim_reference["NUM_GROUPS"]
 
     def test_num_living_matches(self, pypath_ecosim, ecosim_reference):
         """Test that number of living groups matches."""
-        assert pypath_ecosim.params.NUM_LIVING == ecosim_reference['NUM_LIVING']
+        assert pypath_ecosim.params.NUM_LIVING == ecosim_reference["NUM_LIVING"]
 
     def test_biomass_baseline_matches(self, pypath_ecosim, ecosim_reference):
         """Test that baseline biomass matches."""
-        rpath_b = np.array(ecosim_reference['B_BaseRef'])
+        rpath_b = np.array(ecosim_reference["B_BaseRef"])
         pypath_b = pypath_ecosim.params.B_BaseRef
 
-        np.testing.assert_allclose(pypath_b, rpath_b, rtol=TOLERANCE, atol=TOLERANCE,
-                                   err_msg="Baseline biomass doesn't match")
+        np.testing.assert_allclose(
+            pypath_b,
+            rpath_b,
+            rtol=TOLERANCE,
+            atol=TOLERANCE,
+            err_msg="Baseline biomass doesn't match",
+        )
 
     def test_pb_opt_matches(self, pypath_ecosim, ecosim_reference):
         """Test that PB values match."""
-        rpath_pb = np.array(ecosim_reference['PBopt'])
+        rpath_pb = np.array(ecosim_reference["PBopt"])
         pypath_pb = pypath_ecosim.params.PBopt
 
-        np.testing.assert_allclose(pypath_pb, rpath_pb, rtol=TOLERANCE, atol=TOLERANCE,
-                                   err_msg="PB values don't match")
+        np.testing.assert_allclose(
+            pypath_pb,
+            rpath_pb,
+            rtol=TOLERANCE,
+            atol=TOLERANCE,
+            err_msg="PB values don't match",
+        )
 
     def test_qb_opt_matches(self, pypath_ecosim, ecosim_reference):
         """Test that QB values match."""
-        rpath_qb = np.array(ecosim_reference['FtimeQBOpt'])
+        rpath_qb = np.array(ecosim_reference["FtimeQBOpt"])
         pypath_qb = pypath_ecosim.params.FtimeQBOpt
 
-        np.testing.assert_allclose(pypath_qb, rpath_qb, rtol=TOLERANCE, atol=TOLERANCE,
-                                   err_msg="QB values don't match")
+        np.testing.assert_allclose(
+            pypath_qb,
+            rpath_qb,
+            rtol=TOLERANCE,
+            atol=TOLERANCE,
+            err_msg="QB values don't match",
+        )
 
     def test_qq_matches(self, pypath_ecosim, ecosim_reference):
         """Test that QQ (consumption) links match."""
-        rpath_qq = np.array(ecosim_reference['QQ'])
+        rpath_qq = np.array(ecosim_reference["QQ"])
         pypath_qq = pypath_ecosim.params.QQ
 
         # QQ arrays should have same length
-        assert len(pypath_qq) == len(rpath_qq), \
-            f"QQ length mismatch: PyPath {len(pypath_qq)} vs Rpath {len(rpath_qq)}"
+        assert len(pypath_qq) == len(
+            rpath_qq
+        ), f"QQ length mismatch: PyPath {len(pypath_qq)} vs Rpath {len(rpath_qq)}"
 
         # Compare QQ values
-        np.testing.assert_allclose(pypath_qq, rpath_qq, rtol=TOLERANCE, atol=TOLERANCE,
-                                   err_msg="QQ values don't match")
+        np.testing.assert_allclose(
+            pypath_qq,
+            rpath_qq,
+            rtol=TOLERANCE,
+            atol=TOLERANCE,
+            err_msg="QQ values don't match",
+        )
 
     def test_predprey_links_match(self, pypath_ecosim, ecosim_reference):
         """Test that predator-prey links match."""
-        rpath_from = np.array(ecosim_reference['PreyFrom'])
-        rpath_to = np.array(ecosim_reference['PreyTo'])
+        rpath_from = np.array(ecosim_reference["PreyFrom"])
+        rpath_to = np.array(ecosim_reference["PreyTo"])
 
         pypath_from = pypath_ecosim.params.PreyFrom
         pypath_to = pypath_ecosim.params.PreyTo
 
         assert len(pypath_from) == len(rpath_from), "Number of links doesn't match"
 
-        np.testing.assert_array_equal(pypath_from, rpath_from,
-                                      err_msg="PreyFrom doesn't match")
-        np.testing.assert_array_equal(pypath_to, rpath_to,
-                                      err_msg="PreyTo doesn't match")
+        np.testing.assert_array_equal(
+            pypath_from, rpath_from, err_msg="PreyFrom doesn't match"
+        )
+        np.testing.assert_array_equal(
+            pypath_to, rpath_to, err_msg="PreyTo doesn't match"
+        )
 
 
 # =============================================================================
 # Test Ecosim Simulation Trajectories
 # =============================================================================
 
+
 @pytest.mark.skipif(not REFERENCE_DIR.exists(), reason="Reference data not available")
 class TestEcosimTrajectories:
     """Test Ecosim simulation trajectories against Rpath."""
 
-    def test_rk4_biomass_trajectory_matches(self, pypath_ecosim, reference_data_available):
+    def test_rk4_biomass_trajectory_matches(
+        self, pypath_ecosim, reference_data_available
+    ):
         """Test that RK4 biomass trajectory matches Rpath."""
         # Load Rpath trajectory
         rpath_traj = pd.read_csv(ECOSIM_DIR / "biomass_trajectory_rk4.csv")
 
         # Run PyPath simulation
-        pypath_output = rsim_run(pypath_ecosim, method='RK4', years=range(1, 101))
+        pypath_output = rsim_run(pypath_ecosim, method="RK4", years=range(1, 101))
 
         # Compare trajectories
         pypath_biomass = pypath_output.out_Biomass
@@ -291,11 +328,13 @@ class TestEcosimTrajectories:
             pypath_values = pypath_biomass[:, col_idx]
 
             # Check trajectory similarity
-            correlation = np.corrcoef(rpath_values[:len(pypath_values)],
-                                     pypath_values)[0, 1]
+            correlation = np.corrcoef(
+                rpath_values[: len(pypath_values)], pypath_values
+            )[0, 1]
 
-            assert correlation > 0.99, \
-                f"Group {group_name}: trajectory correlation {correlation:.4f} < 0.99"
+            assert (
+                correlation > 0.99
+            ), f"Group {group_name}: trajectory correlation {correlation:.4f} < 0.99"
 
             # Check endpoint similarity (last year)
             rpath_final = rpath_values[-1]
@@ -303,16 +342,19 @@ class TestEcosimTrajectories:
 
             if rpath_final > BIOMASS_TOLERANCE:
                 rel_error = abs(pypath_final - rpath_final) / rpath_final
-                assert rel_error < 0.01, \
-                    f"Group {group_name}: final biomass error {rel_error:.4f} > 1%"
+                assert (
+                    rel_error < 0.01
+                ), f"Group {group_name}: final biomass error {rel_error:.4f} > 1%"
 
-    def test_ab_biomass_trajectory_matches(self, pypath_ecosim, reference_data_available):
+    def test_ab_biomass_trajectory_matches(
+        self, pypath_ecosim, reference_data_available
+    ):
         """Test that Adams-Bashforth trajectory matches Rpath."""
         # Load Rpath trajectory
         rpath_traj = pd.read_csv(ECOSIM_DIR / "biomass_trajectory_ab.csv")
 
         # Run PyPath simulation
-        pypath_output = rsim_run(pypath_ecosim, method='AB', years=range(1, 101))
+        pypath_output = rsim_run(pypath_ecosim, method="AB", years=range(1, 101))
 
         # Compare final biomass (AB can differ slightly in trajectory)
         pypath_biomass = pypath_output.out_Biomass
@@ -324,19 +366,23 @@ class TestEcosimTrajectories:
 
             if rpath_final > BIOMASS_TOLERANCE:
                 rel_error = abs(pypath_final - rpath_final) / rpath_final
-                assert rel_error < 0.05, \
-                    f"Group {group_name} (AB): final biomass error {rel_error:.4f} > 5%"
+                assert (
+                    rel_error < 0.05
+                ), f"Group {group_name} (AB): final biomass error {rel_error:.4f} > 5%"
 
 
 # =============================================================================
 # Test Forcing Scenarios
 # =============================================================================
 
+
 @pytest.mark.skipif(not REFERENCE_DIR.exists(), reason="Reference data not available")
 class TestForcingScenarios:
     """Test forcing scenarios against Rpath."""
 
-    def test_doubled_fishing_matches(self, pypath_model, rpath_params, reference_data_available):
+    def test_doubled_fishing_matches(
+        self, pypath_model, rpath_params, reference_data_available
+    ):
         """Test doubled fishing scenario matches Rpath."""
         # Load reference
         rpath_traj = pd.read_csv(ECOSIM_DIR / "biomass_doubled_fishing.csv")
@@ -346,7 +392,7 @@ class TestForcingScenarios:
         scenario.forcing.ForcedEffort = scenario.forcing.ForcedEffort * 2
 
         # Run simulation
-        output = rsim_run(scenario, method='RK4', years=range(1, 51))
+        output = rsim_run(scenario, method="RK4", years=range(1, 51))
 
         # Compare trajectories
         group_names = rpath_traj.columns[1:].tolist()
@@ -356,10 +402,13 @@ class TestForcingScenarios:
 
             if rpath_final > BIOMASS_TOLERANCE:
                 rel_error = abs(pypath_final - rpath_final) / rpath_final
-                assert rel_error < 0.01, \
-                    f"Group {group_name} (2x fishing): error {rel_error:.4f} > 1%"
+                assert (
+                    rel_error < 0.01
+                ), f"Group {group_name} (2x fishing): error {rel_error:.4f} > 1%"
 
-    def test_zero_fishing_matches(self, pypath_model, rpath_params, reference_data_available):
+    def test_zero_fishing_matches(
+        self, pypath_model, rpath_params, reference_data_available
+    ):
         """Test zero fishing scenario matches Rpath."""
         # Load reference
         rpath_traj = pd.read_csv(ECOSIM_DIR / "biomass_zero_fishing.csv")
@@ -369,7 +418,7 @@ class TestForcingScenarios:
         scenario.forcing.ForcedEffort = scenario.forcing.ForcedEffort * 0
 
         # Run simulation
-        output = rsim_run(scenario, method='RK4', years=range(1, 51))
+        output = rsim_run(scenario, method="RK4", years=range(1, 51))
 
         # Compare trajectories
         group_names = rpath_traj.columns[1:].tolist()
@@ -379,13 +428,15 @@ class TestForcingScenarios:
 
             if rpath_final > BIOMASS_TOLERANCE:
                 rel_error = abs(pypath_final - rpath_final) / rpath_final
-                assert rel_error < 0.01, \
-                    f"Group {group_name} (0 fishing): error {rel_error:.4f} > 1%"
+                assert (
+                    rel_error < 0.01
+                ), f"Group {group_name} (0 fishing): error {rel_error:.4f} > 1%"
 
 
 # =============================================================================
 # Summary Test
 # =============================================================================
+
 
 @pytest.mark.skipif(not REFERENCE_DIR.exists(), reason="Reference data not available")
 def test_reference_data_complete(reference_data_available):
