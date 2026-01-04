@@ -468,7 +468,7 @@ class TestRpathObjectTests:
             warnings.simplefilter("always")
             _ = rpath(params)
             # Filter for actual errors, not just info
-            errors = [x for x in w if x.category == UserWarning]
+            errors = [x for x in w if x.category is UserWarning]
             # Relaxed check - allow some warnings during balance
             assert (
                 len(errors) < 5

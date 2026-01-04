@@ -262,8 +262,11 @@ class TestHabitatSuitability:
         )
 
         # Create responses that return input values
-        response1 = lambda x: x
-        response2 = lambda x: x
+        def response1(x):
+            return x
+
+        def response2(x):
+            return x
 
         suitability = calculate_habitat_suitability(
             env, [response1, response2], combine_method="minimum"
@@ -276,8 +279,11 @@ class TestHabitatSuitability:
         """Test average combination."""
         env = np.array([[0.6, 0.8]])
 
-        response1 = lambda x: x
-        response2 = lambda x: x
+        def response1(x):
+            return x
+
+        def response2(x):
+            return x
 
         suitability = calculate_habitat_suitability(
             env, [response1, response2], combine_method="average"
@@ -290,8 +296,11 @@ class TestHabitatSuitability:
         """Test geometric mean combination."""
         env = np.array([[0.25, 0.64]])  # sqrt(0.25 * 0.64) = sqrt(0.16) = 0.4
 
-        response1 = lambda x: x
-        response2 = lambda x: x
+        def response1(x):
+            return x
+
+        def response2(x):
+            return x
 
         suitability = calculate_habitat_suitability(
             env, [response1, response2], combine_method="geometric_mean"

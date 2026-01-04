@@ -261,12 +261,8 @@ class TestEwemdbDietParsing:
                     print(f"\n{table_name} columns: {diet_df.columns.tolist()}")
                     print(f"{table_name} shape: {diet_df.shape}")
                     break
-                except:
+                except Exception:
                     continue
-
-
-class TestDietMatrixIntegration:
-    """Integration tests for diet matrix through full import pipeline."""
 
     def test_full_ecobase_import(self):
         """Test complete EcoBase import pipeline."""

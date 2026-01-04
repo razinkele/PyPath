@@ -304,7 +304,7 @@ class TestConvenienceFunctions:
         assert len(forcing.functions) == 1
         assert forcing.functions[0].variable == StateVariable.RECRUITMENT
         assert forcing.functions[0].mode == ForcingMode.MULTIPLY
-        assert forcing.functions[0].interpolate == False
+        assert not forcing.functions[0].interpolate
 
 
 class TestRealisticScenarios:

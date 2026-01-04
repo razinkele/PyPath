@@ -26,7 +26,7 @@ class TestDietRewiringInitialization:
             enabled=True, switching_power=2.0, min_proportion=0.001, update_interval=12
         )
 
-        assert rewiring.enabled == True
+        assert rewiring.enabled
         assert rewiring.switching_power == 2.0
         assert rewiring.min_proportion == 0.001
         assert rewiring.update_interval == 12
@@ -56,7 +56,7 @@ class TestDietRewiringInitialization:
             switching_power=3.0, min_proportion=0.005, update_interval=6
         )
 
-        assert rewiring.enabled == True
+        assert rewiring.enabled
         assert rewiring.switching_power == 3.0
         assert rewiring.min_proportion == 0.005
         assert rewiring.update_interval == 6
