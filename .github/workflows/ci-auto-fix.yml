@@ -48,7 +48,8 @@ jobs:
           git add -A
           git commit -m "style: apply ruff/black fixes from CI auto-fix"
           git push origin "$BRANCH_NAME"
-          gh pr create --title "style: apply ruff/black fixes (auto)" --body "Automated formatting fixes (ruff/black) applied by CI Auto-Fix workflow. This PR will be auto-merged when checks pass." --base main --head "$BRANCH_NAME" --label "chore" --web || true
+          # Create PR and enable auto-merge so formatting fixes are merged automatically when checks pass
+          gh pr create --title "style: apply ruff/black fixes (auto)" --body "Automated formatting fixes (ruff/black) applied by CI Auto-Fix workflow. This PR will be auto-merged when checks pass." --base main --head "$BRANCH_NAME" --auto || true
 
       - name: Run tests to check if fixes pass
         run: python -m pytest -q || true
