@@ -25,12 +25,12 @@ if str(root_dir) not in sys.path:
 
 # Import page modules - organized by category
 # Core pages
-from .pages import home, data_import, ecopath, prebalance, ecosim, results, analysis, about
+from app.pages import home, data_import, ecopath, prebalance, ecosim, results, analysis, about
 # Advanced features
-from .pages import multistanza, forcing_demo, diet_rewiring_demo, optimization_demo, ecospace
+from app.pages import multistanza, forcing_demo, diet_rewiring_demo, optimization_demo, ecospace
 
 # Configuration imports
-from .config import UI
+from app.config import UI
 
 # App UI with dashboard layout and Bootstrap theme
 app_ui = ui.page_navbar(
