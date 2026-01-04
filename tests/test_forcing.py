@@ -5,19 +5,20 @@ Tests the ability to force state variables (biomass, catch, recruitment, etc.)
 to follow observed or prescribed time series.
 """
 
-import pytest
-import numpy as np
 import sys
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pypath.core.forcing import (
-    ForcingMode,
-    StateVariable,
     ForcingFunction,
+    ForcingMode,
     StateForcing,
+    StateVariable,
     create_biomass_forcing,
     create_recruitment_forcing,
 )
@@ -35,7 +36,7 @@ class TestForcingFunction:
             time_series=np.array([10.0, 15.0, 20.0]),
             years=np.array([2000, 2005, 2010]),
             interpolate=True,
-            active=True
+            active=True,
         )
 
         assert func.group_idx == 0
@@ -51,7 +52,7 @@ class TestForcingFunction:
             mode=ForcingMode.REPLACE,
             time_series=np.array([10.0, 15.0, 20.0]),
             years=np.array([2000, 2005, 2010]),
-            interpolate=True
+            interpolate=True,
         )
 
         assert func.get_value(2000) == 10.0
@@ -66,7 +67,7 @@ class TestForcingFunction:
             mode=ForcingMode.REPLACE,
             time_series=np.array([10.0, 20.0]),
             years=np.array([2000, 2010]),
-            interpolate=True
+            interpolate=True,
         )
 
         # Midpoint should be 15.0
@@ -83,7 +84,7 @@ class TestForcingFunction:
             mode=ForcingMode.REPLACE,
             time_series=np.array([10.0, 20.0]),
             years=np.array([2000, 2010]),
-            interpolate=False
+            interpolate=False,
         )
 
         # Should use nearest (2000 is closer)
@@ -99,7 +100,7 @@ class TestForcingFunction:
             variable=StateVariable.BIOMASS,
             mode=ForcingMode.REPLACE,
             time_series=np.array([10.0, 20.0]),
-            years=np.array([2000, 2010])
+            years=np.array([2000, 2010]),
         )
 
         # Before range
@@ -116,7 +117,7 @@ class TestForcingFunction:
             mode=ForcingMode.REPLACE,
             time_series=np.array([10.0, 20.0]),
             years=np.array([2000, 2010]),
-            active=False
+            active=False,
         )
 
         assert np.isnan(func.get_value(2005))
@@ -130,9 +131,9 @@ class TestStateForcing:
         forcing = StateForcing()
         forcing.add_forcing(
             group_idx=0,
-            variable='biomass',
+            variable="biomass",
             time_series={2000: 10.0, 2005: 15.0, 2010: 20.0},
-            mode='replace'
+            mode="replace",
         )
 
         assert len(forcing.functions) == 1
@@ -146,7 +147,7 @@ class TestStateForcing:
             variable=StateVariable.RECRUITMENT,
             time_series=np.array([1.0, 2.0, 1.5]),
             years=np.array([2000, 2005, 2010]),
-            mode=ForcingMode.MULTIPLY
+            mode=ForcingMode.MULTIPLY,
         )
 
         assert len(forcing.functions) == 1
@@ -160,17 +161,17 @@ class TestStateForcing:
         # Force biomass for group 0
         forcing.add_forcing(
             group_idx=0,
-            variable='biomass',
+            variable="biomass",
             time_series={2000: 10.0, 2010: 20.0},
-            mode='replace'
+            mode="replace",
         )
 
         # Force recruitment for group 1
         forcing.add_forcing(
             group_idx=1,
-            variable='recruitment',
+            variable="recruitment",
             time_series={2005: 2.0},
-            mode='multiply'
+            mode="multiply",
         )
 
         assert len(forcing.functions) == 2
@@ -179,9 +180,7 @@ class TestStateForcing:
         """Should get forcing for specific group."""
         forcing = StateForcing()
         forcing.add_forcing(
-            group_idx=0,
-            variable='biomass',
-            time_series={2000: 10.0, 2010: 20.0}
+            group_idx=0, variable="biomass", time_series={2000: 10.0, 2010: 20.0}
         )
 
         # Get forcing for group 0
@@ -198,18 +197,10 @@ class TestStateForcing:
         forcing = StateForcing()
 
         # Add forcing for group 0
-        forcing.add_forcing(
-            group_idx=0,
-            variable='biomass',
-            time_series={2000: 10.0}
-        )
+        forcing.add_forcing(group_idx=0, variable="biomass", time_series={2000: 10.0})
 
         # Add forcing for group 1
-        forcing.add_forcing(
-            group_idx=1,
-            variable='biomass',
-            time_series={2000: 20.0}
-        )
+        forcing.add_forcing(group_idx=1, variable="biomass", time_series={2000: 20.0})
 
         # Get all biomass forcing (group_idx=None)
         results = forcing.get_forcing(2000, StateVariable.BIOMASS, group_idx=None)
@@ -218,21 +209,15 @@ class TestStateForcing:
     def test_remove_forcing(self):
         """Should remove specific forcing."""
         forcing = StateForcing()
+        forcing.add_forcing(group_idx=0, variable="biomass", time_series={2000: 10.0})
         forcing.add_forcing(
-            group_idx=0,
-            variable='biomass',
-            time_series={2000: 10.0}
-        )
-        forcing.add_forcing(
-            group_idx=1,
-            variable='recruitment',
-            time_series={2000: 2.0}
+            group_idx=1, variable="recruitment", time_series={2000: 2.0}
         )
 
         assert len(forcing.functions) == 2
 
         # Remove biomass forcing for group 0
-        forcing.remove_forcing(0, 'biomass')
+        forcing.remove_forcing(0, "biomass")
 
         assert len(forcing.functions) == 1
         assert forcing.functions[0].group_idx == 1
@@ -301,7 +286,7 @@ class TestConvenienceFunctions:
         forcing = create_biomass_forcing(
             group_idx=0,
             observed_biomass={2000: 15.0, 2005: 18.0, 2010: 16.0},
-            mode='replace'
+            mode="replace",
         )
 
         assert len(forcing.functions) == 1
@@ -313,7 +298,7 @@ class TestConvenienceFunctions:
         forcing = create_recruitment_forcing(
             group_idx=3,
             recruitment_multiplier={2005: 3.0, 2010: 0.5},
-            interpolate=False
+            interpolate=False,
         )
 
         assert len(forcing.functions) == 1
@@ -335,11 +320,11 @@ class TestRealisticScenarios:
 
         forcing.add_forcing(
             group_idx=0,
-            variable='biomass',
+            variable="biomass",
             time_series=biomass_seasonal,
             years=years,
-            mode='replace',
-            interpolate=True
+            mode="replace",
+            interpolate=True,
         )
 
         # Check values
@@ -362,10 +347,10 @@ class TestRealisticScenarios:
         # Normal recruitment except 2x in 2005
         forcing.add_forcing(
             group_idx=3,  # Herring
-            variable='recruitment',
+            variable="recruitment",
             time_series={2000: 1.0, 2005: 2.0, 2010: 1.0},
-            mode='multiply',
-            interpolate=False
+            mode="multiply",
+            interpolate=False,
         )
 
         # Should get 2x in 2005
@@ -385,10 +370,10 @@ class TestRealisticScenarios:
         # No fishing 2005-2010
         forcing.add_forcing(
             group_idx=5,  # Target species
-            variable='fishing_mortality',
+            variable="fishing_mortality",
             time_series={2000: 0.2, 2005: 0.0, 2010: 0.0, 2015: 0.2},
-            mode='replace',
-            interpolate=True
+            mode="replace",
+            interpolate=True,
         )
 
         # Should have zero fishing in ban period
@@ -408,11 +393,11 @@ class TestRealisticScenarios:
 
         forcing.add_forcing(
             group_idx=0,  # Phytoplankton
-            variable='primary_production',
+            variable="primary_production",
             time_series=pp_multiplier,
             years=years,
-            mode='multiply',
-            interpolate=True
+            mode="multiply",
+            interpolate=True,
         )
 
         # Should increase over time
@@ -439,10 +424,7 @@ class TestEdgeCases:
         """Should handle single time point."""
         forcing = StateForcing()
         forcing.add_forcing(
-            group_idx=0,
-            variable='biomass',
-            time_series={2005: 15.0},
-            interpolate=False
+            group_idx=0, variable="biomass", time_series={2005: 15.0}, interpolate=False
         )
 
         # Within range
@@ -457,9 +439,9 @@ class TestEdgeCases:
         forcing = StateForcing()
         forcing.add_forcing(
             group_idx=2,
-            variable='migration',
+            variable="migration",
             time_series={2005: -5.0},  # Emigration
-            mode='add'
+            mode="add",
         )
 
         assert forcing.functions[0].get_value(2005) == -5.0
@@ -468,10 +450,7 @@ class TestEdgeCases:
         """Should handle very large forced values."""
         forcing = StateForcing()
         forcing.add_forcing(
-            group_idx=0,
-            variable='biomass',
-            time_series={2005: 1e6},
-            mode='replace'
+            group_idx=0, variable="biomass", time_series={2005: 1e6}, mode="replace"
         )
 
         assert forcing.functions[0].get_value(2005) == 1e6
@@ -481,13 +460,13 @@ class TestEdgeCases:
         forcing = StateForcing()
         forcing.add_forcing(
             group_idx=3,
-            variable='recruitment',
+            variable="recruitment",
             time_series={2005: 0.0},  # Recruitment failure
-            mode='replace'
+            mode="replace",
         )
 
         assert forcing.functions[0].get_value(2005) == 0.0
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

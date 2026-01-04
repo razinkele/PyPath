@@ -4,21 +4,23 @@ This module provides tools to optimize Ecosim parameters to match observed time 
 using Bayesian optimization with Gaussian Processes.
 """
 
-import numpy as np
-from typing import Dict, List, Tuple, Callable, Optional, Any
-from dataclasses import dataclass
 import warnings
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 try:
     from skopt import gp_minimize
-    from skopt.space import Real, Integer, Categorical
+    from skopt.space import Categorical, Integer, Real
     from skopt.utils import use_named_args
+
     HAS_SKOPT = True
 except ImportError:
     HAS_SKOPT = False
     warnings.warn(
         "scikit-optimize not installed. Install with: pip install scikit-optimize",
-        ImportWarning
+        ImportWarning,
     )
 
 from pypath.core.ecopath import Rpath
@@ -47,6 +49,7 @@ class OptimizationResult:
     optimization_time : float
         Total optimization time in seconds
     """
+
     best_params: Dict[str, float]
     best_score: float
     n_iterations: int
@@ -131,7 +134,9 @@ def log_likelihood(y_true: np.ndarray, y_pred: np.ndarray, sigma: float = 0.1) -
         Negative log-likelihood
     """
     n = len(y_true)
-    return 0.5 * n * np.log(2 * np.pi * sigma**2) + np.sum((y_true - y_pred)**2) / (2 * sigma**2)
+    return 0.5 * n * np.log(2 * np.pi * sigma**2) + np.sum((y_true - y_pred) ** 2) / (
+        2 * sigma**2
+    )
 
 
 class EcosimOptimizer:
@@ -185,8 +190,8 @@ class EcosimOptimizer:
         params: RpathParams,
         observed_data: Dict[int, np.ndarray],
         years: range,
-        objective: str = 'mse',
-        verbose: bool = True
+        objective: str = "mse",
+        verbose: bool = True,
     ):
         if not HAS_SKOPT:
             raise ImportError(
@@ -204,13 +209,15 @@ class EcosimOptimizer:
         # Set objective function
         if isinstance(objective, str):
             objective_funcs = {
-                'mse': mean_squared_error,
-                'mape': mean_absolute_percentage_error,
-                'nrmse': normalized_root_mean_squared_error,
-                'loglik': log_likelihood
+                "mse": mean_squared_error,
+                "mape": mean_absolute_percentage_error,
+                "nrmse": normalized_root_mean_squared_error,
+                "loglik": log_likelihood,
             }
             if objective not in objective_funcs:
-                raise ValueError(f"Unknown objective: {objective}. Choose from {list(objective_funcs.keys())}")
+                raise ValueError(
+                    f"Unknown objective: {objective}. Choose from {list(objective_funcs.keys())}"
+                )
             self.objective_func = objective_funcs[objective]
         else:
             self.objective_func = objective
@@ -254,7 +261,7 @@ class EcosimOptimizer:
 
         # Run simulation
         try:
-            result = rsim_run(scenario, method='RK4')
+            result = rsim_run(scenario, method="RK4")
 
             # Extract biomass for observed groups
             simulated = {}
@@ -270,7 +277,9 @@ class EcosimOptimizer:
             # Return high penalty for failed simulations
             return None
 
-    def _update_scenario_parameter(self, scenario: RsimScenario, param_name: str, value: float) -> None:
+    def _update_scenario_parameter(
+        self, scenario: RsimScenario, param_name: str, value: float
+    ) -> None:
         """Update a parameter in the scenario.
 
         Parameters
@@ -282,28 +291,28 @@ class EcosimOptimizer:
         value : float
             Parameter value
         """
-        if param_name == 'vulnerability':
+        if param_name == "vulnerability":
             # Update base vulnerability for all groups
             scenario.params.VV[:] = value
-        elif param_name.startswith('VV_'):
+        elif param_name.startswith("VV_"):
             # Update specific group vulnerability
-            group_idx = int(param_name.split('_')[1])
+            group_idx = int(param_name.split("_")[1])
             scenario.params.VV[group_idx] = value
-        elif param_name.startswith('QQ_'):
+        elif param_name.startswith("QQ_"):
             # Update specific link QQ
-            link_idx = int(param_name.split('_')[1])
+            link_idx = int(param_name.split("_")[1])
             scenario.params.QQ[link_idx] = value
-        elif param_name.startswith('DD_'):
+        elif param_name.startswith("DD_"):
             # Update specific link DD
-            link_idx = int(param_name.split('_')[1])
+            link_idx = int(param_name.split("_")[1])
             scenario.params.DD[link_idx] = value
-        elif param_name.startswith('PB_'):
+        elif param_name.startswith("PB_"):
             # Update specific group PB
-            group_idx = int(param_name.split('_')[1])
+            group_idx = int(param_name.split("_")[1])
             scenario.params.PBopt[group_idx] = value
-        elif param_name.startswith('QB_'):
+        elif param_name.startswith("QB_"):
             # Update specific group QB
-            group_idx = int(param_name.split('_')[1])
+            group_idx = int(param_name.split("_")[1])
             scenario.params.QBopt[group_idx] = value
         else:
             raise ValueError(f"Unknown parameter: {param_name}")
@@ -340,7 +349,7 @@ class EcosimOptimizer:
         param_bounds: Dict[str, Tuple[float, float]],
         n_calls: int = 50,
         n_initial_points: int = 10,
-        random_state: int = 42
+        random_state: int = 42,
     ) -> OptimizationResult:
         """Run Bayesian optimization.
 
@@ -362,6 +371,7 @@ class EcosimOptimizer:
             Optimization results including best parameters and convergence
         """
         import time
+
         start_time = time.time()
 
         # Define search space
@@ -413,7 +423,7 @@ class EcosimOptimizer:
             n_calls=n_calls,
             n_initial_points=n_initial_points,
             random_state=random_state,
-            verbose=False
+            verbose=False,
         )
 
         optimization_time = time.time() - start_time
@@ -421,19 +431,19 @@ class EcosimOptimizer:
         # Extract results
         best_params = {name: value for name, value in zip(param_names, result.x)}
         best_score = result.fun
-        convergence = [np.min(all_scores[:i+1]) for i in range(len(all_scores))]
+        convergence = [np.min(all_scores[: i + 1]) for i in range(len(all_scores))]
 
         if self.verbose:
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print("OPTIMIZATION COMPLETE")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
             print(f"Best score: {best_score:.6f}")
-            print(f"Best parameters:")
+            print("Best parameters:")
             for name, value in best_params.items():
                 print(f"  {name}: {value:.4f}")
             print(f"Total evaluations: {self.n_calls}")
             print(f"Optimization time: {optimization_time:.2f} seconds")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
 
         return OptimizationResult(
             best_params=best_params,
@@ -442,13 +452,13 @@ class EcosimOptimizer:
             convergence=convergence,
             all_params=all_params_list,
             all_scores=all_scores,
-            optimization_time=optimization_time
+            optimization_time=optimization_time,
         )
 
     def validate(
         self,
         params: Dict[str, float],
-        test_data: Optional[Dict[int, np.ndarray]] = None
+        test_data: Optional[Dict[int, np.ndarray]] = None,
     ) -> Dict[str, Any]:
         """Validate optimized parameters on test data.
 
@@ -471,37 +481,36 @@ class EcosimOptimizer:
         simulated = self._run_simulation(params)
 
         if simulated is None:
-            return {'error': 'Simulation failed'}
+            return {"error": "Simulation failed"}
 
         # Calculate metrics for each group
         results = {}
         for group_idx, observed in test_data.items():
             predicted = simulated[group_idx]
 
-            results[f'group_{group_idx}'] = {
-                'mse': mean_squared_error(observed, predicted),
-                'mape': mean_absolute_percentage_error(observed, predicted),
-                'nrmse': normalized_root_mean_squared_error(observed, predicted),
-                'correlation': np.corrcoef(observed, predicted)[0, 1]
+            results[f"group_{group_idx}"] = {
+                "mse": mean_squared_error(observed, predicted),
+                "mape": mean_absolute_percentage_error(observed, predicted),
+                "nrmse": normalized_root_mean_squared_error(observed, predicted),
+                "correlation": np.corrcoef(observed, predicted)[0, 1],
             }
 
         # Calculate overall metrics
         all_observed = np.concatenate([test_data[idx] for idx in test_data.keys()])
         all_predicted = np.concatenate([simulated[idx] for idx in test_data.keys()])
 
-        results['overall'] = {
-            'mse': mean_squared_error(all_observed, all_predicted),
-            'mape': mean_absolute_percentage_error(all_observed, all_predicted),
-            'nrmse': normalized_root_mean_squared_error(all_observed, all_predicted),
-            'correlation': np.corrcoef(all_observed, all_predicted)[0, 1]
+        results["overall"] = {
+            "mse": mean_squared_error(all_observed, all_predicted),
+            "mape": mean_absolute_percentage_error(all_observed, all_predicted),
+            "nrmse": normalized_root_mean_squared_error(all_observed, all_predicted),
+            "correlation": np.corrcoef(all_observed, all_predicted)[0, 1],
         }
 
         return results
 
 
 def plot_optimization_results(
-    result: OptimizationResult,
-    save_path: Optional[str] = None
+    result: OptimizationResult, save_path: Optional[str] = None
 ):
     """Plot optimization convergence and parameter distributions.
 
@@ -517,12 +526,18 @@ def plot_optimization_results(
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     # Convergence plot
-    axes[0].plot(result.convergence, 'b-', linewidth=2)
-    axes[0].scatter(range(len(result.all_scores)), result.all_scores,
-                   c=result.all_scores, cmap='viridis', alpha=0.5, s=30)
-    axes[0].set_xlabel('Iteration')
-    axes[0].set_ylabel('Best Objective Value')
-    axes[0].set_title('Optimization Convergence')
+    axes[0].plot(result.convergence, "b-", linewidth=2)
+    axes[0].scatter(
+        range(len(result.all_scores)),
+        result.all_scores,
+        c=result.all_scores,
+        cmap="viridis",
+        alpha=0.5,
+        s=30,
+    )
+    axes[0].set_xlabel("Iteration")
+    axes[0].set_ylabel("Best Objective Value")
+    axes[0].set_title("Optimization Convergence")
     axes[0].grid(True, alpha=0.3)
 
     # Parameter evolution
@@ -534,23 +549,23 @@ def plot_optimization_results(
         for i, name in enumerate(param_names):
             values = [p[name] for p in result.all_params]
             axes[1].scatter(range(len(values)), values, label=name, alpha=0.6, s=30)
-        axes[1].set_xlabel('Iteration')
-        axes[1].set_ylabel('Parameter Value')
-        axes[1].set_title('Parameter Evolution')
+        axes[1].set_xlabel("Iteration")
+        axes[1].set_ylabel("Parameter Value")
+        axes[1].set_title("Parameter Evolution")
         axes[1].legend()
         axes[1].grid(True, alpha=0.3)
     else:
         # Show histogram of best parameters
         best_values = list(result.best_params.values())
-        axes[1].barh(param_names, best_values, color='steelblue')
-        axes[1].set_xlabel('Best Parameter Value')
-        axes[1].set_title('Optimized Parameters')
-        axes[1].grid(True, alpha=0.3, axis='x')
+        axes[1].barh(param_names, best_values, color="steelblue")
+        axes[1].set_xlabel("Best Parameter Value")
+        axes[1].set_title("Optimized Parameters")
+        axes[1].grid(True, alpha=0.3, axis="x")
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
     return fig
 
@@ -558,7 +573,7 @@ def plot_optimization_results(
 def plot_fit(
     optimizer: EcosimOptimizer,
     params: Dict[str, float],
-    save_path: Optional[str] = None
+    save_path: Optional[str] = None,
 ):
     """Plot observed vs simulated biomass time series.
 
@@ -585,7 +600,7 @@ def plot_fit(
     n_cols = min(3, n_groups)
     n_rows = (n_groups + n_cols - 1) // n_cols
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
     if n_groups == 1:
         axes = np.array([axes])
     axes = axes.flatten()
@@ -596,28 +611,35 @@ def plot_fit(
         predicted = simulated[group_idx]
         group_name = optimizer.model.Group[group_idx]
 
-        axes[i].plot(years, observed, 'o-', label='Observed', linewidth=2, markersize=6)
-        axes[i].plot(years, predicted, 's--', label='Simulated', linewidth=2, markersize=5)
-        axes[i].set_xlabel('Year')
-        axes[i].set_ylabel('Biomass')
-        axes[i].set_title(f'{group_name} (Group {group_idx})')
+        axes[i].plot(years, observed, "o-", label="Observed", linewidth=2, markersize=6)
+        axes[i].plot(
+            years, predicted, "s--", label="Simulated", linewidth=2, markersize=5
+        )
+        axes[i].set_xlabel("Year")
+        axes[i].set_ylabel("Biomass")
+        axes[i].set_title(f"{group_name} (Group {group_idx})")
         axes[i].legend()
         axes[i].grid(True, alpha=0.3)
 
         # Add metrics
         mse = mean_squared_error(observed, predicted)
         corr = np.corrcoef(observed, predicted)[0, 1]
-        axes[i].text(0.05, 0.95, f'MSE: {mse:.4f}\nCorr: {corr:.3f}',
-                    transform=axes[i].transAxes, verticalalignment='top',
-                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        axes[i].text(
+            0.05,
+            0.95,
+            f"MSE: {mse:.4f}\nCorr: {corr:.3f}",
+            transform=axes[i].transAxes,
+            verticalalignment="top",
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        )
 
     # Hide unused subplots
     for i in range(n_groups, len(axes)):
-        axes[i].axis('off')
+        axes[i].axis("off")
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
     return fig

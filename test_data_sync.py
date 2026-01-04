@@ -21,22 +21,22 @@ print("=" * 70)
 # Test 1: Check RpathParams structure
 print("\n[Test 1] Checking RpathParams structure...")
 try:
-    from pypath.core.params import RpathParams, create_rpath_params
+    from pypath.core.params import create_rpath_params
 
     # Create sample params
     params = create_rpath_params(
-        groups=['Phytoplankton', 'Zooplankton', 'Fish', 'Detritus', 'Fleet'],
-        types=[1, 0, 0, 2, 3]
+        groups=["Phytoplankton", "Zooplankton", "Fish", "Detritus", "Fleet"],
+        types=[1, 0, 0, 2, 3],
     )
 
     # Check attributes
-    assert hasattr(params, 'model'), "RpathParams should have 'model' attribute"
-    assert hasattr(params, 'diet'), "RpathParams should have 'diet' attribute"
-    assert 'Group' in params.model.columns, "model DataFrame should have 'Group' column"
+    assert hasattr(params, "model"), "RpathParams should have 'model' attribute"
+    assert hasattr(params, "diet"), "RpathParams should have 'diet' attribute"
+    assert "Group" in params.model.columns, "model DataFrame should have 'Group' column"
 
-    groups = params.model['Group'].tolist()
+    groups = params.model["Group"].tolist()
     assert len(groups) == 5, f"Expected 5 groups, got {len(groups)}"
-    assert 'Phytoplankton' in groups, "Phytoplankton should be in groups"
+    assert "Phytoplankton" in groups, "Phytoplankton should be in groups"
 
     print("  [PASS] RpathParams has correct structure")
     print(f"  [INFO] Groups: {groups}")
@@ -52,7 +52,7 @@ try:
     data = params  # This is what model_data.set(params) does
 
     # Check if it's RpathParams (updated logic)
-    if hasattr(data, 'model') and hasattr(data, 'diet'):
+    if hasattr(data, "model") and hasattr(data, "diet"):
         print("  [PASS] Correctly identifies RpathParams")
         shared_params = data
         shared_model = data.model
@@ -61,7 +61,7 @@ try:
         sys.exit(1)
 
     # Verify shared_params is usable
-    assert hasattr(shared_params, 'model'), "shared_params should have model"
+    assert hasattr(shared_params, "model"), "shared_params should have model"
     print("  [PASS] shared_data would receive correct params")
 
 except Exception as e:
@@ -75,8 +75,11 @@ try:
     params_from_shared = shared_params
 
     # Updated logic
-    if hasattr(params_from_shared, 'model') and 'Group' in params_from_shared.model.columns:
-        groups = params_from_shared.model['Group'].tolist()
+    if (
+        hasattr(params_from_shared, "model")
+        and "Group" in params_from_shared.model.columns
+    ):
+        groups = params_from_shared.model["Group"].tolist()
         print("  [PASS] Correctly accesses groups from params.model['Group']")
         print(f"  [INFO] Retrieved groups: {groups}")
     else:
@@ -90,7 +93,6 @@ except Exception as e:
 # Test 4: Verify app imports with changes
 print("\n[Test 4] Verifying app imports...")
 try:
-    from app import app
     print("  [PASS] App imports successfully")
 
     # Check if sync function has the fix by reading the file
@@ -109,8 +111,6 @@ except Exception as e:
 # Test 5: Check multistanza page
 print("\n[Test 5] Checking multistanza page...")
 try:
-    from pages import multistanza
-
     # Check source for the fix by reading the file
     multistanza_file = Path(__file__).parent / "app" / "pages" / "multistanza.py"
     multistanza_source = multistanza_file.read_text()

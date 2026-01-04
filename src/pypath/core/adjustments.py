@@ -1,13 +1,14 @@
 """
 Adjustment functions for Ecosim scenarios.
 
-This module provides functions to modify fishing rates, 
+This module provides functions to modify fishing rates,
 forcing functions, and other scenario parameters over time.
 
 Based on Rpath's adjust.fishing(), adjust.forcing(), and adjust.scenario() functions.
 """
 
-from typing import Union, List, Sequence, Optional
+from typing import List, Optional, Union
+
 import numpy as np
 
 
@@ -17,13 +18,13 @@ def adjust_fishing(
     group: Union[str, int, List[Union[str, int]]],
     sim_year: Union[int, range, List[int]],
     value: Union[float, np.ndarray],
-    sim_month: Optional[Union[int, range, List[int]]] = None
+    sim_month: Optional[Union[int, range, List[int]]] = None,
 ):
     """Adjust fishing parameters in an Ecosim scenario.
-    
+
     Modifies fishing-related forcing matrices (ForcedEffort, ForcedFRate,
     or ForcedCatch) for specified groups and time periods.
-    
+
     Args:
         scenario: RsimScenario object to modify
         parameter: One of 'ForcedEffort', 'ForcedFRate', or 'ForcedCatch'
@@ -39,20 +40,20 @@ def adjust_fishing(
             - Array matching the shape of selected cells
         sim_month: Optional month(s) to modify (1-12). Only used for
             ForcedEffort which is monthly. If None, modifies all months.
-            
+
     Returns:
         Modified scenario object
-        
+
     Example:
         >>> # Double fishing mortality for 'Fish' group in years 10-20
         >>> scenario = adjust_fishing(
-        ...     scenario, 
+        ...     scenario,
         ...     parameter='ForcedFRate',
         ...     group='Fish',
         ...     sim_year=range(10, 21),
         ...     value=0.5
         ... )
-        
+
         >>> # Set catch quota
         >>> scenario = adjust_fishing(
         ...     scenario,
@@ -62,25 +63,27 @@ def adjust_fishing(
         ...     value=100.0
         ... )
     """
-    valid_params = ['ForcedEffort', 'ForcedFRate', 'ForcedCatch']
+    valid_params = ["ForcedEffort", "ForcedFRate", "ForcedCatch"]
     if parameter not in valid_params:
         raise ValueError(f"parameter must be one of {valid_params}")
-    
+
     # Get the fishing matrix
     fishing_matrix = getattr(scenario.fishing, parameter)
-    
+
     # Convert group to indices
     group_indices = _resolve_group_indices(scenario, group, parameter)
-    
+
     # Convert years to row indices
     year_indices = _resolve_year_indices(scenario, sim_year, parameter)
-    
+
     # For ForcedEffort (monthly), handle month selection
-    if parameter == 'ForcedEffort' and sim_month is not None:
-        row_indices = _resolve_month_indices(year_indices, sim_month, fishing_matrix.shape[0])
+    if parameter == "ForcedEffort" and sim_month is not None:
+        row_indices = _resolve_month_indices(
+            year_indices, sim_month, fishing_matrix.shape[0]
+        )
     else:
         row_indices = year_indices
-    
+
     # Set values
     if np.isscalar(value):
         for gi in group_indices:
@@ -100,7 +103,7 @@ def adjust_fishing(
                     fishing_matrix[ri, gi] = value[i]
         else:
             raise ValueError(f"value shape {value.shape} doesn't match selection")
-    
+
     return scenario
 
 
@@ -110,14 +113,14 @@ def adjust_forcing(
     group: Union[str, int, List[Union[str, int]]],
     sim_year: Union[int, range, List[int]],
     sim_month: Union[int, range, List[int]],
-    value: Union[float, np.ndarray]
+    value: Union[float, np.ndarray],
 ):
     """Adjust forcing parameters in an Ecosim scenario.
-    
+
     Modifies environmental forcing matrices (ForcedPrey, ForcedMort,
     ForcedRecs, ForcedSearch, ForcedActresp, ForcedMigrate, ForcedBio)
     for specified groups and time periods.
-    
+
     Args:
         scenario: RsimScenario object to modify
         parameter: One of:
@@ -132,10 +135,10 @@ def adjust_forcing(
         sim_year: Year(s) to modify
         sim_month: Month(s) to modify (1-12)
         value: New value(s) to set
-        
+
     Returns:
         Modified scenario object
-        
+
     Example:
         >>> # Reduce prey availability in summer
         >>> scenario = adjust_forcing(
@@ -146,7 +149,7 @@ def adjust_forcing(
         ...     sim_month=[6, 7, 8],
         ...     value=0.8
         ... )
-        
+
         >>> # Add pulse recruitment
         >>> scenario = adjust_forcing(
         ...     scenario,
@@ -157,23 +160,32 @@ def adjust_forcing(
         ...     value=2.0
         ... )
     """
-    valid_params = ['ForcedPrey', 'ForcedMort', 'ForcedRecs', 'ForcedSearch',
-                    'ForcedActresp', 'ForcedMigrate', 'ForcedBio']
+    valid_params = [
+        "ForcedPrey",
+        "ForcedMort",
+        "ForcedRecs",
+        "ForcedSearch",
+        "ForcedActresp",
+        "ForcedMigrate",
+        "ForcedBio",
+    ]
     if parameter not in valid_params:
         raise ValueError(f"parameter must be one of {valid_params}")
-    
+
     # Get the forcing matrix
     forcing_matrix = getattr(scenario.forcing, parameter)
-    
+
     # Convert group to indices
     group_indices = _resolve_group_indices(scenario, group, parameter, is_forcing=True)
-    
+
     # Convert years to row indices
     year_indices = _resolve_year_indices(scenario, sim_year, parameter)
-    
+
     # Convert to monthly row indices
-    row_indices = _resolve_month_indices(year_indices, sim_month, forcing_matrix.shape[0])
-    
+    row_indices = _resolve_month_indices(
+        year_indices, sim_month, forcing_matrix.shape[0]
+    )
+
     # Set values
     if np.isscalar(value):
         for gi in group_indices:
@@ -191,19 +203,15 @@ def adjust_forcing(
                     forcing_matrix[ri, gi] = value[i]
         else:
             raise ValueError(f"value shape {value.shape} doesn't match selection")
-    
+
     return scenario
 
 
-def adjust_scenario(
-    scenario,
-    parameter: str,
-    value: Union[float, int, np.ndarray]
-):
+def adjust_scenario(scenario, parameter: str, value: Union[float, int, np.ndarray]):
     """Adjust global scenario parameters.
-    
+
     Modifies simulation-wide parameters in the scenario's params object.
-    
+
     Args:
         scenario: RsimScenario object to modify
         parameter: Parameter name to modify. Common options:
@@ -212,14 +220,14 @@ def adjust_scenario(
             - 'RK4_STEPS': Integration steps per month
             - 'SENSE_LIMIT': Sensitivity limits [min, max]
         value: New value to set
-        
+
     Returns:
         Modified scenario object
-        
+
     Example:
         >>> # Enable burn-in period
         >>> scenario = adjust_scenario(scenario, 'BURN_YEARS', 10)
-        
+
         >>> # Change integration precision
         >>> scenario = adjust_scenario(scenario, 'RK4_STEPS', 8)
     """
@@ -227,89 +235,80 @@ def adjust_scenario(
         setattr(scenario.params, parameter, value)
     else:
         raise AttributeError(f"Parameter '{parameter}' not found in scenario.params")
-    
+
     return scenario
 
 
 def set_vulnerability(
-    scenario,
-    predator: Union[str, int],
-    prey: Union[str, int],
-    value: float
+    scenario, predator: Union[str, int], prey: Union[str, int], value: float
 ):
     """Set vulnerability (v) for a predator-prey link.
-    
+
     Vulnerability controls the functional response shape:
     - v = 1: Linear (Type I)
     - v = 2: Holling Type II (default)
     - v > 2: Approaches Type III
-    
+
     Args:
         scenario: RsimScenario object to modify
         predator: Predator group name or index
         prey: Prey group name or index
         value: New vulnerability value
-        
+
     Returns:
         Modified scenario object
     """
     pred_idx = _get_group_index(scenario, predator)
     prey_idx = _get_group_index(scenario, prey)
-    
+
     # Find the link
     params = scenario.params
     for i in range(1, params.NumPredPreyLinks + 1):
         if params.PreyTo[i] == pred_idx and params.PreyFrom[i] == prey_idx:
             params.VV[i] = value
             return scenario
-    
+
     raise ValueError(f"No predator-prey link found between {predator} and {prey}")
 
 
 def set_handling_time(
-    scenario,
-    predator: Union[str, int],
-    prey: Union[str, int],
-    value: float
+    scenario, predator: Union[str, int], prey: Union[str, int], value: float
 ):
     """Set handling time (d) for a predator-prey link.
-    
+
     Handling time controls predator satiation:
     - d = 1000: Off (default)
     - d = 0: Maximum satiation effect
-    
+
     Args:
         scenario: RsimScenario object to modify
         predator: Predator group name or index
         prey: Prey group name or index
         value: New handling time value
-        
+
     Returns:
         Modified scenario object
     """
     pred_idx = _get_group_index(scenario, predator)
     prey_idx = _get_group_index(scenario, prey)
-    
+
     # Find the link
     params = scenario.params
     for i in range(1, params.NumPredPreyLinks + 1):
         if params.PreyTo[i] == pred_idx and params.PreyFrom[i] == prey_idx:
             params.DD[i] = value
             return scenario
-    
+
     raise ValueError(f"No predator-prey link found between {predator} and {prey}")
 
 
 def adjust_group_parameter(
-    scenario,
-    group: Union[str, int],
-    parameter: str,
-    value: float
+    scenario, group: Union[str, int], parameter: str, value: float
 ):
     """Adjust a parameter for a specific group.
-    
+
     Modifies group-level parameters in the scenario's params object.
-    
+
     Args:
         scenario: RsimScenario object to modify
         group: Group name or index
@@ -320,59 +319,59 @@ def adjust_group_parameter(
             - 'FtimeAdj': Feeding time adjustment
             - 'PBopt': Optimal P/B
         value: New value to set
-        
+
     Returns:
         Modified scenario object
     """
     group_idx = _get_group_index(scenario, group) + 1  # +1 for "Outside"
-    
+
     if hasattr(scenario.params, parameter):
         param_array = getattr(scenario.params, parameter)
         if isinstance(param_array, np.ndarray) and len(param_array) > group_idx:
             param_array[group_idx] = value
         else:
-            raise ValueError(f"Parameter '{parameter}' not accessible at index {group_idx}")
+            raise ValueError(
+                f"Parameter '{parameter}' not accessible at index {group_idx}"
+            )
     else:
         raise AttributeError(f"Parameter '{parameter}' not found in scenario.params")
-    
+
     return scenario
 
 
 # Helper functions
 
+
 def _get_group_index(scenario, group: Union[str, int]) -> int:
     """Get group index from name or index."""
     if isinstance(group, int):
         return group
-    
+
     # Look up by name
     spname = scenario.params.spname
     for i, name in enumerate(spname):
         if name == group:
             return i - 1  # Subtract 1 because spname has "Outside" at index 0
-    
+
     raise ValueError(f"Group '{group}' not found in scenario")
 
 
 def _resolve_group_indices(
-    scenario, 
-    group: Union[str, int, List],
-    parameter: str,
-    is_forcing: bool = False
+    scenario, group: Union[str, int, List], parameter: str, is_forcing: bool = False
 ) -> List[int]:
     """Resolve group specification to list of column indices."""
     if isinstance(group, (str, int)):
         groups = [group]
     else:
         groups = list(group)
-    
+
     indices = []
     for g in groups:
         idx = _get_group_index(scenario, g)
         # Adjust for matrix structure
         if is_forcing:
             indices.append(idx + 1)  # Forcing matrices include "Outside"
-        elif parameter == 'ForcedEffort':
+        elif parameter == "ForcedEffort":
             # Effort is indexed by gear, starts after biomass groups
             if isinstance(g, str):
                 # Find gear index
@@ -388,14 +387,12 @@ def _resolve_group_indices(
                 indices.append(g + 1)
         else:
             indices.append(idx + 1)
-    
+
     return indices
 
 
 def _resolve_year_indices(
-    scenario,
-    sim_year: Union[int, range, List[int]],
-    parameter: str
+    scenario, sim_year: Union[int, range, List[int]], parameter: str
 ) -> List[int]:
     """Resolve year specification to list of row indices."""
     if isinstance(sim_year, int):
@@ -404,9 +401,9 @@ def _resolve_year_indices(
         years = list(sim_year)
     else:
         years = list(sim_year)
-    
+
     # Get year labels from fishing matrix row names
-    if parameter in ['ForcedEffort']:
+    if parameter in ["ForcedEffort"]:
         # Monthly matrix - get base years
         n_years = scenario.fishing.ForcedEffort.shape[0] // 12
         start_year = 1  # Assume 1-based years
@@ -417,9 +414,7 @@ def _resolve_year_indices(
 
 
 def _resolve_month_indices(
-    year_indices: List[int],
-    sim_month: Union[int, range, List[int], None],
-    n_rows: int
+    year_indices: List[int], sim_month: Union[int, range, List[int], None], n_rows: int
 ) -> List[int]:
     """Convert year and month to row indices for monthly matrices."""
     if sim_month is None:
@@ -431,14 +426,14 @@ def _resolve_month_indices(
         months = list(sim_month)
     else:
         months = list(sim_month)
-    
+
     row_indices = []
     for y in year_indices:
         for m in months:
             row_idx = y * 12 + (m - 1)  # Convert to 0-based month
             if 0 <= row_idx < n_rows:
                 row_indices.append(row_idx)
-    
+
     return row_indices
 
 
@@ -449,13 +444,13 @@ def create_fishing_ramp(
     end_year: int,
     start_value: float,
     end_value: float,
-    parameter: str = 'ForcedFRate'
+    parameter: str = "ForcedFRate",
 ):
     """Create a linear ramp in fishing pressure.
-    
+
     Convenience function to linearly interpolate fishing between
     two values over a range of years.
-    
+
     Args:
         scenario: RsimScenario object to modify
         group: Group to modify
@@ -464,19 +459,15 @@ def create_fishing_ramp(
         start_value: Value at start_year
         end_value: Value at end_year
         parameter: Fishing parameter to modify
-        
+
     Returns:
         Modified scenario object
     """
     years = list(range(start_year, end_year + 1))
     values = np.linspace(start_value, end_value, len(years))
-    
+
     return adjust_fishing(
-        scenario,
-        parameter=parameter,
-        group=group,
-        sim_year=years,
-        value=values
+        scenario, parameter=parameter, group=group, sim_year=years, value=values
     )
 
 
@@ -486,13 +477,13 @@ def create_pulse_forcing(
     pulse_years: List[int],
     pulse_months: Union[int, List[int]],
     magnitude: float,
-    parameter: str = 'ForcedRecs'
+    parameter: str = "ForcedRecs",
 ):
     """Create pulse forcing events.
-    
+
     Convenience function to add periodic pulse events
     (e.g., recruitment pulses, mortality events).
-    
+
     Args:
         scenario: RsimScenario object to modify
         group: Group to modify
@@ -500,7 +491,7 @@ def create_pulse_forcing(
         pulse_months: Month(s) when pulse occurs
         magnitude: Multiplier for pulse (>1 = increase, <1 = decrease)
         parameter: Forcing parameter to modify
-        
+
     Returns:
         Modified scenario object
     """
@@ -511,9 +502,9 @@ def create_pulse_forcing(
             group=group,
             sim_year=year,
             sim_month=pulse_months,
-            value=magnitude
+            value=magnitude,
         )
-    
+
     return scenario
 
 
@@ -522,26 +513,26 @@ def create_seasonal_forcing(
     group: Union[str, int],
     years: Union[range, List[int]],
     monthly_values: List[float],
-    parameter: str = 'ForcedPrey'
+    parameter: str = "ForcedPrey",
 ):
     """Create seasonal forcing pattern.
-    
+
     Applies a repeating 12-month pattern of forcing values
     across multiple years.
-    
+
     Args:
         scenario: RsimScenario object to modify
         group: Group to modify
         years: Years to apply pattern
         monthly_values: List of 12 values, one per month
         parameter: Forcing parameter to modify
-        
+
     Returns:
         Modified scenario object
-        
+
     Example:
         >>> # Higher prey availability in summer
-        >>> seasonal = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 
+        >>> seasonal = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3,
         ...             1.3, 1.2, 1.1, 1.0, 0.9, 0.8]
         >>> scenario = create_seasonal_forcing(
         ...     scenario, 'Zooplankton', range(1, 51), seasonal
@@ -549,10 +540,10 @@ def create_seasonal_forcing(
     """
     if len(monthly_values) != 12:
         raise ValueError("monthly_values must have exactly 12 elements")
-    
+
     if isinstance(years, range):
         years = list(years)
-    
+
     for month in range(1, 13):
         scenario = adjust_forcing(
             scenario,
@@ -560,7 +551,7 @@ def create_seasonal_forcing(
             group=group,
             sim_year=years,
             sim_month=month,
-            value=monthly_values[month - 1]
+            value=monthly_values[month - 1],
         )
-    
+
     return scenario

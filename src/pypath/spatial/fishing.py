@@ -11,8 +11,9 @@ Implements spatially-explicit fishing with multiple allocation strategies:
 
 from __future__ import annotations
 
-from typing import Optional, List, Callable
 from dataclasses import dataclass
+from typing import Callable, List, Optional
+
 import numpy as np
 
 
@@ -84,19 +85,20 @@ class SpatialFishing:
             )
 
         if self.allocation_type == "prescribed" and self.effort_allocation is None:
-            raise ValueError("allocation_type='prescribed' requires effort_allocation array")
+            raise ValueError(
+                "allocation_type='prescribed' requires effort_allocation array"
+            )
 
         if self.allocation_type == "custom" and self.custom_allocation_function is None:
-            raise ValueError("allocation_type='custom' requires custom_allocation_function")
+            raise ValueError(
+                "allocation_type='custom' requires custom_allocation_function"
+            )
 
         if self.port_patches is not None:
             self.port_patches = np.asarray(self.port_patches, dtype=int)
 
 
-def allocate_uniform(
-    n_patches: int,
-    total_effort: float = 1.0
-) -> np.ndarray:
+def allocate_uniform(n_patches: int, total_effort: float = 1.0) -> np.ndarray:
     """Allocate effort uniformly across all patches.
 
     Parameters
@@ -126,7 +128,7 @@ def allocate_gravity(
     alpha: float = 1.0,
     beta: float = 0.0,
     port_patches: Optional[np.ndarray] = None,
-    grid: Optional['EcospaceGrid'] = None
+    grid: Optional["EcospaceGrid"] = None,
 ) -> np.ndarray:
     """Allocate effort using gravity model (biomass attraction + distance penalty).
 
@@ -184,11 +186,7 @@ def allocate_gravity(
 
     # Apply distance penalty if ports specified
     if beta > 0 and port_patches is not None and grid is not None:
-        distance_penalty = calculate_distance_penalty(
-            grid,
-            port_patches,
-            beta
-        )
+        distance_penalty = calculate_distance_penalty(grid, port_patches, beta)
         attractiveness = attractiveness / (distance_penalty + 1e-10)
 
     # Normalize to total effort
@@ -204,11 +202,11 @@ def allocate_gravity(
 
 
 def allocate_port_based(
-    grid: 'EcospaceGrid',
+    grid: "EcospaceGrid",
     port_patches: np.ndarray,
     total_effort: float,
     beta: float = 1.0,
-    max_distance: Optional[float] = None
+    max_distance: Optional[float] = None,
 ) -> np.ndarray:
     """Allocate effort based on distance from fishing ports.
 
@@ -252,9 +250,10 @@ def allocate_port_based(
 
         for port in port_patches:
             # Distance between patch centroids (in km)
-            dist = np.linalg.norm(
-                grid.patch_centroids[p] - grid.patch_centroids[port]
-            ) * 111.0  # degrees to km
+            dist = (
+                np.linalg.norm(grid.patch_centroids[p] - grid.patch_centroids[port])
+                * 111.0
+            )  # degrees to km
 
             if dist < min_dist:
                 min_dist = dist
@@ -262,7 +261,7 @@ def allocate_port_based(
         distance_to_port[p] = max(min_dist, 0.1)  # Avoid division by zero
 
     # Calculate effort based on inverse distance
-    effort = 1.0 / (distance_to_port ** beta)
+    effort = 1.0 / (distance_to_port**beta)
 
     # Apply maximum distance cutoff if specified
     if max_distance is not None:
@@ -283,9 +282,7 @@ def allocate_port_based(
 
 
 def calculate_distance_penalty(
-    grid: 'EcospaceGrid',
-    port_patches: np.ndarray,
-    beta: float
+    grid: "EcospaceGrid", port_patches: np.ndarray, beta: float
 ) -> np.ndarray:
     """Calculate distance penalty from nearest port.
 
@@ -311,9 +308,10 @@ def calculate_distance_penalty(
         min_dist = np.inf
 
         for port in port_patches:
-            dist = np.linalg.norm(
-                grid.patch_centroids[p] - grid.patch_centroids[port]
-            ) * 111.0  # deg to km
+            dist = (
+                np.linalg.norm(grid.patch_centroids[p] - grid.patch_centroids[port])
+                * 111.0
+            )  # deg to km
 
             if dist < min_dist:
                 min_dist = dist
@@ -325,9 +323,7 @@ def calculate_distance_penalty(
 
 
 def allocate_habitat_based(
-    habitat_preference: np.ndarray,
-    total_effort: float,
-    threshold: float = 0.5
+    habitat_preference: np.ndarray, total_effort: float, threshold: float = 0.5
 ) -> np.ndarray:
     """Allocate effort based on habitat preference.
 
@@ -380,7 +376,7 @@ def create_spatial_fishing(
     n_patches: int,
     forced_effort: np.ndarray,
     allocation_type: str = "uniform",
-    **kwargs
+    **kwargs,
 ) -> SpatialFishing:
     """Create spatial fishing with pre-computed effort allocation.
 
@@ -438,13 +434,15 @@ def create_spatial_fishing(
 
             elif allocation_type == "port":
                 # Requires grid and port_patches
-                grid = kwargs.get('grid')
-                port_patches = kwargs.get('port_patches')
+                grid = kwargs.get("grid")
+                port_patches = kwargs.get("port_patches")
 
                 if grid is None or port_patches is None:
-                    raise ValueError("allocation_type='port' requires 'grid' and 'port_patches'")
+                    raise ValueError(
+                        "allocation_type='port' requires 'grid' and 'port_patches'"
+                    )
 
-                beta = kwargs.get('gravity_beta', 1.0)
+                beta = kwargs.get("gravity_beta", 1.0)
                 allocation = allocate_port_based(grid, port_patches, total_effort, beta)
 
             else:
@@ -456,7 +454,13 @@ def create_spatial_fishing(
     # Filter kwargs to only include SpatialFishing parameters
     # Exclude allocation-specific parameters that were only used for calculation
     spatial_fishing_kwargs = {}
-    valid_params = ['gravity_alpha', 'gravity_beta', 'port_patches', 'target_groups', 'custom_allocation_function']
+    valid_params = [
+        "gravity_alpha",
+        "gravity_beta",
+        "port_patches",
+        "target_groups",
+        "custom_allocation_function",
+    ]
 
     for key in valid_params:
         if key in kwargs:
@@ -466,16 +470,14 @@ def create_spatial_fishing(
     spatial_fishing = SpatialFishing(
         allocation_type=allocation_type,
         effort_allocation=effort_allocation,
-        **spatial_fishing_kwargs
+        **spatial_fishing_kwargs,
     )
 
     return spatial_fishing
 
 
 def validate_effort_allocation(
-    effort_allocation: np.ndarray,
-    forced_effort: np.ndarray,
-    tolerance: float = 1e-8
+    effort_allocation: np.ndarray, forced_effort: np.ndarray, tolerance: float = 1e-8
 ) -> bool:
     """Validate that spatial effort allocation sums correctly.
 

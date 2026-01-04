@@ -7,13 +7,15 @@ calculating edge properties, and spatial indexing.
 
 from __future__ import annotations
 
-from typing import Tuple, Dict
+from typing import Dict, Tuple
+
 import numpy as np
 import scipy.sparse
 
 # Optional GIS support
 try:
     import geopandas as gpd
+
     _GIS_AVAILABLE = True
 except ImportError:
     _GIS_AVAILABLE = False
@@ -21,8 +23,7 @@ except ImportError:
 
 
 def build_adjacency_from_gdf(
-    gdf: "gpd.GeoDataFrame",
-    method: str = "rook"
+    gdf: "gpd.GeoDataFrame", method: str = "rook"
 ) -> Tuple[scipy.sparse.csr_matrix, Dict]:
     """Build adjacency matrix from GeoDataFrame.
 
@@ -90,7 +91,9 @@ def build_adjacency_from_gdf(
                     rows.extend([i, j])
                     cols.extend([j, i])
                     intersection = geom_i.intersection(geom_j)
-                    border_length_deg = intersection.length if hasattr(intersection, 'length') else 0
+                    border_length_deg = (
+                        intersection.length if hasattr(intersection, "length") else 0
+                    )
                     border_length_km = border_length_deg * 111.0
                     border_lengths[(i, j)] = border_length_km
 
@@ -100,21 +103,15 @@ def build_adjacency_from_gdf(
     # Create sparse adjacency matrix
     data = np.ones(len(rows))
     adjacency = scipy.sparse.csr_matrix(
-        (data, (rows, cols)),
-        shape=(n_patches, n_patches)
+        (data, (rows, cols)), shape=(n_patches, n_patches)
     )
 
-    metadata = {
-        'border_lengths': border_lengths,
-        'method': method
-    }
+    metadata = {"border_lengths": border_lengths, "method": method}
 
     return adjacency, metadata
 
 
-def calculate_patch_distances(
-    grid: "EcospaceGrid"
-) -> np.ndarray:
+def calculate_patch_distances(grid: "EcospaceGrid") -> np.ndarray:
     """Calculate pairwise distances between patch centroids.
 
     Parameters
@@ -137,17 +134,14 @@ def calculate_patch_distances(
 
     # Vectorized distance calculation (much faster than nested loops)
     # Calculate all pairwise distances at once
-    distances_deg = cdist(centroids, centroids, metric='euclidean')
+    distances_deg = cdist(centroids, centroids, metric="euclidean")
     distances = distances_deg * 111.0  # Rough conversion from degrees to km
 
     return distances
 
 
 def haversine_distance(
-    lon1: np.ndarray,
-    lat1: np.ndarray,
-    lon2: np.ndarray,
-    lat2: np.ndarray
+    lon1: np.ndarray, lat1: np.ndarray, lon2: np.ndarray, lat2: np.ndarray
 ) -> np.ndarray:
     """Calculate great circle distance between points.
 
@@ -175,7 +169,10 @@ def haversine_distance(
     dlon = lon2_rad - lon1_rad
     dlat = lat2_rad - lat1_rad
 
-    a = np.sin(dlat / 2)**2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2)**2
+    a = (
+        np.sin(dlat / 2) ** 2
+        + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2) ** 2
+    )
     c = 2 * np.arcsin(np.sqrt(a))
 
     # Earth radius in km
@@ -185,8 +182,7 @@ def haversine_distance(
 
 
 def build_distance_matrix(
-    grid: "EcospaceGrid",
-    method: str = "haversine"
+    grid: "EcospaceGrid", method: str = "haversine"
 ) -> np.ndarray:
     """Build distance matrix between all patch pairs.
 
@@ -212,8 +208,7 @@ def build_distance_matrix(
         distances = np.zeros((n_patches, n_patches))
         for i in range(n_patches):
             distances[i, :] = haversine_distance(
-                centroids[i, 0], centroids[i, 1],
-                centroids[:, 0], centroids[:, 1]
+                centroids[i, 0], centroids[i, 1], centroids[:, 0], centroids[:, 1]
             )
         return distances
 
@@ -226,9 +221,7 @@ def build_distance_matrix(
 
 
 def find_k_nearest_neighbors(
-    grid: "EcospaceGrid",
-    k: int,
-    method: str = "haversine"
+    grid: "EcospaceGrid", k: int, method: str = "haversine"
 ) -> np.ndarray:
     """Find k nearest neighbors for each patch.
 
@@ -258,14 +251,12 @@ def find_k_nearest_neighbors(
         # argsort gives indices from nearest to farthest
         sorted_indices = np.argsort(distances[i, :])
         # Exclude self (distance 0) and take next k
-        neighbors[i, :] = sorted_indices[1:k + 1]
+        neighbors[i, :] = sorted_indices[1 : k + 1]
 
     return neighbors
 
 
-def validate_adjacency_symmetry(
-    adjacency: scipy.sparse.csr_matrix
-) -> bool:
+def validate_adjacency_symmetry(adjacency: scipy.sparse.csr_matrix) -> bool:
     """Check if adjacency matrix is symmetric.
 
     Parameters
@@ -278,15 +269,10 @@ def validate_adjacency_symmetry(
     bool
         True if symmetric (within tolerance)
     """
-    return np.allclose(
-        adjacency.toarray(),
-        adjacency.toarray().T
-    )
+    return np.allclose(adjacency.toarray(), adjacency.toarray().T)
 
 
-def get_connectivity_graph_stats(
-    adjacency: scipy.sparse.csr_matrix
-) -> Dict:
+def get_connectivity_graph_stats(adjacency: scipy.sparse.csr_matrix) -> Dict:
     """Calculate graph statistics from adjacency matrix.
 
     Parameters
@@ -314,12 +300,12 @@ def get_connectivity_graph_stats(
     n_edges = int(adjacency.nnz / 2)
 
     stats = {
-        'n_nodes': n_patches,
-        'n_edges': n_edges,
-        'mean_degree': np.mean(degrees),
-        'max_degree': int(np.max(degrees)),
-        'min_degree': int(np.min(degrees)),
-        'isolated_patches': np.where(degrees == 0)[0].tolist()
+        "n_nodes": n_patches,
+        "n_edges": n_edges,
+        "mean_degree": np.mean(degrees),
+        "max_degree": int(np.max(degrees)),
+        "min_degree": int(np.min(degrees)),
+        "isolated_patches": np.where(degrees == 0)[0].tolist(),
     }
 
     return stats

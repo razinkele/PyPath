@@ -10,11 +10,12 @@ Tests cover:
 - Theme and settings functionality
 """
 
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
+
 import pandas as pd
+import pytest
 
 # Add app directory to path
 app_dir = Path(__file__).parent.parent / "app"
@@ -28,6 +29,7 @@ class TestAppStructure:
         """Test that app module can be imported."""
         try:
             from app import app
+
             assert app is not None
         except ImportError as e:
             pytest.skip(f"Shiny not installed or import error: {e}")
@@ -36,6 +38,7 @@ class TestAppStructure:
         """Test that APP_DIR is correctly defined."""
         try:
             from app.app import APP_DIR
+
             assert APP_DIR.exists()
             assert APP_DIR.is_dir()
             assert APP_DIR.name == "app"
@@ -46,6 +49,7 @@ class TestAppStructure:
         """Test that static assets directory exists."""
         try:
             from app.app import APP_DIR
+
             static_dir = APP_DIR / "static"
             assert static_dir.exists()
             assert static_dir.is_dir()
@@ -60,17 +64,36 @@ class TestAppStructure:
         """Test that all page modules can be imported."""
         try:
             from pages import (
-                home, data_import, ecopath, ecosim,
-                results, analysis, about, multistanza,
-                forcing_demo, diet_rewiring_demo,
-                optimization_demo, ecospace
+                about,
+                analysis,
+                data_import,
+                diet_rewiring_demo,
+                ecopath,
+                ecosim,
+                ecospace,
+                forcing_demo,
+                home,
+                multistanza,
+                optimization_demo,
+                results,
             )
-            assert all([
-                home, data_import, ecopath, ecosim,
-                results, analysis, about, multistanza,
-                forcing_demo, diet_rewiring_demo,
-                optimization_demo, ecospace
-            ])
+
+            assert all(
+                [
+                    home,
+                    data_import,
+                    ecopath,
+                    ecosim,
+                    results,
+                    analysis,
+                    about,
+                    multistanza,
+                    forcing_demo,
+                    diet_rewiring_demo,
+                    optimization_demo,
+                    ecospace,
+                ]
+            )
         except ImportError:
             pytest.skip("Shiny or page modules not available")
 
@@ -83,6 +106,7 @@ class TestUIComponents:
         """Mock Shiny UI components."""
         try:
             from shiny import ui
+
             return ui
         except ImportError:
             pytest.skip("Shiny not installed")
@@ -91,6 +115,7 @@ class TestUIComponents:
         """Test that navbar has correct structure."""
         try:
             from app.app import app_ui
+
             # App UI should be a page_navbar
             assert app_ui is not None
         except ImportError:
@@ -100,6 +125,7 @@ class TestUIComponents:
         """Test that custom CSS is included in head."""
         try:
             from app.app import app_ui
+
             # Convert UI to string to check for CSS link
             ui_str = str(app_ui)
             assert "custom.css" in ui_str
@@ -110,6 +136,7 @@ class TestUIComponents:
         """Test that Bootstrap Icons CSS is included."""
         try:
             from app.app import app_ui
+
             ui_str = str(app_ui)
             assert "bootstrap-icons" in ui_str
         except ImportError:
@@ -118,8 +145,10 @@ class TestUIComponents:
     def test_footer_dynamic_year(self):
         """Test that footer uses dynamic year."""
         try:
-            from app.app import app_ui
             from datetime import datetime
+
+            from app.app import app_ui
+
             ui_str = str(app_ui)
             current_year = str(datetime.now().year)
             assert current_year in ui_str
@@ -134,6 +163,7 @@ class TestServerLogic:
     @pytest.fixture
     def mock_reactive_value(self):
         """Create a mock reactive value."""
+
         class MockReactiveValue:
             def __init__(self):
                 self._value = None
@@ -165,9 +195,9 @@ class TestServerLogic:
             shared = SharedData(model_data, sim_results)
 
             # Test attributes exist
-            assert hasattr(shared, 'model_data')
-            assert hasattr(shared, 'sim_results')
-            assert hasattr(shared, 'params')
+            assert hasattr(shared, "model_data")
+            assert hasattr(shared, "sim_results")
+            assert hasattr(shared, "params")
 
             # Test that references work
             assert shared.model_data is model_data
@@ -195,7 +225,7 @@ class TestServerLogic:
             # Create mock RpathParams
             class MockRpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({'Group': ['Fish'], 'TL': [3.0]})
+                    self.model = pd.DataFrame({"Group": ["Fish"], "TL": [3.0]})
                     self.diet = pd.DataFrame()
 
             # Test sync logic
@@ -203,11 +233,11 @@ class TestServerLogic:
             model_data.set(mock_params)
 
             # Simulate sync
-            if hasattr(model_data(), 'model') and hasattr(model_data(), 'diet'):
+            if hasattr(model_data(), "model") and hasattr(model_data(), "diet"):
                 shared.params.set(model_data())
 
             assert shared.params() is not None
-            assert hasattr(shared.params(), 'model')
+            assert hasattr(shared.params(), "model")
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -218,8 +248,9 @@ class TestErrorHandling:
     def test_server_init_with_error_handling(self):
         """Test that server initialization handles errors gracefully."""
         try:
-            from app.app import server
             from shiny import Inputs, Outputs, Session
+
+            from app.app import server
 
             # Create mock objects
             mock_input = Mock(spec=Inputs)
@@ -241,8 +272,9 @@ class TestErrorHandling:
         # This is a structural test - the server_modules list
         # with try-except should allow partial initialization
         try:
-            from app.app import server
             import inspect
+
+            from app.app import server
 
             # Check that server function contains error handling
             source = inspect.getsource(server)
@@ -267,11 +299,13 @@ class TestDataFlow:
             # Data Import sets model_data
             class MockRpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({
-                        'Group': ['Phytoplankton', 'Fish'],
-                        'TL': [1.0, 3.5],
-                        'Biomass': [100.0, 10.0]
-                    })
+                    self.model = pd.DataFrame(
+                        {
+                            "Group": ["Phytoplankton", "Fish"],
+                            "TL": [1.0, 3.5],
+                            "Biomass": [100.0, 10.0],
+                        }
+                    )
                     self.diet = pd.DataFrame()
 
             mock_params = MockRpathParams()
@@ -279,7 +313,7 @@ class TestDataFlow:
 
             # Verify data is accessible
             assert model_data() is not None
-            assert hasattr(model_data(), 'model')
+            assert hasattr(model_data(), "model")
             assert len(model_data().model) == 2
         except ImportError:
             pytest.skip("Shiny not installed")
@@ -293,15 +327,15 @@ class TestDataFlow:
 
             # Ecosim sets sim_results
             mock_results = {
-                'biomass': pd.DataFrame({'time': [0, 1], 'Phytoplankton': [100, 105]}),
-                'catch': pd.DataFrame({'time': [0, 1], 'Fish': [5, 6]})
+                "biomass": pd.DataFrame({"time": [0, 1], "Phytoplankton": [100, 105]}),
+                "catch": pd.DataFrame({"time": [0, 1], "Fish": [5, 6]}),
             }
             sim_results.set(mock_results)
 
             # Verify results are accessible
             assert sim_results() is not None
-            assert 'biomass' in sim_results()
-            assert 'catch' in sim_results()
+            assert "biomass" in sim_results()
+            assert "catch" in sim_results()
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -313,18 +347,23 @@ class TestNavigationStructure:
         """Test that all page modules have UI functions."""
         try:
             from pages import (
-                home, data_import, ecopath, ecosim,
-                results, analysis, about
+                about,
+                analysis,
+                data_import,
+                ecopath,
+                ecosim,
+                home,
+                results,
             )
 
             pages = [
-                (home, 'home_ui'),
-                (data_import, 'import_ui'),
-                (ecopath, 'ecopath_ui'),
-                (ecosim, 'ecosim_ui'),
-                (results, 'results_ui'),
-                (analysis, 'analysis_ui'),
-                (about, 'about_ui'),
+                (home, "home_ui"),
+                (data_import, "import_ui"),
+                (ecopath, "ecopath_ui"),
+                (ecosim, "ecosim_ui"),
+                (results, "results_ui"),
+                (analysis, "analysis_ui"),
+                (about, "about_ui"),
             ]
 
             for module, ui_func_name in pages:
@@ -337,18 +376,23 @@ class TestNavigationStructure:
         """Test that all page modules have server functions."""
         try:
             from pages import (
-                home, data_import, ecopath, ecosim,
-                results, analysis, about
+                about,
+                analysis,
+                data_import,
+                ecopath,
+                ecosim,
+                home,
+                results,
             )
 
             pages = [
-                (home, 'home_server'),
-                (data_import, 'import_server'),
-                (ecopath, 'ecopath_server'),
-                (ecosim, 'ecosim_server'),
-                (results, 'results_server'),
-                (analysis, 'analysis_server'),
-                (about, 'about_server'),
+                (home, "home_server"),
+                (data_import, "import_server"),
+                (ecopath, "ecopath_server"),
+                (ecosim, "ecosim_server"),
+                (results, "results_server"),
+                (analysis, "analysis_server"),
+                (about, "about_server"),
             ]
 
             for module, server_func_name in pages:
@@ -361,16 +405,23 @@ class TestNavigationStructure:
         """Test that advanced feature pages exist."""
         try:
             from pages import (
-                multistanza, forcing_demo,
-                diet_rewiring_demo, optimization_demo, ecospace
+                diet_rewiring_demo,
+                ecospace,
+                forcing_demo,
+                multistanza,
+                optimization_demo,
             )
 
             advanced_pages = [
-                (multistanza, 'multistanza_ui', 'multistanza_server'),
-                (forcing_demo, 'forcing_demo_ui', 'forcing_demo_server'),
-                (diet_rewiring_demo, 'diet_rewiring_demo_ui', 'diet_rewiring_demo_server'),
-                (optimization_demo, 'optimization_demo_ui', 'optimization_demo_server'),
-                (ecospace, 'ecospace_ui', 'ecospace_server'),
+                (multistanza, "multistanza_ui", "multistanza_server"),
+                (forcing_demo, "forcing_demo_ui", "forcing_demo_server"),
+                (
+                    diet_rewiring_demo,
+                    "diet_rewiring_demo_ui",
+                    "diet_rewiring_demo_server",
+                ),
+                (optimization_demo, "optimization_demo_ui", "optimization_demo_server"),
+                (ecospace, "ecospace_ui", "ecospace_server"),
             ]
 
             for module, ui_func, server_func in advanced_pages:
@@ -389,6 +440,7 @@ class TestThemeAndSettings:
         """Test that theme picker is integrated."""
         try:
             import shinyswatch
+
             from app.app import app_ui
 
             # Theme picker should be available
@@ -403,8 +455,9 @@ class TestThemeAndSettings:
     def test_default_theme(self):
         """Test that default theme is applied."""
         try:
-            from app.app import app_ui
             import shinyswatch
+
+            from app.app import app_ui
 
             # The app uses flatly theme by default
             # This is verified in the source code
@@ -422,6 +475,7 @@ class TestDocumentation:
         """Test that server function has comprehensive docstring."""
         try:
             from app.app import server
+
             assert server.__doc__ is not None
             assert "Data Flow Architecture" in server.__doc__
             assert "Primary Reactive State" in server.__doc__
@@ -431,13 +485,16 @@ class TestDocumentation:
     def test_shared_data_docstring(self):
         """Test that SharedData class has docstring."""
         try:
-            from app.app import server
             import inspect
+
+            from app.app import server
 
             source = inspect.getsource(server)
             # Check for SharedData documentation
-            assert "Container providing structured access" in source or \
-                   "Wrapper class providing structured access" in source
+            assert (
+                "Container providing structured access" in source
+                or "Wrapper class providing structured access" in source
+            )
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -464,13 +521,15 @@ class TestIntegrationScenarios:
             # Simulate importing data
             class MockRpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({
-                        'Group': ['Fish'],
-                        'TL': [3.5],
-                        'Biomass': [10.0],
-                        'PB': [0.5],
-                        'QB': [2.0]
-                    })
+                    self.model = pd.DataFrame(
+                        {
+                            "Group": ["Fish"],
+                            "TL": [3.5],
+                            "Biomass": [10.0],
+                            "PB": [0.5],
+                            "QB": [2.0],
+                        }
+                    )
                     self.diet = pd.DataFrame()
                     self.balanced = False
 
@@ -483,14 +542,12 @@ class TestIntegrationScenarios:
             model_data.set(params)
 
             # Step 3: Run simulation (simulated)
-            mock_sim = {
-                'biomass': pd.DataFrame({'time': [0, 1], 'Fish': [10, 11]})
-            }
+            mock_sim = {"biomass": pd.DataFrame({"time": [0, 1], "Fish": [10, 11]})}
             sim_results.set(mock_sim)
             assert sim_results() is not None
 
             # Step 4: Results available
-            assert 'biomass' in sim_results()
+            assert "biomass" in sim_results()
         except ImportError:
             pytest.skip("Shiny not installed")
 

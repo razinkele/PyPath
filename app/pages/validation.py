@@ -4,17 +4,20 @@ This module provides validation functions that use the centralized ValidationCon
 to ensure parameters are within acceptable ranges and provide helpful error messages.
 """
 
-from typing import Optional, List, Tuple, Union
-import pandas as pd
+from typing import List, Optional, Tuple, Union
+
 import numpy as np
+import pandas as pd
 
 try:
-    from app.config import VALIDATION, VALID_GROUP_TYPES, NO_DATA_VALUE
+    from app.config import NO_DATA_VALUE, VALID_GROUP_TYPES, VALIDATION
 except ModuleNotFoundError:
-    from config import VALIDATION, VALID_GROUP_TYPES, NO_DATA_VALUE
+    from config import NO_DATA_VALUE, VALIDATION
 
 
-def validate_group_types(types: Union[List[int], np.ndarray, pd.Series]) -> Tuple[bool, Optional[str]]:
+def validate_group_types(
+    types: Union[List[int], np.ndarray, pd.Series],
+) -> Tuple[bool, Optional[str]]:
     """Validate that all group types are valid.
 
     Parameters
@@ -59,8 +62,9 @@ def validate_group_types(types: Union[List[int], np.ndarray, pd.Series]) -> Tupl
     return True, None
 
 
-def validate_biomass(biomass: Union[float, np.ndarray, pd.Series],
-                     group_name: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+def validate_biomass(
+    biomass: Union[float, np.ndarray, pd.Series], group_name: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
     """Validate biomass values are within acceptable range.
 
     Parameters
@@ -115,9 +119,11 @@ def validate_biomass(biomass: Union[float, np.ndarray, pd.Series],
     return True, None
 
 
-def validate_pb(pb: Union[float, np.ndarray, pd.Series],
-                group_name: Optional[str] = None,
-                group_type: Optional[int] = None) -> Tuple[bool, Optional[str]]:
+def validate_pb(
+    pb: Union[float, np.ndarray, pd.Series],
+    group_name: Optional[str] = None,
+    group_type: Optional[int] = None,
+) -> Tuple[bool, Optional[str]]:
     """Validate Production/Biomass ratio.
 
     Parameters
@@ -149,7 +155,9 @@ def validate_pb(pb: Union[float, np.ndarray, pd.Series],
         return False, error_msg
 
     # Use type-specific threshold: producers can have higher P/B
-    max_pb_threshold = VALIDATION.max_pb_producer if group_type == 1 else VALIDATION.max_pb
+    max_pb_threshold = (
+        VALIDATION.max_pb_producer if group_type == 1 else VALIDATION.max_pb
+    )
 
     if np.any(pb_array > max_pb_threshold):
         group_str = f" for group '{group_name}'" if group_name else ""
@@ -170,8 +178,9 @@ def validate_pb(pb: Union[float, np.ndarray, pd.Series],
     return True, None
 
 
-def validate_ee(ee: Union[float, np.ndarray, pd.Series],
-                group_name: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+def validate_ee(
+    ee: Union[float, np.ndarray, pd.Series], group_name: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
     """Validate Ecotrophic Efficiency.
 
     Parameters
@@ -221,7 +230,7 @@ def validate_model_parameters(
     check_groups: bool = True,
     check_biomass: bool = True,
     check_pb: bool = True,
-    check_ee: bool = True
+    check_ee: bool = True,
 ) -> Tuple[bool, List[str]]:
     """Validate all parameters in a model DataFrame.
 
@@ -261,39 +270,39 @@ def validate_model_parameters(
     errors = []
 
     # Validate group types
-    if check_groups and 'Type' in model_df.columns:
-        is_valid, error = validate_group_types(model_df['Type'])
+    if check_groups and "Type" in model_df.columns:
+        is_valid, error = validate_group_types(model_df["Type"])
         if not is_valid:
             errors.append(error)
 
     # Validate each group's parameters
     for idx, row in model_df.iterrows():
-        group_name = row.get('Group', f'Group {idx}')
+        group_name = row.get("Group", f"Group {idx}")
 
         # Skip validation for detritus and fleets (type 2, 3)
-        group_type = row.get('Type', 0)
+        group_type = row.get("Type", 0)
         if group_type in [2, 3]:
             continue
 
         # Validate biomass
-        if check_biomass and 'Biomass' in row:
-            biomass = row['Biomass']
+        if check_biomass and "Biomass" in row:
+            biomass = row["Biomass"]
             if biomass != NO_DATA_VALUE:  # Skip no-data values
                 is_valid, error = validate_biomass(biomass, group_name)
                 if not is_valid:
                     errors.append(error)
 
         # Validate P/B
-        if check_pb and 'PB' in row:
-            pb = row['PB']
+        if check_pb and "PB" in row:
+            pb = row["PB"]
             if pb != NO_DATA_VALUE:
                 is_valid, error = validate_pb(pb, group_name, group_type)
                 if not is_valid:
                     errors.append(error)
 
         # Validate EE
-        if check_ee and 'EE' in row:
-            ee = row['EE']
+        if check_ee and "EE" in row:
+            ee = row["EE"]
             if ee != NO_DATA_VALUE:
                 is_valid, error = validate_ee(ee, group_name)
                 if not is_valid:

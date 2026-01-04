@@ -2,16 +2,16 @@
 Tests for habitat suitability and response functions.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 from pypath.spatial import (
+    apply_habitat_preference_and_suitability,
+    calculate_habitat_suitability,
     create_gaussian_response,
-    create_threshold_response,
     create_linear_response,
     create_step_response,
-    calculate_habitat_suitability,
-    apply_habitat_preference_and_suitability
+    create_threshold_response,
 )
 
 
@@ -37,10 +37,7 @@ class TestGaussianResponse:
     def test_gaussian_with_hard_cutoffs(self):
         """Test Gaussian with min/max cutoffs."""
         response = create_gaussian_response(
-            optimal_value=15.0,
-            tolerance=5.0,
-            min_value=5.0,
-            max_value=25.0
+            optimal_value=15.0, tolerance=5.0, min_value=5.0, max_value=25.0
         )
 
         # Within range
@@ -75,10 +72,7 @@ class TestThresholdResponse:
     def test_trapezoidal_response(self):
         """Test trapezoidal response."""
         response = create_threshold_response(
-            min_value=0.0,
-            max_value=20.0,
-            optimal_min=8.0,
-            optimal_max=12.0
+            min_value=0.0, max_value=20.0, optimal_min=8.0, optimal_max=12.0
         )
 
         # Below minimum
@@ -127,7 +121,7 @@ class TestThresholdResponse:
                 min_value=20.0,  # > max_value
                 max_value=10.0,
                 optimal_min=12.0,
-                optimal_max=18.0
+                optimal_max=18.0,
             )
 
         # Optimal outside range
@@ -136,7 +130,7 @@ class TestThresholdResponse:
                 min_value=0.0,
                 max_value=10.0,
                 optimal_min=-5.0,  # Below min
-                optimal_max=5.0
+                optimal_max=5.0,
             )
 
 
@@ -191,9 +185,7 @@ class TestStepResponse:
     def test_step_response(self):
         """Test step response."""
         response = create_step_response(
-            threshold=50,
-            above_threshold=1.0,
-            below_threshold=0.0
+            threshold=50, above_threshold=1.0, below_threshold=0.0
         )
 
         # Below threshold
@@ -208,9 +200,7 @@ class TestStepResponse:
     def test_step_custom_values(self):
         """Test step response with custom values."""
         response = create_step_response(
-            threshold=10,
-            above_threshold=0.8,
-            below_threshold=0.2
+            threshold=10, above_threshold=0.8, below_threshold=0.2
         )
 
         assert response(np.array([5]))[0] == 0.2
@@ -226,9 +216,7 @@ class TestHabitatSuitability:
         response = create_gaussian_response(optimal_value=15, tolerance=5)
 
         suitability = calculate_habitat_suitability(
-            env,
-            [response],
-            combine_method="multiplicative"
+            env, [response], combine_method="multiplicative"
         )
 
         # Should match direct response
@@ -238,19 +226,21 @@ class TestHabitatSuitability:
     def test_two_drivers_multiplicative(self):
         """Test two drivers with multiplicative combination."""
         # [n_patches=3, n_drivers=2]
-        env = np.array([
-            [10, 50],   # Good temp, good depth
-            [5, 100],   # Poor temp, excellent depth
-            [15, 20]    # Excellent temp, poor depth
-        ])
+        env = np.array(
+            [
+                [10, 50],  # Good temp, good depth
+                [5, 100],  # Poor temp, excellent depth
+                [15, 20],  # Excellent temp, poor depth
+            ]
+        )
 
         temp_response = create_gaussian_response(optimal_value=15, tolerance=5)
-        depth_response = create_linear_response(min_value=0, max_value=100, increasing=True)
+        depth_response = create_linear_response(
+            min_value=0, max_value=100, increasing=True
+        )
 
         suitability = calculate_habitat_suitability(
-            env,
-            [temp_response, depth_response],
-            combine_method="multiplicative"
+            env, [temp_response, depth_response], combine_method="multiplicative"
         )
 
         # Manual calculation for patch 0
@@ -265,18 +255,18 @@ class TestHabitatSuitability:
 
     def test_combine_method_minimum(self):
         """Test minimum (limiting factor) combination."""
-        env = np.array([
-            [0.8, 0.6],  # Driver values that produce known suitabilities
-        ])
+        env = np.array(
+            [
+                [0.8, 0.6],  # Driver values that produce known suitabilities
+            ]
+        )
 
         # Create responses that return input values
         response1 = lambda x: x
         response2 = lambda x: x
 
         suitability = calculate_habitat_suitability(
-            env,
-            [response1, response2],
-            combine_method="minimum"
+            env, [response1, response2], combine_method="minimum"
         )
 
         # Minimum should be 0.6
@@ -290,9 +280,7 @@ class TestHabitatSuitability:
         response2 = lambda x: x
 
         suitability = calculate_habitat_suitability(
-            env,
-            [response1, response2],
-            combine_method="average"
+            env, [response1, response2], combine_method="average"
         )
 
         # Average should be 0.7
@@ -306,9 +294,7 @@ class TestHabitatSuitability:
         response2 = lambda x: x
 
         suitability = calculate_habitat_suitability(
-            env,
-            [response1, response2],
-            combine_method="geometric_mean"
+            env, [response1, response2], combine_method="geometric_mean"
         )
 
         assert suitability[0] == pytest.approx(0.4, rel=1e-2)
@@ -320,9 +306,7 @@ class TestHabitatSuitability:
 
         with pytest.raises(ValueError, match="Unknown combine_method"):
             calculate_habitat_suitability(
-                env,
-                [response, response],
-                combine_method="invalid"
+                env, [response, response], combine_method="invalid"
             )
 
     def test_response_count_mismatch(self):
@@ -334,7 +318,7 @@ class TestHabitatSuitability:
             calculate_habitat_suitability(
                 env,
                 [response, response],  # Only 2 responses
-                combine_method="multiplicative"
+                combine_method="multiplicative",
             )
 
 
@@ -347,9 +331,7 @@ class TestCombinePreferenceAndSuitability:
         env_suit = np.array([0.8, 1.0, 0.6])
 
         result = apply_habitat_preference_and_suitability(
-            base_pref,
-            env_suit,
-            combine_method="multiplicative"
+            base_pref, env_suit, combine_method="multiplicative"
         )
 
         expected = np.array([0.8, 0.5, 0.48])
@@ -361,9 +343,7 @@ class TestCombinePreferenceAndSuitability:
         env_suit = np.array([0.8, 1.0, 0.6])
 
         result = apply_habitat_preference_and_suitability(
-            base_pref,
-            env_suit,
-            combine_method="minimum"
+            base_pref, env_suit, combine_method="minimum"
         )
 
         expected = np.array([0.8, 0.5, 0.6])
@@ -375,9 +355,7 @@ class TestCombinePreferenceAndSuitability:
         env_suit = np.array([0.8, 1.0, 0.6])
 
         result = apply_habitat_preference_and_suitability(
-            base_pref,
-            env_suit,
-            combine_method="average"
+            base_pref, env_suit, combine_method="average"
         )
 
         expected = np.array([0.9, 0.75, 0.7])
@@ -390,9 +368,7 @@ class TestCombinePreferenceAndSuitability:
 
         with pytest.raises(ValueError, match="Shape mismatch"):
             apply_habitat_preference_and_suitability(
-                base_pref,
-                env_suit,
-                combine_method="multiplicative"
+                base_pref, env_suit, combine_method="multiplicative"
             )
 
     def test_invalid_combine_method(self):
@@ -402,9 +378,7 @@ class TestCombinePreferenceAndSuitability:
 
         with pytest.raises(ValueError, match="Unknown combine_method"):
             apply_habitat_preference_and_suitability(
-                base_pref,
-                env_suit,
-                combine_method="invalid"
+                base_pref, env_suit, combine_method="invalid"
             )
 
 
@@ -416,33 +390,27 @@ class TestRealWorldScenarios:
         # Cod prefer: 2-10°C (optimal 4-8°C), depth 50-400m (optimal 100-300m)
 
         # Create patches with varying conditions
-        env = np.array([
-            [6, 200],   # Optimal temp, optimal depth -> high suitability
-            [2, 50],    # Min temp, min depth -> moderate suitability
-            [15, 100],  # Too warm, optimal depth -> low suitability
-            [6, 10]     # Optimal temp, too shallow -> low suitability
-        ])
+        env = np.array(
+            [
+                [6, 200],  # Optimal temp, optimal depth -> high suitability
+                [2, 50],  # Min temp, min depth -> moderate suitability
+                [15, 100],  # Too warm, optimal depth -> low suitability
+                [6, 10],  # Optimal temp, too shallow -> low suitability
+            ]
+        )
 
         # Temperature response (Gaussian)
         temp_response = create_gaussian_response(
-            optimal_value=6.0,
-            tolerance=2.0,
-            min_value=0.0,
-            max_value=12.0
+            optimal_value=6.0, tolerance=2.0, min_value=0.0, max_value=12.0
         )
 
         # Depth response (Threshold)
         depth_response = create_threshold_response(
-            min_value=50,
-            max_value=400,
-            optimal_min=100,
-            optimal_max=300
+            min_value=50, max_value=400, optimal_min=100, optimal_max=300
         )
 
         suitability = calculate_habitat_suitability(
-            env,
-            [temp_response, depth_response],
-            combine_method="multiplicative"
+            env, [temp_response, depth_response], combine_method="multiplicative"
         )
 
         # Patch 0 should have highest suitability (both factors optimal)
@@ -463,16 +431,13 @@ class TestRealWorldScenarios:
         salinities = np.array([5, 8, 12, 16, 22])
 
         salinity_response = create_threshold_response(
-            min_value=6,
-            max_value=20,
-            optimal_min=10,
-            optimal_max=15
+            min_value=6, max_value=20, optimal_min=10, optimal_max=15
         )
 
         suitability = calculate_habitat_suitability(
             salinities.reshape(-1, 1),
             [salinity_response],
-            combine_method="multiplicative"
+            combine_method="multiplicative",
         )
 
         # Outside tolerance range

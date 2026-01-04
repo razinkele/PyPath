@@ -7,14 +7,10 @@ These tests verify that:
 3. All existing test patterns remain valid
 """
 
-import pytest
 import numpy as np
+import pytest
 
-from pypath.spatial import (
-    EcospaceParams,
-    rsim_run_spatial,
-    create_1d_grid
-)
+from pypath.spatial import EcospaceParams, create_1d_grid, rsim_run_spatial
 
 
 class TestBackwardCompatibility:
@@ -102,31 +98,38 @@ class TestBackwardCompatibility:
 
     def test_optional_parameters_dont_break_existing_code(self):
         """Test that RsimScenario has optional ecospace fields."""
-        from pypath.core.ecosim import RsimScenario
         import dataclasses
 
+        from pypath.core.ecosim import RsimScenario
+
         # Check that RsimScenario is a dataclass with ecospace field
-        assert dataclasses.is_dataclass(RsimScenario), "RsimScenario should be a dataclass"
+        assert dataclasses.is_dataclass(
+            RsimScenario
+        ), "RsimScenario should be a dataclass"
 
         # Check that ecospace field exists and is optional
         fields = {f.name: f for f in dataclasses.fields(RsimScenario)}
 
-        assert 'ecospace' in fields, "RsimScenario should have ecospace field"
-        assert 'environmental_drivers' in fields, "RsimScenario should have environmental_drivers field"
+        assert "ecospace" in fields, "RsimScenario should have ecospace field"
+        assert (
+            "environmental_drivers" in fields
+        ), "RsimScenario should have environmental_drivers field"
 
         # Check that ecospace defaults to None
-        ecospace_field = fields['ecospace']
-        assert ecospace_field.default is None or ecospace_field.default_factory is not dataclasses.MISSING, \
-            "ecospace field should have a default value"
+        ecospace_field = fields["ecospace"]
+        assert (
+            ecospace_field.default is None
+            or ecospace_field.default_factory is not dataclasses.MISSING
+        ), "ecospace field should have a default value"
 
     def test_existing_ecosim_imports_unchanged(self):
         """Test that existing import patterns still work."""
         # These imports should work without change
-        from pypath.core import RsimScenario, RsimParams
+        from pypath.core import RsimScenario
         from pypath.core.ecosim import rsim_run
 
         # Spatial imports are separate
-        from pypath.spatial import EcospaceParams, rsim_run_spatial
+        from pypath.spatial import EcospaceParams
 
         # Both should be importable without conflict
         assert RsimScenario is not None
@@ -151,6 +154,7 @@ class TestNoSpatialDependenciesRequired:
         # Spatial features should be opt-in
         try:
             from pypath.spatial import EcospaceGrid, EcospaceParams
+
             spatial_available = True
         except ImportError:
             spatial_available = False
@@ -181,10 +185,10 @@ class TestParameterValidation:
                 habitat_capacity=np.ones((3, 5)),
                 dispersal_rate=np.zeros(3),
                 advection_enabled=np.zeros(3, dtype=bool),
-                gravity_strength=np.zeros(3)
+                gravity_strength=np.zeros(3),
             )
             # Error might occur on access, not construction
-            _ = ecospace.habitat_preference[:, :grid.n_patches]
+            _ = ecospace.habitat_preference[:, : grid.n_patches]
 
 
 class TestDataStructureCompatibility:
