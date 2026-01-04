@@ -17,6 +17,7 @@ import scipy.sparse
 try:
     import netCDF4
     import xarray as xr
+
     _NETCDF_AVAILABLE = True
 except ImportError:
     _NETCDF_AVAILABLE = False
@@ -28,7 +29,7 @@ def load_external_flux_from_netcdf(
     filepath: str,
     time_var: str = "time",
     flux_var: str = "flux",
-    group_mapping: Optional[Dict[str, int]] = None
+    group_mapping: Optional[Dict[str, int]] = None,
 ) -> "ExternalFluxTimeseries":
     """Load external flux from NetCDF file.
 
@@ -83,20 +84,24 @@ def load_external_flux_from_netcdf(
 
     # Check for required variables
     if time_var not in ds:
-        raise ValueError(f"Time variable '{time_var}' not found in NetCDF. Available: {list(ds.variables)}")
+        raise ValueError(
+            f"Time variable '{time_var}' not found in NetCDF. Available: {list(ds.variables)}"
+        )
 
     if flux_var not in ds:
-        raise ValueError(f"Flux variable '{flux_var}' not found in NetCDF. Available: {list(ds.variables)}")
+        raise ValueError(
+            f"Flux variable '{flux_var}' not found in NetCDF. Available: {list(ds.variables)}"
+        )
 
     # Load time
     times = ds[time_var].values
 
     # Convert time to years if needed
-    if hasattr(ds[time_var], 'units'):
+    if hasattr(ds[time_var], "units"):
         units = ds[time_var].units
-        if 'days' in units.lower():
+        if "days" in units.lower():
             times = times / 365.25
-        elif 'months' in units.lower():
+        elif "months" in units.lower():
             times = times / 12.0
 
     # Load flux data
@@ -133,7 +138,7 @@ def load_external_flux_from_netcdf(
         times=times,
         group_indices=group_indices,
         interpolate=True,
-        format="flux_matrix"
+        format="flux_matrix",
     )
 
 
@@ -143,7 +148,7 @@ def load_external_flux_from_csv(
     time_column: str = "time",
     patch_from_column: str = "from",
     patch_to_column: str = "to",
-    flux_column: str = "flux"
+    flux_column: str = "flux",
 ) -> "ExternalFluxTimeseries":
     """Load external flux from CSV file.
 
@@ -207,14 +212,14 @@ def load_external_flux_from_csv(
         times=times,
         group_indices=np.array([0]),  # Single group
         interpolate=True,
-        format="flux_matrix"
+        format="flux_matrix",
     )
 
 
 def create_flux_from_connectivity_matrix(
     connectivity_matrix: np.ndarray,
     times: Optional[np.ndarray] = None,
-    seasonal_pattern: Optional[np.ndarray] = None
+    seasonal_pattern: Optional[np.ndarray] = None,
 ) -> "ExternalFluxTimeseries":
     """Create flux timeseries from connectivity matrix.
 
@@ -242,7 +247,9 @@ def create_flux_from_connectivity_matrix(
 
     # Validate connectivity matrix
     if connectivity_matrix.shape != (n_patches, n_patches):
-        raise ValueError(f"Connectivity matrix must be square, got {connectivity_matrix.shape}")
+        raise ValueError(
+            f"Connectivity matrix must be square, got {connectivity_matrix.shape}"
+        )
 
     # Default times: monthly for 1 year
     if times is None:
@@ -255,7 +262,9 @@ def create_flux_from_connectivity_matrix(
     if seasonal_pattern is None:
         seasonal_pattern = np.ones(n_timesteps)
     elif len(seasonal_pattern) != n_timesteps:
-        raise ValueError(f"seasonal_pattern length ({len(seasonal_pattern)}) != n_timesteps ({n_timesteps})")
+        raise ValueError(
+            f"seasonal_pattern length ({len(seasonal_pattern)}) != n_timesteps ({n_timesteps})"
+        )
 
     # Create flux timeseries
     flux_data = np.zeros((n_timesteps, 1, n_patches, n_patches))
@@ -268,13 +277,12 @@ def create_flux_from_connectivity_matrix(
         times=times,
         group_indices=np.array([0]),
         interpolate=True,
-        format="connectivity_matrix"
+        format="connectivity_matrix",
     )
 
 
 def validate_external_flux_conservation(
-    flux_matrix: np.ndarray,
-    tolerance: float = 1e-10
+    flux_matrix: np.ndarray, tolerance: float = 1e-10
 ) -> bool:
     """Validate that external flux conserves mass.
 
@@ -319,9 +327,7 @@ def validate_external_flux_conservation(
     return total_imbalance < tolerance
 
 
-def rescale_flux_for_conservation(
-    flux_matrix: np.ndarray
-) -> np.ndarray:
+def rescale_flux_for_conservation(flux_matrix: np.ndarray) -> np.ndarray:
     """Rescale flux matrix to ensure mass conservation.
 
     If flux is not conserved, rescales to balance inflow and outflow
@@ -364,8 +370,7 @@ def rescale_flux_for_conservation(
 
 
 def convert_connectivity_to_flux(
-    connectivity_matrix: np.ndarray,
-    biomass: np.ndarray
+    connectivity_matrix: np.ndarray, biomass: np.ndarray
 ) -> np.ndarray:
     """Convert connectivity matrix to flux matrix.
 
@@ -398,9 +403,7 @@ def convert_connectivity_to_flux(
     return flux_matrix
 
 
-def summarize_external_flux(
-    external_flux: "ExternalFluxTimeseries"
-) -> Dict:
+def summarize_external_flux(external_flux: "ExternalFluxTimeseries") -> Dict:
     """Summarize external flux timeseries.
 
     Parameters
@@ -426,15 +429,15 @@ def summarize_external_flux(
     is_conserved = validate_external_flux_conservation(flux_data[0, 0])
 
     summary = {
-        'n_timesteps': len(external_flux.times),
-        'time_range': (external_flux.times[0], external_flux.times[-1]),
-        'n_groups': len(external_flux.group_indices),
-        'n_patches': flux_data.shape[2],
-        'mean_flux': float(np.mean(np.abs(flux_data))),
-        'max_flux': float(np.max(np.abs(flux_data))),
-        'is_conserved': is_conserved,
-        'interpolate': external_flux.interpolate,
-        'format': external_flux.format
+        "n_timesteps": len(external_flux.times),
+        "time_range": (external_flux.times[0], external_flux.times[-1]),
+        "n_groups": len(external_flux.group_indices),
+        "n_patches": flux_data.shape[2],
+        "mean_flux": float(np.mean(np.abs(flux_data))),
+        "max_flux": float(np.max(np.abs(flux_data))),
+        "is_conserved": is_conserved,
+        "interpolate": external_flux.interpolate,
+        "format": external_flux.format,
     }
 
     return summary

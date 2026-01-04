@@ -24,10 +24,7 @@ def multistanza_ui():
             ui.sidebar(
                 ui.h4("Multi-Stanza Setup"),
                 ui.input_select(
-                    "stanza_group",
-                    "Select Group",
-                    choices=[],
-                    selected=None
+                    "stanza_group", "Select Group", choices=[], selected=None
                 ),
                 ui.hr(),
                 ui.h5("Stanza Parameters"),
@@ -36,7 +33,7 @@ def multistanza_ui():
                     "Number of Stanzas",
                     value=3,
                     min=PARAM_RANGES.stanzas_min,
-                    max=PARAM_RANGES.stanzas_max
+                    max=PARAM_RANGES.stanzas_max,
                 ),
                 ui.input_numeric(
                     "vb_k",
@@ -44,7 +41,7 @@ def multistanza_ui():
                     value=PARAM_RANGES.vbgf_k_default,
                     min=PARAM_RANGES.vbgf_k_min,
                     max=PARAM_RANGES.vbgf_k_max,
-                    step=0.01
+                    step=0.01,
                 ),
                 ui.input_numeric(
                     "vb_linf",
@@ -52,7 +49,7 @@ def multistanza_ui():
                     value=PARAM_RANGES.asymptotic_length_default,
                     min=PARAM_RANGES.asymptotic_length_min,
                     max=PARAM_RANGES.asymptotic_length_max,
-                    step=1
+                    step=1,
                 ),
                 ui.input_numeric(
                     "vb_t0",
@@ -60,7 +57,7 @@ def multistanza_ui():
                     value=0,
                     min=PARAM_RANGES.t0_min,
                     max=PARAM_RANGES.t0_max,
-                    step=0.1
+                    step=0.1,
                 ),
                 ui.input_numeric(
                     "length_weight_a",
@@ -68,7 +65,7 @@ def multistanza_ui():
                     value=0.01,
                     min=PARAM_RANGES.length_weight_a_min,
                     max=PARAM_RANGES.length_weight_a_max,
-                    step=0.001
+                    step=0.001,
                 ),
                 ui.input_numeric(
                     "length_weight_b",
@@ -76,20 +73,20 @@ def multistanza_ui():
                     value=3.0,
                     min=PARAM_RANGES.length_weight_b_min,
                     max=PARAM_RANGES.length_weight_b_max,
-                    step=0.1
+                    step=0.1,
                 ),
                 ui.hr(),
                 ui.input_action_button(
                     "calculate_stanzas",
                     "Calculate Stanza Properties",
-                    class_="btn-primary w-100"
+                    class_="btn-primary w-100",
                 ),
                 ui.input_action_button(
                     "save_stanzas",
                     "Save Configuration",
-                    class_="btn-success w-100 mt-2"
+                    class_="btn-success w-100 mt-2",
                 ),
-                width=300
+                width=300,
             ),
             # Main content
             ui.navset_tab(
@@ -98,41 +95,51 @@ def multistanza_ui():
                     ui.card(
                         ui.card_header("von Bertalanffy Growth Model"),
                         ui.output_ui("growth_plot"),
-                        ui.markdown("""
+                        ui.markdown(
+                            """
                         **von Bertalanffy Growth Equation:**
 
                         Length: $L(t) = L_\\infty (1 - e^{-K(t - t_0)})$
 
                         Weight: $W(t) = a \\cdot L(t)^b$
-                        """)
-                    )
+                        """
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Stanza Properties",
                     ui.card(
                         ui.card_header("Calculated Stanza Parameters"),
                         ui.output_data_frame("stanza_table"),
-                        ui.download_button("download_stanzas", "Download CSV", class_="mt-2")
-                    )
+                        ui.download_button(
+                            "download_stanzas", "Download CSV", class_="mt-2"
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Biomass Distribution",
                     ui.card(
                         ui.card_header("Biomass by Stanza"),
                         ui.output_ui("biomass_plot"),
-                        ui.markdown("""
+                        ui.markdown(
+                            """
                         Shows the distribution of biomass across age stanzas based on:
                         - Growth rate (von Bertalanffy K)
                         - Natural mortality (Z)
                         - Recruitment patterns
-                        """)
-                    )
+                        """
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Help",
                     ui.card(
-                        ui.card_header(ui.tags.i(class_="bi bi-info-circle me-2"), "Multi-Stanza Groups"),
-                        ui.markdown("""
+                        ui.card_header(
+                            ui.tags.i(class_="bi bi-info-circle me-2"),
+                            "Multi-Stanza Groups",
+                        ),
+                        ui.markdown(
+                            """
                         ## What are Multi-Stanza Groups?
 
                         Multi-stanza groups represent **age-structured populations** where different
@@ -187,10 +194,11 @@ def multistanza_ui():
                         - **Use literature values**: Find K, L∞ from FishBase or literature
                         - **Check biomass**: Ensure distribution makes ecological sense
                         - **Validate**: Compare with observed age structure if available
-                        """)
-                    )
-                )
-            )
+                        """
+                        ),
+                    ),
+                ),
+            ),
         )
     )
 
@@ -207,10 +215,10 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         if shared_data.params() is not None:
             params = shared_data.params()
             # Check if it's RpathParams (has model DataFrame)
-            if hasattr(params, 'model') and 'Group' in params.model.columns:
-                groups = params.model['Group'].tolist()
+            if hasattr(params, "model") and "Group" in params.model.columns:
+                groups = params.model["Group"].tolist()
                 ui.update_select("stanza_group", choices=groups)
-            elif hasattr(params, 'Group'):
+            elif hasattr(params, "Group"):
                 # Fallback for direct DataFrame
                 groups = params.Group.tolist()
                 ui.update_select("stanza_group", choices=groups)
@@ -246,22 +254,24 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             L_mid = Linf * (1 - np.exp(-K * (t_mid - t0)))
 
             # Length-weight relationship
-            W_start = a * (L_start ** b)
-            W_end = a * (L_end ** b)
-            W_mid = a * (L_mid ** b)
+            W_start = a * (L_start**b)
+            W_end = a * (L_end**b)
+            W_mid = a * (L_mid**b)
 
-            stanzas.append({
-                'Stanza': i + 1,
-                'Age_Start': round(t_start, 2),
-                'Age_End': round(t_end, 2),
-                'Age_Mid': round(t_mid, 2),
-                'Length_Start_cm': round(L_start, 2),
-                'Length_End_cm': round(L_end, 2),
-                'Length_Mid_cm': round(L_mid, 2),
-                'Weight_Start_g': round(W_start, 2),
-                'Weight_End_g': round(W_end, 2),
-                'Weight_Mid_g': round(W_mid, 2),
-            })
+            stanzas.append(
+                {
+                    "Stanza": i + 1,
+                    "Age_Start": round(t_start, 2),
+                    "Age_End": round(t_end, 2),
+                    "Age_Mid": round(t_mid, 2),
+                    "Length_Start_cm": round(L_start, 2),
+                    "Length_End_cm": round(L_end, 2),
+                    "Length_Mid_cm": round(L_mid, 2),
+                    "Weight_Start_g": round(W_start, 2),
+                    "Weight_End_g": round(W_end, 2),
+                    "Weight_Mid_g": round(W_mid, 2),
+                }
+            )
 
         df = pd.DataFrame(stanzas)
         stanza_data.set(df)
@@ -272,8 +282,10 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         """Render growth curves plot."""
         if input.calculate_stanzas() == 0:
             return ui.div(
-                ui.tags.p("Click 'Calculate Stanza Properties' to generate growth curves",
-                         class_="text-muted text-center p-5")
+                ui.tags.p(
+                    "Click 'Calculate Stanza Properties' to generate growth curves",
+                    class_="text-muted text-center p-5",
+                )
             )
 
         K = input.vb_k()
@@ -290,35 +302,38 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         lengths = Linf * (1 - np.exp(-K * (ages - t0)))
 
         # Weight from length-weight relationship
-        weights = a * (lengths ** b)
+        weights = a * (lengths**b)
 
         # Create subplots
         fig = make_subplots(
-            rows=1, cols=2,
-            subplot_titles=('Length Growth', 'Weight Growth')
+            rows=1, cols=2, subplot_titles=("Length Growth", "Weight Growth")
         )
 
         # Length curve
         fig.add_trace(
             go.Scatter(
-                x=ages, y=lengths,
-                mode='lines',
-                name='Length',
-                line=dict(color='#2E86AB', width=3)
+                x=ages,
+                y=lengths,
+                mode="lines",
+                name="Length",
+                line=dict(color="#2E86AB", width=3),
             ),
-            row=1, col=1
+            row=1,
+            col=1,
         )
 
         # Weight curve
         fig.add_trace(
             go.Scatter(
-                x=ages, y=weights,
-                mode='lines',
-                name='Weight',
-                line=dict(color='#A23B72', width=3),
-                showlegend=False
+                x=ages,
+                y=weights,
+                mode="lines",
+                name="Weight",
+                line=dict(color="#A23B72", width=3),
+                showlegend=False,
             ),
-            row=1, col=2
+            row=1,
+            col=2,
         )
 
         # Add stanza boundaries if calculated
@@ -327,18 +342,20 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             for _, row in df.iterrows():
                 # Add vertical line for age boundary
                 fig.add_vline(
-                    x=row['Age_End'],
+                    x=row["Age_End"],
                     line_dash="dash",
                     line_color="gray",
                     opacity=0.5,
-                    row=1, col=1
+                    row=1,
+                    col=1,
                 )
                 fig.add_vline(
-                    x=row['Age_End'],
+                    x=row["Age_End"],
                     line_dash="dash",
                     line_color="gray",
                     opacity=0.5,
-                    row=1, col=2
+                    row=1,
+                    col=2,
                 )
 
         fig.update_xaxes(title_text="Age (years)", row=1, col=1)
@@ -349,8 +366,8 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         fig.update_layout(
             height=400,
             showlegend=False,
-            template='plotly_white',
-            margin=dict(l=50, r=50, t=50, b=50)
+            template="plotly_white",
+            margin=dict(l=50, r=50, t=50, b=50),
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="growth_plot"))
@@ -361,9 +378,9 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         """Render stanza properties table."""
         df = stanza_data()
         if df is None:
-            return pd.DataFrame({
-                'Message': ['Click "Calculate Stanza Properties" to generate table']
-            })
+            return pd.DataFrame(
+                {"Message": ['Click "Calculate Stanza Properties" to generate table']}
+            )
         return render.DataGrid(df, width="100%", height="400px")
 
     @output
@@ -373,8 +390,10 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         df = stanza_data()
         if df is None:
             return ui.div(
-                ui.tags.p("Calculate stanza properties first to see biomass distribution",
-                         class_="text-muted text-center p-5")
+                ui.tags.p(
+                    "Calculate stanza properties first to see biomass distribution",
+                    class_="text-muted text-center p-5",
+                )
             )
 
         # Simple biomass distribution (can be enhanced with mortality)
@@ -383,8 +402,8 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
 
         biomass = []
         for _, row in df.iterrows():
-            t_mid = row['Age_Mid']
-            W_mid = row['Weight_Mid_g']
+            t_mid = row["Age_Mid"]
+            W_mid = row["Weight_Mid_g"]
             # Numbers decline exponentially with age
             N = np.exp(-Z * t_mid)
             B = N * W_mid
@@ -394,23 +413,25 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         biomass = np.array(biomass)
         biomass = biomass / biomass.sum()
 
-        fig = go.Figure(data=[
-            go.Bar(
-                x=df['Stanza'].astype(str),
-                y=biomass * 100,
-                marker_color='#2E86AB',
-                text=[f'{b*100:.1f}%' for b in biomass],
-                textposition='outside'
-            )
-        ])
+        fig = go.Figure(
+            data=[
+                go.Bar(
+                    x=df["Stanza"].astype(str),
+                    y=biomass * 100,
+                    marker_color="#2E86AB",
+                    text=[f"{b*100:.1f}%" for b in biomass],
+                    textposition="outside",
+                )
+            ]
+        )
 
         fig.update_layout(
             xaxis_title="Stanza",
             yaxis_title="Biomass Proportion (%)",
-            template='plotly_white',
+            template="plotly_white",
             height=400,
             showlegend=False,
-            margin=dict(l=50, r=50, t=50, b=50)
+            margin=dict(l=50, r=50, t=50, b=50),
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="biomass_plot"))
