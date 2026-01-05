@@ -299,8 +299,8 @@ class TestEcospacePage:
 
             # Should have: input, output, session, model_data, sim_results
             assert len(params) == 5
-            assert "model_data" in params
-            assert "sim_results" in params
+            assert any(p.lstrip("_") == "model_data" for p in params)
+            assert any(p.lstrip("_") == "sim_results" for p in params)
         except ImportError:
             pytest.skip("Ecospace page module not available")
 
@@ -485,8 +485,8 @@ class TestPageInteractions:
             params = MockRpathParams()
             model_data.set(params)
 
-            # Ecopath page should be able to read model_data
-            retrieved_data = model_data()
+            # Ecopath page should be able to read model_data (avoid reactive context)
+            retrieved_data = model_data._value
             assert retrieved_data is not None
             assert hasattr(retrieved_data, "model")
             assert len(retrieved_data.model) == 2
@@ -512,8 +512,8 @@ class TestPageInteractions:
             params = MockRpathParams()
             model_data.set(params)
 
-            # Ecosim should be able to check if balanced
-            data = model_data()
+            # Ecosim should be able to check if balanced (avoid reactive context)
+            data = model_data._value
             assert hasattr(data, "balanced")
             assert data.balanced is True
         except ImportError:
@@ -539,8 +539,8 @@ class TestPageInteractions:
             }
             sim_results.set(mock_results)
 
-            # Results page should be able to access results
-            results = sim_results()
+            # Results page should be able to access results (avoid reactive context)
+            results = sim_results._value
             assert results is not None
             assert "biomass" in results
             assert "catch" in results
