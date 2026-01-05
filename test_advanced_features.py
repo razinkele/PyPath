@@ -28,7 +28,7 @@ for feature_name, module_name in features:
     print(f"\n[Testing] {feature_name}...")
     try:
         # Import module
-        module = __import__(f"pages.{module_name}", fromlist=[''])
+        module = __import__(f"pages.{module_name}", fromlist=[""])
 
         # Check for UI function
         ui_func = f"{module_name}_ui"
@@ -55,7 +55,9 @@ for feature_name, module_name in features:
             print(f"  [INFO] Implementation size: {lines} lines")
 
             if lines < 50:
-                print(f"  [WARNING] File seems small ({lines} lines) - might be placeholder")
+                print(
+                    f"  [WARNING] File seems small ({lines} lines) - might be placeholder"
+                )
             else:
                 print(f"  [PASS] Substantial implementation ({lines} lines)")
 
@@ -63,9 +65,9 @@ for feature_name, module_name in features:
         try:
             ui_result = getattr(module, ui_func)()
             if ui_result:
-                print(f"  [PASS] UI function executes successfully")
+                print("  [PASS] UI function executes successfully")
             else:
-                print(f"  [FAIL] UI function returns None/empty")
+                print("  [FAIL] UI function returns None/empty")
                 results.append((feature_name, False))
                 continue
         except Exception as e:

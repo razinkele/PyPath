@@ -11,22 +11,25 @@ This module provides:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List, Union, Callable
 from enum import Enum
+from typing import Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
 
 
 class ForcingMode(Enum):
     """Mode for applying forced values."""
+
     REPLACE = "replace"  # Replace state variable with forced value
-    ADD = "add"          # Add forced value to computed value
+    ADD = "add"  # Add forced value to computed value
     MULTIPLY = "multiply"  # Multiply computed value by forced value
-    RESCALE = "rescale"   # Rescale to match forced value
+    RESCALE = "rescale"  # Rescale to match forced value
 
 
 class StateVariable(Enum):
     """State variables that can be forced."""
+
     BIOMASS = "biomass"
     CATCH = "catch"
     FISHING_MORTALITY = "fishing_mortality"
@@ -57,6 +60,7 @@ class ForcingFunction:
     active : bool
         Whether this forcing is currently active
     """
+
     group_idx: int
     variable: StateVariable
     mode: ForcingMode
@@ -104,6 +108,7 @@ class StateForcing:
     functions : list[ForcingFunction]
         List of individual forcing functions
     """
+
     functions: List[ForcingFunction] = field(default_factory=list)
 
     def add_forcing(
@@ -113,7 +118,7 @@ class StateForcing:
         time_series: Union[np.ndarray, pd.Series, Dict[int, float]],
         years: Optional[np.ndarray] = None,
         mode: Union[str, ForcingMode] = ForcingMode.REPLACE,
-        interpolate: bool = True
+        interpolate: bool = True,
     ):
         """Add a forcing function.
 
@@ -183,16 +188,13 @@ class StateForcing:
             time_series=time_series,
             years=years,
             interpolate=interpolate,
-            active=True
+            active=True,
         )
 
         self.functions.append(func)
 
     def get_forcing(
-        self,
-        year: float,
-        variable: StateVariable,
-        group_idx: Optional[int] = None
+        self, year: float, variable: StateVariable, group_idx: Optional[int] = None
     ) -> List[Tuple[ForcingFunction, float]]:
         """Get all active forcing values for a variable at given time.
 
@@ -241,7 +243,8 @@ class StateForcing:
             variable = StateVariable(variable.lower())
 
         self.functions = [
-            f for f in self.functions
+            f
+            for f in self.functions
             if not (f.group_idx == group_idx and f.variable == variable)
         ]
 
@@ -268,6 +271,7 @@ class DietRewiring:
     current_diet : np.ndarray
         Current diet matrix (updated each interval)
     """
+
     enabled: bool = False
     switching_power: float = 2.0
     min_proportion: float = 0.001
@@ -287,9 +291,7 @@ class DietRewiring:
         self.current_diet = diet_matrix.copy()
 
     def update_diet(
-        self,
-        prey_biomass: np.ndarray,
-        predator_idx: Optional[int] = None
+        self, prey_biomass: np.ndarray, predator_idx: Optional[int] = None
     ) -> np.ndarray:
         """Update diet preferences based on prey availability.
 
@@ -348,12 +350,10 @@ class DietRewiring:
             # Apply prey switching model
             # new_pref = base_pref * (availability)^power
             new_prefs = base_prefs.copy()
-            new_prefs[active_prey] = (
-                base_prefs[active_prey] *
-                np.power(
-                    prey_availability[active_prey] / np.mean(prey_availability[active_prey]),
-                    self.switching_power
-                )
+            new_prefs[active_prey] = base_prefs[active_prey] * np.power(
+                prey_availability[active_prey]
+                / np.mean(prey_availability[active_prey]),
+                self.switching_power,
             )
 
             # Ensure minimum proportions
@@ -378,7 +378,7 @@ def create_biomass_forcing(
     observed_biomass: Union[np.ndarray, pd.Series, Dict[int, float]],
     years: Optional[np.ndarray] = None,
     mode: str = "replace",
-    interpolate: bool = True
+    interpolate: bool = True,
 ) -> StateForcing:
     """Convenience function to create biomass forcing.
 
@@ -416,7 +416,7 @@ def create_biomass_forcing(
         time_series=observed_biomass,
         years=years,
         mode=mode,
-        interpolate=interpolate
+        interpolate=interpolate,
     )
     return forcing
 
@@ -425,7 +425,7 @@ def create_recruitment_forcing(
     group_idx: int,
     recruitment_multiplier: Union[np.ndarray, Dict[int, float]],
     years: Optional[np.ndarray] = None,
-    interpolate: bool = False
+    interpolate: bool = False,
 ) -> StateForcing:
     """Convenience function to create recruitment forcing.
 
@@ -460,7 +460,7 @@ def create_recruitment_forcing(
         time_series=recruitment_multiplier,
         years=years,
         mode=ForcingMode.MULTIPLY,
-        interpolate=interpolate
+        interpolate=interpolate,
     )
     return forcing
 
@@ -468,7 +468,7 @@ def create_recruitment_forcing(
 def create_diet_rewiring(
     switching_power: float = 2.0,
     min_proportion: float = 0.001,
-    update_interval: int = 12
+    update_interval: int = 12,
 ) -> DietRewiring:
     """Convenience function to create diet rewiring configuration.
 
@@ -495,18 +495,18 @@ def create_diet_rewiring(
         enabled=True,
         switching_power=switching_power,
         min_proportion=min_proportion,
-        update_interval=update_interval
+        update_interval=update_interval,
     )
 
 
 # Export main classes and functions
 __all__ = [
-    'ForcingMode',
-    'StateVariable',
-    'ForcingFunction',
-    'StateForcing',
-    'DietRewiring',
-    'create_biomass_forcing',
-    'create_recruitment_forcing',
-    'create_diet_rewiring',
+    "ForcingMode",
+    "StateVariable",
+    "ForcingFunction",
+    "StateForcing",
+    "DietRewiring",
+    "create_biomass_forcing",
+    "create_recruitment_forcing",
+    "create_diet_rewiring",
 ]
