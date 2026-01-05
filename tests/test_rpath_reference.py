@@ -124,9 +124,9 @@ class TestEcopathBalance:
         # Compare non-zero biomass values
         for i, (r_bio, p_bio) in enumerate(zip(rpath_biomass, pypath_biomass)):
             if r_bio > 0:
-                assert np.isclose(
-                    p_bio, r_bio, rtol=TOLERANCE, atol=TOLERANCE
-                ), f"Group {i}: PyPath biomass {p_bio:.6f} != Rpath {r_bio:.6f}"
+                assert np.isclose(p_bio, r_bio, rtol=TOLERANCE, atol=TOLERANCE), (
+                    f"Group {i}: PyPath biomass {p_bio:.6f} != Rpath {r_bio:.6f}"
+                )
 
     def test_pb_matches(self, pypath_model, rpath_reference):
         """Test that PB values match Rpath."""
@@ -135,9 +135,9 @@ class TestEcopathBalance:
 
         for i, (r_pb, p_pb) in enumerate(zip(rpath_pb, pypath_pb)):
             if r_pb > 0:
-                assert np.isclose(
-                    p_pb, r_pb, rtol=TOLERANCE, atol=TOLERANCE
-                ), f"Group {i}: PyPath PB {p_pb:.6f} != Rpath {r_pb:.6f}"
+                assert np.isclose(p_pb, r_pb, rtol=TOLERANCE, atol=TOLERANCE), (
+                    f"Group {i}: PyPath PB {p_pb:.6f} != Rpath {r_pb:.6f}"
+                )
 
     def test_qb_matches(self, pypath_model, rpath_reference):
         """Test that QB values match Rpath."""
@@ -146,9 +146,9 @@ class TestEcopathBalance:
 
         for i, (r_qb, p_qb) in enumerate(zip(rpath_qb, pypath_qb)):
             if not np.isnan(r_qb) and r_qb > 0:
-                assert np.isclose(
-                    p_qb, r_qb, rtol=TOLERANCE, atol=TOLERANCE
-                ), f"Group {i}: PyPath QB {p_qb:.6f} != Rpath {r_qb:.6f}"
+                assert np.isclose(p_qb, r_qb, rtol=TOLERANCE, atol=TOLERANCE), (
+                    f"Group {i}: PyPath QB {p_qb:.6f} != Rpath {r_qb:.6f}"
+                )
 
     def test_ee_matches(self, pypath_model, rpath_reference):
         """Test that EE values match Rpath."""
@@ -157,9 +157,9 @@ class TestEcopathBalance:
 
         for i, (r_ee, p_ee) in enumerate(zip(rpath_ee, pypath_ee)):
             if not np.isnan(r_ee):
-                assert np.isclose(
-                    p_ee, r_ee, rtol=TOLERANCE, atol=TOLERANCE
-                ), f"Group {i}: PyPath EE {p_ee:.6f} != Rpath {r_ee:.6f}"
+                assert np.isclose(p_ee, r_ee, rtol=TOLERANCE, atol=TOLERANCE), (
+                    f"Group {i}: PyPath EE {p_ee:.6f} != Rpath {r_ee:.6f}"
+                )
 
     def test_ge_matches(self, pypath_model, rpath_reference):
         """Test that GE (gross efficiency) matches Rpath."""
@@ -168,9 +168,9 @@ class TestEcopathBalance:
 
         for i, (r_ge, p_ge) in enumerate(zip(rpath_ge, pypath_ge)):
             if not np.isnan(r_ge) and r_ge > 0:
-                assert np.isclose(
-                    p_ge, r_ge, rtol=TOLERANCE, atol=TOLERANCE
-                ), f"Group {i}: PyPath GE {p_ge:.6f} != Rpath {r_ge:.6f}"
+                assert np.isclose(p_ge, r_ge, rtol=TOLERANCE, atol=TOLERANCE), (
+                    f"Group {i}: PyPath GE {p_ge:.6f} != Rpath {r_ge:.6f}"
+                )
 
     def test_m0_matches(self, pypath_model, rpath_reference):
         """Test that M0 (other mortality) matches Rpath."""
@@ -179,9 +179,9 @@ class TestEcopathBalance:
 
         for i, (r_m0, p_m0) in enumerate(zip(rpath_m0, pypath_m0)):
             if not np.isnan(r_m0):
-                assert np.isclose(
-                    p_m0, r_m0, rtol=TOLERANCE, atol=TOLERANCE
-                ), f"Group {i}: PyPath M0 {p_m0:.6f} != Rpath {r_m0:.6f}"
+                assert np.isclose(p_m0, r_m0, rtol=TOLERANCE, atol=TOLERANCE), (
+                    f"Group {i}: PyPath M0 {p_m0:.6f} != Rpath {r_m0:.6f}"
+                )
 
     def test_tl_matches(self, pypath_model, rpath_reference):
         """Test that trophic levels match Rpath."""
@@ -190,18 +190,18 @@ class TestEcopathBalance:
 
         for i, (r_tl, p_tl) in enumerate(zip(rpath_tl, pypath_tl)):
             if not np.isnan(r_tl):
-                assert np.isclose(
-                    p_tl, r_tl, rtol=TOLERANCE, atol=TOLERANCE
-                ), f"Group {i}: PyPath TL {p_tl:.6f} != Rpath {r_tl:.6f}"
+                assert np.isclose(p_tl, r_tl, rtol=TOLERANCE, atol=TOLERANCE), (
+                    f"Group {i}: PyPath TL {p_tl:.6f} != Rpath {r_tl:.6f}"
+                )
 
     def test_group_names_match(self, pypath_model, rpath_reference):
         """Test that group names match."""
         rpath_groups = rpath_reference["Group"]
         pypath_groups = pypath_model.Group.tolist()
 
-        assert (
-            pypath_groups == rpath_groups
-        ), f"Group names don't match:\nPyPath: {pypath_groups}\nRpath: {rpath_groups}"
+        assert pypath_groups == rpath_groups, (
+            f"Group names don't match:\nPyPath: {pypath_groups}\nRpath: {rpath_groups}"
+        )
 
 
 # =============================================================================
@@ -266,9 +266,9 @@ class TestEcosimParameters:
         pypath_qq = pypath_ecosim.params.QQ
 
         # QQ arrays should have same length
-        assert len(pypath_qq) == len(
-            rpath_qq
-        ), f"QQ length mismatch: PyPath {len(pypath_qq)} vs Rpath {len(rpath_qq)}"
+        assert len(pypath_qq) == len(rpath_qq), (
+            f"QQ length mismatch: PyPath {len(pypath_qq)} vs Rpath {len(rpath_qq)}"
+        )
 
         # Compare QQ values
         np.testing.assert_allclose(
@@ -333,9 +333,9 @@ class TestEcosimTrajectories:
                 rpath_values[: len(pypath_values)], pypath_values
             )[0, 1]
 
-            assert (
-                correlation > 0.99
-            ), f"Group {group_name}: trajectory correlation {correlation:.4f} < 0.99"
+            assert correlation > 0.99, (
+                f"Group {group_name}: trajectory correlation {correlation:.4f} < 0.99"
+            )
 
             # Check endpoint similarity (last year)
             rpath_final = rpath_values[-1]
@@ -343,9 +343,9 @@ class TestEcosimTrajectories:
 
             if rpath_final > BIOMASS_TOLERANCE:
                 rel_error = abs(pypath_final - rpath_final) / rpath_final
-                assert (
-                    rel_error < 0.01
-                ), f"Group {group_name}: final biomass error {rel_error:.4f} > 1%"
+                assert rel_error < 0.01, (
+                    f"Group {group_name}: final biomass error {rel_error:.4f} > 1%"
+                )
 
     def test_ab_biomass_trajectory_matches(
         self, pypath_ecosim, reference_data_available
@@ -367,9 +367,9 @@ class TestEcosimTrajectories:
 
             if rpath_final > BIOMASS_TOLERANCE:
                 rel_error = abs(pypath_final - rpath_final) / rpath_final
-                assert (
-                    rel_error < 0.05
-                ), f"Group {group_name} (AB): final biomass error {rel_error:.4f} > 5%"
+                assert rel_error < 0.05, (
+                    f"Group {group_name} (AB): final biomass error {rel_error:.4f} > 5%"
+                )
 
 
 # =============================================================================
@@ -403,9 +403,9 @@ class TestForcingScenarios:
 
             if rpath_final > BIOMASS_TOLERANCE:
                 rel_error = abs(pypath_final - rpath_final) / rpath_final
-                assert (
-                    rel_error < 0.01
-                ), f"Group {group_name} (2x fishing): error {rel_error:.4f} > 1%"
+                assert rel_error < 0.01, (
+                    f"Group {group_name} (2x fishing): error {rel_error:.4f} > 1%"
+                )
 
     def test_zero_fishing_matches(
         self, pypath_model, rpath_params, reference_data_available
@@ -429,9 +429,9 @@ class TestForcingScenarios:
 
             if rpath_final > BIOMASS_TOLERANCE:
                 rel_error = abs(pypath_final - rpath_final) / rpath_final
-                assert (
-                    rel_error < 0.01
-                ), f"Group {group_name} (0 fishing): error {rel_error:.4f} > 1%"
+                assert rel_error < 0.01, (
+                    f"Group {group_name} (0 fishing): error {rel_error:.4f} > 1%"
+                )
 
 
 # =============================================================================

@@ -14,8 +14,8 @@ from pathlib import Path
 app_dir = Path(__file__).parent / "app"
 sys.path.insert(0, str(app_dir))
 
-from config import VALIDATION
-from pages.validation import validate_pb
+from config import VALIDATION  # noqa: E402
+from pages.validation import validate_pb  # noqa: E402
 
 
 def test_pb_validation():

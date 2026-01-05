@@ -78,7 +78,7 @@ class TestFluxCalculationPerformance:
 
         start = time.time()
         for _ in range(100):  # 100 iterations
-            flux = diffusion_flux(
+            _ = diffusion_flux(
                 biomass_vector=biomass,
                 dispersal_rate=5.0,
                 grid=grid,
@@ -87,9 +87,9 @@ class TestFluxCalculationPerformance:
         elapsed = time.time() - start
 
         time_per_call = elapsed / 100
-        assert (
-            time_per_call < 0.001
-        ), f"Diffusion took {time_per_call * 1000:.1f}ms, expected < 1ms"
+        assert time_per_call < 0.001, (
+            f"Diffusion took {time_per_call * 1000:.1f}ms, expected < 1ms"
+        )
 
     def test_diffusion_medium_grid(self):
         """Diffusion on medium grid should be acceptable."""
@@ -98,7 +98,7 @@ class TestFluxCalculationPerformance:
 
         start = time.time()
         for _ in range(100):
-            flux = diffusion_flux(
+            _ = diffusion_flux(
                 biomass_vector=biomass,
                 dispersal_rate=5.0,
                 grid=grid,
@@ -107,9 +107,9 @@ class TestFluxCalculationPerformance:
         elapsed = time.time() - start
 
         time_per_call = elapsed / 100
-        assert (
-            time_per_call < 0.01
-        ), f"Diffusion took {time_per_call * 1000:.1f}ms, expected < 10ms"
+        assert time_per_call < 0.01, (
+            f"Diffusion took {time_per_call * 1000:.1f}ms, expected < 10ms"
+        )
 
     def test_advection_small_grid(self):
         """Advection on small grid should be fast."""
@@ -119,7 +119,7 @@ class TestFluxCalculationPerformance:
 
         start = time.time()
         for _ in range(100):
-            flux = habitat_advection(
+            _ = habitat_advection(
                 biomass_vector=biomass,
                 habitat_preference=habitat,
                 gravity_strength=0.5,
@@ -129,9 +129,9 @@ class TestFluxCalculationPerformance:
         elapsed = time.time() - start
 
         time_per_call = elapsed / 100
-        assert (
-            time_per_call < 0.001
-        ), f"Advection took {time_per_call * 1000:.1f}ms, expected < 1ms"
+        assert time_per_call < 0.001, (
+            f"Advection took {time_per_call * 1000:.1f}ms, expected < 1ms"
+        )
 
     def test_combined_flux_medium_grid(self):
         """Combined flux calculation should be fast."""
@@ -158,9 +158,9 @@ class TestFluxCalculationPerformance:
         elapsed = time.time() - start
 
         time_per_call = elapsed / 10
-        assert (
-            time_per_call < 0.1
-        ), f"Combined flux took {time_per_call * 1000:.0f}ms, expected < 100ms"
+        assert time_per_call < 0.1, (
+            f"Combined flux took {time_per_call * 1000:.0f}ms, expected < 100ms"
+        )
 
 
 class TestFishingAllocationPerformance:
@@ -173,7 +173,7 @@ class TestFishingAllocationPerformance:
 
         start = time.time()
         for _ in range(100):
-            effort = allocate_gravity(
+            _ = allocate_gravity(
                 biomass=biomass,
                 target_groups=[1],
                 total_effort=100.0,
@@ -183,9 +183,9 @@ class TestFishingAllocationPerformance:
         elapsed = time.time() - start
 
         time_per_call = elapsed / 100
-        assert (
-            time_per_call < 0.001
-        ), f"Gravity allocation took {time_per_call * 1000:.1f}ms, expected < 1ms"
+        assert time_per_call < 0.001, (
+            f"Gravity allocation took {time_per_call * 1000:.1f}ms, expected < 1ms"
+        )
 
     def test_port_allocation_fast(self):
         """Port-based allocation should be fast."""
@@ -194,15 +194,15 @@ class TestFishingAllocationPerformance:
 
         start = time.time()
         for _ in range(100):
-            effort = allocate_port_based(
+            _ = allocate_port_based(
                 grid=grid, port_patches=port_patches, total_effort=100.0, beta=1.5
             )
         elapsed = time.time() - start
 
         time_per_call = elapsed / 100
-        assert (
-            time_per_call < 0.01
-        ), f"Port allocation took {time_per_call * 1000:.1f}ms, expected < 10ms"
+        assert time_per_call < 0.01, (
+            f"Port allocation took {time_per_call * 1000:.1f}ms, expected < 10ms"
+        )
 
 
 class TestMemoryFootprint:
@@ -220,9 +220,9 @@ class TestMemoryFootprint:
         total_memory = adjacency_memory + centroids_memory + areas_memory
 
         # Should be < 10 KB for 25 patches
-        assert (
-            total_memory < 10
-        ), f"Grid memory: {total_memory:.1f} KB, expected < 10 KB"
+        assert total_memory < 10, (
+            f"Grid memory: {total_memory:.1f} KB, expected < 10 KB"
+        )
 
     def test_state_memory_scaling(self):
         """State memory should scale linearly."""
@@ -291,13 +291,13 @@ class TestScalability:
             params = {"NUM_GROUPS": n_groups}
 
             start = time.time()
-            flux = calculate_spatial_flux(state, ecospace, params, t=0.0)
+            _flux = calculate_spatial_flux(state, ecospace, params, t=0.0)
             elapsed = time.time() - start
 
             # Should complete in < 100ms even with 50 groups
-            assert (
-                elapsed < 0.1
-            ), f"{n_groups} groups took {elapsed * 1000:.0f}ms, expected < 100ms"
+            assert elapsed < 0.1, (
+                f"{n_groups} groups took {elapsed * 1000:.0f}ms, expected < 100ms"
+            )
 
 
 class TestWorstCase:
@@ -307,22 +307,22 @@ class TestWorstCase:
         """Fully connected graph (worst case) should still work."""
         # Small grid with all patches connected
         n_patches = 10
-        grid = create_1d_grid(n_patches=n_patches, spacing=1.0)
+        _grid = create_1d_grid(n_patches=n_patches, spacing=1.0)
 
         # Make fully connected (not realistic, but tests performance)
         import scipy.sparse as sp
 
-        full_adjacency = sp.csr_matrix(
+        _full_adjacency = sp.csr_matrix(
             np.ones((n_patches, n_patches)) - np.eye(n_patches)
         )
 
-        biomass = np.random.rand(n_patches) * 100
+        _biomass = np.random.rand(n_patches) * 100
 
         start = time.time()
         # Note: diffusion_flux uses grid.edge_lengths, which won't have all edges
         # So we can't actually test this properly without modifying the grid
         # This test documents the limitation
-        elapsed = time.time() - start
+        _elapsed = time.time() - start
 
         # Should still be fast even with O(n²) edges
         # (In practice, grids have O(n) edges)

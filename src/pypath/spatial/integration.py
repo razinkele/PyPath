@@ -77,7 +77,7 @@ def deriv_vector_spatial(
     """
     from pypath.spatial.dispersal import calculate_spatial_flux
 
-    n_groups = state_spatial.shape[0]
+    _n_groups = state_spatial.shape[0]
     n_patches = state_spatial.shape[1]
 
     # Initialize derivative

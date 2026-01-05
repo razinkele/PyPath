@@ -10,7 +10,7 @@ app_dir = Path(__file__).parent / "app"
 sys.path.insert(0, str(app_dir))
 
 # Import only what we need to avoid circular imports
-from config import VALIDATION
+from config import VALIDATION  # noqa: E402
 
 
 def test_config():

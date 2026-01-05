@@ -388,9 +388,9 @@ class TestPageConsistency:
                 server_func = f"{prefix}_server"
 
                 assert hasattr(module, ui_func), f"{module_name} missing {ui_func}"
-                assert hasattr(
-                    module, server_func
-                ), f"{module_name} missing {server_func}"
+                assert hasattr(module, server_func), (
+                    f"{module_name} missing {server_func}"
+                )
         except ImportError:
             pytest.skip("Page modules not available")
 

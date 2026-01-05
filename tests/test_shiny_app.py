@@ -455,7 +455,7 @@ class TestThemeAndSettings:
     def test_default_theme(self):
         """Test that default theme is applied."""
         try:
-            import shinyswatch
+            import shinyswatch as _shinyswatch
 
             from app.app import app_ui
 
@@ -463,6 +463,7 @@ class TestThemeAndSettings:
             # This is verified in the source code
             _ui_str = str(app_ui)
             # Theme is applied via shinyswatch.theme.flatly
+            assert _shinyswatch is not None
             assert True  # Theme is structural, hard to test without running app
         except ImportError:
             pytest.skip("Shinyswatch not installed")

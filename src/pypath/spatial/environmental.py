@@ -387,7 +387,7 @@ def create_seasonal_temperature(
     >>> # Summer (t=0.5): ~23-28°C
     """
     baseline_temp = np.asarray(baseline_temp, dtype=float)
-    n_patches = len(baseline_temp)
+    _n_patches = len(baseline_temp)
 
     times = np.arange(n_months) / 12.0  # Monthly timesteps in years
 

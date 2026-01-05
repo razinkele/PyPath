@@ -6,7 +6,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
 try:
-    from app.config import COLORS, PLOTS, UI
+    from app.config import PLOTS, UI
 except ModuleNotFoundError:
     from config import PLOTS, UI
 

@@ -29,6 +29,6 @@ def test_annual_qlink_accumulation():
     scen = rsim_scenario(r, rparams, years=years)
     out = rsim_run(scen, years=years)
 
-    assert hasattr(out, "annual_Qlink") and out.annual_Qlink.shape[0] == len(
-        years
-    ), "Ecosim output must include annual Qlink accumulation (annual_Qlink)"
+    assert hasattr(out, "annual_Qlink") and out.annual_Qlink.shape[0] == len(years), (
+        "Ecosim output must include annual Qlink accumulation (annual_Qlink)"
+    )

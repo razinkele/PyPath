@@ -113,9 +113,9 @@ class TestEwemdbImport:
                         complete_diets += 1
 
         # At least half of the consumers should have complete diets
-        assert (
-            complete_diets > len(consumers) // 2
-        ), f"Too few complete diets: {complete_diets}/{len(consumers)}"
+        assert complete_diets > len(consumers) // 2, (
+            f"Too few complete diets: {complete_diets}/{len(consumers)}"
+        )
 
 
 class TestRemarksExtraction:
@@ -227,9 +227,9 @@ class TestMultiStanza:
 
         required_cols = ["GroupID", "StanzaID", "AgeStart"]
         for col in required_cols:
-            assert (
-                col in lifestage_df.columns
-            ), f"Missing column in StanzaLifeStage table: {col}"
+            assert col in lifestage_df.columns, (
+                f"Missing column in StanzaLifeStage table: {col}"
+            )
 
     def test_stanza_groups_exist(self, stanza_tables):
         """Test that stanza groups reference valid groups."""
@@ -262,9 +262,9 @@ class TestMultiStanza:
             "ad" in g.lower() or "adult" in g.lower() for g in stanza_groups
         )
 
-        assert (
-            has_juvenile or has_adult
-        ), f"Expected Blue mussel stanza groups, found: {stanza_groups}"
+        assert has_juvenile or has_adult, (
+            f"Expected Blue mussel stanza groups, found: {stanza_groups}"
+        )
 
     def test_stanza_age_progression(self, stanza_tables):
         """Test that stanza life stages have increasing ages."""
@@ -277,9 +277,9 @@ class TestMultiStanza:
             ages = stages["AgeStart"].tolist()
 
             # Ages should be in increasing order
-            assert ages == sorted(
-                ages
-            ), f"Stanza {stanza_id} ages not increasing: {ages}"
+            assert ages == sorted(ages), (
+                f"Stanza {stanza_id} ages not increasing: {ages}"
+            )
 
     def test_multiple_life_stages(self, stanza_tables):
         """Test that stanzas have multiple life stages."""
@@ -287,9 +287,9 @@ class TestMultiStanza:
 
         for stanza_id in stanza_df["StanzaID"].tolist():
             n_stages = len(lifestage_df[lifestage_df["StanzaID"] == stanza_id])
-            assert (
-                n_stages >= 2
-            ), f"Stanza {stanza_id} should have at least 2 life stages, has {n_stages}"
+            assert n_stages >= 2, (
+                f"Stanza {stanza_id} should have at least 2 life stages, has {n_stages}"
+            )
 
 
 class TestStanzaParamsPopulated:
@@ -307,9 +307,9 @@ class TestStanzaParamsPopulated:
     def test_stanzas_n_stanza_groups(self, lt_params):
         """Test that n_stanza_groups is populated."""
         assert lt_params.stanzas.n_stanza_groups > 0, "n_stanza_groups should be > 0"
-        assert (
-            lt_params.stanzas.n_stanza_groups == 1
-        ), "LT2022 should have 1 stanza group"
+        assert lt_params.stanzas.n_stanza_groups == 1, (
+            "LT2022 should have 1 stanza group"
+        )
 
     def test_stanzas_stgroups_not_none(self, lt_params):
         """Test that stgroups DataFrame is populated."""
@@ -658,9 +658,9 @@ class TestEcosimSimulation:
                 if initial[i] > 0.001 and final[i] > 0.001:
                     ratio = final[i] / initial[i]
                     # Biomass shouldn't change by more than 100x in a short simulation
-                    assert (
-                        0.01 < ratio < 100
-                    ), f"Unrealistic biomass change for group {i}: {initial[i]} -> {final[i]}"
+                    assert 0.01 < ratio < 100, (
+                        f"Unrealistic biomass change for group {i}: {initial[i]} -> {final[i]}"
+                    )
 
 
 class TestTableListing:
@@ -811,7 +811,7 @@ class TestIntegration:
             )
             params.diet = params.diet.fillna(0)
 
-            model = rpath(params)
+            _model = rpath(params)
 
             # Count groups by type
             n_producers = (params.model["Type"] == 1).sum()

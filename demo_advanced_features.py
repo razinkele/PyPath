@@ -100,7 +100,7 @@ def demo_recruitment_forcing():
         2010: 1.0,  # Normal
     }
 
-    forcing = create_recruitment_forcing(
+    _forcing = create_recruitment_forcing(
         group_idx=3,  # Example: Herring
         recruitment_multiplier=recruitment_data,
         interpolate=False,  # Discrete events

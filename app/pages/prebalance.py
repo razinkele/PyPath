@@ -23,18 +23,8 @@ except ModuleNotFoundError:
     from config import PLOTS, UI
     from pages.utils import is_rpath_params
 
-# Import prebalance functions
-import sys
-
-root_dir = Path(__file__).parent.parent.parent
-if str(root_dir) not in sys.path:
-    sys.path.insert(0, str(root_dir))
-
-from src.pypath.analysis.prebalance import (
-    generate_prebalance_report,
-    plot_biomass_vs_trophic_level,
-    plot_vital_rate_vs_trophic_level,
-)
+# Prebalance functions are imported lazily inside the diagnostics handler to avoid path issues
+# and to keep top-level imports clean.
 
 
 def prebalance_ui():
@@ -263,6 +253,17 @@ def prebalance_server(
                 return
 
             ui.notification_show("Running diagnostics...", duration=3)
+
+            # Lazy import to avoid top-level path manipulation and E402
+            try:
+                from pypath.analysis.prebalance import generate_prebalance_report
+            except Exception:
+                import sys
+
+                root_dir = Path(__file__).parent.parent.parent
+                if str(root_dir) not in sys.path:
+                    sys.path.insert(0, str(root_dir))
+                from src.pypath.analysis.prebalance import generate_prebalance_report
 
             # Generate diagnostic report
             report = generate_prebalance_report(data)
@@ -522,6 +523,23 @@ def prebalance_server(
         plot_type = input.plot_type()
 
         try:
+            # Lazy-import plotting helpers to avoid E402 and path issues
+            try:
+                from pypath.analysis.prebalance import (
+                    plot_biomass_vs_trophic_level,
+                    plot_vital_rate_vs_trophic_level,
+                )
+            except Exception:
+                import sys
+
+                root_dir = Path(__file__).parent.parent.parent
+                if str(root_dir) not in sys.path:
+                    sys.path.insert(0, str(root_dir))
+                from src.pypath.analysis.prebalance import (
+                    plot_biomass_vs_trophic_level,
+                    plot_vital_rate_vs_trophic_level,
+                )
+
             if plot_type == "biomass":
                 fig = plot_biomass_vs_trophic_level(
                     data,

@@ -20,14 +20,19 @@ print("=" * 60)
 # Test 1: Import spatial module
 print("\n[Test 1] Importing spatial module...")
 try:
-    from pypath.spatial import (
-        EcospaceGrid,
-        EcospaceParams,
-        allocate_gravity,
-        allocate_uniform,
-        create_1d_grid,
-        create_regular_grid,
-    )
+    import pypath.spatial as spatial
+
+    required = [
+        "EcospaceGrid",
+        "EcospaceParams",
+        "allocate_gravity",
+        "allocate_uniform",
+        "create_1d_grid",
+        "create_regular_grid",
+    ]
+    missing = [name for name in required if not hasattr(spatial, name)]
+    if missing:
+        raise ImportError(f"Missing spatial attributes: {missing}")
 
     print("  [PASS] Spatial module imported successfully")
 except ImportError as e:
@@ -54,7 +59,7 @@ except ImportError as e:
 # Test 3: Import main app
 print("\n[Test 3] Importing main app...")
 try:
-    from app import app, app_ui
+    from app import app_ui
 
     print("  [PASS] Main app imported successfully")
 except ImportError as e:
@@ -82,15 +87,15 @@ try:
     import numpy as np
 
     # Create regular grid
-    grid = create_regular_grid(bounds=(0, 0, 5, 5), nx=5, ny=5)
+    grid = spatial.create_regular_grid(bounds=(0, 0, 5, 5), nx=5, ny=5)
     print(f"  [PASS] Created 5x5 grid with {grid.n_patches} patches")
 
     # Create 1D grid
-    grid_1d = create_1d_grid(n_patches=10, spacing=1.0)
+    grid_1d = spatial.create_1d_grid(n_patches=10, spacing=1.0)
     print(f"  [PASS] Created 1D grid with {grid_1d.n_patches} patches")
 
     # Test allocation
-    effort = allocate_uniform(n_patches=25, total_effort=100.0)
+    effort = spatial.allocate_uniform(n_patches=25, total_effort=100.0)
     print(f"  [PASS] Uniform allocation: total = {effort.sum():.2f}")
 
 except Exception as e:
@@ -103,7 +108,7 @@ try:
     n_groups = 5
     n_patches = 25
 
-    ecospace_params = EcospaceParams(
+    ecospace_params = spatial.EcospaceParams(
         grid=grid,
         habitat_preference=np.ones((n_groups, n_patches)),
         habitat_capacity=np.ones((n_groups, n_patches)),

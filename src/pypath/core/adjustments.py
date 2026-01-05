@@ -405,7 +405,7 @@ def _resolve_year_indices(
     # Get year labels from fishing matrix row names
     if parameter in ["ForcedEffort"]:
         # Monthly matrix - get base years
-        n_years = scenario.fishing.ForcedEffort.shape[0] // 12
+        _n_years = scenario.fishing.ForcedEffort.shape[0] // 12
         start_year = 1  # Assume 1-based years
         return [y - start_year for y in years]
     else:

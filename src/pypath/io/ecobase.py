@@ -30,7 +30,7 @@ import pandas as pd
 
 # Try to import requests, fall back to urllib if not available
 try:
-    import requests
+    import requests  # noqa: F401
 
     HAS_REQUESTS = True
 except ImportError:
@@ -273,7 +273,7 @@ def list_ecobase_models(filter_public: bool = True, timeout: int = 60) -> pd.Dat
     df = pd.DataFrame(models)
 
     if filter_public and "dissemination_allow" in df.columns:
-        df = df[df["dissemination_allow"] == True].copy()
+        df = df[df["dissemination_allow"]].copy()
 
     return df
 
@@ -571,7 +571,7 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
                         group_name = group_seq_to_name.get(
                             group_seq, f"Group_{group_seq}"
                         )
-                        catch_key = (fleet_name, group_name, catch_type)
+                        _catch_key = (fleet_name, group_name, catch_type)
 
                         if group_name not in result["catches"]:
                             result["catches"][group_name] = {}
@@ -586,21 +586,21 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
 
                         # Map catch types to our structure
                         if catch_type == "total landings":
-                            result["catches"][group_name][fleet_name][
-                                "landings"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["landings"] = (
+                                catch_value
+                            )
                         elif catch_type == "discards":
-                            result["catches"][group_name][fleet_name][
-                                "discards"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["discards"] = (
+                                catch_value
+                            )
                         elif catch_type == "market":
-                            result["catches"][group_name][fleet_name][
-                                "market"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["market"] = (
+                                catch_value
+                            )
                         elif catch_type == "prop mort":
-                            result["catches"][group_name][fleet_name][
-                                "prop_mort"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["prop_mort"] = (
+                                catch_value
+                            )
             else:
                 fleet_data[child.tag] = child.text
 

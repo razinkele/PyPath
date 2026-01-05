@@ -54,7 +54,12 @@ except ImportError:
 print("\n4. Checking pypath.io.biodata module...")
 try:
     sys.path.insert(0, "src")
-    from pypath.io.biodata import batch_get_species_info, get_species_info
+    import pypath.io.biodata as biodata
+
+    required = ["batch_get_species_info", "get_species_info"]
+    missing = [name for name in required if not hasattr(biodata, name)]
+    if missing:
+        raise ImportError(f"Missing biodata attributes: {missing}")
 
     print("   [OK] biodata module can be imported")
     HAS_BIODATA = True

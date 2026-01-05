@@ -90,9 +90,9 @@ class TestWoRMSIntegration:
 
         # Find the cod record
         cod = [r for r in results if r.get("scientificname") == "Gadus morhua"][0]
-        assert (
-            cod["AphiaID"] == 126436
-        ), f"Expected AphiaID 126436, got {cod['AphiaID']}"
+        assert cod["AphiaID"] == 126436, (
+            f"Expected AphiaID 126436, got {cod['AphiaID']}"
+        )
         assert cod["status"] == "accepted", "Should be accepted name"
         assert cod.get("isMarine") == 1, "Should be marine species"
 
@@ -104,9 +104,9 @@ class TestWoRMSIntegration:
 
         # Should find Clupea harengus (Atlantic herring)
         scientific_names = [r.get("scientificname") for r in results]
-        assert any(
-            "Clupea" in name for name in scientific_names
-        ), "Should find Clupea species"
+        assert any("Clupea" in name for name in scientific_names), (
+            "Should find Clupea species"
+        )
 
     def test_worms_aphia_id_lookup(self):
         """Test WoRMS AphiaID lookup."""
@@ -242,9 +242,9 @@ class TestOBISIntegration:
         for sci_name in species:
             summary = _fetch_obis_occurrences(sci_name, cache=False, timeout=30)
             assert summary is not None, f"Should retrieve OBIS data for {sci_name}"
-            assert (
-                summary["total_occurrences"] > 0
-            ), f"Should have occurrences for {sci_name}"
+            assert summary["total_occurrences"] > 0, (
+                f"Should have occurrences for {sci_name}"
+            )
             time.sleep(1)  # Rate limiting
 
     def test_obis_cache_functionality(self):
@@ -319,9 +319,9 @@ class TestFishBaseIntegration:
             expected_min, expected_max = TEST_SPECIES["atlantic_cod"][
                 "expected_tl_range"
             ]
-            assert (
-                expected_min <= traits.trophic_level <= expected_max
-            ), f"Trophic level {traits.trophic_level} should be in range {expected_min}-{expected_max}"
+            assert expected_min <= traits.trophic_level <= expected_max, (
+                f"Trophic level {traits.trophic_level} should be in range {expected_min}-{expected_max}"
+            )
 
         # Should have max length
         if traits.max_length is not None:
@@ -381,9 +381,9 @@ class TestFishBaseIntegration:
             traits = _fetch_fishbase_traits(sci_name, cache=False, timeout=30)
 
             if traits is not None:  # Some species may not be in FishBase
-                assert (
-                    traits.species_code > 0
-                ), f"Should have species code for {sci_name}"
+                assert traits.species_code > 0, (
+                    f"Should have species code for {sci_name}"
+                )
                 # At least one trait should be available
                 has_data = any(
                     [
@@ -564,9 +564,9 @@ class TestEndToEndWorkflow:
 
         # Check cache stats
         stats = get_cache_stats()
-        assert (
-            stats["hits"] >= 3
-        ), "Should have at least 3 cache hits (WoRMS, OBIS, FishBase)"
+        assert stats["hits"] >= 3, (
+            "Should have at least 3 cache hits (WoRMS, OBIS, FishBase)"
+        )
 
     def test_workflow_error_handling(self):
         """Test workflow error handling with invalid species."""
@@ -623,9 +623,9 @@ class TestPerformanceAndStress:
         time_parallel = time.time() - start
 
         # Parallel should be faster (at least 2x for 5 species)
-        assert (
-            time_parallel < time_sequential / 1.5
-        ), f"Parallel ({time_parallel:.1f}s) should be faster than sequential ({time_sequential:.1f}s)"
+        assert time_parallel < time_sequential / 1.5, (
+            f"Parallel ({time_parallel:.1f}s) should be faster than sequential ({time_sequential:.1f}s)"
+        )
 
         # Results should be the same
         assert len(df1) == len(df2)

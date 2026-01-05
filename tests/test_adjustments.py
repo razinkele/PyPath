@@ -10,6 +10,11 @@ from typing import List
 import numpy as np
 import pytest
 
+from pypath.core.adjustments import (
+    adjust_scenario,
+    create_seasonal_forcing,
+)
+
 
 # Mock classes for testing
 @dataclass
@@ -94,13 +99,6 @@ def create_mock_scenario(n_groups=5, years=50):
         group_names=["Outside", "Phyto", "Zoo", "Fish", "TopPred"],
         NUM_GROUPS=n_groups,
     )
-
-
-# Import the functions to test
-from pypath.core.adjustments import (
-    adjust_scenario,
-    create_seasonal_forcing,
-)
 
 
 class TestAdjustScenario:

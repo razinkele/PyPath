@@ -28,6 +28,8 @@ Example:
 from __future__ import annotations
 
 import logging
+import shutil
+import subprocess
 import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -61,9 +63,6 @@ if not HAS_PYODBC:
         pass
 
 # Check for mdb-tools (Linux/Mac)
-import shutil
-import subprocess
-
 if shutil.which("mdb-tables"):
     HAS_MDB_TOOLS = True
 
@@ -770,7 +769,7 @@ def read_ewemdb(
                     ),
                     None,
                 )
-                disc_col = next(
+                _disc_col = next(
                     (c for c in ["Discard", "Discards"] if c in catch_df.columns), None
                 )
 

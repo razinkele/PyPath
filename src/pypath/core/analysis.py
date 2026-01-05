@@ -78,29 +78,19 @@ def mixed_trophic_impacts(rpath: Rpath) -> np.ndarray:
                     Q[pred, prey] = consump / prod
 
     # Calculate MTI using Leontief inverse
-    I = np.eye(n_groups)
+    eye = np.eye(n_groups)
 
     try:
-        # (I - Q)^-1
-        inv_IQ = np.linalg.inv(I - Q)
-
-        # (I - DC)^-1
-        inv_IDC = np.linalg.inv(I - DC)
-
-        # MTI = inv(I-Q) * diag(DC) * inv(I-DC) - I
-        # Simplified: use net food web matrix approach
-
-        # Net matrix: direct effects
+        # Use net food web matrix approach (avoid allocating unused inverses)
         net = DC - Q.T  # Diet minus proportion consumed
 
         # MTI as Leontief inverse of net matrix
-        mti = np.linalg.inv(I - net) - I
+        mti = np.linalg.inv(eye - net) - eye
 
     except np.linalg.LinAlgError:
         # Matrix is singular, use pseudoinverse
-        inv_IQ = np.linalg.pinv(I - Q)
         net = DC - Q.T
-        mti = np.linalg.pinv(I - net) - I
+        mti = np.linalg.pinv(eye - net) - eye
 
     return mti
 
@@ -547,8 +537,8 @@ def check_ecopath_balance(rpath: Rpath, tolerance: float = 0.01) -> Dict[str, An
     # Check production/consumption balance
     for i in range(1, rpath.NUM_LIVING + 1):
         if rpath.QB[i] > 0:
-            consumption = rpath.QB[i] * rpath.Biomass[i]
-            production = rpath.PB[i] * rpath.Biomass[i]
+            _consumption = rpath.QB[i] * rpath.Biomass[i]
+            _production = rpath.PB[i] * rpath.Biomass[i]
 
             # GE = P/Q should be reasonable (0 < GE < 1)
             ge = rpath.PB[i] / rpath.QB[i] if rpath.QB[i] > 0 else 0

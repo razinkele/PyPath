@@ -103,17 +103,17 @@ class TestBackwardCompatibility:
         from pypath.core.ecosim import RsimScenario
 
         # Check that RsimScenario is a dataclass with ecospace field
-        assert dataclasses.is_dataclass(
-            RsimScenario
-        ), "RsimScenario should be a dataclass"
+        assert dataclasses.is_dataclass(RsimScenario), (
+            "RsimScenario should be a dataclass"
+        )
 
         # Check that ecospace field exists and is optional
         fields = {f.name: f for f in dataclasses.fields(RsimScenario)}
 
         assert "ecospace" in fields, "RsimScenario should have ecospace field"
-        assert (
-            "environmental_drivers" in fields
-        ), "RsimScenario should have environmental_drivers field"
+        assert "environmental_drivers" in fields, (
+            "RsimScenario should have environmental_drivers field"
+        )
 
         # Check that ecospace defaults to None
         ecospace_field = fields["ecospace"]
@@ -153,10 +153,10 @@ class TestNoSpatialDependenciesRequired:
         """Test that spatial imports are in separate module."""
         # Spatial features should be opt-in
         try:
-            from pypath.spatial import EcospaceGrid, EcospaceParams
+            import importlib.util
 
-            spatial_available = True
-        except ImportError:
+            spatial_available = importlib.util.find_spec("pypath.spatial") is not None
+        except Exception:
             spatial_available = False
 
         # This test always passes - just documents that spatial is optional

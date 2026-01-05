@@ -363,15 +363,15 @@ def _fetch_worms_vernacular(
                 results = pyworms.aphiaRecordsByVernacular(vernacular=common_name)
             except TypeError:
                 try:
-                    results = pyworms.aphiaRecordsByVernacular(vernaculars=[common_name])
+                    results = pyworms.aphiaRecordsByVernacular(
+                        vernaculars=[common_name]
+                    )
                 except Exception:
                     # Last-resort: try the public WoRMS REST API if requests is available
                     if HAS_REQUESTS:
                         from urllib.parse import quote
 
-                        url = (
-                            f"https://www.marinespecies.org/rest/AphiaRecordsByVernacular/{quote(common_name)}"
-                        )
+                        url = f"https://www.marinespecies.org/rest/AphiaRecordsByVernacular/{quote(common_name)}"
                         resp = requests.get(url, timeout=timeout)
                         resp.raise_for_status()
                         try:
@@ -564,6 +564,7 @@ def _fetch_obis_occurrences(
             years_raw = [r.get("year") for r in records if r.get("year") is not None]
             valid_years = []
             import datetime
+
             current_year = datetime.datetime.utcnow().year
 
             for y in years_raw:

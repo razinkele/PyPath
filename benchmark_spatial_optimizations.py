@@ -94,7 +94,7 @@ def benchmark_dispersal_flux(grid: EcospaceGrid, n_iterations: int = 100):
     # Benchmark
     start = time.time()
     for _ in range(n_iterations):
-        flux = diffusion_flux(biomass, dispersal_rate, grid, grid.adjacency_matrix)
+        _flux = diffusion_flux(biomass, dispersal_rate, grid, grid.adjacency_matrix)
     elapsed = time.time() - start
 
     print(f"  Total time: {elapsed:.4f} seconds")

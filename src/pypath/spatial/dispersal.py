@@ -387,7 +387,7 @@ def calculate_spatial_flux(
         flux[g, p] = net flux for group g in patch p
     """
     n_groups = state.shape[0]
-    n_patches = state.shape[1]
+    _n_patches = state.shape[1]
     flux = np.zeros_like(state, dtype=float)
 
     grid = ecospace.grid

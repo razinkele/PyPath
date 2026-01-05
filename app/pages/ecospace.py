@@ -586,12 +586,8 @@ def ecospace_server(
     # Reactive values for spatial state
     grid = reactive.Value(None)
     boundary_polygon = reactive.Value(None)  # Store uploaded boundary for visualization
-    _ecospace_params = reactive.Value(
-        None
-    )  # TODO: reserved for future use
-    _spatial_results = reactive.Value(
-        None
-    )  # TODO: reserved for future use
+    _ecospace_params = reactive.Value(None)  # TODO: reserved for future use
+    _spatial_results = reactive.Value(None)  # TODO: reserved for future use
 
     # Load and display boundary polygon immediately on file upload
     @reactive.effect

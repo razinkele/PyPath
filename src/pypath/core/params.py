@@ -395,7 +395,7 @@ def check_rpath_params(params: RpathParams) -> bool:
         n_warnings += 1
 
     # Check diet columns sum to ~1 for consumers
-    n_living = len(model[model["Type"] <= 1])
+    _n_living = len(model[model["Type"] <= 1])
     pred_groups = model[model["Type"] < 2]["Group"].tolist()
 
     for pred in pred_groups:

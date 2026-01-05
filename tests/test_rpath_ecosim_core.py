@@ -324,9 +324,9 @@ class TestEcopathMassBalance:
                 # Total consumption from DC
                 actual_q = np.sum(model.DC[:, i]) * model.QB[i] * model.Biomass[i]
                 if expected_q > 0:
-                    assert np.isclose(
-                        expected_q, actual_q, rtol=0.01
-                    ), f"Consumption mismatch for group {i}: {expected_q} vs {actual_q}"
+                    assert np.isclose(expected_q, actual_q, rtol=0.01), (
+                        f"Consumption mismatch for group {i}: {expected_q} vs {actual_q}"
+                    )
 
     def test_production_equals_pb_times_biomass(self, balanced_5group_model):
         """Test that production = PB × B for all living groups."""
@@ -344,9 +344,9 @@ class TestEcopathMassBalance:
         for i in range(model.NUM_LIVING):
             if model.EE[i] >= 0 and model.PB[i] > 0:
                 # EE should be between 0 and 1 for living groups
-                assert (
-                    0 <= model.EE[i] <= 1.0
-                ), f"Invalid EE for group {i}: {model.EE[i]}"
+                assert 0 <= model.EE[i] <= 1.0, (
+                    f"Invalid EE for group {i}: {model.EE[i]}"
+                )
 
     def test_ge_equals_pb_over_qb(self, balanced_5group_model):
         """Test that GE = PB/QB for consumers."""
@@ -355,9 +355,9 @@ class TestEcopathMassBalance:
         for i in range(model.NUM_LIVING):
             if model.type[i] == 0 and model.QB[i] > 0:  # Consumer
                 expected_ge = model.PB[i] / model.QB[i]
-                assert np.isclose(
-                    model.GE[i], expected_ge, rtol=0.01
-                ), f"GE mismatch for group {i}: {model.GE[i]} vs {expected_ge}"
+                assert np.isclose(model.GE[i], expected_ge, rtol=0.01), (
+                    f"GE mismatch for group {i}: {model.GE[i]} vs {expected_ge}"
+                )
 
 
 class TestRsimParamsConversion:
@@ -443,9 +443,9 @@ class TestRsimParamsConversion:
         # All non-zero DD values should be 1000
         for i in range(1, len(params.DD)):
             if params.DD[i] != 0:
-                assert (
-                    params.DD[i] == 1000.0
-                ), f"DD not 1000 at link {i}: {params.DD[i]}"
+                assert params.DD[i] == 1000.0, (
+                    f"DD not 1000 at link {i}: {params.DD[i]}"
+                )
 
     def test_mzero_calculation(self, balanced_5group_model):
         """Test that M0 (other mortality) is calculated correctly."""
@@ -457,9 +457,9 @@ class TestRsimParamsConversion:
         # M0 = PB * (1 - EE) for living groups
         for i in range(model.NUM_LIVING):
             expected_m0 = model.PB[i] * (1.0 - model.EE[i])
-            assert np.isclose(
-                params.MzeroMort[i + 1], expected_m0, rtol=0.01
-            ), f"M0 mismatch for group {i}: {params.MzeroMort[i + 1]} vs {expected_m0}"
+            assert np.isclose(params.MzeroMort[i + 1], expected_m0, rtol=0.01), (
+                f"M0 mismatch for group {i}: {params.MzeroMort[i + 1]} vs {expected_m0}"
+            )
 
 
 class TestFunctionalResponse:
@@ -497,9 +497,9 @@ class TestFunctionalResponse:
                     vv_term = vv / (vv - 1.0 + 1.0) if vv > 1.0 else 1.0
                     Q_calc = QQbase[prey, pred] * 1.0 * 1.0 * dd_term * vv_term
 
-                    assert np.isclose(
-                        Q_calc, QQbase[prey, pred], rtol=0.01
-                    ), f"Q mismatch at ({prey},{pred}): {Q_calc} vs {QQbase[prey, pred]}"
+                    assert np.isclose(Q_calc, QQbase[prey, pred], rtol=0.01), (
+                        f"Q mismatch at ({prey},{pred}): {Q_calc} vs {QQbase[prey, pred]}"
+                    )
 
     def test_derivatives_near_zero_at_equilibrium(self, balanced_5group_model):
         """Test that derivatives are near zero at equilibrium."""
@@ -566,9 +566,9 @@ class TestFunctionalResponse:
         for i in range(1, scenario.params.NUM_LIVING + 1):
             # Allow small numerical error (up to 1% of biomass per year)
             max_deriv = state[i] * 0.01
-            assert (
-                abs(derivs[i]) < max_deriv + 0.01
-            ), f"Derivative too large for group {i}: {derivs[i]}"
+            assert abs(derivs[i]) < max_deriv + 0.01, (
+                f"Derivative too large for group {i}: {derivs[i]}"
+            )
 
 
 class TestSimulationIntegration:
@@ -617,12 +617,12 @@ class TestSimulationIntegration:
         living_biomass = output.out_Biomass[:, 1 : n_groups + 1]
 
         # No NaN or Inf values for living groups
-        assert not np.any(
-            np.isnan(living_biomass)
-        ), f"NaN in living biomass: {output.out_Biomass[-1, :]}"
-        assert not np.any(
-            np.isinf(living_biomass)
-        ), f"Inf in living biomass: {output.out_Biomass[-1, :]}"
+        assert not np.any(np.isnan(living_biomass)), (
+            f"NaN in living biomass: {output.out_Biomass[-1, :]}"
+        )
+        assert not np.any(np.isinf(living_biomass)), (
+            f"Inf in living biomass: {output.out_Biomass[-1, :]}"
+        )
 
     def test_biomass_stays_positive(self, balanced_5group_model):
         """Test that biomass values remain positive (or epsilon) for living groups."""
@@ -638,9 +638,9 @@ class TestSimulationIntegration:
         living_biomass = output.out_Biomass[:, 1 : n_groups + 1]
 
         # All biomass should be >= 0
-        assert np.all(
-            living_biomass >= 0
-        ), f"Negative biomass detected: {output.out_Biomass[-1, :]}"
+        assert np.all(living_biomass >= 0), (
+            f"Negative biomass detected: {output.out_Biomass[-1, :]}"
+        )
 
     def test_biomass_no_explosion(self, balanced_5group_model):
         """Test that biomass doesn't explode (stay within 100x baseline) for living groups."""
@@ -692,9 +692,9 @@ class TestEnergyBalance:
         expected_production = ge * total_consumption
         actual_production = sim_params.PBopt[zoo_idx] * sim_params.B_BaseRef[zoo_idx]
 
-        assert np.isclose(
-            expected_production, actual_production, rtol=0.01
-        ), f"Production mismatch: {expected_production} vs {actual_production}"
+        assert np.isclose(expected_production, actual_production, rtol=0.01), (
+            f"Production mismatch: {expected_production} vs {actual_production}"
+        )
 
     def test_mortality_balances_production(self, balanced_5group_model):
         """Test that M0 + predation = production × (1 - EE) at equilibrium."""
@@ -704,15 +704,15 @@ class TestEnergyBalance:
         sim_params = rsim_params(model)
 
         for i in range(model.NUM_LIVING):
-            production = model.PB[i] * model.Biomass[i]
+            _production = model.PB[i] * model.Biomass[i]
             m0 = sim_params.MzeroMort[i + 1] * model.Biomass[i]
 
             # M0 should equal PB * (1-EE) * B
             expected_m0 = model.PB[i] * (1.0 - model.EE[i]) * model.Biomass[i]
 
-            assert np.isclose(
-                m0, expected_m0, rtol=0.01
-            ), f"M0 mismatch for group {i}: {m0} vs {expected_m0}"
+            assert np.isclose(m0, expected_m0, rtol=0.01), (
+                f"M0 mismatch for group {i}: {m0} vs {expected_m0}"
+            )
 
 
 class TestForcingScenarios:
@@ -736,9 +736,9 @@ class TestForcingScenarios:
 
         # With no fishing, fish biomass should increase or stay similar
         # (depending on food availability)
-        assert (
-            fish_final >= fish_initial * 0.9
-        ), f"Fish decreased too much without fishing: {fish_initial} -> {fish_final}"
+        assert fish_final >= fish_initial * 0.9, (
+            f"Fish decreased too much without fishing: {fish_initial} -> {fish_final}"
+        )
 
     def test_doubled_fishing_decreases_fish(self, balanced_5group_model):
         """Test that doubling fishing leads to fish decrease."""
@@ -756,9 +756,9 @@ class TestForcingScenarios:
         fish_initial = output.out_Biomass[0, 3]
         fish_final = output.out_Biomass[-1, 3]
 
-        assert (
-            fish_final < fish_initial
-        ), f"Fish didn't decrease with doubled fishing: {fish_initial} -> {fish_final}"
+        assert fish_final < fish_initial, (
+            f"Fish didn't decrease with doubled fishing: {fish_initial} -> {fish_final}"
+        )
 
 
 class TestOutputStructure:
@@ -996,9 +996,9 @@ class TestLT2022Model:
             if state[i] > 0.001:
                 rel_deriv = abs(derivs[i]) / state[i]
                 # Allow 10% per time unit for real-world models
-                assert (
-                    rel_deriv < 0.1
-                ), f"Derivative too large for group {i}: rel={rel_deriv}"
+                assert rel_deriv < 0.1, (
+                    f"Derivative too large for group {i}: rel={rel_deriv}"
+                )
 
 
 class TestCrashDetection:
@@ -1080,9 +1080,9 @@ class TestProducerDynamics:
         phyto_qb = sim_params.FtimeQBOpt[1]
 
         # For producers, QB should equal PB in rsim_params
-        assert np.isclose(
-            phyto_qb, phyto_pb, rtol=0.01
-        ), f"Producer QB not equal to PB: {phyto_qb} vs {phyto_pb}"
+        assert np.isclose(phyto_qb, phyto_pb, rtol=0.01), (
+            f"Producer QB not equal to PB: {phyto_qb} vs {phyto_pb}"
+        )
 
     def test_primary_production_link(self, balanced_5group_model):
         """Test that primary production link exists."""

@@ -168,9 +168,9 @@ class TestDietNormalization:
             # Check each predator's diet sums to 1
             for pred in range(new_diet.shape[1]):
                 diet_sum = np.sum(new_diet[:, pred])
-                assert np.isclose(
-                    diet_sum, 1.0
-                ), f"Predator {pred} diet sums to {diet_sum}, not 1.0"
+                assert np.isclose(diet_sum, 1.0), (
+                    f"Predator {pred} diet sums to {diet_sum}, not 1.0"
+                )
 
 
 class TestMinimumProportions:

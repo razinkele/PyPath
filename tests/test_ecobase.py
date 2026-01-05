@@ -326,9 +326,9 @@ class TestEcobaseToRpath:
         assert "Zooplankton" in params.model["Group"].values
 
         # Check diet was converted
-        assert (
-            "Zooplankton" in params.diet.columns
-        ), "Zooplankton should be a predator column"
+        assert "Zooplankton" in params.diet.columns, (
+            "Zooplankton should be a predator column"
+        )
 
         # Find Phytoplankton row and check diet value
         phyto_row = params.diet[params.diet["Group"] == "Phytoplankton"]

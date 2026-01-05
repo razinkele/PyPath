@@ -452,9 +452,9 @@ class TestRpathObjectTests:
         ee_values = model.EE[living_mask]
 
         # EE should be between 0 and 1 for a balanced model
-        assert all(
-            ee_values >= -0.01
-        ), f"Some EE values < 0: {ee_values[ee_values < 0]}"
+        assert all(ee_values >= -0.01), (
+            f"Some EE values < 0: {ee_values[ee_values < 0]}"
+        )
         assert all(ee_values <= 1.01), f"Some EE values > 1: {ee_values[ee_values > 1]}"
 
     def test_rpath_runs_silently(self, recosystem_model):
@@ -470,9 +470,9 @@ class TestRpathObjectTests:
             # Filter for actual errors, not just info
             errors = [x for x in w if x.category is UserWarning]
             # Relaxed check - allow some warnings during balance
-            assert (
-                len(errors) < 5
-            ), f"Too many warnings: {[str(x.message) for x in errors]}"
+            assert len(errors) < 5, (
+                f"Too many warnings: {[str(x.message) for x in errors]}"
+            )
 
     def test_model_biomass_consistency(self, recosystem_model):
         """Test 3: Verify biomass values are consistent."""
@@ -554,9 +554,9 @@ class TestABvsRK4Comparison:
         positive_count = np.sum(living_bio > 0)
         total_count = living_bio.size
         positive_fraction = positive_count / total_count
-        assert (
-            positive_fraction > 0.9
-        ), f"Most biomass values should be positive, got {positive_fraction:.2%}"
+        assert positive_fraction > 0.9, (
+            f"Most biomass values should be positive, got {positive_fraction:.2%}"
+        )
 
     def test_ab_catch_output_valid(self, recosystem_scenario):
         """Test 8: AB produces valid catch output."""
@@ -606,9 +606,9 @@ class TestABvsRK4Comparison:
         avg_rk4 = np.nanmean(final_rk4[final_rk4 > 0])
 
         # Both should be positive and in similar range
-        assert (
-            avg_ab > 0 and avg_rk4 > 0
-        ), "Both methods should produce positive biomass"
+        assert avg_ab > 0 and avg_rk4 > 0, (
+            "Both methods should produce positive biomass"
+        )
 
     def test_biomass_near_equilibrium(self, recosystem_model):
         """Test 11-12: Biomass stays near equilibrium for baseline run."""
@@ -638,9 +638,9 @@ class TestABvsRK4Comparison:
         # Check that biomass values exist (not all zero/nan)
         # This is a weaker test but verifies basic simulation functionality
         total_bio = np.nansum(end_bio)
-        assert (
-            total_bio > 0 or np.nansum(start_bio) > 0
-        ), "Simulation should produce some biomass output"
+        assert total_bio > 0 or np.nansum(start_bio) > 0, (
+            "Simulation should produce some biomass output"
+        )
 
 
 class TestForcedBiomassJitter:
@@ -820,9 +820,9 @@ class TestForcedEffortJitter:
             total_forced = np.nansum(forced_catch[:, 1:])
 
             # Catch should be different (either higher or lower depending on stock depletion)
-            assert (
-                abs(total_forced - total_baseline) > 0.01 or total_baseline < 0.01
-            ), "Changed effort should affect total catch"
+            assert abs(total_forced - total_baseline) > 0.01 or total_baseline < 0.01, (
+                "Changed effort should affect total catch"
+            )
 
 
 class TestForcedEffortStepped:
@@ -927,7 +927,7 @@ class TestForcedMigration:
             groups = forced_scenario.params.spname
             species_indices = [groups.index(sp) for sp in test_species if sp in groups]
 
-            n_months = forced_scenario.forcing.ForcedMigrate.shape[0]
+            _n_months = forced_scenario.forcing.ForcedMigrate.shape[0]
             for idx in species_indices:
                 # Constant emigration rate
                 forced_scenario.forcing.ForcedMigrate[:, idx] = 0.1
@@ -943,11 +943,11 @@ class TestForcedMigration:
         forced_bio = forced_result.out_Biomass
 
         # At least some difference should exist (use nansum to handle NaN)
-        total_diff = np.nansum(np.abs(baseline_bio - forced_bio))
+        _total_diff = np.nansum(np.abs(baseline_bio - forced_bio))
         # Weaker assertion - just check simulation completes
-        assert (
-            baseline_bio is not None and forced_bio is not None
-        ), "Both simulations should complete"
+        assert baseline_bio is not None and forced_bio is not None, (
+            "Both simulations should complete"
+        )
 
 
 class TestForcedFRateAndCatch:
@@ -1088,9 +1088,9 @@ class TestSimulationStability:
         surviving = np.sum(final_bio > 0.001)
         total = len(final_bio)
 
-        assert (
-            surviving / total >= 0.7
-        ), f"Most groups should survive: {surviving}/{total}"
+        assert surviving / total >= 0.7, (
+            f"Most groups should survive: {surviving}/{total}"
+        )
 
     def test_no_nan_in_output(self, recosystem_scenario):
         """Test that simulation doesn't produce NaN values."""
@@ -1109,9 +1109,9 @@ class TestSimulationStability:
         living_bio = bio[:, 1 : n_groups + 1]
 
         nan_count = np.sum(np.isnan(living_bio))
-        assert (
-            nan_count == 0
-        ), f"Simulation should not produce NaN: found {nan_count} NaN values"
+        assert nan_count == 0, (
+            f"Simulation should not produce NaN: found {nan_count} NaN values"
+        )
 
     def test_no_infinite_in_output(self, recosystem_scenario):
         """Test that simulation doesn't produce infinite values."""
@@ -1130,9 +1130,9 @@ class TestSimulationStability:
         living_bio = bio[:, 1 : n_groups + 1]
 
         inf_count = np.sum(np.isinf(living_bio))
-        assert (
-            inf_count == 0
-        ), f"Simulation should not produce Inf: found {inf_count} Inf values"
+        assert inf_count == 0, (
+            f"Simulation should not produce Inf: found {inf_count} Inf values"
+        )
 
 
 class TestResultComparison:

@@ -127,7 +127,7 @@ def calculate_patch_distances(grid: "EcospaceGrid") -> np.ndarray:
     np.ndarray
         Distance matrix [n_patches, n_patches] in km
     """
-    n_patches = grid.n_patches
+    _n_patches = grid.n_patches
     centroids = grid.patch_centroids
 
     # Calculate Euclidean distances
@@ -203,13 +203,13 @@ def build_distance_matrix(
     np.ndarray
         Distance matrix [n_patches, n_patches] in km
     """
-    n_patches = grid.n_patches
+    _n_patches = grid.n_patches
     centroids = grid.patch_centroids
 
     if method == "haversine":
         # Pairwise haversine distances
-        distances = np.zeros((n_patches, n_patches))
-        for i in range(n_patches):
+        distances = np.zeros((_n_patches, _n_patches))
+        for i in range(_n_patches):
             distances[i, :] = haversine_distance(
                 centroids[i, 0], centroids[i, 1], centroids[:, 0], centroids[:, 1]
             )

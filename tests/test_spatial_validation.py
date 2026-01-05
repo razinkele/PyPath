@@ -44,9 +44,9 @@ class TestMassConservation:
 
         # Total flux should sum to zero (mass conservation)
         total_flux = np.sum(flux)
-        assert (
-            abs(total_flux) < 1e-10
-        ), f"Diffusion created/destroyed mass: {total_flux}"
+        assert abs(total_flux) < 1e-10, (
+            f"Diffusion created/destroyed mass: {total_flux}"
+        )
 
     def test_advection_conserves_mass(self):
         """Test that habitat advection conserves mass."""
@@ -67,9 +67,9 @@ class TestMassConservation:
 
         # Total flux should sum to zero
         total_flux = np.sum(flux)
-        assert (
-            abs(total_flux) < 1e-10
-        ), f"Advection created/destroyed mass: {total_flux}"
+        assert abs(total_flux) < 1e-10, (
+            f"Advection created/destroyed mass: {total_flux}"
+        )
 
     def test_combined_flux_conserves_mass(self):
         """Test that combined dispersal + advection conserves mass."""
@@ -97,9 +97,9 @@ class TestMassConservation:
         # Check mass conservation for each group
         for group_idx in range(n_groups + 1):
             total_flux = np.sum(flux[group_idx, :])
-            assert (
-                abs(total_flux) < 1e-8
-            ), f"Group {group_idx} flux not conserved: {total_flux}"
+            assert abs(total_flux) < 1e-8, (
+                f"Group {group_idx} flux not conserved: {total_flux}"
+            )
 
     def test_full_simulation_mass_conservation(self):
         """Test mass conservation in full spatial simulation."""
@@ -154,10 +154,10 @@ class TestFluxConservation:
 
     def test_isolated_patch_no_flux(self):
         """Test that isolated patches (no neighbors) have zero flux."""
-        grid = create_1d_grid(n_patches=5, spacing=1.0)
+        _grid = create_1d_grid(n_patches=5, spacing=1.0)
 
         # Create isolated patch by removing all adjacencies for patch 2
-        adjacency_modified = grid.adjacency_matrix.tolil()
+        adjacency_modified = _grid.adjacency_matrix.tolil()
         adjacency_modified[2, :] = 0
         adjacency_modified[:, 2] = 0
         adjacency_modified = adjacency_modified.tocsr()
@@ -199,9 +199,9 @@ class TestFluxConservation:
         for i in range(center):
             left_flux = flux[center - i - 1]
             right_flux = flux[center + i + 1]
-            assert (
-                abs(left_flux - right_flux) < 1e-6
-            ), f"Asymmetric flux at distance {i + 1}: {left_flux} vs {right_flux}"
+            assert abs(left_flux - right_flux) < 1e-6, (
+                f"Asymmetric flux at distance {i + 1}: {left_flux} vs {right_flux}"
+            )
 
 
 class TestGridConvergence:
@@ -258,9 +258,9 @@ class TestGridConvergence:
         # (This is a weak test - full convergence analysis would use Richardson extrapolation)
         if len(differences) > 1:
             # At least check that we're not diverging
-            assert (
-                differences[-1] < differences[0] * 10
-            ), "Results diverging with grid refinement"
+            assert differences[-1] < differences[0] * 10, (
+                "Results diverging with grid refinement"
+            )
 
     def test_spatial_resolution_independence(self):
         """Test that physical predictions don't depend on arbitrary grid choices."""
@@ -306,7 +306,7 @@ class TestNumericalStability:
         """Test that flux limiter prevents negative biomass."""
         from pypath.spatial.dispersal import apply_flux_limiter
 
-        grid = create_1d_grid(n_patches=5, spacing=1.0)
+        _grid = create_1d_grid(n_patches=5, spacing=1.0)
 
         # Setup that would create negative biomass
         biomass = np.array([1.0, 0.1, 10, 20, 30])
@@ -324,12 +324,12 @@ class TestNumericalStability:
         # This is acceptable - the limiter prevents negative biomass at the
         # expense of perfect mass conservation. This is a known tradeoff.
         # The important check is that flux is actually limited when needed
-        assert abs(flux_limited[0]) < abs(
-            flux[0]
-        ), "Flux limiter should reduce excessive outflow"
-        assert abs(flux_limited[1]) < abs(
-            flux[1]
-        ), "Flux limiter should reduce excessive outflow"
+        assert abs(flux_limited[0]) < abs(flux[0]), (
+            "Flux limiter should reduce excessive outflow"
+        )
+        assert abs(flux_limited[1]) < abs(flux[1]), (
+            "Flux limiter should reduce excessive outflow"
+        )
 
     def test_large_gradient_stability(self):
         """Test stability with large biomass gradients."""
@@ -351,9 +351,9 @@ class TestNumericalStability:
 
         # Mass conservation should hold even with large gradient
         total_flux = np.sum(flux)
-        assert (
-            abs(total_flux) < 1e-8
-        ), f"Large gradient violated conservation: {total_flux}"
+        assert abs(total_flux) < 1e-8, (
+            f"Large gradient violated conservation: {total_flux}"
+        )
 
 
 class TestPhysicalRealism:
@@ -424,9 +424,9 @@ class TestPhysicalRealism:
         )
 
         # Should be near-zero flux (numerical precision)
-        assert np.all(
-            np.abs(flux) < 1e-6
-        ), f"Uniform habitat produced non-zero flux: {flux}"
+        assert np.all(np.abs(flux) < 1e-6), (
+            f"Uniform habitat produced non-zero flux: {flux}"
+        )
 
     def test_equilibrium_distribution(self):
         """Test that diffusion approaches equilibrium (uniform distribution)."""

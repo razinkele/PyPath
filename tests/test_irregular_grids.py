@@ -273,9 +273,9 @@ class TestIrregularGridIntegration:
         )
 
         # Effort should decrease with distance from port
-        assert (
-            effort[0] > effort[1] > effort[2]
-        ), "Effort should decrease with distance from port"
+        assert effort[0] > effort[1] > effort[2], (
+            "Effort should decrease with distance from port"
+        )
 
         # Total effort conserved
         assert abs(effort.sum() - 100.0) < 1e-6, "Effort allocation not conserved"
