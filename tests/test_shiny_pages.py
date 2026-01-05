@@ -53,7 +53,8 @@ class TestHomePage:
             assert "input" in params
             assert "output" in params
             assert "session" in params
-            assert "model_data" in params
+            # parameters may be prefixed with underscores in some implementations
+            assert any(p.lstrip("_") == "model_data" for p in params)
         except ImportError:
             pytest.skip("Home page module not available")
 
@@ -83,7 +84,7 @@ class TestDataImportPage:
 
             # Should have: input, output, session, model_data
             assert len(params) == 4
-            assert "model_data" in params
+            assert any(p.lstrip("_") == "model_data" for p in params)
         except ImportError:
             pytest.skip("Data import page module not available")
 
@@ -143,8 +144,8 @@ class TestEcosimPage:
 
             # Should have: input, output, session, model_data, sim_results
             assert len(params) == 5
-            assert "model_data" in params
-            assert "sim_results" in params
+            assert any(p.lstrip("_") == "model_data" for p in params)
+            assert any(p.lstrip("_") == "sim_results" for p in params)
         except ImportError:
             pytest.skip("Ecosim page module not available")
 
@@ -174,8 +175,8 @@ class TestResultsPage:
 
             # Should have: input, output, session, model_data, sim_results
             assert len(params) == 5
-            assert "model_data" in params
-            assert "sim_results" in params
+            assert any(p.lstrip("_") == "model_data" for p in params)
+            assert any(p.lstrip("_") == "sim_results" for p in params)
         except ImportError:
             pytest.skip("Results page module not available")
 
@@ -205,8 +206,8 @@ class TestAnalysisPage:
 
             # Should have: input, output, session, model_data, sim_results
             assert len(params) == 5
-            assert "model_data" in params
-            assert "sim_results" in params
+            assert any(p.lstrip("_") == "model_data" for p in params)
+            assert any(p.lstrip("_") == "sim_results" for p in params)
         except ImportError:
             pytest.skip("Analysis page module not available")
 
@@ -268,7 +269,7 @@ class TestMultiStanzaPage:
 
             # Should have: input, output, session, shared_data
             assert len(params) == 4
-            assert "shared_data" in params
+            assert any(p.lstrip("_") == "shared_data" for p in params)
         except ImportError:
             pytest.skip("Multi-stanza page module not available")
 

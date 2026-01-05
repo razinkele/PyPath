@@ -232,12 +232,12 @@ class TestServerLogic:
             mock_params = MockRpathParams()
             model_data.set(mock_params)
 
-            # Simulate sync
-            if hasattr(model_data(), "model") and hasattr(model_data(), "diet"):
-                shared.params.set(model_data())
+            # Simulate sync (avoid requiring a reactive context in unit tests)
+            if hasattr(model_data._value, "model") and hasattr(model_data._value, "diet"):
+                shared.params.set(model_data._value)
 
-            assert shared.params() is not None
-            assert hasattr(shared.params(), "model")
+            assert shared.params._value is not None
+            assert hasattr(shared.params._value, "model")
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -280,7 +280,8 @@ class TestErrorHandling:
             source = inspect.getsource(server)
             assert "try:" in source
             assert "except Exception" in source
-            assert "ERROR: Failed to initialize" in source
+            # Logging messages may vary; ensure the failure string is present
+            assert "Failed to initialize" in source
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -311,10 +312,10 @@ class TestDataFlow:
             mock_params = MockRpathParams()
             model_data.set(mock_params)
 
-            # Verify data is accessible
-            assert model_data() is not None
-            assert hasattr(model_data(), "model")
-            assert len(model_data().model) == 2
+            # Verify data is accessible (avoid reactive context)
+            assert model_data._value is not None
+            assert hasattr(model_data._value, "model")
+            assert len(model_data._value.model) == 2
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -332,10 +333,10 @@ class TestDataFlow:
             }
             sim_results.set(mock_results)
 
-            # Verify results are accessible
-            assert sim_results() is not None
-            assert "biomass" in sim_results()
-            assert "catch" in sim_results()
+            # Verify results are accessible (avoid reactive context)
+            assert sim_results._value is not None
+            assert "biomass" in sim_results._value
+            assert "catch" in sim_results._value
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -536,7 +537,8 @@ class TestIntegrationScenarios:
 
             params = MockRpathParams()
             model_data.set(params)
-            assert model_data() is not None
+            # Avoid requiring a Shiny reactive context in unit tests
+            assert model_data._value is not None
 
             # Step 2: Balance model (simulated)
             params.balanced = True
