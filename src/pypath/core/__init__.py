@@ -90,9 +90,11 @@ try:
         normalized_root_mean_squared_error,
         plot_fit,
         plot_optimization_results,
+        HAS_SKOPT,
     )
 
-    HAS_OPTIMIZATION = True
+    # Reflect actual availability of scikit-optimize
+    HAS_OPTIMIZATION = bool(HAS_SKOPT)
 except ImportError:
     HAS_OPTIMIZATION = False
 from pypath.core.plotting import (
