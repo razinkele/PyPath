@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from pypath.core.params import RpathParams
+from typing import Dict, Union, Tuple
 
 
 def _gauss_solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -169,8 +170,14 @@ class Rpath:
 
 
 def rpath(
-    rpath_params: RpathParams, eco_name: str = "", eco_area: float = 1.0
-) -> Rpath:
+    rpath_params: RpathParams, eco_name: str = "", eco_area: float = 1.0, debug: bool = False
+) -> Union[Rpath, Tuple[Rpath, Dict[str, object]]]:
+    """Balance an Ecopath model.
+
+    When `debug=True` the function returns a tuple `(rpath_obj, diagnostics)` where
+    `diagnostics` contains intermediate matrices useful for debugging (A, b_vec, x,
+    diet_values, nodetrdiet, living_idx, no_b, no_ee).
+    """
     """Balance an Ecopath model.
 
     Performs initial mass balance using an RpathParams object.
@@ -288,10 +295,15 @@ def rpath(
 
     # Extract diet for living groups only (prey rows are living groups)
     # nodetrdiet[i, j] = fraction of predator j's diet from prey i (both living)
+    # Normalize predator diet columns to exclude Import fractions when present
     nodetrdiet = np.zeros((nliving, nliving))
-    for i, prey_idx in enumerate(living_idx):
-        for j, pred_idx in enumerate(living_idx):
-            nodetrdiet[i, j] = diet_values[prey_idx, j]
+    import_row = diet_values[ngroups, :] if diet_values.shape[0] > ngroups else np.zeros(diet_values.shape[1])
+    # For each predator column, normalize by (1 - import_frac) if possible
+    for j, pred_idx in enumerate(living_idx):
+        import_frac = import_row[j] if j < len(import_row) else 0.0
+        denom = 1.0 - import_frac if (1.0 - import_frac) > 0 else 1.0
+        for i, prey_idx in enumerate(living_idx):
+            nodetrdiet[i, j] = diet_values[prey_idx, j] / denom
 
     # Fill in GE (P/Q), QB, or PB from other inputs
     # Compute GE = PB/QB when QB is present and non-zero, otherwise use prodcons
@@ -299,19 +311,39 @@ def rpath(
     # Replace NaN GE with 0 (safe default) and avoid dividing by zero below
     ge = np.nan_to_num(ge, nan=0.0)
     # Only fill QB where it's missing and we have a non-zero GE
-    qb = np.where(np.isnan(qb) & (ge != 0), pb / ge, qb)
+    # Use np.divide with where to avoid divide-by-zero warnings when GE is zero
+    safe_pb_over_ge = np.empty_like(pb)
+    safe_pb_over_ge[:] = np.nan
+    np.divide(pb, ge, out=safe_pb_over_ge, where=(ge != 0))
+    qb = np.where(np.isnan(qb) & (ge != 0), safe_pb_over_ge, qb)
     # Fill PB where missing from prodcons * QB
     pb = np.where(np.isnan(pb), prodcons * qb, pb)
 
-    # As a last resort, if both PB and QB are missing for a group, set reasonable defaults
-    both_missing = np.isnan(pb) & np.isnan(qb)
+    # As a last resort, if both PB and QB are missing for a *living* group, set reasonable defaults
+    both_missing = np.isnan(pb) & np.isnan(qb) & (types < 2)
     if np.any(both_missing):
-        # Use a small default turnover/consumption rate to allow balancing
+        # Use a small default turnover/consumption rate to allow balancing for living groups
         pb = np.where(both_missing, 1.0, pb)
         qb = np.where(both_missing, 1.0, qb)
 
-    # If biomass is missing, set a reasonable default to allow solving
-    biomass = np.where(np.isnan(biomass), 1.0, biomass)
+    # Remember which biomass, PB and EE values were originally missing (before filling defaults)
+    original_no_b = np.isnan(biomass)
+    original_pb_missing = np.isnan(model_df['PB'].values.astype(float))
+    original_no_ee = np.isnan(model_df['EE'].values.astype(float))
+
+    # Keep biomass as NaN for living groups when originally missing so the solver treats them
+    # as unknowns and solves for biomass when EE is provided (this matches R's behavior).
+    # Previously we set a default value (1.0) here which prevented solving for biomass for
+    # groups with EE specified but missing biomass (e.g., Megabenthos). Do not fill here.
+    # biomass = np.where(np.isnan(biomass) & (types < 2), 1.0, biomass)
+
+    # For fleet groups (type == 3), ensure biomass/PB/QB/EE are zero to match R conventions
+    fleet_mask = (types == 3)
+    if np.any(fleet_mask):
+        biomass[fleet_mask] = np.where(np.isnan(biomass[fleet_mask]), 0.0, biomass[fleet_mask])
+        pb[fleet_mask] = np.where(np.isnan(pb[fleet_mask]), 0.0, pb[fleet_mask])
+        qb[fleet_mask] = np.where(np.isnan(qb[fleet_mask]), 0.0, qb[fleet_mask])
+        ee[fleet_mask] = np.where(np.isnan(ee[fleet_mask]), 0.0, ee[fleet_mask])
 
     # Get landings and discards matrices
     det_groups = groups[dead_idx].tolist()
@@ -339,88 +371,179 @@ def rpath(
     _landings = np.sum(landmat, axis=1)
     _discards = np.sum(discardmat, axis=1)
 
-    # Flag missing parameters
-    no_b = np.isnan(biomass)
+    # Flag missing parameters (use the ORIGINAL missing-biomass mask)
+    no_b = original_no_b
     no_ee = np.isnan(ee)
+    if debug:
+        print('DEBUG: original_no_b:', original_no_b)
+        print('DEBUG: initial no_ee:', no_ee)
 
-    # Set up system of equations for living groups
-    # Extract living group values
+    # Iterative solve to handle EE>1 cases by capping EE at 1 and re-solving
+    # Start with masks from current state
+    it_max = 5
+    it = 0
+    iterations = []
+    while True:
+        it += 1
+        # Extract living group values for this iteration
+        living_biomass = biomass[living_idx]
+        living_qb = qb[living_idx]
+        living_pb = pb[living_idx]
+        living_ee = ee[living_idx]
+        living_bioacc = bioacc[living_idx]
+        living_catch = totcatch[living_idx]
+        # Determine which variables are unknown in this iteration
+        living_no_b = np.isnan(living_biomass)
+        living_no_ee = np.isnan(living_ee)
+
+        # Consumption matrix: each column j shows consumption by predator j
+        bio_qb = np.where(
+            np.isnan(living_biomass * living_qb), 0.0, living_biomass * living_qb
+        )
+        # Zero consumption contributions from predators whose biomass is unknown
+        # (their predation terms are moved into A instead)
+        pred_unknown_mask = np.array(
+            [original_no_b[pred_global] or np.isnan(biomass[pred_global]) for pred_global in living_idx],
+            dtype=bool,
+        )
+        bio_qb = np.where(pred_unknown_mask, 0.0, bio_qb)
+        cons = nodetrdiet * bio_qb[np.newaxis, :]
+
+        # RHS: exports + predation
+        b_vec = living_catch + living_bioacc + np.sum(cons, axis=1)
+
+        # Build A matrix for this iteration
+        A = np.zeros((nliving, nliving))
+        for i in range(nliving):
+            if living_no_ee[i]:  # Solve for EE
+                A[i, i] = (
+                    living_biomass[i] * living_pb[i]
+                    if not np.isnan(living_biomass[i])
+                    else living_pb[i] * living_ee[i]
+                )
+            else:  # Solve for B
+                A[i, i] = living_pb[i] * living_ee[i]
+
+        qb_dc = nodetrdiet * living_qb[np.newaxis, :]
+        qb_dc = np.nan_to_num(qb_dc, nan=0.0)
+        for j in range(nliving):
+            # Treat a predator as having unknown biomass if it was originally missing
+            # or if we've flipped it to unknown in an earlier iteration (biomass NaN).
+            pred_global = living_idx[j]
+            pred_unknown = original_no_b[pred_global] or np.isnan(biomass[pred_global])
+            if debug and pred_unknown:
+                print(f"DEBUG: predator {pred_global} treated as unknown (original_no_b={original_no_b[pred_global]}, biomass_nan={np.isnan(biomass[pred_global])})")
+            if pred_unknown:
+                A[:, j] -= qb_dc[:, j]
+
+        # Validate
+        if not np.all(np.isfinite(A)) or not np.all(np.isfinite(b_vec)):
+            if debug:
+                print("DEBUG: A finite mask\n", np.isfinite(A))
+                print("DEBUG: A\n", A)
+                print("DEBUG: b_vec finite mask\n", np.isfinite(b_vec))
+                print("DEBUG: b_vec\n", b_vec)
+            raise ValueError(
+                "Model is missing or invalid parameters - can't be balanced. Use check_rpath_params() to diagnose."
+            )
+
+        # Solve linear system
+        n = A.shape[0]
+        try:
+            if n <= 50:
+                x = _gauss_solve(A, b_vec)
+            else:
+                x = np.linalg.solve(A, b_vec)
+        except Exception:
+            try:
+                x = np.linalg.lstsq(A, b_vec, rcond=1e-6)[0]
+            except Exception as e:
+                raise ValueError("Unable to solve linear system during balancing") from e
+
+        # Assign solved values back to living groups for this iteration
+        for i, idx in enumerate(living_idx):
+            if debug:
+                print(f"DEBUG: idx={idx} iter={it} living_no_b={living_no_b[i]} living_no_ee={living_no_ee[i]} x={x[i]} biomass_before={biomass[idx]}")
+            if living_no_ee[i]:
+                ee[idx] = x[i]
+                if debug:
+                    print(f"DEBUG: Assigned ee[{idx}] = {x[i]}")
+            if living_no_b[i]:
+                biomass[idx] = x[i]
+                if debug:
+                    print(f"DEBUG: Assigned biomass[{idx}] = {x[i]} biomass_after={biomass[idx]}")
+
+        # Record iteration snapshot for diagnostics
+        iterations.append({
+            'iter': it,
+            'A': A.copy(),
+            'b_vec': b_vec.copy(),
+            'x': x.copy(),
+            'ee': ee.copy(),
+            'biomass': biomass.copy(),
+        })
+        # Check for EE values > 1 for groups that were originally missing EE
+        flipped = False
+        # Find groups with EE > 1 eligible for flipping: those whose EE and biomass were both originally missing
+        over = [ (i, idx, ee[idx]) for i, idx in enumerate(living_idx) if original_no_ee[idx] and original_no_b[idx] and not np.isnan(ee[idx]) and ee[idx] > 1.0 ]
+        if over:
+            # Flip only the largest eligible violation to avoid cascade effects
+            over.sort(key=lambda t: t[2], reverse=True)
+            i, idx, val = over[0]
+            if debug:
+                print(f"DEBUG: ee[{idx}] = {val} > 1.0 (largest eligible), capping to 1 and solving for biomass next iteration")
+            ee[idx] = 1.0
+            biomass[idx] = np.nan
+            flipped = True
+
+        # If no flips or reached iteration limit, break
+        if not flipped or it >= it_max:
+            break
+
+    # After iterations, compute final A/b_vec once more for diagnostics
     living_biomass = biomass[living_idx]
     living_qb = qb[living_idx]
     living_pb = pb[living_idx]
     living_ee = ee[living_idx]
-    living_bioacc = bioacc[living_idx]
-    living_catch = totcatch[living_idx]
-    living_no_b = no_b[living_idx]
-    living_no_ee = no_ee[living_idx]
-
-    # Consumption matrix: each column j shows consumption by predator j
-    bio_qb = np.where(
-        np.isnan(living_biomass * living_qb), 0.0, living_biomass * living_qb
+    bio_qb = np.where(np.isnan(living_biomass * living_qb), 0.0, living_biomass * living_qb)
+    pred_unknown_mask = np.array(
+        [original_no_b[pred_global] or np.isnan(biomass[pred_global]) for pred_global in living_idx],
+        dtype=bool,
     )
+    bio_qb = np.where(pred_unknown_mask, 0.0, bio_qb)
     cons = nodetrdiet * bio_qb[np.newaxis, :]
-
-    # RHS: exports + predation
     b_vec = living_catch + living_bioacc + np.sum(cons, axis=1)
-
-    # Set up A matrix
     A = np.zeros((nliving, nliving))
-
-    # Diagonal elements
     for i in range(nliving):
-        if living_no_ee[i]:  # Solve for EE
+        if np.isnan(living_ee[i]):
             A[i, i] = (
                 living_biomass[i] * living_pb[i]
                 if not np.isnan(living_biomass[i])
                 else living_pb[i] * living_ee[i]
             )
-        else:  # Solve for B
+        else:
             A[i, i] = living_pb[i] * living_ee[i]
-
-    # Off-diagonal: predation by unknown biomass groups
     qb_dc = nodetrdiet * living_qb[np.newaxis, :]
     qb_dc = np.nan_to_num(qb_dc, nan=0.0)
-
     for j in range(nliving):
-        if living_no_b[j]:  # If biomass unknown, predation term goes in A matrix
+        if np.isnan(living_biomass[j]):
             A[:, j] -= qb_dc[:, j]
 
-    # Check for missing or non-finite info
-    if not np.all(np.isfinite(A)) or not np.all(np.isfinite(b_vec)):
-        # Debug: print matrices to help diagnose cause of non-finite entries
-        print("DEBUG: A finite mask\n", np.isfinite(A))
-        print("DEBUG: A\n", A)
-        print("DEBUG: b_vec finite mask\n", np.isfinite(b_vec))
-        print("DEBUG: b_vec\n", b_vec)
-        raise ValueError(
-            "Model is missing or invalid parameters - can't be balanced. "
-            "Use check_rpath_params() to diagnose."
-        )
-
-    # Solve: A * x = b
-    # Use a pure-Python Gaussian elimination fallback for small systems to avoid
-    # triggering low-level BLAS/LAPACK crashes on pathological inputs.
-    n = A.shape[0]
+    # Save final solve results in context for debug output
+    # (x and b_vec/A are available from the last iteration)
     try:
         if n <= 50:
             x = _gauss_solve(A, b_vec)
         else:
             x = np.linalg.solve(A, b_vec)
     except Exception:
-        # Fall back to least-squares as a last resort
         try:
             x = np.linalg.lstsq(A, b_vec, rcond=1e-6)[0]
         except Exception as e:
             raise ValueError("Unable to solve linear system during balancing") from e
 
-    # Assign solved values back to living groups
-    for i, idx in enumerate(living_idx):
-        if no_ee[idx]:
-            ee[idx] = x[i]
-        if no_b[idx]:
-            biomass[idx] = x[i]
-
-    # Calculate M0 (other mortality) for living groups
+    # Calculate M0 (other mortality) for living groups (detritus handled after
+    # detritus PB/biomass is computed below)
     m0 = np.zeros(ngroups)
     for i, idx in enumerate(living_idx):
         m0[idx] = pb[idx] * (1 - ee[idx])
@@ -492,12 +615,14 @@ def rpath(
         # Ensure detinputs is non-negative
         det_in = max(0.0, detinputs[d_idx])
 
-        if np.isnan(det_pb_input) or det_pb_input <= 0:
+        # Treat PB as missing if original input was missing (avoid placeholder 1.0 from both_missing)
+        if np.isnan(det_pb_input) or det_pb_input <= 0 or original_pb_missing[det_idx]:
             det_pb[d_idx] = default_det_pb
         else:
             det_pb[d_idx] = det_pb_input
 
-        if np.isnan(det_b_input) or det_b_input <= 0:
+        # If biomass was originally missing (we filled prior defaults), treat as missing
+        if np.isnan(det_b_input) or det_b_input <= 0 or original_no_b[det_idx]:
             det_b[d_idx] = det_in / det_pb[d_idx] if det_pb[d_idx] > 0 else 0
         else:
             det_b[d_idx] = det_b_input
@@ -514,6 +639,10 @@ def rpath(
 
         biomass[det_idx] = det_b[d_idx]
         pb[det_idx] = det_pb[d_idx]
+
+    # Compute M0 for detritus groups now that PB and EE are finalized for detritus
+    for d_idx, det_idx in enumerate(dead_idx):
+        m0[det_idx] = pb[det_idx] * (1 - ee[det_idx])
 
     # Trophic level calculations
     # TL = 1 + sum_i(DC_ij * TL_i) for each predator j
@@ -591,7 +720,7 @@ def rpath(
     if diet_values.shape[0] > ngroups:
         diet_out[ngroups, :] = diet_values[ngroups, :]  # Import row
 
-    return Rpath(
+    rpath_obj = Rpath(
         NUM_GROUPS=ngroups,
         NUM_LIVING=nliving,
         NUM_DEAD=ndead,
@@ -614,3 +743,27 @@ def rpath(
         eco_name=eco_name,
         eco_area=eco_area,
     )
+
+    if debug:
+        diagnostics = {
+            "A": A,
+            "b_vec": b_vec,
+            "x": x,
+            "diet_values": diet_values,
+            "nodetrdiet": nodetrdiet,
+            "living_idx": living_idx,
+            "no_b": no_b,
+            "no_ee": no_ee,
+            "pb": pb,
+            "qb": qb,
+            "biomass_before": model_df['Biomass'].values.astype(float),
+            "biomass_after": biomass.copy(),
+            "detinputs": detinputs,
+            "detcons": detcons,
+            "det_pb": det_pb,
+            "det_b": det_b,
+            "iterations": iterations,
+        }
+        return rpath_obj, diagnostics
+
+    return rpath_obj

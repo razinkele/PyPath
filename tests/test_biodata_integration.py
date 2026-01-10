@@ -36,6 +36,10 @@ from pypath.io.biodata import (
     get_species_info,
 )
 
+# Require optional external deps for these integration tests; skip whole module if missing
+pytest.importorskip("pyworms")
+pytest.importorskip("pyobis")
+
 # Test species - well-known marine fish with good data coverage
 TEST_SPECIES = {
     "atlantic_cod": {
@@ -71,6 +75,11 @@ TEST_SPECIES = {
 @pytest.mark.worms
 class TestWoRMSIntegration:
     """Test WoRMS API integration with real calls."""
+
+    @pytest.fixture(autouse=True)
+    def require_pyworms(self):
+        pytest.importorskip("pyworms")
+        yield
 
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -180,6 +189,11 @@ class TestWoRMSIntegration:
 @pytest.mark.obis
 class TestOBISIntegration:
     """Test OBIS API integration with real calls."""
+
+    @pytest.fixture(autouse=True)
+    def require_pyobis(self):
+        pytest.importorskip("pyobis")
+        yield
 
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -441,6 +455,12 @@ class TestEndToEndWorkflow:
     """Test complete workflow from common name to Ecopath model."""
 
     @pytest.fixture(autouse=True)
+    def require_deps(self):
+        pytest.importorskip("pyworms")
+        pytest.importorskip("pyobis")
+        yield
+
+    @pytest.fixture(autouse=True)
     def setup(self):
         """Clear cache before each test."""
         clear_cache()
@@ -597,6 +617,12 @@ class TestEndToEndWorkflow:
 class TestPerformanceAndStress:
     """Test performance and stress scenarios."""
 
+    @pytest.fixture(autouse=True)
+    def require_deps(self):
+        pytest.importorskip("pyworms")
+        pytest.importorskip("pyobis")
+        yield
+
     def test_batch_processing_performance(self):
         """Test batch processing with multiple species."""
         species = [
@@ -667,6 +693,12 @@ class TestPerformanceAndStress:
 @pytest.mark.integration
 class TestEdgeCases:
     """Test edge cases and special scenarios."""
+
+    @pytest.fixture(autouse=True)
+    def require_deps(self):
+        pytest.importorskip("pyworms")
+        pytest.importorskip("pyobis")
+        yield
 
     def test_species_with_multiple_common_names(self):
         """Test species that has multiple common names."""

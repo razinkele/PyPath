@@ -276,11 +276,14 @@ def lt2022_model():
         pytest.skip(f"Test data file not found: {DATA_FILE}")
 
     from pypath.core.ecopath import rpath
-    from pypath.io.ewemdb import read_ewemdb
+    from pypath.io.ewemdb import read_ewemdb, EwEDatabaseError
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        params = read_ewemdb(str(DATA_FILE))
+        try:
+            params = read_ewemdb(str(DATA_FILE))
+        except EwEDatabaseError as e:
+            pytest.skip(f"EwE database unavailable or driver missing: {e}")
 
         # Sort groups by type
         type_order = {0: 0, 1: 1, 2: 2, 3: 3}

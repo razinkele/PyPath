@@ -17,10 +17,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Skip all tests if the data file doesn't exist
+# Skip all tests if the data file doesn't exist or if no DB driver is available
 DATA_FILE = Path(__file__).parent.parent / "Data" / "LT2022_0.5ST_final7.eweaccdb"
+from pypath.io.ewemdb import HAS_MDB_TOOLS, HAS_PYODBC, HAS_PYPYODBC
+
+DB_DRIVER_AVAILABLE = HAS_MDB_TOOLS or HAS_PYODBC or HAS_PYPYODBC
 pytestmark = pytest.mark.skipif(
-    not DATA_FILE.exists(), reason=f"Test data file not found: {DATA_FILE}"
+    (not DATA_FILE.exists()) or (not DB_DRIVER_AVAILABLE),
+    reason=f"Test data file not found or no database driver available: install pyodbc or mdb-tools"
 )
 
 
@@ -190,14 +194,16 @@ class TestMultiStanza:
     @pytest.fixture(scope="class")
     def stanza_tables(self):
         """Read stanza-related tables from the database."""
-        from pypath.io.ewemdb import read_ewemdb_table
+        from pypath.io.ewemdb import read_ewemdb_table, EwEDatabaseError
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-
-            stanza_df = read_ewemdb_table(str(DATA_FILE), "Stanza")
-            lifestage_df = read_ewemdb_table(str(DATA_FILE), "StanzaLifeStage")
-            groups_df = read_ewemdb_table(str(DATA_FILE), "EcopathGroup")
+            try:
+                stanza_df = read_ewemdb_table(str(DATA_FILE), "Stanza")
+                lifestage_df = read_ewemdb_table(str(DATA_FILE), "StanzaLifeStage")
+                groups_df = read_ewemdb_table(str(DATA_FILE), "EcopathGroup")
+            except EwEDatabaseError as e:
+                pytest.skip(f"Skipping LT stanza tests: {e}")
 
         return stanza_df, lifestage_df, groups_df
 

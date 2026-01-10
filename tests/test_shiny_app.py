@@ -547,10 +547,11 @@ class TestIntegrationScenarios:
             # Step 3: Run simulation (simulated)
             mock_sim = {"biomass": pd.DataFrame({"time": [0, 1], "Fish": [10, 11]})}
             sim_results.set(mock_sim)
-            assert sim_results() is not None
+            # Avoid requiring a reactive context; inspect internal value directly
+            assert sim_results._value is not None
 
             # Step 4: Results available
-            assert "biomass" in sim_results()
+            assert "biomass" in sim_results._value
         except ImportError:
             pytest.skip("Shiny not installed")
 

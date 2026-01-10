@@ -11,6 +11,12 @@ def test_is_balanced_model_and_get_model_type():
     assert not utils.is_balanced_model(params)
     assert utils.get_model_type(params) == "params"
 
+    # Provide minimal parameter defaults to allow balancing
+    params.model["Biomass"] = [1.0, 1.0]
+    params.model["PB"] = [1.0, 1.0]
+    params.model["QB"] = [1.0, 1.0]
+    params.model["EE"] = [0.9, 0.9]
+
     balanced = rpath(params)
     assert utils.is_balanced_model(balanced)
     assert utils.get_model_type(balanced) == "balanced"
@@ -37,6 +43,12 @@ def test_require_balanced_model_or_notify(monkeypatch):
     assert "Ecosim requires a balanced Ecopath model" in called["msg"]
 
     # Balanced model should return True and not call notification
+    # Provide minimal parameter defaults to allow balancing
+    params.model["Biomass"] = [1.0, 1.0]
+    params.model["PB"] = [1.0, 1.0]
+    params.model["QB"] = [1.0, 1.0]
+    params.model["EE"] = [0.9, 0.9]
+
     balanced = rpath(params)
 
     def fail_notify(*a, **kw):

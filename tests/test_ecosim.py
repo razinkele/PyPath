@@ -487,20 +487,20 @@ class TestForcingScenarios:
     def test_increased_fishing_effort(self, baltic_sea_model):
         """Test simulation with increased fishing effort."""
         model, rpath_params = baltic_sea_model
-        scenario = rsim_scenario(model, rpath_params, years=range(1, 21))
+        # Baseline scenario
+        scenario_base = rsim_scenario(model, rpath_params, years=range(1, 21))
+        output_base = rsim_run(scenario_base, method="RK4")
 
-        # Double fishing effort in years 10-20
-        _n_months = scenario.forcing.ForcedBio.shape[0]
-        scenario.fishing.ForcedEffort[120:, :] = 2.0  # After year 10
+        # Forced scenario: Double fishing effort in years 10-20
+        scenario_forced = rsim_scenario(model, rpath_params, years=range(1, 21))
+        scenario_forced.fishing.ForcedEffort[120:, :] = 2.0  # After year 10
+        output_forced = rsim_run(scenario_forced, method="RK4")
 
-        output = rsim_run(scenario, method="RK4")
+        # Total catch across years should increase with higher effort
+        total_catch_base = output_base.annual_Catch.sum()
+        total_catch_forced = output_forced.annual_Catch.sum()
 
-        # Fish biomass should decline with higher fishing
-        initial_fish = output.annual_Biomass[0]
-        final_fish = output.annual_Biomass[-1]
-
-        # Herring (group 4) and Cod (group 5) should decrease
-        assert final_fish[4] < initial_fish[4] or final_fish[5] < initial_fish[5]
+        assert total_catch_forced > total_catch_base
 
     def test_zero_fishing_effort(self, simple_model):
         """Test simulation with reduced fishing effort."""

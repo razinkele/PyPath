@@ -1,0 +1,26 @@
+{
+  "rk4": {
+    "corr_components": {
+      "production": null,
+      "predation_loss": null,
+      "consumption_by_predator": null,
+      "fish_loss": null,
+      "m0_loss": -0.8070577548313741,
+      "derivative": 0.8070577548313741
+    },
+    "max_diff_month": 1200,
+    "max_diff": -0.014899161812462414
+  },
+  "ab": {
+    "corr_components": {
+      "production": null,
+      "predation_loss": null,
+      "consumption_by_predator": null,
+      "fish_loss": null,
+      "m0_loss": -0.5636297346090837,
+      "derivative": 0.5636297346090837
+    },
+    "max_diff_month": 1200,
+    "max_diff": -0.006744504256891
+  }
+}
