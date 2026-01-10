@@ -174,7 +174,7 @@ class TestDataPropagation:
             initial_data = {"stage": "import", "groups": 5}
             model_data.set(initial_data)
             assert model_data._value["stage"] == "import"
-            
+
             # Stage 2: After balancing
             balanced_data = {"stage": "balanced", "groups": 5, "balanced": True}
             model_data.set(balanced_data)
@@ -493,4 +493,4 @@ class TestReactivePerformance:
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    pytest.main([__file__, "-v"]) 
