@@ -27,7 +27,7 @@ def generate_artificial_timeseries(
     groups_to_observe: list,
     years: range,
     noise_level: float = 0.1,
-    random_seed: int = 42
+    random_seed: int = 42,
 ):
     """Generate artificial time series data.
 
@@ -73,18 +73,18 @@ def generate_artificial_timeseries(
     # Update with true parameters
     for param_name, value in true_params.items():
         print(f"   Setting {param_name} = {value:.4f}")
-        if param_name == 'vulnerability':
+        if param_name == "vulnerability":
             scenario.params.VV[:] = value
-        elif param_name.startswith('VV_'):
-            group_idx = int(param_name.split('_')[1])
+        elif param_name.startswith("VV_"):
+            group_idx = int(param_name.split("_")[1])
             scenario.params.VV[group_idx] = value
-        elif param_name.startswith('QQ_'):
-            link_idx = int(param_name.split('_')[1])
+        elif param_name.startswith("QQ_"):
+            link_idx = int(param_name.split("_")[1])
             scenario.params.QQ[link_idx] = value
 
     # Run simulation
     print("\n4. Running Ecosim simulation")
-    result = rsim_run(scenario, method='RK4')
+    result = rsim_run(scenario, method="RK4")
     print(f"   Simulation completed")
     if result.crash_year > 0:
         print(f"   Warning: Crash detected at year {result.crash_year}")
@@ -109,23 +109,27 @@ def generate_artificial_timeseries(
         print(f"   Group {group_idx} ({group_name}):")
         print(f"     Mean biomass: {np.mean(true_biomass):.4f}")
         print(f"     Noise std: {np.std(noise):.4f}")
-        print(f"     Signal-to-noise ratio: {np.mean(true_biomass) / np.std(noisy_biomass - true_biomass):.2f}")
+        print(
+            f"     Signal-to-noise ratio: {np.mean(true_biomass) / np.std(noisy_biomass - true_biomass):.2f}"
+        )
 
     # Package data
     data = {
-        'model_path': model_path,
-        'true_params': true_params,
-        'observed_data': observed_data,
-        'years': years,
-        'noise_level': noise_level,
-        'groups_to_observe': groups_to_observe,
-        'group_names': {idx: model.Group[idx] for idx in groups_to_observe},
-        'true_biomass': {idx: result.annual_Biomass[:, idx] for idx in groups_to_observe},
-        'random_seed': random_seed
+        "model_path": model_path,
+        "true_params": true_params,
+        "observed_data": observed_data,
+        "years": years,
+        "noise_level": noise_level,
+        "groups_to_observe": groups_to_observe,
+        "group_names": {idx: model.Group[idx] for idx in groups_to_observe},
+        "true_biomass": {
+            idx: result.annual_Biomass[:, idx] for idx in groups_to_observe
+        },
+        "random_seed": random_seed,
     }
 
     # Save
-    with open(output_path, 'wb') as f:
+    with open(output_path, "wb") as f:
         pickle.dump(data, f)
 
     print(f"\n6. Data saved to: {output_path}")
@@ -147,15 +151,15 @@ def generate_artificial_timeseries(
     return data
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Configuration
     model_path = "Data/LT2022_0.5ST_final7.eweaccdb"
 
     # True parameter values (these will be "hidden" and optimizer will try to find them)
     true_params = {
-        'vulnerability': 2.5,  # True vulnerability value
-        'VV_1': 3.5,          # Herring
-        'VV_3': 2.8,          # Sand-eels
+        "vulnerability": 2.5,  # True vulnerability value
+        "VV_1": 3.5,  # Herring
+        "VV_3": 2.8,  # Sand-eels
     }
 
     # Groups to generate observed data for
@@ -164,7 +168,7 @@ if __name__ == '__main__':
 
     # Simulation settings
     years = range(1, 31)  # 30 years
-    noise_level = 0.15    # 15% noise
+    noise_level = 0.15  # 15% noise
     random_seed = 42
 
     # Generate data
@@ -175,7 +179,7 @@ if __name__ == '__main__':
         groups_to_observe=groups_to_observe,
         years=years,
         noise_level=noise_level,
-        random_seed=random_seed
+        random_seed=random_seed,
     )
 
     # Visualize
@@ -189,21 +193,32 @@ if __name__ == '__main__':
 
         years_list = list(years)
         for i, group_idx in enumerate(groups_to_observe):
-            group_name = data['group_names'][group_idx]
+            group_name = data["group_names"][group_idx]
 
             # Plot true vs observed
-            axes[i].plot(years_list, data['true_biomass'][group_idx],
-                        'b-', label='True biomass', linewidth=2)
-            axes[i].plot(years_list, data['observed_data'][group_idx],
-                        'ro', label='Observed (noisy)', markersize=5, alpha=0.7)
-            axes[i].set_xlabel('Year')
-            axes[i].set_ylabel('Biomass')
-            axes[i].set_title(f'{group_name} (Group {group_idx})')
+            axes[i].plot(
+                years_list,
+                data["true_biomass"][group_idx],
+                "b-",
+                label="True biomass",
+                linewidth=2,
+            )
+            axes[i].plot(
+                years_list,
+                data["observed_data"][group_idx],
+                "ro",
+                label="Observed (noisy)",
+                markersize=5,
+                alpha=0.7,
+            )
+            axes[i].set_xlabel("Year")
+            axes[i].set_ylabel("Biomass")
+            axes[i].set_title(f"{group_name} (Group {group_idx})")
             axes[i].legend()
             axes[i].grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plt.savefig('test_timeseries_visualization.png', dpi=300, bbox_inches='tight')
+        plt.savefig("test_timeseries_visualization.png", dpi=300, bbox_inches="tight")
         print("Saved visualization: test_timeseries_visualization.png")
 
     except ImportError:
