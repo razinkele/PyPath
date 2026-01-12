@@ -163,50 +163,54 @@ def prebalance_ui():
                     icon=ui.tags.i(class_="bi bi-play-circle"),
                 ),
                 ui.hr(),
-                ui.panel_well(
-                    ui.h6("Visualization Options"),
-                    ui.input_select(
-                        "plot_type",
-                        "Plot Type",
-                        choices={
-                            "biomass": "Biomass vs Trophic Level",
-                            "pb": "P/B vs Trophic Level",
-                            "qb": "Q/B vs Trophic Level",
-                        },
-                        selected="biomass",
-                    ),
-                    ui.input_text(
-                        "exclude_groups",
-                        "Exclude Groups (comma-separated)",
-                        value="",
-                        placeholder="e.g., Whales, Seabirds",
-                    ),
+                ui.card(
+                    ui.card_body(
+                        ui.h6("Visualization Options"),
+                        ui.input_select(
+                            "plot_type",
+                            "Plot Type",
+                            choices={
+                                "biomass": "Biomass vs Trophic Level",
+                                "pb": "P/B vs Trophic Level",
+                                "qb": "Q/B vs Trophic Level",
+                            },
+                            selected="biomass",
+                        ),
+                        ui.input_text(
+                            "exclude_groups",
+                            "Exclude Groups (comma-separated)",
+                            value="",
+                            placeholder="e.g., Whales, Seabirds",
+                        ),
+                    )
                 ),
                 ui.hr(),
-                ui.panel_well(
-                    ui.h6("About Pre-Balance Diagnostics"),
-                    ui.tags.small(
-                        ui.tags.ul(
-                            ui.tags.li(
-                                ui.tags.strong("Biomass Slope:"),
-                                " Indicates top-down control strength (-0.5 to -1.5 typical)",
+                ui.card(
+                    ui.card_body(
+                        ui.h6("About Pre-Balance Diagnostics"),
+                        ui.tags.small(
+                            ui.tags.ul(
+                                ui.tags.li(
+                                    ui.tags.strong("Biomass Slope:"),
+                                    " Indicates top-down control strength (-0.5 to -1.5 typical)",
+                                ),
+                                ui.tags.li(
+                                    ui.tags.strong("Biomass Range:"),
+                                    " Large ranges (>6 orders) may indicate missing groups",
+                                ),
+                                ui.tags.li(
+                                    ui.tags.strong("Predator/Prey Ratio:"),
+                                    " High ratios (>1) suggest unsustainable predation",
+                                ),
+                                ui.tags.li(
+                                    ui.tags.strong("Vital Rate Ratios:"),
+                                    " Predator rates should be lower than prey rates",
+                                ),
+                                class_="small",
                             ),
-                            ui.tags.li(
-                                ui.tags.strong("Biomass Range:"),
-                                " Large ranges (>6 orders) may indicate missing groups",
-                            ),
-                            ui.tags.li(
-                                ui.tags.strong("Predator/Prey Ratio:"),
-                                " High ratios (>1) suggest unsustainable predation",
-                            ),
-                            ui.tags.li(
-                                ui.tags.strong("Vital Rate Ratios:"),
-                                " Predator rates should be lower than prey rates",
-                            ),
-                            class_="small",
+                            class_="text-muted",
                         ),
-                        class_="text-muted",
-                    ),
+                    )
                 ),
                 width=UI.sidebar_width,
                 position="left",

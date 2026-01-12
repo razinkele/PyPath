@@ -10,7 +10,30 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import shinyswatch
+try:
+    import shinyswatch
+except Exception:
+    # Provide a minimal shim so app can run without shinyswatch installed.
+    class _NoShinyswatch:
+        class theme:
+            flatly = None
+
+        @staticmethod
+        def theme_picker_server():
+            return None
+
+        @staticmethod
+        def theme_picker_ui():
+            # Lazy import so tests without Shiny can continue to import app
+            try:
+                from shiny import ui as _ui
+
+                return _ui.tags.div("Theme picker unavailable")
+            except Exception:
+                return "Theme picker unavailable"
+
+    shinyswatch = _NoShinyswatch()
+
 from shiny import App, Inputs, Outputs, Session, reactive, ui
 
 # Get logger
@@ -156,7 +179,7 @@ app_ui = ui.page_navbar(
     ),
     fillable=True,
     # Apply a clean modern theme - 'flatly' is professional and readable
-    theme=shinyswatch.theme.flatly,
+    theme=(shinyswatch.theme.flatly if getattr(shinyswatch, "theme", None) is not None and getattr(shinyswatch.theme, "flatly", None) is not None else None),
 )
 
 
@@ -189,8 +212,13 @@ def server(input: Inputs, output: Outputs, session: Session):
        - Pages use reactive.effect to respond to state changes
     """
 
-    # Enable theme picker
-    shinyswatch.theme_picker_server()
+    # Enable theme picker (only when available)
+    if hasattr(shinyswatch, "theme_picker_server") and callable(shinyswatch.theme_picker_server):
+        try:
+            shinyswatch.theme_picker_server()
+        except Exception:
+            # Degrade gracefully if the theme picker cannot be initialized
+            logger.debug("shinyswatch.theme_picker_server failed to initialize", exc_info=True)
 
     # Show settings modal when settings button clicked
     @reactive.effect
