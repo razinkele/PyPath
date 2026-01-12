@@ -26,6 +26,112 @@ except ModuleNotFoundError:
 # Prebalance functions are imported lazily inside the diagnostics handler to avoid path issues
 # and to keep top-level imports clean.
 
+# Diagnostics helper (uses loader from utils)
+try:
+    from app.pages.utils import load_rpath_diagnostics
+except Exception:
+    # Fallback import path
+    from pages.utils import load_rpath_diagnostics
+
+
+def rpath_diagnostics_summary(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics") -> str:
+    """Return a short summary string about the Rpath diagnostics state.
+
+    This is a pure function intended for server-side checks and unit tests.
+    It does not access UI elements.
+    """
+    out = load_rpath_diagnostics(Path(diag_dir))
+    if out.get("meta") is None:
+        return "No diagnostics available"
+    if out.get("errors"):
+        return f"Diagnostics incomplete: {len(out.get('errors'))} error(s)"
+    if out.get("qq_provided"):
+        return "Rpath QQ diagnostics provided"
+    return "Rpath QQ not provided"
+
+
+def make_rpath_status_badge(
+    status: str, note: str | None = None, link: str | None = None
+) -> "ui.Tag":
+    """Return a small Bootstrap badge UI Tag reflecting diagnostics `status`.
+
+    - Provided -> green badge
+    - Incomplete -> yellow badge
+    - Not provided / No diagnostics -> gray badge
+
+    Optional `note` will be used as a tooltip (`title` attribute). Optional `link`
+    will wrap the badge in an anchor to the diagnostics location.
+    """
+    """Return a small Bootstrap badge UI Tag reflecting diagnostics `status`.
+
+    - Provided -> green badge
+    - Incomplete -> yellow badge
+    - Not provided / No diagnostics -> gray badge
+
+    Optional `note` will be used as a tooltip (`title` attribute). Optional `link`
+    will wrap the badge in an anchor to the diagnostics location.
+    """
+    # Lazy import to keep module import-safe in tests
+    try:
+        from shiny import ui as _ui
+    except Exception:
+        # Fallback dummy representation if Shiny not available
+        parts = [f"Status: {status}"]
+        if note:
+            parts.append(f"note: {note}")
+        if link:
+            parts.append(f"link: {link}")
+        return " | ".join(parts)
+
+    cls = "badge bg-secondary"
+    if "provided" in status.lower():
+        cls = "badge bg-success"
+    elif "incomplete" in status.lower():
+        cls = "badge bg-warning text-dark"
+
+    badge = _ui.tags.span(status, class_=cls, title=note if note else None)
+
+    if link:
+        # Wrap in an anchor that opens in a new tab/window
+        return _ui.tags.a(badge, href=link, target="_blank", rel="noopener noreferrer")
+
+    return badge
+
+
+def run_verify_rpath(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics") -> dict:
+    """Execute the verification script and return structured results.
+
+    Returns a dict with keys:
+      - returncode: int
+      - output: str (combined stdout+stderr)
+      - error: optional error message on failure
+
+    This runs the script using the current Python interpreter for portability.
+    """
+    import subprocess
+    import sys
+
+    script = Path("scripts/verify_rpath_reference.py")
+    if not script.exists():
+        return {"returncode": -1, "output": "verify script not found", "error": "missing_script"}
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script)], capture_output=True, text=True, check=False, timeout=30
+        )
+        out = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        # Truncate to reasonable length
+        if len(out) > 20000:
+            out = out[:20000] + "\n...output truncated..."
+        return {"returncode": int(proc.returncode), "output": out}
+    except subprocess.TimeoutExpired as e:
+        return {"returncode": -2, "output": "", "error": "timeout"}
+    except Exception as e:
+        return {"returncode": -3, "output": "", "error": str(e)}
+
+
+
+
 
 def prebalance_ui():
     """Pre-balance diagnostics UI."""
@@ -33,6 +139,17 @@ def prebalance_ui():
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("Pre-Balance Diagnostics"),
+                # Rpath diagnostics status badge + info button
+                ui.div(
+                    ui.output_ui("rpath_diag_status"),
+                    ui.input_action_button(
+                        "btn_rpath_diag_info",
+                        "",
+                        class_="btn-sm btn-outline-info ms-2",
+                        icon=ui.tags.i(class_="bi bi-info-circle"),
+                    ),
+                    style="display:inline-flex; align-items:center; gap:0.5rem;",
+                ),
                 ui.p(
                     "Run diagnostic checks on your unbalanced model to identify "
                     "potential issues before balancing.",
@@ -296,13 +413,9 @@ def prebalance_server(
         """Render diagnostic summary report."""
         report = diagnostic_report()
 
-        if report is None:
-            return ui.tags.div(
-                ui.tags.p(
-                    "No diagnostics run yet. Click 'Run Diagnostics' to analyze your model.",
-                    class_="text-muted text-center p-5",
-                )
-            )
+    # rpath_diag_status removed from here and defined after report_summary to avoid
+    # shadowing report rendering. The function renders a small status badge in the
+    # sidebar using `make_rpath_status_badge`.
 
         # Format summary statistics
         summary_cards = [
@@ -379,6 +492,46 @@ def prebalance_server(
                 ]
             )
         )
+
+    @output
+    @render.ui
+    def rpath_diag_status():
+        """Render an inline UI badge describing Rpath diagnostics state.
+
+        Uses the diagnostics loader to show any `meta.note` as a tooltip and
+        wraps the badge in a link to the diagnostics folder using a `file://` URI
+        when available.
+        """
+        diag_dir = Path("tests/data/rpath_reference/ecosim/diagnostics")
+        diag = load_rpath_diagnostics(diag_dir)
+        status = rpath_diagnostics_summary(diag_dir)
+        note = diag.get("note") if diag else None
+        try:
+            link = Path(diag_dir).resolve().as_uri()
+        except Exception:
+            link = None
+        # When info button clicked we'll show a modal with verify output. The
+        # reactive handler below will call `run_verify_rpath` and show it.
+        return make_rpath_status_badge(status, note=note, link=link)
+
+    @reactive.effect
+    @reactive.event(input.btn_rpath_diag_info)
+    def _show_rpath_modal():
+        """Show a modal dialog containing `meta.note` and the output of the verifier."""
+        try:
+            result = run_verify_rpath(Path("tests/data/rpath_reference/ecosim/diagnostics"))
+            note = load_rpath_diagnostics(Path("tests/data/rpath_reference/ecosim/diagnostics")).get("note")
+            title = "Rpath Diagnostics"
+            body = ui.tags.div(
+                ui.h5("Meta note:"),
+                ui.tags.pre(str(note) if note is not None else "(none)"),
+                ui.hr(),
+                ui.h5("Verification output:"),
+                ui.tags.pre(result.get("output", "")),
+            )
+            session.show_modal(ui.modal_dialog(body, title=title, size="lg"))
+        except Exception as e:
+            session.show_modal(ui.modal_dialog(ui.tags.div(ui.tags.p(str(e))), title="Rpath Diagnostics - Error"))
 
     @output
     @render.ui

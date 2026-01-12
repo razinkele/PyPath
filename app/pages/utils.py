@@ -607,3 +607,75 @@ def get_model_info(model: Any) -> Optional[Dict[str, Any]]:
         }
 
     return None
+
+
+# -----------------------
+# Rpath diagnostics helper
+# -----------------------
+import json
+from pathlib import Path
+
+
+def load_rpath_diagnostics(diag_dir: Path | str = Path("tests/data/rpath_reference/ecosim/diagnostics")) -> dict:
+    """Load Rpath diagnostics metadata and CSVs in a stable, testable form.
+
+    Returns a dict with keys:
+      - meta: dict or None
+      - qq_df: pd.DataFrame or None
+      - comps_df: pd.DataFrame or None
+      - qq_provided: bool
+      - note: optional string from meta
+      - errors: list of error strings encountered while loading
+
+    This helper is safe to call from the Shiny app (it returns structured info and
+    does not raise on missing files; errors are collected in the returned dict).
+    """
+    diag_dir = Path(diag_dir)
+    out = {
+        "meta": None,
+        "qq_df": None,
+        "comps_df": None,
+        "qq_provided": False,
+        "note": None,
+        "errors": [],
+    }
+
+    meta_path = diag_dir / "meta.json"
+    qq_csv = diag_dir / "seabirds_qq_rk4.csv"
+    comps_csv = diag_dir / "seabirds_components_rk4.csv"
+
+    if not meta_path.exists():
+        out["errors"].append(f"meta.json missing at {meta_path}")
+        return out
+
+    try:
+        out["meta"] = json.loads(meta_path.read_text())
+        out["qq_provided"] = bool(out["meta"].get("qq_provided", False))
+        out["note"] = out["meta"].get("note")
+    except Exception as e:
+        out["errors"].append(f"failed reading meta.json: {e}")
+        return out
+
+    if not qq_csv.exists():
+        out["errors"].append(f"QQ CSV missing: {qq_csv}")
+        return out
+
+    try:
+        qq_df = pd.read_csv(qq_csv)
+        out["qq_df"] = qq_df
+    except Exception as e:
+        out["errors"].append(f"failed reading QQ CSV: {e}")
+
+    if comps_csv.exists():
+        try:
+            comps_df = pd.read_csv(comps_csv)
+            out["comps_df"] = comps_df
+        except Exception as e:
+            out["errors"].append(f"failed reading components CSV: {e}")
+
+    return out
+
+
+# -----------------------
+# End diagnostics helper
+# -----------------------

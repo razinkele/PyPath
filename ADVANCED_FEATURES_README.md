@@ -287,6 +287,13 @@ tests/test_diet_rewiring.py::TestUpdateInterval::... (2 tests)     PASSED
 
 ## Documentation
 
+### Instrumentation & debugging 🔧
+
+- Use `params.INSTRUMENT_GROUPS` (list) to request compact instrumentation for selected groups. Items may be **group names** (strings) or **0-based group indices** (integers).
+- The `params.instrument_callback` (callable) will be invoked with a compact payload per integration step. The payload contains keys: `method`, `groups`, `deriv_current`, `derivs_history`, `new_state`, `dt`.
+- Important: **`payload['groups']` uses 0-based group indices** (i.e., `0` = first group in `params.spname` after the leading "Outside"). Scripts and tests should treat these indices as 0-based when mapping back to group names.
+- Note: Numeric 1-based indices (e.g., `1` = first group) are legacy and will be deprecated — the code will currently convert probable 1-based numeric indices to 0-based and emit a DeprecationWarning; update callers to use 0-based indices to avoid warnings.
+
 ### Comprehensive Guides
 
 1. **ADVANCED_ECOSIM_FEATURES.md** (600+ lines)

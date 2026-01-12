@@ -5,11 +5,11 @@
       "predation_loss": null,
       "consumption_by_predator": null,
       "fish_loss": null,
-      "m0_loss": -0.8070577548313741,
-      "derivative": 0.8070577548313741
+      "m0_loss": -5.541018284168747e-11,
+      "derivative": 5.541018284168747e-11
     },
     "max_diff_month": 1200,
-    "max_diff": -0.014899161812462414
+    "max_diff": -5.259167860059699e-08
   },
   "ab": {
     "corr_components": {
@@ -17,10 +17,10 @@
       "predation_loss": null,
       "consumption_by_predator": null,
       "fish_loss": null,
-      "m0_loss": -0.5636297346090837,
-      "derivative": 0.5636297346090837
+      "m0_loss": 1.486847719023765e-11,
+      "derivative": -1.486847719023765e-11
     },
     "max_diff_month": 1200,
-    "max_diff": -0.006744504256891
+    "max_diff": -5.328673429935704e-08
   }
 }

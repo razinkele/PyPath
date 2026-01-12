@@ -15,6 +15,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 import os
+import warnings
 
 # Module-level debug suppression controlled by environment variable
 _SILENCE_DEBUG = os.environ.get('PYPATH_SILENCE_DEBUG', '').lower() in ('1', 'true', 'yes')
@@ -349,21 +350,72 @@ def deriv_vector(
     except Exception:
         pass
 
-    # Instrumentation: resolve requested groups to indices (names or indices)
+    # Instrumentation: resolve requested groups to 0-based indices (names or indices)
+    # NOTE: group names map via params['spname'] (which includes a leading 'Outside').
+    # We normalize to 0-based indices corresponding to `groups` list (0 => first real group).
     INSTRUMENT_GROUPS = params.get('INSTRUMENT_GROUPS', None)
+    try:
+        _debug_print(f"INSTRUMENT-RAW: INSTRUMENT_GROUPS raw={INSTRUMENT_GROUPS!r} type={type(INSTRUMENT_GROUPS)} params_is_dict={isinstance(params, dict)}")
+    except Exception:
+        pass
     instrument_set = set()
     if INSTRUMENT_GROUPS is not None:
         try:
             spname = params.get('spname', None)
+            numeric_inputs = []
             for g in INSTRUMENT_GROUPS:
                 if isinstance(g, str):
                     if spname is not None and g in spname:
-                        instrument_set.add(spname.index(g))
+                        sp_idx = spname.index(g)
+                        # Convert spname index (with leading 'Outside') to 0-based group index
+                        if sp_idx > 0:
+                            instrument_set.add(sp_idx - 1)
                 else:
+                    # Collect numeric inputs for later disambiguation
                     try:
-                        instrument_set.add(int(g))
+                        numeric_inputs.append(int(g))
                     except Exception:
                         pass
+            # Heuristic: if numeric inputs look like 1-based indices (all in 1..NUM_GROUPS),
+            # emit a DeprecationWarning and convert to 0-based by subtracting 1.
+            max_idx = NUM_GROUPS - 1
+            if numeric_inputs:
+                if all(1 <= v <= NUM_GROUPS for v in numeric_inputs) and min(numeric_inputs) >= 1:
+                    # Likely 1-based indices; log, warn, and convert
+                    _debug_print(
+                        f"INSTRUMENT: detected probable 1-based numeric indices {numeric_inputs}; converting to 0-based"
+                    )
+                    warnings.warn(
+                        "Numeric INSTRUMENT_GROUPS indices are expected to be 0-based. "
+                        "Detected probable 1-based indices — converting to 0-based for now. "
+                        "Please update your code to use 0-based indices.",
+                        DeprecationWarning,
+                        stacklevel=3,
+                    )
+                    numeric_inputs = [v - 1 for v in numeric_inputs]
+                # Add numeric inputs (after any conversion) into instrument_set
+                for v in numeric_inputs:
+                    instrument_set.add(v)
+            # Filter to valid range [0, NUM_GROUPS-1]
+            instrument_set = set(i for i in instrument_set if 0 <= i <= max_idx)
+            # Ensure downstream uses the normalized (0-based) representation so
+            # instrumentation callback and other code sees converted indices.
+            try:
+                normalized = sorted(instrument_set)
+                try:
+                    params['INSTRUMENT_GROUPS'] = normalized
+                except Exception:
+                    try:
+                        setattr(params, 'INSTRUMENT_GROUPS', normalized)
+                    except Exception:
+                        pass
+                # Print normalization outcome for visibility
+                try:
+                    print(f"INSTRUMENT-NORM: numeric_inputs={numeric_inputs} normalized={normalized} instrument_set={instrument_set}")
+                except Exception:
+                    pass
+            except Exception:
+                pass
         except Exception:
             instrument_set = set()
 
@@ -452,7 +504,10 @@ def deriv_vector(
 
             # Instrumentation: print per-link breakdown for interesting groups
             try:
-                if instrument_set and (prey in instrument_set or pred in instrument_set):
+                # instrument_set contains 0-based group indices; prey/pred are spname indices (1..)
+                prey0 = prey - 1
+                pred0 = pred - 1
+                if instrument_set and (prey0 in instrument_set or pred0 in instrument_set):
                     pname = params.get('spname', [None] * (NUM_GROUPS + 1))[prey]
                     prname = params.get('spname', [None] * (NUM_GROUPS + 1))[pred]
                     print(
@@ -504,7 +559,8 @@ def deriv_vector(
     for i in range(1, NUM_LIVING + 1):
         Catch[i] = FishMort[i] * BB[i]
         try:
-            if instrument_set and i in instrument_set:
+            # i is spname index (1..); instrument_set uses 0-based group indices
+            if instrument_set and (i - 1) in instrument_set:
                 name = params.get('spname', [None] * (NUM_GROUPS + 1))[i]
                 print(f"INSTR FISH grp={i} name={name} FishMort={FishMort[i]:.6e} BB={BB[i]:.6e} Catch={Catch[i]:.6e}")
         except Exception:
@@ -577,7 +633,8 @@ def deriv_vector(
 
         # Instrumentation: detailed per-term breakdown for selected groups
         try:
-            if instrument_set and i in instrument_set:
+            # Use 0-based instrument_set mapping
+            if instrument_set and (i - 1) in instrument_set:
                 name = params.get('spname', [None] * (NUM_GROUPS + 1))[i]
                 unassim_loss = consumption * Unassim[i]
                 fish_loss = FishMort[i] * BB[i]
@@ -763,7 +820,8 @@ def deriv_vector(
 
             # Instrumentation: print per-pred and per-grp contributions when requested
             try:
-                if instrument_set and d in instrument_set:
+                # detritus instrumentation uses 0-based indexing consistency with group indices
+                if instrument_set and (d - 1) in instrument_set:
                     _debug_print(f"INSTR DETRITUS d={d} det_idx={det_idx} -- per-pred unas contributions:")
                     for pred in range(1, NUM_LIVING + 1):
                         total_consump = np.sum(QQ[1:, pred])
@@ -850,6 +908,66 @@ def integrate_rk4(
             Bbase = params.get('Bbase')
             if Bbase is not None:
                 new_state[no_integrate] = Bbase[no_integrate]
+    except Exception:
+        pass
+
+    # Instrumentation: allow callers to obtain compact RK4 stage diagnostics via
+    # params.instrument_callback (similar to AB instrumentation). Compute per-stage
+    # QQ totals for requested groups and call the callback with a small payload.
+    try:
+        instr_groups = params.get('INSTRUMENT_GROUPS', None)
+        cb = params.get('instrument_callback', None)
+        if cb is None:
+            cb = globals().get('_last_instrument_callback', None)
+        if instr_groups is not None and cb is not None:
+            # Resolve numeric or named groups to 0-based indices (reuse AB logic)
+            idxs = set()
+            spname = params.get('spname', None)
+            if isinstance(instr_groups, (list, tuple)) and all(isinstance(x, (int, np.integer)) for x in instr_groups):
+                nums = [int(x) for x in instr_groups]
+                max_idx = len(state) - 1
+                try:
+                    if nums and any(v > max_idx for v in nums) and all(1 <= v <= max_idx + 1 for v in nums):
+                        nums = [v - 1 for v in nums]
+                except Exception:
+                    pass
+                idxs.update(int(x) for x in nums)
+            else:
+                for g in instr_groups:
+                    if isinstance(g, str) and spname is not None and g in spname:
+                        sp_idx = spname.index(g)
+                        if sp_idx > 0:
+                            idxs.add(sp_idx - 1)
+                    else:
+                        try:
+                            val = int(g)
+                            idxs.add(val)
+                        except Exception:
+                            pass
+            if idxs:
+                max_idx = len(state) - 1
+                valid_idxs = sorted(i for i in idxs if 0 <= i <= max_idx)
+                if valid_idxs:
+                    # Compute QQ totals for each RK4 stage for the requested groups
+                    try:
+                        from pypath.core.ecosim import _compute_Q_matrix
+
+                        stages = [state, state + 0.5 * dt * k1, state + 0.5 * dt * k2, state + dt * k3]
+                        stage_totals = []
+                        for st in stages:
+                            QQs = _compute_Q_matrix(params, st, {"Ftime": np.ones_like(st)})
+                            totals = [float(np.nansum(QQs[:, i + 1])) for i in valid_idxs]
+                            stage_totals.append(totals)
+
+                        payload = {
+                            'method': 'RK4',
+                            'groups': valid_idxs,
+                            'stage_consumption_totals': stage_totals,
+                            'dt': float(dt),
+                        }
+                        cb(payload)
+                    except Exception:
+                        pass
     except Exception:
         pass
 
@@ -958,6 +1076,237 @@ def integrate_ab(
             if Bbase is not None:
                 new_state[no_integrate] = Bbase[no_integrate]
                 deriv_current[no_integrate] = 0.0
+    except Exception:
+        pass
+
+    # Instrumentation callback: if caller requested group-level instrumentation
+    # (e.g., params.INSTRUMENT_GROUPS = ['Macrobenthos'] and provided
+    # params.instrument_callback callable), call the callback with compact
+    # numeric arrays to allow unit tests / debugging harnesses to inspect
+    # intermediate AB behavior without parsing verbose logs.
+    try:
+        instr_groups = params.get('INSTRUMENT_GROUPS', None)
+        # Prefer the original attribute-based INSTRUMENT_GROUPS (exported by rsim_run)
+        # if present; this helps in cases where the params dict has been mutated
+        # during warmup or other computations.
+        try:
+            attr_ig = globals().get('_last_instrument_groups', None)
+            if attr_ig is not None:
+                # If attr_ig differs from the dict value, prefer the attribute
+                # (it represents the caller's original intention).
+                if instr_groups is None or instr_groups != attr_ig:
+                    # If the attribute appears to be a numeric legacy 1-based
+                    # list, convert it aggressively here so caller intent is
+                    # preserved and a DeprecationWarning is emitted.
+                    try:
+                        if isinstance(attr_ig, (list, tuple)) and all(isinstance(x, (int, float, np.integer)) for x in attr_ig):
+                            nums = [int(x) for x in attr_ig]
+                            if nums and all(1 <= v <= NUM_GROUPS for v in nums) and min(nums) >= 1:
+                                import warnings as _warnings
+
+                                _warnings.warn(
+                                    "Numeric INSTRUMENT_GROUPS indices are expected to be 0-based. "
+                                    "Detected probable 1-based indices — converting to 0-based for now. "
+                                    "Please update your code to use 0-based indices.",
+                                    DeprecationWarning,
+                                    stacklevel=3,
+                                )
+                                nums = [v - 1 for v in nums]
+                                instr_groups = nums
+                                # write back normalization to params dict/attr if possible
+                                try:
+                                    params['INSTRUMENT_GROUPS'] = instr_groups
+                                except Exception:
+                                    try:
+                                        setattr(params, 'INSTRUMENT_GROUPS', instr_groups)
+                                    except Exception:
+                                        pass
+                            else:
+                                instr_groups = attr_ig
+                        else:
+                            instr_groups = attr_ig
+                    except Exception:
+                        instr_groups = attr_ig
+        except Exception:
+            pass
+
+        # Resolve instrumentation callback: prefer per-call params dict value, fallback
+        # to module-level last-known callback (set by rsim_run) to handle callsites
+        # that attach the callback as an attribute on the params object instead
+        # of the params dict (legacy code paths).
+        cb = params.get('instrument_callback', None)
+        if cb is None:
+            # Module-level fallback (set by rsim_run if available)
+            try:
+                cb = globals().get('_last_instrument_callback', None)
+                if cb is not None:
+                    _debug_print('INSTRUMENT: using module-level fallback callback')
+            except Exception:
+                cb = None
+        # Print debug info without referencing undefined symbols
+        try:
+            print(f"INSTRUMENT-DEBUG: instr_groups={instr_groups} cb_present={cb is not None} cb={cb}")
+        except Exception:
+            pass
+        # Only proceed if caller requested instrumentation via instr_groups
+        # and a callback is available.
+        if instr_groups is not None and cb is not None:
+            # Prefer a pre-normalized numeric list (0-based indices) when provided
+            idxs = set()
+            spname = params.get('spname', None)
+            # If instr_groups is a list of numeric indices (possibly normalized),
+            # use them directly; otherwise try to resolve names to indices.
+            try:
+                # treat as numeric list when all elements are ints
+                if isinstance(instr_groups, (list, tuple)) and all(isinstance(x, (int, np.integer)) for x in instr_groups):
+                    # Detailed tracing for numeric-based instrument group resolution
+                    nums = [int(x) for x in instr_groups]
+                    max_idx = len(state) - 1
+                    try:
+                        _debug_print(f"INSTRUMENT-TRACE: before conversion nums={nums} max_idx={max_idx} instr_groups_id={id(instr_groups)} params_has={ 'INSTRUMENT_GROUPS' in params if isinstance(params, dict) else hasattr(params, 'INSTRUMENT_GROUPS') } _last_instrument_groups={globals().get('_last_instrument_groups', None) }")
+                    except Exception:
+                        pass
+
+                    # Avoid double-conversion: assume numeric lists are already 0-based
+                    # unless they contain values outside the valid 0-based range.
+                    # Only convert if some values exceed the max 0-based index but are
+                    # within the plausible 1-based range (1..max_idx+1).
+                    try:
+                        if nums and any(v > max_idx for v in nums) and all(1 <= v <= max_idx + 1 for v in nums):
+                            import warnings as _warnings
+
+                            _debug_print(f"INSTRUMENT-TRACE: detected probable 1-based numeric indices {nums}; converting to 0-based")
+                            _warnings.warn(
+                                "Numeric INSTRUMENT_GROUPS indices are expected to be 0-based. "
+                                "Detected probable 1-based indices — converting to 0-based for now. "
+                                "Please update your code to use 0-based indices.",
+                                DeprecationWarning,
+                                stacklevel=3,
+                            )
+                            nums = [v - 1 for v in nums]
+                    except Exception:
+                        pass
+
+                    try:
+                        _debug_print(f"INSTRUMENT-TRACE: after conversion (or no conversion) nums={nums}")
+                    except Exception:
+                        pass
+
+                    # Update idxs with the resolved numeric values (assume normalized unless converted above)
+                    idxs.update(int(x) for x in nums)
+                    try:
+                        _debug_print(f"INSTRUMENT-TRACE: idxs updated -> {sorted(idxs)} (raw), params['INSTRUMENT_GROUPS']={params.get('INSTRUMENT_GROUPS', None) if isinstance(params, dict) else getattr(params, 'INSTRUMENT_GROUPS', None)}")
+                    except Exception:
+                        pass
+                else:
+                    for g in instr_groups:
+                        if isinstance(g, str) and spname is not None:
+                            if g in spname:
+                                sp_idx = spname.index(g)
+                                if sp_idx > 0:
+                                    idxs.add(sp_idx - 1)
+                        else:
+                            try:
+                                val = int(g)
+                                idxs.add(val)
+                            except Exception:
+                                pass
+            except Exception:
+                # Best-effort: if resolution fails, leave idxs empty
+                idxs = set()
+            # Filter indices to valid range and sort
+            if idxs:
+                max_idx = len(state) - 1
+                valid_idxs = sorted(i for i in idxs if 0 <= i <= max_idx)
+
+# If we exported caller attribute INSTRUMENT_GROUPS earlier, use it
+                # only as a fallback when dict-derived resolution failed. This avoids
+                # preferring older caller attribute values that may be legacy 1-based
+                # and lead to conflicting normalization choices.
+                try:
+                    attr_ig = globals().get('_last_instrument_groups', None)
+                    if attr_ig is not None:
+                        alt_idxs = set()
+                        # Resolve attribute-provided groups similarly to dict ones
+                        if isinstance(attr_ig, (list, tuple)):
+                            if all(isinstance(x, (int, np.integer)) for x in attr_ig):
+                                nums = [int(x) for x in attr_ig]
+                                # Only convert attribute-provided numeric 1-based indices
+                                # when caller explicitly opts in via INSTRUMENT_ASSUME_1BASED
+                                if params.get('INSTRUMENT_ASSUME_1BASED', False):
+                                    if nums and any(v > max_idx for v in nums) and all(1 <= v <= max_idx + 1 for v in nums):
+                                        import warnings as _warnings
+
+                                        _warnings.warn(
+                                            "Numeric INSTRUMENT_GROUPS indices are expected to be 0-based. "
+                                            "Detected probable 1-based indices — converting to 0-based for now. "
+                                            "Please update your code to use 0-based indices.",
+                                            DeprecationWarning,
+                                            stacklevel=3,
+                                        )
+                                        nums = [v - 1 for v in nums]
+                                alt_idxs.update(int(x) for x in nums)
+                            else:
+                                for g in attr_ig:
+                                    if isinstance(g, str) and spname is not None and g in spname:
+                                        sp_idx = spname.index(g)
+                                        if sp_idx > 0:
+                                            alt_idxs.add(sp_idx - 1)
+                                    else:
+                                        try:
+                                            val = int(g)
+                                            alt_idxs.add(val)
+                                        except Exception:
+                                            pass
+                        elif isinstance(attr_ig, str) and spname is not None:
+                            if attr_ig in spname:
+                                sp_idx = spname.index(attr_ig)
+                                if sp_idx > 0:
+                                    alt_idxs.add(sp_idx - 1)
+
+                        # Only use attribute-derived indices if dict-derived failed
+                        alt_valid = sorted(i for i in alt_idxs if 0 <= i <= max_idx)
+                        if (not valid_idxs) and alt_valid:
+                            _debug_print(f"INSTRUMENT-TRACE: using attr_ig alt_valid={alt_valid} as fallback for missing dict-derived indices")
+                            valid_idxs = alt_valid
+                            # Also write back the normalized groups into params when possible
+                            try:
+                                normalized = list(valid_idxs)
+                                try:
+                                    params['INSTRUMENT_GROUPS'] = normalized
+                                except Exception:
+                                    try:
+                                        setattr(params, 'INSTRUMENT_GROUPS', normalized)
+                                    except Exception:
+                                        pass
+                                _debug_print(f"INSTRUMENT-TRACE: wrote normalized attr_ig back to params: {normalized}")
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+                if valid_idxs:
+                    idx_list = valid_idxs
+                    # Collect history for these groups (may be empty)
+                    hist = [np.asarray(h)[idx_list].tolist() for h in derivs_history]
+                    payload = {
+                        'method': 'AB',
+                        'groups': idx_list,
+                        'deriv_current': np.asarray(deriv_current)[idx_list].tolist(),
+                        'derivs_history': hist,
+                        'new_state': np.asarray(new_state)[idx_list].tolist(),
+                        'dt': float(dt),
+                    }
+                try:
+                    try:
+                        if (isinstance(params, dict) and params.get('VERBOSE_INSTRUMENTATION')) or getattr(params, 'VERBOSE_INSTRUMENTATION', False):
+                            print(f"INSTRUMENT-TRACE-PAYLOAD: idx_list={idx_list} state_len={len(state)} deriv_slice={np.asarray(deriv_current)[idx_list].tolist()} new_state_slice={np.asarray(new_state)[idx_list].tolist()} cb={cb} params_INSTRUMENT_GROUPS={params.get('INSTRUMENT_GROUPS', None) if isinstance(params, dict) else getattr(params, 'INSTRUMENT_GROUPS', None)} _last_instrument_groups={globals().get('_last_instrument_groups', None)}")
+                    except Exception:
+                        pass
+                    _debug_print(f"INSTRUMENT: calling callback groups={idx_list}")
+                    cb(payload)
+                except Exception:
+                    # Don't allow instrumentation failures to break integration
+                    _debug_print('Instrumentation callback failed')
     except Exception:
         pass
 
