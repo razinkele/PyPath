@@ -1,0 +1,33 @@
+name: Shiny smoke tests
+
+on:
+  push:
+    branches: [ main, feat/*, chore/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  shiny-smoke:
+    name: Shiny smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Try to install from project; fall back to installing test dependencies
+          pip install -e . || true
+          pip install pytest shiny shinyswatch
+
+      - name: Run Shiny smoke tests
+        run: |
+          python -m pytest -q tests/test_shinyswatch_integration.py -q
