@@ -14,7 +14,7 @@ from pypath.spatial import (
     allocate_port_based,
     allocate_habitat_based,
     create_spatial_fishing,
-    validate_effort_allocation
+    validate_effort_allocation,
 )
 
 
@@ -46,17 +46,14 @@ class TestGravityAllocation:
     def test_gravity_proportional_to_biomass(self):
         """Test gravity allocation proportional to biomass."""
         # 2 groups, 3 patches
-        biomass = np.array([
-            [0, 0, 0],      # Outside
-            [10, 20, 30]    # Group 1
-        ])
+        biomass = np.array([[0, 0, 0], [10, 20, 30]])  # Outside  # Group 1
 
         effort = allocate_gravity(
             biomass,
             target_groups=[1],
             total_effort=100,
             alpha=1.0,
-            beta=0.0  # No distance penalty
+            beta=0.0,  # No distance penalty
         )
 
         # Should be proportional to biomass (10:20:30 ratio)
@@ -66,10 +63,7 @@ class TestGravityAllocation:
 
     def test_gravity_alpha_parameter(self):
         """Test gravity alpha parameter (biomass attraction)."""
-        biomass = np.array([
-            [0, 0],
-            [10, 20]
-        ])
+        biomass = np.array([[0, 0], [10, 20]])
 
         # Linear (alpha=1)
         effort_linear = allocate_gravity(biomass, [1], 100, alpha=1.0, beta=0.0)
@@ -90,17 +84,10 @@ class TestGravityAllocation:
 
     def test_gravity_multiple_target_groups(self):
         """Test gravity with multiple target species."""
-        biomass = np.array([
-            [0, 0, 0],
-            [10, 5, 15],   # Group 1
-            [5, 10, 10]    # Group 2
-        ])
+        biomass = np.array([[0, 0, 0], [10, 5, 15], [5, 10, 10]])  # Group 1  # Group 2
 
         effort = allocate_gravity(
-            biomass,
-            target_groups=[1, 2],
-            total_effort=100,
-            alpha=1.0
+            biomass, target_groups=[1, 2], total_effort=100, alpha=1.0
         )
 
         # Total biomass per patch: [15, 15, 25]
@@ -127,10 +114,7 @@ class TestPortBasedAllocation:
 
         # Single port at patch 0
         effort = allocate_port_based(
-            grid,
-            port_patches=np.array([0]),
-            total_effort=100,
-            beta=1.0
+            grid, port_patches=np.array([0]), total_effort=100, beta=1.0
         )
 
         assert effort.sum() == pytest.approx(100.0)
@@ -145,10 +129,7 @@ class TestPortBasedAllocation:
 
         # Ports at edges (patches 0 and 8)
         effort = allocate_port_based(
-            grid,
-            port_patches=np.array([0, 8]),
-            total_effort=100,
-            beta=1.0
+            grid, port_patches=np.array([0, 8]), total_effort=100, beta=1.0
         )
 
         # Effort should be high at ports and decrease toward middle
@@ -180,7 +161,7 @@ class TestPortBasedAllocation:
             port_patches=np.array([0]),
             total_effort=100,
             beta=1.0,
-            max_distance=250.0  # ~2.25 degrees * 111 km/deg
+            max_distance=250.0,  # ~2.25 degrees * 111 km/deg
         )
 
         # Patches beyond max_distance should have zero effort
@@ -192,10 +173,7 @@ class TestPortBasedAllocation:
 
         # Port at corner (patch 0)
         effort = allocate_port_based(
-            grid,
-            port_patches=np.array([0]),
-            total_effort=100,
-            beta=1.0
+            grid, port_patches=np.array([0]), total_effort=100, beta=1.0
         )
 
         assert effort.sum() == pytest.approx(100.0)
@@ -210,11 +188,7 @@ class TestHabitatBasedAllocation:
         """Test basic habitat-based allocation."""
         habitat = np.array([0.2, 0.6, 0.8, 0.4, 0.9])
 
-        effort = allocate_habitat_based(
-            habitat,
-            total_effort=100,
-            threshold=0.5
-        )
+        effort = allocate_habitat_based(habitat, total_effort=100, threshold=0.5)
 
         assert effort.sum() == pytest.approx(100.0)
 
@@ -273,7 +247,7 @@ class TestSpatialFishingClass:
             allocation_type="gravity",
             gravity_alpha=1.5,
             gravity_beta=0.8,
-            target_groups=[1, 2, 3]
+            target_groups=[1, 2, 3],
         )
 
         assert fishing.allocation_type == "gravity"
@@ -309,7 +283,7 @@ class TestCreateSpatialFishing:
             n_gears=2,
             n_patches=5,
             forced_effort=forced_effort,
-            allocation_type="uniform"
+            allocation_type="uniform",
         )
 
         assert fishing.allocation_type == "uniform"
@@ -335,7 +309,7 @@ class TestCreateSpatialFishing:
             allocation_type="port",
             grid=grid,
             port_patches=np.array([0, 9]),
-            gravity_beta=1.0
+            gravity_beta=1.0,
         )
 
         assert fishing.allocation_type == "port"
@@ -344,8 +318,9 @@ class TestCreateSpatialFishing:
         # Verify effort sums correctly
         for month in range(12):
             for gear in range(1, 2):
-                assert fishing.effort_allocation[month, gear, :].sum() == \
-                       pytest.approx(forced_effort[month, gear])
+                assert fishing.effort_allocation[month, gear, :].sum() == pytest.approx(
+                    forced_effort[month, gear]
+                )
 
 
 class TestValidation:
@@ -353,15 +328,18 @@ class TestValidation:
 
     def test_validate_correct_allocation(self):
         """Test validation of correct allocation."""
-        forced_effort = np.array([
-            [0, 100, 200],  # Month 0
-            [0, 150, 250]   # Month 1
-        ])
+        forced_effort = np.array([[0, 100, 200], [0, 150, 250]])  # Month 0  # Month 1
 
-        effort_allocation = np.array([
-            [[0, 0, 0, 0], [25, 25, 25, 25], [50, 50, 50, 50]],  # Month 0
-            [[0, 0, 0, 0], [37.5, 37.5, 37.5, 37.5], [62.5, 62.5, 62.5, 62.5]]  # Month 1
-        ])
+        effort_allocation = np.array(
+            [
+                [[0, 0, 0, 0], [25, 25, 25, 25], [50, 50, 50, 50]],  # Month 0
+                [
+                    [0, 0, 0, 0],
+                    [37.5, 37.5, 37.5, 37.5],
+                    [62.5, 62.5, 62.5, 62.5],
+                ],  # Month 1
+            ]
+        )
 
         assert validate_effort_allocation(effort_allocation, forced_effort)
 
@@ -385,17 +363,16 @@ class TestIntegration:
         # Seasonal forcing: higher effort in summer months
         months = np.arange(12)
         seasonal_factor = 0.5 + 0.5 * np.sin(2 * np.pi * (months - 3) / 12)
-        forced_effort = np.column_stack([
-            np.zeros(12),  # Outside
-            seasonal_factor * 100  # Gear 1
-        ])
+        forced_effort = np.column_stack(
+            [np.zeros(12), seasonal_factor * 100]  # Outside  # Gear 1
+        )
 
         fishing = create_spatial_fishing(
             n_months=12,
             n_gears=1,
             n_patches=10,
             forced_effort=forced_effort,
-            allocation_type="uniform"
+            allocation_type="uniform",
         )
 
         # Verify seasonal pattern preserved in spatial allocation
