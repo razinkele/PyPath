@@ -1,9 +1,10 @@
-from pathlib import Path
 import json
+from pathlib import Path
+
 import pandas as pd
-import numpy as np
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
 
 REFERENCE_DIR = Path("tests/data/rpath_reference")
 ECOPATH_DIR = REFERENCE_DIR / "ecopath"

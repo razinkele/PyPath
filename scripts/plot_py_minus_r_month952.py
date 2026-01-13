@@ -1,6 +1,7 @@
-import pandas as pd
-import matplotlib.pyplot as plt
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import pandas as pd
 
 BASE = Path(__file__).resolve().parents[1]
 cmp_fp = BASE / "build" / "seabirds_py_vs_rpath_month952.csv"

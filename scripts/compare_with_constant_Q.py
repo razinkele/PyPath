@@ -4,12 +4,18 @@ Usage: python scripts/compare_with_constant_Q.py --month 0 --group Discards --pr
 """
 import argparse
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, _build_link_matrix, _build_active_link_matrix, _compute_Q_matrix
+from pypath.core.ecosim import (
+    _build_active_link_matrix,
+    _build_link_matrix,
+    _compute_Q_matrix,
+    rsim_scenario,
+)
+from pypath.core.params import create_rpath_params
 
 RE = Path('tests/data/rpath_reference')
 ECOPATH_DIR = RE / 'ecopath'
@@ -73,7 +79,6 @@ forcing = {
 QQ_start = _compute_Q_matrix(pdict, state_r, forcing)
 
 # helper to compute derivative using fixed QQ
-from pypath.core.ecosim_deriv import deriv_vector
 
 def deriv_with_fixed_Q(state, QQ_fixed):
     # Copy of necessary logic from deriv_vector but using QQ_fixed

@@ -1,6 +1,7 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 REPO = Path(__file__).parent.parent
 DIAG_DIR = REPO / 'tests' / 'data' / 'rpath_reference' / 'ecosim' / 'diagnostics'
@@ -89,6 +90,7 @@ summary = {
     },
 }
 import json
+
 with open(DIAG_DIR / 'seabirds_summary.json', 'w') as fh:
     json.dump(summary, fh, indent=2)
 print('\nSaved summary to', DIAG_DIR / 'seabirds_summary.json')

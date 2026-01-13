@@ -10,10 +10,15 @@ def test_seabirds_termwise_matches_rpath_first_12_months():
     between PyPath (RK4) and Rpath reference for Seabirds for the first 12 months.
     """
     from pathlib import Path
+
     from pypath.core.ecopath import rpath
-    from pypath.core.params import create_rpath_params
-    from pypath.core.ecosim import rsim_scenario, _build_link_matrix, _normalize_fishing_input
+    from pypath.core.ecosim import (
+        _build_link_matrix,
+        _normalize_fishing_input,
+        rsim_scenario,
+    )
     from pypath.core.ecosim_deriv import deriv_vector
+    from pypath.core.params import create_rpath_params
 
     ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
     ECOSIM_DIR = Path("tests/data/rpath_reference/ecosim")

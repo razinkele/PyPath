@@ -6,19 +6,20 @@ after each chunk, and supports resuming from a checkpoint if interrupted.
 Usage:
   python scripts/run_parity_checkpoint.py --years 100 --chunk-years 1 --report-top 10
 """
-import os
 import argparse
-from pathlib import Path
 import json
+import os
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 # Silence verbose debug prints in core modules
 os.environ['PYPATH_SILENCE_DEBUG'] = os.environ.get('PYPATH_SILENCE_DEBUG', '1')
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, RsimScenario
+from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 # Output files
 CHECKPOINT_FILE = Path('tmp_parity_checkpoint.json')

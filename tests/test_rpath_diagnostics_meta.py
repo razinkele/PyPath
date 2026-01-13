@@ -1,6 +1,7 @@
 import json
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 DIAG_DIR = Path("tests/data/rpath_reference/ecosim/diagnostics")
 

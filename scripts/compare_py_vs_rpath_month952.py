@@ -1,5 +1,6 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 BASE = Path(__file__).resolve().parents[1]
 py_fp = BASE / "build" / "seabirds_stage_per_prey_month952.csv"

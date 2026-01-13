@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 REPO=Path('.')
 ECO=REPO/'tests'/'data'/'rpath_reference'/'ecosim'/'ecosim_params.json'
 with open(ECO) as fh:
@@ -16,6 +17,7 @@ print('PreyTo len', len(j.get('PreyTo', [])))
 print('QQ len', len(j.get('QQ', [])))
 
 import pandas as pd
+
 model=pd.read_csv(REPO/'tests'/'data'/'rpath_reference'/'ecopath'/'model_params.csv')
 print('\nGroups (first 10):', model['Group'].tolist()[:10])
 
@@ -25,9 +27,10 @@ print('R start_biomass for Seabirds (index 1):', j.get('start_biomass')[1])
 print('R start_ftime for Seabirds (index 1):', j.get('start_ftime')[1])
 
 # Now load PyPath scenario and compare
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_scenario
+from pypath.core.params import create_rpath_params
+
 model_df=pd.read_csv(REPO/'tests'/'data'/'rpath_reference'/'ecopath'/'model_params.csv')
 diet_df=pd.read_csv(REPO/'tests'/'data'/'rpath_reference'/'ecopath'/'diet_matrix.csv')
 params=create_rpath_params(model_df['Group'].tolist(), model_df['Type'].tolist())

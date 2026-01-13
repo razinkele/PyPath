@@ -1,17 +1,26 @@
-from pathlib import Path
-import numpy as np
 import os
+from pathlib import Path
+
+import numpy as np
+
 # silence verbose debug output from ecosim
 os.environ['PYPATH_SILENCE_DEBUG'] = '1'
 from pypath.core.ecopath import rpath
+from pypath.core.ecosim import (
+    _build_active_link_matrix,
+    _build_link_matrix,
+    _compute_Q_matrix,
+    rsim_run,
+    rsim_scenario,
+)
 from pypath.core.params import create_rpath_params
-from pypath.core.ecosim import rsim_scenario, rsim_run, _compute_Q_matrix, _build_link_matrix, _build_active_link_matrix
 
 ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
 ECOSIM_DIR = Path("tests/data/rpath_reference/ecosim")
 
 # load model
 import pandas as pd
+
 model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")
 diet_df = pd.read_csv(ECOPATH_DIR / "diet_matrix.csv")
 
@@ -33,7 +42,6 @@ print('start_state.Ftime[Seabirds] =', pypath_ecosim.start_state.Ftime[sidx])
 out = rsim_run(pypath_ecosim, method='RK4', years=range(1,2))
 state = out.out_Biomass[1]
 # build params_dict same as test
-from pypath.core.ecosim import _build_link_matrix
 params_dict = {
     "NUM_GROUPS": pypath_ecosim.params.NUM_GROUPS,
     "NUM_LIVING": pypath_ecosim.params.NUM_LIVING,

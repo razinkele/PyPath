@@ -1,9 +1,10 @@
-from playwright.sync_api import sync_playwright
+import os
 import sys
 import time
-import os
 import urllib.request
 from datetime import datetime
+
+from playwright.sync_api import sync_playwright
 
 URL = "http://127.0.0.1:8000"
 POLL_TIMEOUT = int(os.environ.get("SMOKE_POLL_TIMEOUT", "20"))

@@ -10,9 +10,10 @@ from tests.test_rpath_reference import ECOSIM_DIR
 def test_seabirds_monthly_m0_flag():
     """Diagnostic: run RK4 with monthly M0 on and off and report Seabirds correlation."""
     from pathlib import Path
+
     from pypath.core.ecopath import rpath
-    from pypath.core.params import create_rpath_params
     from pypath.core.ecosim import rsim_scenario
+    from pypath.core.params import create_rpath_params
 
     ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
 
@@ -74,9 +75,10 @@ def test_seabirds_monthly_m0_flag():
 def test_seabirds_find_first_divergence():
     """Find the first month where PyPath (RK4) and Rpath differ for Seabirds beyond tiny noise."""
     from pathlib import Path
+
     from pypath.core.ecopath import rpath
-    from pypath.core.params import create_rpath_params
     from pypath.core.ecosim import rsim_scenario
+    from pypath.core.params import create_rpath_params
 
     ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
     model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")
@@ -119,9 +121,10 @@ def test_seabirds_find_first_divergence():
 def test_seabirds_initial_m0_persistence():
     """Check persisted initial M0 for Seabirds after rsim_run and compare to reference."""
     from pathlib import Path
+
     from pypath.core.ecopath import rpath
-    from pypath.core.params import create_rpath_params
     from pypath.core.ecosim import rsim_scenario
+    from pypath.core.params import create_rpath_params
 
     ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
     model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")

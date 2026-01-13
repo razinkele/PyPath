@@ -1,9 +1,11 @@
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from pypath.core.params import create_rpath_params
+
+import numpy as np
+import pandas as pd
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 RE = Path('tests/data/rpath_reference')
 model_df = pd.read_csv(RE/'ecopath'/'model_params.csv')
@@ -16,7 +18,7 @@ scenario = rsim_scenario(pypath_model, params, years=range(1,101))
 out = rsim_run(scenario, method='rk4', years=range(1,101))
 biom = out.out_Biomass
 if 'Seabirds' not in scenario.params.spname:
-    print('No Seabirds in test data');
+    print('No Seabirds in test data')
     raise SystemExit(0)
 sidx = scenario.params.spname.index('Seabirds')
 biom_series = biom[:, sidx]

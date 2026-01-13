@@ -6,14 +6,14 @@ Relaxed heuristic flip simulation: try flipping each candidate EE>1 under severa
 (4) any EE>1
 Run rpath for each flip and choose the flip minimizing the difference to R-like reference intermediates (A and b_vec).
 """
-import copy
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
 
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 

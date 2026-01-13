@@ -124,7 +124,7 @@ def run_verify_rpath(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/d
         if len(out) > 20000:
             out = out[:20000] + "\n...output truncated..."
         return {"returncode": int(proc.returncode), "output": out}
-    except subprocess.TimeoutExpired as e:
+    except subprocess.TimeoutExpired:
         return {"returncode": -2, "output": "", "error": "timeout"}
     except Exception as e:
         return {"returncode": -3, "output": "", "error": str(e)}

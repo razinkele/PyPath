@@ -1,8 +1,11 @@
-from pypath.core.params import create_rpath_params
-from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
+from pypath.core.ecopath import rpath
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
+
 RE = Path('tests/data/rpath_reference')
 model_df = pd.read_csv(RE/'ecopath'/'model_params.csv')
 diet_df = pd.read_csv(RE/'ecopath'/'diet_matrix.csv')

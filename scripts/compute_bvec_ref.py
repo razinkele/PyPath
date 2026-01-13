@@ -1,7 +1,9 @@
 import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
+
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 ref=json.load(open(ECOPATH_DIR / 'balanced_model.json'))
 df=pd.read_csv(ECOPATH_DIR / 'diet_matrix.csv')

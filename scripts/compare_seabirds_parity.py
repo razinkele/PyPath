@@ -1,10 +1,12 @@
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from pypath.core.params import create_rpath_params
+
+import numpy as np
+import pandas as pd
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, _build_active_link_matrix
-from pypath.core.ecosim_deriv import deriv_vector, primary_production_forcing
+from pypath.core.ecosim import _build_active_link_matrix, rsim_scenario
+from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.params import create_rpath_params
 
 REPO = Path(__file__).parent.parent
 ECOPATH_DIR = REPO / "tests" / "data" / "rpath_reference" / "ecopath"
@@ -24,7 +26,6 @@ scenario = rsim_scenario(r, params)
 params_obj = scenario.params
 
 # Helper to compute per-group components (same approach as diagnostics)
-from copy import deepcopy
 
 def compute_components_for_state(state, forcing_dict, fishing_dict):
     pr = params_obj

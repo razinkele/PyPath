@@ -10,12 +10,12 @@ This module contains the core numerical routines for Ecosim simulation:
 These are ported from the C++ ecosim.cpp file in Rpath.
 """
 
+import os
+import warnings
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
 import numpy as np
-import os
-import warnings
 
 # Module-level debug suppression controlled by environment variable
 _SILENCE_DEBUG = os.environ.get('PYPATH_SILENCE_DEBUG', '').lower() in ('1', 'true', 'yes')
@@ -516,7 +516,7 @@ def deriv_vector(
             except Exception:
                 pass
 
-            QQ[prey, pred] = max(Q_calc, 0.0) 
+            QQ[prey, pred] = max(Q_calc, 0.0)
 
     # =========================================================================
     # STEP 2: Apply forced biomass adjustments
@@ -838,7 +838,7 @@ def deriv_vector(
                             _debug_print(f"  grp={grp} name={gname} M0={params.get('M0',np.zeros(NUM_GROUPS+1))[grp]:.12e} BB={BB[grp]:.12e} DetFrac={DetFrac[grp,det_idx]:.12e} contrib={contrib:.12e}")
             except Exception:
                 pass
-        except IndexError as e:
+        except IndexError:
             # Print rich debug information and re-raise for inspection
             print("ERROR in detritus loop:")
             print("  QQ.shape=", getattr(QQ, 'shape', type(QQ)))

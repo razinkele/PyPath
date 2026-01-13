@@ -1,6 +1,7 @@
+import copy
+
 import numpy as np
 import pytest
-import copy
 
 from pypath.core.ecosim_deriv import deriv_vector
 

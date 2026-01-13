@@ -3,11 +3,12 @@ Compare pypath PreyFrom/PreyTo/QQ arrays vs R reference and print first mismatch
 """
 import json
 from pathlib import Path
-import numpy as np
+
 import pandas as pd
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_scenario
+from pypath.core.params import create_rpath_params
 
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 ECOSIM_DIR = Path('tests/data/rpath_reference/ecosim')

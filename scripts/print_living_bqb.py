@@ -1,8 +1,11 @@
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
+
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 model_df = pd.read_csv(ECOPATH_DIR / 'model_params.csv')
 groups = model_df['Group'].tolist()

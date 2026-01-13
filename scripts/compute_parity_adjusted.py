@@ -7,9 +7,10 @@ Rules:
 
 Writes: tmp_parity_final_report_adjusted.csv
 """
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 ACCUM = Path('tmp_parity_results_accum.csv')
 RPATH = Path('tests/data/rpath_reference/ecosim/biomass_trajectory_rk4.csv')

@@ -3,12 +3,13 @@ Run diagnostics for AB and RK4 Ecosim trajectories and compare shapes & NaNs to 
 """
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 ECOSIM_DIR = Path('tests/data/rpath_reference/ecosim')
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
@@ -53,6 +54,7 @@ print('Model groups:', len(rpath_model.Group))
 
 # Per-group correlation checks
 import math
+
 corrs = {}
 for col_idx, gname in enumerate(r_groups_ab):
     rvals = r_ab[gname].values
@@ -71,7 +73,7 @@ for col_idx, gname in enumerate(r_groups_ab):
         else:
             try:
                 corr = float(np.corrcoef(rtrim[valid], ptrim[valid])[0, 1])
-            except Exception as e:
+            except Exception:
                 corr = float('nan')
     corrs[gname] = corr
 

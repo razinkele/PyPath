@@ -1,9 +1,10 @@
 def test_debug_forcing_prints():
     # Lightweight reproduction of forced effort indexing
-    from pypath.core.ecopath import rpath
-    from pypath.core.params import create_rpath_params
-    from pypath.core.ecosim import rsim_scenario
     import numpy as np
+
+    from pypath.core.ecopath import rpath
+    from pypath.core.ecosim import rsim_scenario
+    from pypath.core.params import create_rpath_params
 
     # Build balanced 5-group model
     groups = ["Phyto", "Zoo", "Fish", "Det", "Fleet"]
@@ -78,10 +79,11 @@ def test_debug_forcing_prints():
 
 def test_forced_effort_changes_catch_and_biomass():
     # Ensure doubling ForcedEffort changes catch totals and end biomass
-    from pypath.core.ecopath import rpath
-    from pypath.core.params import create_rpath_params
-    from pypath.core.ecosim import rsim_scenario, rsim_run
     import numpy as np
+
+    from pypath.core.ecopath import rpath
+    from pypath.core.ecosim import rsim_run, rsim_scenario
+    from pypath.core.params import create_rpath_params
 
     # Build balanced 5-group model (same as above)
     groups = ["Phyto", "Zoo", "Fish", "Det", "Fleet"]

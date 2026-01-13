@@ -1,10 +1,11 @@
-import numpy as np
+from pathlib import Path
+
 import pandas as pd
 import pytest
-from pathlib import Path
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 BASE = Path("tests/data/rpath_reference")
 ECOPATH_DIR = BASE / "ecopath"

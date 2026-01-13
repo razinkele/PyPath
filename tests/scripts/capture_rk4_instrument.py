@@ -1,12 +1,13 @@
-from pathlib import Path
-import numpy as np
 import os
+from pathlib import Path
+
 # silence debug
 os.environ['PYPATH_SILENCE_DEBUG'] = '1'
 import pandas as pd
+
 from pypath.core.ecopath import rpath
+from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
-from pypath.core.ecosim import rsim_scenario, rsim_run
 
 ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
 

@@ -1,10 +1,17 @@
-import pandas as pd
 from pathlib import Path
-from pypath.core.params import create_rpath_params
-from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, _build_active_link_matrix, _build_link_matrix
-from pypath.core.ecosim_deriv import deriv_vector
+
 import numpy as np
+import pandas as pd
+
+from pypath.core.ecopath import rpath
+from pypath.core.ecosim import (
+    _build_active_link_matrix,
+    _build_link_matrix,
+    rsim_run,
+    rsim_scenario,
+)
+from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.params import create_rpath_params
 
 RE = Path('tests/data/rpath_reference')
 model_df = pd.read_csv(RE/'ecopath'/'model_params.csv')
@@ -18,6 +25,7 @@ out = rsim_run(scenario, method='rk4', years=range(1,101))
 py_biom = out.out_Biomass
 
 import argparse
+
 parser = argparse.ArgumentParser(description='Compute deriv diagnostics for Discards')
 parser.add_argument('-m','--month',type=int,default=1199,help='Month index to inspect')
 args = parser.parse_args()

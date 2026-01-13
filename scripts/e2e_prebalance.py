@@ -11,7 +11,6 @@ Exit codes: 0 = success, non-zero = failure.
 """
 import sys
 import time
-from pathlib import Path
 
 APP_URL = "http://127.0.0.1:8000"
 
@@ -22,14 +21,15 @@ except Exception:
     import subprocess
 
     print("Playwright not found, installing...", file=sys.stderr)
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"]) 
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
     # Install browsers
     subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"] )
     from playwright.sync_api import sync_playwright
 
 
-import subprocess
 import os
+import subprocess
+
 
 def _start_server():
     """Start the Shiny app server as a subprocess and wait until it's ready."""

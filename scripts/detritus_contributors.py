@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
 
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 
@@ -46,6 +48,7 @@ for d_idx, det in enumerate(det_groups):
         detfate.append([0]*len(biomass))
 # transpose to get all_source_detfate
 import numpy as np
+
 all_source_detfate = np.array(detfate).T
 
 # compute contributions to det 0

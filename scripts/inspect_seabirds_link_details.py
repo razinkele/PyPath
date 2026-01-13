@@ -1,10 +1,11 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario
-from pypath.core.ecosim import _build_link_matrix
+from pypath.core.ecosim import _build_link_matrix, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 REPO = Path(__file__).parent.parent
 ECOPATH_DIR = REPO / 'tests' / 'data' / 'rpath_reference' / 'ecopath'
@@ -37,7 +38,7 @@ for i in nonzero_prey:
 # Choose month to inspect
 month = 1200
 # Load saved state: we'll recompute state by running RK4 up to month
-from pypath.core.ecosim_deriv import integrate_rk4, integrate_ab, deriv_vector
+from pypath.core.ecosim_deriv import integrate_rk4
 
 integrator_params = {
     "NUM_GROUPS": sp.NUM_GROUPS,

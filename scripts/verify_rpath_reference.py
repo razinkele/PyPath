@@ -10,6 +10,7 @@ Exit code 0 on success, non-zero on failures.
 import json
 import sys
 from pathlib import Path
+
 import pandas as pd
 
 DIAG_DIR = Path("tests/data/rpath_reference/ecosim/diagnostics")

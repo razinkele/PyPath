@@ -1,9 +1,11 @@
 """Compare PyPath and Rpath group time series for key groups and save CSV."""
-import pandas as pd
 from pathlib import Path
-from pypath.core.params import create_rpath_params
+
+import pandas as pd
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 REFERENCE_DIR = Path("tests/data/rpath_reference")
 ECOPATH_DIR = REFERENCE_DIR / "ecopath"

@@ -1,10 +1,12 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
+from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.params import create_rpath_params
 
 REFERENCE_DIR = Path("tests/data/rpath_reference")
 ECOPATH_DIR = REFERENCE_DIR / "ecopath"
@@ -42,7 +44,12 @@ for idx in [didx, sidx, 13,14,15,12]:
     print(idx, name, state_py[idx], state_r[idx], scenario.params.B_BaseRef[idx])
 
 # prepare params dict for deriv_vector
-from pypath.core.ecosim import _compute_Q_matrix, _build_active_link_matrix, _build_link_matrix
+from pypath.core.ecosim import (
+    _build_active_link_matrix,
+    _build_link_matrix,
+    _compute_Q_matrix,
+)
+
 params_dict = {
     'NUM_GROUPS': scenario.params.NUM_GROUPS,
     'NUM_LIVING': scenario.params.NUM_LIVING,
@@ -70,6 +77,7 @@ forcing = {
 # call deriv_vector to get detritus diagnostics and full deriv
 # deriv_vector returns (deriv, diag) perhaps; inspect signature
 from inspect import signature
+
 print('deriv_vector signature:', signature(deriv_vector))
 
 # run for PyPath state

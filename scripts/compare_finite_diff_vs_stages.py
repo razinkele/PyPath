@@ -4,13 +4,19 @@ Usage: python scripts/compare_finite_diff_vs_stages.py --month 0 --group Discard
 """
 import argparse
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, _build_link_matrix, _build_active_link_matrix
+from pypath.core.ecosim import (
+    _build_active_link_matrix,
+    _build_link_matrix,
+    rsim_run,
+    rsim_scenario,
+)
 from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.params import create_rpath_params
 
 RE = Path('tests/data/rpath_reference')
 ECOPATH_DIR = RE / 'ecopath'

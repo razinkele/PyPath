@@ -17,9 +17,13 @@ if TYPE_CHECKING:
     from pypath.spatial.ecospace_params import EcospaceParams
     from pypath.spatial.environmental import EnvironmentalDrivers
 
+# Optional: allow global suppression of debug prints in this module by
+# setting the environment variable PYPATH_SILENCE_DEBUG=1
+import os
+
 from pypath.core.ecopath import Rpath
-from pypath.core.params import RpathParams
 from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.params import RpathParams
 from pypath.core.stanzas import (
     RsimStanzas,
     rpath_stanzas,
@@ -28,9 +32,6 @@ from pypath.core.stanzas import (
     split_update,
 )
 
-# Optional: allow global suppression of debug prints in this module by
-# setting the environment variable PYPATH_SILENCE_DEBUG=1
-import os
 if os.environ.get('PYPATH_SILENCE_DEBUG', '').lower() in ('1', 'true', 'yes'):
     def print(*_a, **_k):
         # Module-local print override to silence debug messages during long runs
@@ -653,7 +654,7 @@ def rsim_params(
         sources = [ (i, rpath.Group[i]) for i in range(ngroups) if rpath.DetFate[i, det_idx] > 0 ]
         # Use nliving + det_idx as the detritus global group index (no +1)
         print(f"DEBUG DetFate det_idx={det_idx} dest_global={(nliving + det_idx)} sources={sources}")
-    
+
     # FIX: Use ngroups instead of nliving+ndead to include gear rows (22-24) that contribute to detritus
     for grp_idx in range(ngroups):
         for det_idx in range(ndead):

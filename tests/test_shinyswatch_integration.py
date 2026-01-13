@@ -1,14 +1,11 @@
-import importlib
 import sys
-from types import ModuleType
-
-import pytest
 
 
 def test_app_ui_uses_shinyswatch_theme_when_available():
     # Import the app fresh
-    import app.app as app_mod
     import shinyswatch
+
+    import app.app as app_mod
 
     # When shinyswatch is present, app_ui should be importable and the theme picker utilities should exist
     assert hasattr(app_mod, "app_ui")

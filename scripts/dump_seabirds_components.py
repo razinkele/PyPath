@@ -1,11 +1,12 @@
-import numpy as np
-import pandas as pd
 from pathlib import Path
 
-from pypath.core.params import create_rpath_params
+import numpy as np
+import pandas as pd
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, _build_active_link_matrix
+from pypath.core.ecosim import _build_active_link_matrix, rsim_scenario
 from pypath.core.ecosim_deriv import deriv_vector, primary_production_forcing
+from pypath.core.params import create_rpath_params
 
 REPO = Path(__file__).parent.parent
 ECOPATH_DIR = REPO / "tests" / "data" / "rpath_reference" / "ecopath"
@@ -28,7 +29,6 @@ group_names = model_df['Group'].tolist()
 seabirds_idx = group_names.index('Seabirds') + 0  # 0-based index matches deriv_vector indexing
 
 # Helper to compute QQ and component breakdown for a given state and forcing
-from copy import deepcopy
 
 def compute_components(state, params_obj, forcing_dict, fishing_dict):
     # Build params dict as used by deriv_vector
@@ -178,7 +178,7 @@ for method in methods:
 
     # Initialize state and history (for AB we will still call integrate_ab through rsim_run but
     # we need a step-by-step run to capture forcing at each month)
-    from pypath.core.ecosim_deriv import integrate_rk4, integrate_ab
+    from pypath.core.ecosim_deriv import integrate_ab, integrate_rk4
 
     params_obj = scenario.params
     # Prepare sanitized params dict for integrators

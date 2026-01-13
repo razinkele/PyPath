@@ -1,7 +1,10 @@
 from pathlib import Path
+
 import pandas as pd
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
+
 BASE = Path('tests/data/rpath_reference')
 ECOPATH_DIR = BASE / 'ecopath'
 model_df = pd.read_csv(ECOPATH_DIR / 'model_params.csv')

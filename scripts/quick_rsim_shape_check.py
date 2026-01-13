@@ -1,8 +1,7 @@
 """Quick check: construct a balanced 5-group model and run rsim_run to verify output shape."""
-import numpy as np
 from pypath.core.ecopath import rpath
-from pypath.core.params import create_rpath_params
 from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 # Build params similar to balanced_5group_model fixture
 groups = ["Phyto", "Zoo", "Fish", "Det", "Fleet"]

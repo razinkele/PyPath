@@ -1,7 +1,9 @@
-import pandas as pd, numpy as np
-from pypath.core.ecosim import rsim_scenario, rsim_run
-from pypath.core.params import create_rpath_params
 from pathlib import Path
+
+import pandas as pd
+
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 REPO=Path(__file__).parent.parent
 ECOPATH_DIR = REPO / 'tests' / 'data' / 'rpath_reference' / 'ecopath'
@@ -12,8 +14,8 @@ params.model = model_df
 params.diet = diet_df
 
 from pypath.core.ecopath import rpath
+
 r = rpath(params)
-from pypath.core.ecosim import rsim_scenario
 s = rsim_scenario(r, params)
 out = rsim_run(s, method='RK4', years=range(1,101))
 ref = pd.read_csv(REPO / 'tests' / 'data' / 'rpath_reference' / 'ecosim' / 'biomass_trajectory_rk4.csv')

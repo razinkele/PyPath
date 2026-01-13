@@ -3,11 +3,12 @@ Inspect b_vec components (consumption, catch, bioacc) for comparison between PyP
 """
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
 
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 
@@ -107,5 +108,6 @@ out = {
     }
 }
 import json
+
 json.dump(out, open(ECOPATH_DIR / 'bvec_component_group3.json', 'w'), indent=2)
 print('Saved bvec components to', ECOPATH_DIR / 'bvec_component_group3.json')

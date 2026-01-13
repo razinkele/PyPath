@@ -1,6 +1,4 @@
 from pathlib import Path
-import pandas as pd
-import pytest
 
 from app.pages.utils import load_rpath_diagnostics
 

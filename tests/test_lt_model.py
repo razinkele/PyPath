@@ -24,7 +24,7 @@ from pypath.io.ewemdb import HAS_MDB_TOOLS, HAS_PYODBC, HAS_PYPYODBC
 DB_DRIVER_AVAILABLE = HAS_MDB_TOOLS or HAS_PYODBC or HAS_PYPYODBC
 pytestmark = pytest.mark.skipif(
     (not DATA_FILE.exists()) or (not DB_DRIVER_AVAILABLE),
-    reason=f"Test data file not found or no database driver available: install pyodbc or mdb-tools"
+    reason="Test data file not found or no database driver available: install pyodbc or mdb-tools"
 )
 
 
@@ -194,7 +194,7 @@ class TestMultiStanza:
     @pytest.fixture(scope="class")
     def stanza_tables(self):
         """Read stanza-related tables from the database."""
-        from pypath.io.ewemdb import read_ewemdb_table, EwEDatabaseError
+        from pypath.io.ewemdb import EwEDatabaseError, read_ewemdb_table
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

@@ -1,8 +1,10 @@
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 import pandas as pd
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
 
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 

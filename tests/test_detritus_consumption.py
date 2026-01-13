@@ -1,10 +1,15 @@
 import numpy as np
 import pandas as pd
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, _build_active_link_matrix, _build_link_matrix
+from pypath.core.ecosim import (
+    _build_active_link_matrix,
+    _build_link_matrix,
+    rsim_run,
+    rsim_scenario,
+)
 from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.params import create_rpath_params
 
 
 def test_detritus_not_consumed_without_inputs():

@@ -82,6 +82,7 @@ from pypath.core.stanzas import (
 # Optimization (optional - requires scikit-optimize)
 try:
     from pypath.core.optimization import (
+        HAS_SKOPT,
         EcosimOptimizer,
         OptimizationResult,
         log_likelihood,
@@ -90,7 +91,6 @@ try:
         normalized_root_mean_squared_error,
         plot_fit,
         plot_optimization_results,
-        HAS_SKOPT,
     )
 
     # Reflect actual availability of scikit-optimize

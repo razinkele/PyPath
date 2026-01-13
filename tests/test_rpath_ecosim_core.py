@@ -276,7 +276,7 @@ def lt2022_model():
         pytest.skip(f"Test data file not found: {DATA_FILE}")
 
     from pypath.core.ecopath import rpath
-    from pypath.io.ewemdb import read_ewemdb, EwEDatabaseError
+    from pypath.io.ewemdb import EwEDatabaseError, read_ewemdb
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

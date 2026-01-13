@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -37,8 +38,9 @@ for j, pred_global in enumerate(living_idx):
     for i, prey_global in enumerate(living_idx):
         nodetrdiet[i, j] = diet_values[prey_global, col_idx] / denom
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
+
 params = create_rpath_params(groups, types.tolist())
 params.model = model_df.copy()
 params.diet = diet_df

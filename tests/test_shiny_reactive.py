@@ -493,4 +493,4 @@ class TestReactivePerformance:
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"]) 
+    pytest.main([__file__, "-v"])

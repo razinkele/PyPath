@@ -3,14 +3,14 @@ Heuristic flip simulation: try flipping each eligible EE>1 candidate (cap EE=1 a
 run rpath on the modified params, and choose the flip that minimizes the difference to R-like
 reference intermediates (A and b_vec). Apply the best flip and save diagnostics.
 """
-import copy
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
 
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 

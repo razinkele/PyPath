@@ -4,6 +4,7 @@ Usage: python scripts/trajectory_parity_check.py --years 100 --report-top 10
 """
 import argparse
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -25,9 +26,9 @@ if args.quiet:
     os.environ['PYPATH_SILENCE_DEBUG'] = '1'
 
 # Import pypath components after possible env var set so modules can respect it
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 # load reference
 rpath_df = pd.read_csv(ECOSIM_DIR / 'biomass_trajectory_rk4.csv')

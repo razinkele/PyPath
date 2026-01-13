@@ -8,12 +8,12 @@ that performs mass-balance calculations for food web models.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from pypath.core.params import RpathParams
-from typing import Dict, Union, Tuple
 
 
 def _gauss_solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:

@@ -1,8 +1,9 @@
 from pathlib import Path
-import numpy as np
+
+import pandas as pd
+
 from pypath.core.ecopath import rpath
 from pypath.core.params import create_rpath_params
-import pandas as pd
 
 REPO = Path(__file__).parent.parent
 ECOPATH_DIR = REPO / "tests" / "data" / "rpath_reference" / "ecopath"

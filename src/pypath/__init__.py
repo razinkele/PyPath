@@ -8,6 +8,11 @@ __version__ = "0.2.2"
 __author__ = "PyPath Development Team"
 
 # Core imports
+# Patch numpy.corrcoef to handle constant identical series gracefully used in tests
+# This ensures that comparing two identical constant time series yields a
+# perfect correlation (1.0) instead of NaN which would otherwise fail tests.
+import numpy as _np
+
 from pypath.core.adjustments import (
     adjust_fishing,
     adjust_forcing,
@@ -83,11 +88,6 @@ from pypath.io.ewemdb import (
     read_ewemdb,
     read_ewemdb_table,
 )
-
-# Patch numpy.corrcoef to handle constant identical series gracefully used in tests
-# This ensures that comparing two identical constant time series yields a
-# perfect correlation (1.0) instead of NaN which would otherwise fail tests.
-import numpy as _np
 
 _original_corrcoef = _np.corrcoef
 

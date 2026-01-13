@@ -1,10 +1,11 @@
 import json
-import numpy as np
-import pandas as pd
 from pathlib import Path
-from pypath.core.params import create_rpath_params
+
+import pandas as pd
+
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_scenario
+from pypath.core.params import create_rpath_params
 
 REPO = Path(__file__).parent.parent
 ECOPATH_DIR = REPO / 'tests' / 'data' / 'rpath_reference' / 'ecopath'
@@ -50,6 +51,7 @@ print('\nCounts: PyPath->', len(seab_links), 'R->', len(r_seab))
 
 # Also show the QQbase matrix entries for prey->Seabirds (one snapshot)
 from pypath.core.ecosim import _build_link_matrix
+
 QQbase_mat = _build_link_matrix(sp, sp.QQ)
 print('\nNon-zero QQbase entries for Seabirds predator (col seabirds_idx+1):')
 col = QQbase_mat[:, seabirds_idx + 1]  # matrix includes Outside at index 0

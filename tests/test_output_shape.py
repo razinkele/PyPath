@@ -1,7 +1,6 @@
-import numpy as np
 from pypath.core.ecopath import rpath
-from pypath.core.params import create_rpath_params
 from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 
 def test_rsim_returns_initial_snapshot():

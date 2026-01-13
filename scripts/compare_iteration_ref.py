@@ -1,10 +1,13 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
+
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 
 # load R ref
 import json
+
 rref = json.load(open(ECOPATH_DIR / 'balanced_model.json'))
 model_df = pd.read_csv(ECOPATH_DIR / 'model_params.csv')
 diet_df = pd.read_csv(ECOPATH_DIR / 'diet_matrix.csv')
@@ -97,6 +100,7 @@ print('Iter1 b: max abs diff', diff_b.max())
 
 # show largest entries diffs
 import numpy as np
+
 idxs = np.unravel_index(np.argsort(absA.ravel())[::-1][:10], absA.shape)
 for i,j in zip(idxs[0], idxs[1]):
     print('A diff at', (i,j), 'ref', A_ref[i,j], 'it1', A_it1[i,j], 'absdiff', absA[i,j])

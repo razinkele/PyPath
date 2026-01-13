@@ -3,7 +3,7 @@
 Usage: python scripts/compute_parity_from_accum.py --report-top 10
 """
 import argparse
-from pathlib import Path
+
 import numpy as np
 import pandas as pd
 

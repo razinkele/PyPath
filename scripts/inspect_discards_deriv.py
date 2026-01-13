@@ -1,12 +1,15 @@
 """Inspect deriv components for Discards at a given month to find drivers of biomass loss."""
+import importlib
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from pypath.core.params import create_rpath_params
-from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
-import importlib
+
 import pypath.core.ecosim_deriv as ecosim_deriv
+from pypath.core.ecopath import rpath
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
+
 importlib.reload(ecosim_deriv)
 deriv_vector = ecosim_deriv.deriv_vector
 from pypath.core.ecosim import _build_link_matrix

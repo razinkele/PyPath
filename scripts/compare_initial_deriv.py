@@ -1,10 +1,12 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, _build_link_matrix
+from pypath.core.ecosim import _build_link_matrix, rsim_scenario
 from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.params import create_rpath_params
 
 REPO = Path('.')
 model_df = pd.read_csv(REPO/'tests'/'data'/'rpath_reference'/'ecopath'/'model_params.csv')

@@ -2,16 +2,19 @@
 
 Usage: python scripts/run_parity_minimal.py --years 100 --report-top 10
 """
-import os
 import argparse
+import os
+
 os.environ['PYPATH_SILENCE_DEBUG'] = '1'
+
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
+from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 RE = Path('tests/data/rpath_reference')
 ECOPATH_DIR = RE / 'ecopath'

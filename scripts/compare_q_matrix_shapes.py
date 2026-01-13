@@ -1,9 +1,11 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, _compute_Q_matrix
+from pypath.core.ecosim import _compute_Q_matrix, rsim_run, rsim_scenario
+from pypath.core.params import create_rpath_params
 
 REPO = Path(__file__).parent.parent
 ECOPATH_DIR = REPO / 'tests' / 'data' / 'rpath_reference' / 'ecopath'
@@ -33,7 +35,8 @@ def ensure_mat_global(mat):
 
 # Build matrices
 Active = _build_active = None
-from pypath.core.ecosim import _build_active_link_matrix, _build_link_matrix
+from pypath.core.ecosim import _build_active_link_matrix
+
 Active = _build_active_link_matrix(sp)
 VV = ensure_mat_global(sp.VV)
 DD = ensure_mat_global(sp.DD)

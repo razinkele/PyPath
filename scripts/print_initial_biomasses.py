@@ -1,7 +1,8 @@
-from pypath.core.params import create_rpath_params
+import pandas as pd
+
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_scenario
-import pandas as pd
+from pypath.core.params import create_rpath_params
 
 model_df = pd.read_csv('tests/data/rpath_reference/ecopath/model_params.csv')
 groups = model_df['Group'].tolist()

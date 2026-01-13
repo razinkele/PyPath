@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 
 rref = json.load(open(ECOPATH_DIR / 'balanced_model.json'))

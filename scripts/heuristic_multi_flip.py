@@ -4,12 +4,12 @@ that most reduces A/b distance to R reference, apply it, and repeat until no imp
 """
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from copy import deepcopy
 
-from pypath.core.params import create_rpath_params
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
 
 ECOPATH_DIR = Path('tests/data/rpath_reference/ecopath')
 

@@ -1,10 +1,17 @@
 """Capture RK4 instrumentation over full run and report stage totals for month 952."""
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run, _compute_Q_matrix, _build_link_matrix
+from pypath.core.ecosim import (
+    _build_link_matrix,
+    _compute_Q_matrix,
+    rsim_run,
+    rsim_scenario,
+)
+from pypath.core.params import create_rpath_params
 
 ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
 ECOSIM_DIR = Path("tests/data/rpath_reference/ecosim")

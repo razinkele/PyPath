@@ -1,7 +1,10 @@
 from pathlib import Path
+
 import pandas as pd
-from pypath.core.params import create_rpath_params
+
 from pypath.core.ecopath import rpath
+from pypath.core.params import create_rpath_params
+
 RE = Path('tests/data/rpath_reference')
 model_df = pd.read_csv(RE / 'ecopath' / 'model_params.csv')
 params = create_rpath_params(model_df['Group'].tolist(), [int(t) for t in model_df['Type'].tolist()])
