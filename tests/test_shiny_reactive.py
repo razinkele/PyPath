@@ -59,10 +59,7 @@ class TestReactiveValues:
             df_value = reactive.Value(None)
             assert df_value() is None
 
-            df = pd.DataFrame({
-                'A': [1, 2, 3],
-                'B': [4, 5, 6]
-            })
+            df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
             df_value.set(df)
 
             retrieved_df = df_value()
@@ -144,7 +141,7 @@ class TestSharedDataReactivity:
             # Create mock params
             class MockRpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({'Group': ['A']})
+                    self.model = pd.DataFrame({"Group": ["A"]})
                     self.diet = pd.DataFrame()
 
             params = MockRpathParams()
@@ -152,7 +149,7 @@ class TestSharedDataReactivity:
 
             # Simulate sync (as done in app.py)
             data = model_data()
-            if data is not None and hasattr(data, 'model') and hasattr(data, 'diet'):
+            if data is not None and hasattr(data, "model") and hasattr(data, "diet"):
                 shared.params.set(data)
 
             # Verify sync worked
@@ -188,7 +185,7 @@ class TestDataPropagation:
                 "stage": "sim_ready",
                 "groups": 5,
                 "balanced": True,
-                "params": "configured"
+                "params": "configured",
             }
             model_data.set(sim_ready_data)
             assert model_data()["params"] == "configured"
@@ -207,15 +204,15 @@ class TestDataPropagation:
 
             # After simulation
             results = {
-                'biomass': pd.DataFrame({'time': [0, 1], 'Fish': [10, 11]}),
-                'status': 'complete'
+                "biomass": pd.DataFrame({"time": [0, 1], "Fish": [10, 11]}),
+                "status": "complete",
             }
             sim_results.set(results)
 
             # Verify propagation
             assert sim_results() is not None
-            assert sim_results()['status'] == 'complete'
-            assert 'biomass' in sim_results()
+            assert sim_results()["status"] == "complete"
+            assert "biomass" in sim_results()
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -279,17 +276,11 @@ class TestComplexDataStructures:
 
             value = reactive.Value(None)
 
-            complex_data = {
-                'level1': {
-                    'level2': {
-                        'level3': [1, 2, 3]
-                    }
-                }
-            }
+            complex_data = {"level1": {"level2": {"level3": [1, 2, 3]}}}
             value.set(complex_data)
 
             retrieved = value()
-            assert retrieved['level1']['level2']['level3'] == [1, 2, 3]
+            assert retrieved["level1"]["level2"]["level3"] == [1, 2, 3]
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -301,18 +292,18 @@ class TestComplexDataStructures:
             value = reactive.Value(None)
 
             data = {
-                'model': pd.DataFrame({'A': [1, 2], 'B': [3, 4]}),
-                'diet': pd.DataFrame({'Predator': ['Fish'], 'Prey': ['Plankton']}),
-                'catch': pd.DataFrame({'Species': ['Fish'], 'Catch': [100]})
+                "model": pd.DataFrame({"A": [1, 2], "B": [3, 4]}),
+                "diet": pd.DataFrame({"Predator": ["Fish"], "Prey": ["Plankton"]}),
+                "catch": pd.DataFrame({"Species": ["Fish"], "Catch": [100]}),
             }
             value.set(data)
 
             retrieved = value()
-            assert 'model' in retrieved
-            assert 'diet' in retrieved
-            assert 'catch' in retrieved
-            assert len(retrieved['model']) == 2
-            assert len(retrieved['diet']) == 1
+            assert "model" in retrieved
+            assert "diet" in retrieved
+            assert "catch" in retrieved
+            assert len(retrieved["model"]) == 2
+            assert len(retrieved["diet"]) == 1
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -325,19 +316,21 @@ class TestComplexDataStructures:
 
             class RpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({
-                        'Group': ['Phytoplankton', 'Zooplankton', 'Fish'],
-                        'Type': [1, 1, 0],
-                        'TL': [1.0, 2.0, 3.5],
-                        'Biomass': [100.0, 50.0, 10.0],
-                        'PB': [2.0, 1.5, 0.5],
-                        'QB': [0.0, 3.0, 2.0],
-                        'EE': [0.95, 0.9, 0.8]
-                    })
-                    self.diet = pd.DataFrame({
-                        'Zooplankton': [0.8, 0.0, 0.0],
-                        'Fish': [0.0, 1.0, 0.0]
-                    }, index=['Phytoplankton', 'Zooplankton', 'Fish'])
+                    self.model = pd.DataFrame(
+                        {
+                            "Group": ["Phytoplankton", "Zooplankton", "Fish"],
+                            "Type": [1, 1, 0],
+                            "TL": [1.0, 2.0, 3.5],
+                            "Biomass": [100.0, 50.0, 10.0],
+                            "PB": [2.0, 1.5, 0.5],
+                            "QB": [0.0, 3.0, 2.0],
+                            "EE": [0.95, 0.9, 0.8],
+                        }
+                    )
+                    self.diet = pd.DataFrame(
+                        {"Zooplankton": [0.8, 0.0, 0.0], "Fish": [0.0, 1.0, 0.0]},
+                        index=["Phytoplankton", "Zooplankton", "Fish"],
+                    )
                     self.landing = pd.DataFrame()
                     self.discard = pd.DataFrame()
                     self.balanced = False
@@ -346,8 +339,8 @@ class TestComplexDataStructures:
             value.set(params)
 
             retrieved = value()
-            assert hasattr(retrieved, 'model')
-            assert hasattr(retrieved, 'diet')
+            assert hasattr(retrieved, "model")
+            assert hasattr(retrieved, "diet")
             assert len(retrieved.model) == 3
             assert retrieved.balanced is False
         except ImportError:
@@ -417,6 +410,7 @@ class TestMultipleReactiveEffects:
             watchers = []
 
             for i in range(3):
+
                 class Watcher:
                     def __init__(self, model_data_ref, watcher_id):
                         self.model_data = model_data_ref
@@ -452,11 +446,13 @@ class TestReactivePerformance:
             value = reactive.Value(None)
 
             # Create large DataFrame
-            large_df = pd.DataFrame({
-                'col1': np.random.rand(10000),
-                'col2': np.random.rand(10000),
-                'col3': np.random.randint(0, 100, 10000)
-            })
+            large_df = pd.DataFrame(
+                {
+                    "col1": np.random.rand(10000),
+                    "col2": np.random.rand(10000),
+                    "col3": np.random.randint(0, 100, 10000),
+                }
+            )
 
             # Set value
             start = time.time()

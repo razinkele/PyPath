@@ -18,6 +18,7 @@ print(f"\nPython version: {sys.version}")
 print("\n1. Checking pyworms...")
 try:
     import pyworms
+
     print(f"   [OK] pyworms installed (version: {pyworms.__version__})")
     HAS_PYWORMS = True
 except ImportError as e:
@@ -29,6 +30,7 @@ except ImportError as e:
 print("\n2. Checking pyobis...")
 try:
     import pyobis
+
     print(f"   [OK] pyobis installed (version: {pyobis.__version__})")
     HAS_PYOBIS = True
 except ImportError:
@@ -40,6 +42,7 @@ except ImportError:
 print("\n3. Checking requests...")
 try:
     import requests
+
     print(f"   [OK] requests installed (version: {requests.__version__})")
     HAS_REQUESTS = True
 except ImportError:
@@ -50,8 +53,9 @@ except ImportError:
 # Check biodata module
 print("\n4. Checking pypath.io.biodata module...")
 try:
-    sys.path.insert(0, 'src')
+    sys.path.insert(0, "src")
     from pypath.io.biodata import get_species_info, batch_get_species_info
+
     print(f"   [OK] biodata module can be imported")
     HAS_BIODATA = True
 except ImportError as e:
