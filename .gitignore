@@ -119,3 +119,8 @@ test_timeseries_*.png
 
 # Claude AI artifacts
 .claude/
+# Smoke test artifacts
+smoke_failure_*.png
+smoke_failure_*.html
+smoke_console_*.log
+smoke_exit_code.txt
