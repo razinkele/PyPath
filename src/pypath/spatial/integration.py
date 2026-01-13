@@ -10,15 +10,16 @@ Integrates ECOSPACE spatial dynamics with Ecosim temporal dynamics:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Dict
+from typing import TYPE_CHECKING, Dict, Optional
+
 import numpy as np
 
 # Import ecosim_deriv at module level - no circular dependency exists
 from pypath.core.ecosim_deriv import deriv_vector
 
 if TYPE_CHECKING:
+    from pypath.core.ecosim import RsimOutput, RsimScenario
     from pypath.spatial.ecospace_params import EcospaceParams, EnvironmentalDrivers
-    from pypath.core.ecosim import RsimScenario, RsimState, RsimOutput
 
 
 def deriv_vector_spatial(
@@ -29,7 +30,7 @@ def deriv_vector_spatial(
     ecospace: EcospaceParams,
     environmental_drivers: Optional[EnvironmentalDrivers],
     t: float = 0.0,
-    dt: float = 1.0/12.0
+    dt: float = 1.0 / 12.0,
 ) -> np.ndarray:
     """Calculate spatial derivative (local dynamics + movement).
 
@@ -76,7 +77,7 @@ def deriv_vector_spatial(
     """
     from pypath.spatial.dispersal import calculate_spatial_flux
 
-    n_groups = state_spatial.shape[0]
+    _n_groups = state_spatial.shape[0]
     n_patches = state_spatial.shape[1]
 
     # Initialize derivative
@@ -84,14 +85,16 @@ def deriv_vector_spatial(
 
     # Step 1: Calculate local dynamics for each patch
     # Pre-compute habitat capacity modifications if needed
-    params_need_modification = (environmental_drivers is not None and
-                               hasattr(ecospace, 'habitat_capacity') and
-                               'B_BaseRef' in params)
+    params_need_modification = (
+        environmental_drivers is not None
+        and hasattr(ecospace, "habitat_capacity")
+        and "B_BaseRef" in params
+    )
 
     if params_need_modification:
         # Pre-compute all modified B_BaseRef arrays for all patches
         # This is more efficient than copying params for each patch
-        b_base_ref_original = params['B_BaseRef']
+        b_base_ref_original = params["B_BaseRef"]
         capacity_multipliers = ecospace.habitat_capacity  # [n_groups, n_patches]
         n_ecospace_groups = capacity_multipliers.shape[0]
 
@@ -113,42 +116,27 @@ def deriv_vector_spatial(
         # Use modified params if needed, otherwise use original
         if params_need_modification:
             # Temporarily modify params (more efficient than copying entire dict)
-            b_base_ref_backup = params['B_BaseRef']
-            params['B_BaseRef'] = b_base_ref_patches[:, patch_idx]
+            b_base_ref_backup = params["B_BaseRef"]
+            params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
 
             # Calculate local Ecosim derivative for this patch
             deriv_local = deriv_vector(
-                state_patch,
-                params,
-                forcing,
-                fishing,
-                t=t,
-                dt=dt
+                state_patch, params, forcing, fishing, t=t, dt=dt
             )
 
             # Restore original B_BaseRef
-            params['B_BaseRef'] = b_base_ref_backup
+            params["B_BaseRef"] = b_base_ref_backup
         else:
             # No modification needed - use params directly (no copy!)
             deriv_local = deriv_vector(
-                state_patch,
-                params,
-                forcing,
-                fishing,
-                t=t,
-                dt=dt
+                state_patch, params, forcing, fishing, t=t, dt=dt
             )
 
         # Store local derivative
         deriv_spatial[:, patch_idx] = deriv_local
 
     # Step 2: Add spatial fluxes (movement/dispersal)
-    spatial_flux = calculate_spatial_flux(
-        state_spatial,
-        ecospace,
-        params,
-        t
-    )
+    spatial_flux = calculate_spatial_flux(state_spatial, ecospace, params, t)
 
     # Add spatial fluxes to local dynamics
     deriv_spatial += spatial_flux
@@ -158,10 +146,10 @@ def deriv_vector_spatial(
 
 def rsim_run_spatial(
     scenario: RsimScenario,
-    method: str = 'RK4',
+    method: str = "RK4",
     years: Optional[range] = None,
     ecospace: Optional[EcospaceParams] = None,
-    environmental_drivers: Optional[EnvironmentalDrivers] = None
+    environmental_drivers: Optional[EnvironmentalDrivers] = None,
 ) -> RsimOutput:
     """Run spatial Ecosim simulation.
 
@@ -208,14 +196,15 @@ def rsim_run_spatial(
     # Backward compatibility: if no ecospace, use standard Ecosim
     if ecospace is None:
         from pypath.core.ecosim import rsim_run
+
         return rsim_run(scenario, method=method, years=years)
 
     # Import necessary functions
-    from pypath.core.ecosim import rsim_run, DELTA_T, STEPS_PER_YEAR
+    from pypath.core.ecosim import DELTA_T, STEPS_PER_YEAR, rsim_run
     from pypath.spatial.ecospace_params import SpatialState
 
     # Validate method
-    if method != 'RK4':
+    if method != "RK4":
         raise ValueError(f"Only RK4 method implemented for spatial, got '{method}'")
 
     # Setup years range
@@ -245,51 +234,51 @@ def rsim_run_spatial(
 
     # Convert scenario to dictionary format for deriv function
     params_dict = {
-        'NUM_GROUPS': scenario.params.NUM_GROUPS,
-        'NUM_LIVING': scenario.params.NUM_LIVING,
-        'NUM_DEAD': scenario.params.NUM_DEAD,
-        'NUM_GEARS': scenario.params.NUM_GEARS,
-        'B_BaseRef': scenario.params.B_BaseRef,
-        'MzeroMort': scenario.params.MzeroMort,
-        'UnassimRespFrac': scenario.params.UnassimRespFrac,
-        'ActiveRespFrac': scenario.params.ActiveRespFrac,
-        'FtimeAdj': scenario.params.FtimeAdj,
-        'FtimeQBOpt': scenario.params.FtimeQBOpt,
-        'PBopt': scenario.params.PBopt,
-        'NoIntegrate': scenario.params.NoIntegrate,
-        'HandleSelf': scenario.params.HandleSelf,
-        'ScrambleSelf': scenario.params.ScrambleSelf,
-        'PreyFrom': scenario.params.PreyFrom,
-        'PreyTo': scenario.params.PreyTo,
-        'QQ': scenario.params.QQ,
-        'DD': scenario.params.DD,
-        'VV': scenario.params.VV,
-        'HandleSwitch': scenario.params.HandleSwitch,
-        'PredPredWeight': scenario.params.PredPredWeight,
-        'PreyPreyWeight': scenario.params.PreyPreyWeight,
-        'FishFrom': scenario.params.FishFrom,
-        'FishThrough': scenario.params.FishThrough,
-        'FishQ': scenario.params.FishQ,
-        'FishTo': scenario.params.FishTo,
-        'DetFrac': scenario.params.DetFrac,
-        'DetFrom': scenario.params.DetFrom,
-        'DetTo': scenario.params.DetTo,
+        "NUM_GROUPS": scenario.params.NUM_GROUPS,
+        "NUM_LIVING": scenario.params.NUM_LIVING,
+        "NUM_DEAD": scenario.params.NUM_DEAD,
+        "NUM_GEARS": scenario.params.NUM_GEARS,
+        "B_BaseRef": scenario.params.B_BaseRef,
+        "MzeroMort": scenario.params.MzeroMort,
+        "UnassimRespFrac": scenario.params.UnassimRespFrac,
+        "ActiveRespFrac": scenario.params.ActiveRespFrac,
+        "FtimeAdj": scenario.params.FtimeAdj,
+        "FtimeQBOpt": scenario.params.FtimeQBOpt,
+        "PBopt": scenario.params.PBopt,
+        "NoIntegrate": scenario.params.NoIntegrate,
+        "HandleSelf": scenario.params.HandleSelf,
+        "ScrambleSelf": scenario.params.ScrambleSelf,
+        "PreyFrom": scenario.params.PreyFrom,
+        "PreyTo": scenario.params.PreyTo,
+        "QQ": scenario.params.QQ,
+        "DD": scenario.params.DD,
+        "VV": scenario.params.VV,
+        "HandleSwitch": scenario.params.HandleSwitch,
+        "PredPredWeight": scenario.params.PredPredWeight,
+        "PreyPreyWeight": scenario.params.PreyPreyWeight,
+        "FishFrom": scenario.params.FishFrom,
+        "FishThrough": scenario.params.FishThrough,
+        "FishQ": scenario.params.FishQ,
+        "FishTo": scenario.params.FishTo,
+        "DetFrac": scenario.params.DetFrac,
+        "DetFrom": scenario.params.DetFrom,
+        "DetTo": scenario.params.DetTo,
     }
 
     forcing_dict = {
-        'ForcedPrey': scenario.forcing.ForcedPrey,
-        'ForcedMort': scenario.forcing.ForcedMort,
-        'ForcedRecs': scenario.forcing.ForcedRecs,
-        'ForcedSearch': scenario.forcing.ForcedSearch,
-        'ForcedActresp': scenario.forcing.ForcedActresp,
-        'ForcedMigrate': scenario.forcing.ForcedMigrate,
-        'ForcedBio': scenario.forcing.ForcedBio,
+        "ForcedPrey": scenario.forcing.ForcedPrey,
+        "ForcedMort": scenario.forcing.ForcedMort,
+        "ForcedRecs": scenario.forcing.ForcedRecs,
+        "ForcedSearch": scenario.forcing.ForcedSearch,
+        "ForcedActresp": scenario.forcing.ForcedActresp,
+        "ForcedMigrate": scenario.forcing.ForcedMigrate,
+        "ForcedBio": scenario.forcing.ForcedBio,
     }
 
     fishing_dict = {
-        'ForcedEffort': scenario.fishing.ForcedEffort,
-        'ForcedFRate': scenario.fishing.ForcedFRate,
-        'ForcedCatch': scenario.fishing.ForcedCatch,
+        "ForcedEffort": scenario.fishing.ForcedEffort,
+        "ForcedFRate": scenario.fishing.ForcedFRate,
+        "ForcedCatch": scenario.fishing.ForcedCatch,
     }
 
     # Storage for output
@@ -316,7 +305,7 @@ def rsim_run_spatial(
             ecospace,
             environmental_drivers,
             t=t,
-            dt=DELTA_T
+            dt=DELTA_T,
         )
 
         # k2 = f(t + dt/2, y + k1*dt/2)
@@ -328,7 +317,7 @@ def rsim_run_spatial(
             ecospace,
             environmental_drivers,
             t=t + DELTA_T / 2,
-            dt=DELTA_T
+            dt=DELTA_T,
         )
 
         # k3 = f(t + dt/2, y + k2*dt/2)
@@ -340,7 +329,7 @@ def rsim_run_spatial(
             ecospace,
             environmental_drivers,
             t=t + DELTA_T / 2,
-            dt=DELTA_T
+            dt=DELTA_T,
         )
 
         # k4 = f(t + dt, y + k3*dt)
@@ -352,7 +341,7 @@ def rsim_run_spatial(
             ecospace,
             environmental_drivers,
             t=t + DELTA_T,
-            dt=DELTA_T
+            dt=DELTA_T,
         )
 
         # Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
@@ -372,18 +361,22 @@ def rsim_run_spatial(
     end_state = RsimState(
         Biomass=out_Biomass[-1],
         N=scenario.start_state.N,  # Placeholder
-        Ftime=scenario.start_state.Ftime  # Placeholder
+        Ftime=scenario.start_state.Ftime,  # Placeholder
     )
 
     # Create output object
     output = RsimOutput(
         out_Biomass=out_Biomass,
         out_Catch=np.zeros_like(out_Biomass),  # Placeholder
-        out_Gear_Catch=np.zeros((n_months, scenario.params.NumFishingLinks)),  # Placeholder
+        out_Gear_Catch=np.zeros(
+            (n_months, scenario.params.NumFishingLinks)
+        ),  # Placeholder
         annual_Biomass=np.zeros((n_years, n_groups + 1)),  # Placeholder
         annual_Catch=np.zeros((n_years, n_groups + 1)),  # Placeholder
         annual_QB=np.zeros((n_years, n_groups + 1)),  # Placeholder
-        annual_Qlink=np.zeros((n_years, scenario.params.NumPredPreyLinks)),  # Placeholder
+        annual_Qlink=np.zeros(
+            (n_years, scenario.params.NumPredPreyLinks)
+        ),  # Placeholder
         end_state=end_state,
         crash_year=-1,
         crashed_groups=set(),

@@ -11,18 +11,23 @@ Implements spatial flux calculations:
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 import numpy as np
 import scipy.sparse
 
 if TYPE_CHECKING:
-    from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams, ExternalFluxTimeseries
+    from pypath.spatial.ecospace_params import (
+        EcospaceGrid,
+        EcospaceParams,
+        ExternalFluxTimeseries,
+    )
 
 
 def diffusion_flux(
     biomass_vector: np.ndarray,
     dispersal_rate: float,
     grid: EcospaceGrid,
-    adjacency: scipy.sparse.csr_matrix
+    adjacency: scipy.sparse.csr_matrix,
 ) -> np.ndarray:
     """Calculate diffusion flux using Fick's law.
 
@@ -67,8 +72,9 @@ def diffusion_flux(
         return net_flux
 
     # Pre-compute edge properties (vectorized)
-    border_lengths = np.array([grid.edge_lengths.get((rows[i], cols[i]), 0.0)
-                               for i in range(n_edges)])
+    border_lengths = np.array(
+        [grid.edge_lengths.get((rows[i], cols[i]), 0.0) for i in range(n_edges)]
+    )
 
     # Filter out zero-length edges
     valid_edges = border_lengths > 0
@@ -81,10 +87,13 @@ def diffusion_flux(
 
     # Calculate distances using scipy (vectorized, much faster)
     from scipy.spatial.distance import cdist
-    if not hasattr(grid, '_distance_matrix'):
+
+    if not hasattr(grid, "_distance_matrix"):
         # Cache distance matrix for reuse
-        grid._distance_matrix = cdist(grid.patch_centroids, grid.patch_centroids,
-                                     metric='euclidean') * 111.0
+        grid._distance_matrix = (
+            cdist(grid.patch_centroids, grid.patch_centroids, metric="euclidean")
+            * 111.0
+        )
 
     distances = grid._distance_matrix[rows, cols]
 
@@ -107,7 +116,7 @@ def diffusion_flux(
 
     # Accumulate fluxes using np.add.at (vectorized accumulation)
     np.add.at(net_flux, rows, -flux_values)  # Outflow from rows
-    np.add.at(net_flux, cols, flux_values)   # Inflow to cols
+    np.add.at(net_flux, cols, flux_values)  # Inflow to cols
 
     return net_flux
 
@@ -117,7 +126,7 @@ def habitat_advection(
     habitat_preference: np.ndarray,
     gravity_strength: float,
     grid: EcospaceGrid,
-    adjacency: scipy.sparse.csr_matrix
+    adjacency: scipy.sparse.csr_matrix,
 ) -> np.ndarray:
     """Calculate habitat-directed movement (advection).
 
@@ -180,15 +189,21 @@ def habitat_advection(
 
     # For positive gradients: move from p (rows) to q (cols)
     if np.any(positive_grad):
-        movement_rates_pos = (gravity_strength * biomass_vector[rows[positive_grad]] *
-                             habitat_gradients[positive_grad])
+        movement_rates_pos = (
+            gravity_strength
+            * biomass_vector[rows[positive_grad]]
+            * habitat_gradients[positive_grad]
+        )
         np.add.at(net_flux, rows[positive_grad], -movement_rates_pos)
         np.add.at(net_flux, cols[positive_grad], movement_rates_pos)
 
     # For negative gradients: move from q (cols) to p (rows)
     if np.any(negative_grad):
-        movement_rates_neg = (gravity_strength * biomass_vector[cols[negative_grad]] *
-                             np.abs(habitat_gradients[negative_grad]))
+        movement_rates_neg = (
+            gravity_strength
+            * biomass_vector[cols[negative_grad]]
+            * np.abs(habitat_gradients[negative_grad])
+        )
         np.add.at(net_flux, cols[negative_grad], -movement_rates_neg)
         np.add.at(net_flux, rows[negative_grad], movement_rates_neg)
 
@@ -201,7 +216,7 @@ def gravity_model_flux(
     gravity_strength: float,
     grid: EcospaceGrid,
     adjacency: scipy.sparse.csr_matrix,
-    distance_decay: float = 1.0
+    distance_decay: float = 1.0,
 ) -> np.ndarray:
     """Calculate gravity model flux (biomass-weighted attraction).
 
@@ -246,9 +261,12 @@ def gravity_model_flux(
 
     # Use cached distance matrix
     from scipy.spatial.distance import cdist
-    if not hasattr(grid, '_distance_matrix'):
-        grid._distance_matrix = cdist(grid.patch_centroids, grid.patch_centroids,
-                                     metric='euclidean') * 111.0
+
+    if not hasattr(grid, "_distance_matrix"):
+        grid._distance_matrix = (
+            cdist(grid.patch_centroids, grid.patch_centroids, metric="euclidean")
+            * 111.0
+        )
 
     distances = grid._distance_matrix[rows, cols]
 
@@ -266,13 +284,17 @@ def gravity_model_flux(
     attractiveness_cols = attractiveness[cols]
 
     # Distance decay factor
-    distance_factor = distances ** distance_decay
+    distance_factor = distances**distance_decay
 
     # Flux from rows to cols
-    flux_ij = gravity_strength * biomass_vector[rows] * attractiveness_cols / distance_factor
+    flux_ij = (
+        gravity_strength * biomass_vector[rows] * attractiveness_cols / distance_factor
+    )
 
     # Flux from cols to rows
-    flux_ji = gravity_strength * biomass_vector[cols] * attractiveness_rows / distance_factor
+    flux_ji = (
+        gravity_strength * biomass_vector[cols] * attractiveness_rows / distance_factor
+    )
 
     # Net flux (vectorized)
     net_fluxes = flux_ij - flux_ji
@@ -288,7 +310,7 @@ def apply_external_flux(
     biomass_vector: np.ndarray,
     external_flux: ExternalFluxTimeseries,
     group_idx: int,
-    t: float
+    t: float,
 ) -> np.ndarray:
     """Apply externally provided flux matrix to biomass.
 
@@ -338,10 +360,7 @@ def apply_external_flux(
 
 
 def calculate_spatial_flux(
-    state: np.ndarray,
-    ecospace: EcospaceParams,
-    params: dict,
-    t: float
+    state: np.ndarray, ecospace: EcospaceParams, params: dict, t: float
 ) -> np.ndarray:
     """Calculate total spatial flux (diffusion + advection + external).
 
@@ -368,7 +387,7 @@ def calculate_spatial_flux(
         flux[g, p] = net flux for group g in patch p
     """
     n_groups = state.shape[0]
-    n_patches = state.shape[1]
+    _n_patches = state.shape[1]
     flux = np.zeros_like(state, dtype=float)
 
     grid = ecospace.grid
@@ -376,49 +395,44 @@ def calculate_spatial_flux(
 
     # Calculate flux for each group
     for group_idx in range(1, n_groups):  # Skip index 0 (Outside/Detritus)
-
         # Ecospace parameters are indexed from 0, but group_idx starts at 1
         # So we need to subtract 1 when accessing ecospace arrays
         eco_idx = group_idx - 1
 
         # Check for external flux first
-        if (ecospace.external_flux is not None and
-                eco_idx in ecospace.external_flux.group_indices):
+        if (
+            ecospace.external_flux is not None
+            and eco_idx in ecospace.external_flux.group_indices
+        ):
             # Use external flux (from ocean models, particle tracking, etc.)
             flux[group_idx] = apply_external_flux(
-                state[group_idx],
-                ecospace.external_flux,
-                eco_idx,
-                t
+                state[group_idx], ecospace.external_flux, eco_idx, t
             )
 
         # Otherwise use model-calculated dispersal
         elif ecospace.dispersal_rate[eco_idx] > 0:
             # Passive diffusion (Fick's law)
             flux[group_idx] = diffusion_flux(
-                state[group_idx],
-                ecospace.dispersal_rate[eco_idx],
-                grid,
-                adj
+                state[group_idx], ecospace.dispersal_rate[eco_idx], grid, adj
             )
 
             # Add habitat-directed movement if enabled
-            if ecospace.advection_enabled[eco_idx] and ecospace.gravity_strength[eco_idx] > 0:
+            if (
+                ecospace.advection_enabled[eco_idx]
+                and ecospace.gravity_strength[eco_idx] > 0
+            ):
                 flux[group_idx] += habitat_advection(
                     state[group_idx],
                     ecospace.habitat_preference[eco_idx],
                     ecospace.gravity_strength[eco_idx],
                     grid,
-                    adj
+                    adj,
                 )
 
     return flux
 
 
-def validate_flux_conservation(
-    flux: np.ndarray,
-    tolerance: float = 1e-8
-) -> bool:
+def validate_flux_conservation(flux: np.ndarray, tolerance: float = 1e-8) -> bool:
     """Validate that spatial flux conserves mass.
 
     The sum of flux over all patches should be zero
@@ -447,9 +461,7 @@ def validate_flux_conservation(
 
 
 def apply_flux_limiter(
-    flux: np.ndarray,
-    biomass: np.ndarray,
-    dt: float = 1.0
+    flux: np.ndarray, biomass: np.ndarray, dt: float = 1.0
 ) -> np.ndarray:
     """Apply flux limiter to prevent negative biomass.
 

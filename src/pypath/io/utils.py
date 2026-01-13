@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional, Union
 
 try:
     import requests
+
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False
@@ -76,7 +77,17 @@ def safe_float(value: Any, default: Optional[float] = None) -> Optional[float]:
         value_lower = value.lower().strip()
 
         # Common missing data indicators
-        if value_lower in ('true', 'false', 'yes', 'no', 'none', '', 'na', 'nan', 'n/a'):
+        if value_lower in (
+            "true",
+            "false",
+            "yes",
+            "no",
+            "none",
+            "",
+            "na",
+            "nan",
+            "n/a",
+        ):
             return None
 
         try:
@@ -89,10 +100,7 @@ def safe_float(value: Any, default: Optional[float] = None) -> Optional[float]:
 
 
 def fetch_url(
-    url: str,
-    params: Optional[Dict] = None,
-    timeout: int = 30,
-    parse_json: bool = True
+    url: str, params: Optional[Dict] = None, timeout: int = 30, parse_json: bool = True
 ) -> Union[str, Dict]:
     """Fetch content from URL with automatic fallback to urllib.
 
@@ -154,14 +162,16 @@ def fetch_url(
         # Fallback to urllib
         if params:
             from urllib.parse import urlencode
+
             url = f"{url}?{urlencode(params)}"
 
         with urllib.request.urlopen(url, timeout=timeout) as response:
-            content = response.read().decode('utf-8')
+            content = response.read().decode("utf-8")
 
             if parse_json:
                 try:
                     import json
+
                     return json.loads(content)
                 except ValueError:
                     return content
