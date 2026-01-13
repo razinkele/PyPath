@@ -171,7 +171,8 @@ def validate_pb(
             f"  - Small fish, invertebrates: 1-10\n"
             f"  - Large fish: 0.1-1\n"
             f"  - Phytoplankton/Producers: 20-250\n\n"
-            f"Check if you're using the correct time units (per year)."
+            f"Check if you're using the correct time units (per year).\n"
+            f"If your P/B values are reported per day, multiply by 365 to convert to per year and re-run validation."
         )
         return False, error_msg
 
