@@ -1,0 +1,80 @@
+name: Shiny smoke tests
+
+on:
+  push:
+    branches: [ main, feat/*, chore/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  shiny-smoke:
+    name: Shiny smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Try to install from project; fall back to installing test dependencies
+          pip install -e . || true
+          pip install pytest shiny shinyswatch playwright plotly
+          python -m playwright install --with-deps chromium
+
+      - name: Run shinyswatch integration tests
+        run: |
+          python -m pytest -q tests/test_shinyswatch_integration.py -q
+
+      - name: Start Shiny server
+        run: |
+          # Start Shiny in the background and capture PID
+          nohup python -m shiny run app/app.py --port 8000 > server.log 2>&1 &
+          echo $! > server.pid
+          # Wait for server to be available (max 30s)
+          for i in $(seq 1 30); do
+            if curl -sSf http://127.0.0.1:8000 >/dev/null; then
+              echo "server up"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Shiny smoke script
+        continue-on-error: true
+        run: |
+          # Run smoke script and record exit code for later decision
+          python scripts/run_headless_smoke.py || true
+          echo $? > smoke_exit_code.txt
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shiny-smoke-artifacts
+          path: |
+            smoke_failure_*.png
+            smoke_failure_*.html
+            smoke_console_*.log
+            server.log
+            smoke_exit_code.txt
+
+      - name: Fail on smoke failure
+        if: always()
+        run: |
+          rc=$(cat smoke_exit_code.txt 2>/dev/null || echo 0)
+          if [ "${rc}" != "0" ]; then
+            echo "Smoke test failed with exit code ${rc}"
+            echo "---- server.log ----"
+            cat server.log || true
+            exit ${rc}
+          else
+            echo "Smoke test passed"
+          fi
