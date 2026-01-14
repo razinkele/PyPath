@@ -91,6 +91,7 @@ try:
         plot_optimization_results,
         plot_fit,
     )
+
     HAS_OPTIMIZATION = True
 except ImportError:
     HAS_OPTIMIZATION = False
