@@ -81,7 +81,9 @@ class EnvironmentalLayer:
 
             # Require times for time-varying data
             if self.times is None:
-                raise ValueError(f"Layer '{self.name}': times required for time-varying values")
+                raise ValueError(
+                    f"Layer '{self.name}': times required for time-varying values"
+                )
 
             self.times = np.asarray(self.times, dtype=float)
 
@@ -147,15 +149,15 @@ class EnvironmentalLayer:
             Statistics: min, max, mean, std
         """
         return {
-            'name': self.name,
-            'units': self.units,
-            'min': float(np.min(self.values)),
-            'max': float(np.max(self.values)),
-            'mean': float(np.mean(self.values)),
-            'std': float(np.std(self.values)),
-            'n_patches': self.n_patches,
-            'n_timesteps': self.n_timesteps,
-            'is_time_varying': self.is_time_varying
+            "name": self.name,
+            "units": self.units,
+            "min": float(np.min(self.values)),
+            "max": float(np.max(self.values)),
+            "mean": float(np.mean(self.values)),
+            "std": float(np.std(self.values)),
+            "n_patches": self.n_patches,
+            "n_timesteps": self.n_timesteps,
+            "is_time_varying": self.is_time_varying,
         }
 
 
@@ -281,7 +283,9 @@ class EnvironmentalDrivers:
 
         return self.layers[name].get_value_at_time(t)
 
-    def get_drivers_at_time(self, t: float, layer_names: Optional[list] = None) -> np.ndarray:
+    def get_drivers_at_time(
+        self, t: float, layer_names: Optional[list] = None
+    ) -> np.ndarray:
         """Get all environmental drivers at time t.
 
         Parameters
@@ -310,10 +314,9 @@ class EnvironmentalDrivers:
                 raise KeyError(f"Layer '{name}' not found")
 
         # Stack all layers
-        drivers = np.column_stack([
-            self.layers[name].get_value_at_time(t)
-            for name in layer_names
-        ])
+        drivers = np.column_stack(
+            [self.layers[name].get_value_at_time(t) for name in layer_names]
+        )
 
         return drivers
 
@@ -325,10 +328,7 @@ class EnvironmentalDrivers:
         dict
             {layer_name: statistics_dict}
         """
-        return {
-            name: layer.get_statistics()
-            for name, layer in self.layers.items()
-        }
+        return {name: layer.get_statistics() for name, layer in self.layers.items()}
 
     def get_time_range(self) -> Tuple[float, float]:
         """Get overall time range across all layers.
@@ -357,9 +357,7 @@ class EnvironmentalDrivers:
 
 
 def create_seasonal_temperature(
-    baseline_temp: np.ndarray,
-    amplitude: float = 10.0,
-    n_months: int = 12
+    baseline_temp: np.ndarray, amplitude: float = 10.0, n_months: int = 12
 ) -> EnvironmentalLayer:
     """Create seasonal temperature variation.
 
@@ -399,18 +397,16 @@ def create_seasonal_temperature(
     values = baseline_temp[np.newaxis, :] + seasonal[:, np.newaxis]
 
     return EnvironmentalLayer(
-        name='temperature',
-        units='celsius',
+        name="temperature",
+        units="celsius",
         values=values,
         times=times,
-        interpolate=True
+        interpolate=True,
     )
 
 
 def create_constant_layer(
-    name: str,
-    values: np.ndarray,
-    units: str = ""
+    name: str, values: np.ndarray, units: str = ""
 ) -> EnvironmentalLayer:
     """Create constant (time-invariant) environmental layer.
 
@@ -432,5 +428,5 @@ def create_constant_layer(
         units=units,
         values=np.asarray(values, dtype=float),
         times=None,
-        interpolate=False
+        interpolate=False,
     )
