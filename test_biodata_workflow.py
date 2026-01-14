@@ -36,7 +36,7 @@ test_species = [
     "Atlantic herring",
     "herring",
     "European sprat",
-    "sprat"
+    "sprat",
 ]
 
 for species in test_species:
@@ -46,7 +46,9 @@ for species in test_species:
         if results:
             print(f"  [OK] Found {len(results)} result(s)")
             for i, r in enumerate(results[:3]):  # Show first 3
-                print(f"    [{i+1}] {r.get('scientificname')} (AphiaID: {r.get('AphiaID')})")
+                print(
+                    f"    [{i+1}] {r.get('scientificname')} (AphiaID: {r.get('AphiaID')})"
+                )
         else:
             print(f"  [FAIL] No results found")
     except Exception as e:
@@ -89,7 +91,7 @@ try:
         include_traits=True,
         strict=False,
         max_workers=5,
-        timeout=45
+        timeout=45,
     )
 
     if df is not None and len(df) > 0:
@@ -107,6 +109,7 @@ try:
 except Exception as e:
     print(f"[FAIL] Failed: {e}")
     import traceback
+
     traceback.print_exc()
 
 # Test 4: Model creation (as used in Shiny app)
@@ -123,7 +126,7 @@ try:
         include_occurrences=True,
         include_traits=True,
         strict=False,
-        timeout=45
+        timeout=45,
     )
 
     if df is not None and len(df) > 0:
@@ -132,14 +135,12 @@ try:
         # Create biomass estimates (as in Shiny app)
         biomass_estimates = {}
         for idx, row in df.iterrows():
-            sp_name = row['common_name']
+            sp_name = row["common_name"]
             biomass_estimates[sp_name] = 1.0  # Default biomass
 
         print(f"\nCreating Ecopath model...")
         params = biodata_to_rpath(
-            df,
-            biomass_estimates=biomass_estimates,
-            area_km2=1000
+            df, biomass_estimates=biomass_estimates, area_km2=1000
         )
 
         print(f"[OK] Model created!")
@@ -147,13 +148,16 @@ try:
         print(f"  Diet entries: {(params.diet.iloc[:, 1:] > 0).sum().sum()}")
         print(f"\nModel groups:")
         for idx, row in params.model.iterrows():
-            print(f"  - {row['Group']} (Type: {int(row['Type'])}, TL: {row.get('TrophicLevel', 'N/A')})")
+            print(
+                f"  - {row['Group']} (Type: {int(row['Type'])}, TL: {row.get('TrophicLevel', 'N/A')})"
+            )
     else:
         print("[FAIL] No species data to create model")
 
 except Exception as e:
     print(f"[FAIL] Failed: {e}")
     import traceback
+
     traceback.print_exc()
 
 # Test 5: API connectivity check
@@ -168,7 +172,7 @@ try:
     response = requests.get(
         "https://www.marinespecies.org/rest/AphiaRecordsByVernacular/cod",
         params={"like": "false", "offset": 1},
-        timeout=10
+        timeout=10,
     )
     if response.status_code == 200:
         print(f"  [OK] WoRMS API accessible (status: {response.status_code})")
@@ -182,7 +186,7 @@ try:
     response = requests.get(
         "https://api.obis.org/v3/occurrence",
         params={"scientificname": "Gadus morhua", "size": 1},
-        timeout=10
+        timeout=10,
     )
     if response.status_code == 200:
         print(f"  [OK] OBIS API accessible (status: {response.status_code})")
@@ -194,7 +198,7 @@ try:
     response = requests.get(
         "https://fishbase.ropensci.org/species",
         params={"Genus": "Gadus", "Species": "morhua"},
-        timeout=10
+        timeout=10,
     )
     if response.status_code == 200:
         print(f"  [OK] FishBase API accessible (status: {response.status_code})")
