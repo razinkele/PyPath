@@ -1053,6 +1053,7 @@ def read_ewemdb(
                     "start_year": start,
                     "end_year": end,
                     "num_years": num_years,
+                    "start_month": row.get("StartMonth") or row.get("Start Month") or row.get("Start_Month") or 1,
                     "description": row.get("Description", ""),
                 }
 
@@ -1065,13 +1066,19 @@ def read_ewemdb(
                     scen["forcing_df"] = fdf
                     # Parse into structured time series
                     try:
-                        forcing_ts = _parse_ecosim_forcing(fdf)
+                        # Detect if forcing DF uses month-label columns like M1..M12 or Month1..Month12
+                        month_label_relative = any(str(c).lower().startswith("m") and str(c)[1:].isdigit() and 1 <= int(str(c)[1:]) <= 12 for c in fdf.columns)
+                        forcing_ts = _parse_ecosim_forcing(fdf, start_month=int(scen.get("start_month", 1)), month_label_relative=month_label_relative)
                         scen["forcing_ts"] = forcing_ts
                         # If scenario contains start_year and num_years, resample to monthly
                         if scen.get("start_year") is not None and scen.get("num_years") is not None:
                             try:
                                 scen["forcing_monthly"] = _resample_to_monthly(
-                                    forcing_ts, int(scen["start_year"]), int(scen["num_years"])
+                                    forcing_ts,
+                                    int(scen["start_year"]),
+                                    int(scen["num_years"]),
+                                    start_month=int(scen.get("start_month", 1)),
+                                    use_actual_month_lengths=False,
                                 )
                                 # Build forcing matrices aligned to model groups (if available later)
                                 try:
@@ -1182,12 +1189,17 @@ def read_ewemdb(
                         ff = fishing_df.copy()
                     scen["fishing_df"] = ff
                     try:
-                        fishing_ts = _parse_ecosim_fishing(ff)
+                        month_label_relative_f = any(str(c).lower().startswith("m") and str(c)[1:].isdigit() and 1 <= int(str(c)[1:]) <= 12 for c in ff.columns)
+                        fishing_ts = _parse_ecosim_fishing(ff, start_month=int(scen.get("start_month", 1)), month_label_relative=month_label_relative_f)
                         scen["fishing_ts"] = fishing_ts
                         if scen.get("start_year") is not None and scen.get("num_years") is not None:
                             try:
                                 scen["fishing_monthly"] = _resample_fishing_pivot_to_monthly(
-                                    fishing_ts, int(scen["start_year"]), int(scen["num_years"])
+                                    fishing_ts,
+                                    int(scen["start_year"]),
+                                    int(scen["num_years"]),
+                                    start_month=int(scen.get("start_month", 1)),
+                                    use_actual_month_lengths=False,
                                 )
                             except Exception as _e:
                                 logger.debug(f"Failed to resample fishing monthly for scenario {sid}: {_e}")
@@ -1208,7 +1220,7 @@ def read_ewemdb(
     return params
 
 
-def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame]) -> Dict[str, Any]:
+def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optional[int] = None, month_label_relative: bool = False) -> Dict[str, Any]:
     """Parse Ecosim forcing DataFrame into a structured dict of time series.
 
     The function supports multiple formats:
@@ -1265,29 +1277,45 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame]) -> Dict[str, Any]:
                 ml = m.lower()
                 if ml in month_name_map:
                     return month_name_map[ml]
+                # full-name first 3 letters
+                ml3 = ml[:3]
+                if ml3 in month_name_map:
+                    return month_name_map[ml3]
                 if ml.startswith("m") and ml[1:].isdigit():
                     return int(ml[1:])
                 if ml.startswith("month") and ml[5:].isdigit():
                     return int(ml[5:])
                 return None
 
-            melted["Month"] = melted["MonthCol"].apply(month_from_col)
+            melted["MonthRaw"] = melted["MonthCol"].apply(month_from_col)
+
+            # If MonthRaw are 1..12 and month_label_relative is True and start_month provided, remap M1..M12 as relative labels
+            if month_label_relative and start_month is not None:
+                def rel_to_actual(idx, start):
+                    # idx is 1-based index within the series of M1..M12
+                    # actual month number:
+                    m = ((int(idx) - 1 + (start - 1)) % 12) + 1
+                    return m
+
+                # For labels like 'M1'..'M12' we try to detect indices
+                def month_index_from_label(lbl):
+                    l = str(lbl).lower()
+                    if l.startswith('m') and l[1:].isdigit():
+                        return int(l[1:])
+                    if l.startswith('month') and l[5:].isdigit():
+                        return int(l[5:])
+                    return None
+
+                # compute Month as actual month
+                melted['MonthIdx'] = melted['MonthCol'].apply(month_index_from_label)
+                melted['Month'] = melted.apply(lambda r: rel_to_actual(r['MonthIdx'], start_month) if pd.notna(r['MonthIdx']) else r['MonthRaw'], axis=1)
+            else:
+                melted['Month'] = melted['MonthRaw']
+
             # rename time column to Year
             if id_vars:
                 melted.rename(columns={id_vars[0]: "Year"}, inplace=True)
-            df = melted.drop(columns=["MonthCol"]).rename(columns={"Value": "Value"})
-
-    # Detect Year/Month style long formats and create a fractional time column
-    if "Year" in df.columns and "Month" in df.columns:
-        def to_frac_year(r):
-            try:
-                y = float(r["Year"])
-                m = r["Month"]
-                if isinstance(m, str):
-                    m_l = m.strip().lower()
-                    mnum = month_name_map.get(m_l[:3], None)
-                    if mnum is None:
-                        try:
+            df = melted.drop(columns=["MonthCol", "MonthRaw"]).rename(columns={"Value": "Value"})
                             mnum = int(m)
                         except Exception:
                             mnum = 1
@@ -1329,7 +1357,7 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame]) -> Dict[str, Any]:
     return parsed
 
 
-def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame]) -> Dict[str, Any]:
+def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optional[int] = None, month_label_relative: bool = False) -> Dict[str, Any]:
     """Parse Ecosim fishing DataFrame into structured time x gear matrices.
 
     Detects a time column and a gear identifier column (Gear, GearID, Fleet).
@@ -1467,7 +1495,7 @@ def _to_absolute_years(times: list, start_year: Optional[int]) -> list:
     return [base + t for t in times_f]
 
 
-def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], num_years: Optional[int]) -> Dict[str, Any]:
+def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], num_years: Optional[int], start_month: int = 1, use_actual_month_lengths: bool = False) -> Dict[str, Any]:
     """Resample parsed time series to monthly time steps (years fractional).
 
     Returns dict containing '_monthly_times' (array of year.fraction) and
@@ -1540,7 +1568,7 @@ def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], n
     return result
 
 
-def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: Optional[int], num_years: Optional[int]) -> Dict[str, Any]:
+def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: Optional[int], num_years: Optional[int], start_month: int = 1, use_actual_month_lengths: bool = False) -> Dict[str, Any]:
     """Resample fishing pivot tables (DataFrame per variable) to monthly.
 
     Returns dict with '_monthly_times' and for each pivot a DataFrame indexed by months.
@@ -1554,7 +1582,21 @@ def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: O
         return result
 
     months = int(num_years * 12)
-    monthly_years = _np.array([float(start_year) + m / 12.0 for m in range(months)])
+    monthly_years = []
+    for m in range(months):
+        rel = (start_month - 1 + m) % 12 + 1
+        year_offset = (start_month - 1 + m) // 12
+        y = float(start_year + year_offset)
+        if use_actual_month_lengths:
+            import calendar as _cal
+            days_in_year = 366 if _cal.isleap(int(y)) else 365
+            month_mid = (1 + _cal.monthrange(int(y), rel)[1]) // 2
+            day_of_year = sum(_cal.monthrange(int(y), mm)[1] for mm in range(1, rel)) + month_mid
+            frac = (day_of_year - 1) / float(days_in_year)
+            monthly_years.append(y + frac)
+        else:
+            monthly_years.append(y + (rel - 1) / 12.0)
+    monthly_years = _np.array(monthly_years)
     times = fishing_ts["_times"]
     times_abs = _to_absolute_years(times, start_year)
 

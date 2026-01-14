@@ -325,6 +325,91 @@ class TestReadEwemdb:
             assert abs(float(fm.iloc[0]["Fish"]) - 1.0) < 1e-8
             assert abs(float(fm.iloc[-1]["Fish"]) - 2.1) < 1e-8
 
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_forcing_localized_month_names(self, mock_read_table):
+        """Test parsing month names in French/Spanish variants (localized month names)."""
+        groups_df = pd.DataFrame({"GroupID": [1], "GroupName": ["Fish"], "Type": [0], "Biomass": [2.0], "PB": [1.5], "QB": [5.0], "EE": [0.80]})
+        ecosim_df = pd.DataFrame({"ScenarioID": [1], "ScenarioName": ["LocalizedMonths"], "StartYear": [2000], "EndYear": [2000], "NumYears": [1]})
+        # French month abbreviations: Janv, Fev, Mar, etc.
+        forcing_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Parameter": ["ForcedPrey"], "Fish": [None], "Janv": [1.0], "Fev": [1.1], "Mar": [1.2], "Avr": [1.3], "Mai": [1.4], "Juin": [1.5], "Juil": [1.6], "Aou": [1.7], "Sep": [1.8], "Oct": [1.9], "Nov": [2.0], "Dec": [2.1]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings", "EcosimForcingTable"]:
+                return forcing_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            params = read_ewemdb(temp_path, include_ecosim=True)
+            sc = params.ecosim["scenarios"][0]
+            fm = sc["forcing_monthly"]["ForcedPrey"]
+            assert fm.shape[0] == 12
+            assert abs(float(fm.iloc[0]["Fish"]) - 1.0) < 1e-8
+            assert abs(float(fm.iloc[1]["Fish"]) - 1.1) < 1e-8
+        finally:
+            os.unlink(temp_path)
+
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_forcing_start_month_relative(self, mock_read_table):
+        """Test that M1..M12 labels are interpreted relative to scenario StartMonth."""
+        groups_df = pd.DataFrame({"GroupID": [1], "GroupName": ["Fish"], "Type": [0], "Biomass": [2.0], "PB": [1.5], "QB": [5.0], "EE": [0.80]})
+        # Set StartMonth to 4 (April)
+        ecosim_df = pd.DataFrame({"ScenarioID": [1], "ScenarioName": ["StartMonthRel"], "StartYear": [2000], "EndYear": [2000], "NumYears": [1], "StartMonth": [4]})
+        # M1..M12 where M1 corresponds to April
+        forcing_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Parameter": ["ForcedPrey"], "M1": [4.0], "M2": [5.0], "M3": [6.0], "M4": [7.0], "M5": [8.0], "M6": [9.0], "M7": [10.0], "M8": [11.0], "M9": [12.0], "M10": [13.0], "M11": [14.0], "M12": [15.0]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings", "EcosimForcingTable"]:
+                return forcing_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            params = read_ewemdb(temp_path, include_ecosim=True)
+            sc = params.ecosim["scenarios"][0]
+            fm = sc["forcing_monthly"]["ForcedPrey"]
+            # M1 -> April => month index 0 should be April value 4.0
+            assert abs(float(fm.iloc[0]["Fish"]) - 4.0) < 1e-8
+            # M12 -> March => last month should be 15.0
+            assert abs(float(fm.iloc[-1]["Fish"]) - 15.0) < 1e-8
+        finally:
+            os.unlink(temp_path)
+
+    def test_resample_actual_month_lengths_leap_year(self):
+        """Test resampling with actual month lengths across a leap year"""
+        from pypath.io.ewemdb import _resample_to_monthly
+        import numpy as _np
+        # Construct parsed_ts with times 1999 and 2000 and a simple series
+        parsed = {"_times": [1999.0, 2000.0], "Value": _np.array([1.0, 2.0])}
+        res_actual = _resample_to_monthly(parsed, 1999, 2, start_month=1, use_actual_month_lengths=True)
+        res_simple = _resample_to_monthly(parsed, 1999, 2, start_month=1, use_actual_month_lengths=False)
+        # both should have 24 months
+        assert len(res_actual["Value"]) == 24
+        assert len(res_simple["Value"]) == 24
+        # Feb 2000 positions should differ between methods due to leap year day counts
+        # find index of Feb 2000 in monthly times
+        feb2000_idx = list(res_actual["_monthly_times"]).index(2000.0833333333333) if 2000.0833333333333 in list(res_actual["_monthly_times"]) else None
+        # Best-effort check: ensure arrays not identical
+        assert not all(_np.isclose(res_actual["Value"], res_simple["Value"]))
+
             # Test missing months interpolation: Feb was NaN -> should be interpolated to 2.0
             # Build a simple wide monthly forcing where Feb is missing
             forcing_df2 = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Parameter": ["ForcedPrey"], "Fish": [None], "Jan": [1.0], "Feb": [None], "Mar": [3.0], "Apr": [4.0], "May": [5.0], "Jun": [6.0], "Jul": [7.0], "Aug": [8.0], "Sep": [9.0], "Oct": [10.0], "Nov": [11.0], "Dec": [12.0]})
