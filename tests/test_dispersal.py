@@ -9,14 +9,14 @@ from pypath.spatial import (
     create_1d_grid,
     create_regular_grid,
     EcospaceParams,
-    ExternalFluxTimeseries
+    ExternalFluxTimeseries,
 )
 from pypath.spatial.dispersal import (
     diffusion_flux,
     habitat_advection,
     calculate_spatial_flux,
     validate_flux_conservation,
-    apply_flux_limiter
+    apply_flux_limiter,
 )
 
 
@@ -32,10 +32,7 @@ class TestDiffusionFlux:
 
         # Calculate diffusion
         flux = diffusion_flux(
-            biomass,
-            dispersal_rate=1.0,
-            grid=grid,
-            adjacency=grid.adjacency_matrix
+            biomass, dispersal_rate=1.0, grid=grid, adjacency=grid.adjacency_matrix
         )
 
         # Middle patch should gain (inflow)
@@ -57,10 +54,7 @@ class TestDiffusionFlux:
         biomass = np.random.uniform(1, 10, size=10)
 
         flux = diffusion_flux(
-            biomass,
-            dispersal_rate=2.0,
-            grid=grid,
-            adjacency=grid.adjacency_matrix
+            biomass, dispersal_rate=2.0, grid=grid, adjacency=grid.adjacency_matrix
         )
 
         # Total flux should be zero
@@ -74,10 +68,7 @@ class TestDiffusionFlux:
         biomass = np.ones(5) * 10.0
 
         flux = diffusion_flux(
-            biomass,
-            dispersal_rate=1.0,
-            grid=grid,
-            adjacency=grid.adjacency_matrix
+            biomass, dispersal_rate=1.0, grid=grid, adjacency=grid.adjacency_matrix
         )
 
         # No gradient -> no flux
@@ -91,10 +82,7 @@ class TestDiffusionFlux:
         biomass = np.array([10.0, 1.0, 1.0, 1.0])
 
         flux = diffusion_flux(
-            biomass,
-            dispersal_rate=1.0,
-            grid=grid,
-            adjacency=grid.adjacency_matrix
+            biomass, dispersal_rate=1.0, grid=grid, adjacency=grid.adjacency_matrix
         )
 
         # High biomass patch loses
@@ -125,7 +113,7 @@ class TestHabitatAdvection:
             habitat_preference=habitat,
             gravity_strength=0.5,
             grid=grid,
-            adjacency=grid.adjacency_matrix
+            adjacency=grid.adjacency_matrix,
         )
 
         # Should move toward patch 2 (best habitat)
@@ -146,7 +134,7 @@ class TestHabitatAdvection:
             habitat_preference=habitat,
             gravity_strength=0.5,
             grid=grid,
-            adjacency=grid.adjacency_matrix
+            adjacency=grid.adjacency_matrix,
         )
 
         # No habitat gradient -> no movement
@@ -161,14 +149,20 @@ class TestHabitatAdvection:
 
         # Low gravity strength
         flux_low = habitat_advection(
-            biomass, habitat, gravity_strength=0.1,
-            grid=grid, adjacency=grid.adjacency_matrix
+            biomass,
+            habitat,
+            gravity_strength=0.1,
+            grid=grid,
+            adjacency=grid.adjacency_matrix,
         )
 
         # High gravity strength
         flux_high = habitat_advection(
-            biomass, habitat, gravity_strength=0.9,
-            grid=grid, adjacency=grid.adjacency_matrix
+            biomass,
+            habitat,
+            gravity_strength=0.9,
+            grid=grid,
+            adjacency=grid.adjacency_matrix,
         )
 
         # Higher gravity -> larger movement
@@ -184,10 +178,9 @@ class TestSpatialFluxCalculation:
         n_groups = 2
 
         # State: [n_groups+1, n_patches]
-        state = np.array([
-            [0, 0, 0],  # Group 0 (Outside)
-            [10, 5, 10]  # Group 1 (gradient)
-        ])
+        state = np.array(
+            [[0, 0, 0], [10, 5, 10]]  # Group 0 (Outside)  # Group 1 (gradient)
+        )
 
         # Parameters: diffusion only (no advection)
         ecospace = EcospaceParams(
@@ -196,7 +189,7 @@ class TestSpatialFluxCalculation:
             habitat_capacity=np.ones((n_groups, grid.n_patches)),
             dispersal_rate=np.array([0, 2.0], dtype=float),
             advection_enabled=np.array([False, False]),
-            gravity_strength=np.array([0, 0], dtype=float)
+            gravity_strength=np.array([0, 0], dtype=float),
         )
 
         flux = calculate_spatial_flux(state, ecospace, {}, t=0.0)
@@ -212,10 +205,7 @@ class TestSpatialFluxCalculation:
         grid = create_1d_grid(n_patches=3)
         n_groups = 2
 
-        state = np.array([
-            [0, 0, 0],
-            [10, 5, 10]
-        ])
+        state = np.array([[0, 0, 0], [10, 5, 10]])
 
         # Create external flux for group 1
         flux_data = np.zeros((1, 1, 3, 3))
@@ -225,7 +215,7 @@ class TestSpatialFluxCalculation:
         external_flux = ExternalFluxTimeseries(
             flux_data=flux_data,
             times=np.array([0.0]),
-            group_indices=np.array([1])  # Group 1 uses external
+            group_indices=np.array([1]),  # Group 1 uses external
         )
 
         ecospace = EcospaceParams(
@@ -235,7 +225,7 @@ class TestSpatialFluxCalculation:
             dispersal_rate=np.array([0, 10.0], dtype=float),  # Model dispersal
             advection_enabled=np.array([False, False]),
             gravity_strength=np.array([0, 0], dtype=float),
-            external_flux=external_flux
+            external_flux=external_flux,
         )
 
         flux = calculate_spatial_flux(state, ecospace, {}, t=0.0)
@@ -261,17 +251,11 @@ class TestFluxValidation:
     def test_validate_conservation_2d(self):
         """Test flux conservation validation for 2D array."""
         # Both groups conserved
-        flux_conserved = np.array([
-            [1.0, -0.5, -0.5],
-            [0.5, -0.2, -0.3]
-        ])
+        flux_conserved = np.array([[1.0, -0.5, -0.5], [0.5, -0.2, -0.3]])
         assert validate_flux_conservation(flux_conserved)
 
         # Group 1 not conserved
-        flux_not_conserved = np.array([
-            [1.0, -0.5, -0.5],
-            [1.0, 1.0, 1.0]
-        ])
+        flux_not_conserved = np.array([[1.0, -0.5, -0.5], [1.0, 1.0, 1.0]])
         assert not validate_flux_conservation(flux_not_conserved)
 
     def test_flux_limiter_prevents_negative(self):
