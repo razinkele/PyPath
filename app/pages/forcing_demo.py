@@ -16,7 +16,7 @@ from pypath.core.forcing import (
     create_recruitment_forcing,
     StateForcing,
     StateVariable,
-    ForcingMode
+    ForcingMode,
 )
 
 # Configuration imports
@@ -39,9 +39,9 @@ def forcing_demo_ui():
                         "biomass": "Biomass Forcing",
                         "recruitment": "Recruitment Forcing",
                         "fishing": "Fishing Mortality",
-                        "primary_production": "Primary Production"
+                        "primary_production": "Primary Production",
                     },
-                    selected="biomass"
+                    selected="biomass",
                 ),
                 ui.input_select(
                     "forcing_mode",
@@ -50,17 +50,11 @@ def forcing_demo_ui():
                         "replace": "REPLACE - Override computed value",
                         "add": "ADD - Add to computed value",
                         "multiply": "MULTIPLY - Multiply computed value",
-                        "rescale": "RESCALE - Rescale to target"
+                        "rescale": "RESCALE - Rescale to target",
                     },
-                    selected="replace"
+                    selected="replace",
                 ),
-                ui.input_numeric(
-                    "group_idx",
-                    "Group Index",
-                    value=0,
-                    min=0,
-                    max=20
-                ),
+                ui.input_numeric("group_idx", "Group Index", value=0, min=0, max=20),
                 ui.hr(),
                 ui.h5("Time Series Pattern"),
                 ui.input_select(
@@ -71,9 +65,9 @@ def forcing_demo_ui():
                         "trend": "Linear Trend",
                         "pulse": "Recruitment Pulses",
                         "step": "Step Change",
-                        "custom": "Custom Values"
+                        "custom": "Custom Values",
                     },
-                    selected="seasonal"
+                    selected="seasonal",
                 ),
                 ui.panel_conditional(
                     "input.pattern_type === 'seasonal'",
@@ -83,30 +77,20 @@ def forcing_demo_ui():
                         min=0.1,
                         max=PARAM_RANGES.seasonal_amplitude_max,
                         value=0.5,
-                        step=0.1
+                        step=0.1,
                     ),
                     ui.input_numeric(
                         "seasonal_baseline",
                         "Baseline Value",
                         value=PARAM_RANGES.seasonal_baseline_default,
                         min=0.1,
-                        step=0.5
-                    )
+                        step=0.5,
+                    ),
                 ),
                 ui.panel_conditional(
                     "input.pattern_type === 'trend'",
-                    ui.input_numeric(
-                        "trend_start",
-                        "Start Value",
-                        value=10.0,
-                        min=0.1
-                    ),
-                    ui.input_numeric(
-                        "trend_end",
-                        "End Value",
-                        value=20.0,
-                        min=0.1
-                    )
+                    ui.input_numeric("trend_start", "Start Value", value=10.0, min=0.1),
+                    ui.input_numeric("trend_end", "End Value", value=20.0, min=0.1),
                 ),
                 ui.panel_conditional(
                     "input.pattern_type === 'pulse'",
@@ -116,21 +100,19 @@ def forcing_demo_ui():
                         min=PARAM_RANGES.pulse_strength_min,
                         max=PARAM_RANGES.pulse_strength_max,
                         value=PARAM_RANGES.pulse_strength_default,
-                        step=0.1
-                    )
+                        step=0.1,
+                    ),
                 ),
                 ui.hr(),
                 ui.input_action_button(
-                    "generate_forcing",
-                    "Generate Forcing",
-                    class_="btn-primary w-100"
+                    "generate_forcing", "Generate Forcing", class_="btn-primary w-100"
                 ),
                 ui.input_action_button(
                     "forcing_run_demo",
                     "Run Demo Simulation",
-                    class_="btn-success w-100 mt-2"
+                    class_="btn-success w-100 mt-2",
                 ),
-                width=300
+                width=300,
             ),
             # Main content
             ui.navset_tab(
@@ -139,36 +121,44 @@ def forcing_demo_ui():
                     ui.card(
                         ui.card_header("Forced Values Over Time"),
                         ui.output_ui("forcing_plot"),
-                        ui.output_text_verbatim("forcing_summary")
-                    )
+                        ui.output_text_verbatim("forcing_summary"),
+                    ),
                 ),
                 ui.nav_panel(
                     "Simulation Comparison",
                     ui.card(
                         ui.card_header("Effect of Forcing on Simulation"),
                         ui.output_ui("forcing_comparison_plot"),
-                        ui.markdown("""
+                        ui.markdown(
+                            """
                         **Blue**: Standard simulation (no forcing)
 
                         **Red**: Simulation with forcing applied
 
                         **Forcing Effect**: Shows how forcing modifies the baseline simulation
-                        """)
-                    )
+                        """
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Code Example",
                     ui.card(
                         ui.card_header("Python Code for This Configuration"),
                         ui.output_code("forcing_code_example"),
-                        ui.download_button("forcing_download_code", "Download Code", class_="mt-2")
-                    )
+                        ui.download_button(
+                            "forcing_download_code", "Download Code", class_="mt-2"
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Use Cases",
                     ui.card(
-                        ui.card_header(ui.tags.i(class_="bi bi-lightbulb me-2"), "State-Variable Forcing Use Cases"),
-                        ui.markdown("""
+                        ui.card_header(
+                            ui.tags.i(class_="bi bi-lightbulb me-2"),
+                            "State-Variable Forcing Use Cases",
+                        ),
+                        ui.markdown(
+                            """
                         ## What is State-Variable Forcing?
 
                         State-variable forcing allows you to **override computed values** with observed
@@ -299,10 +289,11 @@ def forcing_demo_ui():
 
                         State-variable forcing has **minimal computational overhead** (~1%),
                         making it suitable for production use.
-                        """)
-                    )
-                )
-            )
+                        """
+                        ),
+                    ),
+                ),
+            ),
         )
     )
 
@@ -340,7 +331,7 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
             # Add pulses every 5 years
             for year in [2005, 2010, 2015]:
                 idx = np.argmin(np.abs(years - year))
-                values[max(0, idx-6):min(len(values), idx+6)] = strength
+                values[max(0, idx - 6) : min(len(values), idx + 6)] = strength
 
         elif pattern_type == "step":
             values = np.ones(len(years)) * 10.0
@@ -351,7 +342,7 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
             values = np.ones(len(years)) * 15.0
 
         # Store data
-        df = pd.DataFrame({'Year': years, 'Value': values})
+        df = pd.DataFrame({"Year": years, "Value": values})
         time_series_data.set(df)
 
         # Create forcing object
@@ -365,14 +356,14 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
                 observed_biomass=values,
                 years=years,
                 mode=mode,
-                interpolate=True
+                interpolate=True,
             )
         elif forcing_type == "recruitment":
             forcing = create_recruitment_forcing(
                 group_idx=group_idx,
                 recruitment_multiplier=values,
                 years=years,
-                interpolate=(pattern_type != "pulse")
+                interpolate=(pattern_type != "pulse"),
             )
         else:
             forcing = StateForcing()
@@ -383,7 +374,7 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
                 time_series=values,
                 years=years,
                 mode=mode,
-                interpolate=True
+                interpolate=True,
             )
 
         forcing_obj.set(forcing)
@@ -395,27 +386,31 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
         df = time_series_data()
         if df is None:
             return ui.div(
-                ui.tags.p("Click 'Generate Forcing' to create forcing time series",
-                         class_="text-muted text-center p-5")
+                ui.tags.p(
+                    "Click 'Generate Forcing' to create forcing time series",
+                    class_="text-muted text-center p-5",
+                )
             )
 
         fig = go.Figure()
 
-        fig.add_trace(go.Scatter(
-            x=df['Year'],
-            y=df['Value'],
-            mode='lines',
-            name='Forced Values',
-            line=dict(color='#E63946', width=3)
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=df["Year"],
+                y=df["Value"],
+                mode="lines",
+                name="Forced Values",
+                line=dict(color="#E63946", width=3),
+            )
+        )
 
         fig.update_layout(
             xaxis_title="Year",
             yaxis_title="Forced Value",
-            template='plotly_white',
+            template="plotly_white",
             height=400,
             showlegend=True,
-            hovermode='x unified'
+            hovermode="x unified",
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
@@ -458,32 +453,37 @@ Data Points: {len(df)}
         df = time_series_data()
         if df is None:
             return ui.div(
-                ui.tags.p("Generate forcing first, then run demo simulation",
-                         class_="text-muted text-center p-5")
+                ui.tags.p(
+                    "Generate forcing first, then run demo simulation",
+                    class_="text-muted text-center p-5",
+                )
             )
 
         # Simulate baseline (simple exponential)
-        years = df['Year'].values
+        years = df["Year"].values
         baseline = 10.0 * np.exp(0.01 * (years - years[0]))
 
         # Apply forcing
-        forced = df['Value'].values
+        forced = df["Value"].values
 
         fig = make_subplots(
-            rows=2, cols=1,
-            subplot_titles=('Biomass Comparison', 'Forcing Effect'),
-            row_heights=[0.6, 0.4]
+            rows=2,
+            cols=1,
+            subplot_titles=("Biomass Comparison", "Forcing Effect"),
+            row_heights=[0.6, 0.4],
         )
 
         # Baseline simulation
         fig.add_trace(
             go.Scatter(
-                x=years, y=baseline,
-                mode='lines',
-                name='Without Forcing',
-                line=dict(color='#1D3557', width=2)
+                x=years,
+                y=baseline,
+                mode="lines",
+                name="Without Forcing",
+                line=dict(color="#1D3557", width=2),
             ),
-            row=1, col=1
+            row=1,
+            col=1,
         )
 
         # Forced simulation (for REPLACE mode, this is the forced values)
@@ -499,25 +499,29 @@ Data Points: {len(df)}
 
         fig.add_trace(
             go.Scatter(
-                x=years, y=forced_sim,
-                mode='lines',
-                name='With Forcing',
-                line=dict(color='#E63946', width=2)
+                x=years,
+                y=forced_sim,
+                mode="lines",
+                name="With Forcing",
+                line=dict(color="#E63946", width=2),
             ),
-            row=1, col=1
+            row=1,
+            col=1,
         )
 
         # Effect of forcing
         effect = forced_sim - baseline
         fig.add_trace(
             go.Scatter(
-                x=years, y=effect,
-                mode='lines',
-                name='Forcing Effect',
-                fill='tozeroy',
-                line=dict(color='#2A9D8F', width=2)
+                x=years,
+                y=effect,
+                mode="lines",
+                name="Forcing Effect",
+                fill="tozeroy",
+                line=dict(color="#2A9D8F", width=2),
             ),
-            row=2, col=1
+            row=2,
+            col=1,
         )
 
         fig.update_xaxes(title_text="Year", row=2, col=1)
@@ -525,10 +529,7 @@ Data Points: {len(df)}
         fig.update_yaxes(title_text="Effect", row=2, col=1)
 
         fig.update_layout(
-            height=600,
-            template='plotly_white',
-            showlegend=True,
-            hovermode='x unified'
+            height=600, template="plotly_white", showlegend=True, hovermode="x unified"
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
