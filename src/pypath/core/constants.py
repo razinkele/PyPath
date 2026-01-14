@@ -176,4 +176,4 @@ DEFAULT_PULSE_STRENGTH = 2.5
 SUBPROCESS_TIMEOUT_SECONDS = 30  # Timeout for external commands
 
 # Database file extensions
-VALID_DB_EXTENSIONS = ['.ewemdb', '.mdb', '.accdb']
+VALID_DB_EXTENSIONS = [".ewemdb", ".mdb", ".accdb"]
