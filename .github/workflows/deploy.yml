@@ -1,0 +1,81 @@
+name: Deploy to Shiny Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      restart:
+        description: 'Restart Shiny Server after deploy (true/false)'
+        required: false
+        default: 'false'
+      path:
+        description: 'Optional override of remote deploy path'
+        required: false
+        default: ''
+  push:
+    branches: [ main ]
+    tags: ['v*']
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy (manual or push to main/tag)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add deploy host to known_hosts
+        run: |
+          set -e
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "DEPLOY_HOST secret is not set. Aborting." >&2
+            exit 2
+          fi
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Determine target path
+        id: target
+        run: |
+          if [ -n "${{ github.event.inputs.path }}" ]; then
+            echo "path=${{ github.event.inputs.path }}" >> $GITHUB_OUTPUT
+          else
+            echo "path=${{ secrets.DEPLOY_PATH }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Show deploy info
+        run: |
+          echo "Deploying to ${DEPLOY_USER}@${DEPLOY_HOST}:${{ steps.target.outputs.path }}"
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+
+      - name: Rsync deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -e
+          TARGET="${{ steps.target.outputs.path }}"
+          echo "Rsync to $TARGET"
+          rsync -avz --delete --exclude '.git' --exclude '.github' --exclude 'tests' --exclude 'venv' --exclude 'env' --exclude '__pycache__' ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$TARGET"
+
+      - name: Optional restart of Shiny Server
+        if: ${{ github.event.inputs.restart == 'true' || secrets.RESTART_AFTER_DEPLOY == 'true' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          echo "Restarting Shiny Server on ${DEPLOY_HOST} (may require sudo)"
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "sudo systemctl restart shiny-server || sudo service shiny-server restart || true"
+
+      - name: Done
+        run: echo "Deploy completed."
