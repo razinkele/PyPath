@@ -3,6 +3,7 @@
 These tests intentionally import `app.app` and `app.logger` to ensure the
 package is importable in different execution contexts (package vs script).
 """
+
 from pathlib import Path
 import importlib
 import sys
