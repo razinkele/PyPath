@@ -55,18 +55,18 @@ def create_coastal_ecosystem_model():
 
     # Define groups
     groups = [
-        'Phytoplankton',
-        'Macroalgae',
-        'Zooplankton',
-        'Meiobenthos',
-        'Benthic invertebrates',
-        'Small pelagics (juv)',
-        'Small pelagics (adult)',
-        'Demersal fish',
-        'Large pelagics',
-        'Seabirds',
-        'Detritus',
-        'Discards'
+        "Phytoplankton",
+        "Macroalgae",
+        "Zooplankton",
+        "Meiobenthos",
+        "Benthic invertebrates",
+        "Small pelagics (juv)",
+        "Small pelagics (adult)",
+        "Demersal fish",
+        "Large pelagics",
+        "Seabirds",
+        "Detritus",
+        "Discards",
     ]
 
     # Define types
@@ -84,90 +84,92 @@ def create_coastal_ecosystem_model():
     print("\n2. Setting basic parameters")
 
     # Biomass (t/km²)
-    params.model['Biomass'] = [
-        20.0,   # Phytoplankton - high turnover
-        5.0,    # Macroalgae
-        8.0,    # Zooplankton
-        2.0,    # Meiobenthos
-        5.0,    # Benthic invertebrates
-        0.5,    # Small pelagics (juv) - will be calculated by stanza
-        2.0,    # Small pelagics (adult) - will be calculated by stanza
-        1.5,    # Demersal fish
-        0.8,    # Large pelagics
-        0.05,   # Seabirds - top predator
-        10.0,   # Detritus
-        0.5     # Discards
+    params.model["Biomass"] = [
+        20.0,  # Phytoplankton - high turnover
+        5.0,  # Macroalgae
+        8.0,  # Zooplankton
+        2.0,  # Meiobenthos
+        5.0,  # Benthic invertebrates
+        0.5,  # Small pelagics (juv) - will be calculated by stanza
+        2.0,  # Small pelagics (adult) - will be calculated by stanza
+        1.5,  # Demersal fish
+        0.8,  # Large pelagics
+        0.05,  # Seabirds - top predator
+        10.0,  # Detritus
+        0.5,  # Discards
     ]
 
     # Production/Biomass (per year)
-    params.model['PB'] = [
+    params.model["PB"] = [
         150.0,  # Phytoplankton - very high turnover
-        12.0,   # Macroalgae
-        35.0,   # Zooplankton
-        8.0,    # Meiobenthos
-        2.5,    # Benthic invertebrates
-        1.8,    # Small pelagics (juv) - will be adjusted by stanza
-        0.6,    # Small pelagics (adult) - will be adjusted by stanza
-        0.5,    # Demersal fish
-        0.4,    # Large pelagics
-        0.1,    # Seabirds
-        0.0,    # Detritus
-        0.0     # Discards
+        12.0,  # Macroalgae
+        35.0,  # Zooplankton
+        8.0,  # Meiobenthos
+        2.5,  # Benthic invertebrates
+        1.8,  # Small pelagics (juv) - will be adjusted by stanza
+        0.6,  # Small pelagics (adult) - will be adjusted by stanza
+        0.5,  # Demersal fish
+        0.4,  # Large pelagics
+        0.1,  # Seabirds
+        0.0,  # Detritus
+        0.0,  # Discards
     ]
 
     # Consumption/Biomass (per year)
-    params.model['QB'] = [
-        0.0,    # Phytoplankton - producer
-        0.0,    # Macroalgae - producer
-        80.0,   # Zooplankton
-        20.0,   # Meiobenthos
-        8.0,    # Benthic invertebrates
-        6.0,    # Small pelagics (juv)
-        4.0,    # Small pelagics (adult)
-        3.0,    # Demersal fish
-        3.5,    # Large pelagics
-        50.0,   # Seabirds - high metabolism
-        0.0,    # Detritus
-        0.0     # Discards
+    params.model["QB"] = [
+        0.0,  # Phytoplankton - producer
+        0.0,  # Macroalgae - producer
+        80.0,  # Zooplankton
+        20.0,  # Meiobenthos
+        8.0,  # Benthic invertebrates
+        6.0,  # Small pelagics (juv)
+        4.0,  # Small pelagics (adult)
+        3.0,  # Demersal fish
+        3.5,  # Large pelagics
+        50.0,  # Seabirds - high metabolism
+        0.0,  # Detritus
+        0.0,  # Discards
     ]
 
     # Ecotrophic Efficiency (estimated, will be calculated)
-    params.model['EE'] = [
-        0.90,   # Phytoplankton
-        0.50,   # Macroalgae
-        0.85,   # Zooplankton
-        0.75,   # Meiobenthos
-        0.70,   # Benthic invertebrates
-        0.80,   # Small pelagics (juv)
-        0.75,   # Small pelagics (adult)
-        0.60,   # Demersal fish
-        0.50,   # Large pelagics
-        0.01,   # Seabirds - top predator
-        0.90,   # Detritus
-        0.95    # Discards
+    params.model["EE"] = [
+        0.90,  # Phytoplankton
+        0.50,  # Macroalgae
+        0.85,  # Zooplankton
+        0.75,  # Meiobenthos
+        0.70,  # Benthic invertebrates
+        0.80,  # Small pelagics (juv)
+        0.75,  # Small pelagics (adult)
+        0.60,  # Demersal fish
+        0.50,  # Large pelagics
+        0.01,  # Seabirds - top predator
+        0.90,  # Detritus
+        0.95,  # Discards
     ]
 
     # Biomass accumulation (usually 0)
-    params.model['BioAcc'] = [0.0] * 12
+    params.model["BioAcc"] = [0.0] * 12
 
     # Unassimilated consumption (fraction)
-    params.model['Unassim'] = [
-        0.0,    # Phytoplankton
-        0.0,    # Macroalgae
-        0.3,    # Zooplankton
-        0.2,    # Meiobenthos
-        0.2,    # Benthic invertebrates
-        0.2,    # Small pelagics (juv)
-        0.2,    # Small pelagics (adult)
-        0.2,    # Demersal fish
-        0.15,   # Large pelagics
-        0.1,    # Seabirds
-        0.0,    # Detritus
-        0.0     # Discards
+    params.model["Unassim"] = [
+        0.0,  # Phytoplankton
+        0.0,  # Macroalgae
+        0.3,  # Zooplankton
+        0.2,  # Meiobenthos
+        0.2,  # Benthic invertebrates
+        0.2,  # Small pelagics (juv)
+        0.2,  # Small pelagics (adult)
+        0.2,  # Demersal fish
+        0.15,  # Large pelagics
+        0.1,  # Seabirds
+        0.0,  # Detritus
+        0.0,  # Discards
     ]
 
     print(f"   Set biomass for {len(groups)} groups")
-    print(f"   Primary production: {params.model['Biomass'][0] * params.model['PB'][0]:.1f} t/km²/year")
+    print(
+        f"   Primary production: {params.model['Biomass'][0] * params.model['PB'][0]:.1f} t/km²/year"
+    )
 
     # ==========================================
     # 3. DEFINE DIET MATRIX
@@ -178,64 +180,64 @@ def create_coastal_ecosystem_model():
     # Columns: Outside, Phyto, Macro, Zoo, Meio, Bent, SmallJuv, SmallAdult, Demersal, LargePel, Birds, Det, Disc
 
     diet_data = {
-        'Outside': [0.0] * 12,
-        'Phytoplankton': [
+        "Outside": [0.0] * 12,
+        "Phytoplankton": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
-            0.90, # Zooplankton - mainly phytoplankton
-            0.10, # Meiobenthos - some phytoplankton
-            0.05, # Benthic invertebrates
-            0.30, # Small pelagics (juv) - planktivores
-            0.20, # Small pelagics (adult)
+            0.90,  # Zooplankton - mainly phytoplankton
+            0.10,  # Meiobenthos - some phytoplankton
+            0.05,  # Benthic invertebrates
+            0.30,  # Small pelagics (juv) - planktivores
+            0.20,  # Small pelagics (adult)
             0.0,  # Demersal fish
             0.0,  # Large pelagics
             0.0,  # Seabirds
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Macroalgae': [
+        "Macroalgae": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
             0.0,  # Meiobenthos
-            0.20, # Benthic invertebrates - grazers
+            0.20,  # Benthic invertebrates - grazers
             0.0,  # Small pelagics (juv)
             0.0,  # Small pelagics (adult)
             0.0,  # Demersal fish
             0.0,  # Large pelagics
             0.0,  # Seabirds
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Zooplankton': [
+        "Zooplankton": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
             0.0,  # Meiobenthos
             0.0,  # Benthic invertebrates
-            0.50, # Small pelagics (juv) - zooplanktivores
-            0.40, # Small pelagics (adult)
-            0.10, # Demersal fish - some zooplankton
-            0.20, # Large pelagics
+            0.50,  # Small pelagics (juv) - zooplanktivores
+            0.40,  # Small pelagics (adult)
+            0.10,  # Demersal fish - some zooplankton
+            0.20,  # Large pelagics
             0.0,  # Seabirds
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Meiobenthos': [
+        "Meiobenthos": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
             0.0,  # Meiobenthos
-            0.15, # Benthic invertebrates
+            0.15,  # Benthic invertebrates
             0.0,  # Small pelagics (juv)
-            0.05, # Small pelagics (adult)
-            0.20, # Demersal fish - benthic feeders
+            0.05,  # Small pelagics (adult)
+            0.20,  # Demersal fish - benthic feeders
             0.0,  # Large pelagics
             0.0,  # Seabirds
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Benthic invertebrates': [
+        "Benthic invertebrates": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
@@ -243,41 +245,27 @@ def create_coastal_ecosystem_model():
             0.0,  # Benthic invertebrates
             0.0,  # Small pelagics (juv)
             0.0,  # Small pelagics (adult)
-            0.30, # Demersal fish - major prey
-            0.10, # Large pelagics
-            0.10, # Seabirds - coastal feeders
+            0.30,  # Demersal fish - major prey
+            0.10,  # Large pelagics
+            0.10,  # Seabirds - coastal feeders
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Small pelagics (juv)': [
+        "Small pelagics (juv)": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
             0.0,  # Meiobenthos
             0.0,  # Benthic invertebrates
             0.0,  # Small pelagics (juv)
-            0.05, # Small pelagics (adult) - cannibalism
-            0.10, # Demersal fish
-            0.20, # Large pelagics - prey on juveniles
-            0.30, # Seabirds - important prey
+            0.05,  # Small pelagics (adult) - cannibalism
+            0.10,  # Demersal fish
+            0.20,  # Large pelagics - prey on juveniles
+            0.30,  # Seabirds - important prey
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Small pelagics (adult)': [
-            0.0,  # Phytoplankton
-            0.0,  # Macroalgae
-            0.0,  # Zooplankton
-            0.0,  # Meiobenthos
-            0.0,  # Benthic invertebrates
-            0.0,  # Small pelagics (juv)
-            0.0,  # Small pelagics (adult)
-            0.10, # Demersal fish
-            0.30, # Large pelagics - main prey
-            0.50, # Seabirds - important prey
-            0.0,  # Detritus
-            0.0   # Discards
-        ],
-        'Demersal fish': [
+        "Small pelagics (adult)": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
@@ -285,13 +273,13 @@ def create_coastal_ecosystem_model():
             0.0,  # Benthic invertebrates
             0.0,  # Small pelagics (juv)
             0.0,  # Small pelagics (adult)
-            0.0,  # Demersal fish
-            0.10, # Large pelagics
-            0.10, # Seabirds
+            0.10,  # Demersal fish
+            0.30,  # Large pelagics - main prey
+            0.50,  # Seabirds - important prey
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Large pelagics': [
+        "Demersal fish": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
@@ -300,12 +288,12 @@ def create_coastal_ecosystem_model():
             0.0,  # Small pelagics (juv)
             0.0,  # Small pelagics (adult)
             0.0,  # Demersal fish
-            0.0,  # Large pelagics
-            0.0,  # Seabirds
+            0.10,  # Large pelagics
+            0.10,  # Seabirds
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Seabirds': [
+        "Large pelagics": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
@@ -317,41 +305,55 @@ def create_coastal_ecosystem_model():
             0.0,  # Large pelagics
             0.0,  # Seabirds
             0.0,  # Detritus
-            0.0   # Discards
+            0.0,  # Discards
         ],
-        'Detritus': [
-            0.0,  # Phytoplankton
-            0.0,  # Macroalgae
-            0.10, # Zooplankton - some detritivory
-            0.80, # Meiobenthos - mainly detritivores
-            0.60, # Benthic invertebrates - deposit feeders
-            0.20, # Small pelagics (juv)
-            0.30, # Small pelagics (adult)
-            0.20, # Demersal fish
-            0.10, # Large pelagics
-            0.0,  # Seabirds
-            0.0,  # Detritus
-            0.0   # Discards
-        ],
-        'Discards': [
+        "Seabirds": [
             0.0,  # Phytoplankton
             0.0,  # Macroalgae
             0.0,  # Zooplankton
-            0.10, # Meiobenthos
+            0.0,  # Meiobenthos
             0.0,  # Benthic invertebrates
             0.0,  # Small pelagics (juv)
-            0.05, # Small pelagics (adult)
-            0.10, # Demersal fish - scavengers
+            0.0,  # Small pelagics (adult)
+            0.0,  # Demersal fish
             0.0,  # Large pelagics
             0.0,  # Seabirds
             0.0,  # Detritus
-            0.0   # Discards
-        ]
+            0.0,  # Discards
+        ],
+        "Detritus": [
+            0.0,  # Phytoplankton
+            0.0,  # Macroalgae
+            0.10,  # Zooplankton - some detritivory
+            0.80,  # Meiobenthos - mainly detritivores
+            0.60,  # Benthic invertebrates - deposit feeders
+            0.20,  # Small pelagics (juv)
+            0.30,  # Small pelagics (adult)
+            0.20,  # Demersal fish
+            0.10,  # Large pelagics
+            0.0,  # Seabirds
+            0.0,  # Detritus
+            0.0,  # Discards
+        ],
+        "Discards": [
+            0.0,  # Phytoplankton
+            0.0,  # Macroalgae
+            0.0,  # Zooplankton
+            0.10,  # Meiobenthos
+            0.0,  # Benthic invertebrates
+            0.0,  # Small pelagics (juv)
+            0.05,  # Small pelagics (adult)
+            0.10,  # Demersal fish - scavengers
+            0.0,  # Large pelagics
+            0.0,  # Seabirds
+            0.0,  # Detritus
+            0.0,  # Discards
+        ],
     }
 
     # Convert diet_data to proper format with 'Group' column
     # diet_data has predators as keys, need to transpose to have prey as rows
-    diet_df_dict = {'Group': groups}
+    diet_df_dict = {"Group": groups}
     for predator, prey_list in diet_data.items():
         diet_df_dict[predator] = prey_list
 
@@ -376,43 +378,45 @@ def create_coastal_ecosystem_model():
     # Define stanza groups
     stanza_groups = [
         {
-            'stanza_group_num': 1,
-            'n_stanzas': 2,
-            'vbgf_ksp': 0.5,      # von Bertalanffy K (growth rate)
-            'vbgf_d': 0.66667,    # Allometric exponent
-            'wmat': 15.0,         # Weight at maturity (g)
-            'rec_power': 1.0      # Recruitment power
+            "stanza_group_num": 1,
+            "n_stanzas": 2,
+            "vbgf_ksp": 0.5,  # von Bertalanffy K (growth rate)
+            "vbgf_d": 0.66667,  # Allometric exponent
+            "wmat": 15.0,  # Weight at maturity (g)
+            "rec_power": 1.0,  # Recruitment power
         }
     ]
 
     # Define individual stanzas
     stanza_individuals = [
         {
-            'stanza_group_num': 1,
-            'stanza_num': 1,
-            'group_num': 6,  # Small pelagics (juv) - index in groups list
-            'group_name': 'Small pelagics (juv)',
-            'first': 0,      # Age in months
-            'last': 11,      # Age in months
-            'z': 1.8,        # Total mortality (will be calculated)
-            'leading': False
+            "stanza_group_num": 1,
+            "stanza_num": 1,
+            "group_num": 6,  # Small pelagics (juv) - index in groups list
+            "group_name": "Small pelagics (juv)",
+            "first": 0,  # Age in months
+            "last": 11,  # Age in months
+            "z": 1.8,  # Total mortality (will be calculated)
+            "leading": False,
         },
         {
-            'stanza_group_num': 1,
-            'stanza_num': 2,
-            'group_num': 7,  # Small pelagics (adult) - index in groups list
-            'group_name': 'Small pelagics (adult)',
-            'first': 12,     # Age in months
-            'last': 60,      # Age in months (5 years max)
-            'z': 0.6,        # Total mortality (will be calculated)
-            'leading': True  # Adult is leading stanza
-        }
+            "stanza_group_num": 1,
+            "stanza_num": 2,
+            "group_num": 7,  # Small pelagics (adult) - index in groups list
+            "group_name": "Small pelagics (adult)",
+            "first": 12,  # Age in months
+            "last": 60,  # Age in months (5 years max)
+            "z": 0.6,  # Total mortality (will be calculated)
+            "leading": True,  # Adult is leading stanza
+        },
     ]
 
     stanza_data = create_stanza_params(stanza_groups, stanza_individuals)
     params.stanzas = stanza_data
 
-    print(f"   Configured {stanza_data.stanza_groups[0].n_stanzas} stanzas for Small pelagics")
+    print(
+        f"   Configured {stanza_data.stanza_groups[0].n_stanzas} stanzas for Small pelagics"
+    )
     print(f"   Juvenile: 0-11 months")
     print(f"   Adult: 12-60 months (leading stanza)")
 
@@ -423,34 +427,49 @@ def create_coastal_ecosystem_model():
 
     # Landing (what is caught and kept)
     landing_data = {
-        'Group': groups,
-        'Trawl': [0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.2, 0.8, 0.1, 0.0, 0.0, 0.0],
-        'Purse_seine': [0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.9, 0.0, 0.0, 0.0, 0.0, 0.0],
-        'Longline': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7, 0.0, 0.0, 0.0]
+        "Group": groups,
+        "Trawl": [0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.2, 0.8, 0.1, 0.0, 0.0, 0.0],
+        "Purse_seine": [0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.9, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "Longline": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7, 0.0, 0.0, 0.0],
     }
     params.landing = pd.DataFrame(landing_data)
 
     # Discard (what is caught but discarded)
     discard_data = {
-        'Group': groups,
-        'Trawl': [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.05, 0.2, 0.0, 0.0, 0.0, 0.0],
-        'Purse_seine': [0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.02, 0.0, 0.0, 0.0, 0.0, 0.0],
-        'Longline': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.05, 0.0, 0.0]  # Seabird bycatch
+        "Group": groups,
+        "Trawl": [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.05, 0.2, 0.0, 0.0, 0.0, 0.0],
+        "Purse_seine": [0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.02, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "Longline": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.1,
+            0.05,
+            0.0,
+            0.0,
+        ],  # Seabird bycatch
     }
     params.discard = pd.DataFrame(discard_data)
 
     # Discard fate (what happens to discards)
     # 0 = dies and goes to detritus, 1 = survives
     discard_fate_data = {
-        'Group': groups,
-        'Trawl': [0.0] * 12,  # All trawl discards die
-        'Purse_seine': [0.0] * 12,  # All seine discards die
-        'Longline': [0.0] * 12  # All longline discards die
+        "Group": groups,
+        "Trawl": [0.0] * 12,  # All trawl discards die
+        "Purse_seine": [0.0] * 12,  # All seine discards die
+        "Longline": [0.0] * 12,  # All longline discards die
     }
     params.discards = pd.DataFrame(discard_fate_data)
 
     # Set seabird bycatch survival (some survive)
-    params.discards.loc[params.discards['Group'] == 'Seabirds', 'Longline'] = 0.3  # 30% survive
+    params.discards.loc[params.discards["Group"] == "Seabirds", "Longline"] = (
+        0.3  # 30% survive
+    )
 
     print(f"   Created 3 fishing fleets:")
     print(f"   - Trawl: Targets demersal fish, benthic invertebrates")
@@ -468,36 +487,36 @@ def create_coastal_ecosystem_model():
     # Flow to detritus groups
 
     detritus_fate_data = {
-        'Group': groups,
-        'Detritus': [
-            0.0,   # Phytoplankton
-            0.0,   # Macroalgae
-            0.0,   # Zooplankton
-            0.0,   # Meiobenthos
-            0.0,   # Benthic invertebrates
-            0.0,   # Small pelagics (juv)
-            0.0,   # Small pelagics (adult)
-            0.0,   # Demersal fish
-            0.0,   # Large pelagics
-            0.0,   # Seabirds
-            0.0,   # Detritus
-            0.0    # Discards
+        "Group": groups,
+        "Detritus": [
+            0.0,  # Phytoplankton
+            0.0,  # Macroalgae
+            0.0,  # Zooplankton
+            0.0,  # Meiobenthos
+            0.0,  # Benthic invertebrates
+            0.0,  # Small pelagics (juv)
+            0.0,  # Small pelagics (adult)
+            0.0,  # Demersal fish
+            0.0,  # Large pelagics
+            0.0,  # Seabirds
+            0.0,  # Detritus
+            0.0,  # Discards
         ],
-        'Discards': [
-            0.0,   # Phytoplankton
-            0.0,   # Macroalgae
-            0.0,   # Zooplankton
-            0.0,   # Meiobenthos
-            0.0,   # Benthic invertebrates
-            0.0,   # Small pelagics (juv)
-            0.0,   # Small pelagics (adult)
-            0.0,   # Demersal fish
-            0.0,   # Large pelagics
-            0.0,   # Seabirds
-            0.0,   # Detritus
-            0.0    # Discards
+        "Discards": [
+            0.0,  # Phytoplankton
+            0.0,  # Macroalgae
+            0.0,  # Zooplankton
+            0.0,  # Meiobenthos
+            0.0,  # Benthic invertebrates
+            0.0,  # Small pelagics (juv)
+            0.0,  # Small pelagics (adult)
+            0.0,  # Demersal fish
+            0.0,  # Large pelagics
+            0.0,  # Seabirds
+            0.0,  # Detritus
+            0.0,  # Discards
         ],
-        'Export': [
+        "Export": [
             0.15,  # Phytoplankton - some exported
             0.10,  # Macroalgae - drift export
             0.05,  # Zooplankton
@@ -507,28 +526,36 @@ def create_coastal_ecosystem_model():
             0.01,  # Small pelagics (adult)
             0.01,  # Demersal fish
             0.01,  # Large pelagics
-            0.0,   # Seabirds
+            0.0,  # Seabirds
             0.20,  # Detritus - major export
-            0.05   # Discards
-        ]
+            0.05,  # Discards
+        ],
     }
 
     params.detritus_fate = pd.DataFrame(detritus_fate_data)
 
     # Detritus flows to detritus pool
-    params.detritus_fate.loc[params.detritus_fate['Group'] != 'Detritus', 'Detritus'] = 0.85
-    params.detritus_fate.loc[params.detritus_fate['Group'] != 'Discards', 'Discards'] = 0.0
+    params.detritus_fate.loc[
+        params.detritus_fate["Group"] != "Detritus", "Detritus"
+    ] = 0.85
+    params.detritus_fate.loc[
+        params.detritus_fate["Group"] != "Discards", "Discards"
+    ] = 0.0
 
     # Normalize detritus fate (Detritus + Discards + Export should sum to 1)
     for i, group in enumerate(groups):
-        if group not in ['Detritus', 'Discards']:
+        if group not in ["Detritus", "Discards"]:
             total = params.detritus_fate.iloc[i, 1:].sum()
             if total > 0:
-                params.detritus_fate.iloc[i, 1:] = params.detritus_fate.iloc[i, 1:] / total
+                params.detritus_fate.iloc[i, 1:] = (
+                    params.detritus_fate.iloc[i, 1:] / total
+                )
 
-    export_rate = params.detritus_fate['Export'].iloc[10]  # Detritus export
+    export_rate = params.detritus_fate["Export"].iloc[10]  # Detritus export
     print(f"   Detritus export rate: {export_rate*100:.1f}%")
-    print(f"   Phytoplankton export rate: {params.detritus_fate['Export'].iloc[0]*100:.1f}%")
+    print(
+        f"   Phytoplankton export rate: {params.detritus_fate['Export'].iloc[0]*100:.1f}%"
+    )
 
     # ==========================================
     # 7. IMPORTS AND EXPORTS
@@ -536,11 +563,13 @@ def create_coastal_ecosystem_model():
     print("\n7. Setting import flows")
 
     # Immigration/recruitment from outside
-    params.model.loc[0, 'Biomass'] = 20.0  # Phytoplankton biomass maintained by nutrients from outside
+    params.model.loc[0, "Biomass"] = (
+        20.0  # Phytoplankton biomass maintained by nutrients from outside
+    )
 
     # Add import to diet (nutrient input for phytoplankton)
     # Phytoplankton gets nutrients from "Outside" (upwelling, rivers, etc.)
-    params.diet.loc['Phytoplankton', 'Outside'] = 0.0  # Handled implicitly by P/B
+    params.diet.loc["Phytoplankton", "Outside"] = 0.0  # Handled implicitly by P/B
 
     print(f"   Nutrient import supports primary production")
     print(f"   Organic export: {export_rate*100:.1f}% of detritus")
@@ -575,15 +604,19 @@ def save_model(params, filename="example_coastal_model.csv"):
     print(f"   Saved: detritus_fate.csv")
 
     # Save stanza parameters
-    if hasattr(params, 'stanzas') and params.stanzas is not None:
+    if hasattr(params, "stanzas") and params.stanzas is not None:
         # Convert stanza_groups list to DataFrame
         if params.stanzas.stanza_groups:
-            stgroups_df = pd.DataFrame([vars(sg) for sg in params.stanzas.stanza_groups])
+            stgroups_df = pd.DataFrame(
+                [vars(sg) for sg in params.stanzas.stanza_groups]
+            )
             stgroups_df.to_csv(output_dir / "stanza_groups.csv", index=False)
 
         # Convert stanza_individuals list to DataFrame
         if params.stanzas.stanza_individuals:
-            stindiv_df = pd.DataFrame([vars(si) for si in params.stanzas.stanza_individuals])
+            stindiv_df = pd.DataFrame(
+                [vars(si) for si in params.stanzas.stanza_individuals]
+            )
             stindiv_df.to_csv(output_dir / "stanza_individual.csv", index=False)
 
         print(f"   Saved: stanza_groups.csv, stanza_individual.csv")
@@ -615,13 +648,17 @@ def balance_and_validate(params):
             print(f"  {status} {model.Group[i]}: {ee:.3f}{warning}")
 
         # System statistics
-        total_biomass = np.sum(model.Biomass[0:model.NUM_LIVING])
-        total_production = np.sum(model.Biomass[0:model.NUM_LIVING] * model.PB[0:model.NUM_LIVING])
-        total_consumption = np.sum([
-            model.Biomass[i] * model.QB[i]
-            for i in range(model.NUM_LIVING)
-            if model.QB[i] > 0
-        ])
+        total_biomass = np.sum(model.Biomass[0 : model.NUM_LIVING])
+        total_production = np.sum(
+            model.Biomass[0 : model.NUM_LIVING] * model.PB[0 : model.NUM_LIVING]
+        )
+        total_consumption = np.sum(
+            [
+                model.Biomass[i] * model.QB[i]
+                for i in range(model.NUM_LIVING)
+                if model.QB[i] > 0
+            ]
+        )
 
         print(f"\nSystem statistics:")
         print(f"  Total biomass: {total_biomass:.2f} t/km²")
@@ -641,11 +678,12 @@ def balance_and_validate(params):
         print(f"\n[ERROR] MODEL BALANCING FAILED")
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         return None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("\n" + "=" * 70)
     print("COMPREHENSIVE ECOPATH MODEL GENERATOR")
     print("=" * 70)
@@ -678,7 +716,9 @@ if __name__ == '__main__':
         print("4. Developing new features")
 
         print("\nNext steps:")
-        print("1. Load the model: params = read_rpath_params('example_model_data/model.csv', ...)")
+        print(
+            "1. Load the model: params = read_rpath_params('example_model_data/model.csv', ...)"
+        )
         print("2. Run Ecosim: rsim_run(rsim_scenario(model, params))")
         print("3. Try optimization: See test_bayesian_optimization.py")
 
