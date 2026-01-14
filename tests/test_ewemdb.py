@@ -289,6 +289,78 @@ class TestReadEwemdb:
             assert "forcing_matrices" in sc and "ForcedPrey" in sc["forcing_matrices"]
             fpm = sc["forcing_matrices"]["ForcedPrey"]
             assert fpm.shape[0] == 6 * 12
+
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_forcing_wide_monthly_format(self, mock_read_table):
+        """Test parsing a wide-format forcing table with monthly columns (Jan..Dec)."""
+        groups_df = pd.DataFrame({"GroupID": [1], "GroupName": ["Fish"], "Type": [0], "Biomass": [2.0], "PB": [1.5], "QB": [5.0], "EE": [0.80]})
+        ecosim_df = pd.DataFrame({"ScenarioID": [1], "ScenarioName": ["MonthlyWide"], "StartYear": [2000], "EndYear": [2000], "NumYears": [1]})
+        # Forcing wide format: Year + Jan..Dec columns as values for Fish
+        forcing_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Parameter": ["ForcedPrey"], "Fish": [None], "Jan": [1.0], "Feb": [1.1], "Mar": [1.2], "Apr": [1.3], "May": [1.4], "Jun": [1.5], "Jul": [1.6], "Aug": [1.7], "Sep": [1.8], "Oct": [1.9], "Nov": [2.0], "Dec": [2.1]})
+        fishing_df = pd.DataFrame({"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings", "EcosimForcingTable"]:
+                return forcing_df
+            elif table in ["EcosimFishing", "EcosimEffort"]:
+                return fishing_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            params = read_ewemdb(temp_path, include_ecosim=True)
+            sc = params.ecosim["scenarios"][0]
+            fm = sc["forcing_monthly"]["ForcedPrey"]
+            # Should have 12 monthly rows for 2000
+            assert fm.shape[0] == 12
+            assert abs(float(fm.iloc[0]["Fish"]) - 1.0) < 1e-8
+            assert abs(float(fm.iloc[-1]["Fish"]) - 2.1) < 1e-8
+        finally:
+            os.unlink(temp_path)
+
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_fishing_wide_monthly_format(self, mock_read_table):
+        """Test parsing fishing wide-format monthly columns per gear."""
+        groups_df = pd.DataFrame({"GroupID": [1], "GroupName": ["Fish"], "Type": [0], "Biomass": [2.0], "PB": [1.5], "QB": [5.0], "EE": [0.80]})
+        ecosim_df = pd.DataFrame({"ScenarioID": [1], "ScenarioName": ["FishingMonthly"], "StartYear": [2000], "EndYear": [2000], "NumYears": [1]})
+        # Fishing wide: Year + gear columns Jan..Dec for Gear=1
+        fishing_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Gear": [1], "Jan": [0.5], "Feb": [0.6], "Mar": [0.7], "Apr": [0.8], "May": [0.9], "Jun": [1.0], "Jul": [1.1], "Aug": [1.2], "Sep": [1.3], "Oct": [1.4], "Nov": [1.5], "Dec": [1.6]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings"]:
+                return pd.DataFrame()
+            elif table in ["EcosimFishing", "EcosimEffort", "EcosimEffortTable"]:
+                return fishing_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            params = read_ewemdb(temp_path, include_ecosim=True)
+            sc = params.ecosim["scenarios"][0]
+            fm = sc["fishing_monthly"]["Effort"]
+            assert fm.shape[0] == 12
+            # single gear column (1) -> value at first month
+            assert abs(float(fm.iloc[0, 1]) - 0.5) < 1e-8
+        finally:
+            os.unlink(temp_path)
             # Check group column for 'Fish' (position depends on group_names ordering)
             group_idx = 1  # since we had one group 'Fish' after Outside
             assert abs(float(fpm[0, group_idx]) - 1.0) < 1e-8
@@ -403,12 +475,17 @@ class TestReadEwemdb:
             assert hasattr(scen, "ecospace") and scen.ecospace is not None
             eco = scen.ecospace
             assert eco.grid.n_patches == 2
-            gnames = params.model["Group"].tolist()
-            gi = gnames.index("Fish")
+            # use scenario params to find group index
+            gi = scen.params.spname.index("Fish")
             # habitat preference for Fish patch 1 and 2
             assert abs(float(eco.habitat_preference[gi, 0]) - 0.8) < 1e-8
             assert abs(float(eco.habitat_preference[gi, 1]) - 0.6) < 1e-8
             assert abs(float(eco.dispersal_rate[gi]) - 0.1) < 1e-8
+            # adjacency inferred from centroids should have at least one non-zero entry
+            adj = eco.grid.adjacency_matrix
+            assert adj.nnz > 0
+            # edge lengths should include a pair for patches (0,1) or similar
+            assert len(eco.grid.edge_lengths) > 0
         finally:
             os.unlink(temp_path)
 
@@ -570,6 +647,145 @@ class TestReadEwemdb:
             assert abs(float(eco.habitat_preference[gi, 1]) - 0.0) < 1e-8
             # Missing dispersal should default to 0.0
             assert abs(float(eco.dispersal_rate[gi]) - 0.0) < 1e-8
+        finally:
+            os.unlink(temp_path)
+
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_alternate_table_names(self, mock_read_table):
+        """Test that alternate table name variants are recognized."""
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1],
+                "GroupName": ["Fish"],
+                "Type": [0],
+                "Biomass": [2.0],
+                "PB": [1.5],
+                "QB": [5.0],
+                "EE": [0.80],
+            }
+        )
+
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["AltNames"],
+                "StartYear": [2000],
+                "EndYear": [2001],
+                "NumYears": [2],
+                "Description": ["Alternate table names"],
+            }
+        )
+
+        forcing_df = pd.DataFrame(
+            {"ScenarioID": [1, 1], "Time": [0, 1], "Parameter": ["ForcedPrey", "ForcedPrey"], "Group": ["Fish", "Fish"], "Value": [1.0, 0.9]}
+        )
+
+        fishing_df = pd.DataFrame(
+            {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
+        )
+
+        frate_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]})
+        catch_yr_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcopathDietComp", "DietComp"]:
+                return pd.DataFrame({"PreyName": [], "PredName": [], "Diet": []})
+            elif table in ["EcosimScenarioTable", "Ecosim Scenario"]:
+                return ecosim_df
+            elif table in ["EcosimForcingTable", "Ecosim Forcing"]:
+                return forcing_df
+            elif table in ["EcosimEffortTable", "Ecosim Effort"]:
+                return fishing_df
+            elif table in ["EcosimFRateTable", "Ecosim_FRate"]:
+                return frate_df
+            elif table in ["EcosimAnnualCatch", "EcosimCatchTable"]:
+                return catch_yr_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            params = read_ewemdb(temp_path, include_ecosim=True)
+
+            assert getattr(params, "ecosim", None) is not None
+            assert params.ecosim["has_ecosim"] is True
+            assert len(params.ecosim["scenarios"]) == 1
+            sc = params.ecosim["scenarios"][0]
+            assert sc["name"] == "AltNames"
+            # Forcing/fishing parsed via alternate names
+            assert "forcing_df" in sc and len(sc["forcing_df"]) == 2
+            assert "fishing_df" in sc and len(sc["fishing_df"]) == 1
+        finally:
+            os.unlink(temp_path)
+
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_ecospace_alternate_table_names(self, mock_read_table):
+        """Ensure Ecospace mapping recognizes alternate table names."""
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1],
+                "GroupName": ["Fish"],
+                "Type": [0],
+                "Biomass": [2.0],
+                "PB": [1.5],
+                "QB": [5.0],
+                "EE": [0.80],
+            }
+        )
+
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["AltEcospace"],
+                "StartYear": [2000],
+                "EndYear": [2000],
+                "NumYears": [1],
+                "Description": ["Alt ecospace table names"],
+            }
+        )
+
+        # Provide grid using alternate name 'Ecospace_Grid'
+        grid_df = pd.DataFrame({"PatchID": [1, 2], "Area": [10.0, 5.0], "Lon": [0.0, 0.1], "Lat": [50.0, 50.1]})
+        habitat_df = pd.DataFrame({"Group": ["Fish", "Fish"], "Patch": [1, 2], "Value": [0.5, 0.3]})
+        dispersal_df = pd.DataFrame({"Group": ["Fish"], "Dispersal": [0.05]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings"]:
+                return pd.DataFrame()
+            elif table in ["EcosimFishing", "EcosimEffort"]:
+                return pd.DataFrame()
+            elif table == "Ecospace_Grid":
+                return grid_df
+            elif table in ["EcospaceLayer", "EcospaceHabitat"]:
+                return habitat_df
+            elif table in ["Ecospace_Dispersal", "EcospaceDispersal"]:
+                return dispersal_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            scen = ecosim_scenario_from_ewemdb(temp_path, scenario=1)
+            from pypath.core.ecosim import RsimScenario
+            assert isinstance(scen, RsimScenario)
+            assert hasattr(scen, "ecospace") and scen.ecospace is not None
+            eco = scen.ecospace
+            assert eco.grid.n_patches == 2
+            assert eco.grid.adjacency_matrix.nnz > 0
         finally:
             os.unlink(temp_path)
 
