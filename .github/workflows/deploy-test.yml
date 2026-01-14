@@ -2,6 +2,12 @@ name: Deploy Simulation Tests (dry-run)
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'  # daily at 04:00 UTC
+  pull_request:
+    # Run when the deploy workflow itself is modified to validate safety changes
+    paths:
+      - '.github/workflows/deploy.yml'
 
 jobs:
   simulate:
