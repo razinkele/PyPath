@@ -197,6 +197,382 @@ class TestReadEwemdb:
         finally:
             os.unlink(temp_path)
 
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_read_ewemdb_with_ecosim(self, mock_read_table):
+        """Test reading ewemdb with Ecosim scenario and its time series."""
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1, 2],
+                "GroupName": ["Fish", "Detritus"],
+                "Type": [0, 2],
+                "Biomass": [2.0, 100.0],
+                "PB": [1.5, 0.0],
+                "QB": [5.0, 0.0],
+                "EE": [0.80, 0.0],
+            }
+        )
+
+        diet_df = pd.DataFrame({"PreyName": [], "PredName": [], "Diet": []})
+
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["TestScenario"],
+                "StartYear": [2000],
+                "EndYear": [2005],
+                "NumYears": [6],
+                "Description": ["Test Ecosim scenario"],
+            }
+        )
+
+        forcing_df = pd.DataFrame(
+            {"ScenarioID": [1, 1, 1, 1], "Time": [0, 0, 1, 1], "Parameter": ["ForcedPrey", "ForcedMort", "ForcedPrey", "ForcedMort"], "Group": ["Fish", "Fish", "Fish", "Fish"], "Value": [1.0, 1.0, 0.9, 1.0]}
+        )
+
+        fishing_df = pd.DataFrame(
+            {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
+        )
+
+        frate_df = pd.DataFrame({"ScenarioID": [1, 1], "Year": [2000, 2001], "Group": ["Fish", "Fish"], "FRate": [0.1, 0.2]})
+        catch_yr_df = pd.DataFrame({"ScenarioID": [1, 1], "Year": [2000, 2001], "Group": ["Fish", "Fish"], "Catch": [5.0, 6.0]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcopathDietComp", "DietComp"]:
+                return diet_df
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings"]:
+                return forcing_df
+            elif table in ["EcosimFishing", "EcosimEffort"]:
+                return fishing_df
+            elif table in ["EcosimFRate", "EcosimFRateTable"]:
+                return frate_df
+            elif table in ["EcosimCatch", "EcosimAnnualCatch"]:
+                return catch_yr_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            params = read_ewemdb(temp_path, include_ecosim=True)
+
+            assert getattr(params, "ecosim", None) is not None
+            assert params.ecosim["has_ecosim"] is True
+            assert len(params.ecosim["scenarios"]) == 1
+            sc = params.ecosim["scenarios"][0]
+            assert sc["name"] == "TestScenario"
+            assert int(sc["start_year"]) == 2000
+            assert sc["num_years"] == 6
+            assert "forcing_df" in sc and len(sc["forcing_df"]) == 4
+            assert "fishing_df" in sc and len(sc["fishing_df"]) == 1
+            # New: parsed time-series should be present
+            assert "forcing_ts" in sc and "_times" in sc["forcing_ts"]
+            fp = sc["forcing_ts"].get("ForcedPrey")
+            assert isinstance(fp, pd.DataFrame)
+            assert list(fp["Fish"]) == [1.0, 0.9]
+            assert "fishing_ts" in sc and "_times" in sc["fishing_ts"]
+            # Effort pivot present as DataFrame with one gear
+            effort_df = sc["fishing_ts"].get("Effort")
+            assert hasattr(effort_df, "shape") and (effort_df.shape[0] == 1 or effort_df.shape[0] == 2)
+            # Monthly resampled data
+            assert "forcing_monthly" in sc and "_monthly_times" in sc["forcing_monthly"]
+            # For long-format parameter/group/value, we expect keys such as 'ForcedPrey' to exist as DataFrames
+            fp = sc["forcing_ts"].get("ForcedPrey")
+            assert isinstance(fp, pd.DataFrame)
+            # Monthly matrix should exist in forcing_matrices
+            assert "forcing_matrices" in sc and "ForcedPrey" in sc["forcing_matrices"]
+            fpm = sc["forcing_matrices"]["ForcedPrey"]
+            assert fpm.shape[0] == 6 * 12
+            # Check group column for 'Fish' (position depends on group_names ordering)
+            group_idx = 1  # since we had one group 'Fish' after Outside
+            assert abs(float(fpm[0, group_idx]) - 1.0) < 1e-8
+            assert abs(float(fpm[-1, group_idx]) - 0.9) < 1e-8
+            assert "fishing_monthly" in sc and "_monthly_times" in sc["fishing_monthly"]
+            fish_eff = sc["fishing_monthly"].get("Effort")
+            assert fish_eff is not None
+            assert fish_eff.shape[0] == 6 * 12
+            # Rsim dataclasses
+            from pypath.core.ecosim import RsimForcing, RsimFishing
+            assert "rsim_forcing" in sc and isinstance(sc["rsim_forcing"], RsimForcing)
+            assert sc["rsim_forcing"].ForcedPrey.shape[0] == 6 * 12
+            assert "rsim_fishing" in sc and isinstance(sc["rsim_fishing"], RsimFishing)
+            assert sc["rsim_fishing"].ForcedEffort.shape[0] == 6 * 12
+            # Annual FRATE and Catch mapping
+            fr = sc["rsim_fishing"].ForcedFRate
+            fc = sc["rsim_fishing"].ForcedCatch
+            # group index for Fish should be 1
+            gi = 1
+            # Year 2000 -> index 0, Year 2001 -> index 1
+            assert abs(float(fr[0, gi]) - 0.1) < 1e-8
+            assert abs(float(fr[1, gi]) - 0.2) < 1e-8
+            assert abs(float(fc[0, gi]) - 5.0) < 1e-8
+            assert abs(float(fc[1, gi]) - 6.0) < 1e-8
+
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_build_full_rsim_scenario(self, mock_read_table):
+        """Test building a full RsimScenario from EwE DB."""
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1, 2],
+                "GroupName": ["Fish", "Detritus"],
+                "Type": [0, 2],
+                "Biomass": [2.0, 100.0],
+                "PB": [1.5, 0.0],
+                "QB": [5.0, 0.0],
+                "EE": [0.80, 0.0],
+            }
+        )
+
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["TestScenario"],
+                "StartYear": [2000],
+                "EndYear": [2005],
+                "NumYears": [6],
+                "Description": ["Test Ecosim scenario"],
+            }
+        )
+
+        forcing_df = pd.DataFrame(
+            {"ScenarioID": [1, 1, 1, 1], "Time": [0, 0, 1, 1], "Parameter": ["ForcedPrey", "ForcedMort", "ForcedPrey", "ForcedMort"], "Group": ["Fish", "Fish", "Fish", "Fish"], "Value": [1.0, 1.0, 0.9, 1.0]}
+        )
+
+        fishing_df = pd.DataFrame(
+            {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
+        )
+
+        frate_df = pd.DataFrame({"ScenarioID": [1, 1], "Year": [2000, 2001], "Group": ["Fish", "Fish"], "FRate": [0.1, 0.2]})
+        catch_yr_df = pd.DataFrame({"ScenarioID": [1, 1], "Year": [2000, 2001], "Group": ["Fish", "Fish"], "Catch": [5.0, 6.0]})
+
+        habitat_df = pd.DataFrame({"Group": ["Fish", "Fish"], "Patch": [1, 2], "Value": [0.8, 0.6]})
+        grid_df = pd.DataFrame({"PatchID": [1, 2], "Area": [10.0, 5.0], "Lon": [0.0, 0.1], "Lat": [50.0, 50.1]})
+        dispersal_df = pd.DataFrame({"Group": ["Fish"], "Dispersal": [0.1]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcopathDietComp", "DietComp"]:
+                return pd.DataFrame({"PreyName": [], "PredName": [], "Diet": []})
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings"]:
+                return forcing_df
+            elif table in ["EcosimFishing", "EcosimEffort"]:
+                return fishing_df
+            elif table in ["EcosimFRate", "EcosimFRateTable"]:
+                return frate_df
+            elif table in ["EcosimCatch", "EcosimAnnualCatch"]:
+                return catch_yr_df
+            elif table in ["EcospaceHabitat", "EcospaceLayer"]:
+                return habitat_df
+            elif table == "EcospaceGrid":
+                return grid_df
+            elif table == "EcospaceDispersal":
+                return dispersal_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            scen = ecosim_scenario_from_ewemdb(temp_path, scenario=1)
+            from pypath.core.ecosim import RsimScenario
+            assert isinstance(scen, RsimScenario)
+            # Forcing present
+            assert scen.forcing.ForcedPrey.shape[0] == 6 * 12
+            # Fishing annual FRATE/Catch present
+            fr = scen.fishing.ForcedFRate
+            fc = scen.fishing.ForcedCatch
+            gi = 1
+            assert abs(float(fr[0, gi]) - 0.1) < 1e-8
+            assert abs(float(fr[1, gi]) - 0.2) < 1e-8
+            assert abs(float(fc[0, gi]) - 5.0) < 1e-8
+            assert abs(float(fc[1, gi]) - 6.0) < 1e-8
+
+            # Ecospace mapping
+            assert hasattr(scen, "ecospace") and scen.ecospace is not None
+            eco = scen.ecospace
+            assert eco.grid.n_patches == 2
+            gnames = params.model["Group"].tolist()
+            gi = gnames.index("Fish")
+            # habitat preference for Fish patch 1 and 2
+            assert abs(float(eco.habitat_preference[gi, 0]) - 0.8) < 1e-8
+            assert abs(float(eco.habitat_preference[gi, 1]) - 0.6) < 1e-8
+            assert abs(float(eco.dispersal_rate[gi]) - 0.1) < 1e-8
+        finally:
+            os.unlink(temp_path)
+
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_ecospace_missing_tables(self, mock_read_table):
+        """If ecospace tables are missing, no ecospace should be attached."""
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1],
+                "GroupName": ["Fish"],
+                "Type": [0],
+                "Biomass": [2.0],
+                "PB": [1.5],
+                "QB": [5.0],
+                "EE": [0.80],
+            }
+        )
+
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["NoEcospace"],
+                "StartYear": [2000],
+                "EndYear": [2001],
+                "NumYears": [2],
+                "Description": ["No ecospace tables present"],
+            }
+        )
+
+        forcing_df = pd.DataFrame(
+            {"ScenarioID": [1, 1], "Time": [0, 1], "Parameter": ["ForcedPrey", "ForcedPrey"], "Group": ["Fish", "Fish"], "Value": [1.0, 0.9]}
+        )
+
+        fishing_df = pd.DataFrame(
+            {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
+        )
+
+        frate_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]})
+        catch_yr_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcopathDietComp", "DietComp"]:
+                return pd.DataFrame({"PreyName": [], "PredName": [], "Diet": []})
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings"]:
+                return forcing_df
+            elif table in ["EcosimFishing", "EcosimEffort"]:
+                return fishing_df
+            elif table in ["EcosimFRate", "EcosimFRateTable"]:
+                return frate_df
+            elif table in ["EcosimCatch", "EcosimAnnualCatch"]:
+                return catch_yr_df
+            # Simulate missing ecospace tables
+            elif table in ["EcospaceHabitat", "EcospaceLayer", "EcospaceGrid", "EcospaceDispersal"]:
+                raise Exception("Table not found")
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            scen = ecosim_scenario_from_ewemdb(temp_path, scenario=1)
+            from pypath.core.ecosim import RsimScenario
+            assert isinstance(scen, RsimScenario)
+            # No ecospace attached when tables missing
+            assert scen.ecospace is None
+        finally:
+            os.unlink(temp_path)
+
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_ecospace_incomplete_habitat(self, mock_read_table):
+        """If habitat table is incomplete, missing patches are filled with defaults."""
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1, 2],
+                "GroupName": ["Fish", "Detritus"],
+                "Type": [0, 2],
+                "Biomass": [2.0, 100.0],
+                "PB": [1.5, 0.0],
+                "QB": [5.0, 0.0],
+                "EE": [0.80, 0.0],
+            }
+        )
+
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["PartialHabitat"],
+                "StartYear": [2000],
+                "EndYear": [2001],
+                "NumYears": [2],
+                "Description": ["Partial habitat entries"],
+            }
+        )
+
+        forcing_df = pd.DataFrame(
+            {"ScenarioID": [1, 1], "Time": [0, 1], "Parameter": ["ForcedPrey", "ForcedPrey"], "Group": ["Fish", "Fish"], "Value": [1.0, 0.9]}
+        )
+
+        fishing_df = pd.DataFrame(
+            {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
+        )
+
+        frate_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]})
+        catch_yr_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]})
+
+        # Habitat only contains a value for patch 1, patch 2 missing
+        habitat_df = pd.DataFrame({"Group": ["Fish"], "Patch": [1], "Value": [0.8]})
+        grid_df = pd.DataFrame({"PatchID": [1, 2], "Area": [10.0, 5.0], "Lon": [0.0, 0.1], "Lat": [50.0, 50.1]})
+        # Dispersal missing for Fish -> empty DataFrame
+        dispersal_df = pd.DataFrame({"Group": [], "Dispersal": []})
+
+        def mock_table_reader(filepath, table):
+            if table == "EcopathGroup":
+                return groups_df
+            elif table in ["EcopathDietComp", "DietComp"]:
+                return pd.DataFrame({"PreyName": [], "PredName": [], "Diet": []})
+            elif table in ["EcosimScenario", "EcosimScenarios"]:
+                return ecosim_df
+            elif table in ["EcosimForcing", "EcosimForcings"]:
+                return forcing_df
+            elif table in ["EcosimFishing", "EcosimEffort"]:
+                return fishing_df
+            elif table in ["EcosimFRate", "EcosimFRateTable"]:
+                return frate_df
+            elif table in ["EcosimCatch", "EcosimAnnualCatch"]:
+                return catch_yr_df
+            elif table in ["EcospaceHabitat", "EcospaceLayer"]:
+                return habitat_df
+            elif table == "EcospaceGrid":
+                return grid_df
+            elif table == "EcospaceDispersal":
+                return dispersal_df
+            else:
+                raise Exception(f"Unknown table: {table}")
+
+        mock_read_table.side_effect = mock_table_reader
+
+        with tempfile.NamedTemporaryFile(suffix=".ewemdb", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            scen = ecosim_scenario_from_ewemdb(temp_path, scenario=1)
+            from pypath.core.ecosim import RsimScenario
+            assert isinstance(scen, RsimScenario)
+            # Ecospace should be constructed but filled with defaults for missing entries
+            assert hasattr(scen, "ecospace") and scen.ecospace is not None
+            eco = scen.ecospace
+            # Find group index for Fish in scenario params
+            gi = scen.params.spname.index("Fish")
+            assert abs(float(eco.habitat_preference[gi, 0]) - 0.8) < 1e-8
+            # Missing patch 2 should default to 0.0
+            assert abs(float(eco.habitat_preference[gi, 1]) - 0.0) < 1e-8
+            # Missing dispersal should default to 0.0
+            assert abs(float(eco.dispersal_rate[gi]) - 0.0) < 1e-8
+        finally:
+            os.unlink(temp_path)
+
 
 class TestGetMetadata:
     """Tests for get_ewemdb_metadata function."""
