@@ -10,11 +10,7 @@ These tests verify that:
 import pytest
 import numpy as np
 
-from pypath.spatial import (
-    EcospaceParams,
-    rsim_run_spatial,
-    create_1d_grid
-)
+from pypath.spatial import EcospaceParams, rsim_run_spatial, create_1d_grid
 
 
 class TestBackwardCompatibility:
@@ -106,18 +102,24 @@ class TestBackwardCompatibility:
         import dataclasses
 
         # Check that RsimScenario is a dataclass with ecospace field
-        assert dataclasses.is_dataclass(RsimScenario), "RsimScenario should be a dataclass"
+        assert dataclasses.is_dataclass(
+            RsimScenario
+        ), "RsimScenario should be a dataclass"
 
         # Check that ecospace field exists and is optional
         fields = {f.name: f for f in dataclasses.fields(RsimScenario)}
 
-        assert 'ecospace' in fields, "RsimScenario should have ecospace field"
-        assert 'environmental_drivers' in fields, "RsimScenario should have environmental_drivers field"
+        assert "ecospace" in fields, "RsimScenario should have ecospace field"
+        assert (
+            "environmental_drivers" in fields
+        ), "RsimScenario should have environmental_drivers field"
 
         # Check that ecospace defaults to None
-        ecospace_field = fields['ecospace']
-        assert ecospace_field.default is None or ecospace_field.default_factory is not dataclasses.MISSING, \
-            "ecospace field should have a default value"
+        ecospace_field = fields["ecospace"]
+        assert (
+            ecospace_field.default is None
+            or ecospace_field.default_factory is not dataclasses.MISSING
+        ), "ecospace field should have a default value"
 
     def test_existing_ecosim_imports_unchanged(self):
         """Test that existing import patterns still work."""
@@ -151,6 +153,7 @@ class TestNoSpatialDependenciesRequired:
         # Spatial features should be opt-in
         try:
             from pypath.spatial import EcospaceGrid, EcospaceParams
+
             spatial_available = True
         except ImportError:
             spatial_available = False
@@ -181,10 +184,10 @@ class TestParameterValidation:
                 habitat_capacity=np.ones((3, 5)),
                 dispersal_rate=np.zeros(3),
                 advection_enabled=np.zeros(3, dtype=bool),
-                gravity_strength=np.zeros(3)
+                gravity_strength=np.zeros(3),
             )
             # Error might occur on access, not construction
-            _ = ecospace.habitat_preference[:, :grid.n_patches]
+            _ = ecospace.habitat_preference[:, : grid.n_patches]
 
 
 class TestDataStructureCompatibility:
