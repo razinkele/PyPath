@@ -46,7 +46,7 @@ class TestCompleteWorkflow:
             habitat_capacity=np.ones((n_groups, grid.n_patches)),
             dispersal_rate=np.array([1.0, 2.0, 5.0]),
             advection_enabled=np.array([False, True, True]),
-            gravity_strength=np.array([0.0, 0.3, 0.5])
+            gravity_strength=np.array([0.0, 0.3, 0.5]),
         )
 
         # Step 4: Create initial spatial state
@@ -54,17 +54,14 @@ class TestCompleteWorkflow:
         initial_biomass[0, :] = 0  # Outside/detritus
         initial_biomass[1, :] = 10.0  # Group 1 uniform
         initial_biomass[2, 0] = 50.0  # Group 2 concentrated in patch 0
-        initial_biomass[3, :] = np.random.uniform(5, 15, grid.n_patches)  # Group 3 random
+        initial_biomass[3, :] = np.random.uniform(
+            5, 15, grid.n_patches
+        )  # Group 3 random
 
         state = SpatialState(Biomass=initial_biomass)
 
         # Step 5: Calculate spatial flux
-        flux = calculate_spatial_flux(
-            state.Biomass,
-            ecospace,
-            {},
-            t=0.0
-        )
+        flux = calculate_spatial_flux(state.Biomass, ecospace, {}, t=0.0)
 
         # Validation
         assert flux.shape == (n_groups + 1, grid.n_patches)
@@ -96,9 +93,9 @@ class TestCompleteWorkflow:
         for i in range(5):
             connectivity[i, i] = 0.6  # 60% retention
             if i > 0:
-                connectivity[i, i-1] = 0.2  # 20% to left
+                connectivity[i, i - 1] = 0.2  # 20% to left
             if i < 4:
-                connectivity[i, i+1] = 0.2  # 20% to right
+                connectivity[i, i + 1] = 0.2  # 20% to right
 
         # Add seasonal variation (stronger in summer)
         times = np.arange(12) / 12.0  # Monthly
@@ -106,9 +103,7 @@ class TestCompleteWorkflow:
 
         # Create external flux
         external_flux = create_flux_from_connectivity_matrix(
-            connectivity,
-            times=times,
-            seasonal_pattern=seasonal
+            connectivity, times=times, seasonal_pattern=seasonal
         )
 
         # Validate
@@ -127,27 +122,40 @@ class TestCompleteWorkflow:
             grid=grid,
             habitat_preference=np.ones((n_groups, grid.n_patches)),
             habitat_capacity=np.ones((n_groups, grid.n_patches)),
-            dispersal_rate=np.array([0.0, 5.0]),  # Ecospace group 0: no model dispersal (uses external), Group 1: model dispersal
+            dispersal_rate=np.array(
+                [0.0, 5.0]
+            ),  # Ecospace group 0: no model dispersal (uses external), Group 1: model dispersal
             advection_enabled=np.array([False, False]),
             gravity_strength=np.array([0.0, 0.0]),
-            external_flux=external_flux
+            external_flux=external_flux,
         )
 
         # Simulate
         # State indices: 0 = Outside, 1 = ecospace group 0, 2 = ecospace group 1
         state = SpatialState(
-            Biomass=np.array([
-                [0, 0, 0, 0, 0],       # Index 0: Outside (no flux)
-                [10, 10, 10, 10, 10],  # Index 1: ecospace group 0 (uses external flux)
-                [5, 10, 15, 10, 5]     # Index 2: ecospace group 1 (uses model dispersal)
-            ])
+            Biomass=np.array(
+                [
+                    [0, 0, 0, 0, 0],  # Index 0: Outside (no flux)
+                    [
+                        10,
+                        10,
+                        10,
+                        10,
+                        10,
+                    ],  # Index 1: ecospace group 0 (uses external flux)
+                    [
+                        5,
+                        10,
+                        15,
+                        10,
+                        5,
+                    ],  # Index 2: ecospace group 1 (uses model dispersal)
+                ]
+            )
         )
 
         flux = calculate_spatial_flux(
-            state.Biomass,
-            ecospace,
-            {},
-            t=0.25  # Quarter year
+            state.Biomass, ecospace, {}, t=0.25  # Quarter year
         )
 
         # Index 0 (Outside) should have no flux
@@ -188,7 +196,7 @@ class TestCompleteWorkflow:
         external_flux = ExternalFluxTimeseries(
             flux_data=flux_data,
             times=np.arange(12) / 12.0,
-            group_indices=np.array([0])  # Ecospace group 0 = larvae (state index 1)
+            group_indices=np.array([0]),  # Ecospace group 0 = larvae (state index 1)
         )
 
         # Habitat preference: adults prefer deeper eastern patches
@@ -206,27 +214,22 @@ class TestCompleteWorkflow:
             grid=grid,
             habitat_preference=habitat_prefs,
             habitat_capacity=np.ones((n_groups, n_patches)),
-            dispersal_rate=np.array([0.0, 3.0]),  # Larvae: external, Adults: 3 km²/month
+            dispersal_rate=np.array(
+                [0.0, 3.0]
+            ),  # Larvae: external, Adults: 3 km²/month
             advection_enabled=np.array([False, True]),  # Adults seek habitat
             gravity_strength=np.array([0.0, 0.7]),
-            external_flux=external_flux
+            external_flux=external_flux,
         )
 
         # Initial state: larvae and adults in western patches
-        state = SpatialState(
-            Biomass=np.zeros((n_groups + 1, n_patches))
-        )
+        state = SpatialState(Biomass=np.zeros((n_groups + 1, n_patches)))
         state.Biomass[0, :] = 0  # Outside
         state.Biomass[1, 0:4] = 20.0  # Larvae in western column
         state.Biomass[2, 0:4] = 10.0  # Adults in western column
 
         # Calculate flux
-        flux = calculate_spatial_flux(
-            state.Biomass,
-            ecospace,
-            {},
-            t=0.5  # Mid-year
-        )
+        flux = calculate_spatial_flux(state.Biomass, ecospace, {}, t=0.5)  # Mid-year
 
         # Larvae should use external flux (ocean currents)
         # Adults should use model (diffusion + habitat seeking)
@@ -253,7 +256,7 @@ class TestCompleteWorkflow:
             habitat_capacity=np.ones((n_groups, grid.n_patches)),
             dispersal_rate=np.array([2.0, 5.0, 1.0]),
             advection_enabled=np.array([True, False, True]),
-            gravity_strength=np.array([0.5, 0.0, 0.3])
+            gravity_strength=np.array([0.5, 0.0, 0.3]),
         )
 
         # Initial state
@@ -274,12 +277,7 @@ class TestCompleteWorkflow:
             t = step * dt
 
             # Calculate flux
-            flux = calculate_spatial_flux(
-                state.Biomass,
-                ecospace,
-                {},
-                t=t
-            )
+            flux = calculate_spatial_flux(state.Biomass, ecospace, {}, t=t)
 
             # Apply flux (simple Euler integration)
             state.Biomass += flux * dt
@@ -293,7 +291,9 @@ class TestCompleteWorkflow:
         # Total biomass should be approximately conserved
         # (Some loss acceptable due to numerical integration)
         for g in range(1, n_groups + 1):
-            relative_change = abs(final_total[g] - initial_total[g]) / (initial_total[g] + 1e-10)
+            relative_change = abs(final_total[g] - initial_total[g]) / (
+                initial_total[g] + 1e-10
+            )
             assert relative_change < 0.05  # Within 5%
 
 
@@ -314,15 +314,13 @@ class TestExternalFluxWorkflows:
             for g in range(n_groups):
                 for i in range(n_patches - 1):
                     # Flow to next patch
-                    flux_data[t, g, i, i+1] = 0.5
-                    flux_data[t, g, i+1, i] = 0.5  # Balanced return flow
+                    flux_data[t, g, i, i + 1] = 0.5
+                    flux_data[t, g, i + 1, i] = 0.5  # Balanced return flow
 
         times = np.arange(n_timesteps) / 12.0
 
         external_flux = ExternalFluxTimeseries(
-            flux_data=flux_data,
-            times=times,
-            group_indices=np.array([0, 1])
+            flux_data=flux_data, times=times, group_indices=np.array([0, 1])
         )
 
         # Validate conservation for each timestep
@@ -343,9 +341,9 @@ class TestExternalFluxWorkflows:
         for i in range(n_patches):
             base_connectivity[i, i] = 0.7  # Local retention
             if i > 0:
-                base_connectivity[i, i-1] = 0.15
+                base_connectivity[i, i - 1] = 0.15
             if i < n_patches - 1:
-                base_connectivity[i, i+1] = 0.15
+                base_connectivity[i, i + 1] = 0.15
 
         # Seasonal pattern (spawning season = high connectivity)
         months = np.arange(12)
@@ -354,14 +352,12 @@ class TestExternalFluxWorkflows:
 
         # Create flux
         external_flux = create_flux_from_connectivity_matrix(
-            base_connectivity,
-            times=months / 12.0,
-            seasonal_pattern=seasonal
+            base_connectivity, times=months / 12.0, seasonal_pattern=seasonal
         )
 
         # Test seasonal variation
         flux_winter = external_flux.get_flux_at_time(0.0, group_idx=0)  # January
-        flux_summer = external_flux.get_flux_at_time(5.0/12.0, group_idx=0)  # June
+        flux_summer = external_flux.get_flux_at_time(5.0 / 12.0, group_idx=0)  # June
 
         # Summer should have stronger connectivity
         summer_total = np.sum(np.abs(flux_summer))
@@ -385,15 +381,11 @@ class TestEdgeCases:
             habitat_capacity=np.ones((n_groups, grid.n_patches)),
             dispersal_rate=np.array([0.0, 0.0]),  # No dispersal
             advection_enabled=np.array([False, False]),
-            gravity_strength=np.array([0.0, 0.0])
+            gravity_strength=np.array([0.0, 0.0]),
         )
 
         state = SpatialState(
-            Biomass=np.array([
-                [0, 0, 0, 0, 0],
-                [10, 5, 15, 8, 12],
-                [20, 10, 5, 15, 8]
-            ])
+            Biomass=np.array([[0, 0, 0, 0, 0], [10, 5, 15, 8, 12], [20, 10, 5, 15, 8]])
         )
 
         flux = calculate_spatial_flux(state.Biomass, ecospace, {}, t=0.0)
@@ -418,14 +410,13 @@ class TestEdgeCases:
             habitat_capacity=np.ones((n_groups, grid.n_patches)),
             dispersal_rate=np.array([5.0]),
             advection_enabled=np.array([False]),
-            gravity_strength=np.array([0.0])
+            gravity_strength=np.array([0.0]),
         )
 
         state = SpatialState(
-            Biomass=np.array([
-                [0, 0, 0],
-                [10, 20, 10]  # High biomass in isolated patch
-            ])
+            Biomass=np.array(
+                [[0, 0, 0], [10, 20, 10]]  # High biomass in isolated patch
+            )
         )
 
         flux = calculate_spatial_flux(state.Biomass, ecospace, {}, t=0.0)
