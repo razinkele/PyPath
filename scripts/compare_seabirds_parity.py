@@ -53,7 +53,7 @@ def compute_components_for_state(state, forcing_dict, fishing_dict):
     NUM_LIVING = params_dict["NUM_LIVING"]
     QQ = np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1))
 
-    PB = params_dict["PB"]
+    # PB present in params_dict but unused here (kept for parity with other scripts)
     # Ensure 2D matrices
     def _ensure_mat(mat):
         mat = np.asarray(mat)

@@ -99,6 +99,15 @@ for i, g in enumerate(model_df['Group'].tolist(), start=1):
         state[i] = float(row[g])
 
 print(f"Advancing from Rpath month {start} for {steps} steps (to month {start + steps})")
+# Precompute indices used in debug prints
+try:
+    d_idx = pdict['spname'].index('Discards')
+except Exception:
+    d_idx = None
+try:
+    s_idx = pdict['spname'].index('Seabirds')
+except Exception:
+    s_idx = None
 print("month | B_rpath_next | B_rpath_here | B_from_rpath_next | B_py_official_next | Q_start | preyYY | PDY | delta_from_rpath")
 
 for step in range(0, steps):

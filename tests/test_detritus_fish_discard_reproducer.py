@@ -169,7 +169,7 @@ def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(fish_q, m
     det_idx = d - NUM_LIVING
 
     # baseline
-    unas_input_base = 0.0
+    _unas_input_base = 0.0
     for pred in range(1, NUM_LIVING + 1):
         total_consump = np.sum(pdict["QQbase"][1:, pred]) if False else np.sum(np.zeros((NUM_GROUPS + 1,)))
         # we should use QQ computed from current state; replicate deriv_vector's QQ computation (simpler)

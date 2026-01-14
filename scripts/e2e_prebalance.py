@@ -27,14 +27,13 @@ except Exception:
     from playwright.sync_api import sync_playwright
 
 
-import os
 import subprocess
 
 
 def _start_server():
     """Start the Shiny app server as a subprocess and wait until it's ready."""
     cmd = [sys.executable, "-m", "shiny", "run", "app/app.py", "--port", "8000"]
-    env = os.environ.copy()
+    # env copy not required; kept for future use if env updates are needed
     # Use unbuffered output to read lines promptly
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     # Wait for startup line

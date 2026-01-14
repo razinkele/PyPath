@@ -1089,6 +1089,8 @@ def integrate_ab(
         # Prefer the original attribute-based INSTRUMENT_GROUPS (exported by rsim_run)
         # if present; this helps in cases where the params dict has been mutated
         # during warmup or other computations.
+        # Ensure NUM_GROUPS is available for legacy numeric instrument group checks
+        NUM_GROUPS = params.get('NUM_GROUPS', None)
         try:
             attr_ig = globals().get('_last_instrument_groups', None)
             if attr_ig is not None:

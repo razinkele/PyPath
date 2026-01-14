@@ -55,7 +55,7 @@ def compute_components(state, params_obj, forcing_dict, fishing_dict):
     NUM_LIVING = params_dict['NUM_LIVING']
     QQ = np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1))
 
-    PB = params_dict['PB']
+    # PB available as params_dict['PB'] (not used directly here)
     QQbase = np.asarray(params_dict.get('QQbase', np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1))))
     ActiveLink = np.asarray(params_dict['ActiveLink'])
     VV = np.asarray(params_dict['VV'])

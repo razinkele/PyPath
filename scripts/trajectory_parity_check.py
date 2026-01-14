@@ -88,7 +88,11 @@ res_df = res_df.sort_values('corr')
 if args.quiet:
     import builtins
 
-    builtins.print = _original_print
+    try:
+        builtins.print = _original_print
+    except NameError:
+        # nothing to restore
+        pass
 
 sname = 'Seabirds'
 row = res_df[res_df['group'] == sname]

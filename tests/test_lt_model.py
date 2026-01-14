@@ -17,9 +17,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pypath.io.ewemdb import HAS_MDB_TOOLS, HAS_PYODBC, HAS_PYPYODBC
+
 # Skip all tests if the data file doesn't exist or if no DB driver is available
 DATA_FILE = Path(__file__).parent.parent / "Data" / "LT2022_0.5ST_final7.eweaccdb"
-from pypath.io.ewemdb import HAS_MDB_TOOLS, HAS_PYODBC, HAS_PYPYODBC
 
 DB_DRIVER_AVAILABLE = HAS_MDB_TOOLS or HAS_PYODBC or HAS_PYPYODBC
 pytestmark = pytest.mark.skipif(

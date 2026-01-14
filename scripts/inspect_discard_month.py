@@ -94,11 +94,11 @@ except Exception as e:
     print('deriv_r call failed:', e)
 
 # deriv_vector outputs: check type
-print('res_py type:', type(res_py))
+print('deriv_py type:', type(deriv_py))
 
-# try to print detritus diagnostics in res_py (if present)
-if isinstance(res_py, dict):
-    print('res_py keys:', res_py.keys())
+# try to print detritus diagnostics in deriv_py (if present)
+if isinstance(deriv_py, dict):
+    print('deriv_py keys:', deriv_py.keys())
 
 # fallback: compute Q matrices and values printed earlier
 QQ_py = _compute_Q_matrix(params_dict, state_py, forcing)

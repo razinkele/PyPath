@@ -182,7 +182,7 @@ def test_fish_detfrac_linklist_deterministic(capsys):
     if m is not None:
         src_idx = int(m.group(1))
         det_col = int(m.group(2))
-        added_frac = float(m.group(3))
+        _added_frac = float(m.group(3))
     else:
         # Fallback: use the explicit single-entry mapping we configured
         src_idx = int(pdict["FishFrom"][0])

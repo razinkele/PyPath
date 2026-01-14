@@ -27,7 +27,7 @@ from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 
 try:
-    from pypath.core.optimization import EcosimOptimizer, OptimizationResult
+    from pypath.core.optimization import EcosimOptimizer
 except ImportError:
     pytest.skip("scikit-optimize not available", allow_module_level=True)
 from pypath.core.params import create_rpath_params

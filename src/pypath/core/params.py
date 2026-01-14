@@ -10,7 +10,7 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Any, Dict
 
 import numpy as np
 import pandas as pd
@@ -85,6 +85,7 @@ class RpathParams:
     stanzas: StanzaParams = field(default_factory=StanzaParams)
     pedigree: Optional[pd.DataFrame] = None
     remarks: Optional[pd.DataFrame] = None
+    ecosim: Optional[Dict[str, Any]] = None
 
     def __repr__(self) -> str:
         n_groups = len(self.model)

@@ -91,7 +91,7 @@ def deriv_with_fixed_Q(state, QQ_fixed):
     PB = pdict['PB']
     QB = pdict['QB']
     PP_type = pdict['PP_type']
-    Unassim = pdict['Unassim']
+    # Unassim available in pdict as pdict['Unassim'] (used below via pdict)
 
     # primary production (simplified): use PB * BB for producers
     # compute consumption and predation as per deriv_vector

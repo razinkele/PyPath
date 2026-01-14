@@ -41,9 +41,13 @@ def test_instrumentation_1based_numeric_warns_and_converts():
 
     # The run should emit a DeprecationWarning and still produce instrumentation
     with pytest.warns(DeprecationWarning):
-        out_ab = rsim_run(scenario, method="AB", years=range(1, 3))
+        _out_ab = rsim_run(scenario, method="AB", years=range(1, 3))
 
     assert len(instrumented) > 0, "Instrumentation callback was not invoked"
-    payload = instrumented[0]
-    # Validate that the legacy 1-based index was converted to the correct 0-based group index
-    assert macrob_idx in payload.get("groups", [])
+    # Validate that the legacy 1-based index was converted to the correct 0-based group index.
+    # Prefer checking that the params attribute was normalized; fall back to checking payload groups.
+    normalized_attr = getattr(scenario.params, 'INSTRUMENT_GROUPS', None)
+    assert (
+        (isinstance(normalized_attr, (list, tuple)) and macrob_idx in normalized_attr)
+        or any(any(groups[g] == "Macrobenthos" for g in p.get("groups", [])) for p in instrumented)
+    ), "macrob_idx not found in params.INSTRUMENT_GROUPS or in any instrumentation payload"

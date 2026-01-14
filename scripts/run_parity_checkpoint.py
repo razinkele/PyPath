@@ -54,7 +54,6 @@ def slice_forcing(scenario, start_year, n_years):
     start_idx = (start_year - scenario.start_year) * 12
     end_idx = start_idx + n_years * 12
     fs = scenario.forcing
-    fk = fs
     # Build a new forcing dataclass with sliced arrays
     class FS:
         pass

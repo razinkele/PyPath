@@ -205,7 +205,7 @@ def test_deriv_includes_fish_discard_links():
                         f = int(fish_from[k])
                         t = int(fish_to[k])
                         if t >= (rs.NUM_LIVING + 1) and t <= (rs.NUM_LIVING + rs.NUM_DEAD) and f >= 0 and f <= rs.NUM_GROUPS:
-                            det_col = t - rs.NUM_LIVING
+                            _det_col = t - rs.NUM_LIVING
                             src_idx = f
                             fish_input = float(fish_q[k]) * float(state[src_idx])
                             m0_arr = rs.MzeroMort

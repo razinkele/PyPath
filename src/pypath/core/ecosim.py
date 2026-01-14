@@ -1180,9 +1180,12 @@ def rsim_run(
             # Provide species names list to deriv_vector for trace printing
             params_no_noint['spname'] = params.spname
             print(f"DEBUG: requesting TRACE_DEBUG_GROUPS for seabirds idx={sidx}")
+        # Threshold for considering small initial derivatives
+        ADJUST_DERIV_MAX = 1e-3
         print(f"DEBUG: computing init_deriv with fish_base length={len(fish_base_zero['FishingMort'])}")
         init_deriv = deriv_vector(state.copy(), params_no_noint, forcing0, fish_base_zero)
         # Also compute a test-style derivative with TRACE to compare
+        params_test = params_no_noint.copy()
         try:
             params_test['TRACE_DEBUG_GROUPS'] = params_no_noint.get('TRACE_DEBUG_GROUPS', None)
             deriv_test = deriv_vector(state.copy(), params_test, forcing0, fish_base_zero)

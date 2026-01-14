@@ -26,4 +26,3 @@ print('pytraj first row sample=', pytraj[0,:10])
 print('\nfirst 20 groups in model df:')
 for i,name in enumerate(model_df['Group'].tolist()[:20]):
     print(i+1, name)
-PY

@@ -1080,6 +1080,16 @@ def read_ewemdb(
                                     start_month=int(scen.get("start_month", 1)),
                                     use_actual_month_lengths=False,
                                 )
+                                # If forcing_monthly contains single-column parameter data and the model has
+                                # a single group, rename that lone column to the group's name for convenience
+                                if group_names is not None and len(group_names) == 1:
+                                    gname = group_names[0]
+                                    for k, v in list(scen["forcing_monthly"].items()):
+                                        if str(k).startswith("_"):
+                                            continue
+                                        if isinstance(v, pd.DataFrame) and v.shape[1] == 1:
+                                            v.columns = [gname]
+                                            scen["forcing_monthly"][k] = v
                                 # Build forcing matrices aligned to model groups (if available later)
                                 try:
                                     scen["forcing_matrices"] = _build_forcing_matrices(
@@ -1251,7 +1261,53 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
         "oct": 10,
         "nov": 11,
         "dec": 12,
+        # common non-English abbreviations
+        "janv": 1,
+        "fev": 2,
+        "avr": 4,
+        "mai": 5,
+        "juin": 6,
+        "juil": 7,
+        "aou": 8,
+        "ene": 1,
+        "abr": 4,
+        "ago": 8,
+        "dic": 12,
     }
+
+    # helper: convert a row with Year/Month or Time to fractional year
+    def to_frac_year(r):
+        try:
+            if "Year" in r and pd.notna(r["Year"]):
+                y = float(r.get("Year", 0.0))
+
+                # If MonthIdx (from M1..M12 relative labels) is provided, compute actual month and year offset
+                if pd.notna(r.get("MonthIdx")) and start_month is not None:
+                    idx = int(r.get("MonthIdx"))
+                    # actual month number relative to start_month
+                    mnum = ((idx - 1 + (start_month - 1)) % 12) + 1
+                    year_offset = (idx - 1 + (start_month - 1)) // 12
+                    return (y + year_offset) + (float(mnum) - 1.0) / 12.0
+
+                m = r.get("Month", None)
+                if isinstance(m, str):
+                    m_l = m.strip().lower()
+                    mnum = month_name_map.get(m_l[:3], None)
+                    if mnum is None:
+                        try:
+                            mnum = int(m)
+                        except Exception:
+                            mnum = 1
+                elif pd.notna(m):
+                    mnum = int(m)
+                else:
+                    # default to January when month unknown
+                    mnum = 1
+                return y + (float(mnum) - 1.0) / 12.0
+            else:
+                return float(r.get("Time", 0.0))
+        except Exception:
+            return float(r.get("Time", 0.0))
 
     # detect month-style columns (e.g., 'Jan', 'M1', 'Month1')
     cols_lower = [c.lower() for c in df.columns]
@@ -1268,8 +1324,10 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
     if month_cols:
         # Melt wide monthly format into long rows with Year and Month
         time_col = next((c for c in ["Year", "Time"] if c in df.columns), None)
-        id_vars = [time_col] if time_col is not None else []
+        # include other identifying columns (Parameter, Group, Gear, etc.) so they are preserved
         value_vars = [c for c, _ in month_cols]
+        other_cols = [c for c in df.columns if c not in value_vars and c != time_col]
+        id_vars = [time_col] + other_cols if time_col is not None else other_cols
         if id_vars:
             melted = df.melt(id_vars=id_vars, value_vars=value_vars, var_name="MonthCol", value_name="Value")
             # map MonthCol to month number
@@ -1316,14 +1374,6 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
             if id_vars:
                 melted.rename(columns={id_vars[0]: "Year"}, inplace=True)
             df = melted.drop(columns=["MonthCol", "MonthRaw"]).rename(columns={"Value": "Value"})
-                            mnum = int(m)
-                        except Exception:
-                            mnum = 1
-                else:
-                    mnum = int(m)
-                return y + (float(mnum) - 1.0) / 12.0
-            except Exception:
-                return float(r.get("Time", 0.0))
 
         df = df.copy()
         df["_TimeFrac"] = df.apply(to_frac_year, axis=1)
@@ -1335,6 +1385,29 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
 
     times = sorted(df[time_col].dropna().unique().tolist())
     parsed: Dict[str, Any] = {"_times": times}
+
+    # If Parameter present but Group column absent and no explicit group columns, map each Parameter to a single-column DataFrame
+    group_candidates = [c for c in (other_cols if 'other_cols' in locals() else []) if c not in (time_col, 'ScenarioID', 'Parameter')]
+    if 'Parameter' in df.columns and 'Group' not in df.columns and not group_candidates:
+        for param in df['Parameter'].unique():
+            sub = df[df['Parameter'] == param]
+            grouped = sub.groupby(time_col)['Value'].mean()
+            pivot_values = grouped.reindex(times).fillna(_np.nan).values
+            pivot = pd.DataFrame(pivot_values, index=times, columns=['Value'])
+            parsed[str(param)] = pivot
+        return parsed
+
+    # If Parameter present but Group column absent, attempt to infer group column
+    if 'Parameter' in df.columns and 'Group' not in df.columns and group_candidates:
+        for param in df['Parameter'].unique():
+            sub = df[df['Parameter'] == param]
+            # Build a pivot where the detected group column name becomes the column header
+            grp = group_candidates[0]
+            grouped = sub.groupby(time_col)['Value'].mean()
+            pivot_values = grouped.reindex(times).fillna(_np.nan).values
+            pivot = pd.DataFrame(pivot_values, index=times, columns=[grp])
+            parsed[str(param)] = pivot
+        return parsed
 
     # If long format with Parameter/Group/Value columns, pivot per parameter
     if all(c in df.columns for c in ["Parameter", "Group", "Value"]) or all(c in df.columns for c in ["Parameter", "Group", "Value"]):
@@ -1384,8 +1457,10 @@ def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optio
 
     # If month_cols found and Year present, melt into Year+Month long format
     if month_cols and "Year" in df.columns:
-        id_vars = ["Year"]
+        time_col = "Year"
         value_vars = [c for c, _ in month_cols]
+        other_cols = [c for c in df.columns if c not in value_vars and c != time_col]
+        id_vars = [time_col] + other_cols if time_col is not None else other_cols
         melted = df.melt(id_vars=id_vars, value_vars=value_vars, var_name="MonthCol", value_name="Value")
         def month_from_col(m):
             ml = m.lower()
@@ -1398,9 +1473,6 @@ def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optio
             return None
         melted["Month"] = melted["MonthCol"].apply(month_from_col)
         # keep other identifying columns if present (Gear etc.)
-        other_cols = [c for c in df.columns if c not in value_vars and c != "Year"]
-        # if Gear present, carry it through using groupby and explode style merge
-        # Simple approach: assume per-row gears exist; otherwise gears need separate handling
         df = melted
 
     # Year+Month handling
@@ -1454,6 +1526,11 @@ def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optio
                 pivot = sub.pivot_table(index=time_col, columns=gear_col, values="Value", aggfunc="mean")
                 pivot = pivot.reindex(times).fillna(0.0)
                 parsed[param] = pivot
+        elif "Value" in df.columns and gear_col is not None and "Parameter" not in df.columns:
+            # Generic wide-format fishing where monthly columns contain 'Value' per gear
+            pivot = df.pivot_table(index=time_col, columns=gear_col, values="Value", aggfunc="mean")
+            pivot = pivot.reindex(times).fillna(0.0)
+            parsed["Effort"] = pivot
     else:
         for col in df.columns:
             if col in ("ScenarioID", time_col, "Year", "Month", "MonthCol"):
@@ -1513,7 +1590,21 @@ def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], n
         return result
 
     months = int(num_years * 12)
-    monthly_years = _np.array([float(start_year) + m / 12.0 for m in range(months)])
+    monthly_years = []
+    for m in range(months):
+        rel = (start_month - 1 + m) % 12 + 1
+        year_offset = (start_month - 1 + m) // 12
+        y = float(start_year + year_offset)
+        if use_actual_month_lengths:
+            import calendar as _cal
+            days_in_year = 366 if _cal.isleap(int(y)) else 365
+            month_mid = (1 + _cal.monthrange(int(y), rel)[1]) // 2
+            day_of_year = sum(_cal.monthrange(int(y), mm)[1] for mm in range(1, rel)) + month_mid
+            frac = (day_of_year - 1) / float(days_in_year)
+            monthly_years.append(y + frac)
+        else:
+            monthly_years.append(y + (rel - 1) / 12.0)
+    monthly_years = _np.array(monthly_years)
 
     times = parsed_ts["_times"]
     times_abs = _to_absolute_years(times, start_year)
@@ -1626,6 +1717,13 @@ def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: O
                     interp_data.append(monthly_vals)
                 # Build DataFrame months x cols
                 dfm = pd.DataFrame(_np.column_stack(interp_data), index=monthly_years, columns=cols)
+                # Pad with leading column 0 for 'Outside' or placeholder so gear indices start at column 1
+                try:
+                    import numpy as _np2
+                    pad = pd.DataFrame(_np2.zeros((len(monthly_years), 1)), index=monthly_years, columns=[0])
+                    dfm = pd.concat([pad, dfm], axis=1)
+                except Exception:
+                    pass
                 result[key] = dfm
             else:
                 # fallback to scalar series handling
@@ -1879,6 +1977,8 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
     patch_areas = None
     patch_centroids = None
 
+    logger.info(f"_construct_ecospace_params: grid_df present={grid_df is not None}")
+
     if grid_df is not None and len(grid_df) > 0:
         id_col = next((c for c in ["PatchID", "ID", "Patch"] if c in grid_df.columns), None)
         area_col = next((c for c in ["Area", "PatchArea"] if c in grid_df.columns), None)
@@ -1892,18 +1992,22 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
         if lon_col is not None and lat_col is not None:
             patch_centroids = _np.vstack((grid_df[lon_col].astype(float).values, grid_df[lat_col].astype(float).values)).T
 
+        logger.info(f"_construct_ecospace_params: patch_ids={patch_ids}, patch_areas_shape={None if patch_areas is None else patch_areas.shape}, patch_centroids_shape={None if patch_centroids is None else patch_centroids.shape}")
+
     # Fallback: infer from habitat table
-    habitat_df = ecospace_tables.get("EcospaceHabitat") or ecospace_tables.get("EcospaceLayer")
+    habitat_df = ecospace_tables.get("EcospaceHabitat") if ecospace_tables.get("EcospaceHabitat") is not None else ecospace_tables.get("EcospaceLayer")
     if habitat_df is not None and len(habitat_df) > 0:
         patch_col = next((c for c in ["Patch", "PatchID", "Cell"] if c in habitat_df.columns), None)
         group_col = next((c for c in ["Group", "GroupName", "Species"] if c in habitat_df.columns), None)
         value_col = next((c for c in ["Value", "Suitability", "Preference"] if c in habitat_df.columns), None)
+        logger.info(f"_construct_ecospace_params: habitat_cols patch={patch_col}, group={group_col}, value={value_col}")
         if patch_ids is None and patch_col is not None:
             patch_ids = sorted(habitat_df[patch_col].dropna().unique().tolist())
         # build habitat matrix if group info present
         if group_col is not None and patch_col is not None and value_col is not None:
             groups_present = sorted(habitat_df[group_col].dropna().unique().tolist())
             patches_present = sorted(habitat_df[patch_col].dropna().unique().tolist())
+            logger.info(f"_construct_ecospace_params: groups_present={groups_present}, patches_present={patches_present}")
             # Map group_names to groups_present order if possible
             n_groups = len(group_names)
             n_patches = len(patch_ids) if patch_ids is not None else len(patches_present)
@@ -1983,8 +2087,18 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                         rows.append(i)
                         cols.append(j)
                         vals.append(1.0)
-                        edge_lengths[(i, j)] = float(dists[i, j])
+                        # store edge length using sorted tuple key to keep undirected uniqueness
+                        key = (min(i, j), max(i, j))
+                        edge_lengths[key] = float(dists[i, j])
                 adj = _sps.csr_matrix((_np.array(vals, dtype=float), (_np.array(rows, dtype=int), _np.array(cols, dtype=int))), shape=(n_p, n_p))
+                # Ensure adjacency is symmetric by taking the maximum with its transpose
+                try:
+                    adj = adj.maximum(adj.transpose())
+                except Exception:
+                    # Fallback: make dense and symmetrize
+                    mat = adj.toarray()
+                    mat = ((mat + mat.T) > 0).astype(float)
+                    adj = _sps.csr_matrix(mat)
             else:
                 adj = _sps.csr_matrix((_np.zeros((len(patch_ids), len(patch_ids)))), dtype=float)
                 edge_lengths = {}
@@ -2030,11 +2144,10 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                 environmental_drivers=None,
             )
 
+            logger.info(f"_construct_ecospace_params: constructed EcospaceParams n_patches={grid.n_patches} n_groups={habitat_pref.shape[0]}")
             return ecospace_params
 
-    except Exception:
-        return None
-
+    logger.info(f"_construct_ecospace_params: Not enough data to construct EcospaceParams: grid_present={('EcospaceGrid' in ecospace_tables)}, habitat_present={('EcospaceHabitat' in ecospace_tables or 'EcospaceLayer' in ecospace_tables)}")
     return None
 
 
@@ -2094,6 +2207,10 @@ def ecosim_scenario_from_ewemdb(
     if years is None:
         start = int(selected.get("start_year")) if selected.get("start_year") is not None else 1
         num = int(selected.get("num_years")) if selected.get("num_years") is not None else 1
+        # Ensure at least two years for RsimScenario compatibility
+        if num < 2:
+            logger.info(f"Raising number of years from {num} to 2 for scenario {selected.get('name')}")
+            num = 2
         years = range(start, start + num)
 
     # Balance via rpath if requested
@@ -2125,11 +2242,18 @@ def ecosim_scenario_from_ewemdb(
     # Try to construct and attach EcospaceParams if ecospace tables exist
     try:
         ecospace_tables = selected.get("ecospace") or _map_ecospace_tables(filepath)
-        ecospace_params = _construct_ecospace_params(ecospace_tables, params.model["Group"].tolist())
+        # Use Rsim parameter species names (which include 'Outside' at index 0) to align indices
+        try:
+            rsim_group_names = rsim.params.spname
+        except Exception:
+            rsim_group_names = params.model["Group"].tolist()
+        ecospace_params = _construct_ecospace_params(ecospace_tables, rsim_group_names)
         if ecospace_params is not None:
             rsim.ecospace = ecospace_params
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception(f"Failed to construct EcospaceParams: {e}")
+        # Leave ecospace as None if construction fails
+        rsim.ecospace = None
 
     # Attach metadata for convenience
     rsim._from_ewemdb = {"filepath": filepath, "scenario_meta": selected}

@@ -4,6 +4,8 @@ This module contains common formatting functions used across multiple pages
 to avoid code duplication.
 """
 
+import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -612,8 +614,6 @@ def get_model_info(model: Any) -> Optional[Dict[str, Any]]:
 # -----------------------
 # Rpath diagnostics helper
 # -----------------------
-import json
-from pathlib import Path
 
 
 def load_rpath_diagnostics(diag_dir: Path | str = Path("tests/data/rpath_reference/ecosim/diagnostics")) -> dict:
