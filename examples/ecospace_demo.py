@@ -42,20 +42,13 @@ def demo_grid_creation():
 
     # 1. Regular 2D grid
     print("\n1. Creating 5×5 regular grid...")
-    grid_2d = create_regular_grid(
-        bounds=(0, 0, 5, 5),
-        nx=5,
-        ny=5
-    )
+    grid_2d = create_regular_grid(bounds=(0, 0, 5, 5), nx=5, ny=5)
     print(f"   > Created {grid_2d.n_patches} patches")
     print(f"   > {grid_2d.adjacency_matrix.nnz // 2} connections")
 
     # 2. 1D transect
     print("\n2. Creating 1D transect (10 patches)...")
-    grid_1d = create_1d_grid(
-        n_patches=10,
-        spacing=1.0
-    )
+    grid_1d = create_1d_grid(n_patches=10, spacing=1.0)
     print(f"   > Created {grid_1d.n_patches} patches")
     print(f"   > {grid_1d.adjacency_matrix.nnz // 2} connections")
 
@@ -63,11 +56,19 @@ def demo_grid_creation():
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
     # Plot 2D grid
-    ax1.set_title('5×5 Regular Grid')
+    ax1.set_title("5×5 Regular Grid")
     for i in range(grid_2d.n_patches):
         c = grid_2d.patch_centroids[i]
-        ax1.scatter(c[0], c[1], s=200, c='steelblue', edgecolors='black', linewidths=2)
-        ax1.text(c[0], c[1], str(i), ha='center', va='center', color='white', fontweight='bold')
+        ax1.scatter(c[0], c[1], s=200, c="steelblue", edgecolors="black", linewidths=2)
+        ax1.text(
+            c[0],
+            c[1],
+            str(i),
+            ha="center",
+            va="center",
+            color="white",
+            fontweight="bold",
+        )
 
     # Plot edges
     rows, cols = grid_2d.adjacency_matrix.nonzero()
@@ -75,27 +76,35 @@ def demo_grid_creation():
         i, j = rows[idx], cols[idx]
         if i < j:
             p1, p2 = grid_2d.patch_centroids[i], grid_2d.patch_centroids[j]
-            ax1.plot([p1[0], p2[0]], [p1[1], p2[1]], 'gray', alpha=0.3, linewidth=1)
+            ax1.plot([p1[0], p2[0]], [p1[1], p2[1]], "gray", alpha=0.3, linewidth=1)
 
-    ax1.set_xlabel('X (longitude)')
-    ax1.set_ylabel('Y (latitude)')
+    ax1.set_xlabel("X (longitude)")
+    ax1.set_ylabel("Y (latitude)")
     ax1.grid(True, alpha=0.3)
-    ax1.set_aspect('equal')
+    ax1.set_aspect("equal")
 
     # Plot 1D grid
-    ax2.set_title('1D Transect (10 patches)')
+    ax2.set_title("1D Transect (10 patches)")
     for i in range(grid_1d.n_patches):
         c = grid_1d.patch_centroids[i]
-        ax2.scatter(c[0], c[1], s=300, c='steelblue', edgecolors='black', linewidths=2)
-        ax2.text(c[0], c[1], str(i), ha='center', va='center', color='white', fontweight='bold')
+        ax2.scatter(c[0], c[1], s=300, c="steelblue", edgecolors="black", linewidths=2)
+        ax2.text(
+            c[0],
+            c[1],
+            str(i),
+            ha="center",
+            va="center",
+            color="white",
+            fontweight="bold",
+        )
 
-    ax2.set_xlabel('Distance from shore (km)')
-    ax2.set_ylabel('')
+    ax2.set_xlabel("Distance from shore (km)")
+    ax2.set_ylabel("")
     ax2.grid(True, alpha=0.3)
     ax2.set_xlim(-0.5, 9.5)
 
     plt.tight_layout()
-    plt.savefig('ecospace_demo_grids.png', dpi=150, bbox_inches='tight')
+    plt.savefig("ecospace_demo_grids.png", dpi=150, bbox_inches="tight")
     print("\n   > Saved visualization: ecospace_demo_grids.png")
 
 
@@ -113,23 +122,25 @@ def demo_habitat_patterns():
 
     # 1. Uniform
     print("\n1. Uniform habitat...")
-    patterns['Uniform'] = np.ones(n_patches) * 0.8
+    patterns["Uniform"] = np.ones(n_patches) * 0.8
 
     # 2. Horizontal gradient
     print("2. Horizontal gradient (W->E)...")
     x_coords = grid.patch_centroids[:, 0]
-    patterns['Horizontal Gradient'] = (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min())
+    patterns["Horizontal Gradient"] = (x_coords - x_coords.min()) / (
+        x_coords.max() - x_coords.min()
+    )
 
     # 3. Core-periphery
     print("3. Core-periphery...")
     center = grid.patch_centroids.mean(axis=0)
     distances = np.linalg.norm(grid.patch_centroids - center, axis=1)
-    patterns['Core-Periphery'] = 1 - (distances / distances.max()) ** 2
+    patterns["Core-Periphery"] = 1 - (distances / distances.max()) ** 2
 
     # 4. Patchy
     print("4. Patchy (random)...")
     np.random.seed(42)
-    patterns['Patchy'] = np.random.uniform(0.2, 1.0, n_patches)
+    patterns["Patchy"] = np.random.uniform(0.2, 1.0, n_patches)
 
     # Visualize
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
@@ -142,21 +153,21 @@ def demo_habitat_patterns():
             grid.patch_centroids[:, 1],
             c=habitat,
             s=400,
-            cmap='YlGn',
+            cmap="YlGn",
             vmin=0,
             vmax=1,
-            edgecolors='black',
-            linewidths=2
+            edgecolors="black",
+            linewidths=2,
         )
-        plt.colorbar(scatter, ax=ax, label='Habitat Quality')
-        ax.set_title(f'{name} Habitat', fontsize=14, fontweight='bold')
-        ax.set_xlabel('X (longitude)')
-        ax.set_ylabel('Y (latitude)')
+        plt.colorbar(scatter, ax=ax, label="Habitat Quality")
+        ax.set_title(f"{name} Habitat", fontsize=14, fontweight="bold")
+        ax.set_xlabel("X (longitude)")
+        ax.set_ylabel("Y (latitude)")
         ax.grid(True, alpha=0.3)
-        ax.set_aspect('equal')
+        ax.set_aspect("equal")
 
     plt.tight_layout()
-    plt.savefig('ecospace_demo_habitat.png', dpi=150, bbox_inches='tight')
+    plt.savefig("ecospace_demo_habitat.png", dpi=150, bbox_inches="tight")
     print("\n   > Saved visualization: ecospace_demo_habitat.png")
 
 
@@ -181,7 +192,7 @@ def demo_dispersal_movement():
         biomass_vector=biomass,
         dispersal_rate=5.0,
         grid=grid,
-        adjacency=grid.adjacency_matrix
+        adjacency=grid.adjacency_matrix,
     )
 
     print("2. Calculating habitat advection...")
@@ -190,7 +201,7 @@ def demo_dispersal_movement():
         habitat_preference=habitat_preference,
         gravity_strength=0.5,
         grid=grid,
-        adjacency=grid.adjacency_matrix
+        adjacency=grid.adjacency_matrix,
     )
 
     combined = diffusion + advection
@@ -199,39 +210,47 @@ def demo_dispersal_movement():
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
     # Initial biomass
-    axes[0, 0].bar(range(10), biomass, color='steelblue', edgecolor='black')
-    axes[0, 0].set_title('Initial Biomass', fontsize=12, fontweight='bold')
-    axes[0, 0].set_xlabel('Patch')
-    axes[0, 0].set_ylabel('Biomass')
-    axes[0, 0].grid(True, alpha=0.3, axis='y')
+    axes[0, 0].bar(range(10), biomass, color="steelblue", edgecolor="black")
+    axes[0, 0].set_title("Initial Biomass", fontsize=12, fontweight="bold")
+    axes[0, 0].set_xlabel("Patch")
+    axes[0, 0].set_ylabel("Biomass")
+    axes[0, 0].grid(True, alpha=0.3, axis="y")
 
     # Habitat preference
-    axes[0, 1].bar(range(10), habitat_preference, color='green', alpha=0.7, edgecolor='black')
-    axes[0, 1].set_title('Habitat Preference', fontsize=12, fontweight='bold')
-    axes[0, 1].set_xlabel('Patch')
-    axes[0, 1].set_ylabel('Quality (0-1)')
-    axes[0, 1].grid(True, alpha=0.3, axis='y')
+    axes[0, 1].bar(
+        range(10), habitat_preference, color="green", alpha=0.7, edgecolor="black"
+    )
+    axes[0, 1].set_title("Habitat Preference", fontsize=12, fontweight="bold")
+    axes[0, 1].set_xlabel("Patch")
+    axes[0, 1].set_ylabel("Quality (0-1)")
+    axes[0, 1].grid(True, alpha=0.3, axis="y")
 
     # Diffusion flux
-    colors_diff = ['red' if x < 0 else 'blue' for x in diffusion]
-    axes[1, 0].bar(range(10), diffusion, color=colors_diff, alpha=0.7, edgecolor='black')
-    axes[1, 0].axhline(0, color='black', linewidth=0.8)
-    axes[1, 0].set_title('Diffusion Flux (Random Dispersal)', fontsize=12, fontweight='bold')
-    axes[1, 0].set_xlabel('Patch')
-    axes[1, 0].set_ylabel('Net Flux')
-    axes[1, 0].grid(True, alpha=0.3, axis='y')
+    colors_diff = ["red" if x < 0 else "blue" for x in diffusion]
+    axes[1, 0].bar(
+        range(10), diffusion, color=colors_diff, alpha=0.7, edgecolor="black"
+    )
+    axes[1, 0].axhline(0, color="black", linewidth=0.8)
+    axes[1, 0].set_title(
+        "Diffusion Flux (Random Dispersal)", fontsize=12, fontweight="bold"
+    )
+    axes[1, 0].set_xlabel("Patch")
+    axes[1, 0].set_ylabel("Net Flux")
+    axes[1, 0].grid(True, alpha=0.3, axis="y")
 
     # Combined flux
-    colors_comb = ['red' if x < 0 else 'blue' for x in combined]
-    axes[1, 1].bar(range(10), combined, color=colors_comb, alpha=0.7, edgecolor='black')
-    axes[1, 1].axhline(0, color='black', linewidth=0.8)
-    axes[1, 1].set_title('Combined Flux (Diffusion + Advection)', fontsize=12, fontweight='bold')
-    axes[1, 1].set_xlabel('Patch')
-    axes[1, 1].set_ylabel('Net Flux')
-    axes[1, 1].grid(True, alpha=0.3, axis='y')
+    colors_comb = ["red" if x < 0 else "blue" for x in combined]
+    axes[1, 1].bar(range(10), combined, color=colors_comb, alpha=0.7, edgecolor="black")
+    axes[1, 1].axhline(0, color="black", linewidth=0.8)
+    axes[1, 1].set_title(
+        "Combined Flux (Diffusion + Advection)", fontsize=12, fontweight="bold"
+    )
+    axes[1, 1].set_xlabel("Patch")
+    axes[1, 1].set_ylabel("Net Flux")
+    axes[1, 1].grid(True, alpha=0.3, axis="y")
 
     plt.tight_layout()
-    plt.savefig('ecospace_demo_dispersal.png', dpi=150, bbox_inches='tight')
+    plt.savefig("ecospace_demo_dispersal.png", dpi=150, bbox_inches="tight")
     print("\n   > Saved visualization: ecospace_demo_dispersal.png")
 
     # Check conservation
@@ -260,35 +279,35 @@ def demo_spatial_fishing():
 
     # 1. Uniform
     print("\n1. Uniform allocation...")
-    allocations['Uniform'] = allocate_uniform(n_patches, total_effort)
+    allocations["Uniform"] = allocate_uniform(n_patches, total_effort)
 
     # 2. Gravity (biomass-weighted)
     print("2. Gravity allocation (alpha=1.0)...")
-    allocations['Gravity (alpha=1.0)'] = allocate_gravity(
+    allocations["Gravity (alpha=1.0)"] = allocate_gravity(
         biomass=biomass_demo,
         target_groups=[1],
         total_effort=total_effort,
         alpha=1.0,
-        beta=0.0
+        beta=0.0,
     )
 
     # 3. Gravity (alpha=2.0, stronger concentration)
     print("3. Gravity allocation (alpha=2.0)...")
-    allocations['Gravity (alpha=2.0)'] = allocate_gravity(
+    allocations["Gravity (alpha=2.0)"] = allocate_gravity(
         biomass=biomass_demo,
         target_groups=[1],
         total_effort=total_effort,
         alpha=2.0,
-        beta=0.0
+        beta=0.0,
     )
 
     # 4. Port-based
     print("4. Port-based allocation...")
-    allocations['Port-based'] = allocate_port_based(
+    allocations["Port-based"] = allocate_port_based(
         grid=grid,
         port_patches=np.array([0, 4, 20, 24]),  # Four corners
         total_effort=total_effort,
-        beta=1.5
+        beta=1.5,
     )
 
     # Visualize
@@ -302,30 +321,31 @@ def demo_spatial_fishing():
             grid.patch_centroids[:, 1],
             c=effort,
             s=effort * 15,  # Size proportional to effort
-            cmap='Reds',
-            edgecolors='black',
+            cmap="Reds",
+            edgecolors="black",
             linewidths=2,
             vmin=0,
-            vmax=effort.max()
+            vmax=effort.max(),
         )
-        plt.colorbar(scatter, ax=ax, label='Fishing Effort')
-        ax.set_title(f'{name}', fontsize=14, fontweight='bold')
-        ax.set_xlabel('X (longitude)')
-        ax.set_ylabel('Y (latitude)')
+        plt.colorbar(scatter, ax=ax, label="Fishing Effort")
+        ax.set_title(f"{name}", fontsize=14, fontweight="bold")
+        ax.set_xlabel("X (longitude)")
+        ax.set_ylabel("Y (latitude)")
         ax.grid(True, alpha=0.3)
-        ax.set_aspect('equal')
+        ax.set_aspect("equal")
 
         # Add validation text
         ax.text(
-            0.02, 0.98,
-            f'Total: {effort.sum():.1f}',
+            0.02,
+            0.98,
+            f"Total: {effort.sum():.1f}",
             transform=ax.transAxes,
-            va='top',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+            va="top",
+            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
         )
 
     plt.tight_layout()
-    plt.savefig('ecospace_demo_fishing.png', dpi=150, bbox_inches='tight')
+    plt.savefig("ecospace_demo_fishing.png", dpi=150, bbox_inches="tight")
     print("\n   > Saved visualization: ecospace_demo_fishing.png")
 
     # Validate conservation
