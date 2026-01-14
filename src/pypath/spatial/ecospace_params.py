@@ -18,6 +18,7 @@ import scipy.sparse
 # Optional GIS support
 try:
     import geopandas as gpd
+
     _GIS_AVAILABLE = True
 except ImportError:
     _GIS_AVAILABLE = False
@@ -62,20 +63,30 @@ class EcospaceGrid:
         """Validate grid data."""
         # Check dimensions
         if len(self.patch_ids) != self.n_patches:
-            raise ValueError(f"patch_ids length ({len(self.patch_ids)}) != n_patches ({self.n_patches})")
+            raise ValueError(
+                f"patch_ids length ({len(self.patch_ids)}) != n_patches ({self.n_patches})"
+            )
         if len(self.patch_areas) != self.n_patches:
-            raise ValueError(f"patch_areas length ({len(self.patch_areas)}) != n_patches ({self.n_patches})")
+            raise ValueError(
+                f"patch_areas length ({len(self.patch_areas)}) != n_patches ({self.n_patches})"
+            )
         if self.patch_centroids.shape != (self.n_patches, 2):
-            raise ValueError(f"patch_centroids shape {self.patch_centroids.shape} != ({self.n_patches}, 2)")
+            raise ValueError(
+                f"patch_centroids shape {self.patch_centroids.shape} != ({self.n_patches}, 2)"
+            )
         if self.adjacency_matrix.shape != (self.n_patches, self.n_patches):
-            raise ValueError(f"adjacency_matrix shape {self.adjacency_matrix.shape} != ({self.n_patches}, {self.n_patches})")
+            raise ValueError(
+                f"adjacency_matrix shape {self.adjacency_matrix.shape} != ({self.n_patches}, {self.n_patches})"
+            )
 
         # Check that all areas are positive
         if np.any(self.patch_areas <= 0):
             raise ValueError("All patch areas must be positive")
 
         # Check that adjacency matrix is symmetric
-        if not np.allclose(self.adjacency_matrix.toarray(), self.adjacency_matrix.toarray().T):
+        if not np.allclose(
+            self.adjacency_matrix.toarray(), self.adjacency_matrix.toarray().T
+        ):
             raise ValueError("Adjacency matrix must be symmetric")
 
     @classmethod
@@ -84,7 +95,7 @@ class EcospaceGrid:
         filepath: str,
         id_field: str = "id",
         area_field: Optional[str] = None,
-        crs: Optional[str] = None
+        crs: Optional[str] = None,
     ) -> EcospaceGrid:
         """Create grid from shapefile or GeoJSON.
 
@@ -122,10 +133,7 @@ class EcospaceGrid:
 
     @classmethod
     def from_regular_grid(
-        cls,
-        bounds: Tuple[float, float, float, float],
-        nx: int,
-        ny: int
+        cls, bounds: Tuple[float, float, float, float], nx: int, ny: int
     ) -> EcospaceGrid:
         """Create regular rectangular grid (for testing).
 
@@ -224,14 +232,20 @@ class ExternalFluxTimeseries:
 
         # Check format
         if self.format not in ["flux_matrix", "connectivity_matrix"]:
-            raise ValueError(f"format must be 'flux_matrix' or 'connectivity_matrix', got '{self.format}'")
+            raise ValueError(
+                f"format must be 'flux_matrix' or 'connectivity_matrix', got '{self.format}'"
+            )
 
         # Validate dimensions
         if isinstance(self.flux_data, np.ndarray):
             if self.flux_data.ndim != 4:
-                raise ValueError(f"flux_data must be 4D [time, group, patch, patch], got {self.flux_data.ndim}D")
+                raise ValueError(
+                    f"flux_data must be 4D [time, group, patch, patch], got {self.flux_data.ndim}D"
+                )
             if self.flux_data.shape[0] != len(self.times):
-                raise ValueError(f"flux_data time dimension ({self.flux_data.shape[0]}) != len(times) ({len(self.times)})")
+                raise ValueError(
+                    f"flux_data time dimension ({self.flux_data.shape[0]}) != len(times) ({len(self.times)})"
+                )
 
     def get_flux_at_time(self, t: float, group_idx: int) -> np.ndarray:
         """Get flux matrix at given time for group.
@@ -295,7 +309,7 @@ class ExternalFluxTimeseries:
         filepath: str,
         time_var: str = "time",
         flux_var: str = "flux",
-        group_mapping: Optional[Dict[str, int]] = None
+        group_mapping: Optional[Dict[str, int]] = None,
     ) -> ExternalFluxTimeseries:
         """Load external flux from NetCDF file.
 
@@ -316,7 +330,9 @@ class ExternalFluxTimeseries:
         """
         from pypath.spatial.external_flux import load_external_flux_from_netcdf
 
-        return load_external_flux_from_netcdf(filepath, time_var, flux_var, group_mapping)
+        return load_external_flux_from_netcdf(
+            filepath, time_var, flux_var, group_mapping
+        )
 
 
 @dataclass
@@ -358,7 +374,9 @@ class EcospaceParams:
     advection_enabled: np.ndarray
     gravity_strength: np.ndarray
     external_flux: Optional[ExternalFluxTimeseries] = None
-    environmental_drivers: Optional[object] = None  # EnvironmentalDrivers when available
+    environmental_drivers: Optional[object] = (
+        None  # EnvironmentalDrivers when available
+    )
 
     def __post_init__(self):
         """Validate spatial parameters."""
@@ -366,7 +384,9 @@ class EcospaceParams:
 
         # Infer n_groups from habitat_preference
         if self.habitat_preference.ndim != 2:
-            raise ValueError(f"habitat_preference must be 2D [n_groups, n_patches], got {self.habitat_preference.ndim}D")
+            raise ValueError(
+                f"habitat_preference must be 2D [n_groups, n_patches], got {self.habitat_preference.ndim}D"
+            )
 
         n_groups = self.habitat_preference.shape[0]
 
