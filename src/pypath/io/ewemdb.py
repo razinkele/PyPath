@@ -1499,15 +1499,26 @@ def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], n
         if isinstance(vals, pd.DataFrame):
             cols = list(vals.columns)
             # Ensure index order matches times
-            df = vals.reindex(parsed_ts["_times"]).astype(float).fillna(method="ffill").fillna(method="bfill")
+            df = vals.reindex(parsed_ts["_times"]).astype(float)
             interp_cols = []
             for col in cols:
                 col_vals = df[col].values
-                if len(col_vals) != len(times_abs):
-                    # Try to coerce by reindexing
-                    col_series = df[col].reindex(parsed_ts["_times"]).astype(float).fillna(_np.nan).values
-                    col_vals = col_series
-                monthly_vals = _np.interp(monthly_years, times_abs, col_vals, left=col_vals[0], right=col_vals[-1])
+                # work with finite values for interpolation to avoid NaNs
+                finite_mask = _np.isfinite(col_vals)
+                if finite_mask.sum() == 0:
+                    # no data: fill with NaN
+                    monthly_vals = _np.full(months, _np.nan)
+                elif finite_mask.sum() == 1:
+                    # single value: fill all months with that value
+                    monthly_vals = _np.full(months, float(col_vals[finite_mask][0]))
+                else:
+                    # interpolate using finite points only
+                    try:
+                        x_known = _np.array(parsed_ts["_times"])[finite_mask]
+                        y_known = col_vals[finite_mask]
+                        monthly_vals = _np.interp(monthly_years, x_known, y_known, left=y_known[0], right=y_known[-1])
+                    except Exception:
+                        monthly_vals = _np.interp(monthly_years, times_abs, _np.nan_to_num(col_vals, nan=0.0), left=0.0, right=0.0)
                 interp_cols.append(monthly_vals)
             dfm = pd.DataFrame(_np.column_stack(interp_cols), index=monthly_years, columns=cols)
             result[key] = dfm
@@ -1556,12 +1567,20 @@ def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: O
         try:
             if isinstance(pivot, pd.DataFrame):
                 # Ensure pivot index order matches times
-                pivot2 = pivot.reindex(times)
+                pivot2 = pivot.reindex(times).astype(float)
                 interp_data = []
                 cols = list(pivot2.columns)
                 for col in cols:
-                    col_vals = pivot2[col].astype(float).values
-                    monthly_vals = _np.interp(monthly_years, times_abs, col_vals, left=col_vals[0], right=col_vals[-1])
+                    col_vals = pivot2[col].values
+                    finite_mask = _np.isfinite(col_vals)
+                    if finite_mask.sum() == 0:
+                        monthly_vals = _np.full(months, _np.nan)
+                    elif finite_mask.sum() == 1:
+                        monthly_vals = _np.full(months, float(col_vals[finite_mask][0]))
+                    else:
+                        x_known = _np.array(times)[finite_mask]
+                        y_known = col_vals[finite_mask]
+                        monthly_vals = _np.interp(monthly_years, x_known, y_known, left=y_known[0], right=y_known[-1])
                     interp_data.append(monthly_vals)
                 # Build DataFrame months x cols
                 dfm = pd.DataFrame(_np.column_stack(interp_data), index=monthly_years, columns=cols)

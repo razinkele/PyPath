@@ -324,6 +324,47 @@ class TestReadEwemdb:
             assert fm.shape[0] == 12
             assert abs(float(fm.iloc[0]["Fish"]) - 1.0) < 1e-8
             assert abs(float(fm.iloc[-1]["Fish"]) - 2.1) < 1e-8
+
+            # Test missing months interpolation: Feb was NaN -> should be interpolated to 2.0
+            # Build a simple wide monthly forcing where Feb is missing
+            forcing_df2 = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Parameter": ["ForcedPrey"], "Fish": [None], "Jan": [1.0], "Feb": [None], "Mar": [3.0], "Apr": [4.0], "May": [5.0], "Jun": [6.0], "Jul": [7.0], "Aug": [8.0], "Sep": [9.0], "Oct": [10.0], "Nov": [11.0], "Dec": [12.0]})
+            def mock_table_reader2(filepath, table):
+                if table == "EcopathGroup":
+                    return groups_df
+                elif table in ["EcosimScenario", "EcosimScenarios"]:
+                    return ecosim_df
+                elif table in ["EcosimForcing", "EcosimForcings", "EcosimForcingTable"]:
+                    return forcing_df2
+                elif table in ["EcosimFishing", "EcosimEffort"]:
+                    return fishing_df
+                else:
+                    raise Exception(f"Unknown table: {table}")
+            mock_read_table.side_effect = mock_table_reader2
+            params2 = read_ewemdb(temp_path, include_ecosim=True)
+            sc2 = params2.ecosim["scenarios"][0]
+            fm2 = sc2["forcing_monthly"]["ForcedPrey"]
+            assert abs(float(fm2.iloc[1]["Fish"]) - 2.0) < 1e-8
+
+            # Multi-year monthly table: two years of Jan..Dec -> should resample to 24 months
+            forcing_df3 = pd.DataFrame({"ScenarioID": [1,1], "Year": [2000,2001], "Parameter": ["ForcedPrey", "ForcedPrey"], "Fish": [None, None], "Jan": [1.0, 2.0], "Feb": [1.1, 2.1], "Mar": [1.2, 2.2], "Apr": [1.3, 2.3], "May": [1.4, 2.4], "Jun": [1.5, 2.5], "Jul": [1.6, 2.6], "Aug": [1.7, 2.7], "Sep": [1.8, 2.8], "Oct": [1.9, 2.9], "Nov": [2.0, 3.0], "Dec": [2.1, 3.1]})
+            def mock_table_reader3(filepath, table):
+                if table == "EcopathGroup":
+                    return groups_df
+                elif table in ["EcosimScenario", "EcosimScenarios"]:
+                    return ecosim_df
+                elif table in ["EcosimForcing", "EcosimForcings", "EcosimForcingTable"]:
+                    return forcing_df3
+                elif table in ["EcosimFishing", "EcosimEffort"]:
+                    return fishing_df
+                else:
+                    raise Exception(f"Unknown table: {table}")
+            mock_read_table.side_effect = mock_table_reader3
+            params3 = read_ewemdb(temp_path, include_ecosim=True)
+            sc3 = params3.ecosim["scenarios"][0]
+            fm3 = sc3["forcing_monthly"]["ForcedPrey"]
+            assert fm3.shape[0] == 24
+            assert abs(float(fm3.iloc[0]["Fish"]) - 1.0) < 1e-8
+            assert abs(float(fm3.iloc[-1]["Fish"]) - 3.1) < 1e-8
         finally:
             os.unlink(temp_path)
 
