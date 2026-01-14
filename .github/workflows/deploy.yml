@@ -11,6 +11,14 @@ on:
         description: 'Optional override of remote deploy path'
         required: false
         default: ''
+      production:
+        description: 'Deploy to production (requires a tag starting with v*)'
+        required: false
+        default: 'false'
+      tag:
+        description: 'Optional tag name to use for a manual production deploy (e.g., v1.2.3)'
+        required: false
+        default: ''
   push:
     branches: [ main ]
     tags: ['v*']
@@ -51,9 +59,29 @@ jobs:
             echo "path=${{ secrets.DEPLOY_PATH }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Require tag for production deploys
+        run: |
+          set -e
+          PROD_INPUT="${{ github.event.inputs.production || 'false' }}"
+          TAG_INPUT="${{ github.event.inputs.tag || '' }}"
+          # If production requested, ensure we are running on a tag (starts with v) or a tag input was provided
+          if [ "${PROD_INPUT}" = "true" ]; then
+            if [ -n "${TAG_INPUT}" ]; then
+              REF="refs/tags/${TAG_INPUT}"
+            else
+              REF="${GITHUB_REF:-}"
+            fi
+            if ! echo "${REF}" | grep -qE '^refs/tags/v'; then
+              echo "ERROR: Production deploys require a tag starting with 'v' (e.g., v1.2.3). Provide the tag input or run from a tag." >&2
+              exit 1
+            fi
+            echo "Proceeding with production deploy using tag: ${REF}"
+          fi
+
       - name: Show deploy info
         run: |
           echo "Deploying to ${DEPLOY_USER}@${DEPLOY_HOST}:${{ steps.target.outputs.path }}"
+          echo "Production mode: ${{ github.event.inputs.production || 'false' }}"
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
