@@ -84,10 +84,11 @@ class EcospaceGrid:
         if np.any(self.patch_areas <= 0):
             raise ValueError("All patch areas must be positive")
 
-        # Check that adjacency matrix is symmetric
-        if not np.allclose(
-            self.adjacency_matrix.toarray(), self.adjacency_matrix.toarray().T
-        ):
+        # Check that adjacency matrix is symmetric (sparse-safe)
+        # Avoid densifying large adjacency matrices which can OOM; instead
+        # check that (A - A.T) has no non-zero entries.
+        diff = self.adjacency_matrix - self.adjacency_matrix.T
+        if diff.nnz != 0:
             raise ValueError("Adjacency matrix must be symmetric")
 
     @classmethod

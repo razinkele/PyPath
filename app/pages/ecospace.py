@@ -180,7 +180,12 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
     centroids = np.column_stack([centroids_lon, centroids_lat])
 
     # Build adjacency matrix
-    adjacency, edge_lengths = build_adjacency_from_gdf(hex_gdf_wgs84, method="rook")
+    adjacency, metadata = build_adjacency_from_gdf(hex_gdf_wgs84, method="rook")
+
+    # Metadata contains 'border_lengths' (keys are (i,j) tuples where i<j)
+    raw_border_lengths = metadata.get("border_lengths", {}) if isinstance(metadata, dict) else {}
+    # Normalize keys to (min, max) and ensure float values
+    edge_lengths = { (min(k), max(k)): float(v) for k, v in raw_border_lengths.items() }
 
     # Create EcospaceGrid
     grid = EcospaceGrid(
@@ -242,12 +247,14 @@ def create_hexagon(center_x: float, center_y: float, radius: float) -> "Polygon"
     >>> len(list(hex.exterior.coords))
     7  # 6 vertices + closing point
     """
-    # Create pointy-top hexagon by starting at 30 degrees (pi/6)
-    # This makes the hexagon have flat sides on top/bottom
-    angles = np.linspace(0, 2 * np.pi, 7) + np.pi / 6  # Rotate by 30 degrees
+    # Create pointy-top hexagon by starting at 30 degrees (pi/6).
+    # Use 6 vertex angles (exclude endpoint) to avoid duplicating the first
+    # vertex before Shapely automatically closes the polygon.
+    angles = np.linspace(0, 2 * np.pi, 6, endpoint=False) + np.pi / 6  # 6 vertices
     x_coords = center_x + radius * np.cos(angles)
     y_coords = center_y + radius * np.sin(angles)
-    return Polygon(zip(x_coords, y_coords, strict=True))
+    # Construct polygon from 6 vertices; Shapely will close the polygon (7 coords total)
+    return Polygon(list(zip(x_coords, y_coords)))
 
 
 def ecospace_ui():
