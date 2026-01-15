@@ -33,154 +33,142 @@ Example
 """
 
 # Core data structures
-from pypath.spatial.ecospace_params import (
-    EcospaceGrid,
-    EcospaceParams,
-    SpatialState,
-    ExternalFluxTimeseries
-)
-
-# GIS utilities
-from pypath.spatial.gis_utils import (
-    load_spatial_grid,
-    create_regular_grid,
-    create_1d_grid
-)
-
 # Connectivity
 from pypath.spatial.connectivity import (
     build_adjacency_from_gdf,
-    calculate_patch_distances,
-    haversine_distance,
     build_distance_matrix,
+    calculate_patch_distances,
     find_k_nearest_neighbors,
+    get_connectivity_graph_stats,
+    haversine_distance,
     validate_adjacency_symmetry,
-    get_connectivity_graph_stats
 )
 
 # Dispersal
 from pypath.spatial.dispersal import (
-    diffusion_flux,
-    habitat_advection,
-    gravity_model_flux,
     apply_external_flux,
+    apply_flux_limiter,
     calculate_spatial_flux,
+    diffusion_flux,
+    gravity_model_flux,
+    habitat_advection,
     validate_flux_conservation,
-    apply_flux_limiter
 )
-
-# External flux
-from pypath.spatial.external_flux import (
-    load_external_flux_from_netcdf,
-    load_external_flux_from_csv,
-    create_flux_from_connectivity_matrix,
-    validate_external_flux_conservation,
-    rescale_flux_for_conservation,
-    convert_connectivity_to_flux,
-    summarize_external_flux
+from pypath.spatial.ecospace_params import (
+    EcospaceGrid,
+    EcospaceParams,
+    ExternalFluxTimeseries,
+    SpatialState,
 )
 
 # Environmental drivers
 from pypath.spatial.environmental import (
-    EnvironmentalLayer,
     EnvironmentalDrivers,
+    EnvironmentalLayer,
+    create_constant_layer,
     create_seasonal_temperature,
-    create_constant_layer
 )
 
-# Habitat suitability
-from pypath.spatial.habitat import (
-    create_gaussian_response,
-    create_threshold_response,
-    create_linear_response,
-    create_step_response,
-    calculate_habitat_suitability,
-    apply_habitat_preference_and_suitability
-)
-
-# Spatial integration
-from pypath.spatial.integration import (
-    deriv_vector_spatial,
-    rsim_run_spatial
+# External flux
+from pypath.spatial.external_flux import (
+    convert_connectivity_to_flux,
+    create_flux_from_connectivity_matrix,
+    load_external_flux_from_csv,
+    load_external_flux_from_netcdf,
+    rescale_flux_for_conservation,
+    summarize_external_flux,
+    validate_external_flux_conservation,
 )
 
 # Spatial fishing
 from pypath.spatial.fishing import (
     SpatialFishing,
-    allocate_uniform,
     allocate_gravity,
-    allocate_port_based,
     allocate_habitat_based,
+    allocate_port_based,
+    allocate_uniform,
     create_spatial_fishing,
-    validate_effort_allocation
+    validate_effort_allocation,
 )
+
+# GIS utilities
+from pypath.spatial.gis_utils import (
+    create_1d_grid,
+    create_regular_grid,
+    load_spatial_grid,
+)
+
+# Habitat suitability
+from pypath.spatial.habitat import (
+    apply_habitat_preference_and_suitability,
+    calculate_habitat_suitability,
+    create_gaussian_response,
+    create_linear_response,
+    create_step_response,
+    create_threshold_response,
+)
+
+# Spatial integration
+from pypath.spatial.integration import deriv_vector_spatial, rsim_run_spatial
 
 __all__ = [
     # Core classes
-    'EcospaceGrid',
-    'EcospaceParams',
-    'SpatialState',
-    'ExternalFluxTimeseries',
-
+    "EcospaceGrid",
+    "EcospaceParams",
+    "SpatialState",
+    "ExternalFluxTimeseries",
     # Grid creation
-    'load_spatial_grid',
-    'create_regular_grid',
-    'create_1d_grid',
-
+    "load_spatial_grid",
+    "create_regular_grid",
+    "create_1d_grid",
     # Connectivity
-    'build_adjacency_from_gdf',
-    'calculate_patch_distances',
-    'haversine_distance',
-    'build_distance_matrix',
-    'find_k_nearest_neighbors',
-    'validate_adjacency_symmetry',
-    'get_connectivity_graph_stats',
-
+    "build_adjacency_from_gdf",
+    "calculate_patch_distances",
+    "haversine_distance",
+    "build_distance_matrix",
+    "find_k_nearest_neighbors",
+    "validate_adjacency_symmetry",
+    "get_connectivity_graph_stats",
     # Dispersal
-    'diffusion_flux',
-    'habitat_advection',
-    'gravity_model_flux',
-    'apply_external_flux',
-    'calculate_spatial_flux',
-    'validate_flux_conservation',
-    'apply_flux_limiter',
-
+    "diffusion_flux",
+    "habitat_advection",
+    "gravity_model_flux",
+    "apply_external_flux",
+    "calculate_spatial_flux",
+    "validate_flux_conservation",
+    "apply_flux_limiter",
     # External flux
-    'load_external_flux_from_netcdf',
-    'load_external_flux_from_csv',
-    'create_flux_from_connectivity_matrix',
-    'validate_external_flux_conservation',
-    'rescale_flux_for_conservation',
-    'convert_connectivity_to_flux',
-    'summarize_external_flux',
-
+    "load_external_flux_from_netcdf",
+    "load_external_flux_from_csv",
+    "create_flux_from_connectivity_matrix",
+    "validate_external_flux_conservation",
+    "rescale_flux_for_conservation",
+    "convert_connectivity_to_flux",
+    "summarize_external_flux",
     # Environmental drivers
-    'EnvironmentalLayer',
-    'EnvironmentalDrivers',
-    'create_seasonal_temperature',
-    'create_constant_layer',
-
+    "EnvironmentalLayer",
+    "EnvironmentalDrivers",
+    "create_seasonal_temperature",
+    "create_constant_layer",
     # Habitat suitability
-    'create_gaussian_response',
-    'create_threshold_response',
-    'create_linear_response',
-    'create_step_response',
-    'calculate_habitat_suitability',
-    'apply_habitat_preference_and_suitability',
-
+    "create_gaussian_response",
+    "create_threshold_response",
+    "create_linear_response",
+    "create_step_response",
+    "calculate_habitat_suitability",
+    "apply_habitat_preference_and_suitability",
     # Spatial integration
-    'deriv_vector_spatial',
-    'rsim_run_spatial',
-
+    "deriv_vector_spatial",
+    "rsim_run_spatial",
     # Spatial fishing
-    'SpatialFishing',
-    'allocate_uniform',
-    'allocate_gravity',
-    'allocate_port_based',
-    'allocate_habitat_based',
-    'create_spatial_fishing',
-    'validate_effort_allocation',
+    "SpatialFishing",
+    "allocate_uniform",
+    "allocate_gravity",
+    "allocate_port_based",
+    "allocate_habitat_based",
+    "create_spatial_fishing",
+    "validate_effort_allocation",
 ]
 
 # Version info
-__version__ = '0.1.0'
+__version__ = "0.1.0"

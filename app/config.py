@@ -2,6 +2,7 @@
 
 Centralized configuration constants to eliminate magic values scattered throughout the codebase.
 """
+
 from dataclasses import dataclass
 from typing import Dict
 
@@ -13,7 +14,7 @@ class DisplayConfig:
     no_data_value: int = 9999
     decimal_places: int = 3
     table_max_rows: int = 100
-    date_format: str = '%Y-%m-%d'
+    date_format: str = "%Y-%m-%d"
 
     # Group type labels
     type_labels: Dict[int, str] = None
@@ -21,12 +22,7 @@ class DisplayConfig:
     def __post_init__(self):
         """Initialize type labels dictionary."""
         if self.type_labels is None:
-            self.type_labels = {
-                0: 'Consumer',
-                1: 'Producer',
-                2: 'Detritus',
-                3: 'Fleet'
-            }
+            self.type_labels = {0: "Consumer", 1: "Producer", 2: "Detritus", 3: "Fleet"}
 
 
 @dataclass
@@ -36,7 +32,7 @@ class PlotConfig:
     default_width: int = 8
     default_height: int = 5
     dpi: int = 100
-    style: str = 'seaborn-v0_8-darkgrid'
+    style: str = "seaborn-v0_8-darkgrid"
 
     # Fallback styles if preferred not available
     fallback_styles: list = None
@@ -45,9 +41,9 @@ class PlotConfig:
         """Initialize fallback styles."""
         if self.fallback_styles is None:
             self.fallback_styles = [
-                'seaborn-v0_8-darkgrid',
-                'seaborn-darkgrid',
-                'default'
+                "seaborn-v0_8-darkgrid",
+                "seaborn-darkgrid",
+                "default",
             ]
 
 
@@ -56,27 +52,27 @@ class ColorScheme:
     """Color scheme for visualizations."""
 
     # Group type colors
-    producer: str = '#2ecc71'      # Green
-    consumer: str = '#3498db'      # Blue
-    top_predator: str = '#e74c3c'  # Red
-    detritus: str = '#95a5a6'      # Gray
-    fleet: str = '#f39c12'         # Orange
+    producer: str = "#2ecc71"  # Green
+    consumer: str = "#3498db"  # Blue
+    top_predator: str = "#e74c3c"  # Red
+    detritus: str = "#95a5a6"  # Gray
+    fleet: str = "#f39c12"  # Orange
 
     # Spatial visualization colors
-    boundary: str = '#ff0000'      # Red
-    grid: str = 'steelblue'
-    grid_fill: str = 'lightblue'
+    boundary: str = "#ff0000"  # Red
+    grid: str = "steelblue"
+    grid_fill: str = "lightblue"
 
     # Plot series colors (for time series, etc.)
-    series_primary: str = '#1D3557'    # Dark blue
-    series_secondary: str = '#E63946'  # Red
-    series_tertiary: str = '#2A9D8F'   # Teal
+    series_primary: str = "#1D3557"  # Dark blue
+    series_secondary: str = "#E63946"  # Red
+    series_tertiary: str = "#2A9D8F"  # Teal
 
     # Status colors
-    success: str = '#28a745'
-    warning: str = '#ffc107'
-    error: str = '#dc3545'
-    info: str = '#17a2b8'
+    success: str = "#28a745"
+    warning: str = "#ffc107"
+    error: str = "#dc3545"
+    info: str = "#17a2b8"
 
 
 @dataclass
@@ -86,20 +82,20 @@ class ModelDefaults:
     # Ecopath defaults
     unassim_consumers: float = 0.2
     unassim_producers: float = 0.0
-    ba_consumers: float = 0.0      # Biomass accumulation
+    ba_consumers: float = 0.0  # Biomass accumulation
     ba_producers: float = 0.0
-    gs_consumers: float = 2.0       # Growth scalar for multi-stanza
+    gs_consumers: float = 2.0  # Growth scalar for multi-stanza
 
     # Ecosim defaults
-    default_months: int = 120       # 10 years
-    default_years: int = 50         # For UI sliders
-    timestep: float = 1.0           # Monthly timestep
+    default_months: int = 120  # 10 years
+    default_years: int = 50  # For UI sliders
+    timestep: float = 1.0  # Monthly timestep
     default_vulnerability: float = 2.0  # Mixed functional response
 
     # Diet rewiring defaults
-    min_dc: float = 0.1             # Minimum diet coefficient
-    max_dc: float = 5.0             # Maximum diet coefficient
-    switching_power: float = 2.0     # Switching power exponent (also used in forcing_demo)
+    min_dc: float = 0.1  # Minimum diet coefficient
+    max_dc: float = 5.0  # Maximum diet coefficient
+    switching_power: float = 2.0  # Switching power exponent (also used in forcing_demo)
     diet_update_interval: int = 12  # Months between diet updates
     min_diet_proportion: float = 0.001  # Minimum proportion in diet
 
@@ -121,7 +117,7 @@ class SpatialConfig:
 
     # Map visualization
     default_zoom: int = 8
-    default_tile_layer: str = 'OpenStreetMap'
+    default_tile_layer: str = "OpenStreetMap"
 
     # Performance thresholds
     large_grid_threshold: int = 500  # Patches - use simplified rendering
