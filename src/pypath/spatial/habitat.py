@@ -12,6 +12,7 @@ Implements functions that map environmental conditions to habitat suitability:
 from __future__ import annotations
 
 from typing import Callable, List, Optional
+
 import numpy as np
 
 
@@ -19,7 +20,7 @@ def create_gaussian_response(
     optimal_value: float,
     tolerance: float,
     min_value: Optional[float] = None,
-    max_value: Optional[float] = None
+    max_value: Optional[float] = None,
 ) -> Callable[[np.ndarray], np.ndarray]:
     """Create Gaussian (normal) response function.
 
@@ -63,11 +64,12 @@ def create_gaussian_response(
     >>> response(np.array([0, 10, 15, 20, 30]))
     array([0.        , 0.60653066, 1.        , 0.60653066, 0.        ])
     """
+
     def response_function(env_values: np.ndarray) -> np.ndarray:
         env_values = np.asarray(env_values, dtype=float)
 
         # Gaussian response
-        suitability = np.exp(-((env_values - optimal_value) / tolerance) ** 2)
+        suitability = np.exp(-(((env_values - optimal_value) / tolerance) ** 2))
 
         # Apply hard cutoffs if specified
         if min_value is not None:
@@ -85,7 +87,7 @@ def create_threshold_response(
     min_value: float,
     max_value: float,
     optimal_min: Optional[float] = None,
-    optimal_max: Optional[float] = None
+    optimal_max: Optional[float] = None,
 ) -> Callable[[np.ndarray], np.ndarray]:
     """Create threshold (trapezoidal) response function.
 
@@ -164,7 +166,9 @@ def create_threshold_response(
         # Rising edge: min_value to optimal_min
         if optimal_min > min_value:
             mask = (env_values >= min_value) & (env_values < optimal_min)
-            suitability[mask] = (env_values[mask] - min_value) / (optimal_min - min_value)
+            suitability[mask] = (env_values[mask] - min_value) / (
+                optimal_min - min_value
+            )
 
         # Optimal plateau: optimal_min to optimal_max
         mask = (env_values >= optimal_min) & (env_values <= optimal_max)
@@ -173,7 +177,9 @@ def create_threshold_response(
         # Falling edge: optimal_max to max_value
         if max_value > optimal_max:
             mask = (env_values > optimal_max) & (env_values <= max_value)
-            suitability[mask] = (max_value - env_values[mask]) / (max_value - optimal_max)
+            suitability[mask] = (max_value - env_values[mask]) / (
+                max_value - optimal_max
+            )
 
         # Above maximum: 0
         # (already initialized to 0)
@@ -184,9 +190,7 @@ def create_threshold_response(
 
 
 def create_linear_response(
-    min_value: float,
-    max_value: float,
-    increasing: bool = True
+    min_value: float, max_value: float, increasing: bool = True
 ) -> Callable[[np.ndarray], np.ndarray]:
     """Create linear response function.
 
@@ -241,9 +245,7 @@ def create_linear_response(
 
 
 def create_step_response(
-    threshold: float,
-    above_threshold: float = 1.0,
-    below_threshold: float = 0.0
+    threshold: float, above_threshold: float = 1.0, below_threshold: float = 0.0
 ) -> Callable[[np.ndarray], np.ndarray]:
     """Create step (binary) response function.
 
@@ -270,12 +272,11 @@ def create_step_response(
     >>> response(np.array([30, 50, 100]))
     array([0., 1., 1.])
     """
+
     def response_function(env_values: np.ndarray) -> np.ndarray:
         env_values = np.asarray(env_values, dtype=float)
         suitability = np.where(
-            env_values >= threshold,
-            above_threshold,
-            below_threshold
+            env_values >= threshold, above_threshold, below_threshold
         )
         return suitability
 
@@ -285,7 +286,7 @@ def create_step_response(
 def calculate_habitat_suitability(
     environmental_values: np.ndarray,
     response_functions: List[Callable],
-    combine_method: str = "multiplicative"
+    combine_method: str = "multiplicative",
 ) -> np.ndarray:
     """Calculate habitat suitability from multiple environmental drivers.
 
@@ -377,7 +378,7 @@ def calculate_habitat_suitability(
 def apply_habitat_preference_and_suitability(
     base_preference: np.ndarray,
     environmental_suitability: np.ndarray,
-    combine_method: str = "multiplicative"
+    combine_method: str = "multiplicative",
 ) -> np.ndarray:
     """Combine base habitat preference with environmental suitability.
 

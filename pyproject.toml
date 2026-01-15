@@ -90,6 +90,8 @@ target-version = ["py310", "py311", "py312"]
 line-length = 88
 select = ["E", "F", "I", "W"]
 ignore = ["E501"]
+# Allow scripts and test scripts to import in the body (e.g., to set up paths/env)
+per-file-ignores = { "scripts/**" = ["E402"], "tests/scripts/**" = ["E402"], "scripts/run_seabirds_root_cause.py" = ["F821"] }
 
 [tool.mypy]
 python_version = "3.10"

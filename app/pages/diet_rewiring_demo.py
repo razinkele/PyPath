@@ -4,11 +4,10 @@ Dynamic Diet Rewiring Demonstration Page
 Interactive demonstration of adaptive foraging and prey switching dynamics.
 """
 
-from shiny import ui, render, reactive, Inputs, Outputs, Session
-import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
 try:
@@ -17,7 +16,7 @@ except ModuleNotFoundError:
     from config import DEFAULTS
 
 # pypath imports (path setup handled by app/__init__.py)
-from pypath.core.forcing import create_diet_rewiring, DietRewiring
+from pypath.core.forcing import DietRewiring
 
 
 def diet_rewiring_demo_ui():
@@ -32,7 +31,7 @@ def diet_rewiring_demo_ui():
                     min=1.0,
                     max=DEFAULTS.max_dc,  # was: 5.0
                     value=DEFAULTS.switching_power,  # was: 2.5
-                    step=0.1
+                    step=0.1,
                 ),
                 ui.input_slider(
                     "update_interval",
@@ -40,7 +39,7 @@ def diet_rewiring_demo_ui():
                     min=1,
                     max=24,
                     value=DEFAULTS.diet_update_interval,  # was: 12
-                    step=1
+                    step=1,
                 ),
                 ui.input_numeric(
                     "min_proportion",
@@ -48,7 +47,7 @@ def diet_rewiring_demo_ui():
                     value=DEFAULTS.min_diet_proportion,  # was: 0.001
                     min=0.0001,
                     max=0.1,
-                    step=0.001
+                    step=0.001,
                 ),
                 ui.hr(),
                 ui.h5("Scenario Selection"),
@@ -60,9 +59,9 @@ def diet_rewiring_demo_ui():
                         "prey1_collapse": "Prey 1 Collapse",
                         "prey2_bloom": "Prey 2 Bloom",
                         "alternating": "Alternating Abundance",
-                        "custom": "Custom Biomass"
+                        "custom": "Custom Biomass",
                     },
-                    selected="normal"
+                    selected="normal",
                 ),
                 ui.panel_conditional(
                     "input.scenario === 'custom'",
@@ -72,7 +71,7 @@ def diet_rewiring_demo_ui():
                         min=0,
                         max=50,
                         value=10,
-                        step=1
+                        step=1,
                     ),
                     ui.input_slider(
                         "prey2_biomass",
@@ -80,7 +79,7 @@ def diet_rewiring_demo_ui():
                         min=0,
                         max=50,
                         value=10,
-                        step=1
+                        step=1,
                     ),
                     ui.input_slider(
                         "prey3_biomass",
@@ -88,21 +87,19 @@ def diet_rewiring_demo_ui():
                         min=0,
                         max=50,
                         value=10,
-                        step=1
-                    )
+                        step=1,
+                    ),
                 ),
                 ui.hr(),
                 ui.input_action_button(
-                    "run_rewiring",
-                    "Calculate Diet Shift",
-                    class_="btn-primary w-100"
+                    "run_rewiring", "Calculate Diet Shift", class_="btn-primary w-100"
                 ),
                 ui.input_action_button(
                     "reset_diet",
                     "Reset to Base Diet",
-                    class_="btn-secondary w-100 mt-2"
+                    class_="btn-secondary w-100 mt-2",
                 ),
-                width=300
+                width=300,
             ),
             # Main content
             ui.navset_tab(
@@ -111,15 +108,16 @@ def diet_rewiring_demo_ui():
                     ui.card(
                         ui.card_header("Diet Shift Visualization"),
                         ui.output_ui("diet_comparison_plot"),
-                        ui.output_text_verbatim("diet_summary")
-                    )
+                        ui.output_text_verbatim("diet_summary"),
+                    ),
                 ),
                 ui.nav_panel(
                     "Prey Switching Response",
                     ui.card(
                         ui.card_header("How Diet Changes with Biomass"),
                         ui.output_ui("switching_curve_plot"),
-                        ui.markdown("""
+                        ui.markdown(
+                            """
                         **Prey Switching Model:**
 
                         $\\text{new\\_diet}[i] = \\text{base\\_diet}[i] \\times \\left(\\frac{B_i}{\\bar{B}}\\right)^p$
@@ -130,32 +128,41 @@ def diet_rewiring_demo_ui():
                         - $p$ = switching power
 
                         Then normalized so diet sums to 1.
-                        """)
-                    )
+                        """
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Time Series",
                     ui.card(
                         ui.card_header("Diet Evolution Over Time"),
                         ui.output_ui("time_series_plot"),
-                        ui.markdown("""
+                        ui.markdown(
+                            """
                         Shows how diet composition changes as prey biomass varies over time.
-                        """)
-                    )
+                        """
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Code Example",
                     ui.card(
                         ui.card_header("Python Code"),
                         ui.output_code("diet_code_example"),
-                        ui.download_button("diet_download_code", "Download Code", class_="mt-2")
-                    )
+                        ui.download_button(
+                            "diet_download_code", "Download Code", class_="mt-2"
+                        ),
+                    ),
                 ),
                 ui.nav_panel(
                     "Help",
                     ui.card(
-                        ui.card_header(ui.tags.i(class_="bi bi-question-circle me-2"), "Dynamic Diet Rewiring Guide"),
-                        ui.markdown("""
+                        ui.card_header(
+                            ui.tags.i(class_="bi bi-question-circle me-2"),
+                            "Dynamic Diet Rewiring Guide",
+                        ),
+                        ui.markdown(
+                            """
                         ## What is Dynamic Diet Rewiring?
 
                         Diet rewiring allows **predator diet preferences to change over time**
@@ -321,10 +328,11 @@ def diet_rewiring_demo_ui():
 
                         Despite simplifications, provides **realistic adaptive foraging dynamics**
                         for ecosystem models.
-                        """)
-                    )
-                )
-            )
+                        """
+                        ),
+                    ),
+                ),
+            ),
         )
     )
 
@@ -333,15 +341,17 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
     """Server logic for diet rewiring demonstration."""
 
     # Base diet (3 prey, 1 predator)
-    base_diet = np.array([
-        [0.5],  # Prey 1: Herring (50%)
-        [0.3],  # Prey 2: Sprat (30%)
-        [0.2],  # Prey 3: Zooplankton (20%)
-    ])
+    base_diet = np.array(
+        [
+            [0.5],  # Prey 1: Herring (50%)
+            [0.3],  # Prey 2: Sprat (30%)
+            [0.2],  # Prey 3: Zooplankton (20%)
+        ]
+    )
 
     # Reactive values
     current_diet = reactive.Value(base_diet.copy())
-    diet_history = reactive.Value(None)
+    _diet_history = reactive.Value(None)
 
     @reactive.effect
     @reactive.event(input.run_rewiring)
@@ -359,12 +369,14 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
         elif scenario == "alternating":
             biomass = np.array([15.0, 5.0, 10.0, 0.0])
         else:  # custom
-            biomass = np.array([
-                input.prey1_biomass(),
-                input.prey2_biomass(),
-                input.prey3_biomass(),
-                0.0
-            ])
+            biomass = np.array(
+                [
+                    input.prey1_biomass(),
+                    input.prey2_biomass(),
+                    input.prey3_biomass(),
+                    0.0,
+                ]
+            )
 
         # Create diet rewiring object
         switching_power = input.demo_switching_power()
@@ -374,7 +386,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
             enabled=True,
             switching_power=switching_power,
             min_proportion=min_proportion,
-            update_interval=input.update_interval()
+            update_interval=input.update_interval(),
         )
 
         rewiring.initialize(base_diet)
@@ -397,37 +409,37 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
 
         fig = go.Figure()
 
-        prey_names = ['Herring', 'Sprat', 'Zooplankton']
+        prey_names = ["Herring", "Sprat", "Zooplankton"]
         x = np.arange(len(prey_names))
         width = 0.35
 
-        fig.add_trace(go.Bar(
-            x=x - width/2,
-            y=base_diet[:, 0] * 100,
-            name='Base Diet',
-            marker_color='#457B9D',
-            width=width
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=x - width / 2,
+                y=base_diet[:, 0] * 100,
+                name="Base Diet",
+                marker_color="#457B9D",
+                width=width,
+            )
+        )
 
-        fig.add_trace(go.Bar(
-            x=x + width/2,
-            y=new_diet[:, 0] * 100,
-            name='Current Diet',
-            marker_color='#E63946',
-            width=width
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=x + width / 2,
+                y=new_diet[:, 0] * 100,
+                name="Current Diet",
+                marker_color="#E63946",
+                width=width,
+            )
+        )
 
         fig.update_layout(
-            xaxis=dict(
-                tickmode='array',
-                tickvals=x,
-                ticktext=prey_names
-            ),
+            xaxis=dict(tickmode="array", tickvals=x, ticktext=prey_names),
             yaxis_title="Diet Proportion (%)",
-            template='plotly_white',
+            template="plotly_white",
             height=400,
-            barmode='group',
-            showlegend=True
+            barmode="group",
+            showlegend=True,
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
@@ -443,7 +455,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
         summary += f"{'Prey':<15} {'Base':<12} {'Current':<12} {'Change':<10}\n"
         summary += "-" * 50 + "\n"
 
-        prey_names = ['Herring', 'Sprat', 'Zooplankton']
+        prey_names = ["Herring", "Sprat", "Zooplankton"]
         for i, name in enumerate(prey_names):
             base_pct = base_diet[i, 0] * 100
             curr_pct = new_diet[i, 0] * 100
@@ -469,29 +481,31 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
 
         # Calculate diet response for different base proportions
         base_props = [0.5, 0.3, 0.2]
-        colors = ['#457B9D', '#E63946', '#2A9D8F']
+        colors = ["#457B9D", "#E63946", "#2A9D8F"]
 
         fig = go.Figure()
 
         for i, (base_prop, color) in enumerate(zip(base_props, colors)):
             # Response before normalization
-            response = base_prop * (relative_biomass ** switching_power)
+            response = base_prop * (relative_biomass**switching_power)
 
-            fig.add_trace(go.Scatter(
-                x=relative_biomass,
-                y=response,
-                mode='lines',
-                name=f'Base = {base_prop*100:.0f}%',
-                line=dict(color=color, width=2)
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=relative_biomass,
+                    y=response,
+                    mode="lines",
+                    name=f"Base = {base_prop * 100:.0f}%",
+                    line=dict(color=color, width=2),
+                )
+            )
 
         fig.update_layout(
             xaxis_title="Relative Prey Biomass (B/B_mean)",
             yaxis_title="Diet Response (before normalization)",
-            template='plotly_white',
+            template="plotly_white",
             height=400,
             showlegend=True,
-            hovermode='x unified'
+            hovermode="x unified",
         )
 
         # Add reference line at 1.0
@@ -522,7 +536,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
             enabled=True,
             switching_power=switching_power,
             min_proportion=min_proportion,
-            update_interval=input.update_interval()
+            update_interval=input.update_interval(),
         )
         rewiring.initialize(base_diet)
 
@@ -542,41 +556,65 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
         diet_array = np.array(diet_over_time)
 
         fig = make_subplots(
-            rows=2, cols=1,
-            subplot_titles=('Prey Biomass', 'Diet Composition'),
+            rows=2,
+            cols=1,
+            subplot_titles=("Prey Biomass", "Diet Composition"),
             row_heights=[0.4, 0.6],
-            vertical_spacing=0.12
+            vertical_spacing=0.12,
         )
 
         # Prey biomass
         fig.add_trace(
-            go.Scatter(x=months, y=prey1, name='Herring', line=dict(color='#457B9D')),
-            row=1, col=1
+            go.Scatter(x=months, y=prey1, name="Herring", line=dict(color="#457B9D")),
+            row=1,
+            col=1,
         )
         fig.add_trace(
-            go.Scatter(x=months, y=prey2, name='Sprat', line=dict(color='#E63946')),
-            row=1, col=1
+            go.Scatter(x=months, y=prey2, name="Sprat", line=dict(color="#E63946")),
+            row=1,
+            col=1,
         )
         fig.add_trace(
-            go.Scatter(x=months, y=prey3, name='Zooplankton', line=dict(color='#2A9D8F')),
-            row=1, col=1
+            go.Scatter(
+                x=months, y=prey3, name="Zooplankton", line=dict(color="#2A9D8F")
+            ),
+            row=1,
+            col=1,
         )
 
         # Diet proportions
         fig.add_trace(
-            go.Scatter(x=months, y=diet_array[:, 0]*100, name='Herring Diet',
-                      line=dict(color='#457B9D'), showlegend=False),
-            row=2, col=1
+            go.Scatter(
+                x=months,
+                y=diet_array[:, 0] * 100,
+                name="Herring Diet",
+                line=dict(color="#457B9D"),
+                showlegend=False,
+            ),
+            row=2,
+            col=1,
         )
         fig.add_trace(
-            go.Scatter(x=months, y=diet_array[:, 1]*100, name='Sprat Diet',
-                      line=dict(color='#E63946'), showlegend=False),
-            row=2, col=1
+            go.Scatter(
+                x=months,
+                y=diet_array[:, 1] * 100,
+                name="Sprat Diet",
+                line=dict(color="#E63946"),
+                showlegend=False,
+            ),
+            row=2,
+            col=1,
         )
         fig.add_trace(
-            go.Scatter(x=months, y=diet_array[:, 2]*100, name='Zooplankton Diet',
-                      line=dict(color='#2A9D8F'), showlegend=False),
-            row=2, col=1
+            go.Scatter(
+                x=months,
+                y=diet_array[:, 2] * 100,
+                name="Zooplankton Diet",
+                line=dict(color="#2A9D8F"),
+                showlegend=False,
+            ),
+            row=2,
+            col=1,
         )
 
         fig.update_xaxes(title_text="Month", row=2, col=1)
@@ -584,10 +622,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
         fig.update_yaxes(title_text="Diet %", row=2, col=1)
 
         fig.update_layout(
-            height=600,
-            template='plotly_white',
-            showlegend=True,
-            hovermode='x unified'
+            height=600, template="plotly_white", showlegend=True, hovermode="x unified"
         )
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
