@@ -104,6 +104,8 @@ Thumbs.db
 # Debug and temporary files
 debug_*.py
 check_*.py
+tmp_*.py
+scripts/tmp_*.py
 test_results*.txt
 *.log
 nul
