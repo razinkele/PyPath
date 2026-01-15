@@ -18,7 +18,7 @@ from pypath.spatial import (
     diffusion_flux,
     habitat_advection,
     allocate_port_based,
-    EcospaceParams
+    EcospaceParams,
 )
 
 
@@ -31,18 +31,16 @@ class TestIrregularGridCreation:
         polygons = [
             Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),  # Square
             Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),  # Adjacent square
-            Polygon([(0, 1), (1, 1), (0.5, 2)]),        # Triangle above
+            Polygon([(0, 1), (1, 1), (0.5, 2)]),  # Triangle above
         ]
 
         # Create GeoDataFrame
         gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1, 2]},
-            geometry=polygons,
-            crs='EPSG:4326'
+            {"patch_id": [0, 1, 2]}, geometry=polygons, crs="EPSG:4326"
         )
 
         # Build grid
-        adjacency, metadata = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency, metadata = build_adjacency_from_gdf(gdf, method="rook")
         n_patches = len(polygons)
 
         assert adjacency.shape == (n_patches, n_patches)
@@ -65,16 +63,12 @@ class TestIrregularGridCreation:
             Polygon([(1, 1), (2, 1), (2, 2), (1, 2)]),  # Top-right (diagonal)
         ]
 
-        gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1]},
-            geometry=polygons,
-            crs='EPSG:4326'
-        )
+        gdf = gpd.GeoDataFrame({"patch_id": [0, 1]}, geometry=polygons, crs="EPSG:4326")
 
         # Rook adjacency (shared edge only)
-        adjacency_rook, _ = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency_rook, _ = build_adjacency_from_gdf(gdf, method="rook")
         # Queen adjacency (shared edge or vertex)
-        adjacency_queen, _ = build_adjacency_from_gdf(gdf, method='queen')
+        adjacency_queen, _ = build_adjacency_from_gdf(gdf, method="queen")
 
         # These polygons only share a vertex (1, 1), not an edge
         # So rook should not consider them adjacent
@@ -89,11 +83,7 @@ class TestIrregularGridCreation:
             Polygon([(0, 0), (2, 0), (2, 2), (0, 2)]),  # 2x2 square (4x area)
         ]
 
-        gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1]},
-            geometry=polygons,
-            crs='EPSG:4326'
-        )
+        gdf = gpd.GeoDataFrame({"patch_id": [0, 1]}, geometry=polygons, crs="EPSG:4326")
 
         # Calculate areas (in degrees²)
         areas = gdf.geometry.area.values
@@ -108,11 +98,7 @@ class TestIrregularGridCreation:
             Polygon([(3, 3), (5, 3), (5, 5), (3, 5)]),  # Square centered at (4, 4)
         ]
 
-        gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1]},
-            geometry=polygons,
-            crs='EPSG:4326'
-        )
+        gdf = gpd.GeoDataFrame({"patch_id": [0, 1]}, geometry=polygons, crs="EPSG:4326")
 
         # Get centroids
         centroids = gdf.geometry.centroid
@@ -137,13 +123,11 @@ class TestIrregularGridPhysics:
         ]
 
         gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1, 2]},
-            geometry=polygons,
-            crs='EPSG:4326'
+            {"patch_id": [0, 1, 2]}, geometry=polygons, crs="EPSG:4326"
         )
 
         # Create grid
-        adjacency, _ = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency, _ = build_adjacency_from_gdf(gdf, method="rook")
         centroids = np.array([[c.x, c.y] for c in gdf.geometry.centroid])
         areas = gdf.geometry.area.values
 
@@ -165,7 +149,7 @@ class TestIrregularGridPhysics:
             patch_centroids=centroids,
             adjacency_matrix=adjacency,
             edge_lengths=edge_lengths,
-            geometry=gdf
+            geometry=gdf,
         )
 
         # Initial biomass (concentrated in patch 1)
@@ -173,10 +157,7 @@ class TestIrregularGridPhysics:
 
         # Calculate diffusion flux
         flux = diffusion_flux(
-            biomass_vector=biomass,
-            dispersal_rate=2.0,
-            grid=grid,
-            adjacency=adjacency
+            biomass_vector=biomass, dispersal_rate=2.0, grid=grid, adjacency=adjacency
         )
 
         # Mass conservation
@@ -203,12 +184,10 @@ class TestIrregularGridPhysics:
         ]
 
         gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1, 2]},
-            geometry=polygons,
-            crs='EPSG:4326'
+            {"patch_id": [0, 1, 2]}, geometry=polygons, crs="EPSG:4326"
         )
 
-        adjacency, _ = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency, _ = build_adjacency_from_gdf(gdf, method="rook")
         centroids = np.array([[c.x, c.y] for c in gdf.geometry.centroid])
         areas = gdf.geometry.area.values
 
@@ -227,7 +206,7 @@ class TestIrregularGridPhysics:
             patch_centroids=centroids,
             adjacency_matrix=adjacency,
             edge_lengths=edge_lengths,
-            geometry=gdf
+            geometry=gdf,
         )
 
         # Uniform biomass, gradient habitat
@@ -240,7 +219,7 @@ class TestIrregularGridPhysics:
             habitat_preference=habitat_preference,
             gravity_strength=0.5,
             grid=grid,
-            adjacency=adjacency
+            adjacency=adjacency,
         )
 
         # Mass conservation
@@ -260,18 +239,16 @@ class TestIrregularGridIntegration:
         """Test spatial fishing effort allocation on irregular grid."""
         # Create coastal grid (patches at different distances from shore)
         polygons = [
-            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),    # Patch 0: near shore (port)
-            Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),    # Patch 1: mid distance
-            Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),    # Patch 2: far from shore
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),  # Patch 0: near shore (port)
+            Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),  # Patch 1: mid distance
+            Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),  # Patch 2: far from shore
         ]
 
         gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1, 2]},
-            geometry=polygons,
-            crs='EPSG:4326'
+            {"patch_id": [0, 1, 2]}, geometry=polygons, crs="EPSG:4326"
         )
 
-        adjacency, _ = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency, _ = build_adjacency_from_gdf(gdf, method="rook")
         centroids = np.array([[c.x, c.y] for c in gdf.geometry.centroid])
         areas = gdf.geometry.area.values
 
@@ -290,40 +267,33 @@ class TestIrregularGridIntegration:
             patch_centroids=centroids,
             adjacency_matrix=adjacency,
             edge_lengths=edge_lengths,
-            geometry=gdf
+            geometry=gdf,
         )
 
         # Port at patch 0
         effort = allocate_port_based(
-            grid=grid,
-            port_patches=np.array([0]),
-            total_effort=100.0,
-            beta=1.0
+            grid=grid, port_patches=np.array([0]), total_effort=100.0, beta=1.0
         )
 
         # Effort should decrease with distance from port
-        assert effort[0] > effort[1] > effort[2], \
-            "Effort should decrease with distance from port"
+        assert (
+            effort[0] > effort[1] > effort[2]
+        ), "Effort should decrease with distance from port"
 
         # Total effort conserved
-        assert abs(effort.sum() - 100.0) < 1e-6, \
-            "Effort allocation not conserved"
+        assert abs(effort.sum() - 100.0) < 1e-6, "Effort allocation not conserved"
 
     def test_heterogeneous_patch_sizes(self):
         """Test that diffusion accounts for different patch sizes."""
         # Create patches of very different sizes
         polygons = [
-            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),      # Small: 1x1
-            Polygon([(1, 0), (5, 0), (5, 4), (1, 4)]),      # Large: 4x4
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),  # Small: 1x1
+            Polygon([(1, 0), (5, 0), (5, 4), (1, 4)]),  # Large: 4x4
         ]
 
-        gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1]},
-            geometry=polygons,
-            crs='EPSG:4326'
-        )
+        gdf = gpd.GeoDataFrame({"patch_id": [0, 1]}, geometry=polygons, crs="EPSG:4326")
 
-        adjacency, _ = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency, _ = build_adjacency_from_gdf(gdf, method="rook")
         centroids = np.array([[c.x, c.y] for c in gdf.geometry.centroid])
         areas = gdf.geometry.area.values
 
@@ -338,7 +308,7 @@ class TestIrregularGridIntegration:
             patch_centroids=centroids,
             adjacency_matrix=adjacency,
             edge_lengths=edge_lengths,
-            geometry=gdf
+            geometry=gdf,
         )
 
         # Equal biomass density (biomass proportional to area)
@@ -348,10 +318,7 @@ class TestIrregularGridIntegration:
 
         # With equal density, there should be very little flux
         flux = diffusion_flux(
-            biomass_vector=biomass,
-            dispersal_rate=2.0,
-            grid=grid,
-            adjacency=adjacency
+            biomass_vector=biomass, dispersal_rate=2.0, grid=grid, adjacency=adjacency
         )
 
         # Flux should not be zero (because we're using absolute biomass, not density)
@@ -366,18 +333,16 @@ class TestComplexTopology:
         """Test grid with isolated patch (no neighbors)."""
         # Create three patches: two connected, one isolated
         polygons = [
-            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),    # Patch 0
-            Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),    # Patch 1 (adjacent to 0)
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),  # Patch 0
+            Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),  # Patch 1 (adjacent to 0)
             Polygon([(10, 10), (11, 10), (11, 11), (10, 11)]),  # Patch 2 (isolated)
         ]
 
         gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1, 2]},
-            geometry=polygons,
-            crs='EPSG:4326'
+            {"patch_id": [0, 1, 2]}, geometry=polygons, crs="EPSG:4326"
         )
 
-        adjacency, _ = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency, _ = build_adjacency_from_gdf(gdf, method="rook")
 
         # Check adjacency
         assert adjacency[0, 1] == 1, "Patches 0 and 1 should be adjacent"
@@ -393,19 +358,17 @@ class TestComplexTopology:
         """Test grid arranged in a ring (circular topology)."""
         # Create 4 patches in a ring
         polygons = [
-            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),    # Bottom-left
-            Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),    # Bottom-right
-            Polygon([(1, 1), (2, 1), (2, 2), (1, 2)]),    # Top-right
-            Polygon([(0, 1), (1, 1), (1, 2), (0, 2)]),    # Top-left
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),  # Bottom-left
+            Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),  # Bottom-right
+            Polygon([(1, 1), (2, 1), (2, 2), (1, 2)]),  # Top-right
+            Polygon([(0, 1), (1, 1), (1, 2), (0, 2)]),  # Top-left
         ]
 
         gdf = gpd.GeoDataFrame(
-            {'patch_id': [0, 1, 2, 3]},
-            geometry=polygons,
-            crs='EPSG:4326'
+            {"patch_id": [0, 1, 2, 3]}, geometry=polygons, crs="EPSG:4326"
         )
 
-        adjacency, _ = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency, _ = build_adjacency_from_gdf(gdf, method="rook")
 
         # Check ring connectivity
         # 0 -> 1, 1 -> 2, 2 -> 3, 3 -> 0
@@ -426,21 +389,18 @@ class TestRealWorldScenarios:
         """Test coastal marine grid with land/water distinction."""
         # Simulate coastal grid (some patches are land, some water)
         water_polygons = [
-            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),    # Near-shore
-            Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),    # Mid-shelf
-            Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),    # Deep water
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),  # Near-shore
+            Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),  # Mid-shelf
+            Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),  # Deep water
         ]
 
         gdf = gpd.GeoDataFrame(
-            {
-                'patch_id': [0, 1, 2],
-                'habitat_type': ['nearshore', 'shelf', 'deep']
-            },
+            {"patch_id": [0, 1, 2], "habitat_type": ["nearshore", "shelf", "deep"]},
             geometry=water_polygons,
-            crs='EPSG:4326'
+            crs="EPSG:4326",
         )
 
-        adjacency, _ = build_adjacency_from_gdf(gdf, method='rook')
+        adjacency, _ = build_adjacency_from_gdf(gdf, method="rook")
         centroids = np.array([[c.x, c.y] for c in gdf.geometry.centroid])
         areas = gdf.geometry.area.values
 
@@ -459,7 +419,7 @@ class TestRealWorldScenarios:
             patch_centroids=centroids,
             adjacency_matrix=adjacency,
             edge_lengths=edge_lengths,
-            geometry=gdf
+            geometry=gdf,
         )
 
         # Different habitat preferences for different zones
@@ -474,7 +434,7 @@ class TestRealWorldScenarios:
             habitat_preference=habitat_preference,
             gravity_strength=0.5,
             grid=grid,
-            adjacency=adjacency
+            adjacency=adjacency,
         )
 
         # Mass should be conserved
