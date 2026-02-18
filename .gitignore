@@ -104,6 +104,8 @@ Thumbs.db
 # Debug and temporary files
 debug_*.py
 check_*.py
+tmp_*.py
+scripts/tmp_*.py
 test_results*.txt
 *.log
 nul
@@ -119,3 +121,8 @@ test_timeseries_*.png
 
 # Claude AI artifacts
 .claude/
+# Smoke test artifacts
+smoke_failure_*.png
+smoke_failure_*.html
+smoke_console_*.log
+smoke_exit_code.txt

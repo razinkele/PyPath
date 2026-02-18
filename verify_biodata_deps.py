@@ -18,41 +18,50 @@ print(f"\nPython version: {sys.version}")
 print("\n1. Checking pyworms...")
 try:
     import pyworms
+
     print(f"   [OK] pyworms installed (version: {pyworms.__version__})")
     HAS_PYWORMS = True
-except ImportError as e:
-    print(f"   [MISSING] pyworms not found")
-    print(f"   Install with: pip install pyworms")
+except ImportError:
+    print("   [MISSING] pyworms not found")
+    print("   Install with: pip install pyworms")
     HAS_PYWORMS = False
 
 # Check pyobis
 print("\n2. Checking pyobis...")
 try:
     import pyobis
+
     print(f"   [OK] pyobis installed (version: {pyobis.__version__})")
     HAS_PYOBIS = True
 except ImportError:
-    print(f"   [MISSING] pyobis not found")
-    print(f"   Install with: pip install pyobis")
+    print("   [MISSING] pyobis not found")
+    print("   Install with: pip install pyobis")
     HAS_PYOBIS = False
 
 # Check requests
 print("\n3. Checking requests...")
 try:
     import requests
+
     print(f"   [OK] requests installed (version: {requests.__version__})")
     HAS_REQUESTS = True
 except ImportError:
-    print(f"   [MISSING] requests not found")
-    print(f"   Install with: pip install requests")
+    print("   [MISSING] requests not found")
+    print("   Install with: pip install requests")
     HAS_REQUESTS = False
 
 # Check biodata module
 print("\n4. Checking pypath.io.biodata module...")
 try:
-    sys.path.insert(0, 'src')
-    from pypath.io.biodata import get_species_info, batch_get_species_info
-    print(f"   [OK] biodata module can be imported")
+    sys.path.insert(0, "src")
+    import pypath.io.biodata as biodata
+
+    required = ["batch_get_species_info", "get_species_info"]
+    missing = [name for name in required if not hasattr(biodata, name)]
+    if missing:
+        raise ImportError(f"Missing biodata attributes: {missing}")
+
+    print("   [OK] biodata module can be imported")
     HAS_BIODATA = True
 except ImportError as e:
     print(f"   [ERROR] biodata module import failed: {e}")

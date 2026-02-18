@@ -29,8 +29,9 @@ jobs:
       - name: Run ruff and black auto-fixes
         run: |
           set -e
-          ruff format --quiet --fix . || true
-          black --quiet . || true
+          python -m ruff check --fix . || true
+          python -m ruff format --quiet . || true
+          python -m black . || true
 
       - name: Check for formatting changes
         id: git-check

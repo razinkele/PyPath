@@ -2,16 +2,15 @@
 Tests for ECOSPACE grid creation and basic functionality.
 """
 
-import pytest
 import numpy as np
-import scipy.sparse
+import pytest
 
 from pypath.spatial import (
     EcospaceGrid,
     EcospaceParams,
     SpatialState,
+    create_1d_grid,
     create_regular_grid,
-    create_1d_grid
 )
 
 
@@ -58,7 +57,7 @@ class TestGridCreation:
                 patch_areas=grid.patch_areas,
                 patch_centroids=grid.patch_centroids,
                 adjacency_matrix=grid.adjacency_matrix,
-                edge_lengths=grid.edge_lengths
+                edge_lengths=grid.edge_lengths,
             )
 
         # Test with negative areas
@@ -69,7 +68,7 @@ class TestGridCreation:
                 patch_areas=np.array([1, -1, 1]),  # Negative area
                 patch_centroids=grid.patch_centroids,
                 adjacency_matrix=grid.adjacency_matrix,
-                edge_lengths=grid.edge_lengths
+                edge_lengths=grid.edge_lengths,
             )
 
     def test_grid_neighbors(self):
@@ -113,7 +112,7 @@ class TestEcospaceParams:
             habitat_capacity=np.ones((n_groups, grid.n_patches)),
             dispersal_rate=np.array([0, 1, 2, 3, 4], dtype=float),
             advection_enabled=np.array([False, True, True, False, False]),
-            gravity_strength=np.array([0, 0.5, 0.3, 0, 0], dtype=float)
+            gravity_strength=np.array([0, 0.5, 0.3, 0, 0], dtype=float),
         )
 
         assert params.grid.n_patches == 4
@@ -132,7 +131,7 @@ class TestEcospaceParams:
                 habitat_capacity=np.ones((n_groups, grid.n_patches)),
                 dispersal_rate=np.array([1, 2], dtype=float),
                 advection_enabled=np.array([False, True]),
-                gravity_strength=np.array([0, 0.5], dtype=float)
+                gravity_strength=np.array([0, 0.5], dtype=float),
             )
 
     def test_invalid_dispersal_rate(self):
@@ -148,7 +147,7 @@ class TestEcospaceParams:
                 habitat_capacity=np.ones((n_groups, grid.n_patches)),
                 dispersal_rate=np.array([1, -2], dtype=float),  # Negative
                 advection_enabled=np.array([False, True]),
-                gravity_strength=np.array([0, 0.5], dtype=float)
+                gravity_strength=np.array([0, 0.5], dtype=float),
             )
 
     def test_dimension_mismatch(self):
@@ -164,7 +163,7 @@ class TestEcospaceParams:
                 habitat_capacity=np.ones((n_groups, 5)),  # Wrong n_patches
                 dispersal_rate=np.array([1, 2], dtype=float),
                 advection_enabled=np.array([False, True]),
-                gravity_strength=np.array([0, 0.5], dtype=float)
+                gravity_strength=np.array([0, 0.5], dtype=float),
             )
 
 
@@ -176,19 +175,19 @@ class TestSpatialState:
         n_groups = 3
         n_patches = 4
 
-        state = SpatialState(
-            Biomass=np.ones((n_groups + 1, n_patches))
-        )
+        state = SpatialState(Biomass=np.ones((n_groups + 1, n_patches)))
 
         assert state.Biomass.shape == (n_groups + 1, n_patches)
 
     def test_collapse_to_total(self):
         """Test collapsing spatial state to totals."""
-        biomass = np.array([
-            [1, 2, 3],  # Group 0
-            [4, 5, 6],  # Group 1
-            [7, 8, 9]   # Group 2
-        ])
+        biomass = np.array(
+            [
+                [1, 2, 3],  # Group 0
+                [4, 5, 6],  # Group 1
+                [7, 8, 9],  # Group 2
+            ]
+        )
 
         state = SpatialState(Biomass=biomass)
         total = state.collapse_to_total()
@@ -200,11 +199,7 @@ class TestSpatialState:
 
     def test_get_patch_biomass(self):
         """Test getting biomass for specific patch."""
-        biomass = np.array([
-            [1, 2, 3],
-            [4, 5, 6],
-            [7, 8, 9]
-        ])
+        biomass = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
 
         state = SpatialState(Biomass=biomass)
         patch_1_biomass = state.get_patch_biomass(1)
@@ -231,7 +226,7 @@ class TestExternalFluxTimeseries:
             flux_data=flux_data,
             times=times,
             group_indices=np.array([1]),
-            interpolate=True
+            interpolate=True,
         )
 
         assert flux.flux_data.shape == (12, 1, 3, 3)
@@ -245,9 +240,7 @@ class TestExternalFluxTimeseries:
 
         with pytest.raises(ValueError, match="strictly increasing"):
             ExternalFluxTimeseries(
-                flux_data=flux_data,
-                times=times_unsorted,
-                group_indices=np.array([0])
+                flux_data=flux_data, times=times_unsorted, group_indices=np.array([0])
             )
 
     def test_get_flux_at_time_no_interpolation(self):
@@ -265,7 +258,7 @@ class TestExternalFluxTimeseries:
             flux_data=flux_data,
             times=times,
             group_indices=np.array([0]),
-            interpolate=False  # No interpolation
+            interpolate=False,  # No interpolation
         )
 
         # Query at t=0.8 (should return t=1 as nearest)
@@ -286,7 +279,7 @@ class TestExternalFluxTimeseries:
             flux_data=flux_data,
             times=times,
             group_indices=np.array([5]),
-            interpolate=True
+            interpolate=True,
         )
 
         # Query at t=0.5 (halfway)

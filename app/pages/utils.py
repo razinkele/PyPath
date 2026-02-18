@@ -4,15 +4,18 @@ This module contains common formatting functions used across multiple pages
 to avoid code duplication.
 """
 
-import pandas as pd
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
-from typing import Optional, Dict, List, Any, Tuple
+import pandas as pd
 
 # Import centralized configuration
 try:
-    from app.config import DISPLAY, TYPE_LABELS, NO_DATA_VALUE, THRESHOLDS
+    from app.config import DISPLAY, NO_DATA_VALUE, THRESHOLDS, TYPE_LABELS
 except ModuleNotFoundError:
-    from config import DISPLAY, TYPE_LABELS, NO_DATA_VALUE, THRESHOLDS
+    from config import DISPLAY, NO_DATA_VALUE, THRESHOLDS, TYPE_LABELS
 
 
 # =============================================================================
@@ -20,58 +23,64 @@ except ModuleNotFoundError:
 # =============================================================================
 
 # Style constants (UI-specific, not in config)
-NO_DATA_STYLE = {"background-color": "#f0f0f0", "color": "#999"}  # Light gray for no data cells
-REMARK_STYLE = {"background-color": "#fff9e6", "border-bottom": "2px dashed #f0ad4e"}  # Yellow tint for cells with remarks
-STANZA_STYLE = {"background-color": "#e6f3ff", "border-left": "3px solid #0066cc"}  # Light blue for stanza groups
+NO_DATA_STYLE = {
+    "background-color": "#f0f0f0",
+    "color": "#999",
+}  # Light gray for no data cells
+REMARK_STYLE = {
+    "background-color": "#fff9e6",
+    "border-bottom": "2px dashed #f0ad4e",
+}  # Yellow tint for cells with remarks
+STANZA_STYLE = {
+    "background-color": "#e6f3ff",
+    "border-left": "3px solid #0066cc",
+}  # Light blue for stanza groups
 
 # Column tooltips for parameter documentation
 COLUMN_TOOLTIPS: Dict[str, str] = {
     # Basic Model Parameters
-    'Group': 'Name of the functional group (species or group of species)',
-    'Type': 'Group type: 0=Consumer, 1=Producer, 2=Detritus, 3=Fleet',
-    'Biomass': 'Biomass (t/km²) - standing stock of the group',
-    'PB': 'Production/Biomass ratio (1/year) - turnover rate',
-    'QB': 'Consumption/Biomass ratio (1/year) - feeding rate',
-    'EE': 'Ecotrophic Efficiency (0-1) - fraction of production used in the system',
-    'ProdCons': 'Production/Consumption ratio (P/Q or GE) - gross food conversion efficiency',
-    'Unassim': 'Unassimilated consumption (0-1) - fraction of food not assimilated',
-    'BioAcc': 'Biomass accumulation rate (t/km²/year) - change in biomass over time',
-    'DetInput': 'Detrital input from outside the system (t/km²/year)',
-    
+    "Group": "Name of the functional group (species or group of species)",
+    "Type": "Group type: 0=Consumer, 1=Producer, 2=Detritus, 3=Fleet",
+    "Biomass": "Biomass (t/km²) - standing stock of the group",
+    "PB": "Production/Biomass ratio (1/year) - turnover rate",
+    "QB": "Consumption/Biomass ratio (1/year) - feeding rate",
+    "EE": "Ecotrophic Efficiency (0-1) - fraction of production used in the system",
+    "ProdCons": "Production/Consumption ratio (P/Q or GE) - gross food conversion efficiency",
+    "Unassim": "Unassimilated consumption (0-1) - fraction of food not assimilated",
+    "BioAcc": "Biomass accumulation rate (t/km²/year) - change in biomass over time",
+    "DetInput": "Detrital input from outside the system (t/km²/year)",
     # Balanced Model Results
-    'TL': 'Trophic Level - position in the food web (1=primary producer/detritus, 2+=consumers)',
-    'GE': 'Gross Efficiency (P/Q) - production divided by consumption',
-    'Removals': 'Total removals by fishing (t/km²/year) - landings plus discards',
-    
+    "TL": "Trophic Level - position in the food web (1=primary producer/detritus, 2+=consumers)",
+    "GE": "Gross Efficiency (P/Q) - production divided by consumption",
+    "Removals": "Total removals by fishing (t/km²/year) - landings plus discards",
     # Diet Matrix
-    'Import': 'Fraction of diet imported from outside the model area',
-    
+    "Import": "Fraction of diet imported from outside the model area",
     # Stanza Parameters - stgroups
-    'StGroupNum': 'Unique identifier for the multi-stanza group',
-    'StanzaName': 'Name of the multi-stanza group (e.g., species name)',
-    'nstanzas': 'Number of life stages in this multi-stanza group',
-    'VBGF_Ksp': 'von Bertalanffy growth coefficient K (1/year)',
-    'VBGF_d': 'Exponent relating consumption to body weight (typically ~0.67)',
-    'Wmat': 'Weight at maturity (fraction of Winf)',
-    'RecPower': 'Recruitment power parameter for stock-recruitment relationship',
-    'Wmat001': 'Age at which 0.1% maturity is reached',
-    'Wmat50': 'Age at which 50% maturity is reached',
-    'Amax': 'Maximum age (months)',
-    'First_age': 'Age of first stanza (months)',
-    
+    "StGroupNum": "Unique identifier for the multi-stanza group",
+    "StanzaName": "Name of the multi-stanza group (e.g., species name)",
+    "nstanzas": "Number of life stages in this multi-stanza group",
+    "VBGF_Ksp": "von Bertalanffy growth coefficient K (1/year)",
+    "VBGF_d": "Exponent relating consumption to body weight (typically ~0.67)",
+    "Wmat": "Weight at maturity (fraction of Winf)",
+    "RecPower": "Recruitment power parameter for stock-recruitment relationship",
+    "Wmat001": "Age at which 0.1% maturity is reached",
+    "Wmat50": "Age at which 50% maturity is reached",
+    "Amax": "Maximum age (months)",
+    "First_age": "Age of first stanza (months)",
     # Stanza Parameters - stindiv
-    'StanzaNum': 'Stanza number within the multi-stanza group',
-    'GroupNum': 'Reference to the Ecopath group number',
-    'First': 'First month of this life stage',
-    'Last': 'Last month of this life stage', 
-    'Z': 'Total mortality rate (1/year)',
-    'Leading': 'Whether this stanza leads the group (1=yes, 0=no)',
+    "StanzaNum": "Stanza number within the multi-stanza group",
+    "GroupNum": "Reference to the Ecopath group number",
+    "First": "First month of this life stage",
+    "Last": "Last month of this life stage",
+    "Z": "Total mortality rate (1/year)",
+    "Leading": "Whether this stanza leads the group (1=yes, 0=no)",
 }
 
 
 # =============================================================================
 # MODEL TYPE HELPERS
 # =============================================================================
+
 
 def is_balanced_model(model) -> bool:
     """Check if model is a balanced Rpath model.
@@ -97,7 +106,7 @@ def is_balanced_model(model) -> bool:
     >>> is_balanced_model(params)
     False
     """
-    return hasattr(model, 'NUM_LIVING')
+    return hasattr(model, "NUM_LIVING")
 
 
 def is_rpath_params(model) -> bool:
@@ -120,9 +129,11 @@ def is_rpath_params(model) -> bool:
     >>> is_rpath_params(params)
     True
     """
-    return (hasattr(model, 'model') and
-            hasattr(model.model, 'columns') and
-            'Group' in model.model.columns)
+    return (
+        hasattr(model, "model")
+        and hasattr(model.model, "columns")
+        and "Group" in model.model.columns
+    )
 
 
 def get_model_type(model) -> str:
@@ -150,22 +161,23 @@ def get_model_type(model) -> str:
     'balanced'
     """
     if is_balanced_model(model):
-        return 'balanced'
+        return "balanced"
     elif is_rpath_params(model):
-        return 'params'
+        return "params"
     else:
-        return 'unknown'
+        return "unknown"
 
 
 # =============================================================================
 # DATAFRAME FORMATTING
 # =============================================================================
 
+
 def format_dataframe_for_display(
     df: pd.DataFrame,
     decimal_places: Optional[int] = None,
     remarks_df: Optional[pd.DataFrame] = None,
-    stanza_groups: Optional[List[str]] = None
+    stanza_groups: Optional[List[str]] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Format a DataFrame for display with number formatting and cell styling.
 
@@ -226,21 +238,21 @@ def format_dataframe_for_display(
     stanza_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
 
     # OPTIMIZATION 1: Vectorized Type column conversion
-    if 'Type' in formatted.columns:
+    if "Type" in formatted.columns:
         # Use vectorized map instead of apply for better performance
-        type_col = pd.to_numeric(formatted['Type'], errors='coerce')
-        formatted['Type'] = type_col.map(TYPE_LABELS).fillna(formatted['Type'])
+        type_col = pd.to_numeric(formatted["Type"], errors="coerce")
+        formatted["Type"] = type_col.map(TYPE_LABELS).fillna(formatted["Type"])
 
     # OPTIMIZATION 2: Vectorized stanza group marking
-    if stanza_groups and 'Group' in formatted.columns:
+    if stanza_groups and "Group" in formatted.columns:
         # Create boolean mask for stanza rows in one operation
-        is_stanza_row = formatted['Group'].isin(stanza_groups)
+        is_stanza_row = formatted["Group"].isin(stanza_groups)
         # Broadcast mask across all columns
         stanza_mask.loc[:, :] = is_stanza_row.values[:, np.newaxis]
 
     # OPTIMIZATION 3: Single-pass numeric column processing
     # Identify special columns that don't need numeric processing
-    skip_cols = {'Group', 'Type'}
+    skip_cols = {"Group", "Type"}
 
     # Process all columns in a single pass
     for col in formatted.columns:
@@ -248,22 +260,26 @@ def format_dataframe_for_display(
             continue
 
         # Convert to numeric (works for both numeric and object dtypes)
-        numeric_col = pd.to_numeric(formatted[col], errors='coerce')
+        numeric_col = pd.to_numeric(formatted[col], errors="coerce")
 
         # VECTORIZED: Mark no-data values
-        is_no_data = (numeric_col == NO_DATA_VALUE) | (numeric_col == THRESHOLDS.negative_no_data_value)
+        is_no_data = (numeric_col == NO_DATA_VALUE) | (
+            numeric_col == THRESHOLDS.negative_no_data_value
+        )
         no_data_mask[col] = is_no_data
 
         # VECTORIZED: Replace sentinel values with NaN and round
-        numeric_col = numeric_col.replace([NO_DATA_VALUE, THRESHOLDS.negative_no_data_value], np.nan)
+        numeric_col = numeric_col.replace(
+            [NO_DATA_VALUE, THRESHOLDS.negative_no_data_value], np.nan
+        )
         numeric_col = numeric_col.round(decimal_places)
 
         formatted[col] = numeric_col
 
     # OPTIMIZATION 4: Vectorized NaN filling for object columns
     # Only fill NaN in object/string columns
-    object_cols = formatted.select_dtypes(include=['object']).columns
-    formatted[object_cols] = formatted[object_cols].fillna('')
+    object_cols = formatted.select_dtypes(include=["object"]).columns
+    formatted[object_cols] = formatted[object_cols].fillna("")
 
     # OPTIMIZATION 5: Vectorized remarks mask creation
     if remarks_df is not None:
@@ -274,10 +290,12 @@ def format_dataframe_for_display(
             # VECTORIZED: Check for non-empty remarks
             # Use pandas vectorized string operations
             if len(remarks_df) > 0:
-                has_remark = remarks_df[col].astype(str).str.strip().ne('')
+                has_remark = remarks_df[col].astype(str).str.strip().ne("")
                 # Only set mask for rows that exist in both DataFrames
                 max_rows = min(len(formatted), len(has_remark))
-                remarks_mask.loc[:max_rows-1, col] = has_remark.iloc[:max_rows].values
+                remarks_mask.loc[: max_rows - 1, col] = has_remark.iloc[
+                    :max_rows
+                ].values
 
     return formatted, no_data_mask, remarks_mask, stanza_mask
 
@@ -286,7 +304,7 @@ def create_cell_styles(
     df: pd.DataFrame,
     no_data_mask: pd.DataFrame,
     remarks_mask: Optional[pd.DataFrame] = None,
-    stanza_mask: Optional[pd.DataFrame] = None
+    stanza_mask: Optional[pd.DataFrame] = None,
 ) -> List[Dict[str, Any]]:
     """Create cell style rules for Shiny DataGrid component.
 
@@ -344,19 +362,23 @@ def create_cell_styles(
 
     # Define parameters that don't apply to certain group types
     NON_APPLICABLE_PARAMS = {
-        'QB': [1, 2],      # QB doesn't apply to producers (1) and detritus (2)
-        'Unassim': [1, 2], # Unassim doesn't apply to producers (1) and detritus (2)
+        "QB": [1, 2],  # QB doesn't apply to producers (1) and detritus (2)
+        "Unassim": [1, 2],  # Unassim doesn't apply to producers (1) and detritus (2)
     }
 
     # Grey style for non-applicable parameters
-    GREY_STYLE = {"background-color": "#f8f9fa", "color": "#6c757d", "font-style": "italic"}
+    GREY_STYLE = {
+        "background-color": "#f8f9fa",
+        "color": "#6c757d",
+        "font-style": "italic",
+    }
 
     # OPTIMIZATION 1: Pre-compute type mapping and group types array
     type_map = {v: k for k, v in TYPE_LABELS.items()}
     group_types = None
-    if 'Type' in df.columns:
+    if "Type" in df.columns:
         # Vectorized conversion of all type labels to codes
-        group_types = df['Type'].map(type_map).values
+        group_types = df["Type"].map(type_map).values
 
     # OPTIMIZATION 2: Convert masks to numpy arrays for faster indexing
     no_data_array = no_data_mask.values
@@ -379,12 +401,14 @@ def create_cell_styles(
     if no_data_array is not None:
         no_data_coords = np.argwhere(no_data_array)
         for row_idx, col_idx in no_data_coords:
-            styles.append({
-                "location": "body",
-                "rows": int(row_idx),
-                "cols": int(col_idx),
-                "style": NO_DATA_STYLE
-            })
+            styles.append(
+                {
+                    "location": "body",
+                    "rows": int(row_idx),
+                    "cols": int(col_idx),
+                    "style": NO_DATA_STYLE,
+                }
+            )
 
     # Process non-applicable params
     if group_types is not None:
@@ -396,13 +420,18 @@ def create_cell_styles(
                     row_indices = np.where(group_types == group_type)[0]
                     for row_idx in row_indices:
                         # Skip if already styled as no_data
-                        if not (no_data_array is not None and no_data_array[row_idx, col_idx]):
-                            styles.append({
-                                "location": "body",
-                                "rows": int(row_idx),
-                                "cols": int(col_idx),
-                                "style": GREY_STYLE
-                            })
+                        if not (
+                            no_data_array is not None
+                            and no_data_array[row_idx, col_idx]
+                        ):
+                            styles.append(
+                                {
+                                    "location": "body",
+                                    "rows": int(row_idx),
+                                    "cols": int(col_idx),
+                                    "style": GREY_STYLE,
+                                }
+                            )
 
     # Process remark cells
     if remarks_array is not None:
@@ -413,17 +442,21 @@ def create_cell_styles(
             if not (no_data_array is not None and no_data_array[row_idx, col_idx]):
                 col_name = col_list[col_idx]
                 group_type = group_types[row_idx] if group_types is not None else None
-                is_non_app = (col_name in NON_APPLICABLE_PARAMS and
-                             group_type is not None and
-                             group_type in NON_APPLICABLE_PARAMS[col_name])
+                is_non_app = (
+                    col_name in NON_APPLICABLE_PARAMS
+                    and group_type is not None
+                    and group_type in NON_APPLICABLE_PARAMS[col_name]
+                )
 
                 if not is_non_app:
-                    styles.append({
-                        "location": "body",
-                        "rows": int(row_idx),
-                        "cols": int(col_idx),
-                        "style": REMARK_STYLE
-                    })
+                    styles.append(
+                        {
+                            "location": "body",
+                            "rows": int(row_idx),
+                            "cols": int(col_idx),
+                            "style": REMARK_STYLE,
+                        }
+                    )
 
     # Process stanza group cells (lowest priority)
     if stanza_array is not None:
@@ -431,24 +464,27 @@ def create_cell_styles(
         for row_idx, col_idx in stanza_coords:
             # Skip if already styled
             has_higher_priority = (
-                (no_data_array is not None and no_data_array[row_idx, col_idx]) or
-                (remarks_array is not None and remarks_array[row_idx, col_idx])
-            )
+                no_data_array is not None and no_data_array[row_idx, col_idx]
+            ) or (remarks_array is not None and remarks_array[row_idx, col_idx])
 
             if not has_higher_priority:
                 col_name = col_list[col_idx]
                 group_type = group_types[row_idx] if group_types is not None else None
-                is_non_app = (col_name in NON_APPLICABLE_PARAMS and
-                             group_type is not None and
-                             group_type in NON_APPLICABLE_PARAMS[col_name])
+                is_non_app = (
+                    col_name in NON_APPLICABLE_PARAMS
+                    and group_type is not None
+                    and group_type in NON_APPLICABLE_PARAMS[col_name]
+                )
 
                 if not is_non_app:
-                    styles.append({
-                        "location": "body",
-                        "rows": int(row_idx),
-                        "cols": int(col_idx),
-                        "style": STANZA_STYLE
-                    })
+                    styles.append(
+                        {
+                            "location": "body",
+                            "rows": int(row_idx),
+                            "cols": int(col_idx),
+                            "style": STANZA_STYLE,
+                        }
+                    )
 
     return styles
 
@@ -456,6 +492,7 @@ def create_cell_styles(
 # =============================================================================
 # MODEL INFO EXTRACTION
 # =============================================================================
+
 
 def get_model_info(model: Any) -> Optional[Dict[str, Any]]:
     """Extract comprehensive model information from Rpath or RpathParams object.
@@ -530,41 +567,115 @@ def get_model_info(model: Any) -> Optional[Dict[str, Any]]:
     """
     if model is None:
         return None
-    
+
     # Check if it's an Rpath (balanced model) or RpathParams
-    if hasattr(model, 'NUM_LIVING'):
+    if hasattr(model, "NUM_LIVING"):
         # It's an Rpath object
         return {
-            'groups': list(model.Group),
-            'num_living': int(model.NUM_LIVING),
-            'num_dead': int(model.NUM_DEAD),
-            'num_groups': int(model.NUM_GROUPS),
-            'trophic_level': model.TL if hasattr(model, 'TL') else None,
-            'biomass': model.Biomass if hasattr(model, 'Biomass') else None,
-            'type_codes': model.Type if hasattr(model, 'Type') else None,
-            'eco_name': model.eco_name if hasattr(model, 'eco_name') else 'Model',
-            'is_balanced': True,
-            'params': model.params if hasattr(model, 'params') else None,
+            "groups": list(model.Group),
+            "num_living": int(model.NUM_LIVING),
+            "num_dead": int(model.NUM_DEAD),
+            "num_groups": int(model.NUM_GROUPS),
+            "trophic_level": model.TL if hasattr(model, "TL") else None,
+            "biomass": model.Biomass if hasattr(model, "Biomass") else None,
+            "type_codes": model.Type if hasattr(model, "Type") else None,
+            "eco_name": model.eco_name if hasattr(model, "eco_name") else "Model",
+            "is_balanced": True,
+            "params": model.params if hasattr(model, "params") else None,
         }
-    elif hasattr(model, 'model') and hasattr(model.model, 'columns'):
+    elif hasattr(model, "model") and hasattr(model.model, "columns"):
         # It's an RpathParams object
-        groups = list(model.model['Group'].values)
-        types = model.model['Type'].values
+        groups = list(model.model["Group"].values)
+        types = model.model["Type"].values
         num_living = int(np.sum(types == 0))  # Type 0 = consumer
-        num_dead = int(np.sum(types == 2))    # Type 2 = detritus
+        num_dead = int(np.sum(types == 2))  # Type 2 = detritus
         num_groups = len(groups)
-        
+
         return {
-            'groups': groups,
-            'num_living': num_living,
-            'num_dead': num_dead,
-            'num_groups': num_groups,
-            'trophic_level': None,  # Not calculated until balanced
-            'biomass': model.model['Biomass'].values if 'Biomass' in model.model.columns else None,
-            'type_codes': types,
-            'eco_name': 'Unbalanced Model',
-            'is_balanced': False,
-            'params': model,
+            "groups": groups,
+            "num_living": num_living,
+            "num_dead": num_dead,
+            "num_groups": num_groups,
+            "trophic_level": None,  # Not calculated until balanced
+            "biomass": (
+                model.model["Biomass"].values
+                if "Biomass" in model.model.columns
+                else None
+            ),
+            "type_codes": types,
+            "eco_name": "Unbalanced Model",
+            "is_balanced": False,
+            "params": model,
         }
-    
+
     return None
+
+
+# -----------------------
+# Rpath diagnostics helper
+# -----------------------
+
+
+def load_rpath_diagnostics(diag_dir: Path | str = Path("tests/data/rpath_reference/ecosim/diagnostics")) -> dict:
+    """Load Rpath diagnostics metadata and CSVs in a stable, testable form.
+
+    Returns a dict with keys:
+      - meta: dict or None
+      - qq_df: pd.DataFrame or None
+      - comps_df: pd.DataFrame or None
+      - qq_provided: bool
+      - note: optional string from meta
+      - errors: list of error strings encountered while loading
+
+    This helper is safe to call from the Shiny app (it returns structured info and
+    does not raise on missing files; errors are collected in the returned dict).
+    """
+    diag_dir = Path(diag_dir)
+    out = {
+        "meta": None,
+        "qq_df": None,
+        "comps_df": None,
+        "qq_provided": False,
+        "note": None,
+        "errors": [],
+    }
+
+    meta_path = diag_dir / "meta.json"
+    qq_csv = diag_dir / "seabirds_qq_rk4.csv"
+    comps_csv = diag_dir / "seabirds_components_rk4.csv"
+
+    if not meta_path.exists():
+        out["errors"].append(f"meta.json missing at {meta_path}")
+        return out
+
+    try:
+        out["meta"] = json.loads(meta_path.read_text())
+        out["qq_provided"] = bool(out["meta"].get("qq_provided", False))
+        out["note"] = out["meta"].get("note")
+    except Exception as e:
+        out["errors"].append(f"failed reading meta.json: {e}")
+        return out
+
+    if not qq_csv.exists():
+        out["errors"].append(f"QQ CSV missing: {qq_csv}")
+        return out
+
+    try:
+        qq_df = pd.read_csv(qq_csv)
+        out["qq_df"] = qq_df
+    except Exception as e:
+        out["errors"].append(f"failed reading QQ CSV: {e}")
+
+    if comps_csv.exists():
+        try:
+            comps_df = pd.read_csv(comps_csv)
+            out["comps_df"] = comps_df
+        except Exception as e:
+            out["errors"].append(f"failed reading components CSV: {e}")
+
+    return out
+
+
+# -----------------------
+# End diagnostics helper
+# -----------------------

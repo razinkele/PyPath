@@ -7,14 +7,19 @@ regular grids for testing.
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
+
 import numpy as np
+
+if TYPE_CHECKING:
+    from pypath.spatial.ecospace_params import EcospaceGrid
 import scipy.sparse
 
 # Optional GIS support
 try:
     import geopandas as gpd
     from shapely.geometry import Polygon
+
     _GIS_AVAILABLE = True
 except ImportError:
     _GIS_AVAILABLE = False
@@ -26,7 +31,7 @@ def load_spatial_grid(
     filepath: str,
     id_field: str = "id",
     area_field: Optional[str] = None,
-    crs: Optional[str] = None
+    crs: Optional[str] = None,
 ) -> "EcospaceGrid":
     """Load spatial grid from shapefile or GeoJSON.
 
@@ -62,8 +67,8 @@ def load_spatial_grid(
         )
 
     # Import here to avoid circular imports
-    from pypath.spatial.ecospace_params import EcospaceGrid
     from pypath.spatial.connectivity import build_adjacency_from_gdf
+    from pypath.spatial.ecospace_params import EcospaceGrid
 
     # Load GeoDataFrame
     gdf = gpd.read_file(filepath)
@@ -74,7 +79,9 @@ def load_spatial_grid(
 
     # Check for required fields
     if id_field not in gdf.columns:
-        raise ValueError(f"Field '{id_field}' not found in shapefile. Available: {list(gdf.columns)}")
+        raise ValueError(
+            f"Field '{id_field}' not found in shapefile. Available: {list(gdf.columns)}"
+        )
 
     n_patches = len(gdf)
     patch_ids = gdf[id_field].values
@@ -89,7 +96,9 @@ def load_spatial_grid(
         patch_areas = areas_m2 / 1e6  # Convert to km²
     else:
         if area_field not in gdf.columns:
-            raise ValueError(f"Area field '{area_field}' not found. Available: {list(gdf.columns)}")
+            raise ValueError(
+                f"Area field '{area_field}' not found. Available: {list(gdf.columns)}"
+            )
         patch_areas = gdf[area_field].values
 
     # Calculate centroids
@@ -105,16 +114,14 @@ def load_spatial_grid(
         patch_areas=patch_areas,
         patch_centroids=patch_centroids,
         adjacency_matrix=adjacency,
-        edge_lengths=edge_metadata['border_lengths'],
+        edge_lengths=edge_metadata["border_lengths"],
         crs=gdf.crs.to_string() if gdf.crs else "EPSG:4326",
-        geometry=gdf
+        geometry=gdf,
     )
 
 
 def create_regular_grid(
-    bounds: Tuple[float, float, float, float],
-    nx: int,
-    ny: int
+    bounds: Tuple[float, float, float, float], nx: int, ny: int
 ) -> "EcospaceGrid":
     """Create regular rectangular grid for testing.
 
@@ -181,8 +188,7 @@ def create_regular_grid(
     # Create sparse adjacency matrix
     data = np.ones(len(rows))
     adjacency_matrix = scipy.sparse.csr_matrix(
-        (data, (rows, cols)),
-        shape=(n_patches, n_patches)
+        (data, (rows, cols)), shape=(n_patches, n_patches)
     )
 
     return EcospaceGrid(
@@ -193,14 +199,11 @@ def create_regular_grid(
         adjacency_matrix=adjacency_matrix,
         edge_lengths=edge_lengths,
         crs="EPSG:4326",
-        geometry=None
+        geometry=None,
     )
 
 
-def create_1d_grid(
-    n_patches: int,
-    spacing: float = 1.0
-) -> "EcospaceGrid":
+def create_1d_grid(n_patches: int, spacing: float = 1.0) -> "EcospaceGrid":
     """Create 1D chain of patches for testing.
 
     Parameters
@@ -219,10 +222,12 @@ def create_1d_grid(
 
     patch_ids = np.arange(n_patches)
     patch_areas = np.ones(n_patches)  # 1 km² each
-    patch_centroids = np.column_stack([
-        np.arange(n_patches) * spacing,  # x coordinates
-        np.zeros(n_patches)  # y coordinates (all at y=0)
-    ])
+    patch_centroids = np.column_stack(
+        [
+            np.arange(n_patches) * spacing,  # x coordinates
+            np.zeros(n_patches),  # y coordinates (all at y=0)
+        ]
+    )
 
     # Build adjacency for 1D chain
     rows = []
@@ -237,8 +242,7 @@ def create_1d_grid(
     # Create sparse adjacency matrix
     data = np.ones(len(rows))
     adjacency_matrix = scipy.sparse.csr_matrix(
-        (data, (rows, cols)),
-        shape=(n_patches, n_patches)
+        (data, (rows, cols)), shape=(n_patches, n_patches)
     )
 
     return EcospaceGrid(
@@ -249,5 +253,5 @@ def create_1d_grid(
         adjacency_matrix=adjacency_matrix,
         edge_lengths=edge_lengths,
         crs="EPSG:4326",
-        geometry=None
+        geometry=None,
     )

@@ -1,0 +1,59 @@
+name: Deploy Simulation Tests (dry-run)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'  # daily at 04:00 UTC
+  pull_request:
+    # Run when the deploy workflow itself is modified to validate safety changes
+    paths:
+      - '.github/workflows/deploy.yml'
+
+jobs:
+  simulate:
+    name: Simulate deploy scenarios
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scenario:
+          - { sim_ref: 'refs/tags/v1.2.3', expect_prod: 'true' }
+          - { sim_ref: 'refs/heads/main', expect_prod: 'false' }
+          - { sim_ref: 'refs/tags/notv1.0', expect_prod: 'false' }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Simulate tag detection
+        id: detect
+        run: |
+          SIM_REF='${{ matrix.scenario.sim_ref }}'
+          echo "Simulating ref: $SIM_REF"
+          if echo "$SIM_REF" | grep -qE '^refs/tags/v'; then
+            echo "is_production=true" >> $GITHUB_OUTPUT
+            echo "tag_name=$(echo ${SIM_REF#refs/tags/})" >> $GITHUB_OUTPUT
+          else
+            echo "is_production=false" >> $GITHUB_OUTPUT
+            echo "tag_name=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Assert expected production flag
+        run: |
+          echo "Detected is_production=${{ steps.detect.outputs.is_production }} (expected: ${{ matrix.scenario.expect_prod }})"
+          if [ "${{ steps.detect.outputs.is_production }}" != "${{ matrix.scenario.expect_prod }}" ]; then
+            echo "Production detection did not match expected value" >&2
+            exit 1
+          fi
+
+      - name: Show simulated deploy commands (dry-run)
+        run: |
+          echo "---- DRY RUN: deploy simulation ----"
+          echo "Would rsync (dry-run): rsync -avz --delete --exclude '.git' --exclude '.github' --exclude 'tests' ./ \"$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH\""
+          if [ "${{ steps.detect.outputs.is_production }}" = "true" ]; then
+            echo "Would restart Shiny Server: ssh \"$DEPLOY_USER@$DEPLOY_HOST\" 'sudo systemctl restart shiny-server || sudo service shiny-server restart'"
+          else
+            echo "Not a production tag, no restart would be attempted."
+          fi
+        env:
+          DEPLOY_USER: "REDACTED_USER"
+          DEPLOY_HOST: "example.com"
+          DEPLOY_PATH: "/tmp/test"

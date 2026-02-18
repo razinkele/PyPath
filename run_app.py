@@ -17,19 +17,23 @@ Installation:
     pip install -e ".[web]"  # Install web dashboard dependencies
 """
 
-import sys
 import argparse
+import sys
 from pathlib import Path
 
 # Add src to path for pypath imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+
 def main():
     parser = argparse.ArgumentParser(description="Run PyPath Dashboard")
     parser.add_argument("--host", default="127.0.0.1", help="Host address")
     parser.add_argument("--port", type=int, default=8000, help="Port number")
-    parser.add_argument("--reload", action="store_true",
-                        help="Enable auto-reload (development only, not for production)")
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload (development only, not for production)",
+    )
 
     args = parser.parse_args()
 
@@ -41,9 +45,9 @@ def main():
     # Import and run the app
     from app.app import app
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print("  PyPath Dashboard")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     print(f"\n  Starting server at http://{args.host}:{args.port}")
     if args.reload:
         print("  Mode: Development (auto-reload enabled)")

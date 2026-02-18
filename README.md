@@ -146,8 +146,8 @@ pip install pypath-ecopath[all]
 
 ### From source
 ```bash
-git clone https://github.com/your-org/pypath.git
-cd pypath
+git clone https://github.com/razinkele/PyPath.git
+cd PyPath
 
 # Core only
 pip install -e .
@@ -435,8 +435,8 @@ Please read our [contributing guidelines](CONTRIBUTING.md) before submitting a p
 
 ### Development Setup
 ```bash
-git clone https://github.com/your-org/pypath.git
-cd pypath
+git clone https://github.com/razinkele/PyPath.git
+cd PyPath
 pip install -e ".[dev]"
 pytest tests/ -v
 ```
@@ -450,7 +450,7 @@ If you use PyPath in your research, please cite:
   title = {PyPath: Python Ecopath with Ecosim},
   author = {Your Name},
   year = {2024},
-  url = {https://github.com/your-org/pypath},
+  url = {https://github.com/razinkele/PyPath},
   note = {Extends Rpath with advanced features including state-variable forcing,
           dynamic diet rewiring, and Bayesian optimization}
 }
@@ -481,10 +481,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/pypath/issues)
+- **Issues**: [GitHub Issues](https://github.com/razinkele/PyPath/issues)
 - **Documentation**: See documentation files in repository
 - **Examples**: Run `demo_advanced_features.py` for interactive examples
-- **Email**: [your-email@example.com](mailto:your-email@example.com)
+- **Email**: [GitHub Issues](https://github.com/razinkele/PyPath/issues)
 
 ---
 

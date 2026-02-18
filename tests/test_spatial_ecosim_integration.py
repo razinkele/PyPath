@@ -5,14 +5,13 @@ These tests verify that spatial ECOSPACE correctly integrates
 with Ecosim dynamics.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 from pypath.spatial import (
-    create_1d_grid,
     EcospaceParams,
-    rsim_run_spatial,
-    deriv_vector_spatial
+    create_1d_grid,
+    deriv_vector_spatial,
 )
 
 
@@ -33,64 +32,67 @@ class TestSpatialDerivative:
             habitat_capacity=np.ones((n_groups, n_patches)),
             dispersal_rate=np.array([0.0, 2.0]),  # Only group 1 disperses
             advection_enabled=np.array([False, False]),
-            gravity_strength=np.array([0.0, 0.0])
+            gravity_strength=np.array([0.0, 0.0]),
         )
 
         # Simple spatial state [n_groups+1, n_patches]
         # Index 0 = Outside, Index 1 = group 0 (detritus), Index 2 = group 1 (living)
-        state_spatial = np.array([
-            [0, 0, 0],      # Outside
-            [5, 5, 5],      # Detritus (uniform)
-            [10, 20, 10]    # Living (gradient)
-        ], dtype=float)
+        state_spatial = np.array(
+            [
+                [0, 0, 0],  # Outside
+                [5, 5, 5],  # Detritus (uniform)
+                [10, 20, 10],  # Living (gradient)
+            ],
+            dtype=float,
+        )
 
         # Minimal params dict (placeholder - real deriv_vector needs more)
         params = {
-            'NUM_GROUPS': 2,
-            'NUM_LIVING': 1,
-            'NUM_DEAD': 1,
-            'NUM_GEARS': 0,
-            'B_BaseRef': np.array([0, 5, 20]),
-            'MzeroMort': np.array([0, 0.1, 0.2]),
-            'UnassimRespFrac': np.array([0, 0.2, 0.2]),
-            'ActiveRespFrac': np.array([0, 0.3, 0.3]),
-            'FtimeAdj': np.array([0, 0.5, 0.5]),
-            'FtimeQBOpt': np.array([0, 2.0, 2.0]),
-            'PBopt': np.array([0, 0.5, 1.0]),
-            'NoIntegrate': np.array([0, 1, 1]),
-            'HandleSelf': np.array([0, 0, 0]),
-            'ScrambleSelf': np.array([0, 0, 0]),
-            'PreyFrom': np.array([]),
-            'PreyTo': np.array([]),
-            'QQ': np.array([]),
-            'DD': np.array([]),
-            'VV': np.array([]),
-            'HandleSwitch': np.array([]),
-            'PredPredWeight': np.array([]),
-            'PreyPreyWeight': np.array([]),
-            'FishFrom': np.array([]),
-            'FishThrough': np.array([]),
-            'FishQ': np.array([]),
-            'FishTo': np.array([]),
-            'DetFrac': np.array([]),
-            'DetFrom': np.array([]),
-            'DetTo': np.array([]),
+            "NUM_GROUPS": 2,
+            "NUM_LIVING": 1,
+            "NUM_DEAD": 1,
+            "NUM_GEARS": 0,
+            "B_BaseRef": np.array([0, 5, 20]),
+            "MzeroMort": np.array([0, 0.1, 0.2]),
+            "UnassimRespFrac": np.array([0, 0.2, 0.2]),
+            "ActiveRespFrac": np.array([0, 0.3, 0.3]),
+            "FtimeAdj": np.array([0, 0.5, 0.5]),
+            "FtimeQBOpt": np.array([0, 2.0, 2.0]),
+            "PBopt": np.array([0, 0.5, 1.0]),
+            "NoIntegrate": np.array([0, 1, 1]),
+            "HandleSelf": np.array([0, 0, 0]),
+            "ScrambleSelf": np.array([0, 0, 0]),
+            "PreyFrom": np.array([]),
+            "PreyTo": np.array([]),
+            "QQ": np.array([]),
+            "DD": np.array([]),
+            "VV": np.array([]),
+            "HandleSwitch": np.array([]),
+            "PredPredWeight": np.array([]),
+            "PreyPreyWeight": np.array([]),
+            "FishFrom": np.array([]),
+            "FishThrough": np.array([]),
+            "FishQ": np.array([]),
+            "FishTo": np.array([]),
+            "DetFrac": np.array([]),
+            "DetFrom": np.array([]),
+            "DetTo": np.array([]),
         }
 
         forcing = {
-            'ForcedPrey': np.ones((12, 3)),
-            'ForcedMort': np.ones((12, 3)),
-            'ForcedRecs': np.ones((12, 3)),
-            'ForcedSearch': np.ones((12, 3)),
-            'ForcedActresp': np.ones((12, 3)),
-            'ForcedMigrate': np.zeros((12, 3)),
-            'ForcedBio': -np.ones((12, 3)),  # -1 = not forced
+            "ForcedPrey": np.ones((12, 3)),
+            "ForcedMort": np.ones((12, 3)),
+            "ForcedRecs": np.ones((12, 3)),
+            "ForcedSearch": np.ones((12, 3)),
+            "ForcedActresp": np.ones((12, 3)),
+            "ForcedMigrate": np.zeros((12, 3)),
+            "ForcedBio": -np.ones((12, 3)),  # -1 = not forced
         }
 
         fishing = {
-            'ForcedEffort': np.ones((12, 1)),
-            'ForcedFRate': np.zeros((1, 3)),
-            'ForcedCatch': np.zeros((1, 3)),
+            "ForcedEffort": np.ones((12, 1)),
+            "ForcedFRate": np.zeros((1, 3)),
+            "ForcedCatch": np.zeros((1, 3)),
         }
 
         # This test will fail because deriv_vector is not fully mocked
@@ -104,7 +106,7 @@ class TestSpatialDerivative:
                 ecospace,
                 environmental_drivers=None,
                 t=0.0,
-                dt=1.0/12.0
+                dt=1.0 / 12.0,
             )
 
             # Check shape

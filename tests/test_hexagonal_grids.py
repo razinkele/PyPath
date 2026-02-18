@@ -5,10 +5,11 @@ Tests the create_hexagonal_grid_in_boundary function which generates
 regular hexagonal grids within boundary polygons.
 """
 
-import pytest
-import numpy as np
 import sys
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add src and app to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -16,8 +17,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "app"))
 
 try:
     import geopandas as gpd
-    from shapely.geometry import Polygon, Point
-    from pages.ecospace import create_hexagonal_grid_in_boundary, create_hexagon
+    from pages.ecospace import create_hexagon, create_hexagonal_grid_in_boundary
+    from shapely.geometry import Point, Polygon
+
     HAS_GIS = True
 except ImportError:
     HAS_GIS = False
@@ -31,7 +33,7 @@ class TestHexagonGeometry:
         """Test creation of a single hexagon."""
         hexagon = create_hexagon(0, 0, 1000)  # 1 km radius at origin
 
-        assert hexagon.geom_type == 'Polygon'
+        assert hexagon.geom_type == "Polygon"
         assert len(hexagon.exterior.coords) == 7  # 6 vertices + close
 
         # Check that hexagon is centered at origin
@@ -85,14 +87,10 @@ class TestSimpleBoundaryGrid:
     def test_small_square_boundary(self):
         """Test hexagon generation in a small square boundary."""
         # Create 10km x 10km square boundary
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.1, 55.0),
-            (20.1, 55.1),
-            (20.0, 55.1),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.1, 55.0), (20.1, 55.1), (20.0, 55.1), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         # Generate hexagons (1 km size)
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
@@ -105,20 +103,20 @@ class TestSimpleBoundaryGrid:
 
     def test_hexagon_count_scales_with_size(self):
         """Test that smaller hexagons produce more patches."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.2, 55.0),
-            (20.2, 55.2),
-            (20.0, 55.2),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.2, 55.0), (20.2, 55.2), (20.0, 55.2), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         # Large hexagons
-        grid_large = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=2.0)
+        grid_large = create_hexagonal_grid_in_boundary(
+            boundary_gdf, hexagon_size_km=2.0
+        )
 
         # Small hexagons
-        grid_small = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5)
+        grid_small = create_hexagonal_grid_in_boundary(
+            boundary_gdf, hexagon_size_km=0.5
+        )
 
         # Small hexagons should produce more patches
         assert grid_small.n_patches > grid_large.n_patches
@@ -126,14 +124,10 @@ class TestSimpleBoundaryGrid:
     def test_rectangular_boundary(self):
         """Test hexagon generation in rectangular boundary."""
         # Create elongated rectangle
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.3, 55.0),
-            (20.3, 55.1),
-            (20.0, 55.1),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.3, 55.0), (20.3, 55.1), (20.0, 55.1), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -150,18 +144,20 @@ class TestComplexBoundaryGrid:
     def test_irregular_coastal_boundary(self):
         """Test hexagon generation in irregular coastal shape."""
         # Create irregular polygon mimicking coastline
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.3, 55.0),
-            (20.4, 55.1),
-            (20.3, 55.2),
-            (20.5, 55.3),
-            (20.2, 55.4),
-            (20.0, 55.3),
-            (19.9, 55.2),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [
+                (20.0, 55.0),
+                (20.3, 55.0),
+                (20.4, 55.1),
+                (20.3, 55.2),
+                (20.5, 55.3),
+                (20.2, 55.4),
+                (20.0, 55.3),
+                (19.9, 55.2),
+                (20.0, 55.0),
+            ]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -172,16 +168,18 @@ class TestComplexBoundaryGrid:
     def test_concave_boundary(self):
         """Test hexagon generation in concave (non-convex) boundary."""
         # Create L-shaped boundary
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.2, 55.0),
-            (20.2, 55.1),
-            (20.1, 55.1),
-            (20.1, 55.2),
-            (20.0, 55.2),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [
+                (20.0, 55.0),
+                (20.2, 55.0),
+                (20.2, 55.1),
+                (20.1, 55.1),
+                (20.1, 55.2),
+                (20.0, 55.2),
+                (20.0, 55.0),
+            ]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5)
 
@@ -193,24 +191,15 @@ class TestComplexBoundaryGrid:
     def test_multipolygon_boundary(self):
         """Test hexagon generation with multiple boundary polygons."""
         # Create two separate polygons
-        poly1 = Polygon([
-            (20.0, 55.0),
-            (20.1, 55.0),
-            (20.1, 55.1),
-            (20.0, 55.1),
-            (20.0, 55.0)
-        ])
-        poly2 = Polygon([
-            (20.2, 55.0),
-            (20.3, 55.0),
-            (20.3, 55.1),
-            (20.2, 55.1),
-            (20.2, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([
-            {'geometry': poly1},
-            {'geometry': poly2}
-        ], crs="EPSG:4326")
+        poly1 = Polygon(
+            [(20.0, 55.0), (20.1, 55.0), (20.1, 55.1), (20.0, 55.1), (20.0, 55.0)]
+        )
+        poly2 = Polygon(
+            [(20.2, 55.0), (20.3, 55.0), (20.3, 55.1), (20.2, 55.1), (20.2, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame(
+            [{"geometry": poly1}, {"geometry": poly2}], crs="EPSG:4326"
+        )
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5)
 
@@ -223,14 +212,10 @@ class TestHexagonSizes:
 
     def test_minimum_size_250m(self):
         """Test minimum hexagon size (250m)."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.1, 55.0),
-            (20.1, 55.1),
-            (20.0, 55.1),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.1, 55.0), (20.1, 55.1), (20.0, 55.1), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.25)
 
@@ -238,14 +223,10 @@ class TestHexagonSizes:
 
     def test_maximum_size_3km(self):
         """Test maximum hexagon size (3km)."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.3, 55.0),
-            (20.3, 55.3),
-            (20.0, 55.3),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.3, 55.0), (20.3, 55.3), (20.0, 55.3), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=3.0)
 
@@ -253,14 +234,10 @@ class TestHexagonSizes:
 
     def test_standard_sizes(self):
         """Test common hexagon sizes (0.5, 1.0, 2.0 km)."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.2, 55.0),
-            (20.2, 55.2),
-            (20.0, 55.2),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.2, 55.0), (20.2, 55.2), (20.0, 55.2), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         sizes = [0.5, 1.0, 2.0]
         patch_counts = []
@@ -278,14 +255,10 @@ class TestGridProperties:
 
     def test_patch_areas(self):
         """Test that patch areas are calculated correctly."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.2, 55.0),
-            (20.2, 55.2),
-            (20.0, 55.2),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.2, 55.0), (20.2, 55.2), (20.0, 55.2), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -300,14 +273,10 @@ class TestGridProperties:
 
     def test_patch_centroids_within_boundary(self):
         """Test that all centroids are within or near boundary."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.2, 55.0),
-            (20.2, 55.2),
-            (20.0, 55.2),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.2, 55.0), (20.2, 55.2), (20.0, 55.2), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -319,14 +288,10 @@ class TestGridProperties:
 
     def test_crs_is_wgs84(self):
         """Test that output CRS is WGS84."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.1, 55.0),
-            (20.1, 55.1),
-            (20.0, 55.1),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.1, 55.0), (20.1, 55.1), (20.0, 55.1), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -339,14 +304,10 @@ class TestConnectivity:
 
     def test_adjacency_matrix_properties(self):
         """Test basic properties of adjacency matrix."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.2, 55.0),
-            (20.2, 55.2),
-            (20.0, 55.2),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.2, 55.0), (20.2, 55.2), (20.0, 55.2), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -363,14 +324,10 @@ class TestConnectivity:
 
     def test_hexagons_have_up_to_six_neighbors(self):
         """Test that hexagons have at most 6 neighbors."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.3, 55.0),
-            (20.3, 55.3),
-            (20.0, 55.3),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.3, 55.0), (20.3, 55.3), (20.0, 55.3), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -387,14 +344,10 @@ class TestConnectivity:
 
     def test_average_connectivity(self):
         """Test average connectivity is reasonable."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.3, 55.0),
-            (20.3, 55.3),
-            (20.0, 55.3),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.3, 55.0), (20.3, 55.3), (20.0, 55.3), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -408,14 +361,10 @@ class TestConnectivity:
 
     def test_edge_lengths(self):
         """Test edge lengths dictionary."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.1, 55.0),
-            (20.1, 55.1),
-            (20.0, 55.1),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.1, 55.0), (20.1, 55.1), (20.0, 55.1), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -433,14 +382,10 @@ class TestEdgeCases:
 
     def test_very_small_boundary(self):
         """Test with very small boundary."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.01, 55.0),
-            (20.01, 55.01),
-            (20.0, 55.01),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.01, 55.0), (20.01, 55.01), (20.0, 55.01), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         # Should create at least one hexagon with small size
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5)
@@ -449,14 +394,10 @@ class TestEdgeCases:
     def test_hexagon_too_large_for_boundary(self):
         """Test error when hexagon is too large for boundary."""
         # Very small boundary
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.01, 55.0),
-            (20.01, 55.01),
-            (20.0, 55.01),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.01, 55.0), (20.01, 55.01), (20.0, 55.01), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         # Try to create very large hexagons
         with pytest.raises(ValueError, match="No hexagons fit within the boundary"):
@@ -473,25 +414,17 @@ class TestEdgeCases:
     def test_different_hemispheres(self):
         """Test hexagon generation in different hemispheres."""
         # Northern hemisphere
-        boundary_north = Polygon([
-            (20.0, 55.0),
-            (20.2, 55.0),
-            (20.2, 55.2),
-            (20.0, 55.2),
-            (20.0, 55.0)
-        ])
+        boundary_north = Polygon(
+            [(20.0, 55.0), (20.2, 55.0), (20.2, 55.2), (20.0, 55.2), (20.0, 55.0)]
+        )
 
         # Southern hemisphere
-        boundary_south = Polygon([
-            (20.0, -55.0),
-            (20.2, -55.0),
-            (20.2, -55.2),
-            (20.0, -55.2),
-            (20.0, -55.0)
-        ])
+        boundary_south = Polygon(
+            [(20.0, -55.0), (20.2, -55.0), (20.2, -55.2), (20.0, -55.2), (20.0, -55.0)]
+        )
 
-        gdf_north = gpd.GeoDataFrame([{'geometry': boundary_north}], crs="EPSG:4326")
-        gdf_south = gpd.GeoDataFrame([{'geometry': boundary_south}], crs="EPSG:4326")
+        gdf_north = gpd.GeoDataFrame([{"geometry": boundary_north}], crs="EPSG:4326")
+        gdf_south = gpd.GeoDataFrame([{"geometry": boundary_south}], crs="EPSG:4326")
 
         # Both should work
         grid_north = create_hexagonal_grid_in_boundary(gdf_north, hexagon_size_km=1.0)
@@ -507,27 +440,33 @@ class TestRealWorldScenarios:
     def test_baltic_sea_like_boundary(self):
         """Test with boundary similar to Baltic Sea example."""
         # Simplified Baltic Sea coastal area
-        boundary = Polygon([
-            (19.5, 54.8),
-            (21.5, 54.8),
-            (21.8, 55.0),
-            (22.0, 55.3),
-            (22.2, 55.6),
-            (22.0, 55.9),
-            (21.5, 56.2),
-            (20.5, 56.3),
-            (19.8, 56.1),
-            (19.5, 55.8),
-            (19.3, 55.4),
-            (19.4, 55.0),
-            (19.5, 54.8)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [
+                (19.5, 54.8),
+                (21.5, 54.8),
+                (21.8, 55.0),
+                (22.0, 55.3),
+                (22.2, 55.6),
+                (22.0, 55.9),
+                (21.5, 56.2),
+                (20.5, 56.3),
+                (19.8, 56.1),
+                (19.5, 55.8),
+                (19.3, 55.4),
+                (19.4, 55.0),
+                (19.5, 54.8),
+            ]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         # Test different sizes
         grid_fine = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5)
-        grid_medium = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
-        grid_coarse = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=2.0)
+        grid_medium = create_hexagonal_grid_in_boundary(
+            boundary_gdf, hexagon_size_km=1.0
+        )
+        grid_coarse = create_hexagonal_grid_in_boundary(
+            boundary_gdf, hexagon_size_km=2.0
+        )
 
         # All should create grids
         assert grid_fine.n_patches > grid_medium.n_patches > grid_coarse.n_patches
@@ -538,14 +477,10 @@ class TestRealWorldScenarios:
     def test_coastal_mpa_scenario(self):
         """Test with small Marine Protected Area boundary."""
         # Small MPA (~5km x 5km)
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.05, 55.0),
-            (20.05, 55.05),
-            (20.0, 55.05),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.05, 55.0), (20.05, 55.05), (20.0, 55.05), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         # Use fine resolution for small MPA
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5)
@@ -563,37 +498,29 @@ class TestIntegrationWithEcospaceGrid:
 
     def test_grid_has_required_attributes(self):
         """Test that generated grid has all required EcospaceGrid attributes."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.1, 55.0),
-            (20.1, 55.1),
-            (20.0, 55.1),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.1, 55.0), (20.1, 55.1), (20.0, 55.1), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
         # Check all required attributes exist
-        assert hasattr(grid, 'n_patches')
-        assert hasattr(grid, 'patch_ids')
-        assert hasattr(grid, 'patch_areas')
-        assert hasattr(grid, 'patch_centroids')
-        assert hasattr(grid, 'adjacency_matrix')
-        assert hasattr(grid, 'edge_lengths')
-        assert hasattr(grid, 'crs')
-        assert hasattr(grid, 'geometry')
+        assert hasattr(grid, "n_patches")
+        assert hasattr(grid, "patch_ids")
+        assert hasattr(grid, "patch_areas")
+        assert hasattr(grid, "patch_centroids")
+        assert hasattr(grid, "adjacency_matrix")
+        assert hasattr(grid, "edge_lengths")
+        assert hasattr(grid, "crs")
+        assert hasattr(grid, "geometry")
 
     def test_patch_ids_are_sequential(self):
         """Test that patch IDs are sequential starting from 0."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.1, 55.0),
-            (20.1, 55.1),
-            (20.0, 55.1),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.1, 55.0), (20.1, 55.1), (20.0, 55.1), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 
@@ -603,14 +530,10 @@ class TestIntegrationWithEcospaceGrid:
 
     def test_array_dimensions_match(self):
         """Test that all arrays have consistent dimensions."""
-        boundary = Polygon([
-            (20.0, 55.0),
-            (20.2, 55.0),
-            (20.2, 55.2),
-            (20.0, 55.2),
-            (20.0, 55.0)
-        ])
-        boundary_gdf = gpd.GeoDataFrame([{'geometry': boundary}], crs="EPSG:4326")
+        boundary = Polygon(
+            [(20.0, 55.0), (20.2, 55.0), (20.2, 55.2), (20.0, 55.2), (20.0, 55.0)]
+        )
+        boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=1.0)
 

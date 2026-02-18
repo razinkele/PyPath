@@ -2,16 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   build:
-    name: Lint / Typecheck / Test (${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Lint / Typecheck / Test (${{ matrix.os }} / ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - name: Checkout
@@ -26,9 +25,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          key: pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
-            pip-${{ runner.os }}-py${{ matrix.python-version }}-
+            pip-${{ matrix.os }}-py${{ matrix.python-version }}-
 
       - name: Upgrade pip and install dev deps
         run: |

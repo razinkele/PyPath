@@ -3,9 +3,10 @@
 These tests intentionally import `app.app` and `app.logger` to ensure the
 package is importable in different execution contexts (package vs script).
 """
-from pathlib import Path
+
 import importlib
 import sys
+from pathlib import Path
 
 
 def _ensure_repo_on_path():

@@ -20,14 +20,20 @@ print("=" * 60)
 # Test 1: Import spatial module
 print("\n[Test 1] Importing spatial module...")
 try:
-    from pypath.spatial import (
-        create_regular_grid,
-        create_1d_grid,
-        EcospaceParams,
-        EcospaceGrid,
-        allocate_uniform,
-        allocate_gravity,
-    )
+    import pypath.spatial as spatial
+
+    required = [
+        "EcospaceGrid",
+        "EcospaceParams",
+        "allocate_gravity",
+        "allocate_uniform",
+        "create_1d_grid",
+        "create_regular_grid",
+    ]
+    missing = [name for name in required if not hasattr(spatial, name)]
+    if missing:
+        raise ImportError(f"Missing spatial attributes: {missing}")
+
     print("  [PASS] Spatial module imported successfully")
 except ImportError as e:
     print(f"  [FAIL] Could not import spatial module: {e}")
@@ -37,10 +43,11 @@ except ImportError as e:
 print("\n[Test 2] Importing ECOSPACE page module...")
 try:
     from pages import ecospace
+
     print("  [PASS] ECOSPACE page module imported")
 
     # Check for required functions
-    if hasattr(ecospace, 'ecospace_ui') and hasattr(ecospace, 'ecospace_server'):
+    if hasattr(ecospace, "ecospace_ui") and hasattr(ecospace, "ecospace_server"):
         print("  [PASS] UI and Server functions present")
     else:
         print("  [FAIL] Missing UI or Server functions")
@@ -52,7 +59,8 @@ except ImportError as e:
 # Test 3: Import main app
 print("\n[Test 3] Importing main app...")
 try:
-    from app import app, app_ui
+    from app import app_ui
+
     print("  [PASS] Main app imported successfully")
 except ImportError as e:
     print(f"  [FAIL] Could not import main app: {e}")
@@ -61,13 +69,13 @@ except ImportError as e:
 # Test 4: Verify ECOSPACE in UI
 print("\n[Test 4] Verifying ECOSPACE in navigation...")
 ui_str = str(app_ui)
-if 'ECOSPACE' in ui_str:
+if "ECOSPACE" in ui_str:
     print("  [PASS] ECOSPACE found in UI")
 else:
     print("  [FAIL] ECOSPACE not found in UI")
     sys.exit(1)
 
-if 'Advanced Features' in ui_str:
+if "Advanced Features" in ui_str:
     print("  [PASS] Advanced Features menu present")
 else:
     print("  [FAIL] Advanced Features menu not found")
@@ -79,15 +87,15 @@ try:
     import numpy as np
 
     # Create regular grid
-    grid = create_regular_grid(bounds=(0, 0, 5, 5), nx=5, ny=5)
+    grid = spatial.create_regular_grid(bounds=(0, 0, 5, 5), nx=5, ny=5)
     print(f"  [PASS] Created 5x5 grid with {grid.n_patches} patches")
 
     # Create 1D grid
-    grid_1d = create_1d_grid(n_patches=10, spacing=1.0)
+    grid_1d = spatial.create_1d_grid(n_patches=10, spacing=1.0)
     print(f"  [PASS] Created 1D grid with {grid_1d.n_patches} patches")
 
     # Test allocation
-    effort = allocate_uniform(n_patches=25, total_effort=100.0)
+    effort = spatial.allocate_uniform(n_patches=25, total_effort=100.0)
     print(f"  [PASS] Uniform allocation: total = {effort.sum():.2f}")
 
 except Exception as e:
@@ -100,13 +108,13 @@ try:
     n_groups = 5
     n_patches = 25
 
-    ecospace_params = EcospaceParams(
+    ecospace_params = spatial.EcospaceParams(
         grid=grid,
         habitat_preference=np.ones((n_groups, n_patches)),
         habitat_capacity=np.ones((n_groups, n_patches)),
         dispersal_rate=np.array([0, 5.0, 2.0, 1.0, 3.0]),
         advection_enabled=np.array([False, True, True, False, True]),
-        gravity_strength=np.array([0, 0.5, 0.3, 0, 0.7])
+        gravity_strength=np.array([0, 0.5, 0.3, 0, 0.7]),
     )
     print(f"  [PASS] Created ECOSPACE parameters for {n_groups} groups")
 

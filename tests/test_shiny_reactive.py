@@ -4,12 +4,12 @@ Tests for reactive behaviors and state management in the Shiny dashboard.
 Tests reactivity patterns, state synchronization, and data propagation.
 """
 
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+import pytest
 
 # Add app directory to path
 app_dir = Path(__file__).parent.parent / "app"
@@ -29,9 +29,9 @@ class TestReactiveValues:
             value2 = reactive.Value(0)
             value3 = reactive.Value("test")
 
-            assert value1() is None
-            assert value2() == 0
-            assert value3() == "test"
+            assert value1._value is None
+            assert value2._value == 0
+            assert value3._value == "test"
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -41,13 +41,13 @@ class TestReactiveValues:
             from shiny import reactive
 
             value = reactive.Value(0)
-            assert value() == 0
+            assert value._value == 0
 
             value.set(10)
-            assert value() == 10
+            assert value._value == 10
 
             value.set(None)
-            assert value() is None
+            assert value._value is None
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -57,15 +57,13 @@ class TestReactiveValues:
             from shiny import reactive
 
             df_value = reactive.Value(None)
-            assert df_value() is None
+            # Avoid reactive context registration in unit tests
+            assert df_value._value is None
 
-            df = pd.DataFrame({
-                'A': [1, 2, 3],
-                'B': [4, 5, 6]
-            })
+            df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
             df_value.set(df)
 
-            retrieved_df = df_value()
+            retrieved_df = df_value._value
             assert retrieved_df is not None
             assert len(retrieved_df) == 3
             pd.testing.assert_frame_equal(retrieved_df, df)
@@ -93,9 +91,9 @@ class TestSharedDataReactivity:
             shared = SharedData(model_data, sim_results)
 
             # Test initial state
-            assert shared.model_data() is None
-            assert shared.sim_results() is None
-            assert shared.params() is None
+            assert shared.model_data._value is None
+            assert shared.sim_results._value is None
+            assert shared.params._value is None
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -120,8 +118,8 @@ class TestSharedDataReactivity:
             model_data.set(test_value)
 
             # SharedData should see the update
-            assert shared.model_data() == test_value
-            assert shared.model_data() is model_data()
+            assert shared.model_data._value == test_value
+            assert shared.model_data._value is model_data._value
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -144,20 +142,20 @@ class TestSharedDataReactivity:
             # Create mock params
             class MockRpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({'Group': ['A']})
+                    self.model = pd.DataFrame({"Group": ["A"]})
                     self.diet = pd.DataFrame()
 
             params = MockRpathParams()
             model_data.set(params)
 
             # Simulate sync (as done in app.py)
-            data = model_data()
-            if data is not None and hasattr(data, 'model') and hasattr(data, 'diet'):
+            data = model_data._value
+            if data is not None and hasattr(data, "model") and hasattr(data, "diet"):
                 shared.params.set(data)
 
             # Verify sync worked
-            assert shared.params() is not None
-            assert shared.params() is params
+            assert shared.params._value is not None
+            assert shared.params._value is params
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -175,23 +173,23 @@ class TestDataPropagation:
             # Stage 1: Initial import
             initial_data = {"stage": "import", "groups": 5}
             model_data.set(initial_data)
-            assert model_data()["stage"] == "import"
+            assert model_data._value["stage"] == "import"
 
             # Stage 2: After balancing
             balanced_data = {"stage": "balanced", "groups": 5, "balanced": True}
             model_data.set(balanced_data)
-            assert model_data()["stage"] == "balanced"
-            assert model_data()["balanced"] is True
+            assert model_data._value["stage"] == "balanced"
+            assert model_data._value["balanced"] is True
 
             # Stage 3: Ready for simulation
             sim_ready_data = {
                 "stage": "sim_ready",
                 "groups": 5,
                 "balanced": True,
-                "params": "configured"
+                "params": "configured",
             }
             model_data.set(sim_ready_data)
-            assert model_data()["params"] == "configured"
+            assert model_data._value["params"] == "configured"
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -203,19 +201,19 @@ class TestDataPropagation:
             sim_results = reactive.Value(None)
 
             # Initially no results
-            assert sim_results() is None
+            assert sim_results._value is None
 
             # After simulation
             results = {
-                'biomass': pd.DataFrame({'time': [0, 1], 'Fish': [10, 11]}),
-                'status': 'complete'
+                "biomass": pd.DataFrame({"time": [0, 1], "Fish": [10, 11]}),
+                "status": "complete",
             }
             sim_results.set(results)
 
             # Verify propagation
-            assert sim_results() is not None
-            assert sim_results()['status'] == 'complete'
-            assert 'biomass' in sim_results()
+            assert sim_results._value is not None
+            assert sim_results._value["status"] == "complete"
+            assert "biomass" in sim_results._value
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -233,11 +231,11 @@ class TestReactiveIsolation:
 
             # Set model_data
             model_data.set({"test": "model"})
-            assert sim_results() is None  # sim_results unaffected
+            assert sim_results._value is None  # sim_results unaffected
 
             # Set sim_results
             sim_results.set({"test": "results"})
-            assert model_data()["test"] == "model"  # model_data unchanged
+            assert model_data._value["test"] == "model"  # model_data unchanged
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -263,8 +261,8 @@ class TestReactiveIsolation:
             shared.params.set({"data": "modified"})
 
             # They should be independent
-            assert model_data()["data"] == "original"
-            assert shared.params()["data"] == "modified"
+            assert model_data._value["data"] == "original"
+            assert shared.params._value["data"] == "modified"
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -279,17 +277,11 @@ class TestComplexDataStructures:
 
             value = reactive.Value(None)
 
-            complex_data = {
-                'level1': {
-                    'level2': {
-                        'level3': [1, 2, 3]
-                    }
-                }
-            }
+            complex_data = {"level1": {"level2": {"level3": [1, 2, 3]}}}
             value.set(complex_data)
 
-            retrieved = value()
-            assert retrieved['level1']['level2']['level3'] == [1, 2, 3]
+            retrieved = value._value
+            assert retrieved["level1"]["level2"]["level3"] == [1, 2, 3]
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -301,18 +293,18 @@ class TestComplexDataStructures:
             value = reactive.Value(None)
 
             data = {
-                'model': pd.DataFrame({'A': [1, 2], 'B': [3, 4]}),
-                'diet': pd.DataFrame({'Predator': ['Fish'], 'Prey': ['Plankton']}),
-                'catch': pd.DataFrame({'Species': ['Fish'], 'Catch': [100]})
+                "model": pd.DataFrame({"A": [1, 2], "B": [3, 4]}),
+                "diet": pd.DataFrame({"Predator": ["Fish"], "Prey": ["Plankton"]}),
+                "catch": pd.DataFrame({"Species": ["Fish"], "Catch": [100]}),
             }
             value.set(data)
 
-            retrieved = value()
-            assert 'model' in retrieved
-            assert 'diet' in retrieved
-            assert 'catch' in retrieved
-            assert len(retrieved['model']) == 2
-            assert len(retrieved['diet']) == 1
+            retrieved = value._value
+            assert "model" in retrieved
+            assert "diet" in retrieved
+            assert "catch" in retrieved
+            assert len(retrieved["model"]) == 2
+            assert len(retrieved["diet"]) == 1
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -325,19 +317,21 @@ class TestComplexDataStructures:
 
             class RpathParams:
                 def __init__(self):
-                    self.model = pd.DataFrame({
-                        'Group': ['Phytoplankton', 'Zooplankton', 'Fish'],
-                        'Type': [1, 1, 0],
-                        'TL': [1.0, 2.0, 3.5],
-                        'Biomass': [100.0, 50.0, 10.0],
-                        'PB': [2.0, 1.5, 0.5],
-                        'QB': [0.0, 3.0, 2.0],
-                        'EE': [0.95, 0.9, 0.8]
-                    })
-                    self.diet = pd.DataFrame({
-                        'Zooplankton': [0.8, 0.0, 0.0],
-                        'Fish': [0.0, 1.0, 0.0]
-                    }, index=['Phytoplankton', 'Zooplankton', 'Fish'])
+                    self.model = pd.DataFrame(
+                        {
+                            "Group": ["Phytoplankton", "Zooplankton", "Fish"],
+                            "Type": [1, 1, 0],
+                            "TL": [1.0, 2.0, 3.5],
+                            "Biomass": [100.0, 50.0, 10.0],
+                            "PB": [2.0, 1.5, 0.5],
+                            "QB": [0.0, 3.0, 2.0],
+                            "EE": [0.95, 0.9, 0.8],
+                        }
+                    )
+                    self.diet = pd.DataFrame(
+                        {"Zooplankton": [0.8, 0.0, 0.0], "Fish": [0.0, 1.0, 0.0]},
+                        index=["Phytoplankton", "Zooplankton", "Fish"],
+                    )
                     self.landing = pd.DataFrame()
                     self.discard = pd.DataFrame()
                     self.balanced = False
@@ -345,9 +339,9 @@ class TestComplexDataStructures:
             params = RpathParams()
             value.set(params)
 
-            retrieved = value()
-            assert hasattr(retrieved, 'model')
-            assert hasattr(retrieved, 'diet')
+            retrieved = value._value
+            assert hasattr(retrieved, "model")
+            assert hasattr(retrieved, "diet")
             assert len(retrieved.model) == 3
             assert retrieved.balanced is False
         except ImportError:
@@ -363,11 +357,11 @@ class TestReactiveErrorHandling:
             from shiny import reactive
 
             value = reactive.Value(None)
-            assert value() is None
+            assert value._value is None
 
             # Setting to None should work
             value.set(None)
-            assert value() is None
+            assert value._value is None
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -379,26 +373,26 @@ class TestReactiveErrorHandling:
             value = reactive.Value(None)
 
             # Start with None
-            assert value() is None
+            assert value._value is None
 
             # Change to int
             value.set(42)
-            assert value() == 42
-            assert isinstance(value(), int)
+            assert value._value == 42
+            assert isinstance(value._value, int)
 
             # Change to string
             value.set("test")
-            assert value() == "test"
-            assert isinstance(value(), str)
+            assert value._value == "test"
+            assert isinstance(value._value, str)
 
             # Change to dict
             value.set({"key": "value"})
-            assert value()["key"] == "value"
-            assert isinstance(value(), dict)
+            assert value._value["key"] == "value"
+            assert isinstance(value._value, dict)
 
             # Back to None
             value.set(None)
-            assert value() is None
+            assert value._value is None
         except ImportError:
             pytest.skip("Shiny not installed")
 
@@ -417,6 +411,7 @@ class TestMultipleReactiveEffects:
             watchers = []
 
             for i in range(3):
+
                 class Watcher:
                     def __init__(self, model_data_ref, watcher_id):
                         self.model_data = model_data_ref
@@ -424,7 +419,7 @@ class TestMultipleReactiveEffects:
                         self.last_seen = None
 
                     def check(self):
-                        self.last_seen = self.model_data()
+                        self.last_seen = self.model_data._value
                         return self.last_seen
 
                 watchers.append(Watcher(model_data, i))
@@ -446,17 +441,20 @@ class TestReactivePerformance:
     def test_large_dataframe_in_reactive_value(self):
         """Test reactive value with large DataFrame."""
         try:
-            from shiny import reactive
             import time
+
+            from shiny import reactive
 
             value = reactive.Value(None)
 
             # Create large DataFrame
-            large_df = pd.DataFrame({
-                'col1': np.random.rand(10000),
-                'col2': np.random.rand(10000),
-                'col3': np.random.randint(0, 100, 10000)
-            })
+            large_df = pd.DataFrame(
+                {
+                    "col1": np.random.rand(10000),
+                    "col2": np.random.rand(10000),
+                    "col3": np.random.randint(0, 100, 10000),
+                }
+            )
 
             # Set value
             start = time.time()
@@ -465,7 +463,7 @@ class TestReactivePerformance:
 
             # Get value
             start = time.time()
-            retrieved = value()
+            retrieved = value._value
             get_time = time.time() - start
 
             # Verify data integrity
@@ -489,7 +487,7 @@ class TestReactivePerformance:
                 value.set(i)
 
             # Final value should be correct
-            assert value() == 999
+            assert value._value == 999
         except ImportError:
             pytest.skip("Shiny not installed")
 

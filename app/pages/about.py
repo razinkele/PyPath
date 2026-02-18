@@ -8,7 +8,6 @@ def about_ui():
     return ui.page_fluid(
         ui.div(
             ui.h2("About PyPath", class_="mb-4"),
-            
             ui.card(
                 ui.card_body(
                     ui.h4("What is PyPath?"),
@@ -18,22 +17,25 @@ def about_ui():
                     ),
                     ui.tags.ul(
                         ui.tags.li(
-                            ui.tags.strong("Ecopath"), 
-                            " - Static mass-balance modeling of food webs"
+                            ui.tags.strong("Ecopath"),
+                            " - Static mass-balance modeling of food webs",
                         ),
                         ui.tags.li(
-                            ui.tags.strong("Ecosim"), 
-                            " - Time-dynamic simulation of ecosystem changes"
+                            ui.tags.strong("Ecosim"),
+                            " - Time-dynamic simulation of ecosystem changes",
                         ),
                     ),
                     ui.p(
                         "PyPath is based on the R package ",
-                        ui.tags.a("Rpath", href="https://github.com/NOAA-EDAB/Rpath/", target="_blank"),
-                        " developed by NOAA's Northeast Fisheries Science Center."
+                        ui.tags.a(
+                            "Rpath",
+                            href="https://github.com/NOAA-EDAB/Rpath/",
+                            target="_blank",
+                        ),
+                        " developed by NOAA's Northeast Fisheries Science Center.",
                     ),
                 ),
             ),
-            
             ui.card(
                 ui.card_header("Key Features"),
                 ui.card_body(
@@ -41,9 +43,15 @@ def about_ui():
                         ui.div(
                             ui.h5("🔬 Ecopath Mass Balance"),
                             ui.tags.ul(
-                                ui.tags.li("Define functional groups and food web structure"),
-                                ui.tags.li("Set biomass, production, and consumption rates"),
-                                ui.tags.li("Automatic calculation of missing parameters"),
+                                ui.tags.li(
+                                    "Define functional groups and food web structure"
+                                ),
+                                ui.tags.li(
+                                    "Set biomass, production, and consumption rates"
+                                ),
+                                ui.tags.li(
+                                    "Automatic calculation of missing parameters"
+                                ),
                                 ui.tags.li("Trophic level computation"),
                                 ui.tags.li("Ecotrophic efficiency validation"),
                             ),
@@ -52,7 +60,9 @@ def about_ui():
                             ui.h5("📈 Ecosim Simulation"),
                             ui.tags.ul(
                                 ui.tags.li("Foraging arena-based functional response"),
-                                ui.tags.li("Vulnerability parameters for top-down/bottom-up control"),
+                                ui.tags.li(
+                                    "Vulnerability parameters for top-down/bottom-up control"
+                                ),
                                 ui.tags.li("Fishing effort scenarios"),
                                 ui.tags.li("Environmental forcing"),
                                 ui.tags.li("RK4 and Adams-Bashforth integration"),
@@ -68,11 +78,10 @@ def about_ui():
                                 ui.tags.li("Export to CSV/Excel"),
                             ),
                         ),
-                        col_widths=[4, 4, 4]
+                        col_widths=[4, 4, 4],
                     ),
                 ),
             ),
-            
             ui.card(
                 ui.card_header("Scientific Background"),
                 ui.card_body(
@@ -83,51 +92,50 @@ def about_ui():
                     ),
                     ui.tags.ol(
                         ui.tags.li(
-                            ui.tags.strong("Ecopath"), 
-                            " - Creates a static, mass-balanced snapshot of an ecosystem"
+                            ui.tags.strong("Ecopath"),
+                            " - Creates a static, mass-balanced snapshot of an ecosystem",
                         ),
                         ui.tags.li(
-                            ui.tags.strong("Ecosim"), 
-                            " - Projects the ecosystem forward in time under various scenarios"
+                            ui.tags.strong("Ecosim"),
+                            " - Projects the ecosystem forward in time under various scenarios",
                         ),
                         ui.tags.li(
                             ui.tags.strong("Ecospace"),
-                            " - Spatial dynamics with irregular grids and hexagonal grids"
+                            " - Spatial dynamics with irregular grids and hexagonal grids",
                         ),
                     ),
-                    
                     ui.h5("Key Equations", class_="mt-4"),
                     ui.p("The Ecopath mass-balance equation:"),
                     ui.tags.div(
                         ui.tags.code(
                             "Production = Predation + Catch + Net Migration + Biomass Accumulation + Other Mortality"
                         ),
-                        class_="bg-light p-3 rounded"
+                        class_="bg-light p-3 rounded",
                     ),
                     ui.p("Or mathematically:", class_="mt-2"),
                     ui.tags.div(
                         ui.tags.code(
                             "Bᵢ × PBᵢ × EEᵢ = Σⱼ(Bⱼ × QBⱼ × DCⱼᵢ) + Yᵢ + Eᵢ + BAᵢ"
                         ),
-                        class_="bg-light p-3 rounded"
+                        class_="bg-light p-3 rounded",
                     ),
-                    
                     ui.h5("References", class_="mt-4"),
                     ui.tags.ul(
                         ui.tags.li(
                             "Christensen, V., & Walters, C. J. (2004). Ecopath with Ecosim: methods, "
                             "capabilities and limitations. ",
-                            ui.tags.em("Ecological Modelling"), ", 172(2-4), 109-139."
+                            ui.tags.em("Ecological Modelling"),
+                            ", 172(2-4), 109-139.",
                         ),
                         ui.tags.li(
                             "Lucey, S. M., et al. (2020). Conducting Management Strategy Evaluation "
                             "for the Northeast US Continental Shelf. ",
-                            ui.tags.em("Frontiers in Marine Science"), ", 7, 1029."
+                            ui.tags.em("Frontiers in Marine Science"),
+                            ", 7, 1029.",
                         ),
                     ),
                 ),
             ),
-            
             ui.card(
                 ui.card_header("Development"),
                 ui.card_body(
@@ -149,28 +157,28 @@ def about_ui():
                                     ui.tags.a(
                                         "GitHub Repository",
                                         href="https://github.com/your-repo/pypath",
-                                        target="_blank"
+                                        target="_blank",
                                     )
                                 ),
                                 ui.tags.li(
                                     ui.tags.a(
                                         "Documentation",
                                         href="https://your-repo.github.io/pypath",
-                                        target="_blank"
+                                        target="_blank",
                                     )
                                 ),
                                 ui.tags.li(
                                     ui.tags.a(
                                         "Original Rpath Package",
                                         href="https://github.com/NOAA-EDAB/Rpath/",
-                                        target="_blank"
+                                        target="_blank",
                                     )
                                 ),
                                 ui.tags.li(
                                     ui.tags.a(
                                         "EwE Official Site",
                                         href="https://ecopath.org/",
-                                        target="_blank"
+                                        target="_blank",
                                     )
                                 ),
                             ),
@@ -183,33 +191,24 @@ def about_ui():
                                 "Contributions are welcome!"
                             ),
                         ),
-                        col_widths=[4, 4, 4]
+                        col_widths=[4, 4, 4],
                     ),
                 ),
             ),
-            
             ui.card(
                 ui.card_header("Version Information"),
                 ui.card_body(
                     ui.tags.table(
+                        ui.tags.tr(ui.tags.td("PyPath Version:"), ui.tags.td("0.1.0")),
                         ui.tags.tr(
-                            ui.tags.td("PyPath Version:"),
-                            ui.tags.td("0.1.0")
+                            ui.tags.td("Dashboard Version:"), ui.tags.td("0.1.0")
                         ),
-                        ui.tags.tr(
-                            ui.tags.td("Dashboard Version:"),
-                            ui.tags.td("0.1.0")
-                        ),
-                        ui.tags.tr(
-                            ui.tags.td("Shiny Version:"),
-                            ui.tags.td("1.4.0")
-                        ),
-                        class_="table table-sm"
+                        ui.tags.tr(ui.tags.td("Shiny Version:"), ui.tags.td("1.4.0")),
+                        class_="table table-sm",
                     ),
                 ),
             ),
-            
-            class_="container py-4"
+            class_="container py-4",
         )
     )
 

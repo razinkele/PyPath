@@ -5,10 +5,11 @@ Tests the ability to dynamically adjust predator diet preferences based on
 changing prey biomass (prey switching, adaptive foraging).
 """
 
-import pytest
-import numpy as np
 import sys
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -22,13 +23,10 @@ class TestDietRewiringInitialization:
     def test_create_diet_rewiring(self):
         """Should create diet rewiring object."""
         rewiring = DietRewiring(
-            enabled=True,
-            switching_power=2.0,
-            min_proportion=0.001,
-            update_interval=12
+            enabled=True, switching_power=2.0, min_proportion=0.001, update_interval=12
         )
 
-        assert rewiring.enabled == True
+        assert rewiring.enabled
         assert rewiring.switching_power == 2.0
         assert rewiring.min_proportion == 0.001
         assert rewiring.update_interval == 12
@@ -36,11 +34,13 @@ class TestDietRewiringInitialization:
     def test_initialize_with_diet_matrix(self):
         """Should initialize with base diet matrix."""
         # Simple 3 prey x 2 predator diet
-        diet = np.array([
-            [0.6, 0.3],  # Prey 0
-            [0.3, 0.5],  # Prey 1
-            [0.1, 0.2]   # Prey 2
-        ])
+        diet = np.array(
+            [
+                [0.6, 0.3],  # Prey 0
+                [0.3, 0.5],  # Prey 1
+                [0.1, 0.2],  # Prey 2
+            ]
+        )
 
         rewiring = DietRewiring(enabled=True)
         rewiring.initialize(diet)
@@ -53,12 +53,10 @@ class TestDietRewiringInitialization:
     def test_convenience_function(self):
         """Should create using convenience function."""
         rewiring = create_diet_rewiring(
-            switching_power=3.0,
-            min_proportion=0.005,
-            update_interval=6
+            switching_power=3.0, min_proportion=0.005, update_interval=6
         )
 
-        assert rewiring.enabled == True
+        assert rewiring.enabled
         assert rewiring.switching_power == 3.0
         assert rewiring.min_proportion == 0.005
         assert rewiring.update_interval == 6
@@ -69,11 +67,7 @@ class TestDietUpdate:
 
     def test_update_with_equal_biomass(self):
         """Diet should stay same when all prey equally available."""
-        diet = np.array([
-            [0.6, 0.3],
-            [0.3, 0.5],
-            [0.1, 0.2]
-        ])
+        diet = np.array([[0.6, 0.3], [0.3, 0.5], [0.1, 0.2]])
 
         rewiring = DietRewiring(enabled=True, switching_power=2.0)
         rewiring.initialize(diet)
@@ -88,11 +82,7 @@ class TestDietUpdate:
 
     def test_update_with_increased_prey_1(self):
         """Diet should shift toward abundant prey."""
-        diet = np.array([
-            [0.5, 0.3],
-            [0.3, 0.4],
-            [0.2, 0.3]
-        ])
+        diet = np.array([[0.5, 0.3], [0.3, 0.4], [0.2, 0.3]])
 
         rewiring = DietRewiring(enabled=True, switching_power=2.0)
         rewiring.initialize(diet)
@@ -112,11 +102,7 @@ class TestDietUpdate:
 
     def test_update_with_decreased_prey_0(self):
         """Diet should shift away from scarce prey."""
-        diet = np.array([
-            [0.5, 0.3],
-            [0.3, 0.4],
-            [0.2, 0.3]
-        ])
+        diet = np.array([[0.5, 0.3], [0.3, 0.4], [0.2, 0.3]])
 
         rewiring = DietRewiring(enabled=True, switching_power=2.0)
         rewiring.initialize(diet)
@@ -136,10 +122,7 @@ class TestDietUpdate:
 
     def test_switching_power_effect(self):
         """Higher switching power should cause stronger shift."""
-        diet = np.array([
-            [0.5, 0.3],
-            [0.5, 0.7]
-        ])
+        diet = np.array([[0.5, 0.3], [0.5, 0.7]])
 
         # Prey 1 is 3x more abundant
         biomass = np.array([10.0, 30.0, 0.0])
@@ -166,11 +149,7 @@ class TestDietNormalization:
 
     def test_diet_sums_to_one(self):
         """Diet proportions should always sum to 1."""
-        diet = np.array([
-            [0.4, 0.2],
-            [0.4, 0.5],
-            [0.2, 0.3]
-        ])
+        diet = np.array([[0.4, 0.2], [0.4, 0.5], [0.2, 0.3]])
 
         rewiring = DietRewiring(enabled=True, switching_power=2.0)
         rewiring.initialize(diet)
@@ -178,9 +157,9 @@ class TestDietNormalization:
         # Test with various biomass scenarios
         biomass_scenarios = [
             np.array([10.0, 10.0, 10.0, 0.0]),  # Equal
-            np.array([5.0, 15.0, 10.0, 0.0]),   # Mixed
-            np.array([1.0, 1.0, 20.0, 0.0]),    # One dominant
-            np.array([20.0, 5.0, 5.0, 0.0]),    # First dominant
+            np.array([5.0, 15.0, 10.0, 0.0]),  # Mixed
+            np.array([1.0, 1.0, 20.0, 0.0]),  # One dominant
+            np.array([20.0, 5.0, 5.0, 0.0]),  # First dominant
         ]
 
         for biomass in biomass_scenarios:
@@ -189,8 +168,9 @@ class TestDietNormalization:
             # Check each predator's diet sums to 1
             for pred in range(new_diet.shape[1]):
                 diet_sum = np.sum(new_diet[:, pred])
-                assert np.isclose(diet_sum, 1.0), \
+                assert np.isclose(diet_sum, 1.0), (
                     f"Predator {pred} diet sums to {diet_sum}, not 1.0"
+                )
 
 
 class TestMinimumProportions:
@@ -198,15 +178,12 @@ class TestMinimumProportions:
 
     def test_maintains_minimum_proportions(self):
         """Should not go below minimum proportion."""
-        diet = np.array([
-            [0.5, 0.3],
-            [0.5, 0.7]
-        ])
+        diet = np.array([[0.5, 0.3], [0.5, 0.7]])
 
         rewiring = DietRewiring(
             enabled=True,
             switching_power=5.0,  # Very strong switching
-            min_proportion=0.01
+            min_proportion=0.01,
         )
         rewiring.initialize(diet)
 
@@ -225,10 +202,7 @@ class TestResetFunction:
 
     def test_reset_diet(self):
         """Should reset to original diet."""
-        diet = np.array([
-            [0.6, 0.3],
-            [0.4, 0.7]
-        ])
+        diet = np.array([[0.6, 0.3], [0.4, 0.7]])
 
         rewiring = DietRewiring(enabled=True, switching_power=2.0)
         rewiring.initialize(diet)
@@ -283,10 +257,12 @@ class TestRealisticScenarios:
     def test_zooplankton_shift_to_phyto_bloom(self):
         """Zooplankton should shift to phytoplankton during bloom."""
         # Initial diet: 60% phyto, 40% detritus
-        diet = np.array([
-            [0.6],  # Phytoplankton
-            [0.4]   # Detritus
-        ])
+        diet = np.array(
+            [
+                [0.6],  # Phytoplankton
+                [0.4],  # Detritus
+            ]
+        )
 
         rewiring = DietRewiring(enabled=True, switching_power=2.5)
         rewiring.initialize(diet)
@@ -303,10 +279,12 @@ class TestRealisticScenarios:
     def test_predator_switches_between_prey(self):
         """Predator should switch between two fish prey."""
         # Initial diet: 50% herring, 50% sprat
-        diet = np.array([
-            [0.5],  # Herring
-            [0.5]   # Sprat
-        ])
+        diet = np.array(
+            [
+                [0.5],  # Herring
+                [0.5],  # Sprat
+            ]
+        )
 
         rewiring = DietRewiring(enabled=True, switching_power=2.0)
         rewiring.initialize(diet)
@@ -330,18 +308,10 @@ class TestRealisticScenarios:
     def test_generalist_vs_specialist(self):
         """Both generalist and specialist respond to prey changes."""
         # Generalist: equal preferences
-        diet_generalist = np.array([
-            [0.33],
-            [0.33],
-            [0.34]
-        ])
+        diet_generalist = np.array([[0.33], [0.33], [0.34]])
 
         # Specialist: strong preference for prey 0
-        diet_specialist = np.array([
-            [0.8],
-            [0.1],
-            [0.1]
-        ])
+        diet_specialist = np.array([[0.8], [0.1], [0.1]])
 
         rewiring_gen = DietRewiring(enabled=True, switching_power=2.0)
         rewiring_gen.initialize(diet_generalist)
@@ -369,16 +339,9 @@ class TestEdgeCases:
 
     def test_zero_biomass_prey(self):
         """Should handle zero biomass prey."""
-        diet = np.array([
-            [0.5],
-            [0.5]
-        ])
+        diet = np.array([[0.5], [0.5]])
 
-        rewiring = DietRewiring(
-            enabled=True,
-            switching_power=2.0,
-            min_proportion=0.001
-        )
+        rewiring = DietRewiring(enabled=True, switching_power=2.0, min_proportion=0.001)
         rewiring.initialize(diet)
 
         # One prey has zero biomass
@@ -392,10 +355,7 @@ class TestEdgeCases:
 
     def test_all_prey_zero_biomass(self):
         """Should handle all prey at zero (extreme crash)."""
-        diet = np.array([
-            [0.5],
-            [0.5]
-        ])
+        diet = np.array([[0.5], [0.5]])
 
         rewiring = DietRewiring(enabled=True, min_proportion=0.001)
         rewiring.initialize(diet)
@@ -455,5 +415,5 @@ class TestUpdateInterval:
             assert rewiring.update_interval == interval
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
