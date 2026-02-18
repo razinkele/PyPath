@@ -378,9 +378,8 @@ def rpath(
     # Flag missing parameters (use the ORIGINAL missing-biomass mask)
     no_b = original_no_b
     no_ee = np.isnan(ee)
-    if debug:
-        print('DEBUG: original_no_b:', original_no_b)
-        print('DEBUG: initial no_ee:', no_ee)
+    logger.debug("original_no_b: %s", original_no_b)
+    logger.debug("initial no_ee: %s", no_ee)
 
     # Iterative solve to handle EE>1 cases by capping EE at 1 and re-solving
     # Start with masks from current state
@@ -435,18 +434,17 @@ def rpath(
             # or if we've flipped it to unknown in an earlier iteration (biomass NaN).
             pred_global = living_idx[j]
             pred_unknown = original_no_b[pred_global] or np.isnan(biomass[pred_global])
-            if debug and pred_unknown:
-                print(f"DEBUG: predator {pred_global} treated as unknown (original_no_b={original_no_b[pred_global]}, biomass_nan={np.isnan(biomass[pred_global])})")
+            if pred_unknown:
+                logger.debug("predator %s treated as unknown (original_no_b=%s, biomass_nan=%s)", pred_global, original_no_b[pred_global], np.isnan(biomass[pred_global]))
             if pred_unknown:
                 A[:, j] -= qb_dc[:, j]
 
         # Validate
         if not np.all(np.isfinite(A)) or not np.all(np.isfinite(b_vec)):
-            if debug:
-                print("DEBUG: A finite mask\n", np.isfinite(A))
-                print("DEBUG: A\n", A)
-                print("DEBUG: b_vec finite mask\n", np.isfinite(b_vec))
-                print("DEBUG: b_vec\n", b_vec)
+            logger.debug("A finite mask: %s", np.isfinite(A))
+            logger.debug("A: %s", A)
+            logger.debug("b_vec finite mask: %s", np.isfinite(b_vec))
+            logger.debug("b_vec: %s", b_vec)
             raise ValueError(
                 "Model is missing or invalid parameters - can't be balanced. Use check_rpath_params() to diagnose."
             )
@@ -458,24 +456,22 @@ def rpath(
                 x = _gauss_solve(A, b_vec)
             else:
                 x = np.linalg.solve(A, b_vec)
-        except Exception:
+        except (ValueError, np.linalg.LinAlgError):
+            logger.warning("Primary solver failed, falling back to least-squares")
             try:
                 x = np.linalg.lstsq(A, b_vec, rcond=1e-6)[0]
-            except Exception as e:
+            except (ValueError, np.linalg.LinAlgError) as e:
                 raise ValueError("Unable to solve linear system during balancing") from e
 
         # Assign solved values back to living groups for this iteration
         for i, idx in enumerate(living_idx):
-            if debug:
-                print(f"DEBUG: idx={idx} iter={it} living_no_b={living_no_b[i]} living_no_ee={living_no_ee[i]} x={x[i]} biomass_before={biomass[idx]}")
+            logger.debug("idx=%s iter=%s living_no_b=%s living_no_ee=%s x=%s biomass_before=%s", idx, it, living_no_b[i], living_no_ee[i], x[i], biomass[idx])
             if living_no_ee[i]:
                 ee[idx] = x[i]
-                if debug:
-                    print(f"DEBUG: Assigned ee[{idx}] = {x[i]}")
+                logger.debug("Assigned ee[%s] = %s", idx, x[i])
             if living_no_b[i]:
                 biomass[idx] = x[i]
-                if debug:
-                    print(f"DEBUG: Assigned biomass[{idx}] = {x[i]} biomass_after={biomass[idx]}")
+                logger.debug("Assigned biomass[%s] = %s biomass_after=%s", idx, x[i], biomass[idx])
 
         # Record iteration snapshot for diagnostics
         iterations.append({
@@ -494,8 +490,7 @@ def rpath(
             # Flip only the largest eligible violation to avoid cascade effects
             over.sort(key=lambda t: t[2], reverse=True)
             i, idx, val = over[0]
-            if debug:
-                print(f"DEBUG: ee[{idx}] = {val} > 1.0 (largest eligible), capping to 1 and solving for biomass next iteration")
+            logger.debug("ee[%s] = %s > 1.0 (largest eligible), capping to 1 and solving for biomass next iteration", idx, val)
             ee[idx] = 1.0
             biomass[idx] = np.nan
             flipped = True
@@ -540,10 +535,11 @@ def rpath(
             x = _gauss_solve(A, b_vec)
         else:
             x = np.linalg.solve(A, b_vec)
-    except Exception:
+    except (ValueError, np.linalg.LinAlgError):
+        logger.warning("Final solver failed, falling back to least-squares")
         try:
             x = np.linalg.lstsq(A, b_vec, rcond=1e-6)[0]
-        except Exception as e:
+        except (ValueError, np.linalg.LinAlgError) as e:
             raise ValueError("Unable to solve linear system during balancing") from e
 
     # Calculate M0 (other mortality) for living groups (detritus handled after
@@ -687,7 +683,8 @@ def rpath(
             tl_bio = _gauss_solve(tl_matrix, b_tl)
         else:
             tl_bio = np.linalg.solve(tl_matrix, b_tl)
-    except Exception:
+    except (ValueError, np.linalg.LinAlgError):
+        logger.warning("TL solve failed, falling back to least-squares")
         tl_bio = np.linalg.lstsq(tl_matrix, b_tl, rcond=1e-6)[0]
 
     # Map TL back to original order
