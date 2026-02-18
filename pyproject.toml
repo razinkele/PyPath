@@ -62,9 +62,9 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/pypath-ecopath/pypath"
-Documentation = "https://pypath-ecopath.readthedocs.io"
-Repository = "https://github.com/pypath-ecopath/pypath"
+Homepage = "https://github.com/razinkele/PyPath"
+Documentation = "https://github.com/razinkele/PyPath"
+Repository = "https://github.com/razinkele/PyPath"
 
 [tool.setuptools.packages.find]
 where = ["src"]
