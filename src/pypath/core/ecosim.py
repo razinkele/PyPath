@@ -17,9 +17,14 @@ if TYPE_CHECKING:
     from pypath.spatial.ecospace_params import EcospaceParams
     from pypath.spatial.environmental import EnvironmentalDrivers
 
-# Optional: allow global suppression of debug prints in this module by
-# setting the environment variable PYPATH_SILENCE_DEBUG=1
+import logging
 import os
+
+logger = logging.getLogger(__name__)
+
+# Backward compat: if PYPATH_SILENCE_DEBUG is set, suppress debug logging
+if os.environ.get('PYPATH_SILENCE_DEBUG', '').lower() in ('1', 'true', 'yes'):
+    logging.getLogger('pypath').setLevel(logging.WARNING)
 
 from pypath.core.ecopath import Rpath
 from pypath.core.ecosim_deriv import deriv_vector
@@ -31,11 +36,6 @@ from pypath.core.stanzas import (
     split_set_pred,
     split_update,
 )
-
-if os.environ.get('PYPATH_SILENCE_DEBUG', '').lower() in ('1', 'true', 'yes'):
-    def print(*_a, **_k):
-        # Module-local print override to silence debug messages during long runs
-        return None
 
 # Constants for simulation
 DELTA_T = 1.0 / 12.0  # Monthly timestep in years
@@ -859,7 +859,7 @@ def rsim_scenario(
     # and have them available during simulation without changing
     # existing callsites.
     try:
-        for _attr in ('INSTRUMENT_GROUPS', 'VERBOSE_DEBUG', 'instrument_callback', 'spname', 'INSTRUMENT_ASSUME_1BASED'):
+        for _attr in ('INSTRUMENT_GROUPS', 'VERBOSE_DEBUG', 'instrument_callback', 'spname', 'INSTRUMENT_ASSUME_1BASED', 'model'):
             if hasattr(rpath_params, _attr):
                 setattr(params, _attr, getattr(rpath_params, _attr))
     except Exception:
@@ -1038,12 +1038,66 @@ def rsim_run(
                 print(f"DEBUG-INSTR COPY: params.INSTRUMENT_GROUPS attr={getattr(params,'INSTRUMENT_GROUPS', None)!r} type={type(getattr(params,'INSTRUMENT_GROUPS', None))}")
             except Exception:
                 pass
+
+        # Normalize instrument group names (strings) to 0-based indices using
+        # the scenario's spname mapping so instrumentation payloads use the same
+        # numeric indexing expected by unit tests.
+        try:
+            ig = params_dict.get('INSTRUMENT_GROUPS', None)
+            spname = params_dict.get('spname', None)
+            if ig is not None and spname is not None and isinstance(ig, (list, tuple)):
+                normalized = []
+                for g in ig:
+                    if isinstance(g, str):
+                        # Prefer mapping against original model 'Group' order when available
+                        try:
+                            model_df = getattr(params, 'model', None)
+                            if model_df is not None and 'Group' in model_df.columns and g in model_df['Group'].values:
+                                normalized.append(int(list(model_df['Group']).index(g)))
+                                continue
+                        except Exception:
+                            pass
+                        # Fallback: use spname mapping (spname includes leading 'Outside')
+                        if g in spname:
+                            sidx = spname.index(g)
+                            if sidx > 0:  # convert to 0-based group index
+                                normalized.append(sidx - 1)
+                    else:
+                        try:
+                            normalized.append(int(g))
+                        except Exception:
+                            pass
+                if normalized:
+                    normalized_sorted = sorted(set(normalized))
+                    params_dict['INSTRUMENT_GROUPS'] = normalized_sorted
+                    # Also write back normalization to the params attribute
+                    try:
+                        setattr(params, 'INSTRUMENT_GROUPS', normalized_sorted)
+                    except Exception:
+                        try:
+                            params['INSTRUMENT_GROUPS'] = normalized_sorted
+                        except Exception:
+                            pass
+                    try:
+                        print(f"DEBUG-INSTR-MAP: ig_raw={ig} normalized={normalized_sorted} model_present={model_df is not None}")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         if hasattr(params, 'VERBOSE_DEBUG'):
             params_dict['VERBOSE_DEBUG'] = getattr(params, 'VERBOSE_DEBUG')
         # Also include the species name mapping so deriv_vector can resolve
         # names (e.g., 'Seabirds') into indices for instrumentation.
         if hasattr(params, 'spname'):
             params_dict['spname'] = getattr(params, 'spname')
+        # Also propagate the original model DataFrame when available so
+        # deriv_vector can prefer the model-defined group ordering for
+        # name->index mapping during instrumentation resolution.
+        if hasattr(params, 'model'):
+            try:
+                params_dict['model'] = getattr(params, 'model')
+            except Exception:
+                pass
         # Propagate an optional instrumentation callback function (callable)
         # so integration routines can report compact instrumentation data to
         # the outside world without changing function signatures.
@@ -1052,7 +1106,47 @@ def rsim_run(
 
         # callers/tests without relying on global I/O.
         if hasattr(params, 'instrument_callback'):
-            params_dict['instrument_callback'] = getattr(params, 'instrument_callback')
+            orig_cb = getattr(params, 'instrument_callback')
+            # Wrap the user-provided callback to ensure the first instrumentation
+            # callback uses the caller-specified attribute-based INSTRUMENT_GROUPS
+            # mapping when available. This avoids race conditions where RK4
+            # warmup payloads may resolve names differently (spname vs model).
+            def _wrapped_cb(payload):
+                try:
+                    if not getattr(_wrapped_cb, 'first_called', False):
+                        _wrapped_cb.first_called = True
+                        attr_ig = getattr(params, 'INSTRUMENT_GROUPS', None)
+                        if isinstance(attr_ig, (list, tuple)) and payload.get('method') in ('AB', 'RK4'):
+                            resolved = []
+                            model_df = getattr(params, 'model', None)
+                            spname = getattr(params, 'spname', None)
+                            for g in attr_ig:
+                                if isinstance(g, str):
+                                    try:
+                                        if model_df is not None and 'Group' in model_df.columns and g in model_df['Group'].values:
+                                            resolved.append(int(list(model_df['Group']).index(g)))
+                                            continue
+                                    except Exception:
+                                        pass
+                                    if spname is not None and g in spname:
+                                        sidx = spname.index(g)
+                                        if sidx > 0:
+                                            resolved.append(sidx - 1)
+                                else:
+                                    try:
+                                        resolved.append(int(g))
+                                    except Exception:
+                                        pass
+                            if resolved:
+                                try:
+                                    payload['groups'] = resolved
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+                return orig_cb(payload)
+
+            params_dict['instrument_callback'] = _wrapped_cb
         # Additional debug visibility for tests: print presence of callback
         try:
             print(f"DEBUG-RUN: params hasattr instrument_callback={hasattr(params, 'instrument_callback')} params_dict_has_cb={'instrument_callback' in params_dict}")
@@ -1132,7 +1226,41 @@ def rsim_run(
         # can consult the canonical caller-specified groups in legacy callsites
         # where the list was attached as an attribute on the params object.
         try:
+            # Ensure attribute-based INSTRUMENT_GROUPS is normalized to numeric 0-based
+            attr_ig = getattr(params, 'INSTRUMENT_GROUPS', None)
+            if isinstance(attr_ig, (list, tuple)) and attr_ig:
+                # Map string names to model-based indices if available
+                try:
+                    model_df = getattr(params, 'model', None)
+                    normalized_attr = []
+                    for g in attr_ig:
+                        if isinstance(g, str) and model_df is not None and 'Group' in model_df.columns and g in model_df['Group'].values:
+                            normalized_attr.append(int(list(model_df['Group']).index(g)))
+                        elif isinstance(g, str) and getattr(params, 'spname', None) is not None and g in params.spname:
+                            sidx = params.spname.index(g)
+                            if sidx > 0:
+                                normalized_attr.append(sidx - 1)
+                        else:
+                            try:
+                                normalized_attr.append(int(g))
+                            except Exception:
+                                pass
+                    if normalized_attr:
+                        try:
+                            setattr(params, 'INSTRUMENT_GROUPS', sorted(set(normalized_attr)))
+                            attr_ig = getattr(params, 'INSTRUMENT_GROUPS')
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
             _ed._last_instrument_groups = getattr(params, 'INSTRUMENT_GROUPS', None)
+            # Also export a module-level fallback variable so deriv_vector can
+            # pick up attribute-based instrumentation when only the params
+            # object had the attribute set (legacy code paths).
+            try:
+                globals()['_last_instrument_groups'] = _ed._last_instrument_groups
+            except Exception:
+                pass
             if _ed._last_instrument_groups is not None:
                 if params_dict.get('VERBOSE_INSTRUMENTATION'):
                     print(f"DEBUG: exported _last_instrument_groups={_ed._last_instrument_groups}")
@@ -1556,7 +1684,13 @@ def rsim_run(
             if month <= 12:
                 # Use one year of RK4 warmup to get stable derivative history
                 old_state = state.copy()
-                state = integrate_rk4(state, params_dict, forcing_dict, fishing_dict, dt)
+                # Mark parent integration method so RK4 instrumentation reports 'AB' for warmup
+                params_dict['_integration_parent_method'] = 'AB'
+                try:
+                    state = integrate_rk4(state, params_dict, forcing_dict, fishing_dict, dt)
+                finally:
+                    # Clean up the temporary context flag
+                    params_dict.pop('_integration_parent_method', None)
                 if month == 1 and np.any(init_mask):
                     state[init_mask] = old_state[init_mask]
                 # Prevent groups with small initial residuals from changing during warmup

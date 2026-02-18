@@ -7,6 +7,11 @@ A Python implementation of the Rpath ecosystem modeling package.
 __version__ = "0.2.2"
 __author__ = "PyPath Development Team"
 
+import logging
+
+# Configure default handler to avoid "No handler found" warnings
+logging.getLogger(__name__).addHandler(logging.NullHandler())
+
 # Core imports
 # Patch numpy.corrcoef to handle constant identical series gracefully used in tests
 # This ensures that comparing two identical constant time series yields a

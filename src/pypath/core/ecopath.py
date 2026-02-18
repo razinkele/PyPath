@@ -10,10 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Tuple, Union
 
+import logging
+
 import numpy as np
 import pandas as pd
 
 from pypath.core.params import RpathParams
+
+logger = logging.getLogger(__name__)
 
 
 def _gauss_solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
