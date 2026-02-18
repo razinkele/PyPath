@@ -48,9 +48,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache: key = boundary_wkt, value = dict(size, n_patches)
-_HEX_GRID_CACHE: dict = {}
-
 
 def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
     """Create a hexagonal grid within a boundary polygon.
@@ -121,7 +118,7 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
         # Only auto-scale for very large expected grids to avoid inverting
         # the relative resolution requested by callers (scale threshold helps
         # keep fine/medium/coarse ordering intact for moderate cases).
-        auto_scale_threshold = 5000
+        auto_scale_threshold = 10000
         if expected > auto_scale_threshold:
             scale = np.sqrt(expected / desired_max_patches)
             alpha = 0.25
@@ -146,13 +143,6 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
 
     # Get bounds in UTM
     minx_utm, miny_utm, maxx_utm, maxy_utm = boundary_union_utm.bounds
-
-    # Small cache for recently created grids per-boundary to help preserve
-    # monotonic patch-count behavior when users create multiple grids from the
-    # same boundary at different sizes in one session (tests depend on this).
-    global _HEX_GRID_CACHE
-
-    boundary_wkt = getattr(boundary_union_utm, 'wkt', None)
 
     # Generate hexagon centers
     hexagons = []
@@ -205,35 +195,6 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
 
     # First pass with default anchoring
     hexagons, n_patches = _generate_centers_and_hexagons()
-
-    # If we have a prior, smaller-sized grid for the same boundary, ensure
-    # the new (larger) grid does not produce more patches (monotonic behavior).
-    try:
-        cache = _HEX_GRID_CACHE.get(boundary_wkt)
-        if cache is not None and cache.get('size') is not None:
-            prev_size = cache['size']
-            prev_n = cache['n_patches']
-            # Only attempt rephasing if current size is larger than previous
-            if hexagon_size_km > prev_size and n_patches >= prev_n:
-                # Try a small set of phase offsets to minimize patch count
-                best = {'hexagons': hexagons, 'n': n_patches, 'offset': (0.0, 0.0)}
-                shifts = [0.0, hex_width * 0.25, hex_width * 0.5, hex_width * 0.75]
-                r_shifts = [0.0, row_step * 0.25, row_step * 0.5, row_step * 0.75]
-                for sx in shifts:
-                    for sy in r_shifts:
-                        hlist, cnt = _generate_centers_and_hexagons(x0_offset=sx, y0_offset=sy)
-                        if cnt < best['n']:
-                            best = {'hexagons': hlist, 'n': cnt, 'offset': (sx, sy)}
-                # Accept improved configuration if it reduces patch count and makes progress
-                if best['n'] < n_patches:
-                    hexagons = best['hexagons']
-                    n_patches = best['n']
-    except (KeyError, TypeError, ValueError):
-        logger.debug("HEX-PHASE: phase offset optimization skipped", exc_info=True)
-
-    # Cache this grid as the most recent for this boundary
-    if boundary_wkt is not None:
-        _HEX_GRID_CACHE[boundary_wkt] = {'size': hexagon_size_km, 'n_patches': n_patches}
 
     if not hexagons:
         raise ValueError(

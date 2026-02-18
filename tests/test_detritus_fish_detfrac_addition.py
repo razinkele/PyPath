@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import numpy as np
 import pytest
@@ -74,17 +75,17 @@ def _build_simple_scenario(detfrac_format="2d"):
     return pdict, forcing, fishing, state
 
 
-def test_fish_detfrac_addition_2d_verbose(capsys):
+def test_fish_detfrac_addition_2d_verbose(caplog):
     pdict, forcing, fishing, state = _build_simple_scenario("2d")
     pdict["VERBOSE_DEBUG"] = True
 
-    deriv_with = deriv_vector(state, copy.deepcopy(pdict), forcing, fishing)
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG, logger="pypath.core.ecosim_deriv"):
+        deriv_with = deriv_vector(state, copy.deepcopy(pdict), forcing, fishing)
 
     # Parse and validate the added DetFrac fraction from the verbose debug message
     import re
 
-    m = re.search(r"added fish-derived DetFrac.*\+= ([0-9.eE+-]+)", captured.out)
+    m = re.search(r"added fish-derived DetFrac.*\+= ([0-9.eE+-]+)", caplog.text)
     assert m is not None, "Expected debug message for 2D DetFrac addition"
     added_frac = float(m.group(1))
     assert added_frac > 1e-6, f"Added DetFrac fraction too small: {added_frac}"
@@ -100,7 +101,7 @@ def test_fish_detfrac_addition_2d_verbose(capsys):
     assert deriv_with[i_disc] - deriv_no[i_disc] >= 1e-8, f"Discards derivative increase too small: {deriv_with[i_disc] - deriv_no[i_disc]}"
 
 
-def test_fish_detfrac_addition_linklist_verbose(capsys):
+def test_fish_detfrac_addition_linklist_verbose(caplog):
     pdict, forcing, fishing, state = _build_simple_scenario("link")
     # configure link-list DetFrac with a single (empty) entry that maps to Discards
     pdict["DetFrom"] = np.array([1], dtype=int)
@@ -108,15 +109,15 @@ def test_fish_detfrac_addition_linklist_verbose(capsys):
     pdict["DetFrac"] = np.array([0.0])
     pdict["VERBOSE_DEBUG"] = True
 
-    deriv_with = deriv_vector(state, copy.deepcopy(pdict), forcing, fishing)
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG, logger="pypath.core.ecosim_deriv"):
+        deriv_with = deriv_vector(state, copy.deepcopy(pdict), forcing, fishing)
 
     import re
 
-    m = re.search(r"added fish-derived DetFrac.*\+= ([0-9.eE+-]+)", captured.out)
+    m = re.search(r"added fish-derived DetFrac.*\+= ([0-9.eE+-]+)", caplog.text)
 
     # Ensure we hit the link-list DetFrac code path (inspect debug traces)
-    assert "DEBUG DetFrac ndim" in captured.out
+    assert "DEBUG DetFrac ndim" in caplog.text
 
     # Compute expected fraction (same math used in deriv_vector)
     src_idx = 1
@@ -150,12 +151,12 @@ def test_fish_detfrac_addition_linklist_verbose(capsys):
         assert diff >= 1e-8, f"No debug message and Discards derivative increase too small: {diff}"
 
 
-def test_fish_detfrac_linklist_deterministic(capsys):
+def test_fish_detfrac_linklist_deterministic(caplog):
     """Deterministic link-list scenario:
 
     Use single-entry FishFrom/FishTo/FishQ (no leading zero) so the
     fish-derived DetFrac addition is unambiguous and always executed.
-    Verify the verbose debug message is printed and the printed fraction
+    Verify the verbose debug message is logged and the logged fraction
     matches the function's computation; also assert the Discards derivative
     increases when fish-derived discards are enabled.
     """
@@ -172,13 +173,13 @@ def test_fish_detfrac_linklist_deterministic(capsys):
     pdict["DetFrac"] = np.array([0.0])
     pdict["VERBOSE_DEBUG"] = True
 
-    deriv_with = deriv_vector(state, copy.deepcopy(pdict), forcing, fishing)
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG, logger="pypath.core.ecosim_deriv"):
+        deriv_with = deriv_vector(state, copy.deepcopy(pdict), forcing, fishing)
 
-    # If debug info was printed, parse added frac; otherwise compute expected
+    # If debug info was logged, parse added frac; otherwise compute expected
     import re
 
-    m = re.search(r"DEBUG: added fish-derived DetFrac mat\[(\d+),(\d+)\] \+= ([0-9.eE+-]+)", captured.out)
+    m = re.search(r"DEBUG: added fish-derived DetFrac mat\[(\d+),(\d+)\] \+= ([0-9.eE+-]+)", caplog.text)
     if m is not None:
         src_idx = int(m.group(1))
         det_col = int(m.group(2))
