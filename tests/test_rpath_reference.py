@@ -82,7 +82,43 @@ def rpath_reference(reference_data_available):
         pytest.skip("Reference data not available")
 
     with open(ECOPATH_DIR / "balanced_model.json", "r") as f:
-        return json.load(f)
+        data = json.load(f)
+
+    # First, normalize explicit 'NA' string markers to numeric NaN for lists
+    for k, v in list(data.items()):
+        if isinstance(v, list) and any(isinstance(item, str) and item.strip().upper() == 'NA' for item in v):
+            coerced = []
+            for item in v:
+                if isinstance(item, str) and item.strip().upper() == 'NA':
+                    coerced.append(float('nan'))
+                else:
+                    try:
+                        coerced.append(float(item))
+                    except (ValueError, TypeError):
+                        coerced.append(float('nan'))
+            data[k] = coerced
+
+    # Coerce numeric-like lists to floats when a majority of entries are numeric-like
+    for k, v in list(data.items()):
+        if isinstance(v, list) and len(v) > 0:
+            success = 0
+            for item in v:
+                try:
+                    float(item)
+                    success += 1
+                except (ValueError, TypeError):
+                    pass
+            # Only coerce when at least half the entries can be parsed as numbers
+            if success >= (len(v) / 2):
+                coerced = []
+                for item in v:
+                    try:
+                        coerced.append(float(item))
+                    except (ValueError, TypeError):
+                        coerced.append(float('nan'))
+                data[k] = coerced
+
+    return data
 
 
 @pytest.fixture(scope="module")
