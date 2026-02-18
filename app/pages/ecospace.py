@@ -19,8 +19,6 @@ import numpy as np
 import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, req, ui
 
-logger = logging.getLogger(__name__)
-
 # Import centralized configuration
 try:
     from app.config import PARAM_RANGES, SPATIAL
@@ -47,6 +45,8 @@ except ImportError:
     _HAS_GIS = False
     gpd = None
     Polygon = None
+
+logger = logging.getLogger(__name__)
 
 # Module-level cache: key = boundary_wkt, value = dict(size, n_patches)
 _HEX_GRID_CACHE: dict = {}
