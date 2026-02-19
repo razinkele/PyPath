@@ -640,9 +640,6 @@ class TestEcosimSimulation:
             non_nan_values = biomass[~np.isnan(biomass)]
             assert np.all(non_nan_values >= 0), "Found negative biomass values"
 
-    @pytest.mark.xfail(
-        reason="Ecosim dynamics need tuning after diet matrix fix for TL calculation"
-    )
     def test_final_biomass_reasonable(self, lt_simulation):
         """Test that final biomass values are within reasonable range.
 

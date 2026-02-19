@@ -252,9 +252,6 @@ class TestEcosimSimulation:
         )  # 5 years * 12 months + initial
         assert output.out_Biomass.shape[1] == 6  # Outside + 5 groups
 
-    @pytest.mark.xfail(
-        reason="Ecosim stability affected by diet matrix fix - needs model recalibration"
-    )
     def test_biomass_positive(self, simple_model):
         """Test that biomass stays positive."""
         model, rpath_params = simple_model
@@ -323,9 +320,6 @@ class TestStanzaIntegration:
         assert scenario.stanzas is not None
         assert scenario.stanzas.n_split == 0
 
-    @pytest.mark.xfail(
-        reason="Ecosim stability affected by diet matrix fix - needs model recalibration"
-    )
     def test_simulation_with_empty_stanzas(self, simple_model):
         """Test simulation runs with empty stanza structure."""
         model, rpath_params = simple_model
@@ -341,9 +335,6 @@ class TestStanzaIntegration:
         assert output.out_Biomass.shape[0] == 5 * 12 + 1
         assert np.all(output.out_Biomass >= 0)
 
-    @pytest.mark.xfail(
-        reason="Ecosim stability affected by diet matrix fix - needs model recalibration"
-    )
     def test_simulation_with_stanza_groups(self, simple_model):
         """Test simulation runs with initialized stanza groups."""
         model, rpath_params = simple_model
@@ -442,9 +433,6 @@ class TestBalticSeaModel:
         assert output.out_Biomass.shape[0] == 20 * 12 + 1
         assert output.out_Biomass.shape[1] == 8  # Outside + 7 groups
 
-    @pytest.mark.xfail(
-        reason="Ecosim stability affected by diet matrix fix - needs model recalibration"
-    )
     def test_baltic_biomass_stability(self, baltic_sea_model):
         """Test that Baltic model runs for multiple years."""
         model, rpath_params = baltic_sea_model
@@ -534,9 +522,6 @@ class TestForcingScenarios:
 class TestIntegrationMethods:
     """Tests for different integration methods."""
 
-    @pytest.mark.xfail(
-        reason="Ecosim stability affected by diet matrix fix - needs model recalibration"
-    )
     def test_rk4_method(self, simple_model):
         """Test RK4 integration method."""
         model, rpath_params = simple_model
@@ -547,9 +532,6 @@ class TestIntegrationMethods:
         assert output.out_Biomass.shape[0] == 5 * 12 + 1
         assert np.all(output.out_Biomass >= 0)
 
-    @pytest.mark.xfail(
-        reason="Ecosim stability affected by diet matrix fix - needs model recalibration"
-    )
     def test_ab_method(self, simple_model):
         """Test Adams-Bashforth integration method."""
         model, rpath_params = simple_model
