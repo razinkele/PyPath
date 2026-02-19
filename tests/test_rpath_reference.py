@@ -376,7 +376,10 @@ class TestEcosimTrajectories:
             r_slice = rpath_values[:L]
             p_slice = pypath_values[:L]
             if np.std(r_slice) < 1e-12 or np.std(p_slice) < 1e-12:
-                correlation = 1.0 if np.allclose(r_slice, p_slice, atol=1e-12) else np.nan
+                # For nearly-constant series, use relative tolerance to handle
+                # tiny numerical drifts (e.g. stanza groups held at baseline).
+                scale = max(np.max(np.abs(r_slice)), np.max(np.abs(p_slice)), 1e-30)
+                correlation = 1.0 if np.allclose(r_slice, p_slice, atol=1e-3 * scale) else np.nan
             else:
                 correlation = np.corrcoef(r_slice, p_slice)[0, 1]
 

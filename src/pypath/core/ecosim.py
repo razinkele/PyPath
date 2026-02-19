@@ -962,6 +962,14 @@ def rsim_run(
     # Build a normalized dict view of fishing to pass to derivative/integrator
     fishing_dict = _normalize_fishing_input(fishing_obj, params.NUM_GROUPS + 1)
 
+    # Fishing link arrays (FishFrom/FishThrough/FishQ) live on params, not
+    # on the fishing object.  Ensure they are present in fishing_dict so
+    # deriv_vector can compute per-link fishing mortality correctly.
+    if not fishing_dict.get("FishFrom", []):
+        fishing_dict["FishFrom"] = getattr(params, "FishFrom", np.array([0]))
+        fishing_dict["FishThrough"] = getattr(params, "FishThrough", np.array([0]))
+        fishing_dict["FishQ"] = getattr(params, "FishQ", np.array([0.0]))
+
     # Determine years to run
     if years is None:
         n_months = forcing.ForcedBio.shape[0]
@@ -1299,7 +1307,11 @@ def rsim_run(
         # capture the true algebraic residuals used to compute small M0 nudges.
         params_no_noint = params_dict.copy()
         params_no_noint['NoIntegrate'] = np.zeros(n_groups, dtype=int)
-        fish_base_zero = {"FishingMort": np.zeros(n_groups)}
+        # Use the actual fishing_dict (with FishFrom/FishQ from params) so
+        # the init-deriv computation includes fishing mortality.  Previously
+        # this used a zero-fishing dict which caused M0 to be nudged to
+        # compensate for "missing" fishing, double-counting it once the fix
+        # that populates fishing_dict from params was applied.
         # If Seabirds exists, request trace debug in deriv_vector to expose components
         # Set TRACE unconditionally (no silent failure) so logs are consistent
         if hasattr(params, 'spname') and 'Seabirds' in params.spname:
@@ -1310,13 +1322,13 @@ def rsim_run(
             logger.debug(f"requesting TRACE_DEBUG_GROUPS for seabirds idx={sidx}")
         # Threshold for considering small initial derivatives
         ADJUST_DERIV_MAX = 1e-3
-        logger.debug(f"computing init_deriv with fish_base length={len(fish_base_zero['FishingMort'])}")
-        init_deriv = deriv_vector(state.copy(), params_no_noint, forcing0, fish_base_zero)
+        logger.debug(f"computing init_deriv with fishing_dict FishFrom length={len(fishing_dict.get('FishFrom', []))}")
+        init_deriv = deriv_vector(state.copy(), params_no_noint, forcing0, fishing_dict)
         # Also compute a test-style derivative with TRACE to compare
         params_test = params_no_noint.copy()
         try:
             params_test['TRACE_DEBUG_GROUPS'] = params_no_noint.get('TRACE_DEBUG_GROUPS', None)
-            deriv_test = deriv_vector(state.copy(), params_test, forcing0, fish_base_zero)
+            deriv_test = deriv_vector(state.copy(), params_test, forcing0, fishing_dict)
             try:
                 if 'Seabirds' in params.spname:
                     sidx = params.spname.index('Seabirds')
@@ -1371,7 +1383,7 @@ def rsim_run(
                     params_test['spname'] = params.spname
             except Exception:
                 pass
-            deriv_test = deriv_vector(state.copy(), params_test, forcing0, {"FishingMort": np.zeros(n_groups)})
+            deriv_test = deriv_vector(state.copy(), params_test, forcing0, fishing_dict)
             diffs = np.abs(init_deriv - deriv_test)
             TH = 1e-12
             if np.any(diffs > TH):
@@ -1518,7 +1530,7 @@ def rsim_run(
 
                     for it in range(1, MAX_M0_ITER + 1):
                         try:
-                            init_deriv_iter = deriv_vector(state.copy(), params_iter, forcing0, {'FishingMort': np.zeros(n_groups)})
+                            init_deriv_iter = deriv_vector(state.copy(), params_iter, forcing0, fishing_dict)
                             residual = float(init_deriv_iter[grp])
                             logger.debug(f"M0 iter grp={grp} it={it} residual={residual:.6e}")
                             # If residual sufficiently small, stop
@@ -1539,7 +1551,7 @@ def rsim_run(
                     # Final check using the params dict that will be persisted
                     try:
                         params_check = params_dict.copy()
-                        init_deriv_check = deriv_vector(state.copy(), params_check, forcing0, {'FishingMort': np.zeros(n_groups)})
+                        init_deriv_check = deriv_vector(state.copy(), params_check, forcing0, fishing_dict)
                         final_residual = float(init_deriv_check[grp])
                         logger.debug(f"final check residual grp={grp} residual={final_residual:.6e}")
                         if B != 0 and np.isfinite(final_residual) and abs(final_residual) > 0.0:
@@ -1581,7 +1593,7 @@ def rsim_run(
     # and make a small algebraic correction if a tiny residual remains.
     try:
         logger.debug("performing final M0 algebraic check")
-        check_deriv = deriv_vector(state.copy(), params_dict, forcing0, {'FishingMort': np.zeros(n_groups)})
+        check_deriv = deriv_vector(state.copy(), params_dict, forcing0, fishing_dict)
         for grp in range(1, params.NUM_GROUPS + 1):
             if not np.isfinite(check_deriv[grp]) or state[grp] <= 0:
                 continue
@@ -1751,8 +1763,8 @@ def rsim_run(
             try:
                 if params_dict.get('VERBOSE_DEBUG'):
                     logger.debug(f"entering monthly M0 adjustment block for month={month}")
-                # Compute raw derivative without fishing mortality (to measure algebraic residual)
-                raw_init_deriv = deriv_vector(state.copy(), params_dict, forcing_dict, {'FishingMort': np.zeros(n_groups)})
+                # Compute raw derivative with actual fishing to measure algebraic residual
+                raw_init_deriv = deriv_vector(state.copy(), params_dict, forcing_dict, fishing_dict)
                 if params_dict.get('VERBOSE_DEBUG'):
                     logger.debug(f"computed raw_init_deriv sample {raw_init_deriv[:10]}")
                 # Use the normalized fishing dict so we don't depend on dataclass vs dict
@@ -1805,7 +1817,7 @@ def rsim_run(
                             TOL_INIT_DERIV_ITER = 1e-10
                             for it in range(1, MAX_M0_ITER + 1):
                                 try:
-                                    init_deriv_iter = deriv_vector(state.copy(), params_iter, forcing_dict, {'FishingMort': np.zeros(n_groups)})
+                                    init_deriv_iter = deriv_vector(state.copy(), params_iter, forcing_dict, fishing_dict)
                                     residual = float(init_deriv_iter[grp])
                                     if abs(residual) < TOL_INIT_DERIV_ITER:
                                         break
