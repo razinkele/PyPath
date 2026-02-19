@@ -49,7 +49,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
+def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_scale=True):
     """Create a hexagonal grid within a boundary polygon.
 
     Parameters
@@ -59,6 +59,10 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
     hexagon_size_km : float, optional
         Size of hexagons in kilometers (radius from center to vertex)
         If None, uses default from SPATIAL config
+    auto_scale : bool, optional
+        If True (default), automatically upscale hex size when the expected
+        patch count is very large, to keep interactive grids manageable.
+        Set to False to preserve the exact requested hex size.
 
     Returns
     -------
@@ -119,7 +123,7 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None):
         # the relative resolution requested by callers (scale threshold helps
         # keep fine/medium/coarse ordering intact for moderate cases).
         auto_scale_threshold = 10000
-        if expected > auto_scale_threshold:
+        if auto_scale and expected > auto_scale_threshold:
             scale = np.sqrt(expected / desired_max_patches)
             alpha = 0.25
             scale_applied = 1.0 + alpha * (scale - 1.0)

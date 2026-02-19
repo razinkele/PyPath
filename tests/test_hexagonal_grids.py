@@ -459,20 +459,20 @@ class TestRealWorldScenarios:
         )
         boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
-        # Test different sizes
-        grid_fine = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5)
+        # Test different sizes (disable auto_scale to test raw geometry)
+        grid_fine = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5, auto_scale=False)
         grid_medium = create_hexagonal_grid_in_boundary(
-            boundary_gdf, hexagon_size_km=1.0
+            boundary_gdf, hexagon_size_km=1.0, auto_scale=False
         )
         grid_coarse = create_hexagonal_grid_in_boundary(
-            boundary_gdf, hexagon_size_km=2.0
+            boundary_gdf, hexagon_size_km=2.0, auto_scale=False
         )
 
-        # All should create grids
+        # All should create grids with monotonic patch counts
         assert grid_fine.n_patches > grid_medium.n_patches > grid_coarse.n_patches
 
-        # Medium grid should have reasonable patch count
-        assert 20 < grid_medium.n_patches < 200
+        # Medium grid (1 km hexes) over ~20,000 km² should produce thousands of patches
+        assert grid_medium.n_patches > 1000
 
     def test_coastal_mpa_scenario(self):
         """Test with small Marine Protected Area boundary."""
