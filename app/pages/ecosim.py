@@ -20,7 +20,10 @@ from pypath.core.forcing import DietRewiring
 # Helper to check model balance and show notification if not
 def _require_balanced_model_or_notify(model) -> bool:
     """Return True if model is balanced, otherwise show a UI error and return False."""
-    from app.pages.utils import is_balanced_model
+    try:
+        from app.pages.utils import is_balanced_model
+    except ModuleNotFoundError:
+        from pages.utils import is_balanced_model
 
     if not is_balanced_model(model):
         ui.notification_show(
