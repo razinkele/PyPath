@@ -8,6 +8,6 @@ All notable changes to this project will be documented in this file.
 - Fix: Preserve explicit zero inputs in Ecopath parameter edits — blank strings and None are treated as `NaN`, while `'0'` and `0` are preserved as numeric zero. Added unit tests for both behaviors. ✅
 
 
-## 0.2.2 - 2025-12-XX
+## 0.2.2 - 2025-12-19
 
 - Initial release notes and previous changes (see commit history).

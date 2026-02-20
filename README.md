@@ -257,13 +257,13 @@ print(f"Best score: {result['best_score']:.4f}")
 
 ### Quick References
 - **[Features vs Rpath](docs/archive/FEATURES_VS_RPATH.md)** - Comprehensive comparison
-- **[Advanced Features Guide](ADVANCED_FEATURES_README.md)** - Quick start for new features
-- **[Bayesian Optimization Guide](BAYESIAN_OPTIMIZATION_GUIDE.md)** - Parameter calibration tutorial
-- **[Advanced Ecosim Features](ADVANCED_ECOSIM_FEATURES.md)** - Forcing and diet rewiring details
+- **[Advanced Features Guide](docs/archive/ADVANCED_FEATURES_README.md)** - Quick start for new features
+- **[Bayesian Optimization Guide](docs/archive/BAYESIAN_OPTIMIZATION_GUIDE.md)** - Parameter calibration tutorial
+- **[Advanced Ecosim Features](docs/archive/ADVANCED_ECOSIM_FEATURES.md)** - Forcing and diet rewiring details
 
 ### Detailed Documentation
-- **[Forcing Implementation](FORCING_IMPLEMENTATION_SUMMARY.md)** - Technical details
-- **[Optimization Summary](BAYESIAN_OPTIMIZATION_SUMMARY.md)** - Optimization implementation
+- **[Forcing Implementation](docs/archive/FORCING_IMPLEMENTATION_SUMMARY.md)** - Technical details
+- **[Optimization Summary](docs/archive/BAYESIAN_OPTIMIZATION_SUMMARY.md)** - Optimization implementation
 
 ### Examples and Demos
 ```bash
@@ -418,7 +418,7 @@ All application constants are centralized in `app/config.py`:
 - **Type Checking**: `is_balanced_model()`, `is_rpath_params()`, `get_model_type()`
 - **Error Handling**: Centralized logging with `app/logger.py`
 
-See [PHASE2_COMPLETE_2025-12-19.md](PHASE2_COMPLETE_2025-12-19.md) for full refactoring details.
+See [PHASE2_COMPLETE_2025-12-19.md](docs/archive/PHASE2_COMPLETE_2025-12-19.md) for full refactoring details.
 
 ## Contributing
 
