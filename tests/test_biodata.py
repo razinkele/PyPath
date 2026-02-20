@@ -350,12 +350,18 @@ class TestHelperFunctions:
     def test_safe_float_invalid_inputs(self):
         """Test _safe_float with invalid inputs."""
         assert _safe_float(None) is None
-        assert _safe_float(True) is None
-        assert _safe_float(False) is None
-        assert _safe_float("true") is None
         assert _safe_float("NA") is None
         assert _safe_float("") is None
         assert _safe_float("not a number", default=0.0) == 0.0
+
+    def test_safe_float_boolean_inputs(self):
+        """Test _safe_float converts booleans to numeric values."""
+        assert _safe_float(True) == 1.0
+        assert _safe_float(False) == 0.0
+        assert _safe_float("true") == 1.0
+        assert _safe_float("false") == 0.0
+        assert _safe_float("yes") == 1.0
+        assert _safe_float("no") == 0.0
 
     def test_safe_float_with_default(self):
         """Test _safe_float with default values."""

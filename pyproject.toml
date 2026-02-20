@@ -52,13 +52,18 @@ web = [
     "httpx>=0.24",
     "uvicorn>=0.23",
 ]
+spatial = [
+    "geopandas>=0.12",
+    "folium>=0.14",
+    "shapely>=2.0",
+]
 biodata = [
     "pyworms>=0.2.1",
     "pyobis>=0.3.0",
     "requests>=2.28",
 ]
 all = [
-    "pypath-ecopath[dev,numba,interactive,web,biodata]",
+    "pypath-ecopath[dev,numba,interactive,web,spatial,biodata]",
 ]
 
 [project.urls]

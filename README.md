@@ -256,7 +256,7 @@ print(f"Best score: {result['best_score']:.4f}")
 ## Documentation
 
 ### Quick References
-- **[Features vs Rpath](FEATURES_VS_RPATH.md)** - Comprehensive comparison
+- **[Features vs Rpath](docs/archive/FEATURES_VS_RPATH.md)** - Comprehensive comparison
 - **[Advanced Features Guide](ADVANCED_FEATURES_README.md)** - Quick start for new features
 - **[Bayesian Optimization Guide](BAYESIAN_OPTIMIZATION_GUIDE.md)** - Parameter calibration tutorial
 - **[Advanced Ecosim Features](ADVANCED_ECOSIM_FEATURES.md)** - Forcing and diet rewiring details
@@ -370,11 +370,11 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 | Comprehensive tests | Limited | 100+ tests ⭐ |
 | Documentation | Good | Extensive ⭐ |
 
-**See [FEATURES_VS_RPATH.md](FEATURES_VS_RPATH.md) for detailed comparison.**
+**See [FEATURES_VS_RPATH.md](docs/archive/FEATURES_VS_RPATH.md) for detailed comparison.**
 
 ## Development Status
 
-### Current Version: 0.3.0 (Development)
+### Current Version: 0.2.2 (Development)
 
 **Production Ready:**
 - ✅ Core Ecopath/Ecosim (100% Rpath compatible)

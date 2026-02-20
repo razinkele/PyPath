@@ -48,34 +48,6 @@ class PlotConfig:
 
 
 @dataclass
-class ColorScheme:
-    """Color scheme for visualizations."""
-
-    # Group type colors
-    producer: str = "#2ecc71"  # Green
-    consumer: str = "#3498db"  # Blue
-    top_predator: str = "#e74c3c"  # Red
-    detritus: str = "#95a5a6"  # Gray
-    fleet: str = "#f39c12"  # Orange
-
-    # Spatial visualization colors
-    boundary: str = "#ff0000"  # Red
-    grid: str = "steelblue"
-    grid_fill: str = "lightblue"
-
-    # Plot series colors (for time series, etc.)
-    series_primary: str = "#1D3557"  # Dark blue
-    series_secondary: str = "#E63946"  # Red
-    series_tertiary: str = "#2A9D8F"  # Teal
-
-    # Status colors
-    success: str = "#28a745"
-    warning: str = "#ffc107"
-    error: str = "#dc3545"
-    info: str = "#17a2b8"
-
-
-@dataclass
 class ModelDefaults:
     """Default parameter values for ecosystem models."""
 
@@ -304,7 +276,6 @@ class ParameterRangesConfig:
 # Singleton instances - import these in other modules
 DISPLAY = DisplayConfig()
 PLOTS = PlotConfig()
-COLORS = ColorScheme()
 DEFAULTS = ModelDefaults()
 SPATIAL = SpatialConfig()
 VALIDATION = ValidationConfig()

@@ -64,9 +64,9 @@ def safe_float(value: Any, default: Optional[float] = None) -> Optional[float]:
     if value is None:
         return None
 
-    # Booleans are not valid numeric values
+    # Convert booleans to float (True → 1.0, False → 0.0)
     if isinstance(value, bool):
-        return None
+        return 1.0 if value else 0.0
 
     # Already numeric
     if isinstance(value, (int, float)):
@@ -76,12 +76,14 @@ def safe_float(value: Any, default: Optional[float] = None) -> Optional[float]:
     if isinstance(value, str):
         value_lower = value.lower().strip()
 
+        # Boolean-like strings → numeric
+        if value_lower in ("true", "yes"):
+            return 1.0
+        if value_lower in ("false", "no"):
+            return 0.0
+
         # Common missing data indicators
         if value_lower in (
-            "true",
-            "false",
-            "yes",
-            "no",
             "none",
             "",
             "na",

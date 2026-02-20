@@ -29,19 +29,48 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(scope="module")
+def lt_params():
+    """Load the LT2022 model parameters (shared across all test classes)."""
+    from pypath.io.ewemdb import read_ewemdb
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        params = read_ewemdb(str(DATA_FILE))
+
+    return params
+
+
+def _prepare_lt_model_params(params):
+    """Sort groups by type and reorder diet matrix for balancing.
+
+    Helper used by fixtures that need a balanced model.
+    Returns a copy of params with sorted groups and aligned diet.
+    """
+    import copy
+
+    params = copy.deepcopy(params)
+    type_order = {0: 0, 1: 1, 2: 2, 3: 3}
+    params.model["_sort_key"] = params.model["Type"].map(type_order)
+    params.model = (
+        params.model.sort_values("_sort_key")
+        .drop("_sort_key", axis=1)
+        .reset_index(drop=True)
+    )
+
+    groups = params.model["Group"].tolist()
+    diet_rows = ["Import"] + [
+        g for g in groups if g in params.diet["Group"].values
+    ]
+    params.diet = (
+        params.diet.set_index("Group").reindex(diet_rows).reset_index()
+    )
+    params.diet = params.diet.fillna(0)
+    return params
+
+
 class TestEwemdbImport:
     """Tests for importing the LT2022 model from EwE database."""
-
-    @pytest.fixture(scope="class")
-    def lt_params(self):
-        """Load the LT2022 model parameters."""
-        from pypath.io.ewemdb import read_ewemdb
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            params = read_ewemdb(str(DATA_FILE))
-
-        return params
 
     def test_import_successful(self, lt_params):
         """Test that the model imports successfully."""
@@ -125,17 +154,6 @@ class TestEwemdbImport:
 
 class TestRemarksExtraction:
     """Tests for remarks/pedigree extraction from EwE database."""
-
-    @pytest.fixture(scope="class")
-    def lt_params(self):
-        """Load the LT2022 model parameters."""
-        from pypath.io.ewemdb import read_ewemdb
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            params = read_ewemdb(str(DATA_FILE))
-
-        return params
 
     def test_remarks_extracted(self, lt_params):
         """Test that remarks were extracted."""
@@ -302,15 +320,6 @@ class TestMultiStanza:
 class TestStanzaParamsPopulated:
     """Tests that verify params.stanzas is properly populated from EwE database."""
 
-    @pytest.fixture(scope="class")
-    def lt_params(self):
-        """Load the LT2022 model parameters."""
-        from pypath.io.ewemdb import read_ewemdb
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            return read_ewemdb(str(DATA_FILE))
-
     def test_stanzas_n_stanza_groups(self, lt_params):
         """Test that n_stanza_groups is populated."""
         assert lt_params.stanzas.n_stanza_groups > 0, "n_stanza_groups should be > 0"
@@ -379,35 +388,14 @@ class TestEcopathBalancing:
     """Tests for Ecopath balancing using the LT2022 model."""
 
     @pytest.fixture(scope="class")
-    def lt_model(self):
+    def lt_model(self, lt_params):
         """Load and balance the LT2022 model."""
         from pypath.core.ecopath import rpath
-        from pypath.io.ewemdb import read_ewemdb
+
+        params = _prepare_lt_model_params(lt_params)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            params = read_ewemdb(str(DATA_FILE))
-
-            # The model may need some preprocessing to balance correctly
-            # Sort groups by type to ensure proper order (living before detritus)
-            type_order = {0: 0, 1: 1, 2: 2, 3: 3}  # consumer, producer, detritus, fleet
-            params.model["_sort_key"] = params.model["Type"].map(type_order)
-            params.model = (
-                params.model.sort_values("_sort_key")
-                .drop("_sort_key", axis=1)
-                .reset_index(drop=True)
-            )
-
-            # Reorder diet matrix rows to match
-            groups = params.model["Group"].tolist()
-            diet_rows = ["Import"] + [
-                g for g in groups if g in params.diet["Group"].values
-            ]
-            params.diet = (
-                params.diet.set_index("Group").reindex(diet_rows).reset_index()
-            )
-            params.diet = params.diet.fillna(0)
-
             try:
                 model = rpath(params)
             except Exception as e:
@@ -489,38 +477,17 @@ class TestEcosimSetup:
     """Tests for Ecosim parameter setup using the LT2022 model."""
 
     @pytest.fixture(scope="class")
-    def lt_ecosim(self):
+    def lt_ecosim(self, lt_params):
         """Set up Ecosim for the LT2022 model."""
         from pypath.core.ecopath import rpath
         from pypath.core.ecosim import rsim_params, rsim_scenario
-        from pypath.io.ewemdb import read_ewemdb
+
+        params = _prepare_lt_model_params(lt_params)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            params = read_ewemdb(str(DATA_FILE))
-
-            # Sort groups by type
-            type_order = {0: 0, 1: 1, 2: 2, 3: 3}
-            params.model["_sort_key"] = params.model["Type"].map(type_order)
-            params.model = (
-                params.model.sort_values("_sort_key")
-                .drop("_sort_key", axis=1)
-                .reset_index(drop=True)
-            )
-
-            # Reorder diet matrix
-            groups = params.model["Group"].tolist()
-            diet_rows = ["Import"] + [
-                g for g in groups if g in params.diet["Group"].values
-            ]
-            params.diet = (
-                params.diet.set_index("Group").reindex(diet_rows).reset_index()
-            )
-            params.diet = params.diet.fillna(0)
-
             try:
                 model = rpath(params)
-                # Set up Ecosim
                 sim_params = rsim_params(model)
                 scenario = rsim_scenario(model, params, years=range(1, 11))
             except Exception as e:
@@ -557,42 +524,19 @@ class TestEcosimSimulation:
     """Tests for running Ecosim simulation with the LT2022 model."""
 
     @pytest.fixture(scope="class")
-    def lt_simulation(self):
+    def lt_simulation(self, lt_params):
         """Run a short Ecosim simulation with the LT2022 model."""
         from pypath.core.ecopath import rpath
         from pypath.core.ecosim import rsim_params, rsim_run, rsim_scenario
-        from pypath.io.ewemdb import read_ewemdb
+
+        params = _prepare_lt_model_params(lt_params)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            params = read_ewemdb(str(DATA_FILE))
-
-            # Sort groups by type
-            type_order = {0: 0, 1: 1, 2: 2, 3: 3}
-            params.model["_sort_key"] = params.model["Type"].map(type_order)
-            params.model = (
-                params.model.sort_values("_sort_key")
-                .drop("_sort_key", axis=1)
-                .reset_index(drop=True)
-            )
-
-            # Reorder diet matrix
-            groups = params.model["Group"].tolist()
-            diet_rows = ["Import"] + [
-                g for g in groups if g in params.diet["Group"].values
-            ]
-            params.diet = (
-                params.diet.set_index("Group").reindex(diet_rows).reset_index()
-            )
-            params.diet = params.diet.fillna(0)
-
             try:
                 model = rpath(params)
-                # Set up and run Ecosim for 5 years
                 _ = rsim_params(model)
                 scenario = rsim_scenario(model, params, years=range(1, 6))
-
-                # Run simulation
                 output = rsim_run(scenario, method="AB")
             except Exception as e:
                 pytest.skip(f"Could not run simulation: {e}")
@@ -726,119 +670,54 @@ class TestMetadata:
 class TestIntegration:
     """Integration tests for the full workflow."""
 
-    def test_full_workflow(self):
+    def test_full_workflow(self, lt_params):
         """Test the complete workflow: import -> balance -> simulate."""
         from pypath.core.ecopath import rpath
         from pypath.core.ecosim import rsim_params, rsim_run, rsim_scenario
-        from pypath.io.ewemdb import read_ewemdb
+
+        assert lt_params is not None, "Import failed"
+        assert lt_params.remarks is not None, "Remarks not extracted"
+
+        params = _prepare_lt_model_params(lt_params)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 
-            # Step 1: Import
-            params = read_ewemdb(str(DATA_FILE))
-            assert params is not None, "Import failed"
-
-            # Step 2: Check remarks
-            assert params.remarks is not None, "Remarks not extracted"
-
-            # Sort groups by type
-            type_order = {0: 0, 1: 1, 2: 2, 3: 3}
-            params.model["_sort_key"] = params.model["Type"].map(type_order)
-            params.model = (
-                params.model.sort_values("_sort_key")
-                .drop("_sort_key", axis=1)
-                .reset_index(drop=True)
-            )
-
-            # Reorder diet matrix
-            groups = params.model["Group"].tolist()
-            diet_rows = ["Import"] + [
-                g for g in groups if g in params.diet["Group"].values
-            ]
-            params.diet = (
-                params.diet.set_index("Group").reindex(diet_rows).reset_index()
-            )
-            params.diet = params.diet.fillna(0)
-
-            # Step 3: Balance
             try:
                 model = rpath(params)
                 assert model is not None, "Balancing failed"
             except Exception as e:
                 pytest.skip(f"Balancing failed: {e}")
 
-            # Step 4: Set up Ecosim
             try:
                 _ = rsim_params(model)
                 scenario = rsim_scenario(model, params, years=range(1, 4))
             except Exception as e:
                 pytest.skip(f"Ecosim setup failed: {e}")
 
-            # Step 5: Run simulation
             try:
                 output = rsim_run(scenario, method="AB")
                 assert output is not None, "Simulation failed"
             except Exception as e:
                 pytest.skip(f"Simulation failed: {e}")
 
-            # Step 6: Verify output
             if hasattr(output, "out_Biomass"):
                 assert len(output.out_Biomass) > 0, "No output data"
 
-    def test_model_summary(self):
+    def test_model_summary(self, lt_params):
         """Test that we can generate a model summary."""
         from pypath.core.ecopath import rpath
-        from pypath.io.ewemdb import read_ewemdb
+
+        params = _prepare_lt_model_params(lt_params)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-
-            params = read_ewemdb(str(DATA_FILE))
-
-            # Sort groups by type (needed for proper balancing)
-            type_order = {0: 0, 1: 1, 2: 2, 3: 3}
-            params.model["_sort_key"] = params.model["Type"].map(type_order)
-            params.model = (
-                params.model.sort_values("_sort_key")
-                .drop("_sort_key", axis=1)
-                .reset_index(drop=True)
-            )
-
-            # Reorder diet matrix
-            groups = params.model["Group"].tolist()
-            diet_rows = ["Import"] + [
-                g for g in groups if g in params.diet["Group"].values
-            ]
-            params.diet = (
-                params.diet.set_index("Group").reindex(diet_rows).reset_index()
-            )
-            params.diet = params.diet.fillna(0)
-
             _model = rpath(params)
 
-            # Count groups by type
-            n_producers = (params.model["Type"] == 1).sum()
-            n_consumers = (params.model["Type"] == 0).sum()
-            n_detritus = (params.model["Type"] == 2).sum()
-            n_fleets = (params.model["Type"] == 3).sum()
+        n_producers = (params.model["Type"] == 1).sum()
+        n_consumers = (params.model["Type"] == 0).sum()
+        n_detritus = (params.model["Type"] == 2).sum()
 
-            print("\n=== LT2022 Model Summary ===")
-            print(f"Total groups: {len(params.model)}")
-            print(f"  Producers: {n_producers}")
-            print(f"  Consumers: {n_consumers}")
-            print(f"  Detritus: {n_detritus}")
-            print(f"  Fleets: {n_fleets}")
-
-            if params.remarks is not None:
-                total_remarks = sum(
-                    (params.remarks[col] != "").sum()
-                    for col in params.remarks.columns
-                    if col != "Group"
-                )
-                print(f"  Remarks: {total_remarks}")
-
-            # Verify basic stats
-            assert n_producers > 0
-            assert n_consumers > 0
-            assert n_detritus > 0
+        assert n_producers > 0
+        assert n_consumers > 0
+        assert n_detritus > 0
