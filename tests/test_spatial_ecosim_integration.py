@@ -43,71 +43,59 @@ class TestSpatialDerivative:
             dtype=float,
         )
 
+        # Keys must match what deriv_vector() expects (not RsimParams attribute names)
         params = {
             "NUM_GROUPS": 2,
             "NUM_LIVING": 1,
             "NUM_DEAD": 1,
             "NUM_GEARS": 0,
+            "PB": np.array([0, 0.5, 1.0]),
+            "QB": np.array([0, 2.0, 0.0]),
+            "M0": np.array([0, 0.1, 0.2]),
+            "Unassim": np.array([0, 0.2, 0.2]),
+            "Bbase": np.array([0, 5, 20]),
             "B_BaseRef": np.array([0, 5, 20]),
-            "MzeroMort": np.array([0, 0.1, 0.2]),
-            "UnassimRespFrac": np.array([0, 0.2, 0.2]),
-            "ActiveRespFrac": np.array([0, 0.3, 0.3]),
-            "FtimeAdj": np.array([0, 0.5, 0.5]),
-            "FtimeQBOpt": np.array([0, 2.0, 2.0]),
-            "PBopt": np.array([0, 0.5, 1.0]),
-            "NoIntegrate": np.array([0, 1, 1]),
-            "HandleSelf": np.array([0, 0, 0]),
-            "ScrambleSelf": np.array([0, 0, 0]),
-            "PreyFrom": np.array([]),
-            "PreyTo": np.array([]),
-            "QQ": np.array([]),
-            "DD": np.array([]),
-            "VV": np.array([]),
-            "HandleSwitch": np.array([]),
-            "PredPredWeight": np.array([]),
-            "PreyPreyWeight": np.array([]),
-            "FishFrom": np.array([]),
-            "FishThrough": np.array([]),
-            "FishQ": np.array([]),
-            "FishTo": np.array([]),
-            "DetFrac": np.array([]),
+            "PP_type": np.array([0, 0, 2]),
+            "NoIntegrate": np.array([0, 0, 0]),
+            "ActiveLink": np.zeros((3, 3), dtype=bool),
+            "VV": np.ones((3, 3)) * 2.0,
+            "DD": np.ones((3, 3)) * 1000.0,
+            "QQbase": np.zeros((3, 3)),
+            "DetFrac": np.zeros((3, 2)),
             "DetFrom": np.array([]),
             "DetTo": np.array([]),
+            "FishFrom": np.array([0]),
+            "FishThrough": np.array([0]),
+            "FishQ": np.array([0.0]),
         }
 
         forcing = {
-            "ForcedPrey": np.ones((12, 3)),
-            "ForcedMort": np.ones((12, 3)),
-            "ForcedRecs": np.ones((12, 3)),
-            "ForcedSearch": np.ones((12, 3)),
-            "ForcedActresp": np.ones((12, 3)),
-            "ForcedMigrate": np.zeros((12, 3)),
-            "ForcedBio": -np.ones((12, 3)),
+            "Ftime": np.ones(3),
+            "ForcedBio": np.zeros(3),
+            "ForcedMigrate": np.zeros(3),
+            "ForcedPrey": np.ones(3),
+            "PP_forcing": np.ones(3),
         }
 
         fishing = {
-            "ForcedEffort": np.ones((12, 1)),
-            "ForcedFRate": np.zeros((1, 3)),
-            "ForcedCatch": np.zeros((1, 3)),
+            "FishFrom": np.array([0]),
+            "FishThrough": np.array([0]),
+            "FishQ": np.array([0.0]),
         }
 
-        try:
-            deriv = deriv_vector_spatial(
-                state_spatial,
-                params,
-                forcing,
-                fishing,
-                ecospace,
-                environmental_drivers=None,
-                t=0.0,
-                dt=1.0 / 12.0,
-            )
+        deriv = deriv_vector_spatial(
+            state_spatial,
+            params,
+            forcing,
+            fishing,
+            ecospace,
+            environmental_drivers=None,
+            t=0.0,
+            dt=1.0 / 12.0,
+        )
 
-            assert deriv.shape == state_spatial.shape
-            assert deriv.shape == (3, 3)
-
-        except Exception as e:
-            pytest.skip(f"Skipping due to missing deriv_vector dependencies: {e}")
+        assert deriv.shape == state_spatial.shape
+        assert deriv.shape == (3, 3)
 
 
 class TestSpatialIntegrationBasic:

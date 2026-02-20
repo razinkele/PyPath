@@ -408,6 +408,7 @@ def ecosim_server(
     session: Session,
     model_data: reactive.Value,
     sim_results: reactive.Value,
+    sim_scenario: reactive.Value = None,
 ) -> None:
     """Ecosim simulation page server logic.
 
@@ -1194,6 +1195,8 @@ def ecosim_server(
                     )
 
             scenario.set(new_scenario)
+            if sim_scenario is not None:
+                sim_scenario.set(new_scenario)
 
             # Update group choices (use groups extracted earlier)
             num_living_dead = (

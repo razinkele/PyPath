@@ -237,6 +237,7 @@ def server(input: Inputs, output: Outputs, session: Session):
     # Primary reactive state (shared across all pages)
     model_data = reactive.Value(None)  # RpathParams: Ecopath model parameters
     sim_results = reactive.Value(None)  # Dict: Ecosim simulation results
+    sim_scenario = reactive.Value(None)  # RsimScenario: shared Ecosim scenario
 
     # Create shared data object for pages that need structured access
     class SharedData:
@@ -291,13 +292,13 @@ def server(input: Inputs, output: Outputs, session: Session):
         (
             "Ecosim",
             lambda: ecosim.ecosim_server(
-                input, output, session, model_data, sim_results
+                input, output, session, model_data, sim_results, sim_scenario
             ),
         ),
         (
             "Ecospace",
             lambda: ecospace.ecospace_server(
-                input, output, session, model_data, sim_results
+                input, output, session, model_data, sim_results, sim_scenario
             ),
         ),
         (

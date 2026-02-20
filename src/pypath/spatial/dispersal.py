@@ -15,12 +15,89 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy.sparse
 
+try:
+    import numba
+
+    HAS_NUMBA = True
+except ImportError:
+    HAS_NUMBA = False
+
 if TYPE_CHECKING:
     from pypath.spatial.ecospace_params import (
         EcospaceGrid,
         EcospaceParams,
         ExternalFluxTimeseries,
     )
+
+
+# ---------------------------------------------------------------------------
+# Numba-accelerated inner functions (compiled on first call)
+# ---------------------------------------------------------------------------
+if HAS_NUMBA:
+
+    @numba.njit(cache=True)
+    def _diffusion_flux_numba(
+        biomass, dispersal_rate, rows, cols, border_lengths, distances, n_patches
+    ):
+        """Numba-accelerated diffusion flux (upper-triangle edges only)."""
+        net_flux = np.zeros(n_patches)
+        n_edges = len(rows)
+        for k in range(n_edges):
+            i = rows[k]
+            j = cols[k]
+            gradient = biomass[i] - biomass[j]
+            flux = dispersal_rate * border_lengths[k] / distances[k] * gradient
+            net_flux[i] -= flux
+            net_flux[j] += flux
+        return net_flux
+
+    @numba.njit(cache=True)
+    def _habitat_advection_numba(
+        biomass, habitat_pref, gravity, rows, cols, n_patches
+    ):
+        """Numba-accelerated habitat advection (upper-triangle edges only)."""
+        net_flux = np.zeros(n_patches)
+        n_edges = len(rows)
+        for k in range(n_edges):
+            i = rows[k]
+            j = cols[k]
+            grad = habitat_pref[j] - habitat_pref[i]
+            if abs(grad) < 1e-10:
+                continue
+            if grad > 0:
+                movement = gravity * biomass[i] * grad
+                net_flux[i] -= movement
+                net_flux[j] += movement
+            else:
+                movement = gravity * biomass[j] * abs(grad)
+                net_flux[j] -= movement
+                net_flux[i] += movement
+        return net_flux
+
+    @numba.njit(cache=True)
+    def _gravity_model_flux_numba(
+        biomass,
+        attractiveness,
+        gravity_strength,
+        rows,
+        cols,
+        distances,
+        distance_decay,
+        n_patches,
+    ):
+        """Numba-accelerated gravity model flux (upper-triangle edges only)."""
+        net_flux = np.zeros(n_patches)
+        n_edges = len(rows)
+        for k in range(n_edges):
+            i = rows[k]
+            j = cols[k]
+            dist_factor = distances[k] ** distance_decay
+            flux_ij = gravity_strength * biomass[i] * attractiveness[j] / dist_factor
+            flux_ji = gravity_strength * biomass[j] * attractiveness[i] / dist_factor
+            net = flux_ij - flux_ji
+            net_flux[i] -= net
+            net_flux[j] += net
+        return net_flux
 
 
 def diffusion_flux(
@@ -107,6 +184,12 @@ def diffusion_flux(
     border_lengths = border_lengths[valid_dist]
     distances = distances[valid_dist]
 
+    # Use Numba-accelerated implementation when available
+    if HAS_NUMBA:
+        return _diffusion_flux_numba(
+            biomass_vector, dispersal_rate, rows, cols, border_lengths, distances, n_patches
+        )
+
     # Vectorized gradient calculation
     gradients = biomass_vector[rows] - biomass_vector[cols]
 
@@ -168,6 +251,12 @@ def habitat_advection(
 
     if len(rows) == 0:
         return net_flux
+
+    # Use Numba-accelerated implementation when available
+    if HAS_NUMBA:
+        return _habitat_advection_numba(
+            biomass_vector, habitat_preference, gravity_strength, rows, cols, n_patches
+        )
 
     # Vectorized habitat gradient calculation
     habitat_gradients = habitat_preference[cols] - habitat_preference[rows]
@@ -278,6 +367,13 @@ def gravity_model_flux(
     rows = rows[valid_dist]
     cols = cols[valid_dist]
     distances = distances[valid_dist]
+
+    # Use Numba-accelerated implementation when available
+    if HAS_NUMBA:
+        return _gravity_model_flux_numba(
+            biomass_vector, attractiveness, gravity_strength,
+            rows, cols, distances, distance_decay, n_patches
+        )
 
     # Vectorized gravity model calculations
     attractiveness_rows = attractiveness[rows]
