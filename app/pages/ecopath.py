@@ -486,7 +486,7 @@ def ecopath_server(
         if hasattr(p, "stanzas") and p.stanzas is not None:
             stindiv = (
                 p.stanzas.stindiv
-            )  # StanzaParams is a dataclass, access attribute directly
+            )  # RpathStanzaParams is a dataclass, access attribute directly
             if stindiv is not None and len(stindiv) > 0:
                 stanza_groups = (
                     stindiv["Group"].tolist() if "Group" in stindiv.columns else []
@@ -1024,7 +1024,7 @@ def ecopath_server(
         if p is not None and hasattr(p, "stanzas") and p.stanzas is not None:
             stindiv = (
                 p.stanzas.stindiv
-            )  # StanzaParams is a dataclass, access attribute directly
+            )  # RpathStanzaParams is a dataclass, access attribute directly
             if stindiv is not None and len(stindiv) > 0:
                 stanza_groups = (
                     stindiv["Group"].tolist() if "Group" in stindiv.columns else []

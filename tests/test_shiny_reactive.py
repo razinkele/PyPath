@@ -4,16 +4,9 @@ Tests for reactive behaviors and state management in the Shiny dashboard.
 Tests reactivity patterns, state synchronization, and data propagation.
 """
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
-
-# Add app directory to path
-app_dir = Path(__file__).parent.parent / "app"
-sys.path.insert(0, str(app_dir))
 
 
 class TestReactiveValues:

@@ -7,19 +7,24 @@ forcing functions, and other scenario parameters over time.
 Based on Rpath's adjust.fishing(), adjust.forcing(), and adjust.scenario() functions.
 """
 
-from typing import List, Optional, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import numpy as np
 
+if TYPE_CHECKING:
+    from pypath.core.ecosim import RsimScenario
+
 
 def adjust_fishing(
-    scenario,
+    scenario: RsimScenario,
     parameter: str,
     group: Union[str, int, List[Union[str, int]]],
     sim_year: Union[int, range, List[int]],
     value: Union[float, np.ndarray],
     sim_month: Optional[Union[int, range, List[int]]] = None,
-):
+) -> RsimScenario:
     """Adjust fishing parameters in an Ecosim scenario.
 
     Modifies fishing-related forcing matrices (ForcedEffort, ForcedFRate,
@@ -108,13 +113,13 @@ def adjust_fishing(
 
 
 def adjust_forcing(
-    scenario,
+    scenario: RsimScenario,
     parameter: str,
     group: Union[str, int, List[Union[str, int]]],
     sim_year: Union[int, range, List[int]],
     sim_month: Union[int, range, List[int]],
     value: Union[float, np.ndarray],
-):
+) -> RsimScenario:
     """Adjust forcing parameters in an Ecosim scenario.
 
     Modifies environmental forcing matrices (ForcedPrey, ForcedMort,
@@ -207,7 +212,7 @@ def adjust_forcing(
     return scenario
 
 
-def adjust_scenario(scenario, parameter: str, value: Union[float, int, np.ndarray]):
+def adjust_scenario(scenario: RsimScenario, parameter: str, value: Union[float, int, np.ndarray]) -> RsimScenario:
     """Adjust global scenario parameters.
 
     Modifies simulation-wide parameters in the scenario's params object.
@@ -240,8 +245,8 @@ def adjust_scenario(scenario, parameter: str, value: Union[float, int, np.ndarra
 
 
 def set_vulnerability(
-    scenario, predator: Union[str, int], prey: Union[str, int], value: float
-):
+    scenario: RsimScenario, predator: Union[str, int], prey: Union[str, int], value: float
+) -> RsimScenario:
     """Set vulnerability (v) for a predator-prey link.
 
     Vulnerability controls the functional response shape:
@@ -272,8 +277,8 @@ def set_vulnerability(
 
 
 def set_handling_time(
-    scenario, predator: Union[str, int], prey: Union[str, int], value: float
-):
+    scenario: RsimScenario, predator: Union[str, int], prey: Union[str, int], value: float
+) -> RsimScenario:
     """Set handling time (d) for a predator-prey link.
 
     Handling time controls predator satiation:
@@ -303,8 +308,8 @@ def set_handling_time(
 
 
 def adjust_group_parameter(
-    scenario, group: Union[str, int], parameter: str, value: float
-):
+    scenario: RsimScenario, group: Union[str, int], parameter: str, value: float
+) -> RsimScenario:
     """Adjust a parameter for a specific group.
 
     Modifies group-level parameters in the scenario's params object.
@@ -438,14 +443,14 @@ def _resolve_month_indices(
 
 
 def create_fishing_ramp(
-    scenario,
+    scenario: RsimScenario,
     group: Union[str, int],
     start_year: int,
     end_year: int,
     start_value: float,
     end_value: float,
     parameter: str = "ForcedFRate",
-):
+) -> RsimScenario:
     """Create a linear ramp in fishing pressure.
 
     Convenience function to linearly interpolate fishing between
@@ -472,13 +477,13 @@ def create_fishing_ramp(
 
 
 def create_pulse_forcing(
-    scenario,
+    scenario: RsimScenario,
     group: Union[str, int],
     pulse_years: List[int],
     pulse_months: Union[int, List[int]],
     magnitude: float,
     parameter: str = "ForcedRecs",
-):
+) -> RsimScenario:
     """Create pulse forcing events.
 
     Convenience function to add periodic pulse events
@@ -509,12 +514,12 @@ def create_pulse_forcing(
 
 
 def create_seasonal_forcing(
-    scenario,
+    scenario: RsimScenario,
     group: Union[str, int],
     years: Union[range, List[int]],
     monthly_values: List[float],
     parameter: str = "ForcedPrey",
-):
+) -> RsimScenario:
     """Create seasonal forcing pattern.
 
     Applies a repeating 12-month pattern of forcing values

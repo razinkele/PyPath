@@ -2,15 +2,7 @@
 Simple test for P/B validation fix (avoids circular imports).
 """
 
-import sys
-from pathlib import Path
-
-# Add app to path
-app_dir = Path(__file__).parent / "app"
-sys.path.insert(0, str(app_dir))
-
-# Import only what we need to avoid circular imports
-from config import VALIDATION  # noqa: E402
+from config import VALIDATION
 
 
 def test_config():

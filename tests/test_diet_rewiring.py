@@ -5,14 +5,8 @@ Tests the ability to dynamically adjust predator diet preferences based on
 changing prey biomass (prey switching, adaptive foraging).
 """
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pytest
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pypath.core.forcing import DietRewiring, create_diet_rewiring
 

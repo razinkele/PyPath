@@ -11,7 +11,7 @@ from pypath.core.stanzas import (
     RsimStanzas,
     StanzaGroup,
     StanzaIndividual,
-    StanzaParams,
+    EcosimStanzaParams,
     calculate_survival,
     von_bertalanffy_consumption,
     von_bertalanffy_weight,
@@ -128,12 +128,12 @@ class TestStanzaIndividual:
         assert si.last == 24
 
 
-class TestStanzaParams:
-    """Test StanzaParams dataclass."""
+class TestEcosimStanzaParams:
+    """Test EcosimStanzaParams dataclass."""
 
     def test_create_stanza_params(self):
-        """Test creating StanzaParams."""
-        sp = StanzaParams(
+        """Test creating EcosimStanzaParams."""
+        sp = EcosimStanzaParams(
             n_stanza_groups=1,
             stanza_groups=[StanzaGroup(stanza_group_num=1, n_stanzas=2, vbgf_ksp=0.3)],
             stanza_individuals=[
@@ -164,13 +164,13 @@ class TestRsimStanzas:
         assert rs.n_stanzas[0] == 2
 
 
-class TestCreateStanzaParams:
+class TestCreateEcosimStanzaParams:
     """Test create_stanza_params function."""
 
     def test_stanza_params_basic(self):
-        """Create basic StanzaParams object."""
+        """Create basic EcosimStanzaParams object."""
         # Create manually since create_stanza_params needs specific structure
-        sp = StanzaParams(
+        sp = EcosimStanzaParams(
             n_stanza_groups=1,
             stanza_groups=[StanzaGroup(stanza_group_num=1, n_stanzas=2, vbgf_ksp=0.3)],
             stanza_individuals=[

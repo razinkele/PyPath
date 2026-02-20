@@ -7,15 +7,8 @@ This script tests that:
 3. The validation messages are correct
 """
 
-import sys
-from pathlib import Path
-
-# Add app to path
-app_dir = Path(__file__).parent / "app"
-sys.path.insert(0, str(app_dir))
-
-from config import VALIDATION  # noqa: E402
-from pages.validation import validate_pb  # noqa: E402
+from config import VALIDATION
+from pages.validation import validate_pb
 
 
 def test_pb_validation():

@@ -5,14 +5,8 @@ Tests the ability to force state variables (biomass, catch, recruitment, etc.)
 to follow observed or prescribed time series.
 """
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pytest
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pypath.core.forcing import (
     ForcingFunction,

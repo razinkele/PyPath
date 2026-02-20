@@ -8,12 +8,6 @@ This script tests the complete workflow that the Shiny app uses:
 3. Verify model structure
 """
 
-import sys
-from pathlib import Path
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
 from pypath.io.biodata import (
     _fetch_worms_vernacular,
     batch_get_species_info,

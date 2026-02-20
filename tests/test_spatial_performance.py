@@ -7,14 +7,10 @@ These tests verify that spatial operations meet performance targets:
 - Full simulation: < 60 seconds for 10 years, 100 patches
 """
 
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from pypath.spatial import (
     EcospaceParams,

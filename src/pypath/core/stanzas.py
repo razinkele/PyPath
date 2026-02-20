@@ -71,7 +71,7 @@ class StanzaIndividual:
 
 
 @dataclass
-class StanzaParams:
+class EcosimStanzaParams:
     """Container for all multi-stanza parameters.
 
     Attributes:
@@ -659,8 +659,8 @@ def split_set_pred(stanzas: RsimStanzas, state: Any, params: Any) -> None:
 
 def create_stanza_params(
     groups: List[Dict[str, Any]], individuals: List[Dict[str, Any]]
-) -> StanzaParams:
-    """Create StanzaParams from dictionaries.
+) -> EcosimStanzaParams:
+    """Create EcosimStanzaParams from dictionaries.
 
     Convenience function to create stanza parameters from
     dictionary inputs.
@@ -675,7 +675,7 @@ def create_stanza_params(
             Optional keys: leading
 
     Returns:
-        StanzaParams object
+        EcosimStanzaParams object
 
     Example:
         >>> groups = [{'stanza_group_num': 1, 'n_stanzas': 2, 'vbgf_ksp': 0.3}]
@@ -716,7 +716,7 @@ def create_stanza_params(
         )
         stanza_individuals.append(si)
 
-    return StanzaParams(
+    return EcosimStanzaParams(
         n_stanza_groups=len(groups),
         stanza_groups=stanza_groups,
         stanza_individuals=stanza_individuals,

@@ -5,15 +5,9 @@ These tests verify that diet composition data is correctly parsed
 and loaded into RpathParams.
 """
 
-import sys
-from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import pytest
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-import xml.etree.ElementTree as ET
 
 from pypath.core.params import RpathParams
 from pypath.io.ecobase import (

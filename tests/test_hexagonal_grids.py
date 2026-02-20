@@ -5,15 +5,8 @@ Tests the create_hexagonal_grid_in_boundary function which generates
 regular hexagonal grids within boundary polygons.
 """
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pytest
-
-# Add src and app to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "app"))
 
 try:
     import geopandas as gpd

@@ -17,7 +17,7 @@ import pandas as pd
 
 
 @dataclass
-class StanzaParams:
+class RpathStanzaParams:
     """Parameters for multi-stanza (age-structured) groups.
 
     Attributes
@@ -61,7 +61,7 @@ class RpathParams:
         Diet composition matrix where rows are prey (including Import)
         and columns are predators. Values are fractions (0-1).
 
-    stanzas : StanzaParams
+    stanzas : RpathStanzaParams
         Multi-stanza (age-structured) group parameters.
 
     pedigree : pd.DataFrame
@@ -82,7 +82,7 @@ class RpathParams:
 
     model: pd.DataFrame
     diet: pd.DataFrame
-    stanzas: StanzaParams = field(default_factory=StanzaParams)
+    stanzas: RpathStanzaParams = field(default_factory=RpathStanzaParams)
     pedigree: Optional[pd.DataFrame] = None
     remarks: Optional[pd.DataFrame] = None
     ecosim: Optional[Dict[str, Any]] = None
@@ -185,7 +185,7 @@ def create_rpath_params(
     diet = pd.DataFrame(diet_data)
 
     # Create stanza parameters if provided
-    stanza_params = StanzaParams()
+    stanza_params = RpathStanzaParams()
     if stgroups is not None and any(s is not None for s in stgroups):
         # Get unique stanza groups
         unique_stgroups = sorted(set(s for s in stgroups if s is not None))
@@ -227,7 +227,7 @@ def create_rpath_params(
 
         stindiv_df = pd.DataFrame(stindiv_records)
 
-        stanza_params = StanzaParams(
+        stanza_params = RpathStanzaParams(
             n_stanza_groups=n_stanza_groups, stgroups=stgroups_df, stindiv=stindiv_df
         )
 
@@ -278,11 +278,11 @@ def read_rpath_params(
     diet = pd.read_csv(diet_file)
 
     # Read stanza files if provided
-    stanza_params = StanzaParams()
+    stanza_params = RpathStanzaParams()
     if stanza_group_file is not None and stanza_file is not None:
         stgroups = pd.read_csv(stanza_group_file)
         stindiv = pd.read_csv(stanza_file)
-        stanza_params = StanzaParams(
+        stanza_params = RpathStanzaParams(
             n_stanza_groups=len(stgroups), stgroups=stgroups, stindiv=stindiv
         )
 

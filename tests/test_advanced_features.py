@@ -2,12 +2,6 @@
 Quick test to verify all Advanced Features pages are implemented and working.
 """
 
-import sys
-from pathlib import Path
-
-# Add app to path
-app_dir = Path(__file__).parent / "app"
-sys.path.insert(0, str(app_dir))
 
 print("=" * 70)
 print("ADVANCED FEATURES IMPLEMENTATION CHECK")

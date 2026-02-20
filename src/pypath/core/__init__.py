@@ -59,16 +59,17 @@ from pypath.core.ecosim_deriv import (
 )
 from pypath.core.params import (
     RpathParams,
+    RpathStanzaParams,
     check_rpath_params,
     create_rpath_params,
     read_rpath_params,
     write_rpath_params,
 )
 from pypath.core.stanzas import (
+    EcosimStanzaParams,
     RsimStanzas,
     StanzaGroup,
     StanzaIndividual,
-    StanzaParams,
     calculate_survival,
     create_stanza_params,
     rpath_stanzas,
@@ -135,7 +136,8 @@ __all__ = [
     # Stanzas
     "StanzaGroup",
     "StanzaIndividual",
-    "StanzaParams",
+    "RpathStanzaParams",
+    "EcosimStanzaParams",
     "RsimStanzas",
     "von_bertalanffy_weight",
     "von_bertalanffy_consumption",

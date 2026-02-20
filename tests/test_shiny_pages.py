@@ -4,15 +4,8 @@ Tests for individual Shiny page modules.
 Tests UI components, server logic, and reactive behaviors for each page.
 """
 
-import sys
-from pathlib import Path
-
 import pandas as pd
 import pytest
-
-# Add app directory to path
-app_dir = Path(__file__).parent.parent / "app"
-sys.path.insert(0, str(app_dir))
 
 
 class TestHomePage:
