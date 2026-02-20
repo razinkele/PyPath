@@ -659,14 +659,15 @@ def ecospace_server(
     _session: Session,
     _model_data: reactive.Value,
     _sim_results: reactive.Value,
+    _sim_scenario: reactive.Value = None,
 ):
     """Server logic for ECOSPACE page."""
 
     # Reactive values for spatial state
     grid = reactive.Value(None)
     boundary_polygon = reactive.Value(None)  # Store uploaded boundary for visualization
-    _ecospace_params = reactive.Value(None)  # TODO: reserved for future use
-    _spatial_results = reactive.Value(None)  # TODO: reserved for future use
+    _ecospace_params = reactive.Value(None)
+    _spatial_results = reactive.Value(None)
 
     # Load and display boundary polygon immediately on file upload
     @reactive.effect
@@ -931,6 +932,137 @@ def ecospace_server(
         except (ValueError, OSError) as e:
             ui.notification_show(
                 f"Error creating grid: {e!s}", type="error", duration=5
+            )
+
+    def _compute_habitat_vector(g):
+        """Compute habitat preference vector for all patches from current UI state.
+
+        Returns a 1D array of habitat quality values [n_patches].
+        """
+        n_patches = g.n_patches
+        pattern = input.habitat_pattern()
+
+        if pattern == "uniform":
+            return np.ones(n_patches) * 0.8
+        elif pattern == "gradient":
+            direction = input.gradient_direction()
+            centroids = g.patch_centroids
+            if direction == "horizontal":
+                span = centroids[:, 0].max() - centroids[:, 0].min()
+                if span > 0:
+                    return (centroids[:, 0] - centroids[:, 0].min()) / span
+                return np.ones(n_patches) * 0.5
+            elif direction == "vertical":
+                span = centroids[:, 1].max() - centroids[:, 1].min()
+                if span > 0:
+                    return (centroids[:, 1] - centroids[:, 1].min()) / span
+                return np.ones(n_patches) * 0.5
+            else:  # radial
+                center = centroids.mean(axis=0)
+                distances = np.linalg.norm(centroids - center, axis=1)
+                max_dist = distances.max()
+                if max_dist > 0:
+                    return 1 - (distances / max_dist)
+                return np.ones(n_patches) * 0.5
+        elif pattern == "patchy":
+            np.random.seed(42)
+            return np.random.uniform(0.2, 1.0, n_patches)
+        elif pattern == "core_periphery":
+            center = g.patch_centroids.mean(axis=0)
+            distances = np.linalg.norm(g.patch_centroids - center, axis=1)
+            max_dist = distances.max()
+            if max_dist > 0:
+                return 1 - (distances / max_dist) ** 2
+            return np.ones(n_patches) * 0.5
+        else:
+            return np.ones(n_patches) * 0.5
+
+    # Run spatial simulation handler
+    @reactive.effect
+    @reactive.event(input.run_spatial_sim)
+    def _run_spatial_simulation():
+        """Run spatial ECOSPACE simulation."""
+        from pypath.spatial import EcospaceParams as EcoParams
+        from pypath.spatial import rsim_run_spatial
+
+        # Guard: need both scenario and grid
+        if _sim_scenario is None or _sim_scenario() is None:
+            ui.notification_show(
+                "Please create an Ecosim scenario first (Ecosim Simulation tab).",
+                type="warning",
+                duration=5,
+            )
+            return
+
+        current_grid = grid()
+        if current_grid is None:
+            ui.notification_show(
+                "Please create a spatial grid first.",
+                type="warning",
+                duration=5,
+            )
+            return
+
+        try:
+            scenario = _sim_scenario()
+            n_groups = scenario.params.NUM_GROUPS
+            n_patches = current_grid.n_patches
+
+            # Build habitat preference matrix [n_groups+1, n_patches]
+            habitat_vec = _compute_habitat_vector(current_grid)
+            habitat_pref = np.tile(habitat_vec, (n_groups + 1, 1))
+            habitat_pref[0, :] = 0.0  # Index 0 = Outside
+
+            # Build per-group dispersal rates
+            dispersal_rate = np.full(n_groups + 1, float(input.dispersal_rate_default()))
+            dispersal_rate[0] = 0.0  # No dispersal for Outside
+
+            # Build advection flags
+            advection_enabled = np.full(n_groups + 1, bool(input.enable_advection()), dtype=bool)
+            advection_enabled[0] = False
+
+            # Build gravity strength
+            gravity = np.full(n_groups + 1, float(input.gravity_strength()))
+            gravity[0] = 0.0
+
+            ecospace_params = EcoParams(
+                grid=current_grid,
+                habitat_preference=habitat_pref,
+                habitat_capacity=habitat_pref.copy(),
+                dispersal_rate=dispersal_rate,
+                advection_enabled=advection_enabled,
+                gravity_strength=gravity,
+            )
+
+            ui.notification_show("Running spatial simulation...", type="message", duration=2)
+
+            result = rsim_run_spatial(scenario, ecospace=ecospace_params)
+            _spatial_results.set(result)
+
+            # Post-run: update biomass group dropdown with group names
+            spname = getattr(scenario.params, "spname", None)
+            if spname is not None:
+                group_choices = {
+                    str(i): name
+                    for i, name in enumerate(spname)
+                    if i > 0 and i <= n_groups
+                }
+            else:
+                group_choices = {str(i): f"Group {i}" for i in range(1, n_groups + 1)}
+            ui.update_select("biomass_view_group", choices=group_choices)
+
+            # Update animation slider max to number of timesteps
+            n_timesteps = result.out_Biomass_spatial.shape[0] - 1
+            ui.update_slider("animation_time", max=n_timesteps, value=0)
+
+            ui.notification_show("Spatial simulation complete!", type="message", duration=3)
+
+        except Exception as e:
+            logger.error(f"Spatial simulation failed: {e}", exc_info=True)
+            ui.notification_show(
+                f"Spatial simulation failed: {e!s}",
+                type="error",
+                duration=8,
             )
 
     # Grid visualization
@@ -1322,40 +1454,9 @@ def ecospace_server(
         import matplotlib.pyplot as plt
 
         g = grid()
-        n_patches = g.n_patches
 
-        # Generate habitat based on selected pattern
-        pattern = input.habitat_pattern()
-
-        if pattern == "uniform":
-            habitat = np.ones(n_patches) * 0.8
-        elif pattern == "gradient":
-            direction = input.gradient_direction()
-            centroids = g.patch_centroids
-
-            if direction == "horizontal":
-                # West to East
-                habitat = (centroids[:, 0] - centroids[:, 0].min()) / (
-                    centroids[:, 0].max() - centroids[:, 0].min()
-                )
-            elif direction == "vertical":
-                # South to North
-                habitat = (centroids[:, 1] - centroids[:, 1].min()) / (
-                    centroids[:, 1].max() - centroids[:, 1].min()
-                )
-            else:  # radial
-                center = centroids.mean(axis=0)
-                distances = np.linalg.norm(centroids - center, axis=1)
-                habitat = 1 - (distances / distances.max())
-        elif pattern == "patchy":
-            np.random.seed(42)
-            habitat = np.random.uniform(0.2, 1.0, n_patches)
-        elif pattern == "core_periphery":
-            center = g.patch_centroids.mean(axis=0)
-            distances = np.linalg.norm(g.patch_centroids - center, axis=1)
-            habitat = 1 - (distances / distances.max()) ** 2
-        else:
-            habitat = np.ones(n_patches) * 0.5
+        # Use shared helper for habitat computation
+        habitat = _compute_habitat_vector(g)
 
         # Plot
         fig, ax = plt.subplots(figsize=(10, 8))
@@ -1494,32 +1595,178 @@ def ecospace_server(
 
         return fig
 
-    # Placeholder for biomass animation
+    # Biomass animation visualization
     @render.ui
     def biomass_animation_ui():
-        """Render biomass animation placeholder."""
-        return ui.div(
-            ui.div(
-                ui.tags.i(class_="bi bi-info-circle me-2"),
-                "Run a spatial simulation to view biomass dynamics over time.",
-                class_="alert alert-info",
-                style="margin-top: 20px;",
+        """Render biomass animation: placeholder or spatial heatmap."""
+        results = _spatial_results()
+        if results is None or not hasattr(results, "out_Biomass_spatial"):
+            return ui.div(
+                ui.div(
+                    ui.tags.i(class_="bi bi-info-circle me-2"),
+                    "Run a spatial simulation to view biomass dynamics over time.",
+                    class_="alert alert-info",
+                    style="margin-top: 20px;",
+                )
             )
+
+        # Render the heatmap as an embedded plot
+        return ui.output_plot("biomass_animation_plot", height="500px")
+
+    @render.plot
+    def biomass_animation_plot():
+        """Plot spatial biomass heatmap for selected group and timestep."""
+        import matplotlib.pyplot as plt
+
+        results = _spatial_results()
+        req(results is not None and hasattr(results, "out_Biomass_spatial"))
+
+        g = grid()
+        req(g is not None)
+
+        biomass_spatial = results.out_Biomass_spatial  # [n_months, n_groups+1, n_patches]
+
+        # Get selected group index
+        group_str = input.biomass_view_group()
+        group_idx = int(group_str) if group_str else 1
+
+        # Get selected timestep
+        timestep = int(input.animation_time())
+        timestep = min(timestep, biomass_spatial.shape[0] - 1)
+
+        # Extract per-patch biomass for this group/timestep
+        patch_biomass = biomass_spatial[timestep, group_idx, :]
+
+        import matplotlib.cm as cm
+        from matplotlib.cm import ScalarMappable
+        from matplotlib.colors import Normalize
+        from matplotlib.patches import Polygon as MplPolygon
+
+        fig, ax = plt.subplots(figsize=(10, 8))
+
+        vmax = max(biomass_spatial[:, group_idx, :].max(), 1e-10)
+        norm = Normalize(vmin=0, vmax=vmax)
+        cmap = cm.get_cmap("YlOrRd")
+
+        if g.geometry is not None:
+            for idx, row in g.geometry.iterrows():
+                geom = row.geometry
+                if geom.geom_type == "Polygon":
+                    x, y = geom.exterior.xy
+                    color = cmap(norm(patch_biomass[idx]))
+                    polygon = MplPolygon(
+                        list(zip(x, y, strict=True)),
+                        facecolor=color,
+                        edgecolor="gray",
+                        linewidth=0.8,
+                        alpha=0.9,
+                    )
+                    ax.add_patch(polygon)
+            ax.autoscale_view()
+        else:
+            ax.scatter(
+                g.patch_centroids[:, 0],
+                g.patch_centroids[:, 1],
+                c=patch_biomass,
+                s=200,
+                cmap="YlOrRd",
+                vmin=0,
+                vmax=vmax,
+                edgecolors="black",
+                linewidths=0.5,
+            )
+
+        sm = ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        plt.colorbar(sm, ax=ax, label="Biomass")
+
+        # Get group name for title
+        scenario = _sim_scenario() if _sim_scenario is not None else None
+        if scenario and hasattr(scenario.params, "spname"):
+            group_name = scenario.params.spname[group_idx]
+        else:
+            group_name = f"Group {group_idx}"
+
+        ax.set_xlabel("Longitude (degrees)", fontsize=10)
+        ax.set_ylabel("Latitude (degrees)", fontsize=10)
+        ax.set_title(
+            f"Biomass: {group_name} (t={timestep})",
+            fontsize=12,
+            weight="bold",
         )
+        ax.grid(True, alpha=0.3, linestyle="--")
+        ax.set_aspect("equal")
+
+        return fig
 
     # Spatial metrics table
     @render.table
     def spatial_metrics_table():
-        """Display spatial metrics."""
-        return pd.DataFrame(
-            {
-                "Metric": [
-                    "Total Patches",
-                    "Occupied Patches",
-                    "Center of Biomass (X)",
-                    "Center of Biomass (Y)",
-                    "Spatial Variance",
-                ],
-                "Value": ["N/A - Run simulation first", "N/A", "N/A", "N/A", "N/A"],
-            }
-        )
+        """Display spatial metrics from grid and simulation results."""
+        g = grid()
+        results = _spatial_results()
+
+        if g is None and results is None:
+            return pd.DataFrame(
+                {
+                    "Metric": [
+                        "Total Patches",
+                        "Occupied Patches",
+                        "Center of Biomass (X)",
+                        "Center of Biomass (Y)",
+                        "Spatial Variance",
+                    ],
+                    "Value": ["N/A - Create a grid first", "N/A", "N/A", "N/A", "N/A"],
+                }
+            )
+
+        metrics = []
+        values = []
+
+        if g is not None:
+            metrics.append("Total Patches")
+            values.append(str(g.n_patches))
+
+            n_edges = g.adjacency_matrix.nnz // 2
+            avg_neighbors = n_edges * 2 / g.n_patches if g.n_patches > 0 else 0
+            metrics.append("Avg Neighbors")
+            values.append(f"{avg_neighbors:.1f}")
+
+            metrics.append("Total Area (km²)")
+            values.append(f"{g.patch_areas.sum():.2f}")
+
+        if results is not None and hasattr(results, "out_Biomass_spatial"):
+            biomass_spatial = results.out_Biomass_spatial
+
+            # Use animation slider timestep if available, else final timestep
+            try:
+                timestep = int(input.animation_time())
+                timestep = min(timestep, biomass_spatial.shape[0] - 1)
+            except Exception:
+                timestep = biomass_spatial.shape[0] - 1
+
+            # Sum biomass across all groups for each patch
+            total_per_patch = biomass_spatial[timestep, 1:, :].sum(axis=0)
+
+            threshold = total_per_patch.max() * 0.01 if total_per_patch.max() > 0 else 0
+            occupied = int(np.sum(total_per_patch > threshold))
+            metrics.append("Occupied Patches")
+            values.append(str(occupied))
+
+            if g is not None and total_per_patch.sum() > 0:
+                weights = total_per_patch / total_per_patch.sum()
+                center_x = np.dot(weights, g.patch_centroids[:, 0])
+                center_y = np.dot(weights, g.patch_centroids[:, 1])
+                metrics.append("Center of Biomass (X)")
+                values.append(f"{center_x:.4f}")
+                metrics.append("Center of Biomass (Y)")
+                values.append(f"{center_y:.4f}")
+
+            spatial_var = np.var(total_per_patch)
+            metrics.append("Spatial Variance")
+            values.append(f"{spatial_var:.4f}")
+
+            metrics.append("Timestep")
+            values.append(str(timestep))
+
+        return pd.DataFrame({"Metric": metrics, "Value": values})
