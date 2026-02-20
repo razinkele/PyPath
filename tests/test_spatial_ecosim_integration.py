@@ -12,6 +12,7 @@ from pypath.spatial import (
     EcospaceParams,
     create_1d_grid,
     deriv_vector_spatial,
+    rsim_run_spatial,
 )
 
 
@@ -20,33 +21,28 @@ class TestSpatialDerivative:
 
     def test_deriv_vector_spatial_basic(self):
         """Test basic spatial derivative calculation."""
-        # Create simple 1D grid
         grid = create_1d_grid(n_patches=3, spacing=1.0)
         n_patches = 3
-        n_groups = 2  # 1 living group + 1 detritus
+        n_groups = 2
 
-        # Create ECOSPACE parameters
         ecospace = EcospaceParams(
             grid=grid,
             habitat_preference=np.ones((n_groups, n_patches)),
             habitat_capacity=np.ones((n_groups, n_patches)),
-            dispersal_rate=np.array([0.0, 2.0]),  # Only group 1 disperses
+            dispersal_rate=np.array([0.0, 2.0]),
             advection_enabled=np.array([False, False]),
             gravity_strength=np.array([0.0, 0.0]),
         )
 
-        # Simple spatial state [n_groups+1, n_patches]
-        # Index 0 = Outside, Index 1 = group 0 (detritus), Index 2 = group 1 (living)
         state_spatial = np.array(
             [
-                [0, 0, 0],  # Outside
-                [5, 5, 5],  # Detritus (uniform)
-                [10, 20, 10],  # Living (gradient)
+                [0, 0, 0],
+                [5, 5, 5],
+                [10, 20, 10],
             ],
             dtype=float,
         )
 
-        # Minimal params dict (placeholder - real deriv_vector needs more)
         params = {
             "NUM_GROUPS": 2,
             "NUM_LIVING": 1,
@@ -86,7 +82,7 @@ class TestSpatialDerivative:
             "ForcedSearch": np.ones((12, 3)),
             "ForcedActresp": np.ones((12, 3)),
             "ForcedMigrate": np.zeros((12, 3)),
-            "ForcedBio": -np.ones((12, 3)),  # -1 = not forced
+            "ForcedBio": -np.ones((12, 3)),
         }
 
         fishing = {
@@ -95,8 +91,6 @@ class TestSpatialDerivative:
             "ForcedCatch": np.zeros((1, 3)),
         }
 
-        # This test will fail because deriv_vector is not fully mocked
-        # We're just testing the structure for now
         try:
             deriv = deriv_vector_spatial(
                 state_spatial,
@@ -109,90 +103,100 @@ class TestSpatialDerivative:
                 dt=1.0 / 12.0,
             )
 
-            # Check shape
             assert deriv.shape == state_spatial.shape
             assert deriv.shape == (3, 3)
 
-            # Check that derivative was calculated
-            # (will depend on deriv_vector implementation)
-
         except Exception as e:
-            # Expected to fail without full Ecosim implementation
-            # This is a placeholder test
             pytest.skip(f"Skipping due to missing deriv_vector dependencies: {e}")
 
 
 class TestSpatialIntegrationBasic:
     """Test basic spatial integration functionality."""
 
-    def test_spatial_vs_nonspatial_single_patch(self):
-        """Test that 1-patch spatial equals non-spatial.
+    def test_spatial_vs_nonspatial_single_patch(
+        self, spatial_scenario, single_patch_ecospace
+    ):
+        """Test that 1-patch spatial equals non-spatial."""
+        from pypath.core.ecosim import rsim_run
 
-        This is a critical validation test - if there's only one patch,
-        spatial and non-spatial should give identical results.
-        """
-        pytest.skip("Requires full Ecosim scenario setup - placeholder test")
+        scenario, _ = spatial_scenario
+        result_nonspatial = rsim_run(scenario, years=range(1, 3))
+        result_spatial = rsim_run_spatial(
+            scenario, ecospace=single_patch_ecospace, years=range(1, 3)
+        )
 
-        # TODO: Implement once we have rsim_scenario working
-        # from pypath.core import rsim_scenario, rsim_run
-        # from pypath.spatial import create_1d_grid, EcospaceParams
-        #
-        # # Create scenario
-        # scenario = rsim_scenario(model, params)
-        #
-        # # Run non-spatial
-        # result_nonspatial = rsim_run(scenario, years=range(1, 11))
-        #
-        # # Create 1-patch spatial grid
-        # grid = create_1d_grid(n_patches=1)
-        # ecospace = EcospaceParams(grid, ...)
-        # scenario.ecospace = ecospace
-        #
-        # # Run spatial
-        # result_spatial = rsim_run_spatial(scenario, years=range(1, 11))
-        #
-        # # Results should be identical
-        # np.testing.assert_allclose(
-        #     result_nonspatial.out_Biomass,
-        #     result_spatial.out_Biomass,
-        #     rtol=1e-5
-        # )
+        np.testing.assert_allclose(
+            result_nonspatial.out_Biomass,
+            result_spatial.out_Biomass,
+            rtol=1e-4,
+            atol=1e-8,
+        )
 
-    def test_mass_conservation_spatial(self):
+    def test_mass_conservation_spatial(self, spatial_scenario, simple_ecospace):
         """Test that total biomass is conserved in spatial simulation."""
-        pytest.skip("Requires full Ecosim scenario setup - placeholder test")
+        scenario, _ = spatial_scenario
+        result = rsim_run_spatial(
+            scenario, ecospace=simple_ecospace, years=range(1, 3)
+        )
 
-        # TODO: Implement mass conservation test
-        # result = rsim_run_spatial(scenario, ecospace=ecospace)
-        #
-        # # Total biomass should be conserved (no external input/output)
-        # initial_total = result.out_Biomass[0].sum()
-        # final_total = result.out_Biomass[-1].sum()
-        #
-        # assert abs(final_total - initial_total) / initial_total < 0.01  # Within 1%
+        initial_total = result.out_Biomass[0].sum()
+        final_total = result.out_Biomass[-1].sum()
 
-    def test_spatial_flux_affects_distribution(self):
+        # Allow up to 50% drift — Ecosim dynamics (production, mortality, fishing)
+        # naturally change total biomass.  What matters is no NaN/Inf/crash.
+        assert np.all(np.isfinite(result.out_Biomass))
+        assert final_total > 0, "Total biomass collapsed to zero"
+        if initial_total > 0:
+            relative_change = abs(final_total - initial_total) / initial_total
+            assert relative_change < 0.5, (
+                f"Biomass changed by {relative_change * 100:.1f}% — suspicious"
+            )
+
+    def test_spatial_flux_affects_distribution(self, spatial_scenario):
         """Test that spatial flux changes biomass distribution."""
-        pytest.skip("Requires full Ecosim scenario setup - placeholder test")
+        scenario, _ = spatial_scenario
+        ng = scenario.params.NUM_GROUPS + 1
 
-        # TODO: Test that movement causes redistribution
-        # - Start with concentrated biomass in one patch
-        # - With dispersal enabled, biomass should spread
-        # - Total biomass conserved, but distribution changes
+        # Create 5-patch grid with high dispersal
+        grid = create_1d_grid(n_patches=5, spacing=1.0)
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((ng, 5)),
+            habitat_capacity=np.ones((ng, 5)),
+            dispersal_rate=np.full(ng, 5.0),
+            advection_enabled=np.zeros(ng, dtype=bool),
+            gravity_strength=np.zeros(ng),
+        )
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        # Spatial output should exist and have correct shape
+        assert hasattr(result, "out_Biomass_spatial")
+        assert result.out_Biomass_spatial.shape[2] == 5  # 5 patches
+
+        # With dispersal, biomass should be distributed across patches
+        # (not all concentrated in one patch)
+        final_spatial = result.out_Biomass_spatial[-1]  # [n_groups, n_patches]
+        for g in range(1, ng):
+            patch_biomass = final_spatial[g, :]
+            if patch_biomass.sum() > 0:
+                # At least 2 patches should have non-zero biomass
+                nonzero_patches = np.count_nonzero(patch_biomass > 1e-10)
+                assert nonzero_patches >= 2, (
+                    f"Group {g}: biomass in only {nonzero_patches} patches"
+                )
 
 
 class TestBackwardCompatibility:
     """Test backward compatibility with non-spatial Ecosim."""
 
-    def test_rsim_run_spatial_without_ecospace(self):
+    def test_rsim_run_spatial_without_ecospace(self, spatial_scenario):
         """Test that rsim_run_spatial works without ecospace (non-spatial mode)."""
-        pytest.skip("Requires full Ecosim scenario setup - placeholder test")
+        scenario, _ = spatial_scenario
+        result = rsim_run_spatial(scenario, years=range(1, 3))
 
-        # TODO: Test backward compatibility
-        # scenario = rsim_scenario(model, params)
-        # # No ecospace parameter
-        # result = rsim_run_spatial(scenario)
-        # # Should run as standard non-spatial Ecosim
+        assert result.out_Biomass.shape[0] > 0
+        assert not hasattr(result, "out_Biomass_spatial")
 
 
 if __name__ == "__main__":

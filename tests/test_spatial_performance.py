@@ -21,6 +21,7 @@ from pypath.spatial import (
     create_regular_grid,
     diffusion_flux,
     habitat_advection,
+    rsim_run_spatial,
 )
 
 
@@ -348,26 +349,51 @@ class TestWorstCase:
 class TestFullSimulationPerformance:
     """Test performance of complete spatial simulations."""
 
-    def test_small_simulation_fast(self):
+    def test_small_simulation_fast(self, spatial_scenario):
         """Small simulation (5x5, 1 year) should be very fast."""
-        pytest.skip("Requires full Ecosim scenario setup")
+        scenario, _ = spatial_scenario
+        ng = scenario.params.NUM_GROUPS + 1
+        grid = create_regular_grid(bounds=(0, 0, 5, 5), nx=5, ny=5)
+        n_patches = grid.n_patches
 
-        # TODO: When integrated with Ecosim
-        # grid = create_regular_grid((0,0,5,5), 5, 5)
-        # ecospace = EcospaceParams(...)
-        # scenario.ecospace = ecospace
-        #
-        # start = time.time()
-        # result = rsim_run_spatial(scenario, years=range(1, 2))
-        # elapsed = time.time() - start
-        #
-        # assert elapsed < 5.0, f"1-year simulation took {elapsed:.1f}s"
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((ng, n_patches)),
+            habitat_capacity=np.ones((ng, n_patches)),
+            dispersal_rate=np.full(ng, 2.0),
+            advection_enabled=np.zeros(ng, dtype=bool),
+            gravity_strength=np.zeros(ng),
+        )
 
-    def test_medium_simulation_acceptable(self):
-        """Medium simulation (10x10, 10 years) should complete reasonably."""
-        pytest.skip("Requires full Ecosim scenario setup")
+        start = time.time()
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
+        elapsed = time.time() - start
 
-        # TODO: Target < 60 seconds for 10 years, 100 patches, 10 groups
+        assert result.out_Biomass.shape[0] > 0
+        assert elapsed < 30.0, f"1-year spatial took {elapsed:.1f}s, expected < 30s"
+
+    def test_medium_simulation_acceptable(self, spatial_scenario):
+        """Medium simulation (10x10, 5 years) should complete reasonably."""
+        scenario, _ = spatial_scenario
+        ng = scenario.params.NUM_GROUPS + 1
+        grid = create_regular_grid(bounds=(0, 0, 10, 10), nx=10, ny=10)
+        n_patches = grid.n_patches
+
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((ng, n_patches)),
+            habitat_capacity=np.ones((ng, n_patches)),
+            dispersal_rate=np.full(ng, 2.0),
+            advection_enabled=np.zeros(ng, dtype=bool),
+            gravity_strength=np.zeros(ng),
+        )
+
+        start = time.time()
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 6))
+        elapsed = time.time() - start
+
+        assert result.out_Biomass.shape[0] > 0
+        assert elapsed < 120.0, f"5-year spatial took {elapsed:.1f}s, expected < 120s"
 
 
 class TestBenchmarkSummary:

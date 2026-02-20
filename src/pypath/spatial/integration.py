@@ -121,7 +121,7 @@ def deriv_vector_spatial(
 
             # Calculate local Ecosim derivative for this patch
             deriv_local = deriv_vector(
-                state_patch, params, forcing, fishing, t=t, dt=dt
+                state_patch, params, forcing, fishing, t=t
             )
 
             # Restore original B_BaseRef
@@ -129,7 +129,7 @@ def deriv_vector_spatial(
         else:
             # No modification needed - use params directly (no copy!)
             deriv_local = deriv_vector(
-                state_patch, params, forcing, fishing, t=t, dt=dt
+                state_patch, params, forcing, fishing, t=t
             )
 
         # Store local derivative
@@ -233,57 +233,54 @@ def rsim_run_spatial(
     )
 
     # Convert scenario to dictionary format for deriv function
+    # Must match the key names that deriv_vector expects (same as rsim_run in ecosim.py)
+    from pypath.core.ecosim import _build_active_link_matrix, _build_link_matrix
+
+    params = scenario.params
     params_dict = {
-        "NUM_GROUPS": scenario.params.NUM_GROUPS,
-        "NUM_LIVING": scenario.params.NUM_LIVING,
-        "NUM_DEAD": scenario.params.NUM_DEAD,
-        "NUM_GEARS": scenario.params.NUM_GEARS,
-        "B_BaseRef": scenario.params.B_BaseRef,
-        "MzeroMort": scenario.params.MzeroMort,
-        "UnassimRespFrac": scenario.params.UnassimRespFrac,
-        "ActiveRespFrac": scenario.params.ActiveRespFrac,
-        "FtimeAdj": scenario.params.FtimeAdj,
-        "FtimeQBOpt": scenario.params.FtimeQBOpt,
-        "PBopt": scenario.params.PBopt,
-        "NoIntegrate": scenario.params.NoIntegrate,
-        "HandleSelf": scenario.params.HandleSelf,
-        "ScrambleSelf": scenario.params.ScrambleSelf,
-        "PreyFrom": scenario.params.PreyFrom,
-        "PreyTo": scenario.params.PreyTo,
-        "QQ": scenario.params.QQ,
-        "DD": scenario.params.DD,
-        "VV": scenario.params.VV,
-        "HandleSwitch": scenario.params.HandleSwitch,
-        "PredPredWeight": scenario.params.PredPredWeight,
-        "PreyPreyWeight": scenario.params.PreyPreyWeight,
-        "FishFrom": scenario.params.FishFrom,
-        "FishThrough": scenario.params.FishThrough,
-        "FishQ": scenario.params.FishQ,
-        "FishTo": scenario.params.FishTo,
-        "DetFrac": scenario.params.DetFrac,
-        "DetFrom": scenario.params.DetFrom,
-        "DetTo": scenario.params.DetTo,
+        "NUM_GROUPS": params.NUM_GROUPS,
+        "NUM_LIVING": params.NUM_LIVING,
+        "NUM_DEAD": params.NUM_DEAD,
+        "NUM_GEARS": params.NUM_GEARS,
+        "PB": params.PBopt,
+        "QB": params.FtimeQBOpt,
+        "M0": params.MzeroMort,
+        "Unassim": params.UnassimRespFrac,
+        "ActiveLink": _build_active_link_matrix(params),
+        "VV": _build_link_matrix(params, params.VV),
+        "DD": _build_link_matrix(params, params.DD),
+        "QQbase": _build_link_matrix(params, params.QQ),
+        "Bbase": params.B_BaseRef,
+        "B_BaseRef": params.B_BaseRef,
+        "PP_type": params.PP_type,
+        "NoIntegrate": params.NoIntegrate,
+        "FishFrom": getattr(params, "FishFrom", np.array([])),
+        "FishTo": getattr(params, "FishTo", np.array([])),
+        "FishQ": getattr(params, "FishQ", np.array([])),
+        "DetFrac": params.DetFrac,
+        "DetFrom": params.DetFrom,
+        "DetTo": params.DetTo,
     }
 
-    forcing_dict = {
-        "ForcedPrey": scenario.forcing.ForcedPrey,
-        "ForcedMort": scenario.forcing.ForcedMort,
-        "ForcedRecs": scenario.forcing.ForcedRecs,
-        "ForcedSearch": scenario.forcing.ForcedSearch,
-        "ForcedActresp": scenario.forcing.ForcedActresp,
-        "ForcedMigrate": scenario.forcing.ForcedMigrate,
-        "ForcedBio": scenario.forcing.ForcedBio,
-    }
-
+    # Build fishing dict (constant across timesteps, same as rsim_run)
     fishing_dict = {
-        "ForcedEffort": scenario.fishing.ForcedEffort,
-        "ForcedFRate": scenario.fishing.ForcedFRate,
-        "ForcedCatch": scenario.fishing.ForcedCatch,
+        "FishFrom": params.FishFrom,
+        "FishThrough": params.FishThrough,
+        "FishQ": params.FishQ,
+        "FishingMort": np.zeros(n_groups + 1),
     }
+    for i in range(1, len(params.FishFrom)):
+        grp = int(params.FishFrom[i])
+        if grp < n_groups + 1:
+            fishing_dict["FishingMort"][grp] += params.FishQ[i]
 
-    # Storage for output
-    out_Biomass_spatial = np.zeros((n_months, n_groups + 1, n_patches), dtype=float)
-    out_Biomass = np.zeros((n_months, n_groups + 1), dtype=float)
+    forcing = scenario.forcing
+    fishing_obj = scenario.fishing
+
+    # Storage for output (n_months + 1 rows: initial state + n_months of simulation)
+    n_rows = n_months + 1
+    out_Biomass_spatial = np.zeros((n_rows, n_groups + 1, n_patches), dtype=float)
+    out_Biomass = np.zeros((n_rows, n_groups + 1), dtype=float)
 
     # Initial conditions
     out_Biomass_spatial[0] = state_spatial.Biomass
@@ -292,8 +289,23 @@ def rsim_run_spatial(
     # Time integration (RK4)
     current_biomass = state_spatial.Biomass.copy()
 
-    for month_idx in range(1, n_months):
+    for month_idx in range(1, n_rows):
         t = month_idx * DELTA_T
+
+        # Build per-timestep forcing dict (same structure as rsim_run)
+        mi = month_idx - 1  # 0-based forcing index
+        forcing_dict = {
+            "Ftime": scenario.start_state.Ftime.copy(),
+            "ForcedBio": np.where(
+                forcing.ForcedBio[mi] > 0, forcing.ForcedBio[mi], 0
+            ),
+            "ForcedMigrate": forcing.ForcedMigrate[mi],
+            "ForcedEffort": (
+                fishing_obj.ForcedEffort[mi]
+                if mi < len(fishing_obj.ForcedEffort)
+                else np.ones(params.NUM_GEARS + 1)
+            ),
+        }
 
         # RK4 integration
         # k1 = f(t, y)
@@ -365,25 +377,27 @@ def rsim_run_spatial(
     )
 
     # Create output object
+    n_fish_links = getattr(params, "NumFishingLinks", 0)
+    n_pred_prey = getattr(params, "NumPredPreyLinks", 0)
     output = RsimOutput(
         out_Biomass=out_Biomass,
-        out_Catch=np.zeros_like(out_Biomass),  # Placeholder
-        out_Gear_Catch=np.zeros(
-            (n_months, scenario.params.NumFishingLinks)
-        ),  # Placeholder
-        annual_Biomass=np.zeros((n_years, n_groups + 1)),  # Placeholder
-        annual_Catch=np.zeros((n_years, n_groups + 1)),  # Placeholder
-        annual_QB=np.zeros((n_years, n_groups + 1)),  # Placeholder
-        annual_Qlink=np.zeros(
-            (n_years, scenario.params.NumPredPreyLinks)
-        ),  # Placeholder
+        out_Catch=np.zeros_like(out_Biomass),
+        out_Gear_Catch=np.zeros((n_rows, n_fish_links)),
+        annual_Biomass=np.zeros((n_years, n_groups + 1)),
+        annual_Catch=np.zeros((n_years, n_groups + 1)),
+        annual_QB=np.zeros((n_years, n_groups + 1)),
+        annual_Qlink=np.zeros((n_years, n_pred_prey)),
+        stanza_biomass=None,
         end_state=end_state,
         crash_year=-1,
         crashed_groups=set(),
-        pred=np.array([]),  # Placeholder
-        prey=np.array([]),  # Placeholder
-        Gear_Catch_sp=np.array([]),  # Placeholder
-        Gear_Catch_gear=np.array([]),  # Placeholder
+        pred=np.array([]),
+        prey=np.array([]),
+        Gear_Catch_sp=np.array([]),
+        Gear_Catch_gear=np.array([]),
+        Gear_Catch_disp=np.array([]),
+        start_state=scenario.start_state,
+        params=params_dict,
     )
 
     # Add spatial output as new attribute

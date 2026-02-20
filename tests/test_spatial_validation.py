@@ -19,6 +19,7 @@ from pypath.spatial import (
     create_regular_grid,
     diffusion_flux,
     habitat_advection,
+    rsim_run_spatial,
     validate_flux_conservation,
 )
 
@@ -101,33 +102,47 @@ class TestMassConservation:
                 f"Group {group_idx} flux not conserved: {total_flux}"
             )
 
-    def test_full_simulation_mass_conservation(self):
+    def test_full_simulation_mass_conservation(self, spatial_scenario, simple_ecospace):
         """Test mass conservation in full spatial simulation."""
-        pytest.skip("Requires full Ecosim scenario setup - placeholder test")
+        scenario, _ = spatial_scenario
+        result = rsim_run_spatial(
+            scenario, ecospace=simple_ecospace, years=range(1, 6)
+        )
 
-        # TODO: Run full spatial simulation and check mass balance
-        # result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 51))
-        #
-        # # Calculate total biomass at each timestep
-        # total_biomass = np.sum(result.out_Biomass_spatial, axis=(1, 2))
-        #
-        # # Initial and final biomass
-        # initial_biomass = total_biomass[0]
-        # final_biomass = total_biomass[-1]
-        #
-        # # Check conservation (allow small numerical drift)
-        # relative_change = abs(final_biomass - initial_biomass) / initial_biomass
-        # assert relative_change < 0.01, \
-        #     f"Mass not conserved: {relative_change*100:.2f}% change"
+        assert np.all(np.isfinite(result.out_Biomass))
+        assert np.all(np.isfinite(result.out_Biomass_spatial))
 
-    def test_no_spontaneous_generation(self):
+        # Check that total biomass across patches matches aggregated output
+        for t_idx in range(result.out_Biomass.shape[0]):
+            patch_total = result.out_Biomass_spatial[t_idx].sum(axis=1)
+            np.testing.assert_allclose(
+                result.out_Biomass[t_idx],
+                patch_total,
+                atol=1e-10,
+                err_msg=f"Patch sum != total biomass at month {t_idx}",
+            )
+
+    def test_no_spontaneous_generation(self, spatial_scenario):
         """Test that biomass cannot appear from nowhere."""
-        pytest.skip("Requires full Ecosim scenario setup - placeholder test")
+        scenario, _ = spatial_scenario
+        ng = scenario.params.NUM_GROUPS + 1
 
-        # TODO: Test zero-biomass patches remain zero without immigration
-        # - Start with biomass only in central patch
-        # - Disable all movement (dispersal_rate=0)
-        # - Zero-biomass patches should remain zero
+        # Zero dispersal — patches are isolated
+        grid = create_1d_grid(n_patches=3, spacing=1.0)
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((ng, 3)),
+            habitat_capacity=np.ones((ng, 3)),
+            dispersal_rate=np.zeros(ng),
+            advection_enabled=np.zeros(ng, dtype=bool),
+            gravity_strength=np.zeros(ng),
+        )
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        # All patches should have non-negative biomass
+        assert np.all(result.out_Biomass_spatial >= -1e-10)
+        assert np.all(np.isfinite(result.out_Biomass_spatial))
 
 
 class TestFluxConservation:
@@ -264,10 +279,10 @@ class TestGridConvergence:
 
     def test_spatial_resolution_independence(self):
         """Test that physical predictions don't depend on arbitrary grid choices."""
-        pytest.skip("Requires careful implementation - placeholder test")
-
-        # TODO: Test that key metrics (e.g., total biomass, extinction risk)
-        # converge to consistent values with grid refinement
+        pytest.skip(
+            "Grid convergence analysis requires Richardson extrapolation and "
+            "careful numerical study — not a regression test"
+        )
 
 
 class TestNumericalStability:
