@@ -25,41 +25,58 @@ from pypath.spatial import (
 )
 
 
+@pytest.fixture(autouse=True, scope="module")
+def _warmup_scipy_paths():
+    """Warm up scipy sparse and numpy code paths before timing.
+
+    The first call to diffusion_flux triggers lazy initialization in scipy
+    sparse matrix operations (~40 ms on Windows).  Running one throwaway call
+    keeps that overhead out of the timed benchmarks.
+    """
+    grid = create_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
+    diffusion_flux(
+        biomass_vector=np.ones(9),
+        dispersal_rate=5.0,
+        grid=grid,
+        adjacency=grid.adjacency_matrix,
+    )
+
+
 class TestGridCreationPerformance:
     """Test grid creation performance."""
 
     def test_small_grid_fast(self):
         """Small grid (5x5) should be instantaneous."""
-        start = time.time()
+        start = time.perf_counter()
         grid = create_regular_grid(bounds=(0, 0, 5, 5), nx=5, ny=5)
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         assert grid.n_patches == 25
         assert elapsed < 0.1, f"Grid creation took {elapsed:.3f}s, expected < 0.1s"
 
     def test_medium_grid_fast(self):
         """Medium grid (10x10) should be fast."""
-        start = time.time()
+        start = time.perf_counter()
         grid = create_regular_grid(bounds=(0, 0, 10, 10), nx=10, ny=10)
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         assert grid.n_patches == 100
         assert elapsed < 0.5, f"Grid creation took {elapsed:.3f}s, expected < 0.5s"
 
     def test_large_grid_reasonable(self):
         """Large grid (20x20) should complete in reasonable time."""
-        start = time.time()
+        start = time.perf_counter()
         grid = create_regular_grid(bounds=(0, 0, 20, 20), nx=20, ny=20)
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         assert grid.n_patches == 400
         assert elapsed < 2.0, f"Grid creation took {elapsed:.3f}s, expected < 2.0s"
 
     def test_1d_grid_very_fast(self):
         """1D grids should be very fast."""
-        start = time.time()
+        start = time.perf_counter()
         grid = create_1d_grid(n_patches=100, spacing=1.0)
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         assert grid.n_patches == 100
         assert elapsed < 0.1, f"1D grid creation took {elapsed:.3f}s, expected < 0.1s"
@@ -73,7 +90,7 @@ class TestFluxCalculationPerformance:
         grid = create_regular_grid(bounds=(0, 0, 5, 5), nx=5, ny=5)
         biomass = np.random.rand(25) * 100
 
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(100):  # 100 iterations
             _ = diffusion_flux(
                 biomass_vector=biomass,
@@ -81,7 +98,7 @@ class TestFluxCalculationPerformance:
                 grid=grid,
                 adjacency=grid.adjacency_matrix,
             )
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
         assert time_per_call < 0.001, (
@@ -93,7 +110,7 @@ class TestFluxCalculationPerformance:
         grid = create_regular_grid(bounds=(0, 0, 10, 10), nx=10, ny=10)
         biomass = np.random.rand(100) * 100
 
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(100):
             _ = diffusion_flux(
                 biomass_vector=biomass,
@@ -101,7 +118,7 @@ class TestFluxCalculationPerformance:
                 grid=grid,
                 adjacency=grid.adjacency_matrix,
             )
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
         assert time_per_call < 0.01, (
@@ -114,7 +131,7 @@ class TestFluxCalculationPerformance:
         biomass = np.random.rand(25) * 100
         habitat = np.random.rand(25)
 
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(100):
             _ = habitat_advection(
                 biomass_vector=biomass,
@@ -123,7 +140,7 @@ class TestFluxCalculationPerformance:
                 grid=grid,
                 adjacency=grid.adjacency_matrix,
             )
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
         assert time_per_call < 0.001, (
@@ -149,10 +166,10 @@ class TestFluxCalculationPerformance:
 
         params = {"NUM_GROUPS": n_groups}
 
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(10):
             _flux = calculate_spatial_flux(state, ecospace, params, t=0.0)
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 10
         assert time_per_call < 0.1, (
@@ -168,7 +185,7 @@ class TestFishingAllocationPerformance:
         _grid = create_regular_grid(bounds=(0, 0, 10, 10), nx=10, ny=10)
         biomass = np.random.rand(2, 100) * 100
 
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(100):
             _ = allocate_gravity(
                 biomass=biomass,
@@ -177,7 +194,7 @@ class TestFishingAllocationPerformance:
                 alpha=1.5,
                 beta=0.0,
             )
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
         assert time_per_call < 0.001, (
@@ -189,12 +206,12 @@ class TestFishingAllocationPerformance:
         grid = create_regular_grid(bounds=(0, 0, 10, 10), nx=10, ny=10)
         port_patches = np.array([0, 9, 90, 99])
 
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(100):
             _ = allocate_port_based(
                 grid=grid, port_patches=port_patches, total_effort=100.0, beta=1.5
             )
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
         assert time_per_call < 0.01, (
@@ -250,7 +267,7 @@ class TestScalability:
             grid = create_regular_grid(bounds=(0, 0, nx, nx), nx=nx, ny=nx)
             biomass = np.random.rand(nx * nx) * 100
 
-            start = time.time()
+            start = time.perf_counter()
             for _ in range(10):
                 diffusion_flux(
                     biomass_vector=biomass,
@@ -258,7 +275,7 @@ class TestScalability:
                     grid=grid,
                     adjacency=grid.adjacency_matrix,
                 )
-            elapsed = time.time() - start
+            elapsed = time.perf_counter() - start
             times.append(elapsed)
 
         # Time should increase roughly linearly with n_patches (or edges)
@@ -287,9 +304,9 @@ class TestScalability:
 
             params = {"NUM_GROUPS": n_groups}
 
-            start = time.time()
+            start = time.perf_counter()
             _flux = calculate_spatial_flux(state, ecospace, params, t=0.0)
-            elapsed = time.time() - start
+            elapsed = time.perf_counter() - start
 
             # Should complete in < 100ms even with 50 groups
             assert elapsed < 0.1, (
@@ -315,11 +332,11 @@ class TestWorstCase:
 
         _biomass = np.random.rand(n_patches) * 100
 
-        start = time.time()
+        start = time.perf_counter()
         # Note: diffusion_flux uses grid.edge_lengths, which won't have all edges
         # So we can't actually test this properly without modifying the grid
         # This test documents the limitation
-        _elapsed = time.time() - start
+        _elapsed = time.perf_counter() - start
 
         # Should still be fast even with O(n²) edges
         # (In practice, grids have O(n) edges)
@@ -330,14 +347,14 @@ class TestWorstCase:
         biomass = np.zeros(100)
         biomass[50] = 1e6  # Huge concentration
 
-        start = time.time()
+        start = time.perf_counter()
         flux = diffusion_flux(
             biomass_vector=biomass,
             dispersal_rate=10.0,
             grid=grid,
             adjacency=grid.adjacency_matrix,
         )
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         # Should not hang or crash
         assert elapsed < 0.1
@@ -365,9 +382,9 @@ class TestFullSimulationPerformance:
             gravity_strength=np.zeros(ng),
         )
 
-        start = time.time()
+        start = time.perf_counter()
         result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         assert result.out_Biomass.shape[0] > 0
         assert elapsed < 30.0, f"1-year spatial took {elapsed:.1f}s, expected < 30s"
@@ -388,9 +405,9 @@ class TestFullSimulationPerformance:
             gravity_strength=np.zeros(ng),
         )
 
-        start = time.time()
+        start = time.perf_counter()
         result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 6))
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
 
         assert result.out_Biomass.shape[0] > 0
         assert elapsed < 120.0, f"5-year spatial took {elapsed:.1f}s, expected < 120s"
@@ -408,39 +425,39 @@ class TestBenchmarkSummary:
         benchmarks = []
 
         # Grid creation
-        start = time.time()
+        start = time.perf_counter()
         grid_small = create_regular_grid((0, 0, 5, 5), 5, 5)
-        time_grid_small = time.time() - start
+        time_grid_small = time.perf_counter() - start
         benchmarks.append(("Grid (5x5)", time_grid_small * 1000, "ms"))
 
-        start = time.time()
+        start = time.perf_counter()
         grid_medium = create_regular_grid((0, 0, 10, 10), 10, 10)
-        time_grid_medium = time.time() - start
+        time_grid_medium = time.perf_counter() - start
         benchmarks.append(("Grid (10x10)", time_grid_medium * 1000, "ms"))
 
         # Diffusion
         biomass_small = np.random.rand(25) * 100
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(100):
             diffusion_flux(biomass_small, 5.0, grid_small, grid_small.adjacency_matrix)
-        time_diff_small = (time.time() - start) / 100
+        time_diff_small = (time.perf_counter() - start) / 100
         benchmarks.append(("Diffusion (25 patches)", time_diff_small * 1000, "ms"))
 
         biomass_medium = np.random.rand(100) * 100
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(100):
             diffusion_flux(
                 biomass_medium, 5.0, grid_medium, grid_medium.adjacency_matrix
             )
-        time_diff_medium = (time.time() - start) / 100
+        time_diff_medium = (time.perf_counter() - start) / 100
         benchmarks.append(("Diffusion (100 patches)", time_diff_medium * 1000, "ms"))
 
         # Fishing allocation
         biomass_2d = np.random.rand(2, 100) * 100
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(100):
             allocate_gravity(biomass_2d, [1], 100.0, alpha=1.5)
-        time_fishing = (time.time() - start) / 100
+        time_fishing = (time.perf_counter() - start) / 100
         benchmarks.append(("Fishing allocation", time_fishing * 1000, "ms"))
 
         # Print results
