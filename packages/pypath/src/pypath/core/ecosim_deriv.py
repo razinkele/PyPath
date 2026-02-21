@@ -582,7 +582,19 @@ def deriv_vector(
         BB, Bbase, PB, PP_forcing, PP_type, NUM_LIVING
     )
 
+    # IBM integration: check if any groups are replaced by IBMs
+    ibm_groups = params.get('ibm_groups', {})
+
     for i in range(1, NUM_LIVING + 1):
+        # IBM override: delegate to IBM if this group has one
+        if i in ibm_groups:
+            from pypath.ibm.integration import apply_ibm_to_derivative
+            apply_ibm_to_derivative(
+                deriv=deriv, QQ=QQ, BB=BB,
+                ibm_group=ibm_groups[i], forcing=forcing, dt=1/12,
+            )
+            continue
+
         # Total consumption BY this predator
         consumption = np.sum(QQ[1:, i])
 
