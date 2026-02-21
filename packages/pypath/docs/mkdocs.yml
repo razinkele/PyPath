@@ -35,3 +35,6 @@ nav:
       - I/O: api/io.md
       - Spatial (Ecospace): api/spatial.md
       - Analysis: api/analysis.md
+  - Examples:
+      - Basic Model: examples/basic-model.md
+      - Spatial Modeling: examples/spatial.md
