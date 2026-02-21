@@ -1,0 +1,100 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pypath-ewe"
+version = "0.3.0"
+description = "Python implementation of Ecopath with Ecosim (EwE) for food web modeling"
+readme = "../../README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "PyPath Development Team"}
+]
+keywords = ["ecology", "ecosystem", "food web", "ecopath", "ecosim", "modeling"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+interactive = [
+    "plotly>=5.0",
+    "networkx>=3.0",
+]
+spatial = [
+    "geopandas>=0.12",
+    "folium>=0.14",
+    "shapely>=2.0",
+]
+biodata = [
+    "pyworms>=0.2.1",
+    "pyobis>=0.3.0",
+    "requests>=2.28",
+]
+numba = [
+    "numba>=0.57",
+]
+docs = [
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.0",
+    "mkdocstrings[python]>=0.24",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+]
+all = [
+    "pypath-ewe[interactive,spatial,biodata,numba,docs,dev]",
+]
+
+[project.urls]
+Homepage = "https://github.com/razinkele/PyPath"
+Documentation = "https://razinkele.github.io/PyPath/"
+Repository = "https://github.com/razinkele/PyPath"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "integration: marks tests that require internet connection and real API calls",
+    "slow: marks tests as slow",
+    "worms: marks tests that use WoRMS API",
+    "obis: marks tests that use OBIS API",
+    "fishbase: marks tests that use FishBase API",
+]
+timeout = 300
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
