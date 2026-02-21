@@ -4,7 +4,7 @@ from app.pages.prebalance import run_verify_rpath
 
 
 def test_run_verify_rpath_returns_expected():
-    diag_dir = Path("tests/data/rpath_reference/ecosim/diagnostics")
+    diag_dir = Path(__file__).parent / "data" / "rpath_reference" / "ecosim" / "diagnostics"
     r = run_verify_rpath(diag_dir)
     assert "returncode" in r and "output" in r
     assert isinstance(r["returncode"], int)

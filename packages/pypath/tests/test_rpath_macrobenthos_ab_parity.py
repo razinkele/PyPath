@@ -7,7 +7,7 @@ from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
 
-BASE = Path("tests/data/rpath_reference")
+BASE = Path(__file__).parent / "data" / "rpath_reference"
 ECOPATH_DIR = BASE / "ecopath"
 ECOSIM_DIR = BASE / "ecosim"
 

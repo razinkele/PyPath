@@ -15,8 +15,8 @@ from pypath.core.ecosim import (
 )
 from pypath.core.params import create_rpath_params
 
-ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
-ECOSIM_DIR = Path("tests/data/rpath_reference/ecosim")
+ECOPATH_DIR = Path(__file__).parent.parent / "data" / "rpath_reference" / "ecopath"
+ECOSIM_DIR = Path(__file__).parent.parent / "data" / "rpath_reference" / "ecosim"
 
 # load model
 import pandas as pd

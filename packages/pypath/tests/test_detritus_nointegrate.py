@@ -12,7 +12,7 @@ from pypath.core.ecosim import (
 from pypath.core.ecosim_deriv import deriv_vector
 from pypath.core.params import create_rpath_params
 
-RE = Path('tests/data/rpath_reference')
+RE = Path(__file__).parent / 'data' / 'rpath_reference'
 model_df = pd.read_csv(RE / 'ecopath' / 'model_params.csv')
 params = create_rpath_params(model_df['Group'].tolist(), [int(t) for t in model_df['Type'].tolist()])
 params.model = model_df

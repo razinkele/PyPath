@@ -26,7 +26,7 @@ from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
 
 # Path to reference data
-REFERENCE_DIR = Path("tests/data/rpath_reference")
+REFERENCE_DIR = Path(__file__).parent / "data" / "rpath_reference"
 ECOPATH_DIR = REFERENCE_DIR / "ecopath"
 ECOSIM_DIR = REFERENCE_DIR / "ecosim"
 

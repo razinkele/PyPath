@@ -9,7 +9,7 @@ from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.ecosim_deriv import deriv_vector, integrate_rk4
 from pypath.core.params import create_rpath_params
 
-REFERENCE_DIR = Path("tests/data/rpath_reference")
+REFERENCE_DIR = Path(__file__).parent / "data" / "rpath_reference"
 ECOPATH_DIR = REFERENCE_DIR / "ecopath"
 
 

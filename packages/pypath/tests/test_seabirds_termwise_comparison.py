@@ -27,8 +27,8 @@ def test_seabirds_termwise_matches_rpath_first_12_months():
     from pypath.core.ecosim_deriv import deriv_vector
     from pypath.core.params import create_rpath_params
 
-    ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
-    ECOSIM_DIR = Path("tests/data/rpath_reference/ecosim")
+    ECOPATH_DIR = Path(__file__).parent / "data" / "rpath_reference" / "ecopath"
+    ECOSIM_DIR = Path(__file__).parent / "data" / "rpath_reference" / "ecosim"
 
     # Prepare scenario
     model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")

@@ -15,7 +15,7 @@ def test_seabirds_monthly_m0_flag():
     from pypath.core.ecosim import rsim_scenario
     from pypath.core.params import create_rpath_params
 
-    ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
+    ECOPATH_DIR = Path(__file__).parent / "data" / "rpath_reference" / "ecopath"
 
     # Prepare pypath_ecosim scenario locally (do not rely on external fixture)
     model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")
@@ -80,7 +80,7 @@ def test_seabirds_find_first_divergence():
     from pypath.core.ecosim import rsim_scenario
     from pypath.core.params import create_rpath_params
 
-    ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
+    ECOPATH_DIR = Path(__file__).parent / "data" / "rpath_reference" / "ecopath"
     model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR / "diet_matrix.csv")
     groups = model_df["Group"].tolist()
@@ -126,7 +126,7 @@ def test_seabirds_initial_m0_persistence():
     from pypath.core.ecosim import rsim_scenario
     from pypath.core.params import create_rpath_params
 
-    ECOPATH_DIR = Path("tests/data/rpath_reference/ecopath")
+    ECOPATH_DIR = Path(__file__).parent / "data" / "rpath_reference" / "ecopath"
     model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR / "diet_matrix.csv")
     groups = model_df["Group"].tolist()
@@ -155,7 +155,7 @@ def test_seabirds_initial_m0_persistence():
 
     # Check against reference value in ecosim_params.json
     import json
-    ref = json.load(open('tests/data/rpath_reference/ecosim/ecosim_params.json'))
+    ref = json.load(open(Path(__file__).parent / 'data' / 'rpath_reference' / 'ecosim' / 'ecosim_params.json'))
     ref_m0 = float(ref['MzeroMort'][sidx])
     print(f"Seabirds M0 reference:  {ref_m0:.12e}")
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-DIAG_DIR = Path("tests/data/rpath_reference/ecosim/diagnostics")
+DIAG_DIR = Path(__file__).parent / "data" / "rpath_reference" / "ecosim" / "diagnostics"
 
 
 def test_rpath_qq_provided_when_r_available():

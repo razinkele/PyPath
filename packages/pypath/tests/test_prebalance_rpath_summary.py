@@ -4,7 +4,7 @@ from app.pages.prebalance import make_rpath_status_badge, rpath_diagnostics_summ
 
 
 def test_rpath_diagnostics_summary_detects_provided():
-    diag = Path("tests/data/rpath_reference/ecosim/diagnostics")
+    diag = Path(__file__).parent / "data" / "rpath_reference" / "ecosim" / "diagnostics"
     s = rpath_diagnostics_summary(diag)
     assert isinstance(s, str)
     assert "provided" in s or "not provided" in s
