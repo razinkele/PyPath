@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "pypath-shiny"
 version = "0.3.0"
 description = "Shiny web frontend for PyPath EwE food web modeling"
+readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
