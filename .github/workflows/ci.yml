@@ -32,20 +32,20 @@ jobs:
       - name: Upgrade pip and install dev deps
         run: |
           python -m pip install --upgrade pip
-          pip install -e '.[dev]'
+          pip install -e 'packages/pypath[dev]'
 
       - name: Ruff Lint
-        run: ruff check .
+        run: ruff check packages/
 
       - name: Black check
-        run: black --check .
+        run: black --check packages/
 
       - name: Type check (mypy)
-        run: mypy src --config-file pyproject.toml || true
+        run: mypy packages/pypath/src --config-file packages/pypath/pyproject.toml || true
 
       - name: Run tests (unit)
         run: |
-          pytest -q -m "not integration and not slow" --maxfail=1 --disable-warnings
+          pytest packages/pypath/tests -q -m "not integration and not slow" --maxfail=1 --disable-warnings
 
       - name: Upload test results (artifact)
         if: always()

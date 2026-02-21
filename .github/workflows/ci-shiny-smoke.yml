@@ -24,21 +24,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Try to install from project; fall back to installing test dependencies
-          pip install -e . || true
-          pip install pytest shiny shinyswatch playwright plotly
+          pip install -e 'packages/pypath[interactive,spatial]'
+          pip install -e 'packages/pypath-shiny'
+          pip install pytest playwright
           python -m playwright install --with-deps chromium
 
       - name: Run shinyswatch integration tests
         run: |
-          python -m pytest -q tests/test_shinyswatch_integration.py -q
+          python -m pytest -q packages/pypath-shiny/tests/test_shinyswatch_integration.py -q
 
       - name: Start Shiny server
         run: |
-          # Start Shiny in the background and capture PID
-          nohup python -m shiny run app/app.py --port 8000 > server.log 2>&1 &
+          nohup python -m shiny run packages/pypath-shiny/src/pypath_shiny/app.py --port 8000 > server.log 2>&1 &
           echo $! > server.pid
-          # Wait for server to be available (max 30s)
           for i in $(seq 1 30); do
             if curl -sSf http://127.0.0.1:8000 >/dev/null; then
               echo "server up"
