@@ -10,10 +10,7 @@ import plotly.graph_objects as go
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
-try:
-    from app.config import PARAM_RANGES
-except ModuleNotFoundError:
-    from config import PARAM_RANGES
+from pypath_shiny.config import PARAM_RANGES
 
 
 def optimization_demo_ui():

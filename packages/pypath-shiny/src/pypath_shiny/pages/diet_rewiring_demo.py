@@ -10,10 +10,7 @@ from plotly.subplots import make_subplots
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
-try:
-    from app.config import DEFAULTS
-except ModuleNotFoundError:
-    from config import DEFAULTS
+from pypath_shiny.config import DEFAULTS
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.forcing import DietRewiring

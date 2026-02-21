@@ -5,10 +5,7 @@ import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
-try:
-    from app.config import PLOTS, UI
-except ModuleNotFoundError:
-    from config import PLOTS, UI
+from pypath_shiny.config import PLOTS, UI
 
 # Import shared utilities (pypath path setup handled by app/__init__.py)
 from .utils import get_model_info

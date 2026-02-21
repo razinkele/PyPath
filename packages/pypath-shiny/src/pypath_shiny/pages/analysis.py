@@ -25,24 +25,11 @@ from pypath.core.plotting import (
 )
 
 # Import centralized logger and config
-try:
-    from app.config import THRESHOLDS, UI
-    from app.logger import get_logger
-    from app.pages.utils import is_balanced_model
+from pypath_shiny.config import THRESHOLDS, UI
+from pypath_shiny.logger import get_logger
+from pypath_shiny.pages.utils import is_balanced_model
 
-    logger = get_logger(__name__)
-except ModuleNotFoundError:
-    import sys
-    from pathlib import Path as PathLib
-
-    app_dir = PathLib(__file__).parent.parent
-    if str(app_dir) not in sys.path:
-        sys.path.insert(0, str(app_dir))
-    from config import THRESHOLDS, UI
-    from logger import get_logger
-    from pages.utils import is_balanced_model
-
-    logger = get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def analysis_ui():

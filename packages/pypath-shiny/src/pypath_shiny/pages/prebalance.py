@@ -16,22 +16,14 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 # Get logger
 logger = logging.getLogger("pypath_app.prebalance")
 
-try:
-    from app.config import PLOTS, UI
-    from app.pages.utils import is_rpath_params
-except ModuleNotFoundError:
-    from config import PLOTS, UI
-    from pages.utils import is_rpath_params
+from pypath_shiny.config import PLOTS, UI
+from pypath_shiny.pages.utils import is_rpath_params
 
 # Prebalance functions are imported lazily inside the diagnostics handler to avoid path issues
 # and to keep top-level imports clean.
 
 # Diagnostics helper (uses loader from utils)
-try:
-    from app.pages.utils import load_rpath_diagnostics
-except Exception:
-    # Fallback import path
-    from pages.utils import load_rpath_diagnostics
+from pypath_shiny.pages.utils import load_rpath_diagnostics
 
 
 def rpath_diagnostics_summary(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics") -> str:
@@ -396,16 +388,8 @@ def prebalance_server(
 
             ui.notification_show("Running diagnostics...", duration=3)
 
-            # Lazy import to avoid top-level path manipulation and E402
-            try:
-                from pypath.analysis.prebalance import generate_prebalance_report
-            except Exception:
-                import sys
-
-                root_dir = Path(__file__).parent.parent.parent
-                if str(root_dir) not in sys.path:
-                    sys.path.insert(0, str(root_dir))
-                from src.pypath.analysis.prebalance import generate_prebalance_report
+            # Lazy import to avoid circular imports at module level
+            from pypath.analysis.prebalance import generate_prebalance_report
 
             # Generate diagnostic report
             report = generate_prebalance_report(data)
@@ -757,22 +741,11 @@ def prebalance_server(
         plot_type = input.plot_type()
 
         try:
-            # Lazy-import plotting helpers to avoid E402 and path issues
-            try:
-                from pypath.analysis.prebalance import (
-                    plot_biomass_vs_trophic_level,
-                    plot_vital_rate_vs_trophic_level,
-                )
-            except Exception:
-                import sys
-
-                root_dir = Path(__file__).parent.parent.parent
-                if str(root_dir) not in sys.path:
-                    sys.path.insert(0, str(root_dir))
-                from src.pypath.analysis.prebalance import (
-                    plot_biomass_vs_trophic_level,
-                    plot_vital_rate_vs_trophic_level,
-                )
+            # Lazy-import plotting helpers
+            from pypath.analysis.prebalance import (
+                plot_biomass_vs_trophic_level,
+                plot_vital_rate_vs_trophic_level,
+            )
 
             if plot_type == "biomass":
                 fig = plot_biomass_vs_trophic_level(

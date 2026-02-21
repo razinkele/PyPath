@@ -28,10 +28,7 @@ from .validation import (
 )
 
 # Configuration imports
-try:
-    from app.config import DEFAULTS, PLOTS, THRESHOLDS
-except ModuleNotFoundError:
-    from config import DEFAULTS, PLOTS, THRESHOLDS
+from pypath_shiny.config import DEFAULTS, PLOTS, THRESHOLDS
 
 
 def _get_groups_from_model(model: Union[Rpath, RpathParams]) -> List[str]:

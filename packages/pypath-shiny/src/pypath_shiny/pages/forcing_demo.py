@@ -18,10 +18,7 @@ from pypath.core.forcing import (
 )
 
 # Configuration imports
-try:
-    from app.config import PARAM_RANGES
-except ModuleNotFoundError:
-    from config import PARAM_RANGES
+from pypath_shiny.config import PARAM_RANGES
 
 
 def forcing_demo_ui():

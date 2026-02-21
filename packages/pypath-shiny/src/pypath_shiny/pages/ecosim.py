@@ -5,10 +5,7 @@ import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
-try:
-    from app.config import PARAM_RANGES, THRESHOLDS, UI
-except ModuleNotFoundError:
-    from config import PARAM_RANGES, THRESHOLDS, UI
+from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.autofix import validate_and_fix_scenario
@@ -20,10 +17,7 @@ from pypath.core.forcing import DietRewiring
 # Helper to check model balance and show notification if not
 def _require_balanced_model_or_notify(model) -> bool:
     """Return True if model is balanced, otherwise show a UI error and return False."""
-    try:
-        from app.pages.utils import is_balanced_model
-    except ModuleNotFoundError:
-        from pages.utils import is_balanced_model
+    from pypath_shiny.pages.utils import is_balanced_model
 
     if not is_balanced_model(model):
         ui.notification_show(

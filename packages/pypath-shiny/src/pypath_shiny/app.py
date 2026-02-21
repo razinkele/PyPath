@@ -6,7 +6,6 @@ implementing Ecopath mass-balance and Ecosim dynamic simulation.
 """
 
 import logging
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -42,54 +41,25 @@ logger = logging.getLogger("pypath_app")
 # App directory for static assets
 APP_DIR = Path(__file__).parent
 
-# Add the root directory to the path so absolute imports work
-root_dir = APP_DIR.parent
-if str(root_dir) not in sys.path:
-    sys.path.insert(0, str(root_dir))
+# Configuration imports
+from pypath_shiny.config import UI
 
 # Import page modules - organized by category
-# Try absolute imports first (normal when app is a package).
-# Fall back to local imports when running app/app.py directly (e.g., 'uvicorn app.app:app' run from inside the app/ directory).
-try:
-    # Core pages
-    # Configuration imports
-    from app.config import UI
-
-    # Advanced features
-    from app.pages import (
-        about,
-        analysis,
-        data_import,
-        diet_rewiring_demo,
-        ecopath,
-        ecosim,
-        ecospace,
-        forcing_demo,
-        home,
-        multistanza,
-        optimization_demo,
-        prebalance,
-        results,
-    )
-except ModuleNotFoundError:
-    # Fallback: import modules as top-level local modules (when script is executed from the app/ dir)
-    from config import UI
-
-    from pages import (
-        about,
-        analysis,
-        data_import,
-        diet_rewiring_demo,
-        ecopath,
-        ecosim,
-        ecospace,
-        forcing_demo,
-        home,
-        multistanza,
-        optimization_demo,
-        prebalance,
-        results,
-    )
+from pypath_shiny.pages import (
+    about,
+    analysis,
+    data_import,
+    diet_rewiring_demo,
+    ecopath,
+    ecosim,
+    ecospace,
+    forcing_demo,
+    home,
+    multistanza,
+    optimization_demo,
+    prebalance,
+    results,
+)
 
 # App UI with dashboard layout and Bootstrap theme
 app_ui = ui.page_navbar(
@@ -340,6 +310,12 @@ def server(input: Inputs, output: Outputs, session: Session):
             server_init()
         except Exception as e:
             logger.error(f"Failed to initialize {page_name} server: {e}", exc_info=True)
+
+
+def main():
+    """Launch the PyPath Shiny application."""
+    import uvicorn
+    uvicorn.run("pypath_shiny.app:app", host="0.0.0.0", port=8000, reload=True)
 
 
 # Create the app with static assets

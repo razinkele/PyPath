@@ -11,10 +11,7 @@ from plotly.subplots import make_subplots
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
-try:
-    from app.config import PARAM_RANGES
-except ModuleNotFoundError:
-    from config import PARAM_RANGES
+from pypath_shiny.config import PARAM_RANGES
 
 
 def multistanza_ui():

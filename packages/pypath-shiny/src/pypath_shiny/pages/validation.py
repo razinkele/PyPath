@@ -9,10 +9,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-try:
-    from app.config import NO_DATA_VALUE, VALIDATION
-except ModuleNotFoundError:
-    from config import NO_DATA_VALUE, VALIDATION
+from pypath_shiny.config import NO_DATA_VALUE, VALIDATION
 
 
 def validate_group_types(

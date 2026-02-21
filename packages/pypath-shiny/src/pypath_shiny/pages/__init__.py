@@ -22,7 +22,7 @@ for _m in [
     "validation",
 ]:
     try:
-        _optional_modules[_m] = __import__(f"app.pages.{_m}", fromlist=[_m])
+        _optional_modules[_m] = __import__(f"pypath_shiny.pages.{_m}", fromlist=[_m])
     except Exception:
         _optional_modules[_m] = None
 

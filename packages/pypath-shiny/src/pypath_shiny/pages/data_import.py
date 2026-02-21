@@ -31,10 +31,7 @@ from .utils import (
 )
 
 # Configuration imports
-try:
-    from app.config import PARAM_RANGES, UI
-except ModuleNotFoundError:
-    from config import PARAM_RANGES, UI
+from pypath_shiny.config import PARAM_RANGES, UI
 
 
 def import_ui():

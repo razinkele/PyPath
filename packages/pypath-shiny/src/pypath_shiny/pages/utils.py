@@ -12,10 +12,7 @@ import numpy as np
 import pandas as pd
 
 # Import centralized configuration
-try:
-    from app.config import DISPLAY, NO_DATA_VALUE, THRESHOLDS, TYPE_LABELS
-except ModuleNotFoundError:
-    from config import DISPLAY, NO_DATA_VALUE, THRESHOLDS, TYPE_LABELS
+from pypath_shiny.config import DISPLAY, NO_DATA_VALUE, THRESHOLDS, TYPE_LABELS
 
 
 # =============================================================================

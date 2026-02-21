@@ -20,10 +20,7 @@ import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, req, ui
 
 # Import centralized configuration
-try:
-    from app.config import PARAM_RANGES, SPATIAL
-except ModuleNotFoundError:
-    from config import PARAM_RANGES, SPATIAL
+from pypath_shiny.config import PARAM_RANGES, SPATIAL
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.spatial import (
