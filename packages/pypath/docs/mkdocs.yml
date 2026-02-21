@@ -1,0 +1,37 @@
+site_name: PyPath EwE Documentation
+site_description: Python implementation of Ecopath with Ecosim (EwE) for food web modeling
+site_url: https://razinkele.github.io/PyPath/
+repo_url: https://github.com/razinkele/PyPath
+repo_name: razinkele/PyPath
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["../src"]
+          options:
+            show_source: true
+            show_root_heading: true
+            heading_level: 3
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - API Reference:
+      - Core (Ecopath/Ecosim): api/core.md
+      - I/O: api/io.md
+      - Spatial (Ecospace): api/spatial.md
+      - Analysis: api/analysis.md
