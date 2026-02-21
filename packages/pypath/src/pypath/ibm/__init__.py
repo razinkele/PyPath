@@ -16,6 +16,8 @@ IBMGroup
     Abstract base class for all IBM group implementations.
 BioenergParams
     Dataclass holding Wisconsin bioenergetics model parameters.
+PredationParams
+    Dataclass holding size-structured predation selectivity parameters.
 
 Example
 -------
@@ -33,12 +35,14 @@ Example
 
 from pypath.ibm.base import IBMGroup, IBMStepResult, SuperIndividual
 from pypath.ibm.bioenergetics import BioenergParams
+from pypath.ibm.predation import PredationParams
 
 __all__ = [
     "SuperIndividual",
     "IBMStepResult",
     "IBMGroup",
     "BioenergParams",
+    "PredationParams",
 ]
 
 __version__ = "0.1.0"
