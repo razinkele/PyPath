@@ -2,7 +2,8 @@ from pathlib import Path
 
 from pypath_shiny.pages.utils import load_rpath_diagnostics
 
-DIAG_DIR = Path("tests/data/rpath_reference/ecosim/diagnostics")
+# Reference data lives in the core pypath package's test directory
+DIAG_DIR = Path(__file__).parent.parent.parent / "pypath" / "tests" / "data" / "rpath_reference" / "ecosim" / "diagnostics"
 
 
 def test_load_rpath_diagnostics_success():
