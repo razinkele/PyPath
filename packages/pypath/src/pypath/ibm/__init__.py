@@ -18,6 +18,10 @@ BioenergParams
     Dataclass holding Wisconsin bioenergetics model parameters.
 PredationParams
     Dataclass holding size-structured predation selectivity parameters.
+MovementParams
+    Dataclass holding spatial movement parameters.
+ForagingParams
+    Dataclass holding adaptive foraging parameters.
 
 Example
 -------
@@ -35,6 +39,7 @@ Example
 
 from pypath.ibm.base import IBMGroup, IBMStepResult, SuperIndividual
 from pypath.ibm.bioenergetics import BioenergParams
+from pypath.ibm.behavior import ForagingParams, MovementParams
 from pypath.ibm.predation import PredationParams
 
 __all__ = [
@@ -42,6 +47,8 @@ __all__ = [
     "IBMStepResult",
     "IBMGroup",
     "BioenergParams",
+    "ForagingParams",
+    "MovementParams",
     "PredationParams",
 ]
 
