@@ -10,7 +10,7 @@ import pytest
 
 try:
     import geopandas as gpd
-    from pages.ecospace import create_hexagon, create_hexagonal_grid_in_boundary
+    from pypath_shiny.pages.ecospace import create_hexagon, create_hexagonal_grid_in_boundary
     from shapely.geometry import Point, Polygon
 
     HAS_GIS = True

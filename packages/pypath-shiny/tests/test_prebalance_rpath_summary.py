@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.pages.prebalance import make_rpath_status_badge, rpath_diagnostics_summary
+from pypath_shiny.pages.prebalance import make_rpath_status_badge, rpath_diagnostics_summary
 
 
 def test_rpath_diagnostics_summary_detects_provided():

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.pages.prebalance import run_verify_rpath
+from pypath_shiny.pages.prebalance import run_verify_rpath
 
 
 def test_run_verify_rpath_returns_expected():

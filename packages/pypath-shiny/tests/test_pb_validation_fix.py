@@ -7,8 +7,8 @@ This script tests that:
 3. The validation messages are correct
 """
 
-from config import VALIDATION
-from pages.validation import validate_pb
+from pypath_shiny.config import VALIDATION
+from pypath_shiny.pages.validation import validate_pb
 
 
 def test_pb_validation():

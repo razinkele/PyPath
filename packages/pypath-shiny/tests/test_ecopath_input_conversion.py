@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from pages.ecopath import _convert_input_to_numeric
+from pypath_shiny.pages.ecopath import _convert_input_to_numeric
 
 
 def test_convert_input_numeric_zero_and_blank():
