@@ -2,7 +2,7 @@
 Simple test for P/B validation fix (avoids circular imports).
 """
 
-from config import VALIDATION
+from pypath_shiny.config import VALIDATION
 
 
 def test_config():

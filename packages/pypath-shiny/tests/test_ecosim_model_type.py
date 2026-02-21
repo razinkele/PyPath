@@ -1,6 +1,6 @@
 import pytest
 
-from pages import utils
+from pypath_shiny.pages import utils
 
 
 def test_is_balanced_model_and_get_model_type():
@@ -23,7 +23,7 @@ def test_is_balanced_model_and_get_model_type():
 
 
 def test_require_balanced_model_or_notify(monkeypatch):
-    from pages import ecosim
+    from pypath_shiny.pages import ecosim
     from pypath.core.ecopath import rpath
     from pypath.core.params import create_rpath_params
 
