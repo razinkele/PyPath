@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -23,7 +25,7 @@ def test_m0_unchanged_when_fishing_correct():
     """
 
     # Load model
-    ECOPATH_DIR = "tests/data/rpath_reference/ecopath"
+    ECOPATH_DIR = str(Path(__file__).parent / "data" / "rpath_reference" / "ecopath")
     model_df = pd.read_csv(ECOPATH_DIR + "/model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR + "/diet_matrix.csv")
     params = create_rpath_params(model_df['Group'].tolist(), model_df['Type'].tolist())

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -11,10 +13,12 @@ from pypath.core.ecosim import (
 from pypath.core.ecosim_deriv import deriv_vector
 from pypath.core.params import create_rpath_params
 
+_ECOPATH_DIR = str(Path(__file__).parent / "data" / "rpath_reference" / "ecopath")
+
 
 def test_detritus_not_consumed_without_inputs():
     """Fail if any detritus group is consumed but has no DetFate sources."""
-    ECOPATH_DIR = "tests/data/rpath_reference/ecopath"
+    ECOPATH_DIR = _ECOPATH_DIR
     model_df = pd.read_csv(ECOPATH_DIR + "/model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR + "/diet_matrix.csv")
 
@@ -130,7 +134,7 @@ def test_detritus_not_consumed_without_inputs():
 
 def test_deriv_includes_fish_discard_links():
     """Verify that deriv_vector applies fish discard mappings when provided in params dict."""
-    ECOPATH_DIR = "tests/data/rpath_reference/ecopath"
+    ECOPATH_DIR = _ECOPATH_DIR
     model_df = pd.read_csv(ECOPATH_DIR + "/model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR + "/diet_matrix.csv")
 

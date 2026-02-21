@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -13,7 +15,7 @@ def test_detritus_link_coverage():
     and no fish discards link, which can lead to consumption-without-inputs and late
     biomass collapse.
     """
-    ECOPATH_DIR = "tests/data/rpath_reference/ecopath"
+    ECOPATH_DIR = str(Path(__file__).parent / "data" / "rpath_reference" / "ecopath")
     model_df = pd.read_csv(ECOPATH_DIR + "/model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR + "/diet_matrix.csv")
 

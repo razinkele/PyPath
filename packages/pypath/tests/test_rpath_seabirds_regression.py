@@ -5,6 +5,8 @@ Seabirds trajectory matches the Rpath reference to high precision. It will
 fail until the underlying drift is fixed, serving as a reproducible regression
 capture.
 """
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -13,14 +15,14 @@ from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
 
-REFERENCE_DIR = 'tests/data/rpath_reference'
-ECOPATH_DIR = REFERENCE_DIR + '/ecopath'
-ECOSIM_DIR = REFERENCE_DIR + '/ecosim'
+REFERENCE_DIR = Path(__file__).parent / 'data' / 'rpath_reference'
+ECOPATH_DIR = REFERENCE_DIR / 'ecopath'
+ECOSIM_DIR = REFERENCE_DIR / 'ecosim'
 
 
 def test_seabirds_match_rpath_rk4():
-    model_df = pd.read_csv(ECOPATH_DIR + '/model_params.csv')
-    diet_df = pd.read_csv(ECOPATH_DIR + '/diet_matrix.csv')
+    model_df = pd.read_csv(ECOPATH_DIR / 'model_params.csv')
+    diet_df = pd.read_csv(ECOPATH_DIR / 'diet_matrix.csv')
 
     groups = model_df['Group'].tolist()
     types = model_df['Type'].tolist()
@@ -47,7 +49,7 @@ def test_seabirds_match_rpath_rk4():
         pytest.skip("Not enough months to aggregate to annual")
     p_pYear = biom_series[: n_full_years * 12].reshape(n_full_years, 12).mean(axis=1)
 
-    rpath_traj = pd.read_csv(ECOSIM_DIR + '/biomass_trajectory_rk4.csv')
+    rpath_traj = pd.read_csv(ECOSIM_DIR / 'biomass_trajectory_rk4.csv')
     r_pSeab = rpath_traj['Seabirds'].values
     r_pYear = r_pSeab[: p_pYear.shape[0] * 12].reshape(-1, 12).mean(axis=1)
 
