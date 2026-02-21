@@ -22,6 +22,8 @@ MovementParams
     Dataclass holding spatial movement parameters.
 ForagingParams
     Dataclass holding adaptive foraging parameters.
+ReproductionParams
+    Dataclass holding stochastic reproduction and larval survival parameters.
 
 Example
 -------
@@ -41,6 +43,7 @@ from pypath.ibm.base import IBMGroup, IBMStepResult, SuperIndividual
 from pypath.ibm.bioenergetics import BioenergParams
 from pypath.ibm.behavior import ForagingParams, MovementParams
 from pypath.ibm.predation import PredationParams
+from pypath.ibm.reproduction import ReproductionParams
 
 __all__ = [
     "SuperIndividual",
@@ -50,6 +53,7 @@ __all__ = [
     "ForagingParams",
     "MovementParams",
     "PredationParams",
+    "ReproductionParams",
 ]
 
 __version__ = "0.1.0"
