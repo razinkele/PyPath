@@ -22,7 +22,7 @@ class TestAppStructure:
     def test_app_imports(self):
         """Test that app module can be imported."""
         try:
-            from app import app
+            from pypath_shiny import app
 
             assert app is not None
         except ImportError as e:
@@ -31,18 +31,18 @@ class TestAppStructure:
     def test_app_dir_constant(self):
         """Test that APP_DIR is correctly defined."""
         try:
-            from app.app import APP_DIR
+            from pypath_shiny.app import APP_DIR
 
             assert APP_DIR.exists()
             assert APP_DIR.is_dir()
-            assert APP_DIR.name == "app"
+            assert APP_DIR.name == "pypath_shiny"
         except ImportError:
             pytest.skip("Shiny not installed")
 
     def test_static_assets_exist(self):
         """Test that static assets directory exists."""
         try:
-            from app.app import APP_DIR
+            from pypath_shiny.app import APP_DIR
 
             static_dir = APP_DIR / "static"
             assert static_dir.exists()
@@ -57,7 +57,7 @@ class TestAppStructure:
     def test_page_modules_import(self):
         """Test that all page modules can be imported."""
         try:
-            from pages import (
+            from pypath_shiny.pages import (
                 about,
                 analysis,
                 data_import,
@@ -108,7 +108,7 @@ class TestUIComponents:
     def test_navbar_structure(self, mock_shiny):
         """Test that navbar has correct structure."""
         try:
-            from app.app import app_ui
+            from pypath_shiny.app import app_ui
 
             # App UI should be a page_navbar
             assert app_ui is not None
@@ -118,7 +118,7 @@ class TestUIComponents:
     def test_custom_css_loaded(self):
         """Test that custom CSS is present in the static directory."""
         try:
-            from app.app import APP_DIR
+            from pypath_shiny.app import APP_DIR
 
             static_dir = APP_DIR / "static"
             assert (static_dir / "custom.css").exists()
@@ -128,7 +128,7 @@ class TestUIComponents:
     def test_bootstrap_icons_loaded(self):
         """Test that Bootstrap Icons (or `bslib`) are referenced in the UI."""
         try:
-            from app.app import app_ui
+            from pypath_shiny.app import app_ui
 
             ui_str = str(app_ui)
             # bslib is the UI library used; ensure it's present in the UI markup
@@ -141,7 +141,7 @@ class TestUIComponents:
         try:
             from datetime import datetime
 
-            from app.app import app_ui
+            from pypath_shiny.app import app_ui
 
             ui_str = str(app_ui)
             current_year = str(datetime.now().year)
@@ -244,7 +244,7 @@ class TestErrorHandling:
         try:
             from shiny import Inputs, Outputs, Session
 
-            from app.app import server
+            from pypath_shiny.app import server
 
             # Create mock objects
             mock_input = Mock(spec=Inputs)
@@ -268,7 +268,7 @@ class TestErrorHandling:
         try:
             import inspect
 
-            from app.app import server
+            from pypath_shiny.app import server
 
             # Check that server function contains error handling
             source = inspect.getsource(server)
@@ -341,7 +341,7 @@ class TestNavigationStructure:
     def test_all_pages_have_ui_functions(self):
         """Test that all page modules have UI functions."""
         try:
-            from pages import (
+            from pypath_shiny.pages import (
                 about,
                 analysis,
                 data_import,
@@ -370,7 +370,7 @@ class TestNavigationStructure:
     def test_all_pages_have_server_functions(self):
         """Test that all page modules have server functions."""
         try:
-            from pages import (
+            from pypath_shiny.pages import (
                 about,
                 analysis,
                 data_import,
@@ -399,7 +399,7 @@ class TestNavigationStructure:
     def test_advanced_features_pages(self):
         """Test that advanced feature pages exist."""
         try:
-            from pages import (
+            from pypath_shiny.pages import (
                 diet_rewiring_demo,
                 ecospace,
                 forcing_demo,
@@ -436,7 +436,7 @@ class TestThemeAndSettings:
         try:
             import shinyswatch
 
-            from app.app import app_ui
+            from pypath_shiny.app import app_ui
 
             # Theme picker should be available
             assert shinyswatch is not None
@@ -452,7 +452,7 @@ class TestThemeAndSettings:
         try:
             import shinyswatch as _shinyswatch
 
-            from app.app import app_ui
+            from pypath_shiny.app import app_ui
 
             # The app uses flatly theme by default
             # This is verified in the source code
@@ -470,7 +470,7 @@ class TestDocumentation:
     def test_server_docstring_exists(self):
         """Test that server function has comprehensive docstring."""
         try:
-            from app.app import server
+            from pypath_shiny.app import server
 
             assert server.__doc__ is not None
             assert "Data Flow Architecture" in server.__doc__
@@ -483,7 +483,7 @@ class TestDocumentation:
         try:
             import inspect
 
-            from app.app import server
+            from pypath_shiny.app import server
 
             source = inspect.getsource(server)
             # Check for SharedData documentation

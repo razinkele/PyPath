@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.pages.utils import load_rpath_diagnostics
+from pypath_shiny.pages.utils import load_rpath_diagnostics
 
 DIAG_DIR = Path("tests/data/rpath_reference/ecosim/diagnostics")
 

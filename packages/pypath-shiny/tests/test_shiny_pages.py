@@ -14,7 +14,7 @@ class TestHomePage:
     def test_home_ui_exists(self):
         """Test that home UI function exists."""
         try:
-            from pages import home
+            from pypath_shiny.pages import home
 
             assert hasattr(home, "home_ui")
             assert callable(home.home_ui)
@@ -24,7 +24,7 @@ class TestHomePage:
     def test_home_server_exists(self):
         """Test that home server function exists."""
         try:
-            from pages import home
+            from pypath_shiny.pages import home
 
             assert hasattr(home, "home_server")
             assert callable(home.home_server)
@@ -36,7 +36,7 @@ class TestHomePage:
         try:
             import inspect
 
-            from pages import home
+            from pypath_shiny.pages import home
 
             sig = inspect.signature(home.home_server)
             params = list(sig.parameters.keys())
@@ -58,7 +58,7 @@ class TestDataImportPage:
     def test_import_ui_exists(self):
         """Test that import UI function exists."""
         try:
-            from pages import data_import
+            from pypath_shiny.pages import data_import
 
             assert hasattr(data_import, "import_ui")
             assert callable(data_import.import_ui)
@@ -70,7 +70,7 @@ class TestDataImportPage:
         try:
             import inspect
 
-            from pages import data_import
+            from pypath_shiny.pages import data_import
 
             sig = inspect.signature(data_import.import_server)
             params = list(sig.parameters.keys())
@@ -88,7 +88,7 @@ class TestEcopathPage:
     def test_ecopath_ui_exists(self):
         """Test that Ecopath UI function exists."""
         try:
-            from pages import ecopath
+            from pypath_shiny.pages import ecopath
 
             assert hasattr(ecopath, "ecopath_ui")
             assert callable(ecopath.ecopath_ui)
@@ -100,7 +100,7 @@ class TestEcopathPage:
         try:
             import inspect
 
-            from pages import ecopath
+            from pypath_shiny.pages import ecopath
 
             sig = inspect.signature(ecopath.ecopath_server)
             params = list(sig.parameters.keys())
@@ -118,7 +118,7 @@ class TestEcosimPage:
     def test_ecosim_ui_exists(self):
         """Test that Ecosim UI function exists."""
         try:
-            from pages import ecosim
+            from pypath_shiny.pages import ecosim
 
             assert hasattr(ecosim, "ecosim_ui")
             assert callable(ecosim.ecosim_ui)
@@ -130,7 +130,7 @@ class TestEcosimPage:
         try:
             import inspect
 
-            from pages import ecosim
+            from pypath_shiny.pages import ecosim
 
             sig = inspect.signature(ecosim.ecosim_server)
             params = list(sig.parameters.keys())
@@ -150,7 +150,7 @@ class TestResultsPage:
     def test_results_ui_exists(self):
         """Test that results UI function exists."""
         try:
-            from pages import results
+            from pypath_shiny.pages import results
 
             assert hasattr(results, "results_ui")
             assert callable(results.results_ui)
@@ -162,7 +162,7 @@ class TestResultsPage:
         try:
             import inspect
 
-            from pages import results
+            from pypath_shiny.pages import results
 
             sig = inspect.signature(results.results_server)
             params = list(sig.parameters.keys())
@@ -181,7 +181,7 @@ class TestAnalysisPage:
     def test_analysis_ui_exists(self):
         """Test that analysis UI function exists."""
         try:
-            from pages import analysis
+            from pypath_shiny.pages import analysis
 
             assert hasattr(analysis, "analysis_ui")
             assert callable(analysis.analysis_ui)
@@ -193,7 +193,7 @@ class TestAnalysisPage:
         try:
             import inspect
 
-            from pages import analysis
+            from pypath_shiny.pages import analysis
 
             sig = inspect.signature(analysis.analysis_server)
             params = list(sig.parameters.keys())
@@ -212,7 +212,7 @@ class TestAboutPage:
     def test_about_ui_exists(self):
         """Test that about UI function exists."""
         try:
-            from pages import about
+            from pypath_shiny.pages import about
 
             assert hasattr(about, "about_ui")
             assert callable(about.about_ui)
@@ -224,7 +224,7 @@ class TestAboutPage:
         try:
             import inspect
 
-            from pages import about
+            from pypath_shiny.pages import about
 
             sig = inspect.signature(about.about_server)
             params = list(sig.parameters.keys())
@@ -244,7 +244,7 @@ class TestMultiStanzaPage:
     def test_multistanza_ui_exists(self):
         """Test that multi-stanza UI function exists."""
         try:
-            from pages import multistanza
+            from pypath_shiny.pages import multistanza
 
             assert hasattr(multistanza, "multistanza_ui")
             assert callable(multistanza.multistanza_ui)
@@ -256,7 +256,7 @@ class TestMultiStanzaPage:
         try:
             import inspect
 
-            from pages import multistanza
+            from pypath_shiny.pages import multistanza
 
             sig = inspect.signature(multistanza.multistanza_server)
             params = list(sig.parameters.keys())
@@ -274,7 +274,7 @@ class TestEcospacePage:
     def test_ecospace_ui_exists(self):
         """Test that Ecospace UI function exists."""
         try:
-            from pages import ecospace
+            from pypath_shiny.pages import ecospace
 
             assert hasattr(ecospace, "ecospace_ui")
             assert callable(ecospace.ecospace_ui)
@@ -286,7 +286,7 @@ class TestEcospacePage:
         try:
             import inspect
 
-            from pages import ecospace
+            from pypath_shiny.pages import ecospace
 
             sig = inspect.signature(ecospace.ecospace_server)
             params = list(sig.parameters.keys())
@@ -306,7 +306,7 @@ class TestDemoPages:
     def test_forcing_demo_exists(self):
         """Test that forcing demo page exists."""
         try:
-            from pages import forcing_demo
+            from pypath_shiny.pages import forcing_demo
 
             assert hasattr(forcing_demo, "forcing_demo_ui")
             assert hasattr(forcing_demo, "forcing_demo_server")
@@ -318,7 +318,7 @@ class TestDemoPages:
     def test_diet_rewiring_demo_exists(self):
         """Test that diet rewiring demo page exists."""
         try:
-            from pages import diet_rewiring_demo
+            from pypath_shiny.pages import diet_rewiring_demo
 
             assert hasattr(diet_rewiring_demo, "diet_rewiring_demo_ui")
             assert hasattr(diet_rewiring_demo, "diet_rewiring_demo_server")
@@ -330,7 +330,7 @@ class TestDemoPages:
     def test_optimization_demo_exists(self):
         """Test that optimization demo page exists."""
         try:
-            from pages import optimization_demo
+            from pypath_shiny.pages import optimization_demo
 
             assert hasattr(optimization_demo, "optimization_demo_ui")
             assert hasattr(optimization_demo, "optimization_demo_server")
@@ -344,7 +344,7 @@ class TestDemoPages:
         try:
             import inspect
 
-            from pages import diet_rewiring_demo, forcing_demo, optimization_demo
+            from pypath_shiny.pages import diet_rewiring_demo, forcing_demo, optimization_demo
 
             # All demo pages should have: input, output, session (no shared state)
             for module in [forcing_demo, diet_rewiring_demo, optimization_demo]:
@@ -379,7 +379,7 @@ class TestPageConsistency:
             ]
 
             for module_name, prefix in pages_to_test:
-                module = __import__(f"pages.{module_name}", fromlist=[module_name])
+                module = __import__(f"pypath_shiny.pages.{module_name}", fromlist=[module_name])
                 ui_func = f"{prefix}_ui"
                 server_func = f"{prefix}_server"
 
@@ -393,7 +393,7 @@ class TestPageConsistency:
     def test_no_pages_return_none_from_ui(self):
         """Test that all UI functions return valid UI objects."""
         try:
-            from pages import (
+            from pypath_shiny.pages import (
                 about,
                 analysis,
                 data_import,
@@ -426,7 +426,7 @@ class TestUtilsModule:
     def test_utils_module_exists(self):
         """Test that utils module exists."""
         try:
-            from pages import utils
+            from pypath_shiny.pages import utils
 
             assert utils is not None
         except ImportError:
@@ -437,7 +437,7 @@ class TestUtilsModule:
         try:
             import inspect
 
-            from pages import utils
+            from pypath_shiny.pages import utils
 
             # Check that utils has functions (not empty)
             functions = [
