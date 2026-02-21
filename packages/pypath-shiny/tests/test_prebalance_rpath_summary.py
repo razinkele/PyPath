@@ -4,7 +4,8 @@ from pypath_shiny.pages.prebalance import make_rpath_status_badge, rpath_diagnos
 
 
 def test_rpath_diagnostics_summary_detects_provided():
-    diag = Path(__file__).parent / "data" / "rpath_reference" / "ecosim" / "diagnostics"
+    # Reference data lives in the core pypath package's test directory
+    diag = Path(__file__).parent.parent.parent / "pypath" / "tests" / "data" / "rpath_reference" / "ecosim" / "diagnostics"
     s = rpath_diagnostics_summary(diag)
     assert isinstance(s, str)
     assert "provided" in s or "not provided" in s

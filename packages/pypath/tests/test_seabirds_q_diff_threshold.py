@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 
-BASE = Path(__file__).resolve().parents[1]
-CMP_FP = BASE / "build" / "seabirds_py_vs_rpath_month952.csv"
+_REPO_ROOT = Path(__file__).resolve().parents[3]  # packages/pypath/tests -> repo root
+CMP_FP = _REPO_ROOT / "build" / "seabirds_py_vs_rpath_month952.csv"
 
 ABS_TOL = 5e-4
 REL_TOL = 2e-3
@@ -12,7 +12,7 @@ REL_TOL = 2e-3
 
 def _ensure_comparison():
     if not CMP_FP.exists():
-        subprocess.run(["python", str(BASE / "scripts" / "compare_py_vs_rpath_month952.py")], check=True)
+        subprocess.run(["python", str(_REPO_ROOT / "scripts" / "compare_py_vs_rpath_month952.py")], check=True)
 
 
 def test_seabirds_q_diffs_within_tolerance():
