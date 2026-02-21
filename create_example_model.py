@@ -583,7 +583,7 @@ def save_model(params, filename="example_coastal_model.csv"):
     print(f"\n8. Saving model to {filename}")
 
     # Create output directory
-    output_dir = Path("example_model_data")
+    output_dir = Path("packages/pypath/example_model_data")
     output_dir.mkdir(exist_ok=True)
 
     # Save basic parameters
@@ -718,7 +718,7 @@ if __name__ == "__main__":
 
         print("\nNext steps:")
         print(
-            "1. Load the model: params = read_rpath_params('example_model_data/model.csv', ...)"
+            "1. Load the model: params = read_rpath_params('packages/pypath/example_model_data/model.csv', ...)"
         )
         print("2. Run Ecosim: rsim_run(rsim_scenario(model, params))")
         print("3. Try optimization: See test_bayesian_optimization.py")
