@@ -14,6 +14,8 @@ IBMStepResult
     Dataclass returned by each IBM integration step.
 IBMGroup
     Abstract base class for all IBM group implementations.
+BioenergParams
+    Dataclass holding Wisconsin bioenergetics model parameters.
 
 Example
 -------
@@ -30,11 +32,13 @@ Example
 """
 
 from pypath.ibm.base import IBMGroup, IBMStepResult, SuperIndividual
+from pypath.ibm.bioenergetics import BioenergParams
 
 __all__ = [
     "SuperIndividual",
     "IBMStepResult",
     "IBMGroup",
+    "BioenergParams",
 ]
 
 __version__ = "0.1.0"
