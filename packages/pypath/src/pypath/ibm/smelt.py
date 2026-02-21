@@ -1,0 +1,476 @@
+"""
+SmeltIBM concrete implementation for Baltic smelt (Osmerus eperlanus).
+
+Orchestrates all IBM behavior modules -- bioenergetics, predation, foraging,
+reproduction, and growth -- into a single cohesive IBM group that can be
+injected into the Ecosim derivative loop.
+
+The SmeltIBM is initialized from Ecopath equilibrium biomass and creates an
+age-structured population of super-individuals using Von Bertalanffy growth
+curves.  Each time step, it runs four phases:
+
+1. **Forage + Grow**: adaptive foraging followed by Wisconsin bioenergetics.
+2. **Reproduce**: mature females spawn; surviving larvae become recruits.
+3. **Predation mortality**: size-structured mortality from Ecosim predators.
+4. **Bookkeeping**: add recruits, age individuals, remove senescent fish.
+
+Classes
+-------
+SmeltParams
+    Composite parameter dataclass combining all IBM sub-module parameters.
+SmeltIBM
+    Concrete IBMGroup implementation for Baltic smelt.
+"""
+
+from __future__ import annotations
+
+import logging
+import math
+import random
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
+
+import numpy as np
+
+from pypath.ibm.base import IBMGroup, IBMStepResult, SuperIndividual
+from pypath.ibm.behavior import ForagingParams, MovementParams, adaptive_forage
+from pypath.ibm.bioenergetics import (
+    BioenergParams,
+    allometric_length,
+    growth_step,
+)
+from pypath.ibm.predation import PredationParams, apply_predation_mortality
+from pypath.ibm.reproduction import (
+    ReproductionParams,
+    create_recruits,
+    spawn,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SmeltParams:
+    """Composite parameters for the SmeltIBM.
+
+    Combines all sub-module parameter sets plus species-specific Von
+    Bertalanffy growth parameters for Baltic smelt.
+
+    Parameters
+    ----------
+    bioenerg : BioenergParams
+        Wisconsin bioenergetics model parameters.
+    predation : PredationParams
+        Size-structured predation selectivity parameters.
+    foraging : ForagingParams
+        Adaptive prey-selection parameters.
+    movement : MovementParams
+        Spatial movement parameters.
+    reproduction : ReproductionParams
+        Spawning and larval survival parameters.
+    vbgf_k_mean : float
+        Mean Von Bertalanffy growth coefficient K (yr^-1).
+    vbgf_k_sd : float
+        Standard deviation of K across individuals.
+    vbgf_linf_mean : float
+        Mean asymptotic body length Linf (cm).
+    vbgf_linf_sd : float
+        Standard deviation of Linf across individuals.
+    max_age : float
+        Maximum age (years) before natural senescence removal.
+    """
+
+    bioenerg: BioenergParams
+    predation: PredationParams
+    foraging: ForagingParams
+    movement: MovementParams
+    reproduction: ReproductionParams
+    vbgf_k_mean: float = 0.3
+    vbgf_k_sd: float = 0.05
+    vbgf_linf_mean: float = 25.0
+    vbgf_linf_sd: float = 3.0
+    max_age: float = 10.0
+
+    @classmethod
+    def baltic_defaults(cls) -> "SmeltParams":
+        """Return default parameters for Baltic smelt (Osmerus eperlanus).
+
+        These are literature-based defaults suitable for the Baltic Sea
+        ecosystem.  All sub-parameter sets are populated with species-
+        specific values.
+
+        Returns
+        -------
+        SmeltParams
+            Fully populated parameter object.
+        """
+        # Number of functional groups for foraging arrays (sized generously;
+        # actual model may be smaller, but arrays are indexed by group index).
+        n_groups_default = 20
+
+        bioenerg = BioenergParams(
+            ra=0.0033,           # g O2/g/day at reference temp
+            rb=-0.227,           # metabolic weight exponent
+            q10=2.1,             # Q10 temperature coefficient
+            t_ref=10.0,          # reference temperature (C)
+            sda_fraction=0.172,  # specific dynamic action
+            unassimilated_fraction=0.27,  # unassimilated fraction
+            a_length=0.55,       # allometric length coefficient
+            b_length=0.333,      # allometric length exponent (cube root)
+            energy_density=5.0,  # kJ/g tissue
+            reproduction_fraction=0.3,
+        )
+
+        predation = PredationParams(
+            optimal_prey_length=10.0,  # cm
+            selectivity_sd=0.5,
+        )
+
+        foraging = ForagingParams(
+            energy_content=np.full(n_groups_default, 4.0),  # kJ/g
+            handling_time=np.full(n_groups_default, 1.0),    # time/g
+        )
+
+        movement = MovementParams(
+            base_speed=0.3,
+            habitat_weight=0.4,
+            food_weight=0.4,
+            predator_weight=0.2,
+            migration_temp_threshold=4.0,  # C
+            migration_months=(3, 4, 5),
+        )
+
+        reproduction = ReproductionParams(
+            fecundity_coefficient=200.0,  # eggs per g^exponent
+            fecundity_exponent=1.2,
+            larval_base_survival=0.01,
+            zooplankton_match_window=15.0,  # days
+            maturity_energy_threshold=0.5,
+            spawning_temp_threshold=4.0,    # C
+            larval_duration_days=30,
+            recruit_weight=0.5,  # g
+            recruit_length=3.0,  # cm
+        )
+
+        return cls(
+            bioenerg=bioenerg,
+            predation=predation,
+            foraging=foraging,
+            movement=movement,
+            reproduction=reproduction,
+            vbgf_k_mean=0.3,
+            vbgf_k_sd=0.05,
+            vbgf_linf_mean=25.0,
+            vbgf_linf_sd=3.0,
+            max_age=10.0,
+        )
+
+
+class SmeltIBM(IBMGroup):
+    """Concrete IBM group implementation for Baltic smelt.
+
+    Orchestrates bioenergetics, predation, foraging, and reproduction
+    modules for an age-structured population of super-individuals
+    representing Osmerus eperlanus.
+
+    Parameters
+    ----------
+    group_index : int
+        Zero-based index of this group in the Ecopath/Ecosim model.
+    n_groups : int
+        Total number of functional groups in the model.
+    params : SmeltParams
+        Species-specific parameters for all IBM sub-modules.
+    """
+
+    def __init__(
+        self,
+        group_index: int,
+        n_groups: int,
+        params: SmeltParams,
+    ) -> None:
+        super().__init__(group_index, n_groups)
+        self.params = params
+        self._last_consumption: np.ndarray = np.zeros(n_groups)
+        self._next_id: int = 0
+
+    def initialize_from_ecosim(
+        self,
+        biomass: float,
+        params: Dict[str, Any],
+        n_super_individuals: int = 500,
+    ) -> None:
+        """Initialize an age-structured population from Ecosim equilibrium.
+
+        Creates *n_super_individuals* super-individuals with ages
+        distributed from 0.5 to max_age.  Lengths are computed from the
+        Von Bertalanffy growth function, weights from inverse allometry,
+        and ``n_represented`` from an exponential survival curve scaled
+        so that total biomass matches the input.
+
+        Parameters
+        ----------
+        biomass : float
+            Initial total biomass (tonnes) from Ecopath.
+        params : Dict[str, Any]
+            Additional species-specific parameters (currently unused;
+            all parameters come from ``self.params``).
+        n_super_individuals : int, optional
+            Number of super-individuals to create (default 500).
+        """
+        sp = self.params
+        rng = np.random.default_rng(42)
+
+        # Distribute ages uniformly from 0.5 to max_age
+        ages = np.linspace(0.5, sp.max_age, n_super_individuals)
+
+        # Draw individual VBGF parameters with slight variation
+        k_vals = rng.normal(sp.vbgf_k_mean, sp.vbgf_k_sd, n_super_individuals)
+        k_vals = np.clip(k_vals, 0.05, None)  # K must be positive
+
+        linf_vals = rng.normal(sp.vbgf_linf_mean, sp.vbgf_linf_sd, n_super_individuals)
+        linf_vals = np.clip(linf_vals, 5.0, None)  # Linf must be positive
+
+        # Compute lengths from Von Bertalanffy: L = Linf * (1 - exp(-K * age))
+        lengths = linf_vals * (1.0 - np.exp(-k_vals * ages))
+        lengths = np.clip(lengths, 0.1, None)
+
+        # Compute weights from inverse allometry: weight = (length / a)^(1/b)
+        a = sp.bioenerg.a_length
+        b = sp.bioenerg.b_length
+        weights = (lengths / a) ** (1.0 / b)
+        weights = np.clip(weights, 0.1, None)
+
+        # Exponential survival curve: relative abundance decreases with age
+        # Use a natural mortality rate of ~0.5/yr as a reasonable default
+        natural_mortality = 0.5
+        survival_weights = np.exp(-natural_mortality * ages)
+
+        # Compute n_represented to match target biomass.
+        # Each individual contributes: n_represented_i * weight_i / 1e6 tonnes.
+        # We want sum_i(n_represented_i * weight_i / 1e6) = biomass.
+        # Set n_represented_i proportional to survival_weights and solve for
+        # the scaling constant.
+        # total_biomass = scale * sum(survival_weights * weights) / 1e6
+        raw_biomass_contribution = survival_weights * weights
+        total_raw = np.sum(raw_biomass_contribution)
+
+        if total_raw <= 0.0:
+            logger.warning(
+                "Cannot initialize SmeltIBM: total raw biomass contribution is zero."
+            )
+            return
+
+        # scale factor so that sum(scale * survival_weights * weight / 1e6) = biomass
+        scale = biomass * 1e6 / total_raw
+        n_represented = survival_weights * scale
+
+        # Maturity: assume fish mature at age >= 2 years
+        maturity_age = 2.0
+
+        individuals: List[SuperIndividual] = []
+        for i in range(n_super_individuals):
+            ind = SuperIndividual(
+                id=i,
+                n_represented=float(n_represented[i]),
+                weight=float(weights[i]),
+                length=float(lengths[i]),
+                age=float(ages[i]),
+                energy_reserve=float(weights[i]) * 0.1,  # initial reserve
+                patch_idx=0,
+                is_mature=bool(ages[i] >= maturity_age),
+                sex=random.choice([0, 1]),
+            )
+            individuals.append(ind)
+
+        self.individuals = individuals
+        self._next_id = n_super_individuals
+        self._last_consumption = np.zeros(self.n_groups)
+
+    def get_aggregate_biomass(self) -> float:
+        """Return total biomass (tonnes) across all super-individuals.
+
+        Returns
+        -------
+        float
+            Sum of ``total_biomass_tonnes()`` for each individual.
+        """
+        return sum(ind.total_biomass_tonnes() for ind in self.individuals)
+
+    def get_consumption_by_prey(self) -> np.ndarray:
+        """Return the consumption vector from the last time step.
+
+        Returns
+        -------
+        np.ndarray
+            1-D array of shape ``(n_groups,)`` with biomass consumed
+            from each prey group.
+        """
+        return self._last_consumption.copy()
+
+    def compute_step(
+        self,
+        prey_available: np.ndarray,
+        predation_pressure: float,
+        env_forcing: Dict[str, Any],
+        dt: float,
+    ) -> IBMStepResult:
+        """Advance the SmeltIBM population by one time step.
+
+        Executes four phases:
+
+        1. **Forage + Grow**: For each individual, compute adaptive foraging
+           allocation, then update weight and energy via bioenergetics.
+        2. **Reproduce**: Mature females spawn; surviving larvae create recruits.
+        3. **Predation mortality**: Apply size-structured predation.
+        4. **Bookkeeping**: Age individuals, add recruits, remove senescent fish.
+
+        Parameters
+        ----------
+        prey_available : np.ndarray
+            1-D array of shape ``(n_groups,)`` giving available biomass
+            per prey group.
+        predation_pressure : float
+            Total predation mortality rate on this group (yr^-1).
+        env_forcing : Dict[str, Any]
+            Environmental forcing with keys like ``"temperature"``,
+            ``"month"``, ``"zoo_peak_day"``.
+        dt : float
+            Time step size (fraction of a year).
+
+        Returns
+        -------
+        IBMStepResult
+            Aggregated results of this time step.
+        """
+        sp = self.params
+        temperature = env_forcing.get("temperature", 10.0)
+        month = env_forcing.get("month", 6)
+        zoo_peak_day = env_forcing.get("zoo_peak_day", 120.0)
+
+        biomass_before = self.get_aggregate_biomass()
+        n_before = sum(ind.n_represented for ind in self.individuals)
+
+        # Convert prey_available ndarray to dict for adaptive_forage
+        prey_dict: Dict[int, float] = {}
+        for idx in range(len(prey_available)):
+            if prey_available[idx] > 0.0:
+                prey_dict[idx] = float(prey_available[idx])
+
+        # Accumulate consumption across all individuals
+        total_consumption = np.zeros(self.n_groups)
+
+        # ================================================================
+        # Phase 1: Forage + Grow
+        # ================================================================
+        for ind in self.individuals:
+            # Maximum consumption scales allometrically with weight
+            # Using a simple Cmax = 0.1 * weight^0.7 * dt * 365 (per timestep)
+            max_consumption = 0.1 * (ind.weight ** 0.7) * dt * 365.0
+
+            # Scale max_consumption by number represented for total group take
+            # But adaptive_forage works per-individual, consumption is per-individual
+            allocation = adaptive_forage(
+                prey_available=prey_dict,
+                max_consumption=max_consumption,
+                individual_length=ind.length,
+                params=sp.foraging,
+            )
+
+            # Total consumption by this super-individual (per real individual)
+            ind_consumption = sum(allocation.values())
+
+            # Accumulate consumption in tonnes:
+            # per-individual consumption * n_represented / 1e6
+            for prey_idx, amount in allocation.items():
+                if prey_idx < self.n_groups:
+                    total_consumption[prey_idx] += (
+                        amount * ind.n_represented / 1e6
+                    )
+
+            # Grow: update weight and energy reserve
+            new_weight, new_energy = growth_step(
+                weight=ind.weight,
+                energy_reserve=ind.energy_reserve,
+                consumption=ind_consumption,
+                temperature=temperature,
+                is_mature=ind.is_mature,
+                dt=dt,
+                params=sp.bioenerg,
+            )
+
+            ind.weight = new_weight
+            ind.energy_reserve = new_energy
+            # Update length from new weight
+            ind.length = allometric_length(
+                ind.weight, sp.bioenerg.a_length, sp.bioenerg.b_length
+            )
+
+        # ================================================================
+        # Phase 2: Reproduce
+        # ================================================================
+        recruits: List[SuperIndividual] = []
+        # Approximate spawn day from month
+        spawn_day = month * 30.0
+
+        for ind in self.individuals:
+            total_eggs = spawn(ind, temperature, sp.reproduction)
+            if total_eggs > 0.0:
+                new_recruits = create_recruits(
+                    total_eggs=total_eggs,
+                    spawn_day=spawn_day,
+                    zoo_peak_day=zoo_peak_day,
+                    patch_idx=ind.patch_idx,
+                    next_id=self._next_id,
+                    params=sp.reproduction,
+                    n_super_individuals=1,
+                )
+                self._next_id += len(new_recruits)
+                recruits.extend(new_recruits)
+
+        # ================================================================
+        # Phase 3: Apply predation mortality
+        # ================================================================
+        n_before_predation = sum(ind.n_represented for ind in self.individuals)
+
+        survivors = apply_predation_mortality(
+            individuals=self.individuals,
+            total_mortality_rate=predation_pressure,
+            dt=dt,
+            params=sp.predation,
+        )
+
+        n_after_predation = sum(ind.n_represented for ind in survivors)
+        mortality_count = max(0.0, n_before_predation - n_after_predation)
+
+        # ================================================================
+        # Phase 4: Add recruits, age individuals, remove senescent fish
+        # ================================================================
+        # Age all survivors
+        for ind in survivors:
+            ind.age += dt
+
+        # Remove fish that exceeded max_age
+        survivors = [ind for ind in survivors if ind.age <= sp.max_age]
+
+        # Add recruits
+        survivors.extend(recruits)
+
+        # Update population
+        self.individuals = survivors
+
+        # Record consumption
+        self._last_consumption = total_consumption
+
+        # Compute results
+        biomass_after = self.get_aggregate_biomass()
+        production = biomass_after - biomass_before
+        recruitment_count = sum(r.n_represented for r in recruits)
+
+        return IBMStepResult(
+            biomass=biomass_after,
+            production=production,
+            consumption_by_prey=total_consumption,
+            mortality_count=mortality_count,
+            recruitment_count=recruitment_count,
+        )

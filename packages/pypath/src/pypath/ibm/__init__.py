@@ -24,6 +24,10 @@ ForagingParams
     Dataclass holding adaptive foraging parameters.
 ReproductionParams
     Dataclass holding stochastic reproduction and larval survival parameters.
+SmeltParams
+    Composite parameter dataclass for Baltic smelt IBM.
+SmeltIBM
+    Concrete IBMGroup implementation for Baltic smelt.
 
 Example
 -------
@@ -44,6 +48,7 @@ from pypath.ibm.bioenergetics import BioenergParams
 from pypath.ibm.behavior import ForagingParams, MovementParams
 from pypath.ibm.predation import PredationParams
 from pypath.ibm.reproduction import ReproductionParams
+from pypath.ibm.smelt import SmeltIBM, SmeltParams
 
 __all__ = [
     "SuperIndividual",
@@ -54,6 +59,8 @@ __all__ = [
     "MovementParams",
     "PredationParams",
     "ReproductionParams",
+    "SmeltParams",
+    "SmeltIBM",
 ]
 
 __version__ = "0.1.0"
