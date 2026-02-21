@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-DIAG_DIR = Path("tests/data/rpath_reference/ecosim/diagnostics")
+DIAG_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("tests/data/rpath_reference/ecosim/diagnostics")
 META = DIAG_DIR / "meta.json"
 QQ_CSV = DIAG_DIR / "seabirds_qq_rk4.csv"
 COMPS_CSV = DIAG_DIR / "seabirds_components_rk4.csv"

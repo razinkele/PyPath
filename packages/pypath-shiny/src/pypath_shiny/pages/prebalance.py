@@ -109,7 +109,7 @@ def run_verify_rpath(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/d
 
     try:
         proc = subprocess.run(
-            [sys.executable, str(script)], capture_output=True, text=True, check=False, timeout=30
+            [sys.executable, str(script), str(diag_dir)], capture_output=True, text=True, check=False, timeout=30
         )
         out = (proc.stdout or "") + "\n" + (proc.stderr or "")
         # Truncate to reasonable length
