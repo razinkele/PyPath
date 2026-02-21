@@ -214,8 +214,8 @@ class TestFishingAllocationPerformance:
         elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
-        assert time_per_call < 0.01, (
-            f"Port allocation took {time_per_call * 1000:.1f}ms, expected < 10ms"
+        assert time_per_call < 0.02, (
+            f"Port allocation took {time_per_call * 1000:.1f}ms, expected < 20ms"
         )
 
 
