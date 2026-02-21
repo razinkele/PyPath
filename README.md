@@ -13,6 +13,23 @@
 
 **PyPath** is a Python implementation of the Ecopath with Ecosim (EwE) ecosystem modeling approach. It extends the R package [Rpath](https://github.com/NOAA-EDAB/Rpath) with significant new features while maintaining full core compatibility.
 
+## Packages
+
+This repository contains two independently installable packages:
+
+| Package | PyPI | Description |
+|---------|------|-------------|
+| [pypath-ewe](packages/pypath/) | `pip install pypath-ewe` | Core Ecopath/Ecosim/Ecospace algorithms |
+| [pypath-shiny](packages/pypath-shiny/) | `pip install pypath-shiny` | Shiny web frontend for PyPath |
+
+### Development Install
+
+```bash
+# Install both packages in development mode
+pip install -e packages/pypath[all]
+pip install -e packages/pypath-shiny[dev]
+```
+
 ## Why PyPath?
 
 **PyPath = Rpath + Advanced Features**
@@ -135,13 +152,13 @@ python run_app.py --reload
 ### From PyPI (recommended)
 ```bash
 # Core package
-pip install pypath-ecopath
+pip install pypath-ewe
 
 # With web dashboard
-pip install pypath-ecopath[web]
+pip install pypath-ewe pypath-shiny
 
 # Everything (including dev tools)
-pip install pypath-ecopath[all]
+pip install pypath-ewe[all]
 ```
 
 ### From source
@@ -150,13 +167,14 @@ git clone https://github.com/razinkele/PyPath.git
 cd PyPath
 
 # Core only
-pip install -e .
+pip install -e packages/pypath
 
 # With web dashboard
-pip install -e ".[web]"
+pip install -e packages/pypath-shiny
 
 # Everything
-pip install -e ".[all]"
+pip install -e "packages/pypath[all]"
+pip install -e "packages/pypath-shiny[dev]"
 ```
 
 ### Requirements
@@ -374,7 +392,7 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 
 ## Development Status
 
-### Current Version: 0.2.2 (Development)
+### Current Version: 0.3.0 (Development)
 
 **Production Ready:**
 - ✅ Core Ecopath/Ecosim (100% Rpath compatible)
@@ -437,8 +455,9 @@ Please read our [contributing guidelines](CONTRIBUTING.md) before submitting a p
 ```bash
 git clone https://github.com/razinkele/PyPath.git
 cd PyPath
-pip install -e ".[dev]"
-pytest tests/ -v
+pip install -e "packages/pypath[dev]"
+pip install -e "packages/pypath-shiny[dev]"
+pytest packages/pypath/tests/ -v
 ```
 
 ## Citation
