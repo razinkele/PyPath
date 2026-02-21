@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pypath-shiny"
+version = "0.3.0"
+description = "Shiny web frontend for PyPath EwE food web modeling"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "PyPath Development Team"}
+]
+keywords = ["ecology", "ecosystem", "ecopath", "ecosim", "shiny", "dashboard"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Framework :: Shiny",
+]
+
+dependencies = [
+    "pypath-ewe[interactive,spatial]>=0.3.0",
+    "shiny>=1.0.0",
+    "shinyswatch>=0.7.0",
+    "httpx>=0.24",
+    "uvicorn>=0.23",
+]
+
+[project.optional-dependencies]
+biodata = [
+    "pypath-ewe[biodata]>=0.3.0",
+]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/razinkele/PyPath"
+Repository = "https://github.com/razinkele/PyPath"
+
+[project.scripts]
+pypath-shiny = "pypath_shiny.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pypath_shiny = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
