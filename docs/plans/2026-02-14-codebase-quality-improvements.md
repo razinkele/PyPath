@@ -10,7 +10,7 @@
 
 ---
 
-## Task 1: Fix Git Repository Corruption [C2]
+## Task 1: Fix Git Repository Corruption [C2] ✅ COMPLETE
 
 **Files:**
 - Fix: `.github/PULL_REQUEST_TEMPLATE.md`
@@ -73,7 +73,7 @@ git commit -m "fix: repair corrupted PR template and broken git refs"
 
 ---
 
-## Task 2: Clean Up Root-Level File Bloat [C3, L4, H3]
+## Task 2: Clean Up Root-Level File Bloat [C3, L4, H3] ✅ COMPLETE
 
 **Files:**
 - Move: 55+ root `.md` files to `docs/archive/`
@@ -195,7 +195,7 @@ git commit -m "chore: archive 55+ historical docs, clean temp files, consolidate
 
 ---
 
-## Task 3: Fix GitHub URL Inconsistency [C5]
+## Task 3: Fix GitHub URL Inconsistency [C5] ✅ COMPLETE
 
 **Files:**
 - Modify: `pyproject.toml` (lines 65-67)
@@ -244,7 +244,7 @@ git commit -m "fix: unify GitHub URLs to canonical razinkele/PyPath"
 
 ---
 
-## Task 4: Add Logging Infrastructure [C1 prep, H1]
+## Task 4: Add Logging Infrastructure [C1 prep, H1] ✅ COMPLETE
 
 **Files:**
 - Modify: `src/pypath/core/ecosim.py` (lines 20-38)
@@ -314,7 +314,7 @@ git commit -m "refactor: add logging infrastructure to core modules"
 
 ---
 
-## Task 5: Replace DEBUG Print Statements with Logging [H1]
+## Task 5: Replace DEBUG Print Statements with Logging [H1] ✅ COMPLETE
 
 **Files:**
 - Modify: `src/pypath/core/ecosim.py` (67 `print(DEBUG:` calls)
@@ -370,7 +370,7 @@ git commit -m "refactor: replace 86 DEBUG print statements with logger.debug cal
 
 ---
 
-## Task 6: Fix Silent Exception Handling in ecopath.py [C1 - Part 1]
+## Task 6: Fix Silent Exception Handling in ecopath.py [C1 - Part 1] ✅ COMPLETE
 
 **Files:**
 - Modify: `src/pypath/core/ecopath.py` (~5 instances)
@@ -438,7 +438,7 @@ git commit -m "refactor: replace silent exception handlers in ecopath.py with pr
 
 ---
 
-## Task 7: Fix Silent Exception Handling in ecosim_deriv.py [C1 - Part 2]
+## Task 7: Fix Silent Exception Handling in ecosim_deriv.py [C1 - Part 2] ✅ COMPLETE
 
 **Files:**
 - Modify: `src/pypath/core/ecosim_deriv.py` (~47 instances)
@@ -652,7 +652,7 @@ git commit -m "refactor: rename duplicate StanzaParams to RpathStanzaParams and 
 
 ---
 
-## Task 10: Fix pyproject.toml Issues [H5, L5, L6]
+## Task 10: Fix pyproject.toml Issues [H5, L5, L6] ✅ COMPLETE
 
 **Files:**
 - Modify: `pyproject.toml`
@@ -698,7 +698,7 @@ git commit -m "fix: update pyproject.toml dependencies and version references"
 
 ---
 
-## Task 11: Clean Up Unused Config and Hardcoded Values [M2]
+## Task 11: Clean Up Unused Config and Hardcoded Values [M2] ✅ COMPLETE
 
 **Files:**
 - Modify: `app/config.py`
@@ -736,7 +736,7 @@ git commit -m "chore: document unused config classes, clean up hardcoded styles"
 
 ---
 
-## Task 12: Fix safe_float() API Inconsistency [M7]
+## Task 12: Fix safe_float() API Inconsistency [M7] ✅ COMPLETE
 
 **Files:**
 - Modify: `src/pypath/io/utils.py` (line ~81)
@@ -797,7 +797,7 @@ git commit -m "fix: make safe_float() handle booleans consistently with string e
 
 ---
 
-## Task 13: Add Missing Type Annotations [M3]
+## Task 13: Add Missing Type Annotations [M3] ✅ COMPLETE
 
 **Files:**
 - Modify: `src/pypath/core/adjustments.py`
@@ -842,7 +842,7 @@ git commit -m "refactor: add return type annotations to adjustment functions"
 
 ---
 
-## Task 14: Standardize Test Import Patterns [M5]
+## Task 14: Standardize Test Import Patterns [M5] ✅ COMPLETE
 
 **Files:**
 - Modify: `tests/test_hexagonal_grids.py` (remove sys.path manipulation)
@@ -882,7 +882,7 @@ git commit -m "refactor: remove sys.path hacks from test files, use installed pa
 
 ---
 
-## Task 15: Refactor Duplicate Test Fixtures [H4]
+## Task 15: Refactor Duplicate Test Fixtures [H4] ✅ COMPLETE
 
 **Files:**
 - Modify: `tests/test_lt_model.py`
@@ -922,7 +922,7 @@ git commit -m "refactor: consolidate duplicate lt_params fixtures into module-le
 
 ---
 
-## Task 16: Fix README Version and Clean Up [L5]
+## Task 16: Fix README Version and Clean Up [L5] ✅ COMPLETE
 
 **Files:**
 - Modify: `README.md`
