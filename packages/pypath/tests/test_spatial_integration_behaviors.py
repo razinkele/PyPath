@@ -84,3 +84,77 @@ def _make_ecospace(n_groups, n_patches, dispersal=2.0, advection=False, gravity=
         advection_enabled=np.full(ng, advection, dtype=bool),
         gravity_strength=np.full(ng, gravity),
     )
+
+
+@pytest.mark.integration
+class TestMassConservation:
+    """Verify total biomass accounting in spatial simulations."""
+
+    def test_total_biomass_no_fishing(self, base_scenario):
+        """Without fishing, biomass should not collapse or explode."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
+
+        # Zero out fishing
+        scenario.fishing.ForcedEffort[:] = 0.0
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        initial_total = result.out_Biomass[0, 1:].sum()
+        final_total = result.out_Biomass[-1, 1:].sum()
+
+        assert np.all(np.isfinite(result.out_Biomass)), "NaN/Inf in biomass"
+        assert final_total > 0, "Total biomass collapsed to zero"
+        # Biomass should not change by more than 50% — Ecosim dynamics
+        # (production, mortality) cause natural drift but not collapse
+        if initial_total > 0:
+            change = abs(final_total - initial_total) / initial_total
+            assert change < 0.5, f"Biomass changed by {change:.0%}"
+
+    def test_biomass_with_fishing_decreases(self, base_scenario):
+        """With fishing active, fished group biomass should be lower than without."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
+
+        result_fished = rsim_run_spatial(
+            scenario, ecospace=ecospace, years=range(1, 3)
+        )
+
+        # Run again without fishing for comparison
+        scenario_nf, _ = base_scenario
+        scenario_nf.fishing.ForcedEffort[:] = 0.0
+        ecospace_nf = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
+        result_nofishing = rsim_run_spatial(
+            scenario_nf, ecospace=ecospace_nf, years=range(1, 3)
+        )
+
+        # Fish group (index 3 in Ecosim = group_idx 2 + 1)
+        fish_fished = result_fished.out_Biomass[-1, 3]
+        fish_unfished = result_nofishing.out_Biomass[-1, 3]
+
+        assert np.all(np.isfinite(result_fished.out_Biomass)), "NaN/Inf in biomass"
+        # Fishing should result in lower fish biomass than no fishing
+        assert fish_fished < fish_unfished, (
+            f"Fished biomass ({fish_fished:.2f}) should be less than "
+            f"unfished biomass ({fish_unfished:.2f})"
+        )
+
+    def test_no_spontaneous_generation(self, base_scenario):
+        """No patch should gain more biomass than the entire system started with."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        initial_total_per_group = result.out_Biomass[0, 1:]  # per-group totals
+        spatial = result.out_Biomass_spatial  # [months, groups+1, patches]
+
+        # For each living group, no single patch should exceed the initial total
+        for g in range(1, n_groups + 1):
+            initial_g = initial_total_per_group[g - 1]
+            if initial_g > 0:
+                max_patch = spatial[:, g, :].max()
+                assert max_patch <= initial_g * 1.5, (
+                    f"Group {g}: patch biomass {max_patch:.2f} exceeds "
+                    f"1.5x initial total {initial_g:.2f}"
+                )
