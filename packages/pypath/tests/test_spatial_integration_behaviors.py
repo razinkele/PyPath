@@ -9,6 +9,7 @@ Verifies three core properties of the spatial simulation:
 These tests address GitHub Issue #6.
 """
 
+import copy
 import warnings
 
 import numpy as np
@@ -113,14 +114,12 @@ class TestMassConservation:
 
     def test_biomass_with_fishing_decreases(self, base_scenario):
         """With fishing active, fished group biomass should be lower than without."""
-        import copy
-
         scenario, n_groups = base_scenario
         ecospace = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
 
         result_fished = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
 
-        # Deep-copy scenario for no-fishing comparison (avoid reusing mutated state)
+        # Fresh scenario for no-fishing comparison
         scenario_nf = copy.deepcopy(scenario)
         scenario_nf.fishing.ForcedEffort[:] = 0.0
         ecospace_nf = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
@@ -188,28 +187,23 @@ class TestMassConservation:
         spatial = result.out_Biomass_spatial  # [months, groups+1, patches]
         aggregate = result.out_Biomass  # [months, groups+1]
 
-        # For each timestep and group, spatial sum should match aggregate
-        for t_idx in [0, len(aggregate) // 2, -1]:
-            for g in range(1, n_groups + 1):
-                spatial_sum = spatial[t_idx, g, :].sum()
-                agg_val = aggregate[t_idx, g]
-                np.testing.assert_allclose(
-                    spatial_sum,
-                    agg_val,
-                    rtol=1e-6,
-                    err_msg=(
-                        f"t={t_idx}, group={g}: spatial sum "
-                        f"{spatial_sum:.6f} != aggregate {agg_val:.6f}"
-                    ),
-                )
+        # Spatial sum across patches should match aggregate for all timesteps
+        spatial_sums = spatial[:, 1:, :].sum(axis=2)  # [months, n_groups]
+        aggregate_groups = aggregate[:, 1:]  # [months, n_groups]
+        np.testing.assert_allclose(
+            spatial_sums,
+            aggregate_groups,
+            rtol=1e-6,
+            err_msg="Spatial patch sums do not match aggregate biomass",
+        )
 
 
 @pytest.mark.integration
 class TestMovementRedistribution:
     """Verify that dispersal causes correct biomass redistribution."""
 
-    def test_concentrated_biomass_spreads(self, base_scenario):
-        """Biomass concentrated in one patch should spread to neighbors."""
+    def test_dispersal_distributes_biomass(self, base_scenario):
+        """High dispersal should keep biomass distributed across multiple patches."""
         scenario, n_groups = base_scenario
         ng = n_groups + 1
         n_patches = 5
@@ -315,15 +309,13 @@ class TestMovementRedistribution:
 
     def test_higher_dispersal_faster_convergence(self, base_scenario):
         """Higher dispersal rate should maintain more uniform distribution."""
-        import copy
-
         scenario, n_groups = base_scenario
 
         # Low dispersal
         eco_low = _make_ecospace(n_groups, n_patches=5, dispersal=0.5)
         result_low = rsim_run_spatial(scenario, ecospace=eco_low, years=range(1, 3))
 
-        # High dispersal (deep-copy to avoid reusing mutated scenario)
+        # High dispersal (fresh scenario for independent run)
         scenario_high = copy.deepcopy(scenario)
         eco_high = _make_ecospace(n_groups, n_patches=5, dispersal=10.0)
         result_high = rsim_run_spatial(
@@ -365,8 +357,8 @@ class TestZeroBiomassPatchBehavior:
                 # No patch should have become negative
                 assert np.all(final_g >= 0), f"Group {g}: negative biomass in patch"
 
-    def test_empty_patch_fills_with_immigration(self, base_scenario):
-        """With dispersal > 0, neighbors should feed an empty patch."""
+    def test_high_dispersal_maintains_positive_biomass(self, base_scenario):
+        """With high dispersal, all connected patches should retain positive biomass."""
         scenario, n_groups = base_scenario
         ng = n_groups + 1
         n_patches = 3
@@ -391,8 +383,8 @@ class TestZeroBiomassPatchBehavior:
                 # All connected patches should have some biomass
                 assert np.all(bio >= 0), f"Group {g}: negative biomass"
 
-    def test_globally_zero_stays_zero(self, base_scenario):
-        """All biomass values should remain non-negative throughout the simulation."""
+    def test_all_biomass_non_negative_and_finite(self, base_scenario):
+        """All biomass values should remain non-negative and finite throughout."""
         scenario, n_groups = base_scenario
         ecospace = _make_ecospace(n_groups, n_patches=3, dispersal=2.0)
 
