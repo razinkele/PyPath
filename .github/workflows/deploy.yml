@@ -129,38 +129,22 @@ jobs:
         run: |
           set -e
           TARGET="${{ steps.target.outputs.path }}"
+          REMOTE="${DEPLOY_USER}@${DEPLOY_HOST}"
 
-          # Create venv if missing, generate app.py if missing, pip install both packages
-          # Using unquoted heredoc so $TARGET expands locally before being sent to remote
-          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" bash << REMOTE_SCRIPT
-          set -e
+          echo "Target path length: ${#TARGET}"
+          echo "Target path starts with: $(echo "$TARGET" | cut -c1-4)"
 
-          # Create venv if it doesn't exist
-          if [ ! -d "$TARGET/venv" ]; then
-            echo "Creating virtual environment..."
-            python3 -m venv "$TARGET/venv"
-            "$TARGET/venv/bin/pip" install --upgrade pip wheel setuptools
-          fi
+          # Create venv if missing
+          ssh "$REMOTE" "test -d '${TARGET}/venv' || { echo 'Creating venv...'; python3 -m venv '${TARGET}/venv'; '${TARGET}/venv/bin/pip' install --upgrade pip wheel setuptools; }"
 
           # Generate app.py entry point if missing
-          if [ ! -f "$TARGET/app.py" ]; then
-            echo "Generating app.py entry point..."
-            cat > "$TARGET/app.py" << 'APPENTRY'
-          #!/usr/bin/env python3
-          """PyPath Shiny Application Entry Point"""
-          from pypath_shiny.app import app
-          __all__ = ["app"]
-          APPENTRY
-          fi
+          ssh "$REMOTE" "test -f '${TARGET}/app.py' || printf 'from pypath_shiny.app import app\n__all__ = [\"app\"]\n' > '${TARGET}/app.py'"
 
           # Install both packages (order matters: pypath-ewe first)
           echo "Installing packages..."
-          source "$TARGET/venv/bin/activate"
-          pip install -e "$TARGET/packages/pypath"
-          pip install -e "$TARGET/packages/pypath-shiny"
-          deactivate
+          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath'"
+          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath-shiny'"
           echo "Packages installed successfully."
-          REMOTE_SCRIPT
 
       - name: Fix ownership
         env:
