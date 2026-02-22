@@ -51,5 +51,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-report-${{ matrix.python-version }}
+          name: pytest-report-${{ matrix.os }}-${{ matrix.python-version }}
           path: .
