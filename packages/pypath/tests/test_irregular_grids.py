@@ -11,7 +11,7 @@ import pytest
 gpd = pytest.importorskip("geopandas")
 Polygon = pytest.importorskip("shapely.geometry").Polygon
 
-from pypath.spatial import (
+from pypath.spatial import (  # noqa: E402
     EcospaceGrid,
     allocate_port_based,
     build_adjacency_from_gdf,
