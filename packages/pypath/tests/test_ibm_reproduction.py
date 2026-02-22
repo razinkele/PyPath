@@ -90,7 +90,9 @@ class TestFecundity:
     def test_unit_weight(self, default_repro_params):
         """Fecundity at weight=1 should equal the coefficient."""
         result = calculate_fecundity(weight=1.0, params=default_repro_params)
-        assert result == pytest.approx(default_repro_params.fecundity_coefficient, rel=1e-6)
+        assert result == pytest.approx(
+            default_repro_params.fecundity_coefficient, rel=1e-6
+        )
 
 
 class TestLarvalSurvival:
@@ -101,7 +103,9 @@ class TestLarvalSurvival:
         result = larval_survival_probability(
             spawn_day=100.0, zoo_peak_day=100.0, params=default_repro_params
         )
-        assert result == pytest.approx(default_repro_params.larval_base_survival, rel=1e-6)
+        assert result == pytest.approx(
+            default_repro_params.larval_base_survival, rel=1e-6
+        )
 
     def test_mismatch_reduces_survival(self, default_repro_params):
         """Mismatch between spawn_day and zoo_peak_day should reduce survival."""
@@ -125,7 +129,6 @@ class TestLarvalSurvival:
 
     def test_known_gaussian_value(self, default_repro_params):
         """Survival should match the Gaussian formula for a known mismatch."""
-        mismatch = 10.0  # equals match_window
         expected = 0.01 * math.exp(-0.5 * (10.0 / 10.0) ** 2)
         result = larval_survival_probability(
             spawn_day=100.0, zoo_peak_day=110.0, params=default_repro_params
@@ -159,7 +162,10 @@ class TestSpawning:
     def test_spawn_returns_correct_total(self, default_repro_params):
         """Total eggs should equal n_represented * fecundity_per_female."""
         ind = _make_individual(
-            n_represented=1000.0, weight=20.0, is_mature=True, sex=0,
+            n_represented=1000.0,
+            weight=20.0,
+            is_mature=True,
+            sex=0,
             energy_reserve=100.0,
         )
         expected_fecundity = 500.0 * 20.0**3.0

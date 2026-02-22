@@ -25,9 +25,8 @@ SmeltIBM
 from __future__ import annotations
 
 import logging
-import math
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List
 
 import numpy as np
@@ -109,14 +108,14 @@ class SmeltParams:
         n_groups_default = 20
 
         bioenerg = BioenergParams(
-            ra=0.0033,           # g O2/g/day at reference temp
-            rb=-0.227,           # metabolic weight exponent
-            q10=2.1,             # Q10 temperature coefficient
-            t_ref=10.0,          # reference temperature (C)
+            ra=0.0033,  # g O2/g/day at reference temp
+            rb=-0.227,  # metabolic weight exponent
+            q10=2.1,  # Q10 temperature coefficient
+            t_ref=10.0,  # reference temperature (C)
             sda_fraction=0.172,  # specific dynamic action
             unassimilated_fraction=0.27,  # unassimilated fraction
-            a_length=0.55,       # allometric length coefficient
-            b_length=0.333,      # allometric length exponent (cube root)
+            a_length=0.55,  # allometric length coefficient
+            b_length=0.333,  # allometric length exponent (cube root)
             energy_density=5.0,  # kJ/g tissue
             reproduction_fraction=0.3,
         )
@@ -128,7 +127,7 @@ class SmeltParams:
 
         foraging = ForagingParams(
             energy_content=np.full(n_groups_default, 4.0),  # kJ/g
-            handling_time=np.full(n_groups_default, 1.0),    # time/g
+            handling_time=np.full(n_groups_default, 1.0),  # time/g
         )
 
         movement = MovementParams(
@@ -146,7 +145,7 @@ class SmeltParams:
             larval_base_survival=0.01,
             zooplankton_match_window=15.0,  # days
             maturity_energy_threshold=0.5,
-            spawning_temp_threshold=4.0,    # C
+            spawning_temp_threshold=4.0,  # C
             larval_duration_days=30,
             recruit_weight=0.5,  # g
             recruit_length=3.0,  # cm
@@ -349,7 +348,6 @@ class SmeltIBM(IBMGroup):
         zoo_peak_day = env_forcing.get("zoo_peak_day", 120.0)
 
         biomass_before = self.get_aggregate_biomass()
-        n_before = sum(ind.n_represented for ind in self.individuals)
 
         # Convert prey_available ndarray to dict for adaptive_forage
         prey_dict: Dict[int, float] = {}
@@ -366,7 +364,7 @@ class SmeltIBM(IBMGroup):
         for ind in self.individuals:
             # Maximum consumption scales allometrically with weight
             # Using a simple Cmax = 0.1 * weight^0.7 * dt * 365 (per timestep)
-            max_consumption = 0.1 * (ind.weight ** 0.7) * dt * 365.0
+            max_consumption = 0.1 * (ind.weight**0.7) * dt * 365.0
 
             # Scale max_consumption by number represented for total group take
             # But adaptive_forage works per-individual, consumption is per-individual
@@ -384,9 +382,7 @@ class SmeltIBM(IBMGroup):
             # per-individual consumption * n_represented / 1e6
             for prey_idx, amount in allocation.items():
                 if prey_idx < self.n_groups:
-                    total_consumption[prey_idx] += (
-                        amount * ind.n_represented / 1e6
-                    )
+                    total_consumption[prey_idx] += amount * ind.n_represented / 1e6
 
             # Grow: update weight and energy reserve
             new_weight, new_energy = growth_step(

@@ -90,7 +90,7 @@ def calculate_fecundity(weight: float, params: ReproductionParams) -> float:
     """
     if weight <= 0.0:
         return 0.0
-    return params.fecundity_coefficient * weight ** params.fecundity_exponent
+    return params.fecundity_coefficient * weight**params.fecundity_exponent
 
 
 def larval_survival_probability(

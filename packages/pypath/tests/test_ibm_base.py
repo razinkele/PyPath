@@ -122,8 +122,7 @@ class TestIBMGroupInterface:
         """A fully implemented subclass can be instantiated."""
 
         class MockGroup(IBMGroup):
-            def compute_step(self, prey_available, predation_pressure,
-                             env_forcing, dt):
+            def compute_step(self, prey_available, predation_pressure, env_forcing, dt):
                 return IBMStepResult(
                     biomass=0.0,
                     production=0.0,
@@ -138,8 +137,7 @@ class TestIBMGroupInterface:
             def get_consumption_by_prey(self):
                 return np.zeros(self.n_groups)
 
-            def initialize_from_ecosim(self, biomass, params,
-                                       n_super_individuals=500):
+            def initialize_from_ecosim(self, biomass, params, n_super_individuals=500):
                 pass
 
         group = MockGroup(group_index=2, n_groups=10)
@@ -151,8 +149,7 @@ class TestIBMGroupInterface:
         """A concrete IBMGroup starts with an empty individuals list."""
 
         class MockGroup(IBMGroup):
-            def compute_step(self, prey_available, predation_pressure,
-                             env_forcing, dt):
+            def compute_step(self, prey_available, predation_pressure, env_forcing, dt):
                 return IBMStepResult(
                     biomass=0.0,
                     production=0.0,
@@ -167,8 +164,7 @@ class TestIBMGroupInterface:
             def get_consumption_by_prey(self):
                 return np.zeros(self.n_groups)
 
-            def initialize_from_ecosim(self, biomass, params,
-                                       n_super_individuals=500):
+            def initialize_from_ecosim(self, biomass, params, n_super_individuals=500):
                 pass
 
         group = MockGroup(group_index=0, n_groups=5)
@@ -177,9 +173,15 @@ class TestIBMGroupInterface:
 
         # Can append SuperIndividuals
         si = SuperIndividual(
-            id=0, n_represented=100.0, weight=0.01, length=5.0,
-            age=0.5, energy_reserve=0.9, patch_idx=0,
-            is_mature=False, sex=0,
+            id=0,
+            n_represented=100.0,
+            weight=0.01,
+            length=5.0,
+            age=0.5,
+            energy_reserve=0.9,
+            patch_idx=0,
+            is_mature=False,
+            sex=0,
         )
         group.individuals.append(si)
         assert len(group.individuals) == 1

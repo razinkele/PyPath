@@ -67,8 +67,8 @@ class TestIBMEcosimIntegration:
         # Common bookkeeping columns
         params.model["BioAcc"] = 0.0
         params.model["Unassim"] = 0.2
-        params.model.loc[0, "Unassim"] = 0.0   # Producer
-        params.model.loc[4, "Unassim"] = 0.0   # Detritus
+        params.model.loc[0, "Unassim"] = 0.0  # Producer
+        params.model.loc[4, "Unassim"] = 0.0  # Detritus
         params.model.loc[5, "BioAcc"] = np.nan  # Fleet
         params.model.loc[5, "Unassim"] = np.nan  # Fleet
 
@@ -77,10 +77,10 @@ class TestIBMEcosimIntegration:
         params.model.loc[5, "Det"] = np.nan
 
         # Diet matrix -- columns are predators, rows are prey
-        params.diet["Zoo"] = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]     # Zoo eats Phyto
-        params.diet["Smelt"] = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]   # Smelt eats Zoo
-        params.diet["Cod"] = [0.0, 0.3, 0.6, 0.1, 0.0, 0.0]     # Cod eats Zoo+Smelt+Cod
-        params.diet["Phyto"] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # Producers have no diet
+        params.diet["Zoo"] = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # Zoo eats Phyto
+        params.diet["Smelt"] = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]  # Smelt eats Zoo
+        params.diet["Cod"] = [0.0, 0.3, 0.6, 0.1, 0.0, 0.0]  # Cod eats Zoo+Smelt+Cod
+        params.diet["Phyto"] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # Producers have no diet
 
         # Fishing
         params.model.loc[3, "Fleet"] = 0.2  # Cod caught by Fleet
@@ -155,9 +155,9 @@ class TestIBMEcosimIntegration:
         # Smelt is at Ecosim column 3 (1-based)
         final_smelt = output.out_Biomass[-1, 3]
         assert final_smelt >= 0, f"Smelt biomass went negative: {final_smelt}"
-        assert final_smelt < initial_smelt * 100, (
-            f"Smelt biomass blew up: {final_smelt} vs initial {initial_smelt}"
-        )
+        assert (
+            final_smelt < initial_smelt * 100
+        ), f"Smelt biomass blew up: {final_smelt} vs initial {initial_smelt}"
 
     def test_other_groups_still_run(self, ibm_scenario):
         """Non-IBM groups should still produce valid output."""
@@ -165,9 +165,9 @@ class TestIBMEcosimIntegration:
         output = self._run(scenario)
         for col, name in [(1, "Phyto"), (2, "Zoo"), (4, "Cod")]:
             final_bio = output.out_Biomass[-1, col]
-            assert final_bio > 0, (
-                f"{name} biomass went to zero or negative: {final_bio}"
-            )
+            assert (
+                final_bio > 0
+            ), f"{name} biomass went to zero or negative: {final_bio}"
 
     def test_ibm_was_invoked(self, ibm_scenario):
         """The IBM should have been invoked during the simulation."""

@@ -44,8 +44,8 @@ Example
 """
 
 from pypath.ibm.base import IBMGroup, IBMStepResult, SuperIndividual
-from pypath.ibm.bioenergetics import BioenergParams
 from pypath.ibm.behavior import ForagingParams, MovementParams
+from pypath.ibm.bioenergetics import BioenergParams
 from pypath.ibm.predation import PredationParams
 from pypath.ibm.reproduction import ReproductionParams
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
