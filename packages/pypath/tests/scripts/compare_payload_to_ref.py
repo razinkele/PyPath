@@ -53,7 +53,7 @@ else:
     for i, st in enumerate(stages):
         val = float(st[0])
         print(
-            f"stage {i+1} consumption total = {val:.12e} diff vs ref = {val - ref_consumption:.12e}"
+            f"stage {i + 1} consumption total = {val:.12e} diff vs ref = {val - ref_consumption:.12e}"
         )
 
 print("Done")

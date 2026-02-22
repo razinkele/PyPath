@@ -84,7 +84,7 @@ for prey in range(1, n):
     vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
     Q_calc = qbase * PDY * PYY * dd_term * vv_term
     print(
-        f"prey={prey} name={params_dict.get('spname',[None]*n)[prey]} BBprey={BBprey:.6e} Bbase={Bbase[prey]:.6e} PYY={PYY:.6e} PDY={PDY:.6e} qbase={qbase:.6e} dd_term={dd_term:.6e} vv_term={vv_term:.6e} Q_calc={Q_calc:.12e}"
+        f"prey={prey} name={params_dict.get('spname', [None] * n)[prey]} BBprey={BBprey:.6e} Bbase={Bbase[prey]:.6e} PYY={PYY:.6e} PDY={PDY:.6e} qbase={qbase:.6e} dd_term={dd_term:.6e} vv_term={vv_term:.6e} Q_calc={Q_calc:.12e}"
     )
 
 print("Total consumption by Seabirds (col sum) =", QQ[:, sidx].sum())
