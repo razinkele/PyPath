@@ -147,18 +147,18 @@ copy_application() {
     find "${APP_DIR}/packages" -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
     find "${APP_DIR}/packages" -name "*.pyc" -delete 2>/dev/null || true
 
-    # Generate thin app.py entry point for Shiny Server
+    # Generate app.py entry point with sys.path fix for Shiny Server
+    # (Shiny Server uses su --login which prevents .pth editable installs from working)
     cat > "${APP_DIR}/app.py" << 'APPENTRY'
-#!/usr/bin/env python3
-"""
-PyPath Shiny Application Entry Point
+import sys
+from pathlib import Path
 
-This file is the entry point for Shiny Server.
-It imports and exposes the main app from the pypath-shiny package.
-"""
+app_dir = Path(__file__).parent
+sys.path.insert(0, str(app_dir / "packages" / "pypath-shiny" / "src"))
+sys.path.insert(0, str(app_dir / "packages" / "pypath" / "src"))
+
 from pypath_shiny.app import app
 
-# Shiny Server looks for 'app' object
 __all__ = ["app"]
 APPENTRY
 

@@ -84,17 +84,18 @@ Add the following repository secrets (Repository Settings > Secrets > Actions):
 
 The workflow (`.github/workflows/deploy.yml`) will:
 1. Rsync the repo (excluding tests, caches, build artifacts)
-2. Create a venv if missing and generate `app.py` if missing
-3. `pip install -e` both packages on the remote server
-4. Fix file ownership to `shiny:shiny`
-5. Optionally restart Shiny Server
+2. Create a venv if missing
+3. Generate `app.py` with `sys.path` entries (see note below)
+4. `pip install -e` both packages on the remote server
+5. Fix file ownership to `shiny:shiny`
+6. Optionally restart Shiny Server
 
 ## 3) Server-side notes
 
 - Target directory: `/srv/shiny-server/pypath/`
 - The `shiny` user must own the app directory
-- Shiny Server looks for `app.py` at the root, which imports `from pypath_shiny.app import app`
-- Both packages are editable-installed into `venv/`, so `PYTHONPATH` is not needed
+- Shiny Server looks for `app.py` at the root
+- **Important:** Shiny Server uses `su --login` to switch to the `shiny` user, which resets the environment and prevents `.pth` files (created by `pip install -e`) from being processed. The generated `app.py` includes explicit `sys.path.insert()` calls pointing to `packages/pypath/src/` and `packages/pypath-shiny/src/` to work around this.
 - Typical Shiny Server restart commands (may require sudo):
   - `sudo systemctl restart shiny-server`
   - `sudo service shiny-server restart`
@@ -103,7 +104,7 @@ The workflow (`.github/workflows/deploy.yml`) will:
 
 ```text
 /srv/shiny-server/pypath/
-├── app.py                          # from pypath_shiny.app import app
+├── app.py                          # sys.path fix + from pypath_shiny.app import app
 ├── packages/
 │   ├── pypath/                     # pypath-ewe source
 │   │   ├── src/pypath/

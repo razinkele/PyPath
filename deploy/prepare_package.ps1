@@ -110,16 +110,17 @@ foreach ($file in $DeployFiles) {
 
 # Generate thin app.py entry point
 $AppPyContent = @"
-#!/usr/bin/env python3
-"""
-PyPath Shiny Application Entry Point
+import sys
+from pathlib import Path
 
-This file is the entry point for Shiny Server.
-It imports and exposes the main app from the pypath-shiny package.
-"""
+# Add package source paths so imports work regardless of how Python is launched.
+# Shiny Server uses su --login which prevents .pth editable installs from working.
+app_dir = Path(__file__).parent
+sys.path.insert(0, str(app_dir / "packages" / "pypath-shiny" / "src"))
+sys.path.insert(0, str(app_dir / "packages" / "pypath" / "src"))
+
 from pypath_shiny.app import app
 
-# Shiny Server looks for 'app' object
 __all__ = ["app"]
 "@
 $AppPyContent | Out-File -FilePath (Join-Path $PackageDir "app.py") -Encoding UTF8

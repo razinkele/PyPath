@@ -131,14 +131,23 @@ jobs:
           TARGET="${{ steps.target.outputs.path }}"
           REMOTE="${DEPLOY_USER}@${DEPLOY_HOST}"
 
-          echo "Target path length: ${#TARGET}"
-          echo "Target path starts with: $(echo "$TARGET" | cut -c1-4)"
-
           # Create venv if missing
           ssh "$REMOTE" "test -d '${TARGET}/venv' || { echo 'Creating venv...'; python3 -m venv '${TARGET}/venv'; '${TARGET}/venv/bin/pip' install --upgrade pip wheel setuptools; }"
 
-          # Generate app.py entry point if missing
-          ssh "$REMOTE" "test -f '${TARGET}/app.py' || printf 'from pypath_shiny.app import app\n__all__ = [\"app\"]\n' > '${TARGET}/app.py'"
+          # Generate app.py with sys.path fix for Shiny Server
+          # (Shiny Server uses su --login which prevents .pth editable installs from working)
+          ssh "$REMOTE" "cat > '${TARGET}/app.py'" << 'APPENTRY'
+          import sys
+          from pathlib import Path
+
+          app_dir = Path(__file__).parent
+          sys.path.insert(0, str(app_dir / "packages" / "pypath-shiny" / "src"))
+          sys.path.insert(0, str(app_dir / "packages" / "pypath" / "src"))
+
+          from pypath_shiny.app import app
+
+          __all__ = ["app"]
+          APPENTRY
 
           # Install both packages (order matters: pypath-ewe first)
           echo "Installing packages..."
