@@ -5,10 +5,11 @@ These tests verify that spatial functionality works correctly
 with non-uniform, real-world grid structures.
 """
 
-import geopandas as gpd
 import numpy as np
 import pytest
-from shapely.geometry import Polygon
+
+gpd = pytest.importorskip("geopandas")
+Polygon = pytest.importorskip("shapely.geometry").Polygon
 
 from pypath.spatial import (
     EcospaceGrid,
