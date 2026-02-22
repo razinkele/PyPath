@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from pypath_shiny.pages.ecopath import _convert_input_to_numeric
 
 

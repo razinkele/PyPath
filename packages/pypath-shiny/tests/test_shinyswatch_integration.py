@@ -13,7 +13,6 @@ def test_app_ui_uses_shinyswatch_theme_when_available():
     assert hasattr(shinyswatch, "theme_picker_ui")
 
 
-
 def test_app_imports_without_shinyswatch(monkeypatch, tmp_path):
     # Simulate shinyswatch missing by removing it from sys.modules and replacing with dummy
     orig = sys.modules.pop("shinyswatch", None)

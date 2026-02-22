@@ -7,13 +7,13 @@ Interactive demonstration of adaptive foraging and prey switching dynamics.
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+# pypath imports (path setup handled by app/__init__.py)
+from pypath.core.forcing import DietRewiring
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
 from pypath_shiny.config import DEFAULTS
-
-# pypath imports (path setup handled by app/__init__.py)
-from pypath.core.forcing import DietRewiring
 
 
 def diet_rewiring_demo_ui():
@@ -113,8 +113,7 @@ def diet_rewiring_demo_ui():
                     ui.card(
                         ui.card_header("How Diet Changes with Biomass"),
                         ui.output_ui("switching_curve_plot"),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         **Prey Switching Model:**
 
                         $\\text{new\\_diet}[i] = \\text{base\\_diet}[i] \\times \\left(\\frac{B_i}{\\bar{B}}\\right)^p$
@@ -125,8 +124,7 @@ def diet_rewiring_demo_ui():
                         - $p$ = switching power
 
                         Then normalized so diet sums to 1.
-                        """
-                        ),
+                        """),
                     ),
                 ),
                 ui.nav_panel(
@@ -134,11 +132,9 @@ def diet_rewiring_demo_ui():
                     ui.card(
                         ui.card_header("Diet Evolution Over Time"),
                         ui.output_ui("time_series_plot"),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         Shows how diet composition changes as prey biomass varies over time.
-                        """
-                        ),
+                        """),
                     ),
                 ),
                 ui.nav_panel(
@@ -158,8 +154,7 @@ def diet_rewiring_demo_ui():
                             ui.tags.i(class_="bi bi-question-circle me-2"),
                             "Dynamic Diet Rewiring Guide",
                         ),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         ## What is Dynamic Diet Rewiring?
 
                         Diet rewiring allows **predator diet preferences to change over time**
@@ -325,8 +320,7 @@ def diet_rewiring_demo_ui():
 
                         Despite simplifications, provides **realistic adaptive foraging dynamics**
                         for ecosystem models.
-                        """
-                        ),
+                        """),
                     ),
                 ),
             ),

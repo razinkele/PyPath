@@ -14,10 +14,10 @@ from pypath.io.ewemdb import (
     EwEDatabaseError,
     _get_connection_string,
     check_ewemdb_support,
+    ecosim_scenario_from_ewemdb,
     get_ewemdb_metadata,
     list_ewemdb_tables,
     read_ewemdb,
-    ecosim_scenario_from_ewemdb,
     read_ewemdb_table,
 )
 
@@ -227,15 +227,35 @@ class TestReadEwemdb:
         )
 
         forcing_df = pd.DataFrame(
-            {"ScenarioID": [1, 1, 1, 1], "Time": [0, 0, 1, 1], "Parameter": ["ForcedPrey", "ForcedMort", "ForcedPrey", "ForcedMort"], "Group": ["Fish", "Fish", "Fish", "Fish"], "Value": [1.0, 1.0, 0.9, 1.0]}
+            {
+                "ScenarioID": [1, 1, 1, 1],
+                "Time": [0, 0, 1, 1],
+                "Parameter": ["ForcedPrey", "ForcedMort", "ForcedPrey", "ForcedMort"],
+                "Group": ["Fish", "Fish", "Fish", "Fish"],
+                "Value": [1.0, 1.0, 0.9, 1.0],
+            }
         )
 
         fishing_df = pd.DataFrame(
             {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
         )
 
-        frate_df = pd.DataFrame({"ScenarioID": [1, 1], "Year": [2000, 2001], "Group": ["Fish", "Fish"], "FRate": [0.1, 0.2]})
-        catch_yr_df = pd.DataFrame({"ScenarioID": [1, 1], "Year": [2000, 2001], "Group": ["Fish", "Fish"], "Catch": [5.0, 6.0]})
+        frate_df = pd.DataFrame(
+            {
+                "ScenarioID": [1, 1],
+                "Year": [2000, 2001],
+                "Group": ["Fish", "Fish"],
+                "FRate": [0.1, 0.2],
+            }
+        )
+        catch_yr_df = pd.DataFrame(
+            {
+                "ScenarioID": [1, 1],
+                "Year": [2000, 2001],
+                "Group": ["Fish", "Fish"],
+                "Catch": [5.0, 6.0],
+            }
+        )
 
         def mock_table_reader(filepath, table):
             if table == "EcopathGroup":
@@ -280,7 +300,9 @@ class TestReadEwemdb:
             assert "fishing_ts" in sc and "_times" in sc["fishing_ts"]
             # Effort pivot present as DataFrame with one gear
             effort_df = sc["fishing_ts"].get("Effort")
-            assert hasattr(effort_df, "shape") and (effort_df.shape[0] == 1 or effort_df.shape[0] == 2)
+            assert hasattr(effort_df, "shape") and (
+                effort_df.shape[0] == 1 or effort_df.shape[0] == 2
+            )
             # Monthly resampled data
             assert "forcing_monthly" in sc and "_monthly_times" in sc["forcing_monthly"]
             # For long-format parameter/group/value, we expect keys such as 'ForcedPrey' to exist as DataFrames
@@ -296,11 +318,50 @@ class TestReadEwemdb:
     @patch("pypath.io.ewemdb.read_ewemdb_table")
     def test_forcing_wide_monthly_format(self, mock_read_table):
         """Test parsing a wide-format forcing table with monthly columns (Jan..Dec)."""
-        groups_df = pd.DataFrame({"GroupID": [1], "GroupName": ["Fish"], "Type": [0], "Biomass": [2.0], "PB": [1.5], "QB": [5.0], "EE": [0.80]})
-        ecosim_df = pd.DataFrame({"ScenarioID": [1], "ScenarioName": ["MonthlyWide"], "StartYear": [2000], "EndYear": [2000], "NumYears": [1]})
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1],
+                "GroupName": ["Fish"],
+                "Type": [0],
+                "Biomass": [2.0],
+                "PB": [1.5],
+                "QB": [5.0],
+                "EE": [0.80],
+            }
+        )
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["MonthlyWide"],
+                "StartYear": [2000],
+                "EndYear": [2000],
+                "NumYears": [1],
+            }
+        )
         # Forcing wide format: Year + Jan..Dec columns as values for Fish
-        forcing_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Parameter": ["ForcedPrey"], "Fish": [None], "Jan": [1.0], "Feb": [1.1], "Mar": [1.2], "Apr": [1.3], "May": [1.4], "Jun": [1.5], "Jul": [1.6], "Aug": [1.7], "Sep": [1.8], "Oct": [1.9], "Nov": [2.0], "Dec": [2.1]})
-        fishing_df = pd.DataFrame({"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]})
+        forcing_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "Year": [2000],
+                "Parameter": ["ForcedPrey"],
+                "Fish": [None],
+                "Jan": [1.0],
+                "Feb": [1.1],
+                "Mar": [1.2],
+                "Apr": [1.3],
+                "May": [1.4],
+                "Jun": [1.5],
+                "Jul": [1.6],
+                "Aug": [1.7],
+                "Sep": [1.8],
+                "Oct": [1.9],
+                "Nov": [2.0],
+                "Dec": [2.1],
+            }
+        )
+        fishing_df = pd.DataFrame(
+            {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
+        )
 
         def mock_table_reader(filepath, table):
             if table == "EcopathGroup":
@@ -333,10 +394,47 @@ class TestReadEwemdb:
     @patch("pypath.io.ewemdb.read_ewemdb_table")
     def test_forcing_localized_month_names(self, mock_read_table):
         """Test parsing month names in French/Spanish variants (localized month names)."""
-        groups_df = pd.DataFrame({"GroupID": [1], "GroupName": ["Fish"], "Type": [0], "Biomass": [2.0], "PB": [1.5], "QB": [5.0], "EE": [0.80]})
-        ecosim_df = pd.DataFrame({"ScenarioID": [1], "ScenarioName": ["LocalizedMonths"], "StartYear": [2000], "EndYear": [2000], "NumYears": [1]})
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1],
+                "GroupName": ["Fish"],
+                "Type": [0],
+                "Biomass": [2.0],
+                "PB": [1.5],
+                "QB": [5.0],
+                "EE": [0.80],
+            }
+        )
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["LocalizedMonths"],
+                "StartYear": [2000],
+                "EndYear": [2000],
+                "NumYears": [1],
+            }
+        )
         # French month abbreviations: Janv, Fev, Mar, etc.
-        forcing_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Parameter": ["ForcedPrey"], "Fish": [None], "Janv": [1.0], "Fev": [1.1], "Mar": [1.2], "Avr": [1.3], "Mai": [1.4], "Juin": [1.5], "Juil": [1.6], "Aou": [1.7], "Sep": [1.8], "Oct": [1.9], "Nov": [2.0], "Dec": [2.1]})
+        forcing_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "Year": [2000],
+                "Parameter": ["ForcedPrey"],
+                "Fish": [None],
+                "Janv": [1.0],
+                "Fev": [1.1],
+                "Mar": [1.2],
+                "Avr": [1.3],
+                "Mai": [1.4],
+                "Juin": [1.5],
+                "Juil": [1.6],
+                "Aou": [1.7],
+                "Sep": [1.8],
+                "Oct": [1.9],
+                "Nov": [2.0],
+                "Dec": [2.1],
+            }
+        )
 
         def mock_table_reader(filepath, table):
             if table == "EcopathGroup":
@@ -366,11 +464,48 @@ class TestReadEwemdb:
     @patch("pypath.io.ewemdb.read_ewemdb_table")
     def test_forcing_start_month_relative(self, mock_read_table):
         """Test that M1..M12 labels are interpreted relative to scenario StartMonth."""
-        groups_df = pd.DataFrame({"GroupID": [1], "GroupName": ["Fish"], "Type": [0], "Biomass": [2.0], "PB": [1.5], "QB": [5.0], "EE": [0.80]})
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1],
+                "GroupName": ["Fish"],
+                "Type": [0],
+                "Biomass": [2.0],
+                "PB": [1.5],
+                "QB": [5.0],
+                "EE": [0.80],
+            }
+        )
         # Set StartMonth to 4 (April)
-        ecosim_df = pd.DataFrame({"ScenarioID": [1], "ScenarioName": ["StartMonthRel"], "StartYear": [2000], "EndYear": [2000], "NumYears": [1], "StartMonth": [4]})
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["StartMonthRel"],
+                "StartYear": [2000],
+                "EndYear": [2000],
+                "NumYears": [1],
+                "StartMonth": [4],
+            }
+        )
         # M1..M12 where M1 corresponds to April
-        forcing_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Parameter": ["ForcedPrey"], "M1": [4.0], "M2": [5.0], "M3": [6.0], "M4": [7.0], "M5": [8.0], "M6": [9.0], "M7": [10.0], "M8": [11.0], "M9": [12.0], "M10": [13.0], "M11": [14.0], "M12": [15.0]})
+        forcing_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "Year": [2000],
+                "Parameter": ["ForcedPrey"],
+                "M1": [4.0],
+                "M2": [5.0],
+                "M3": [6.0],
+                "M4": [7.0],
+                "M5": [8.0],
+                "M6": [9.0],
+                "M7": [10.0],
+                "M8": [11.0],
+                "M9": [12.0],
+                "M10": [13.0],
+                "M11": [14.0],
+                "M12": [15.0],
+            }
+        )
 
         def mock_table_reader(filepath, table):
             if table == "EcopathGroup":
@@ -400,29 +535,74 @@ class TestReadEwemdb:
 
     def test_resample_actual_month_lengths_leap_year(self):
         """Test resampling with actual month lengths across a leap year"""
-        from pypath.io.ewemdb import _resample_to_monthly
         import numpy as _np
+
+        from pypath.io.ewemdb import _resample_to_monthly
+
         # Construct parsed_ts with times 1999 and 2000 and a simple series
         parsed = {"_times": [1999.0, 2000.0], "Value": _np.array([1.0, 2.0])}
-        res_actual = _resample_to_monthly(parsed, 1999, 2, start_month=1, use_actual_month_lengths=True)
-        res_simple = _resample_to_monthly(parsed, 1999, 2, start_month=1, use_actual_month_lengths=False)
+        res_actual = _resample_to_monthly(
+            parsed, 1999, 2, start_month=1, use_actual_month_lengths=True
+        )
+        res_simple = _resample_to_monthly(
+            parsed, 1999, 2, start_month=1, use_actual_month_lengths=False
+        )
         # both should have 24 months
         assert len(res_actual["Value"]) == 24
         assert len(res_simple["Value"]) == 24
         # Feb 2000 positions should differ between methods due to leap year day counts
         # find index of Feb 2000 in monthly times
-        feb2000_idx = list(res_actual["_monthly_times"]).index(2000.0833333333333) if 2000.0833333333333 in list(res_actual["_monthly_times"]) else None
+        feb2000_idx = (
+            list(res_actual["_monthly_times"]).index(2000.0833333333333)
+            if 2000.0833333333333 in list(res_actual["_monthly_times"])
+            else None
+        )
         # Best-effort check: ensure arrays not identical
         assert not all(_np.isclose(res_actual["Value"], res_simple["Value"]))
-
 
     @patch("pypath.io.ewemdb.read_ewemdb_table")
     def test_fishing_wide_monthly_format(self, mock_read_table):
         """Test parsing fishing wide-format monthly columns per gear."""
-        groups_df = pd.DataFrame({"GroupID": [1], "GroupName": ["Fish"], "Type": [0], "Biomass": [2.0], "PB": [1.5], "QB": [5.0], "EE": [0.80]})
-        ecosim_df = pd.DataFrame({"ScenarioID": [1], "ScenarioName": ["FishingMonthly"], "StartYear": [2000], "EndYear": [2000], "NumYears": [1]})
+        groups_df = pd.DataFrame(
+            {
+                "GroupID": [1],
+                "GroupName": ["Fish"],
+                "Type": [0],
+                "Biomass": [2.0],
+                "PB": [1.5],
+                "QB": [5.0],
+                "EE": [0.80],
+            }
+        )
+        ecosim_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "ScenarioName": ["FishingMonthly"],
+                "StartYear": [2000],
+                "EndYear": [2000],
+                "NumYears": [1],
+            }
+        )
         # Fishing wide: Year + gear columns Jan..Dec for Gear=1
-        fishing_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Gear": [1], "Jan": [0.5], "Feb": [0.6], "Mar": [0.7], "Apr": [0.8], "May": [0.9], "Jun": [1.0], "Jul": [1.1], "Aug": [1.2], "Sep": [1.3], "Oct": [1.4], "Nov": [1.5], "Dec": [1.6]})
+        fishing_df = pd.DataFrame(
+            {
+                "ScenarioID": [1],
+                "Year": [2000],
+                "Gear": [1],
+                "Jan": [0.5],
+                "Feb": [0.6],
+                "Mar": [0.7],
+                "Apr": [0.8],
+                "May": [0.9],
+                "Jun": [1.0],
+                "Jul": [1.1],
+                "Aug": [1.2],
+                "Sep": [1.3],
+                "Oct": [1.4],
+                "Nov": [1.5],
+                "Dec": [1.6],
+            }
+        )
 
         def mock_table_reader(filepath, table):
             if table == "EcopathGroup":
@@ -492,18 +672,47 @@ class TestReadEwemdb:
         )
 
         forcing_df = pd.DataFrame(
-            {"ScenarioID": [1, 1, 1, 1], "Time": [0, 0, 1, 1], "Parameter": ["ForcedPrey", "ForcedMort", "ForcedPrey", "ForcedMort"], "Group": ["Fish", "Fish", "Fish", "Fish"], "Value": [1.0, 1.0, 0.9, 1.0]}
+            {
+                "ScenarioID": [1, 1, 1, 1],
+                "Time": [0, 0, 1, 1],
+                "Parameter": ["ForcedPrey", "ForcedMort", "ForcedPrey", "ForcedMort"],
+                "Group": ["Fish", "Fish", "Fish", "Fish"],
+                "Value": [1.0, 1.0, 0.9, 1.0],
+            }
         )
 
         fishing_df = pd.DataFrame(
             {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
         )
 
-        frate_df = pd.DataFrame({"ScenarioID": [1, 1], "Year": [2000, 2001], "Group": ["Fish", "Fish"], "FRate": [0.1, 0.2]})
-        catch_yr_df = pd.DataFrame({"ScenarioID": [1, 1], "Year": [2000, 2001], "Group": ["Fish", "Fish"], "Catch": [5.0, 6.0]})
+        frate_df = pd.DataFrame(
+            {
+                "ScenarioID": [1, 1],
+                "Year": [2000, 2001],
+                "Group": ["Fish", "Fish"],
+                "FRate": [0.1, 0.2],
+            }
+        )
+        catch_yr_df = pd.DataFrame(
+            {
+                "ScenarioID": [1, 1],
+                "Year": [2000, 2001],
+                "Group": ["Fish", "Fish"],
+                "Catch": [5.0, 6.0],
+            }
+        )
 
-        habitat_df = pd.DataFrame({"Group": ["Fish", "Fish"], "Patch": [1, 2], "Value": [0.8, 0.6]})
-        grid_df = pd.DataFrame({"PatchID": [1, 2], "Area": [10.0, 5.0], "Lon": [0.0, 0.1], "Lat": [50.0, 50.1]})
+        habitat_df = pd.DataFrame(
+            {"Group": ["Fish", "Fish"], "Patch": [1, 2], "Value": [0.8, 0.6]}
+        )
+        grid_df = pd.DataFrame(
+            {
+                "PatchID": [1, 2],
+                "Area": [10.0, 5.0],
+                "Lon": [0.0, 0.1],
+                "Lat": [50.0, 50.1],
+            }
+        )
         dispersal_df = pd.DataFrame({"Group": ["Fish"], "Dispersal": [0.1]})
 
         def mock_table_reader(filepath, table):
@@ -538,6 +747,7 @@ class TestReadEwemdb:
         try:
             scen = ecosim_scenario_from_ewemdb(temp_path, scenario=1)
             from pypath.core.ecosim import RsimScenario
+
             assert isinstance(scen, RsimScenario)
             # Forcing present
             assert scen.forcing.ForcedPrey.shape[0] == 6 * 12
@@ -595,15 +805,25 @@ class TestReadEwemdb:
         )
 
         forcing_df = pd.DataFrame(
-            {"ScenarioID": [1, 1], "Time": [0, 1], "Parameter": ["ForcedPrey", "ForcedPrey"], "Group": ["Fish", "Fish"], "Value": [1.0, 0.9]}
+            {
+                "ScenarioID": [1, 1],
+                "Time": [0, 1],
+                "Parameter": ["ForcedPrey", "ForcedPrey"],
+                "Group": ["Fish", "Fish"],
+                "Value": [1.0, 0.9],
+            }
         )
 
         fishing_df = pd.DataFrame(
             {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
         )
 
-        frate_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]})
-        catch_yr_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]})
+        frate_df = pd.DataFrame(
+            {"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]}
+        )
+        catch_yr_df = pd.DataFrame(
+            {"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]}
+        )
 
         def mock_table_reader(filepath, table):
             if table == "EcopathGroup":
@@ -621,7 +841,12 @@ class TestReadEwemdb:
             elif table in ["EcosimCatch", "EcosimAnnualCatch"]:
                 return catch_yr_df
             # Simulate missing ecospace tables
-            elif table in ["EcospaceHabitat", "EcospaceLayer", "EcospaceGrid", "EcospaceDispersal"]:
+            elif table in [
+                "EcospaceHabitat",
+                "EcospaceLayer",
+                "EcospaceGrid",
+                "EcospaceDispersal",
+            ]:
                 raise Exception("Table not found")
             else:
                 raise Exception(f"Unknown table: {table}")
@@ -634,6 +859,7 @@ class TestReadEwemdb:
         try:
             scen = ecosim_scenario_from_ewemdb(temp_path, scenario=1)
             from pypath.core.ecosim import RsimScenario
+
             assert isinstance(scen, RsimScenario)
             # No ecospace attached when tables missing
             assert scen.ecospace is None
@@ -667,19 +893,36 @@ class TestReadEwemdb:
         )
 
         forcing_df = pd.DataFrame(
-            {"ScenarioID": [1, 1], "Time": [0, 1], "Parameter": ["ForcedPrey", "ForcedPrey"], "Group": ["Fish", "Fish"], "Value": [1.0, 0.9]}
+            {
+                "ScenarioID": [1, 1],
+                "Time": [0, 1],
+                "Parameter": ["ForcedPrey", "ForcedPrey"],
+                "Group": ["Fish", "Fish"],
+                "Value": [1.0, 0.9],
+            }
         )
 
         fishing_df = pd.DataFrame(
             {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
         )
 
-        frate_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]})
-        catch_yr_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]})
+        frate_df = pd.DataFrame(
+            {"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]}
+        )
+        catch_yr_df = pd.DataFrame(
+            {"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]}
+        )
 
         # Habitat only contains a value for patch 1, patch 2 missing
         habitat_df = pd.DataFrame({"Group": ["Fish"], "Patch": [1], "Value": [0.8]})
-        grid_df = pd.DataFrame({"PatchID": [1, 2], "Area": [10.0, 5.0], "Lon": [0.0, 0.1], "Lat": [50.0, 50.1]})
+        grid_df = pd.DataFrame(
+            {
+                "PatchID": [1, 2],
+                "Area": [10.0, 5.0],
+                "Lon": [0.0, 0.1],
+                "Lat": [50.0, 50.1],
+            }
+        )
         # Dispersal missing for Fish -> empty DataFrame
         dispersal_df = pd.DataFrame({"Group": [], "Dispersal": []})
 
@@ -715,6 +958,7 @@ class TestReadEwemdb:
         try:
             scen = ecosim_scenario_from_ewemdb(temp_path, scenario=1)
             from pypath.core.ecosim import RsimScenario
+
             assert isinstance(scen, RsimScenario)
             # Ecospace should be constructed but filled with defaults for missing entries
             assert hasattr(scen, "ecospace") and scen.ecospace is not None
@@ -756,15 +1000,25 @@ class TestReadEwemdb:
         )
 
         forcing_df = pd.DataFrame(
-            {"ScenarioID": [1, 1], "Time": [0, 1], "Parameter": ["ForcedPrey", "ForcedPrey"], "Group": ["Fish", "Fish"], "Value": [1.0, 0.9]}
+            {
+                "ScenarioID": [1, 1],
+                "Time": [0, 1],
+                "Parameter": ["ForcedPrey", "ForcedPrey"],
+                "Group": ["Fish", "Fish"],
+                "Value": [1.0, 0.9],
+            }
         )
 
         fishing_df = pd.DataFrame(
             {"ScenarioID": [1], "Time": [0], "Gear": [1], "Effort": [0.5]}
         )
 
-        frate_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]})
-        catch_yr_df = pd.DataFrame({"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]})
+        frate_df = pd.DataFrame(
+            {"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "FRate": [0.1]}
+        )
+        catch_yr_df = pd.DataFrame(
+            {"ScenarioID": [1], "Year": [2000], "Group": ["Fish"], "Catch": [5.0]}
+        )
 
         def mock_table_reader(filepath, table):
             if table == "EcopathGroup":
@@ -830,8 +1084,17 @@ class TestReadEwemdb:
         )
 
         # Provide grid using alternate name 'Ecospace_Grid'
-        grid_df = pd.DataFrame({"PatchID": [1, 2], "Area": [10.0, 5.0], "Lon": [0.0, 0.1], "Lat": [50.0, 50.1]})
-        habitat_df = pd.DataFrame({"Group": ["Fish", "Fish"], "Patch": [1, 2], "Value": [0.5, 0.3]})
+        grid_df = pd.DataFrame(
+            {
+                "PatchID": [1, 2],
+                "Area": [10.0, 5.0],
+                "Lon": [0.0, 0.1],
+                "Lat": [50.0, 50.1],
+            }
+        )
+        habitat_df = pd.DataFrame(
+            {"Group": ["Fish", "Fish"], "Patch": [1, 2], "Value": [0.5, 0.3]}
+        )
         dispersal_df = pd.DataFrame({"Group": ["Fish"], "Dispersal": [0.05]})
 
         def mock_table_reader(filepath, table):
@@ -860,6 +1123,7 @@ class TestReadEwemdb:
         try:
             scen = ecosim_scenario_from_ewemdb(temp_path, scenario=1)
             from pypath.core.ecosim import RsimScenario
+
             assert isinstance(scen, RsimScenario)
             assert hasattr(scen, "ecospace") and scen.ecospace is not None
             eco = scen.ecospace

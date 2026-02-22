@@ -7,10 +7,9 @@ that performs mass-balance calculations for food web models.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Dict, Tuple, Union
-
-import logging
 
 import numpy as np
 import pandas as pd
@@ -174,7 +173,10 @@ class Rpath:
 
 
 def rpath(
-    rpath_params: RpathParams, eco_name: str = "", eco_area: float = 1.0, debug: bool = False
+    rpath_params: RpathParams,
+    eco_name: str = "",
+    eco_area: float = 1.0,
+    debug: bool = False,
 ) -> Union[Rpath, Tuple[Rpath, Dict[str, object]]]:
     """Balance an Ecopath model.
 
@@ -301,7 +303,11 @@ def rpath(
     # nodetrdiet[i, j] = fraction of predator j's diet from prey i (both living)
     # Normalize predator diet columns to exclude Import fractions when present
     nodetrdiet = np.zeros((nliving, nliving))
-    import_row = diet_values[ngroups, :] if diet_values.shape[0] > ngroups else np.zeros(diet_values.shape[1])
+    import_row = (
+        diet_values[ngroups, :]
+        if diet_values.shape[0] > ngroups
+        else np.zeros(diet_values.shape[1])
+    )
     # For each predator column, normalize by (1 - import_frac) if possible
     for j, pred_idx in enumerate(living_idx):
         import_frac = import_row[j] if j < len(import_row) else 0.0
@@ -332,8 +338,8 @@ def rpath(
 
     # Remember which biomass, PB and EE values were originally missing (before filling defaults)
     original_no_b = np.isnan(biomass)
-    original_pb_missing = np.isnan(model_df['PB'].values.astype(float))
-    original_no_ee = np.isnan(model_df['EE'].values.astype(float))
+    original_pb_missing = np.isnan(model_df["PB"].values.astype(float))
+    original_no_ee = np.isnan(model_df["EE"].values.astype(float))
 
     # Keep biomass as NaN for living groups when originally missing so the solver treats them
     # as unknowns and solves for biomass when EE is provided (this matches R's behavior).
@@ -342,9 +348,11 @@ def rpath(
     # biomass = np.where(np.isnan(biomass) & (types < 2), 1.0, biomass)
 
     # For fleet groups (type == 3), ensure biomass/PB/QB/EE are zero to match R conventions
-    fleet_mask = (types == 3)
+    fleet_mask = types == 3
     if np.any(fleet_mask):
-        biomass[fleet_mask] = np.where(np.isnan(biomass[fleet_mask]), 0.0, biomass[fleet_mask])
+        biomass[fleet_mask] = np.where(
+            np.isnan(biomass[fleet_mask]), 0.0, biomass[fleet_mask]
+        )
         pb[fleet_mask] = np.where(np.isnan(pb[fleet_mask]), 0.0, pb[fleet_mask])
         qb[fleet_mask] = np.where(np.isnan(qb[fleet_mask]), 0.0, qb[fleet_mask])
         ee[fleet_mask] = np.where(np.isnan(ee[fleet_mask]), 0.0, ee[fleet_mask])
@@ -406,7 +414,10 @@ def rpath(
         # Zero consumption contributions from predators whose biomass is unknown
         # (their predation terms are moved into A instead)
         pred_unknown_mask = np.array(
-            [original_no_b[pred_global] or np.isnan(biomass[pred_global]) for pred_global in living_idx],
+            [
+                original_no_b[pred_global] or np.isnan(biomass[pred_global])
+                for pred_global in living_idx
+            ],
             dtype=bool,
         )
         bio_qb = np.where(pred_unknown_mask, 0.0, bio_qb)
@@ -435,7 +446,12 @@ def rpath(
             pred_global = living_idx[j]
             pred_unknown = original_no_b[pred_global] or np.isnan(biomass[pred_global])
             if pred_unknown:
-                logger.debug("predator %s treated as unknown (original_no_b=%s, biomass_nan=%s)", pred_global, original_no_b[pred_global], np.isnan(biomass[pred_global]))
+                logger.debug(
+                    "predator %s treated as unknown (original_no_b=%s, biomass_nan=%s)",
+                    pred_global,
+                    original_no_b[pred_global],
+                    np.isnan(biomass[pred_global]),
+                )
             if pred_unknown:
                 A[:, j] -= qb_dc[:, j]
 
@@ -461,36 +477,64 @@ def rpath(
             try:
                 x = np.linalg.lstsq(A, b_vec, rcond=1e-6)[0]
             except (ValueError, np.linalg.LinAlgError) as e:
-                raise ValueError("Unable to solve linear system during balancing") from e
+                raise ValueError(
+                    "Unable to solve linear system during balancing"
+                ) from e
 
         # Assign solved values back to living groups for this iteration
         for i, idx in enumerate(living_idx):
-            logger.debug("idx=%s iter=%s living_no_b=%s living_no_ee=%s x=%s biomass_before=%s", idx, it, living_no_b[i], living_no_ee[i], x[i], biomass[idx])
+            logger.debug(
+                "idx=%s iter=%s living_no_b=%s living_no_ee=%s x=%s biomass_before=%s",
+                idx,
+                it,
+                living_no_b[i],
+                living_no_ee[i],
+                x[i],
+                biomass[idx],
+            )
             if living_no_ee[i]:
                 ee[idx] = x[i]
                 logger.debug("Assigned ee[%s] = %s", idx, x[i])
             if living_no_b[i]:
                 biomass[idx] = x[i]
-                logger.debug("Assigned biomass[%s] = %s biomass_after=%s", idx, x[i], biomass[idx])
+                logger.debug(
+                    "Assigned biomass[%s] = %s biomass_after=%s",
+                    idx,
+                    x[i],
+                    biomass[idx],
+                )
 
         # Record iteration snapshot for diagnostics
-        iterations.append({
-            'iter': it,
-            'A': A.copy(),
-            'b_vec': b_vec.copy(),
-            'x': x.copy(),
-            'ee': ee.copy(),
-            'biomass': biomass.copy(),
-        })
+        iterations.append(
+            {
+                "iter": it,
+                "A": A.copy(),
+                "b_vec": b_vec.copy(),
+                "x": x.copy(),
+                "ee": ee.copy(),
+                "biomass": biomass.copy(),
+            }
+        )
         # Check for EE values > 1 for groups that were originally missing EE
         flipped = False
         # Find groups with EE > 1 eligible for flipping: those whose EE and biomass were both originally missing
-        over = [ (i, idx, ee[idx]) for i, idx in enumerate(living_idx) if original_no_ee[idx] and original_no_b[idx] and not np.isnan(ee[idx]) and ee[idx] > 1.0 ]
+        over = [
+            (i, idx, ee[idx])
+            for i, idx in enumerate(living_idx)
+            if original_no_ee[idx]
+            and original_no_b[idx]
+            and not np.isnan(ee[idx])
+            and ee[idx] > 1.0
+        ]
         if over:
             # Flip only the largest eligible violation to avoid cascade effects
             over.sort(key=lambda t: t[2], reverse=True)
             i, idx, val = over[0]
-            logger.debug("ee[%s] = %s > 1.0 (largest eligible), capping to 1 and solving for biomass next iteration", idx, val)
+            logger.debug(
+                "ee[%s] = %s > 1.0 (largest eligible), capping to 1 and solving for biomass next iteration",
+                idx,
+                val,
+            )
             ee[idx] = 1.0
             biomass[idx] = np.nan
             flipped = True
@@ -504,9 +548,14 @@ def rpath(
     living_qb = qb[living_idx]
     living_pb = pb[living_idx]
     living_ee = ee[living_idx]
-    bio_qb = np.where(np.isnan(living_biomass * living_qb), 0.0, living_biomass * living_qb)
+    bio_qb = np.where(
+        np.isnan(living_biomass * living_qb), 0.0, living_biomass * living_qb
+    )
     pred_unknown_mask = np.array(
-        [original_no_b[pred_global] or np.isnan(biomass[pred_global]) for pred_global in living_idx],
+        [
+            original_no_b[pred_global] or np.isnan(biomass[pred_global])
+            for pred_global in living_idx
+        ],
         dtype=bool,
     )
     bio_qb = np.where(pred_unknown_mask, 0.0, bio_qb)
@@ -757,7 +806,7 @@ def rpath(
             "no_ee": no_ee,
             "pb": pb,
             "qb": qb,
-            "biomass_before": model_df['Biomass'].values.astype(float),
+            "biomass_before": model_df["Biomass"].values.astype(float),
             "biomass_after": biomass.copy(),
             "detinputs": detinputs,
             "detcons": detcons,

@@ -17,9 +17,11 @@ def test_rpath_qq_provided_when_r_available():
         pytest.skip("Rscript not found on PATH; skipping strict qq_provided test")
 
     meta_path = DIAG_DIR / "meta.json"
-    assert meta_path.exists(), "Diagnostics meta.json not present; run scripts/extract_rpath_data.R to generate reference data"
+    assert (
+        meta_path.exists()
+    ), "Diagnostics meta.json not present; run scripts/extract_rpath_data.R to generate reference data"
 
     meta = json.loads(meta_path.read_text())
-    assert bool(meta.get("qq_provided", False)) is True, (
-        "R is available but meta.json indicates qq_provided=False; re-run scripts/extract_rpath_data.R to regenerate reference data"
-    )
+    assert (
+        bool(meta.get("qq_provided", False)) is True
+    ), "R is available but meta.json indicates qq_provided=False; re-run scripts/extract_rpath_data.R to regenerate reference data"

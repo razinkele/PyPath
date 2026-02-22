@@ -3,10 +3,9 @@
 import warnings
 
 import pandas as pd
-from shiny import Inputs, Outputs, Session, reactive, ui
-
 from pypath.core.ecopath import rpath
 from pypath.core.params import create_rpath_params
+from shiny import Inputs, Outputs, Session, reactive, ui
 
 # Import centralized configuration
 from pypath_shiny.config import DEFAULTS

@@ -2,7 +2,6 @@
 Quick test to verify all Advanced Features pages are implemented and working.
 """
 
-
 print("=" * 70)
 print("ADVANCED FEATURES IMPLEMENTATION CHECK")
 print("=" * 70)

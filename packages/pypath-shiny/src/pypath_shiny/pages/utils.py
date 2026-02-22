@@ -14,7 +14,6 @@ import pandas as pd
 # Import centralized configuration
 from pypath_shiny.config import DISPLAY, NO_DATA_VALUE, THRESHOLDS, TYPE_LABELS
 
-
 # =============================================================================
 # CONSTANTS
 # =============================================================================
@@ -613,7 +612,9 @@ def get_model_info(model: Any) -> Optional[Dict[str, Any]]:
 # -----------------------
 
 
-def load_rpath_diagnostics(diag_dir: Path | str = Path("tests/data/rpath_reference/ecosim/diagnostics")) -> dict:
+def load_rpath_diagnostics(
+    diag_dir: Path | str = Path("tests/data/rpath_reference/ecosim/diagnostics"),
+) -> dict:
     """Load Rpath diagnostics metadata and CSVs in a stable, testable form.
 
     Returns a dict with keys:

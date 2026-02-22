@@ -106,6 +106,7 @@ from pypath.io.ewemdb import (
 
 _original_corrcoef = _np.corrcoef
 
+
 def _corrcoef_safe(*args, **kwargs):
     mat = _original_corrcoef(*args, **kwargs)
     try:
@@ -122,6 +123,7 @@ def _corrcoef_safe(*args, **kwargs):
     except Exception:
         pass
     return mat
+
 
 _np.corrcoef = _corrcoef_safe
 
