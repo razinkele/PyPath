@@ -1030,6 +1030,10 @@ def rsim_run(
         "FishQ": getattr(params, 'FishQ', np.array([])),
     }
 
+    # Propagate IBM groups if any functional groups are IBM-managed.
+    if hasattr(params, 'ibm_groups'):
+        params_dict['ibm_groups'] = params.ibm_groups
+
     # Propagate optional debugging/instrumentation control flags from the
     # RpathParams object to the params dict so deriv_vector can use them
     # when running in dict-mode. This is useful for targeted runtime

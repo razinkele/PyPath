@@ -76,6 +76,15 @@ from pypath.core.stanzas import (
     von_bertalanffy_weight,
 )
 
+# IBM (Individual-Based Model)
+from pypath.ibm import (
+    IBMGroup,
+    IBMStepResult,
+    SmeltIBM,
+    SmeltParams,
+    SuperIndividual,
+)
+
 # I/O imports
 from pypath.io.ecobase import (
     EcoBaseGroupData,
@@ -174,6 +183,12 @@ __all__ = [
     "prey_switching",
     "mediation_function",
     "primary_production_forcing",
+    # IBM
+    "IBMGroup",
+    "IBMStepResult",
+    "SuperIndividual",
+    "SmeltIBM",
+    "SmeltParams",
     # I/O - EcoBase
     "EcoBaseModel",
     "EcoBaseGroupData",
