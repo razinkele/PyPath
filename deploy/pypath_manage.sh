@@ -67,9 +67,17 @@ case "$1" in
     shell)
         echo "Opening Python shell with app environment..."
         source ${APP_DIR}/venv/bin/activate
-        export PYTHONPATH="${APP_DIR}/src"
         cd ${APP_DIR}
         python
+        ;;
+
+    pip-install)
+        echo "Reinstalling pypath packages into venv..."
+        source ${APP_DIR}/venv/bin/activate
+        pip install -e ${APP_DIR}/packages/pypath
+        pip install -e ${APP_DIR}/packages/pypath-shiny
+        deactivate
+        echo "Done. You may want to restart Shiny Server: $0 restart"
         ;;
     
     update)
@@ -116,6 +124,7 @@ case "$1" in
         echo "  logs-app    - Follow PyPath application logs"
         echo "  test        - Test if application is responding"
         echo "  shell       - Open Python shell with app environment"
+        echo "  pip-install - Reinstall pypath packages into venv"
         echo "  update      - Update from /tmp/pypath_deploy.tar.gz"
         echo "  backup      - Create backup of current installation"
         echo "  config      - Show Shiny Server configuration"

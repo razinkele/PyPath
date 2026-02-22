@@ -40,8 +40,17 @@ if (-not (Get-Command scp -ErrorAction SilentlyContinue)) {
 
 # Create temporary zip of repository root (omits .git, tests, .github)
 $Tmp = [System.IO.Path]::GetTempFileName() + ".zip"
-$Exclude = @('.git', 'tests', '.github', 'venv', 'env', '__pycache__')
-$Items = Get-ChildItem -Path . -Force | Where-Object { $Exclude -notcontains $_.Name }
+$Exclude = @(
+    '.git', '.github', '.claude', '.vscode',
+    'tests', 'docs', 'scripts', 'logs', 'examples',
+    'venv', 'env', '__pycache__', '.pytest_cache', '.ruff_cache', '.mypy_cache',
+    '.benchmarks', '.venv_smoke', '.playwright-mcp',
+    'build', 'dist', 'example_model_data',
+    'pages', 'src', 'Data'
+)
+$Items = Get-ChildItem -Path . -Force | Where-Object {
+    $Exclude -notcontains $_.Name -and $_.Name -notlike '*.egg-info'
+}
 
 Write-Host "Creating zip archive $Tmp ..."
 Compress-Archive -Path $Items -DestinationPath $Tmp -Force
@@ -55,11 +64,12 @@ if ($DryRun) { Write-Host "DRY RUN: $SCP_CMD"; exit 0 }
 $scpexit = & scp -i $Key $Tmp "$User@$Host:$RemoteTmp"
 if ($LASTEXITCODE -ne 0) { Write-Error "scp failed"; Remove-Item $Tmp -ErrorAction SilentlyContinue; exit 4 }
 
-# Extract and move into place on remote
+# Extract, install packages, and move into place on remote
 $SSH_CMD = @(
     "mkdir -p '$Path'",
     "unzip -o '$RemoteTmp' -d '$Path'",
-    "rm -f '$RemoteTmp'"
+    "rm -f '$RemoteTmp'",
+    "if [ -d '$Path/venv' ]; then source '$Path/venv/bin/activate' && pip install -e '$Path/packages/pypath' && pip install -e '$Path/packages/pypath-shiny' && deactivate; fi"
 ) -join "; "
 
 Write-Host "Extracting on remote host..."

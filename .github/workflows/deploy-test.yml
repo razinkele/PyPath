@@ -47,7 +47,15 @@ jobs:
       - name: Show simulated deploy commands (dry-run)
         run: |
           echo "---- DRY RUN: deploy simulation ----"
-          echo "Would rsync (dry-run): rsync -avz --delete --exclude '.git' --exclude '.github' --exclude 'tests' ./ \"$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH\""
+          EXCLUDES="--exclude '.git' --exclude '.github' --exclude '.claude' --exclude '.vscode'"
+          EXCLUDES="$EXCLUDES --exclude 'tests' --exclude 'docs' --exclude 'scripts' --exclude 'logs' --exclude 'examples'"
+          EXCLUDES="$EXCLUDES --exclude 'venv' --exclude 'env' --exclude '__pycache__' --exclude '.pytest_cache' --exclude '.ruff_cache' --exclude '.mypy_cache'"
+          EXCLUDES="$EXCLUDES --exclude '.benchmarks' --exclude '.venv_smoke' --exclude '.playwright-mcp'"
+          EXCLUDES="$EXCLUDES --exclude 'build' --exclude 'dist' --exclude '*.egg-info' --exclude 'example_model_data'"
+          EXCLUDES="$EXCLUDES --exclude '/pages' --exclude '/src' --exclude '/Data'"
+          echo "Would rsync (dry-run): rsync -avz --delete $EXCLUDES ./ \"$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH\""
+          echo "Would pip install: pip install -e \$TARGET/packages/pypath && pip install -e \$TARGET/packages/pypath-shiny"
+          echo "Would fix ownership: sudo chown -R shiny:shiny \$TARGET"
           if [ "${{ steps.detect.outputs.is_production }}" = "true" ]; then
             echo "Would restart Shiny Server: ssh \"$DEPLOY_USER@$DEPLOY_HOST\" 'sudo systemctl restart shiny-server || sudo service shiny-server restart'"
           else

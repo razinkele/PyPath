@@ -1,30 +1,10 @@
-# PyPath Shiny Application - Python Dependencies
-# Generated for deployment to laguna.ku.lt
-
-# Core Shiny framework
-shiny>=1.0.0
-shinyswatch>=0.7.0
-
-# Scientific computing
-numpy>=1.24
-pandas>=2.0
-scipy>=1.10
-
-# Visualization
-matplotlib>=3.7
-plotly>=5.0
-
-# Network analysis
-networkx>=3.0
-
-# HTTP client (for EcoBase API)
-httpx>=0.24
-
-# Database connectivity (for EwE files)
-pyodbc>=4.0
-
-# ASGI server
-uvicorn>=0.23
-
-# Additional utilities
-pathlib2>=2.3.7; python_version < "3.11"
+# PyPath dependencies are now managed by pyproject.toml in each package.
+#
+# This file is kept as a reference only. Do NOT use pip install -r requirements.txt.
+#
+# Instead, install both packages from source:
+#   pip install -e packages/pypath          # pypath-ewe (core)
+#   pip install -e packages/pypath-shiny    # pypath-shiny (frontend)
+#
+# See: packages/pypath/pyproject.toml
+# See: packages/pypath-shiny/pyproject.toml

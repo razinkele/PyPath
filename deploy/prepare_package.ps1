@@ -7,6 +7,10 @@
     This script creates a deployment package (tarball) containing all files
     needed to deploy the PyPath Shiny application to a Linux server.
 
+    The repository is a monorepo with two packages:
+      packages/pypath/       -> pypath-ewe  (core algorithms)
+      packages/pypath-shiny/ -> pypath-shiny (Shiny web frontend)
+
 .PARAMETER OutputPath
     Path where the deployment package will be created.
     Default: .\pypath_deploy.tar.gz
@@ -44,9 +48,9 @@ Write-Host "  PyPath Deployment Package Builder"
 Write-Host "=============================================="
 Write-Host ""
 
-# Verify we're in the right directory
-if (-not (Test-Path (Join-Path $ProjectRoot "app\app.py"))) {
-    Write-Err "Cannot find app\app.py. Are you in the PyPath project directory?"
+# Verify we're in the right directory (monorepo layout)
+if (-not (Test-Path (Join-Path $ProjectRoot "packages\pypath-shiny\src\pypath_shiny\app.py"))) {
+    Write-Err "Cannot find packages\pypath-shiny\src\pypath_shiny\app.py. Are you in the PyPath project directory?"
     exit 1
 }
 
@@ -54,10 +58,10 @@ Write-Info "Project root: $ProjectRoot"
 
 # Run tests unless skipped
 if (-not $SkipTests) {
-    Write-Info "Running tests..."
+    Write-Info "Running core tests..."
     Push-Location $ProjectRoot
     try {
-        $testResult = python -m pytest tests/ -q --tb=no 2>&1
+        $testResult = python -m pytest packages/pypath/tests/ -q --tb=no --ignore=packages/pypath/tests/scripts 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Warn "Some tests failed. Continue anyway? (y/N)"
             $continue = Read-Host
@@ -83,16 +87,19 @@ New-Item -ItemType Directory -Path $PackageDir -Force | Out-Null
 # Copy application files
 Write-Info "Copying application files..."
 
-# App directory
-Copy-Item -Path (Join-Path $ProjectRoot "app") -Destination $PackageDir -Recurse
-Write-Info "  - app/"
+# Copy packages directory (monorepo layout)
+Copy-Item -Path (Join-Path $ProjectRoot "packages") -Destination $PackageDir -Recurse
+Write-Info "  - packages/"
 
-# Source code
-Copy-Item -Path (Join-Path $ProjectRoot "src") -Destination $PackageDir -Recurse
-Write-Info "  - src/"
+# Remove tests and caches from deployed copy
+Get-ChildItem -Path (Join-Path $PackageDir "packages") -Include "tests", "__pycache__", ".pytest_cache" -Recurse -Directory -Force |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Path (Join-Path $PackageDir "packages") -Include "*.pyc" -Recurse -Force |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+Write-Info "  - Cleaned tests/ and __pycache__/ from packages"
 
 # Deployment scripts (copy to root of package, not subdirectory)
-$DeployFiles = @("deploy.sh", "requirements.txt", "pypath_manage.sh", "README.md")
+$DeployFiles = @("deploy.sh", "pypath_manage.sh", "README.md")
 foreach ($file in $DeployFiles) {
     $srcPath = Join-Path $ProjectRoot "deploy\$file"
     if (Test-Path $srcPath) {
@@ -101,32 +108,26 @@ foreach ($file in $DeployFiles) {
     }
 }
 
-# Configuration files
-Copy-Item -Path (Join-Path $ProjectRoot "pyproject.toml") -Destination $PackageDir
-Write-Info "  - pyproject.toml"
+# Generate thin app.py entry point
+$AppPyContent = @"
+#!/usr/bin/env python3
+"""
+PyPath Shiny Application Entry Point
 
-# README
-if (Test-Path (Join-Path $ProjectRoot "README.md")) {
-    Copy-Item -Path (Join-Path $ProjectRoot "README.md") -Destination $PackageDir
-    Write-Info "  - README.md"
-}
+This file is the entry point for Shiny Server.
+It imports and exposes the main app from the pypath-shiny package.
+"""
+from pypath_shiny.app import app
 
-# Data directory (optional - only sample/test data)
-$DataDir = Join-Path $ProjectRoot "Data"
-if (Test-Path $DataDir) {
-    # Create Data directory but only copy small sample files
-    New-Item -ItemType Directory -Path (Join-Path $PackageDir "Data") -Force | Out-Null
-    
-    # Copy only files under 10MB
-    Get-ChildItem $DataDir -File | Where-Object { $_.Length -lt 10MB } | ForEach-Object {
-        Copy-Item $_.FullName -Destination (Join-Path $PackageDir "Data")
-        Write-Info "  - Data/$($_.Name)"
-    }
-}
+# Shiny Server looks for 'app' object
+__all__ = ["app"]
+"@
+$AppPyContent | Out-File -FilePath (Join-Path $PackageDir "app.py") -Encoding UTF8
+Write-Info "  - app.py (generated entry point)"
 
-# Remove Python cache files
+# Remove Python cache files (final cleanup)
 Write-Info "Cleaning up cache files..."
-Get-ChildItem -Path $PackageDir -Include "__pycache__", "*.pyc", ".pytest_cache" -Recurse -Force | 
+Get-ChildItem -Path $PackageDir -Include "__pycache__", "*.pyc", ".pytest_cache" -Recurse -Force |
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
 # Create version file

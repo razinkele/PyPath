@@ -13,7 +13,14 @@ TARGET_PATH=""
 KEY=""
 RESTART=false
 DRYRUN=false
-EXCLUDES=(".git" "tests" ".github" "venv" "env" "__pycache__")
+EXCLUDES=(
+    ".git" ".github" ".claude" ".vscode"
+    "tests" "docs" "scripts" "logs" "examples"
+    "venv" "env" "__pycache__" ".pytest_cache" ".ruff_cache" ".mypy_cache"
+    ".benchmarks" ".venv_smoke" ".playwright-mcp"
+    "build" "dist" "*.egg-info" "example_model_data"
+    "/pages" "/src" "/Data"
+)
 
 show_help() {
     cat <<-EOF

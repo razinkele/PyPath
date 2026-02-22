@@ -2,6 +2,17 @@
 
 This document describes how to perform manual deployments to the existing Shiny server on `laguna.ku.lt` and how to prepare the server and GitHub repository for automated deployments.
 
+## Architecture
+
+PyPath is a **monorepo** with two packages:
+
+| Package | Path | PyPI Name | Import |
+|---------|------|-----------|--------|
+| Core algorithms | `packages/pypath/` | `pypath-ewe` | `import pypath` |
+| Shiny frontend | `packages/pypath-shiny/` | `pypath-shiny` | `import pypath_shiny` |
+
+Both are installed from source into a venv on the server using `pip install -e`. Dependencies are managed by `pyproject.toml` in each package (not `requirements.txt`).
+
 ## 1) Recommended workflow (manual)
 
 1. Create a dedicated deploy SSH key on your local machine:
@@ -13,12 +24,7 @@ This document describes how to perform manual deployments to the existing Shiny 
 2. Copy the public key to the remote server for the `razinka` user:
 
    ```bash
-   # preferred (if ssh-copy-id available):
    ssh-copy-id -i ~/.ssh/pypath_deploy.pub razinka@laguna.ku.lt
-
-   # or manually (on server):
-   # append the public key to ~/.ssh/authorized_keys and set correct perms
-   cat pypath_deploy.pub | ssh razinka@laguna.ku.lt 'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys'
    ```
 
 3. Verify you can log in (and optionally that sudo works if you plan to restart Shiny Server):
@@ -32,66 +38,99 @@ This document describes how to perform manual deployments to the existing Shiny 
 
    - Linux/macOS (rsync):
      ```bash
-     ./scripts/deploy.sh --host laguna.ku.lt --user razinka --path /home/razinka/shiny/pypath --key ~/.ssh/pypath_deploy
+     ./scripts/deploy.sh --host laguna.ku.lt --user razinka --path /srv/shiny-server/pypath --key ~/.ssh/pypath_deploy
      # add --restart to attempt restarting Shiny Server (requires sudo on remote)
      ```
 
    - Windows (PowerShell):
      ```powershell
-     .\scripts\deploy.ps1 -Host laguna.ku.lt -User razinka -Path /home/razinka/shiny/pypath -Key C:\Users\you\.ssh\pypath_deploy
+     .\scripts\deploy.ps1 -Host laguna.ku.lt -User razinka -Path /srv/shiny-server/pypath -Key C:\Users\you\.ssh\pypath_deploy
      # add -Restart to attempt restarting Shiny Server
      ```
 
+   After rsync/upload, SSH into the server and install packages:
+
+   ```bash
+   ssh razinka@laguna.ku.lt
+   TARGET=/srv/shiny-server/pypath
+
+   # Create venv if first time
+   python3 -m venv $TARGET/venv
+
+   # Install both packages (order matters: core first)
+   source $TARGET/venv/bin/activate
+   pip install -e $TARGET/packages/pypath
+   pip install -e $TARGET/packages/pypath-shiny
+   deactivate
+
+   # Fix ownership
+   sudo chown -R shiny:shiny $TARGET
+   sudo systemctl restart shiny-server
+   ```
+
 Notes:
-- The scripts exclude `.git`, `.github`, `tests`, and common virtual environment directories by default.
-- The `/home/razinka/shiny/pypath` path is an example; replace with the correct target deployment folder.
-- If you prefer a CI-driven approach, see section 4 for a sample GitHub Actions snippet.
+- The scripts exclude `.git`, `.github`, `.claude`, `tests`, caches, and build artifacts by default.
+- Dependencies are resolved from `pyproject.toml` during `pip install -e`.
 
-## 2) GitHub Secrets (for future automated deploys)
+## 2) GitHub Secrets (for automated deploys)
 
-When you want to add an automated deployment workflow (e.g., on push to `main` or on tags), add the following repository secrets (Repository Settings → Secrets → Actions):
+Add the following repository secrets (Repository Settings > Secrets > Actions):
 
-- `SSH_PRIVATE_KEY` — private key content for the deploy key (use the private key you generated above)
+- `SSH_PRIVATE_KEY` — private key content for the deploy key
 - `DEPLOY_HOST` — e.g., `laguna.ku.lt`
 - `DEPLOY_USER` — e.g., `razinka`
-- `DEPLOY_PATH` — remote path where the app should be deployed
-- `SSH_KNOWN_HOSTS` — (optional) known_hosts entry for `laguna.ku.lt` (helps avoid StrictHostKeyChecking prompts)
+- `DEPLOY_PATH` — remote path, e.g., `/srv/shiny-server/pypath`
+- `RESTART_AFTER_DEPLOY` — (optional) set to `true` to auto-restart Shiny Server
 
-Keep keys scoped to a deploy-only user and avoid re-using personal keys. If the deploy action needs to restart system services and you want to avoid storing passwords, configure `razinka` with passwordless sudo for specific commands only.
+The workflow (`.github/workflows/deploy.yml`) will:
+1. Rsync the repo (excluding tests, caches, build artifacts)
+2. Create a venv if missing and generate `app.py` if missing
+3. `pip install -e` both packages on the remote server
+4. Fix file ownership to `shiny:shiny`
+5. Optionally restart Shiny Server
 
 ## 3) Server-side notes
 
-- Ensure the `razinka` user has write access to the target `DEPLOY_PATH` (mkdir -p as needed).
-- Ensure the `~/.ssh/authorized_keys` is present and permissions are correct (700 for `~/.ssh`, 600 for the file).
+- Target directory: `/srv/shiny-server/pypath/`
+- The `shiny` user must own the app directory
+- Shiny Server looks for `app.py` at the root, which imports `from pypath_shiny.app import app`
+- Both packages are editable-installed into `venv/`, so `PYTHONPATH` is not needed
 - Typical Shiny Server restart commands (may require sudo):
   - `sudo systemctl restart shiny-server`
   - `sudo service shiny-server restart`
 
-## 4) Example GitHub Actions snippet (optional)
+## 4) Server directory layout
 
-When you are ready to automate deployments, here is a minimal example (to include in `.github/workflows/deploy.yml`):
-
-```yaml
-name: Deploy
-on:
-  push:
-    branches: [ main ]
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.8.1
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Rsync deploy
-        run: |
-          rsync -avz --delete --exclude .git --exclude .github --exclude tests ./ ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
-
-# Note: to restart Shiny server, add an ssh command step which will do 'sudo systemctl restart shiny-server' if sudo is allowed for the deploy user.
+```text
+/srv/shiny-server/pypath/
+├── app.py                          # from pypath_shiny.app import app
+├── packages/
+│   ├── pypath/                     # pypath-ewe source
+│   │   ├── src/pypath/
+│   │   └── pyproject.toml
+│   └── pypath-shiny/               # pypath-shiny source
+│       ├── src/pypath_shiny/
+│       └── pyproject.toml
+├── venv/                           # Both packages pip-installed here
+│   └── bin/python
+├── data/                           # Optional runtime data
+└── shiny-server-pypath.conf        # Config snippet for admin
 ```
 
----
+## 5) Alternative: package-based deploy
 
-If you want, I can add the above workflow now and (optionally) gate the deploy to be a manual workflow_dispatch or to run only on tags.
+Instead of the scripts in `scripts/`, you can use the tarball-based workflow in `deploy/`:
+
+```powershell
+# On Windows: create deployment tarball
+.\deploy\prepare_package.ps1
+
+# Upload and deploy on server
+scp pypath_deploy.tar.gz razinka@laguna.ku.lt:/tmp/
+ssh razinka@laguna.ku.lt
+cd /tmp && tar -xzf pypath_deploy.tar.gz && cd pypath_deploy
+sudo ./deploy.sh        # fresh install
+sudo ./deploy.sh --update  # update existing
+```
+
+See `deploy/README.md` for full details.
