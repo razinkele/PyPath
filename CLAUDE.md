@@ -29,7 +29,15 @@ packages/
         connectivity.py            # Patch connectivity
         habitat.py                 # Habitat preferences
       analysis/                    # Pre-balance diagnostics
-    tests/                         # 551 core tests
+      ibm/                         # Individual-Based Model module
+        base.py                    # SuperIndividual, IBMStepResult, IBMGroup ABC
+        bioenergetics.py           # Wisconsin model (growth, metabolism, Q10)
+        predation.py               # Size-structured predation mortality
+        behavior.py                # Spatial movement + adaptive foraging
+        reproduction.py            # Stochastic spawning + larval survival
+        integration.py             # Derivative override + mass balance checker
+        smelt.py                   # SmeltIBM concrete implementation for Baltic smelt
+    tests/                         # 551 core tests + 144 IBM tests
     example_model_data/            # CSV example model files
     docs/                          # MkDocs API documentation
     pyproject.toml                 # pypath-ewe v0.3.0
