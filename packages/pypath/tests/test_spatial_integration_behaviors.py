@@ -290,3 +290,55 @@ class TestMovementRedistribution:
                     f"Group {g}: good habitat ({good_patches:.4f}) not higher "
                     f"than poor habitat ({poor_patches:.4f})"
                 )
+
+    def test_zero_dispersal_no_movement(self, base_scenario):
+        """With dispersal rate = 0, spatial distribution should not change."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=3, dispersal=0.0)
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
+
+        spatial = result.out_Biomass_spatial
+        final = spatial[-1]
+
+        # Each patch should evolve independently (same local dynamics)
+        # Since all patches start identical with zero dispersal, they should
+        # remain identical to each other (though values change over time)
+        for g in range(1, n_groups + 1):
+            if spatial[0, g, :].sum() > 0:
+                patch_vals = final[g, :]
+                if patch_vals.mean() > 1e-10:
+                    cv = patch_vals.std() / patch_vals.mean()
+                    assert (
+                        cv < 0.01
+                    ), f"Group {g}: patches diverged with zero dispersal (CV={cv:.4f})"
+
+    def test_higher_dispersal_faster_convergence(self, base_scenario):
+        """Higher dispersal rate should maintain more uniform distribution."""
+        import copy
+
+        scenario, n_groups = base_scenario
+
+        # Low dispersal
+        eco_low = _make_ecospace(n_groups, n_patches=5, dispersal=0.5)
+        result_low = rsim_run_spatial(scenario, ecospace=eco_low, years=range(1, 3))
+
+        # High dispersal (deep-copy to avoid reusing mutated scenario)
+        scenario_high = copy.deepcopy(scenario)
+        eco_high = _make_ecospace(n_groups, n_patches=5, dispersal=10.0)
+        result_high = rsim_run_spatial(
+            scenario_high, ecospace=eco_high, years=range(1, 3)
+        )
+
+        # High dispersal should produce more uniform distribution (lower variance)
+        for g in range(1, n_groups + 1):
+            low_var = result_low.out_Biomass_spatial[-1, g, :].var()
+            high_var = result_high.out_Biomass_spatial[-1, g, :].var()
+            bio_low = result_low.out_Biomass_spatial[-1, g, :].sum()
+            bio_high = result_high.out_Biomass_spatial[-1, g, :].sum()
+
+            if bio_low > 1e-10 and bio_high > 1e-10:
+                assert high_var <= low_var * 1.1, (
+                    f"Group {g}: high dispersal variance ({high_var:.6f}) > "
+                    f"low dispersal variance ({low_var:.6f})"
+                )
