@@ -4,12 +4,14 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from shiny import Inputs, Outputs, Session, reactive, render, ui
-
 from pypath.core.ecopath import Rpath, rpath
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.params import RpathParams, create_rpath_params
+from shiny import Inputs, Outputs, Session, reactive, render, ui
+
+# Configuration imports
+from pypath_shiny.config import DEFAULTS, PLOTS, THRESHOLDS
 
 # Import shared utilities
 from .utils import (
@@ -26,9 +28,6 @@ from .validation import (
     validate_model_parameters,
     validate_pb,
 )
-
-# Configuration imports
-from pypath_shiny.config import DEFAULTS, PLOTS, THRESHOLDS
 
 
 def _get_groups_from_model(model: Union[Rpath, RpathParams]) -> List[str]:

@@ -57,7 +57,7 @@ class TestQ10:
     def test_plus_5c_returns_sqrt_q10(self):
         """Q10 factor at +5C should be sqrt(q10)."""
         result = q10_temperature_factor(temp=20.0, t_ref=15.0, q10=2.0)
-        assert result == pytest.approx(2.0 ** 0.5)
+        assert result == pytest.approx(2.0**0.5)
 
     def test_different_q10_value(self):
         """Q10 factor works for different Q10 values."""
@@ -72,7 +72,7 @@ class TestAllometry:
         """Allometric length returns a * weight^b for known inputs."""
         # a=0.01, b=0.333, weight=1000 => 0.01 * 1000^0.333
         result = allometric_length(weight=1000.0, a=0.01, b=0.333)
-        expected = 0.01 * (1000.0 ** 0.333)
+        expected = 0.01 * (1000.0**0.333)
         assert result == pytest.approx(expected, rel=1e-6)
 
     def test_unit_weight(self):
@@ -99,7 +99,7 @@ class TestMetabolism:
         weight = 10.0
         temp = default_params.t_ref  # reference temp, so Q10 factor = 1
         result = metabolism(weight, temp, default_params)
-        expected = default_params.ra * (weight ** default_params.rb)
+        expected = default_params.ra * (weight**default_params.rb)
         assert result == pytest.approx(expected, rel=1e-6)
 
     def test_higher_temperature_increases_metabolism(self, default_params):
@@ -245,9 +245,9 @@ class TestGrowthStep:
         )
 
         # Mature fish should gain less weight due to reproduction cost
-        assert new_weight_mature < new_weight_immature, (
-            "Mature fish should gain less weight than immature due to reproduction cost"
-        )
+        assert (
+            new_weight_mature < new_weight_immature
+        ), "Mature fish should gain less weight than immature due to reproduction cost"
 
     def test_energy_reserve_stores_surplus(self, default_params):
         """When net energy is positive, surplus goes to energy reserve."""
@@ -266,9 +266,9 @@ class TestGrowthStep:
             dt=dt,
             params=default_params,
         )
-        assert new_energy >= energy_reserve, (
-            "Energy reserve should increase or stay the same with surplus energy"
-        )
+        assert (
+            new_energy >= energy_reserve
+        ), "Energy reserve should increase or stay the same with surplus energy"
 
     def test_energy_reserve_drains_under_deficit(self, default_params):
         """When net energy is negative, energy reserve should decrease."""
@@ -287,9 +287,9 @@ class TestGrowthStep:
             dt=dt,
             params=default_params,
         )
-        assert new_energy < energy_reserve, (
-            "Energy reserve should decrease under deficit"
-        )
+        assert (
+            new_energy < energy_reserve
+        ), "Energy reserve should decrease under deficit"
 
     def test_energy_conservation(self, default_params):
         """The energy budget should be internally consistent."""

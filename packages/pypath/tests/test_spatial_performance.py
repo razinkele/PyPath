@@ -101,9 +101,9 @@ class TestFluxCalculationPerformance:
         elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
-        assert time_per_call < 0.001, (
-            f"Diffusion took {time_per_call * 1000:.1f}ms, expected < 1ms"
-        )
+        assert (
+            time_per_call < 0.001
+        ), f"Diffusion took {time_per_call * 1000:.1f}ms, expected < 1ms"
 
     def test_diffusion_medium_grid(self):
         """Diffusion on medium grid should be acceptable."""
@@ -121,9 +121,9 @@ class TestFluxCalculationPerformance:
         elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
-        assert time_per_call < 0.01, (
-            f"Diffusion took {time_per_call * 1000:.1f}ms, expected < 10ms"
-        )
+        assert (
+            time_per_call < 0.01
+        ), f"Diffusion took {time_per_call * 1000:.1f}ms, expected < 10ms"
 
     def test_advection_small_grid(self):
         """Advection on small grid should be fast."""
@@ -143,9 +143,9 @@ class TestFluxCalculationPerformance:
         elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
-        assert time_per_call < 0.001, (
-            f"Advection took {time_per_call * 1000:.1f}ms, expected < 1ms"
-        )
+        assert (
+            time_per_call < 0.001
+        ), f"Advection took {time_per_call * 1000:.1f}ms, expected < 1ms"
 
     def test_combined_flux_medium_grid(self):
         """Combined flux calculation should be fast."""
@@ -172,9 +172,9 @@ class TestFluxCalculationPerformance:
         elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 10
-        assert time_per_call < 0.1, (
-            f"Combined flux took {time_per_call * 1000:.0f}ms, expected < 100ms"
-        )
+        assert (
+            time_per_call < 0.1
+        ), f"Combined flux took {time_per_call * 1000:.0f}ms, expected < 100ms"
 
 
 class TestFishingAllocationPerformance:
@@ -197,9 +197,9 @@ class TestFishingAllocationPerformance:
         elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
-        assert time_per_call < 0.001, (
-            f"Gravity allocation took {time_per_call * 1000:.1f}ms, expected < 1ms"
-        )
+        assert (
+            time_per_call < 0.001
+        ), f"Gravity allocation took {time_per_call * 1000:.1f}ms, expected < 1ms"
 
     def test_port_allocation_fast(self):
         """Port-based allocation should be fast."""
@@ -214,9 +214,9 @@ class TestFishingAllocationPerformance:
         elapsed = time.perf_counter() - start
 
         time_per_call = elapsed / 100
-        assert time_per_call < 0.02, (
-            f"Port allocation took {time_per_call * 1000:.1f}ms, expected < 20ms"
-        )
+        assert (
+            time_per_call < 0.02
+        ), f"Port allocation took {time_per_call * 1000:.1f}ms, expected < 20ms"
 
 
 class TestMemoryFootprint:
@@ -234,9 +234,9 @@ class TestMemoryFootprint:
         total_memory = adjacency_memory + centroids_memory + areas_memory
 
         # Should be < 10 KB for 25 patches
-        assert total_memory < 10, (
-            f"Grid memory: {total_memory:.1f} KB, expected < 10 KB"
-        )
+        assert (
+            total_memory < 10
+        ), f"Grid memory: {total_memory:.1f} KB, expected < 10 KB"
 
     def test_state_memory_scaling(self):
         """State memory should scale linearly."""
@@ -309,9 +309,9 @@ class TestScalability:
             elapsed = time.perf_counter() - start
 
             # Should complete in < 100ms even with 50 groups
-            assert elapsed < 0.1, (
-                f"{n_groups} groups took {elapsed * 1000:.0f}ms, expected < 100ms"
-            )
+            assert (
+                elapsed < 0.1
+            ), f"{n_groups} groups took {elapsed * 1000:.0f}ms, expected < 100ms"
 
 
 class TestWorstCase:

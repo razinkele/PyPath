@@ -1,8 +1,6 @@
 """Data Import page module - EcoBase and EwE database import."""
 
 import pandas as pd
-from shiny import Inputs, Outputs, Session, reactive, render, ui
-
 from pypath.io.biodata import (
     APIConnectionError,
     SpeciesNotFoundError,
@@ -23,15 +21,16 @@ from pypath.io.ewemdb import (
     get_ewemdb_metadata,
     read_ewemdb,
 )
+from shiny import Inputs, Outputs, Session, reactive, render, ui
+
+# Configuration imports
+from pypath_shiny.config import PARAM_RANGES, UI
 
 # Import shared utilities
 from .utils import (
     create_cell_styles,
     format_dataframe_for_display,
 )
-
-# Configuration imports
-from pypath_shiny.config import PARAM_RANGES, UI
 
 
 def import_ui():

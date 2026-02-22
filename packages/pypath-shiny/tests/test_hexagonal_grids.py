@@ -10,8 +10,12 @@ import pytest
 
 try:
     import geopandas as gpd
-    from pypath_shiny.pages.ecospace import create_hexagon, create_hexagonal_grid_in_boundary
     from shapely.geometry import Point, Polygon
+
+    from pypath_shiny.pages.ecospace import (
+        create_hexagon,
+        create_hexagonal_grid_in_boundary,
+    )
 
     HAS_GIS = True
 except ImportError:
@@ -453,7 +457,9 @@ class TestRealWorldScenarios:
         boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         # Test different sizes (disable auto_scale to test raw geometry)
-        grid_fine = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=0.5, auto_scale=False)
+        grid_fine = create_hexagonal_grid_in_boundary(
+            boundary_gdf, hexagon_size_km=0.5, auto_scale=False
+        )
         grid_medium = create_hexagonal_grid_in_boundary(
             boundary_gdf, hexagon_size_km=1.0, auto_scale=False
         )

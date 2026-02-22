@@ -52,9 +52,7 @@ if HAS_NUMBA:
         return net_flux
 
     @numba.njit(cache=True)
-    def _habitat_advection_numba(
-        biomass, habitat_pref, gravity, rows, cols, n_patches
-    ):
+    def _habitat_advection_numba(biomass, habitat_pref, gravity, rows, cols, n_patches):
         """Numba-accelerated habitat advection (upper-triangle edges only)."""
         net_flux = np.zeros(n_patches)
         n_edges = len(rows)
@@ -187,7 +185,13 @@ def diffusion_flux(
     # Use Numba-accelerated implementation when available
     if HAS_NUMBA:
         return _diffusion_flux_numba(
-            biomass_vector, dispersal_rate, rows, cols, border_lengths, distances, n_patches
+            biomass_vector,
+            dispersal_rate,
+            rows,
+            cols,
+            border_lengths,
+            distances,
+            n_patches,
         )
 
     # Vectorized gradient calculation
@@ -371,8 +375,14 @@ def gravity_model_flux(
     # Use Numba-accelerated implementation when available
     if HAS_NUMBA:
         return _gravity_model_flux_numba(
-            biomass_vector, attractiveness, gravity_strength,
-            rows, cols, distances, distance_decay, n_patches
+            biomass_vector,
+            attractiveness,
+            gravity_strength,
+            rows,
+            cols,
+            distances,
+            distance_decay,
+            n_patches,
         )
 
     # Vectorized gravity model calculations

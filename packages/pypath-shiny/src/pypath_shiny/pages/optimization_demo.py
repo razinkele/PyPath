@@ -94,16 +94,14 @@ def optimization_demo_ui():
                     ui.card(
                         ui.card_header("Gaussian Process Model"),
                         ui.output_ui("gp_plot"),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         **Gaussian Process Visualization:**
 
                         - **Black dots**: Evaluated points
                         - **Red star**: Best point found
                         - **Blue line**: GP mean prediction
                         - **Shaded area**: 95% confidence interval
-                        """
-                        ),
+                        """),
                     ),
                 ),
                 ui.nav_panel(
@@ -131,8 +129,7 @@ def optimization_demo_ui():
                             ui.tags.i(class_="bi bi-graph-up me-2"),
                             "Bayesian Optimization Guide",
                         ),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         ## What is Bayesian Optimization?
 
                         Bayesian optimization is an **efficient method for finding optimal parameters**
@@ -365,8 +362,7 @@ def optimization_demo_ui():
                         - Species distribution models
                         - Population dynamics
                         - Resource management
-                        """
-                        ),
+                        """),
                     ),
                 ),
             ),

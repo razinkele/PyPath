@@ -9,7 +9,7 @@ and growth for Baltic smelt (Osmerus eperlanus) super-individuals.
 import numpy as np
 import pytest
 
-from pypath.ibm.base import IBMGroup, IBMStepResult, SuperIndividual
+from pypath.ibm.base import IBMGroup, IBMStepResult
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
 
 
@@ -93,7 +93,9 @@ class TestSmeltIBMInit:
             assert ind.weight > 0.0, f"Individual {ind.id} has non-positive weight"
             assert ind.length > 0.0, f"Individual {ind.id} has non-positive length"
             assert ind.age >= 0.0, f"Individual {ind.id} has negative age"
-            assert ind.n_represented > 0.0, f"Individual {ind.id} has non-positive n_represented"
+            assert (
+                ind.n_represented > 0.0
+            ), f"Individual {ind.id} has non-positive n_represented"
             assert ind.energy_reserve >= 0.0
 
     def test_individuals_age_range(self, smelt, params):
@@ -148,7 +150,9 @@ class TestSmeltIBMStep:
         env = {"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0}
         dt = 1.0 / 12.0
 
-        result = smelt.compute_step(prey, predation_pressure=0.1, env_forcing=env, dt=dt)
+        result = smelt.compute_step(
+            prey, predation_pressure=0.1, env_forcing=env, dt=dt
+        )
 
         assert isinstance(result, IBMStepResult)
 
@@ -159,7 +163,9 @@ class TestSmeltIBMStep:
         env = {"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0}
         dt = 1.0 / 12.0
 
-        result = smelt.compute_step(prey, predation_pressure=0.1, env_forcing=env, dt=dt)
+        result = smelt.compute_step(
+            prey, predation_pressure=0.1, env_forcing=env, dt=dt
+        )
 
         assert result.biomass > 0.0
 
@@ -170,7 +176,9 @@ class TestSmeltIBMStep:
         env = {"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0}
         dt = 1.0 / 12.0
 
-        result = smelt.compute_step(prey, predation_pressure=0.1, env_forcing=env, dt=dt)
+        result = smelt.compute_step(
+            prey, predation_pressure=0.1, env_forcing=env, dt=dt
+        )
 
         assert result.consumption_by_prey.shape == (smelt.n_groups,)
 
@@ -183,7 +191,9 @@ class TestSmeltIBMStep:
         env = {"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0}
         dt = 1.0 / 12.0
 
-        result = smelt.compute_step(prey, predation_pressure=0.1, env_forcing=env, dt=dt)
+        result = smelt.compute_step(
+            prey, predation_pressure=0.1, env_forcing=env, dt=dt
+        )
 
         # Biomass should not change by more than 50% in one month step
         assert result.biomass > initial_biomass * 0.3
@@ -210,7 +220,9 @@ class TestSmeltIBMStep:
         env = {"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0}
         dt = 1.0 / 12.0
 
-        result = smelt.compute_step(prey, predation_pressure=0.1, env_forcing=env, dt=dt)
+        result = smelt.compute_step(
+            prey, predation_pressure=0.1, env_forcing=env, dt=dt
+        )
 
         assert isinstance(result, IBMStepResult)
         assert result.biomass >= 0.0

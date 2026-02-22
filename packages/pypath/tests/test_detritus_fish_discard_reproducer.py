@@ -1,16 +1,20 @@
-
 import numpy as np
 import pytest
 
 from pypath.core.ecosim_deriv import deriv_vector
 
 
-@pytest.mark.parametrize("fish_q,m0_1,qb_1,unassim1,unassim2,include_qq,include_detfrac", [
-    (0.1, 0.05, 0.0, 0.2, 0.1, False, False),
-    (0.2, 0.1, 0.5, 0.25, 0.15, True, False),
-    (0.05, 0.01, 0.2, 0.15, 0.05, True, True),
-])
-def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(fish_q, m0_1, qb_1, unassim1, unassim2, include_qq, include_detfrac):
+@pytest.mark.parametrize(
+    "fish_q,m0_1,qb_1,unassim1,unassim2,include_qq,include_detfrac",
+    [
+        (0.1, 0.05, 0.0, 0.2, 0.1, False, False),
+        (0.2, 0.1, 0.5, 0.25, 0.15, True, False),
+        (0.05, 0.01, 0.2, 0.15, 0.05, True, True),
+    ],
+)
+def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(
+    fish_q, m0_1, qb_1, unassim1, unassim2, include_qq, include_detfrac
+):
     """Reproducer: at a known month/state, adding fish-derived discard links
     should increase Detritus inputs (unas/mort) and increase the Discards derivative.
 
@@ -77,7 +81,9 @@ def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(fish_q, m
         "spname": spname,
         # fish mappings (FishFrom/FishTo/FishQ) placed directly in params
         "FishFrom": np.array([0, 1], dtype=int),  # index 1 holds source group 1
-        "FishTo": np.array([0, NUM_LIVING + 1], dtype=int),  # index 1 points to detritus group (absolute index)
+        "FishTo": np.array(
+            [0, NUM_LIVING + 1], dtype=int
+        ),  # index 1 points to detritus group (absolute index)
         "FishQ": np.array([0.0, 0.1]),
     }
 
@@ -89,7 +95,6 @@ def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(fish_q, m
         pdict["FishFrom"] = np.concatenate((ff, np.array([2], dtype=int)))
         pdict["FishTo"] = np.concatenate((ft, np.array([NUM_LIVING + 1], dtype=int)))
         pdict["FishQ"] = np.concatenate((fq, np.array([float(fish_q)])))
-
 
     forcing = {
         "Ftime": np.ones(NUM_GROUPS + 1),
@@ -150,7 +155,12 @@ def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(fish_q, m
         for k in range(len(fish_from)):
             f = int(fish_from[k])
             t = int(fish_to[k])
-            if t >= (NUM_LIVING + 1) and t <= (NUM_LIVING + NUM_DEAD) and f >= 0 and f <= NUM_GROUPS:
+            if (
+                t >= (NUM_LIVING + 1)
+                and t <= (NUM_LIVING + NUM_DEAD)
+                and f >= 0
+                and f <= NUM_GROUPS
+            ):
                 det_col = t - NUM_LIVING
                 src_idx = f
                 fish_input = float(fish_q[k]) * float(state[src_idx])
@@ -159,7 +169,9 @@ def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(fish_q, m
                 unassim_arr = pdict.get("Unassim", np.zeros(NUM_GROUPS + 1))
                 m0_pos = max(0.0, float(m0_arr[src_idx]))
                 qb_loss = 0.0 if np.isnan(qb_arr[src_idx]) else float(qb_arr[src_idx])
-                source_loss = m0_pos * float(state[src_idx]) + float(state[src_idx]) * qb_loss * float(unassim_arr[src_idx])
+                source_loss = m0_pos * float(state[src_idx]) + float(
+                    state[src_idx]
+                ) * qb_loss * float(unassim_arr[src_idx])
                 frac = fish_input / (source_loss + 1e-30)
                 if frac > 0:
                     DetFrac_aug[src_idx, det_col] += frac
@@ -171,7 +183,11 @@ def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(fish_q, m
     # baseline
     _unas_input_base = 0.0
     for pred in range(1, NUM_LIVING + 1):
-        total_consump = np.sum(pdict["QQbase"][1:, pred]) if False else np.sum(np.zeros((NUM_GROUPS + 1,)))
+        total_consump = (
+            np.sum(pdict["QQbase"][1:, pred])
+            if False
+            else np.sum(np.zeros((NUM_GROUPS + 1,)))
+        )
         # we should use QQ computed from current state; replicate deriv_vector's QQ computation (simpler)
     # Recompute QQ as deriv_vector does
     QQ = np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1))
@@ -218,11 +234,27 @@ def test_fish_discard_contributions_increase_detritus_inputs_and_deriv(fish_q, m
     mort_aug = 0.0
     for pred in range(1, NUM_LIVING + 1):
         total_consump = np.sum(QQ[1:, pred])
-        unas_base += total_consump * pdict["Unassim"][pred] * (DetFrac[pred, det_idx] if DetFrac.shape[1] > det_idx else 0)
-        unas_aug += total_consump * pdict["Unassim"][pred] * (DetFrac_aug[pred, det_idx] if DetFrac_aug.shape[1] > det_idx else 0)
+        unas_base += (
+            total_consump
+            * pdict["Unassim"][pred]
+            * (DetFrac[pred, det_idx] if DetFrac.shape[1] > det_idx else 0)
+        )
+        unas_aug += (
+            total_consump
+            * pdict["Unassim"][pred]
+            * (DetFrac_aug[pred, det_idx] if DetFrac_aug.shape[1] > det_idx else 0)
+        )
     for grp in range(1, NUM_LIVING + 1):
-        mort_base += pdict.get("M0", np.zeros(NUM_GROUPS + 1))[grp] * state[grp] * (DetFrac[grp, det_idx] if DetFrac.shape[1] > det_idx else 0)
-        mort_aug += pdict.get("M0", np.zeros(NUM_GROUPS + 1))[grp] * state[grp] * (DetFrac_aug[grp, det_idx] if DetFrac_aug.shape[1] > det_idx else 0)
+        mort_base += (
+            pdict.get("M0", np.zeros(NUM_GROUPS + 1))[grp]
+            * state[grp]
+            * (DetFrac[grp, det_idx] if DetFrac.shape[1] > det_idx else 0)
+        )
+        mort_aug += (
+            pdict.get("M0", np.zeros(NUM_GROUPS + 1))[grp]
+            * state[grp]
+            * (DetFrac_aug[grp, det_idx] if DetFrac_aug.shape[1] > det_idx else 0)
+        )
 
     # If predator DetFrac was set and predation links exist, expect unas to increase
     if include_detfrac and include_qq:

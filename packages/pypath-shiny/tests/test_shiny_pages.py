@@ -344,7 +344,11 @@ class TestDemoPages:
         try:
             import inspect
 
-            from pypath_shiny.pages import diet_rewiring_demo, forcing_demo, optimization_demo
+            from pypath_shiny.pages import (
+                diet_rewiring_demo,
+                forcing_demo,
+                optimization_demo,
+            )
 
             # All demo pages should have: input, output, session (no shared state)
             for module in [forcing_demo, diet_rewiring_demo, optimization_demo]:
@@ -379,14 +383,16 @@ class TestPageConsistency:
             ]
 
             for module_name, prefix in pages_to_test:
-                module = __import__(f"pypath_shiny.pages.{module_name}", fromlist=[module_name])
+                module = __import__(
+                    f"pypath_shiny.pages.{module_name}", fromlist=[module_name]
+                )
                 ui_func = f"{prefix}_ui"
                 server_func = f"{prefix}_server"
 
                 assert hasattr(module, ui_func), f"{module_name} missing {ui_func}"
-                assert hasattr(module, server_func), (
-                    f"{module_name} missing {server_func}"
-                )
+                assert hasattr(
+                    module, server_func
+                ), f"{module_name} missing {server_func}"
         except ImportError:
             pytest.skip("Page modules not available")
 

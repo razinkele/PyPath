@@ -60,9 +60,9 @@ def test_macrobenthos_ab_initial_parity_roundtrip():
     # Allow a small tolerance for early-step parity (numerical integrator
     # differences at the 1e-6 level are acceptable but larger differences
     # should be investigated).
-    assert np.allclose(rvals[:L], pvals[:L], rtol=2e-6, atol=1e-9), (
-        "Macrobenthos AB early-step parity failed: rvals[:L] != pvals[:L]"
-    )
+    assert np.allclose(
+        rvals[:L], pvals[:L], rtol=2e-6, atol=1e-9
+    ), "Macrobenthos AB early-step parity failed: rvals[:L] != pvals[:L]"
 
     # Instrumentation callback must have been invoked at least once
     assert len(instrumented) > 0, "Instrumentation callback was not invoked"

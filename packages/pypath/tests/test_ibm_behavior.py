@@ -19,10 +19,10 @@ from pypath.ibm.behavior import (
     should_migrate,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_individual(
     id: int = 0,
@@ -73,7 +73,7 @@ def default_foraging_params() -> ForagingParams:
     """Return ForagingParams for 3 prey groups."""
     return ForagingParams(
         energy_content=np.array([5.0, 10.0, 2.0]),  # kJ/g
-        handling_time=np.array([1.0, 2.0, 0.5]),     # time/g
+        handling_time=np.array([1.0, 2.0, 0.5]),  # time/g
     )
 
 
@@ -81,12 +81,11 @@ def default_foraging_params() -> ForagingParams:
 # TestMovement
 # ===========================================================================
 
+
 class TestMovement:
     """Test movement probability calculation and individual movement."""
 
-    def test_probabilities_sum_to_one(
-        self, simple_adjacency, default_movement_params
-    ):
+    def test_probabilities_sum_to_one(self, simple_adjacency, default_movement_params):
         """Movement probabilities must sum to 1.0."""
         habitat_quality = np.array([0.5, 0.8, 0.3, 0.6])
         food_density = np.array([0.4, 0.6, 0.9, 0.2])
@@ -102,9 +101,7 @@ class TestMovement:
         )
         assert probs.sum() == pytest.approx(1.0)
 
-    def test_probabilities_nonnegative(
-        self, simple_adjacency, default_movement_params
-    ):
+    def test_probabilities_nonnegative(self, simple_adjacency, default_movement_params):
         """All movement probabilities must be >= 0."""
         habitat_quality = np.array([0.5, 0.8, 0.3, 0.6])
         food_density = np.array([0.4, 0.6, 0.9, 0.2])
@@ -159,9 +156,9 @@ class TestMovement:
             predator_density=predator_density,
             params=default_movement_params,
         )
-        assert probs[0] > probs[1], (
-            "Probability of staying in the best patch should exceed leaving"
-        )
+        assert (
+            probs[0] > probs[1]
+        ), "Probability of staying in the best patch should exceed leaving"
 
     def test_inertia_bonus_with_low_base_speed(self):
         """Low base_speed should give large inertia bonus (stay put)."""
@@ -270,7 +267,11 @@ class TestMovement:
     ):
         """All attributes except patch_idx should be preserved."""
         individual = _make_individual(
-            id=42, patch_idx=1, length=20.0, weight=100.0, n_represented=500.0,
+            id=42,
+            patch_idx=1,
+            length=20.0,
+            weight=100.0,
+            n_represented=500.0,
         )
         individual.age = 3.5
         individual.energy_reserve = 0.9
@@ -301,51 +302,65 @@ class TestMovement:
 # TestMigration
 # ===========================================================================
 
+
 class TestMigration:
     """Test the should_migrate function."""
 
-    def test_above_threshold_in_spring_returns_true(
-        self, default_movement_params
-    ):
+    def test_above_threshold_in_spring_returns_true(self, default_movement_params):
         """Temperature above threshold during migration month -> True."""
-        assert should_migrate(
-            temperature=10.0,
-            month=4,
-            params=default_movement_params,
-        ) is True
+        assert (
+            should_migrate(
+                temperature=10.0,
+                month=4,
+                params=default_movement_params,
+            )
+            is True
+        )
 
     def test_below_threshold_returns_false(self, default_movement_params):
         """Temperature below threshold -> False regardless of month."""
-        assert should_migrate(
-            temperature=5.0,
-            month=4,
-            params=default_movement_params,
-        ) is False
+        assert (
+            should_migrate(
+                temperature=5.0,
+                month=4,
+                params=default_movement_params,
+            )
+            is False
+        )
 
     def test_wrong_month_returns_false(self, default_movement_params):
         """Non-migration month -> False regardless of temperature."""
-        assert should_migrate(
-            temperature=15.0,
-            month=7,
-            params=default_movement_params,
-        ) is False
+        assert (
+            should_migrate(
+                temperature=15.0,
+                month=7,
+                params=default_movement_params,
+            )
+            is False
+        )
 
     def test_at_threshold_returns_false(self, default_movement_params):
         """Temperature exactly at threshold should be False (strictly >)."""
-        assert should_migrate(
-            temperature=8.0,
-            month=3,
-            params=default_movement_params,
-        ) is False
+        assert (
+            should_migrate(
+                temperature=8.0,
+                month=3,
+                params=default_movement_params,
+            )
+            is False
+        )
 
     def test_all_migration_months_accepted(self, default_movement_params):
         """All months in migration_months should allow migration."""
         for month in default_movement_params.migration_months:
-            assert should_migrate(
-                temperature=12.0,
-                month=month,
-                params=default_movement_params,
-            ) is True
+            assert (
+                should_migrate(
+                    temperature=12.0,
+                    month=month,
+                    params=default_movement_params,
+                )
+                is True
+            )
 
     def test_custom_migration_months(self):
         """Custom migration_months tuple should work."""
@@ -364,6 +379,7 @@ class TestMigration:
 # ===========================================================================
 # TestAdaptiveForaging
 # ===========================================================================
+
 
 class TestAdaptiveForaging:
     """Test the adaptive_forage function."""

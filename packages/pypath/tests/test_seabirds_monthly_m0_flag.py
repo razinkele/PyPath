@@ -25,7 +25,9 @@ def test_seabirds_monthly_m0_flag():
     params = create_rpath_params(groups, types)
     params.model = model_df
     params.diet = diet_df
-    if (ECOPATH_DIR / "stanza_groups.csv").exists() and (ECOPATH_DIR / "stanza_indiv.csv").exists():
+    if (ECOPATH_DIR / "stanza_groups.csv").exists() and (
+        ECOPATH_DIR / "stanza_indiv.csv"
+    ).exists():
         params.stanzas.stgroups = pd.read_csv(ECOPATH_DIR / "stanza_groups.csv")
         params.stanzas.stindiv = pd.read_csv(ECOPATH_DIR / "stanza_indiv.csv")
     pypath_model = rpath(params)
@@ -88,7 +90,9 @@ def test_seabirds_find_first_divergence():
     params = create_rpath_params(groups, types)
     params.model = model_df
     params.diet = diet_df
-    if (ECOPATH_DIR / "stanza_groups.csv").exists() and (ECOPATH_DIR / "stanza_indiv.csv").exists():
+    if (ECOPATH_DIR / "stanza_groups.csv").exists() and (
+        ECOPATH_DIR / "stanza_indiv.csv"
+    ).exists():
         params.stanzas.stgroups = pd.read_csv(ECOPATH_DIR / "stanza_groups.csv")
         params.stanzas.stindiv = pd.read_csv(ECOPATH_DIR / "stanza_indiv.csv")
     pypath_model = rpath(params)
@@ -113,8 +117,12 @@ def test_seabirds_find_first_divergence():
             first = i
             break
 
-    assert first is not None, "No divergence detected between PyPath and Rpath for Seabirds"
-    print(f"First divergence at index {first}: Rpath={r[first]:.12e} PyPath={p[first]:.12e} diff={p[first]-r[first]:.12e}")
+    assert (
+        first is not None
+    ), "No divergence detected between PyPath and Rpath for Seabirds"
+    print(
+        f"First divergence at index {first}: Rpath={r[first]:.12e} PyPath={p[first]:.12e} diff={p[first] - r[first]:.12e}"
+    )
 
 
 @pytest.mark.skipif(not ECOSIM_DIR.exists(), reason="Reference data not available")
@@ -134,29 +142,40 @@ def test_seabirds_initial_m0_persistence():
     params = create_rpath_params(groups, types)
     params.model = model_df
     params.diet = diet_df
-    if (ECOPATH_DIR / "stanza_groups.csv").exists() and (ECOPATH_DIR / "stanza_indiv.csv").exists():
+    if (ECOPATH_DIR / "stanza_groups.csv").exists() and (
+        ECOPATH_DIR / "stanza_indiv.csv"
+    ).exists():
         params.stanzas.stgroups = pd.read_csv(ECOPATH_DIR / "stanza_groups.csv")
         params.stanzas.stindiv = pd.read_csv(ECOPATH_DIR / "stanza_indiv.csv")
     pypath_model = rpath(params)
     pypath_ecosim = rsim_scenario(pypath_model, params, years=range(1, 101))
 
-    if 'Seabirds' not in pypath_ecosim.params.spname:
-        pytest.skip('Seabirds not present')
-    sidx = pypath_ecosim.params.spname.index('Seabirds')
+    if "Seabirds" not in pypath_ecosim.params.spname:
+        pytest.skip("Seabirds not present")
+    sidx = pypath_ecosim.params.spname.index("Seabirds")
 
     before_m0 = float(pypath_ecosim.params.MzeroMort[sidx])
     print(f"Seabirds M0 before run: {before_m0:.12e}")
 
     # Run a short simulation to trigger initialization adjustments
-    _rsim_output = rsim_run(pypath_ecosim, method='RK4', years=range(1, 2))
+    _rsim_output = rsim_run(pypath_ecosim, method="RK4", years=range(1, 2))
 
     after_m0 = float(pypath_ecosim.params.MzeroMort[sidx])
     print(f"Seabirds M0 after run:  {after_m0:.12e}")
 
     # Check against reference value in ecosim_params.json
     import json
-    ref = json.load(open(Path(__file__).parent / 'data' / 'rpath_reference' / 'ecosim' / 'ecosim_params.json'))
-    ref_m0 = float(ref['MzeroMort'][sidx])
+
+    ref = json.load(
+        open(
+            Path(__file__).parent
+            / "data"
+            / "rpath_reference"
+            / "ecosim"
+            / "ecosim_params.json"
+        )
+    )
+    ref_m0 = float(ref["MzeroMort"][sidx])
     print(f"Seabirds M0 reference:  {ref_m0:.12e}")
 
     # Ensure we persisted a numeric value

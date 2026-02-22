@@ -17,10 +17,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from shiny import Inputs, Outputs, Session, reactive, render, req, ui
-
-# Import centralized configuration
-from pypath_shiny.config import PARAM_RANGES, SPATIAL
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.spatial import (
@@ -32,6 +28,10 @@ from pypath.spatial import (
     create_regular_grid,
     load_spatial_grid,
 )
+from shiny import Inputs, Outputs, Session, reactive, render, req, ui
+
+# Import centralized configuration
+from pypath_shiny.config import PARAM_RANGES, SPATIAL
 
 try:
     import geopandas as gpd
@@ -46,7 +46,9 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_scale=True):
+def create_hexagonal_grid_in_boundary(
+    boundary_gdf, hexagon_size_km=None, auto_scale=True
+):
     """Create a hexagonal grid within a boundary polygon.
 
     Parameters
@@ -114,8 +116,8 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_s
     try:
         area_m2 = boundary_union_utm.area
         # Regular hexagon area = (3 * sqrt(3) / 2) * r^2
-        hex_area_m2 = (3.0 * np.sqrt(3) / 2.0) * (hexagon_size_m ** 2)
-        expected = area_m2 / hex_area_m2 if hex_area_m2 > 0 else float('inf')
+        hex_area_m2 = (3.0 * np.sqrt(3) / 2.0) * (hexagon_size_m**2)
+        expected = area_m2 / hex_area_m2 if hex_area_m2 > 0 else float("inf")
         # Only auto-scale for very large expected grids to avoid inverting
         # the relative resolution requested by callers (scale threshold helps
         # keep fine/medium/coarse ordering intact for moderate cases).
@@ -127,7 +129,12 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_s
             hexagon_size_m = float(hexagon_size_m * scale_applied)
             logger.debug(
                 "HEX-SCALE: expected=%.1f > %d; scale=%.3f alpha=%s -> applied=%.3f new_r=%.1f m",
-                expected, auto_scale_threshold, scale, alpha, scale_applied, hexagon_size_m,
+                expected,
+                auto_scale_threshold,
+                scale,
+                alpha,
+                scale_applied,
+                hexagon_size_m,
             )
         else:
             # Keep user-requested sizes for moderate areas to preserve monotonicity
@@ -172,7 +179,11 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_s
                 hx = create_hexagon(rx, ry, hexagon_size_m)
                 if hx.intersects(boundary_union_utm):
                     clipped = hx.intersection(boundary_union_utm)
-                    center_pt = type(hx).centroid.fget(hx) if hasattr(type(hx), 'centroid') else hx.centroid
+                    center_pt = (
+                        type(hx).centroid.fget(hx)
+                        if hasattr(type(hx), "centroid")
+                        else hx.centroid
+                    )
                     center_inside = center_pt.within(boundary_union_utm)
                     keep = False
                     if center_inside:
@@ -183,11 +194,15 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_s
                         keep = True
                     if keep:
                         if clipped.geom_type == "Polygon":
-                            local_hexagons.append({"id": local_hex_id, "geometry": clipped})
+                            local_hexagons.append(
+                                {"id": local_hex_id, "geometry": clipped}
+                            )
                             local_hex_id += 1
                         elif clipped.geom_type == "MultiPolygon":
                             largest = max(clipped.geoms, key=lambda p: p.area)
-                            local_hexagons.append({"id": local_hex_id, "geometry": largest})
+                            local_hexagons.append(
+                                {"id": local_hex_id, "geometry": largest}
+                            )
                             local_hex_id += 1
                 rx += hex_width
             ry += row_step
@@ -216,7 +231,9 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_s
     n_patches = len(hex_gdf)
     if hexagon_size_km >= 3.0 and 20 < n_patches <= 40:
         # Remove smallest polygons until we are under the 20-patch threshold
-        hex_gdf = hex_gdf.assign(_area=areas_m2).sort_values(by="_area", ascending=False)
+        hex_gdf = hex_gdf.assign(_area=areas_m2).sort_values(
+            by="_area", ascending=False
+        )
         while len(hex_gdf) > 19:
             hex_gdf = hex_gdf.iloc[:-1]
         # Recompute areas and normalize the hexagon list to match the pruned GeoDataFrame
@@ -224,9 +241,15 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_s
         areas_km2 = areas_m2 / 1e6
         # Rebuild hexagons list from pruned GeoDataFrame so IDs, areas and centroids
         # remain consistent for downstream EcospaceGrid initialization
-        hexagons = [{"id": i, "geometry": geom} for i, geom in enumerate(hex_gdf.geometry)]
+        hexagons = [
+            {"id": i, "geometry": geom} for i, geom in enumerate(hex_gdf.geometry)
+        ]
         hex_gdf = gpd.GeoDataFrame(hexagons, crs=utm_crs)
-        logger.debug("HEX-PRUNE: trimmed to %d patches for hexagon_size_km=%s", len(hex_gdf), hexagon_size_km)
+        logger.debug(
+            "HEX-PRUNE: trimmed to %d patches for hexagon_size_km=%s",
+            len(hex_gdf),
+            hexagon_size_km,
+        )
 
     # Centroids: calculate in UTM, then convert to WGS84
     centroids_utm = hex_gdf.geometry.centroid
@@ -249,9 +272,11 @@ def create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=None, auto_s
     adjacency, metadata = build_adjacency_from_gdf(hex_gdf_wgs84, method="rook")
 
     # Metadata contains 'border_lengths' (keys are (i,j) tuples where i<j)
-    raw_border_lengths = metadata.get("border_lengths", {}) if isinstance(metadata, dict) else {}
+    raw_border_lengths = (
+        metadata.get("border_lengths", {}) if isinstance(metadata, dict) else {}
+    )
     # Normalize keys to (min, max) and ensure float values
-    edge_lengths = { (min(k), max(k)): float(v) for k, v in raw_border_lengths.items() }
+    edge_lengths = {(min(k), max(k)): float(v) for k, v in raw_border_lengths.items()}
 
     # Ensure hexagons list matches final GeoDataFrame (ids sequential)
     hexagons = [{"id": i, "geometry": geom} for i, geom in enumerate(hex_gdf.geometry)]
@@ -1011,11 +1036,15 @@ def ecospace_server(
             habitat_pref[0, :] = 0.0  # Index 0 = Outside
 
             # Build per-group dispersal rates
-            dispersal_rate = np.full(n_groups + 1, float(input.dispersal_rate_default()))
+            dispersal_rate = np.full(
+                n_groups + 1, float(input.dispersal_rate_default())
+            )
             dispersal_rate[0] = 0.0  # No dispersal for Outside
 
             # Build advection flags
-            advection_enabled = np.full(n_groups + 1, bool(input.enable_advection()), dtype=bool)
+            advection_enabled = np.full(
+                n_groups + 1, bool(input.enable_advection()), dtype=bool
+            )
             advection_enabled[0] = False
 
             # Build gravity strength
@@ -1031,7 +1060,9 @@ def ecospace_server(
                 gravity_strength=gravity,
             )
 
-            ui.notification_show("Running spatial simulation...", type="message", duration=2)
+            ui.notification_show(
+                "Running spatial simulation...", type="message", duration=2
+            )
 
             result = rsim_run_spatial(scenario, ecospace=ecospace_params)
             _spatial_results.set(result)
@@ -1052,7 +1083,9 @@ def ecospace_server(
             n_timesteps = result.out_Biomass_spatial.shape[0] - 1
             ui.update_slider("animation_time", max=n_timesteps, value=0)
 
-            ui.notification_show("Spatial simulation complete!", type="message", duration=3)
+            ui.notification_show(
+                "Spatial simulation complete!", type="message", duration=3
+            )
 
         except Exception as e:
             logger.error(f"Spatial simulation failed: {e}", exc_info=True)
@@ -1235,8 +1268,7 @@ def ecospace_server(
                             centroid = g.patch_centroids[idx]
                             folium.Marker(
                                 location=[centroid[1], centroid[0]],  # lat, lon
-                                icon=folium.DivIcon(
-                                    html=f"""
+                                icon=folium.DivIcon(html=f"""
                                     <div style="
                                         font-size: 10px;
                                         color: darkblue;
@@ -1244,8 +1276,7 @@ def ecospace_server(
                                         text-align: center;
                                         text-shadow: 1px 1px 2px white, -1px -1px 2px white;
                                     ">{idx}</div>
-                                """
-                                ),
+                                """),
                             ).add_to(m)
 
                 # Add info panel
@@ -1299,16 +1330,14 @@ def ecospace_server(
                     # Add label
                     folium.Marker(
                         location=[centroid[1], centroid[0]],
-                        icon=folium.DivIcon(
-                            html=f"""
+                        icon=folium.DivIcon(html=f"""
                             <div style="
                                 font-size: 8px;
                                 color: white;
                                 font-weight: bold;
                                 text-align: center;
                             ">{i}</div>
-                        """
-                        ),
+                        """),
                     ).add_to(m)
 
                 title_text = f"Spatial Grid: {g.n_patches} Patches"
@@ -1621,7 +1650,9 @@ def ecospace_server(
         g = grid()
         req(g is not None)
 
-        biomass_spatial = results.out_Biomass_spatial  # [n_months, n_groups+1, n_patches]
+        biomass_spatial = (
+            results.out_Biomass_spatial
+        )  # [n_months, n_groups+1, n_patches]
 
         # Get selected group index
         group_str = input.biomass_view_group()

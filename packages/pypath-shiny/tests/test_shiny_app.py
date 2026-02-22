@@ -227,7 +227,9 @@ class TestServerLogic:
             model_data.set(mock_params)
 
             # Simulate sync (avoid requiring a reactive context in unit tests)
-            if hasattr(model_data._value, "model") and hasattr(model_data._value, "diet"):
+            if hasattr(model_data._value, "model") and hasattr(
+                model_data._value, "diet"
+            ):
                 shared.params.set(model_data._value)
 
             assert shared.params._value is not None

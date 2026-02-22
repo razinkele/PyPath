@@ -212,7 +212,9 @@ def adjust_forcing(
     return scenario
 
 
-def adjust_scenario(scenario: RsimScenario, parameter: str, value: Union[float, int, np.ndarray]) -> RsimScenario:
+def adjust_scenario(
+    scenario: RsimScenario, parameter: str, value: Union[float, int, np.ndarray]
+) -> RsimScenario:
     """Adjust global scenario parameters.
 
     Modifies simulation-wide parameters in the scenario's params object.
@@ -245,7 +247,10 @@ def adjust_scenario(scenario: RsimScenario, parameter: str, value: Union[float, 
 
 
 def set_vulnerability(
-    scenario: RsimScenario, predator: Union[str, int], prey: Union[str, int], value: float
+    scenario: RsimScenario,
+    predator: Union[str, int],
+    prey: Union[str, int],
+    value: float,
 ) -> RsimScenario:
     """Set vulnerability (v) for a predator-prey link.
 
@@ -277,7 +282,10 @@ def set_vulnerability(
 
 
 def set_handling_time(
-    scenario: RsimScenario, predator: Union[str, int], prey: Union[str, int], value: float
+    scenario: RsimScenario,
+    predator: Union[str, int],
+    prey: Union[str, int],
+    value: float,
 ) -> RsimScenario:
     """Set handling time (d) for a predator-prey link.
 

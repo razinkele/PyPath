@@ -134,7 +134,7 @@ def allometric_length(weight: float, a: float, b: float) -> float:
     """
     if weight <= 0.0:
         return 0.0
-    return a * weight ** b
+    return a * weight**b
 
 
 def metabolism(weight: float, temperature: float, params: BioenergParams) -> float:
@@ -162,7 +162,7 @@ def metabolism(weight: float, temperature: float, params: BioenergParams) -> flo
         Metabolic rate (g O2 / g fish / day, temperature-adjusted).
     """
     q10_factor = q10_temperature_factor(temperature, params.t_ref, params.q10)
-    return params.ra * (weight ** params.rb) * q10_factor
+    return params.ra * (weight**params.rb) * q10_factor
 
 
 def assimilation(consumption: float, params: BioenergParams) -> float:

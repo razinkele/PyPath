@@ -1,11 +1,22 @@
 from pathlib import Path
 
-from pypath_shiny.pages.prebalance import make_rpath_status_badge, rpath_diagnostics_summary
+from pypath_shiny.pages.prebalance import (
+    make_rpath_status_badge,
+    rpath_diagnostics_summary,
+)
 
 
 def test_rpath_diagnostics_summary_detects_provided():
     # Reference data lives in the core pypath package's test directory
-    diag = Path(__file__).parent.parent.parent / "pypath" / "tests" / "data" / "rpath_reference" / "ecosim" / "diagnostics"
+    diag = (
+        Path(__file__).parent.parent.parent
+        / "pypath"
+        / "tests"
+        / "data"
+        / "rpath_reference"
+        / "ecosim"
+        / "diagnostics"
+    )
     s = rpath_diagnostics_summary(diag)
     assert isinstance(s, str)
     assert "provided" in s or "not provided" in s
@@ -39,7 +50,9 @@ def test_make_rpath_status_badge_outputs_ui():
     assert "bg-secondary" in str(badge3)
 
     # Verify note and link are included when provided
-    badge4 = make_rpath_status_badge(provided, note="meta-note-123", link="file:///tmp/diag")
+    badge4 = make_rpath_status_badge(
+        provided, note="meta-note-123", link="file:///tmp/diag"
+    )
     b4 = str(badge4)
     assert "meta-note-123" in b4
-    assert "href=\"file:///tmp/diag\"" in b4 or "href='file:///tmp/diag'" in b4
+    assert 'href="file:///tmp/diag"' in b4 or "href='file:///tmp/diag'" in b4

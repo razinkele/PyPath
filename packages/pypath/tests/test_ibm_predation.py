@@ -7,7 +7,6 @@ including log-normal size selectivity, mortality distribution, and
 the integrated predation mortality application.
 """
 
-import copy
 import math
 
 import pytest
@@ -68,15 +67,21 @@ class TestSizeSelectivity:
         length should have the same selectivity.
         """
         optimal = default_predation_params.optimal_prey_length
-        sel_double = size_selectivity(length=optimal * 2.0, params=default_predation_params)
-        sel_half = size_selectivity(length=optimal / 2.0, params=default_predation_params)
+        sel_double = size_selectivity(
+            length=optimal * 2.0, params=default_predation_params
+        )
+        sel_half = size_selectivity(
+            length=optimal / 2.0, params=default_predation_params
+        )
         assert sel_double == pytest.approx(sel_half, rel=1e-6)
 
     def test_decreases_away_from_optimal(self, default_predation_params):
         """Selectivity should decrease for lengths far from optimal."""
         optimal = default_predation_params.optimal_prey_length
         sel_optimal = size_selectivity(length=optimal, params=default_predation_params)
-        sel_far = size_selectivity(length=optimal * 5.0, params=default_predation_params)
+        sel_far = size_selectivity(
+            length=optimal * 5.0, params=default_predation_params
+        )
         assert sel_far < sel_optimal
 
     def test_zero_length_returns_zero(self, default_predation_params):
@@ -134,7 +139,9 @@ class TestDistributeMortality:
         """
         individuals = [
             _make_individual(id=0, n_represented=1000.0, length=10.0),  # at optimal
-            _make_individual(id=1, n_represented=1000.0, length=40.0),  # far from optimal
+            _make_individual(
+                id=1, n_represented=1000.0, length=40.0
+            ),  # far from optimal
         ]
         mortality_rate = 0.3
         dt = 1.0 / 12.0
@@ -145,9 +152,9 @@ class TestDistributeMortality:
             dt=dt,
             params=default_predation_params,
         )
-        assert deaths[0] > deaths[1], (
-            "Fish at optimal prey length should suffer more deaths"
-        )
+        assert (
+            deaths[0] > deaths[1]
+        ), "Fish at optimal prey length should suffer more deaths"
 
     def test_cannot_kill_more_than_exist(self, default_predation_params):
         """Deaths per individual should not exceed n_represented."""
@@ -205,7 +212,9 @@ class TestDistributeMortality:
         assert isinstance(deaths, list)
         assert len(deaths) == len(individuals)
 
-    def test_proportional_to_selectivity_weighted_abundance(self, default_predation_params):
+    def test_proportional_to_selectivity_weighted_abundance(
+        self, default_predation_params
+    ):
         """Deaths should be proportional to selectivity * n_represented."""
         individuals = [
             _make_individual(id=0, n_represented=1000.0, length=10.0),
@@ -274,10 +283,14 @@ class TestApplyPredationMortality:
         )
         assert individuals[0].n_represented == pytest.approx(original_n)
 
-    def test_removes_individuals_with_zero_n_represented(self, default_predation_params):
+    def test_removes_individuals_with_zero_n_represented(
+        self, default_predation_params
+    ):
         """Individuals with n_represented <= 0 after mortality should be removed."""
         individuals = [
-            _make_individual(id=0, n_represented=5.0, length=10.0),  # near optimal, tiny
+            _make_individual(
+                id=0, n_represented=5.0, length=10.0
+            ),  # near optimal, tiny
         ]
         # Extreme mortality to wipe out
         survivors = apply_predation_mortality(

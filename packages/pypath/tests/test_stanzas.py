@@ -8,10 +8,10 @@ import numpy as np
 import pytest
 
 from pypath.core.stanzas import (
+    EcosimStanzaParams,
     RsimStanzas,
     StanzaGroup,
     StanzaIndividual,
-    EcosimStanzaParams,
     calculate_survival,
     von_bertalanffy_consumption,
     von_bertalanffy_weight,

@@ -246,7 +246,10 @@ def should_migrate(
     bool
         True if migration conditions are met.
     """
-    return temperature > params.migration_temp_threshold and month in params.migration_months
+    return (
+        temperature > params.migration_temp_threshold
+        and month in params.migration_months
+    )
 
 
 def adaptive_forage(
@@ -315,9 +318,7 @@ def adaptive_forage(
             break
 
         # Profitability among active groups
-        active_prof = {
-            g: profitabilities[g] for g in active_groups
-        }
+        active_prof = {g: profitabilities[g] for g in active_groups}
         total_active = sum(active_prof.values())
         if total_active <= 0.0:
             break

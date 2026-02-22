@@ -22,7 +22,7 @@ def test_detritus_not_consumed_without_inputs():
     model_df = pd.read_csv(ECOPATH_DIR + "/model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR + "/diet_matrix.csv")
 
-    params = create_rpath_params(model_df['Group'].tolist(), model_df['Type'].tolist())
+    params = create_rpath_params(model_df["Group"].tolist(), model_df["Type"].tolist())
     params.model = model_df
     params.diet = diet_df
 
@@ -30,7 +30,7 @@ def test_detritus_not_consumed_without_inputs():
     scenario = rsim_scenario(r, params, years=range(1, 101))
 
     # Run the full 100-year rk4 run to reach late-month states
-    out = rsim_run(scenario, method='rk4', years=range(1, 101))
+    out = rsim_run(scenario, method="rk4", years=range(1, 101))
 
     biom = out.out_Biomass
 
@@ -58,14 +58,20 @@ def test_detritus_not_consumed_without_inputs():
             # Links in DetFrom/DetTo are 1-indexed; expected det_to value for local index
             expected_det_to = rs.NUM_LIVING + d_local + 1
             det_link_idx = np.where(det_to == expected_det_to)[0]
-            det_links_sum = float(np.sum(det_frac[det_link_idx])) if det_link_idx.size > 0 else 0.0
+            det_links_sum = (
+                float(np.sum(det_frac[det_link_idx])) if det_link_idx.size > 0 else 0.0
+            )
 
             # Fish links that target detritus (discards) also contribute
-            fish_links_present = np.any(fish_to == expected_det_to) if fish_to.size > 0 else False
+            fish_links_present = (
+                np.any(fish_to == expected_det_to) if fish_to.size > 0 else False
+            )
 
             # Fail if consumed but no incoming detritus links and no fish discard links
             assert not (
-                detcons > 0 and np.isclose(det_links_sum, 0.0) and not fish_links_present
+                detcons > 0
+                and np.isclose(det_links_sum, 0.0)
+                and not fish_links_present
             ), (
                 f"Month {month_idx}: Detritus '{r.Group[d_global]}' is consumed (detcons={detcons:.3e}) "
                 f"but has no DetFrom/DetTo links (det_links_sum={det_links_sum:.3e}) and no FishTo links"
@@ -88,7 +94,12 @@ def test_detritus_not_consumed_without_inputs():
         for k in range(len(det_frac)):
             f = int(det_from[k])
             t = int(det_to[k])
-            if t >= (NUM_LIVING + 1) and t <= (NUM_LIVING + NUM_DEAD) and f >= 0 and f <= NUM_GROUPS:
+            if (
+                t >= (NUM_LIVING + 1)
+                and t <= (NUM_LIVING + NUM_DEAD)
+                and f >= 0
+                and f <= NUM_GROUPS
+            ):
                 det_col = t - NUM_LIVING
                 mat[f, det_col] += det_frac[k]
 
@@ -99,7 +110,12 @@ def test_detritus_not_consumed_without_inputs():
         for k in range(len(fish_from)):
             f = int(fish_from[k])
             t = int(fish_to[k])
-            if t >= (NUM_LIVING + 1) and t <= (NUM_LIVING + NUM_DEAD) and f >= 0 and f <= NUM_GROUPS:
+            if (
+                t >= (NUM_LIVING + 1)
+                and t <= (NUM_LIVING + NUM_DEAD)
+                and f >= 0
+                and f <= NUM_GROUPS
+            ):
                 det_col = t - NUM_LIVING
                 src_idx = f
                 fish_input = float(fish_q[k]) * float(state[src_idx])
@@ -108,7 +124,9 @@ def test_detritus_not_consumed_without_inputs():
                 unassim_arr = rs.UnassimRespFrac
                 m0_pos = max(0.0, float(m0_arr[src_idx]))
                 qb_loss = 0.0 if np.isnan(qb_arr[src_idx]) else float(qb_arr[src_idx])
-                source_loss = m0_pos * float(state[src_idx]) + float(state[src_idx]) * qb_loss * float(unassim_arr[src_idx])
+                source_loss = m0_pos * float(state[src_idx]) + float(
+                    state[src_idx]
+                ) * qb_loss * float(unassim_arr[src_idx])
                 frac = fish_input / (source_loss + 1e-30)
                 mat[src_idx, det_col] += frac
 
@@ -118,15 +136,19 @@ def test_detritus_not_consumed_without_inputs():
         for idx in living_idx:
             m0_pos = max(0.0, float(rs.MzeroMort[idx]))
             qb_val = 0.0 if np.isnan(rs.FtimeQBOpt[idx]) else float(rs.FtimeQBOpt[idx])
-            loss[idx] = m0_pos * float(state[idx]) + float(state[idx]) * qb_val * float(rs.UnassimRespFrac[idx])
+            loss[idx] = m0_pos * float(state[idx]) + float(state[idx]) * qb_val * float(
+                rs.UnassimRespFrac[idx]
+            )
 
         # Compute detinputs for Discards detritus (find local index)
         # Identify local index for 'Discards' group
         try:
-            d_glob_idx = list(r.Group).index('Discards')
+            d_glob_idx = list(r.Group).index("Discards")
             d_local_idx = list(np.where(r.type == 2)[0]).index(d_glob_idx)
             detinputs = float(np.sum(loss[:, np.newaxis] * mat[:, d_local_idx]))
-            assert detinputs > 0.0, f"Month {check_month}: Discards detritus inputs unexpectedly zero after including fish links"
+            assert (
+                detinputs > 0.0
+            ), f"Month {check_month}: Discards detritus inputs unexpectedly zero after including fish links"
         except ValueError:
             # No Discards group in this model
             pass
@@ -138,7 +160,7 @@ def test_deriv_includes_fish_discard_links():
     model_df = pd.read_csv(ECOPATH_DIR + "/model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR + "/diet_matrix.csv")
 
-    params = create_rpath_params(model_df['Group'].tolist(), model_df['Type'].tolist())
+    params = create_rpath_params(model_df["Group"].tolist(), model_df["Type"].tolist())
     params.model = model_df
     params.diet = diet_df
 
@@ -146,7 +168,7 @@ def test_deriv_includes_fish_discard_links():
     scenario = rsim_scenario(r, params, years=range(1, 101))
 
     # Run the full 100-year rk4 run to reach late-month states
-    out = rsim_run(scenario, method='rk4', years=range(1, 101))
+    out = rsim_run(scenario, method="rk4", years=range(1, 101))
 
     biom = out.out_Biomass
 
@@ -157,39 +179,43 @@ def test_deriv_includes_fish_discard_links():
     # Build params dict (without fish arrays)
     rs = scenario.params
     params_dict = {
-        'NUM_GROUPS': rs.NUM_GROUPS,
-        'NUM_LIVING': rs.NUM_LIVING,
-        'NUM_DEAD': rs.NUM_DEAD,
-        'NUM_GEARS': rs.NUM_GEARS,
-        'PB': rs.PBopt,
-        'QB': rs.FtimeQBOpt,
-        'M0': rs.MzeroMort,
-        'Unassim': rs.UnassimRespFrac,
-        'ActiveLink': _build_active_link_matrix(rs),
-        'VV': _build_link_matrix(rs, rs.VV),
-        'DD': _build_link_matrix(rs, rs.DD),
-        'QQbase': _build_link_matrix(rs, rs.QQ),
-        'Bbase': rs.B_BaseRef,
-        'PP_type': rs.PP_type,
+        "NUM_GROUPS": rs.NUM_GROUPS,
+        "NUM_LIVING": rs.NUM_LIVING,
+        "NUM_DEAD": rs.NUM_DEAD,
+        "NUM_GEARS": rs.NUM_GEARS,
+        "PB": rs.PBopt,
+        "QB": rs.FtimeQBOpt,
+        "M0": rs.MzeroMort,
+        "Unassim": rs.UnassimRespFrac,
+        "ActiveLink": _build_active_link_matrix(rs),
+        "VV": _build_link_matrix(rs, rs.VV),
+        "DD": _build_link_matrix(rs, rs.DD),
+        "QQbase": _build_link_matrix(rs, rs.QQ),
+        "Bbase": rs.B_BaseRef,
+        "PP_type": rs.PP_type,
     }
 
-    fishing = {'FishingMort': np.zeros(rs.NUM_GROUPS + 1)}
-    forcing0 = {'Ftime': scenario.start_state.Ftime.copy(), 'ForcedBio': np.zeros(rs.NUM_GROUPS + 1), 'ForcedEffort': np.ones(rs.NUM_GEARS + 1)}
+    fishing = {"FishingMort": np.zeros(rs.NUM_GROUPS + 1)}
+    forcing0 = {
+        "Ftime": scenario.start_state.Ftime.copy(),
+        "ForcedBio": np.zeros(rs.NUM_GROUPS + 1),
+        "ForcedEffort": np.ones(rs.NUM_GEARS + 1),
+    }
 
     # Compute deriv without fish arrays
     d_no_fish = deriv_vector(state.copy(), params_dict.copy(), forcing0, fishing)
 
     # Now add fish arrays to params dict and compute again
     params_with_fish = params_dict.copy()
-    params_with_fish['FishFrom'] = getattr(rs, 'FishFrom', np.array([]))
-    params_with_fish['FishTo'] = getattr(rs, 'FishTo', np.array([]))
-    params_with_fish['FishQ'] = getattr(rs, 'FishQ', np.array([]))
+    params_with_fish["FishFrom"] = getattr(rs, "FishFrom", np.array([]))
+    params_with_fish["FishTo"] = getattr(rs, "FishTo", np.array([]))
+    params_with_fish["FishQ"] = getattr(rs, "FishQ", np.array([]))
 
     d_with_fish = deriv_vector(state.copy(), params_with_fish, forcing0, fishing)
 
     # If there is a Discards group, its detritus derivative should increase when fish links are present
     try:
-        d_glob_idx = list(r.Group).index('Discards')
+        d_glob_idx = list(r.Group).index("Discards")
         # Find corresponding detritus global index
         if np.any(r.type == 2):
             # detritus global indices
@@ -198,17 +224,24 @@ def test_deriv_includes_fish_discard_links():
                 # detritus index in global ordering
                 det_global_idx = d_glob_idx
                 # Compare derivatives - ensure adding fish links does not reduce the derivative
-                assert d_with_fish[det_global_idx] >= d_no_fish[det_global_idx], "With fish discard links, detritus derivative should not be smaller"
+                assert (
+                    d_with_fish[det_global_idx] >= d_no_fish[det_global_idx]
+                ), "With fish discard links, detritus derivative should not be smaller"
                 # Verify that fish-derived DetFrac contributions would be computed (logic copied from deriv_vector)
-                fish_from = getattr(rs, 'FishFrom', None)
-                fish_to = getattr(rs, 'FishTo', None)
-                fish_q = getattr(rs, 'FishQ', None)
+                fish_from = getattr(rs, "FishFrom", None)
+                fish_to = getattr(rs, "FishTo", None)
+                fish_q = getattr(rs, "FishQ", None)
                 found_positive_frac = False
                 if fish_from is not None and fish_to is not None and fish_q is not None:
                     for k in range(len(fish_from)):
                         f = int(fish_from[k])
                         t = int(fish_to[k])
-                        if t >= (rs.NUM_LIVING + 1) and t <= (rs.NUM_LIVING + rs.NUM_DEAD) and f >= 0 and f <= rs.NUM_GROUPS:
+                        if (
+                            t >= (rs.NUM_LIVING + 1)
+                            and t <= (rs.NUM_LIVING + rs.NUM_DEAD)
+                            and f >= 0
+                            and f <= rs.NUM_GROUPS
+                        ):
                             _det_col = t - rs.NUM_LIVING
                             src_idx = f
                             fish_input = float(fish_q[k]) * float(state[src_idx])
@@ -216,15 +249,26 @@ def test_deriv_includes_fish_discard_links():
                             qb_arr = rs.FtimeQBOpt
                             unassim_arr = rs.UnassimRespFrac
                             m0_pos = max(0.0, float(m0_arr[src_idx]))
-                            qb_loss = 0.0 if np.isnan(qb_arr[src_idx]) else float(qb_arr[src_idx])
-                            source_loss = m0_pos * float(state[src_idx]) + float(state[src_idx]) * qb_loss * float(unassim_arr[src_idx])
+                            qb_loss = (
+                                0.0
+                                if np.isnan(qb_arr[src_idx])
+                                else float(qb_arr[src_idx])
+                            )
+                            source_loss = m0_pos * float(state[src_idx]) + float(
+                                state[src_idx]
+                            ) * qb_loss * float(unassim_arr[src_idx])
                             frac = fish_input / (source_loss + 1e-30)
                             if frac > 0:
                                 found_positive_frac = True
                                 break
                 # If fish links are present in the scenario, at least one positive fraction should be computable
-                if getattr(rs, 'FishFrom', None) is not None and len(getattr(rs, 'FishFrom', [])) > 1:
-                    assert found_positive_frac, "No positive fish-derived DetFrac fraction computed for available FishFrom links"
+                if (
+                    getattr(rs, "FishFrom", None) is not None
+                    and len(getattr(rs, "FishFrom", [])) > 1
+                ):
+                    assert (
+                        found_positive_frac
+                    ), "No positive fish-derived DetFrac fraction computed for available FishFrom links"
     except ValueError:
         # No Discards group - skip
         pass

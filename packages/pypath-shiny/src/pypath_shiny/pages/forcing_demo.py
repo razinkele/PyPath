@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.forcing import (
@@ -16,6 +15,7 @@ from pypath.core.forcing import (
     create_biomass_forcing,
     create_recruitment_forcing,
 )
+from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
 from pypath_shiny.config import PARAM_RANGES
@@ -124,15 +124,13 @@ def forcing_demo_ui():
                     ui.card(
                         ui.card_header("Effect of Forcing on Simulation"),
                         ui.output_ui("forcing_comparison_plot"),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         **Blue**: Standard simulation (no forcing)
 
                         **Red**: Simulation with forcing applied
 
                         **Forcing Effect**: Shows how forcing modifies the baseline simulation
-                        """
-                        ),
+                        """),
                     ),
                 ),
                 ui.nav_panel(
@@ -152,8 +150,7 @@ def forcing_demo_ui():
                             ui.tags.i(class_="bi bi-lightbulb me-2"),
                             "State-Variable Forcing Use Cases",
                         ),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         ## What is State-Variable Forcing?
 
                         State-variable forcing allows you to **override computed values** with observed
@@ -284,8 +281,7 @@ def forcing_demo_ui():
 
                         State-variable forcing has **minimal computational overhead** (~1%),
                         making it suitable for production use.
-                        """
-                        ),
+                        """),
                     ),
                 ),
             ),

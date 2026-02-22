@@ -23,8 +23,8 @@ import os
 logger = logging.getLogger(__name__)
 
 # Backward compat: if PYPATH_SILENCE_DEBUG is set, suppress debug logging
-if os.environ.get('PYPATH_SILENCE_DEBUG', '').lower() in ('1', 'true', 'yes'):
-    logging.getLogger('pypath').setLevel(logging.WARNING)
+if os.environ.get("PYPATH_SILENCE_DEBUG", "").lower() in ("1", "true", "yes"):
+    logging.getLogger("pypath").setLevel(logging.WARNING)
 
 from pypath.core.ecopath import Rpath
 from pypath.core.ecosim_deriv import deriv_vector
@@ -651,20 +651,26 @@ def rsim_params(
 
     # DEBUG: print per-detritus source groups from rpath.DetFate to help trace missing links
     for det_idx in range(ndead):
-        sources = [ (i, rpath.Group[i]) for i in range(ngroups) if rpath.DetFate[i, det_idx] > 0 ]
+        sources = [
+            (i, rpath.Group[i]) for i in range(ngroups) if rpath.DetFate[i, det_idx] > 0
+        ]
         # Use nliving + det_idx as the detritus global group index (no +1)
-        logger.debug(f"DetFate det_idx={det_idx} dest_global={(nliving + det_idx)} sources={sources}")
+        logger.debug(
+            f"DetFate det_idx={det_idx} dest_global={(nliving + det_idx)} sources={sources}"
+        )
 
     # FIX: Use ngroups instead of nliving+ndead to include gear rows (22-24) that contribute to detritus
     for grp_idx in range(ngroups):
         for det_idx in range(ndead):
             frac = rpath.DetFate[grp_idx, det_idx]
             if frac > 0:
-                    det_from.append(grp_idx + 1)
-                    det_to.append(nliving + det_idx + 1)
-                    det_frac_list.append(frac)
-                    # DEBUG: show each det link created
-                    logger.debug(f"DETLINK: grp_idx={grp_idx} det_idx={det_idx} frac={frac} det_to={(nliving + det_idx + 1)}")
+                det_from.append(grp_idx + 1)
+                det_to.append(nliving + det_idx + 1)
+                det_frac_list.append(frac)
+                # DEBUG: show each det link created
+                logger.debug(
+                    f"DETLINK: grp_idx={grp_idx} det_idx={det_idx} frac={frac} det_to={(nliving + det_idx + 1)}"
+                )
         # Flow to outside (1 - sum of det fate)
         det_out = 1.0 - np.sum(rpath.DetFate[grp_idx, :])
         if det_out > 0:
@@ -687,7 +693,9 @@ def rsim_params(
                 f"DetFate columns with zero source fractions: cols={zero_cols}, detritus names={det_names}"
             )
         # Also report which detritus columns appear in det_to mapping
-        det_to_cols = np.unique((det_to[(det_to > nliving) & (det_to <= nliving + ndead)] - nliving - 1))
+        det_to_cols = np.unique(
+            (det_to[(det_to > nliving) & (det_to <= nliving + ndead)] - nliving - 1)
+        )
         logger.debug(f"DetTo mapped detritus columns (indices): {det_to_cols}")
         logger.debug(f"Unique DetTo values: {np.unique(det_to)}")
     except Exception as e:
@@ -858,7 +866,14 @@ def rsim_scenario(
     # and have them available during simulation without changing
     # existing callsites.
     try:
-        for _attr in ('INSTRUMENT_GROUPS', 'VERBOSE_DEBUG', 'instrument_callback', 'spname', 'INSTRUMENT_ASSUME_1BASED', 'model'):
+        for _attr in (
+            "INSTRUMENT_GROUPS",
+            "VERBOSE_DEBUG",
+            "instrument_callback",
+            "spname",
+            "INSTRUMENT_ASSUME_1BASED",
+            "model",
+        ):
             if hasattr(rpath_params, _attr):
                 setattr(params, _attr, getattr(rpath_params, _attr))
     except Exception as e:
@@ -1025,24 +1040,26 @@ def rsim_run(
         "PP_type": params.PP_type,
         "NoIntegrate": params.NoIntegrate,
         # Include fish discard mappings so deriv_vector sees them when params is a dict
-        "FishFrom": getattr(params, 'FishFrom', np.array([])),
-        "FishTo": getattr(params, 'FishTo', np.array([])),
-        "FishQ": getattr(params, 'FishQ', np.array([])),
+        "FishFrom": getattr(params, "FishFrom", np.array([])),
+        "FishTo": getattr(params, "FishTo", np.array([])),
+        "FishQ": getattr(params, "FishQ", np.array([])),
     }
 
     # Propagate IBM groups if any functional groups are IBM-managed.
-    if hasattr(params, 'ibm_groups'):
-        params_dict['ibm_groups'] = params.ibm_groups
+    if hasattr(params, "ibm_groups"):
+        params_dict["ibm_groups"] = params.ibm_groups
 
     # Propagate optional debugging/instrumentation control flags from the
     # RpathParams object to the params dict so deriv_vector can use them
     # when running in dict-mode. This is useful for targeted runtime
     # instrumentation without changing function signatures.
     try:
-        if hasattr(params, 'INSTRUMENT_GROUPS'):
-            params_dict['INSTRUMENT_GROUPS'] = getattr(params, 'INSTRUMENT_GROUPS')
+        if hasattr(params, "INSTRUMENT_GROUPS"):
+            params_dict["INSTRUMENT_GROUPS"] = getattr(params, "INSTRUMENT_GROUPS")
             try:
-                logger.debug(f"DEBUG-INSTR COPY: params.INSTRUMENT_GROUPS attr={getattr(params,'INSTRUMENT_GROUPS', None)!r} type={type(getattr(params,'INSTRUMENT_GROUPS', None))}")
+                logger.debug(
+                    f"DEBUG-INSTR COPY: params.INSTRUMENT_GROUPS attr={getattr(params, 'INSTRUMENT_GROUPS', None)!r} type={type(getattr(params, 'INSTRUMENT_GROUPS', None))}"
+                )
             except Exception as e:
                 logger.debug("instrumentation debug logging failed: %s", e)
 
@@ -1050,17 +1067,21 @@ def rsim_run(
         # the scenario's spname mapping so instrumentation payloads use the same
         # numeric indexing expected by unit tests.
         try:
-            ig = params_dict.get('INSTRUMENT_GROUPS', None)
-            spname = params_dict.get('spname', None)
+            ig = params_dict.get("INSTRUMENT_GROUPS", None)
+            spname = params_dict.get("spname", None)
             if ig is not None and spname is not None and isinstance(ig, (list, tuple)):
                 normalized = []
                 for g in ig:
                     if isinstance(g, str):
                         # Prefer mapping against original model 'Group' order when available
                         try:
-                            model_df = getattr(params, 'model', None)
-                            if model_df is not None and 'Group' in model_df.columns and g in model_df['Group'].values:
-                                normalized.append(int(list(model_df['Group']).index(g)))
+                            model_df = getattr(params, "model", None)
+                            if (
+                                model_df is not None
+                                and "Group" in model_df.columns
+                                and g in model_df["Group"].values
+                            ):
+                                normalized.append(int(list(model_df["Group"]).index(g)))
                                 continue
                         except Exception as e:
                             logger.debug("instrument group normalization failed: %s", e)
@@ -1076,66 +1097,79 @@ def rsim_run(
                             logger.debug("instrument group normalization failed: %s", e)
                 if normalized:
                     normalized_sorted = sorted(set(normalized))
-                    params_dict['INSTRUMENT_GROUPS'] = normalized_sorted
+                    params_dict["INSTRUMENT_GROUPS"] = normalized_sorted
                     # Also write back normalization to the params attribute
                     try:
-                        setattr(params, 'INSTRUMENT_GROUPS', normalized_sorted)
+                        setattr(params, "INSTRUMENT_GROUPS", normalized_sorted)
                     except Exception as e:
                         logger.debug("instrument group normalization failed: %s", e)
                         try:
-                            params['INSTRUMENT_GROUPS'] = normalized_sorted
+                            params["INSTRUMENT_GROUPS"] = normalized_sorted
                         except Exception as e:
                             logger.debug("instrument group normalization failed: %s", e)
                     try:
-                        logger.debug(f"DEBUG-INSTR-MAP: ig_raw={ig} normalized={normalized_sorted} model_present={model_df is not None}")
+                        logger.debug(
+                            f"DEBUG-INSTR-MAP: ig_raw={ig} normalized={normalized_sorted} model_present={model_df is not None}"
+                        )
                     except Exception as e:
                         logger.debug("instrumentation debug logging failed: %s", e)
         except Exception as e:
             logger.debug("instrument group normalization failed: %s", e)
-        if hasattr(params, 'VERBOSE_DEBUG'):
-            params_dict['VERBOSE_DEBUG'] = getattr(params, 'VERBOSE_DEBUG')
+        if hasattr(params, "VERBOSE_DEBUG"):
+            params_dict["VERBOSE_DEBUG"] = getattr(params, "VERBOSE_DEBUG")
         # Also include the species name mapping so deriv_vector can resolve
         # names (e.g., 'Seabirds') into indices for instrumentation.
-        if hasattr(params, 'spname'):
-            params_dict['spname'] = getattr(params, 'spname')
+        if hasattr(params, "spname"):
+            params_dict["spname"] = getattr(params, "spname")
         # Also propagate the original model DataFrame when available so
         # deriv_vector can prefer the model-defined group ordering for
         # name->index mapping during instrumentation resolution.
-        if hasattr(params, 'model'):
+        if hasattr(params, "model"):
             try:
-                params_dict['model'] = getattr(params, 'model')
+                params_dict["model"] = getattr(params, "model")
             except Exception as e:
                 logger.debug("model propagation to params_dict failed: %s", e)
         # Propagate an optional instrumentation callback function (callable)
         # so integration routines can report compact instrumentation data to
         # the outside world without changing function signatures.
-        if hasattr(params, 'MONTHLY_M0_ADJUST'):
-            params_dict['MONTHLY_M0_ADJUST'] = getattr(params, 'MONTHLY_M0_ADJUST')
+        if hasattr(params, "MONTHLY_M0_ADJUST"):
+            params_dict["MONTHLY_M0_ADJUST"] = getattr(params, "MONTHLY_M0_ADJUST")
 
         # callers/tests without relying on global I/O.
-        if hasattr(params, 'instrument_callback'):
-            orig_cb = getattr(params, 'instrument_callback')
+        if hasattr(params, "instrument_callback"):
+            orig_cb = getattr(params, "instrument_callback")
+
             # Wrap the user-provided callback to ensure the first instrumentation
             # callback uses the caller-specified attribute-based INSTRUMENT_GROUPS
             # mapping when available. This avoids race conditions where RK4
             # warmup payloads may resolve names differently (spname vs model).
             def _wrapped_cb(payload):
                 try:
-                    if not getattr(_wrapped_cb, 'first_called', False):
+                    if not getattr(_wrapped_cb, "first_called", False):
                         _wrapped_cb.first_called = True
-                        attr_ig = getattr(params, 'INSTRUMENT_GROUPS', None)
-                        if isinstance(attr_ig, (list, tuple)) and payload.get('method') in ('AB', 'RK4'):
+                        attr_ig = getattr(params, "INSTRUMENT_GROUPS", None)
+                        if isinstance(attr_ig, (list, tuple)) and payload.get(
+                            "method"
+                        ) in ("AB", "RK4"):
                             resolved = []
-                            model_df = getattr(params, 'model', None)
-                            spname = getattr(params, 'spname', None)
+                            model_df = getattr(params, "model", None)
+                            spname = getattr(params, "spname", None)
                             for g in attr_ig:
                                 if isinstance(g, str):
                                     try:
-                                        if model_df is not None and 'Group' in model_df.columns and g in model_df['Group'].values:
-                                            resolved.append(int(list(model_df['Group']).index(g)))
+                                        if (
+                                            model_df is not None
+                                            and "Group" in model_df.columns
+                                            and g in model_df["Group"].values
+                                        ):
+                                            resolved.append(
+                                                int(list(model_df["Group"]).index(g))
+                                            )
                                             continue
                                     except Exception as e:
-                                        logger.debug("callback group resolution failed: %s", e)
+                                        logger.debug(
+                                            "callback group resolution failed: %s", e
+                                        )
                                     if spname is not None and g in spname:
                                         sidx = spname.index(g)
                                         if sidx > 0:
@@ -1144,22 +1178,30 @@ def rsim_run(
                                     try:
                                         resolved.append(int(g))
                                     except Exception as e:
-                                        logger.debug("callback group resolution failed: %s", e)
+                                        logger.debug(
+                                            "callback group resolution failed: %s", e
+                                        )
                             if resolved:
                                 try:
-                                    payload['groups'] = resolved
+                                    payload["groups"] = resolved
                                 except Exception as e:
-                                    logger.debug("callback group resolution failed: %s", e)
+                                    logger.debug(
+                                        "callback group resolution failed: %s", e
+                                    )
                 except Exception as e:
                     logger.debug("callback group resolution failed: %s", e)
                 return orig_cb(payload)
 
-            params_dict['instrument_callback'] = _wrapped_cb
+            params_dict["instrument_callback"] = _wrapped_cb
         # Additional debug visibility for tests: print presence of callback
         try:
-            logger.debug(f"DEBUG-RUN: params hasattr instrument_callback={hasattr(params, 'instrument_callback')} params_dict_has_cb={'instrument_callback' in params_dict}")
+            logger.debug(
+                f"DEBUG-RUN: params hasattr instrument_callback={hasattr(params, 'instrument_callback')} params_dict_has_cb={'instrument_callback' in params_dict}"
+            )
             try:
-                logger.debug(f"DEBUG-RUN: params.INSTRUMENT_GROUPS (attr)={getattr(params, 'INSTRUMENT_GROUPS', None)} params_dict['INSTRUMENT_GROUPS']={params_dict.get('INSTRUMENT_GROUPS', None)}")
+                logger.debug(
+                    f"DEBUG-RUN: params.INSTRUMENT_GROUPS (attr)={getattr(params, 'INSTRUMENT_GROUPS', None)} params_dict['INSTRUMENT_GROUPS']={params_dict.get('INSTRUMENT_GROUPS', None)}"
+                )
             except Exception as e:
                 logger.debug("callback group resolution failed: %s", e)
         except Exception as e:
@@ -1170,7 +1212,9 @@ def rsim_run(
     # Debug: always log what's in params_dict for INSTRUMENT_GROUPS to catch
     # cases where it might be present due to other code paths or defaults.
     try:
-        logger.debug(f"DEBUG-INSTR-PARAMSDICT initial INSTRUMENT_GROUPS = {params_dict.get('INSTRUMENT_GROUPS', None)!r}")
+        logger.debug(
+            f"DEBUG-INSTR-PARAMSDICT initial INSTRUMENT_GROUPS = {params_dict.get('INSTRUMENT_GROUPS', None)!r}"
+        )
     except Exception as e:
         logger.debug("callback group resolution failed: %s", e)
 
@@ -1179,15 +1223,24 @@ def rsim_run(
     # DeprecationWarning so callers can update. This ensures integrator code
     # always sees a normalized numeric list.
     try:
-        ig = params_dict.get('INSTRUMENT_GROUPS', None)
+        ig = params_dict.get("INSTRUMENT_GROUPS", None)
         # Explicit opt-in: only auto-convert numeric legacy 1-based groups when the
         # caller explicitly requests it via INSTRUMENT_ASSUME_1BASED.
-        assume_flag = params_dict.get('INSTRUMENT_ASSUME_1BASED', False) or getattr(params, 'INSTRUMENT_ASSUME_1BASED', False)
+        assume_flag = params_dict.get("INSTRUMENT_ASSUME_1BASED", False) or getattr(
+            params, "INSTRUMENT_ASSUME_1BASED", False
+        )
         if ig is not None:
             # check for numeric-only lists/tuples
-            if isinstance(ig, (list, tuple)) and all(isinstance(x, (int, float, np.integer)) for x in ig):
+            if isinstance(ig, (list, tuple)) and all(
+                isinstance(x, (int, float, np.integer)) for x in ig
+            ):
                 nums = [int(x) for x in ig]
-                if assume_flag and nums and all(1 <= v <= params.NUM_GROUPS for v in nums) and min(nums) >= 1:
+                if (
+                    assume_flag
+                    and nums
+                    and all(1 <= v <= params.NUM_GROUPS for v in nums)
+                    and min(nums) >= 1
+                ):
                     import warnings as _warnings
 
                     _warnings.warn(
@@ -1198,16 +1251,18 @@ def rsim_run(
                         stacklevel=3,
                     )
                     normalized = [v - 1 for v in nums]
-                    params_dict['INSTRUMENT_GROUPS'] = normalized
+                    params_dict["INSTRUMENT_GROUPS"] = normalized
                     # Also write back to params object if it has the attribute
                     try:
-                        if hasattr(params, 'INSTRUMENT_GROUPS'):
-                            setattr(params, 'INSTRUMENT_GROUPS', normalized)
+                        if hasattr(params, "INSTRUMENT_GROUPS"):
+                            setattr(params, "INSTRUMENT_GROUPS", normalized)
                     except Exception as e:
                         logger.debug("verbose instrumentation config failed: %s", e)
                     try:
-                        if params_dict.get('VERBOSE_INSTRUMENTATION'):
-                            logger.debug(f"DEBUG-INSTR-MIGRATE: converted numeric 1-based {nums} -> {normalized}")
+                        if params_dict.get("VERBOSE_INSTRUMENTATION"):
+                            logger.debug(
+                                f"DEBUG-INSTR-MIGRATE: converted numeric 1-based {nums} -> {normalized}"
+                            )
                     except Exception as e:
                         logger.debug("verbose instrumentation config failed: %s", e)
     except Exception as e:
@@ -1220,14 +1275,16 @@ def rsim_run(
     try:
         import pypath.core.ecosim_deriv as _ed
 
-        if hasattr(params, 'instrument_callback'):
-            _ed._last_instrument_callback = getattr(params, 'instrument_callback')
+        if hasattr(params, "instrument_callback"):
+            _ed._last_instrument_callback = getattr(params, "instrument_callback")
             try:
-                logger.debug('exported instrument_callback to ecosim_deriv')
+                logger.debug("exported instrument_callback to ecosim_deriv")
             except Exception as e:
                 logger.debug("verbose instrumentation config failed: %s", e)
             try:
-                logger.debug(f"DEBUG-RUN: exported _last_instrument_callback={_ed._last_instrument_callback}")
+                logger.debug(
+                    f"DEBUG-RUN: exported _last_instrument_callback={_ed._last_instrument_callback}"
+                )
             except Exception as e:
                 logger.debug("verbose instrumentation config failed: %s", e)
         # Export original INSTRUMENT_GROUPS attribute (if present) so integrator
@@ -1235,16 +1292,27 @@ def rsim_run(
         # where the list was attached as an attribute on the params object.
         try:
             # Ensure attribute-based INSTRUMENT_GROUPS is normalized to numeric 0-based
-            attr_ig = getattr(params, 'INSTRUMENT_GROUPS', None)
+            attr_ig = getattr(params, "INSTRUMENT_GROUPS", None)
             if isinstance(attr_ig, (list, tuple)) and attr_ig:
                 # Map string names to model-based indices if available
                 try:
-                    model_df = getattr(params, 'model', None)
+                    model_df = getattr(params, "model", None)
                     normalized_attr = []
                     for g in attr_ig:
-                        if isinstance(g, str) and model_df is not None and 'Group' in model_df.columns and g in model_df['Group'].values:
-                            normalized_attr.append(int(list(model_df['Group']).index(g)))
-                        elif isinstance(g, str) and getattr(params, 'spname', None) is not None and g in params.spname:
+                        if (
+                            isinstance(g, str)
+                            and model_df is not None
+                            and "Group" in model_df.columns
+                            and g in model_df["Group"].values
+                        ):
+                            normalized_attr.append(
+                                int(list(model_df["Group"]).index(g))
+                            )
+                        elif (
+                            isinstance(g, str)
+                            and getattr(params, "spname", None) is not None
+                            and g in params.spname
+                        ):
                             sidx = params.spname.index(g)
                             if sidx > 0:
                                 normalized_attr.append(sidx - 1)
@@ -1252,26 +1320,34 @@ def rsim_run(
                             try:
                                 normalized_attr.append(int(g))
                             except Exception as e:
-                                logger.debug("verbose instrumentation config failed: %s", e)
+                                logger.debug(
+                                    "verbose instrumentation config failed: %s", e
+                                )
                     if normalized_attr:
                         try:
-                            setattr(params, 'INSTRUMENT_GROUPS', sorted(set(normalized_attr)))
-                            attr_ig = getattr(params, 'INSTRUMENT_GROUPS')
+                            setattr(
+                                params,
+                                "INSTRUMENT_GROUPS",
+                                sorted(set(normalized_attr)),
+                            )
+                            attr_ig = getattr(params, "INSTRUMENT_GROUPS")
                         except Exception as e:
                             logger.debug("verbose instrumentation config failed: %s", e)
                 except Exception as e:
                     logger.debug("verbose instrumentation config failed: %s", e)
-            _ed._last_instrument_groups = getattr(params, 'INSTRUMENT_GROUPS', None)
+            _ed._last_instrument_groups = getattr(params, "INSTRUMENT_GROUPS", None)
             # Also export a module-level fallback variable so deriv_vector can
             # pick up attribute-based instrumentation when only the params
             # object had the attribute set (legacy code paths).
             try:
-                globals()['_last_instrument_groups'] = _ed._last_instrument_groups
+                globals()["_last_instrument_groups"] = _ed._last_instrument_groups
             except Exception as e:
                 logger.debug("verbose instrumentation config failed: %s", e)
             if _ed._last_instrument_groups is not None:
-                if params_dict.get('VERBOSE_INSTRUMENTATION'):
-                    logger.debug(f"exported _last_instrument_groups={_ed._last_instrument_groups}")
+                if params_dict.get("VERBOSE_INSTRUMENTATION"):
+                    logger.debug(
+                        f"exported _last_instrument_groups={_ed._last_instrument_groups}"
+                    )
         except Exception as e:
             logger.debug("verbose instrumentation config failed: %s", e)
     except Exception as e:
@@ -1279,7 +1355,7 @@ def rsim_run(
 
     # Debug: log summary of NoIntegrate array for verification
     try:
-        noint = np.asarray(params_dict.get('NoIntegrate'))
+        noint = np.asarray(params_dict.get("NoIntegrate"))
         logger.debug(f"NoIntegrate array length={len(noint)} sample={noint[:10]}")
         logger.debug(f"NoIntegrate true count={int(np.sum(noint != 0))}")
     except Exception as e:
@@ -1294,11 +1370,17 @@ def rsim_run(
         "Ftime": scenario.start_state.Ftime.copy(),
         "ForcedBio": np.where(forcing.ForcedBio[0] > 0, forcing.ForcedBio[0], 0),
         "ForcedMigrate": forcing.ForcedMigrate[0],
-        "ForcedEffort": (fishing_obj.ForcedEffort[0] if 0 < len(fishing_obj.ForcedEffort) else np.ones(params.NUM_GEARS + 1)),
+        "ForcedEffort": (
+            fishing_obj.ForcedEffort[0]
+            if 0 < len(fishing_obj.ForcedEffort)
+            else np.ones(params.NUM_GEARS + 1)
+        ),
     }
     # Debugging: log forcing0 summary to compare with test precomputed forcing
     try:
-        logger.debug(f"forcing0 sample ForcedEffort[:4]={forcing0['ForcedEffort'][:4]} ForcedBio[:4]={forcing0['ForcedBio'][:4]}")
+        logger.debug(
+            f"forcing0 sample ForcedEffort[:4]={forcing0['ForcedEffort'][:4]} ForcedBio[:4]={forcing0['ForcedBio'][:4]}"
+        )
     except Exception as e:
         logger.debug("forcing0 debug logging failed: %s", e)
 
@@ -1306,7 +1388,7 @@ def rsim_run(
         # Compute initial derivative without applying NoIntegrate masking so we
         # capture the true algebraic residuals used to compute small M0 nudges.
         params_no_noint = params_dict.copy()
-        params_no_noint['NoIntegrate'] = np.zeros(n_groups, dtype=int)
+        params_no_noint["NoIntegrate"] = np.zeros(n_groups, dtype=int)
         # Use the actual fishing_dict (with FishFrom/FishQ from params) so
         # the init-deriv computation includes fishing mortality.  Previously
         # this used a zero-fishing dict which caused M0 to be nudged to
@@ -1314,25 +1396,31 @@ def rsim_run(
         # that populates fishing_dict from params was applied.
         # If Seabirds exists, request trace debug in deriv_vector to expose components
         # Set TRACE unconditionally (no silent failure) so logs are consistent
-        if hasattr(params, 'spname') and 'Seabirds' in params.spname:
-            sidx = params.spname.index('Seabirds')
-            params_no_noint['TRACE_DEBUG_GROUPS'] = [sidx]
+        if hasattr(params, "spname") and "Seabirds" in params.spname:
+            sidx = params.spname.index("Seabirds")
+            params_no_noint["TRACE_DEBUG_GROUPS"] = [sidx]
             # Provide species names list to deriv_vector for trace printing
-            params_no_noint['spname'] = params.spname
+            params_no_noint["spname"] = params.spname
             logger.debug(f"requesting TRACE_DEBUG_GROUPS for seabirds idx={sidx}")
         # Threshold for considering small initial derivatives
         ADJUST_DERIV_MAX = 1e-3
-        logger.debug(f"computing init_deriv with fishing_dict FishFrom length={len(fishing_dict.get('FishFrom', []))}")
+        logger.debug(
+            f"computing init_deriv with fishing_dict FishFrom length={len(fishing_dict.get('FishFrom', []))}"
+        )
         init_deriv = deriv_vector(state.copy(), params_no_noint, forcing0, fishing_dict)
         # Also compute a test-style derivative with TRACE to compare
         params_test = params_no_noint.copy()
         try:
-            params_test['TRACE_DEBUG_GROUPS'] = params_no_noint.get('TRACE_DEBUG_GROUPS', None)
+            params_test["TRACE_DEBUG_GROUPS"] = params_no_noint.get(
+                "TRACE_DEBUG_GROUPS", None
+            )
             deriv_test = deriv_vector(state.copy(), params_test, forcing0, fishing_dict)
             try:
-                if 'Seabirds' in params.spname:
-                    sidx = params.spname.index('Seabirds')
-                    logger.debug(f"post-deriv debug: init_deriv[seab]={init_deriv[sidx]:.6e} deriv_test[seab]={deriv_test[sidx]:.6e}")
+                if "Seabirds" in params.spname:
+                    sidx = params.spname.index("Seabirds")
+                    logger.debug(
+                        f"post-deriv debug: init_deriv[seab]={init_deriv[sidx]:.6e} deriv_test[seab]={deriv_test[sidx]:.6e}"
+                    )
             except Exception as e:
                 logger.debug("derivative comparison debug failed: %s", e)
         except Exception as e:
@@ -1342,60 +1430,72 @@ def rsim_run(
         # Don't include the outside cell (index 0) in masking
         init_mask[0] = False
         # Debug: report summary of initial derivatives
-        logger.debug(f"init_deriv min={float(np.nanmin(init_deriv)):.6e} max={float(np.nanmax(init_deriv)):.6e}")
+        logger.debug(
+            f"init_deriv min={float(np.nanmin(init_deriv)):.6e} max={float(np.nanmax(init_deriv)):.6e}"
+        )
         try:
             logger.debug(f"init_deriv sample[:10]={init_deriv[:10]}")
         except Exception as e:
             logger.debug("init_deriv debug logging failed: %s", e)
         # If Seabirds exists, report its index/value
         try:
-            if 'Seabirds' in params.spname:
-                sidx = params.spname.index('Seabirds')
-                logger.debug(f"Seabirds index={sidx} init_deriv={init_deriv[sidx]:.6e} (no NoIntegrate applied)")
+            if "Seabirds" in params.spname:
+                sidx = params.spname.index("Seabirds")
+                logger.debug(
+                    f"Seabirds index={sidx} init_deriv={init_deriv[sidx]:.6e} (no NoIntegrate applied)"
+                )
         except Exception as e:
             logger.debug("init_deriv debug logging failed: %s", e)
 
         # Build a test-style params dict (like tests do) and compute its derivative
         try:
             params_test = {
-                'NUM_GROUPS': params.NUM_GROUPS,
-                'NUM_LIVING': params.NUM_LIVING,
-                'NUM_DEAD': params.NUM_DEAD,
-                'NUM_GEARS': params.NUM_GEARS,
-                'PB': params.PBopt,
-                'QB': params.FtimeQBOpt,
-                'M0': params.MzeroMort.copy(),
-                'Unassim': params.UnassimRespFrac,
-                'ActiveLink': _build_active_link_matrix(params),
-                'VV': _build_link_matrix(params, params.VV),
-                'DD': _build_link_matrix(params, params.DD),
-                'QQbase': _build_link_matrix(params, params.QQ),
-                'Bbase': params.B_BaseRef,
-                'PP_type': params.PP_type,
-                'FishFrom': getattr(params, 'FishFrom', np.array([])),
-                'FishTo': getattr(params, 'FishTo', np.array([])),
-                'FishQ': getattr(params, 'FishQ', np.array([])),
+                "NUM_GROUPS": params.NUM_GROUPS,
+                "NUM_LIVING": params.NUM_LIVING,
+                "NUM_DEAD": params.NUM_DEAD,
+                "NUM_GEARS": params.NUM_GEARS,
+                "PB": params.PBopt,
+                "QB": params.FtimeQBOpt,
+                "M0": params.MzeroMort.copy(),
+                "Unassim": params.UnassimRespFrac,
+                "ActiveLink": _build_active_link_matrix(params),
+                "VV": _build_link_matrix(params, params.VV),
+                "DD": _build_link_matrix(params, params.DD),
+                "QQbase": _build_link_matrix(params, params.QQ),
+                "Bbase": params.B_BaseRef,
+                "PP_type": params.PP_type,
+                "FishFrom": getattr(params, "FishFrom", np.array([])),
+                "FishTo": getattr(params, "FishTo", np.array([])),
+                "FishQ": getattr(params, "FishQ", np.array([])),
             }
             # If Seabirds exists, add TRACE keys to params_test so deriv_vector prints breakdown
             try:
-                if 'Seabirds' in params.spname:
-                    sidx = params.spname.index('Seabirds')
-                    params_test['TRACE_DEBUG_GROUPS'] = [sidx]
-                    params_test['spname'] = params.spname
+                if "Seabirds" in params.spname:
+                    sidx = params.spname.index("Seabirds")
+                    params_test["TRACE_DEBUG_GROUPS"] = [sidx]
+                    params_test["spname"] = params.spname
             except Exception as e:
                 logger.debug("TRACE key addition failed: %s", e)
             deriv_test = deriv_vector(state.copy(), params_test, forcing0, fishing_dict)
             diffs = np.abs(init_deriv - deriv_test)
             TH = 1e-12
             if np.any(diffs > TH):
-                logger.debug(f"derivative mismatch between raw (NoIntegrate disabled) and test-style params; count>{TH}: {int(np.sum(diffs>TH))}")
+                logger.debug(
+                    f"derivative mismatch between raw (NoIntegrate disabled) and test-style params; count>{TH}: {int(np.sum(diffs > TH))}"
+                )
                 # Show first few mismatches
                 mism = np.where(diffs > TH)[0][:20]
                 for idx in mism:
-                    name = params.spname[idx] if (hasattr(params, 'spname') and idx < len(params.spname)) else ''
-                    logger.debug(f"deriv diff idx={idx} name={name} raw={init_deriv[idx]:.6e} test={deriv_test[idx]:.6e} diff={diffs[idx]:.6e}")
+                    name = (
+                        params.spname[idx]
+                        if (hasattr(params, "spname") and idx < len(params.spname))
+                        else ""
+                    )
+                    logger.debug(
+                        f"deriv diff idx={idx} name={name} raw={init_deriv[idx]:.6e} test={deriv_test[idx]:.6e} diff={diffs[idx]:.6e}"
+                    )
             # Also compare key parameter arrays for quick diffs
-            for key in ['M0', 'PB', 'QB', 'Bbase', 'NoIntegrate']:
+            for key in ["M0", "PB", "QB", "Bbase", "NoIntegrate"]:
                 a = params_dict.get(key)
                 b = params_test.get(key)
                 try:
@@ -1406,20 +1506,28 @@ def rsim_run(
                         if md > 0:
                             logger.debug(f"param '{key}' max abs diff = {md:.6e}")
                     else:
-                        logger.debug(f"param '{key}' shape differs: {aa.shape} vs {bb.shape}")
+                        logger.debug(
+                            f"param '{key}' shape differs: {aa.shape} vs {bb.shape}"
+                        )
                 except Exception as e:
                     logger.debug("parameter comparison failed: %s", e)
             # Quick QQ check for Seabirds if present
             try:
-                if 'Seabirds' in params.spname:
-                    sidx = params.spname.index('Seabirds')
-                    QQ_a = params_dict.get('QQbase')
-                    QQ_b = params_test.get('QQbase')
-                    if QQ_a is not None and QQ_b is not None and QQ_a.shape == QQ_b.shape:
+                if "Seabirds" in params.spname:
+                    sidx = params.spname.index("Seabirds")
+                    QQ_a = params_dict.get("QQbase")
+                    QQ_b = params_test.get("QQbase")
+                    if (
+                        QQ_a is not None
+                        and QQ_b is not None
+                        and QQ_a.shape == QQ_b.shape
+                    ):
                         col_diff = np.nanmax(np.abs(QQ_a[:, sidx] - QQ_b[:, sidx]))
                         row_diff = np.nanmax(np.abs(QQ_a[sidx, :] - QQ_b[sidx, :]))
                         if col_diff > 0 or row_diff > 0:
-                            logger.debug(f"QQ differences for Seabirds col_diff={col_diff:.6e} row_diff={row_diff:.6e}")
+                            logger.debug(
+                                f"QQ differences for Seabirds col_diff={col_diff:.6e} row_diff={row_diff:.6e}"
+                            )
             except Exception as e:
                 logger.debug("QQ Seabirds check failed: %s", e)
         except Exception as e:
@@ -1431,7 +1539,9 @@ def rsim_run(
 
     if np.any(init_mask):
         # Informative message for debugging; this can be toggled or removed if desired
-        logger.debug(f"zeroing tiny initial derivatives for groups: {np.where(init_mask)[0].tolist()}")
+        logger.debug(
+            f"zeroing tiny initial derivatives for groups: {np.where(init_mask)[0].tolist()}"
+        )
 
     # Build a looser mask for small initial derivatives that we should prevent from changing
     # during the warmup period to avoid slow drift accumulation
@@ -1439,7 +1549,9 @@ def rsim_run(
         init_mask_loose = np.abs(init_deriv) < ADJUST_DERIV_MAX
         init_mask_loose[0] = False
         if np.any(init_mask_loose) and not np.array_equal(init_mask_loose, init_mask):
-            logger.debug(f"small initial derivatives (loose mask) groups: {np.where(init_mask_loose)[0].tolist()}")
+            logger.debug(
+                f"small initial derivatives (loose mask) groups: {np.where(init_mask_loose)[0].tolist()}"
+            )
     except Exception as e:
         logger.debug("loose mask computation failed: %s", e)
         init_mask_loose = np.zeros(n_groups, dtype=bool)
@@ -1448,8 +1560,12 @@ def rsim_run(
     # This uses a tiny adjustment only when the required change is small (avoid large parameter changes)
     # Only accept very small M0 changes at init/final check to avoid drifting from Rpath
     # (use a strict absolute threshold to prevent ~1e-3 sized nudges that affect parity)
-    M0_ADJUST_THRESHOLD = 1e-4  # absolute threshold allowed for M0 adjustments (was 1e-3)
-    ADJUST_DERIV_MAX = 1e-3  # consider adjusting M0 for initial derivatives smaller than this (abs)
+    M0_ADJUST_THRESHOLD = (
+        1e-4  # absolute threshold allowed for M0 adjustments (was 1e-3)
+    )
+    ADJUST_DERIV_MAX = (
+        1e-3  # consider adjusting M0 for initial derivatives smaller than this (abs)
+    )
     try:
         # Build immediate fishing mortality (base) to compute fish_loss
         logger.debug("entering M0 adjustment block")
@@ -1469,17 +1585,21 @@ def rsim_run(
             if B <= 0:
                 continue
             # Use baseline QQ (QQbase) to approximate consumption and predation loss at equilibrium
-            QQbase = params_dict.get('QQbase')
+            QQbase = params_dict.get("QQbase")
             # Consumption by this group (sum over prey)
-            consumption = float(np.nansum(QQbase[:, grp])) if QQbase is not None else 0.0
+            consumption = (
+                float(np.nansum(QQbase[:, grp])) if QQbase is not None else 0.0
+            )
             # Predation loss on this group (sum over predators)
-            predation_loss = float(np.nansum(QQbase[grp, :])) if QQbase is not None else 0.0
+            predation_loss = (
+                float(np.nansum(QQbase[grp, :])) if QQbase is not None else 0.0
+            )
 
             # Production (handle producers/consumers)
-            PB = params_dict.get('PB')[grp]
-            QB = params_dict.get('QB')[grp]
-            PP_type = params_dict.get('PP_type', np.zeros(params.NUM_GROUPS + 1))
-            Bbase = params_dict.get('Bbase')
+            PB = params_dict.get("PB")[grp]
+            QB = params_dict.get("QB")[grp]
+            PP_type = params_dict.get("PP_type", np.zeros(params.NUM_GROUPS + 1))
+            Bbase = params_dict.get("Bbase")
             if PP_type[grp] > 0:
                 # Primary producer: use density-dependent formula at baseline forcing
                 if Bbase is not None and Bbase[grp] > 0:
@@ -1495,26 +1615,33 @@ def rsim_run(
                 production = PB * B
 
             fish_loss = fishing_mort[grp] * B
-            current_m0 = float(params_dict.get('M0')[grp])
+            current_m0 = float(params_dict.get("M0")[grp])
             # Compute desired M0 using raw initial derivative computed without NoIntegrate masking
             desired_m0 = current_m0 + float(init_deriv[grp]) / B
             diff = desired_m0 - current_m0
             # Debug log the computed quantities
-            logger.debug(f"grp={grp} B={B:.6e} consumption={consumption:.6e} production={production:.6e} predation_loss={predation_loss:.6e} fish_loss={fish_loss:.6e} current_m0={current_m0:.6e} desired_m0={desired_m0:.6e} diff={diff:.6e}")
+            logger.debug(
+                f"grp={grp} B={B:.6e} consumption={consumption:.6e} production={production:.6e} predation_loss={predation_loss:.6e} fish_loss={fish_loss:.6e} current_m0={current_m0:.6e} desired_m0={desired_m0:.6e} diff={diff:.6e}"
+            )
             # Extra debugging for Seabirds specifically
             try:
-                if 'Seabirds' in params.spname:
-                    sidx = params.spname.index('Seabirds')
+                if "Seabirds" in params.spname:
+                    sidx = params.spname.index("Seabirds")
                     if grp == sidx:
-                        logger.debug(f"Seabirds calculation: B={B:.6e} consumption={consumption:.6e} pred_loss={predation_loss:.6e} production={production:.6e} fish_loss={fish_loss:.6e} current_m0={current_m0:.6e} desired_m0={desired_m0:.6e} diff={diff:.6e}")
+                        logger.debug(
+                            f"Seabirds calculation: B={B:.6e} consumption={consumption:.6e} pred_loss={predation_loss:.6e} production={production:.6e} fish_loss={fish_loss:.6e} current_m0={current_m0:.6e} desired_m0={desired_m0:.6e} diff={diff:.6e}"
+                        )
             except Exception as e:
                 logger.debug("Seabirds debug logging failed: %s", e)
             # Accept small changes only (absolute threshold)
             if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
-                seab_lbl = ''
+                seab_lbl = ""
                 try:
-                    if 'Seabirds' in params.spname and params.spname.index('Seabirds') == grp:
-                        seab_lbl = 'Seabirds'
+                    if (
+                        "Seabirds" in params.spname
+                        and params.spname.index("Seabirds") == grp
+                    ):
+                        seab_lbl = "Seabirds"
                 except Exception as e:
                     logger.debug("Seabirds label lookup failed: %s", e)
                 logger.debug(f"assigning M0 for grp={grp} ({seab_lbl}) diff={diff:.6e}")
@@ -1525,16 +1652,22 @@ def rsim_run(
                     # Start from a params dict that has NoIntegrate disabled so we measure the raw algebraic residual
                     params_iter = params_no_noint.copy()
                     # Ensure M0 array is present and set initial candidate
-                    params_iter['M0'] = params_dict['M0'].copy()
-                    params_iter['M0'][grp] = desired_m0
-                    params_dict['M0'][grp] = desired_m0
-                    logger.debug(f"initial M0 assigned grp={grp} value={params_dict['M0'][grp]:.6e}")
+                    params_iter["M0"] = params_dict["M0"].copy()
+                    params_iter["M0"][grp] = desired_m0
+                    params_dict["M0"][grp] = desired_m0
+                    logger.debug(
+                        f"initial M0 assigned grp={grp} value={params_dict['M0'][grp]:.6e}"
+                    )
 
                     for it in range(1, MAX_M0_ITER + 1):
                         try:
-                            init_deriv_iter = deriv_vector(state.copy(), params_iter, forcing0, fishing_dict)
+                            init_deriv_iter = deriv_vector(
+                                state.copy(), params_iter, forcing0, fishing_dict
+                            )
                             residual = float(init_deriv_iter[grp])
-                            logger.debug(f"M0 iter grp={grp} it={it} residual={residual:.6e}")
+                            logger.debug(
+                                f"M0 iter grp={grp} it={it} residual={residual:.6e}"
+                            )
                             # If residual sufficiently small, stop
                             if abs(residual) < TOL_INIT_DERIV_ITER:
                                 break
@@ -1543,25 +1676,39 @@ def rsim_run(
                             # Clamp step so we don't jump by more than allowed threshold
                             if abs(step) > M0_ADJUST_THRESHOLD:
                                 step = np.sign(step) * M0_ADJUST_THRESHOLD
-                            params_iter['M0'][grp] += step
-                            params_dict['M0'][grp] = params_iter['M0'][grp]
+                            params_iter["M0"][grp] += step
+                            params_dict["M0"][grp] = params_iter["M0"][grp]
                         except Exception as e:
-                            logger.debug(f"M0 iteration failed for grp={grp} it={it}: {e}")
+                            logger.debug(
+                                f"M0 iteration failed for grp={grp} it={it}: {e}"
+                            )
                             break
-                    logger.debug(f"final M0 for grp={grp} value={params_dict['M0'][grp]:.6e}")
+                    logger.debug(
+                        f"final M0 for grp={grp} value={params_dict['M0'][grp]:.6e}"
+                    )
 
                     # Final check using the params dict that will be persisted
                     try:
                         params_check = params_dict.copy()
-                        init_deriv_check = deriv_vector(state.copy(), params_check, forcing0, fishing_dict)
+                        init_deriv_check = deriv_vector(
+                            state.copy(), params_check, forcing0, fishing_dict
+                        )
                         final_residual = float(init_deriv_check[grp])
-                        logger.debug(f"final check residual grp={grp} residual={final_residual:.6e}")
-                        if B != 0 and np.isfinite(final_residual) and abs(final_residual) > 0.0:
+                        logger.debug(
+                            f"final check residual grp={grp} residual={final_residual:.6e}"
+                        )
+                        if (
+                            B != 0
+                            and np.isfinite(final_residual)
+                            and abs(final_residual) > 0.0
+                        ):
                             step = final_residual / B
                             if abs(step) > M0_ADJUST_THRESHOLD:
                                 step = np.sign(step) * M0_ADJUST_THRESHOLD
-                            params_dict['M0'][grp] += step
-                            logger.debug(f"final adj applied grp={grp} new_m0={params_dict['M0'][grp]:.6e} step={step:.6e}")
+                            params_dict["M0"][grp] += step
+                            logger.debug(
+                                f"final adj applied grp={grp} new_m0={params_dict['M0'][grp]:.6e} step={step:.6e}"
+                            )
                     except Exception as e:
                         logger.debug(f"final M0 check failed for grp={grp}: {e}")
                         pass
@@ -1571,20 +1718,26 @@ def rsim_run(
 
             # Only persist small/safe M0 adjustments; avoid overwriting for larger computed desired_m0
             if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
-                params_dict['M0'][grp] = desired_m0
-                logger.debug(f"enforcing exact initial equilibrium for group {grp}: M0 {current_m0:.6e} -> {desired_m0:.6e} (init_deriv={init_deriv[grp]:.6e})")
+                params_dict["M0"][grp] = desired_m0
+                logger.debug(
+                    f"enforcing exact initial equilibrium for group {grp}: M0 {current_m0:.6e} -> {desired_m0:.6e} (init_deriv={init_deriv[grp]:.6e})"
+                )
             else:
                 # Do not apply large adjustments; leave M0 as originally specified
                 if np.isfinite(desired_m0):
-                    logger.debug(f"skipping initial M0 assign for grp={grp} (diff={diff:.6e} > threshold)")
+                    logger.debug(
+                        f"skipping initial M0 assign for grp={grp} (diff={diff:.6e} > threshold)"
+                    )
     except Exception as e:
         logger.debug("M0 adjustment failed: %s", e, exc_info=True)
 
     # Debug: report M0 small sample
     try:
-        if 'Seabirds' in params.spname:
-            sidx = params.spname.index('Seabirds')
-            logger.debug(f"M0 after adjust for Seabirds idx={sidx} value={params_dict['M0'][sidx]:.6e}")
+        if "Seabirds" in params.spname:
+            sidx = params.spname.index("Seabirds")
+            logger.debug(
+                f"M0 after adjust for Seabirds idx={sidx} value={params_dict['M0'][sidx]:.6e}"
+            )
     except Exception as e:
         logger.debug("M0 post-adjust debug failed: %s", e)
 
@@ -1601,8 +1754,10 @@ def rsim_run(
                 step = check_deriv[grp] / state[grp]
                 if abs(step) > M0_ADJUST_THRESHOLD:
                     step = np.sign(step) * M0_ADJUST_THRESHOLD
-                params_dict['M0'][grp] += step
-                logger.debug(f"final algebraic adjust grp={grp} step={step:.6e} new_m0={params_dict['M0'][grp]:.6e} residual_after={check_deriv[grp]:.6e}")
+                params_dict["M0"][grp] += step
+                logger.debug(
+                    f"final algebraic adjust grp={grp} step={step:.6e} new_m0={params_dict['M0'][grp]:.6e} residual_after={check_deriv[grp]:.6e}"
+                )
     except Exception as e:
         logger.debug(f"final M0 algebraic check failed: {e}")
         pass
@@ -1610,9 +1765,9 @@ def rsim_run(
     # Persist any M0 adjustments back to the params dataclass so diagnostics
     # and downstream code that read scenario.params.MzeroMort see the same values
     try:
-        if 'M0' in params_dict:
+        if "M0" in params_dict:
             # params is the RsimParams object (scenario.params)
-            params.MzeroMort = params_dict['M0'].copy()
+            params.MzeroMort = params_dict["M0"].copy()
             # Debug sample to confirm persistence
             try:
                 logger.debug(f"persisted adjusted M0 sample={params.MzeroMort[:6]}")
@@ -1651,10 +1806,11 @@ def rsim_run(
     # Debug: log fishing link summary before starting loop
     try:
         if len(params.FishFrom) > 0:
-            logger.debug(f"starting simulation months={n_months} FishFrom={params.FishFrom} FishQ={params.FishQ} FishThrough={params.FishThrough} ForcedEffort_sample={fishing_obj.ForcedEffort[0] if len(fishing_obj.ForcedEffort)>0 else None}")
+            logger.debug(
+                f"starting simulation months={n_months} FishFrom={params.FishFrom} FishQ={params.FishQ} FishThrough={params.FishThrough} ForcedEffort_sample={fishing_obj.ForcedEffort[0] if len(fishing_obj.ForcedEffort) > 0 else None}"
+            )
     except Exception as e:
         logger.debug("fishing link debug failed: %s", e)
-
 
     for month in range(1, n_months + 1):
         # Debug: indicate loop iteration for first few months
@@ -1696,12 +1852,14 @@ def rsim_run(
                 # Use one year of RK4 warmup to get stable derivative history
                 old_state = state.copy()
                 # Mark parent integration method so RK4 instrumentation reports 'AB' for warmup
-                params_dict['_integration_parent_method'] = 'AB'
+                params_dict["_integration_parent_method"] = "AB"
                 try:
-                    state = integrate_rk4(state, params_dict, forcing_dict, fishing_dict, dt)
+                    state = integrate_rk4(
+                        state, params_dict, forcing_dict, fishing_dict, dt
+                    )
                 finally:
                     # Clean up the temporary context flag
-                    params_dict.pop('_integration_parent_method', None)
+                    params_dict.pop("_integration_parent_method", None)
                 if month == 1 and np.any(init_mask):
                     state[init_mask] = old_state[init_mask]
                 # Prevent groups with small initial residuals from changing during warmup
@@ -1709,15 +1867,24 @@ def rsim_run(
                 if month <= WARMUP_MONTHS and np.any(init_mask_loose):
                     state[init_mask_loose] = old_state[init_mask_loose]
                 try:
-                    new_deriv = deriv_vector(state, params_dict, forcing_dict, fishing_dict)
+                    new_deriv = deriv_vector(
+                        state, params_dict, forcing_dict, fishing_dict
+                    )
                     # Sanitize derivative before storing to history to avoid
                     # carrying non-finite or extreme values into Adams-Bashforth
-                    new_deriv = np.nan_to_num(new_deriv, nan=0.0, posinf=1e6, neginf=-1e6)
+                    new_deriv = np.nan_to_num(
+                        new_deriv, nan=0.0, posinf=1e6, neginf=-1e6
+                    )
                     new_deriv = np.clip(new_deriv, -1e6, 1e6)
                     # Zero derivatives for NoIntegrate groups to align with Rpath
                     try:
                         # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-                        no_integrate_mask = np.asarray(params_dict.get('NoIntegrate', np.zeros(n_groups))) != 0
+                        no_integrate_mask = (
+                            np.asarray(
+                                params_dict.get("NoIntegrate", np.zeros(n_groups))
+                            )
+                            != 0
+                        )
                         if np.any(no_integrate_mask):
                             new_deriv[no_integrate_mask] = 0.0
                     except Exception as e:
@@ -1728,17 +1895,22 @@ def rsim_run(
                 except Exception as e:
                     logger.debug("derivative history update failed: %s", e)
             else:
-                if params_dict.get('VERBOSE_INSTRUMENTATION'):
-                    logger.debug(f"DEBUG-INTEGRATOR: about to call integrate_ab with params_dict['INSTRUMENT_GROUPS']={params_dict.get('INSTRUMENT_GROUPS', None)!r}")
+                if params_dict.get("VERBOSE_INSTRUMENTATION"):
+                    logger.debug(
+                        f"DEBUG-INTEGRATOR: about to call integrate_ab with params_dict['INSTRUMENT_GROUPS']={params_dict.get('INSTRUMENT_GROUPS', None)!r}"
+                    )
                 state, new_deriv = integrate_ab(
                     state, derivs_history, params_dict, forcing_dict, fishing_dict, dt
                 )
                 # Ensure NoIntegrate groups remain fixed and have zero derivative
                 try:
                     # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-                    no_integrate_mask = np.asarray(params_dict.get('NoIntegrate', np.zeros(n_groups))) != 0
+                    no_integrate_mask = (
+                        np.asarray(params_dict.get("NoIntegrate", np.zeros(n_groups)))
+                        != 0
+                    )
                     if np.any(no_integrate_mask):
-                        Bbase = params_dict.get('Bbase')
+                        Bbase = params_dict.get("Bbase")
                         if Bbase is not None:
                             state[no_integrate_mask] = Bbase[no_integrate_mask]
                         new_deriv[no_integrate_mask] = 0.0
@@ -1755,17 +1927,25 @@ def rsim_run(
                 state[init_mask] = old_state[init_mask]
 
         # Monthly M0 adjustment to enforce algebraic equilibrium for small residuals
-        if not params_dict.get('MONTHLY_M0_ADJUST', True):
-            if params_dict.get('VERBOSE_DEBUG'):
-                logger.debug(f"skipping monthly M0 adjustment (disabled) for month={month}")
+        if not params_dict.get("MONTHLY_M0_ADJUST", True):
+            if params_dict.get("VERBOSE_DEBUG"):
+                logger.debug(
+                    f"skipping monthly M0 adjustment (disabled) for month={month}"
+                )
         else:
             try:
-                if params_dict.get('VERBOSE_DEBUG'):
-                    logger.debug(f"entering monthly M0 adjustment block for month={month}")
+                if params_dict.get("VERBOSE_DEBUG"):
+                    logger.debug(
+                        f"entering monthly M0 adjustment block for month={month}"
+                    )
                 # Compute raw derivative with actual fishing to measure algebraic residual
-                raw_init_deriv = deriv_vector(state.copy(), params_dict, forcing_dict, fishing_dict)
-                if params_dict.get('VERBOSE_DEBUG'):
-                    logger.debug(f"computed raw_init_deriv sample {raw_init_deriv[:10]}")
+                raw_init_deriv = deriv_vector(
+                    state.copy(), params_dict, forcing_dict, fishing_dict
+                )
+                if params_dict.get("VERBOSE_DEBUG"):
+                    logger.debug(
+                        f"computed raw_init_deriv sample {raw_init_deriv[:10]}"
+                    )
                 # Use the normalized fishing dict so we don't depend on dataclass vs dict
                 fishing_mort = fishing_dict.get("FishingMort", np.zeros(n_groups))
                 fish_from = fishing_dict.get("FishFrom", [])
@@ -1780,13 +1960,19 @@ def rsim_run(
                     B = state[grp]
                     if B <= 0:
                         continue
-                    QQbase = params_dict.get('QQbase')
-                    consumption = float(np.nansum(QQbase[:, grp])) if QQbase is not None else 0.0
-                    predation_loss = float(np.nansum(QQbase[grp, :])) if QQbase is not None else 0.0
-                    PB = params_dict.get('PB')[grp]
-                    QB = params_dict.get('QB')[grp]
-                    PP_type = params_dict.get('PP_type', np.zeros(params.NUM_GROUPS + 1))
-                    Bbase = params_dict.get('Bbase')
+                    QQbase = params_dict.get("QQbase")
+                    consumption = (
+                        float(np.nansum(QQbase[:, grp])) if QQbase is not None else 0.0
+                    )
+                    predation_loss = (
+                        float(np.nansum(QQbase[grp, :])) if QQbase is not None else 0.0
+                    )
+                    PB = params_dict.get("PB")[grp]
+                    QB = params_dict.get("QB")[grp]
+                    PP_type = params_dict.get(
+                        "PP_type", np.zeros(params.NUM_GROUPS + 1)
+                    )
+                    Bbase = params_dict.get("Bbase")
                     if PP_type[grp] > 0:
                         if Bbase is not None and Bbase[grp] > 0:
                             rel_bio = B / Bbase[grp]
@@ -1800,50 +1986,61 @@ def rsim_run(
                     else:
                         production = PB * B
                     fish_loss = fishing_mort[grp] * B
-                    current_m0 = float(params_dict.get('M0')[grp])
+                    current_m0 = float(params_dict.get("M0")[grp])
                     desired_m0 = current_m0 + float(raw_init_deriv[grp]) / B
                     diff = desired_m0 - current_m0
                     # Debug log
-                    logger.debug(f"monthly grp={grp} B={B:.6e} consumption={consumption:.6e} production={production:.6e} predation_loss={predation_loss:.6e} fish_loss={fish_loss:.6e} current_m0={current_m0:.6e} desired_m0={desired_m0:.6e} diff={diff:.6e}")
+                    logger.debug(
+                        f"monthly grp={grp} B={B:.6e} consumption={consumption:.6e} production={production:.6e} predation_loss={predation_loss:.6e} fish_loss={fish_loss:.6e} current_m0={current_m0:.6e} desired_m0={desired_m0:.6e} diff={diff:.6e}"
+                    )
                     if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
                         # Iteratively refine monthly M0 similar to initialization
                         try:
                             params_iter = params_dict.copy()
-                            params_iter['M0'] = params_dict['M0'].copy()
-                            params_iter['M0'][grp] = desired_m0
-                            params_dict['M0'][grp] = desired_m0
+                            params_iter["M0"] = params_dict["M0"].copy()
+                            params_iter["M0"][grp] = desired_m0
+                            params_dict["M0"][grp] = desired_m0
                             MAX_M0_ITER = 3
                             TOL_INIT_DERIV_ITER = 1e-10
                             for it in range(1, MAX_M0_ITER + 1):
                                 try:
-                                    init_deriv_iter = deriv_vector(state.copy(), params_iter, forcing_dict, fishing_dict)
+                                    init_deriv_iter = deriv_vector(
+                                        state.copy(),
+                                        params_iter,
+                                        forcing_dict,
+                                        fishing_dict,
+                                    )
                                     residual = float(init_deriv_iter[grp])
                                     if abs(residual) < TOL_INIT_DERIV_ITER:
                                         break
                                     step = residual / B
                                     if abs(step) > M0_ADJUST_THRESHOLD:
                                         step = np.sign(step) * M0_ADJUST_THRESHOLD
-                                    params_iter['M0'][grp] += step
-                                    params_dict['M0'][grp] = params_iter['M0'][grp]
+                                    params_iter["M0"][grp] += step
+                                    params_dict["M0"][grp] = params_iter["M0"][grp]
                                 except Exception as e:
                                     logger.debug("monthly M0 iteration failed: %s", e)
                                     break
-                            if params_dict.get('VERBOSE_DEBUG'):
-                                logger.debug(f"monthly assigned M0 grp={grp} new_m0={params_dict['M0'][grp]:.6e}")
+                            if params_dict.get("VERBOSE_DEBUG"):
+                                logger.debug(
+                                    f"monthly assigned M0 grp={grp} new_m0={params_dict['M0'][grp]:.6e}"
+                                )
                         except Exception as e:
                             logger.debug("monthly M0 assignment failed: %s", e)
-                            params_dict['M0'][grp] = desired_m0
-                            if params_dict.get('VERBOSE_DEBUG'):
-                                logger.debug(f"monthly assigned M0 grp={grp} new_m0={params_dict['M0'][grp]:.6e}")
+                            params_dict["M0"][grp] = desired_m0
+                            if params_dict.get("VERBOSE_DEBUG"):
+                                logger.debug(
+                                    f"monthly assigned M0 grp={grp} new_m0={params_dict['M0'][grp]:.6e}"
+                                )
             except Exception as e:
                 logger.debug("monthly M0 adjustment failed: %s", e)
 
         # Apply NoIntegrate behavior: hold fast-turnover groups at baseline
         try:
             # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-                Bbase = params_dict.get('Bbase')
-                if Bbase is not None:
-                    state[no_integrate_mask] = Bbase[no_integrate_mask]
+            Bbase = params_dict.get("Bbase")
+            if Bbase is not None:
+                state[no_integrate_mask] = Bbase[no_integrate_mask]
         except Exception as e:
             logger.debug("NoIntegrate application failed: %s", e)
 
@@ -1897,23 +2094,29 @@ def rsim_run(
         try:
             logger.debug(f"entering final NoIntegrate enforcement for month={month}")
             # NoIntegrate uses non-zero (1) to indicate fast-turnover groups (1 = NoIntegrate)
-            no_integrate_mask = np.asarray(params_dict.get('NoIntegrate', np.zeros(n_groups))) != 0
+            no_integrate_mask = (
+                np.asarray(params_dict.get("NoIntegrate", np.zeros(n_groups))) != 0
+            )
             logger.debug(f"no_integrate_mask any={np.any(no_integrate_mask)}")
             if np.any(no_integrate_mask):
-                Bbase = params_dict.get('Bbase')
+                Bbase = params_dict.get("Bbase")
                 if Bbase is not None:
                     # Debugging for Seabirds application
                     try:
-                        if 'Seabirds' in params.spname:
-                            sidx = params.spname.index('Seabirds')
-                            logger.debug(f"month={month} before final NoIntegrate state[{sidx}]={state[sidx]:.6e} Bbase={Bbase[sidx]:.6e}")
+                        if "Seabirds" in params.spname:
+                            sidx = params.spname.index("Seabirds")
+                            logger.debug(
+                                f"month={month} before final NoIntegrate state[{sidx}]={state[sidx]:.6e} Bbase={Bbase[sidx]:.6e}"
+                            )
                     except Exception as e:
                         logger.debug("Seabirds pre-NoIntegrate debug failed: %s", e)
                     state[no_integrate_mask] = Bbase[no_integrate_mask]
                     try:
-                        if 'Seabirds' in params.spname:
-                            sidx = params.spname.index('Seabirds')
-                            logger.debug(f"month={month} after final NoIntegrate state[{sidx}]={state[sidx]:.6e}")
+                        if "Seabirds" in params.spname:
+                            sidx = params.spname.index("Seabirds")
+                            logger.debug(
+                                f"month={month} after final NoIntegrate state[{sidx}]={state[sidx]:.6e}"
+                            )
                     except Exception as e:
                         logger.debug("Seabirds post-NoIntegrate debug failed: %s", e)
         except Exception as e:
@@ -1924,9 +2127,11 @@ def rsim_run(
         out_biomass[month] = state
         # Re-assert NoIntegrate groups in stored results to mitigate any numerical drift
         # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-        no_integrate_mask = np.asarray(params_dict.get('NoIntegrate', np.zeros(n_groups))) != 0
+        no_integrate_mask = (
+            np.asarray(params_dict.get("NoIntegrate", np.zeros(n_groups))) != 0
+        )
         if np.any(no_integrate_mask):
-            Bbase = params_dict.get('Bbase')
+            Bbase = params_dict.get("Bbase")
             if Bbase is not None:
                 # Ensure mask length matches stored array columns
                 try:
@@ -1935,7 +2140,9 @@ def rsim_run(
                         no_integrate_mask = no_integrate_mask[: out_biomass.shape[1]]
                     out_biomass[month, no_integrate_mask] = Bbase[no_integrate_mask]
                 except Exception as e:
-                    logger.debug(f"failed to re-assert NoIntegrate on stored results: {e}")
+                    logger.debug(
+                        f"failed to re-assert NoIntegrate on stored results: {e}"
+                    )
 
         # Compute consumption QQ matrix for this month to track Qlinks
         QQ_month = _compute_Q_matrix(params_dict, state, forcing_dict)
@@ -1962,12 +2169,13 @@ def rsim_run(
             # Debug log to trace catch computation for early months
             try:
                 if month <= 2:
-                    logger.debug(f"month={month} link={i} grp={grp} FishQ={params.FishQ[i]:.6e} effort_mult={effort_mult:.6e} state={state[grp]:.6e} catch={catch:.6e}")
+                    logger.debug(
+                        f"month={month} link={i} grp={grp} FishQ={params.FishQ[i]:.6e} effort_mult={effort_mult:.6e} state={state[grp]:.6e} catch={catch:.6e}"
+                    )
             except Exception as e:
                 logger.debug("catch computation debug failed: %s", e)
             out_catch[month, grp] += catch
             out_gear_catch[month, i] = catch
-
 
     # Calculate annual values
     annual_biomass = np.zeros((n_years, n_groups))

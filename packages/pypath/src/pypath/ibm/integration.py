@@ -64,9 +64,7 @@ def extract_prey_availability(
     return result
 
 
-def extract_predation_pressure(
-    QQ: np.ndarray, prey_idx: int, n_living: int
-) -> float:
+def extract_predation_pressure(QQ: np.ndarray, prey_idx: int, n_living: int) -> float:
     """Sum total predation on a prey group from all living predators.
 
     Parameters

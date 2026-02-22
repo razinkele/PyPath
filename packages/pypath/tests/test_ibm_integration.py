@@ -6,9 +6,10 @@ calculation loop: prey extraction, predation pressure, mass balance checks,
 and the in-place derivative override.
 """
 
+from typing import Any, Dict
+
 import numpy as np
 import pytest
-from typing import Any, Dict
 
 from pypath.ibm.base import IBMGroup, IBMStepResult
 from pypath.ibm.integration import (
@@ -34,9 +35,7 @@ class MockIBM(IBMGroup):
         self._step_biomass = step_biomass
         self._step_production = step_production
         self._step_consumption = (
-            step_consumption
-            if step_consumption is not None
-            else np.zeros(n_groups)
+            step_consumption if step_consumption is not None else np.zeros(n_groups)
         )
 
     def compute_step(
@@ -218,8 +217,12 @@ class TestApplyIBMToDerivative:
         forcing = {}
 
         apply_ibm_to_derivative(
-            deriv=deriv, QQ=QQ, BB=BB,
-            ibm_group=ibm, forcing=forcing, dt=dt,
+            deriv=deriv,
+            QQ=QQ,
+            BB=BB,
+            ibm_group=ibm,
+            forcing=forcing,
+            dt=dt,
         )
 
         expected_deriv = (12.0 - 10.0) / dt
@@ -255,8 +258,12 @@ class TestApplyIBMToDerivative:
         forcing = {}
 
         apply_ibm_to_derivative(
-            deriv=deriv, QQ=QQ, BB=BB,
-            ibm_group=ibm, forcing=forcing, dt=dt,
+            deriv=deriv,
+            QQ=QQ,
+            BB=BB,
+            ibm_group=ibm,
+            forcing=forcing,
+            dt=dt,
         )
 
         assert deriv[1] == pytest.approx(5.0 - 0.6 / dt)
@@ -282,8 +289,12 @@ class TestApplyIBMToDerivative:
         forcing = {}
 
         apply_ibm_to_derivative(
-            deriv=deriv, QQ=QQ, BB=BB,
-            ibm_group=ibm, forcing=forcing, dt=dt,
+            deriv=deriv,
+            QQ=QQ,
+            BB=BB,
+            ibm_group=ibm,
+            forcing=forcing,
+            dt=dt,
         )
 
         # Only group 3 derivative should change; all others stay at 2.0

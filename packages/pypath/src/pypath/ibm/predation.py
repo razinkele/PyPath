@@ -110,8 +110,7 @@ def distribute_mortality(
 
     # Selectivity-weighted abundance for each individual
     weighted = [
-        ind.n_represented * size_selectivity(ind.length, params)
-        for ind in individuals
+        ind.n_represented * size_selectivity(ind.length, params) for ind in individuals
     ]
     total_weighted = sum(weighted)
 

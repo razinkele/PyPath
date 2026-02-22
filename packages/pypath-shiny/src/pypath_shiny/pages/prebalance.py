@@ -17,16 +17,16 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 logger = logging.getLogger("pypath_app.prebalance")
 
 from pypath_shiny.config import PLOTS, UI
-from pypath_shiny.pages.utils import is_rpath_params
 
 # Prebalance functions are imported lazily inside the diagnostics handler to avoid path issues
 # and to keep top-level imports clean.
-
 # Diagnostics helper (uses loader from utils)
-from pypath_shiny.pages.utils import load_rpath_diagnostics
+from pypath_shiny.pages.utils import is_rpath_params, load_rpath_diagnostics
 
 
-def rpath_diagnostics_summary(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics") -> str:
+def rpath_diagnostics_summary(
+    diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics",
+) -> str:
     """Return a short summary string about the Rpath diagnostics state.
 
     This is a pure function intended for server-side checks and unit tests.
@@ -90,7 +90,9 @@ def make_rpath_status_badge(
     return badge
 
 
-def run_verify_rpath(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics") -> dict:
+def run_verify_rpath(
+    diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics",
+) -> dict:
     """Execute the verification script and return structured results.
 
     Returns a dict with keys:
@@ -105,11 +107,19 @@ def run_verify_rpath(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/d
 
     script = Path("scripts/verify_rpath_reference.py")
     if not script.exists():
-        return {"returncode": -1, "output": "verify script not found", "error": "missing_script"}
+        return {
+            "returncode": -1,
+            "output": "verify script not found",
+            "error": "missing_script",
+        }
 
     try:
         proc = subprocess.run(
-            [sys.executable, str(script), str(diag_dir)], capture_output=True, text=True, check=False, timeout=30
+            [sys.executable, str(script), str(diag_dir)],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
         )
         out = (proc.stdout or "") + "\n" + (proc.stderr or "")
         # Truncate to reasonable length
@@ -120,9 +130,6 @@ def run_verify_rpath(diag_dir: str | Path = "tests/data/rpath_reference/ecosim/d
         return {"returncode": -2, "output": "", "error": "timeout"}
     except Exception as e:
         return {"returncode": -3, "output": "", "error": str(e)}
-
-
-
 
 
 def prebalance_ui():
@@ -239,8 +246,7 @@ def prebalance_ui():
                 ),
                 ui.nav_panel(
                     "Help",
-                    ui.markdown(
-                        """
+                    ui.markdown("""
                         ## Pre-Balance Diagnostics Help
 
                         ### Overview
@@ -314,8 +320,7 @@ def prebalance_ui():
                           221(12), 1580-1591.
                         - Christensen, V., & Walters, C. J. (2004). Ecopath with Ecosim: Methods,
                           capabilities and limitations. *Ecological Modelling*, 172(2-4), 109-139.
-                        """
-                    ),
+                        """),
                 ),
             ),
         )
@@ -349,7 +354,9 @@ def prebalance_server(
     # button clicks don't register in certain runtime variants.
     try:
         _res = run_verify_rpath(Path("tests/data/rpath_reference/ecosim/diagnostics"))
-        _note = load_rpath_diagnostics(Path("tests/data/rpath_reference/ecosim/diagnostics")).get("note")
+        _note = load_rpath_diagnostics(
+            Path("tests/data/rpath_reference/ecosim/diagnostics")
+        ).get("note")
         _body = ui.tags.div(
             ui.h5("Meta note:"),
             ui.tags.pre(str(_note) if _note is not None else "(none)"),
@@ -425,12 +432,14 @@ def prebalance_server(
         # Defensive: if diagnostics haven't been run yet, show a friendly placeholder
         if report is None:
             return ui.tags.div(
-                ui.tags.p("No diagnostics run yet.", class_="text-muted text-center p-5")
+                ui.tags.p(
+                    "No diagnostics run yet.", class_="text-muted text-center p-5"
+                )
             )
 
-    # rpath_diag_status removed from here and defined after report_summary to avoid
-    # shadowing report rendering. The function renders a small status badge in the
-    # sidebar using `make_rpath_status_badge`.
+        # rpath_diag_status removed from here and defined after report_summary to avoid
+        # shadowing report rendering. The function renders a small status badge in the
+        # sidebar using `make_rpath_status_badge`.
 
         # Format summary statistics defensively
         def _safe_fmt(value, fmt="{:.3f}", na_text="n/a"):
@@ -458,7 +467,10 @@ def prebalance_server(
         ]
 
         # Predator-prey summary
-        if report.get("predator_prey_ratios") is not None and len(report.get("predator_prey_ratios")) > 0:
+        if (
+            report.get("predator_prey_ratios") is not None
+            and len(report.get("predator_prey_ratios")) > 0
+        ):
             pp_ratios = report["predator_prey_ratios"].get("Ratio")
             # Defensive aggregation
             try:
@@ -575,8 +587,12 @@ def prebalance_server(
         and keeps the diagnostic content discoverable by tests and Playwright.
         """
         try:
-            result = run_verify_rpath(Path("tests/data/rpath_reference/ecosim/diagnostics"))
-            note = load_rpath_diagnostics(Path("tests/data/rpath_reference/ecosim/diagnostics")).get("note")
+            result = run_verify_rpath(
+                Path("tests/data/rpath_reference/ecosim/diagnostics")
+            )
+            note = load_rpath_diagnostics(
+                Path("tests/data/rpath_reference/ecosim/diagnostics")
+            ).get("note")
             title = "Rpath Diagnostics"
             body = ui.tags.div(
                 ui.h5("Meta note:"),
@@ -594,7 +610,9 @@ def prebalance_server(
         except Exception as e:
             err_body = ui.tags.div(ui.tags.p(str(e)))
             try:
-                session.show_modal(ui.modal_dialog(err_body, title="Rpath Diagnostics - Error"))
+                session.show_modal(
+                    ui.modal_dialog(err_body, title="Rpath Diagnostics - Error")
+                )
             except AttributeError:
                 rpath_modal_content.set(err_body)
 
