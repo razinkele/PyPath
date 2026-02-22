@@ -158,3 +158,47 @@ class TestMassConservation:
                     f"Group {g}: patch biomass {max_patch:.2f} exceeds "
                     f"1.5x initial total {initial_g:.2f}"
                 )
+
+    def test_production_increases_total(self, base_scenario):
+        """Primary production should cause total system biomass to grow."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=3, dispersal=1.0)
+
+        # Zero fishing so production is not offset by harvest
+        scenario.fishing.ForcedEffort[:] = 0.0
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        # Phytoplankton (index 1) is a producer with PB=200
+        # Total biomass should increase or at least not collapse
+        initial_total = result.out_Biomass[0, 1:].sum()
+        final_total = result.out_Biomass[-1, 1:].sum()
+
+        assert (
+            final_total > initial_total * 0.5
+        ), f"System biomass collapsed: {initial_total:.2f} -> {final_total:.2f}"
+
+    def test_spatial_sum_matches_aggregate(self, base_scenario):
+        """Per-group spatial sum should match the aggregate biomass output."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        spatial = result.out_Biomass_spatial  # [months, groups+1, patches]
+        aggregate = result.out_Biomass  # [months, groups+1]
+
+        # For each timestep and group, spatial sum should match aggregate
+        for t_idx in [0, len(aggregate) // 2, -1]:
+            for g in range(1, n_groups + 1):
+                spatial_sum = spatial[t_idx, g, :].sum()
+                agg_val = aggregate[t_idx, g]
+                np.testing.assert_allclose(
+                    spatial_sum,
+                    agg_val,
+                    rtol=1e-6,
+                    err_msg=(
+                        f"t={t_idx}, group={g}: spatial sum "
+                        f"{spatial_sum:.6f} != aggregate {agg_val:.6f}"
+                    ),
+                )
