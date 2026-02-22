@@ -131,9 +131,9 @@ jobs:
           TARGET="${{ steps.target.outputs.path }}"
 
           # Create venv if missing, generate app.py if missing, pip install both packages
-          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s "$TARGET" << 'REMOTE_SCRIPT'
+          # Using unquoted heredoc so $TARGET expands locally before being sent to remote
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" bash << REMOTE_SCRIPT
           set -e
-          TARGET="$1"
 
           # Create venv if it doesn't exist
           if [ ! -d "$TARGET/venv" ]; then
