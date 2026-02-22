@@ -19,6 +19,7 @@ for _m in [
     "forcing_demo",
     "diet_rewiring_demo",
     "optimization_demo",
+    "ibm",
     "validation",
 ]:
     try:
@@ -43,6 +44,7 @@ __all__ = [
     "forcing_demo",
     "diet_rewiring_demo",
     "optimization_demo",
+    "ibm",
     "validation",
     "utils",
 ]

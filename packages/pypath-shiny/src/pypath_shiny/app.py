@@ -55,6 +55,7 @@ from pypath_shiny.pages import (  # noqa: E402
     ecospace,
     forcing_demo,
     home,
+    ibm,
     multistanza,
     optimization_demo,
     prebalance,
@@ -101,6 +102,7 @@ app_ui = ui.page_navbar(
             "Dynamic Diet Rewiring", diet_rewiring_demo.diet_rewiring_demo_ui()
         ),
         ui.nav_panel("Bayesian Optimization", optimization_demo.optimization_demo_ui()),
+        ui.nav_panel("Individual-Based Model", ibm.ibm_ui()),
         icon=ui.tags.i(class_="bi bi-stars"),
     ),
     ui.nav_panel("Analysis", analysis.analysis_ui()),
@@ -295,6 +297,12 @@ def server(input: Inputs, output: Outputs, session: Session):
         (
             "Optimization Demo",
             lambda: optimization_demo.optimization_demo_server(input, output, session),
+        ),
+        (
+            "IBM",
+            lambda: ibm.ibm_server(
+                input, output, session, model_data, sim_results, sim_scenario
+            ),
         ),
         (
             "Analysis",

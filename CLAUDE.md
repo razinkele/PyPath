@@ -49,7 +49,7 @@ packages/
       pages/                       # UI page modules
         ecopath.py, ecosim.py, ecospace.py, prebalance.py,
         validation.py, analysis.py, data_import.py, results.py,
-        home.py, about.py, utils.py, ...
+        home.py, about.py, utils.py, ibm.py, ...
       static/                      # CSS, logos, icons
     tests/                         # 115 app tests
       ui/                          # Playwright UI tests (optional)

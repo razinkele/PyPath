@@ -273,6 +273,74 @@ class ParameterRangesConfig:
     pulse_strength_default: float = 2.5
 
 
+@dataclass
+class IBMConfig:
+    """Parameter ranges for IBM (Individual-Based Model) UI controls.
+
+    Defaults match SmeltParams.baltic_defaults() for Baltic smelt.
+    """
+
+    # Population
+    n_super_individuals_min: int = 10
+    n_super_individuals_max: int = 1000
+    n_super_individuals_default: int = 50
+    n_super_individuals_step: int = 10
+
+    # VBGF growth
+    vbgf_k_min: float = 0.05
+    vbgf_k_max: float = 1.0
+    vbgf_k_default: float = 0.3
+    vbgf_k_sd_default: float = 0.05
+    vbgf_linf_min: float = 5.0
+    vbgf_linf_max: float = 100.0
+    vbgf_linf_default: float = 25.0
+    vbgf_linf_sd_default: float = 3.0
+    max_age_min: float = 1.0
+    max_age_max: float = 30.0
+    max_age_default: float = 10.0
+
+    # Bioenergetics
+    ra_default: float = 0.0033
+    rb_default: float = -0.227
+    q10_min: float = 1.0
+    q10_max: float = 4.0
+    q10_default: float = 2.1
+    t_ref_default: float = 10.0
+    sda_fraction_default: float = 0.172
+    unassimilated_fraction_default: float = 0.27
+    energy_density_min: float = 1.0
+    energy_density_max: float = 15.0
+    energy_density_default: float = 5.0
+    reproduction_fraction_default: float = 0.3
+
+    # Predation
+    optimal_prey_length_min: float = 1.0
+    optimal_prey_length_max: float = 50.0
+    optimal_prey_length_default: float = 10.0
+    selectivity_sd_min: float = 0.1
+    selectivity_sd_max: float = 2.0
+    selectivity_sd_default: float = 0.5
+
+    # Movement
+    base_speed_default: float = 0.3
+    habitat_weight_default: float = 0.4
+    food_weight_default: float = 0.4
+    predator_weight_default: float = 0.2
+    migration_temp_threshold_default: float = 4.0
+
+    # Reproduction
+    fecundity_coefficient_min: float = 10.0
+    fecundity_coefficient_max: float = 1000.0
+    fecundity_coefficient_default: float = 200.0
+    fecundity_exponent_default: float = 1.2
+    larval_base_survival_min: float = 0.001
+    larval_base_survival_max: float = 0.1
+    larval_base_survival_default: float = 0.01
+    spawning_temp_threshold_min: float = 1.0
+    spawning_temp_threshold_max: float = 15.0
+    spawning_temp_threshold_default: float = 4.0
+
+
 # Singleton instances - import these in other modules
 DISPLAY = DisplayConfig()
 PLOTS = PlotConfig()
@@ -282,6 +350,7 @@ VALIDATION = ValidationConfig()
 UI = UIConfig()
 THRESHOLDS = ThresholdsConfig()
 PARAM_RANGES = ParameterRangesConfig()
+IBM = IBMConfig()
 
 
 # Convenience exports
