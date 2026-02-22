@@ -34,10 +34,16 @@ def test_instrumentation_accepts_zero_based_indices():
 
     assert len(instrumented) > 0
     # Prefer verifying the params attribute, fall back to checking payload group names
-    normalized_attr = getattr(scenario.params, 'INSTRUMENT_GROUPS', None)
+    normalized_attr = getattr(scenario.params, "INSTRUMENT_GROUPS", None)
     assert (
-        (isinstance(normalized_attr, (list, tuple)) and macrob_idx in normalized_attr)
-        or any(any(groups[g] == 'Macrobenthos' for g in p.get('groups', [])) for p in instrumented)
+        isinstance(normalized_attr, (list, tuple)) and macrob_idx in normalized_attr
+    ) or any(
+        any(groups[g] == "Macrobenthos" for g in p.get("groups", []))
+        for p in instrumented
     ), "macrob_idx not found in params.INSTRUMENT_GROUPS or in any instrumentation payload"
     # At least one payload should contain finite derivs for the requested groups
-    assert any(np.isfinite(np.asarray(p.get("deriv_current", [])).astype(float)).all() for p in instrumented if p.get("groups")), "No payload contains finite derivs for instrumented groups"
+    assert any(
+        np.isfinite(np.asarray(p.get("deriv_current", [])).astype(float)).all()
+        for p in instrumented
+        if p.get("groups")
+    ), "No payload contains finite derivs for instrumented groups"

@@ -6,6 +6,7 @@ and loaded into RpathParams.
 """
 
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import pytest
 

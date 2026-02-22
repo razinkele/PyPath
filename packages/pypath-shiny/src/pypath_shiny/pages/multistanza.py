@@ -92,15 +92,13 @@ def multistanza_ui():
                     ui.card(
                         ui.card_header("von Bertalanffy Growth Model"),
                         ui.output_ui("growth_plot"),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         **von Bertalanffy Growth Equation:**
 
                         Length: $L(t) = L_\\infty (1 - e^{-K(t - t_0)})$
 
                         Weight: $W(t) = a \\cdot L(t)^b$
-                        """
-                        ),
+                        """),
                     ),
                 ),
                 ui.nav_panel(
@@ -118,14 +116,12 @@ def multistanza_ui():
                     ui.card(
                         ui.card_header("Biomass by Stanza"),
                         ui.output_ui("biomass_plot"),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         Shows the distribution of biomass across age stanzas based on:
                         - Growth rate (von Bertalanffy K)
                         - Natural mortality (Z)
                         - Recruitment patterns
-                        """
-                        ),
+                        """),
                     ),
                 ),
                 ui.nav_panel(
@@ -135,8 +131,7 @@ def multistanza_ui():
                             ui.tags.i(class_="bi bi-info-circle me-2"),
                             "Multi-Stanza Groups",
                         ),
-                        ui.markdown(
-                            """
+                        ui.markdown("""
                         ## What are Multi-Stanza Groups?
 
                         Multi-stanza groups represent **age-structured populations** where different
@@ -191,8 +186,7 @@ def multistanza_ui():
                         - **Use literature values**: Find K, L∞ from FishBase or literature
                         - **Check biomass**: Ensure distribution makes ecological sense
                         - **Validate**: Compare with observed age structure if available
-                        """
-                        ),
+                        """),
                     ),
                 ),
             ),

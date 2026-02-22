@@ -120,17 +120,13 @@ def deriv_vector_spatial(
             params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
 
             # Calculate local Ecosim derivative for this patch
-            deriv_local = deriv_vector(
-                state_patch, params, forcing, fishing, t=t
-            )
+            deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)
 
             # Restore original B_BaseRef
             params["B_BaseRef"] = b_base_ref_backup
         else:
             # No modification needed - use params directly (no copy!)
-            deriv_local = deriv_vector(
-                state_patch, params, forcing, fishing, t=t
-            )
+            deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)
 
         # Store local derivative
         deriv_spatial[:, patch_idx] = deriv_local
@@ -296,9 +292,7 @@ def rsim_run_spatial(
         mi = month_idx - 1  # 0-based forcing index
         forcing_dict = {
             "Ftime": scenario.start_state.Ftime.copy(),
-            "ForcedBio": np.where(
-                forcing.ForcedBio[mi] > 0, forcing.ForcedBio[mi], 0
-            ),
+            "ForcedBio": np.where(forcing.ForcedBio[mi] > 0, forcing.ForcedBio[mi], 0),
             "ForcedMigrate": forcing.ForcedMigrate[mi],
             "ForcedEffort": (
                 fishing_obj.ForcedEffort[mi]

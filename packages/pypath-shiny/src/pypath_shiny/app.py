@@ -42,10 +42,10 @@ logger = logging.getLogger("pypath_app")
 APP_DIR = Path(__file__).parent
 
 # Configuration imports
-from pypath_shiny.config import UI
+from pypath_shiny.config import UI  # noqa: E402
 
 # Import page modules - organized by category
-from pypath_shiny.pages import (
+from pypath_shiny.pages import (  # noqa: E402
     about,
     analysis,
     data_import,
@@ -72,8 +72,7 @@ app_ui = ui.page_navbar(
         # Load custom CSS file
         ui.tags.link(rel="stylesheet", href="custom.css"),
         # Additional CSS for DataGrid styling
-        ui.tags.style(
-            f"""
+        ui.tags.style(f"""
             /* Make Group column wider in DataGrids */
             .shiny-data-grid td:first-child,
             .shiny-data-grid th:first-child {{
@@ -85,8 +84,7 @@ app_ui = ui.page_navbar(
                 text-align: right;
                 font-family: monospace;
             }}
-        """
-        ),
+        """),
     ),
     # Navigation pages
     ui.nav_panel("Home", home.home_ui()),
@@ -149,7 +147,12 @@ app_ui = ui.page_navbar(
     ),
     fillable=True,
     # Apply a clean modern theme - 'flatly' is professional and readable
-    theme=(shinyswatch.theme.flatly if getattr(shinyswatch, "theme", None) is not None and getattr(shinyswatch.theme, "flatly", None) is not None else None),
+    theme=(
+        shinyswatch.theme.flatly
+        if getattr(shinyswatch, "theme", None) is not None
+        and getattr(shinyswatch.theme, "flatly", None) is not None
+        else None
+    ),
 )
 
 
@@ -183,12 +186,16 @@ def server(input: Inputs, output: Outputs, session: Session):
     """
 
     # Enable theme picker (only when available)
-    if hasattr(shinyswatch, "theme_picker_server") and callable(shinyswatch.theme_picker_server):
+    if hasattr(shinyswatch, "theme_picker_server") and callable(
+        shinyswatch.theme_picker_server
+    ):
         try:
             shinyswatch.theme_picker_server()
         except Exception:
             # Degrade gracefully if the theme picker cannot be initialized
-            logger.debug("shinyswatch.theme_picker_server failed to initialize", exc_info=True)
+            logger.debug(
+                "shinyswatch.theme_picker_server failed to initialize", exc_info=True
+            )
 
     # Show settings modal when settings button clicked
     @reactive.effect
@@ -315,6 +322,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 def main():
     """Launch the PyPath Shiny application."""
     import uvicorn
+
     uvicorn.run("pypath_shiny.app:app", host="0.0.0.0", port=8000, reload=True)
 
 

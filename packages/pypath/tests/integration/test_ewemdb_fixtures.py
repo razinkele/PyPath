@@ -27,7 +27,9 @@ def test_read_ewemdb_with_real_fixtures(monkeypatch):
     """
     # ensure fixture directory exists
     if not FIXTURE_DIR.exists():
-        pytest.skip(f"Real EwE fixtures directory not found: {FIXTURE_DIR}. Place exported CSVs there to run this test.")
+        pytest.skip(
+            f"Real EwE fixtures directory not found: {FIXTURE_DIR}. Place exported CSVs there to run this test."
+        )
 
     def fake_read_table(filepath, table):
         # Map table name variants to fixture files

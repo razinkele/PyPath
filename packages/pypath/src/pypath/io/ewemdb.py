@@ -32,12 +32,15 @@ import shutil
 import subprocess
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
 from pypath.core.params import RpathParams, create_rpath_params
+
+if TYPE_CHECKING:
+    from pypath.core.ecosim import RsimScenario
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +134,9 @@ def _read_mdb_with_tools(filepath: str, table: str) -> pd.DataFrame:
     """
 
 
-def _try_read_table_variants(filepath: str, candidates: List[str]) -> Optional[pd.DataFrame]:
+def _try_read_table_variants(
+    filepath: str, candidates: List[str]
+) -> Optional[pd.DataFrame]:
     """Try reading a list of table name variants and return the first successful DataFrame.
 
     This centralizes the heuristics for common table name variants found across different EwE
@@ -157,40 +162,6 @@ def _try_read_table_variants(filepath: str, candidates: List[str]) -> Optional[p
         except Exception:
             continue
     return None
-    import io
-    import re
-
-    # Validate filepath
-    filepath_obj = Path(filepath).resolve()
-    if not filepath_obj.exists():
-        raise EwEDatabaseError(f"Database file not found: {filepath}")
-    if not filepath_obj.is_file():
-        raise EwEDatabaseError(f"Path is not a file: {filepath}")
-    if filepath_obj.suffix.lower() not in [".ewemdb", ".mdb", ".accdb"]:
-        raise EwEDatabaseError(
-            f"Invalid database file extension: {filepath_obj.suffix}"
-        )
-
-    # Validate table name - only allow alphanumeric, underscore, and space
-    if not re.match(r"^[A-Za-z0-9_ ]+$", table):
-        raise ValueError(
-            f"Invalid table name: {table}. Only alphanumeric characters, underscores, and spaces allowed."
-        )
-
-    # Use absolute path string for subprocess
-    safe_filepath = str(filepath_obj)
-
-    result = subprocess.run(
-        ["mdb-export", safe_filepath, table],
-        capture_output=True,
-        text=True,
-        timeout=30,  # Add timeout to prevent hanging
-    )
-
-    if result.returncode != 0:
-        raise EwEDatabaseError(f"Failed to read table {table}: {result.stderr}")
-
-    return pd.read_csv(io.StringIO(result.stdout))
 
 
 def _list_mdb_tables(filepath: str) -> List[str]:
@@ -1053,7 +1024,10 @@ def read_ewemdb(
                     "start_year": start,
                     "end_year": end,
                     "num_years": num_years,
-                    "start_month": row.get("StartMonth") or row.get("Start Month") or row.get("Start_Month") or 1,
+                    "start_month": row.get("StartMonth")
+                    or row.get("Start Month")
+                    or row.get("Start_Month")
+                    or 1,
                     "description": row.get("Description", ""),
                 }
 
@@ -1067,11 +1041,23 @@ def read_ewemdb(
                     # Parse into structured time series
                     try:
                         # Detect if forcing DF uses month-label columns like M1..M12 or Month1..Month12
-                        month_label_relative = any(str(c).lower().startswith("m") and str(c)[1:].isdigit() and 1 <= int(str(c)[1:]) <= 12 for c in fdf.columns)
-                        forcing_ts = _parse_ecosim_forcing(fdf, start_month=int(scen.get("start_month", 1)), month_label_relative=month_label_relative)
+                        month_label_relative = any(
+                            str(c).lower().startswith("m")
+                            and str(c)[1:].isdigit()
+                            and 1 <= int(str(c)[1:]) <= 12
+                            for c in fdf.columns
+                        )
+                        forcing_ts = _parse_ecosim_forcing(
+                            fdf,
+                            start_month=int(scen.get("start_month", 1)),
+                            month_label_relative=month_label_relative,
+                        )
                         scen["forcing_ts"] = forcing_ts
                         # If scenario contains start_year and num_years, resample to monthly
-                        if scen.get("start_year") is not None and scen.get("num_years") is not None:
+                        if (
+                            scen.get("start_year") is not None
+                            and scen.get("num_years") is not None
+                        ):
                             try:
                                 scen["forcing_monthly"] = _resample_to_monthly(
                                     forcing_ts,
@@ -1087,17 +1073,33 @@ def read_ewemdb(
                                     for k, v in list(scen["forcing_monthly"].items()):
                                         if str(k).startswith("_"):
                                             continue
-                                        if isinstance(v, pd.DataFrame) and v.shape[1] == 1:
+                                        if (
+                                            isinstance(v, pd.DataFrame)
+                                            and v.shape[1] == 1
+                                        ):
                                             v.columns = [gname]
                                             scen["forcing_monthly"][k] = v
                                 # Build forcing matrices aligned to model groups (if available later)
                                 try:
                                     scen["forcing_matrices"] = _build_forcing_matrices(
-                                        {**scen["forcing_monthly"], "_times": forcing_ts["_times"], "_monthly_times": scen["forcing_monthly"]["_monthly_times"]}, group_names, int(scen["start_year"]), int(scen["num_years"])
+                                        {
+                                            **scen["forcing_monthly"],
+                                            "_times": forcing_ts["_times"],
+                                            "_monthly_times": scen["forcing_monthly"][
+                                                "_monthly_times"
+                                            ],
+                                        },
+                                        group_names,
+                                        int(scen["start_year"]),
+                                        int(scen["num_years"]),
                                     )
                                     # Build Rsim dataclasses if possible
                                     try:
-                                        from pypath.core.ecosim import RsimForcing, RsimFishing
+                                        from pypath.core.ecosim import (
+                                            RsimFishing,
+                                            RsimForcing,
+                                        )
+
                                         rf = scen.get("forcing_matrices", None)
                                         ff = scen.get("fishing_monthly", None)
                                         if rf is not None:
@@ -1110,7 +1112,11 @@ def read_ewemdb(
                                             ForcedMigrate = rf.get("ForcedMigrate")
                                             ForcedBio = rf.get("ForcedBio")
                                         else:
-                                            ForcedPrey = ForcedMort = ForcedRecs = ForcedSearch = ForcedActresp = ForcedMigrate = ForcedBio = None
+                                            ForcedPrey = ForcedMort = ForcedRecs = (
+                                                ForcedSearch
+                                            ) = ForcedActresp = ForcedMigrate = (
+                                                ForcedBio
+                                            ) = None
 
                                         ForcedEffort = None
                                         if ff is not None:
@@ -1120,16 +1126,26 @@ def read_ewemdb(
                                                 # build numpy array months x (n_gears+1)
                                                 months = Effort_df.shape[0]
                                                 n_gears = len(Effort_df.columns)
-                                                arr = np.ones((months, n_gears + 1), dtype=float)
-                                                for i, col in enumerate(Effort_df.columns, start=1):
-                                                    arr[:, i] = Effort_df[col].astype(float).values
+                                                arr = np.ones(
+                                                    (months, n_gears + 1), dtype=float
+                                                )
+                                                for i, col in enumerate(
+                                                    Effort_df.columns, start=1
+                                                ):
+                                                    arr[:, i] = (
+                                                        Effort_df[col]
+                                                        .astype(float)
+                                                        .values
+                                                    )
                                                 ForcedEffort = arr
                                             else:
                                                 # scalar series
                                                 try:
                                                     arr = np.asarray(ff.get("Effort"))
                                                     months = len(arr)
-                                                    ForcedEffort = np.ones((months, 1), dtype=float)
+                                                    ForcedEffort = np.ones(
+                                                        (months, 1), dtype=float
+                                                    )
                                                     ForcedEffort[:, 0] = arr
                                                 except Exception:
                                                     ForcedEffort = None
@@ -1137,61 +1153,174 @@ def read_ewemdb(
                                         # create dataclasses
                                         try:
                                             rsim_forcing = RsimForcing(
-                                                ForcedPrey=np.asarray(ForcedPrey) if ForcedPrey is not None else np.ones((int(scen["num_years"]) * 12, len(group_names) + 1)),
-                                                ForcedMort=np.asarray(ForcedMort) if ForcedMort is not None else np.ones((int(scen["num_years"]) * 12, len(group_names) + 1)),
-                                                ForcedRecs=np.asarray(ForcedRecs) if ForcedRecs is not None else np.ones((int(scen["num_years"]) * 12, len(group_names) + 1)),
-                                                ForcedSearch=np.asarray(ForcedSearch) if ForcedSearch is not None else np.ones((int(scen["num_years"]) * 12, len(group_names) + 1)),
-                                                ForcedActresp=np.asarray(ForcedActresp) if ForcedActresp is not None else np.ones((int(scen["num_years"]) * 12, len(group_names) + 1)),
-                                                ForcedMigrate=np.asarray(ForcedMigrate) if ForcedMigrate is not None else np.zeros((int(scen["num_years"]) * 12, len(group_names) + 1)),
-                                                ForcedBio=np.asarray(ForcedBio) if ForcedBio is not None else np.full((int(scen["num_years"]) * 12, len(group_names) + 1), -1.0),
+                                                ForcedPrey=(
+                                                    np.asarray(ForcedPrey)
+                                                    if ForcedPrey is not None
+                                                    else np.ones(
+                                                        (
+                                                            int(scen["num_years"]) * 12,
+                                                            len(group_names) + 1,
+                                                        )
+                                                    )
+                                                ),
+                                                ForcedMort=(
+                                                    np.asarray(ForcedMort)
+                                                    if ForcedMort is not None
+                                                    else np.ones(
+                                                        (
+                                                            int(scen["num_years"]) * 12,
+                                                            len(group_names) + 1,
+                                                        )
+                                                    )
+                                                ),
+                                                ForcedRecs=(
+                                                    np.asarray(ForcedRecs)
+                                                    if ForcedRecs is not None
+                                                    else np.ones(
+                                                        (
+                                                            int(scen["num_years"]) * 12,
+                                                            len(group_names) + 1,
+                                                        )
+                                                    )
+                                                ),
+                                                ForcedSearch=(
+                                                    np.asarray(ForcedSearch)
+                                                    if ForcedSearch is not None
+                                                    else np.ones(
+                                                        (
+                                                            int(scen["num_years"]) * 12,
+                                                            len(group_names) + 1,
+                                                        )
+                                                    )
+                                                ),
+                                                ForcedActresp=(
+                                                    np.asarray(ForcedActresp)
+                                                    if ForcedActresp is not None
+                                                    else np.ones(
+                                                        (
+                                                            int(scen["num_years"]) * 12,
+                                                            len(group_names) + 1,
+                                                        )
+                                                    )
+                                                ),
+                                                ForcedMigrate=(
+                                                    np.asarray(ForcedMigrate)
+                                                    if ForcedMigrate is not None
+                                                    else np.zeros(
+                                                        (
+                                                            int(scen["num_years"]) * 12,
+                                                            len(group_names) + 1,
+                                                        )
+                                                    )
+                                                ),
+                                                ForcedBio=(
+                                                    np.asarray(ForcedBio)
+                                                    if ForcedBio is not None
+                                                    else np.full(
+                                                        (
+                                                            int(scen["num_years"]) * 12,
+                                                            len(group_names) + 1,
+                                                        ),
+                                                        -1.0,
+                                                    )
+                                                ),
                                                 ForcedEffort=ForcedEffort,
                                             )
                                             scen["rsim_forcing"] = rsim_forcing
                                         except Exception as _e:
-                                            logger.debug(f"Failed to construct RsimForcing: {_e}")
+                                            logger.debug(
+                                                f"Failed to construct RsimForcing: {_e}"
+                                            )
 
                                         # Build RsimFishing (annual matrices if available)
                                         try:
-                                            n_years = int(scen["num_years"]) if scen.get("num_years") is not None else 0
+                                            n_years = (
+                                                int(scen["num_years"])
+                                                if scen.get("num_years") is not None
+                                                else 0
+                                            )
                                             n_bio = len(group_names) + 1
                                             # Parse annual FRATE and CATCH if present
                                             # Use pre-read annual tables if available, else try common variants
-                                            frate_tbl = frate_df if 'frate_df' in locals() else None
-                                            catch_tbl = catch_yr_df if 'catch_yr_df' in locals() else None
+                                            frate_tbl = (
+                                                frate_df
+                                                if "frate_df" in locals()
+                                                else None
+                                            )
+                                            catch_tbl = (
+                                                catch_yr_df
+                                                if "catch_yr_df" in locals()
+                                                else None
+                                            )
                                             if frate_tbl is None:
                                                 frate_tbl = _try_read_table_variants(
                                                     filepath,
-                                                    ["EcosimFRate", "EcosimFRateTable", "Ecosim_FRate", "EcosimAnnualFRate"],
+                                                    [
+                                                        "EcosimFRate",
+                                                        "EcosimFRateTable",
+                                                        "Ecosim_FRate",
+                                                        "EcosimAnnualFRate",
+                                                    ],
                                                 )
                                             if catch_tbl is None:
                                                 catch_tbl = _try_read_table_variants(
                                                     filepath,
-                                                    ["EcosimCatch", "EcosimAnnualCatch", "EcosimCatchTable", "Ecosim_Annual_Catch"],
+                                                    [
+                                                        "EcosimCatch",
+                                                        "EcosimAnnualCatch",
+                                                        "EcosimCatchTable",
+                                                        "Ecosim_Annual_Catch",
+                                                    ],
                                                 )
 
                                             annual = _parse_annual_fishing(
-                                                frate_tbl, catch_tbl, group_names, scen.get("start_year"), scen.get("num_years"), scenario_id=sid
+                                                frate_tbl,
+                                                catch_tbl,
+                                                group_names,
+                                                scen.get("start_year"),
+                                                scen.get("num_years"),
+                                                scenario_id=sid,
                                             )
 
-                                            frate = annual.get("FRate", np.zeros((n_years, n_bio)))
-                                            fcatch = annual.get("Catch", np.zeros((n_years, n_bio)))
+                                            frate = annual.get(
+                                                "FRate", np.zeros((n_years, n_bio))
+                                            )
+                                            fcatch = annual.get(
+                                                "Catch", np.zeros((n_years, n_bio))
+                                            )
 
                                             rsim_fishing = RsimFishing(
-                                                ForcedEffort=ForcedEffort if ForcedEffort is not None else np.ones((int(scen["num_years"]) * 12, 1)),
+                                                ForcedEffort=(
+                                                    ForcedEffort
+                                                    if ForcedEffort is not None
+                                                    else np.ones(
+                                                        (int(scen["num_years"]) * 12, 1)
+                                                    )
+                                                ),
                                                 ForcedFRate=frate,
                                                 ForcedCatch=fcatch,
                                             )
                                             scen["rsim_fishing"] = rsim_fishing
                                         except Exception as _e:
-                                            logger.debug(f"Failed to construct RsimFishing: {_e}")
+                                            logger.debug(
+                                                f"Failed to construct RsimFishing: {_e}"
+                                            )
                                     except Exception as _e:
-                                        logger.debug(f"Failed to import Rsim dataclasses or construct them: {_e}")
+                                        logger.debug(
+                                            f"Failed to import Rsim dataclasses or construct them: {_e}"
+                                        )
                                 except Exception as _e:
-                                    logger.debug(f"Failed to build forcing matrices for scenario {sid}: {_e}")
+                                    logger.debug(
+                                        f"Failed to build forcing matrices for scenario {sid}: {_e}"
+                                    )
                             except Exception as _e:
-                                logger.debug(f"Failed to resample forcing monthly for scenario {sid}: {_e}")
+                                logger.debug(
+                                    f"Failed to resample forcing monthly for scenario {sid}: {_e}"
+                                )
                     except Exception as _e:
-                        logger.debug(f"Failed to parse forcing for scenario {sid}: {_e}")
+                        logger.debug(
+                            f"Failed to parse forcing for scenario {sid}: {_e}"
+                        )
                 if fishing_df is not None:
                     if sid is not None and "ScenarioID" in fishing_df.columns:
                         ff = fishing_df[fishing_df["ScenarioID"] == sid].copy()
@@ -1199,22 +1328,40 @@ def read_ewemdb(
                         ff = fishing_df.copy()
                     scen["fishing_df"] = ff
                     try:
-                        month_label_relative_f = any(str(c).lower().startswith("m") and str(c)[1:].isdigit() and 1 <= int(str(c)[1:]) <= 12 for c in ff.columns)
-                        fishing_ts = _parse_ecosim_fishing(ff, start_month=int(scen.get("start_month", 1)), month_label_relative=month_label_relative_f)
+                        month_label_relative_f = any(
+                            str(c).lower().startswith("m")
+                            and str(c)[1:].isdigit()
+                            and 1 <= int(str(c)[1:]) <= 12
+                            for c in ff.columns
+                        )
+                        fishing_ts = _parse_ecosim_fishing(
+                            ff,
+                            start_month=int(scen.get("start_month", 1)),
+                            month_label_relative=month_label_relative_f,
+                        )
                         scen["fishing_ts"] = fishing_ts
-                        if scen.get("start_year") is not None and scen.get("num_years") is not None:
+                        if (
+                            scen.get("start_year") is not None
+                            and scen.get("num_years") is not None
+                        ):
                             try:
-                                scen["fishing_monthly"] = _resample_fishing_pivot_to_monthly(
-                                    fishing_ts,
-                                    int(scen["start_year"]),
-                                    int(scen["num_years"]),
-                                    start_month=int(scen.get("start_month", 1)),
-                                    use_actual_month_lengths=False,
+                                scen["fishing_monthly"] = (
+                                    _resample_fishing_pivot_to_monthly(
+                                        fishing_ts,
+                                        int(scen["start_year"]),
+                                        int(scen["num_years"]),
+                                        start_month=int(scen.get("start_month", 1)),
+                                        use_actual_month_lengths=False,
+                                    )
                                 )
                             except Exception as _e:
-                                logger.debug(f"Failed to resample fishing monthly for scenario {sid}: {_e}")
+                                logger.debug(
+                                    f"Failed to resample fishing monthly for scenario {sid}: {_e}"
+                                )
                     except Exception as _e:
-                        logger.debug(f"Failed to parse fishing for scenario {sid}: {_e}")
+                        logger.debug(
+                            f"Failed to parse fishing for scenario {sid}: {_e}"
+                        )
 
                 # Try to attach ecospace tables if present
                 try:
@@ -1230,7 +1377,11 @@ def read_ewemdb(
     return params
 
 
-def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optional[int] = None, month_label_relative: bool = False) -> Dict[str, Any]:
+def _parse_ecosim_forcing(
+    forcing_df: Optional[pd.DataFrame],
+    start_month: Optional[int] = None,
+    month_label_relative: bool = False,
+) -> Dict[str, Any]:
     """Parse Ecosim forcing DataFrame into a structured dict of time series.
 
     The function supports multiple formats:
@@ -1329,7 +1480,13 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
         other_cols = [c for c in df.columns if c not in value_vars and c != time_col]
         id_vars = [time_col] + other_cols if time_col is not None else other_cols
         if id_vars:
-            melted = df.melt(id_vars=id_vars, value_vars=value_vars, var_name="MonthCol", value_name="Value")
+            melted = df.melt(
+                id_vars=id_vars,
+                value_vars=value_vars,
+                var_name="MonthCol",
+                value_name="Value",
+            )
+
             # map MonthCol to month number
             def month_from_col(m):
                 ml = m.lower()
@@ -1349,6 +1506,7 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
 
             # If MonthRaw are 1..12 and month_label_relative is True and start_month provided, remap M1..M12 as relative labels
             if month_label_relative and start_month is not None:
+
                 def rel_to_actual(idx, start):
                     # idx is 1-based index within the series of M1..M12
                     # actual month number:
@@ -1357,29 +1515,41 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
 
                 # For labels like 'M1'..'M12' we try to detect indices
                 def month_index_from_label(lbl):
-                    l = str(lbl).lower()
-                    if l.startswith('m') and l[1:].isdigit():
-                        return int(l[1:])
-                    if l.startswith('month') and l[5:].isdigit():
-                        return int(l[5:])
+                    label = str(lbl).lower()
+                    if label.startswith("m") and label[1:].isdigit():
+                        return int(label[1:])
+                    if label.startswith("month") and label[5:].isdigit():
+                        return int(label[5:])
                     return None
 
                 # compute Month as actual month
-                melted['MonthIdx'] = melted['MonthCol'].apply(month_index_from_label)
-                melted['Month'] = melted.apply(lambda r: rel_to_actual(r['MonthIdx'], start_month) if pd.notna(r['MonthIdx']) else r['MonthRaw'], axis=1)
+                melted["MonthIdx"] = melted["MonthCol"].apply(month_index_from_label)
+                melted["Month"] = melted.apply(
+                    lambda r: (
+                        rel_to_actual(r["MonthIdx"], start_month)
+                        if pd.notna(r["MonthIdx"])
+                        else r["MonthRaw"]
+                    ),
+                    axis=1,
+                )
             else:
-                melted['Month'] = melted['MonthRaw']
+                melted["Month"] = melted["MonthRaw"]
 
             # rename time column to Year
             if id_vars:
                 melted.rename(columns={id_vars[0]: "Year"}, inplace=True)
-            df = melted.drop(columns=["MonthCol", "MonthRaw"]).rename(columns={"Value": "Value"})
+            df = melted.drop(columns=["MonthCol", "MonthRaw"]).rename(
+                columns={"Value": "Value"}
+            )
 
         df = df.copy()
         df["_TimeFrac"] = df.apply(to_frac_year, axis=1)
         time_col = "_TimeFrac"
     else:
-        time_col = next((c for c in ["Time", "Month", "Year", "Timestep", "T"] if c in df.columns), None)
+        time_col = next(
+            (c for c in ["Time", "Month", "Year", "Timestep", "T"] if c in df.columns),
+            None,
+        )
         if time_col is None:
             time_col = df.columns[0]
 
@@ -1387,33 +1557,41 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
     parsed: Dict[str, Any] = {"_times": times}
 
     # If Parameter present but Group column absent and no explicit group columns, map each Parameter to a single-column DataFrame
-    group_candidates = [c for c in (other_cols if 'other_cols' in locals() else []) if c not in (time_col, 'ScenarioID', 'Parameter')]
-    if 'Parameter' in df.columns and 'Group' not in df.columns and not group_candidates:
-        for param in df['Parameter'].unique():
-            sub = df[df['Parameter'] == param]
-            grouped = sub.groupby(time_col)['Value'].mean()
+    group_candidates = [
+        c
+        for c in (other_cols if "other_cols" in locals() else [])
+        if c not in (time_col, "ScenarioID", "Parameter")
+    ]
+    if "Parameter" in df.columns and "Group" not in df.columns and not group_candidates:
+        for param in df["Parameter"].unique():
+            sub = df[df["Parameter"] == param]
+            grouped = sub.groupby(time_col)["Value"].mean()
             pivot_values = grouped.reindex(times).fillna(_np.nan).values
-            pivot = pd.DataFrame(pivot_values, index=times, columns=['Value'])
+            pivot = pd.DataFrame(pivot_values, index=times, columns=["Value"])
             parsed[str(param)] = pivot
         return parsed
 
     # If Parameter present but Group column absent, attempt to infer group column
-    if 'Parameter' in df.columns and 'Group' not in df.columns and group_candidates:
-        for param in df['Parameter'].unique():
-            sub = df[df['Parameter'] == param]
+    if "Parameter" in df.columns and "Group" not in df.columns and group_candidates:
+        for param in df["Parameter"].unique():
+            sub = df[df["Parameter"] == param]
             # Build a pivot where the detected group column name becomes the column header
             grp = group_candidates[0]
-            grouped = sub.groupby(time_col)['Value'].mean()
+            grouped = sub.groupby(time_col)["Value"].mean()
             pivot_values = grouped.reindex(times).fillna(_np.nan).values
             pivot = pd.DataFrame(pivot_values, index=times, columns=[grp])
             parsed[str(param)] = pivot
         return parsed
 
     # If long format with Parameter/Group/Value columns, pivot per parameter
-    if all(c in df.columns for c in ["Parameter", "Group", "Value"]) or all(c in df.columns for c in ["Parameter", "Group", "Value"]):
+    if all(c in df.columns for c in ["Parameter", "Group", "Value"]) or all(
+        c in df.columns for c in ["Parameter", "Group", "Value"]
+    ):
         for param in df["Parameter"].unique():
             sub = df[df["Parameter"] == param]
-            pivot = sub.pivot_table(index=time_col, columns="Group", values="Value", aggfunc="mean")
+            pivot = sub.pivot_table(
+                index=time_col, columns="Group", values="Value", aggfunc="mean"
+            )
             pivot = pivot.reindex(times).fillna(_np.nan)
             parsed[str(param)] = pivot
         return parsed
@@ -1430,7 +1608,11 @@ def _parse_ecosim_forcing(forcing_df: Optional[pd.DataFrame], start_month: Optio
     return parsed
 
 
-def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optional[int] = None, month_label_relative: bool = False) -> Dict[str, Any]:
+def _parse_ecosim_fishing(
+    fishing_df: Optional[pd.DataFrame],
+    start_month: Optional[int] = None,
+    month_label_relative: bool = False,
+) -> Dict[str, Any]:
     """Parse Ecosim fishing DataFrame into structured time x gear matrices.
 
     Detects a time column and a gear identifier column (Gear, GearID, Fleet).
@@ -1444,7 +1626,20 @@ def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optio
     df = fishing_df.copy()
 
     # detect monthly wide columns similarly to forcing
-    month_name_map = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+    month_name_map = {
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
+    }
     month_cols = []
     for c in df.columns:
         cl = c.lower()
@@ -1461,7 +1656,13 @@ def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optio
         value_vars = [c for c, _ in month_cols]
         other_cols = [c for c in df.columns if c not in value_vars and c != time_col]
         id_vars = [time_col] + other_cols if time_col is not None else other_cols
-        melted = df.melt(id_vars=id_vars, value_vars=value_vars, var_name="MonthCol", value_name="Value")
+        melted = df.melt(
+            id_vars=id_vars,
+            value_vars=value_vars,
+            var_name="MonthCol",
+            value_name="Value",
+        )
+
         def month_from_col(m):
             ml = m.lower()
             if ml in month_name_map:
@@ -1471,12 +1672,14 @@ def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optio
             if ml.startswith("month") and ml[5:].isdigit():
                 return int(ml[5:])
             return None
+
         melted["Month"] = melted["MonthCol"].apply(month_from_col)
         # keep other identifying columns if present (Gear etc.)
         df = melted
 
     # Year+Month handling
     if "Year" in df.columns and "Month" in df.columns:
+
         def to_frac_year(r):
             try:
                 y = float(r["Year"])
@@ -1499,36 +1702,67 @@ def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optio
         df["_TimeFrac"] = df.apply(to_frac_year, axis=1)
         time_col = "_TimeFrac"
     else:
-        time_col = next((c for c in ["Time", "Month", "Year", "Timestep", "T"] if c in df.columns), None)
+        time_col = next(
+            (c for c in ["Time", "Month", "Year", "Timestep", "T"] if c in df.columns),
+            None,
+        )
         if time_col is None:
             time_col = df.columns[0]
 
-    gear_col = next((c for c in ["Gear", "GearID", "Fleet", "FleetID"] if c in df.columns), None)
+    gear_col = next(
+        (c for c in ["Gear", "GearID", "Fleet", "FleetID"] if c in df.columns), None
+    )
 
     times = sorted(df[time_col].dropna().unique().tolist())
     parsed: Dict[str, Any] = {"_times": times}
 
     if gear_col is not None:
         for col in df.columns:
-            if col in ("ScenarioID", time_col, gear_col, "Year", "Month", "MonthCol", "Value"):
+            if col in (
+                "ScenarioID",
+                time_col,
+                gear_col,
+                "Year",
+                "Month",
+                "MonthCol",
+                "Value",
+            ):
                 continue
             if pd.api.types.is_numeric_dtype(df[col]):
-                pivot = df.pivot_table(index=time_col, columns=gear_col, values=col, aggfunc="mean")
+                pivot = df.pivot_table(
+                    index=time_col, columns=gear_col, values=col, aggfunc="mean"
+                )
                 pivot = pivot.reindex(times).fillna(0.0)
                 parsed[col] = pivot
         # Also handle the case where values are in 'Value' column with Gear specified
-        if "Value" in df.columns and gear_col is not None and ("Catch" in df.columns or "Effort" in df.columns or "FRate" in df.columns):
+        if (
+            "Value" in df.columns
+            and gear_col is not None
+            and (
+                "Catch" in df.columns or "Effort" in df.columns or "FRate" in df.columns
+            )
+        ):
             # already handled above via specific columns
             pass
-        elif "Value" in df.columns and gear_col is not None and "Parameter" in df.columns:
+        elif (
+            "Value" in df.columns and gear_col is not None and "Parameter" in df.columns
+        ):
             for param in df["Parameter"].unique():
                 sub = df[df["Parameter"] == param]
-                pivot = sub.pivot_table(index=time_col, columns=gear_col, values="Value", aggfunc="mean")
+                pivot = sub.pivot_table(
+                    index=time_col, columns=gear_col, values="Value", aggfunc="mean"
+                )
                 pivot = pivot.reindex(times).fillna(0.0)
                 parsed[param] = pivot
-        elif "Value" in df.columns and gear_col is not None and "Parameter" not in df.columns:
+        elif (
+            "Value" in df.columns
+            and gear_col is not None
+            and "Parameter" not in df.columns
+        ):
             # Generic wide-format fishing where monthly columns contain 'Value' per gear
-            pivot = df.pivot_table(index=time_col, columns=gear_col, values="Value", aggfunc="mean")
+            pivot = df.pivot_table(
+                index=time_col, columns=gear_col, values="Value", aggfunc="mean"
+            )
             pivot = pivot.reindex(times).fillna(0.0)
             parsed["Effort"] = pivot
     else:
@@ -1558,6 +1792,7 @@ def _parse_ecosim_fishing(fishing_df: Optional[pd.DataFrame], start_month: Optio
 
 # ------------------------- Monthly resampling helpers -------------------------
 
+
 def _to_absolute_years(times: list, start_year: Optional[int]) -> list:
     """Convert times to absolute years.
 
@@ -1572,7 +1807,13 @@ def _to_absolute_years(times: list, start_year: Optional[int]) -> list:
     return [base + t for t in times_f]
 
 
-def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], num_years: Optional[int], start_month: int = 1, use_actual_month_lengths: bool = False) -> Dict[str, Any]:
+def _resample_to_monthly(
+    parsed_ts: Dict[str, Any],
+    start_year: Optional[int],
+    num_years: Optional[int],
+    start_month: int = 1,
+    use_actual_month_lengths: bool = False,
+) -> Dict[str, Any]:
     """Resample parsed time series to monthly time steps (years fractional).
 
     Returns dict containing '_monthly_times' (array of year.fraction) and
@@ -1597,9 +1838,12 @@ def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], n
         y = float(start_year + year_offset)
         if use_actual_month_lengths:
             import calendar as _cal
+
             days_in_year = 366 if _cal.isleap(int(y)) else 365
             month_mid = (1 + _cal.monthrange(int(y), rel)[1]) // 2
-            day_of_year = sum(_cal.monthrange(int(y), mm)[1] for mm in range(1, rel)) + month_mid
+            day_of_year = (
+                sum(_cal.monthrange(int(y), mm)[1] for mm in range(1, rel)) + month_mid
+            )
             frac = (day_of_year - 1) / float(days_in_year)
             monthly_years.append(y + frac)
         else:
@@ -1635,11 +1879,25 @@ def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], n
                     try:
                         x_known = _np.array(parsed_ts["_times"])[finite_mask]
                         y_known = col_vals[finite_mask]
-                        monthly_vals = _np.interp(monthly_years, x_known, y_known, left=y_known[0], right=y_known[-1])
+                        monthly_vals = _np.interp(
+                            monthly_years,
+                            x_known,
+                            y_known,
+                            left=y_known[0],
+                            right=y_known[-1],
+                        )
                     except Exception:
-                        monthly_vals = _np.interp(monthly_years, times_abs, _np.nan_to_num(col_vals, nan=0.0), left=0.0, right=0.0)
+                        monthly_vals = _np.interp(
+                            monthly_years,
+                            times_abs,
+                            _np.nan_to_num(col_vals, nan=0.0),
+                            left=0.0,
+                            right=0.0,
+                        )
                 interp_cols.append(monthly_vals)
-            dfm = pd.DataFrame(_np.column_stack(interp_cols), index=monthly_years, columns=cols)
+            dfm = pd.DataFrame(
+                _np.column_stack(interp_cols), index=monthly_years, columns=cols
+            )
             result[key] = dfm
             continue
 
@@ -1653,13 +1911,21 @@ def _resample_to_monthly(parsed_ts: Dict[str, Any], start_year: Optional[int], n
             # Can't align; skip
             continue
         # Interpolate with flat fill beyond bounds
-        monthly_vals = _np.interp(monthly_years, times_abs, arr, left=arr[0], right=arr[-1])
+        monthly_vals = _np.interp(
+            monthly_years, times_abs, arr, left=arr[0], right=arr[-1]
+        )
         result[key] = monthly_vals
 
     return result
 
 
-def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: Optional[int], num_years: Optional[int], start_month: int = 1, use_actual_month_lengths: bool = False) -> Dict[str, Any]:
+def _resample_fishing_pivot_to_monthly(
+    fishing_ts: Dict[str, Any],
+    start_year: Optional[int],
+    num_years: Optional[int],
+    start_month: int = 1,
+    use_actual_month_lengths: bool = False,
+) -> Dict[str, Any]:
     """Resample fishing pivot tables (DataFrame per variable) to monthly.
 
     Returns dict with '_monthly_times' and for each pivot a DataFrame indexed by months.
@@ -1680,9 +1946,12 @@ def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: O
         y = float(start_year + year_offset)
         if use_actual_month_lengths:
             import calendar as _cal
+
             days_in_year = 366 if _cal.isleap(int(y)) else 365
             month_mid = (1 + _cal.monthrange(int(y), rel)[1]) // 2
-            day_of_year = sum(_cal.monthrange(int(y), mm)[1] for mm in range(1, rel)) + month_mid
+            day_of_year = (
+                sum(_cal.monthrange(int(y), mm)[1] for mm in range(1, rel)) + month_mid
+            )
             frac = (day_of_year - 1) / float(days_in_year)
             monthly_years.append(y + frac)
         else:
@@ -1713,14 +1982,27 @@ def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: O
                     else:
                         x_known = _np.array(times)[finite_mask]
                         y_known = col_vals[finite_mask]
-                        monthly_vals = _np.interp(monthly_years, x_known, y_known, left=y_known[0], right=y_known[-1])
+                        monthly_vals = _np.interp(
+                            monthly_years,
+                            x_known,
+                            y_known,
+                            left=y_known[0],
+                            right=y_known[-1],
+                        )
                     interp_data.append(monthly_vals)
                 # Build DataFrame months x cols
-                dfm = pd.DataFrame(_np.column_stack(interp_data), index=monthly_years, columns=cols)
+                dfm = pd.DataFrame(
+                    _np.column_stack(interp_data), index=monthly_years, columns=cols
+                )
                 # Pad with leading column 0 for 'Outside' or placeholder so gear indices start at column 1
                 try:
                     import numpy as _np2
-                    pad = pd.DataFrame(_np2.zeros((len(monthly_years), 1)), index=monthly_years, columns=[0])
+
+                    pad = pd.DataFrame(
+                        _np2.zeros((len(monthly_years), 1)),
+                        index=monthly_years,
+                        columns=[0],
+                    )
                     dfm = pd.concat([pad, dfm], axis=1)
                 except Exception:
                     pass
@@ -1731,7 +2013,13 @@ def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: O
                     arr = pd.Series(pivot)
                     arr_vals = arr.astype(float).values
                     if len(arr_vals) == len(times_abs):
-                        monthly_vals = _np.interp(monthly_years, times_abs, arr_vals, left=arr_vals[0], right=arr_vals[-1])
+                        monthly_vals = _np.interp(
+                            monthly_years,
+                            times_abs,
+                            arr_vals,
+                            left=arr_vals[0],
+                            right=arr_vals[-1],
+                        )
                         result[key] = monthly_vals
                 except Exception:
                     continue
@@ -1742,7 +2030,10 @@ def _resample_fishing_pivot_to_monthly(fishing_ts: Dict[str, Any], start_year: O
 
 
 def _build_forcing_matrices(
-    forcing_ts: Dict[str, Any], group_names: List[str], start_year: Optional[int], num_years: Optional[int]
+    forcing_ts: Dict[str, Any],
+    group_names: List[str],
+    start_year: Optional[int],
+    num_years: Optional[int],
 ) -> Dict[str, Any]:
     """Construct forcing matrices aligned to PyPath groups.
 
@@ -1796,7 +2087,13 @@ def _build_forcing_matrices(
                         try:
                             times = forcing_ts["_times"]
                             times_abs = _to_absolute_years(times, start_year)
-                            monthly = _np.interp(forcing_ts["_monthly_times"], times_abs, df[g].astype(float).reindex(times).fillna(dflt).values, left=df[g].astype(float).values[0], right=df[g].astype(float).values[-1])
+                            monthly = _np.interp(
+                                forcing_ts["_monthly_times"],
+                                times_abs,
+                                df[g].astype(float).reindex(times).fillna(dflt).values,
+                                left=df[g].astype(float).values[0],
+                                right=df[g].astype(float).values[-1],
+                            )
                             mat[:, gi] = monthly
                         except Exception:
                             pass
@@ -1820,7 +2117,11 @@ def _build_forcing_matrices(
                 try:
                     times = forcing_ts["_times"]
                     times_abs = _to_absolute_years(times, start_year)
-                    fe_mat[:, gi] = _np.interp(forcing_ts["_monthly_times"], times_abs, fe[g].astype(float).reindex(times).fillna(1.0).values)
+                    fe_mat[:, gi] = _np.interp(
+                        forcing_ts["_monthly_times"],
+                        times_abs,
+                        fe[g].astype(float).reindex(times).fillna(1.0).values,
+                    )
                 except Exception:
                     pass
         result["ForcedEffort"] = fe_mat
@@ -1848,7 +2149,11 @@ def _parse_annual_fishing(
     if num_years is None or num_years <= 0:
         return result
 
-    years = [int(start_year + y) for y in range(int(num_years))] if start_year is not None else None
+    years = (
+        [int(start_year + y) for y in range(int(num_years))]
+        if start_year is not None
+        else None
+    )
     n_groups = len(group_names)
     ncols = n_groups + 1  # include 'Outside'
     nyrs = int(num_years)
@@ -1870,7 +2175,11 @@ def _parse_annual_fishing(
                 yr = int(row.get("Year", row.get("Time", None)))
                 if years is not None and yr not in years:
                     continue
-                year_idx = years.index(yr) if years is not None else int(yr) - (years[0] if years else 0)
+                year_idx = (
+                    years.index(yr)
+                    if years is not None
+                    else int(yr) - (years[0] if years else 0)
+                )
                 grp = row.get("Group") or row.get("GroupName") or row.get("Name")
                 if grp is None:
                     continue
@@ -1892,11 +2201,15 @@ def _parse_annual_fishing(
 
     # Long-format detection
     if frate_df is not None:
-        if any(c in frate_df.columns for c in ["Year", "Group"]) and any(c in frate_df.columns for c in ["FRate", "Value"]):
+        if any(c in frate_df.columns for c in ["Year", "Group"]) and any(
+            c in frate_df.columns for c in ["FRate", "Value"]
+        ):
             _apply_long(frate_df, "FRate", frate_mat)
         else:
             # wide format: columns as groups, index or 'Year' column
-            time_col = next((c for c in ["Year", "Time"] if c in frate_df.columns), None)
+            time_col = next(
+                (c for c in ["Year", "Time"] if c in frate_df.columns), None
+            )
             if time_col is not None:
                 for g in group_names:
                     if g in frate_df.columns:
@@ -1908,10 +2221,14 @@ def _parse_annual_fishing(
                                 frate_mat[yi, group_names.index(g) + 1] = float(r[g])
 
     if catch_df is not None:
-        if any(c in catch_df.columns for c in ["Year", "Group"]) and any(c in catch_df.columns for c in ["Catch", "Value"]):
+        if any(c in catch_df.columns for c in ["Year", "Group"]) and any(
+            c in catch_df.columns for c in ["Catch", "Value"]
+        ):
             _apply_long(catch_df, "Catch", catch_mat)
         else:
-            time_col = next((c for c in ["Year", "Time"] if c in catch_df.columns), None)
+            time_col = next(
+                (c for c in ["Year", "Time"] if c in catch_df.columns), None
+            )
             if time_col is not None:
                 for g in group_names:
                     if g in catch_df.columns:
@@ -1936,19 +2253,34 @@ def _map_ecospace_tables(filepath: str) -> Dict[str, Any]:
     """
     tables: Dict[str, Any] = {}
 
-    grid = _try_read_table_variants(filepath, ["EcospaceGrid", "Ecospace_Grid", "EcospaceGridTable"])
+    grid = _try_read_table_variants(
+        filepath, ["EcospaceGrid", "Ecospace_Grid", "EcospaceGridTable"]
+    )
     if grid is not None:
         tables["EcospaceGrid"] = grid
 
-    habitat = _try_read_table_variants(filepath, ["EcospaceHabitat", "EcospaceLayer", "Ecospace_Habitat", "Ecospace Habitat", "EcospaceLayerTable"])
+    habitat = _try_read_table_variants(
+        filepath,
+        [
+            "EcospaceHabitat",
+            "EcospaceLayer",
+            "Ecospace_Habitat",
+            "Ecospace Habitat",
+            "EcospaceLayerTable",
+        ],
+    )
     if habitat is not None:
         tables["EcospaceHabitat"] = habitat
 
-    dispersal = _try_read_table_variants(filepath, ["EcospaceDispersal", "Ecospace_Dispersal", "EcospaceDispersalTable"])
+    dispersal = _try_read_table_variants(
+        filepath, ["EcospaceDispersal", "Ecospace_Dispersal", "EcospaceDispersalTable"]
+    )
     if dispersal is not None:
         tables["EcospaceDispersal"] = dispersal
 
-    forcing = _try_read_table_variants(filepath, ["EcospaceForcing", "EcospaceForcings", "EcospaceLayerForcing"])
+    forcing = _try_read_table_variants(
+        filepath, ["EcospaceForcing", "EcospaceForcings", "EcospaceLayerForcing"]
+    )
     if forcing is not None:
         tables["EcospaceForcing"] = forcing
 
@@ -1965,9 +2297,10 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
     if not ecospace_tables:
         return None
     try:
-        from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
-        import scipy.sparse as _sps
         import numpy as _np
+        import scipy.sparse as _sps
+
+        from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
     except Exception:
         return None
 
@@ -1980,37 +2313,74 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
     logger.info(f"_construct_ecospace_params: grid_df present={grid_df is not None}")
 
     if grid_df is not None and len(grid_df) > 0:
-        id_col = next((c for c in ["PatchID", "ID", "Patch"] if c in grid_df.columns), None)
-        area_col = next((c for c in ["Area", "PatchArea"] if c in grid_df.columns), None)
-        lon_col = next((c for c in ["Lon", "Longitude", "X"] if c in grid_df.columns), None)
-        lat_col = next((c for c in ["Lat", "Latitude", "Y"] if c in grid_df.columns), None)
+        id_col = next(
+            (c for c in ["PatchID", "ID", "Patch"] if c in grid_df.columns), None
+        )
+        area_col = next(
+            (c for c in ["Area", "PatchArea"] if c in grid_df.columns), None
+        )
+        lon_col = next(
+            (c for c in ["Lon", "Longitude", "X"] if c in grid_df.columns), None
+        )
+        lat_col = next(
+            (c for c in ["Lat", "Latitude", "Y"] if c in grid_df.columns), None
+        )
 
         if id_col is not None:
             patch_ids = grid_df[id_col].tolist()
         if area_col is not None:
             patch_areas = _np.asarray(grid_df[area_col].astype(float).tolist())
         if lon_col is not None and lat_col is not None:
-            patch_centroids = _np.vstack((grid_df[lon_col].astype(float).values, grid_df[lat_col].astype(float).values)).T
+            patch_centroids = _np.vstack(
+                (
+                    grid_df[lon_col].astype(float).values,
+                    grid_df[lat_col].astype(float).values,
+                )
+            ).T
 
-        logger.info(f"_construct_ecospace_params: patch_ids={patch_ids}, patch_areas_shape={None if patch_areas is None else patch_areas.shape}, patch_centroids_shape={None if patch_centroids is None else patch_centroids.shape}")
+        logger.info(
+            f"_construct_ecospace_params: patch_ids={patch_ids}, patch_areas_shape={None if patch_areas is None else patch_areas.shape}, patch_centroids_shape={None if patch_centroids is None else patch_centroids.shape}"
+        )
 
     # Fallback: infer from habitat table
-    habitat_df = ecospace_tables.get("EcospaceHabitat") if ecospace_tables.get("EcospaceHabitat") is not None else ecospace_tables.get("EcospaceLayer")
+    habitat_df = (
+        ecospace_tables.get("EcospaceHabitat")
+        if ecospace_tables.get("EcospaceHabitat") is not None
+        else ecospace_tables.get("EcospaceLayer")
+    )
     if habitat_df is not None and len(habitat_df) > 0:
-        patch_col = next((c for c in ["Patch", "PatchID", "Cell"] if c in habitat_df.columns), None)
-        group_col = next((c for c in ["Group", "GroupName", "Species"] if c in habitat_df.columns), None)
-        value_col = next((c for c in ["Value", "Suitability", "Preference"] if c in habitat_df.columns), None)
-        logger.info(f"_construct_ecospace_params: habitat_cols patch={patch_col}, group={group_col}, value={value_col}")
+        patch_col = next(
+            (c for c in ["Patch", "PatchID", "Cell"] if c in habitat_df.columns), None
+        )
+        group_col = next(
+            (c for c in ["Group", "GroupName", "Species"] if c in habitat_df.columns),
+            None,
+        )
+        value_col = next(
+            (
+                c
+                for c in ["Value", "Suitability", "Preference"]
+                if c in habitat_df.columns
+            ),
+            None,
+        )
+        logger.info(
+            f"_construct_ecospace_params: habitat_cols patch={patch_col}, group={group_col}, value={value_col}"
+        )
         if patch_ids is None and patch_col is not None:
             patch_ids = sorted(habitat_df[patch_col].dropna().unique().tolist())
         # build habitat matrix if group info present
         if group_col is not None and patch_col is not None and value_col is not None:
             groups_present = sorted(habitat_df[group_col].dropna().unique().tolist())
             patches_present = sorted(habitat_df[patch_col].dropna().unique().tolist())
-            logger.info(f"_construct_ecospace_params: groups_present={groups_present}, patches_present={patches_present}")
+            logger.info(
+                f"_construct_ecospace_params: groups_present={groups_present}, patches_present={patches_present}"
+            )
             # Map group_names to groups_present order if possible
             n_groups = len(group_names)
-            n_patches = len(patch_ids) if patch_ids is not None else len(patches_present)
+            n_patches = (
+                len(patch_ids) if patch_ids is not None else len(patches_present)
+            )
 
             habitat_pref = _np.zeros((n_groups, n_patches), dtype=float)
             habitat_cap = _np.ones((n_groups, n_patches), dtype=float)
@@ -2057,7 +2427,12 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                     lon2, lat2 = _np.radians(lonlat2[:, 0]), _np.radians(lonlat2[:, 1])
                     dlon = lon2[None, :] - lon1[:, None]
                     dlat = lat2[None, :] - lat1[:, None]
-                    a = _np.sin(dlat / 2.0) ** 2 + _np.cos(lat1)[:, None] * _np.cos(lat2)[None, :] * _np.sin(dlon / 2.0) ** 2
+                    a = (
+                        _np.sin(dlat / 2.0) ** 2
+                        + _np.cos(lat1)[:, None]
+                        * _np.cos(lat2)[None, :]
+                        * _np.sin(dlon / 2.0) ** 2
+                    )
                     c = 2 * _np.arcsin(_np.sqrt(a))
                     R = 6371.0
                     return R * c
@@ -2065,12 +2440,22 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                 # If values are in plausible degree ranges, use haversine
                 lonvals = patch_centroids[:, 0]
                 latvals = patch_centroids[:, 1]
-                use_haversine = bool((_np.all(lonvals <= 180) and _np.all(lonvals >= -180) and _np.all(latvals <= 90) and _np.all(latvals >= -90)))
+                use_haversine = bool(
+                    (
+                        _np.all(lonvals <= 180)
+                        and _np.all(lonvals >= -180)
+                        and _np.all(latvals <= 90)
+                        and _np.all(latvals >= -90)
+                    )
+                )
                 if use_haversine:
                     dists = haversine_km(patch_centroids, patch_centroids)
                 else:
                     # fallback: euclidean distances in coordinate units
-                    dists = _np.linalg.norm(patch_centroids[:, None, :] - patch_centroids[None, :, :], axis=2)
+                    dists = _np.linalg.norm(
+                        patch_centroids[:, None, :] - patch_centroids[None, :, :],
+                        axis=2,
+                    )
 
                 n_p = dists.shape[0]
                 # Build sparse adjacency by connecting each patch to up to k nearest neighbors (k= min(6, n-1))
@@ -2090,7 +2475,13 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                         # store edge length using sorted tuple key to keep undirected uniqueness
                         key = (min(i, j), max(i, j))
                         edge_lengths[key] = float(dists[i, j])
-                adj = _sps.csr_matrix((_np.array(vals, dtype=float), (_np.array(rows, dtype=int), _np.array(cols, dtype=int))), shape=(n_p, n_p))
+                adj = _sps.csr_matrix(
+                    (
+                        _np.array(vals, dtype=float),
+                        (_np.array(rows, dtype=int), _np.array(cols, dtype=int)),
+                    ),
+                    shape=(n_p, n_p),
+                )
                 # Ensure adjacency is symmetric by taking the maximum with its transpose
                 try:
                     adj = adj.maximum(adj.transpose())
@@ -2100,7 +2491,9 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                     mat = ((mat + mat.T) > 0).astype(float)
                     adj = _sps.csr_matrix(mat)
             else:
-                adj = _sps.csr_matrix((_np.zeros((len(patch_ids), len(patch_ids)))), dtype=float)
+                adj = _sps.csr_matrix(
+                    (_np.zeros((len(patch_ids), len(patch_ids)))), dtype=float
+                )
                 edge_lengths = {}
 
             grid = EcospaceGrid(
@@ -2115,8 +2508,14 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
             # Dispersal rates
             dispersal_df = ecospace_tables.get("EcospaceDispersal")
             if dispersal_df is not None and len(dispersal_df) > 0:
-                dr_col = next((c for c in ["Dispersal", "Rate"] if c in dispersal_df.columns), None)
-                grp_col = next((c for c in ["Group", "GroupName"] if c in dispersal_df.columns), None)
+                dr_col = next(
+                    (c for c in ["Dispersal", "Rate"] if c in dispersal_df.columns),
+                    None,
+                )
+                grp_col = next(
+                    (c for c in ["Group", "GroupName"] if c in dispersal_df.columns),
+                    None,
+                )
                 dispersal_rate = _np.zeros(len(group_names), dtype=float)
                 if dr_col and grp_col:
                     for _, r in dispersal_df.iterrows():
@@ -2144,10 +2543,14 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                 environmental_drivers=None,
             )
 
-            logger.info(f"_construct_ecospace_params: constructed EcospaceParams n_patches={grid.n_patches} n_groups={habitat_pref.shape[0]}")
+            logger.info(
+                f"_construct_ecospace_params: constructed EcospaceParams n_patches={grid.n_patches} n_groups={habitat_pref.shape[0]}"
+            )
             return ecospace_params
 
-    logger.info(f"_construct_ecospace_params: Not enough data to construct EcospaceParams: grid_present={('EcospaceGrid' in ecospace_tables)}, habitat_present={('EcospaceHabitat' in ecospace_tables or 'EcospaceLayer' in ecospace_tables)}")
+    logger.info(
+        f"_construct_ecospace_params: Not enough data to construct EcospaceParams: grid_present={('EcospaceGrid' in ecospace_tables)}, habitat_present={('EcospaceHabitat' in ecospace_tables or 'EcospaceLayer' in ecospace_tables)}"
+    )
     return None
 
 
@@ -2188,7 +2591,9 @@ def ecosim_scenario_from_ewemdb(
 
     params = read_ewemdb(filepath, include_ecosim=True)
 
-    if getattr(params, "ecosim", None) is None or not params.ecosim.get("has_ecosim", False):
+    if getattr(params, "ecosim", None) is None or not params.ecosim.get(
+        "has_ecosim", False
+    ):
         raise EwEDatabaseError("No Ecosim scenarios found in the database")
 
     # Select scenario by id or name
@@ -2205,11 +2610,21 @@ def ecosim_scenario_from_ewemdb(
 
     # Use years if provided, else derive from scenario
     if years is None:
-        start = int(selected.get("start_year")) if selected.get("start_year") is not None else 1
-        num = int(selected.get("num_years")) if selected.get("num_years") is not None else 1
+        start = (
+            int(selected.get("start_year"))
+            if selected.get("start_year") is not None
+            else 1
+        )
+        num = (
+            int(selected.get("num_years"))
+            if selected.get("num_years") is not None
+            else 1
+        )
         # Ensure at least two years for RsimScenario compatibility
         if num < 2:
-            logger.info(f"Raising number of years from {num} to 2 for scenario {selected.get('name')}")
+            logger.info(
+                f"Raising number of years from {num} to 2 for scenario {selected.get('name')}"
+            )
             num = 2
         years = range(start, start + num)
 
@@ -2224,7 +2639,9 @@ def ecosim_scenario_from_ewemdb(
         try:
             balanced = rpath(params)
         except Exception:
-            raise EwEDatabaseError("Balancing disabled but rpath creation failed. Set balance=True or supply a balanced model.")
+            raise EwEDatabaseError(
+                "Balancing disabled but rpath creation failed. Set balance=True or supply a balanced model."
+            )
 
     # Create RsimScenario
     rsim = rsim_scenario(balanced, params, years=years)

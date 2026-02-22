@@ -69,8 +69,16 @@ def _build_simple_scenario(detfrac_format="2d"):
         "FishQ": np.array([0.0, 0.1]),
     }
 
-    forcing = {"Ftime": np.ones(NUM_GROUPS + 1), "PP_forcing": np.ones(NUM_GROUPS + 1), "ForcedPrey": np.ones(NUM_GROUPS + 1)}
-    fishing = {"FishFrom": pdict["FishFrom"], "FishThrough": np.array([0, NUM_LIVING + 1], dtype=int), "FishQ": pdict["FishQ"]}
+    forcing = {
+        "Ftime": np.ones(NUM_GROUPS + 1),
+        "PP_forcing": np.ones(NUM_GROUPS + 1),
+        "ForcedPrey": np.ones(NUM_GROUPS + 1),
+    }
+    fishing = {
+        "FishFrom": pdict["FishFrom"],
+        "FishThrough": np.array([0, NUM_LIVING + 1], dtype=int),
+        "FishQ": pdict["FishQ"],
+    }
 
     return pdict, forcing, fishing, state
 
@@ -98,7 +106,9 @@ def test_fish_detfrac_addition_2d_verbose(caplog):
     deriv_no = deriv_vector(state, pdict_no, forcing, fishing)
 
     i_disc = pdict["spname"].index("Discards")
-    assert deriv_with[i_disc] - deriv_no[i_disc] >= 1e-8, f"Discards derivative increase too small: {deriv_with[i_disc] - deriv_no[i_disc]}"
+    assert (
+        deriv_with[i_disc] - deriv_no[i_disc] >= 1e-8
+    ), f"Discards derivative increase too small: {deriv_with[i_disc] - deriv_no[i_disc]}"
 
 
 def test_fish_detfrac_addition_linklist_verbose(caplog):
@@ -125,18 +135,22 @@ def test_fish_detfrac_addition_linklist_verbose(caplog):
     m0_pos = max(0.0, float(pdict["M0"][src_idx]))
     qb_loss = float(pdict["QB"][src_idx])
     unassim = float(pdict["Unassim"][src_idx])
-    source_loss = m0_pos * float(state[src_idx]) + float(state[src_idx]) * qb_loss * unassim
+    source_loss = (
+        m0_pos * float(state[src_idx]) + float(state[src_idx]) * qb_loss * unassim
+    )
     expected_frac = fish_input / (source_loss + 1e-30)
-    assert expected_frac > 1e-6, f"Expected fraction computed is too small: {expected_frac}"
+    assert (
+        expected_frac > 1e-6
+    ), f"Expected fraction computed is too small: {expected_frac}"
 
     if m is not None:
         added_frac = float(m.group(1))
         # allow small numerical difference between computed expected_frac and printed frac
         import math
 
-        assert math.isclose(added_frac, expected_frac, rel_tol=1e-3, abs_tol=1e-8), (
-            f"Printed frac {added_frac} not close to expected {expected_frac}"
-        )
+        assert math.isclose(
+            added_frac, expected_frac, rel_tol=1e-3, abs_tol=1e-8
+        ), f"Printed frac {added_frac} not close to expected {expected_frac}"
     else:
         # If no debug message, fall back to checking derivative difference; if still zero, skip
         pdict_no = copy.deepcopy(pdict)
@@ -147,8 +161,12 @@ def test_fish_detfrac_addition_linklist_verbose(caplog):
         i_disc = pdict["spname"].index("Discards")
         diff = deriv_with[i_disc] - deriv_no[i_disc]
         if diff < 1e-12:
-            pytest.skip("Link-list branch did not print debug nor change derivative in this config")
-        assert diff >= 1e-8, f"No debug message and Discards derivative increase too small: {diff}"
+            pytest.skip(
+                "Link-list branch did not print debug nor change derivative in this config"
+            )
+        assert (
+            diff >= 1e-8
+        ), f"No debug message and Discards derivative increase too small: {diff}"
 
 
 def test_fish_detfrac_linklist_deterministic(caplog):
@@ -179,7 +197,10 @@ def test_fish_detfrac_linklist_deterministic(caplog):
     # If debug info was logged, parse added frac; otherwise compute expected
     import re
 
-    m = re.search(r"DEBUG: added fish-derived DetFrac mat\[(\d+),(\d+)\] \+= ([0-9.eE+-]+)", caplog.text)
+    m = re.search(
+        r"DEBUG: added fish-derived DetFrac mat\[(\d+),(\d+)\] \+= ([0-9.eE+-]+)",
+        caplog.text,
+    )
     if m is not None:
         src_idx = int(m.group(1))
         det_col = int(m.group(2))
@@ -194,10 +215,14 @@ def test_fish_detfrac_linklist_deterministic(caplog):
     m0_pos = max(0.0, float(pdict["M0"][src_idx]))
     qb_loss = float(pdict["QB"][src_idx])
     unassim = float(pdict["Unassim"][src_idx])
-    source_loss = m0_pos * float(state[src_idx]) + float(state[src_idx]) * qb_loss * unassim
+    source_loss = (
+        m0_pos * float(state[src_idx]) + float(state[src_idx]) * qb_loss * unassim
+    )
     expected_frac = fish_input / (source_loss + 1e-30)
 
-    assert expected_frac > 1e-6, f"Computed expected fraction is unexpectedly small: {expected_frac}"
+    assert (
+        expected_frac > 1e-6
+    ), f"Computed expected fraction is unexpectedly small: {expected_frac}"
 
     # Construct a manual params copy with the expected fraction baked into a 2D DetFrac
     pdict_manual = copy.deepcopy(pdict)
@@ -214,9 +239,9 @@ def test_fish_detfrac_linklist_deterministic(caplog):
 
     # The deriv produced when the function added the fraction should match the
     # manual case where we pre-bake the fraction into DetFrac.
-    assert abs(deriv_with[i_disc] - deriv_manual[i_disc]) < 1e-9, (
-        f"deriv with fish ({deriv_with[i_disc]}) does not match manual expected ({deriv_manual[i_disc]})"
-    )
+    assert (
+        abs(deriv_with[i_disc] - deriv_manual[i_disc]) < 1e-9
+    ), f"deriv with fish ({deriv_with[i_disc]}) does not match manual expected ({deriv_manual[i_disc]})"
 
     # Also ensure there is a measurable increase over the 'no-fish' baseline
     pdict_no = copy.deepcopy(pdict_manual)
@@ -224,4 +249,3 @@ def test_fish_detfrac_linklist_deterministic(caplog):
     deriv_no = deriv_vector(state, pdict_no, forcing, fishing)
     diff = deriv_manual[i_disc] - deriv_no[i_disc]
     assert diff >= 1e-8, f"Detritus derivative did not increase as expected: {diff}"
-

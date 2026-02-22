@@ -12,7 +12,10 @@ REL_TOL = 2e-3
 
 def _ensure_comparison():
     if not CMP_FP.exists():
-        subprocess.run(["python", str(_REPO_ROOT / "scripts" / "compare_py_vs_rpath_month952.py")], check=True)
+        subprocess.run(
+            ["python", str(_REPO_ROOT / "scripts" / "compare_py_vs_rpath_month952.py")],
+            check=True,
+        )
 
 
 def test_seabirds_q_diffs_within_tolerance():

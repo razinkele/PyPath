@@ -15,7 +15,9 @@ def test_rpath_diagnostics_meta_exists_and_qq_handling():
     qq_provided = bool(meta["qq_provided"])
 
     qq_csv = DIAG_DIR / "seabirds_qq_rk4.csv"
-    assert qq_csv.exists(), "seabirds_qq_rk4.csv must be present (may be an explicit NA sentinel)"
+    assert (
+        qq_csv.exists()
+    ), "seabirds_qq_rk4.csv must be present (may be an explicit NA sentinel)"
 
     df = pd.read_csv(qq_csv)
     # Drop month column if present and consider only numeric columns
@@ -28,16 +30,23 @@ def test_rpath_diagnostics_meta_exists_and_qq_handling():
 
     if qq_provided:
         # At least one non-NA value must exist if R provided QQ diagnostics
-        assert numeric_data.notna().any().any(), "meta indicates QQ were provided but CSV contains only NA"
+        assert (
+            numeric_data.notna().any().any()
+        ), "meta indicates QQ were provided but CSV contains only NA"
         # Also verify seabirds components CSV if present contains non-NA consumption or production entries
         comps_csv = DIAG_DIR / "seabirds_components_rk4.csv"
-        assert comps_csv.exists(), "qq_provided=True but seabirds_components_rk4.csv is missing"
+        assert (
+            comps_csv.exists()
+        ), "qq_provided=True but seabirds_components_rk4.csv is missing"
         comps_df = pd.read_csv(comps_csv)
-        assert (comps_df['consumption_by_predator'].notna().any() or comps_df['production'].notna().any()), "components file exists but contains no meaningful per-term data"
+        assert (
+            comps_df["consumption_by_predator"].notna().any()
+            or comps_df["production"].notna().any()
+        ), "components file exists but contains no meaningful per-term data"
     else:
         # If QQ not provided, accept that the CSV is all-NA or all zeros (legacy), but it should not contain meaningful non-NA values.
         contains_non_na = numeric_data.notna().any().any()
         contains_nonzero = (numeric_data.fillna(0).abs() > 0).any().any()
-        assert (not contains_non_na) or (not contains_nonzero), (
-            "meta indicates QQ not provided but CSV contains non-zero data; regenerate reference data or update meta"
-        )
+        assert (not contains_non_na) or (
+            not contains_nonzero
+        ), "meta indicates QQ not provided but CSV contains non-zero data; regenerate reference data or update meta"

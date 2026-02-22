@@ -3,7 +3,15 @@ from pathlib import Path
 from pypath_shiny.pages.utils import load_rpath_diagnostics
 
 # Reference data lives in the core pypath package's test directory
-DIAG_DIR = Path(__file__).parent.parent.parent / "pypath" / "tests" / "data" / "rpath_reference" / "ecosim" / "diagnostics"
+DIAG_DIR = (
+    Path(__file__).parent.parent.parent
+    / "pypath"
+    / "tests"
+    / "data"
+    / "rpath_reference"
+    / "ecosim"
+    / "diagnostics"
+)
 
 
 def test_load_rpath_diagnostics_success():
@@ -15,12 +23,17 @@ def test_load_rpath_diagnostics_success():
     qq = out["qq_df"]
     numeric_cols = [c for c in qq.columns if c != "month"]
     assert numeric_cols, "QQ CSV must have group columns"
-    assert qq[numeric_cols].notna().any().any(), "QQ CSV should contain non-NA values when qq_provided=True"
+    assert (
+        qq[numeric_cols].notna().any().any()
+    ), "QQ CSV should contain non-NA values when qq_provided=True"
 
     # components should be present and contain per-term data
     comps = out.get("comps_df")
     assert comps is not None, "components CSV should be present when qq_provided=True"
-    assert (comps["consumption_by_predator"].notna().any() or comps["production"].notna().any())
+    assert (
+        comps["consumption_by_predator"].notna().any()
+        or comps["production"].notna().any()
+    )
 
 
 def test_load_rpath_diagnostics_handles_missing_meta(tmp_path):

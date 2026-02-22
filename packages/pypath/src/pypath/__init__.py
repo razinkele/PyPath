@@ -16,9 +16,9 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 # Patch numpy.corrcoef to handle constant identical series gracefully used in tests
 # This ensures that comparing two identical constant time series yields a
 # perfect correlation (1.0) instead of NaN which would otherwise fail tests.
-import numpy as _np
+import numpy as _np  # noqa: E402
 
-from pypath.core.adjustments import (
+from pypath.core.adjustments import (  # noqa: E402
     adjust_fishing,
     adjust_forcing,
     adjust_group_parameter,
@@ -29,8 +29,8 @@ from pypath.core.adjustments import (
     set_handling_time,
     set_vulnerability,
 )
-from pypath.core.ecopath import Rpath, rpath
-from pypath.core.ecosim import (
+from pypath.core.ecopath import Rpath, rpath  # noqa: E402
+from pypath.core.ecosim import (  # noqa: E402
     RsimFishing,
     RsimForcing,
     RsimOutput,
@@ -44,7 +44,7 @@ from pypath.core.ecosim import (
     rsim_scenario,
     rsim_state,
 )
-from pypath.core.ecosim_deriv import (
+from pypath.core.ecosim_deriv import (  # noqa: E402
     deriv_vector,
     integrate_ab,
     integrate_rk4,
@@ -53,7 +53,7 @@ from pypath.core.ecosim_deriv import (
     primary_production_forcing,
     run_ecosim,
 )
-from pypath.core.params import (
+from pypath.core.params import (  # noqa: E402
     RpathParams,
     RpathStanzaParams,
     check_rpath_params,
@@ -61,7 +61,7 @@ from pypath.core.params import (
     read_rpath_params,
     write_rpath_params,
 )
-from pypath.core.stanzas import (
+from pypath.core.stanzas import (  # noqa: E402
     EcosimStanzaParams,
     RsimStanzas,
     StanzaGroup,
@@ -77,7 +77,7 @@ from pypath.core.stanzas import (
 )
 
 # IBM (Individual-Based Model)
-from pypath.ibm import (
+from pypath.ibm import (  # noqa: E402
     IBMGroup,
     IBMStepResult,
     SmeltIBM,
@@ -86,7 +86,7 @@ from pypath.ibm import (
 )
 
 # I/O imports
-from pypath.io.ecobase import (
+from pypath.io.ecobase import (  # noqa: E402
     EcoBaseGroupData,
     EcoBaseModel,
     download_ecobase_model_to_file,
@@ -95,7 +95,7 @@ from pypath.io.ecobase import (
     list_ecobase_models,
     search_ecobase_models,
 )
-from pypath.io.ewemdb import (
+from pypath.io.ewemdb import (  # noqa: E402
     EwEDatabaseError,
     check_ewemdb_support,
     get_ewemdb_metadata,
@@ -105,6 +105,7 @@ from pypath.io.ewemdb import (
 )
 
 _original_corrcoef = _np.corrcoef
+
 
 def _corrcoef_safe(*args, **kwargs):
     mat = _original_corrcoef(*args, **kwargs)
@@ -122,6 +123,7 @@ def _corrcoef_safe(*args, **kwargs):
     except Exception:
         pass
     return mat
+
 
 _np.corrcoef = _corrcoef_safe
 

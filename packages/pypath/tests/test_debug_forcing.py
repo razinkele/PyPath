@@ -48,11 +48,18 @@ def test_debug_forcing_prints():
     # Build forcing_dict for first month and compute effort multiplier per gear used in catch loop
     t_idx = 0
     forcing0 = {
-        "ForcedEffort": scenario.fishing.ForcedEffort[t_idx]
-        if t_idx < len(scenario.fishing.ForcedEffort)
-        else np.ones(scenario.params.NUM_GEARS + 1),
+        "ForcedEffort": (
+            scenario.fishing.ForcedEffort[t_idx]
+            if t_idx < len(scenario.fishing.ForcedEffort)
+            else np.ones(scenario.params.NUM_GEARS + 1)
+        ),
     }
-    print("forcing0 ForcedEffort:", forcing0["ForcedEffort"], "len=", len(forcing0["ForcedEffort"]))
+    print(
+        "forcing0 ForcedEffort:",
+        forcing0["ForcedEffort"],
+        "len=",
+        len(forcing0["ForcedEffort"]),
+    )
 
     for i in range(1, len(scenario.params.FishFrom)):
         grp = scenario.params.FishFrom[i]
@@ -62,9 +69,13 @@ def test_debug_forcing_prints():
             if gear < len(forcing0["ForcedEffort"])
             else 1.0
         )
-        print(f"link {i}: grp={grp} gear={gear} effort_mult={effort_mult} FishQ={scenario.params.FishQ[i]}")
+        print(
+            f"link {i}: grp={grp} gear={gear} effort_mult={effort_mult} FishQ={scenario.params.FishQ[i]}"
+        )
         # Verify that doubled effort is visible via the forcing vector
-        assert effort_mult == 2.0, f"Expected effort_mult==2.0, got {effort_mult} for link {i} (gear {gear})"
+        assert (
+            effort_mult == 2.0
+        ), f"Expected effort_mult==2.0, got {effort_mult} for link {i} (gear {gear})"
 
     # Print a few months to ensure forced series is visible
     for month in range(0, 5):
@@ -117,27 +128,42 @@ def test_forced_effort_changes_catch_and_biomass():
     if len(scenario_base.params.FishFrom) <= 1:
         # Add a simple fishing link on the primary fish group (index 3 in our small example)
         scenario_base.params.FishFrom = np.array([0, 3])
-        scenario_base.params.FishThrough = np.array([0, int(scenario_base.params.NUM_LIVING + scenario_base.params.NUM_DEAD + 1)])
+        scenario_base.params.FishThrough = np.array(
+            [
+                0,
+                int(
+                    scenario_base.params.NUM_LIVING + scenario_base.params.NUM_DEAD + 1
+                ),
+            ]
+        )
         scenario_base.params.FishQ = np.array([0.0, 0.5])
         # Update NumFishingLinks to match
         scenario_base.params.NumFishingLinks = len(scenario_base.params.FishFrom) - 1
 
     # Ensure no NoIntegrate flags interfere with this simple test (force all to integrate)
-    scenario_base.params.NoIntegrate = np.zeros(scenario_base.params.NUM_GROUPS + 1, dtype=int)
+    scenario_base.params.NoIntegrate = np.zeros(
+        scenario_base.params.NUM_GROUPS + 1, dtype=int
+    )
 
     # Manually compute expected catch for first month using the same formula as rsim_run
     state0 = scenario_base.start_state.Biomass.copy()
     t_idx = 0
     forcing0 = {
-        "ForcedEffort": scenario_base.fishing.ForcedEffort[t_idx]
-        if t_idx < len(scenario_base.fishing.ForcedEffort)
-        else np.ones(scenario_base.params.NUM_GEARS + 1),
+        "ForcedEffort": (
+            scenario_base.fishing.ForcedEffort[t_idx]
+            if t_idx < len(scenario_base.fishing.ForcedEffort)
+            else np.ones(scenario_base.params.NUM_GEARS + 1)
+        ),
     }
     manual_catch = 0.0
     for i in range(1, len(scenario_base.params.FishFrom)):
         grp = scenario_base.params.FishFrom[i]
         gear_group_idx = scenario_base.params.FishThrough[i]
-        gear_idx = int(gear_group_idx - scenario_base.params.NUM_LIVING - scenario_base.params.NUM_DEAD)
+        gear_idx = int(
+            gear_group_idx
+            - scenario_base.params.NUM_LIVING
+            - scenario_base.params.NUM_DEAD
+        )
         effort_mult = (
             forcing0["ForcedEffort"][gear_idx]
             if 0 < gear_idx < len(forcing0["ForcedEffort"])
@@ -158,7 +184,9 @@ def test_forced_effort_changes_catch_and_biomass():
         scenario_forced.params.NumFishingLinks = scenario_base.params.NumFishingLinks
 
     # Ensure all groups integrate (no NoIntegrate) for fair comparison
-    scenario_forced.params.NoIntegrate = np.zeros(scenario_forced.params.NUM_GROUPS + 1, dtype=int)
+    scenario_forced.params.NoIntegrate = np.zeros(
+        scenario_forced.params.NUM_GROUPS + 1, dtype=int
+    )
 
     scenario_forced.fishing.ForcedEffort[:] = 2.0
     result_forced = rsim_run(scenario_forced, years=range(1, 4))
@@ -170,7 +198,9 @@ def test_forced_effort_changes_catch_and_biomass():
     print("DEBUG TEST: base out_catch sum:", total_catch_base)
     print("DEBUG TEST: forced out_catch sum:", total_catch_forced)
     print("DEBUG TEST: base out_catch monthly:", np.sum(result_base.out_Catch, axis=1))
-    print("DEBUG TEST: forced out_catch monthly:", np.sum(result_forced.out_Catch, axis=1))
+    print(
+        "DEBUG TEST: forced out_catch monthly:", np.sum(result_forced.out_Catch, axis=1)
+    )
     print("DEBUG TEST: params.FishQ:", scenario_base.params.FishQ)
     print("DEBUG TEST: FishFrom:", scenario_base.params.FishFrom)
     print("DEBUG TEST: FishThrough:", scenario_base.params.FishThrough)
@@ -186,7 +216,9 @@ def test_forced_effort_changes_catch_and_biomass():
             f"manual_first_month_catch={manual_catch}, params.FishQ={scenario_base.params.FishQ}, FishFrom={scenario_base.params.FishFrom}, FishThrough={scenario_base.params.FishThrough}"
         )
 
-    assert total_catch_forced > total_catch_base, "Doubling effort should increase total catch"
+    assert (
+        total_catch_forced > total_catch_base
+    ), "Doubling effort should increase total catch"
 
     # Compare end-state biomass for at least one fished group (expect decrease)
     # Find a fished group (FishFrom entries > 0)
@@ -196,9 +228,13 @@ def test_forced_effort_changes_catch_and_biomass():
     base_end_bio = result_base.end_state.Biomass[grp]
     forced_end_bio = result_forced.end_state.Biomass[grp]
 
-    assert forced_end_bio < base_end_bio, f"Expected biomass of group {grp} to decrease under doubled effort"
+    assert (
+        forced_end_bio < base_end_bio
+    ), f"Expected biomass of group {grp} to decrease under doubled effort"
 
     # Ensure gear-specific catch also increased for at least one link
     gear_catch_base = np.nansum(result_base.out_Gear_Catch)
     gear_catch_forced = np.nansum(result_forced.out_Gear_Catch)
-    assert gear_catch_forced > gear_catch_base, "Gear-level catch should increase under doubled effort"
+    assert (
+        gear_catch_forced > gear_catch_base
+    ), "Gear-level catch should increase under doubled effort"

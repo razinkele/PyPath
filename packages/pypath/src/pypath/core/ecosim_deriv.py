@@ -11,7 +11,6 @@ These are ported from the C++ ecosim.cpp file in Rpath.
 """
 
 import logging
-import os
 import warnings
 from dataclasses import dataclass
 from typing import Dict, Tuple
@@ -318,10 +317,17 @@ def deriv_vector(
 
     # Diagnostic: if trace requested, print spname type and membership check
     try:
-        if params.get("TRACE_DEBUG_GROUPS") is not None or params.get('spname') is not None:
+        if (
+            params.get("TRACE_DEBUG_GROUPS") is not None
+            or params.get("spname") is not None
+        ):
             spname = params.get("spname")
-            logger.debug(f"TRACE DEBUG: params.keys() sample={list(params.keys())[:20]}")
-            logger.debug(f"TRACE DEBUG: spname type={type(spname)} len={(len(spname) if spname is not None else 0)} contains_Seabirds={'Seabirds' in spname if spname is not None else False}")
+            logger.debug(
+                f"TRACE DEBUG: params.keys() sample={list(params.keys())[:20]}"
+            )
+            logger.debug(
+                f"TRACE DEBUG: spname type={type(spname)} len={(len(spname) if spname is not None else 0)} contains_Seabirds={'Seabirds' in spname if spname is not None else False}"
+            )
     except Exception as e:
         logger.debug(f"TRACE DEBUG: params introspection failed: {e}")
         pass
@@ -335,9 +341,11 @@ def deriv_vector(
     # their baseline Bbase value so intermediate RK4 stages don't pollute
     # predation/functional response calculations.
     try:
-        no_integrate_mask = np.asarray(params.get('NoIntegrate', np.zeros(NUM_GROUPS + 1))) != 0
+        no_integrate_mask = (
+            np.asarray(params.get("NoIntegrate", np.zeros(NUM_GROUPS + 1))) != 0
+        )
         if np.any(no_integrate_mask):
-            Bbase_arr = params.get('Bbase', None)
+            Bbase_arr = params.get("Bbase", None)
             if Bbase_arr is not None:
                 # apply baseline values for NoIntegrate groups to the local BB
                 BB = BB.copy()
@@ -348,22 +356,32 @@ def deriv_vector(
     # Instrumentation: resolve requested groups to 0-based indices (names or indices)
     # NOTE: group names map via params['spname'] (which includes a leading 'Outside').
     # We normalize to 0-based indices corresponding to `groups` list (0 => first real group).
-    INSTRUMENT_GROUPS = params.get('INSTRUMENT_GROUPS', None)
+    INSTRUMENT_GROUPS = params.get("INSTRUMENT_GROUPS", None)
     try:
-        logger.debug(f"INSTRUMENT-RAW: INSTRUMENT_GROUPS raw={INSTRUMENT_GROUPS!r} type={type(INSTRUMENT_GROUPS)} params_is_dict={isinstance(params, dict)}")
+        logger.debug(
+            f"INSTRUMENT-RAW: INSTRUMENT_GROUPS raw={INSTRUMENT_GROUPS!r} type={type(INSTRUMENT_GROUPS)} params_is_dict={isinstance(params, dict)}"
+        )
     except (TypeError, ValueError):
         pass
     instrument_set = set()
     if INSTRUMENT_GROUPS is not None:
         try:
-            spname = params.get('spname', None)
+            spname = params.get("spname", None)
             numeric_inputs = []
             for g in INSTRUMENT_GROUPS:
                 if isinstance(g, str):
                     # Prefer mapping via params['model'] if available (stable group ordering)
-                    model_df = params.get('model', None) if isinstance(params, dict) else getattr(params, 'model', None)
-                    if model_df is not None and hasattr(model_df, 'columns') and 'Group' in model_df.columns:
-                        groups_list = list(model_df['Group'])
+                    model_df = (
+                        params.get("model", None)
+                        if isinstance(params, dict)
+                        else getattr(params, "model", None)
+                    )
+                    if (
+                        model_df is not None
+                        and hasattr(model_df, "columns")
+                        and "Group" in model_df.columns
+                    ):
+                        groups_list = list(model_df["Group"])
                         if g in groups_list:
                             instrument_set.add(groups_list.index(g))
                             continue
@@ -383,7 +401,10 @@ def deriv_vector(
             # emit a DeprecationWarning and convert to 0-based by subtracting 1.
             max_idx = NUM_GROUPS - 1
             if numeric_inputs:
-                if all(1 <= v <= NUM_GROUPS for v in numeric_inputs) and min(numeric_inputs) >= 1:
+                if (
+                    all(1 <= v <= NUM_GROUPS for v in numeric_inputs)
+                    and min(numeric_inputs) >= 1
+                ):
                     # Likely 1-based indices; log, warn, and convert
                     logger.debug(
                         f"INSTRUMENT: detected probable 1-based numeric indices {numeric_inputs}; converting to 0-based"
@@ -406,15 +427,20 @@ def deriv_vector(
             try:
                 normalized = sorted(instrument_set)
                 try:
-                    params['INSTRUMENT_GROUPS'] = normalized
+                    params["INSTRUMENT_GROUPS"] = normalized
                 except (TypeError, KeyError):
                     try:
-                        setattr(params, 'INSTRUMENT_GROUPS', normalized)
+                        setattr(params, "INSTRUMENT_GROUPS", normalized)
                     except (TypeError, AttributeError):
                         pass
                 # Print normalization outcome for visibility
                 try:
-                    logger.debug("INSTRUMENT-NORM: numeric_inputs=%s normalized=%s instrument_set=%s", numeric_inputs, normalized, instrument_set)
+                    logger.debug(
+                        "INSTRUMENT-NORM: numeric_inputs=%s normalized=%s instrument_set=%s",
+                        numeric_inputs,
+                        normalized,
+                        instrument_set,
+                    )
                 except (TypeError, ValueError):
                     pass
             except (TypeError, ValueError):
@@ -511,12 +537,23 @@ def deriv_vector(
                 # instrument_set contains 0-based group indices; prey/pred are spname indices (1..)
                 prey0 = prey - 1
                 pred0 = pred - 1
-                if instrument_set and (prey0 in instrument_set or pred0 in instrument_set):
-                    pname = params.get('spname', [None] * (NUM_GROUPS + 1))[prey]
-                    prname = params.get('spname', [None] * (NUM_GROUPS + 1))[pred]
+                if instrument_set and (
+                    prey0 in instrument_set or pred0 in instrument_set
+                ):
+                    pname = params.get("spname", [None] * (NUM_GROUPS + 1))[prey]
+                    prname = params.get("spname", [None] * (NUM_GROUPS + 1))[pred]
                     logger.debug(
                         "INSTR Q prey=%s name=%s pred=%s name=%s qbase=%.6e PDY=%.6e PYY=%.6e dd_term=%.6e vv_term=%.6e Q_calc=%.6e",
-                        prey, pname, pred, prname, qbase, PDY, PYY, dd_term, vv_term, Q_calc
+                        prey,
+                        pname,
+                        pred,
+                        prname,
+                        qbase,
+                        PDY,
+                        PYY,
+                        dd_term,
+                        vv_term,
+                        Q_calc,
                     )
             except Exception as e:
                 logger.debug("Instrumentation error in Q calculation: %s", e)
@@ -566,8 +603,15 @@ def deriv_vector(
         try:
             # i is spname index (1..); instrument_set uses 0-based group indices
             if instrument_set and (i - 1) in instrument_set:
-                name = params.get('spname', [None] * (NUM_GROUPS + 1))[i]
-                logger.debug("INSTR FISH grp=%s name=%s FishMort=%.6e BB=%.6e Catch=%.6e", i, name, FishMort[i], BB[i], Catch[i])
+                name = params.get("spname", [None] * (NUM_GROUPS + 1))[i]
+                logger.debug(
+                    "INSTR FISH grp=%s name=%s FishMort=%.6e BB=%.6e Catch=%.6e",
+                    i,
+                    name,
+                    FishMort[i],
+                    BB[i],
+                    Catch[i],
+                )
         except Exception as e:
             logger.debug("Instrumentation error in fishing: %s", e)
 
@@ -583,15 +627,20 @@ def deriv_vector(
     )
 
     # IBM integration: check if any groups are replaced by IBMs
-    ibm_groups = params.get('ibm_groups', {})
+    ibm_groups = params.get("ibm_groups", {})
 
     for i in range(1, NUM_LIVING + 1):
         # IBM override: delegate to IBM if this group has one
         if i in ibm_groups:
             from pypath.ibm.integration import apply_ibm_to_derivative
+
             apply_ibm_to_derivative(
-                deriv=deriv, QQ=QQ, BB=BB,
-                ibm_group=ibm_groups[i], forcing=forcing, dt=1/12,
+                deriv=deriv,
+                QQ=QQ,
+                BB=BB,
+                ibm_group=ibm_groups[i],
+                forcing=forcing,
+                dt=1 / 12,
             )
             continue
 
@@ -631,20 +680,24 @@ def deriv_vector(
 
         # Extra debug: always print Seabirds breakdown (if present) to diagnose mismatch
         try:
-            spname = params.get('spname', None)
-            if spname is not None and 'Seabirds' in spname:
-                sidx = spname.index('Seabirds')
+            spname = params.get("spname", None)
+            if spname is not None and "Seabirds" in spname:
+                sidx = spname.index("Seabirds")
                 if i == sidx:
-                    logger.debug(f"TRACE SEABIRDS i={i} name=Seabirds production={production:.12e} predation_loss={predation_loss:.12e} fish_loss={(FishMort[i]*BB[i]):.12e} m0_loss={(m0*BB[i]):.12e} deriv={deriv[i]:.12e}")
+                    logger.debug(
+                        f"TRACE SEABIRDS i={i} name=Seabirds production={production:.12e} predation_loss={predation_loss:.12e} fish_loss={(FishMort[i]*BB[i]):.12e} m0_loss={(m0*BB[i]):.12e} deriv={deriv[i]:.12e}"
+                    )
         except Exception as e:
             logger.debug("Seabirds debug instrumentation error: %s", e)
 
         # Debug trace for specific groups if requested
         try:
-            trace_groups = params.get('TRACE_DEBUG_GROUPS', None)
+            trace_groups = params.get("TRACE_DEBUG_GROUPS", None)
             if trace_groups is not None and i in trace_groups:
-                name = params.get('spname', [None] * (NUM_GROUPS + 1))[i]
-                logger.debug(f"TRACE DERIV i={i} name={name} production={production:.6e} predation_loss={predation_loss:.6e} fish_loss={(FishMort[i]*BB[i]):.6e} m0_loss={(m0*BB[i]):.6e} deriv={deriv[i]:.6e}")
+                name = params.get("spname", [None] * (NUM_GROUPS + 1))[i]
+                logger.debug(
+                    f"TRACE DERIV i={i} name={name} production={production:.6e} predation_loss={predation_loss:.6e} fish_loss={(FishMort[i]*BB[i]):.6e} m0_loss={(m0*BB[i]):.6e} deriv={deriv[i]:.6e}"
+                )
         except Exception as e:
             logger.debug("TRACE_DEBUG_GROUPS instrumentation error: %s", e)
 
@@ -652,11 +705,13 @@ def deriv_vector(
         try:
             # Use 0-based instrument_set mapping
             if instrument_set and (i - 1) in instrument_set:
-                name = params.get('spname', [None] * (NUM_GROUPS + 1))[i]
+                name = params.get("spname", [None] * (NUM_GROUPS + 1))[i]
                 unassim_loss = consumption * Unassim[i]
                 fish_loss = FishMort[i] * BB[i]
                 m0_loss = m0 * BB[i]
-                logger.debug(f"INSTR DERIV i={i} name={name} production={production:.12e} consumption={consumption:.12e} unassim_loss={unassim_loss:.12e} predation_loss={predation_loss:.12e} fish_loss={fish_loss:.12e} m0_loss={m0_loss:.12e} deriv={deriv[i]:.12e}")
+                logger.debug(
+                    f"INSTR DERIV i={i} name={name} production={production:.12e} consumption={consumption:.12e} unassim_loss={unassim_loss:.12e} predation_loss={predation_loss:.12e} fish_loss={fish_loss:.12e} m0_loss={m0_loss:.12e} deriv={deriv[i]:.12e}"
+                )
 
                 # Also print which predators contribute to predation_loss on this prey (if this is a prey)
                 if predation_loss > 0:
@@ -664,7 +719,9 @@ def deriv_vector(
                     for pred2 in range(1, NUM_LIVING + 1):
                         qval = QQ[i, pred2]
                         if qval > 0:
-                            pname = params.get('spname', [None] * (NUM_GROUPS + 1))[pred2]
+                            pname = params.get("spname", [None] * (NUM_GROUPS + 1))[
+                                pred2
+                            ]
                             contribs.append((pred2, pname, qval))
                     if contribs:
                         logger.debug("INSTR PREDATORS for prey i={}:".format(i))
@@ -698,8 +755,8 @@ def deriv_vector(
 
     elif DetFrac.ndim == 1:
         # Link-list format: try to reconstruct a full matrix using DetFrom/DetTo
-        det_from = getattr(params, 'DetFrom', None)
-        det_to = getattr(params, 'DetTo', None)
+        det_from = getattr(params, "DetFrom", None)
+        det_to = getattr(params, "DetTo", None)
         if det_from is not None and det_to is not None:
             mat = np.zeros((NUM_GROUPS + 1, NUM_DEAD + 1))
             # det_from/det_to are arrays of same length as DetFrac
@@ -707,10 +764,14 @@ def deriv_vector(
                 f = int(det_from[k])
                 t = int(det_to[k])
                 # DetTo is an absolute group index (0 = Outside, otherwise nliving+det_idx)
-                if t >= (NUM_LIVING + 1) and t <= (NUM_LIVING + NUM_DEAD) and f >= 0 and f <= NUM_GROUPS:
+                if (
+                    t >= (NUM_LIVING + 1)
+                    and t <= (NUM_LIVING + NUM_DEAD)
+                    and f >= 0
+                    and f <= NUM_GROUPS
+                ):
                     det_col = t - NUM_LIVING  # 1-based detritus column index
                     mat[f, det_col] += DetFrac[k]
-
 
             DetFrac = mat
         else:
@@ -725,13 +786,13 @@ def deriv_vector(
     # avoid duplication and eliminate discrepancies between formats.
     try:
         if isinstance(params, dict):
-            fish_from = params.get('FishFrom', None)
-            fish_to = params.get('FishTo', None)
-            fish_q = params.get('FishQ', None)
+            fish_from = params.get("FishFrom", None)
+            fish_to = params.get("FishTo", None)
+            fish_q = params.get("FishQ", None)
         else:
-            fish_from = getattr(params, 'FishFrom', None)
-            fish_to = getattr(params, 'FishTo', None)
-            fish_q = getattr(params, 'FishQ', None)
+            fish_from = getattr(params, "FishFrom", None)
+            fish_to = getattr(params, "FishTo", None)
+            fish_q = getattr(params, "FishQ", None)
         if fish_from is not None and fish_to is not None and fish_q is not None:
             fish_from = np.asarray(fish_from)
             fish_to = np.asarray(fish_to)
@@ -760,18 +821,33 @@ def deriv_vector(
                     src_idx = f
                     fish_input = float(fish_q[k]) * float(BB[src_idx])
                     if isinstance(params, dict):
-                        m0_arr = params.get('M0', np.zeros(NUM_GROUPS + 1))
-                        qb_arr = params.get('QB', np.zeros(NUM_GROUPS + 1))
-                        unassim_arr = params.get('Unassim', np.zeros(NUM_GROUPS + 1))
+                        m0_arr = params.get("M0", np.zeros(NUM_GROUPS + 1))
+                        qb_arr = params.get("QB", np.zeros(NUM_GROUPS + 1))
+                        unassim_arr = params.get("Unassim", np.zeros(NUM_GROUPS + 1))
                     else:
-                        m0_arr = getattr(params, 'M0', np.zeros(NUM_GROUPS + 1))
-                        qb_arr = getattr(params, 'QB', np.zeros(NUM_GROUPS + 1))
-                        unassim_arr = getattr(params, 'Unassim', np.zeros(NUM_GROUPS + 1))
+                        m0_arr = getattr(params, "M0", np.zeros(NUM_GROUPS + 1))
+                        qb_arr = getattr(params, "QB", np.zeros(NUM_GROUPS + 1))
+                        unassim_arr = getattr(
+                            params, "Unassim", np.zeros(NUM_GROUPS + 1)
+                        )
 
-                    m0_pos = max(0.0, float(m0_arr[src_idx]) if src_idx < len(m0_arr) else 0.0)
-                    qb_loss = float(qb_arr[src_idx]) if (src_idx < len(qb_arr) and not np.isnan(qb_arr[src_idx])) else 0.0
-                    unassim_val = float(unassim_arr[src_idx]) if src_idx < len(unassim_arr) else 0.0
-                    source_loss = m0_pos * float(BB[src_idx]) + float(BB[src_idx]) * qb_loss * unassim_val
+                    m0_pos = max(
+                        0.0, float(m0_arr[src_idx]) if src_idx < len(m0_arr) else 0.0
+                    )
+                    qb_loss = (
+                        float(qb_arr[src_idx])
+                        if (src_idx < len(qb_arr) and not np.isnan(qb_arr[src_idx]))
+                        else 0.0
+                    )
+                    unassim_val = (
+                        float(unassim_arr[src_idx])
+                        if src_idx < len(unassim_arr)
+                        else 0.0
+                    )
+                    source_loss = (
+                        m0_pos * float(BB[src_idx])
+                        + float(BB[src_idx]) * qb_loss * unassim_val
+                    )
                     frac = fish_input / (source_loss + 1e-30)
                     if frac > 0:
                         # Make sure DetFrac has enough columns
@@ -781,11 +857,15 @@ def deriv_vector(
                             new[:, : DetFrac.shape[1]] = DetFrac
                             DetFrac = new
                         DetFrac[src_idx, det_col] += frac
-                        if params.get('VERBOSE_DEBUG', False):
-                            logger.debug(f"DEBUG: added fish-derived DetFrac mat[{src_idx},{det_col}] += {frac:.3e}")
+                        if params.get("VERBOSE_DEBUG", False):
+                            logger.debug(
+                                f"DEBUG: added fish-derived DetFrac mat[{src_idx},{det_col}] += {frac:.3e}"
+                            )
                 except Exception as e:
-                    if params.get('VERBOSE_DEBUG', False):
-                        logger.debug(f"DEBUG: failed to add fish-derived DetFrac (unified) for entry {k}: {e}")
+                    if params.get("VERBOSE_DEBUG", False):
+                        logger.debug(
+                            f"DEBUG: failed to add fish-derived DetFrac (unified) for entry {k}: {e}"
+                        )
                     continue
     except Exception as e:
         logger.debug("Fish-derived DetFrac computation error: %s", e)
@@ -794,7 +874,9 @@ def deriv_vector(
         det_idx = d - NUM_LIVING  # Detritus index (1-based within detritus)
         # Temporary debug: log DetFrac properties to diagnose IndexError
         try:
-            logger.debug(f"DEBUG DetFrac ndim={DetFrac.ndim} shape={DetFrac.shape} NUM_LIVING={NUM_LIVING} NUM_DEAD={NUM_DEAD} d={d} det_idx={det_idx}")
+            logger.debug(
+                f"DEBUG DetFrac ndim={DetFrac.ndim} shape={DetFrac.shape} NUM_LIVING={NUM_LIVING} NUM_DEAD={NUM_DEAD} d={d} det_idx={det_idx}"
+            )
         except (TypeError, ValueError, AttributeError):
             logger.debug("DEBUG DetFrac: unable to inspect shape/ndim")
 
@@ -831,7 +913,9 @@ def deriv_vector(
             deriv[d] = unas_input + mort_input - det_consumed - decay
             # Debug print detritus breakdown
             try:
-                logger.debug(f"TRACE DETRITUS d={d} det_idx={det_idx} unas_input={unas_input:.12e} mort_input={mort_input:.12e} det_consumed={det_consumed:.12e} decay={decay:.12e} deriv={deriv[d]:.12e}")
+                logger.debug(
+                    f"TRACE DETRITUS d={d} det_idx={det_idx} unas_input={unas_input:.12e} mort_input={mort_input:.12e} det_consumed={det_consumed:.12e} decay={decay:.12e} deriv={deriv[d]:.12e}"
+                )
             except Exception as e:
                 logger.debug("Detritus debug error: %s", e)
 
@@ -839,20 +923,46 @@ def deriv_vector(
             try:
                 # detritus instrumentation uses 0-based indexing consistency with group indices
                 if instrument_set and (d - 1) in instrument_set:
-                    logger.debug(f"INSTR DETRITUS d={d} det_idx={det_idx} -- per-pred unas contributions:")
+                    logger.debug(
+                        f"INSTR DETRITUS d={d} det_idx={det_idx} -- per-pred unas contributions:"
+                    )
                     for pred in range(1, NUM_LIVING + 1):
                         total_consump = np.sum(QQ[1:, pred])
-                        contrib = total_consump * Unassim[pred] * (DetFrac[pred, det_idx] if DetFrac.shape[1] > det_idx else 0)
+                        contrib = (
+                            total_consump
+                            * Unassim[pred]
+                            * (
+                                DetFrac[pred, det_idx]
+                                if DetFrac.shape[1] > det_idx
+                                else 0
+                            )
+                        )
                         if contrib != 0:
-                            pname = params.get('spname', [None] * (NUM_GROUPS + 1))[pred]
-                            logger.debug(f"  pred={pred} name={pname} total_consump={total_consump:.12e} unassim={Unassim[pred]:.12e} DetFrac={DetFrac[pred,det_idx]:.12e} contrib={contrib:.12e}")
+                            pname = params.get("spname", [None] * (NUM_GROUPS + 1))[
+                                pred
+                            ]
+                            logger.debug(
+                                f"  pred={pred} name={pname} total_consump={total_consump:.12e} unassim={Unassim[pred]:.12e} DetFrac={DetFrac[pred,det_idx]:.12e} contrib={contrib:.12e}"
+                            )
 
-                    logger.debug(f"INSTR DETRITUS d={d} det_idx={det_idx} -- per-grp mort contributions:")
+                    logger.debug(
+                        f"INSTR DETRITUS d={d} det_idx={det_idx} -- per-grp mort contributions:"
+                    )
                     for grp in range(1, NUM_LIVING + 1):
-                        contrib = params.get('M0', np.zeros(NUM_GROUPS + 1))[grp] * BB[grp] * (DetFrac[grp, det_idx] if DetFrac.shape[1] > det_idx else 0)
+                        contrib = (
+                            params.get("M0", np.zeros(NUM_GROUPS + 1))[grp]
+                            * BB[grp]
+                            * (
+                                DetFrac[grp, det_idx]
+                                if DetFrac.shape[1] > det_idx
+                                else 0
+                            )
+                        )
                         if contrib != 0:
-                            gname = params.get('spname', [None] * (NUM_GROUPS + 1))[grp]
-                            logger.debug(f"  grp={grp} name={gname} M0={params.get('M0',np.zeros(NUM_GROUPS+1))[grp]:.12e} BB={BB[grp]:.12e} DetFrac={DetFrac[grp,det_idx]:.12e} contrib={contrib:.12e}")
+                            gname = params.get("spname", [None] * (NUM_GROUPS + 1))[grp]
+                            logger.debug(
+                                f"  grp={grp} name={gname} M0={params.get('M0',np.zeros(NUM_GROUPS+1))[grp]:.12e} BB={BB[grp]:.12e} DetFrac={DetFrac[grp,det_idx]:.12e} contrib={contrib:.12e}"
+                            )
             except Exception as e:
                 logger.debug("Detritus instrumentation error: %s", e)
         except IndexError:
@@ -860,11 +970,14 @@ def deriv_vector(
             logger.error(
                 "ERROR in detritus loop: QQ.shape=%s DetFrac.shape=%s Unassim.shape=%s "
                 "det_idx=%s d=%s NUM_LIVING=%s NUM_DEAD=%s BB.shape=%s params_keys_sample=%s",
-                getattr(QQ, 'shape', type(QQ)),
-                getattr(DetFrac, 'shape', type(DetFrac)),
-                getattr(Unassim, 'shape', type(Unassim)),
-                det_idx, d, NUM_LIVING, NUM_DEAD,
-                getattr(BB, 'shape', type(BB)),
+                getattr(QQ, "shape", type(QQ)),
+                getattr(DetFrac, "shape", type(DetFrac)),
+                getattr(Unassim, "shape", type(Unassim)),
+                det_idx,
+                d,
+                NUM_LIVING,
+                NUM_DEAD,
+                getattr(BB, "shape", type(BB)),
                 list(params.keys())[:10],
             )
             raise
@@ -873,7 +986,9 @@ def deriv_vector(
     try:
         # NoIntegrate: Rpath encodes fast-turnover groups as 0. Treat 0 as True for NoIntegrate
         # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-        no_integrate = np.asarray(params.get('NoIntegrate', np.zeros(NUM_GROUPS + 1))) != 0
+        no_integrate = (
+            np.asarray(params.get("NoIntegrate", np.zeros(NUM_GROUPS + 1))) != 0
+        )
         if np.any(no_integrate):
             deriv[no_integrate] = 0.0
     except (TypeError, ValueError, IndexError):
@@ -919,9 +1034,11 @@ def integrate_rk4(
     # Enforce NoIntegrate groups stay at baseline (if provided in params)
     try:
         # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-        no_integrate = np.asarray(params.get('NoIntegrate', np.zeros(len(new_state)))) != 0
+        no_integrate = (
+            np.asarray(params.get("NoIntegrate", np.zeros(len(new_state)))) != 0
+        )
         if np.any(no_integrate):
-            Bbase = params.get('Bbase')
+            Bbase = params.get("Bbase")
             if Bbase is not None:
                 new_state[no_integrate] = Bbase[no_integrate]
     except (TypeError, ValueError, IndexError):
@@ -931,19 +1048,25 @@ def integrate_rk4(
     # params.instrument_callback (similar to AB instrumentation). Compute per-stage
     # QQ totals for requested groups and call the callback with a small payload.
     try:
-        instr_groups = params.get('INSTRUMENT_GROUPS', None)
-        cb = params.get('instrument_callback', None)
+        instr_groups = params.get("INSTRUMENT_GROUPS", None)
+        cb = params.get("instrument_callback", None)
         if cb is None:
-            cb = globals().get('_last_instrument_callback', None)
+            cb = globals().get("_last_instrument_callback", None)
         if instr_groups is not None and cb is not None:
             # Resolve numeric or named groups to 0-based indices (reuse AB logic)
             idxs = set()
-            spname = params.get('spname', None)
-            if isinstance(instr_groups, (list, tuple)) and all(isinstance(x, (int, np.integer)) for x in instr_groups):
+            spname = params.get("spname", None)
+            if isinstance(instr_groups, (list, tuple)) and all(
+                isinstance(x, (int, np.integer)) for x in instr_groups
+            ):
                 nums = [int(x) for x in instr_groups]
                 max_idx = len(state) - 1
                 try:
-                    if nums and any(v > max_idx for v in nums) and all(1 <= v <= max_idx + 1 for v in nums):
+                    if (
+                        nums
+                        and any(v > max_idx for v in nums)
+                        and all(1 <= v <= max_idx + 1 for v in nums)
+                    ):
                         nums = [v - 1 for v in nums]
                 except (TypeError, ValueError):
                     pass
@@ -951,11 +1074,15 @@ def integrate_rk4(
             else:
                 # Prefer mapping via model DataFrame when available for stable
                 # group ordering; otherwise fallback to spname mapping.
-                model_df = params.get('model', None)
+                model_df = params.get("model", None)
                 for g in instr_groups:
                     if isinstance(g, str):
-                        if model_df is not None and hasattr(model_df, 'columns') and 'Group' in model_df.columns:
-                            groups_list = list(model_df['Group'])
+                        if (
+                            model_df is not None
+                            and hasattr(model_df, "columns")
+                            and "Group" in model_df.columns
+                        ):
+                            groups_list = list(model_df["Group"])
                             if g in groups_list:
                                 idxs.add(groups_list.index(g))
                                 continue
@@ -977,24 +1104,37 @@ def integrate_rk4(
                     try:
                         from pypath.core.ecosim import _compute_Q_matrix
 
-                        stages = [state, state + 0.5 * dt * k1, state + 0.5 * dt * k2, state + dt * k3]
+                        stages = [
+                            state,
+                            state + 0.5 * dt * k1,
+                            state + 0.5 * dt * k2,
+                            state + dt * k3,
+                        ]
                         stage_totals = []
                         for st in stages:
-                            QQs = _compute_Q_matrix(params, st, {"Ftime": np.ones_like(st)})
-                            totals = [float(np.nansum(QQs[:, i + 1])) for i in valid_idxs]
+                            QQs = _compute_Q_matrix(
+                                params, st, {"Ftime": np.ones_like(st)}
+                            )
+                            totals = [
+                                float(np.nansum(QQs[:, i + 1])) for i in valid_idxs
+                            ]
                             stage_totals.append(totals)
 
-                        parent = params.get('_integration_parent_method') if isinstance(params, dict) else None
-                        payload_method = parent if parent is not None else 'RK4'
+                        parent = (
+                            params.get("_integration_parent_method")
+                            if isinstance(params, dict)
+                            else None
+                        )
+                        payload_method = parent if parent is not None else "RK4"
                         # Helpful debug: when used as a warmup for another method
                         # we may want to inspect resolved group indices to ensure
                         # name->index mapping matches caller expectations.
 
                         payload = {
-                            'method': payload_method,
-                            'groups': valid_idxs,
-                            'stage_consumption_totals': stage_totals,
-                            'dt': float(dt),
+                            "method": payload_method,
+                            "groups": valid_idxs,
+                            "stage_consumption_totals": stage_totals,
+                            "dt": float(dt),
                         }
                         # If this RK4 call is being used solely as a warmup for
                         # another integrator (e.g., AB), skip invoking the
@@ -1006,7 +1146,11 @@ def integrate_rk4(
                         if parent is None:
                             cb(payload)
                         else:
-                            logger.debug('INSTRUMENT-TRACE: skipping RK4-stage callback when used as warmup for parent={}'.format(parent))
+                            logger.debug(
+                                "INSTRUMENT-TRACE: skipping RK4-stage callback when used as warmup for parent={}".format(
+                                    parent
+                                )
+                            )
                     except Exception as e:
                         logger.debug("RK4 instrumentation error: %s", e)
     except Exception as e:
@@ -1016,6 +1160,7 @@ def integrate_rk4(
 
 
 MAX_DERIV_MAG = 1e6
+
 
 def _sanitize_deriv(v: np.ndarray) -> np.ndarray:
     """Sanitize derivative vectors by replacing non-finite values and
@@ -1086,9 +1231,8 @@ def integrate_ab(
     elif n_history >= 1:
         # 2-step Adams-Bashforth
         coef = np.array([3, -1]) / 2.0
-        delta = (
-            coef[0] * deriv_current
-            + coef[1] * _sanitize_deriv(np.asarray(derivs_history[0]))
+        delta = coef[0] * deriv_current + coef[1] * _sanitize_deriv(
+            np.asarray(derivs_history[0])
         )
         new_state = state + dt * delta
     else:
@@ -1111,9 +1255,11 @@ def integrate_ab(
     # Enforce NoIntegrate groups stay at baseline (if provided in params)
     try:
         # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-        no_integrate = np.asarray(params.get('NoIntegrate', np.zeros(len(new_state)))) != 0
+        no_integrate = (
+            np.asarray(params.get("NoIntegrate", np.zeros(len(new_state)))) != 0
+        )
         if np.any(no_integrate):
-            Bbase = params.get('Bbase')
+            Bbase = params.get("Bbase")
             if Bbase is not None:
                 new_state[no_integrate] = Bbase[no_integrate]
                 deriv_current[no_integrate] = 0.0
@@ -1126,14 +1272,14 @@ def integrate_ab(
     # numeric arrays to allow unit tests / debugging harnesses to inspect
     # intermediate AB behavior without parsing verbose logs.
     try:
-        instr_groups = params.get('INSTRUMENT_GROUPS', None)
+        instr_groups = params.get("INSTRUMENT_GROUPS", None)
         # Prefer the original attribute-based INSTRUMENT_GROUPS (exported by rsim_run)
         # if present; this helps in cases where the params dict has been mutated
         # during warmup or other computations.
         # Ensure NUM_GROUPS is available for legacy numeric instrument group checks
-        NUM_GROUPS = params.get('NUM_GROUPS', None)
+        NUM_GROUPS = params.get("NUM_GROUPS", None)
         try:
-            attr_ig = globals().get('_last_instrument_groups', None)
+            attr_ig = globals().get("_last_instrument_groups", None)
             if attr_ig is not None:
                 # If attr_ig differs from the dict value, prefer the attribute
                 # (it represents the caller's original intention).
@@ -1142,15 +1288,21 @@ def integrate_ab(
                     # list, convert it aggressively here so caller intent is
                     # preserved and a DeprecationWarning is emitted.
                     try:
-                        if isinstance(attr_ig, (list, tuple)) and all(isinstance(x, (int, float, np.integer)) for x in attr_ig):
+                        if isinstance(attr_ig, (list, tuple)) and all(
+                            isinstance(x, (int, float, np.integer)) for x in attr_ig
+                        ):
                             nums = [int(x) for x in attr_ig]
                             # Convert numeric 1-based indices only when caller explicitly
                             # opts in via INSTRUMENT_ASSUME_1BASED or when numbers exceed
                             # the valid 0-based range but are within plausible 1-based
                             # bounds (1..NUM_GROUPS).
-                            assume_flag = params.get('INSTRUMENT_ASSUME_1BASED', False)
+                            assume_flag = params.get("INSTRUMENT_ASSUME_1BASED", False)
                             if nums and (
-                                assume_flag or (any(v > NUM_GROUPS - 1 for v in nums) and all(1 <= v <= NUM_GROUPS for v in nums))
+                                assume_flag
+                                or (
+                                    any(v > NUM_GROUPS - 1 for v in nums)
+                                    and all(1 <= v <= NUM_GROUPS for v in nums)
+                                )
                             ):
                                 import warnings as _warnings
 
@@ -1165,10 +1317,12 @@ def integrate_ab(
                                 instr_groups = nums
                                 # write back normalization to params dict/attr if possible
                                 try:
-                                    params['INSTRUMENT_GROUPS'] = instr_groups
+                                    params["INSTRUMENT_GROUPS"] = instr_groups
                                 except (TypeError, KeyError):
                                     try:
-                                        setattr(params, 'INSTRUMENT_GROUPS', instr_groups)
+                                        setattr(
+                                            params, "INSTRUMENT_GROUPS", instr_groups
+                                        )
                                     except (TypeError, AttributeError):
                                         pass
                             else:
@@ -1184,18 +1338,23 @@ def integrate_ab(
         # to module-level last-known callback (set by rsim_run) to handle callsites
         # that attach the callback as an attribute on the params object instead
         # of the params dict (legacy code paths).
-        cb = params.get('instrument_callback', None)
+        cb = params.get("instrument_callback", None)
         if cb is None:
             # Module-level fallback (set by rsim_run if available)
             try:
-                cb = globals().get('_last_instrument_callback', None)
+                cb = globals().get("_last_instrument_callback", None)
                 if cb is not None:
-                    logger.debug('INSTRUMENT: using module-level fallback callback')
+                    logger.debug("INSTRUMENT: using module-level fallback callback")
             except (TypeError, AttributeError):
                 cb = None
         # Print debug info without referencing undefined symbols
         try:
-            logger.debug("INSTRUMENT-DEBUG: instr_groups=%s cb_present=%s cb=%s", instr_groups, cb is not None, cb)
+            logger.debug(
+                "INSTRUMENT-DEBUG: instr_groups=%s cb_present=%s cb=%s",
+                instr_groups,
+                cb is not None,
+                cb,
+            )
         except (TypeError, ValueError):
             pass
         # Only proceed if caller requested instrumentation via instr_groups
@@ -1203,17 +1362,21 @@ def integrate_ab(
         if instr_groups is not None and cb is not None:
             # Prefer a pre-normalized numeric list (0-based indices) when provided
             idxs = set()
-            spname = params.get('spname', None)
+            spname = params.get("spname", None)
             # If instr_groups is a list of numeric indices (possibly normalized),
             # use them directly; otherwise try to resolve names to indices.
             try:
                 # treat as numeric list when all elements are ints
-                if isinstance(instr_groups, (list, tuple)) and all(isinstance(x, (int, np.integer)) for x in instr_groups):
+                if isinstance(instr_groups, (list, tuple)) and all(
+                    isinstance(x, (int, np.integer)) for x in instr_groups
+                ):
                     # Detailed tracing for numeric-based instrument group resolution
                     nums = [int(x) for x in instr_groups]
                     max_idx = len(state) - 1
                     try:
-                        logger.debug(f"INSTRUMENT-TRACE: before conversion nums={nums} max_idx={max_idx} instr_groups_id={id(instr_groups)} params_has={ 'INSTRUMENT_GROUPS' in params if isinstance(params, dict) else hasattr(params, 'INSTRUMENT_GROUPS') } _last_instrument_groups={globals().get('_last_instrument_groups', None) }")
+                        logger.debug(
+                            f"INSTRUMENT-TRACE: before conversion nums={nums} max_idx={max_idx} instr_groups_id={id(instr_groups)} params_has={ 'INSTRUMENT_GROUPS' in params if isinstance(params, dict) else hasattr(params, 'INSTRUMENT_GROUPS') } _last_instrument_groups={globals().get('_last_instrument_groups', None) }"
+                        )
                     except (TypeError, ValueError):
                         pass
 
@@ -1222,10 +1385,16 @@ def integrate_ab(
                     # Only convert if some values exceed the max 0-based index but are
                     # within the plausible 1-based range (1..max_idx+1).
                     try:
-                        if nums and any(v > max_idx for v in nums) and all(1 <= v <= max_idx + 1 for v in nums):
+                        if (
+                            nums
+                            and any(v > max_idx for v in nums)
+                            and all(1 <= v <= max_idx + 1 for v in nums)
+                        ):
                             import warnings as _warnings
 
-                            logger.debug(f"INSTRUMENT-TRACE: detected probable 1-based numeric indices {nums}; converting to 0-based")
+                            logger.debug(
+                                f"INSTRUMENT-TRACE: detected probable 1-based numeric indices {nums}; converting to 0-based"
+                            )
                             _warnings.warn(
                                 "Numeric INSTRUMENT_GROUPS indices are expected to be 0-based. "
                                 "Detected probable 1-based indices — converting to 0-based for now. "
@@ -1238,23 +1407,31 @@ def integrate_ab(
                         pass
 
                     try:
-                        logger.debug(f"INSTRUMENT-TRACE: after conversion (or no conversion) nums={nums}")
+                        logger.debug(
+                            f"INSTRUMENT-TRACE: after conversion (or no conversion) nums={nums}"
+                        )
                     except (TypeError, ValueError):
                         pass
 
                     # Update idxs with the resolved numeric values (assume normalized unless converted above)
                     idxs.update(int(x) for x in nums)
                     try:
-                        logger.debug(f"INSTRUMENT-TRACE: idxs updated -> {sorted(idxs)} (raw), params['INSTRUMENT_GROUPS']={params.get('INSTRUMENT_GROUPS', None) if isinstance(params, dict) else getattr(params, 'INSTRUMENT_GROUPS', None)}")
+                        logger.debug(
+                            f"INSTRUMENT-TRACE: idxs updated -> {sorted(idxs)} (raw), params['INSTRUMENT_GROUPS']={params.get('INSTRUMENT_GROUPS', None) if isinstance(params, dict) else getattr(params, 'INSTRUMENT_GROUPS', None)}"
+                        )
                     except (TypeError, ValueError):
                         pass
                 else:
-                    model_df = params.get('model', None)
+                    model_df = params.get("model", None)
                     for g in instr_groups:
                         if isinstance(g, str):
                             # Prefer model-defined ordering when available
-                            if model_df is not None and hasattr(model_df, 'columns') and 'Group' in model_df.columns:
-                                groups_list = list(model_df['Group'])
+                            if (
+                                model_df is not None
+                                and hasattr(model_df, "columns")
+                                and "Group" in model_df.columns
+                            ):
+                                groups_list = list(model_df["Group"])
                                 if g in groups_list:
                                     idxs.add(groups_list.index(g))
                                     continue
@@ -1276,12 +1453,12 @@ def integrate_ab(
                 max_idx = len(state) - 1
                 valid_idxs = sorted(i for i in idxs if 0 <= i <= max_idx)
 
-# If we exported caller attribute INSTRUMENT_GROUPS earlier, use it
+                # If we exported caller attribute INSTRUMENT_GROUPS earlier, use it
                 # only as a fallback when dict-derived resolution failed. This avoids
                 # preferring older caller attribute values that may be legacy 1-based
                 # and lead to conflicting normalization choices.
                 try:
-                    attr_ig = globals().get('_last_instrument_groups', None)
+                    attr_ig = globals().get("_last_instrument_groups", None)
                     if attr_ig is not None:
                         alt_idxs = set()
                         # Resolve attribute-provided groups similarly to dict ones
@@ -1290,8 +1467,12 @@ def integrate_ab(
                                 nums = [int(x) for x in attr_ig]
                                 # Only convert attribute-provided numeric 1-based indices
                                 # when caller explicitly opts in via INSTRUMENT_ASSUME_1BASED
-                                if params.get('INSTRUMENT_ASSUME_1BASED', False):
-                                    if nums and any(v > max_idx for v in nums) and all(1 <= v <= max_idx + 1 for v in nums):
+                                if params.get("INSTRUMENT_ASSUME_1BASED", False):
+                                    if (
+                                        nums
+                                        and any(v > max_idx for v in nums)
+                                        and all(1 <= v <= max_idx + 1 for v in nums)
+                                    ):
                                         import warnings as _warnings
 
                                         _warnings.warn(
@@ -1305,7 +1486,11 @@ def integrate_ab(
                                 alt_idxs.update(int(x) for x in nums)
                             else:
                                 for g in attr_ig:
-                                    if isinstance(g, str) and spname is not None and g in spname:
+                                    if (
+                                        isinstance(g, str)
+                                        and spname is not None
+                                        and g in spname
+                                    ):
                                         sp_idx = spname.index(g)
                                         if sp_idx > 0:
                                             alt_idxs.add(sp_idx - 1)
@@ -1326,19 +1511,23 @@ def integrate_ab(
                         # resolution only when attribute resolution fails.
                         alt_valid = sorted(i for i in alt_idxs if 0 <= i <= max_idx)
                         if alt_valid:
-                            logger.debug(f"INSTRUMENT-TRACE: preferring attr_ig alt_valid={alt_valid} over dict-derived valid_idxs={valid_idxs}")
+                            logger.debug(
+                                f"INSTRUMENT-TRACE: preferring attr_ig alt_valid={alt_valid} over dict-derived valid_idxs={valid_idxs}"
+                            )
                             valid_idxs = alt_valid
                             # Also write back the normalized groups into params when possible
                             try:
                                 normalized = list(valid_idxs)
                                 try:
-                                    params['INSTRUMENT_GROUPS'] = normalized
+                                    params["INSTRUMENT_GROUPS"] = normalized
                                 except (TypeError, KeyError):
                                     try:
-                                        setattr(params, 'INSTRUMENT_GROUPS', normalized)
+                                        setattr(params, "INSTRUMENT_GROUPS", normalized)
                                     except (TypeError, AttributeError):
                                         pass
-                                logger.debug(f"INSTRUMENT-TRACE: wrote normalized attr_ig back to params: {normalized}")
+                                logger.debug(
+                                    f"INSTRUMENT-TRACE: wrote normalized attr_ig back to params: {normalized}"
+                                )
                             except (TypeError, ValueError):
                                 pass
                 except (TypeError, ValueError):
@@ -1348,24 +1537,32 @@ def integrate_ab(
                     # Collect history for these groups (may be empty)
                     hist = [np.asarray(h)[idx_list].tolist() for h in derivs_history]
                     payload = {
-                        'method': 'AB',
-                        'groups': idx_list,
-                        'deriv_current': np.asarray(deriv_current)[idx_list].tolist(),
-                        'derivs_history': hist,
-                        'new_state': np.asarray(new_state)[idx_list].tolist(),
-                        'dt': float(dt),
+                        "method": "AB",
+                        "groups": idx_list,
+                        "deriv_current": np.asarray(deriv_current)[idx_list].tolist(),
+                        "derivs_history": hist,
+                        "new_state": np.asarray(new_state)[idx_list].tolist(),
+                        "dt": float(dt),
                     }
                 try:
                     try:
-                        if (isinstance(params, dict) and params.get('VERBOSE_INSTRUMENTATION')) or getattr(params, 'VERBOSE_INSTRUMENTATION', False):
+                        if (
+                            isinstance(params, dict)
+                            and params.get("VERBOSE_INSTRUMENTATION")
+                        ) or getattr(params, "VERBOSE_INSTRUMENTATION", False):
                             logger.debug(
                                 "INSTRUMENT-TRACE-PAYLOAD: idx_list=%s state_len=%s deriv_slice=%s new_state_slice=%s cb=%s params_INSTRUMENT_GROUPS=%s _last_instrument_groups=%s",
-                                idx_list, len(state),
+                                idx_list,
+                                len(state),
                                 np.asarray(deriv_current)[idx_list].tolist(),
                                 np.asarray(new_state)[idx_list].tolist(),
                                 cb,
-                                params.get('INSTRUMENT_GROUPS', None) if isinstance(params, dict) else getattr(params, 'INSTRUMENT_GROUPS', None),
-                                globals().get('_last_instrument_groups', None),
+                                (
+                                    params.get("INSTRUMENT_GROUPS", None)
+                                    if isinstance(params, dict)
+                                    else getattr(params, "INSTRUMENT_GROUPS", None)
+                                ),
+                                globals().get("_last_instrument_groups", None),
                             )
                     except (TypeError, ValueError):
                         pass
@@ -1373,7 +1570,7 @@ def integrate_ab(
                     cb(payload)
                 except Exception as e:
                     # Don't allow instrumentation failures to break integration
-                    logger.debug('Instrumentation callback failed: %s', e)
+                    logger.debug("Instrumentation callback failed: %s", e)
     except Exception as e:
         logger.debug("AB outer instrumentation error: %s", e)
 

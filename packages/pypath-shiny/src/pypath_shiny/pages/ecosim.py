@@ -2,16 +2,16 @@
 
 import numpy as np
 import pandas as pd
-from shiny import Inputs, Outputs, Session, reactive, render, ui
-
-# Import centralized configuration
-from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.autofix import validate_and_fix_scenario
 from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
 from pypath.core.ecosim_advanced import rsim_run_advanced
 from pypath.core.forcing import DietRewiring
+from shiny import Inputs, Outputs, Session, reactive, render, ui
+
+# Import centralized configuration
+from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
 
 
 # Helper to check model balance and show notification if not

@@ -50,7 +50,9 @@ def test_short_rk4_step_changes_discards_with_fish_discard_mappings():
     model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR / "diet_matrix.csv")
 
-    params = create_rpath_params(model_df["Group"].tolist(), [int(t) for t in model_df["Type"].tolist()])
+    params = create_rpath_params(
+        model_df["Group"].tolist(), [int(t) for t in model_df["Type"].tolist()]
+    )
     params.model = model_df
     params.diet = diet_df
 
@@ -58,7 +60,10 @@ def test_short_rk4_step_changes_discards_with_fish_discard_mappings():
     scenario = rsim_scenario(pypath_model, params, years=range(1, 3))
 
     # If the reference params do not include fish discard mappings skip the test
-    if not (hasattr(scenario.params, "FishFrom") and getattr(scenario.params, "FishFrom") is not None):
+    if not (
+        hasattr(scenario.params, "FishFrom")
+        and getattr(scenario.params, "FishFrom") is not None
+    ):
         pytest.skip("Reference params have no FishFrom/FishTo/FishQ mappings to test")
 
     state0 = scenario.start_state.Biomass.copy()
@@ -70,8 +75,15 @@ def test_short_rk4_step_changes_discards_with_fish_discard_mappings():
     pdict_no_fish["FishQ"] = None
 
     # Forcing and fishing: minimal objects (Ftime etc.)
-    forcing = {"Ftime": scenario.start_state.Ftime.copy(), "PP_forcing": np.ones(pdict_with["NUM_GROUPS"] + 1)}
-    fishing = {"FishFrom": getattr(scenario.params, "FishFrom", None), "FishThrough": getattr(scenario.params, "FishThrough", None), "FishQ": getattr(scenario.params, "FishQ", None)}
+    forcing = {
+        "Ftime": scenario.start_state.Ftime.copy(),
+        "PP_forcing": np.ones(pdict_with["NUM_GROUPS"] + 1),
+    }
+    fishing = {
+        "FishFrom": getattr(scenario.params, "FishFrom", None),
+        "FishThrough": getattr(scenario.params, "FishThrough", None),
+        "FishQ": getattr(scenario.params, "FishQ", None),
+    }
 
     # Index for Discards
     if "Discards" not in pdict_with["spname"]:
@@ -84,7 +96,9 @@ def test_short_rk4_step_changes_discards_with_fish_discard_mappings():
 
     # Expect that fish-derived mappings increase the Discards derivative
     diff = deriv_with[idx_discards] - deriv_no[idx_discards]
-    assert diff >= 0.0, f"Discards derivative not increased by fish-derived discards (diff={diff})"
+    assert (
+        diff >= 0.0
+    ), f"Discards derivative not increased by fish-derived discards (diff={diff})"
     assert abs(diff) > 1e-12, "Measured effect is too small to be meaningful"
 
     # Also check a single RK4 step results in a larger short-term increase
@@ -96,7 +110,9 @@ def test_short_rk4_step_changes_discards_with_fish_discard_mappings():
     delta_with = new_state_with[idx_discards] - state0[idx_discards]
     delta_no = new_state_no[idx_discards] - state0[idx_discards]
 
-    assert delta_with - delta_no >= 0.0, "RK4 step did not increase Discards more when fish-derived discards were enabled"
+    assert (
+        delta_with - delta_no >= 0.0
+    ), "RK4 step did not increase Discards more when fish-derived discards were enabled"
     assert abs(delta_with - delta_no) > 1e-12, "RK4 short-term effect is too small"
 
 
@@ -177,8 +193,16 @@ def synthetic_fish_scenario():
         "FishQ": np.array([0.0, 0.05, 0.1]),
     }
 
-    forcing = {"Ftime": np.ones(NUM_GROUPS + 1), "PP_forcing": np.ones(NUM_GROUPS + 1), "ForcedPrey": np.ones(NUM_GROUPS + 1)}
-    fishing = {"FishFrom": pdict["FishFrom"], "FishThrough": np.array([0, NUM_LIVING + 1, NUM_LIVING + 1], dtype=int), "FishQ": pdict["FishQ"]}
+    forcing = {
+        "Ftime": np.ones(NUM_GROUPS + 1),
+        "PP_forcing": np.ones(NUM_GROUPS + 1),
+        "ForcedPrey": np.ones(NUM_GROUPS + 1),
+    }
+    fishing = {
+        "FishFrom": pdict["FishFrom"],
+        "FishThrough": np.array([0, NUM_LIVING + 1, NUM_LIVING + 1], dtype=int),
+        "FishQ": pdict["FishQ"],
+    }
 
     return pdict, forcing, fishing, state0, spname
 
@@ -217,22 +241,119 @@ def test_multi_month_synthetic_scenario_effect(synthetic_fish_scenario):
     disc_diff = final_with[i_disc] - final_no[i_disc]
     seab_diff = final_with[i_seab] - final_no[i_seab]
 
-    assert disc_diff > 1e-4, f"Synthetic scenario: Discards not sufficiently larger: {disc_diff}"
-    assert abs(seab_diff) > 1e-5, f"Synthetic scenario: Seabirds effect too small: {seab_diff}"
+    assert (
+        disc_diff > 1e-4
+    ), f"Synthetic scenario: Discards not sufficiently larger: {disc_diff}"
+    assert (
+        abs(seab_diff) > 1e-5
+    ), f"Synthetic scenario: Seabirds effect too small: {seab_diff}"
 
 
-@pytest.mark.parametrize("variant", [
-    {"name": "weak-lowQB", "fish_q_scale": 0.4, "det_consume": 0.2, "unassim_scale": 0.8, "qb_val": 0.3, "m0_scale": 1.0, "extra_predators": [], "det_decay": 0.0},
-    {"name": "weak-highUnassim", "fish_q_scale": 0.4, "det_consume": 0.2, "unassim_scale": 1.2, "qb_val": 0.5, "m0_scale": 1.0, "extra_predators": [], "det_decay": 0.0},
-    {"name": "m0_high", "fish_q_scale": 1.0, "det_consume": 0.5, "unassim_scale": 1.0, "qb_val": 0.5, "m0_scale": 2.0, "extra_predators": [], "det_decay": 0.0},
-    {"name": "multi_pred_detfrac", "fish_q_scale": 1.0, "det_consume": 0.5, "unassim_scale": 1.0, "qb_val": 0.5, "m0_scale": 1.0, "extra_predators": [2,3], "det_decay": 0.0},
-    {"name": "strong", "fish_q_scale": 2.0, "det_consume": 1.0, "unassim_scale": 1.0, "qb_val": 0.7, "m0_scale": 1.0, "extra_predators": [], "det_decay": 0.0},
-    {"name": "strong-highUnassim", "fish_q_scale": 2.0, "det_consume": 1.0, "unassim_scale": 1.3, "qb_val": 0.8, "m0_scale": 1.0, "extra_predators": [2], "det_decay": 0.0},
-    {"name": "zero_detdecay", "fish_q_scale": 1.0, "det_consume": 0.5, "unassim_scale": 1.0, "qb_val": 0.5, "m0_scale": 1.0, "extra_predators": [], "det_decay": 0.0},
-    {"name": "high_detdecay", "fish_q_scale": 1.0, "det_consume": 0.5, "unassim_scale": 1.0, "qb_val": 0.5, "m0_scale": 1.0, "extra_predators": [], "det_decay": 1.0},
-    {"name": "extreme_unassim", "fish_q_scale": 1.0, "det_consume": 0.5, "unassim_scale": 5.0, "qb_val": 0.5, "m0_scale": 1.0, "extra_predators": [], "det_decay": 0.0},
-    {"name": "zero_unassim", "fish_q_scale": 1.0, "det_consume": 0.5, "unassim_scale": 0.0, "qb_val": 0.5, "m0_scale": 1.0, "extra_predators": [], "det_decay": 0.0},
-])
+@pytest.mark.parametrize(
+    "variant",
+    [
+        {
+            "name": "weak-lowQB",
+            "fish_q_scale": 0.4,
+            "det_consume": 0.2,
+            "unassim_scale": 0.8,
+            "qb_val": 0.3,
+            "m0_scale": 1.0,
+            "extra_predators": [],
+            "det_decay": 0.0,
+        },
+        {
+            "name": "weak-highUnassim",
+            "fish_q_scale": 0.4,
+            "det_consume": 0.2,
+            "unassim_scale": 1.2,
+            "qb_val": 0.5,
+            "m0_scale": 1.0,
+            "extra_predators": [],
+            "det_decay": 0.0,
+        },
+        {
+            "name": "m0_high",
+            "fish_q_scale": 1.0,
+            "det_consume": 0.5,
+            "unassim_scale": 1.0,
+            "qb_val": 0.5,
+            "m0_scale": 2.0,
+            "extra_predators": [],
+            "det_decay": 0.0,
+        },
+        {
+            "name": "multi_pred_detfrac",
+            "fish_q_scale": 1.0,
+            "det_consume": 0.5,
+            "unassim_scale": 1.0,
+            "qb_val": 0.5,
+            "m0_scale": 1.0,
+            "extra_predators": [2, 3],
+            "det_decay": 0.0,
+        },
+        {
+            "name": "strong",
+            "fish_q_scale": 2.0,
+            "det_consume": 1.0,
+            "unassim_scale": 1.0,
+            "qb_val": 0.7,
+            "m0_scale": 1.0,
+            "extra_predators": [],
+            "det_decay": 0.0,
+        },
+        {
+            "name": "strong-highUnassim",
+            "fish_q_scale": 2.0,
+            "det_consume": 1.0,
+            "unassim_scale": 1.3,
+            "qb_val": 0.8,
+            "m0_scale": 1.0,
+            "extra_predators": [2],
+            "det_decay": 0.0,
+        },
+        {
+            "name": "zero_detdecay",
+            "fish_q_scale": 1.0,
+            "det_consume": 0.5,
+            "unassim_scale": 1.0,
+            "qb_val": 0.5,
+            "m0_scale": 1.0,
+            "extra_predators": [],
+            "det_decay": 0.0,
+        },
+        {
+            "name": "high_detdecay",
+            "fish_q_scale": 1.0,
+            "det_consume": 0.5,
+            "unassim_scale": 1.0,
+            "qb_val": 0.5,
+            "m0_scale": 1.0,
+            "extra_predators": [],
+            "det_decay": 1.0,
+        },
+        {
+            "name": "extreme_unassim",
+            "fish_q_scale": 1.0,
+            "det_consume": 0.5,
+            "unassim_scale": 5.0,
+            "qb_val": 0.5,
+            "m0_scale": 1.0,
+            "extra_predators": [],
+            "det_decay": 0.0,
+        },
+        {
+            "name": "zero_unassim",
+            "fish_q_scale": 1.0,
+            "det_consume": 0.5,
+            "unassim_scale": 0.0,
+            "qb_val": 0.5,
+            "m0_scale": 1.0,
+            "extra_predators": [],
+            "det_decay": 0.0,
+        },
+    ],
+)
 def test_multi_month_synthetic_scenario_variants(synthetic_fish_scenario, variant):
     pdict, forcing, fishing, state0, spname = synthetic_fish_scenario
 
@@ -268,8 +389,12 @@ def test_multi_month_synthetic_scenario_variants(synthetic_fish_scenario, varian
         for pred_idx in variant["extra_predators"]:
             # append predator mapping to same Discards column
             ff = np.concatenate((ff, np.array([pred_idx], dtype=int)))
-            ft = np.concatenate((ft, np.array([pdict_variant["NUM_LIVING"] + 1], dtype=int)))
-            fq = np.concatenate((fq, np.array([0.05 * variant.get("fish_q_scale", 1.0)])))
+            ft = np.concatenate(
+                (ft, np.array([pdict_variant["NUM_LIVING"] + 1], dtype=int))
+            )
+            fq = np.concatenate(
+                (fq, np.array([0.05 * variant.get("fish_q_scale", 1.0)]))
+            )
         pdict_variant["FishFrom"] = ff
         pdict_variant["FishTo"] = ft
         pdict_variant["FishQ"] = fq
@@ -279,6 +404,7 @@ def test_multi_month_synthetic_scenario_variants(synthetic_fish_scenario, varian
 
     # control (no fish)
     import copy
+
     pdict_no = copy.deepcopy(pdict_variant)
     pdict_no["FishFrom"] = None
     pdict_no["FishTo"] = None
@@ -293,7 +419,9 @@ def test_multi_month_synthetic_scenario_variants(synthetic_fish_scenario, varian
     biom_no[0] = state0.copy()
 
     for m in range(1, months + 1):
-        biom_with[m] = integrate_rk4(biom_with[m - 1], pdict_variant, forcing, fishing, 1.0)
+        biom_with[m] = integrate_rk4(
+            biom_with[m - 1], pdict_variant, forcing, fishing, 1.0
+        )
         biom_no[m] = integrate_rk4(biom_no[m - 1], pdict_no, forcing, fishing, 1.0)
 
     i_disc = pdict_variant["spname"].index("Discards")
@@ -305,8 +433,12 @@ def test_multi_month_synthetic_scenario_variants(synthetic_fish_scenario, varian
     disc_diff = final_with[i_disc] - final_no[i_disc]
     seab_diff = final_with[i_seab] - final_no[i_seab]
 
-    assert disc_diff > 1e-4, f"Variant {variant['name']}: Discards not sufficiently larger: {disc_diff}"
-    assert abs(seab_diff) > 1e-5, f"Variant {variant['name']}: Seabirds effect too small: {seab_diff}"
+    assert (
+        disc_diff > 1e-4
+    ), f"Variant {variant['name']}: Discards not sufficiently larger: {disc_diff}"
+    assert (
+        abs(seab_diff) > 1e-5
+    ), f"Variant {variant['name']}: Seabirds effect too small: {seab_diff}"
 
     # Sanity checks: detritus biomass should never go negative and monthly
     # detritus budget (inputs - sinks) should not be strongly negative
@@ -325,8 +457,14 @@ def test_multi_month_synthetic_scenario_variants(synthetic_fish_scenario, varian
         net = det_balance(biom_with[m], pdict_variant)
         # Allow small transient negative detritus derivatives; bound by baseline detritus
         threshold = -pdict_variant.get("Bbase", np.zeros(NUM_GROUPS + 1))[i_disc]
-        assert net >= threshold - 1e-8, f"Variant {variant['name']} month {m} negative det balance {net} (threshold {threshold})"
-        assert biom_with[m][i_disc] >= -1e-12, f"Variant {variant['name']} month {m} negative det biomass {biom_with[m][i_disc]}"
+        assert (
+            net >= threshold - 1e-8
+        ), f"Variant {variant['name']} month {m} negative det balance {net} (threshold {threshold})"
+        assert (
+            biom_with[m][i_disc] >= -1e-12
+        ), f"Variant {variant['name']} month {m} negative det biomass {biom_with[m][i_disc]}"
+
+
 def test_multi_month_rk4_persistent_discards_seabirds_effect():
     """Run a short (few-year) RK4 run with and without fish-derived discards
     and assert a persistent difference in Discards (and a measurable effect on
@@ -335,7 +473,9 @@ def test_multi_month_rk4_persistent_discards_seabirds_effect():
     model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")
     diet_df = pd.read_csv(ECOPATH_DIR / "diet_matrix.csv")
 
-    params = create_rpath_params(model_df["Group"].tolist(), [int(t) for t in model_df["Type"].tolist()])
+    params = create_rpath_params(
+        model_df["Group"].tolist(), [int(t) for t in model_df["Type"].tolist()]
+    )
     params.model = model_df
     params.diet = diet_df
 
@@ -382,7 +522,11 @@ def test_multi_month_rk4_persistent_discards_seabirds_effect():
     seab_diff = final_with[i_seab] - final_no[i_seab]
 
     # Expect Discards to be larger when fish-derived discards exist (positive diff)
-    assert disc_diff > 1e-4, f"Discards mean over final year not sufficiently larger: diff={disc_diff}"
+    assert (
+        disc_diff > 1e-4
+    ), f"Discards mean over final year not sufficiently larger: diff={disc_diff}"
 
     # Seabirds should exhibit a measurable effect (positive or negative) above tiny noise
-    assert abs(seab_diff) > 1e-5, f"Seabirds mean change over final year too small: diff={seab_diff}"
+    assert (
+        abs(seab_diff) > 1e-5
+    ), f"Seabirds mean change over final year too small: diff={seab_diff}"

@@ -2,6 +2,9 @@
 Quick test to verify all Advanced Features pages are implemented and working.
 """
 
+from pathlib import Path
+
+app_dir = Path(__file__).parent.parent / "src" / "pypath_shiny"
 
 print("=" * 70)
 print("ADVANCED FEATURES IMPLEMENTATION CHECK")
