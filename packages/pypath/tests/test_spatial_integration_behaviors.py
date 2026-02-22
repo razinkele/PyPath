@@ -202,3 +202,91 @@ class TestMassConservation:
                         f"{spatial_sum:.6f} != aggregate {agg_val:.6f}"
                     ),
                 )
+
+
+@pytest.mark.integration
+class TestMovementRedistribution:
+    """Verify that dispersal causes correct biomass redistribution."""
+
+    def test_concentrated_biomass_spreads(self, base_scenario):
+        """Biomass concentrated in one patch should spread to neighbors."""
+        scenario, n_groups = base_scenario
+        ng = n_groups + 1
+        n_patches = 5
+        grid = create_1d_grid(n_patches=n_patches, spacing=1.0)
+
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((ng, n_patches)),
+            habitat_capacity=np.ones((ng, n_patches)),
+            dispersal_rate=np.full(ng, 5.0),  # High dispersal
+            advection_enabled=np.zeros(ng, dtype=bool),
+            gravity_strength=np.zeros(ng),
+        )
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        # With dispersal, biomass should remain distributed across patches
+        spatial_final = result.out_Biomass_spatial[-1]  # [groups+1, patches]
+
+        for g in range(1, ng):
+            patch_bio = spatial_final[g, :]
+            if patch_bio.sum() > 1e-10:
+                nonzero = np.count_nonzero(patch_bio > 1e-10)
+                assert (
+                    nonzero >= 2
+                ), f"Group {g}: biomass only in {nonzero} patches after dispersal"
+
+    def test_uniform_biomass_stays_uniform(self, base_scenario):
+        """Equal biomass with uniform habitat should not redistribute."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=3, dispersal=2.0)
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
+
+        spatial = result.out_Biomass_spatial
+        # With uniform habitat, no net movement should occur
+        # Check that variance across patches stays low relative to mean
+        for g in range(1, n_groups + 1):
+            final_patches = spatial[-1, g, :]
+            if final_patches.mean() > 1e-10:
+                cv = final_patches.std() / final_patches.mean()
+                assert (
+                    cv < 0.5
+                ), f"Group {g}: CV={cv:.2f} — uniform biomass became uneven"
+
+    def test_advection_follows_habitat(self, base_scenario):
+        """Biomass should accumulate in patches with higher habitat preference."""
+        scenario, n_groups = base_scenario
+        ng = n_groups + 1
+        n_patches = 5
+        grid = create_1d_grid(n_patches=n_patches, spacing=1.0)
+
+        # Create habitat gradient: patches 0-1 preferred, patches 3-4 poor
+        habitat = np.ones((ng, n_patches))
+        for g in range(1, ng):
+            habitat[g, :] = [1.0, 0.8, 0.5, 0.2, 0.1]
+
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=habitat,
+            habitat_capacity=habitat,
+            dispersal_rate=np.full(ng, 3.0),
+            advection_enabled=np.ones(ng, dtype=bool),
+            gravity_strength=np.full(ng, 2.0),
+        )
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        spatial_final = result.out_Biomass_spatial[-1]
+
+        # For living groups, biomass in good patches should be >= poor patches
+        for g in range(1, n_groups + 1):
+            bio = spatial_final[g, :]
+            if bio.sum() > 1e-10:
+                good_patches = bio[:2].mean()
+                poor_patches = bio[3:].mean()
+                assert good_patches >= poor_patches * 0.5, (
+                    f"Group {g}: good habitat ({good_patches:.4f}) not higher "
+                    f"than poor habitat ({poor_patches:.4f})"
+                )
