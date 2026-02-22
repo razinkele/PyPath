@@ -113,15 +113,15 @@ class TestMassConservation:
 
     def test_biomass_with_fishing_decreases(self, base_scenario):
         """With fishing active, fished group biomass should be lower than without."""
+        import copy
+
         scenario, n_groups = base_scenario
         ecospace = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
 
-        result_fished = rsim_run_spatial(
-            scenario, ecospace=ecospace, years=range(1, 3)
-        )
+        result_fished = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
 
-        # Run again without fishing for comparison
-        scenario_nf, _ = base_scenario
+        # Deep-copy scenario for no-fishing comparison (avoid reusing mutated state)
+        scenario_nf = copy.deepcopy(scenario)
         scenario_nf.fishing.ForcedEffort[:] = 0.0
         ecospace_nf = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
         result_nofishing = rsim_run_spatial(
