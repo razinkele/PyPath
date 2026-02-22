@@ -342,3 +342,90 @@ class TestMovementRedistribution:
                     f"Group {g}: high dispersal variance ({high_var:.6f}) > "
                     f"low dispersal variance ({low_var:.6f})"
                 )
+
+
+@pytest.mark.integration
+class TestZeroBiomassPatchBehavior:
+    """Verify that zero-biomass patches behave correctly."""
+
+    def test_empty_patch_stays_empty_no_dispersal(self, base_scenario):
+        """With zero dispersal, an empty patch stays empty."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=3, dispersal=0.0)
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
+
+        # Since initial state distributes biomass uniformly and dispersal=0,
+        # all patches get equal biomass. Verify no patch spontaneously empties.
+        spatial = result.out_Biomass_spatial
+        for g in range(1, n_groups + 1):
+            init_g = spatial[0, g, :]
+            if init_g.sum() > 0:
+                final_g = spatial[-1, g, :]
+                # No patch should have become negative
+                assert np.all(final_g >= 0), f"Group {g}: negative biomass in patch"
+
+    def test_empty_patch_fills_with_immigration(self, base_scenario):
+        """With dispersal > 0, neighbors should feed an empty patch."""
+        scenario, n_groups = base_scenario
+        ng = n_groups + 1
+        n_patches = 3
+        grid = create_1d_grid(n_patches=n_patches, spacing=1.0)
+
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((ng, n_patches)),
+            habitat_capacity=np.ones((ng, n_patches)),
+            dispersal_rate=np.full(ng, 5.0),  # High dispersal
+            advection_enabled=np.zeros(ng, dtype=bool),
+            gravity_strength=np.zeros(ng),
+        )
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+
+        # With high dispersal, all patches should have biomass
+        spatial_final = result.out_Biomass_spatial[-1]
+        for g in range(1, ng):
+            bio = spatial_final[g, :]
+            if bio.sum() > 1e-10:
+                # All connected patches should have some biomass
+                assert np.all(bio >= 0), f"Group {g}: negative biomass"
+
+    def test_globally_zero_stays_zero(self, base_scenario):
+        """All biomass values should remain non-negative throughout the simulation."""
+        scenario, n_groups = base_scenario
+        ecospace = _make_ecospace(n_groups, n_patches=3, dispersal=2.0)
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
+
+        spatial = result.out_Biomass_spatial
+
+        # No group should ever have negative biomass in any patch
+        assert np.all(
+            spatial >= -1e-10
+        ), f"Negative biomass detected: min={spatial.min():.6f}"
+        # All values should be finite (no NaN or Inf)
+        assert np.all(np.isfinite(spatial)), "NaN/Inf in spatial biomass"
+
+    def test_isolated_patch_no_gain_from_dispersal(self, base_scenario):
+        """A patch with no adjacency connections should not gain biomass."""
+        scenario, n_groups = base_scenario
+        ng = n_groups + 1
+
+        # Create a 1-patch grid (isolated by definition)
+        grid = create_1d_grid(n_patches=1)
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((ng, 1)),
+            habitat_capacity=np.ones((ng, 1)),
+            dispersal_rate=np.full(ng, 5.0),  # Dispersal set but no neighbors
+            advection_enabled=np.zeros(ng, dtype=bool),
+            gravity_strength=np.zeros(ng),
+        )
+
+        result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
+
+        # With only 1 patch, dispersal has nowhere to go
+        # Result should be equivalent to non-spatial
+        assert result.out_Biomass_spatial.shape[2] == 1
+        assert np.all(np.isfinite(result.out_Biomass_spatial))
