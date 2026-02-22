@@ -78,6 +78,14 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
 
+      - name: Create remote directory
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          TARGET="${{ steps.target.outputs.path }}"
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '$TARGET'"
+
       - name: Rsync deploy
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
