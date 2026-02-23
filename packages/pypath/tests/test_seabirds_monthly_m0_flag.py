@@ -1,9 +1,13 @@
+import logging
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from pypath.core.ecosim import rsim_run
 from tests.test_rpath_reference import ECOSIM_DIR
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.skipif(not ECOSIM_DIR.exists(), reason="Reference data not available")
@@ -65,8 +69,8 @@ def test_seabirds_monthly_m0_flag():
     corr_on = corr(r_slice, p_on_slice)
     corr_off = corr(r_slice, p_off_slice)
 
-    print(f"Seabirds correlation with monthly M0 ON : {corr_on:.6f}")
-    print(f"Seabirds correlation with monthly M0 OFF: {corr_off:.6f}")
+    logger.debug("Seabirds correlation with monthly M0 ON : %.6f", corr_on)
+    logger.debug("Seabirds correlation with monthly M0 OFF: %.6f", corr_off)
 
     # Basic sanity: correlations should be numeric
     assert not np.isnan(corr_on)
@@ -120,8 +124,9 @@ def test_seabirds_find_first_divergence():
     assert (
         first is not None
     ), "No divergence detected between PyPath and Rpath for Seabirds"
-    print(
-        f"First divergence at index {first}: Rpath={r[first]:.12e} PyPath={p[first]:.12e} diff={p[first]-r[first]:.12e}"
+    logger.debug(
+        "First divergence at index %d: Rpath=%.12e PyPath=%.12e diff=%.12e",
+        first, r[first], p[first], p[first] - r[first],
     )
 
 
@@ -155,13 +160,13 @@ def test_seabirds_initial_m0_persistence():
     sidx = pypath_ecosim.params.spname.index("Seabirds")
 
     before_m0 = float(pypath_ecosim.params.MzeroMort[sidx])
-    print(f"Seabirds M0 before run: {before_m0:.12e}")
+    logger.debug("Seabirds M0 before run: %.12e", before_m0)
 
     # Run a short simulation to trigger initialization adjustments
     _rsim_output = rsim_run(pypath_ecosim, method="RK4", years=range(1, 2))
 
     after_m0 = float(pypath_ecosim.params.MzeroMort[sidx])
-    print(f"Seabirds M0 after run:  {after_m0:.12e}")
+    logger.debug("Seabirds M0 after run:  %.12e", after_m0)
 
     # Check against reference value in ecosim_params.json
     import json
@@ -176,9 +181,9 @@ def test_seabirds_initial_m0_persistence():
         )
     )
     ref_m0 = float(ref["MzeroMort"][sidx])
-    print(f"Seabirds M0 reference:  {ref_m0:.12e}")
+    logger.debug("Seabirds M0 reference:  %.12e", ref_m0)
 
     # Ensure we persisted a numeric value
     assert np.isfinite(after_m0)
     # Report whether the persisted value equals the reference (it might differ)
-    print(f"Seabirds M0 delta vs reference: {after_m0 - ref_m0:.12e}")
+    logger.debug("Seabirds M0 delta vs reference: %.12e", after_m0 - ref_m0)

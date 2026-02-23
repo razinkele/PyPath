@@ -7,10 +7,13 @@ These tests verify that spatial operations meet performance targets:
 - Full simulation: < 60 seconds for 10 years, 100 patches
 """
 
+import logging
 import time
 
 import numpy as np
 import pytest
+
+logger = logging.getLogger(__name__)
 
 from pypath.spatial import (
     EcospaceParams,
@@ -416,12 +419,8 @@ class TestFullSimulationPerformance:
 class TestBenchmarkSummary:
     """Generate performance benchmark summary."""
 
-    def test_benchmark_report(self, capsys):
-        """Generate and print benchmark report."""
-        print("\n" + "=" * 70)
-        print("ECOSPACE PERFORMANCE BENCHMARK SUMMARY")
-        print("=" * 70)
-
+    def test_benchmark_report(self):
+        """Generate benchmark report."""
         benchmarks = []
 
         # Grid creation
@@ -460,15 +459,9 @@ class TestBenchmarkSummary:
         time_fishing = (time.perf_counter() - start) / 100
         benchmarks.append(("Fishing allocation", time_fishing * 1000, "ms"))
 
-        # Print results
-        print(f"\n{'Operation':<30} {'Time':>10} {'Unit':>6}")
-        print("-" * 70)
+        # Log results
         for name, value, unit in benchmarks:
-            print(f"{name:<30} {value:>10.2f} {unit:>6}")
-
-        print("\n" + "=" * 70)
-        print("All benchmarks within acceptable ranges [PASS]")
-        print("=" * 70 + "\n")
+            logger.info("%-30s %10.2f %s", name, value, unit)
 
 
 if __name__ == "__main__":

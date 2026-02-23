@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 def test_debug_forcing_prints():
     # Lightweight reproduction of forced effort indexing
     import numpy as np
@@ -33,17 +38,17 @@ def test_debug_forcing_prints():
     model = rpath(params)
     scenario = rsim_scenario(model, params, years=range(1, 11))
 
-    print("ForcedEffort shape:", scenario.fishing.ForcedEffort.shape)
-    print("Sample ForcedEffort[0]:", scenario.fishing.ForcedEffort[0])
+    logger.debug("ForcedEffort shape: %s", scenario.fishing.ForcedEffort.shape)
+    logger.debug("Sample ForcedEffort[0]: %s", scenario.fishing.ForcedEffort[0])
 
     # Double effort for all months/gears
     scenario.fishing.ForcedEffort[:] = 2.0
-    print("After doubling, ForcedEffort[0]:", scenario.fishing.ForcedEffort[0])
+    logger.debug("After doubling, ForcedEffort[0]: %s", scenario.fishing.ForcedEffort[0])
 
     # Inspect parameters relevant to fishing
-    print("FishFrom:", scenario.params.FishFrom)
-    print("FishThrough:", scenario.params.FishThrough)
-    print("FishQ:", scenario.params.FishQ)
+    logger.debug("FishFrom: %s", scenario.params.FishFrom)
+    logger.debug("FishThrough: %s", scenario.params.FishThrough)
+    logger.debug("FishQ: %s", scenario.params.FishQ)
 
     # Build forcing_dict for first month and compute effort multiplier per gear used in catch loop
     t_idx = 0
@@ -54,10 +59,9 @@ def test_debug_forcing_prints():
             else np.ones(scenario.params.NUM_GEARS + 1)
         ),
     }
-    print(
-        "forcing0 ForcedEffort:",
+    logger.debug(
+        "forcing0 ForcedEffort: %s len=%d",
         forcing0["ForcedEffort"],
-        "len=",
         len(forcing0["ForcedEffort"]),
     )
 
@@ -69,15 +73,16 @@ def test_debug_forcing_prints():
             if gear < len(forcing0["ForcedEffort"])
             else 1.0
         )
-        print(
-            f"link {i}: grp={grp} gear={gear} effort_mult={effort_mult} FishQ={scenario.params.FishQ[i]}"
+        logger.debug(
+            "link %d: grp=%s gear=%s effort_mult=%s FishQ=%s",
+            i, grp, gear, effort_mult, scenario.params.FishQ[i],
         )
         # Verify that doubled effort is visible via the forcing vector
         assert (
             effort_mult == 2.0
         ), f"Expected effort_mult==2.0, got {effort_mult} for link {i} (gear {gear})"
 
-    # Print a few months to ensure forced series is visible
+    # Log a few months to ensure forced series is visible
     for month in range(0, 5):
         t_idx = month
         forcing = (
@@ -85,7 +90,7 @@ def test_debug_forcing_prints():
             if t_idx < len(scenario.fishing.ForcedEffort)
             else np.ones(scenario.params.NUM_GEARS + 1)
         )
-        print(f"month {month}: ForcedEffort[:]={forcing[:]} (len={len(forcing)})")
+        logger.debug("month %d: ForcedEffort[:]=%s (len=%d)", month, forcing[:], len(forcing))
 
 
 def test_forced_effort_changes_catch_and_biomass():
@@ -171,7 +176,7 @@ def test_forced_effort_changes_catch_and_biomass():
         )
         catch = scenario_base.params.FishQ[i] * state0[grp] * effort_mult / 12.0
         manual_catch += catch
-    print("DEBUG TEST: manual first-month catch estimate:", manual_catch)
+    logger.debug("manual first-month catch estimate: %s", manual_catch)
 
     result_base = rsim_run(scenario_base, years=range(1, 4))
 
@@ -195,17 +200,15 @@ def test_forced_effort_changes_catch_and_biomass():
     total_catch_base = np.nansum(result_base.out_Catch)
     total_catch_forced = np.nansum(result_forced.out_Catch)
 
-    print("DEBUG TEST: base out_catch sum:", total_catch_base)
-    print("DEBUG TEST: forced out_catch sum:", total_catch_forced)
-    print("DEBUG TEST: base out_catch monthly:", np.sum(result_base.out_Catch, axis=1))
-    print(
-        "DEBUG TEST: forced out_catch monthly:", np.sum(result_forced.out_Catch, axis=1)
-    )
-    print("DEBUG TEST: params.FishQ:", scenario_base.params.FishQ)
-    print("DEBUG TEST: FishFrom:", scenario_base.params.FishFrom)
-    print("DEBUG TEST: FishThrough:", scenario_base.params.FishThrough)
-    print("DEBUG TEST: NumFishingLinks:", scenario_base.params.NumFishingLinks)
-    print("DEBUG TEST: sample ForcedEffort[0]:", scenario_base.fishing.ForcedEffort[0])
+    logger.debug("base out_catch sum: %s", total_catch_base)
+    logger.debug("forced out_catch sum: %s", total_catch_forced)
+    logger.debug("base out_catch monthly: %s", np.sum(result_base.out_Catch, axis=1))
+    logger.debug("forced out_catch monthly: %s", np.sum(result_forced.out_Catch, axis=1))
+    logger.debug("params.FishQ: %s", scenario_base.params.FishQ)
+    logger.debug("FishFrom: %s", scenario_base.params.FishFrom)
+    logger.debug("FishThrough: %s", scenario_base.params.FishThrough)
+    logger.debug("NumFishingLinks: %s", scenario_base.params.NumFishingLinks)
+    logger.debug("sample ForcedEffort[0]: %s", scenario_base.fishing.ForcedEffort[0])
 
     # Sanity check: our manual estimate should be non-zero for this setup
     assert manual_catch > 0.0, "Manual catch estimate is zero; test setup invalid"

@@ -5,6 +5,7 @@ These tests verify that diet composition data is correctly parsed
 and loaded into RpathParams.
 """
 
+import logging
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from pypath.io.ecobase import (
     ecobase_to_rpath,
     get_ecobase_model,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TestEcoBaseDietParsing:
@@ -37,16 +40,15 @@ class TestEcoBaseDietParsing:
     def test_diet_data_extracted(self, sample_model_data):
         """Test that diet data is extracted from model."""
         diet = sample_model_data["diet"]
-        print(f"\n=== Diet data found: {len(diet)} predators ===")
+        logger.debug("Diet data found: %d predators", len(diet))
 
         if diet:
             for pred, prey_dict in list(diet.items())[:3]:
-                print(f"  {pred}: {list(prey_dict.keys())[:5]}...")
+                logger.debug("  %s: %s...", pred, list(prey_dict.keys())[:5])
         else:
-            print("  WARNING: Diet dictionary is EMPTY")
+            logger.debug("WARNING: Diet dictionary is EMPTY")
 
             # Debug: Look at raw XML for diet-related tags
-            print("\n=== Debugging XML structure ===")
             root = ET.fromstring(sample_model_data["raw_xml"])
 
             # Find all unique tags
@@ -59,14 +61,13 @@ class TestEcoBaseDietParsing:
                 for t in all_tags
                 if "diet" in t.lower() or "dc" in t.lower() or "prey" in t.lower()
             ]
-            print(f"Diet-related tags: {diet_tags}")
+            logger.debug("Diet-related tags: %s", diet_tags)
 
-            # Look at first group's fields
-            print("\n=== First group fields ===")
             for group in root.iter("group"):
                 for child in group:
-                    print(
-                        f"  {child.tag}: {child.text[:50] if child.text and len(child.text) > 50 else child.text}"
+                    logger.debug(
+                        "  %s: %s", child.tag,
+                        child.text[:50] if child.text and len(child.text) > 50 else child.text,
                     )
                 break
 
@@ -77,7 +78,7 @@ class TestEcoBaseDietParsing:
         """Test group data structure for diet-related fields."""
         groups = sample_model_data["groups"]
 
-        print(f"\n=== Checking {len(groups)} groups for diet fields ===")
+        logger.debug("Checking %d groups for diet fields", len(groups))
 
         # Check first few groups for dc/diet fields
         diet_fields_found = []
@@ -88,13 +89,12 @@ class TestEcoBaseDietParsing:
             }
 
             if dc_fields:
-                print(f"  {group_name}: {dc_fields}")
+                logger.debug("  %s: %s", group_name, dc_fields)
                 diet_fields_found.append((group_name, dc_fields))
             else:
-                # Show all fields
-                print(f"  {group_name} fields: {list(g.keys())}")
+                logger.debug("  %s fields: %s", group_name, list(g.keys()))
 
-        print(f"\nGroups with diet fields: {len(diet_fields_found)}")
+        logger.debug("Groups with diet fields: %d", len(diet_fields_found))
 
     def test_xml_diet_elements(self, sample_model_data):
         """Test for diet elements in raw XML."""
@@ -105,10 +105,9 @@ class TestEcoBaseDietParsing:
         diet_item_elements = list(root.iter("diet_item"))
         dc_elements = list(root.iter("dc"))
 
-        print("\n=== Diet XML elements ===")
-        print(f"  <diet> elements: {len(diet_elements)}")
-        print(f"  <diet_item> elements: {len(diet_item_elements)}")
-        print(f"  <dc> elements: {len(dc_elements)}")
+        logger.debug("<diet> elements: %d", len(diet_elements))
+        logger.debug("<diet_item> elements: %d", len(diet_item_elements))
+        logger.debug("<dc> elements: %d", len(dc_elements))
 
         # Look for any element containing 'diet' in tag
         diet_related = []
@@ -116,7 +115,7 @@ class TestEcoBaseDietParsing:
             if "diet" in elem.tag.lower():
                 diet_related.append(elem.tag)
 
-        print(f"  All diet-related tags: {set(diet_related)}")
+        logger.debug("All diet-related tags: %s", set(diet_related))
 
     def test_ecobase_to_rpath_diet(self, sample_model_data):
         """Test that diet matrix is populated in RpathParams."""
@@ -131,27 +130,23 @@ class TestEcoBaseDietParsing:
         # Check if diet matrix has any non-zero values
         non_zero = (diet_numeric > 0).sum().sum()
 
-        print("\n=== RpathParams diet matrix ===")
-        print(f"  Shape: {params.diet.shape}")
-        print(f"  Non-zero entries: {non_zero}")
-        print(f"  Columns (predators): {list(params.diet.columns)[:5]}...")
-        print(f"  Groups (prey): {params.diet['Group'].tolist()[:5]}...")
+        logger.debug("RpathParams diet matrix shape: %s", params.diet.shape)
+        logger.debug("Non-zero entries: %d", non_zero)
+        logger.debug("Columns (predators): %s...", list(params.diet.columns)[:5])
+        logger.debug("Groups (prey): %s...", params.diet["Group"].tolist()[:5])
 
         if non_zero > 0:
-            # Show some non-zero entries
-            print("\n  Sample diet entries:")
             for col in diet_numeric.columns[:3]:
                 col_data = diet_numeric[col]
                 non_zero_prey = col_data[col_data > 0]
                 if len(non_zero_prey) > 0:
-                    # Get prey names for these indices
                     prey_names = [
                         params.diet.loc[idx, "Group"] for idx in non_zero_prey.index[:3]
                     ]
                     values = non_zero_prey.head(3).tolist()
-                    print(f"    {col}: {dict(zip(prey_names, values))}")
+                    logger.debug("  %s: %s", col, dict(zip(prey_names, values)))
         else:
-            print("\n  WARNING: Diet matrix is all zeros!")
+            logger.debug("WARNING: Diet matrix is all zeros!")
 
         assert non_zero > 0, "Diet matrix should have non-zero entries"
 
@@ -164,45 +159,40 @@ class TestEcoBaseXMLStructure:
         model_data = get_ecobase_model(403)
         root = ET.fromstring(model_data["raw_xml"])
 
-        print("\n=== Complete tag inventory ===")
         tag_counts = {}
         for elem in root.iter():
             tag_counts[elem.tag] = tag_counts.get(elem.tag, 0) + 1
 
         for tag, count in sorted(tag_counts.items()):
-            print(f"  {tag}: {count}")
+            logger.debug("  %s: %d", tag, count)
 
-        print("\n=== Looking for numeric sequences in group children ===")
         # In EcoBase, diet might be stored as numbered children like dc1, dc2, etc.
         for i, group in enumerate(root.iter("group")):
             if i >= 2:
                 break
-            print(f"\nGroup {i}:")
+            logger.debug("Group %d:", i)
             for child in group:
                 tag = child.tag
                 text = child.text
                 # Look for tags that might be diet-related
                 if any(x in tag.lower() for x in ["dc", "diet", "prey", "prop"]):
-                    print(f"  DIET? {tag}: {text}")
+                    logger.debug("  DIET? %s: %s", tag, text)
                 elif tag.startswith("dc") or tag[0].isdigit():
-                    print(f"  NUM? {tag}: {text}")
+                    logger.debug("  NUM? %s: %s", tag, text)
 
     def test_raw_xml_snippet(self):
         """Print raw XML snippet to see actual structure."""
         model_data = get_ecobase_model(403)
         xml = model_data["raw_xml"]
 
-        print("\n=== Raw XML (first 5000 chars) ===")
-        print(xml[:5000])
+        logger.debug("Raw XML (first 5000 chars): %s", xml[:5000])
 
-        print("\n=== Looking for 'Diet' in XML ===")
         if "Diet" in xml or "diet" in xml:
-            # Find context around 'diet'
             idx = xml.lower().find("diet")
             if idx > 0:
                 start = max(0, idx - 100)
                 end = min(len(xml), idx + 200)
-                print(f"Context: ...{xml[start:end]}...")
+                logger.debug("Context: ...%s...", xml[start:end])
 
 
 class TestEwemdbDietParsing:
@@ -215,11 +205,9 @@ class TestEwemdbDietParsing:
         )
 
         support = check_ewemdb_support()
-        print("\n=== ewemdb driver support ===")
-        print(f"  pyodbc: {support['pyodbc']}")
-        print(f"  pypyodbc: {support['pypyodbc']}")
-        print(f"  mdb_tools: {support['mdb_tools']}")
-        print(f"  any_available: {support['any_available']}")
+        logger.debug("ewemdb driver support: pyodbc=%s pypyodbc=%s mdb_tools=%s any=%s",
+                     support["pyodbc"], support["pypyodbc"],
+                     support["mdb_tools"], support["any_available"])
 
     def test_diet_table_reading(self):
         """Test reading diet table from ewemdb file."""
@@ -238,51 +226,46 @@ class TestEwemdbDietParsing:
             pytest.skip("No ewemdb test files found")
 
         filepath = test_files[0]
-        print(f"\n=== Reading from {filepath.name} ===")
+        logger.debug("Reading from %s", filepath.name)
 
         # Try to read diet table
         try:
             diet_df = read_ewemdb_table(str(filepath), "EcopathDietComp")
-            print(f"EcopathDietComp columns: {diet_df.columns.tolist()}")
-            print(f"EcopathDietComp shape: {diet_df.shape}")
-            print(f"First few rows:\n{diet_df.head()}")
+            logger.debug("EcopathDietComp columns: %s", diet_df.columns.tolist())
+            logger.debug("EcopathDietComp shape: %s", diet_df.shape)
+            logger.debug("First few rows:\n%s", diet_df.head())
         except Exception as e:
-            print(f"Could not read EcopathDietComp: {e}")
+            logger.debug("Could not read EcopathDietComp: %s", e)
 
             # Try alternative names
             for table_name in ["DietComp", "Diet", "EcopathDiet"]:
                 try:
                     diet_df = read_ewemdb_table(str(filepath), table_name)
-                    print(f"\n{table_name} columns: {diet_df.columns.tolist()}")
-                    print(f"{table_name} shape: {diet_df.shape}")
+                    logger.debug("%s columns: %s", table_name, diet_df.columns.tolist())
+                    logger.debug("%s shape: %s", table_name, diet_df.shape)
                     break
                 except Exception:
                     continue
 
     def test_full_ecobase_import(self):
         """Test complete EcoBase import pipeline."""
-        print("\n=== Full EcoBase import test ===")
-
         # Download model
         model_data = get_ecobase_model(403)
-        print(f"Downloaded model with {len(model_data['groups'])} groups")
-        print(f"Diet entries in model_data: {len(model_data['diet'])}")
+        logger.debug("Downloaded model with %d groups", len(model_data["groups"]))
+        logger.debug("Diet entries in model_data: %d", len(model_data["diet"]))
 
         # Convert to RpathParams
         params = ecobase_to_rpath(model_data)
-        print(f"Created RpathParams with {len(params.model)} groups")
+        logger.debug("Created RpathParams with %d groups", len(params.model))
 
         # Check diet matrix (exclude Group column for numeric operations)
         diet_numeric = params.diet.drop(columns=["Group"], errors="ignore")
         diet_sum = diet_numeric.sum().sum()
         non_zero = (diet_numeric > 0).sum().sum()
 
-        print(f"Diet matrix sum: {diet_sum}")
-        print(f"Diet matrix non-zero cells: {non_zero}")
-
-        # Print diet matrix summary
-        print("\nDiet matrix preview:")
-        print(params.diet.iloc[:5, :5])
+        logger.debug("Diet matrix sum: %s", diet_sum)
+        logger.debug("Diet matrix non-zero cells: %d", non_zero)
+        logger.debug("Diet matrix preview:\n%s", params.diet.iloc[:5, :5])
 
         assert non_zero > 0, "Diet matrix should have non-zero entries"
 

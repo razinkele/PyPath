@@ -5,8 +5,12 @@ Tests realistic use cases including parameter recovery, multiple groups,
 and various optimization strategies.
 """
 
+import logging
+
 import numpy as np
 import pytest
+
+logger = logging.getLogger(__name__)
 
 # Check if optimization is available
 try:
@@ -99,8 +103,9 @@ class TestParameterRecovery:
         estimated = opt_result.best_params["vulnerability"]
         error = abs(estimated - true_vulnerability) / true_vulnerability
 
-        print(
-            f"\nTrue: {true_vulnerability:.3f}, Estimated: {estimated:.3f}, Error: {error:.1%}"
+        logger.debug(
+            "True: %.3f, Estimated: %.3f, Error: %.1f%%",
+            true_vulnerability, estimated, error * 100,
         )
         assert error < 0.20, f"Parameter recovery error {error:.1%} exceeds 20%"
 
@@ -154,8 +159,9 @@ class TestParameterRecovery:
             estimated = opt_result.best_params[param_name]
             error = abs(estimated - true_value) / true_value
 
-            print(
-                f"{param_name}: True={true_value:.3f}, Est={estimated:.3f}, Err={error:.1%}"
+            logger.debug(
+                "%s: True=%.3f, Est=%.3f, Err=%.1f%%",
+                param_name, true_value, estimated, error * 100,
             )
             assert error < 0.30, f"{param_name} recovery error {error:.1%} exceeds 30%"
 
@@ -214,8 +220,8 @@ class TestNoiseRobustness:
 
         error_high = abs(result_high.best_params["vulnerability"] - true_vulnerability)
 
-        print(f"\nLow noise error: {error_low:.3f}")
-        print(f"High noise error: {error_high:.3f}")
+        logger.debug("Low noise error: %.3f", error_low)
+        logger.debug("High noise error: %.3f", error_high)
 
         # Low noise should generally give better results
         # (not always due to stochasticity, but test MSE)
@@ -272,8 +278,8 @@ class TestDataQuantity:
             param_bounds={"vulnerability": (1.0, 5.0)}, n_calls=15, random_state=42
         )
 
-        print(f"\n1 group MSE: {result_1.best_score:.6f}")
-        print(f"4 groups MSE: {result_4.best_score:.6f}")
+        logger.debug("1 group MSE: %.6f", result_1.best_score)
+        logger.debug("4 groups MSE: %.6f", result_4.best_score)
 
         # More groups should provide more information
         # Both should find reasonable parameters
@@ -329,9 +335,9 @@ class TestOptimizationStrategies:
             random_state=43,
         )
 
-        print(f"\nCoarse result: {best_coarse:.3f}")
-        print(f"Fine result: {result_fine.best_params['vulnerability']:.3f}")
-        print(f"True value: {true_vulnerability:.3f}")
+        logger.debug("Coarse result: %.3f", best_coarse)
+        logger.debug("Fine result: %.3f", result_fine.best_params["vulnerability"])
+        logger.debug("True value: %.3f", true_vulnerability)
 
         # Fine search should be at least as good
         assert result_fine.best_score <= result_coarse.best_score
@@ -373,7 +379,7 @@ class TestMultiObjectiveComparison:
             )
 
             results[objective] = opt_result
-            print(f"{objective}: {opt_result.best_params['vulnerability']:.3f}")
+            logger.debug("%s: %.3f", objective, opt_result.best_params["vulnerability"])
 
         # All should find solutions within reasonable range
         for obj, res in results.items():

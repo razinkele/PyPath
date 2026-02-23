@@ -1,6 +1,9 @@
 import asyncio
+import logging
 
 from playwright.async_api import async_playwright
+
+logger = logging.getLogger(__name__)
 
 
 async def run_flow():
@@ -17,7 +20,7 @@ async def run_flow():
         # Wait for modal dialog
         await page.wait_for_selector("text=Rpath Diagnostics")
         content = await page.inner_text(".modal-body")
-        print("MODAL_CONTENT:", content[:400])
+        logger.debug("MODAL_CONTENT: %s", content[:400])
         # Click Run Diagnostics to exercise report
         await page.click("#btn_run_diagnostics")
         # Wait for notification or report summary

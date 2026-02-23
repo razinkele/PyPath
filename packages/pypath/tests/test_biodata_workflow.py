@@ -1,12 +1,21 @@
-#!/usr/bin/env python
-"""
-Test script for biodiversity data workflow in Shiny app.
+"""Integration tests for the biodiversity data workflow.
 
-This script tests the complete workflow that the Shiny app uses:
+Tests the complete workflow used by the Shiny app:
 1. Fetch species info from WoRMS/OBIS/FishBase
 2. Create Ecopath model from biodiversity data
-3. Verify model structure
+3. Verify API connectivity
+
+All tests are marked as integration and slow since they require network access.
 """
+
+import logging
+
+import pytest
+
+logger = logging.getLogger(__name__)
+
+pyworms = pytest.importorskip("pyworms")
+requests = pytest.importorskip("requests")
 
 from pypath.io.biodata import (
     _fetch_worms_vernacular,
@@ -15,192 +24,123 @@ from pypath.io.biodata import (
     get_species_info,
 )
 
-print("=" * 70)
-print("Biodiversity Data Workflow Test")
-print("=" * 70)
 
-# Test 1: Individual WoRMS lookup
-print("\n1. Testing individual WoRMS vernacular search...")
-print("-" * 70)
+@pytest.mark.integration
+@pytest.mark.slow
+class TestWoRMSLookup:
+    """Test individual WoRMS vernacular name lookups."""
 
-test_species = [
-    "Atlantic cod",
-    "cod",
-    "Atlantic herring",
-    "herring",
-    "European sprat",
-    "sprat",
-]
-
-for species in test_species:
-    try:
-        print(f"\nSearching for: '{species}'")
-        results = _fetch_worms_vernacular(species, cache=False, timeout=30)
+    @pytest.mark.parametrize(
+        "species_name",
+        ["Atlantic cod", "cod", "Atlantic herring", "herring", "European sprat", "sprat"],
+    )
+    def test_worms_vernacular_search(self, species_name):
+        results = _fetch_worms_vernacular(species_name, cache=False, timeout=30)
+        assert results is not None
+        logger.debug(
+            "Search '%s': found %d result(s)",
+            species_name,
+            len(results) if results else 0,
+        )
         if results:
-            print(f"  [OK] Found {len(results)} result(s)")
-            for i, r in enumerate(results[:3]):  # Show first 3
-                print(
-                    f"    [{i + 1}] {r.get('scientificname')} (AphiaID: {r.get('AphiaID')})"
+            for r in results[:3]:
+                logger.debug(
+                    "  %s (AphiaID: %s)",
+                    r.get("scientificname"),
+                    r.get("AphiaID"),
                 )
-        else:
-            print("  [FAIL] No results found")
-    except Exception as e:
-        print(f"  [ERROR] {e}")
 
-# Test 2: Single species workflow
-print("\n\n2. Testing single species workflow...")
-print("-" * 70)
 
-try:
-    print("\nFetching info for 'cod'...")
-    info = get_species_info("cod", strict=False, timeout=30)
-    print("[OK] Success!")
-    print(f"  Common name: {info.common_name}")
-    print(f"  Scientific name: {info.scientific_name}")
-    print(f"  AphiaID: {info.aphia_id}")
-    print(f"  Trophic level: {info.trophic_level}")
-    print(f"  Max length: {info.max_length}")
-    print(f"  OBIS occurrences: {info.occurrence_count}")
-except Exception as e:
-    print(f"[FAIL] Failed: {e}")
+@pytest.mark.integration
+@pytest.mark.slow
+class TestSpeciesInfoWorkflow:
+    """Test single and batch species info retrieval."""
 
-# Test 3: Batch workflow (as used in Shiny app)
-print("\n\n3. Testing batch workflow (Shiny app scenario)...")
-print("-" * 70)
-
-species_list = [
-    "cod",
-    "herring",
-    "sprat",
-]
-
-print(f"\nFetching data for {len(species_list)} species...")
-print(f"Species: {', '.join(species_list)}")
-
-try:
-    df = batch_get_species_info(
-        species_list,
-        include_occurrences=True,
-        include_traits=True,
-        strict=False,
-        max_workers=5,
-        timeout=45,
-    )
-
-    if df is not None and len(df) > 0:
-        print(f"\n[OK] Retrieved data for {len(df)} species")
-        print("\nResults:")
-        for idx, row in df.iterrows():
-            print(f"\n  {row['common_name']}:")
-            print(f"    Scientific: {row['scientific_name']}")
-            print(f"    TL: {row['trophic_level']}")
-            print(f"    Max length: {row['max_length']} cm")
-            print(f"    OBIS records: {row['occurrence_count']}")
-    else:
-        print("[FAIL] No species data retrieved")
-
-except Exception as e:
-    print(f"[FAIL] Failed: {e}")
-    import traceback
-
-    traceback.print_exc()
-
-# Test 4: Model creation (as used in Shiny app)
-print("\n\n4. Testing model creation...")
-print("-" * 70)
-
-try:
-    # Use simple species list
-    simple_species = ["cod", "herring"]
-    print(f"\nFetching data for: {', '.join(simple_species)}")
-
-    df = batch_get_species_info(
-        simple_species,
-        include_occurrences=True,
-        include_traits=True,
-        strict=False,
-        timeout=45,
-    )
-
-    if df is not None and len(df) > 0:
-        print(f"[OK] Retrieved {len(df)} species")
-
-        # Create biomass estimates (as in Shiny app)
-        biomass_estimates = {}
-        for idx, row in df.iterrows():
-            sp_name = row["common_name"]
-            biomass_estimates[sp_name] = 1.0  # Default biomass
-
-        print("\nCreating Ecopath model...")
-        params = biodata_to_rpath(
-            df, biomass_estimates=biomass_estimates, area_km2=1000
+    def test_single_species_info(self):
+        info = get_species_info("cod", strict=False, timeout=30)
+        assert info is not None
+        assert info.common_name is not None
+        assert info.scientific_name is not None
+        logger.debug(
+            "Species: %s (%s), TL=%.2f, AphiaID=%s",
+            info.common_name,
+            info.scientific_name,
+            info.trophic_level if info.trophic_level else 0,
+            info.aphia_id,
         )
 
-        print("[OK] Model created!")
-        print(f"  Groups: {len(params.model)}")
-        print(f"  Diet entries: {(params.diet.iloc[:, 1:] > 0).sum().sum()}")
-        print("\nModel groups:")
-        for idx, row in params.model.iterrows():
-            print(
-                f"  - {row['Group']} (Type: {int(row['Type'])}, TL: {row.get('TrophicLevel', 'N/A')})"
+    def test_batch_species_info(self):
+        species_list = ["cod", "herring", "sprat"]
+        df = batch_get_species_info(
+            species_list,
+            include_occurrences=True,
+            include_traits=True,
+            strict=False,
+            max_workers=5,
+            timeout=45,
+        )
+        assert df is not None
+        assert len(df) > 0
+        logger.debug("Retrieved data for %d species", len(df))
+        for _, row in df.iterrows():
+            logger.debug(
+                "  %s: TL=%s, max_length=%s cm",
+                row["common_name"],
+                row["trophic_level"],
+                row["max_length"],
             )
-    else:
-        print("[FAIL] No species data to create model")
 
-except Exception as e:
-    print(f"[FAIL] Failed: {e}")
-    import traceback
+    def test_model_creation_from_biodata(self):
+        simple_species = ["cod", "herring"]
+        df = batch_get_species_info(
+            simple_species,
+            include_occurrences=True,
+            include_traits=True,
+            strict=False,
+            timeout=45,
+        )
+        assert df is not None and len(df) > 0
 
-    traceback.print_exc()
+        biomass_estimates = {row["common_name"]: 1.0 for _, row in df.iterrows()}
+        params = biodata_to_rpath(df, biomass_estimates=biomass_estimates, area_km2=1000)
+        assert params is not None
+        assert len(params.model) > 0
+        logger.debug(
+            "Created model with %d groups, %d diet entries",
+            len(params.model),
+            (params.diet.iloc[:, 1:] > 0).sum().sum(),
+        )
 
-# Test 5: API connectivity check
-print("\n\n5. Testing API connectivity...")
-print("-" * 70)
 
-try:
-    import requests
+@pytest.mark.integration
+@pytest.mark.slow
+class TestAPIConnectivity:
+    """Test that external biodiversity APIs are accessible."""
 
-    # Test WoRMS
-    print("\nTesting WoRMS API...")
-    response = requests.get(
-        "https://www.marinespecies.org/rest/AphiaRecordsByVernacular/cod",
-        params={"like": "false", "offset": 1},
-        timeout=10,
-    )
-    if response.status_code == 200:
-        print(f"  [OK] WoRMS API accessible (status: {response.status_code})")
+    def test_worms_api(self):
+        response = requests.get(
+            "https://www.marinespecies.org/rest/AphiaRecordsByVernacular/cod",
+            params={"like": "false", "offset": 1},
+            timeout=10,
+        )
+        assert response.status_code == 200
         data = response.json()
-        print(f"  [OK] Found {len(data)} results for 'cod'")
-    else:
-        print(f"  [FAIL] WoRMS API error (status: {response.status_code})")
+        logger.debug("WoRMS API: status=%d, results=%d", response.status_code, len(data))
 
-    # Test OBIS
-    print("\nTesting OBIS API...")
-    response = requests.get(
-        "https://api.obis.org/v3/occurrence",
-        params={"scientificname": "Gadus morhua", "size": 1},
-        timeout=10,
-    )
-    if response.status_code == 200:
-        print(f"  [OK] OBIS API accessible (status: {response.status_code})")
-    else:
-        print(f"  [FAIL] OBIS API error (status: {response.status_code})")
+    def test_obis_api(self):
+        response = requests.get(
+            "https://api.obis.org/v3/occurrence",
+            params={"scientificname": "Gadus morhua", "size": 1},
+            timeout=10,
+        )
+        assert response.status_code == 200
+        logger.debug("OBIS API: status=%d", response.status_code)
 
-    # Test FishBase
-    print("\nTesting FishBase API...")
-    response = requests.get(
-        "https://fishbase.ropensci.org/species",
-        params={"Genus": "Gadus", "Species": "morhua"},
-        timeout=10,
-    )
-    if response.status_code == 200:
-        print(f"  [OK] FishBase API accessible (status: {response.status_code})")
-    else:
-        print(f"  [FAIL] FishBase API error (status: {response.status_code})")
-
-except Exception as e:
-    print(f"[FAIL] API connectivity test failed: {e}")
-
-print("\n" + "=" * 70)
-print("Test Complete")
-print("=" * 70)
+    def test_fishbase_api(self):
+        response = requests.get(
+            "https://fishbase.ropensci.org/species",
+            params={"Genus": "Gadus", "Species": "morhua"},
+            timeout=10,
+        )
+        assert response.status_code == 200
+        logger.debug("FishBase API: status=%d", response.status_code)
