@@ -302,7 +302,7 @@ def calculate_distance_penalty(
     port_centroids = all_centroids[port_patches]
     dist_matrix = cdist(all_centroids, port_centroids, metric="euclidean") * 111.0
     min_dist = np.maximum(dist_matrix.min(axis=1), 0.1)
-    return min_dist ** beta
+    return min_dist**beta
 
 
 def allocate_habitat_based(
