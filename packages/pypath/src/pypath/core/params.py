@@ -7,6 +7,7 @@ reading, writing, and validating Ecopath parameter files.
 
 from __future__ import annotations
 
+import logging
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,6 +15,8 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -416,8 +419,10 @@ def check_rpath_params(params: RpathParams) -> bool:
         n_warnings += 1
 
     if n_warnings == 0:
-        print("Rpath parameter file is functional.")
+        logger.info("Rpath parameter file is functional.")
         return True
     else:
-        print(f"Rpath parameter file needs attention! ({n_warnings} warnings)")
+        logger.warning(
+            "Rpath parameter file needs attention! (%d warnings)", n_warnings
+        )
         return False

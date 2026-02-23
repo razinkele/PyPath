@@ -915,22 +915,20 @@ def _normalize_fishing_input(fishing_obj, n_groups):
 
     Accepts either a dict-like or a dataclass and returns a dict with
     'FishFrom', 'FishThrough', 'FishQ' and 'FishingMort'."""
-    import numpy as _np
-
     if isinstance(fishing_obj, dict):
         fish_from = fishing_obj.get("FishFrom", [])
         fish_through = fishing_obj.get("FishThrough", [])
-        fish_q = fishing_obj.get("FishQ", _np.array([0.0]))
+        fish_q = fishing_obj.get("FishQ", np.array([0.0]))
     else:
         fish_from = getattr(fishing_obj, "FishFrom", [])
         fish_through = getattr(fishing_obj, "FishThrough", [])
-        fish_q = getattr(fishing_obj, "FishQ", _np.array([0.0]))
+        fish_q = getattr(fishing_obj, "FishQ", np.array([0.0]))
 
     fishing_dict = {
         "FishFrom": fish_from,
         "FishThrough": fish_through,
         "FishQ": fish_q,
-        "FishingMort": _np.zeros(n_groups),
+        "FishingMort": np.zeros(n_groups),
     }
     # compute base fishing mortality
     try:

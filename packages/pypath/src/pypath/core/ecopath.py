@@ -180,12 +180,6 @@ def rpath(
 ) -> Union[Rpath, Tuple[Rpath, Dict[str, object]]]:
     """Balance an Ecopath model.
 
-    When `debug=True` the function returns a tuple `(rpath_obj, diagnostics)` where
-    `diagnostics` contains intermediate matrices useful for debugging (A, b_vec, x,
-    diet_values, nodetrdiet, living_idx, no_b, no_ee).
-    """
-    """Balance an Ecopath model.
-
     Performs initial mass balance using an RpathParams object.
     Preserves the original group order from the input parameters.
 
@@ -205,16 +199,29 @@ def rpath(
         Name of the ecosystem (stored as attribute).
     eco_area : float, optional
         Area of the ecosystem (stored as attribute).
+    debug : bool, optional
+        If False (default), return only the balanced Rpath object.
+        If True, return a tuple ``(rpath_obj, diagnostics)`` where
+        *diagnostics* is a dict containing intermediate matrices
+        (A, b_vec, x, diet_values, nodetrdiet, living_idx, no_b, no_ee).
 
     Returns
     -------
-    Rpath
+    Rpath or tuple[Rpath, dict]
         Balanced model that can be supplied to rsim_scenario().
+        When *debug=True*, returns ``(Rpath, diagnostics)``.
 
     Raises
     ------
     ValueError
         If the model cannot be balanced due to missing parameters.
+
+    Notes
+    -----
+    When ``debug=True`` the function returns a tuple
+    ``(rpath_obj, diagnostics)`` where ``diagnostics`` contains
+    intermediate matrices useful for debugging (A, b_vec, x,
+    diet_values, nodetrdiet, living_idx, no_b, no_ee).
 
     Examples
     --------
@@ -705,9 +712,8 @@ def rpath(
 
     # Fill in diet values - rows are prey (in bio_idx order), cols are predators (living only)
     for i, prey_global_idx in enumerate(bio_idx):
-        for j, pred_idx in enumerate(living_idx):
-            col_local_idx = np.where(living_idx == pred_idx)[0][0]
-            full_diet[i, j] = diet_values[prey_global_idx, col_local_idx]
+        for j in range(len(living_idx)):
+            full_diet[i, j] = diet_values[prey_global_idx, j]
 
     # Normalize to exclude import
     import_row = (

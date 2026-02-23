@@ -83,9 +83,11 @@ def prey_switching(
 
     # Sum of relative prey abundance for this predator
     total_rel = 0.0
+    n_active = 0
     for prey in range(1, n_groups):
         if ActiveLink[prey, pred] and Bbase[prey] > 0:
             total_rel += (BB[prey] / Bbase[prey]) ** switch_power
+            n_active += 1
 
     if total_rel <= 0:
         return switch_factor
@@ -94,17 +96,7 @@ def prey_switching(
     for prey in range(1, n_groups):
         if ActiveLink[prey, pred] and Bbase[prey] > 0:
             rel_abund = (BB[prey] / Bbase[prey]) ** switch_power
-            switch_factor[prey] = (
-                rel_abund
-                / total_rel
-                * len(
-                    [
-                        p
-                        for p in range(1, n_groups)
-                        if ActiveLink[p, pred] and Bbase[p] > 0
-                    ]
-                )
-            )
+            switch_factor[prey] = rel_abund / total_rel * n_active
 
     return switch_factor
 
@@ -641,7 +633,7 @@ def deriv_vector(
                 BB=BB,
                 ibm_group=ibm_groups[i],
                 forcing=forcing,
-                dt=1 / 12,
+                dt=params.get("_dt", 1 / 12),
                 spatial_context=spatial_ctx,
             )
             continue

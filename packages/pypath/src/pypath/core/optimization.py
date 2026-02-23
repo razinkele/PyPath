@@ -4,7 +4,6 @@ This module provides tools to optimize Ecosim parameters to match observed time 
 using Bayesian optimization with Gaussian Processes.
 """
 
-import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -18,10 +17,6 @@ try:
     HAS_SKOPT = True
 except ImportError:
     HAS_SKOPT = False
-    warnings.warn(
-        "scikit-optimize not installed. Install with: pip install scikit-optimize",
-        ImportWarning,
-    )
 
 from pypath.core.ecopath import Rpath
 from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
@@ -113,7 +108,12 @@ def normalized_root_mean_squared_error(y_true: np.ndarray, y_pred: np.ndarray) -
         Normalized RMSE
     """
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
-    return rmse / (np.max(y_true) - np.min(y_true))
+    y_range = np.max(y_true) - np.min(y_true)
+    if y_range <= 0:
+        raise ValueError(
+            "Cannot compute NRMSE: y_true has zero range (all values identical)"
+        )
+    return rmse / y_range
 
 
 def log_likelihood(y_true: np.ndarray, y_pred: np.ndarray, sigma: float = 0.1) -> float:
