@@ -39,6 +39,7 @@ from pypath.io.ewemdb import (
     read_ewemdb,
     read_ewemdb_table,
 )
+
 try:
     from pypath.io.marine_data import (
         EMODnetBathymetryClient,

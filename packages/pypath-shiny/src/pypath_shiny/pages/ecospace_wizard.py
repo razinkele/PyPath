@@ -107,9 +107,8 @@ def ecospace_wizard_server(
             return
 
         try:
-            from shapely.geometry import shape
-
             from pypath.spatial.ecospace_params import EcospaceGrid
+            from shapely.geometry import shape
 
             polygon = shape(poly)
             bounds = polygon.bounds  # (minx, miny, maxx, maxy)
@@ -144,19 +143,16 @@ def ecospace_wizard_server(
         grid = ecospace_grid.get()
         poly = drawn_polygon.get()
         if grid is None or poly is None:
-            download_status.set(
-                "Please draw a polygon and configure the grid first."
-            )
+            download_status.set("Please draw a polygon and configure the grid first.")
             return
 
         try:
-            from shapely.geometry import shape
-
             from pypath.io.marine_data import (
                 EMODnetBathymetryClient,
                 EMODnetHabitatsClient,
                 MarineDataCache,
             )
+            from shapely.geometry import shape
 
             polygon = shape(poly)
             bbox = polygon.bounds  # (minx, miny, maxx, maxy)
@@ -226,9 +222,7 @@ def ecospace_wizard_server(
             return ui.p()
         if status.startswith("Done"):
             return ui.p(status, class_="text-success mt-2")
-        elif status.startswith("Download failed") or status.startswith(
-            "Please"
-        ):
+        elif status.startswith("Download failed") or status.startswith("Please"):
             return ui.p(status, class_="text-danger mt-2")
         return ui.p(status, class_="text-info mt-2")
 
@@ -257,10 +251,7 @@ def ecospace_wizard_server(
                 )
             )
         return ui.div(
-            ui.h5(
-                f"{len(unique_types)} habitat types found "
-                f"across {len(hab)} patches"
-            ),
+            ui.h5(f"{len(unique_types)} habitat types found across {len(hab)} patches"),
             *items,
         )
 
@@ -302,7 +293,6 @@ def ecospace_wizard_server(
             return ui.p("Complete Steps 3-4 first.", class_="text-muted")
 
         import numpy as np
-
         from pypath.io.marine_data import HabitatPreferenceBuilder
 
         habitat_types = sorted(set(hab))
@@ -323,9 +313,7 @@ def ecospace_wizard_server(
         if preset == "auto":
             prefs = builder.suggest_preferences(group_names, habitat_types)
         elif preset != "none":
-            prefs = builder.apply_preset(
-                len(group_names), habitat_types, preset
-            )
+            prefs = builder.apply_preset(len(group_names), habitat_types, preset)
         else:
             # Default moderate preferences
             prefs = np.ones((len(group_names), len(habitat_types))) * 0.5
@@ -337,9 +325,7 @@ def ecospace_wizard_server(
 
         df = pd.DataFrame(prefs, index=group_names, columns=habitat_types)
         df = df.round(2)
-        html = df.to_html(
-            classes="table table-sm table-striped", border=0
-        )
+        html = df.to_html(classes="table table-sm table-striped", border=0)
 
         return ui.div(
             ui.p(
@@ -360,7 +346,6 @@ def ecospace_wizard_server(
         if grid is None:
             return ui.p("Complete earlier steps first.", class_="text-muted")
 
-        import numpy as np
         import pandas as pd
 
         # Get group names
@@ -384,9 +369,7 @@ def ecospace_wizard_server(
                 "Gravity Strength": [gravity] * n_groups,
             }
         )
-        html = df.to_html(
-            classes="table table-sm table-striped", border=0, index=False
-        )
+        html = df.to_html(classes="table table-sm table-striped", border=0, index=False)
         return ui.div(
             ui.p(f"Dispersal settings for {n_groups} groups:"),
             ui.HTML(html),
@@ -414,9 +397,7 @@ def ecospace_wizard_server(
                 )
             )
         else:
-            items.append(
-                ui.p("Grid not configured.", class_="text-warning")
-            )
+            items.append(ui.p("Grid not configured.", class_="text-warning"))
 
         # Habitats summary
         if hab is not None:
@@ -431,9 +412,7 @@ def ecospace_wizard_server(
         # Environment summary
         env_items = []
         if depth is not None:
-            env_items.append(
-                f"Depth: {depth.min():.0f}m to {depth.max():.0f}m"
-            )
+            env_items.append(f"Depth: {depth.min():.0f}m to {depth.max():.0f}m")
         if sal is not None:
             env_items.append(f"Salinity: loaded ({sal.name})")
         if env_items:
@@ -461,8 +440,7 @@ def ecospace_wizard_server(
             ui.div(
                 ui.h5("Dispersal"),
                 ui.p(
-                    f"Default rate: "
-                    f"{input.wizard_dispersal_default()} km\u00b2/month"
+                    f"Default rate: {input.wizard_dispersal_default()} km\u00b2/month"
                 ),
                 ui.p(f"Gravity: {input.wizard_gravity()}"),
             )
@@ -480,14 +458,11 @@ def ecospace_wizard_server(
         prefs = preference_matrix.get()
 
         if grid is None or hab is None:
-            logger.warning(
-                "Cannot create model: missing grid or habitat data"
-            )
+            logger.warning("Cannot create model: missing grid or habitat data")
             return
 
         try:
             import numpy as np
-
             from pypath.io.marine_data import HabitatPreferenceBuilder
             from pypath.spatial.ecospace_params import EcospaceParams
             from pypath.spatial.environmental import (
@@ -527,11 +502,7 @@ def ecospace_wizard_server(
             # Build environmental drivers
             layers = []
             if depth is not None:
-                layers.append(
-                    EnvironmentalLayer(
-                        name="depth", units="m", values=depth
-                    )
-                )
+                layers.append(EnvironmentalLayer(name="depth", units="m", values=depth))
             sal = salinity_layer.get()
             if sal is not None:
                 layers.append(sal)
@@ -553,8 +524,7 @@ def ecospace_wizard_server(
                 shared_data.ecospace_params = params
 
             logger.info(
-                "Created EcospaceParams: %d patches, %d groups, "
-                "%d habitat types",
+                "Created EcospaceParams: %d patches, %d groups, %d habitat types",
                 grid.n_patches,
                 n_groups,
                 len(habitat_types),
