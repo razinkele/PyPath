@@ -390,6 +390,16 @@ def check_rpath_params(params: RpathParams) -> bool:
         warnings.warn(f"Groups missing both Biomass and EE: {groups}")
         n_warnings += 1
 
+    # Inform about PB estimation capability
+    has_b_ee_no_pb = living[
+        ~living["Biomass"].isna() & ~living["EE"].isna() & living["PB"].isna()
+    ]
+    if len(has_b_ee_no_pb) > 0:
+        groups = has_b_ee_no_pb["Group"].tolist()
+        logger.info(
+            "Groups with B+EE but missing PB (will be estimated): %s", groups
+        )
+
     # Check that consumers have QB or ProdCons
     consumers = model[model["Type"] < 1]
     missing_qb = consumers[consumers["QB"].isna() & consumers["ProdCons"].isna()]

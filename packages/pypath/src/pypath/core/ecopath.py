@@ -347,6 +347,8 @@ def rpath(
     original_no_b = np.isnan(biomass)
     original_pb_missing = np.isnan(model_df["PB"].values.astype(float))
     original_no_ee = np.isnan(model_df["EE"].values.astype(float))
+    # Groups where B and EE are known but PB is missing → solve for PB
+    original_no_pb = original_pb_missing & ~original_no_b & ~original_no_ee
 
     # Keep biomass as NaN for living groups when originally missing so the solver treats them
     # as unknowns and solves for biomass when EE is provided (this matches R's behavior).
@@ -436,7 +438,10 @@ def rpath(
         # Build A matrix for this iteration
         A = np.zeros((nliving, nliving))
         for i in range(nliving):
-            if living_no_ee[i]:  # Solve for EE
+            g_idx = living_idx[i]
+            if original_no_pb[g_idx]:  # Solve for PB: A[i,i] = B*EE, x[i] = PB
+                A[i, i] = living_biomass[i] * living_ee[i]
+            elif living_no_ee[i]:  # Solve for EE
                 A[i, i] = (
                     living_biomass[i] * living_pb[i]
                     if not np.isnan(living_biomass[i])
@@ -499,7 +504,15 @@ def rpath(
                 x[i],
                 biomass[idx],
             )
-            if living_no_ee[i]:
+            if original_no_pb[idx]:
+                pb[idx] = x[i]
+                logger.debug("Assigned pb[%s] = %s", idx, x[i])
+                # Recalculate QB from estimated PB if QB was originally missing
+                orig_qb = model_df["QB"].values.astype(float)[idx]
+                if np.isnan(orig_qb) and ge[idx] > 0:
+                    qb[idx] = pb[idx] / ge[idx]
+                    logger.debug("Recalculated qb[%s] = %s from pb/ge", idx, qb[idx])
+            elif living_no_ee[i]:
                 ee[idx] = x[i]
                 logger.debug("Assigned ee[%s] = %s", idx, x[i])
             if living_no_b[i]:
@@ -570,7 +583,10 @@ def rpath(
     b_vec = living_catch + living_bioacc + np.sum(cons, axis=1)
     A = np.zeros((nliving, nliving))
     for i in range(nliving):
-        if np.isnan(living_ee[i]):
+        g_idx = living_idx[i]
+        if original_no_pb[g_idx]:
+            A[i, i] = living_biomass[i] * living_ee[i]
+        elif np.isnan(living_ee[i]):
             A[i, i] = (
                 living_biomass[i] * living_pb[i]
                 if not np.isnan(living_biomass[i])
@@ -636,12 +652,13 @@ def rpath(
         )
     det_input = np.nan_to_num(det_input, nan=0.0)
 
-    # Total inputs to each detritus group (include fleets for fishing discards)
-    all_source_idx = np.concatenate([living_idx, dead_idx, fleet_idx])
-    all_source_loss = loss[all_source_idx]
-    all_source_detfate = detfate[all_source_idx, :]
-    detinputs = (
-        np.sum(all_source_loss[:, np.newaxis] * all_source_detfate, axis=0) + det_input
+    # Stage 1: Inputs from living + gear sources only (not other detritus)
+    living_fleet_idx = np.concatenate([living_idx, fleet_idx])
+    living_fleet_loss = loss[living_fleet_idx]
+    living_fleet_detfate = detfate[living_fleet_idx, :]
+    detinputs1 = (
+        np.sum(living_fleet_loss[:, np.newaxis] * living_fleet_detfate, axis=0)
+        + det_input
     )
 
     # Detritus consumption by living groups
@@ -655,8 +672,16 @@ def rpath(
             if not np.isnan(pred_bio_qb):
                 detcons[d_local_idx] += dc_frac * pred_bio_qb
 
+    # Stage 2: Route unconsumed detritus through detritus-to-detritus fate matrix
+    det_unused = np.maximum(0.0, detinputs1 - detcons)
+    detdetfate = detfate[dead_idx, :]  # rows for detritus groups only
+    detinputs = detinputs1 + np.sum(
+        det_unused[:, np.newaxis] * detdetfate, axis=0
+    )
+
     # Detritus EE
-    det_ee = np.where(detinputs > 0, detcons / detinputs, 0.0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        det_ee = np.where(detinputs > 0, detcons / detinputs, 0.0)
     for d_idx, det_idx in enumerate(dead_idx):
         ee[det_idx] = det_ee[d_idx]
 
