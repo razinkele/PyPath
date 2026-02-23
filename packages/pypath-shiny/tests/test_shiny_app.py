@@ -110,7 +110,7 @@ class TestUIComponents:
         try:
             from pypath_shiny.app import app_ui
 
-            # App UI should be a page_navbar
+            # App UI should be a page_fluid with navset_pill_list
             assert app_ui is not None
         except ImportError:
             pytest.skip("Shiny not installed")

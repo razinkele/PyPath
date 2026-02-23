@@ -134,6 +134,9 @@ class UIConfig:
     sidebar_width: int = 300  # Shiny expects integer pixels
     sidebar_min_width: int = 250
 
+    # Navigation sidebar (pill list column widths out of 12)
+    nav_sidebar_widths: tuple = (3, 9)
+
     # Plot heights
     plot_height_small_px: str = "400px"
     plot_height_medium_px: str = "500px"

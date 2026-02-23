@@ -384,37 +384,37 @@ def home_server(
     @reactive.effect
     @reactive.event(input.btn_goto_import)
     def _goto_import():
-        ui.update_navs("main_navbar", selected="Data Import")
+        ui.update_navs("main_nav", selected="Data Import")
 
     @reactive.effect
     @reactive.event(input.btn_start_ecopath, input.btn_goto_ecopath)
     def _goto_ecopath():
-        ui.update_navs("main_navbar", selected="Ecopath Model")
+        ui.update_navs("main_nav", selected="Ecopath Model")
 
     @reactive.effect
     @reactive.event(input.btn_goto_ecosim)
     def _goto_ecosim():
-        ui.update_navs("main_navbar", selected="Ecosim Simulation")
+        ui.update_navs("main_nav", selected="Ecosim")
 
     @reactive.effect
     @reactive.event(input.btn_goto_ecospace)
     def _goto_ecospace():
-        ui.update_navs("main_navbar", selected="Ecospace")
+        ui.update_navs("main_nav", selected="Ecospace")
 
     @reactive.effect
     @reactive.event(input.btn_goto_analysis)
     def _goto_analysis():
-        ui.update_navs("main_navbar", selected="Analysis")
+        ui.update_navs("main_nav", selected="Analysis")
 
     @reactive.effect
     @reactive.event(input.btn_goto_results)
     def _goto_results():
-        ui.update_navs("main_navbar", selected="Results")
+        ui.update_navs("main_nav", selected="Results")
 
     @reactive.effect
     @reactive.event(input.btn_goto_about)
     def _goto_about():
-        ui.update_navs("main_navbar", selected="About")
+        ui.update_navs("main_nav", selected="About")
 
     @reactive.effect
     @reactive.event(input.btn_load_example)
@@ -670,7 +670,7 @@ def home_server(
             )
 
             # Navigate to Ecopath tab
-            ui.update_navs("main_navbar", selected="Ecopath Model")
+            ui.update_navs("main_nav", selected="Ecopath Model")
 
         except Exception as e:
             ui.notification_show(f"Error loading example model: {str(e)}", type="error")

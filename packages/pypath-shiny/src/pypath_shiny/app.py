@@ -62,17 +62,23 @@ from pypath_shiny.pages import (  # noqa: E402
     results,
 )
 
-# App UI with dashboard layout and Bootstrap theme
-app_ui = ui.page_navbar(
+def _icon_label(icon_class: str, text: str) -> ui.TagList:
+    """Create a nav label with a Bootstrap Icon and text."""
+    return ui.TagList(
+        ui.tags.i(class_=f"bi {icon_class}", style="margin-right: 8px;"),
+        text,
+    )
+
+
+# App UI with left sidebar pill list navigation
+app_ui = ui.page_fluid(
     # Include Bootstrap Icons CSS and custom styles
     ui.head_content(
         ui.tags.link(
             rel="stylesheet",
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
         ),
-        # Load custom CSS file
         ui.tags.link(rel="stylesheet", href="custom.css"),
-        # Additional CSS for DataGrid styling
         ui.tags.style(f"""
             /* Make Group column wider in DataGrids */
             .shiny-data-grid td:first-child,
@@ -87,51 +93,79 @@ app_ui = ui.page_navbar(
             }}
         """),
     ),
-    # Navigation pages
-    ui.nav_panel("Home", home.home_ui()),
-    ui.nav_panel("Data Import", data_import.import_ui()),
-    ui.nav_panel("Ecopath Model", ecopath.ecopath_ui()),
-    ui.nav_panel("Pre-Balance Diagnostics", prebalance.prebalance_ui()),
-    ui.nav_panel("Ecosim Simulation", ecosim.ecosim_ui()),
-    ui.nav_menu(
-        "Advanced Features",
-        ui.nav_panel("ECOSPACE Spatial Modeling", ecospace.ecospace_ui()),
-        ui.nav_panel("Multi-Stanza Groups", multistanza.multistanza_ui()),
-        ui.nav_panel("State-Variable Forcing", forcing_demo.forcing_demo_ui()),
-        ui.nav_panel(
-            "Dynamic Diet Rewiring", diet_rewiring_demo.diet_rewiring_demo_ui()
-        ),
-        ui.nav_panel("Bayesian Optimization", optimization_demo.optimization_demo_ui()),
-        ui.nav_panel("Individual-Based Model", ibm.ibm_ui()),
-        icon=ui.tags.i(class_="bi bi-stars"),
-    ),
-    ui.nav_panel("Analysis", analysis.analysis_ui()),
-    ui.nav_panel("Results", results.results_ui()),
-    ui.nav_spacer(),
-    # Settings button that opens modal
-    ui.nav_control(
-        ui.input_action_button(
-            "btn_settings",
-            ui.tags.i(class_="bi bi-gear-fill"),
-            class_="btn btn-link nav-link p-2",
-            title="Settings",
-        )
-    ),
-    ui.nav_panel("About", about.about_ui()),
-    # Navbar settings
-    title=ui.tags.span(
+    # Branding header
+    ui.div(
         ui.tags.img(
             src="icon.svg",
             height=UI.icon_height_px,
             style="margin-right: 8px; vertical-align: middle;",
         ),
-        ui.tags.span("PyPath", style="font-weight: 600; vertical-align: middle;"),
+        ui.tags.span(
+            "PyPath",
+            style="font-weight: 600; font-size: 1.4rem; vertical-align: middle;",
+        ),
+        class_="p-3 mb-2",
     ),
-    id="main_navbar",
-    footer=ui.div(
+    # Main navigation — left sidebar pill list
+    ui.navset_pill_list(
+        # Core workflow pages
+        ui.nav_panel(_icon_label("bi-house-fill", "Home"), home.home_ui(), value="Home"),
+        ui.nav_panel(_icon_label("bi-download", "Data Import"), data_import.import_ui(), value="Data Import"),
+        ui.nav_panel(_icon_label("bi-gear", "Ecopath Model"), ecopath.ecopath_ui(), value="Ecopath Model"),
+        ui.nav_panel(
+            _icon_label("bi-clipboard-check", "Pre-Balance"), prebalance.prebalance_ui(), value="Pre-Balance",
+        ),
+        ui.nav_panel(_icon_label("bi-graph-up", "Ecosim"), ecosim.ecosim_ui(), value="Ecosim"),
+        # Advanced features (collapsible group)
+        ui.nav_menu(
+            _icon_label("bi-stars", "Advanced"),
+            ui.nav_panel(
+                _icon_label("bi-globe-americas", "Ecospace"), ecospace.ecospace_ui(), value="Ecospace",
+            ),
+            ui.nav_panel(
+                _icon_label("bi-layers", "Multi-Stanza"), multistanza.multistanza_ui(), value="Multi-Stanza",
+            ),
+            ui.nav_panel(
+                _icon_label("bi-lightning", "Forcing"), forcing_demo.forcing_demo_ui(), value="Forcing",
+            ),
+            ui.nav_panel(
+                _icon_label("bi-arrow-repeat", "Diet Rewiring"),
+                diet_rewiring_demo.diet_rewiring_demo_ui(),
+                value="Diet Rewiring",
+            ),
+            ui.nav_panel(
+                _icon_label("bi-bullseye", "Optimization"),
+                optimization_demo.optimization_demo_ui(),
+                value="Optimization",
+            ),
+            ui.nav_panel(
+                _icon_label("bi-cpu", "Individual-Based Model"), ibm.ibm_ui(), value="Individual-Based Model",
+            ),
+        ),
+        # Output pages
+        ui.nav_panel(
+            _icon_label("bi-bar-chart-line", "Analysis"), analysis.analysis_ui(), value="Analysis",
+        ),
+        ui.nav_panel(
+            _icon_label("bi-file-earmark-text", "Results"), results.results_ui(), value="Results",
+        ),
+        ui.nav_panel(_icon_label("bi-info-circle", "About"), about.about_ui(), value="About"),
+        ui.nav_control(
+            ui.input_action_button(
+                "btn_settings",
+                _icon_label("bi-gear-fill", "Settings"),
+                class_="btn btn-link text-start w-100 p-2",
+            ),
+        ),
+        id="main_nav",
+        widths=UI.nav_sidebar_widths,
+        well=True,
+    ),
+    # Footer
+    ui.div(
         ui.tags.hr(),
         ui.tags.p(
-            f"PyPath © {datetime.now().year} | ",
+            f"PyPath \u00a9 {datetime.now().year} | ",
             ui.tags.a(
                 "Documentation",
                 href="https://github.com/razinkele/PyPath",
@@ -147,8 +181,6 @@ app_ui = ui.page_navbar(
         ),
         class_="p-2",
     ),
-    fillable=True,
-    # Apply a clean modern theme - 'flatly' is professional and readable
     theme=(
         shinyswatch.theme.flatly
         if getattr(shinyswatch, "theme", None) is not None
