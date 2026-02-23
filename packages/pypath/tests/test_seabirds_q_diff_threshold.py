@@ -4,6 +4,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+pytestmark = pytest.mark.integration
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]  # packages/pypath/tests -> repo root
 _BUILD_DIR = _REPO_ROOT / "build"
 CMP_FP = _BUILD_DIR / "seabirds_py_vs_rpath_month952.csv"

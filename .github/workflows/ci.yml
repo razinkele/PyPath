@@ -21,10 +21,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Get pip cache dir
+        id: pip-cache
+        shell: bash
+        run: echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
+          path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             pip-${{ matrix.os }}-py${{ matrix.python-version }}-
@@ -37,8 +42,8 @@ jobs:
       - name: Ruff Lint
         run: ruff check packages/
 
-      - name: Black check
-        run: black --check packages/
+      - name: Ruff Format check
+        run: ruff format --check packages/
 
       - name: Type check (mypy)
         run: mypy packages/pypath/src --config-file packages/pypath/pyproject.toml || true
@@ -48,8 +53,10 @@ jobs:
           pytest packages/pypath/tests -q -m "not integration and not slow" --maxfail=1 --disable-warnings
 
       - name: Upload test results (artifact)
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: pytest-report-${{ matrix.os }}-${{ matrix.python-version }}
-          path: .
+          path: |
+            **/pytest-report.*
+            **/test-results/

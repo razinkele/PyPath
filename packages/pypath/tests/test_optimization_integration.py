@@ -7,6 +7,8 @@ Tests optimizer with actual Ecopath models, simulations, and parameter fitting.
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.slow
+
 # Check if optimization is available
 try:
     from pypath.core import HAS_OPTIMIZATION

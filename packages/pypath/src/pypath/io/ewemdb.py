@@ -410,30 +410,30 @@ def read_ewemdb(
 
     try:
         diet_df = read_ewemdb_table(filepath, "EcopathDietComp")
-    except (EwEDatabaseError, KeyError, ValueError, Exception):
+    except Exception:
         try:
             diet_df = read_ewemdb_table(filepath, "DietComp")
-        except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
+        except Exception as e:
             diet_df = None
-            logger.warning(f"Could not read diet composition data: {e}")
+            logger.warning("Could not read diet composition data: %s", e)
 
     try:
         fleet_df = read_ewemdb_table(filepath, "EcopathFleet")
-    except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
+    except Exception as e:
         try:
             fleet_df = read_ewemdb_table(filepath, "Fleet")
-        except (EwEDatabaseError, KeyError, ValueError, Exception):
+        except Exception:
             fleet_df = None
-            logger.debug(f"Could not read fleet data: {e}")
+            logger.debug("Could not read fleet data: %s", e)
 
     try:
         catch_df = read_ewemdb_table(filepath, "EcopathCatch")
-    except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
+    except Exception as e:
         try:
             catch_df = read_ewemdb_table(filepath, "Catch")
-        except (EwEDatabaseError, KeyError, ValueError, Exception):
+        except Exception:
             catch_df = None
-            logger.debug(f"Could not read catch data: {e}")
+            logger.debug("Could not read catch data: %s", e)
 
     # Try to read Auxillary table (contains cell-level remarks in EwE 6.6+)
     auxillary_df = None
@@ -443,9 +443,9 @@ def read_ewemdb(
         auxillary_df = auxillary_df[
             auxillary_df["Remark"].notna() & (auxillary_df["Remark"] != "")
         ]
-        logger.debug(f"Found Auxillary table with {len(auxillary_df)} remarks")
-    except (EwEDatabaseError, KeyError, ValueError, Exception) as e:
-        logger.debug(f"Could not read Auxillary table: {e}")
+        logger.debug("Found Auxillary table with %d remarks", len(auxillary_df))
+    except Exception as e:
+        logger.debug("Could not read Auxillary table: %s", e)
 
     # Filter by scenario if needed
     if "ScenarioID" in groups_df.columns:
@@ -617,7 +617,7 @@ def read_ewemdb(
     # PRIMARY METHOD: Extract remarks from Auxillary table (EwE 6.6+)
     # ValueID format: "EcoPathGroupInput:<GroupID>:<VarName>"
     if auxillary_df is not None and len(auxillary_df) > 0:
-        logger.debug(f"Processing {len(auxillary_df)} remarks from Auxillary table")
+        logger.debug("Processing %d remarks from Auxillary table", len(auxillary_df))
 
         import re
 
@@ -651,18 +651,19 @@ def read_ewemdb(
                             found_remarks_cols.append(param_name)
 
         if found_remarks_cols:
-            logger.debug(f"Found remarks for parameters: {found_remarks_cols}")
+            logger.debug("Found remarks for parameters: %s", found_remarks_cols)
 
     if has_any_remarks:
         params.remarks = pd.DataFrame(remarks_data)
         logger.debug(
-            f"Created remarks DataFrame with {len(found_remarks_cols)} parameter columns"
+            "Created remarks DataFrame with %d parameter columns",
+            len(found_remarks_cols),
         )
         # Count total non-empty remarks
         total_remarks = sum(
             1 for param in found_remarks_cols for r in remarks_data.get(param, []) if r
         )
-        logger.debug(f"Total non-empty remarks: {total_remarks}")
+        logger.debug("Total non-empty remarks: %d", total_remarks)
     else:
         logger.debug("No remarks found in EwE database file")
 
@@ -865,7 +866,9 @@ def read_ewemdb(
 
         if len(stanza_df) > 0 and len(stanza_life_df) > 0:
             logger.debug(
-                f"Found {len(stanza_df)} stanza groups, {len(stanza_life_df)} life stages"
+                "Found %d stanza groups, %d life stages",
+                len(stanza_df),
+                len(stanza_life_df),
             )
 
             # Get ID to name mapping
@@ -963,15 +966,18 @@ def read_ewemdb(
             params.stanzas.stindiv = stindiv_data_df
 
             logger.debug(
-                f"Populated stanza params: {params.stanzas.n_stanza_groups} groups"
+                "Populated stanza params: %d groups",
+                params.stanzas.n_stanza_groups,
             )
-    except (EwEDatabaseError, KeyError, ValueError, IndexError, Exception) as e:
-        logger.debug(f"Could not read stanza tables: {e}")
+    except Exception as e:
+        logger.debug("Could not read stanza tables: %s", e)
 
     # OPTIONAL: Read Ecosim scenarios and associated time-series if requested
     if include_ecosim:
         ecosim_meta: Dict[str, Any] = {"has_ecosim": False, "scenarios": []}
         ecosim_df = None
+        frate_df = None
+        catch_yr_df = None
         # Try common table names
         ecosim_df = _try_read_table_variants(
             filepath,
@@ -1284,16 +1290,8 @@ def read_ewemdb(
                                             n_bio = len(group_names) + 1
                                             # Parse annual FRATE and CATCH if present
                                             # Use pre-read annual tables if available, else try common variants
-                                            frate_tbl = (
-                                                frate_df
-                                                if "frate_df" in locals()
-                                                else None
-                                            )
-                                            catch_tbl = (
-                                                catch_yr_df
-                                                if "catch_yr_df" in locals()
-                                                else None
-                                            )
+                                            frate_tbl = frate_df
+                                            catch_tbl = catch_yr_df
                                             if frate_tbl is None:
                                                 frate_tbl = _try_read_table_variants(
                                                     filepath,
@@ -1410,8 +1408,8 @@ def read_ewemdb(
                     ecospace_tables = _map_ecospace_tables(filepath)
                     if ecospace_tables:
                         scen["ecospace"] = ecospace_tables
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Could not read ecospace tables: %s", e)
 
                 ecosim_meta["scenarios"].append(scen)
         params.ecosim = ecosim_meta
@@ -1514,6 +1512,7 @@ def _parse_ecosim_forcing(
         elif cl.startswith("month") and cl[5:].isdigit() and 1 <= int(cl[5:]) <= 12:
             month_cols.append((c, int(cl[5:])))
 
+    other_cols: list = []
     if month_cols:
         # Melt wide monthly format into long rows with Year and Month
         time_col = next((c for c in ["Year", "Time"] if c in df.columns), None)
@@ -1601,7 +1600,7 @@ def _parse_ecosim_forcing(
     # If Parameter present but Group column absent and no explicit group columns, map each Parameter to a single-column DataFrame
     group_candidates = [
         c
-        for c in (other_cols if "other_cols" in locals() else [])
+        for c in other_cols
         if c not in (time_col, "ScenarioID", "Parameter")
     ]
     if "Parameter" in df.columns and "Group" not in df.columns and not group_candidates:
@@ -2036,10 +2035,8 @@ def _resample_fishing_pivot_to_monthly(
                 )
                 # Pad with leading column 0 for 'Outside' or placeholder so gear indices start at column 1
                 try:
-                    import numpy as _np2
-
                     pad = pd.DataFrame(
-                        _np2.zeros((len(monthly_years), 1)),
+                        _np.zeros((len(monthly_years), 1)),
                         index=monthly_years,
                         columns=[0],
                     )
@@ -2350,7 +2347,7 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
     patch_areas = None
     patch_centroids = None
 
-    logger.info(f"_construct_ecospace_params: grid_df present={grid_df is not None}")
+    logger.info("_construct_ecospace_params: grid_df present=%s", grid_df is not None)
 
     if grid_df is not None and len(grid_df) > 0:
         id_col = next(
@@ -2379,7 +2376,10 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
             ).T
 
         logger.info(
-            f"_construct_ecospace_params: patch_ids={patch_ids}, patch_areas_shape={None if patch_areas is None else patch_areas.shape}, patch_centroids_shape={None if patch_centroids is None else patch_centroids.shape}"
+            "_construct_ecospace_params: patch_ids=%s, patch_areas_shape=%s, patch_centroids_shape=%s",
+            patch_ids,
+            None if patch_areas is None else patch_areas.shape,
+            None if patch_centroids is None else patch_centroids.shape,
         )
 
     # Fallback: infer from habitat table
@@ -2405,7 +2405,10 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
             None,
         )
         logger.info(
-            f"_construct_ecospace_params: habitat_cols patch={patch_col}, group={group_col}, value={value_col}"
+            "_construct_ecospace_params: habitat_cols patch=%s, group=%s, value=%s",
+            patch_col,
+            group_col,
+            value_col,
         )
         if patch_ids is None and patch_col is not None:
             patch_ids = sorted(habitat_df[patch_col].dropna().unique().tolist())
@@ -2414,7 +2417,9 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
             groups_present = sorted(habitat_df[group_col].dropna().unique().tolist())
             patches_present = sorted(habitat_df[patch_col].dropna().unique().tolist())
             logger.info(
-                f"_construct_ecospace_params: groups_present={groups_present}, patches_present={patches_present}"
+                "_construct_ecospace_params: groups_present=%s, patches_present=%s",
+                groups_present,
+                patches_present,
             )
             # Map group_names to groups_present order if possible
             n_groups = len(group_names)
@@ -2584,12 +2589,16 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
             )
 
             logger.info(
-                f"_construct_ecospace_params: constructed EcospaceParams n_patches={grid.n_patches} n_groups={habitat_pref.shape[0]}"
+                "_construct_ecospace_params: constructed EcospaceParams n_patches=%d n_groups=%d",
+                grid.n_patches,
+                habitat_pref.shape[0],
             )
             return ecospace_params
 
     logger.info(
-        f"_construct_ecospace_params: Not enough data to construct EcospaceParams: grid_present={('EcospaceGrid' in ecospace_tables)}, habitat_present={('EcospaceHabitat' in ecospace_tables or 'EcospaceLayer' in ecospace_tables)}"
+        "_construct_ecospace_params: Not enough data to construct EcospaceParams: grid_present=%s, habitat_present=%s",
+        "EcospaceGrid" in ecospace_tables,
+        "EcospaceHabitat" in ecospace_tables or "EcospaceLayer" in ecospace_tables,
     )
     return None
 
@@ -2704,7 +2713,7 @@ def ecosim_scenario_from_ewemdb(
         if ecospace_params is not None:
             rsim.ecospace = ecospace_params
     except Exception as e:
-        logger.exception(f"Failed to construct EcospaceParams: {e}")
+        logger.exception("Failed to construct EcospaceParams: %s", e)
         # Leave ecospace as None if construction fails
         rsim.ecospace = None
 
@@ -2818,7 +2827,7 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
             ecospace_df = read_ewemdb_table(filepath, "EcospaceScenario")
             if len(ecospace_df) > 0:
                 metadata["has_ecospace"] = True
-        except (EwEDatabaseError, KeyError, ValueError, Exception):
+        except Exception:
             pass
 
     except Exception as e:

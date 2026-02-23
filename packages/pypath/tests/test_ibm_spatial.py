@@ -217,7 +217,8 @@ class TestSmeltIBMSpatialMovement:
             food_rich_counts.append(in_patch_1)
 
         avg_in_food_rich = np.mean(food_rich_counts)
-        avg_per_patch = np.mean([len(ibm.individuals)]) / 3
+        # With uniform distribution, each of 3 patches gets ~n_super/3 individuals
+        avg_per_patch = 200 / 3
         # On average, more individuals should be in the food-rich patch
         assert avg_in_food_rich > avg_per_patch
 

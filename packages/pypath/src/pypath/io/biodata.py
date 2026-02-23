@@ -1186,7 +1186,7 @@ def biodata_to_rpath(
     params = create_rpath_params(groups=group_names, types=group_types)
 
     # Fill in parameters
-    for i, row in species_data.iterrows():
+    for i, (_, row) in enumerate(species_data.iterrows()):
         group_name = group_names[i] if i < len(group_names) else row["scientific_name"]
 
         # Biomass

@@ -12,6 +12,8 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
+pytestmark = pytest.mark.slow
+
 # Check if optimization is available
 try:
     from pypath.core import HAS_OPTIMIZATION

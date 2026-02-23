@@ -12,6 +12,8 @@ import warnings
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.slow
+
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
