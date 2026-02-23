@@ -7,12 +7,13 @@ injected into the Ecosim derivative loop.
 
 The SmeltIBM is initialized from Ecopath equilibrium biomass and creates an
 age-structured population of super-individuals using Von Bertalanffy growth
-curves.  Each time step, it runs four phases:
+curves.  Each time step, it runs up to five phases:
 
 1. **Forage + Grow**: adaptive foraging followed by Wisconsin bioenergetics.
 2. **Reproduce**: mature females spawn; surviving larvae become recruits.
 3. **Predation mortality**: size-structured mortality from Ecosim predators.
 4. **Bookkeeping**: add recruits, age individuals, remove senescent fish.
+5. **Spatial movement** (optional): move individuals between patches.
 
 Classes
 -------
@@ -27,12 +28,17 @@ from __future__ import annotations
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from pypath.ibm.base import IBMGroup, IBMStepResult, SuperIndividual
-from pypath.ibm.behavior import ForagingParams, MovementParams, adaptive_forage
+from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext, SuperIndividual
+from pypath.ibm.behavior import (
+    ForagingParams,
+    MovementParams,
+    adaptive_forage,
+    move_individual,
+)
 from pypath.ibm.bioenergetics import (
     BioenergParams,
     allometric_length,
@@ -307,22 +313,44 @@ class SmeltIBM(IBMGroup):
         """
         return self._last_consumption.copy()
 
+    def _aggregate_by_patch(self, n_patches: int) -> np.ndarray:
+        """Aggregate individual biomass by spatial patch.
+
+        Parameters
+        ----------
+        n_patches : int
+            Number of spatial patches.
+
+        Returns
+        -------
+        np.ndarray
+            1-D array of shape ``(n_patches,)`` with total biomass per patch.
+        """
+        result = np.zeros(n_patches)
+        for ind in self.individuals:
+            if 0 <= ind.patch_idx < n_patches:
+                result[ind.patch_idx] += ind.total_biomass_tonnes()
+        return result
+
     def compute_step(
         self,
         prey_available: np.ndarray,
         predation_pressure: float,
         env_forcing: Dict[str, Any],
         dt: float,
+        spatial_context: Optional[SpatialContext] = None,
     ) -> IBMStepResult:
         """Advance the SmeltIBM population by one time step.
 
-        Executes four phases:
+        Executes up to five phases:
 
         1. **Forage + Grow**: For each individual, compute adaptive foraging
            allocation, then update weight and energy via bioenergetics.
         2. **Reproduce**: Mature females spawn; surviving larvae create recruits.
         3. **Predation mortality**: Apply size-structured predation.
         4. **Bookkeeping**: Age individuals, add recruits, remove senescent fish.
+        5. **Spatial movement** (optional): Move individuals between patches
+           when a spatial context is provided.
 
         Parameters
         ----------
@@ -336,6 +364,9 @@ class SmeltIBM(IBMGroup):
             ``"month"``, ``"zoo_peak_day"``.
         dt : float
             Time step size (fraction of a year).
+        spatial_context : SpatialContext, optional
+            Spatial patch data for Ecospace simulations. When ``None``
+            (default), no spatial movement is performed.
 
         Returns
         -------
@@ -458,6 +489,27 @@ class SmeltIBM(IBMGroup):
         # Record consumption
         self._last_consumption = total_consumption
 
+        # ================================================================
+        # Phase 5: Spatial movement (only when spatial context provided)
+        # ================================================================
+        patch_biomass = None
+        if spatial_context is not None:
+            rng = np.random.default_rng()
+            for ind in self.individuals:
+                moved = move_individual(
+                    individual=ind,
+                    adjacency=spatial_context.adjacency,
+                    habitat_quality=spatial_context.habitat_quality,
+                    food_density=spatial_context.food_density,
+                    predator_density=spatial_context.predator_density,
+                    params=sp.movement,
+                    rng=rng,
+                )
+                # move_individual returns a copy; update in-place
+                ind.patch_idx = moved.patch_idx
+
+            patch_biomass = self._aggregate_by_patch(spatial_context.n_patches)
+
         # Compute results
         biomass_after = self.get_aggregate_biomass()
         production = biomass_after - biomass_before
@@ -469,4 +521,5 @@ class SmeltIBM(IBMGroup):
             consumption_by_prey=total_consumption,
             mortality_count=mortality_count,
             recruitment_count=recruitment_count,
+            patch_biomass=patch_biomass,
         )

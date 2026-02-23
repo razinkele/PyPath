@@ -93,3 +93,130 @@ class TestIBMGroupSpatialSignature:
         """SpatialContext should be importable from pypath.ibm."""
         from pypath.ibm import SpatialContext
         assert SpatialContext is not None
+
+
+def _make_3patch_adjacency():
+    """Create a 3-patch linear chain: 0 -- 1 -- 2."""
+    adj = sp.lil_matrix((3, 3))
+    adj[0, 1] = 1; adj[1, 0] = 1
+    adj[1, 2] = 1; adj[2, 1] = 1
+    return adj.tocsr()
+
+
+def _make_smelt_with_spatial(n_patches=3, n_super=30):
+    """Create a SmeltIBM initialized for spatial testing."""
+    from pypath.ibm.base import SpatialContext
+    from pypath.ibm.smelt import SmeltIBM, SmeltParams
+
+    params = SmeltParams.baltic_defaults()
+    # Resize foraging arrays for 7-group model
+    n_groups = 7
+    params.foraging.energy_content = np.full(n_groups, 4.0)
+    params.foraging.handling_time = np.ones(n_groups)
+
+    ibm = SmeltIBM(group_index=3, n_groups=n_groups, params=params)
+    ibm.initialize_from_ecosim(biomass=5.0, params={}, n_super_individuals=n_super)
+
+    adj = _make_3patch_adjacency()
+    ctx = SpatialContext(
+        adjacency=adj,
+        habitat_quality=np.array([0.5, 0.8, 0.3]),
+        food_density=np.array([10.0, 20.0, 5.0]),
+        predator_density=np.array([1.0, 0.5, 2.0]),
+        n_patches=n_patches,
+    )
+    return ibm, ctx
+
+
+class TestSmeltIBMSpatialMovement:
+    """Tests for Phase 5 (spatial movement) in SmeltIBM."""
+
+    def test_compute_step_without_spatial_unchanged(self):
+        """compute_step without spatial_context should work as before."""
+        from pypath.ibm.smelt import SmeltIBM, SmeltParams
+
+        params = SmeltParams.baltic_defaults()
+        n_groups = 7
+        params.foraging.energy_content = np.full(n_groups, 4.0)
+        params.foraging.handling_time = np.ones(n_groups)
+        ibm = SmeltIBM(group_index=3, n_groups=n_groups, params=params)
+        ibm.initialize_from_ecosim(biomass=5.0, params={}, n_super_individuals=30)
+
+        result = ibm.compute_step(
+            prey_available=np.full(n_groups, 2.0),
+            predation_pressure=0.1,
+            env_forcing={"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0},
+            dt=1 / 12,
+        )
+        assert result.biomass > 0
+        assert result.patch_biomass is None
+
+    def test_compute_step_with_spatial_returns_patch_biomass(self):
+        """With spatial_context, result should have patch_biomass array."""
+        ibm, ctx = _make_smelt_with_spatial()
+
+        result = ibm.compute_step(
+            prey_available=np.full(ibm.n_groups, 2.0),
+            predation_pressure=0.1,
+            env_forcing={"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0},
+            dt=1 / 12,
+            spatial_context=ctx,
+        )
+        assert result.patch_biomass is not None
+        assert result.patch_biomass.shape == (3,)
+
+    def test_patch_biomass_sums_to_total(self):
+        """patch_biomass should sum to total biomass."""
+        ibm, ctx = _make_smelt_with_spatial()
+
+        result = ibm.compute_step(
+            prey_available=np.full(ibm.n_groups, 2.0),
+            predation_pressure=0.1,
+            env_forcing={"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0},
+            dt=1 / 12,
+            spatial_context=ctx,
+        )
+        np.testing.assert_allclose(
+            result.patch_biomass.sum(), result.biomass, rtol=1e-6,
+        )
+
+    def test_movement_distributes_across_patches(self):
+        """After movement, individuals should be in multiple patches."""
+        ibm, ctx = _make_smelt_with_spatial(n_super=100)
+
+        ibm.compute_step(
+            prey_available=np.full(ibm.n_groups, 2.0),
+            predation_pressure=0.1,
+            env_forcing={"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0},
+            dt=1 / 12,
+            spatial_context=ctx,
+        )
+        patches_occupied = {ind.patch_idx for ind in ibm.individuals}
+        # With 100 individuals and 3 patches, at least 2 patches should be occupied
+        assert len(patches_occupied) >= 2
+
+    def test_movement_prefers_food_rich_patches(self):
+        """Individuals should tend toward patches with higher food density."""
+        # Run 10 trials to reduce stochastic noise
+        food_rich_counts = []
+        for _ in range(10):
+            ibm, ctx = _make_smelt_with_spatial(n_super=200)
+            # Extreme food gradient: patch 1 has all the food
+            ctx.food_density = np.array([0.1, 100.0, 0.1])
+            ctx.habitat_quality = np.array([0.5, 0.5, 0.5])  # uniform habitat
+            ctx.predator_density = np.zeros(3)  # no predators
+
+            ibm.compute_step(
+                prey_available=np.full(ibm.n_groups, 2.0),
+                predation_pressure=0.0,
+                env_forcing={"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0},
+                dt=1 / 12,
+                spatial_context=ctx,
+            )
+            in_patch_1 = sum(1 for ind in ibm.individuals if ind.patch_idx == 1)
+            food_rich_counts.append(in_patch_1)
+
+        avg_in_food_rich = np.mean(food_rich_counts)
+        avg_per_patch = np.mean([len(ibm.individuals)]) / 3
+        # On average, more individuals should be in the food-rich patch
+        assert avg_in_food_rich > avg_per_patch
