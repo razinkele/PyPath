@@ -113,9 +113,7 @@ def home_ui():
                             ),
                             ui.div(
                                 ui.h5(
-                                    ui.tags.i(
-                                        class_="bi bi-cpu text-info me-2"
-                                    ),
+                                    ui.tags.i(class_="bi bi-cpu text-info me-2"),
                                     "Individual-Based Modeling",
                                     class_="mb-2",
                                 ),
