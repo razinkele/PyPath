@@ -386,15 +386,8 @@ def convert_connectivity_to_flux(
         Flux matrix [n_patches, n_patches]
         flux[i, j] = biomass moving from i to j
     """
-    n_patches = len(biomass)
-    flux_matrix = np.zeros((n_patches, n_patches))
-
-    for i in range(n_patches):
-        for j in range(n_patches):
-            if i != j:
-                # Flux from i to j
-                flux_matrix[i, j] = connectivity_matrix[i, j] * biomass[i]
-
+    flux_matrix = connectivity_matrix * biomass[:, np.newaxis]
+    np.fill_diagonal(flux_matrix, 0.0)
     return flux_matrix
 
 

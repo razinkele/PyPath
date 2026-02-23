@@ -275,7 +275,8 @@ def validate_adjacency_symmetry(adjacency: scipy.sparse.csr_matrix) -> bool:
     bool
         True if symmetric (within tolerance)
     """
-    return np.allclose(adjacency.toarray(), adjacency.toarray().T)
+    diff = adjacency - adjacency.T
+    return diff.nnz == 0 or np.allclose(diff.data, 0)
 
 
 def get_connectivity_graph_stats(adjacency: scipy.sparse.csr_matrix) -> Dict:

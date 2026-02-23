@@ -117,6 +117,8 @@ def deriv_vector_spatial(
     ibm_spatial_contexts = {}
     if ibm_groups:
         ActiveLink = params.get("ActiveLink", None)
+        n_state = state_spatial.shape[0]
+        adjacency_matrix = ecospace.grid.adjacency_matrix
 
         for g_idx, _ibm in ibm_groups.items():
             # Use habitat preference for this group, or uniform if unavailable
@@ -129,21 +131,23 @@ def deriv_vector_spatial(
             # Compute prey and predator densities using the diet matrix.
             # ActiveLink[prey, pred] is True when pred eats prey.
             if ActiveLink is not None:
-                n_state = state_spatial.shape[0]
-                # Prey: groups this IBM group eats (sum biomass where ActiveLink[prey, g_idx])
-                prey_mask = np.zeros(n_state, dtype=bool)
-                for prey in range(1, n_state):
-                    if prey < ActiveLink.shape[0] and g_idx < ActiveLink.shape[1]:
-                        if ActiveLink[prey, g_idx]:
+                # Use cached masks if available (ActiveLink is static)
+                cache_key = "_ibm_masks_%d" % g_idx
+                cached = params.get(cache_key)
+                if cached is not None:
+                    prey_mask, pred_mask = cached
+                else:
+                    prey_mask = np.zeros(n_state, dtype=bool)
+                    for prey in range(1, min(n_state, ActiveLink.shape[0])):
+                        if g_idx < ActiveLink.shape[1] and ActiveLink[prey, g_idx]:
                             prey_mask[prey] = True
-                food = state_spatial[prey_mask, :].sum(axis=0) if prey_mask.any() else np.zeros(n_patches)
-
-                # Predators: groups that eat this IBM group (sum biomass where ActiveLink[g_idx, pred])
-                pred_mask = np.zeros(n_state, dtype=bool)
-                for pred in range(1, n_state):
-                    if g_idx < ActiveLink.shape[0] and pred < ActiveLink.shape[1]:
-                        if ActiveLink[g_idx, pred]:
+                    pred_mask = np.zeros(n_state, dtype=bool)
+                    for pred in range(1, min(n_state, ActiveLink.shape[1])):
+                        if g_idx < ActiveLink.shape[0] and ActiveLink[g_idx, pred]:
                             pred_mask[pred] = True
+                    params[cache_key] = (prey_mask, pred_mask)
+
+                food = state_spatial[prey_mask, :].sum(axis=0) if prey_mask.any() else np.zeros(n_patches)
                 pred = state_spatial[pred_mask, :].sum(axis=0) if pred_mask.any() else np.zeros(n_patches)
             else:
                 # Fallback: total living biomass (less informative but safe)
@@ -151,7 +155,7 @@ def deriv_vector_spatial(
                 pred = state_spatial[1:, :].sum(axis=0)
 
             ibm_spatial_contexts[g_idx] = SpatialContext(
-                adjacency=ecospace.grid.adjacency_matrix,
+                adjacency=adjacency_matrix,
                 habitat_quality=habitat_qual,
                 food_density=food,
                 predator_density=pred,
@@ -350,13 +354,16 @@ def rsim_run_spatial(
     # Time integration (RK4)
     current_biomass = state_spatial.Biomass.copy()
 
+    # Ftime is static — snapshot once before the loop
+    _ftime_snapshot = scenario.start_state.Ftime.copy()
+
     for month_idx in range(1, n_rows):
         t = month_idx * DELTA_T
 
         # Build per-timestep forcing dict (same structure as rsim_run)
         mi = month_idx - 1  # 0-based forcing index
         forcing_dict = {
-            "Ftime": scenario.start_state.Ftime.copy(),
+            "Ftime": _ftime_snapshot,
             "ForcedBio": np.where(forcing.ForcedBio[mi] > 0, forcing.ForcedBio[mi], 0),
             "ForcedMigrate": forcing.ForcedMigrate[mi],
             "ForcedEffort": (

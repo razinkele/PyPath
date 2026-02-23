@@ -26,7 +26,6 @@ SmeltIBM
 from __future__ import annotations
 
 import logging
-import random
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -225,16 +224,15 @@ class SmeltIBM(IBMGroup):
             Number of super-individuals to create (default 500).
         """
         sp = self.params
-        rng = np.random.default_rng(42)
 
         # Distribute ages uniformly from 0.5 to max_age
         ages = np.linspace(0.5, sp.max_age, n_super_individuals)
 
         # Draw individual VBGF parameters with slight variation
-        k_vals = rng.normal(sp.vbgf_k_mean, sp.vbgf_k_sd, n_super_individuals)
+        k_vals = self._rng.normal(sp.vbgf_k_mean, sp.vbgf_k_sd, n_super_individuals)
         k_vals = np.clip(k_vals, 0.05, None)  # K must be positive
 
-        linf_vals = rng.normal(sp.vbgf_linf_mean, sp.vbgf_linf_sd, n_super_individuals)
+        linf_vals = self._rng.normal(sp.vbgf_linf_mean, sp.vbgf_linf_sd, n_super_individuals)
         linf_vals = np.clip(linf_vals, 5.0, None)  # Linf must be positive
 
         # Compute lengths from Von Bertalanffy: L = Linf * (1 - exp(-K * age))
@@ -274,6 +272,8 @@ class SmeltIBM(IBMGroup):
         # Maturity: assume fish mature at age >= 2 years
         maturity_age = 2.0
 
+        sexes = self._rng.integers(0, 2, size=n_super_individuals)
+
         individuals: List[SuperIndividual] = []
         for i in range(n_super_individuals):
             ind = SuperIndividual(
@@ -285,7 +285,7 @@ class SmeltIBM(IBMGroup):
                 energy_reserve=float(weights[i]) * 0.1,  # initial reserve
                 patch_idx=0,
                 is_mature=bool(ages[i] >= maturity_age),
-                sex=random.choice([0, 1]),
+                sex=int(sexes[i]),
             )
             individuals.append(ind)
 
@@ -327,10 +327,13 @@ class SmeltIBM(IBMGroup):
         np.ndarray
             1-D array of shape ``(n_patches,)`` with total biomass per patch.
         """
+        if not self.individuals:
+            return np.zeros(n_patches)
+        patches = np.array([ind.patch_idx for ind in self.individuals])
+        biomasses = np.array([ind.total_biomass_tonnes() for ind in self.individuals])
+        valid = (patches >= 0) & (patches < n_patches)
         result = np.zeros(n_patches)
-        for ind in self.individuals:
-            if 0 <= ind.patch_idx < n_patches:
-                result[ind.patch_idx] += ind.total_biomass_tonnes()
+        np.add.at(result, patches[valid], biomasses[valid])
         return result
 
     def compute_step(

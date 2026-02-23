@@ -101,6 +101,66 @@ if HAS_NUMBA:
         return net_flux
 
 
+def _get_upper_triangle_edges(adjacency: scipy.sparse.csr_matrix):
+    """Return cached upper-triangle (row < col) edge indices.
+
+    The adjacency matrix is static across the simulation, so extracting
+    the nonzero entries and filtering to the upper triangle is done once
+    and cached as a ``_ut_edges`` attribute on the matrix object.
+    """
+    cached = getattr(adjacency, "_ut_edges", None)
+    if cached is not None:
+        return cached
+    rows, cols = adjacency.nonzero()
+    mask = rows < cols
+    result = (rows[mask], cols[mask])
+    adjacency._ut_edges = result
+    return result
+
+
+def _get_diffusion_edge_data(grid, adjacency):
+    """Return cached (rows, cols, border_lengths, distances) for diffusion.
+
+    Filters out zero-length and zero-distance edges so that the hot-path
+    can skip all validation logic.
+    """
+    cached = getattr(grid, "_diffusion_edges", None)
+    if cached is not None:
+        return cached
+
+    from scipy.spatial.distance import cdist
+
+    rows, cols = _get_upper_triangle_edges(adjacency)
+    n_edges = len(rows)
+
+    if n_edges == 0:
+        result = (rows, cols, np.empty(0), np.empty(0))
+        grid._diffusion_edges = result
+        return result
+
+    border_lengths = np.array(
+        [grid.edge_lengths.get((rows[i], cols[i]), 0.0) for i in range(n_edges)]
+    )
+
+    # Filter zero-length edges
+    valid = border_lengths > 0
+    rows, cols, border_lengths = rows[valid], cols[valid], border_lengths[valid]
+
+    if not hasattr(grid, "_distance_matrix"):
+        grid._distance_matrix = (
+            cdist(grid.patch_centroids, grid.patch_centroids, metric="euclidean")
+            * 111.0
+        )
+
+    distances = grid._distance_matrix[rows, cols]
+
+    # Filter zero-distance edges
+    valid = distances > 0
+    result = (rows[valid], cols[valid], border_lengths[valid], distances[valid])
+    grid._diffusion_edges = result
+    return result
+
+
 def diffusion_flux(
     biomass_vector: np.ndarray,
     dispersal_rate: float,
@@ -137,53 +197,10 @@ def diffusion_flux(
     n_patches = len(biomass_vector)
     net_flux = np.zeros(n_patches)
 
-    # Get all adjacent patch pairs (vectorized)
-    rows, cols = adjacency.nonzero()
+    rows, cols, border_lengths, distances = _get_diffusion_edge_data(grid, adjacency)
 
-    # Only process upper triangle (p < q) to avoid double-counting
-    mask = rows < cols
-    rows = rows[mask]
-    cols = cols[mask]
-
-    n_edges = len(rows)
-    if n_edges == 0:
+    if len(rows) == 0:
         return net_flux
-
-    # Pre-compute edge properties (vectorized)
-    border_lengths = np.array(
-        [grid.edge_lengths.get((rows[i], cols[i]), 0.0) for i in range(n_edges)]
-    )
-
-    # Filter out zero-length edges
-    valid_edges = border_lengths > 0
-    if not np.any(valid_edges):
-        return net_flux
-
-    rows = rows[valid_edges]
-    cols = cols[valid_edges]
-    border_lengths = border_lengths[valid_edges]
-
-    # Calculate distances using scipy (vectorized, much faster)
-    from scipy.spatial.distance import cdist
-
-    if not hasattr(grid, "_distance_matrix"):
-        # Cache distance matrix for reuse
-        grid._distance_matrix = (
-            cdist(grid.patch_centroids, grid.patch_centroids, metric="euclidean")
-            * 111.0
-        )
-
-    distances = grid._distance_matrix[rows, cols]
-
-    # Filter out zero distances
-    valid_dist = distances > 0
-    if not np.any(valid_dist):
-        return net_flux
-
-    rows = rows[valid_dist]
-    cols = cols[valid_dist]
-    border_lengths = border_lengths[valid_dist]
-    distances = distances[valid_dist]
 
     # Use Numba-accelerated implementation when available
     if HAS_NUMBA:
@@ -248,13 +265,7 @@ def habitat_advection(
     n_patches = len(biomass_vector)
     net_flux = np.zeros(n_patches)
 
-    # Get all adjacent patch pairs (vectorized)
-    rows, cols = adjacency.nonzero()
-
-    # Only process upper triangle to avoid double-counting
-    mask = rows < cols
-    rows = rows[mask]
-    cols = cols[mask]
+    rows, cols = _get_upper_triangle_edges(adjacency)
 
     if len(rows) == 0:
         return net_flux
@@ -344,13 +355,7 @@ def gravity_model_flux(
     n_patches = len(biomass_vector)
     net_flux = np.zeros(n_patches)
 
-    # Get all adjacent patches (vectorized)
-    rows, cols = adjacency.nonzero()
-
-    # Only process upper triangle to avoid double-counting
-    mask = rows < cols
-    rows = rows[mask]
-    cols = cols[mask]
+    rows, cols = _get_upper_triangle_edges(adjacency)
 
     if len(rows) == 0:
         return net_flux

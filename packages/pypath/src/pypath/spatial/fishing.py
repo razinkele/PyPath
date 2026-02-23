@@ -245,26 +245,15 @@ def allocate_port_based(
     >>> allocate_port_based(grid, port_patches=np.array([0]), total_effort=100, beta=1.0)
     # Returns effort decreasing with distance from patch 0
     """
+    from scipy.spatial.distance import cdist
+
     n_patches = grid.n_patches
 
-    # Calculate distance from each patch to nearest port
-    distance_to_port = np.zeros(n_patches)
-
-    for p in range(n_patches):
-        # Find distance to nearest port
-        min_dist = np.inf
-
-        for port in port_patches:
-            # Distance between patch centroids (in km)
-            dist = (
-                np.linalg.norm(grid.patch_centroids[p] - grid.patch_centroids[port])
-                * 111.0
-            )  # degrees to km
-
-            if dist < min_dist:
-                min_dist = dist
-
-        distance_to_port[p] = max(min_dist, 0.1)  # Avoid division by zero
+    # Vectorized distance from each patch to nearest port
+    all_centroids = grid.patch_centroids  # [n_patches, 2]
+    port_centroids = all_centroids[port_patches]  # [n_ports, 2]
+    dist_matrix = cdist(all_centroids, port_centroids, metric="euclidean") * 111.0
+    distance_to_port = np.maximum(dist_matrix.min(axis=1), 0.1)
 
     # Calculate effort based on inverse distance
     effort = 1.0 / (distance_to_port**beta)
@@ -307,25 +296,13 @@ def calculate_distance_penalty(
         Distance penalty [n_patches]
         penalty[p] = distance_to_nearest_port[p]^beta
     """
-    n_patches = grid.n_patches
-    penalty = np.zeros(n_patches)
+    from scipy.spatial.distance import cdist
 
-    for p in range(n_patches):
-        min_dist = np.inf
-
-        for port in port_patches:
-            dist = (
-                np.linalg.norm(grid.patch_centroids[p] - grid.patch_centroids[port])
-                * 111.0
-            )  # deg to km
-
-            if dist < min_dist:
-                min_dist = dist
-
-        # Avoid zero distance (port itself)
-        penalty[p] = max(min_dist, 0.1) ** beta
-
-    return penalty
+    all_centroids = grid.patch_centroids
+    port_centroids = all_centroids[port_patches]
+    dist_matrix = cdist(all_centroids, port_centroids, metric="euclidean") * 111.0
+    min_dist = np.maximum(dist_matrix.min(axis=1), 0.1)
+    return min_dist ** beta
 
 
 def allocate_habitat_based(
