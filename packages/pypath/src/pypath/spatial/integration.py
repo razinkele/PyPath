@@ -147,8 +147,16 @@ def deriv_vector_spatial(
                             pred_mask[pred] = True
                     params[cache_key] = (prey_mask, pred_mask)
 
-                food = state_spatial[prey_mask, :].sum(axis=0) if prey_mask.any() else np.zeros(n_patches)
-                pred = state_spatial[pred_mask, :].sum(axis=0) if pred_mask.any() else np.zeros(n_patches)
+                food = (
+                    state_spatial[prey_mask, :].sum(axis=0)
+                    if prey_mask.any()
+                    else np.zeros(n_patches)
+                )
+                pred = (
+                    state_spatial[pred_mask, :].sum(axis=0)
+                    if pred_mask.any()
+                    else np.zeros(n_patches)
+                )
             else:
                 # Fallback: total living biomass (less informative but safe)
                 food = state_spatial[1:, :].sum(axis=0)

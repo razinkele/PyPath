@@ -800,9 +800,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No model available"]})
 
         try:
-            df = model.summary()[
-                ["Group", "Type", "Biomass", "PB", "QB", "EE"]
-            ].copy()
+            df = model.summary()[["Group", "Type", "Biomass", "PB", "QB", "EE"]].copy()
             df = df.round(3)
             return df.head(15)
         except Exception as e:

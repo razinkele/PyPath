@@ -675,9 +675,7 @@ def rpath(
     # Stage 2: Route unconsumed detritus through detritus-to-detritus fate matrix
     det_unused = np.maximum(0.0, detinputs1 - detcons)
     detdetfate = detfate[dead_idx, :]  # rows for detritus groups only
-    detinputs = detinputs1 + np.sum(
-        det_unused[:, np.newaxis] * detdetfate, axis=0
-    )
+    detinputs = detinputs1 + np.sum(det_unused[:, np.newaxis] * detdetfate, axis=0)
 
     # Detritus EE
     with np.errstate(divide="ignore", invalid="ignore"):

@@ -232,7 +232,9 @@ class SmeltIBM(IBMGroup):
         k_vals = self._rng.normal(sp.vbgf_k_mean, sp.vbgf_k_sd, n_super_individuals)
         k_vals = np.clip(k_vals, 0.05, None)  # K must be positive
 
-        linf_vals = self._rng.normal(sp.vbgf_linf_mean, sp.vbgf_linf_sd, n_super_individuals)
+        linf_vals = self._rng.normal(
+            sp.vbgf_linf_mean, sp.vbgf_linf_sd, n_super_individuals
+        )
         linf_vals = np.clip(linf_vals, 5.0, None)  # Linf must be positive
 
         # Compute lengths from Von Bertalanffy: L = Linf * (1 - exp(-K * age))
