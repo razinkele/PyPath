@@ -93,9 +93,9 @@ class TestSmeltIBMInit:
             assert ind.weight > 0.0, f"Individual {ind.id} has non-positive weight"
             assert ind.length > 0.0, f"Individual {ind.id} has non-positive length"
             assert ind.age >= 0.0, f"Individual {ind.id} has negative age"
-            assert (
-                ind.n_represented > 0.0
-            ), f"Individual {ind.id} has non-positive n_represented"
+            assert ind.n_represented > 0.0, (
+                f"Individual {ind.id} has non-positive n_represented"
+            )
             assert ind.energy_reserve >= 0.0
 
     def test_individuals_age_range(self, smelt, params):

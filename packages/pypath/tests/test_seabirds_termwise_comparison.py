@@ -177,15 +177,15 @@ def test_seabirds_termwise_matches_rpath_first_12_months():
         if has_qq_data:
             if abs(production - r["production"]) > tol:
                 mismatches.append(
-                    f"Production month {m}: py={production:.12e} ref={r['production']:.12e} diff={production-r['production']:.12e}"
+                    f"Production month {m}: py={production:.12e} ref={r['production']:.12e} diff={production - r['production']:.12e}"
                 )
             if abs(predation_loss - r["predation_loss"]) > tol:
                 mismatches.append(
-                    f"Predation month {m}: py={predation_loss:.12e} ref={r['predation_loss']:.12e} diff={predation_loss-r['predation_loss']:.12e}"
+                    f"Predation month {m}: py={predation_loss:.12e} ref={r['predation_loss']:.12e} diff={predation_loss - r['predation_loss']:.12e}"
                 )
             if abs(consumption - r["consumption_by_predator"]) > tol:
                 mismatches.append(
-                    f"Consumption month {m}: py={consumption:.12e} ref={r['consumption_by_predator']:.12e} diff={consumption-r['consumption_by_predator']:.12e}"
+                    f"Consumption month {m}: py={consumption:.12e} ref={r['consumption_by_predator']:.12e} diff={consumption - r['consumption_by_predator']:.12e}"
                 )
         else:
             # If QQ is missing in R reference, skip production/predation/consumption and derivative checks.
@@ -196,21 +196,21 @@ def test_seabirds_termwise_matches_rpath_first_12_months():
         # Compare invariants present in R reference regardless
         if abs(fish_loss - r["fish_loss"]) > tol:
             mismatches.append(
-                f"Fish loss month {m}: py={fish_loss:.12e} ref={r['fish_loss']:.12e} diff={fish_loss-r['fish_loss']:.12e}"
+                f"Fish loss month {m}: py={fish_loss:.12e} ref={r['fish_loss']:.12e} diff={fish_loss - r['fish_loss']:.12e}"
             )
         if has_qq_data:
             if abs(m0_loss - r["m0_loss"]) > tol:
                 mismatches.append(
-                    f"M0 loss month {m}: py={m0_loss:.12e} ref={r['m0_loss']:.12e} diff={m0_loss-r['m0_loss']:.12e}"
+                    f"M0 loss month {m}: py={m0_loss:.12e} ref={r['m0_loss']:.12e} diff={m0_loss - r['m0_loss']:.12e}"
                 )
             if abs(raw_deriv - r["derivative"]) > 1e-10:
                 mismatches.append(
-                    f"Raw deriv month {m}: py={raw_deriv:.12e} ref={r['derivative']:.12e} diff={raw_deriv-r['derivative']:.12e}"
+                    f"Raw deriv month {m}: py={raw_deriv:.12e} ref={r['derivative']:.12e} diff={raw_deriv - r['derivative']:.12e}"
                 )
         else:
             if abs(m0_loss - r["m0_loss"]) > tol_m0:
                 mismatches.append(
-                    f"M0 loss month {m}: py={m0_loss:.12e} ref={r['m0_loss']:.12e} diff={m0_loss-r['m0_loss']:.12e}"
+                    f"M0 loss month {m}: py={m0_loss:.12e} ref={r['m0_loss']:.12e} diff={m0_loss - r['m0_loss']:.12e}"
                 )
 
         if mismatches:

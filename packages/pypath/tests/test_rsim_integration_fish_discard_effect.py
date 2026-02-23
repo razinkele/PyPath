@@ -96,9 +96,9 @@ def test_short_rk4_step_changes_discards_with_fish_discard_mappings():
 
     # Expect that fish-derived mappings increase the Discards derivative
     diff = deriv_with[idx_discards] - deriv_no[idx_discards]
-    assert (
-        diff >= 0.0
-    ), f"Discards derivative not increased by fish-derived discards (diff={diff})"
+    assert diff >= 0.0, (
+        f"Discards derivative not increased by fish-derived discards (diff={diff})"
+    )
     assert abs(diff) > 1e-12, "Measured effect is too small to be meaningful"
 
     # Also check a single RK4 step results in a larger short-term increase
@@ -110,9 +110,9 @@ def test_short_rk4_step_changes_discards_with_fish_discard_mappings():
     delta_with = new_state_with[idx_discards] - state0[idx_discards]
     delta_no = new_state_no[idx_discards] - state0[idx_discards]
 
-    assert (
-        delta_with - delta_no >= 0.0
-    ), "RK4 step did not increase Discards more when fish-derived discards were enabled"
+    assert delta_with - delta_no >= 0.0, (
+        "RK4 step did not increase Discards more when fish-derived discards were enabled"
+    )
     assert abs(delta_with - delta_no) > 1e-12, "RK4 short-term effect is too small"
 
 
@@ -241,12 +241,12 @@ def test_multi_month_synthetic_scenario_effect(synthetic_fish_scenario):
     disc_diff = final_with[i_disc] - final_no[i_disc]
     seab_diff = final_with[i_seab] - final_no[i_seab]
 
-    assert (
-        disc_diff > 1e-4
-    ), f"Synthetic scenario: Discards not sufficiently larger: {disc_diff}"
-    assert (
-        abs(seab_diff) > 1e-5
-    ), f"Synthetic scenario: Seabirds effect too small: {seab_diff}"
+    assert disc_diff > 1e-4, (
+        f"Synthetic scenario: Discards not sufficiently larger: {disc_diff}"
+    )
+    assert abs(seab_diff) > 1e-5, (
+        f"Synthetic scenario: Seabirds effect too small: {seab_diff}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -433,12 +433,12 @@ def test_multi_month_synthetic_scenario_variants(synthetic_fish_scenario, varian
     disc_diff = final_with[i_disc] - final_no[i_disc]
     seab_diff = final_with[i_seab] - final_no[i_seab]
 
-    assert (
-        disc_diff > 1e-4
-    ), f"Variant {variant['name']}: Discards not sufficiently larger: {disc_diff}"
-    assert (
-        abs(seab_diff) > 1e-5
-    ), f"Variant {variant['name']}: Seabirds effect too small: {seab_diff}"
+    assert disc_diff > 1e-4, (
+        f"Variant {variant['name']}: Discards not sufficiently larger: {disc_diff}"
+    )
+    assert abs(seab_diff) > 1e-5, (
+        f"Variant {variant['name']}: Seabirds effect too small: {seab_diff}"
+    )
 
     # Sanity checks: detritus biomass should never go negative and monthly
     # detritus budget (inputs - sinks) should not be strongly negative
@@ -457,12 +457,12 @@ def test_multi_month_synthetic_scenario_variants(synthetic_fish_scenario, varian
         net = det_balance(biom_with[m], pdict_variant)
         # Allow small transient negative detritus derivatives; bound by baseline detritus
         threshold = -pdict_variant.get("Bbase", np.zeros(NUM_GROUPS + 1))[i_disc]
-        assert (
-            net >= threshold - 1e-8
-        ), f"Variant {variant['name']} month {m} negative det balance {net} (threshold {threshold})"
-        assert (
-            biom_with[m][i_disc] >= -1e-12
-        ), f"Variant {variant['name']} month {m} negative det biomass {biom_with[m][i_disc]}"
+        assert net >= threshold - 1e-8, (
+            f"Variant {variant['name']} month {m} negative det balance {net} (threshold {threshold})"
+        )
+        assert biom_with[m][i_disc] >= -1e-12, (
+            f"Variant {variant['name']} month {m} negative det biomass {biom_with[m][i_disc]}"
+        )
 
 
 def test_multi_month_rk4_persistent_discards_seabirds_effect():
@@ -522,11 +522,11 @@ def test_multi_month_rk4_persistent_discards_seabirds_effect():
     seab_diff = final_with[i_seab] - final_no[i_seab]
 
     # Expect Discards to be larger when fish-derived discards exist (positive diff)
-    assert (
-        disc_diff > 1e-4
-    ), f"Discards mean over final year not sufficiently larger: diff={disc_diff}"
+    assert disc_diff > 1e-4, (
+        f"Discards mean over final year not sufficiently larger: diff={disc_diff}"
+    )
 
     # Seabirds should exhibit a measurable effect (positive or negative) above tiny noise
-    assert (
-        abs(seab_diff) > 1e-5
-    ), f"Seabirds mean change over final year too small: diff={seab_diff}"
+    assert abs(seab_diff) > 1e-5, (
+        f"Seabirds mean change over final year too small: diff={seab_diff}"
+    )
