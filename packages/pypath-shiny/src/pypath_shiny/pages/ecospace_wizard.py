@@ -10,6 +10,7 @@ Steps:
 7. Review & Launch — summary and build EcospaceParams
 """
 
+import json
 import logging
 
 from shiny import Inputs, Outputs, Session, reactive, render, ui
@@ -61,6 +62,19 @@ def ecospace_wizard_server(
     """Wizard page server logic."""
     wizard_step = reactive.value(1)
 
+    # Reactive state for wizard data
+    drawn_polygon = reactive.value(None)
+
+    @reactive.effect
+    @reactive.event(input.wizard_drawn_polygon)
+    def _capture_polygon():
+        raw = input.wizard_drawn_polygon()
+        if raw:
+            drawn_polygon.set(json.loads(raw))
+            logger.info("Polygon captured with coordinates")
+        else:
+            drawn_polygon.set(None)
+
     @reactive.effect
     @reactive.event(input.wizard_next)
     def _next():
@@ -96,10 +110,110 @@ def ecospace_wizard_server(
 
 
 def _step1_select_area_ui():
+    leaflet_html = """
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <div id="wizard-map"
+         style="height: 500px; width: 100%; border: 1px solid #ddd;
+                border-radius: 4px;"></div>
+    <div id="wizard-area-info" class="mt-2 text-muted"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js">
+    </script>
+    <script>
+    (function() {
+        // Wait for container to be ready
+        setTimeout(function() {
+            var map = L.map('wizard-map').setView([55, 15], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 18,
+            }).addTo(map);
+
+            var drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            var drawControl = new L.Control.Draw({
+                draw: {
+                    polygon: {
+                        allowIntersection: false,
+                        shapeOptions: { color: '#3388ff' }
+                    },
+                    polyline: false,
+                    rectangle: false,
+                    circle: false,
+                    marker: false,
+                    circlemarker: false,
+                },
+                edit: { featureGroup: drawnItems }
+            });
+            map.addControl(drawControl);
+
+            // Approximate geodesic area using the shoelace formula on
+            // WGS-84 coordinates (Gauss / trapezoidal spherical excess).
+            // Falls back to a simple lat/lon bounding-box estimate when
+            // L.GeometryUtil is unavailable.
+            function computeAreaKm2(latlngs) {
+                if (L.GeometryUtil && L.GeometryUtil.geodesicArea) {
+                    return L.GeometryUtil.geodesicArea(latlngs) / 1e6;
+                }
+                // Fallback: spherical polygon area via shoelace on radians
+                var RAD = Math.PI / 180;
+                var R = 6371; // Earth radius in km
+                var n = latlngs.length;
+                if (n < 3) return 0;
+                var total = 0;
+                for (var i = 0; i < n; i++) {
+                    var j = (i + 1) % n;
+                    var lat1 = latlngs[i].lat * RAD;
+                    var lon1 = latlngs[i].lng * RAD;
+                    var lat2 = latlngs[j].lat * RAD;
+                    var lon2 = latlngs[j].lng * RAD;
+                    total += (lon2 - lon1) * (2 + Math.sin(lat1) + Math.sin(lat2));
+                }
+                return Math.abs(total * R * R / 2);
+            }
+
+            function updateArea(layer) {
+                var latlngs = layer.getLatLngs()[0];
+                var geojson = layer.toGeoJSON();
+                var areaKm2 = computeAreaKm2(latlngs).toFixed(1);
+                document.getElementById('wizard-area-info').innerHTML =
+                    '<strong>Study area:</strong> ~' + areaKm2 +
+                    ' km&sup2; (' + latlngs.length + ' vertices)';
+                // Send to Shiny
+                if (window.Shiny) {
+                    Shiny.setInputValue('wizard_drawn_polygon',
+                                        JSON.stringify(geojson.geometry));
+                }
+            }
+
+            map.on(L.Draw.Event.CREATED, function(e) {
+                drawnItems.clearLayers();
+                drawnItems.addLayer(e.layer);
+                updateArea(e.layer);
+            });
+
+            map.on(L.Draw.Event.EDITED, function(e) {
+                e.layers.eachLayer(function(layer) { updateArea(layer); });
+            });
+
+            map.on(L.Draw.Event.DELETED, function(e) {
+                document.getElementById('wizard-area-info').innerHTML = '';
+                if (window.Shiny) {
+                    Shiny.setInputValue('wizard_drawn_polygon', null);
+                }
+            });
+        }, 100);
+    })();
+    </script>
+    """
     return ui.card(
         ui.card_header("Step 1: Select Study Area"),
         ui.p("Draw a polygon on the map to define your study area."),
-        ui.output_ui("wizard_map"),
+        ui.HTML(leaflet_html),
     )
 
 
