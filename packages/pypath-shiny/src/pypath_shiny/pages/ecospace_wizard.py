@@ -354,6 +354,215 @@ def ecospace_wizard_server(
         )
 
     @render.ui
+    def wizard_dispersal_table():
+        """Per-group dispersal settings table."""
+        grid = ecospace_grid.get()
+        if grid is None:
+            return ui.p("Complete earlier steps first.", class_="text-muted")
+
+        import numpy as np
+        import pandas as pd
+
+        # Get group names
+        if (
+            shared_data
+            and hasattr(shared_data, "params")
+            and shared_data.params is not None
+        ):
+            group_names = list(shared_data.params.model.Group)
+        else:
+            group_names = [f"Group {i + 1}" for i in range(5)]
+
+        default_rate = input.wizard_dispersal_default()
+        gravity = input.wizard_gravity()
+
+        n_groups = len(group_names)
+        df = pd.DataFrame(
+            {
+                "Group": group_names,
+                "Dispersal Rate (km\u00b2/month)": [default_rate] * n_groups,
+                "Gravity Strength": [gravity] * n_groups,
+            }
+        )
+        html = df.to_html(
+            classes="table table-sm table-striped", border=0, index=False
+        )
+        return ui.div(
+            ui.p(f"Dispersal settings for {n_groups} groups:"),
+            ui.HTML(html),
+        )
+
+    @render.ui
+    def wizard_summary():
+        """Summary dashboard before model creation."""
+        grid = ecospace_grid.get()
+        hab = habitat_types_arr.get()
+        depth = depth_per_patch.get()
+        sal = salinity_layer.get()
+        prefs = preference_matrix.get()
+
+        items = []
+
+        # Grid summary
+        if grid is not None:
+            items.append(
+                ui.div(
+                    ui.h5("Grid"),
+                    ui.p(f"Patches: {grid.n_patches}"),
+                    ui.p(f"Type: {input.wizard_grid_type()}"),
+                    ui.p(f"Cell size: {input.wizard_cell_size()} km"),
+                )
+            )
+        else:
+            items.append(
+                ui.p("Grid not configured.", class_="text-warning")
+            )
+
+        # Habitats summary
+        if hab is not None:
+            unique = sorted(set(hab))
+            items.append(
+                ui.div(
+                    ui.h5("Habitats"),
+                    ui.p(f"Types: {len(unique)} ({', '.join(unique)})"),
+                )
+            )
+
+        # Environment summary
+        env_items = []
+        if depth is not None:
+            env_items.append(
+                f"Depth: {depth.min():.0f}m to {depth.max():.0f}m"
+            )
+        if sal is not None:
+            env_items.append(f"Salinity: loaded ({sal.name})")
+        if env_items:
+            items.append(
+                ui.div(
+                    ui.h5("Environment"),
+                    *[ui.p(e) for e in env_items],
+                )
+            )
+
+        # Preferences summary
+        if prefs is not None:
+            items.append(
+                ui.div(
+                    ui.h5("Preferences"),
+                    ui.p(
+                        f"Matrix: {prefs.shape[0]} groups "
+                        f"\u00d7 {prefs.shape[1]} habitats"
+                    ),
+                )
+            )
+
+        # Dispersal summary
+        items.append(
+            ui.div(
+                ui.h5("Dispersal"),
+                ui.p(
+                    f"Default rate: "
+                    f"{input.wizard_dispersal_default()} km\u00b2/month"
+                ),
+                ui.p(f"Gravity: {input.wizard_gravity()}"),
+            )
+        )
+
+        return ui.div(*items)
+
+    @reactive.effect
+    @reactive.event(input.wizard_create)
+    def _create_ecospace_model():
+        """Build EcospaceParams from wizard state."""
+        grid = ecospace_grid.get()
+        hab = habitat_types_arr.get()
+        depth = depth_per_patch.get()
+        prefs = preference_matrix.get()
+
+        if grid is None or hab is None:
+            logger.warning(
+                "Cannot create model: missing grid or habitat data"
+            )
+            return
+
+        try:
+            import numpy as np
+
+            from pypath.io.marine_data import HabitatPreferenceBuilder
+            from pypath.spatial.ecospace_params import EcospaceParams
+            from pypath.spatial.environmental import (
+                EnvironmentalDrivers,
+                EnvironmentalLayer,
+            )
+
+            # Get group names
+            if (
+                shared_data
+                and hasattr(shared_data, "params")
+                and shared_data.params is not None
+            ):
+                group_names = list(shared_data.params.model.Group)
+            else:
+                group_names = [f"Group {i + 1}" for i in range(5)]
+
+            n_groups = len(group_names)
+            habitat_types = sorted(set(hab))
+
+            # Build per-patch preference matrix if we have type-level prefs
+            if prefs is not None:
+                builder = HabitatPreferenceBuilder()
+                hab_pref = builder.build_preference_matrix(
+                    prefs, habitat_types, hab, grid
+                )
+            else:
+                hab_pref = np.ones((n_groups, grid.n_patches))
+
+            # Build dispersal arrays
+            default_rate = input.wizard_dispersal_default()
+            gravity = input.wizard_gravity()
+            dispersal_rate = np.full(n_groups, default_rate)
+            advection_enabled = np.ones(n_groups, dtype=bool)
+            gravity_strength = np.full(n_groups, gravity)
+
+            # Build environmental drivers
+            layers = []
+            if depth is not None:
+                layers.append(
+                    EnvironmentalLayer(
+                        name="depth", units="m", values=depth
+                    )
+                )
+            sal = salinity_layer.get()
+            if sal is not None:
+                layers.append(sal)
+            env = EnvironmentalDrivers(layers=layers) if layers else None
+
+            # Build EcospaceParams
+            params = EcospaceParams(
+                grid=grid,
+                habitat_preference=hab_pref,
+                habitat_capacity=hab_pref.copy(),
+                dispersal_rate=dispersal_rate,
+                advection_enabled=advection_enabled,
+                gravity_strength=gravity_strength,
+                environmental_drivers=env,
+            )
+
+            # Store in shared_data for the Ecospace page to use
+            if shared_data is not None:
+                shared_data.ecospace_params = params
+
+            logger.info(
+                "Created EcospaceParams: %d patches, %d groups, "
+                "%d habitat types",
+                grid.n_patches,
+                n_groups,
+                len(habitat_types),
+            )
+        except Exception as e:
+            logger.error("Failed to create EcospaceParams: %s", e)
+
+    @render.ui
     def wizard_step_content():
         step = wizard_step.get()
         if step == 1:
