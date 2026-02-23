@@ -687,7 +687,7 @@ def deriv_vector(
                 sidx = spname.index("Seabirds")
                 if i == sidx:
                     logger.debug(
-                        f"TRACE SEABIRDS i={i} name=Seabirds production={production:.12e} predation_loss={predation_loss:.12e} fish_loss={(FishMort[i]*BB[i]):.12e} m0_loss={(m0*BB[i]):.12e} deriv={deriv[i]:.12e}"
+                        f"TRACE SEABIRDS i={i} name=Seabirds production={production:.12e} predation_loss={predation_loss:.12e} fish_loss={(FishMort[i] * BB[i]):.12e} m0_loss={(m0 * BB[i]):.12e} deriv={deriv[i]:.12e}"
                     )
         except Exception as e:
             logger.debug("Seabirds debug instrumentation error: %s", e)
@@ -698,7 +698,7 @@ def deriv_vector(
             if trace_groups is not None and i in trace_groups:
                 name = params.get("spname", [None] * (NUM_GROUPS + 1))[i]
                 logger.debug(
-                    f"TRACE DERIV i={i} name={name} production={production:.6e} predation_loss={predation_loss:.6e} fish_loss={(FishMort[i]*BB[i]):.6e} m0_loss={(m0*BB[i]):.6e} deriv={deriv[i]:.6e}"
+                    f"TRACE DERIV i={i} name={name} production={production:.6e} predation_loss={predation_loss:.6e} fish_loss={(FishMort[i] * BB[i]):.6e} m0_loss={(m0 * BB[i]):.6e} deriv={deriv[i]:.6e}"
                 )
         except Exception as e:
             logger.debug("TRACE_DEBUG_GROUPS instrumentation error: %s", e)
@@ -944,7 +944,7 @@ def deriv_vector(
                                 pred
                             ]
                             logger.debug(
-                                f"  pred={pred} name={pname} total_consump={total_consump:.12e} unassim={Unassim[pred]:.12e} DetFrac={DetFrac[pred,det_idx]:.12e} contrib={contrib:.12e}"
+                                f"  pred={pred} name={pname} total_consump={total_consump:.12e} unassim={Unassim[pred]:.12e} DetFrac={DetFrac[pred, det_idx]:.12e} contrib={contrib:.12e}"
                             )
 
                     logger.debug(
@@ -963,7 +963,7 @@ def deriv_vector(
                         if contrib != 0:
                             gname = params.get("spname", [None] * (NUM_GROUPS + 1))[grp]
                             logger.debug(
-                                f"  grp={grp} name={gname} M0={params.get('M0',np.zeros(NUM_GROUPS+1))[grp]:.12e} BB={BB[grp]:.12e} DetFrac={DetFrac[grp,det_idx]:.12e} contrib={contrib:.12e}"
+                                f"  grp={grp} name={gname} M0={params.get('M0', np.zeros(NUM_GROUPS + 1))[grp]:.12e} BB={BB[grp]:.12e} DetFrac={DetFrac[grp, det_idx]:.12e} contrib={contrib:.12e}"
                             )
             except Exception as e:
                 logger.debug("Detritus instrumentation error: %s", e)
@@ -1377,7 +1377,7 @@ def integrate_ab(
                     max_idx = len(state) - 1
                     try:
                         logger.debug(
-                            f"INSTRUMENT-TRACE: before conversion nums={nums} max_idx={max_idx} instr_groups_id={id(instr_groups)} params_has={ 'INSTRUMENT_GROUPS' in params if isinstance(params, dict) else hasattr(params, 'INSTRUMENT_GROUPS') } _last_instrument_groups={globals().get('_last_instrument_groups', None) }"
+                            f"INSTRUMENT-TRACE: before conversion nums={nums} max_idx={max_idx} instr_groups_id={id(instr_groups)} params_has={'INSTRUMENT_GROUPS' in params if isinstance(params, dict) else hasattr(params, 'INSTRUMENT_GROUPS')} _last_instrument_groups={globals().get('_last_instrument_groups', None)}"
                         )
                     except (TypeError, ValueError):
                         pass
