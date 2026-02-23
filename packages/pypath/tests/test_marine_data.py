@@ -199,3 +199,92 @@ class TestEMODnetBathymetryClient:
 
         assert depth.shape == (grid.n_patches,)
         assert np.all(np.isfinite(depth))
+
+
+class TestSalinityLoader:
+    """Tests for SalinityLoader."""
+
+    def setup_method(self):
+        import tempfile
+
+        self.tmpdir = tempfile.mkdtemp()
+
+    def teardown_method(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    @pytest.mark.skipif(
+        not _has_geopandas(), reason="geopandas not installed"
+    )
+    def test_load_csv_creates_environmental_layer(self):
+        from pypath.io.marine_data import SalinityLoader
+        from pypath.spatial.ecospace_params import EcospaceGrid
+        from pypath.spatial.environmental import EnvironmentalLayer
+
+        grid = EcospaceGrid.from_regular_grid(
+            bounds=(20, 55, 21, 56), nx=3, ny=3
+        )
+        csv_path = os.path.join(self.tmpdir, "salinity.csv")
+        # Write CSV: lon, lat, salinity
+        with open(csv_path, "w") as f:
+            f.write("lon,lat,salinity\n")
+            for i in range(grid.n_patches):
+                lon, lat = grid.patch_centroids[i]
+                f.write(f"{lon},{lat},{7.0 + i * 0.1}\n")
+
+        layer = SalinityLoader.load_from_csv(csv_path, grid)
+        assert isinstance(layer, EnvironmentalLayer)
+        assert layer.name == "salinity"
+        assert layer.values.shape == (grid.n_patches,)
+
+
+class TestHabitatPreferenceBuilder:
+    """Tests for HabitatPreferenceBuilder."""
+
+    def test_apply_preset_pelagic_returns_uniform(self):
+        from pypath.io.marine_data import HabitatPreferenceBuilder
+
+        builder = HabitatPreferenceBuilder()
+        prefs = builder.apply_preset(
+            n_groups=3,
+            habitat_types=["A5.2", "A5.3", "A6.1"],
+            preset="pelagic",
+        )
+        assert prefs.shape == (3, 3)
+        assert np.allclose(prefs, 1.0)
+
+    def test_apply_preset_benthic_varies_by_habitat(self):
+        from pypath.io.marine_data import HabitatPreferenceBuilder
+
+        builder = HabitatPreferenceBuilder()
+        prefs = builder.apply_preset(
+            n_groups=2, habitat_types=["A5.2", "A5.3"], preset="benthic"
+        )
+        assert prefs.shape == (2, 2)
+        assert np.all(prefs >= 0) and np.all(prefs <= 1)
+
+    @pytest.mark.skipif(
+        not _has_geopandas(), reason="geopandas not installed"
+    )
+    def test_build_preference_matrix_correct_shape(self):
+        from pypath.io.marine_data import HabitatPreferenceBuilder
+        from pypath.spatial.ecospace_params import EcospaceGrid
+
+        grid = EcospaceGrid.from_regular_grid(
+            bounds=(20, 55, 21, 56), nx=3, ny=3
+        )
+        habitat_map = np.array(["A5.2"] * 5 + ["A5.3"] * 4)
+        prefs_by_type = np.array(
+            [[0.8, 0.2], [0.3, 0.9]]
+        )  # 2 groups, 2 types
+
+        builder = HabitatPreferenceBuilder()
+        matrix = builder.build_preference_matrix(
+            prefs_by_type, ["A5.2", "A5.3"], habitat_map, grid
+        )
+        assert matrix.shape == (2, grid.n_patches)
+        # Patches with A5.2 should have group 0 preference = 0.8
+        assert matrix[0, 0] == 0.8
+        # Patches with A5.3 should have group 1 preference = 0.9
+        assert matrix[1, 5] == 0.9
