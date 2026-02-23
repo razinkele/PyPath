@@ -499,8 +499,15 @@ def calculate_spatial_flux(
     grid = ecospace.grid
     adj = ecospace.grid.adjacency_matrix
 
+    # IBM groups manage their own spatial movement; skip standard dispersal
+    ibm_groups = params.get("ibm_groups", {})
+
     # Calculate flux for each group
     for group_idx in range(1, n_groups):  # Skip index 0 (Outside/Detritus)
+        # Skip IBM groups — they handle movement in compute_step Phase 5
+        if group_idx in ibm_groups:
+            continue
+
         # Ecospace parameters are indexed from 0, but group_idx starts at 1
         # So we need to subtract 1 when accessing ecospace arrays
         eco_idx = group_idx - 1

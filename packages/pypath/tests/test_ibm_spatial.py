@@ -306,3 +306,56 @@ class TestApplyIBMToDerivativeSpatial:
 
         apply_ibm_to_derivative(deriv, QQ, BB, spy, {}, 1 / 12)
         assert received_context["ctx"] is None
+
+
+class TestSpatialFluxSkipsIBM:
+    """Tests that calculate_spatial_flux skips IBM groups."""
+
+    def test_ibm_group_gets_zero_flux(self):
+        """IBM groups should get zero spatial flux from standard dispersal."""
+        from pypath.ibm.smelt import SmeltIBM, SmeltParams
+        from pypath.spatial.dispersal import calculate_spatial_flux
+        from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
+
+        n_patches = 3
+        n_groups_plus_1 = 5  # Outside + 4 groups
+
+        # Build a minimal grid
+        adj = _make_3patch_adjacency()
+        grid = EcospaceGrid(
+            n_patches=n_patches,
+            patch_ids=np.arange(n_patches),
+            patch_areas=np.ones(n_patches),
+            patch_centroids=np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]),
+            adjacency_matrix=adj,
+            edge_lengths={(0, 1): 1.0, (1, 2): 1.0},
+        )
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((n_groups_plus_1 - 1, n_patches)),
+            habitat_capacity=np.ones((n_groups_plus_1 - 1, n_patches)),
+            dispersal_rate=np.full(n_groups_plus_1 - 1, 5.0),
+            advection_enabled=np.zeros(n_groups_plus_1 - 1, dtype=bool),
+            gravity_strength=np.zeros(n_groups_plus_1 - 1),
+        )
+
+        # State with biomass gradient (should cause diffusion for non-IBM)
+        state = np.ones((n_groups_plus_1, n_patches))
+        state[2, 0] = 10.0  # Group 2 has biomass gradient
+
+        # IBM group at Ecosim index 2
+        ibm_params = SmeltParams.baltic_defaults()
+        ibm_params.foraging.energy_content = np.full(n_groups_plus_1, 4.0)
+        ibm_params.foraging.handling_time = np.ones(n_groups_plus_1)
+        ibm = SmeltIBM(group_index=2, n_groups=n_groups_plus_1 - 1, params=ibm_params)
+
+        params = {"ibm_groups": {2: ibm}}
+
+        flux = calculate_spatial_flux(state, ecospace, params, t=0.0)
+
+        # IBM group (index 2) should have zero flux
+        np.testing.assert_allclose(flux[2], 0.0)
+        # Non-IBM group with same gradient should have non-zero flux
+        state[3, 0] = 10.0
+        flux2 = calculate_spatial_flux(state, ecospace, params, t=0.0)
+        assert np.any(flux2[3] != 0.0), "Non-IBM group should have dispersal flux"
