@@ -22,11 +22,14 @@ Example:
 
 from __future__ import annotations
 
+import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Try to import requests, fall back to urllib if not available
 try:
@@ -41,10 +44,10 @@ from pypath.io.utils import fetch_url, safe_float
 
 # EcoBase API endpoints
 ECOBASE_LIST_URL = (
-    "http://sirs.agrocampus-ouest.fr/EcoBase/php/webser/soap-client_3.php"
+    "https://sirs.agrocampus-ouest.fr/EcoBase/php/webser/soap-client_3.php"
 )
 ECOBASE_MODEL_URL = (
-    "http://sirs.agrocampus-ouest.fr/EcoBase/php/webser/soap-client.php?no_model="
+    "https://sirs.agrocampus-ouest.fr/EcoBase/php/webser/soap-client.php?no_model="
 )
 
 

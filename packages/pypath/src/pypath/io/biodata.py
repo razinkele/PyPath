@@ -44,6 +44,7 @@ Example:
 
 from __future__ import annotations
 
+import logging
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -52,6 +53,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Conditional imports with fallbacks
 try:
@@ -565,7 +568,7 @@ def _fetch_obis_occurrences(
             valid_years = []
             import datetime
 
-            current_year = datetime.datetime.utcnow().year
+            current_year = datetime.datetime.now(datetime.timezone.utc).year
 
             for y in years_raw:
                 try:
@@ -585,11 +588,11 @@ def _fetch_obis_occurrences(
                 summary["first_year"] = min(valid_years)
                 summary["last_year"] = max(valid_years)
 
-            # Cache results
-            if cache:
-                _biodata_cache.set("obis", scientific_name, summary)
+        # Cache results (including zero-record responses)
+        if cache:
+            _biodata_cache.set("obis", scientific_name, summary)
 
-            return summary
+        return summary
 
     except Exception as e:
         raise APIConnectionError(f"Failed to query OBIS for {scientific_name}: {e}")

@@ -28,6 +28,7 @@ Example:
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import subprocess
 import warnings
@@ -43,6 +44,14 @@ if TYPE_CHECKING:
     from pypath.core.ecosim import RsimScenario
 
 logger = logging.getLogger(__name__)
+
+_SAFE_SQL_IDENT = re.compile(r"^[\w\s]+$")
+
+
+def _validate_sql_identifier(name: str, kind: str = "identifier") -> None:
+    """Reject names that could enable SQL injection."""
+    if not _SAFE_SQL_IDENT.match(name):
+        raise ValueError(f"Unsafe SQL {kind} name rejected: {name!r}")
 
 
 # Try to import database drivers
@@ -132,6 +141,24 @@ def _read_mdb_with_tools(filepath: str, table: str) -> pd.DataFrame:
     ValueError
         If inputs contain invalid characters
     """
+    import io
+
+    filepath_obj = Path(filepath).resolve()
+    if not filepath_obj.exists():
+        raise EwEDatabaseError(f"Database file not found: {filepath}")
+    result = subprocess.run(
+        ["mdb-export", str(filepath_obj), table],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        raise EwEDatabaseError(
+            f"mdb-export failed for table '{table}': {result.stderr.strip()}"
+        )
+    if not result.stdout.strip():
+        return pd.DataFrame()
+    return pd.read_csv(io.StringIO(result.stdout))
 
 
 def _try_read_table_variants(
@@ -243,10 +270,16 @@ def list_ewemdb_tables(filepath: str) -> List[str]:
         conn_str = _get_connection_string(filepath)
         try:
             conn = pyodbc.connect(conn_str)
-            cursor = conn.cursor()
-            tables = [row.table_name for row in cursor.tables(tableType="TABLE")]
-            conn.close()
-            return tables
+            try:
+                cursor = conn.cursor()
+                tables = [
+                    row.table_name for row in cursor.tables(tableType="TABLE")
+                ]
+                return tables
+            finally:
+                conn.close()
+        except EwEDatabaseError:
+            raise
         except Exception as e:
             raise EwEDatabaseError(f"Failed to connect to database: {e}")
 
@@ -282,6 +315,12 @@ def read_ewemdb_table(
     if not Path(filepath).exists():
         raise FileNotFoundError(f"File not found: {filepath}")
 
+    # Validate identifiers before building SQL
+    _validate_sql_identifier(table, "table")
+    if columns:
+        for col in columns:
+            _validate_sql_identifier(col, "column")
+
     # Try mdb-tools first
     if HAS_MDB_TOOLS:
         df = _read_mdb_with_tools(filepath, table)
@@ -294,16 +333,19 @@ def read_ewemdb_table(
         conn_str = _get_connection_string(filepath)
         try:
             conn = pyodbc.connect(conn_str)
+            try:
+                if columns:
+                    col_str = ", ".join([f"[{c}]" for c in columns])
+                    query = f"SELECT {col_str} FROM [{table}]"
+                else:
+                    query = f"SELECT * FROM [{table}]"
 
-            if columns:
-                col_str = ", ".join([f"[{c}]" for c in columns])
-                query = f"SELECT {col_str} FROM [{table}]"
-            else:
-                query = f"SELECT * FROM [{table}]"
-
-            df = pd.read_sql(query, conn)
-            conn.close()
-            return df
+                df = pd.read_sql(query, conn)
+                return df
+            finally:
+                conn.close()
+        except EwEDatabaseError:
+            raise
         except Exception as e:
             raise EwEDatabaseError(f"Failed to read table {table}: {e}")
 
@@ -1584,9 +1626,7 @@ def _parse_ecosim_forcing(
         return parsed
 
     # If long format with Parameter/Group/Value columns, pivot per parameter
-    if all(c in df.columns for c in ["Parameter", "Group", "Value"]) or all(
-        c in df.columns for c in ["Parameter", "Group", "Value"]
-    ):
+    if all(c in df.columns for c in ["Parameter", "Group", "Value"]):
         for param in df["Parameter"].unique():
             sub = df[df["Parameter"] == param]
             pivot = sub.pivot_table(
@@ -2628,20 +2668,16 @@ def ecosim_scenario_from_ewemdb(
             num = 2
         years = range(start, start + num)
 
-    # Balance via rpath if requested
-    if balance:
-        try:
-            balanced = rpath(params)
-        except Exception as e:
-            raise EwEDatabaseError(f"Failed to balance Ecopath model: {e}")
-    else:
-        # Attempt to use existing params as Rpath by calling rpath with skip balance arg
-        try:
-            balanced = rpath(params)
-        except Exception:
-            raise EwEDatabaseError(
-                "Balancing disabled but rpath creation failed. Set balance=True or supply a balanced model."
-            )
+    # Balance via rpath — required to produce an Rpath object for rsim_scenario
+    if not balance:
+        logger.warning(
+            "balance=False requested but rpath() is still needed to build the "
+            "Rpath structure; the model will be balanced regardless."
+        )
+    try:
+        balanced = rpath(params)
+    except Exception as e:
+        raise EwEDatabaseError(f"Failed to balance Ecopath model: {e}") from e
 
     # Create RsimScenario
     rsim = rsim_scenario(balanced, params, years=years)
