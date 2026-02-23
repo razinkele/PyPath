@@ -251,9 +251,7 @@ def ecospace_wizard_server(
                 )
             )
         return ui.div(
-            ui.h5(
-                f"{len(unique_types)} habitat types found " f"across {len(hab)} patches"
-            ),
+            ui.h5(f"{len(unique_types)} habitat types found across {len(hab)} patches"),
             *items,
         )
 
@@ -442,8 +440,7 @@ def ecospace_wizard_server(
             ui.div(
                 ui.h5("Dispersal"),
                 ui.p(
-                    f"Default rate: "
-                    f"{input.wizard_dispersal_default()} km\u00b2/month"
+                    f"Default rate: {input.wizard_dispersal_default()} km\u00b2/month"
                 ),
                 ui.p(f"Gravity: {input.wizard_gravity()}"),
             )
@@ -527,7 +524,7 @@ def ecospace_wizard_server(
                 shared_data.ecospace_params = params
 
             logger.info(
-                "Created EcospaceParams: %d patches, %d groups, " "%d habitat types",
+                "Created EcospaceParams: %d patches, %d groups, %d habitat types",
                 grid.n_patches,
                 n_groups,
                 len(habitat_types),
