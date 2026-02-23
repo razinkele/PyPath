@@ -24,12 +24,13 @@ from pypath.core.plotting import (
     plot_trophic_spectrum,
 )
 
-# Import centralized logger and config
+# Import centralized config
+import logging
+
 from pypath_shiny.config import THRESHOLDS, UI
-from pypath_shiny.logger import get_logger
 from pypath_shiny.pages.utils import is_balanced_model
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def analysis_ui():
@@ -239,7 +240,7 @@ def analysis_server(
         try:
             return calculate_network_indices(model)
         except Exception as e:
-            logger.error(f"Error calculating network indices: {e}", exc_info=True)
+            logger.error("Error calculating network indices: %s", e, exc_info=True)
             return None
 
     @reactive.calc
@@ -251,7 +252,7 @@ def analysis_server(
         try:
             return mixed_trophic_impacts(model)
         except Exception as e:
-            logger.error(f"Error calculating MTI: {e}", exc_info=True)
+            logger.error("Error calculating MTI: %s", e, exc_info=True)
             return None
 
     @reactive.calc
@@ -263,7 +264,7 @@ def analysis_server(
         try:
             return keystoneness_index(model)
         except Exception as e:
-            logger.error(f"Error calculating keystoneness: {e}", exc_info=True)
+            logger.error("Error calculating keystoneness: %s", e, exc_info=True)
             return None
 
     @reactive.calc
@@ -275,7 +276,7 @@ def analysis_server(
         try:
             return check_ecopath_balance(model)
         except Exception as e:
-            logger.error(f"Error checking balance: {e}", exc_info=True)
+            logger.error("Error checking balance: %s", e, exc_info=True)
             return None
 
     # === Network Analysis ===
@@ -419,9 +420,9 @@ def analysis_server(
             return pd.DataFrame({"Message": ["Balance model first"]})
 
         try:
-            groups = model.params.model["Group"].values
-            tl = model.trophic_level
-            biomass = model.params.model["Biomass"].values
+            groups = model.Group
+            tl = model.TL
+            biomass = model.Biomass
 
             df = pd.DataFrame(
                 {
@@ -433,7 +434,7 @@ def analysis_server(
             df = df.sort_values("Trophic Level", ascending=False).head(15)
             return df
         except Exception as e:
-            logger.error(f"Error extracting trophic data: {e}", exc_info=True)
+            logger.error("Error extracting trophic data: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract trophic data"]})
 
     @output
@@ -511,7 +512,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No MTI available"]})
 
         try:
-            groups = model.params.model["Group"].values
+            groups = model.Group
 
             # Flatten matrix and find top impacts
             impacts = []
@@ -525,7 +526,7 @@ def analysis_server(
             df["Impact"] = df["Impact"].round(4)
             return df
         except Exception as e:
-            logger.error(f"Error extracting positive impacts: {e}", exc_info=True)
+            logger.error("Error extracting positive impacts: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract impacts"]})
 
     @output
@@ -538,7 +539,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No MTI available"]})
 
         try:
-            groups = model.params.model["Group"].values
+            groups = model.Group
 
             # Flatten matrix and find top negative impacts
             impacts = []
@@ -552,7 +553,7 @@ def analysis_server(
             df["Impact"] = df["Impact"].round(4)
             return df
         except Exception as e:
-            logger.error(f"Error extracting negative impacts: {e}", exc_info=True)
+            logger.error("Error extracting negative impacts: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract impacts"]})
 
     # === Keystoneness ===
@@ -580,7 +581,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["Balance model first"]})
 
         try:
-            groups = model.params.model["Group"].values
+            groups = model.Group
 
             # Create DataFrame with group names
             df = pd.DataFrame(
@@ -589,7 +590,7 @@ def analysis_server(
             df = df.sort_values("Keystoneness", ascending=False).head(10)
             return df
         except Exception as e:
-            logger.error(f"Error extracting keystoneness data: {e}", exc_info=True)
+            logger.error("Error extracting keystoneness data: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract keystoneness"]})
 
     @output
@@ -602,8 +603,8 @@ def analysis_server(
             return None
 
         try:
-            groups = model.params.model["Group"].values
-            biomass = model.params.model["Biomass"].values
+            groups = model.Group
+            biomass = model.Biomass
 
             fig, ax = plt.subplots(figsize=(8, 6))
 
@@ -705,8 +706,8 @@ def analysis_server(
             return None
 
         try:
-            groups = model.params.model["Group"].values
-            ee = model.params.model["EE"].values
+            groups = model.Group
+            ee = model.EE
 
             fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -748,11 +749,11 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No diagnostics available"]})
 
         try:
-            groups = model.params.model["Group"].values
-            ee = model.params.model["EE"].values
-            biomass = model.params.model["Biomass"].values
-            pb = model.params.model["PB"].values
-            qb = model.params.model["QB"].values
+            groups = model.Group
+            ee = model.EE
+            biomass = model.Biomass
+            pb = model.PB
+            qb = model.QB
 
             df = pd.DataFrame(
                 {
@@ -770,7 +771,7 @@ def analysis_server(
 
             return df
         except Exception as e:
-            logger.error(f"Error extracting balance diagnostics: {e}", exc_info=True)
+            logger.error("Error extracting balance diagnostics: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract diagnostics"]})
 
     # === Export Data ===
@@ -797,13 +798,13 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No model available"]})
 
         try:
-            df = model.params.model[
+            df = model.summary()[
                 ["Group", "Type", "Biomass", "PB", "QB", "EE"]
             ].copy()
             df = df.round(3)
             return df.head(15)
         except Exception as e:
-            logger.error(f"Error extracting model parameters: {e}", exc_info=True)
+            logger.error("Error extracting model parameters: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract parameters"]})
 
     @output
@@ -815,13 +816,19 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No model available"]})
 
         try:
-            diet = model.params.diet.copy()
-            diet = diet.round(3)
+            n_living = model.NUM_LIVING
+            n_bio = model.NUM_LIVING + model.NUM_DEAD
+            groups = model.Group
+            diet = pd.DataFrame(
+                model.DC[:n_bio, :n_living],
+                index=groups[:n_bio],
+                columns=groups[:n_living],
+            ).round(3)
             # Show only first 10 columns
             cols = diet.columns[:10].tolist()
             return diet[cols].head(10)
         except Exception as e:
-            logger.error(f"Error extracting diet matrix: {e}", exc_info=True)
+            logger.error("Error extracting diet matrix: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract diet matrix"]})
 
     @output

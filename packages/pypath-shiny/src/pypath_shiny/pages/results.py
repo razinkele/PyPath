@@ -24,11 +24,6 @@ def results_ui():
                     "Download Model (CSV)",
                     class_="btn-outline-primary w-100 mb-2",
                 ),
-                ui.download_button(
-                    "download_model_excel",
-                    "Download Model (Excel)",
-                    class_="btn-outline-primary w-100 mb-2",
-                ),
                 ui.tags.hr(),
                 ui.h5("Simulation Results"),
                 ui.download_button(
@@ -280,7 +275,7 @@ def results_server(
         groups = [groups[i] for i in sorted_idx]
         tl = tl[sorted_idx]
 
-        colors = plt.cm.get_cmap(input.color_palette())(np.linspace(0, 1, len(groups)))
+        colors = plt.colormaps[input.color_palette()](np.linspace(0, 1, len(groups)))
 
         ax.barh(groups, tl, color=colors)
         ax.set_xlabel("Trophic Level")
@@ -342,7 +337,7 @@ def results_server(
         # Pyramid plot (horizontal bars, smallest at top)
         y_pos = np.arange(len(tl_labels))
 
-        colors = plt.cm.get_cmap("YlGn")(np.linspace(0.3, 0.9, len(tl_labels)))
+        colors = plt.colormaps["YlGn"](np.linspace(0.3, 0.9, len(tl_labels)))
 
         ax.barh(y_pos, prod_by_tl, color=colors, height=0.7)
         ax.set_yticks(y_pos)
@@ -575,15 +570,15 @@ def results_server(
                 # Style not available, use default
                 import logging
 
-                logging.warning(
-                    f"Plot style '{style}' not available: {e}. Using default."
+                logging.getLogger(__name__).warning(
+                    "Plot style '%s' not available: %s. Using default.", style, e
                 )
 
         n_months = sim.out_Biomass.shape[0]
         time = np.arange(n_months) / 12
 
         group_list = info["groups"]
-        colors = plt.cm.get_cmap(input.color_palette())(
+        colors = plt.colormaps[input.color_palette()](
             np.linspace(0, 1, len(selected))
         )
 

@@ -1492,7 +1492,7 @@ def ecospace_server(
 
         # Normalize habitat values for colormap
         norm = Normalize(vmin=0, vmax=1)
-        cmap = cm.get_cmap("YlGn")
+        cmap = plt.colormaps["YlGn"]
 
         # Check if we have polygon geometries (irregular grid)
         if g.geometry is not None:
@@ -1673,7 +1673,7 @@ def ecospace_server(
 
         vmax = max(biomass_spatial[:, group_idx, :].max(), 1e-10)
         norm = Normalize(vmin=0, vmax=vmax)
-        cmap = cm.get_cmap("YlOrRd")
+        cmap = plt.colormaps["YlOrRd"]
 
         if g.geometry is not None:
             for idx, row in g.geometry.iterrows():

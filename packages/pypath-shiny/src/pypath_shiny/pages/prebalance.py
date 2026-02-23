@@ -53,15 +53,6 @@ def make_rpath_status_badge(
     Optional `note` will be used as a tooltip (`title` attribute). Optional `link`
     will wrap the badge in an anchor to the diagnostics location.
     """
-    """Return a small Bootstrap badge UI Tag reflecting diagnostics `status`.
-
-    - Provided -> green badge
-    - Incomplete -> yellow badge
-    - Not provided / No diagnostics -> gray badge
-
-    Optional `note` will be used as a tooltip (`title` attribute). Optional `link`
-    will wrap the badge in an anchor to the diagnostics location.
-    """
     # Lazy import to keep module import-safe in tests
     try:
         from shiny import ui as _ui

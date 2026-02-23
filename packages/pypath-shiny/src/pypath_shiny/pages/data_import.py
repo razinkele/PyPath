@@ -871,7 +871,7 @@ def import_server(
             return ui.div()  # Return empty div instead of None
 
         return ui.input_action_button(
-            "btn_use_imported",
+            "btn_use_imported_ewe",
             ui.tags.span(
                 ui.tags.i(class_="bi bi-arrow-right-circle me-1"),
                 "Use This Model in Ecopath",
@@ -881,8 +881,23 @@ def import_server(
 
     @reactive.effect
     @reactive.event(input.btn_use_imported)
-    def _use_imported():
-        """Transfer imported model to main model data."""
+    def _use_imported_ecobase():
+        """Transfer EcoBase imported model to main model data."""
+        params = imported_params.get()
+        if params is None:
+            ui.notification_show("No model to use", type="warning")
+            return
+
+        model_data.set(params)
+        ui.notification_show(
+            "Model transferred! Go to 'Ecopath Model' tab to edit and balance.",
+            type="message",
+        )
+
+    @reactive.effect
+    @reactive.event(input.btn_use_imported_ewe)
+    def _use_imported_ewe():
+        """Transfer EwE imported model to main model data."""
         params = imported_params.get()
         if params is None:
             ui.notification_show("No model to use", type="warning")
