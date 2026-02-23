@@ -245,9 +245,9 @@ class TestGrowthStep:
         )
 
         # Mature fish should gain less weight due to reproduction cost
-        assert (
-            new_weight_mature < new_weight_immature
-        ), "Mature fish should gain less weight than immature due to reproduction cost"
+        assert new_weight_mature < new_weight_immature, (
+            "Mature fish should gain less weight than immature due to reproduction cost"
+        )
 
     def test_energy_reserve_stores_surplus(self, default_params):
         """When net energy is positive, surplus goes to energy reserve."""
@@ -266,9 +266,9 @@ class TestGrowthStep:
             dt=dt,
             params=default_params,
         )
-        assert (
-            new_energy >= energy_reserve
-        ), "Energy reserve should increase or stay the same with surplus energy"
+        assert new_energy >= energy_reserve, (
+            "Energy reserve should increase or stay the same with surplus energy"
+        )
 
     def test_energy_reserve_drains_under_deficit(self, default_params):
         """When net energy is negative, energy reserve should decrease."""
@@ -287,9 +287,9 @@ class TestGrowthStep:
             dt=dt,
             params=default_params,
         )
-        assert (
-            new_energy < energy_reserve
-        ), "Energy reserve should decrease under deficit"
+        assert new_energy < energy_reserve, (
+            "Energy reserve should decrease under deficit"
+        )
 
     def test_energy_conservation(self, default_params):
         """The energy budget should be internally consistent."""

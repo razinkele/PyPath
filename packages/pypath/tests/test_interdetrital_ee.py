@@ -81,9 +81,9 @@ def test_interdetrital_flow_increases_receiving_detritus_ee():
 
     # Detritus2 index
     det2_idx = list(result.Group).index("Detritus2")
-    assert (
-        result.EE[det2_idx] > 0.0
-    ), f"Detritus2 EE should be > 0 with interdetrital flow, got {result.EE[det2_idx]}"
+    assert result.EE[det2_idx] > 0.0, (
+        f"Detritus2 EE should be > 0 with interdetrital flow, got {result.EE[det2_idx]}"
+    )
 
 
 def test_interdetrital_flow_zero_when_no_cross_fate():
@@ -94,9 +94,9 @@ def test_interdetrital_flow_zero_when_no_cross_fate():
     det2_idx = list(result.Group).index("Detritus2")
     # Detritus2 has no inputs from living groups and no cross-fate from Detritus1
     # Consumer eats from Detritus1 only, so Detritus2 has zero consumption too
-    assert (
-        result.EE[det2_idx] == 0.0
-    ), f"Detritus2 EE should be 0 with no cross-fate, got {result.EE[det2_idx]}"
+    assert result.EE[det2_idx] == 0.0, (
+        f"Detritus2 EE should be 0 with no cross-fate, got {result.EE[det2_idx]}"
+    )
 
 
 def test_interdetrital_ee_bounded():

@@ -54,6 +54,6 @@ def test_integrate_ab_converts_1based_numeric_groups():
     )
 
     assert len(captured) > 0, "Callback was not invoked"
-    assert expected_zero_based in captured[0].get(
-        "groups", []
-    ), f"Expected converted group {expected_zero_based} in payload groups, got {captured[0].get('groups', [])}"
+    assert expected_zero_based in captured[0].get("groups", []), (
+        f"Expected converted group {expected_zero_based} in payload groups, got {captured[0].get('groups', [])}"
+    )

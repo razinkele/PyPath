@@ -152,9 +152,9 @@ class TestDistributeMortality:
             dt=dt,
             params=default_predation_params,
         )
-        assert (
-            deaths[0] > deaths[1]
-        ), "Fish at optimal prey length should suffer more deaths"
+        assert deaths[0] > deaths[1], (
+            "Fish at optimal prey length should suffer more deaths"
+        )
 
     def test_cannot_kill_more_than_exist(self, default_predation_params):
         """Deaths per individual should not exceed n_represented."""

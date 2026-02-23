@@ -84,9 +84,9 @@ def test_debug_forcing_prints():
             scenario.params.FishQ[i],
         )
         # Verify that doubled effort is visible via the forcing vector
-        assert (
-            effort_mult == 2.0
-        ), f"Expected effort_mult==2.0, got {effort_mult} for link {i} (gear {gear})"
+        assert effort_mult == 2.0, (
+            f"Expected effort_mult==2.0, got {effort_mult} for link {i} (gear {gear})"
+        )
 
     # Log a few months to ensure forced series is visible
     for month in range(0, 5):
@@ -229,9 +229,9 @@ def test_forced_effort_changes_catch_and_biomass():
             f"manual_first_month_catch={manual_catch}, params.FishQ={scenario_base.params.FishQ}, FishFrom={scenario_base.params.FishFrom}, FishThrough={scenario_base.params.FishThrough}"
         )
 
-    assert (
-        total_catch_forced > total_catch_base
-    ), "Doubling effort should increase total catch"
+    assert total_catch_forced > total_catch_base, (
+        "Doubling effort should increase total catch"
+    )
 
     # Compare end-state biomass for at least one fished group (expect decrease)
     # Find a fished group (FishFrom entries > 0)
@@ -241,13 +241,13 @@ def test_forced_effort_changes_catch_and_biomass():
     base_end_bio = result_base.end_state.Biomass[grp]
     forced_end_bio = result_forced.end_state.Biomass[grp]
 
-    assert (
-        forced_end_bio < base_end_bio
-    ), f"Expected biomass of group {grp} to decrease under doubled effort"
+    assert forced_end_bio < base_end_bio, (
+        f"Expected biomass of group {grp} to decrease under doubled effort"
+    )
 
     # Ensure gear-specific catch also increased for at least one link
     gear_catch_base = np.nansum(result_base.out_Gear_Catch)
     gear_catch_forced = np.nansum(result_forced.out_Gear_Catch)
-    assert (
-        gear_catch_forced > gear_catch_base
-    ), "Gear-level catch should increase under doubled effort"
+    assert gear_catch_forced > gear_catch_base, (
+        "Gear-level catch should increase under doubled effort"
+    )

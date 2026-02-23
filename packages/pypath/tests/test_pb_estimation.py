@@ -166,9 +166,9 @@ def test_pb_estimation_does_not_affect_other_groups():
 
     # All living groups should have valid results
     living_mask = result.type < 2
-    assert np.all(
-        np.isfinite(result.Biomass[living_mask])
-    ), "Biomass has non-finite values"
+    assert np.all(np.isfinite(result.Biomass[living_mask])), (
+        "Biomass has non-finite values"
+    )
     assert np.all(np.isfinite(result.PB[living_mask])), "PB has non-finite values"
     assert np.all(np.isfinite(result.EE[living_mask])), "EE has non-finite values"
     assert np.all(result.Biomass[living_mask] >= 0), "Biomass has negative values"

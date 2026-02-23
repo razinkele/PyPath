@@ -121,9 +121,9 @@ def test_seabirds_find_first_divergence():
             first = i
             break
 
-    assert (
-        first is not None
-    ), "No divergence detected between PyPath and Rpath for Seabirds"
+    assert first is not None, (
+        "No divergence detected between PyPath and Rpath for Seabirds"
+    )
     logger.debug(
         "First divergence at index %d: Rpath=%.12e PyPath=%.12e diff=%.12e",
         first,

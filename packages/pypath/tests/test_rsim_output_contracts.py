@@ -148,9 +148,9 @@ class TestBiomassOutputContract:
     def test_out_biomass_non_negative(self, simple_output):
         """All biomass values must be >= 0."""
         result, _ = simple_output
-        assert np.all(
-            result.out_Biomass >= 0
-        ), f"Negative biomass found: min={result.out_Biomass.min():.6f}"
+        assert np.all(result.out_Biomass >= 0), (
+            f"Negative biomass found: min={result.out_Biomass.min():.6f}"
+        )
 
     def test_out_biomass_finite(self, baltic_output):
         """No NaN or Inf in biomass (tested on Baltic model)."""
@@ -175,9 +175,9 @@ class TestCatchOutputContract:
     def test_out_catch_non_negative(self, baltic_output):
         """All catch values must be >= 0."""
         result, _ = baltic_output
-        assert np.all(
-            result.out_Catch >= 0
-        ), f"Negative catch found: min={result.out_Catch.min():.6f}"
+        assert np.all(result.out_Catch >= 0), (
+            f"Negative catch found: min={result.out_Catch.min():.6f}"
+        )
 
     def test_annual_catch_shape(self, simple_output):
         """annual_Catch shape must be (n_years, NUM_GROUPS+1)."""
@@ -245,12 +245,12 @@ class TestCrashDetectionContract:
     def test_no_crash_in_healthy_model(self, simple_output):
         """A balanced model should not crash: crash_year == -1, empty set."""
         result, _ = simple_output
-        assert (
-            result.crash_year == -1
-        ), f"Healthy model crashed at year {result.crash_year}"
-        assert (
-            len(result.crashed_groups) == 0
-        ), f"Healthy model has crashed groups: {result.crashed_groups}"
+        assert result.crash_year == -1, (
+            f"Healthy model crashed at year {result.crash_year}"
+        )
+        assert len(result.crashed_groups) == 0, (
+            f"Healthy model has crashed groups: {result.crashed_groups}"
+        )
 
 
 class TestQlinkOutputContract:
@@ -266,12 +266,12 @@ class TestQlinkOutputContract:
         """pred and prey arrays must have same length as Qlink columns."""
         result, _ = simple_output
         n_links = result.annual_Qlink.shape[1]
-        assert (
-            len(result.pred) == n_links
-        ), f"pred length {len(result.pred)} != Qlink cols {n_links}"
-        assert (
-            len(result.prey) == n_links
-        ), f"prey length {len(result.prey)} != Qlink cols {n_links}"
+        assert len(result.pred) == n_links, (
+            f"pred length {len(result.pred)} != Qlink cols {n_links}"
+        )
+        assert len(result.prey) == n_links, (
+            f"prey length {len(result.prey)} != Qlink cols {n_links}"
+        )
 
     def test_annual_qb_shape(self, simple_output):
         """annual_QB shape must be (n_years, NUM_GROUPS+1)."""

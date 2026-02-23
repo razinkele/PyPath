@@ -146,9 +146,9 @@ def test_detritus_not_consumed_without_inputs():
             d_glob_idx = list(r.Group).index("Discards")
             d_local_idx = list(np.where(r.type == 2)[0]).index(d_glob_idx)
             detinputs = float(np.sum(loss[:, np.newaxis] * mat[:, d_local_idx]))
-            assert (
-                detinputs > 0.0
-            ), f"Month {check_month}: Discards detritus inputs unexpectedly zero after including fish links"
+            assert detinputs > 0.0, (
+                f"Month {check_month}: Discards detritus inputs unexpectedly zero after including fish links"
+            )
         except ValueError:
             # No Discards group in this model
             pass
@@ -224,9 +224,9 @@ def test_deriv_includes_fish_discard_links():
                 # detritus index in global ordering
                 det_global_idx = d_glob_idx
                 # Compare derivatives - ensure adding fish links does not reduce the derivative
-                assert (
-                    d_with_fish[det_global_idx] >= d_no_fish[det_global_idx]
-                ), "With fish discard links, detritus derivative should not be smaller"
+                assert d_with_fish[det_global_idx] >= d_no_fish[det_global_idx], (
+                    "With fish discard links, detritus derivative should not be smaller"
+                )
                 # Verify that fish-derived DetFrac contributions would be computed (logic copied from deriv_vector)
                 fish_from = getattr(rs, "FishFrom", None)
                 fish_to = getattr(rs, "FishTo", None)
@@ -266,9 +266,9 @@ def test_deriv_includes_fish_discard_links():
                     getattr(rs, "FishFrom", None) is not None
                     and len(getattr(rs, "FishFrom", [])) > 1
                 ):
-                    assert (
-                        found_positive_frac
-                    ), "No positive fish-derived DetFrac fraction computed for available FishFrom links"
+                    assert found_positive_frac, (
+                        "No positive fish-derived DetFrac fraction computed for available FishFrom links"
+                    )
     except ValueError:
         # No Discards group - skip
         pass
