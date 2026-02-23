@@ -118,9 +118,7 @@ class TestEMODnetHabitatsClient:
             ],
         }
 
-    @pytest.mark.skipif(
-        not _has_geopandas(), reason="geopandas not installed"
-    )
+    @pytest.mark.skipif(not _has_geopandas(), reason="geopandas not installed")
     @patch("requests.get")
     def test_fetch_euseamap_returns_geodataframe(self, mock_get):
         import geopandas as gpd
@@ -140,9 +138,7 @@ class TestEMODnetHabitatsClient:
         assert len(gdf) == 2
         assert "EUNIScomb" in gdf.columns
 
-    @pytest.mark.skipif(
-        not _has_geopandas(), reason="geopandas not installed"
-    )
+    @pytest.mark.skipif(not _has_geopandas(), reason="geopandas not installed")
     def test_get_habitat_types_extracts_level3(self):
         import geopandas as gpd
         from shapely.geometry import Polygon as ShapelyPolygon
@@ -178,9 +174,7 @@ class TestEMODnetBathymetryClient:
 
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    @pytest.mark.skipif(
-        not _has_geopandas(), reason="geopandas not installed"
-    )
+    @pytest.mark.skipif(not _has_geopandas(), reason="geopandas not installed")
     def test_sample_to_grid_returns_correct_shape(self):
         from pypath.io.marine_data import EMODnetBathymetryClient, MarineDataCache
         from pypath.spatial.ecospace_params import EcospaceGrid
@@ -214,17 +208,13 @@ class TestSalinityLoader:
 
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    @pytest.mark.skipif(
-        not _has_geopandas(), reason="geopandas not installed"
-    )
+    @pytest.mark.skipif(not _has_geopandas(), reason="geopandas not installed")
     def test_load_csv_creates_environmental_layer(self):
         from pypath.io.marine_data import SalinityLoader
         from pypath.spatial.ecospace_params import EcospaceGrid
         from pypath.spatial.environmental import EnvironmentalLayer
 
-        grid = EcospaceGrid.from_regular_grid(
-            bounds=(20, 55, 21, 56), nx=3, ny=3
-        )
+        grid = EcospaceGrid.from_regular_grid(bounds=(20, 55, 21, 56), nx=3, ny=3)
         csv_path = os.path.join(self.tmpdir, "salinity.csv")
         # Write CSV: lon, lat, salinity
         with open(csv_path, "w") as f:
@@ -264,20 +254,14 @@ class TestHabitatPreferenceBuilder:
         assert prefs.shape == (2, 2)
         assert np.all(prefs >= 0) and np.all(prefs <= 1)
 
-    @pytest.mark.skipif(
-        not _has_geopandas(), reason="geopandas not installed"
-    )
+    @pytest.mark.skipif(not _has_geopandas(), reason="geopandas not installed")
     def test_build_preference_matrix_correct_shape(self):
         from pypath.io.marine_data import HabitatPreferenceBuilder
         from pypath.spatial.ecospace_params import EcospaceGrid
 
-        grid = EcospaceGrid.from_regular_grid(
-            bounds=(20, 55, 21, 56), nx=3, ny=3
-        )
+        grid = EcospaceGrid.from_regular_grid(bounds=(20, 55, 21, 56), nx=3, ny=3)
         habitat_map = np.array(["A5.2"] * 5 + ["A5.3"] * 4)
-        prefs_by_type = np.array(
-            [[0.8, 0.2], [0.3, 0.9]]
-        )  # 2 groups, 2 types
+        prefs_by_type = np.array([[0.8, 0.2], [0.3, 0.9]])  # 2 groups, 2 types
 
         builder = HabitatPreferenceBuilder()
         matrix = builder.build_preference_matrix(
