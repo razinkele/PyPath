@@ -300,9 +300,7 @@ def list_ewemdb_tables(filepath: str) -> List[str]:
             conn = pyodbc.connect(conn_str)
             try:
                 cursor = conn.cursor()
-                tables = [
-                    row.table_name for row in cursor.tables(tableType="TABLE")
-                ]
+                tables = [row.table_name for row in cursor.tables(tableType="TABLE")]
                 return tables
             finally:
                 conn.close()
@@ -729,7 +727,10 @@ def read_ewemdb(
         # Debug: show what columns were found
         logger.debug(
             "Diet columns: %s, Found prey=%s, pred=%s, value=%s",
-            diet_df.columns.tolist(), prey_col, pred_col, value_col,
+            diet_df.columns.tolist(),
+            prey_col,
+            pred_col,
+            value_col,
         )
 
         if prey_col and pred_col and value_col:
@@ -1062,7 +1063,7 @@ def read_ewemdb(
                 ],
             )
             # Ecospace tables
-            habitat_df = _try_read_table_variants(
+            _try_read_table_variants(
                 filepath,
                 [
                     "EcospaceHabitat",
@@ -1071,11 +1072,11 @@ def read_ewemdb(
                     "Ecospace Habitat",
                 ],
             )
-            grid_df = _try_read_table_variants(
+            _try_read_table_variants(
                 filepath,
                 ["EcospaceGrid", "Ecospace_Grid", "EcospaceGridTable"],
             )
-            dispersal_df = _try_read_table_variants(
+            _try_read_table_variants(
                 filepath,
                 [
                     "EcospaceDispersal",
@@ -1506,7 +1507,7 @@ def _parse_ecosim_forcing(
             return float(r.get("Time", 0.0))
 
     # detect month-style columns (e.g., 'Jan', 'M1', 'Month1')
-    cols_lower = [c.lower() for c in df.columns]
+    [c.lower() for c in df.columns]
     month_cols = []
     for i, c in enumerate(df.columns):
         cl = c.lower()
@@ -1604,9 +1605,7 @@ def _parse_ecosim_forcing(
 
     # If Parameter present but Group column absent and no explicit group columns, map each Parameter to a single-column DataFrame
     group_candidates = [
-        c
-        for c in other_cols
-        if c not in (time_col, "ScenarioID", "Parameter")
+        c for c in other_cols if c not in (time_col, "ScenarioID", "Parameter")
     ]
     if "Parameter" in df.columns and "Group" not in df.columns and not group_candidates:
         for param in df["Parameter"].unique():

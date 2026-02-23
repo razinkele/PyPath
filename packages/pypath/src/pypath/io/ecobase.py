@@ -39,8 +39,8 @@ try:
 except ImportError:
     HAS_REQUESTS = False
 
-from pypath.core.params import RpathParams, create_rpath_params
-from pypath.io.utils import fetch_url, safe_float
+from pypath.core.params import RpathParams, create_rpath_params  # noqa: E402
+from pypath.io.utils import fetch_url, safe_float  # noqa: E402
 
 # EcoBase API endpoints
 ECOBASE_LIST_URL = (
@@ -588,21 +588,21 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
 
                         # Map catch types to our structure
                         if catch_type == "total landings":
-                            result["catches"][group_name][fleet_name][
-                                "landings"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["landings"] = (
+                                catch_value
+                            )
                         elif catch_type == "discards":
-                            result["catches"][group_name][fleet_name][
-                                "discards"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["discards"] = (
+                                catch_value
+                            )
                         elif catch_type == "market":
-                            result["catches"][group_name][fleet_name][
-                                "market"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["market"] = (
+                                catch_value
+                            )
                         elif catch_type == "prop mort":
-                            result["catches"][group_name][fleet_name][
-                                "prop_mort"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["prop_mort"] = (
+                                catch_value
+                            )
             else:
                 fleet_data[child.tag] = child.text
 

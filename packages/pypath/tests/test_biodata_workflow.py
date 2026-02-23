@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 pyworms = pytest.importorskip("pyworms")
 requests = pytest.importorskip("requests")
 
-from pypath.io.biodata import (
+from pypath.io.biodata import (  # noqa: E402
     _fetch_worms_vernacular,
     batch_get_species_info,
     biodata_to_rpath,
@@ -32,7 +32,14 @@ class TestWoRMSLookup:
 
     @pytest.mark.parametrize(
         "species_name",
-        ["Atlantic cod", "cod", "Atlantic herring", "herring", "European sprat", "sprat"],
+        [
+            "Atlantic cod",
+            "cod",
+            "Atlantic herring",
+            "herring",
+            "European sprat",
+            "sprat",
+        ],
     )
     def test_worms_vernacular_search(self, species_name):
         results = _fetch_worms_vernacular(species_name, cache=False, timeout=30)
@@ -102,7 +109,9 @@ class TestSpeciesInfoWorkflow:
         assert df is not None and len(df) > 0
 
         biomass_estimates = {row["common_name"]: 1.0 for _, row in df.iterrows()}
-        params = biodata_to_rpath(df, biomass_estimates=biomass_estimates, area_km2=1000)
+        params = biodata_to_rpath(
+            df, biomass_estimates=biomass_estimates, area_km2=1000
+        )
         assert params is not None
         assert len(params.model) > 0
         logger.debug(
@@ -125,7 +134,9 @@ class TestAPIConnectivity:
         )
         assert response.status_code == 200
         data = response.json()
-        logger.debug("WoRMS API: status=%d, results=%d", response.status_code, len(data))
+        logger.debug(
+            "WoRMS API: status=%d, results=%d", response.status_code, len(data)
+        )
 
     def test_obis_api(self):
         response = requests.get(

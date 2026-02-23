@@ -10,7 +10,7 @@ import pytest
 
 pytestmark = pytest.mark.slow
 
-from pypath.spatial import (
+from pypath.spatial import (  # noqa: E402
     EcospaceParams,
     create_1d_grid,
     deriv_vector_spatial,
@@ -136,9 +136,9 @@ class TestSpatialIntegrationBasic:
         assert final_total > 0, "Total biomass collapsed to zero"
         if initial_total > 0:
             relative_change = abs(final_total - initial_total) / initial_total
-            assert (
-                relative_change < 0.5
-            ), f"Biomass changed by {relative_change * 100:.1f}% — suspicious"
+            assert relative_change < 0.5, (
+                f"Biomass changed by {relative_change * 100:.1f}% — suspicious"
+            )
 
     def test_spatial_flux_affects_distribution(self, spatial_scenario):
         """Test that spatial flux changes biomass distribution."""
@@ -170,9 +170,9 @@ class TestSpatialIntegrationBasic:
             if patch_biomass.sum() > 0:
                 # At least 2 patches should have non-zero biomass
                 nonzero_patches = np.count_nonzero(patch_biomass > 1e-10)
-                assert (
-                    nonzero_patches >= 2
-                ), f"Group {g}: biomass in only {nonzero_patches} patches"
+                assert nonzero_patches >= 2, (
+                    f"Group {g}: biomass in only {nonzero_patches} patches"
+                )
 
 
 class TestBackwardCompatibility:

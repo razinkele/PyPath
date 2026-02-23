@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 
 logger = logging.getLogger(__name__)
-from pypath.io.biodata import (
+from pypath.io.biodata import (  # noqa: E402
     APIConnectionError,
     SpeciesNotFoundError,
     batch_get_species_info,
@@ -13,25 +13,25 @@ from pypath.io.biodata import (
 )
 
 # pypath imports (path setup handled by app/__init__.py)
-from pypath.io.ecobase import (
+from pypath.io.ecobase import (  # noqa: E402
     ecobase_to_rpath,
     get_ecobase_model,
     list_ecobase_models,
     search_ecobase_models,
 )
-from pypath.io.ewemdb import (
+from pypath.io.ewemdb import (  # noqa: E402
     EwEDatabaseError,
     check_ewemdb_support,
     get_ewemdb_metadata,
     read_ewemdb,
 )
-from shiny import Inputs, Outputs, Session, reactive, render, ui
+from shiny import Inputs, Outputs, Session, reactive, render, ui  # noqa: E402
 
 # Configuration imports
-from pypath_shiny.config import PARAM_RANGES, UI
+from pypath_shiny.config import PARAM_RANGES, UI  # noqa: E402
 
 # Import shared utilities
-from .utils import (
+from .utils import (  # noqa: E402
     create_cell_styles,
     format_dataframe_for_display,
 )

@@ -621,7 +621,9 @@ def ibm_server(
                     ),
                     ui.tags.tr(
                         ui.tags.td("Mature:", class_="pe-3 fw-bold"),
-                        ui.tags.td(f"{n_mature} / {n_ind} ({100*n_mature/n_ind:.0f}%)"),
+                        ui.tags.td(
+                            f"{n_mature} / {n_ind} ({100 * n_mature / n_ind:.0f}%)"
+                        ),
                     ),
                 ),
                 class_="table table-sm table-borderless",
@@ -720,7 +722,7 @@ def ibm_server(
             ("Mean age (yr)", f"{np.average(ages, weights=n_rep):.2f}"),
             (
                 "Mature fraction",
-                f"{sum(1 for i in ibm.individuals if i.is_mature)/len(ibm.individuals):.1%}",
+                f"{sum(1 for i in ibm.individuals if i.is_mature) / len(ibm.individuals):.1%}",
             ),
         ]
         return pd.DataFrame(rows, columns=["Statistic", "Value"])
