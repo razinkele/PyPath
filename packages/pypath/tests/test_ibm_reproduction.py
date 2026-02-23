@@ -245,7 +245,7 @@ class TestRecruits:
         assert r.is_mature is False
         assert r.patch_idx == 3
         assert r.energy_reserve == pytest.approx(
-            default_repro_params.recruit_weight * 5.0
+            default_repro_params.recruit_weight * 0.1
         )
 
     def test_recruit_ids_are_sequential(self, default_repro_params):
