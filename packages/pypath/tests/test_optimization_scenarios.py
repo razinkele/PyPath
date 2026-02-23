@@ -24,10 +24,10 @@ except ImportError:
     pytest.skip("PyPath optimization module not available", allow_module_level=True)
 
 
-from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_run, rsim_scenario
-from pypath.core.optimization import EcosimOptimizer
-from pypath.core.params import create_rpath_params
+from pypath.core.ecopath import rpath  # noqa: E402
+from pypath.core.ecosim import rsim_run, rsim_scenario  # noqa: E402
+from pypath.core.optimization import EcosimOptimizer  # noqa: E402
+from pypath.core.params import create_rpath_params  # noqa: E402
 
 
 @pytest.fixture

@@ -14,10 +14,10 @@ import pytest
 
 pytestmark = pytest.mark.slow
 
-from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_run, rsim_scenario
-from pypath.core.params import create_rpath_params
-from pypath.ibm.smelt import SmeltIBM, SmeltParams
+from pypath.core.ecopath import rpath  # noqa: E402
+from pypath.core.ecosim import rsim_run, rsim_scenario  # noqa: E402
+from pypath.core.params import create_rpath_params  # noqa: E402
+from pypath.ibm.smelt import SmeltIBM, SmeltParams  # noqa: E402
 
 
 class TestIBMEcosimIntegration:

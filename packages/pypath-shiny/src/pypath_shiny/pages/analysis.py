@@ -10,6 +10,9 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 # Set non-interactive backend before importing pyplot.
 # This must happen before any matplotlib.pyplot import.
 matplotlib.use("Agg")
+# Import centralized config
+import logging
+
 import matplotlib.pyplot as plt
 
 # pypath imports (path setup handled by app/__init__.py)
@@ -25,9 +28,6 @@ from pypath.core.plotting import (
     plot_mti_heatmap,
     plot_trophic_spectrum,
 )
-
-# Import centralized config
-import logging
 
 from pypath_shiny.config import THRESHOLDS, UI
 from pypath_shiny.pages.utils import is_balanced_model

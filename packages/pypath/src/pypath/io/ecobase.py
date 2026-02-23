@@ -39,8 +39,8 @@ try:
 except ImportError:
     HAS_REQUESTS = False
 
-from pypath.core.params import RpathParams, create_rpath_params
-from pypath.io.utils import fetch_url, safe_float
+from pypath.core.params import RpathParams, create_rpath_params  # noqa: E402
+from pypath.io.utils import fetch_url, safe_float  # noqa: E402
 
 # EcoBase API endpoints
 ECOBASE_LIST_URL = (

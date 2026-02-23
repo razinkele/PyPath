@@ -58,7 +58,7 @@ class TestIBMGroupSpatialSignature:
 
     def test_compute_step_accepts_spatial_context_none(self):
         """compute_step() should accept spatial_context=None (backward compat)."""
-        from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext
+        from pypath.ibm.base import IBMGroup, IBMStepResult
 
         class MockIBM(IBMGroup):
             def compute_step(self, prey_available, predation_pressure,
@@ -98,8 +98,10 @@ class TestIBMGroupSpatialSignature:
 def _make_3patch_adjacency():
     """Create a 3-patch linear chain: 0 -- 1 -- 2."""
     adj = sp.lil_matrix((3, 3))
-    adj[0, 1] = 1; adj[1, 0] = 1
-    adj[1, 2] = 1; adj[2, 1] = 1
+    adj[0, 1] = 1
+    adj[1, 0] = 1
+    adj[1, 2] = 1
+    adj[2, 1] = 1
     return adj.tocsr()
 
 
@@ -479,7 +481,6 @@ class TestDerivVectorSpatialIBM:
         # Use a direct single-step approach to verify spatial context wiring,
         # since full simulation with RK4 calls compute_step many times causing
         # population collapse with few super-individuals.
-        import scipy.sparse as sp
 
         from pypath.ibm.base import SpatialContext
         from pypath.ibm.smelt import SmeltIBM, SmeltParams

@@ -1062,7 +1062,7 @@ def read_ewemdb(
                 ],
             )
             # Ecospace tables
-            habitat_df = _try_read_table_variants(
+            _try_read_table_variants(
                 filepath,
                 [
                     "EcospaceHabitat",
@@ -1071,11 +1071,11 @@ def read_ewemdb(
                     "Ecospace Habitat",
                 ],
             )
-            grid_df = _try_read_table_variants(
+            _try_read_table_variants(
                 filepath,
                 ["EcospaceGrid", "Ecospace_Grid", "EcospaceGridTable"],
             )
-            dispersal_df = _try_read_table_variants(
+            _try_read_table_variants(
                 filepath,
                 [
                     "EcospaceDispersal",
@@ -1506,7 +1506,7 @@ def _parse_ecosim_forcing(
             return float(r.get("Time", 0.0))
 
     # detect month-style columns (e.g., 'Jan', 'M1', 'Month1')
-    cols_lower = [c.lower() for c in df.columns]
+    [c.lower() for c in df.columns]
     month_cols = []
     for i, c in enumerate(df.columns):
         cl = c.lower()

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 pyworms = pytest.importorskip("pyworms")
 requests = pytest.importorskip("requests")
 
-from pypath.io.biodata import (
+from pypath.io.biodata import (  # noqa: E402
     _fetch_worms_vernacular,
     batch_get_species_info,
     biodata_to_rpath,

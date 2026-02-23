@@ -10,7 +10,7 @@ import pytest
 
 pytestmark = pytest.mark.slow
 
-from pypath.spatial import (
+from pypath.spatial import (  # noqa: E402
     EcospaceParams,
     create_1d_grid,
     deriv_vector_spatial,

@@ -80,8 +80,8 @@ try:
 except ImportError:
     HAS_REQUESTS = False
 
-from pypath.core.params import RpathParams, create_rpath_params
-from pypath.io.utils import (
+from pypath.core.params import RpathParams, create_rpath_params  # noqa: E402
+from pypath.io.utils import (  # noqa: E402
     estimate_pb_from_growth,
     estimate_qb_from_tl_pb,
     fetch_url,

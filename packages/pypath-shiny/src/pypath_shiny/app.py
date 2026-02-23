@@ -62,6 +62,7 @@ from pypath_shiny.pages import (  # noqa: E402
     results,
 )
 
+
 def _icon_label(icon_class: str, text: str) -> ui.TagList:
     """Create a nav label with a Bootstrap Icon and text."""
     return ui.TagList(
