@@ -24,6 +24,14 @@ def about_ui():
                             ui.tags.strong("Ecosim"),
                             " - Time-dynamic simulation of ecosystem changes",
                         ),
+                        ui.tags.li(
+                            ui.tags.strong("Ecospace"),
+                            " - Spatial-temporal modeling with irregular polygon grids",
+                        ),
+                        ui.tags.li(
+                            ui.tags.strong("IBM"),
+                            " - Individual-based modeling with super-individual tracking",
+                        ),
                     ),
                     ui.p(
                         "PyPath is based on the R package ",
@@ -41,7 +49,7 @@ def about_ui():
                 ui.card_body(
                     ui.layout_columns(
                         ui.div(
-                            ui.h5("🔬 Ecopath Mass Balance"),
+                            ui.h5("Ecopath Mass Balance"),
                             ui.tags.ul(
                                 ui.tags.li(
                                     "Define functional groups and food web structure"
@@ -53,11 +61,11 @@ def about_ui():
                                     "Automatic calculation of missing parameters"
                                 ),
                                 ui.tags.li("Trophic level computation"),
-                                ui.tags.li("Ecotrophic efficiency validation"),
+                                ui.tags.li("Multi-stanza age structure"),
                             ),
                         ),
                         ui.div(
-                            ui.h5("📈 Ecosim Simulation"),
+                            ui.h5("Ecosim Simulation"),
                             ui.tags.ul(
                                 ui.tags.li("Foraging arena-based functional response"),
                                 ui.tags.li(
@@ -65,20 +73,56 @@ def about_ui():
                                 ),
                                 ui.tags.li("Fishing effort scenarios"),
                                 ui.tags.li("Environmental forcing"),
-                                ui.tags.li("RK4 and Adams-Bashforth integration"),
+                                ui.tags.li("Diet rewiring (prey switching)"),
                             ),
                         ),
                         ui.div(
-                            ui.h5("📊 Visualization"),
+                            ui.h5("Ecospace Spatial Modeling"),
                             ui.tags.ul(
-                                ui.tags.li("Interactive time series plots"),
-                                ui.tags.li("Food web diagrams"),
-                                ui.tags.li("Trophic pyramids"),
-                                ui.tags.li("Scenario comparisons"),
-                                ui.tags.li("Export to CSV/Excel"),
+                                ui.tags.li(
+                                    "Irregular polygon grids (GeoJSON, Shapefile)"
+                                ),
+                                ui.tags.li("Habitat preference mapping"),
+                                ui.tags.li("Dispersal and movement dynamics"),
+                                ui.tags.li("Environmental drivers"),
+                                ui.tags.li("Spatial fishing effort allocation"),
                             ),
                         ),
                         col_widths=[4, 4, 4],
+                    ),
+                    ui.layout_columns(
+                        ui.div(
+                            ui.h5("Individual-Based Model (IBM)"),
+                            ui.tags.ul(
+                                ui.tags.li("Super-individual tracking"),
+                                ui.tags.li("Wisconsin bioenergetics model"),
+                                ui.tags.li("Size-structured predation"),
+                                ui.tags.li("Stochastic reproduction"),
+                                ui.tags.li("Spatial movement and adaptive foraging"),
+                            ),
+                        ),
+                        ui.div(
+                            ui.h5("Network Analysis"),
+                            ui.tags.ul(
+                                ui.tags.li("Food web topology metrics"),
+                                ui.tags.li("Trophic impact analysis (MTI)"),
+                                ui.tags.li("Keystone species identification"),
+                                ui.tags.li("Lindeman spine diagrams"),
+                                ui.tags.li("Pre-balance diagnostics"),
+                            ),
+                        ),
+                        ui.div(
+                            ui.h5("Visualization & Export"),
+                            ui.tags.ul(
+                                ui.tags.li("Interactive time series plots"),
+                                ui.tags.li("Food web diagrams"),
+                                ui.tags.li("Scenario comparisons"),
+                                ui.tags.li("Export to CSV/Excel"),
+                                ui.tags.li("Spatial map visualizations"),
+                            ),
+                        ),
+                        col_widths=[4, 4, 4],
+                        class_="mt-3",
                     ),
                 ),
             ),
@@ -101,7 +145,12 @@ def about_ui():
                         ),
                         ui.tags.li(
                             ui.tags.strong("Ecospace"),
-                            " - Spatial dynamics with irregular grids and hexagonal grids",
+                            " - Adds spatial dynamics with irregular polygon grids",
+                        ),
+                        ui.tags.li(
+                            ui.tags.strong("IBM"),
+                            " - Individual-based modeling for tracking super-individuals "
+                            "with bioenergetics and life history",
                         ),
                     ),
                     ui.h5("Key Equations", class_="mt-4"),
@@ -145,6 +194,7 @@ def about_ui():
                             ui.tags.ul(
                                 ui.tags.li("Python 3.10+"),
                                 ui.tags.li("NumPy for numerical computations"),
+                                ui.tags.li("SciPy for optimization and integration"),
                                 ui.tags.li("Pandas for data handling"),
                                 ui.tags.li("Shiny for Python for the web interface"),
                                 ui.tags.li("Matplotlib for visualization"),
@@ -156,14 +206,14 @@ def about_ui():
                                 ui.tags.li(
                                     ui.tags.a(
                                         "GitHub Repository",
-                                        href="https://github.com/your-repo/pypath",
+                                        href="https://github.com/razinkele/PyPath",
                                         target="_blank",
                                     )
                                 ),
                                 ui.tags.li(
                                     ui.tags.a(
                                         "Documentation",
-                                        href="https://your-repo.github.io/pypath",
+                                        href="https://razinkele.github.io/PyPath/",
                                         target="_blank",
                                     )
                                 ),
@@ -199,11 +249,14 @@ def about_ui():
                 ui.card_header("Version Information"),
                 ui.card_body(
                     ui.tags.table(
-                        ui.tags.tr(ui.tags.td("PyPath Version:"), ui.tags.td("0.1.0")),
                         ui.tags.tr(
-                            ui.tags.td("Dashboard Version:"), ui.tags.td("0.1.0")
+                            ui.tags.td("PyPath-EwE Version:"),
+                            ui.tags.td("0.3.0"),
                         ),
-                        ui.tags.tr(ui.tags.td("Shiny Version:"), ui.tags.td("1.4.0")),
+                        ui.tags.tr(
+                            ui.tags.td("PyPath-Shiny Version:"),
+                            ui.tags.td("0.3.0"),
+                        ),
                         class_="table table-sm",
                     ),
                 ),
