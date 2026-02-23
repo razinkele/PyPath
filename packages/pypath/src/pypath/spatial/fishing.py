@@ -11,6 +11,7 @@ Implements spatially-explicit fishing with multiple allocation strategies:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, List, Optional
 
@@ -18,6 +19,8 @@ import numpy as np
 
 if TYPE_CHECKING:
     from pypath.spatial.ecospace_params import EcospaceGrid
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

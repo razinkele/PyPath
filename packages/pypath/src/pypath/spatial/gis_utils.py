@@ -7,6 +7,7 @@ regular grids for testing.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
@@ -25,6 +26,8 @@ except ImportError:
     _GIS_AVAILABLE = False
     gpd = None
     Polygon = None
+
+logger = logging.getLogger(__name__)
 
 
 def load_spatial_grid(

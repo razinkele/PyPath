@@ -10,12 +10,15 @@ Integrates ECOSPACE spatial dynamics with Ecosim temporal dynamics:
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
 
 # Import ecosim_deriv at module level - no circular dependency exists
 from pypath.core.ecosim_deriv import deriv_vector
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pypath.core.ecosim import RsimOutput, RsimScenario
@@ -151,12 +154,14 @@ def deriv_vector_spatial(
                 # Temporarily modify params (more efficient than copying entire dict)
                 b_base_ref_backup = params["B_BaseRef"]
                 params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
-
-                # Calculate local Ecosim derivative for this patch
-                deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)
-
-                # Restore original B_BaseRef
-                params["B_BaseRef"] = b_base_ref_backup
+                try:
+                    # Calculate local Ecosim derivative for this patch
+                    deriv_local = deriv_vector(
+                        state_patch, params, forcing, fishing, t=t
+                    )
+                finally:
+                    # Restore original B_BaseRef even if deriv_vector raises
+                    params["B_BaseRef"] = b_base_ref_backup
             else:
                 # No modification needed - use params directly (no copy!)
                 deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)

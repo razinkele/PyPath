@@ -7,6 +7,7 @@ calculating edge properties, and spatial indexing.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Dict, Tuple
 
 import numpy as np
@@ -23,6 +24,8 @@ try:
 except ImportError:
     _GIS_AVAILABLE = False
     gpd = None
+
+logger = logging.getLogger(__name__)
 
 
 def build_adjacency_from_gdf(

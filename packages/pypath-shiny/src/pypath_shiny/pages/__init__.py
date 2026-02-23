@@ -1,7 +1,11 @@
 """Page modules for the PyPath dashboard."""
 
+import logging
+
 # Eagerly import light-weight modules required for tests
 from . import ecopath, utils
+
+logger = logging.getLogger(__name__)
 
 # Optional heavy modules (plotly, geopandas, etc.) are imported lazily to avoid
 # failing tests that only exercise core functionality.
@@ -24,7 +28,8 @@ for _m in [
 ]:
     try:
         _optional_modules[_m] = __import__(f"pypath_shiny.pages.{_m}", fromlist=[_m])
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to import optional page module %s: %s", _m, e)
         _optional_modules[_m] = None
 
 # Expose modules that were successfully imported

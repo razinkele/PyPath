@@ -25,12 +25,15 @@ ReproductionParams
 
 from __future__ import annotations
 
+import logging
 import math
 import random
 from dataclasses import dataclass
 from typing import List
 
 from pypath.ibm.base import SuperIndividual
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -219,7 +222,7 @@ def create_recruits(
             weight=params.recruit_weight,
             length=params.recruit_length,
             age=0.0,
-            energy_reserve=params.recruit_weight * 5.0,
+            energy_reserve=params.recruit_weight * 0.1,
             patch_idx=patch_idx,
             is_mature=False,
             sex=random.choice([0, 1]),

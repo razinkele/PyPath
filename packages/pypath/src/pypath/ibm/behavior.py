@@ -33,6 +33,7 @@ ForagingParams
 from __future__ import annotations
 
 import copy
+import logging
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
@@ -40,6 +41,8 @@ import numpy as np
 import scipy.sparse as sp
 
 from pypath.ibm.base import SuperIndividual
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

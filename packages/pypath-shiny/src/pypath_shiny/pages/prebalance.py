@@ -65,8 +65,9 @@ def make_rpath_status_badge(
     # Lazy import to keep module import-safe in tests
     try:
         from shiny import ui as _ui
-    except Exception:
+    except Exception as e:
         # Fallback dummy representation if Shiny not available
+        logger.debug("Shiny UI not available, using fallback: %s", e)
         parts = [f"Status: {status}"]
         if note:
             parts.append(f"note: {note}")
@@ -446,7 +447,8 @@ def prebalance_server(
                 if value is None:
                     return na_text
                 return fmt.format(value)
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to format value %r: %s", value, e)
                 return na_text
 
         br_text = _safe_fmt(report.get("biomass_range"), "{:.2f}", "n/a")
@@ -477,7 +479,8 @@ def prebalance_server(
                 mean_pp = f"{pp_ratios.mean():.3f}" if n_pp > 0 else "n/a"
                 max_pp = f"{pp_ratios.max():.3f}" if n_pp > 0 else "n/a"
                 n_gt1 = int((pp_ratios > 1.0).sum()) if n_pp > 0 else 0
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to aggregate predator-prey ratios: %s", e)
                 n_pp = 0
                 mean_pp = "n/a"
                 max_pp = "n/a"
@@ -555,7 +558,8 @@ def prebalance_server(
         note = diag.get("note") if diag else None
         try:
             link = Path(diag_dir).resolve().as_uri()
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to resolve diagnostics URI: %s", e)
             link = None
         # When info button is clicked we show details. If the runtime doesn't
         # support modals we'll expose the output inline in `rpath_modal_inline`.

@@ -1769,7 +1769,8 @@ def ecospace_server(
             try:
                 timestep = int(input.animation_time())
                 timestep = min(timestep, biomass_spatial.shape[0] - 1)
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to parse animation timestep: %s", e)
                 timestep = biomass_spatial.shape[0] - 1
 
             # Sum biomass across all groups for each patch

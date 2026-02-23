@@ -11,9 +11,12 @@ Implements functions that map environmental conditions to habitat suitability:
 
 from __future__ import annotations
 
+import logging
 from typing import Callable, List, Optional
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 def create_gaussian_response(

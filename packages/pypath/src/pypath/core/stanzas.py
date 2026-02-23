@@ -7,11 +7,14 @@ Von Bertalanffy growth and stage-based mortality rates.
 Based on Rpath's rpath.stanzas() and rsim.stanzas() functions.
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

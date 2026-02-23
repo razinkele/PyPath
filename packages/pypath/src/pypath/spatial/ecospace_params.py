@@ -10,6 +10,7 @@ This module defines the core data structures for spatial-temporal ecosystem mode
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union
 
@@ -24,6 +25,8 @@ try:
 except ImportError:
     _GIS_AVAILABLE = False
     gpd = None
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

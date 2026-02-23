@@ -1,6 +1,10 @@
 """Data Import page module - EcoBase and EwE database import."""
 
+import logging
+
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 from pypath.io.biodata import (
     APIConnectionError,
     SpeciesNotFoundError,
@@ -1100,8 +1104,9 @@ Phytoplankton"""
                     biomass_val = input[input_id]()
                     if biomass_val is not None and biomass_val > 0:
                         biomass_estimates[sp_name] = biomass_val
-                except Exception:
+                except Exception as e:
                     # If input doesn't exist or error, use default
+                    logger.debug("Failed to read biomass input for %s: %s", sp_name, e)
                     biomass_estimates[sp_name] = 1.0
 
             ui.notification_show("Creating Ecopath model...", duration=3)

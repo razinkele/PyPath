@@ -198,6 +198,7 @@ class SmeltIBM(IBMGroup):
         self.params = params
         self._last_consumption: np.ndarray = np.zeros(n_groups)
         self._next_id: int = 0
+        self._rng: np.random.Generator = np.random.default_rng(42)
 
     def initialize_from_ecosim(
         self,
@@ -494,7 +495,6 @@ class SmeltIBM(IBMGroup):
         # ================================================================
         patch_biomass = None
         if spatial_context is not None:
-            rng = np.random.default_rng()
             for ind in self.individuals:
                 moved = move_individual(
                     individual=ind,
@@ -503,7 +503,7 @@ class SmeltIBM(IBMGroup):
                     food_density=spatial_context.food_density,
                     predator_density=spatial_context.predator_density,
                     params=sp.movement,
-                    rng=rng,
+                    rng=self._rng,
                 )
                 # move_individual returns a copy; update in-place
                 ind.patch_idx = moved.patch_idx

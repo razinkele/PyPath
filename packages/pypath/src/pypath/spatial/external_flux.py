@@ -9,6 +9,7 @@ Functions for loading flux timeseries from:
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
@@ -27,6 +28,8 @@ except ImportError:
     _NETCDF_AVAILABLE = False
     netCDF4 = None
     xr = None
+
+logger = logging.getLogger(__name__)
 
 
 def load_external_flux_from_netcdf(
@@ -333,45 +336,32 @@ def validate_external_flux_conservation(
 
 
 def rescale_flux_for_conservation(flux_matrix: np.ndarray) -> np.ndarray:
-    """Rescale flux matrix to ensure mass conservation.
+    """Rescale flux matrix to enforce mass conservation.
 
-    If flux is not conserved, rescales to balance inflow and outflow
-    while preserving spatial patterns.
+    Normalizes each row so that total outflow fraction does not exceed 1.0
+    (i.e., a patch cannot export more than 100% of its biomass per step).
+    Rows whose outflow sums to <= 1.0 are left unchanged.
 
     Parameters
     ----------
     flux_matrix : np.ndarray
         Flux matrix [n_patches, n_patches]
+        flux_matrix[i, j] = fraction of biomass in patch i moving to patch j.
 
     Returns
     -------
     np.ndarray
-        Rescaled flux matrix
+        Rescaled flux matrix where no row sums to more than 1.0.
     """
-    # Calculate net flux
-    inflow = flux_matrix.sum(axis=0)
-    outflow = flux_matrix.sum(axis=1)
-    net_flux = inflow - outflow
-
-    # If already conserved, return as-is
-    if np.abs(net_flux).sum() < 1e-10:
-        return flux_matrix.copy()
-
-    # Rescale to balance
-    # Strategy: adjust each flux proportionally
-    total_flux = flux_matrix.sum()
-
-    if total_flux <= 0:
-        # No flux, return zeros
-        return np.zeros_like(flux_matrix)
-
-    # Target: equal total inflow and outflow
-    target_total = total_flux / 2
-
-    # Rescale factor
-    rescale_factor = target_total / (total_flux + 1e-10)
-
-    return flux_matrix * rescale_factor
+    result = flux_matrix.copy()
+    for i in range(result.shape[0]):
+        row_sum = result[i, :].sum()
+        if row_sum > 1.0:
+            logger.warning(
+                "Row %d outflow fraction %.4f > 1.0, rescaling", i, row_sum
+            )
+            result[i, :] /= row_sum
+    return result
 
 
 def convert_connectivity_to_flux(

@@ -182,7 +182,7 @@ def plot_foodweb(
         pos,
         node_size=node_sizes,
         node_color=trophic_levels,
-        cmap=plt.cm.get_cmap(cmap),
+        cmap=plt.colormaps[cmap],
         ax=ax,
         alpha=0.8,
     )
@@ -205,7 +205,7 @@ def plot_foodweb(
 
     # Add colorbar for trophic levels
     sm = plt.cm.ScalarMappable(
-        cmap=plt.cm.get_cmap(cmap),
+        cmap=plt.colormaps[cmap],
         norm=plt.Normalize(vmin=min(trophic_levels), vmax=max(trophic_levels)),
     )
     sm.set_array([])

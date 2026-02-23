@@ -1,17 +1,21 @@
 """About page module."""
 
+import logging
 import platform
 import sys
 from importlib.metadata import version as pkg_version
 
 from shiny import Inputs, Outputs, Session, ui
 
+logger = logging.getLogger(__name__)
+
 
 def _get_version(package: str) -> str:
     """Get installed package version, returning 'N/A' if not found."""
     try:
         return pkg_version(package)
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to get version for %s: %s", package, e)
         return "N/A"
 
 

@@ -7,6 +7,7 @@ predator-prey relationships.
 Based on the Prebal routine by Barbara Bauer (SU, 2016).
 """
 
+import logging
 from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
@@ -15,6 +16,8 @@ import pandas as pd
 from matplotlib.figure import Figure
 
 from ..core.params import RpathParams
+
+logger = logging.getLogger(__name__)
 
 
 def _calculate_trophic_levels(model: RpathParams) -> pd.Series:

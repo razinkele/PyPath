@@ -25,11 +25,14 @@ PredationParams
 from __future__ import annotations
 
 import copy
+import logging
 import math
 from dataclasses import dataclass
 from typing import List
 
 from pypath.ibm.base import SuperIndividual
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
