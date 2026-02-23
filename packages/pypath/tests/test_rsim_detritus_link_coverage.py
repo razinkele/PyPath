@@ -37,6 +37,6 @@ def test_detritus_link_coverage():
         has_fish_link = (
             expected_det_to in fish_to.tolist() if fish_to.size > 0 else False
         )
-        assert (
-            has_det_link or has_fish_link
-        ), f"Detritus index {det_idx} (expected DetTo={expected_det_to}) has no DetTo or FishTo links"
+        assert has_det_link or has_fish_link, (
+            f"Detritus index {det_idx} (expected DetTo={expected_det_to}) has no DetTo or FishTo links"
+        )

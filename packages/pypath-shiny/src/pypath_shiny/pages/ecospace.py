@@ -1268,7 +1268,8 @@ def ecospace_server(
                             centroid = g.patch_centroids[idx]
                             folium.Marker(
                                 location=[centroid[1], centroid[0]],  # lat, lon
-                                icon=folium.DivIcon(html=f"""
+                                icon=folium.DivIcon(
+                                    html=f"""
                                     <div style="
                                         font-size: 10px;
                                         color: darkblue;
@@ -1276,7 +1277,8 @@ def ecospace_server(
                                         text-align: center;
                                         text-shadow: 1px 1px 2px white, -1px -1px 2px white;
                                     ">{idx}</div>
-                                """),
+                                """
+                                ),
                             ).add_to(m)
 
                 # Add info panel
@@ -1330,14 +1332,16 @@ def ecospace_server(
                     # Add label
                     folium.Marker(
                         location=[centroid[1], centroid[0]],
-                        icon=folium.DivIcon(html=f"""
+                        icon=folium.DivIcon(
+                            html=f"""
                             <div style="
                                 font-size: 8px;
                                 color: white;
                                 font-weight: bold;
                                 text-align: center;
                             ">{i}</div>
-                        """),
+                        """
+                        ),
                     ).add_to(m)
 
                 title_text = f"Spatial Grid: {g.n_patches} Patches"

@@ -61,12 +61,20 @@ class TestIBMGroupSpatialSignature:
         from pypath.ibm.base import IBMGroup, IBMStepResult
 
         class MockIBM(IBMGroup):
-            def compute_step(self, prey_available, predation_pressure,
-                             env_forcing, dt, spatial_context=None):
+            def compute_step(
+                self,
+                prey_available,
+                predation_pressure,
+                env_forcing,
+                dt,
+                spatial_context=None,
+            ):
                 return IBMStepResult(
-                    biomass=1.0, production=0.0,
+                    biomass=1.0,
+                    production=0.0,
                     consumption_by_prey=np.zeros(self.n_groups),
-                    mortality_count=0.0, recruitment_count=0.0,
+                    mortality_count=0.0,
+                    recruitment_count=0.0,
                 )
 
             def get_aggregate_biomass(self):
@@ -75,8 +83,7 @@ class TestIBMGroupSpatialSignature:
             def get_consumption_by_prey(self):
                 return np.zeros(self.n_groups)
 
-            def initialize_from_ecosim(self, biomass, params,
-                                       n_super_individuals=500):
+            def initialize_from_ecosim(self, biomass, params, n_super_individuals=500):
                 pass
 
         ibm = MockIBM(group_index=1, n_groups=4)
@@ -92,6 +99,7 @@ class TestIBMGroupSpatialSignature:
     def test_spatial_context_importable_from_init(self):
         """SpatialContext should be importable from pypath.ibm."""
         from pypath.ibm import SpatialContext
+
         assert SpatialContext is not None
 
 
@@ -179,7 +187,9 @@ class TestSmeltIBMSpatialMovement:
             spatial_context=ctx,
         )
         np.testing.assert_allclose(
-            result.patch_biomass.sum(), result.biomass, rtol=1e-6,
+            result.patch_biomass.sum(),
+            result.biomass,
+            rtol=1e-6,
         )
 
     def test_movement_distributes_across_patches(self):
@@ -238,13 +248,21 @@ class TestApplyIBMToDerivativeSpatial:
         received_context = {}
 
         class SpyIBM(IBMGroup):
-            def compute_step(self, prey_available, predation_pressure,
-                             env_forcing, dt, spatial_context=None):
+            def compute_step(
+                self,
+                prey_available,
+                predation_pressure,
+                env_forcing,
+                dt,
+                spatial_context=None,
+            ):
                 received_context["ctx"] = spatial_context
                 return IBMStepResult(
-                    biomass=1.0, production=0.0,
+                    biomass=1.0,
+                    production=0.0,
                     consumption_by_prey=np.zeros(self.n_groups),
-                    mortality_count=0.0, recruitment_count=0.0,
+                    mortality_count=0.0,
+                    recruitment_count=0.0,
                 )
 
             def get_aggregate_biomass(self):
@@ -253,8 +271,7 @@ class TestApplyIBMToDerivativeSpatial:
             def get_consumption_by_prey(self):
                 return np.zeros(self.n_groups)
 
-            def initialize_from_ecosim(self, biomass, params,
-                                       n_super_individuals=500):
+            def initialize_from_ecosim(self, biomass, params, n_super_individuals=500):
                 pass
 
         n = 4
@@ -272,8 +289,7 @@ class TestApplyIBMToDerivativeSpatial:
             n_patches=3,
         )
 
-        apply_ibm_to_derivative(deriv, QQ, BB, spy, {}, 1 / 12,
-                                spatial_context=ctx)
+        apply_ibm_to_derivative(deriv, QQ, BB, spy, {}, 1 / 12, spatial_context=ctx)
         assert received_context["ctx"] is ctx
 
     def test_none_spatial_context_by_default(self):
@@ -284,13 +300,21 @@ class TestApplyIBMToDerivativeSpatial:
         received_context = {}
 
         class SpyIBM(IBMGroup):
-            def compute_step(self, prey_available, predation_pressure,
-                             env_forcing, dt, spatial_context=None):
+            def compute_step(
+                self,
+                prey_available,
+                predation_pressure,
+                env_forcing,
+                dt,
+                spatial_context=None,
+            ):
                 received_context["ctx"] = spatial_context
                 return IBMStepResult(
-                    biomass=1.0, production=0.0,
+                    biomass=1.0,
+                    production=0.0,
                     consumption_by_prey=np.zeros(self.n_groups),
-                    mortality_count=0.0, recruitment_count=0.0,
+                    mortality_count=0.0,
+                    recruitment_count=0.0,
                 )
 
             def get_aggregate_biomass(self):
@@ -299,8 +323,7 @@ class TestApplyIBMToDerivativeSpatial:
             def get_consumption_by_prey(self):
                 return np.zeros(self.n_groups)
 
-            def initialize_from_ecosim(self, biomass, params,
-                                       n_super_individuals=500):
+            def initialize_from_ecosim(self, biomass, params, n_super_individuals=500):
                 pass
 
         n = 4

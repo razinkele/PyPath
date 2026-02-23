@@ -43,7 +43,9 @@ def test_debug_forcing_prints():
 
     # Double effort for all months/gears
     scenario.fishing.ForcedEffort[:] = 2.0
-    logger.debug("After doubling, ForcedEffort[0]: %s", scenario.fishing.ForcedEffort[0])
+    logger.debug(
+        "After doubling, ForcedEffort[0]: %s", scenario.fishing.ForcedEffort[0]
+    )
 
     # Inspect parameters relevant to fishing
     logger.debug("FishFrom: %s", scenario.params.FishFrom)
@@ -75,12 +77,16 @@ def test_debug_forcing_prints():
         )
         logger.debug(
             "link %d: grp=%s gear=%s effort_mult=%s FishQ=%s",
-            i, grp, gear, effort_mult, scenario.params.FishQ[i],
+            i,
+            grp,
+            gear,
+            effort_mult,
+            scenario.params.FishQ[i],
         )
         # Verify that doubled effort is visible via the forcing vector
-        assert (
-            effort_mult == 2.0
-        ), f"Expected effort_mult==2.0, got {effort_mult} for link {i} (gear {gear})"
+        assert effort_mult == 2.0, (
+            f"Expected effort_mult==2.0, got {effort_mult} for link {i} (gear {gear})"
+        )
 
     # Log a few months to ensure forced series is visible
     for month in range(0, 5):
@@ -90,7 +96,9 @@ def test_debug_forcing_prints():
             if t_idx < len(scenario.fishing.ForcedEffort)
             else np.ones(scenario.params.NUM_GEARS + 1)
         )
-        logger.debug("month %d: ForcedEffort[:]=%s (len=%d)", month, forcing[:], len(forcing))
+        logger.debug(
+            "month %d: ForcedEffort[:]=%s (len=%d)", month, forcing[:], len(forcing)
+        )
 
 
 def test_forced_effort_changes_catch_and_biomass():
@@ -203,7 +211,9 @@ def test_forced_effort_changes_catch_and_biomass():
     logger.debug("base out_catch sum: %s", total_catch_base)
     logger.debug("forced out_catch sum: %s", total_catch_forced)
     logger.debug("base out_catch monthly: %s", np.sum(result_base.out_Catch, axis=1))
-    logger.debug("forced out_catch monthly: %s", np.sum(result_forced.out_Catch, axis=1))
+    logger.debug(
+        "forced out_catch monthly: %s", np.sum(result_forced.out_Catch, axis=1)
+    )
     logger.debug("params.FishQ: %s", scenario_base.params.FishQ)
     logger.debug("FishFrom: %s", scenario_base.params.FishFrom)
     logger.debug("FishThrough: %s", scenario_base.params.FishThrough)
@@ -219,9 +229,9 @@ def test_forced_effort_changes_catch_and_biomass():
             f"manual_first_month_catch={manual_catch}, params.FishQ={scenario_base.params.FishQ}, FishFrom={scenario_base.params.FishFrom}, FishThrough={scenario_base.params.FishThrough}"
         )
 
-    assert (
-        total_catch_forced > total_catch_base
-    ), "Doubling effort should increase total catch"
+    assert total_catch_forced > total_catch_base, (
+        "Doubling effort should increase total catch"
+    )
 
     # Compare end-state biomass for at least one fished group (expect decrease)
     # Find a fished group (FishFrom entries > 0)
@@ -231,13 +241,13 @@ def test_forced_effort_changes_catch_and_biomass():
     base_end_bio = result_base.end_state.Biomass[grp]
     forced_end_bio = result_forced.end_state.Biomass[grp]
 
-    assert (
-        forced_end_bio < base_end_bio
-    ), f"Expected biomass of group {grp} to decrease under doubled effort"
+    assert forced_end_bio < base_end_bio, (
+        f"Expected biomass of group {grp} to decrease under doubled effort"
+    )
 
     # Ensure gear-specific catch also increased for at least one link
     gear_catch_base = np.nansum(result_base.out_Gear_Catch)
     gear_catch_forced = np.nansum(result_forced.out_Gear_Catch)
-    assert (
-        gear_catch_forced > gear_catch_base
-    ), "Gear-level catch should increase under doubled effort"
+    assert gear_catch_forced > gear_catch_base, (
+        "Gear-level catch should increase under doubled effort"
+    )

@@ -107,7 +107,9 @@ class TestParameterRecovery:
 
         logger.debug(
             "True: %.3f, Estimated: %.3f, Error: %.1f%%",
-            true_vulnerability, estimated, error * 100,
+            true_vulnerability,
+            estimated,
+            error * 100,
         )
         assert error < 0.20, f"Parameter recovery error {error:.1%} exceeds 20%"
 
@@ -163,7 +165,10 @@ class TestParameterRecovery:
 
             logger.debug(
                 "%s: True=%.3f, Est=%.3f, Err=%.1f%%",
-                param_name, true_value, estimated, error * 100,
+                param_name,
+                true_value,
+                estimated,
+                error * 100,
             )
             assert error < 0.30, f"{param_name} recovery error {error:.1%} exceeds 30%"
 

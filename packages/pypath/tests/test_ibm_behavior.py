@@ -156,9 +156,9 @@ class TestMovement:
             predator_density=predator_density,
             params=default_movement_params,
         )
-        assert (
-            probs[0] > probs[1]
-        ), "Probability of staying in the best patch should exceed leaving"
+        assert probs[0] > probs[1], (
+            "Probability of staying in the best patch should exceed leaving"
+        )
 
     def test_inertia_bonus_with_low_base_speed(self):
         """Low base_speed should give large inertia bonus (stay put)."""

@@ -114,7 +114,9 @@ def test_pb_estimation_consistent_with_known_pb():
     estimated_pb = result_estimated.PB[c2_idx]
 
     np.testing.assert_allclose(
-        estimated_pb, 3.0, rtol=0.01,
+        estimated_pb,
+        3.0,
+        rtol=0.01,
         err_msg=f"Estimated PB {estimated_pb} should match known PB 3.0",
     )
 
@@ -143,7 +145,9 @@ def test_pb_estimation_recalculates_qb():
     # GE consistency: PB/QB should approximately equal ProdCons
     ge_ratio = estimated_pb / estimated_qb
     np.testing.assert_allclose(
-        ge_ratio, 0.25, rtol=0.05,
+        ge_ratio,
+        0.25,
+        rtol=0.05,
         err_msg=f"PB/QB ratio {ge_ratio} should match ProdCons 0.25",
     )
 
@@ -162,7 +166,9 @@ def test_pb_estimation_does_not_affect_other_groups():
 
     # All living groups should have valid results
     living_mask = result.type < 2
-    assert np.all(np.isfinite(result.Biomass[living_mask])), "Biomass has non-finite values"
+    assert np.all(np.isfinite(result.Biomass[living_mask])), (
+        "Biomass has non-finite values"
+    )
     assert np.all(np.isfinite(result.PB[living_mask])), "PB has non-finite values"
     assert np.all(np.isfinite(result.EE[living_mask])), "EE has non-finite values"
     assert np.all(result.Biomass[living_mask] >= 0), "Biomass has negative values"
