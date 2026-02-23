@@ -53,6 +53,7 @@ from pypath_shiny.pages import (  # noqa: E402
     ecopath,
     ecosim,
     ecospace,
+    ecospace_wizard,
     forcing_demo,
     home,
     ibm,
@@ -139,6 +140,11 @@ app_ui = ui.page_fluid(
                 _icon_label("bi-globe-americas", "Ecospace"),
                 ecospace.ecospace_ui(),
                 value="Ecospace",
+            ),
+            ui.nav_panel(
+                _icon_label("bi-magic", "Ecospace Wizard"),
+                ecospace_wizard.ecospace_wizard_ui(),
+                value="Ecospace Wizard",
             ),
             ui.nav_panel(
                 _icon_label("bi-layers", "Multi-Stanza"),
@@ -333,6 +339,12 @@ def server(input: Inputs, output: Outputs, session: Session):
             "Ecospace",
             lambda: ecospace.ecospace_server(
                 input, output, session, model_data, sim_results, sim_scenario
+            ),
+        ),
+        (
+            "Ecospace Wizard",
+            lambda: ecospace_wizard.ecospace_wizard_server(
+                input, output, session, shared_data
             ),
         ),
         (

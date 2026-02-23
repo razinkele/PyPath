@@ -25,6 +25,7 @@ for _m in [
     "optimization_demo",
     "ibm",
     "validation",
+    "ecospace_wizard",
 ]:
     try:
         _optional_modules[_m] = __import__(f"pypath_shiny.pages.{_m}", fromlist=[_m])
@@ -51,5 +52,6 @@ __all__ = [
     "optimization_demo",
     "ibm",
     "validation",
+    "ecospace_wizard",
     "utils",
 ]

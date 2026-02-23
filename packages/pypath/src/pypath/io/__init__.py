@@ -39,6 +39,17 @@ from pypath.io.ewemdb import (
     read_ewemdb,
     read_ewemdb_table,
 )
+try:
+    from pypath.io.marine_data import (
+        EMODnetBathymetryClient,
+        EMODnetHabitatsClient,
+        HabitatPreferenceBuilder,
+        MarineDataCache,
+        SalinityLoader,
+    )
+except ImportError:
+    pass
+
 from pypath.io.utils import (
     estimate_pb_from_growth,
     estimate_qb_from_tl_pb,
@@ -79,4 +90,10 @@ __all__ = [
     "fetch_url",
     "estimate_pb_from_growth",
     "estimate_qb_from_tl_pb",
+    # Marine data (optional, requires spatial-data extra)
+    "MarineDataCache",
+    "EMODnetHabitatsClient",
+    "EMODnetBathymetryClient",
+    "SalinityLoader",
+    "HabitatPreferenceBuilder",
 ]
