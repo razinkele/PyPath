@@ -190,3 +190,111 @@ class EMODnetHabitatsClient:
                 else:
                     truncated.add(parts[0])
         return sorted(truncated)
+
+
+_EMODNET_BATHYMETRY_WCS = "https://ows.emodnet-bathymetry.eu/wcs"
+
+
+class EMODnetBathymetryClient:
+    """WCS client for EMODnet bathymetry depth data.
+
+    Parameters
+    ----------
+    cache : MarineDataCache
+        Cache instance for storing downloaded data.
+    """
+
+    def __init__(self, cache: MarineDataCache):
+        self._cache = cache
+
+    def fetch_depth(self, bbox: tuple, resolution: float = 0.002):
+        """Fetch depth raster for a bounding box.
+
+        Parameters
+        ----------
+        bbox : tuple
+            (min_lon, min_lat, max_lon, max_lat) in WGS84.
+        resolution : float
+            Grid resolution in degrees (default ~200m).
+
+        Returns
+        -------
+        tuple of (np.ndarray, tuple)
+            (raster [rows, cols], transform tuple).
+        """
+        import requests
+
+        cache_key = self._cache.cache_key(
+            bbox=bbox, layer="bathymetry", resolution=resolution
+        )
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return self._read_geotiff_bytes(cached)
+
+        bbox_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
+        params = {
+            "service": "WCS",
+            "version": "1.0.0",
+            "request": "GetCoverage",
+            "coverage": "emodnet:mean",
+            "crs": "EPSG:4326",
+            "BBOX": bbox_str,
+            "format": "image/tiff",
+            "interpolation": "nearest",
+            "resx": str(resolution),
+            "resy": str(resolution),
+        }
+        logger.info("Fetching EMODnet bathymetry for bbox %s", bbox)
+        resp = requests.get(_EMODNET_BATHYMETRY_WCS, params=params, timeout=120)
+        resp.raise_for_status()
+
+        self._cache.put(cache_key, resp.content)
+        return self._read_geotiff_bytes(resp.content)
+
+    @staticmethod
+    def _read_geotiff_bytes(data: bytes):
+        """Read a GeoTIFF from bytes, return (array, transform)."""
+        try:
+            import rasterio
+
+            with rasterio.open(_io.BytesIO(data)) as src:
+                arr = src.read(1).astype(float)
+                t = src.transform
+                transform = (t.c, t.a, t.b, t.f, t.d, t.e)
+                return arr, transform
+        except ImportError:
+            logger.warning("rasterio not installed; cannot read GeoTIFF")
+            raise
+
+    def sample_to_grid(
+        self, raster: np.ndarray, transform: tuple, grid
+    ) -> np.ndarray:
+        """Average raster values within each grid patch.
+
+        Parameters
+        ----------
+        raster : np.ndarray
+            Depth raster [rows, cols].
+        transform : tuple
+            (x_origin, pixel_width, x_skew, y_origin, y_skew, pixel_height).
+        grid : EcospaceGrid
+            Target spatial grid.
+
+        Returns
+        -------
+        np.ndarray
+            Mean depth per patch [n_patches].
+        """
+        x_origin, pixel_width, _, y_origin, _, pixel_height = transform
+        rows, cols = raster.shape
+        depth = np.zeros(grid.n_patches)
+
+        for i in range(grid.n_patches):
+            lon, lat = grid.patch_centroids[i]
+            col = int((lon - x_origin) / pixel_width)
+            row = int((lat - y_origin) / pixel_height)
+            col = max(0, min(col, cols - 1))
+            row = max(0, min(row, rows - 1))
+            depth[i] = raster[row, col]
+
+        return depth

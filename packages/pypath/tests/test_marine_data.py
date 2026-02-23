@@ -5,6 +5,7 @@ import os
 import tempfile
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 
@@ -162,3 +163,39 @@ class TestEMODnetHabitatsClient:
         types = client.get_habitat_types(gdf, level=3)
 
         assert sorted(types) == ["A5.2", "A5.3"]
+
+
+class TestEMODnetBathymetryClient:
+    """Tests for EMODnetBathymetryClient with mocked HTTP."""
+
+    def setup_method(self):
+        import tempfile
+
+        self.tmpdir = tempfile.mkdtemp()
+
+    def teardown_method(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    @pytest.mark.skipif(
+        not _has_geopandas(), reason="geopandas not installed"
+    )
+    def test_sample_to_grid_returns_correct_shape(self):
+        from pypath.io.marine_data import EMODnetBathymetryClient, MarineDataCache
+        from pypath.spatial.ecospace_params import EcospaceGrid
+
+        grid = EcospaceGrid.from_regular_grid(
+            bounds=(20.0, 55.0, 21.0, 56.0), nx=3, ny=3
+        )
+        # Simulate a depth raster: 10x10 grid of values
+        raster = np.arange(100, dtype=float).reshape(10, 10)
+        # affine-like transform: (x_origin, pixel_width, 0, y_origin, 0, -pixel_height)
+        transform = (20.0, 0.1, 0.0, 56.0, 0.0, -0.1)
+
+        cache = MarineDataCache(cache_dir=self.tmpdir)
+        client = EMODnetBathymetryClient(cache=cache)
+        depth = client.sample_to_grid(raster, transform, grid)
+
+        assert depth.shape == (grid.n_patches,)
+        assert np.all(np.isfinite(depth))
