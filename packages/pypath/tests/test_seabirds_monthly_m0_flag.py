@@ -126,7 +126,10 @@ def test_seabirds_find_first_divergence():
     ), "No divergence detected between PyPath and Rpath for Seabirds"
     logger.debug(
         "First divergence at index %d: Rpath=%.12e PyPath=%.12e diff=%.12e",
-        first, r[first], p[first], p[first] - r[first],
+        first,
+        r[first],
+        p[first],
+        p[first] - r[first],
     )
 
 

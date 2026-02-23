@@ -357,9 +357,7 @@ def rescale_flux_for_conservation(flux_matrix: np.ndarray) -> np.ndarray:
     for i in range(result.shape[0]):
         row_sum = result[i, :].sum()
         if row_sum > 1.0:
-            logger.warning(
-                "Row %d outflow fraction %.4f > 1.0, rescaling", i, row_sum
-            )
+            logger.warning("Row %d outflow fraction %.4f > 1.0, rescaling", i, row_sum)
             result[i, :] /= row_sum
     return result
 
