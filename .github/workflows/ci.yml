@@ -50,7 +50,7 @@ jobs:
 
       - name: Run tests (unit)
         run: |
-          pytest packages/pypath/tests -q -m "not integration and not slow" --maxfail=1 --disable-warnings
+          pytest packages/pypath/tests -q -m "not integration and not slow" --ignore=packages/pypath/tests/integration --maxfail=1 --disable-warnings
 
       - name: Upload test results (artifact)
         if: failure()

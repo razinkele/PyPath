@@ -56,6 +56,10 @@ pypath_shiny = ["static/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+markers = [
+    "integration: marks tests that require internet connection or external resources",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
 
 [tool.black]
 line-length = 88

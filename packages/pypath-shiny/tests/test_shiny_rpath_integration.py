@@ -1,8 +1,12 @@
 from pathlib import Path
 
+import pytest
+
 from pypath_shiny.pages.utils import load_rpath_diagnostics
 
-# Reference data lives in the core pypath package's test directory
+# Reference data lives in the core pypath package's test directory.
+# This cross-package path works in the monorepo layout but not when
+# packages are installed independently.
 DIAG_DIR = (
     Path(__file__).parent.parent.parent
     / "pypath"
@@ -12,6 +16,11 @@ DIAG_DIR = (
     / "ecosim"
     / "diagnostics"
 )
+
+if not DIAG_DIR.exists():
+    pytestmark = pytest.mark.skip(
+        reason="rpath diagnostics data not available (cross-package)"
+    )
 
 
 def test_load_rpath_diagnostics_success():

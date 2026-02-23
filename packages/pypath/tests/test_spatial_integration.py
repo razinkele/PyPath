@@ -257,6 +257,7 @@ class TestCompleteWorkflow:
         grid = create_1d_grid(n_patches=10, spacing=1.0)
         n_groups = 3
 
+        np.random.seed(42)
         ecospace = EcospaceParams(
             grid=grid,
             habitat_preference=np.random.uniform(0.3, 0.9, (n_groups, grid.n_patches)),
@@ -267,7 +268,6 @@ class TestCompleteWorkflow:
         )
 
         # Initial state
-        np.random.seed(42)
         initial_biomass = np.random.uniform(5, 15, (n_groups + 1, grid.n_patches))
         initial_biomass[0, :] = 0  # Outside
 

@@ -8,6 +8,8 @@ with Ecosim dynamics.
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.slow
+
 from pypath.spatial import (
     EcospaceParams,
     create_1d_grid,

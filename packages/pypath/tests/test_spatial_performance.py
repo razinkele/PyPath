@@ -15,6 +15,9 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
+# Seed random state for reproducible benchmarks.
+np.random.seed(42)
+
 from pypath.spatial import (
     EcospaceParams,
     allocate_gravity,

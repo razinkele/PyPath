@@ -1,22 +1,27 @@
 from pathlib import Path
 
+import pytest
+
 from pypath_shiny.pages.prebalance import (
     make_rpath_status_badge,
     rpath_diagnostics_summary,
 )
 
+# Cross-package path — works in monorepo but not standalone installs.
+_DIAG_DIR = (
+    Path(__file__).parent.parent.parent
+    / "pypath"
+    / "tests"
+    / "data"
+    / "rpath_reference"
+    / "ecosim"
+    / "diagnostics"
+)
 
+
+@pytest.mark.skipif(not _DIAG_DIR.exists(), reason="cross-package data not available")
 def test_rpath_diagnostics_summary_detects_provided():
-    # Reference data lives in the core pypath package's test directory
-    diag = (
-        Path(__file__).parent.parent.parent
-        / "pypath"
-        / "tests"
-        / "data"
-        / "rpath_reference"
-        / "ecosim"
-        / "diagnostics"
-    )
+    diag = _DIAG_DIR
     s = rpath_diagnostics_summary(diag)
     assert isinstance(s, str)
     assert "provided" in s or "not provided" in s

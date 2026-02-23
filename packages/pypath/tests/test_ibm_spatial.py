@@ -195,9 +195,11 @@ class TestSmeltIBMSpatialMovement:
         # With 100 individuals and 3 patches, at least 2 patches should be occupied
         assert len(patches_occupied) >= 2
 
+    @pytest.mark.slow
     def test_movement_prefers_food_rich_patches(self):
         """Individuals should tend toward patches with higher food density."""
         # Run 10 trials to reduce stochastic noise
+        np.random.seed(2024)
         food_rich_counts = []
         for _ in range(10):
             ibm, ctx = _make_smelt_with_spatial(n_super=200)
@@ -362,6 +364,7 @@ class TestSpatialFluxSkipsIBM:
         assert np.any(flux2[3] != 0.0), "Non-IBM group should have dispersal flux"
 
 
+@pytest.mark.slow
 class TestDerivVectorSpatialIBM:
     """Tests for IBM support in deriv_vector_spatial."""
 
