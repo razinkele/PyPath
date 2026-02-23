@@ -30,4 +30,4 @@ def test_nointegrate_groups_stay_at_baseline():
         exp = Bbase[idx]
         assert (
             abs(got - exp) < 1e-5
-        ), f"Group idx {idx} (NoIntegrate) did not remain at baseline: got {got} expected {exp} diff {abs(got-exp):.6e}"
+        ), f"Group idx {idx} (NoIntegrate) did not remain at baseline: got {got} expected {exp} diff {abs(got - exp):.6e}"
