@@ -7,7 +7,6 @@ This script tests that:
 3. The validation messages are correct
 """
 
-from pypath_shiny.config import VALIDATION
 from pypath_shiny.pages.validation import validate_pb
 
 

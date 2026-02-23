@@ -8,6 +8,9 @@ import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 matplotlib.use("Agg")  # Non-interactive backend
+# Import centralized config
+import logging
+
 import matplotlib.pyplot as plt
 
 # pypath imports (path setup handled by app/__init__.py)
@@ -23,9 +26,6 @@ from pypath.core.plotting import (
     plot_mti_heatmap,
     plot_trophic_spectrum,
 )
-
-# Import centralized config
-import logging
 
 from pypath_shiny.config import THRESHOLDS, UI
 from pypath_shiny.pages.utils import is_balanced_model
@@ -798,9 +798,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No model available"]})
 
         try:
-            df = model.summary()[
-                ["Group", "Type", "Biomass", "PB", "QB", "EE"]
-            ].copy()
+            df = model.summary()[["Group", "Type", "Biomass", "PB", "QB", "EE"]].copy()
             df = df.round(3)
             return df.head(15)
         except Exception as e:

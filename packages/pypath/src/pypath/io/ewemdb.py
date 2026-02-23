@@ -272,9 +272,7 @@ def list_ewemdb_tables(filepath: str) -> List[str]:
             conn = pyodbc.connect(conn_str)
             try:
                 cursor = conn.cursor()
-                tables = [
-                    row.table_name for row in cursor.tables(tableType="TABLE")
-                ]
+                tables = [row.table_name for row in cursor.tables(tableType="TABLE")]
                 return tables
             finally:
                 conn.close()

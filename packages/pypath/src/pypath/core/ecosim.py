@@ -1056,7 +1056,7 @@ def rsim_run(
             params_dict["INSTRUMENT_GROUPS"] = getattr(params, "INSTRUMENT_GROUPS")
             try:
                 logger.debug(
-                    f"DEBUG-INSTR COPY: params.INSTRUMENT_GROUPS attr={getattr(params,'INSTRUMENT_GROUPS', None)!r} type={type(getattr(params,'INSTRUMENT_GROUPS', None))}"
+                    f"DEBUG-INSTR COPY: params.INSTRUMENT_GROUPS attr={getattr(params, 'INSTRUMENT_GROUPS', None)!r} type={type(getattr(params, 'INSTRUMENT_GROUPS', None))}"
                 )
             except Exception as e:
                 logger.debug("instrumentation debug logging failed: %s", e)
@@ -1479,7 +1479,7 @@ def rsim_run(
             TH = 1e-12
             if np.any(diffs > TH):
                 logger.debug(
-                    f"derivative mismatch between raw (NoIntegrate disabled) and test-style params; count>{TH}: {int(np.sum(diffs>TH))}"
+                    f"derivative mismatch between raw (NoIntegrate disabled) and test-style params; count>{TH}: {int(np.sum(diffs > TH))}"
                 )
                 # Show first few mismatches
                 mism = np.where(diffs > TH)[0][:20]
@@ -1805,7 +1805,7 @@ def rsim_run(
     try:
         if len(params.FishFrom) > 0:
             logger.debug(
-                f"starting simulation months={n_months} FishFrom={params.FishFrom} FishQ={params.FishQ} FishThrough={params.FishThrough} ForcedEffort_sample={fishing_obj.ForcedEffort[0] if len(fishing_obj.ForcedEffort)>0 else None}"
+                f"starting simulation months={n_months} FishFrom={params.FishFrom} FishQ={params.FishQ} FishThrough={params.FishThrough} ForcedEffort_sample={fishing_obj.ForcedEffort[0] if len(fishing_obj.ForcedEffort) > 0 else None}"
             )
     except Exception as e:
         logger.debug("fishing link debug failed: %s", e)

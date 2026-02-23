@@ -1485,7 +1485,6 @@ def ecospace_server(
 
         # Plot
         fig, ax = plt.subplots(figsize=(10, 8))
-        import matplotlib.cm as cm
         from matplotlib.cm import ScalarMappable
         from matplotlib.colors import Normalize
         from matplotlib.patches import Polygon as MplPolygon
@@ -1664,7 +1663,6 @@ def ecospace_server(
         # Extract per-patch biomass for this group/timestep
         patch_biomass = biomass_spatial[timestep, group_idx, :]
 
-        import matplotlib.cm as cm
         from matplotlib.cm import ScalarMappable
         from matplotlib.colors import Normalize
         from matplotlib.patches import Polygon as MplPolygon
