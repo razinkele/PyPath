@@ -288,3 +288,21 @@ class TestHabitatPreferenceBuilder:
         assert matrix[0, 0] == 0.8
         # Patches with A5.3 should have group 1 preference = 0.9
         assert matrix[1, 5] == 0.9
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_fetch_euseamap_real_api():
+    """Integration test: fetch real data from EMODnet WFS."""
+    import shutil
+
+    from pypath.io.marine_data import EMODnetHabitatsClient, MarineDataCache
+
+    cache_dir = tempfile.mkdtemp()
+    cache = MarineDataCache(cache_dir=cache_dir)
+    client = EMODnetHabitatsClient(cache=cache)
+    # Small area in the Baltic Sea
+    gdf = client.fetch_euseamap(bbox=(20.5, 55.5, 21.0, 56.0))
+    assert len(gdf) > 0
+    assert "EUNIScomb" in gdf.columns
+    shutil.rmtree(cache_dir, ignore_errors=True)
