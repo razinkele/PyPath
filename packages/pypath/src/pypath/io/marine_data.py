@@ -142,18 +142,14 @@ class EMODnetHabitatsClient:
             return habitat_per_patch
 
         for i in range(grid.n_patches):
-            centroid = Point(
-                grid.patch_centroids[i, 0], grid.patch_centroids[i, 1]
-            )
+            centroid = Point(grid.patch_centroids[i, 0], grid.patch_centroids[i, 1])
             within = gdf[gdf.geometry.contains(centroid)]
             if not within.empty:
                 habitat_per_patch[i] = within.iloc[0]["EUNIScomb"]
             else:
                 nearest = gdf.geometry.distance(centroid)
                 if len(nearest) > 0:
-                    habitat_per_patch[i] = gdf.iloc[nearest.idxmin()][
-                        "EUNIScomb"
-                    ]
+                    habitat_per_patch[i] = gdf.iloc[nearest.idxmin()]["EUNIScomb"]
 
         return habitat_per_patch
 
@@ -266,9 +262,7 @@ class EMODnetBathymetryClient:
             logger.warning("rasterio not installed; cannot read GeoTIFF")
             raise
 
-    def sample_to_grid(
-        self, raster: np.ndarray, transform: tuple, grid
-    ) -> np.ndarray:
+    def sample_to_grid(self, raster: np.ndarray, transform: tuple, grid) -> np.ndarray:
         """Average raster values within each grid patch.
 
         Parameters
