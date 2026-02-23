@@ -70,6 +70,7 @@ def ecospace_wizard_server(
     salinity_layer = reactive.value(None)
     habitat_types_arr = reactive.value(None)
     download_status = reactive.value("")
+    preference_matrix = reactive.value(None)
 
     @reactive.effect
     @reactive.event(input.wizard_drawn_polygon)
@@ -230,6 +231,127 @@ def ecospace_wizard_server(
         ):
             return ui.p(status, class_="text-danger mt-2")
         return ui.p(status, class_="text-info mt-2")
+
+    @render.ui
+    def wizard_habitat_map():
+        """Display habitat type summary."""
+        hab = habitat_types_arr.get()
+        if hab is None:
+            return ui.p(
+                "No habitat data yet. Complete Step 3 first.",
+                class_="text-muted",
+            )
+
+        import numpy as np
+
+        unique_types = sorted(set(hab))
+        items = []
+        for htype in unique_types:
+            count = int(np.sum(hab == htype))
+            pct = 100.0 * count / len(hab)
+            items.append(
+                ui.div(
+                    ui.tags.span(htype, class_="badge bg-info me-2"),
+                    f"{count} patches ({pct:.1f}%)",
+                    class_="mb-1",
+                )
+            )
+        return ui.div(
+            ui.h5(
+                f"{len(unique_types)} habitat types found "
+                f"across {len(hab)} patches"
+            ),
+            *items,
+        )
+
+    @render.table
+    def wizard_habitat_table():
+        """Habitat types summary table."""
+        hab = habitat_types_arr.get()
+        if hab is None:
+            import pandas as pd
+
+            return pd.DataFrame()
+
+        import numpy as np
+        import pandas as pd
+
+        unique_types = sorted(set(hab))
+        rows = []
+        depth = depth_per_patch.get()
+        for htype in unique_types:
+            mask = hab == htype
+            count = int(np.sum(mask))
+            pct = 100.0 * count / len(hab)
+            row = {
+                "EUNIS Type": htype,
+                "Patches": count,
+                "Coverage (%)": f"{pct:.1f}",
+            }
+            if depth is not None:
+                d = depth[mask]
+                row["Depth Range (m)"] = f"{d.min():.0f} to {d.max():.0f}"
+            rows.append(row)
+        return pd.DataFrame(rows)
+
+    @render.ui
+    def wizard_preference_editor():
+        """Editable preference matrix."""
+        hab = habitat_types_arr.get()
+        if hab is None:
+            return ui.p("Complete Steps 3-4 first.", class_="text-muted")
+
+        import numpy as np
+
+        from pypath.io.marine_data import HabitatPreferenceBuilder
+
+        habitat_types = sorted(set(hab))
+
+        # Get group names from shared_data if available
+        if (
+            shared_data
+            and hasattr(shared_data, "params")
+            and shared_data.params is not None
+        ):
+            group_names = list(shared_data.params.model.Group)
+        else:
+            group_names = [f"Group {i + 1}" for i in range(5)]
+
+        builder = HabitatPreferenceBuilder()
+        preset = input.wizard_preset()
+
+        if preset == "auto":
+            prefs = builder.suggest_preferences(group_names, habitat_types)
+        elif preset != "none":
+            prefs = builder.apply_preset(
+                len(group_names), habitat_types, preset
+            )
+        else:
+            # Default moderate preferences
+            prefs = np.ones((len(group_names), len(habitat_types))) * 0.5
+
+        preference_matrix.set(prefs)
+
+        # Build an HTML table showing the preference matrix
+        import pandas as pd
+
+        df = pd.DataFrame(prefs, index=group_names, columns=habitat_types)
+        df = df.round(2)
+        html = df.to_html(
+            classes="table table-sm table-striped", border=0
+        )
+
+        return ui.div(
+            ui.p(
+                f"Preference values for {len(group_names)} groups "
+                f"\u00d7 {len(habitat_types)} habitats:"
+            ),
+            ui.HTML(html),
+            ui.p(
+                "Values range from 0 (avoid) to 1 (prefer).",
+                class_="text-muted small",
+            ),
+        )
 
     @render.ui
     def wizard_step_content():
