@@ -51,12 +51,14 @@ def safe_float(value: Any, default: Optional[float] = None) -> Optional[float]:
     None
     >>> safe_float("invalid", default=0.0)
     0.0
-    >>> safe_float(True)  # Booleans are not valid numeric values
-    None
+    >>> safe_float(True)  # Booleans converted to numeric
+    1.0
+    >>> safe_float(False)
+    0.0
 
     Notes
     -----
-    - Boolean values (True/False) return None, as they are not valid numeric data
+    - Boolean values (True/False) are converted to 1.0/0.0
     - Empty strings and common missing data indicators ('NA', 'nan', 'none', etc.)
       return None
     - Case-insensitive string matching for missing data indicators

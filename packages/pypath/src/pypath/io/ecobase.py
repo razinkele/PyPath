@@ -574,7 +574,6 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
                         group_name = group_seq_to_name.get(
                             group_seq, f"Group_{group_seq}"
                         )
-                        _catch_key = (fleet_name, group_name, catch_type)
 
                         if group_name not in result["catches"]:
                             result["catches"][group_name] = {}

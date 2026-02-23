@@ -116,6 +116,8 @@ def deriv_vector_spatial(
     ibm_groups = params.get("ibm_groups", {})
     ibm_spatial_contexts = {}
     if ibm_groups:
+        ActiveLink = params.get("ActiveLink", None)
+
         for g_idx, _ibm in ibm_groups.items():
             # Use habitat preference for this group, or uniform if unavailable
             hab_idx = g_idx - 1  # Convert 1-based Ecosim index to 0-based
@@ -124,12 +126,29 @@ def deriv_vector_spatial(
             else:
                 habitat_qual = np.ones(n_patches)
 
-            # TODO: use diet matrix (QQbase/ActiveLink) to compute true
-            # prey and predator densities per IBM group.  Currently both use
-            # total living biomass, which causes food-attraction and predator-
-            # avoidance to partially cancel in the movement score.
-            food = state_spatial[1:, :].sum(axis=0)
-            pred = state_spatial[1:, :].sum(axis=0)
+            # Compute prey and predator densities using the diet matrix.
+            # ActiveLink[prey, pred] is True when pred eats prey.
+            if ActiveLink is not None:
+                n_state = state_spatial.shape[0]
+                # Prey: groups this IBM group eats (sum biomass where ActiveLink[prey, g_idx])
+                prey_mask = np.zeros(n_state, dtype=bool)
+                for prey in range(1, n_state):
+                    if prey < ActiveLink.shape[0] and g_idx < ActiveLink.shape[1]:
+                        if ActiveLink[prey, g_idx]:
+                            prey_mask[prey] = True
+                food = state_spatial[prey_mask, :].sum(axis=0) if prey_mask.any() else np.zeros(n_patches)
+
+                # Predators: groups that eat this IBM group (sum biomass where ActiveLink[g_idx, pred])
+                pred_mask = np.zeros(n_state, dtype=bool)
+                for pred in range(1, n_state):
+                    if g_idx < ActiveLink.shape[0] and pred < ActiveLink.shape[1]:
+                        if ActiveLink[g_idx, pred]:
+                            pred_mask[pred] = True
+                pred = state_spatial[pred_mask, :].sum(axis=0) if pred_mask.any() else np.zeros(n_patches)
+            else:
+                # Fallback: total living biomass (less informative but safe)
+                food = state_spatial[1:, :].sum(axis=0)
+                pred = state_spatial[1:, :].sum(axis=0)
 
             ibm_spatial_contexts[g_idx] = SpatialContext(
                 adjacency=ecospace.grid.adjacency_matrix,
@@ -141,7 +160,7 @@ def deriv_vector_spatial(
 
     # Inject IBM spatial contexts into params for deriv_vector
     for g_idx, ctx in ibm_spatial_contexts.items():
-        params[f"_ibm_spatial_context_{g_idx}"] = ctx
+        params["_ibm_spatial_context_%d" % g_idx] = ctx
 
     try:
         # Calculate derivatives for each patch
@@ -171,7 +190,7 @@ def deriv_vector_spatial(
     finally:
         # Clean up injected spatial context keys
         for g_idx in ibm_spatial_contexts:
-            params.pop(f"_ibm_spatial_context_{g_idx}", None)
+            params.pop("_ibm_spatial_context_%d" % g_idx, None)
 
     # Step 2: Add spatial fluxes (movement/dispersal)
     spatial_flux = calculate_spatial_flux(state_spatial, ecospace, params, t)

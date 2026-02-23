@@ -152,7 +152,8 @@ class IBMGroup(ABC):
     Parameters
     ----------
     group_index : int
-        Zero-based index of this group in the Ecopath/Ecosim model.
+        One-based index of this group in the Ecopath/Ecosim model
+        (0 is reserved for the "Outside" placeholder).
     n_groups : int
         Total number of functional groups in the model (used to size
         consumption arrays).
@@ -160,7 +161,7 @@ class IBMGroup(ABC):
     Attributes
     ----------
     group_index : int
-        Index of this group.
+        One-based index of this group.
     n_groups : int
         Total number of groups in the model.
     individuals : List[SuperIndividual]

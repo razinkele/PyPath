@@ -47,6 +47,34 @@ logger = logging.getLogger(__name__)
 
 _SAFE_SQL_IDENT = re.compile(r"^[\w\s]+$")
 
+# Shared month abbreviation → number map (English + common non-English).
+_MONTH_NAME_MAP = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+    # Non-English abbreviations (French, Spanish, etc.)
+    "janv": 1,
+    "fev": 2,
+    "avr": 4,
+    "mai": 5,
+    "juin": 6,
+    "juil": 7,
+    "aou": 8,
+    "ene": 1,
+    "abr": 4,
+    "ago": 8,
+    "dic": 12,
+}
+
 
 def _validate_sql_identifier(name: str, kind: str = "identifier") -> None:
     """Reject names that could enable SQL injection."""
@@ -699,8 +727,10 @@ def read_ewemdb(
         value_col = next((c for c in value_cols if c in diet_df.columns), None)
 
         # Debug: show what columns were found
-        # print(f"Diet columns: {diet_df.columns.tolist()}")
-        # print(f"Found prey={prey_col}, pred={pred_col}, value={value_col}")
+        logger.debug(
+            "Diet columns: %s, Found prey=%s, pred=%s, value=%s",
+            diet_df.columns.tolist(), prey_col, pred_col, value_col,
+        )
 
         if prey_col and pred_col and value_col:
             # Long format - pivot to wide
@@ -1439,32 +1469,7 @@ def _parse_ecosim_forcing(
     df = forcing_df.copy()
 
     # Normalize month columns if present (wide monthly format)
-    month_name_map = {
-        "jan": 1,
-        "feb": 2,
-        "mar": 3,
-        "apr": 4,
-        "may": 5,
-        "jun": 6,
-        "jul": 7,
-        "aug": 8,
-        "sep": 9,
-        "oct": 10,
-        "nov": 11,
-        "dec": 12,
-        # common non-English abbreviations
-        "janv": 1,
-        "fev": 2,
-        "avr": 4,
-        "mai": 5,
-        "juin": 6,
-        "juil": 7,
-        "aou": 8,
-        "ene": 1,
-        "abr": 4,
-        "ago": 8,
-        "dic": 12,
-    }
+    month_name_map = _MONTH_NAME_MAP
 
     # helper: convert a row with Year/Month or Time to fractional year
     def to_frac_year(r):
@@ -1665,20 +1670,7 @@ def _parse_ecosim_fishing(
     df = fishing_df.copy()
 
     # detect monthly wide columns similarly to forcing
-    month_name_map = {
-        "jan": 1,
-        "feb": 2,
-        "mar": 3,
-        "apr": 4,
-        "may": 5,
-        "jun": 6,
-        "jul": 7,
-        "aug": 8,
-        "sep": 9,
-        "oct": 10,
-        "nov": 11,
-        "dec": 12,
-    }
+    month_name_map = _MONTH_NAME_MAP
     month_cols = []
     for c in df.columns:
         cl = c.lower()

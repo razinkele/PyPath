@@ -37,7 +37,6 @@ from pypath.ibm.behavior import (
     ForagingParams,
     MovementParams,
     adaptive_forage,
-    move_individual,
 )
 from pypath.ibm.bioenergetics import (
     BioenergParams,
@@ -181,7 +180,8 @@ class SmeltIBM(IBMGroup):
     Parameters
     ----------
     group_index : int
-        Zero-based index of this group in the Ecopath/Ecosim model.
+        One-based index of this group in the Ecopath/Ecosim model
+        (0 is reserved for the "Outside" placeholder).
     n_groups : int
         Total number of functional groups in the model.
     params : SmeltParams
@@ -495,18 +495,18 @@ class SmeltIBM(IBMGroup):
         # ================================================================
         patch_biomass = None
         if spatial_context is not None:
+            from pypath.ibm.behavior import calculate_movement_probabilities
+
             for ind in self.individuals:
-                moved = move_individual(
-                    individual=ind,
+                probs = calculate_movement_probabilities(
+                    current_patch=ind.patch_idx,
                     adjacency=spatial_context.adjacency,
                     habitat_quality=spatial_context.habitat_quality,
                     food_density=spatial_context.food_density,
                     predator_density=spatial_context.predator_density,
                     params=sp.movement,
-                    rng=self._rng,
                 )
-                # move_individual returns a copy; update in-place
-                ind.patch_idx = moved.patch_idx
+                ind.patch_idx = int(self._rng.choice(len(probs), p=probs))
 
             patch_biomass = self._aggregate_by_patch(spatial_context.n_patches)
 
