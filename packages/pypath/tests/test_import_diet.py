@@ -66,8 +66,13 @@ class TestEcoBaseDietParsing:
             for group in root.iter("group"):
                 for child in group:
                     logger.debug(
-                        "  %s: %s", child.tag,
-                        child.text[:50] if child.text and len(child.text) > 50 else child.text,
+                        "  %s: %s",
+                        child.tag,
+                        (
+                            child.text[:50]
+                            if child.text and len(child.text) > 50
+                            else child.text
+                        ),
                     )
                 break
 
@@ -205,9 +210,13 @@ class TestEwemdbDietParsing:
         )
 
         support = check_ewemdb_support()
-        logger.debug("ewemdb driver support: pyodbc=%s pypyodbc=%s mdb_tools=%s any=%s",
-                     support["pyodbc"], support["pypyodbc"],
-                     support["mdb_tools"], support["any_available"])
+        logger.debug(
+            "ewemdb driver support: pyodbc=%s pypyodbc=%s mdb_tools=%s any=%s",
+            support["pyodbc"],
+            support["pypyodbc"],
+            support["mdb_tools"],
+            support["any_available"],
+        )
 
     def test_diet_table_reading(self):
         """Test reading diet table from ewemdb file."""
