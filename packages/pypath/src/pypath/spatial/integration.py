@@ -121,9 +121,11 @@ def deriv_vector_spatial(
             else:
                 habitat_qual = np.ones(n_patches)
 
-            # Food density: sum of all living biomass per patch (simplified)
+            # TODO: use diet matrix (QQbase/ActiveLink) to compute true
+            # prey and predator densities per IBM group.  Currently both use
+            # total living biomass, which causes food-attraction and predator-
+            # avoidance to partially cancel in the movement score.
             food = state_spatial[1:, :].sum(axis=0)
-            # Predator density: same approximation
             pred = state_spatial[1:, :].sum(axis=0)
 
             ibm_spatial_contexts[g_idx] = SpatialContext(
@@ -138,32 +140,33 @@ def deriv_vector_spatial(
     for g_idx, ctx in ibm_spatial_contexts.items():
         params[f"_ibm_spatial_context_{g_idx}"] = ctx
 
-    # Calculate derivatives for each patch
-    for patch_idx in range(n_patches):
-        # Extract patch-specific state
-        state_patch = state_spatial[:, patch_idx]
+    try:
+        # Calculate derivatives for each patch
+        for patch_idx in range(n_patches):
+            # Extract patch-specific state
+            state_patch = state_spatial[:, patch_idx]
 
-        # Use modified params if needed, otherwise use original
-        if params_need_modification:
-            # Temporarily modify params (more efficient than copying entire dict)
-            b_base_ref_backup = params["B_BaseRef"]
-            params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
+            # Use modified params if needed, otherwise use original
+            if params_need_modification:
+                # Temporarily modify params (more efficient than copying entire dict)
+                b_base_ref_backup = params["B_BaseRef"]
+                params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
 
-            # Calculate local Ecosim derivative for this patch
-            deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)
+                # Calculate local Ecosim derivative for this patch
+                deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)
 
-            # Restore original B_BaseRef
-            params["B_BaseRef"] = b_base_ref_backup
-        else:
-            # No modification needed - use params directly (no copy!)
-            deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)
+                # Restore original B_BaseRef
+                params["B_BaseRef"] = b_base_ref_backup
+            else:
+                # No modification needed - use params directly (no copy!)
+                deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)
 
-        # Store local derivative
-        deriv_spatial[:, patch_idx] = deriv_local
-
-    # Clean up injected spatial context keys
-    for g_idx in ibm_spatial_contexts:
-        params.pop(f"_ibm_spatial_context_{g_idx}", None)
+            # Store local derivative
+            deriv_spatial[:, patch_idx] = deriv_local
+    finally:
+        # Clean up injected spatial context keys
+        for g_idx in ibm_spatial_contexts:
+            params.pop(f"_ibm_spatial_context_{g_idx}", None)
 
     # Step 2: Add spatial fluxes (movement/dispersal)
     spatial_flux = calculate_spatial_flux(state_spatial, ecospace, params, t)

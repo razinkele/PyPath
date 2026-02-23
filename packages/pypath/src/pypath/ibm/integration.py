@@ -22,7 +22,7 @@ apply_ibm_to_derivative
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -127,7 +127,7 @@ def apply_ibm_to_derivative(
     ibm_group: "IBMGroup",
     forcing: dict,
     dt: float,
-    spatial_context: "SpatialContext | None" = None,
+    spatial_context: Optional["SpatialContext"] = None,
 ) -> None:
     """Override the Ecosim derivative for an IBM-managed group in-place.
 
