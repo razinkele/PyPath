@@ -220,3 +220,89 @@ class TestSmeltIBMSpatialMovement:
         avg_per_patch = np.mean([len(ibm.individuals)]) / 3
         # On average, more individuals should be in the food-rich patch
         assert avg_in_food_rich > avg_per_patch
+
+
+class TestApplyIBMToDerivativeSpatial:
+    """Tests for spatial context forwarding in apply_ibm_to_derivative."""
+
+    def test_forwards_spatial_context_to_compute_step(self):
+        """apply_ibm_to_derivative should pass spatial_context through."""
+        from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext
+        from pypath.ibm.integration import apply_ibm_to_derivative
+
+        received_context = {}
+
+        class SpyIBM(IBMGroup):
+            def compute_step(self, prey_available, predation_pressure,
+                             env_forcing, dt, spatial_context=None):
+                received_context["ctx"] = spatial_context
+                return IBMStepResult(
+                    biomass=1.0, production=0.0,
+                    consumption_by_prey=np.zeros(self.n_groups),
+                    mortality_count=0.0, recruitment_count=0.0,
+                )
+
+            def get_aggregate_biomass(self):
+                return 1.0
+
+            def get_consumption_by_prey(self):
+                return np.zeros(self.n_groups)
+
+            def initialize_from_ecosim(self, biomass, params,
+                                       n_super_individuals=500):
+                pass
+
+        n = 4
+        spy = SpyIBM(group_index=1, n_groups=n)
+        deriv = np.zeros(n + 1)
+        QQ = np.zeros((n + 1, n + 1))
+        BB = np.ones(n + 1)
+
+        adj = sp.csr_matrix(np.eye(3))
+        ctx = SpatialContext(
+            adjacency=adj,
+            habitat_quality=np.ones(3),
+            food_density=np.ones(3),
+            predator_density=np.zeros(3),
+            n_patches=3,
+        )
+
+        apply_ibm_to_derivative(deriv, QQ, BB, spy, {}, 1 / 12,
+                                spatial_context=ctx)
+        assert received_context["ctx"] is ctx
+
+    def test_none_spatial_context_by_default(self):
+        """Without spatial_context, compute_step receives None."""
+        from pypath.ibm.base import IBMGroup, IBMStepResult
+        from pypath.ibm.integration import apply_ibm_to_derivative
+
+        received_context = {}
+
+        class SpyIBM(IBMGroup):
+            def compute_step(self, prey_available, predation_pressure,
+                             env_forcing, dt, spatial_context=None):
+                received_context["ctx"] = spatial_context
+                return IBMStepResult(
+                    biomass=1.0, production=0.0,
+                    consumption_by_prey=np.zeros(self.n_groups),
+                    mortality_count=0.0, recruitment_count=0.0,
+                )
+
+            def get_aggregate_biomass(self):
+                return 1.0
+
+            def get_consumption_by_prey(self):
+                return np.zeros(self.n_groups)
+
+            def initialize_from_ecosim(self, biomass, params,
+                                       n_super_individuals=500):
+                pass
+
+        n = 4
+        spy = SpyIBM(group_index=1, n_groups=n)
+        deriv = np.zeros(n + 1)
+        QQ = np.zeros((n + 1, n + 1))
+        BB = np.ones(n + 1)
+
+        apply_ibm_to_derivative(deriv, QQ, BB, spy, {}, 1 / 12)
+        assert received_context["ctx"] is None

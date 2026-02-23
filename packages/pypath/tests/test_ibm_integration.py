@@ -44,6 +44,7 @@ class MockIBM(IBMGroup):
         predation_pressure: float,
         env_forcing: Dict[str, Any],
         dt: float,
+        spatial_context=None,
     ) -> IBMStepResult:
         return IBMStepResult(
             biomass=self._step_biomass,

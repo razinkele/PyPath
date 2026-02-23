@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Dict, Tuple
 import numpy as np
 
 if TYPE_CHECKING:
-    from pypath.ibm.base import IBMGroup, IBMStepResult
+    from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +127,7 @@ def apply_ibm_to_derivative(
     ibm_group: "IBMGroup",
     forcing: dict,
     dt: float,
+    spatial_context: "SpatialContext | None" = None,
 ) -> None:
     """Override the Ecosim derivative for an IBM-managed group in-place.
 
@@ -149,6 +150,10 @@ def apply_ibm_to_derivative(
         Environmental forcing dictionary passed through to ``compute_step``.
     dt : float
         Time step size in years.
+    spatial_context : SpatialContext or None, optional
+        Spatial context for multi-patch IBM movement. When provided, it is
+        forwarded to ``ibm_group.compute_step()`` so the IBM engine can
+        distribute individuals across patches. Default is ``None``.
     """
     group_idx = ibm_group.group_index
     n_groups = ibm_group.n_groups
@@ -170,6 +175,7 @@ def apply_ibm_to_derivative(
         predation_pressure=predation,
         env_forcing=forcing,
         dt=dt,
+        spatial_context=spatial_context,
     )
 
     # Override derivative: dB/dt = (new_biomass - current_biomass) / dt
