@@ -111,7 +111,26 @@ def home_ui():
                                     class_="text-muted small",
                                 ),
                             ),
-                            col_widths=[4, 4, 4],
+                            ui.div(
+                                ui.h5(
+                                    ui.tags.i(
+                                        class_="bi bi-cpu text-info me-2"
+                                    ),
+                                    "Individual-Based Modeling",
+                                    class_="mb-2",
+                                ),
+                                ui.p(
+                                    "New IBM module with bioenergetics, predation, reproduction, "
+                                    "and spatial movement for super-individual tracking.",
+                                    class_="mb-1",
+                                ),
+                                ui.p(
+                                    ui.tags.strong("Try it: "),
+                                    "Navigate to the IBM page to configure super-individual groups.",
+                                    class_="text-muted small",
+                                ),
+                            ),
+                            col_widths=[3, 3, 3, 3],
                         )
                     ),
                     class_="border-success",
@@ -207,6 +226,28 @@ def home_ui():
                         ),
                     ),
                 ),
+                # IBM card
+                ui.card(
+                    ui.card_header(
+                        ui.tags.i(class_="bi bi-cpu me-2"),
+                        "Individual-Based Model",
+                        ui.tags.span("NEW", class_="badge bg-info ms-2"),
+                    ),
+                    ui.card_body(
+                        ui.tags.ul(
+                            ui.tags.li("Super-individual tracking"),
+                            ui.tags.li("Wisconsin bioenergetics model"),
+                            ui.tags.li("Size-structured predation"),
+                            ui.tags.li("Stochastic reproduction"),
+                            ui.tags.li("Spatial movement & foraging"),
+                        ),
+                        ui.input_action_button(
+                            "btn_goto_ibm",
+                            "Explore IBM",
+                            class_="btn-info mt-3",
+                        ),
+                    ),
+                ),
                 # Analysis card
                 ui.card(
                     ui.card_header(
@@ -246,7 +287,7 @@ def home_ui():
                         ),
                     ),
                 ),
-                col_widths=[4, 4, 4],
+                col_widths=[3, 3, 3, 3],
                 class_="mt-4",
             ),
             # Feature cards - Row 3
@@ -371,7 +412,24 @@ def home_ui():
                         ui.tags.code("rsim_run_spatial(ecospace)"),
                     ),
                 ),
-                col_widths=[2, 2, 2, 3, 3],
+                ui.card(
+                    ui.card_header(
+                        "Step 6: Individual-Based Modeling",
+                        ui.tags.span(
+                            "Optional",
+                            class_="badge bg-info ms-2",
+                            style="font-size: 0.7em;",
+                        ),
+                    ),
+                    ui.card_body(
+                        ui.p(
+                            "Configure super-individual groups with bioenergetics, "
+                            "predation, and spatial movement parameters."
+                        ),
+                        ui.tags.code("SmeltIBM.compute_step(state)"),
+                    ),
+                ),
+                col_widths=[2, 2, 2, 2, 2, 2],
             ),
             class_="container py-4",
         )
@@ -402,6 +460,11 @@ def home_server(
     @reactive.event(input.btn_goto_ecospace)
     def _goto_ecospace():
         ui.update_navs("main_nav", selected="Ecospace")
+
+    @reactive.effect
+    @reactive.event(input.btn_goto_ibm)
+    def _goto_ibm():
+        ui.update_navs("main_nav", selected="Individual-Based Model")
 
     @reactive.effect
     @reactive.event(input.btn_goto_analysis)
