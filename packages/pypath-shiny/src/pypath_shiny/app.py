@@ -280,12 +280,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         """Synchronize model_data to shared_data.params for advanced features."""
         data = model_data()
         if data is not None:
-            # For RpathParams objects (have model and diet attributes), store directly
-            if hasattr(data, "model") and hasattr(data, "diet"):
-                shared_data.params.set(data)
-            else:
-                # For other data structures, store as-is
-                shared_data.params.set(data)
+            shared_data.params.set(data)
 
     # Initialize page servers with error handling
     server_modules = [
@@ -355,7 +350,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         try:
             server_init()
         except Exception as e:
-            logger.error(f"Failed to initialize {page_name} server: {e}", exc_info=True)
+            logger.error("Failed to initialize %s server: %s", page_name, e, exc_info=True)
 
 
 def main():

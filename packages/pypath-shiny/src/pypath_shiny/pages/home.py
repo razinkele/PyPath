@@ -719,11 +719,11 @@ def home_server(
                     idx = groups.index(group)
                     params.model.loc[idx, "Trawlers"] = catch
 
-            # Balance the model
+            # Validate the example model can balance (result intentionally discarded;
+            # the ecopath page needs editable params, not the balanced model).
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                _model = rpath(params)
-            # The ecopath page needs the editable parameters, not the balanced results
+                rpath(params)
             model_data.set(params)
 
             ui.notification_show(

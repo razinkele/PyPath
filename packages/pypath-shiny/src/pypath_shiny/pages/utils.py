@@ -583,7 +583,7 @@ def get_model_info(model: Any) -> Optional[Dict[str, Any]]:
         # It's an RpathParams object
         groups = list(model.model["Group"].values)
         types = model.model["Type"].values
-        num_living = int(np.sum(types == 0))  # Type 0 = consumer
+        num_living = int(np.sum(types < 2))  # Type 0 = consumer, Type 1 = producer
         num_dead = int(np.sum(types == 2))  # Type 2 = detritus
         num_groups = len(groups)
 

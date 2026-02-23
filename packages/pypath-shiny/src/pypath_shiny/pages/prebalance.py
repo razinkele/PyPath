@@ -14,7 +14,7 @@ import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Get logger
-logger = logging.getLogger("pypath_app.prebalance")
+logger = logging.getLogger(__name__)
 
 from pypath_shiny.config import PLOTS, UI  # noqa: E402
 from pypath_shiny.pages.utils import (  # noqa: E402
@@ -22,15 +22,32 @@ from pypath_shiny.pages.utils import (  # noqa: E402
     load_rpath_diagnostics,
 )
 
+# Resolve paths relative to this file's location for portability.
+# packages/pypath-shiny/src/pypath_shiny/pages/prebalance.py -> parents[5] = repo root
+_REPO_ROOT = Path(__file__).resolve().parents[5]
+_VERIFY_SCRIPT = _REPO_ROOT / "scripts" / "verify_rpath_reference.py"
+_DIAG_DIR = (
+    _REPO_ROOT
+    / "packages"
+    / "pypath"
+    / "tests"
+    / "data"
+    / "rpath_reference"
+    / "ecosim"
+    / "diagnostics"
+)
+
 
 def rpath_diagnostics_summary(
-    diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics",
+    diag_dir: str | Path | None = None,
 ) -> str:
     """Return a short summary string about the Rpath diagnostics state.
 
     This is a pure function intended for server-side checks and unit tests.
     It does not access UI elements.
     """
+    if diag_dir is None:
+        diag_dir = _DIAG_DIR
     out = load_rpath_diagnostics(Path(diag_dir))
     if out.get("meta") is None:
         return "No diagnostics available"
@@ -82,7 +99,7 @@ def make_rpath_status_badge(
 
 
 def run_verify_rpath(
-    diag_dir: str | Path = "tests/data/rpath_reference/ecosim/diagnostics",
+    diag_dir: str | Path | None = None,
 ) -> dict:
     """Execute the verification script and return structured results.
 
@@ -96,7 +113,10 @@ def run_verify_rpath(
     import subprocess
     import sys
 
-    script = Path("scripts/verify_rpath_reference.py")
+    if diag_dir is None:
+        diag_dir = _DIAG_DIR
+
+    script = _VERIFY_SCRIPT
     if not script.exists():
         return {
             "returncode": -1,
@@ -340,24 +360,8 @@ def prebalance_server(
     # Fallback container for modal content when session.show_modal() is not available
     rpath_modal_content = reactive.Value(None)
 
-    # Populate an initial verification summary so the UI always contains the
-    # verification output text even when `session.show_modal` is unsupported or
-    # button clicks don't register in certain runtime variants.
-    try:
-        _res = run_verify_rpath(Path("tests/data/rpath_reference/ecosim/diagnostics"))
-        _note = load_rpath_diagnostics(
-            Path("tests/data/rpath_reference/ecosim/diagnostics")
-        ).get("note")
-        _body = ui.tags.div(
-            ui.h5("Meta note:"),
-            ui.tags.pre(str(_note) if _note is not None else "(none)"),
-            ui.hr(),
-            ui.h5("Verification output:"),
-            ui.tags.pre(_res.get("output", "")),
-        )
-        rpath_modal_content.set(_body)
-    except Exception as _e:
-        rpath_modal_content.set(ui.tags.div(ui.tags.p(str(_e))))
+    # Verification is triggered on demand via btn_rpath_diag_info / btn_run_diagnostics.
+    # No subprocess at init time.
 
     @reactive.effect
     @reactive.event(input.btn_run_diagnostics)
@@ -409,7 +413,7 @@ def prebalance_server(
                 )
 
         except Exception as e:
-            logger.error(f"Error running diagnostics: {e}", exc_info=True)
+            logger.error("Error running diagnostics: %s", e, exc_info=True)
             ui.notification_show(
                 f"Error running diagnostics: {str(e)}", type="error", duration=5
             )
@@ -543,7 +547,7 @@ def prebalance_server(
         wraps the badge in a link to the diagnostics folder using a `file://` URI
         when available.
         """
-        diag_dir = Path("tests/data/rpath_reference/ecosim/diagnostics")
+        diag_dir = _DIAG_DIR
         diag = load_rpath_diagnostics(diag_dir)
         status = rpath_diagnostics_summary(diag_dir)
         note = diag.get("note") if diag else None
@@ -581,12 +585,8 @@ def prebalance_server(
         and keeps the diagnostic content discoverable by tests and Playwright.
         """
         try:
-            result = run_verify_rpath(
-                Path("tests/data/rpath_reference/ecosim/diagnostics")
-            )
-            note = load_rpath_diagnostics(
-                Path("tests/data/rpath_reference/ecosim/diagnostics")
-            ).get("note")
+            result = run_verify_rpath(_DIAG_DIR)
+            note = load_rpath_diagnostics(_DIAG_DIR).get("note")
             title = "Rpath Diagnostics"
             body = ui.tags.div(
                 ui.h5("Meta note:"),
@@ -794,5 +794,5 @@ def prebalance_server(
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             ax.axis("off")
-            logger.error(f"Error generating diagnostic plot: {e}", exc_info=True)
+            logger.error("Error generating diagnostic plot: %s", e, exc_info=True)
             return fig

@@ -128,26 +128,8 @@ def results_ui():
                     "Comparison",
                     ui.h4("Scenario Comparison", class_="mt-3"),
                     ui.p(
-                        "Compare results from different scenarios (future feature)",
+                        "Scenario comparison is under development.",
                         class_="text-muted",
-                    ),
-                    ui.layout_columns(
-                        ui.card(
-                            ui.card_header("Scenario A"),
-                            ui.card_body(
-                                ui.input_file("upload_scenario_a", "Upload Results A"),
-                            ),
-                        ),
-                        ui.card(
-                            ui.card_header("Scenario B"),
-                            ui.card_body(
-                                ui.input_file("upload_scenario_b", "Upload Results B"),
-                            ),
-                        ),
-                        col_widths=[UI.col_width_medium, UI.col_width_medium],
-                    ),
-                    ui.output_plot(
-                        "results_comparison_plot", height=UI.plot_height_small_px
                     ),
                 ),
                 ui.nav_panel(
@@ -634,23 +616,6 @@ def results_server(
         ax.set_xlim(1, len(years))
 
         plt.tight_layout()
-        return fig
-
-    @output
-    @render.plot
-    def results_comparison_plot():
-        """Scenario comparison plot."""
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.text(
-            0.5,
-            0.5,
-            "Upload scenarios to compare",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-        )
         return fig
 
     @output

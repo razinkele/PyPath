@@ -7,7 +7,9 @@ import numpy as np
 import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
-matplotlib.use("Agg")  # Non-interactive backend
+# Set non-interactive backend before importing pyplot.
+# This must happen before any matplotlib.pyplot import.
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # pypath imports (path setup handled by app/__init__.py)

@@ -1077,6 +1077,7 @@ def ecospace_server(
             else:
                 group_choices = {str(i): f"Group {i}" for i in range(1, n_groups + 1)}
             ui.update_select("biomass_view_group", choices=group_choices)
+            ui.update_select("habitat_view_group", choices=group_choices)
 
             # Update animation slider max to number of timesteps
             n_timesteps = result.out_Biomass_spatial.shape[0] - 1
@@ -1087,7 +1088,7 @@ def ecospace_server(
             )
 
         except Exception as e:
-            logger.error(f"Spatial simulation failed: {e}", exc_info=True)
+            logger.error("Spatial simulation failed: %s", e, exc_info=True)
             ui.notification_show(
                 f"Spatial simulation failed: {e!s}",
                 type="error",
