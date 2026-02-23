@@ -2,7 +2,6 @@
 
 import logging
 import platform
-import sys
 from importlib.metadata import version as pkg_version
 
 from shiny import Inputs, Outputs, Session, ui

@@ -61,6 +61,6 @@ def test_rsim_handles_stanzas():
     scen = rsim_scenario(r, rparams, years=years)
     out = rsim_run(scen, years=years)
 
-    assert (
-        hasattr(out, "stanza_biomass") and out.stanza_biomass is not None
-    ), "Ecosim output must include stanza-resolved biomass (stanza_biomass)"
+    assert hasattr(out, "stanza_biomass") and out.stanza_biomass is not None, (
+        "Ecosim output must include stanza-resolved biomass (stanza_biomass)"
+    )

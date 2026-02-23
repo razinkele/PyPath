@@ -396,9 +396,7 @@ def check_rpath_params(params: RpathParams) -> bool:
     ]
     if len(has_b_ee_no_pb) > 0:
         groups = has_b_ee_no_pb["Group"].tolist()
-        logger.info(
-            "Groups with B+EE but missing PB (will be estimated): %s", groups
-        )
+        logger.info("Groups with B+EE but missing PB (will be estimated): %s", groups)
 
     # Check that consumers have QB or ProdCons
     consumers = model[model["Type"] < 1]

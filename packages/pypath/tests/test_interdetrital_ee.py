@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from pypath.core.ecopath import rpath
-from pypath.core.params import create_rpath_params, read_rpath_params
+from pypath.core.params import create_rpath_params
 
 _ECOPATH_DIR = str(Path(__file__).parent / "data" / "rpath_reference" / "ecopath")
 

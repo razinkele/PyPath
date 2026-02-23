@@ -62,6 +62,7 @@ from pypath_shiny.pages import (  # noqa: E402
     results,
 )
 
+
 def _icon_label(icon_class: str, text: str) -> ui.TagList:
     """Create a nav label with a Bootstrap Icon and text."""
     return ui.TagList(
@@ -110,24 +111,44 @@ app_ui = ui.page_fluid(
     # Main navigation — left sidebar pill list
     ui.navset_pill_list(
         # Core workflow pages
-        ui.nav_panel(_icon_label("bi-house-fill", "Home"), home.home_ui(), value="Home"),
-        ui.nav_panel(_icon_label("bi-download", "Data Import"), data_import.import_ui(), value="Data Import"),
-        ui.nav_panel(_icon_label("bi-gear", "Ecopath Model"), ecopath.ecopath_ui(), value="Ecopath Model"),
         ui.nav_panel(
-            _icon_label("bi-clipboard-check", "Pre-Balance"), prebalance.prebalance_ui(), value="Pre-Balance",
+            _icon_label("bi-house-fill", "Home"), home.home_ui(), value="Home"
         ),
-        ui.nav_panel(_icon_label("bi-graph-up", "Ecosim"), ecosim.ecosim_ui(), value="Ecosim"),
+        ui.nav_panel(
+            _icon_label("bi-download", "Data Import"),
+            data_import.import_ui(),
+            value="Data Import",
+        ),
+        ui.nav_panel(
+            _icon_label("bi-gear", "Ecopath Model"),
+            ecopath.ecopath_ui(),
+            value="Ecopath Model",
+        ),
+        ui.nav_panel(
+            _icon_label("bi-clipboard-check", "Pre-Balance"),
+            prebalance.prebalance_ui(),
+            value="Pre-Balance",
+        ),
+        ui.nav_panel(
+            _icon_label("bi-graph-up", "Ecosim"), ecosim.ecosim_ui(), value="Ecosim"
+        ),
         # Advanced features (collapsible group)
         ui.nav_menu(
             _icon_label("bi-stars", "Advanced"),
             ui.nav_panel(
-                _icon_label("bi-globe-americas", "Ecospace"), ecospace.ecospace_ui(), value="Ecospace",
+                _icon_label("bi-globe-americas", "Ecospace"),
+                ecospace.ecospace_ui(),
+                value="Ecospace",
             ),
             ui.nav_panel(
-                _icon_label("bi-layers", "Multi-Stanza"), multistanza.multistanza_ui(), value="Multi-Stanza",
+                _icon_label("bi-layers", "Multi-Stanza"),
+                multistanza.multistanza_ui(),
+                value="Multi-Stanza",
             ),
             ui.nav_panel(
-                _icon_label("bi-lightning", "Forcing"), forcing_demo.forcing_demo_ui(), value="Forcing",
+                _icon_label("bi-lightning", "Forcing"),
+                forcing_demo.forcing_demo_ui(),
+                value="Forcing",
             ),
             ui.nav_panel(
                 _icon_label("bi-arrow-repeat", "Diet Rewiring"),
@@ -140,17 +161,25 @@ app_ui = ui.page_fluid(
                 value="Optimization",
             ),
             ui.nav_panel(
-                _icon_label("bi-cpu", "Individual-Based Model"), ibm.ibm_ui(), value="Individual-Based Model",
+                _icon_label("bi-cpu", "Individual-Based Model"),
+                ibm.ibm_ui(),
+                value="Individual-Based Model",
             ),
         ),
         # Output pages
         ui.nav_panel(
-            _icon_label("bi-bar-chart-line", "Analysis"), analysis.analysis_ui(), value="Analysis",
+            _icon_label("bi-bar-chart-line", "Analysis"),
+            analysis.analysis_ui(),
+            value="Analysis",
         ),
         ui.nav_panel(
-            _icon_label("bi-file-earmark-text", "Results"), results.results_ui(), value="Results",
+            _icon_label("bi-file-earmark-text", "Results"),
+            results.results_ui(),
+            value="Results",
         ),
-        ui.nav_panel(_icon_label("bi-info-circle", "About"), about.about_ui(), value="About"),
+        ui.nav_panel(
+            _icon_label("bi-info-circle", "About"), about.about_ui(), value="About"
+        ),
         ui.nav_control(
             ui.input_action_button(
                 "btn_settings",
@@ -350,7 +379,9 @@ def server(input: Inputs, output: Outputs, session: Session):
         try:
             server_init()
         except Exception as e:
-            logger.error("Failed to initialize %s server: %s", page_name, e, exc_info=True)
+            logger.error(
+                "Failed to initialize %s server: %s", page_name, e, exc_info=True
+            )
 
 
 def main():

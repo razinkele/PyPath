@@ -52,4 +52,6 @@ def test_instrumentation_1based_numeric_warns_and_converts():
     ) or any(
         any(groups[g] == "Macrobenthos" for g in p.get("groups", []))
         for p in instrumented
-    ), "macrob_idx not found in params.INSTRUMENT_GROUPS or in any instrumentation payload"
+    ), (
+        "macrob_idx not found in params.INSTRUMENT_GROUPS or in any instrumentation payload"
+    )

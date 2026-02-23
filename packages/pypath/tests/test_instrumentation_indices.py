@@ -40,7 +40,9 @@ def test_instrumentation_accepts_zero_based_indices():
     ) or any(
         any(groups[g] == "Macrobenthos" for g in p.get("groups", []))
         for p in instrumented
-    ), "macrob_idx not found in params.INSTRUMENT_GROUPS or in any instrumentation payload"
+    ), (
+        "macrob_idx not found in params.INSTRUMENT_GROUPS or in any instrumentation payload"
+    )
     # At least one payload should contain finite derivs for the requested groups
     assert any(
         np.isfinite(np.asarray(p.get("deriv_current", [])).astype(float)).all()

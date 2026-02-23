@@ -657,7 +657,9 @@ def rsim_params(
         # Use nliving + det_idx as the detritus global group index (no +1)
         logger.debug(
             "DetFate det_idx=%s dest_global=%s sources=%s",
-            det_idx, nliving + det_idx, sources,
+            det_idx,
+            nliving + det_idx,
+            sources,
         )
 
     # FIX: Use ngroups instead of nliving+ndead to include gear rows (22-24) that contribute to detritus
@@ -671,7 +673,10 @@ def rsim_params(
                 # DEBUG: show each det link created
                 logger.debug(
                     "DETLINK: grp_idx=%s det_idx=%s frac=%s det_to=%s",
-                    grp_idx, det_idx, frac, nliving + det_idx + 1,
+                    grp_idx,
+                    det_idx,
+                    frac,
+                    nliving + det_idx + 1,
                 )
         # Flow to outside (1 - sum of det fate)
         det_out = 1.0 - np.sum(rpath.DetFate[grp_idx, :])
@@ -693,7 +698,8 @@ def rsim_params(
             det_names = [rpath.Group[nliving + zc] for zc in zero_cols]
             logger.debug(
                 "DetFate columns with zero source fractions: cols=%s, detritus names=%s",
-                zero_cols, det_names,
+                zero_cols,
+                det_names,
             )
         # Also report which detritus columns appear in det_to mapping
         det_to_cols = np.unique(
@@ -1060,8 +1066,8 @@ def rsim_run(
             try:
                 logger.debug(
                     "DEBUG-INSTR COPY: params.INSTRUMENT_GROUPS attr=%r type=%s",
-                    getattr(params, 'INSTRUMENT_GROUPS', None),
-                    type(getattr(params, 'INSTRUMENT_GROUPS', None)),
+                    getattr(params, "INSTRUMENT_GROUPS", None),
+                    type(getattr(params, "INSTRUMENT_GROUPS", None)),
                 )
             except Exception as e:
                 logger.debug("instrumentation debug logging failed: %s", e)
@@ -1113,7 +1119,9 @@ def rsim_run(
                     try:
                         logger.debug(
                             "DEBUG-INSTR-MAP: ig_raw=%s normalized=%s model_present=%s",
-                            ig, normalized_sorted, model_df is not None,
+                            ig,
+                            normalized_sorted,
+                            model_df is not None,
                         )
                     except Exception as e:
                         logger.debug("instrumentation debug logging failed: %s", e)
@@ -1201,14 +1209,14 @@ def rsim_run(
         try:
             logger.debug(
                 "DEBUG-RUN: params hasattr instrument_callback=%s params_dict_has_cb=%s",
-                hasattr(params, 'instrument_callback'),
-                'instrument_callback' in params_dict,
+                hasattr(params, "instrument_callback"),
+                "instrument_callback" in params_dict,
             )
             try:
                 logger.debug(
                     "DEBUG-RUN: params.INSTRUMENT_GROUPS (attr)=%s params_dict['INSTRUMENT_GROUPS']=%s",
-                    getattr(params, 'INSTRUMENT_GROUPS', None),
-                    params_dict.get('INSTRUMENT_GROUPS', None),
+                    getattr(params, "INSTRUMENT_GROUPS", None),
+                    params_dict.get("INSTRUMENT_GROUPS", None),
                 )
             except Exception as e:
                 logger.debug("callback group resolution failed: %s", e)
@@ -1222,7 +1230,7 @@ def rsim_run(
     try:
         logger.debug(
             "DEBUG-INSTR-PARAMSDICT initial INSTRUMENT_GROUPS = %r",
-            params_dict.get('INSTRUMENT_GROUPS', None),
+            params_dict.get("INSTRUMENT_GROUPS", None),
         )
     except Exception as e:
         logger.debug("callback group resolution failed: %s", e)
@@ -1271,7 +1279,8 @@ def rsim_run(
                         if params_dict.get("VERBOSE_INSTRUMENTATION"):
                             logger.debug(
                                 "DEBUG-INSTR-MIGRATE: converted numeric 1-based %s -> %s",
-                                nums, normalized,
+                                nums,
+                                normalized,
                             )
                     except Exception as e:
                         logger.debug("verbose instrumentation config failed: %s", e)
@@ -1392,7 +1401,8 @@ def rsim_run(
     try:
         logger.debug(
             "forcing0 sample ForcedEffort[:4]=%s ForcedBio[:4]=%s",
-            forcing0['ForcedEffort'][:4], forcing0['ForcedBio'][:4],
+            forcing0["ForcedEffort"][:4],
+            forcing0["ForcedBio"][:4],
         )
     except Exception as e:
         logger.debug("forcing0 debug logging failed: %s", e)
@@ -1419,7 +1429,7 @@ def rsim_run(
         ADJUST_DERIV_MAX = 1e-3
         logger.debug(
             "computing init_deriv with fishing_dict FishFrom length=%d",
-            len(fishing_dict.get('FishFrom', [])),
+            len(fishing_dict.get("FishFrom", [])),
         )
         init_deriv = deriv_vector(state.copy(), params_no_noint, forcing0, fishing_dict)
         # Also compute a test-style derivative with TRACE to compare
@@ -1434,7 +1444,8 @@ def rsim_run(
                     sidx = params.spname.index("Seabirds")
                     logger.debug(
                         "post-deriv debug: init_deriv[seab]=%.6e deriv_test[seab]=%.6e",
-                        init_deriv[sidx], deriv_test[sidx],
+                        init_deriv[sidx],
+                        deriv_test[sidx],
                     )
             except Exception as e:
                 logger.debug("derivative comparison debug failed: %s", e)
@@ -1447,7 +1458,8 @@ def rsim_run(
         # Debug: report summary of initial derivatives
         logger.debug(
             "init_deriv min=%.6e max=%.6e",
-            float(np.nanmin(init_deriv)), float(np.nanmax(init_deriv)),
+            float(np.nanmin(init_deriv)),
+            float(np.nanmax(init_deriv)),
         )
         try:
             logger.debug("init_deriv sample[:10]=%s", init_deriv[:10])
@@ -1459,7 +1471,8 @@ def rsim_run(
                 sidx = params.spname.index("Seabirds")
                 logger.debug(
                     "Seabirds index=%d init_deriv=%.6e (no NoIntegrate applied)",
-                    sidx, init_deriv[sidx],
+                    sidx,
+                    init_deriv[sidx],
                 )
         except Exception as e:
             logger.debug("init_deriv debug logging failed: %s", e)
@@ -1499,7 +1512,8 @@ def rsim_run(
             if np.any(diffs > TH):
                 logger.debug(
                     "derivative mismatch between raw (NoIntegrate disabled) and test-style params; count>%s: %d",
-                    TH, int(np.sum(diffs > TH)),
+                    TH,
+                    int(np.sum(diffs > TH)),
                 )
                 # Show first few mismatches
                 mism = np.where(diffs > TH)[0][:20]
@@ -1511,7 +1525,11 @@ def rsim_run(
                     )
                     logger.debug(
                         "deriv diff idx=%d name=%s raw=%.6e test=%.6e diff=%.6e",
-                        idx, name, init_deriv[idx], deriv_test[idx], diffs[idx],
+                        idx,
+                        name,
+                        init_deriv[idx],
+                        deriv_test[idx],
+                        diffs[idx],
                     )
             # Also compare key parameter arrays for quick diffs
             for key in ["M0", "PB", "QB", "Bbase", "NoIntegrate"]:
@@ -1527,7 +1545,9 @@ def rsim_run(
                     else:
                         logger.debug(
                             "param '%s' shape differs: %s vs %s",
-                            key, aa.shape, bb.shape,
+                            key,
+                            aa.shape,
+                            bb.shape,
                         )
                 except Exception as e:
                     logger.debug("parameter comparison failed: %s", e)
@@ -1547,7 +1567,8 @@ def rsim_run(
                         if col_diff > 0 or row_diff > 0:
                             logger.debug(
                                 "QQ differences for Seabirds col_diff=%.6e row_diff=%.6e",
-                                col_diff, row_diff,
+                                col_diff,
+                                row_diff,
                             )
             except Exception as e:
                 logger.debug("QQ Seabirds check failed: %s", e)
@@ -1645,7 +1666,15 @@ def rsim_run(
             # Debug log the computed quantities
             logger.debug(
                 "grp=%d B=%.6e consumption=%.6e production=%.6e predation_loss=%.6e fish_loss=%.6e current_m0=%.6e desired_m0=%.6e diff=%.6e",
-                grp, B, consumption, production, predation_loss, fish_loss, current_m0, desired_m0, diff,
+                grp,
+                B,
+                consumption,
+                production,
+                predation_loss,
+                fish_loss,
+                current_m0,
+                desired_m0,
+                diff,
             )
             # Extra debugging for Seabirds specifically
             try:
@@ -1654,7 +1683,14 @@ def rsim_run(
                     if grp == sidx:
                         logger.debug(
                             "Seabirds calculation: B=%.6e consumption=%.6e pred_loss=%.6e production=%.6e fish_loss=%.6e current_m0=%.6e desired_m0=%.6e diff=%.6e",
-                            B, consumption, predation_loss, production, fish_loss, current_m0, desired_m0, diff,
+                            B,
+                            consumption,
+                            predation_loss,
+                            production,
+                            fish_loss,
+                            current_m0,
+                            desired_m0,
+                            diff,
                         )
             except Exception as e:
                 logger.debug("Seabirds debug logging failed: %s", e)
@@ -1669,7 +1705,9 @@ def rsim_run(
                         seab_lbl = "Seabirds"
                 except Exception as e:
                     logger.debug("Seabirds label lookup failed: %s", e)
-                logger.debug("assigning M0 for grp=%d (%s) diff=%.6e", grp, seab_lbl, diff)
+                logger.debug(
+                    "assigning M0 for grp=%d (%s) diff=%.6e", grp, seab_lbl, diff
+                )
                 # Iteratively refine M0 to drive the raw (no-NoIntegrate) initial residual toward zero
                 MAX_M0_ITER = 5
                 TOL_INIT_DERIV_ITER = 1e-10
@@ -1682,7 +1720,8 @@ def rsim_run(
                     params_dict["M0"][grp] = desired_m0
                     logger.debug(
                         "initial M0 assigned grp=%d value=%.6e",
-                        grp, params_dict['M0'][grp],
+                        grp,
+                        params_dict["M0"][grp],
                     )
 
                     for it in range(1, MAX_M0_ITER + 1):
@@ -1693,7 +1732,9 @@ def rsim_run(
                             residual = float(init_deriv_iter[grp])
                             logger.debug(
                                 "M0 iter grp=%d it=%d residual=%.6e",
-                                grp, it, residual,
+                                grp,
+                                it,
+                                residual,
                             )
                             # If residual sufficiently small, stop
                             if abs(residual) < TOL_INIT_DERIV_ITER:
@@ -1708,12 +1749,15 @@ def rsim_run(
                         except Exception as e:
                             logger.debug(
                                 "M0 iteration failed for grp=%d it=%d: %s",
-                                grp, it, e,
+                                grp,
+                                it,
+                                e,
                             )
                             break
                     logger.debug(
                         "final M0 for grp=%d value=%.6e",
-                        grp, params_dict['M0'][grp],
+                        grp,
+                        params_dict["M0"][grp],
                     )
 
                     # Final check using the params dict that will be persisted
@@ -1725,7 +1769,8 @@ def rsim_run(
                         final_residual = float(init_deriv_check[grp])
                         logger.debug(
                             "final check residual grp=%d residual=%.6e",
-                            grp, final_residual,
+                            grp,
+                            final_residual,
                         )
                         if (
                             B != 0
@@ -1738,7 +1783,9 @@ def rsim_run(
                             params_dict["M0"][grp] += step
                             logger.debug(
                                 "final adj applied grp=%d new_m0=%.6e step=%.6e",
-                                grp, params_dict['M0'][grp], step,
+                                grp,
+                                params_dict["M0"][grp],
+                                step,
                             )
                     except Exception as e:
                         logger.debug("final M0 check failed for grp=%d: %s", grp, e)
@@ -1752,14 +1799,18 @@ def rsim_run(
                 params_dict["M0"][grp] = desired_m0
                 logger.debug(
                     "enforcing exact initial equilibrium for group %d: M0 %.6e -> %.6e (init_deriv=%.6e)",
-                    grp, current_m0, desired_m0, init_deriv[grp],
+                    grp,
+                    current_m0,
+                    desired_m0,
+                    init_deriv[grp],
                 )
             else:
                 # Do not apply large adjustments; leave M0 as originally specified
                 if np.isfinite(desired_m0):
                     logger.debug(
                         "skipping initial M0 assign for grp=%d (diff=%.6e > threshold)",
-                        grp, diff,
+                        grp,
+                        diff,
                     )
     except Exception as e:
         logger.debug("M0 adjustment failed: %s", e, exc_info=True)
@@ -1770,7 +1821,8 @@ def rsim_run(
             sidx = params.spname.index("Seabirds")
             logger.debug(
                 "M0 after adjust for Seabirds idx=%d value=%.6e",
-                sidx, params_dict['M0'][sidx],
+                sidx,
+                params_dict["M0"][sidx],
             )
     except Exception as e:
         logger.debug("M0 post-adjust debug failed: %s", e)
@@ -1791,7 +1843,10 @@ def rsim_run(
                 params_dict["M0"][grp] += step
                 logger.debug(
                     "final algebraic adjust grp=%d step=%.6e new_m0=%.6e residual_after=%.6e",
-                    grp, step, params_dict['M0'][grp], check_deriv[grp],
+                    grp,
+                    step,
+                    params_dict["M0"][grp],
+                    check_deriv[grp],
                 )
     except Exception as e:
         logger.debug("final M0 algebraic check failed: %s", e)
@@ -1852,8 +1907,13 @@ def rsim_run(
         if len(params.FishFrom) > 0:
             logger.debug(
                 "starting simulation months=%s FishFrom=%s FishQ=%s FishThrough=%s ForcedEffort_sample=%s",
-                n_months, params.FishFrom, params.FishQ, params.FishThrough,
-                fishing_obj.ForcedEffort[0] if len(fishing_obj.ForcedEffort) > 0 else None,
+                n_months,
+                params.FishFrom,
+                params.FishQ,
+                params.FishThrough,
+                fishing_obj.ForcedEffort[0]
+                if len(fishing_obj.ForcedEffort) > 0
+                else None,
             )
     except Exception as e:
         logger.debug("fishing link debug failed: %s", e)
@@ -2021,7 +2081,15 @@ def rsim_run(
                     # Debug log
                     logger.debug(
                         "monthly grp=%s B=%.6e consumption=%.6e production=%.6e predation_loss=%.6e fish_loss=%.6e current_m0=%.6e desired_m0=%.6e diff=%.6e",
-                        grp, B, consumption, production, predation_loss, fish_loss, current_m0, desired_m0, diff,
+                        grp,
+                        B,
+                        consumption,
+                        production,
+                        predation_loss,
+                        fish_loss,
+                        current_m0,
+                        desired_m0,
+                        diff,
                     )
                     if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
                         # Iteratively refine monthly M0 similar to initialization
@@ -2054,7 +2122,8 @@ def rsim_run(
                             if params_dict.get("VERBOSE_DEBUG"):
                                 logger.debug(
                                     "monthly assigned M0 grp=%s new_m0=%.6e",
-                                    grp, params_dict["M0"][grp],
+                                    grp,
+                                    params_dict["M0"][grp],
                                 )
                         except Exception as e:
                             logger.debug("monthly M0 assignment failed: %s", e)
@@ -2062,7 +2131,8 @@ def rsim_run(
                             if params_dict.get("VERBOSE_DEBUG"):
                                 logger.debug(
                                     "monthly assigned M0 grp=%s new_m0=%.6e",
-                                    grp, params_dict["M0"][grp],
+                                    grp,
+                                    params_dict["M0"][grp],
                                 )
             except Exception as e:
                 logger.debug("monthly M0 adjustment failed: %s", e)
@@ -2163,7 +2233,13 @@ def rsim_run(
                 if month <= 2:
                     logger.debug(
                         "month=%s link=%s grp=%s FishQ=%.6e effort_mult=%.6e state=%.6e catch=%.6e",
-                        month, i, grp, params.FishQ[i], effort_mult, state[grp], catch,
+                        month,
+                        i,
+                        grp,
+                        params.FishQ[i],
+                        effort_mult,
+                        state[grp],
+                        catch,
                     )
             except Exception as e:
                 logger.debug("catch computation debug failed: %s", e)
