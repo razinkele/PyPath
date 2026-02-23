@@ -8,12 +8,17 @@ Provides:
 - HabitatPreferenceBuilder: Semi-automatic habitat preference assignment
 """
 
+from __future__ import annotations
+
 import hashlib
 import io as _io
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from pypath.spatial.environmental import EnvironmentalLayer
 
 import numpy as np
 
