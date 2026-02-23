@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -106,6 +106,36 @@ class IBMStepResult:
     consumption_by_prey: np.ndarray
     mortality_count: float
     recruitment_count: float
+    patch_biomass: Optional[np.ndarray] = None
+
+
+@dataclass
+class SpatialContext:
+    """Spatial data passed to IBM groups during Ecospace simulations.
+
+    When an IBM group is part of a spatial simulation, this context provides
+    the patch-level environmental information needed for movement decisions.
+
+    Parameters
+    ----------
+    adjacency : Any
+        Sparse adjacency matrix of shape ``(n_patches, n_patches)``.
+        Typically ``scipy.sparse.csr_matrix``.
+    habitat_quality : np.ndarray
+        Per-patch habitat quality for this group, shape ``(n_patches,)``.
+    food_density : np.ndarray
+        Per-patch total prey biomass, shape ``(n_patches,)``.
+    predator_density : np.ndarray
+        Per-patch total predator biomass, shape ``(n_patches,)``.
+    n_patches : int
+        Number of spatial patches.
+    """
+
+    adjacency: Any  # scipy.sparse.csr_matrix (avoid hard import)
+    habitat_quality: np.ndarray
+    food_density: np.ndarray
+    predator_density: np.ndarray
+    n_patches: int
 
 
 class IBMGroup(ABC):
