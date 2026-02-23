@@ -1,6 +1,18 @@
 """About page module."""
 
+import platform
+import sys
+from importlib.metadata import version as pkg_version
+
 from shiny import Inputs, Outputs, Session, ui
+
+
+def _get_version(package: str) -> str:
+    """Get installed package version, returning 'N/A' if not found."""
+    try:
+        return pkg_version(package)
+    except Exception:
+        return "N/A"
 
 
 def about_ui():
@@ -250,12 +262,32 @@ def about_ui():
                 ui.card_body(
                     ui.tags.table(
                         ui.tags.tr(
-                            ui.tags.td("PyPath-EwE Version:"),
-                            ui.tags.td("0.3.0"),
+                            ui.tags.td("Python:"),
+                            ui.tags.td(platform.python_version()),
                         ),
                         ui.tags.tr(
-                            ui.tags.td("PyPath-Shiny Version:"),
-                            ui.tags.td("0.3.0"),
+                            ui.tags.td("PyPath-EwE:"),
+                            ui.tags.td(_get_version("pypath-ewe")),
+                        ),
+                        ui.tags.tr(
+                            ui.tags.td("PyPath-Shiny:"),
+                            ui.tags.td(_get_version("pypath-shiny")),
+                        ),
+                        ui.tags.tr(
+                            ui.tags.td("Shiny:"),
+                            ui.tags.td(_get_version("shiny")),
+                        ),
+                        ui.tags.tr(
+                            ui.tags.td("NumPy:"),
+                            ui.tags.td(_get_version("numpy")),
+                        ),
+                        ui.tags.tr(
+                            ui.tags.td("Pandas:"),
+                            ui.tags.td(_get_version("pandas")),
+                        ),
+                        ui.tags.tr(
+                            ui.tags.td("SciPy:"),
+                            ui.tags.td(_get_version("scipy")),
                         ),
                         class_="table table-sm",
                     ),
