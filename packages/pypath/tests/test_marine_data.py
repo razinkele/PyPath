@@ -1,7 +1,11 @@
 """Tests for marine data module."""
 
+import json
 import os
 import tempfile
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestMarineDataCache:
@@ -51,3 +55,110 @@ class TestMarineDataCache:
         cache = MarineDataCache(cache_dir=subdir)
         cache.put("key", b"data")
         assert os.path.isdir(subdir)
+
+
+def _has_geopandas():
+    try:
+        import geopandas  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+class TestEMODnetHabitatsClient:
+    """Tests for EMODnetHabitatsClient with mocked HTTP."""
+
+    def setup_method(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def teardown_method(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _make_mock_geojson(self):
+        """Create a minimal GeoJSON FeatureCollection for testing."""
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"EUNIScomb": "A5.23"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [20.0, 55.0],
+                                [21.0, 55.0],
+                                [21.0, 56.0],
+                                [20.0, 56.0],
+                                [20.0, 55.0],
+                            ]
+                        ],
+                    },
+                },
+                {
+                    "type": "Feature",
+                    "properties": {"EUNIScomb": "A5.33"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [21.0, 55.0],
+                                [22.0, 55.0],
+                                [22.0, 56.0],
+                                [21.0, 56.0],
+                                [21.0, 55.0],
+                            ]
+                        ],
+                    },
+                },
+            ],
+        }
+
+    @pytest.mark.skipif(
+        not _has_geopandas(), reason="geopandas not installed"
+    )
+    @patch("requests.get")
+    def test_fetch_euseamap_returns_geodataframe(self, mock_get):
+        import geopandas as gpd
+
+        from pypath.io.marine_data import EMODnetHabitatsClient, MarineDataCache
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = json.dumps(self._make_mock_geojson()).encode()
+        mock_get.return_value = mock_response
+
+        cache = MarineDataCache(cache_dir=self.tmpdir)
+        client = EMODnetHabitatsClient(cache=cache)
+        gdf = client.fetch_euseamap(bbox=(20.0, 55.0, 22.0, 56.0))
+
+        assert isinstance(gdf, gpd.GeoDataFrame)
+        assert len(gdf) == 2
+        assert "EUNIScomb" in gdf.columns
+
+    @pytest.mark.skipif(
+        not _has_geopandas(), reason="geopandas not installed"
+    )
+    def test_get_habitat_types_extracts_level3(self):
+        import geopandas as gpd
+        from shapely.geometry import Polygon as ShapelyPolygon
+
+        from pypath.io.marine_data import EMODnetHabitatsClient, MarineDataCache
+
+        gdf = gpd.GeoDataFrame(
+            {"EUNIScomb": ["A5.23", "A5.33", "A5.23"]},
+            geometry=[
+                ShapelyPolygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
+                ShapelyPolygon([(1, 0), (2, 0), (2, 1), (1, 1)]),
+                ShapelyPolygon([(2, 0), (3, 0), (3, 1), (2, 1)]),
+            ],
+            crs="EPSG:4326",
+        )
+        cache = MarineDataCache(cache_dir=self.tmpdir)
+        client = EMODnetHabitatsClient(cache=cache)
+        types = client.get_habitat_types(gdf, level=3)
+
+        assert sorted(types) == ["A5.2", "A5.3"]
