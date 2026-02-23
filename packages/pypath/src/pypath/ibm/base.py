@@ -176,6 +176,7 @@ class IBMGroup(ABC):
         predation_pressure: float,
         env_forcing: Dict[str, Any],
         dt: float,
+        spatial_context: Optional["SpatialContext"] = None,
     ) -> IBMStepResult:
         """Advance the IBM population by one time step.
 
@@ -191,6 +192,9 @@ class IBMGroup(ABC):
             Dictionary of environmental forcing values (temperature, etc.).
         dt : float
             Time step size (years).
+        spatial_context : SpatialContext, optional
+            Spatial patch data for Ecospace simulations. When ``None``
+            (default), no spatial movement is performed.
 
         Returns
         -------
