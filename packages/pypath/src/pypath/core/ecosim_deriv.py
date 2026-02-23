@@ -634,6 +634,7 @@ def deriv_vector(
         if i in ibm_groups:
             from pypath.ibm.integration import apply_ibm_to_derivative
 
+            spatial_ctx = params.get(f"_ibm_spatial_context_{i}", None)
             apply_ibm_to_derivative(
                 deriv=deriv,
                 QQ=QQ,
@@ -641,6 +642,7 @@ def deriv_vector(
                 ibm_group=ibm_groups[i],
                 forcing=forcing,
                 dt=1 / 12,
+                spatial_context=spatial_ctx,
             )
             continue
 

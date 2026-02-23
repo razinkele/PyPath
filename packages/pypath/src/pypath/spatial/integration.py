@@ -75,6 +75,7 @@ def deriv_vector_spatial(
     Habitat capacity can be calculated from environmental drivers:
         capacity = f(temperature, depth, salinity, ...)
     """
+    from pypath.ibm.base import SpatialContext
     from pypath.spatial.dispersal import calculate_spatial_flux
 
     _n_groups = state_spatial.shape[0]
@@ -108,6 +109,35 @@ def deriv_vector_spatial(
             if state_idx < len(b_base_ref_original):
                 b_base_ref_patches[state_idx, :] *= capacity_multipliers[g_idx, :]
 
+    # Build SpatialContext for each IBM group
+    ibm_groups = params.get("ibm_groups", {})
+    ibm_spatial_contexts = {}
+    if ibm_groups:
+        for g_idx, _ibm in ibm_groups.items():
+            # Use habitat preference for this group, or uniform if unavailable
+            hab_idx = g_idx - 1  # Convert 1-based Ecosim index to 0-based
+            if hab_idx < ecospace.habitat_preference.shape[0]:
+                habitat_qual = ecospace.habitat_preference[hab_idx]
+            else:
+                habitat_qual = np.ones(n_patches)
+
+            # Food density: sum of all living biomass per patch (simplified)
+            food = state_spatial[1:, :].sum(axis=0)
+            # Predator density: same approximation
+            pred = state_spatial[1:, :].sum(axis=0)
+
+            ibm_spatial_contexts[g_idx] = SpatialContext(
+                adjacency=ecospace.grid.adjacency_matrix,
+                habitat_quality=habitat_qual,
+                food_density=food,
+                predator_density=pred,
+                n_patches=n_patches,
+            )
+
+    # Inject IBM spatial contexts into params for deriv_vector
+    for g_idx, ctx in ibm_spatial_contexts.items():
+        params[f"_ibm_spatial_context_{g_idx}"] = ctx
+
     # Calculate derivatives for each patch
     for patch_idx in range(n_patches):
         # Extract patch-specific state
@@ -130,6 +160,10 @@ def deriv_vector_spatial(
 
         # Store local derivative
         deriv_spatial[:, patch_idx] = deriv_local
+
+    # Clean up injected spatial context keys
+    for g_idx in ibm_spatial_contexts:
+        params.pop(f"_ibm_spatial_context_{g_idx}", None)
 
     # Step 2: Add spatial fluxes (movement/dispersal)
     spatial_flux = calculate_spatial_flux(state_spatial, ecospace, params, t)
@@ -257,6 +291,10 @@ def rsim_run_spatial(
         "DetFrom": params.DetFrom,
         "DetTo": params.DetTo,
     }
+
+    # Include IBM groups in params dict for deriv_vector
+    if hasattr(params, "ibm_groups"):
+        params_dict["ibm_groups"] = params.ibm_groups
 
     # Build fishing dict (constant across timesteps, same as rsim_run)
     fishing_dict = {

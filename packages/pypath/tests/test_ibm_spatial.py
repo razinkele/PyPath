@@ -359,3 +359,153 @@ class TestSpatialFluxSkipsIBM:
         state[3, 0] = 10.0
         flux2 = calculate_spatial_flux(state, ecospace, params, t=0.0)
         assert np.any(flux2[3] != 0.0), "Non-IBM group should have dispersal flux"
+
+
+class TestDerivVectorSpatialIBM:
+    """Tests for IBM support in deriv_vector_spatial."""
+
+    @pytest.fixture
+    def spatial_ibm_setup(self):
+        """Create a minimal spatial scenario with IBM group."""
+        import warnings
+
+        from pypath.core.ecopath import rpath
+        from pypath.core.ecosim import rsim_scenario
+        from pypath.core.params import create_rpath_params
+        from pypath.ibm.smelt import SmeltIBM, SmeltParams
+        from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
+
+        # 4-group model: Phyto(1), Zoo(0), Smelt(0), Det(2)
+        params = create_rpath_params(
+            groups=["Phyto", "Zoo", "Smelt", "Det"],
+            types=[1, 0, 0, 2],
+        )
+        params.model.loc[0, "Biomass"] = 20.0
+        params.model.loc[0, "PB"] = 100.0
+        params.model.loc[0, "EE"] = 0.8
+        params.model.loc[1, "Biomass"] = 10.0
+        params.model.loc[1, "PB"] = 20.0
+        params.model.loc[1, "QB"] = 40.0
+        params.model.loc[1, "EE"] = 0.8
+        params.model.loc[2, "Biomass"] = 3.0
+        params.model.loc[2, "PB"] = 1.5
+        params.model.loc[2, "QB"] = 4.0
+        params.model.loc[2, "EE"] = 0.5
+        params.model.loc[3, "Biomass"] = 50.0
+        params.model["BioAcc"] = 0.0
+        params.model["Unassim"] = 0.2
+        params.model.loc[0, "Unassim"] = 0.0
+        params.model.loc[3, "Unassim"] = 0.0
+        params.model["Det"] = 1.0
+        # Diet rows: Phyto, Zoo, Smelt, Det, Import
+        params.diet["Zoo"] = [1.0, 0.0, 0.0, 0.0, 0.0]
+        params.diet["Smelt"] = [0.0, 1.0, 0.0, 0.0, 0.0]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = rpath(params)
+
+        scenario = rsim_scenario(model, params, years=range(1, 3))
+
+        # IBM for Smelt (Ecosim index 3, 1-based)
+        smelt_params = SmeltParams.baltic_defaults()
+        n = model.NUM_GROUPS + 1
+        smelt_params.foraging.energy_content = np.full(n, 4.0)
+        smelt_params.foraging.handling_time = np.ones(n)
+
+        smelt_ibm = SmeltIBM(
+            group_index=3, n_groups=model.NUM_GROUPS, params=smelt_params
+        )
+        smelt_ibm.initialize_from_ecosim(
+            biomass=model.Biomass[2], params={}, n_super_individuals=30
+        )
+        scenario.params.ibm_groups = {3: smelt_ibm}
+
+        # 3-patch grid
+        n_patches = 3
+        adj = _make_3patch_adjacency()
+        grid = EcospaceGrid(
+            n_patches=n_patches,
+            patch_ids=np.arange(n_patches),
+            patch_areas=np.ones(n_patches),
+            patch_centroids=np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]),
+            adjacency_matrix=adj,
+            edge_lengths={(0, 1): 1.0, (1, 2): 1.0},
+        )
+
+        n_eco_groups = model.NUM_GROUPS
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((n_eco_groups, n_patches)),
+            habitat_capacity=np.ones((n_eco_groups, n_patches)),
+            dispersal_rate=np.full(n_eco_groups, 5.0),
+            advection_enabled=np.zeros(n_eco_groups, dtype=bool),
+            gravity_strength=np.zeros(n_eco_groups),
+        )
+
+        return scenario, model, smelt_ibm, ecospace
+
+    def test_spatial_ibm_simulation_completes(self, spatial_ibm_setup):
+        """rsim_run_spatial with IBM group should complete."""
+        import warnings
+
+        from pypath.spatial.integration import rsim_run_spatial
+
+        scenario, model, ibm, ecospace = spatial_ibm_setup
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            output = rsim_run_spatial(scenario, ecospace=ecospace)
+        assert output is not None
+        assert output.out_Biomass.shape[0] > 1
+
+    def test_spatial_ibm_no_nan(self, spatial_ibm_setup):
+        """Spatial IBM output should not contain NaN."""
+        import warnings
+
+        from pypath.spatial.integration import rsim_run_spatial
+
+        scenario, model, ibm, ecospace = spatial_ibm_setup
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            output = rsim_run_spatial(scenario, ecospace=ecospace)
+        assert not np.any(np.isnan(output.out_Biomass))
+
+    def test_ibm_individuals_spread(self):
+        """IBM individuals should spread to multiple patches when spatial context is provided."""
+        # Use a direct single-step approach to verify spatial context wiring,
+        # since full simulation with RK4 calls compute_step many times causing
+        # population collapse with few super-individuals.
+        import scipy.sparse as sp
+
+        from pypath.ibm.base import SpatialContext
+        from pypath.ibm.smelt import SmeltIBM, SmeltParams
+
+        n_groups = 4
+        smelt_params = SmeltParams.baltic_defaults()
+        smelt_params.foraging.energy_content = np.full(n_groups + 1, 4.0)
+        smelt_params.foraging.handling_time = np.ones(n_groups + 1)
+
+        ibm = SmeltIBM(group_index=3, n_groups=n_groups, params=smelt_params)
+        ibm.initialize_from_ecosim(biomass=5.0, params={}, n_super_individuals=100)
+
+        adj = _make_3patch_adjacency()
+        ctx = SpatialContext(
+            adjacency=adj,
+            habitat_quality=np.array([0.5, 0.9, 0.3]),
+            food_density=np.array([10.0, 30.0, 5.0]),
+            predator_density=np.array([0.5, 0.1, 1.0]),
+            n_patches=3,
+        )
+
+        # Single step with spatial context
+        result = ibm.compute_step(
+            prey_available=np.full(n_groups, 2.0),
+            predation_pressure=0.1,
+            env_forcing={"temperature": 10.0, "month": 6, "zoo_peak_day": 120.0},
+            dt=1 / 12,
+            spatial_context=ctx,
+        )
+
+        patches = {ind.patch_idx for ind in ibm.individuals}
+        assert len(patches) >= 2, f"Individuals only in patches: {patches}"
+        assert result.patch_biomass is not None
