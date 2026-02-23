@@ -123,6 +123,9 @@ test_timeseries_*.png
 
 # Claude AI artifacts
 .claude/
+
+# Git worktrees
+.worktrees/
 # Smoke test artifacts
 smoke_failure_*.png
 smoke_failure_*.html
