@@ -72,8 +72,12 @@ def _icon_label(icon_class: str, text: str) -> ui.TagList:
 
 # App UI with left sidebar pill list navigation
 app_ui = ui.page_fluid(
-    # Include Bootstrap Icons CSS and custom styles
+    # Typography, icons, and custom styles
     ui.head_content(
+        ui.tags.link(
+            rel="stylesheet",
+            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap",
+        ),
         ui.tags.link(
             rel="stylesheet",
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
@@ -98,13 +102,10 @@ app_ui = ui.page_fluid(
         ui.tags.img(
             src="icon.svg",
             height=UI.icon_height_px,
-            style="margin-right: 8px; vertical-align: middle;",
+            style="margin-right: 10px; vertical-align: middle;",
         ),
-        ui.tags.span(
-            "PyPath",
-            style="font-weight: 600; font-size: 1.4rem; vertical-align: middle;",
-        ),
-        class_="p-3 mb-2",
+        ui.tags.span("PyPath", class_="brand-name"),
+        class_="pypath-brand mb-2",
     ),
     # Main navigation — left sidebar pill list
     ui.navset_pill_list(
@@ -169,17 +170,15 @@ app_ui = ui.page_fluid(
             ui.tags.a(
                 "Documentation",
                 href="https://github.com/razinkele/PyPath",
-                class_="text-decoration-none",
             ),
             " | ",
             ui.tags.a(
                 "Report Issue",
                 href="https://github.com/razinkele/PyPath/issues",
-                class_="text-decoration-none",
             ),
-            class_="text-center text-muted small",
+            class_="text-center",
         ),
-        class_="p-2",
+        class_="pypath-footer",
     ),
     theme=(
         shinyswatch.theme.flatly

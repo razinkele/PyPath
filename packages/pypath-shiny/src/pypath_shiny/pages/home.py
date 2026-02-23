@@ -15,33 +15,35 @@ def home_ui():
     """Home page UI."""
     return ui.page_fluid(
         ui.div(
-            # Hero section
+            # Hero section — ocean gradient with caustic light effects
             ui.div(
+                ui.p("Ecosystem Modeling Framework", class_="hero-tagline"),
+                ui.h1("Ecopath with Ecosim in Python", class_="hero-title"),
                 ui.p(
-                    "A Python implementation of Ecopath with Ecosim and Ecospace for ecosystem modeling",
-                    class_="lead",
-                ),
-                ui.tags.hr(class_="my-4"),
-                ui.p(
-                    "PyPath provides tools for building mass-balance food web models (Ecopath), "
-                    "running dynamic ecosystem simulations (Ecosim), and spatial modeling with "
-                    "irregular grids (Ecospace). This dashboard allows you to create models, "
-                    "run simulations, and visualize results interactively."
+                    "Build mass-balance food web models, run dynamic ecosystem simulations, "
+                    "and explore spatial dynamics with irregular grids \u2014 all from your browser.",
+                    class_="hero-description",
                 ),
                 ui.div(
                     ui.input_action_button(
                         "btn_start_ecopath",
-                        "Start with Ecopath →",
-                        class_="btn-primary btn-lg me-2",
+                        ui.TagList(
+                            ui.tags.i(class_="bi bi-arrow-right-circle-fill me-2"),
+                            "Start Modeling",
+                        ),
+                        class_="btn-hero-primary",
                     ),
                     ui.input_action_button(
                         "btn_load_example",
-                        "Load Example Model",
-                        class_="btn-outline-secondary btn-lg",
+                        ui.TagList(
+                            ui.tags.i(class_="bi bi-play-circle me-2"),
+                            "Load Example",
+                        ),
+                        class_="btn-hero-secondary",
                     ),
-                    class_="mt-4",
+                    class_="hero-actions",
                 ),
-                class_="p-5 mb-4 bg-light rounded-3",
+                class_="hero-section",
             ),
             # What's New section
             ui.div(
