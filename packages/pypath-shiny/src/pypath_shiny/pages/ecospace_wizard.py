@@ -64,6 +64,12 @@ def ecospace_wizard_server(
 
     # Reactive state for wizard data
     drawn_polygon = reactive.value(None)
+    ecospace_grid = reactive.value(None)
+    habitat_gdf = reactive.value(None)
+    depth_per_patch = reactive.value(None)
+    salinity_layer = reactive.value(None)
+    habitat_types_arr = reactive.value(None)
+    download_status = reactive.value("")
 
     @reactive.effect
     @reactive.event(input.wizard_drawn_polygon)
@@ -88,6 +94,142 @@ def ecospace_wizard_server(
         current = wizard_step.get()
         if current > 1:
             wizard_step.set(current - 1)
+
+    @reactive.effect
+    @reactive.event(input.wizard_next)
+    def _create_grid_on_step3():
+        """Create grid when advancing from Step 2 to Step 3."""
+        if wizard_step.get() != 3:
+            return
+        poly = drawn_polygon.get()
+        if poly is None:
+            return
+
+        try:
+            from shapely.geometry import shape
+
+            from pypath.spatial.ecospace_params import EcospaceGrid
+
+            polygon = shape(poly)
+            bounds = polygon.bounds  # (minx, miny, maxx, maxy)
+            cell_size_km = input.wizard_cell_size()
+            grid_type = input.wizard_grid_type()
+
+            # Convert cell size from km to approximate degrees (1 deg lat ~ 111 km)
+            cell_deg = cell_size_km / 111.0
+            nx = max(2, int((bounds[2] - bounds[0]) / cell_deg))
+            ny = max(2, int((bounds[3] - bounds[1]) / cell_deg))
+
+            grid = EcospaceGrid.from_regular_grid(
+                bounds=(bounds[0], bounds[1], bounds[2], bounds[3]),
+                nx=nx,
+                ny=ny,
+            )
+            ecospace_grid.set(grid)
+            logger.info(
+                "Created %s grid: %d patches (%dx%d)",
+                grid_type,
+                grid.n_patches,
+                nx,
+                ny,
+            )
+        except Exception as e:
+            logger.error("Grid creation failed: %s", e)
+
+    @reactive.effect
+    @reactive.event(input.wizard_download)
+    def _download_data():
+        """Download EMODnet habitats and bathymetry."""
+        grid = ecospace_grid.get()
+        poly = drawn_polygon.get()
+        if grid is None or poly is None:
+            download_status.set(
+                "Please draw a polygon and configure the grid first."
+            )
+            return
+
+        try:
+            from shapely.geometry import shape
+
+            from pypath.io.marine_data import (
+                EMODnetBathymetryClient,
+                EMODnetHabitatsClient,
+                MarineDataCache,
+            )
+
+            polygon = shape(poly)
+            bbox = polygon.bounds  # (minx, miny, maxx, maxy)
+
+            download_status.set("Downloading habitats...")
+            cache = MarineDataCache()
+
+            # Fetch habitats
+            hab_client = EMODnetHabitatsClient(cache=cache)
+            gdf = hab_client.fetch_euseamap(bbox=bbox)
+            habitat_gdf.set(gdf)
+
+            # Rasterize habitats onto grid
+            hab_map = hab_client.rasterize_habitats(gdf, grid)
+            habitat_types_arr.set(hab_map)
+
+            download_status.set("Downloading bathymetry...")
+
+            # Fetch depth
+            bathy_client = EMODnetBathymetryClient(cache=cache)
+            raster, transform = bathy_client.fetch_depth(bbox=bbox)
+            depth = bathy_client.sample_to_grid(raster, transform, grid)
+            depth_per_patch.set(depth)
+
+            download_status.set(
+                f"Done! {len(gdf)} habitat features, "
+                f"depth range: {depth.min():.0f}m to {depth.max():.0f}m"
+            )
+            logger.info(
+                "Download complete: %d habitats, depth range %.0f-%.0f",
+                len(gdf),
+                depth.min(),
+                depth.max(),
+            )
+        except Exception as e:
+            download_status.set(f"Download failed: {e}")
+            logger.error("Download failed: %s", e)
+
+    @reactive.effect
+    @reactive.event(input.wizard_salinity_file)
+    def _load_salinity():
+        """Handle salinity file upload."""
+        file_info = input.wizard_salinity_file()
+        if not file_info:
+            return
+        grid = ecospace_grid.get()
+        if grid is None:
+            return
+        try:
+            from pypath.io.marine_data import SalinityLoader
+
+            filepath = file_info[0]["datapath"]
+            if filepath.endswith(".csv"):
+                layer = SalinityLoader.load_from_csv(filepath, grid)
+            else:
+                layer = SalinityLoader.load_from_netcdf(filepath, grid)
+            salinity_layer.set(layer)
+            logger.info("Loaded salinity data")
+        except Exception as e:
+            logger.error("Salinity load failed: %s", e)
+
+    @render.ui
+    def wizard_download_status():
+        """Display download progress/status."""
+        status = download_status.get()
+        if not status:
+            return ui.p()
+        if status.startswith("Done"):
+            return ui.p(status, class_="text-success mt-2")
+        elif status.startswith("Download failed") or status.startswith(
+            "Please"
+        ):
+            return ui.p(status, class_="text-danger mt-2")
+        return ui.p(status, class_="text-info mt-2")
 
     @render.ui
     def wizard_step_content():
