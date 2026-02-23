@@ -157,9 +157,9 @@ class TestIBMEcosimIntegration:
         # Smelt is at Ecosim column 3 (1-based)
         final_smelt = output.out_Biomass[-1, 3]
         assert final_smelt >= 0, f"Smelt biomass went negative: {final_smelt}"
-        assert (
-            final_smelt < initial_smelt * 100
-        ), f"Smelt biomass blew up: {final_smelt} vs initial {initial_smelt}"
+        assert final_smelt < initial_smelt * 100, (
+            f"Smelt biomass blew up: {final_smelt} vs initial {initial_smelt}"
+        )
 
     def test_other_groups_still_run(self, ibm_scenario):
         """Non-IBM groups should still produce valid output."""
@@ -167,9 +167,9 @@ class TestIBMEcosimIntegration:
         output = self._run(scenario)
         for col, name in [(1, "Phyto"), (2, "Zoo"), (4, "Cod")]:
             final_bio = output.out_Biomass[-1, col]
-            assert (
-                final_bio > 0
-            ), f"{name} biomass went to zero or negative: {final_bio}"
+            assert final_bio > 0, (
+                f"{name} biomass went to zero or negative: {final_bio}"
+            )
 
     def test_ibm_was_invoked(self, ibm_scenario):
         """The IBM should have been invoked during the simulation."""

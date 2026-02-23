@@ -272,9 +272,7 @@ def list_ewemdb_tables(filepath: str) -> List[str]:
             conn = pyodbc.connect(conn_str)
             try:
                 cursor = conn.cursor()
-                tables = [
-                    row.table_name for row in cursor.tables(tableType="TABLE")
-                ]
+                tables = [row.table_name for row in cursor.tables(tableType="TABLE")]
                 return tables
             finally:
                 conn.close()
@@ -1599,9 +1597,7 @@ def _parse_ecosim_forcing(
 
     # If Parameter present but Group column absent and no explicit group columns, map each Parameter to a single-column DataFrame
     group_candidates = [
-        c
-        for c in other_cols
-        if c not in (time_col, "ScenarioID", "Parameter")
+        c for c in other_cols if c not in (time_col, "ScenarioID", "Parameter")
     ]
     if "Parameter" in df.columns and "Group" not in df.columns and not group_candidates:
         for param in df["Parameter"].unique():

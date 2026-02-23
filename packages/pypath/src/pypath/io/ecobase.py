@@ -589,21 +589,21 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
 
                         # Map catch types to our structure
                         if catch_type == "total landings":
-                            result["catches"][group_name][fleet_name][
-                                "landings"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["landings"] = (
+                                catch_value
+                            )
                         elif catch_type == "discards":
-                            result["catches"][group_name][fleet_name][
-                                "discards"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["discards"] = (
+                                catch_value
+                            )
                         elif catch_type == "market":
-                            result["catches"][group_name][fleet_name][
-                                "market"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["market"] = (
+                                catch_value
+                            )
                         elif catch_type == "prop mort":
-                            result["catches"][group_name][fleet_name][
-                                "prop_mort"
-                            ] = catch_value
+                            result["catches"][group_name][fleet_name]["prop_mort"] = (
+                                catch_value
+                            )
             else:
                 fleet_data[child.tag] = child.text
 

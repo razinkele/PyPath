@@ -324,9 +324,9 @@ class TestRpath:
 
         # All EE should be between 0 and 1 for a balanced model
         living_ee = model.EE[: model.NUM_LIVING]
-        assert all(
-            0 <= ee <= 1 for ee in living_ee if not np.isnan(ee)
-        ), f"EE values out of range: {living_ee}"
+        assert all(0 <= ee <= 1 for ee in living_ee if not np.isnan(ee)), (
+            f"EE values out of range: {living_ee}"
+        )
 
     def test_baltic_gross_efficiency(self, baltic_sea_params):
         """Test GE (P/Q) ratios are reasonable."""
@@ -347,9 +347,9 @@ class TestRpath:
         for j in range(model.NUM_LIVING):
             if model.type[j] == 0:  # Consumer
                 diet_sum = np.nansum(model.DC[:, j])
-                assert np.isclose(
-                    diet_sum, 1.0, atol=0.01
-                ), f"Diet for {model.Group[j]} sums to {diet_sum}"
+                assert np.isclose(diet_sum, 1.0, atol=0.01), (
+                    f"Diet for {model.Group[j]} sums to {diet_sum}"
+                )
 
     def test_baltic_removals(self, baltic_sea_params):
         """Test fishing removals are recorded."""

@@ -23,9 +23,9 @@ def test_load_rpath_diagnostics_success():
     qq = out["qq_df"]
     numeric_cols = [c for c in qq.columns if c != "month"]
     assert numeric_cols, "QQ CSV must have group columns"
-    assert (
-        qq[numeric_cols].notna().any().any()
-    ), "QQ CSV should contain non-NA values when qq_provided=True"
+    assert qq[numeric_cols].notna().any().any(), (
+        "QQ CSV should contain non-NA values when qq_provided=True"
+    )
 
     # components should be present and contain per-term data
     comps = out.get("comps_df")

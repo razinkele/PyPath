@@ -173,9 +173,9 @@ class TestMassConservation:
         initial_total = result.out_Biomass[0, 1:].sum()
         final_total = result.out_Biomass[-1, 1:].sum()
 
-        assert (
-            final_total > initial_total * 0.5
-        ), f"System biomass collapsed: {initial_total:.2f} -> {final_total:.2f}"
+        assert final_total > initial_total * 0.5, (
+            f"System biomass collapsed: {initial_total:.2f} -> {final_total:.2f}"
+        )
 
     def test_spatial_sum_matches_aggregate(self, base_scenario):
         """Per-group spatial sum should match the aggregate biomass output."""
@@ -227,9 +227,9 @@ class TestMovementRedistribution:
             patch_bio = spatial_final[g, :]
             if patch_bio.sum() > 1e-10:
                 nonzero = np.count_nonzero(patch_bio > 1e-10)
-                assert (
-                    nonzero >= 2
-                ), f"Group {g}: biomass only in {nonzero} patches after dispersal"
+                assert nonzero >= 2, (
+                    f"Group {g}: biomass only in {nonzero} patches after dispersal"
+                )
 
     def test_uniform_biomass_stays_uniform(self, base_scenario):
         """Equal biomass with uniform habitat should not redistribute."""
@@ -245,9 +245,9 @@ class TestMovementRedistribution:
             final_patches = spatial[-1, g, :]
             if final_patches.mean() > 1e-10:
                 cv = final_patches.std() / final_patches.mean()
-                assert (
-                    cv < 0.5
-                ), f"Group {g}: CV={cv:.2f} — uniform biomass became uneven"
+                assert cv < 0.5, (
+                    f"Group {g}: CV={cv:.2f} — uniform biomass became uneven"
+                )
 
     def test_advection_follows_habitat(self, base_scenario):
         """Biomass should accumulate in patches with higher habitat preference."""
@@ -303,9 +303,9 @@ class TestMovementRedistribution:
                 patch_vals = final[g, :]
                 if patch_vals.mean() > 1e-10:
                     cv = patch_vals.std() / patch_vals.mean()
-                    assert (
-                        cv < 0.01
-                    ), f"Group {g}: patches diverged with zero dispersal (CV={cv:.4f})"
+                    assert cv < 0.01, (
+                        f"Group {g}: patches diverged with zero dispersal (CV={cv:.4f})"
+                    )
 
     def test_higher_dispersal_faster_convergence(self, base_scenario):
         """Higher dispersal rate should maintain more uniform distribution."""
@@ -393,9 +393,9 @@ class TestZeroBiomassPatchBehavior:
         spatial = result.out_Biomass_spatial
 
         # No group should ever have negative biomass in any patch
-        assert np.all(
-            spatial >= -1e-10
-        ), f"Negative biomass detected: min={spatial.min():.6f}"
+        assert np.all(spatial >= -1e-10), (
+            f"Negative biomass detected: min={spatial.min():.6f}"
+        )
         # All values should be finite (no NaN or Inf)
         assert np.all(np.isfinite(spatial)), "NaN/Inf in spatial biomass"
 

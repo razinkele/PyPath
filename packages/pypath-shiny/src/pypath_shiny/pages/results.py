@@ -578,9 +578,7 @@ def results_server(
         time = np.arange(n_months) / 12
 
         group_list = info["groups"]
-        colors = plt.colormaps[input.color_palette()](
-            np.linspace(0, 1, len(selected))
-        )
+        colors = plt.colormaps[input.color_palette()](np.linspace(0, 1, len(selected)))
 
         for i, group in enumerate(selected):
             if group in group_list:
