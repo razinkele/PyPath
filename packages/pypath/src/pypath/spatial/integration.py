@@ -11,12 +11,17 @@ Integrates ECOSPACE spatial dynamics with Ecosim temporal dynamics:
 from __future__ import annotations
 
 import logging
+import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
 
 # Import ecosim_deriv at module level - no circular dependency exists
-from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.ecosim_deriv import HAS_NUMBA, deriv_vector
+
+# Cap the worker pool to avoid over-subscription on large machines.
+_N_WORKERS = min(os.cpu_count() or 4, 8)
 
 logger = logging.getLogger(__name__)
 
@@ -174,31 +179,60 @@ def deriv_vector_spatial(
     for g_idx, ctx in ibm_spatial_contexts.items():
         params["_ibm_spatial_context_%d" % g_idx] = ctx
 
-    try:
-        # Calculate derivatives for each patch
-        for patch_idx in range(n_patches):
-            # Extract patch-specific state
-            state_patch = state_spatial[:, patch_idx]
+    def _compute_patch(patch_idx, patch_params):
+        """Compute local Ecosim derivative for a single patch.
 
-            # Use modified params if needed, otherwise use original
-            if params_need_modification:
-                # Temporarily modify params (more efficient than copying entire dict)
-                b_base_ref_backup = params["B_BaseRef"]
-                params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
-                try:
-                    # Calculate local Ecosim derivative for this patch
+        Each call receives its own *patch_params* dict so that concurrent
+        threads never share mutable state.
+        """
+        state_patch = state_spatial[:, patch_idx]
+        if params_need_modification:
+            patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
+        deriv_spatial[:, patch_idx] = deriv_vector(
+            state_patch, patch_params, forcing, fishing, t=t
+        )
+
+    try:
+        # Parallelize across patches when numba is active (GIL-free kernels)
+        # and there are enough patches to amortize thread-pool overhead.
+        _use_parallel = n_patches > 4 and HAS_NUMBA
+
+        if _use_parallel:
+            # Each thread gets a shallow copy of the params dict so that
+            # per-patch B_BaseRef swaps are thread-safe.  The heavy arrays
+            # (ActiveLink, VV, DD, QQbase, _link_prey, _link_pred, ...) are
+            # shared read-only across threads.
+            patch_params_list = [params.copy() for _ in range(n_patches)]
+            with ThreadPoolExecutor(max_workers=_N_WORKERS) as pool:
+                futures = [
+                    pool.submit(_compute_patch, pidx, patch_params_list[pidx])
+                    for pidx in range(n_patches)
+                ]
+                # Raise any exception that occurred in a worker thread.
+                for f in futures:
+                    f.result()
+        else:
+            # Sequential fallback — reuse the same params dict (no copy needed
+            # when running single-threaded because B_BaseRef is restored after
+            # each iteration).
+            for patch_idx in range(n_patches):
+                state_patch = state_spatial[:, patch_idx]
+
+                if params_need_modification:
+                    b_base_ref_backup = params["B_BaseRef"]
+                    params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
+                    try:
+                        deriv_local = deriv_vector(
+                            state_patch, params, forcing, fishing, t=t
+                        )
+                    finally:
+                        params["B_BaseRef"] = b_base_ref_backup
+                else:
                     deriv_local = deriv_vector(
                         state_patch, params, forcing, fishing, t=t
                     )
-                finally:
-                    # Restore original B_BaseRef even if deriv_vector raises
-                    params["B_BaseRef"] = b_base_ref_backup
-            else:
-                # No modification needed - use params directly (no copy!)
-                deriv_local = deriv_vector(state_patch, params, forcing, fishing, t=t)
 
-            # Store local derivative
-            deriv_spatial[:, patch_idx] = deriv_local
+                deriv_spatial[:, patch_idx] = deriv_local
     finally:
         # Clean up injected spatial context keys
         for g_idx in ibm_spatial_contexts:
@@ -330,6 +364,13 @@ def rsim_run_spatial(
         "DetFrom": params.DetFrom,
         "DetTo": params.DetTo,
     }
+
+    # Pre-compute sparse link arrays for the consumption kernel
+    from pypath.core.link_array import ActiveLinkArray
+
+    _links = ActiveLinkArray.from_bool_matrix(params_dict["ActiveLink"])
+    params_dict["_link_prey"] = _links.prey
+    params_dict["_link_pred"] = _links.pred
 
     # Include IBM groups in params dict for deriv_vector
     if hasattr(params, "ibm_groups"):

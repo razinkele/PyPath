@@ -17,7 +17,437 @@ from typing import Dict, Tuple
 
 import numpy as np
 
+try:
+    import numba
+
+    HAS_NUMBA = True
+except ImportError:
+    HAS_NUMBA = False
+
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# NUMBA-ACCELERATED CONSUMPTION INNER LOOP
+# =============================================================================
+
+
+def _compute_consumption_python(
+    QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY, NUM_LIVING, NUM_GROUPS
+):
+    """Compute the consumption matrix QQ in-place using foraging arena theory.
+
+    This is the pure-Python implementation of the inner consumption loop.
+    It takes only numpy arrays and ints so that it can also be JIT-compiled
+    by numba for a significant speed-up.
+
+    Parameters
+    ----------
+    QQ : np.ndarray
+        Consumption matrix (NUM_GROUPS+1, NUM_GROUPS+1), modified in-place.
+    BB : np.ndarray
+        Current biomass array.
+    ActiveLink : np.ndarray
+        Boolean/int array of active predator-prey links [prey, pred].
+    VV : np.ndarray
+        Vulnerability parameters [prey, pred].
+    DD : np.ndarray
+        Handling time parameters [prey, pred].
+    QQbase : np.ndarray
+        Base consumption rates [prey, pred].
+    preyYY : np.ndarray
+        Relative prey biomass (B/Bbase * prey_forcing).
+    predYY : np.ndarray
+        Relative predator biomass (Ftime * B/Bbase).
+    NUM_LIVING : int
+        Number of living groups.
+    NUM_GROUPS : int
+        Total number of groups.
+    """
+    for pred in range(1, NUM_LIVING + 1):
+        if BB[pred] <= 0.0:
+            continue
+
+        for prey in range(1, NUM_GROUPS + 1):
+            if ActiveLink[prey, pred] == 0:
+                continue
+            if BB[prey] <= 0.0:
+                continue
+
+            vv = VV[prey, pred]
+            dd = DD[prey, pred]
+            qbase = QQbase[prey, pred]
+            if qbase <= 0.0:
+                continue
+
+            PYY = preyYY[prey]
+            PDY = predYY[pred]
+
+            # Handling time term: approaches 1.0 when DD is large
+            if dd > 1.0:
+                pyy_safe = PYY if PYY > 1e-10 else 1e-10
+                dd_term = dd / (dd - 1.0 + pyy_safe)
+            else:
+                dd_term = 1.0
+
+            # Vulnerability term: VV/(VV-1+predYY)
+            if vv > 1.0:
+                pdy_safe = PDY if PDY > 1e-10 else 1e-10
+                vv_term = vv / (vv - 1.0 + pdy_safe)
+            else:
+                vv_term = 1.0
+
+            Q_calc = qbase * PDY * PYY * dd_term * vv_term
+
+            if Q_calc > 0.0:
+                QQ[prey, pred] = Q_calc
+            else:
+                QQ[prey, pred] = 0.0
+
+
+if HAS_NUMBA:
+    _compute_consumption_numba = numba.njit(cache=True)(
+        _compute_consumption_python
+    )
+else:
+    _compute_consumption_numba = None
+
+
+def _compute_consumption(
+    QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY, NUM_LIVING, NUM_GROUPS
+):
+    """Dispatch to numba-compiled or pure-Python consumption loop."""
+    if _compute_consumption_numba is not None:
+        _compute_consumption_numba(
+            QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY,
+            NUM_LIVING, NUM_GROUPS,
+        )
+    else:
+        _compute_consumption_python(
+            QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY,
+            NUM_LIVING, NUM_GROUPS,
+        )
+
+
+# =============================================================================
+# SPARSE LINK-ARRAY CONSUMPTION KERNEL
+# =============================================================================
+
+
+def _compute_consumption_sparse_python(
+    QQ, BB, VV, DD, QQbase, preyYY, predYY, link_prey, link_pred, n_links
+):
+    """Compute consumption using pre-computed link arrays (single flat loop).
+
+    Instead of iterating over all (NUM_GROUPS+1)^2 pred-prey pairs and
+    skipping inactive ones, this kernel iterates only over the *n_links*
+    active pairs stored in ``link_prey`` / ``link_pred``.
+
+    Parameters
+    ----------
+    QQ : np.ndarray
+        Consumption matrix (NUM_GROUPS+1, NUM_GROUPS+1), modified in-place.
+    BB : np.ndarray
+        Current biomass array.
+    VV : np.ndarray
+        Vulnerability parameters [prey, pred].
+    DD : np.ndarray
+        Handling time parameters [prey, pred].
+    QQbase : np.ndarray
+        Base consumption rates [prey, pred].
+    preyYY : np.ndarray
+        Relative prey biomass (B/Bbase * prey_forcing).
+    predYY : np.ndarray
+        Relative predator biomass (Ftime * B/Bbase).
+    link_prey : np.ndarray
+        int64 array of prey indices for each active link.
+    link_pred : np.ndarray
+        int64 array of predator indices for each active link.
+    n_links : int
+        Number of active links.
+    """
+    for idx in range(n_links):
+        prey = link_prey[idx]
+        pred = link_pred[idx]
+
+        if BB[prey] <= 0.0 or BB[pred] <= 0.0:
+            continue
+
+        qbase = QQbase[prey, pred]
+        if qbase <= 0.0:
+            continue
+
+        PYY = preyYY[prey]
+        PDY = predYY[pred]
+
+        # Handling time term: approaches 1.0 when DD is large
+        vv = VV[prey, pred]
+        dd = DD[prey, pred]
+
+        if dd > 1.0:
+            pyy_safe = PYY if PYY > 1e-10 else 1e-10
+            dd_term = dd / (dd - 1.0 + pyy_safe)
+        else:
+            dd_term = 1.0
+
+        # Vulnerability term: VV/(VV-1+predYY)
+        if vv > 1.0:
+            pdy_safe = PDY if PDY > 1e-10 else 1e-10
+            vv_term = vv / (vv - 1.0 + pdy_safe)
+        else:
+            vv_term = 1.0
+
+        Q_calc = qbase * PDY * PYY * dd_term * vv_term
+
+        if Q_calc > 0.0:
+            QQ[prey, pred] = Q_calc
+        else:
+            QQ[prey, pred] = 0.0
+
+
+if HAS_NUMBA:
+    _compute_consumption_sparse_numba = numba.njit(cache=True)(
+        _compute_consumption_sparse_python
+    )
+else:
+    _compute_consumption_sparse_numba = None
+
+
+def _compute_consumption_sparse(
+    QQ, BB, VV, DD, QQbase, preyYY, predYY, link_prey, link_pred, n_links
+):
+    """Dispatch to numba-compiled or pure-Python sparse consumption loop."""
+    if _compute_consumption_sparse_numba is not None:
+        _compute_consumption_sparse_numba(
+            QQ, BB, VV, DD, QQbase, preyYY, predYY,
+            link_prey, link_pred, n_links,
+        )
+    else:
+        _compute_consumption_sparse_python(
+            QQ, BB, VV, DD, QQbase, preyYY, predYY,
+            link_prey, link_pred, n_links,
+        )
+
+
+# =============================================================================
+# NUMBA-ACCELERATED LIVING-GROUP DERIVATIVE KERNEL
+# =============================================================================
+
+
+def _compute_living_derivs_python(
+    deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates, GE_arr,
+    PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+):
+    """Compute derivatives for living groups in-place.
+
+    This is the pure-Python implementation that can also be JIT-compiled by
+    numba.  It takes only numpy arrays and ints.
+
+    For each living group *i* (1 .. NUM_LIVING) that is NOT an IBM group
+    (ibm_mask[i] == 0):
+
+        consumption      = sum(QQ[1:, i])          # total eaten BY pred i
+        predation_loss   = sum(QQ[i, 1:NL+1])      # total eaten OF prey i
+        production       = pp_rates[i]              if PP_type[i] > 0
+                         = GE_arr[i] * consumption  if QB[i] > 0
+                         = PB[i] * BB[i]            otherwise
+        deriv[i] = production - predation_loss
+                   - FishMort[i]*BB[i] - M0_arr[i]*BB[i]
+                   + ForcedMigrate[i]
+
+    Parameters
+    ----------
+    deriv : np.ndarray
+        Output derivative array, modified in-place (size NUM_GROUPS+1).
+    QQ : np.ndarray
+        Consumption matrix (NUM_GROUPS+1, NUM_GROUPS+1).
+    BB : np.ndarray
+        Current biomass array.
+    M0_arr : np.ndarray
+        Other-mortality rate per group.
+    ForcedMigrate : np.ndarray
+        Migration forcing per group.
+    FishMort : np.ndarray
+        Fishing mortality per group.
+    pp_rates : np.ndarray
+        Primary production rates per group.
+    GE_arr : np.ndarray
+        Gross efficiency (PB/QB) per group; 0 for non-consumers.
+    PP_type : np.ndarray
+        Producer type per group (int).
+    PB : np.ndarray
+        Production/biomass ratios per group.
+    QB : np.ndarray
+        Consumption/biomass ratios per group.
+    ibm_mask : np.ndarray
+        Integer mask: 1 if group is handled by IBM, 0 otherwise.
+    NUM_LIVING : int
+        Number of living groups.
+    NUM_GROUPS : int
+        Total number of groups.
+    """
+    for i in range(1, NUM_LIVING + 1):
+        if ibm_mask[i] != 0:
+            continue
+
+        # Total consumption BY this predator
+        consumption = 0.0
+        for prey in range(1, NUM_GROUPS + 1):
+            consumption += QQ[prey, i]
+
+        # Total predation ON this prey (losses)
+        predation_loss = 0.0
+        for pred in range(1, NUM_LIVING + 1):
+            predation_loss += QQ[i, pred]
+
+        # Production based on group type
+        if PP_type[i] > 0:
+            production = pp_rates[i]
+        elif QB[i] > 0.0:
+            production = GE_arr[i] * consumption
+        else:
+            production = PB[i] * BB[i]
+
+        deriv[i] = (
+            production
+            - predation_loss
+            - FishMort[i] * BB[i]
+            - M0_arr[i] * BB[i]
+            + ForcedMigrate[i]
+        )
+
+
+if HAS_NUMBA:
+    _compute_living_derivs_numba = numba.njit(cache=True)(
+        _compute_living_derivs_python
+    )
+else:
+    _compute_living_derivs_numba = None
+
+
+def _compute_living_derivs(
+    deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates, GE_arr,
+    PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+):
+    """Dispatch to numba-compiled or pure-Python living-group derivative kernel."""
+    if _compute_living_derivs_numba is not None:
+        _compute_living_derivs_numba(
+            deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
+            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+        )
+    else:
+        _compute_living_derivs_python(
+            deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
+            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+        )
+
+
+# =============================================================================
+# NUMBA-ACCELERATED DETRITUS DERIVATIVE KERNEL
+# =============================================================================
+
+
+def _compute_detritus_derivs_python(
+    deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
+    decay_rate, NUM_LIVING, NUM_DEAD,
+):
+    """Compute derivatives for detritus groups in-place.
+
+    For each detritus group d (NUM_LIVING+1 .. NUM_LIVING+NUM_DEAD):
+
+        det_idx = d - NUM_LIVING   (1-based detritus column index)
+
+        unas_input  = sum over pred of (total_consump_by_pred[pred-1]
+                       * Unassim[pred] * DetFrac[pred, det_idx])
+        mort_input  = sum over grp of (M0_arr[grp] * BB[grp]
+                       * DetFrac[grp, det_idx])
+        det_consumed = sum(QQ[d, 1:NUM_LIVING+1])
+        decay        = decay_rate[det_idx] * BB[d]
+
+        deriv[d] = unas_input + mort_input - det_consumed - decay
+
+    Parameters
+    ----------
+    deriv : np.ndarray
+        Output derivative array, modified in-place.
+    QQ : np.ndarray
+        Consumption matrix (NUM_GROUPS+1, NUM_GROUPS+1).
+    BB : np.ndarray
+        Current biomass array.
+    total_consump_by_pred : np.ndarray
+        Pre-computed total consumption by each predator, shape (NUM_LIVING,).
+        Index j corresponds to predator j+1.
+    Unassim : np.ndarray
+        Unassimilated fraction per group.
+    DetFrac : np.ndarray
+        Detritus fraction matrix, shape (NUM_GROUPS+1, NUM_DEAD+1).
+    M0_arr : np.ndarray
+        Other-mortality rate per group.
+    decay_rate : np.ndarray
+        Detritus decay rates, shape (NUM_DEAD+1,).
+    NUM_LIVING : int
+        Number of living groups.
+    NUM_DEAD : int
+        Number of detritus groups.
+    """
+    det_frac_cols = DetFrac.shape[1]
+    decay_len = decay_rate.shape[0]
+
+    for d in range(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1):
+        det_idx = d - NUM_LIVING  # 1-based detritus column index
+
+        # Input from unassimilated consumption
+        unas_input = 0.0
+        if det_idx < det_frac_cols:
+            for pred in range(1, NUM_LIVING + 1):
+                unas_input += (
+                    total_consump_by_pred[pred - 1]
+                    * Unassim[pred]
+                    * DetFrac[pred, det_idx]
+                )
+
+        # Input from mortality (non-predation death)
+        mort_input = 0.0
+        if det_idx < det_frac_cols:
+            for grp in range(1, NUM_LIVING + 1):
+                mort_input += M0_arr[grp] * BB[grp] * DetFrac[grp, det_idx]
+
+        # Detritus consumed by detritivores
+        det_consumed = 0.0
+        for pred in range(1, NUM_LIVING + 1):
+            det_consumed += QQ[d, pred]
+
+        # Decay rate
+        decay = 0.0
+        if det_idx < decay_len:
+            decay = decay_rate[det_idx] * BB[d]
+
+        deriv[d] = unas_input + mort_input - det_consumed - decay
+
+
+if HAS_NUMBA:
+    _compute_detritus_derivs_numba = numba.njit(cache=True)(
+        _compute_detritus_derivs_python
+    )
+else:
+    _compute_detritus_derivs_numba = None
+
+
+def _compute_detritus_derivs(
+    deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
+    decay_rate, NUM_LIVING, NUM_DEAD,
+):
+    """Dispatch to numba-compiled or pure-Python detritus derivative kernel."""
+    if _compute_detritus_derivs_numba is not None:
+        _compute_detritus_derivs_numba(
+            deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
+            decay_rate, NUM_LIVING, NUM_DEAD,
+        )
+    else:
+        _compute_detritus_derivs_python(
+            deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
+            decay_rate, NUM_LIVING, NUM_DEAD,
+        )
 
 
 @dataclass
@@ -310,14 +740,16 @@ def deriv_vector(
     # default-argument allocations ([None]*N, np.zeros) inside inner loops.
     spname_list = params.get("spname", None)
     M0_arr = params.get("M0", None)
+    _NoIntegrate_raw = params.get("NoIntegrate", None)
+    _TRACE_DEBUG_GROUPS = params.get("TRACE_DEBUG_GROUPS", None)
 
     # Diagnostic: if trace requested, print spname type and membership check
     try:
         if (
-            params.get("TRACE_DEBUG_GROUPS") is not None
-            or params.get("spname") is not None
+            _TRACE_DEBUG_GROUPS is not None
+            or spname_list is not None
         ):
-            spname = params.get("spname")
+            spname = spname_list
             logger.debug(
                 "TRACE DEBUG: params.keys() sample=%s",
                 list(params.keys())[:20],
@@ -341,7 +773,7 @@ def deriv_vector(
     # predation/functional response calculations.
     try:
         no_integrate_mask = (
-            np.asarray(params.get("NoIntegrate", np.zeros(NUM_GROUPS + 1))) != 0
+            np.asarray(_NoIntegrate_raw if _NoIntegrate_raw is not None else np.zeros(NUM_GROUPS + 1)) != 0
         )
         if np.any(no_integrate_mask):
             Bbase_arr = params.get("Bbase", None)
@@ -368,7 +800,7 @@ def deriv_vector(
     instrument_set = set()
     if INSTRUMENT_GROUPS is not None:
         try:
-            spname = params.get("spname", None)
+            spname = spname_list
             numeric_inputs = []
             for g in INSTRUMENT_GROUPS:
                 if isinstance(g, str):
@@ -477,6 +909,7 @@ def deriv_vector(
     ForcedBio = forcing.get("ForcedBio", np.zeros(NUM_GROUPS + 1))
     PP_forcing = forcing.get("PP_forcing", np.ones(NUM_GROUPS + 1))
     ForcedPrey = forcing.get("ForcedPrey", np.ones(NUM_GROUPS + 1))
+    ForcedMigrate = forcing.get("ForcedMigrate", np.zeros(NUM_GROUPS + 1))
 
     # Calculate relative biomass arrays (vectorized)
     # preyYY = B / Bbase * prey_forcing (where Bbase > 0)
@@ -500,74 +933,57 @@ def deriv_vector(
     # Get base consumption matrix
     QQbase = params.get("QQbase", np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
 
-    # For each predator-prey pair with an active link
-    for pred in range(1, NUM_LIVING + 1):
-        if BB[pred] <= 0:
-            continue
+    # Compute consumption matrix via numba-accelerated (or pure-Python) kernel.
+    # Use pre-computed sparse link arrays when available (avoids iterating
+    # over inactive links); otherwise fall back to the dense kernel.
+    _link_prey = params.get("_link_prey", None)
+    _link_pred = params.get("_link_pred", None)
+    if _link_prey is not None and _link_pred is not None:
+        _compute_consumption_sparse(
+            QQ, BB, VV, DD, QQbase, preyYY, predYY,
+            _link_prey, _link_pred, len(_link_prey),
+        )
+    else:
+        # ActiveLink may be a boolean array; ensure it is integer for numba compat.
+        _active_int = ActiveLink.astype(np.int64) if ActiveLink.dtype != np.int64 else ActiveLink
+        _compute_consumption(
+            QQ, BB, _active_int, VV, DD, QQbase, preyYY, predYY, NUM_LIVING, NUM_GROUPS,
+        )
 
-        for prey in range(1, NUM_GROUPS + 1):  # prey can include detritus
-            if not ActiveLink[prey, pred]:
-                continue
-            if BB[prey] <= 0:
-                continue
-
-            # Get vulnerability and handling time for this link
-            vv = VV[prey, pred]
-            dd = DD[prey, pred]
-
-            # Get base consumption (QQ from Rpath)
-            qbase = QQbase[prey, pred]
-            if qbase <= 0:
-                continue
-
-            # Rpath functional response formula:
-            # Q = QQ * PDY * pow(PYY, HandleSwitch) *
-            #     ( DD / (DD - 1.0 + pow(PYY, HandleSwitch)) ) *
-            #     ( VV / (VV - 1.0 + PDY) )
-            #
-            # Simplified (HandleSwitch=1, no self-weights):
-            # Q = QQ * predYY * preyYY * (DD / (DD - 1 + preyYY)) * (VV / (VV - 1 + predYY))
-
-            PYY = preyYY[prey]
-            PDY = predYY[pred]
-
-            # Handling time term: approaches 1.0 when DD is large
-            dd_term = dd / (dd - 1.0 + max(PYY, 1e-10)) if dd > 1.0 else 1.0
-
-            # Vulnerability term: VV/(VV-1+predYY)
-            # When VV=2: 2/(1+predYY) - gives density dependence
-            vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
-
-            # Final consumption: Q = QQbase * predYY * preyYY * dd_term * vv_term
-            Q_calc = qbase * PDY * PYY * dd_term * vv_term
-
-            # Instrumentation: print per-link breakdown for interesting groups
-            try:
-                # instrument_set contains 0-based group indices; prey/pred are spname indices (1..)
-                prey0 = prey - 1
-                pred0 = pred - 1
-                if instrument_set and (
-                    prey0 in instrument_set or pred0 in instrument_set
-                ):
-                    pname = spname_list[prey] if spname_list is not None else None
-                    prname = spname_list[pred] if spname_list is not None else None
-                    logger.debug(
-                        "INSTR Q prey=%s name=%s pred=%s name=%s qbase=%.6e PDY=%.6e PYY=%.6e dd_term=%.6e vv_term=%.6e Q_calc=%.6e",
-                        prey,
-                        pname,
-                        pred,
-                        prname,
-                        qbase,
-                        PDY,
-                        PYY,
-                        dd_term,
-                        vv_term,
-                        Q_calc,
-                    )
-            except Exception as e:
-                logger.debug("Instrumentation error in Q calculation: %s", e)
-
-            QQ[prey, pred] = max(Q_calc, 0.0)
+    # Post-loop instrumentation: log per-link breakdown for interesting groups
+    if instrument_set:
+        try:
+            for pred in range(1, NUM_LIVING + 1):
+                for prey in range(1, NUM_GROUPS + 1):
+                    if QQ[prey, pred] <= 0.0:
+                        continue
+                    prey0 = prey - 1
+                    pred0 = pred - 1
+                    if prey0 in instrument_set or pred0 in instrument_set:
+                        pname = spname_list[prey] if spname_list is not None else None
+                        prname = spname_list[pred] if spname_list is not None else None
+                        qbase = QQbase[prey, pred]
+                        PYY = preyYY[prey]
+                        PDY = predYY[pred]
+                        dd = DD[prey, pred]
+                        vv = VV[prey, pred]
+                        dd_term = dd / (dd - 1.0 + max(PYY, 1e-10)) if dd > 1.0 else 1.0
+                        vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
+                        logger.debug(
+                            "INSTR Q prey=%s name=%s pred=%s name=%s qbase=%.6e PDY=%.6e PYY=%.6e dd_term=%.6e vv_term=%.6e Q_calc=%.6e",
+                            prey,
+                            pname,
+                            pred,
+                            prname,
+                            qbase,
+                            PDY,
+                            PYY,
+                            dd_term,
+                            vv_term,
+                            QQ[prey, pred],
+                        )
+        except Exception as e:
+            logger.debug("Instrumentation error in Q calculation: %s", e)
 
     # =========================================================================
     # STEP 2: Apply forced biomass adjustments
@@ -638,9 +1054,9 @@ def deriv_vector(
     # IBM integration: check if any groups are replaced by IBMs
     ibm_groups = params.get("ibm_groups", {})
 
-    for i in range(1, NUM_LIVING + 1):
-        # IBM override: delegate to IBM if this group has one
-        if i in ibm_groups:
+    # Handle IBM groups first (non-numba-compatible path)
+    for i in ibm_groups:
+        if 1 <= i <= NUM_LIVING:
             from pypath.ibm.integration import apply_ibm_to_derivative
 
             spatial_ctx = params.get("_ibm_spatial_context_%d" % i, None)
@@ -653,47 +1069,55 @@ def deriv_vector(
                 dt=params.get("_dt", 1 / 12),
                 spatial_context=spatial_ctx,
             )
-            continue
 
-        # Total consumption BY this predator
-        consumption = np.sum(QQ[1:, i])
+    # Prepare arrays for the numba-accelerated living-group derivative kernel
+    _M0_safe = M0_arr if (M0_arr is not None and isinstance(M0_arr, np.ndarray)) else np.zeros(NUM_GROUPS + 1)
+    _GE_arr = np.zeros(NUM_GROUPS + 1)
+    for _gi in range(1, NUM_LIVING + 1):
+        if QB[_gi] > 0.0:
+            _GE_arr[_gi] = PB[_gi] / QB[_gi]
+    _ibm_mask = np.zeros(NUM_GROUPS + 1, dtype=np.int64)
+    for _ibm_i in ibm_groups:
+        if 0 <= _ibm_i <= NUM_GROUPS:
+            _ibm_mask[_ibm_i] = 1
+    _PP_type_int = np.asarray(PP_type, dtype=np.int64)
 
-        # Total predation ON this prey (losses)
-        predation_loss = np.sum(QQ[i, 1 : NUM_LIVING + 1])
+    _compute_living_derivs(
+        deriv, QQ, BB, _M0_safe, ForcedMigrate, FishMort, pp_rates,
+        _GE_arr, _PP_type_int, PB, QB, _ibm_mask, NUM_LIVING, NUM_GROUPS,
+    )
 
-        # Calculate derivative:
-        # In Rpath: NetProd = FoodGain - UnAssimLoss - ActiveRespLoss - MzeroLoss - FoodLoss
-        # Where UnAssimLoss = Q * Unassim, ActiveRespLoss = Q * ActiveResp
-        # So net production = Q * (1 - Unassim - ActiveResp) = Q * PB/QB = Q * GE
+    # Post-kernel instrumentation / debug logging for living groups
+    # (kept outside numba kernel because it uses Python objects: strings, logging, etc.)
+    _need_instr = bool(instrument_set) or _TRACE_DEBUG_GROUPS is not None
+    _need_seabird_trace = False
+    _seabird_idx = -1
+    try:
+        if spname_list is not None and "Seabirds" in spname_list:
+            _need_seabird_trace = True
+            _seabird_idx = spname_list.index("Seabirds")
+    except Exception:
+        pass
 
-        # Other mortality (non-predation, non-fishing)
-        if M0_arr is not None and isinstance(M0_arr, np.ndarray):
-            m0 = M0_arr[i]
-        else:
-            m0 = 0.0
+    if _need_instr or _need_seabird_trace:
+        for i in range(1, NUM_LIVING + 1):
+            if i in ibm_groups:
+                continue
 
-        # Calculate production based on group type
-        if PP_type[i] > 0:
-            # Producer: use primary production with forcing
-            production = pp_rates[i]
-        elif QB[i] > 0:
-            # Consumer: Production = GE * Consumption (GE = PB/QB)
-            # This gives production = Q * PB/QB = P at equilibrium
-            GE = PB[i] / QB[i]
-            production = GE * consumption
-        else:
-            # Default: direct production
-            production = PB[i] * BB[i]
+            # Recompute per-group terms for logging (cheap scalar ops)
+            consumption = float(np.sum(QQ[1:, i]))
+            predation_loss = float(np.sum(QQ[i, 1 : NUM_LIVING + 1]))
+            m0 = float(_M0_safe[i])
+            if PP_type[i] > 0:
+                production = float(pp_rates[i])
+            elif QB[i] > 0:
+                production = float(_GE_arr[i] * consumption)
+            else:
+                production = float(PB[i] * BB[i])
 
-        # Derivative
-        deriv[i] = production - predation_loss - FishMort[i] * BB[i] - m0 * BB[i]
-
-        # Extra debug: always print Seabirds breakdown (if present) to diagnose mismatch
-        try:
-            spname = params.get("spname", None)
-            if spname is not None and "Seabirds" in spname:
-                sidx = spname.index("Seabirds")
-                if i == sidx:
+            # Seabirds trace
+            try:
+                if _need_seabird_trace and i == _seabird_idx:
                     logger.debug(
                         "TRACE SEABIRDS i=%s name=Seabirds production=%.12e predation_loss=%.12e fish_loss=%.12e m0_loss=%.12e deriv=%.12e",
                         i,
@@ -703,68 +1127,62 @@ def deriv_vector(
                         m0 * BB[i],
                         deriv[i],
                     )
-        except Exception as e:
-            logger.debug("Seabirds debug instrumentation error: %s", e)
+            except Exception as e:
+                logger.debug("Seabirds debug instrumentation error: %s", e)
 
-        # Debug trace for specific groups if requested
-        try:
-            trace_groups = params.get("TRACE_DEBUG_GROUPS", None)
-            if trace_groups is not None and i in trace_groups:
-                name = spname_list[i] if spname_list is not None else None
-                logger.debug(
-                    "TRACE DERIV i=%s name=%s production=%.6e predation_loss=%.6e fish_loss=%.6e m0_loss=%.6e deriv=%.6e",
-                    i,
-                    name,
-                    production,
-                    predation_loss,
-                    FishMort[i] * BB[i],
-                    m0 * BB[i],
-                    deriv[i],
-                )
-        except Exception as e:
-            logger.debug("TRACE_DEBUG_GROUPS instrumentation error: %s", e)
+            # Debug trace for specific groups if requested
+            try:
+                trace_groups = _TRACE_DEBUG_GROUPS
+                if trace_groups is not None and i in trace_groups:
+                    name = spname_list[i] if spname_list is not None else None
+                    logger.debug(
+                        "TRACE DERIV i=%s name=%s production=%.6e predation_loss=%.6e fish_loss=%.6e m0_loss=%.6e deriv=%.6e",
+                        i,
+                        name,
+                        production,
+                        predation_loss,
+                        FishMort[i] * BB[i],
+                        m0 * BB[i],
+                        deriv[i],
+                    )
+            except Exception as e:
+                logger.debug("TRACE_DEBUG_GROUPS instrumentation error: %s", e)
 
-        # Instrumentation: detailed per-term breakdown for selected groups
-        try:
-            # Use 0-based instrument_set mapping
-            if instrument_set and (i - 1) in instrument_set:
-                name = spname_list[i] if spname_list is not None else None
-                unassim_loss = consumption * Unassim[i]
-                fish_loss = FishMort[i] * BB[i]
-                m0_loss = m0 * BB[i]
-                logger.debug(
-                    "INSTR DERIV i=%s name=%s production=%.12e consumption=%.12e unassim_loss=%.12e predation_loss=%.12e fish_loss=%.12e m0_loss=%.12e deriv=%.12e",
-                    i,
-                    name,
-                    production,
-                    consumption,
-                    unassim_loss,
-                    predation_loss,
-                    fish_loss,
-                    m0_loss,
-                    deriv[i],
-                )
+            # Instrumentation: detailed per-term breakdown for selected groups
+            try:
+                if instrument_set and (i - 1) in instrument_set:
+                    name = spname_list[i] if spname_list is not None else None
+                    unassim_loss = consumption * Unassim[i]
+                    fish_loss = FishMort[i] * BB[i]
+                    m0_loss = m0 * BB[i]
+                    logger.debug(
+                        "INSTR DERIV i=%s name=%s production=%.12e consumption=%.12e unassim_loss=%.12e predation_loss=%.12e fish_loss=%.12e m0_loss=%.12e deriv=%.12e",
+                        i,
+                        name,
+                        production,
+                        consumption,
+                        unassim_loss,
+                        predation_loss,
+                        fish_loss,
+                        m0_loss,
+                        deriv[i],
+                    )
 
-                # Also print which predators contribute to predation_loss on this prey (if this is a prey)
-                if predation_loss > 0:
-                    contribs = []
-                    for pred2 in range(1, NUM_LIVING + 1):
-                        qval = QQ[i, pred2]
-                        if qval > 0:
-                            pname = (
-                                spname_list[pred2] if spname_list is not None else None
-                            )
-                            contribs.append((pred2, pname, qval))
-                    if contribs:
-                        logger.debug("INSTR PREDATORS for prey i={}:".format(i))
-                        for pid, pname, qv in contribs:
-                            logger.debug("  pred=%s name=%s Q=%.12e", pid, pname, qv)
-        except Exception as e:
-            logger.debug("Instrumentation error in deriv breakdown: %s", e)
-
-        # Apply migration/emigration forcing if present
-        migrate = forcing.get("ForcedMigrate", np.zeros(NUM_GROUPS + 1))
-        deriv[i] += migrate[i]
+                    if predation_loss > 0:
+                        contribs = []
+                        for pred2 in range(1, NUM_LIVING + 1):
+                            qval = QQ[i, pred2]
+                            if qval > 0:
+                                pname = (
+                                    spname_list[pred2] if spname_list is not None else None
+                                )
+                                contribs.append((pred2, pname, qval))
+                        if contribs:
+                            logger.debug("INSTR PREDATORS for prey i={}:".format(i))
+                            for pid, pname, qv in contribs:
+                                logger.debug("  pred=%s name=%s Q=%.12e", pid, pname, qv)
+            except Exception as e:
+                logger.debug("Instrumentation error in deriv breakdown: %s", e)
 
     # =========================================================================
     # STEP 5: Calculate derivatives for detritus groups
@@ -900,14 +1318,47 @@ def deriv_vector(
     except Exception as e:
         logger.debug("Fish-derived DetFrac computation error: %s", e)
 
+    # Pre-compute total consumption by each predator once, avoiding redundant
+    # np.sum(QQ[1:, pred]) calls inside the per-detritus-group loop.
+    # Shape: (NUM_LIVING,) where index j corresponds to pred = j + 1.
+    total_consump_by_pred = np.sum(QQ[1:, 1:NUM_LIVING + 1], axis=0)
+
+    # Pre-fetch detritus decay rates outside the loop
+    decay_rate = params.get("DetDecay", np.zeros(NUM_DEAD + 1))
+    _decay_rate = np.asarray(decay_rate, dtype=np.float64)
+
+    # Ensure DetFrac is a contiguous 2D float64 array for the numba kernel
+    _DetFrac = np.ascontiguousarray(DetFrac, dtype=np.float64)
+
+    # Compute detritus derivatives via numba-accelerated (or pure-Python) kernel
+    try:
+        _compute_detritus_derivs(
+            deriv, QQ, BB, total_consump_by_pred, Unassim, _DetFrac,
+            _M0_safe, _decay_rate, NUM_LIVING, NUM_DEAD,
+        )
+    except (IndexError, ValueError):
+        # Fallback: rich debug information and re-raise for inspection
+        logger.error(
+            "ERROR in detritus kernel: QQ.shape=%s DetFrac.shape=%s Unassim.shape=%s "
+            "NUM_LIVING=%s NUM_DEAD=%s BB.shape=%s params_keys_sample=%s",
+            getattr(QQ, "shape", type(QQ)),
+            getattr(_DetFrac, "shape", type(_DetFrac)),
+            getattr(Unassim, "shape", type(Unassim)),
+            NUM_LIVING,
+            NUM_DEAD,
+            getattr(BB, "shape", type(BB)),
+            list(params.keys())[:10],
+        )
+        raise
+
+    # Post-kernel detritus instrumentation / debug logging
     for d in range(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1):
-        det_idx = d - NUM_LIVING  # Detritus index (1-based within detritus)
-        # Temporary debug: log DetFrac properties to diagnose IndexError
+        det_idx = d - NUM_LIVING
         try:
             logger.debug(
                 "DEBUG DetFrac ndim=%s shape=%s NUM_LIVING=%s NUM_DEAD=%s d=%s det_idx=%s",
-                DetFrac.ndim,
-                DetFrac.shape,
+                _DetFrac.ndim,
+                _DetFrac.shape,
                 NUM_LIVING,
                 NUM_DEAD,
                 d,
@@ -917,140 +1368,88 @@ def deriv_vector(
             logger.debug("DEBUG DetFrac: unable to inspect shape/ndim")
 
         try:
-            # Input from unassimilated consumption
-            unas_input = 0.0
-            for pred in range(1, NUM_LIVING + 1):
-                total_consump = np.sum(QQ[1:, pred])
-                unas_input += (
-                    total_consump * Unassim[pred] * DetFrac[pred, det_idx]
-                    if DetFrac.shape[1] > det_idx
-                    else 0
-                )
+            logger.debug(
+                "TRACE DETRITUS d=%s det_idx=%s deriv=%.12e",
+                d,
+                det_idx,
+                deriv[d],
+            )
+        except Exception as e:
+            logger.debug("Detritus debug error: %s", e)
 
-            # Input from mortality (egestion, non-predation death)
-            mort_input = 0.0
-            _m0_det = M0_arr if M0_arr is not None else PB * 0.0
-            for grp in range(1, NUM_LIVING + 1):
-                # Deaths not consumed go to detritus
-                mort_input += (
-                    _m0_det[grp] * BB[grp] * DetFrac[grp, det_idx]
-                    if DetFrac.shape[1] > det_idx
-                    else 0
-                )
-
-            # Detritus consumed by detritivores
-            det_consumed = np.sum(QQ[d, 1 : NUM_LIVING + 1])
-
-            # Decay rate
-            decay_rate = params.get("DetDecay", np.zeros(NUM_DEAD + 1))
-            decay = decay_rate[det_idx] * BB[d] if len(decay_rate) > det_idx else 0
-
-            deriv[d] = unas_input + mort_input - det_consumed - decay
-            # Debug print detritus breakdown
-            try:
+        # Instrumentation: print per-pred and per-grp contributions when requested
+        try:
+            if instrument_set and (d - 1) in instrument_set:
                 logger.debug(
-                    "TRACE DETRITUS d=%s det_idx=%s unas_input=%.12e mort_input=%.12e det_consumed=%.12e decay=%.12e deriv=%.12e",
+                    "INSTR DETRITUS d=%s det_idx=%s -- per-pred unas contributions:",
                     d,
                     det_idx,
-                    unas_input,
-                    mort_input,
-                    det_consumed,
-                    decay,
-                    deriv[d],
                 )
-            except Exception as e:
-                logger.debug("Detritus debug error: %s", e)
-
-            # Instrumentation: print per-pred and per-grp contributions when requested
-            try:
-                # detritus instrumentation uses 0-based indexing consistency with group indices
-                if instrument_set and (d - 1) in instrument_set:
-                    logger.debug(
-                        "INSTR DETRITUS d=%s det_idx=%s -- per-pred unas contributions:",
-                        d,
-                        det_idx,
-                    )
-                    for pred in range(1, NUM_LIVING + 1):
-                        total_consump = np.sum(QQ[1:, pred])
-                        contrib = (
-                            total_consump
-                            * Unassim[pred]
-                            * (
-                                DetFrac[pred, det_idx]
-                                if DetFrac.shape[1] > det_idx
-                                else 0
-                            )
+                for pred in range(1, NUM_LIVING + 1):
+                    total_consump = total_consump_by_pred[pred - 1]
+                    contrib = (
+                        total_consump
+                        * Unassim[pred]
+                        * (
+                            _DetFrac[pred, det_idx]
+                            if _DetFrac.shape[1] > det_idx
+                            else 0
                         )
-                        if contrib != 0:
-                            pname = (
-                                spname_list[pred] if spname_list is not None else None
-                            )
-                            logger.debug(
-                                "  pred=%s name=%s total_consump=%.12e unassim=%.12e DetFrac=%.12e contrib=%.12e",
-                                pred,
-                                pname,
-                                total_consump,
-                                Unassim[pred],
-                                DetFrac[pred, det_idx],
-                                contrib,
-                            )
-
-                    logger.debug(
-                        "INSTR DETRITUS d=%s det_idx=%s -- per-grp mort contributions:",
-                        d,
-                        det_idx,
                     )
-                    _m0_vals = (
-                        M0_arr if M0_arr is not None else np.zeros(NUM_GROUPS + 1)
-                    )
-                    for grp in range(1, NUM_LIVING + 1):
-                        contrib = (
-                            _m0_vals[grp]
-                            * BB[grp]
-                            * (
-                                DetFrac[grp, det_idx]
-                                if DetFrac.shape[1] > det_idx
-                                else 0
-                            )
+                    if contrib != 0:
+                        pname = (
+                            spname_list[pred] if spname_list is not None else None
                         )
-                        if contrib != 0:
-                            gname = (
-                                spname_list[grp] if spname_list is not None else None
-                            )
-                            logger.debug(
-                                "  grp=%s name=%s M0=%.12e BB=%.12e DetFrac=%.12e contrib=%.12e",
-                                grp,
-                                gname,
-                                _m0_vals[grp],
-                                BB[grp],
-                                DetFrac[grp, det_idx],
-                                contrib,
-                            )
-            except Exception as e:
-                logger.debug("Detritus instrumentation error: %s", e)
-        except IndexError:
-            # Print rich debug information and re-raise for inspection
-            logger.error(
-                "ERROR in detritus loop: QQ.shape=%s DetFrac.shape=%s Unassim.shape=%s "
-                "det_idx=%s d=%s NUM_LIVING=%s NUM_DEAD=%s BB.shape=%s params_keys_sample=%s",
-                getattr(QQ, "shape", type(QQ)),
-                getattr(DetFrac, "shape", type(DetFrac)),
-                getattr(Unassim, "shape", type(Unassim)),
-                det_idx,
-                d,
-                NUM_LIVING,
-                NUM_DEAD,
-                getattr(BB, "shape", type(BB)),
-                list(params.keys())[:10],
-            )
-            raise
+                        logger.debug(
+                            "  pred=%s name=%s total_consump=%.12e unassim=%.12e DetFrac=%.12e contrib=%.12e",
+                            pred,
+                            pname,
+                            total_consump,
+                            Unassim[pred],
+                            _DetFrac[pred, det_idx],
+                            contrib,
+                        )
+
+                logger.debug(
+                    "INSTR DETRITUS d=%s det_idx=%s -- per-grp mort contributions:",
+                    d,
+                    det_idx,
+                )
+                _m0_vals = (
+                    M0_arr if M0_arr is not None else np.zeros(NUM_GROUPS + 1)
+                )
+                for grp in range(1, NUM_LIVING + 1):
+                    contrib = (
+                        _m0_vals[grp]
+                        * BB[grp]
+                        * (
+                            _DetFrac[grp, det_idx]
+                            if _DetFrac.shape[1] > det_idx
+                            else 0
+                        )
+                    )
+                    if contrib != 0:
+                        gname = (
+                            spname_list[grp] if spname_list is not None else None
+                        )
+                        logger.debug(
+                            "  grp=%s name=%s M0=%.12e BB=%.12e DetFrac=%.12e contrib=%.12e",
+                            grp,
+                            gname,
+                            _m0_vals[grp],
+                            BB[grp],
+                            _DetFrac[grp, det_idx],
+                            contrib,
+                        )
+        except Exception as e:
+            logger.debug("Detritus instrumentation error: %s", e)
 
     # Zero derivatives for NoIntegrate (fast-turnover) groups to enforce algebraic equilibrium
     try:
         # NoIntegrate: Rpath encodes fast-turnover groups as 0. Treat 0 as True for NoIntegrate
         # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
         no_integrate = (
-            np.asarray(params.get("NoIntegrate", np.zeros(NUM_GROUPS + 1))) != 0
+            np.asarray(_NoIntegrate_raw if _NoIntegrate_raw is not None else np.zeros(NUM_GROUPS + 1)) != 0
         )
         if np.any(no_integrate):
             deriv[no_integrate] = 0.0

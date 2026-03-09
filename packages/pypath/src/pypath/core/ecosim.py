@@ -1052,6 +1052,14 @@ def rsim_run(
         "FishQ": getattr(params, "FishQ", np.array([])),
     }
 
+    # Pre-compute sparse link arrays for the consumption kernel so that
+    # deriv_vector can skip inactive prey-predator pairs entirely.
+    from pypath.core.link_array import ActiveLinkArray
+
+    _links = ActiveLinkArray.from_bool_matrix(params_dict["ActiveLink"])
+    params_dict["_link_prey"] = _links.prey
+    params_dict["_link_pred"] = _links.pred
+
     # Propagate IBM groups if any functional groups are IBM-managed.
     if hasattr(params, "ibm_groups"):
         params_dict["ibm_groups"] = params.ibm_groups
