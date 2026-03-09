@@ -8,7 +8,7 @@ import pytest
 
 from pypath.io.ewemdb import read_ewemdb
 
-FIXTURE_DIR = Path(__file__).parent.parent / "fixtures" / "real_ewemdb"
+FIXTURE_DIR = Path(__file__).parent / "data" / "real_ewemdb"
 
 
 def _read_fixture_table(name: str) -> pd.DataFrame:

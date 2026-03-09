@@ -226,10 +226,10 @@ class TestEwemdbDietParsing:
         if not support["any_available"]:
             pytest.skip("No ewemdb drivers available")
 
-        # Look for test files
-        test_files = list(Path(__file__).parent.parent.glob("**/*.ewemdb"))
+        # Look for test files under tests/data/ (convention: Path(__file__).parent / "data")
+        test_files = list((Path(__file__).parent / "data").glob("**/*.ewemdb"))
         if not test_files:
-            test_files = list(Path(__file__).parent.parent.glob("**/*.mdb"))
+            test_files = list((Path(__file__).parent / "data").glob("**/*.mdb"))
 
         if not test_files:
             pytest.skip("No ewemdb test files found")

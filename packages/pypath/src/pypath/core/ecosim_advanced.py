@@ -239,7 +239,7 @@ def rsim_run_advanced(
         current_year = scenario.start_year + year_num + month_in_year / 12.0
 
         if verbose and month % 12 == 0:
-            print(
+            logger.debug(
                 f"Year {year_num + 1}/{n_years}: mean biomass = {np.mean(state[1 : params.NUM_LIVING + 1]):.2f}"
             )
 
@@ -254,7 +254,7 @@ def rsim_run_advanced(
                 diet_changes += 1
 
                 if verbose:
-                    print(f"  Diet rewiring applied at month {month}")
+                    logger.debug(f"  Diet rewiring applied at month {month}")
 
         # Get derivative
         # Note: This simplified version doesn't actually integrate
@@ -283,7 +283,7 @@ def rsim_run_advanced(
         if np.any(living_biomass < 1e-4):
             if verbose:
                 crashed = np.where(living_biomass < 1e-4)[0]
-                print(f"WARNING: Crash detected at month {month}, groups: {crashed}")
+                logger.warning(f"Crash detected at month {month}, groups: {crashed}")
 
     # Convert to annual (simplified - real version aggregates properly)
     annual_biomass = out_biomass[::12]  # Every 12th month
@@ -354,10 +354,10 @@ def rsim_run_advanced(
     )
 
     if verbose:
-        print("\nSimulation complete:")
-        print(f"  Total diet rewiring updates: {diet_changes}")
+        logger.info("Simulation complete:")
+        logger.info(f"  Total diet rewiring updates: {diet_changes}")
         if state_forcing:
-            print(f"  Active forcing functions: {len(state_forcing.functions)}")
+            logger.info(f"  Active forcing functions: {len(state_forcing.functions)}")
 
     return output
 

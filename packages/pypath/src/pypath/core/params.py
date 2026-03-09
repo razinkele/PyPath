@@ -103,6 +103,36 @@ class RpathParams:
         )
 
 
+def get_groups_by_type(
+    groups: List[str], types: List[int]
+) -> Dict[str, List[str]]:
+    """Return dict mapping type names to group lists.
+
+    Parameters
+    ----------
+    groups : list of str
+        Names of all groups in the model.
+    types : list of int
+        Type code for each group (0=consumer, 1=producer, 2=detritus, 3=fleet).
+
+    Returns
+    -------
+    dict
+        Dictionary with keys: 'consumers', 'producers', 'detritus', 'fleets',
+        'living' (types 0 and 1), and 'prey' (types 0, 1, and 2).
+    """
+    groups = list(groups)
+    types = list(types)
+    return {
+        "consumers": [g for g, t in zip(groups, types) if t == 0],
+        "producers": [g for g, t in zip(groups, types) if t == 1],
+        "detritus": [g for g, t in zip(groups, types) if t == 2],
+        "fleets": [g for g, t in zip(groups, types) if t == 3],
+        "living": [g for g, t in zip(groups, types) if t < 2],
+        "prey": [g for g, t in zip(groups, types) if t < 3],
+    }
+
+
 def create_rpath_params(
     groups: List[str], types: List[int], stgroups: Optional[List[str]] = None
 ) -> RpathParams:
@@ -144,10 +174,11 @@ def create_rpath_params(
     n_groups = len(groups)
 
     # Identify group types
-    pred_groups = [g for g, t in zip(groups, types) if t < 2]  # Consumers/producers
-    prey_groups = [g for g, t in zip(groups, types) if t < 3]  # All except fleets
-    det_groups = [g for g, t in zip(groups, types) if t == 2]
-    fleet_groups = [g for g, t in zip(groups, types) if t == 3]
+    gbt = get_groups_by_type(groups, types)
+    pred_groups = gbt["living"]  # Consumers/producers
+    prey_groups = gbt["prey"]  # All except fleets
+    det_groups = gbt["detritus"]
+    fleet_groups = gbt["fleets"]
 
     # Create model DataFrame
     model_data = {
@@ -366,21 +397,16 @@ def check_rpath_params(params: RpathParams) -> bool:
     n_warnings = 0
 
     # Check that all types are represented
-    if len(model[model["Type"] == 0]) == 0:
-        warnings.warn("Model must contain at least 1 consumer")
-        n_warnings += 1
-
-    if len(model[model["Type"] == 1]) == 0:
-        warnings.warn("Model must contain a producer group")
-        n_warnings += 1
-
-    if len(model[model["Type"] == 2]) == 0:
-        warnings.warn("Model must contain at least 1 detrital group")
-        n_warnings += 1
-
-    if len(model[model["Type"] == 3]) == 0:
-        warnings.warn("Model must contain at least 1 fleet")
-        n_warnings += 1
+    type_requirements = [
+        (0, "consumer"),
+        (1, "producer"),
+        (2, "detrital group"),
+        (3, "fleet"),
+    ]
+    for type_val, type_name in type_requirements:
+        if len(model[model["Type"] == type_val]) == 0:
+            warnings.warn(f"Model must contain at least 1 {type_name}")
+            n_warnings += 1
 
     # Check that either Biomass or EE is provided for living groups
     living = model[model["Type"] < 2]

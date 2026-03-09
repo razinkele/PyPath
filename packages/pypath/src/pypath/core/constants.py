@@ -10,14 +10,10 @@ improving maintainability and reducing errors from scattered hard-coded values.
 
 # Geospatial constants
 KM_PER_DEGREE_LAT = 111.0  # Kilometers per degree of latitude (approximate)
-KM_PER_DEGREE_LON_EQUATOR = 111.32  # Kilometers per degree longitude at equator
 
 # ============================================================================
 # BIOLOGICAL/ECOLOGICAL CONSTANTS
 # ============================================================================
-
-# Von Bertalanffy Growth Function (VBGF) constants
-VBGF_D_EXPONENT = 0.66667  # Mass exponent in VBGF (2/3 power law)
 
 # Prey switching and foraging
 DEFAULT_PREY_SWITCHING_POWER = 2.0  # Default switching power exponent
@@ -98,17 +94,6 @@ MAX_OPTIMIZATION_INIT_POINTS = 20
 # SPATIAL (ECOSPACE) CONSTANTS
 # ============================================================================
 
-# Grid parameters
-DEFAULT_GRID_ROWS = 10
-DEFAULT_GRID_COLS = 10
-MAX_PATCHES_WARNING = 1000  # Warn if grid exceeds this
-MAX_PATCHES_PERFORMANCE = 500  # Use optimized rendering above this
-
-# Hexagon parameters (spatial)
-MIN_HEXAGON_SIZE_KM = 0.25
-MAX_HEXAGON_SIZE_KM = 3.0
-DEFAULT_HEXAGON_SIZE_KM = 1.0
-
 # Dispersal defaults
 DEFAULT_DISPERSAL_RATE = 0.1  # Proportion dispersing per timestep
 MAX_DISPERSAL_RATE = 5.0  # Maximum dispersal rate
@@ -119,14 +104,9 @@ MAX_DISPERSAL_RATE = 5.0  # Maximum dispersal rate
 
 # Sentinel values for missing data
 NO_DATA_VALUE = 9999
-NO_DATA_VALUE_NEGATIVE = -9999
-
-# Decimal precision for display
-DISPLAY_DECIMAL_PLACES = 3
 
 # Trophic level thresholds
 TL_PRODUCER = 1.0  # Trophic level for primary producers
-TL_CONSUMER_THRESHOLD = 2.5  # Below this: consumer, above: top predator
 
 # ============================================================================
 # PARAMETER BOUNDS FOR VALIDATION
@@ -135,7 +115,6 @@ TL_CONSUMER_THRESHOLD = 2.5  # Below this: consumer, above: top predator
 # P/B (Production/Biomass) bounds
 MIN_PB = 0.0
 MAX_PB_CONSUMER = 100.0  # Default for consumers
-MAX_PB_PRODUCER = 250.0  # Higher limit for phytoplankton/producers
 
 # Q/B (Consumption/Biomass) bounds
 MIN_QB = 0.0
@@ -150,30 +129,13 @@ MAX_BIOMASS = 1e6
 # ============================================================================
 
 # Diet rewiring defaults
-DEFAULT_DIET_UPDATE_INTERVAL_MONTHS = 12  # Update diet annually
 MIN_DIET_COEFFICIENT = 0.1  # Minimum diet coefficient
 MAX_DIET_COEFFICIENT = 5.0  # Maximum diet coefficient
 DEFAULT_SWITCHING_POWER_REWIRING = 2.0  # Switching power for rewiring
 
 # ============================================================================
-# FORCING AND ENVIRONMENTAL DRIVERS
-# ============================================================================
-
-# Seasonal forcing defaults
-DEFAULT_SEASONAL_BASELINE = 15.0  # Baseline temperature (°C)
-MAX_SEASONAL_AMPLITUDE = 2.0  # Maximum amplitude multiplier
-
-# Pulse forcing defaults
-MIN_PULSE_STRENGTH = 0.5
-MAX_PULSE_STRENGTH = 5.0
-DEFAULT_PULSE_STRENGTH = 2.5
-
-# ============================================================================
 # FILE/DATABASE CONSTANTS
 # ============================================================================
-
-# Subprocess timeouts
-SUBPROCESS_TIMEOUT_SECONDS = 30  # Timeout for external commands
 
 # Database file extensions
 VALID_DB_EXTENSIONS = [".ewemdb", ".mdb", ".accdb"]

@@ -539,6 +539,7 @@ def _fetch_obis_occurrences(
                         # OBIS may report depths as negative values (below surface); use absolute depth
                         valid_depths.append(abs(dv))
                 except Exception:
+                    logger.debug("Failed to parse depth value %r, skipping", d, exc_info=True)
                     continue
 
             if valid_depths:
@@ -578,6 +579,7 @@ def _fetch_obis_occurrences(
                     try:
                         val = int(float(y))
                     except Exception:
+                        logger.debug("Failed to parse year value %r, skipping", y, exc_info=True)
                         continue
                 # Ignore obviously bad years (e.g., pre-1800 or in the future)
                 if val < 1800 or val > current_year:

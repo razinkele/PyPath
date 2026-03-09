@@ -489,35 +489,35 @@ def print_prebalance_summary(report: Dict) -> None:
     report : dict
         Report from generate_prebalance_report()
     """
-    print("=" * 60)
-    print("PRE-BALANCE DIAGNOSTIC REPORT")
-    print("=" * 60)
-    print()
+    logger.info("=" * 60)
+    logger.info("PRE-BALANCE DIAGNOSTIC REPORT")
+    logger.info("=" * 60)
+    logger.info("")
 
-    print("BIOMASS DIAGNOSTICS:")
-    print(f"  Biomass range: {report['biomass_range']:.2f} orders of magnitude")
-    print(f"  Biomass slope: {report['biomass_slope']:.3f}")
-    print()
+    logger.info("BIOMASS DIAGNOSTICS:")
+    logger.info(f"  Biomass range: {report['biomass_range']:.2f} orders of magnitude")
+    logger.info(f"  Biomass slope: {report['biomass_slope']:.3f}")
+    logger.info("")
 
     if len(report["predator_prey_ratios"]) > 0:
-        print("PREDATOR-PREY BIOMASS RATIOS:")
-        print("  Top 5 highest ratios:")
+        logger.info("PREDATOR-PREY BIOMASS RATIOS:")
+        logger.info("  Top 5 highest ratios:")
         top5 = report["predator_prey_ratios"].nlargest(5, "Ratio")
         for _, row in top5.iterrows():
-            print(f"    {row['Predator']}: {row['Ratio']:.3f}")
-        print()
+            logger.info(f"    {row['Predator']}: {row['Ratio']:.3f}")
+        logger.info("")
 
     if len(report.get("pb_ratios", [])) > 0:
-        print("P/B RATE RATIOS (Predator/Prey):")
-        print(f"  Mean ratio: {report['pb_ratios']['Ratio'].mean():.2f}")
-        print()
+        logger.info("P/B RATE RATIOS (Predator/Prey):")
+        logger.info(f"  Mean ratio: {report['pb_ratios']['Ratio'].mean():.2f}")
+        logger.info("")
 
     if len(report["warnings"]) > 0:
-        print("WARNINGS:")
+        logger.info("WARNINGS:")
         for i, warning in enumerate(report["warnings"], 1):
-            print(f"  {i}. {warning}")
+            logger.info(f"  {i}. {warning}")
     else:
-        print("No major issues detected!")
+        logger.info("No major issues detected!")
 
-    print()
-    print("=" * 60)
+    logger.info("")
+    logger.info("=" * 60)

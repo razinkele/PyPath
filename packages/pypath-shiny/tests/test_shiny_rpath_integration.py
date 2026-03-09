@@ -4,18 +4,11 @@ import pytest
 
 from pypath_shiny.pages.utils import load_rpath_diagnostics
 
-# Reference data lives in the core pypath package's test directory.
-# This cross-package path works in the monorepo layout but not when
-# packages are installed independently.
-DIAG_DIR = (
-    Path(__file__).parent.parent.parent
-    / "pypath"
-    / "tests"
-    / "data"
-    / "rpath_reference"
-    / "ecosim"
-    / "diagnostics"
-)
+# Cross-package path: diagnostics data lives in the core pypath package's test
+# directory.  This works in the monorepo layout but not when packages are
+# installed independently.  The skip guard below handles the missing-data case.
+_PYPATH_TESTS_DATA = Path(__file__).parent.parent.parent / "pypath" / "tests" / "data"
+DIAG_DIR = _PYPATH_TESTS_DATA / "rpath_reference" / "ecosim" / "diagnostics"
 
 if not DIAG_DIR.exists():
     pytestmark = pytest.mark.skip(

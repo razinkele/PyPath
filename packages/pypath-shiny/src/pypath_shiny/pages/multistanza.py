@@ -12,6 +12,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
 from pypath_shiny.config import PARAM_RANGES
+from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
 
 
 def multistanza_ui():
@@ -206,11 +207,11 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         if shared_data.params() is not None:
             params = shared_data.params()
             # Check if it's RpathParams (has model DataFrame)
-            if hasattr(params, "model") and "Group" in params.model.columns:
+            if is_rpath_params(params):
                 groups = params.model["Group"].tolist()
                 ui.update_select("stanza_group", choices=groups)
-            elif hasattr(params, "Group"):
-                # Fallback for direct DataFrame
+            elif is_balanced_model(params):
+                # Fallback for balanced Rpath model
                 groups = params.Group.tolist()
                 ui.update_select("stanza_group", choices=groups)
 

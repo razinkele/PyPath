@@ -29,6 +29,13 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+try:
+    import defusedxml.ElementTree as SafeET
+except ImportError:
+    SafeET = None
+
+_parse_xml = SafeET.fromstring if SafeET is not None else ET.fromstring
+
 logger = logging.getLogger(__name__)
 
 # Try to import requests, fall back to urllib if not available
@@ -179,7 +186,7 @@ def list_ecobase_models(filter_public: bool = True, timeout: int = 60) -> pd.Dat
 
     # Parse XML response
     try:
-        root = ET.fromstring(xml_content)
+        root = _parse_xml(xml_content)
     except ET.ParseError as e:
         raise ValueError(f"Failed to parse EcoBase response: {e}")
 
@@ -314,7 +321,7 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
 
     # Parse XML
     try:
-        root = ET.fromstring(xml_content)
+        root = _parse_xml(xml_content)
     except ET.ParseError as e:
         raise ValueError(f"Failed to parse model data: {e}")
 

@@ -214,7 +214,7 @@ def _try_read_table_variants(
             df = read_ewemdb_table(filepath, tbl)
             if df is not None:
                 return df
-        except Exception:
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
             continue
     return None
 
@@ -427,37 +427,37 @@ def read_ewemdb(
     # Read main tables
     try:
         groups_df = read_ewemdb_table(filepath, "EcopathGroup")
-    except Exception:
+    except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
         # Try alternative table names
         try:
             groups_df = read_ewemdb_table(filepath, "Group")
-        except Exception as e:
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError) as e:
             raise EwEDatabaseError(f"Could not find group data: {e}")
 
     try:
         diet_df = read_ewemdb_table(filepath, "EcopathDietComp")
-    except Exception:
+    except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
         try:
             diet_df = read_ewemdb_table(filepath, "DietComp")
-        except Exception as e:
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError) as e:
             diet_df = None
             logger.warning("Could not read diet composition data: %s", e)
 
     try:
         fleet_df = read_ewemdb_table(filepath, "EcopathFleet")
-    except Exception as e:
+    except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError) as e:
         try:
             fleet_df = read_ewemdb_table(filepath, "Fleet")
-        except Exception:
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
             fleet_df = None
             logger.debug("Could not read fleet data: %s", e)
 
     try:
         catch_df = read_ewemdb_table(filepath, "EcopathCatch")
-    except Exception as e:
+    except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError) as e:
         try:
             catch_df = read_ewemdb_table(filepath, "Catch")
-        except Exception:
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
             catch_df = None
             logger.debug("Could not read catch data: %s", e)
 
@@ -470,7 +470,7 @@ def read_ewemdb(
             auxillary_df["Remark"].notna() & (auxillary_df["Remark"] != "")
         ]
         logger.debug("Found Auxillary table with %d remarks", len(auxillary_df))
-    except Exception as e:
+    except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError) as e:
         logger.debug("Could not read Auxillary table: %s", e)
 
     # Filter by scenario if needed
@@ -1000,7 +1000,7 @@ def read_ewemdb(
                 "Populated stanza params: %d groups",
                 params.stanzas.n_stanza_groups,
             )
-    except Exception as e:
+    except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError, IndexError, TypeError) as e:
         logger.debug("Could not read stanza tables: %s", e)
 
     # OPTIONAL: Read Ecosim scenarios and associated time-series if requested
@@ -1094,7 +1094,7 @@ def read_ewemdb(
                 if num_years is None and start is not None and end is not None:
                     try:
                         num_years = int(end) - int(start) + 1
-                    except Exception:
+                    except (ValueError, TypeError):
                         num_years = None
 
                 scen: Dict[str, Any] = {
@@ -1226,7 +1226,7 @@ def read_ewemdb(
                                                         (months, 1), dtype=float
                                                     )
                                                     ForcedEffort[:, 0] = arr
-                                                except Exception:
+                                                except (ValueError, TypeError, IndexError):
                                                     ForcedEffort = None
 
                                         # create dataclasses
@@ -1306,7 +1306,7 @@ def read_ewemdb(
                                                 ForcedEffort=ForcedEffort,
                                             )
                                             scen["rsim_forcing"] = rsim_forcing
-                                        except Exception as _e:
+                                        except (ValueError, TypeError, KeyError, IndexError) as _e:
                                             logger.debug(
                                                 f"Failed to construct RsimForcing: {_e}"
                                             )
@@ -1372,23 +1372,23 @@ def read_ewemdb(
                                                 ForcedCatch=fcatch,
                                             )
                                             scen["rsim_fishing"] = rsim_fishing
-                                        except Exception as _e:
+                                        except (ValueError, TypeError, KeyError, IndexError) as _e:
                                             logger.debug(
                                                 f"Failed to construct RsimFishing: {_e}"
                                             )
-                                    except Exception as _e:
+                                    except (ImportError, ValueError, TypeError, KeyError) as _e:
                                         logger.debug(
                                             f"Failed to import Rsim dataclasses or construct them: {_e}"
                                         )
-                                except Exception as _e:
+                                except (ValueError, TypeError, KeyError, IndexError) as _e:
                                     logger.debug(
                                         f"Failed to build forcing matrices for scenario {sid}: {_e}"
                                     )
-                            except Exception as _e:
+                            except (ValueError, TypeError, KeyError, IndexError) as _e:
                                 logger.debug(
                                     f"Failed to resample forcing monthly for scenario {sid}: {_e}"
                                 )
-                    except Exception as _e:
+                    except (ValueError, TypeError, KeyError, IndexError) as _e:
                         logger.debug(
                             f"Failed to parse forcing for scenario {sid}: {_e}"
                         )
@@ -1425,11 +1425,11 @@ def read_ewemdb(
                                         use_actual_month_lengths=False,
                                     )
                                 )
-                            except Exception as _e:
+                            except (ValueError, TypeError, KeyError, IndexError) as _e:
                                 logger.debug(
                                     f"Failed to resample fishing monthly for scenario {sid}: {_e}"
                                 )
-                    except Exception as _e:
+                    except (ValueError, TypeError, KeyError, IndexError) as _e:
                         logger.debug(
                             f"Failed to parse fishing for scenario {sid}: {_e}"
                         )
@@ -1439,7 +1439,7 @@ def read_ewemdb(
                     ecospace_tables = _map_ecospace_tables(filepath)
                     if ecospace_tables:
                         scen["ecospace"] = ecospace_tables
-                except Exception as e:
+                except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError) as e:
                     logger.debug("Could not read ecospace tables: %s", e)
 
                 ecosim_meta["scenarios"].append(scen)
@@ -1493,7 +1493,7 @@ def _parse_ecosim_forcing(
                     if mnum is None:
                         try:
                             mnum = int(m)
-                        except Exception:
+                        except (ValueError, TypeError):
                             mnum = 1
                 elif pd.notna(m):
                     mnum = int(m)
@@ -1503,7 +1503,7 @@ def _parse_ecosim_forcing(
                 return y + (float(mnum) - 1.0) / 12.0
             else:
                 return float(r.get("Time", 0.0))
-        except Exception:
+        except (ValueError, TypeError, KeyError):
             return float(r.get("Time", 0.0))
 
     # detect month-style columns (e.g., 'Jan', 'M1', 'Month1')
@@ -1720,12 +1720,12 @@ def _parse_ecosim_fishing(
                     if mnum is None:
                         try:
                             mnum = int(m)
-                        except Exception:
+                        except (ValueError, TypeError):
                             mnum = 1
                 else:
                     mnum = int(m)
                 return y + (float(mnum) - 1.0) / 12.0
-            except Exception:
+            except (ValueError, TypeError, KeyError):
                 return float(r.get("Time", 0.0))
 
         df = df.copy()
@@ -1916,7 +1916,7 @@ def _resample_to_monthly(
                             left=y_known[0],
                             right=y_known[-1],
                         )
-                    except Exception:
+                    except (ValueError, IndexError):
                         monthly_vals = _np.interp(
                             monthly_years,
                             times_abs,
@@ -1934,7 +1934,7 @@ def _resample_to_monthly(
         # Numeric vector (1D)
         try:
             arr = _np.asarray(vals, dtype=float)
-        except Exception:
+        except (ValueError, TypeError):
             # Skip non-numeric here
             continue
         if arr.shape[0] != len(times_abs):
@@ -2032,8 +2032,8 @@ def _resample_fishing_pivot_to_monthly(
                         columns=[0],
                     )
                     dfm = pd.concat([pad, dfm], axis=1)
-                except Exception:
-                    pass
+                except (ValueError, TypeError):
+                    logger.debug("Failed to pad forcing DataFrame with leading zero column", exc_info=True)
                 result[key] = dfm
             else:
                 # fallback to scalar series handling
@@ -2049,9 +2049,9 @@ def _resample_fishing_pivot_to_monthly(
                             right=arr_vals[-1],
                         )
                         result[key] = monthly_vals
-                except Exception:
+                except (ValueError, TypeError, IndexError):
                     continue
-        except Exception:
+        except (ValueError, TypeError, KeyError, IndexError):
             continue
 
     return result
@@ -2123,8 +2123,8 @@ def _build_forcing_matrices(
                                 right=df[g].astype(float).values[-1],
                             )
                             mat[:, gi] = monthly
-                        except Exception:
-                            pass
+                        except (ValueError, IndexError):
+                            logger.debug("Failed to interpolate forcing time series for group %s", g, exc_info=True)
         elif isinstance(val, dict) or isinstance(val, list) or val is None:
             # Skip; already handled elsewhere
             pass
@@ -2150,8 +2150,8 @@ def _build_forcing_matrices(
                         times_abs,
                         fe[g].astype(float).reindex(times).fillna(1.0).values,
                     )
-                except Exception:
-                    pass
+                except (ValueError, IndexError):
+                    logger.debug("Failed to interpolate ForcedEffort for gear %s", g, exc_info=True)
         result["ForcedEffort"] = fe_mat
 
     return result
@@ -2218,13 +2218,13 @@ def _parse_annual_fishing(
                     # attempt numeric index
                     try:
                         gi = int(grp)
-                    except Exception:
+                    except (ValueError, TypeError):
                         continue
                 val = row.get(colname, row.get("Value", None))
                 if val is None:
                     continue
                 mat[year_idx, gi] = float(val)
-            except Exception:
+            except (ValueError, TypeError, KeyError, IndexError):
                 continue
 
     # Long-format detection
@@ -2329,7 +2329,7 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
         import scipy.sparse as _sps
 
         from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
-    except Exception:
+    except ImportError:
         return None
 
     # Grid
@@ -2434,11 +2434,11 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                     continue
                 try:
                     pi = patch_ids.index(p)
-                except Exception:
+                except ValueError:
                     # try to coerce to int index
                     try:
                         pi = int(p) - 1
-                    except Exception:
+                    except (ValueError, TypeError):
                         continue
                 habitat_pref[gi, pi] = float(v)
 
@@ -2521,7 +2521,7 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
                 # Ensure adjacency is symmetric by taking the maximum with its transpose
                 try:
                     adj = adj.maximum(adj.transpose())
-                except Exception:
+                except (ValueError, TypeError):
                     # Fallback: make dense and symmetrize
                     mat = adj.toarray()
                     mat = ((mat + mat.T) > 0).astype(float)
@@ -2688,7 +2688,7 @@ def ecosim_scenario_from_ewemdb(
             rsim.forcing = selected["rsim_forcing"]
         if "rsim_fishing" in selected:
             rsim.fishing = selected["rsim_fishing"]
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         # Be defensive: leave defaults if replacement fails
         pass
 
@@ -2698,7 +2698,7 @@ def ecosim_scenario_from_ewemdb(
         # Use Rsim parameter species names (which include 'Outside' at index 0) to align indices
         try:
             rsim_group_names = rsim.params.spname
-        except Exception:
+        except AttributeError:
             rsim_group_names = params.model["Group"].tolist()
         ecospace_params = _construct_ecospace_params(ecospace_tables, rsim_group_names)
         if ecospace_params is not None:
@@ -2760,7 +2760,7 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
             try:
                 info_df = read_ewemdb_table(filepath, table)
                 break
-            except Exception:
+            except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
                 continue
 
         if info_df is not None and len(info_df) > 0:
@@ -2788,14 +2788,14 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
         try:
             groups_df = read_ewemdb_table(filepath, "EcopathGroup")
             metadata["num_groups"] = len(groups_df)
-        except Exception:
-            pass
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
+            logger.debug("Failed to read EcopathGroup table for metadata", exc_info=True)
 
         try:
             fleet_df = read_ewemdb_table(filepath, "EcopathFleet")
             metadata["num_fleets"] = len(fleet_df)
-        except Exception:
-            pass
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
+            logger.debug("Failed to read EcopathFleet table for metadata", exc_info=True)
 
         # Check for Ecosim scenarios
         try:
@@ -2810,16 +2810,16 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
                 )
                 if name_col:
                     metadata["scenarios"] = ecosim_df[name_col].tolist()
-        except Exception:
-            pass
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
+            logger.debug("Failed to read EcosimScenario table for metadata", exc_info=True)
 
         # Check for Ecospace
         try:
             ecospace_df = read_ewemdb_table(filepath, "EcospaceScenario")
             if len(ecospace_df) > 0:
                 metadata["has_ecospace"] = True
-        except Exception:
-            pass
+        except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
+            logger.debug("Failed to read EcospaceScenario table for metadata", exc_info=True)
 
     except Exception as e:
         warnings.warn(f"Could not read all metadata: {e}")

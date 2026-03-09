@@ -7,9 +7,14 @@ Von Bertalanffy growth and stage-based mortality rates.
 Based on Rpath's rpath.stanzas() and rsim.stanzas() functions.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
+
+if TYPE_CHECKING:
+    from pypath.core.params import RpathParams
 
 import numpy as np
 import pandas as pd
@@ -136,12 +141,18 @@ def von_bertalanffy_weight(age: np.ndarray, k: float, d: float = 0.66667) -> np.
 
     Weight is relative to Winf (asymptotic weight = 1).
 
-    Args:
-        age: Age in months
-        k: Monthly K parameter (Ksp * 3 / 12)
-        d: Allometric exponent (default 2/3)
+    Parameters
+    ----------
+    age : np.ndarray
+        Age in months
+    k : float
+        Monthly K parameter (Ksp * 3 / 12)
+    d : float
+        Allometric exponent (default 2/3)
 
-    Returns:
+    Returns
+    -------
+    np.ndarray
         Weight relative to Winf at each age
     """
     return (1.0 - np.exp(-k * (1.0 - d) * age)) ** (1.0 / (1.0 - d))
@@ -152,11 +163,16 @@ def von_bertalanffy_consumption(wage_s: np.ndarray, d: float = 0.66667) -> np.nd
 
     Q(a) = W(a)^d
 
-    Args:
-        wage_s: Weight at age relative to Winf
-        d: Allometric exponent (default 2/3)
+    Parameters
+    ----------
+    wage_s : np.ndarray
+        Weight at age relative to Winf
+    d : float
+        Allometric exponent (default 2/3)
 
-    Returns:
+    Returns
+    -------
+    np.ndarray
         Consumption at each age
     """
     return wage_s**d
@@ -165,11 +181,16 @@ def von_bertalanffy_consumption(wage_s: np.ndarray, d: float = 0.66667) -> np.nd
 def calculate_survival(z_by_month: np.ndarray, bab: float = 0.0) -> np.ndarray:
     """Calculate cumulative survival to each age.
 
-    Args:
-        z_by_month: Monthly mortality rate for each month
-        bab: Background/accumulation mortality rate (annual)
+    Parameters
+    ----------
+    z_by_month : np.ndarray
+        Monthly mortality rate for each month
+    bab : float
+        Background/accumulation mortality rate (annual)
 
-    Returns:
+    Returns
+    -------
+    np.ndarray
         Cumulative survival probability to each age
     """
     monthly_z = (z_by_month + bab) / 12.0
@@ -179,7 +200,7 @@ def calculate_survival(z_by_month: np.ndarray, bab: float = 0.0) -> np.ndarray:
     return np.cumprod(monthly_survival)
 
 
-def rpath_stanzas(rpath_params: Any) -> Any:
+def rpath_stanzas(rpath_params: RpathParams) -> RpathParams:
     """Calculate biomass and consumption for multi-stanza groups.
 
     Uses the leading stanza to calculate biomass and consumption
@@ -188,10 +209,14 @@ def rpath_stanzas(rpath_params: Any) -> Any:
     This implements Von Bertalanffy growth to distribute biomass
     across age classes based on the leading stanza's biomass.
 
-    Args:
-        rpath_params: RpathParams object with stanza information
+    Parameters
+    ----------
+    rpath_params : RpathParams
+        RpathParams object with stanza information
 
-    Returns:
+    Returns
+    -------
+    RpathParams
         Updated RpathParams with calculated stanza biomass and Q/B
     """
     # Check if stanzas exist
@@ -353,17 +378,23 @@ def rpath_stanzas(rpath_params: Any) -> Any:
     return rpath_params
 
 
-def rsim_stanzas(rpath_params: Any, state: Any, params: Any) -> RsimStanzas:
+def rsim_stanzas(rpath_params: RpathParams, state: np.ndarray, params: dict) -> RsimStanzas:
     """Initialize stanza parameters for Ecosim simulation.
 
     Creates the stanza parameter structure needed by rsim_run().
 
-    Args:
-        rpath_params: RpathParams object with stanza information
-        state: RsimState object with initial state
-        params: RsimParams object with simulation parameters
+    Parameters
+    ----------
+    rpath_params : RpathParams
+        RpathParams object with stanza information
+    state : np.ndarray
+        RsimState object with initial state
+    params : dict
+        RsimParams object with simulation parameters
 
-    Returns:
+    Returns
+    -------
+    RsimStanzas
         RsimStanzas object with simulation parameters
     """
     rstan = RsimStanzas()
@@ -532,7 +563,7 @@ def rsim_stanzas(rpath_params: Any, state: Any, params: Any) -> RsimStanzas:
     return rstan
 
 
-def split_update(stanzas: RsimStanzas, state: Any, params: Any, sim_month: int) -> None:
+def split_update(stanzas: RsimStanzas, state: np.ndarray, params: dict, sim_month: int) -> None:
     """Update stanza age structure for a simulation month.
 
     This updates the numbers-at-age, weight-at-age, and
@@ -540,11 +571,16 @@ def split_update(stanzas: RsimStanzas, state: Any, params: Any, sim_month: int) 
 
     Called monthly during Ecosim simulation.
 
-    Args:
-        stanzas: RsimStanzas object
-        state: RsimState with current biomass
-        params: RsimParams with model parameters
-        sim_month: Current simulation month
+    Parameters
+    ----------
+    stanzas : RsimStanzas
+        RsimStanzas object
+    state : np.ndarray
+        RsimState with current biomass
+    params : dict
+        RsimParams with model parameters
+    sim_month : int
+        Current simulation month
     """
     if stanzas.n_split == 0:
         return
@@ -619,16 +655,20 @@ def split_update(stanzas: RsimStanzas, state: Any, params: Any, sim_month: int) 
         stanzas.base_nage_s[:, isp] = new_nage
 
 
-def split_set_pred(stanzas: RsimStanzas, state: Any, params: Any) -> None:
+def split_set_pred(stanzas: RsimStanzas, state: np.ndarray, params: dict) -> None:
     """Set predation rates for stanza groups.
 
     Updates the consumption calculations for multi-stanza
     groups based on current biomass.
 
-    Args:
-        stanzas: RsimStanzas object
-        state: RsimState with current biomass
-        params: RsimParams with model parameters
+    Parameters
+    ----------
+    stanzas : RsimStanzas
+        RsimStanzas object
+    state : np.ndarray
+        RsimState with current biomass
+    params : dict
+        RsimParams with model parameters
     """
     if stanzas.n_split == 0:
         return
@@ -668,19 +708,25 @@ def create_stanza_params(
     Convenience function to create stanza parameters from
     dictionary inputs.
 
-    Args:
-        groups: List of dictionaries with stanza group parameters
-            Required keys: stanza_group_num, n_stanzas, vbgf_ksp
-            Optional keys: vbgf_d, wmat, bab, rec_power
-        individuals: List of dictionaries with individual stanza parameters
-            Required keys: stanza_group_num, stanza_num, group_num,
-                          group_name, first, last, z
-            Optional keys: leading
+    Parameters
+    ----------
+    groups : List[Dict[str, Any]]
+        List of dictionaries with stanza group parameters.
+        Required keys: stanza_group_num, n_stanzas, vbgf_ksp.
+        Optional keys: vbgf_d, wmat, bab, rec_power.
+    individuals : List[Dict[str, Any]]
+        List of dictionaries with individual stanza parameters.
+        Required keys: stanza_group_num, stanza_num, group_num,
+        group_name, first, last, z.
+        Optional keys: leading.
 
-    Returns:
+    Returns
+    -------
+    EcosimStanzaParams
         EcosimStanzaParams object
 
-    Example:
+    Examples
+    --------
         >>> groups = [{'stanza_group_num': 1, 'n_stanzas': 2, 'vbgf_ksp': 0.3}]
         >>> individuals = [
         ...     {'stanza_group_num': 1, 'stanza_num': 1, 'group_num': 1,

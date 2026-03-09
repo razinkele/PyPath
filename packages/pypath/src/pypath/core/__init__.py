@@ -62,6 +62,7 @@ from pypath.core.params import (
     RpathStanzaParams,
     check_rpath_params,
     create_rpath_params,
+    get_groups_by_type,
     read_rpath_params,
     write_rpath_params,
 )
@@ -115,6 +116,7 @@ __all__ = [
     # Ecopath
     "RpathParams",
     "create_rpath_params",
+    "get_groups_by_type",
     "read_rpath_params",
     "write_rpath_params",
     "check_rpath_params",

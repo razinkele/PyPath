@@ -21,6 +21,7 @@ from .utils import (
     create_cell_styles,
     format_dataframe_for_display,
     is_balanced_model,
+    is_rpath_params,
 )
 from .validation import (
     validate_biomass,
@@ -65,10 +66,10 @@ def _get_groups_from_model(model: Union[Rpath, RpathParams]) -> List[str]:
     >>> groups
     ['Fish', 'Plankton']
     """
-    if hasattr(model, "Group"):
+    if is_balanced_model(model):
         # It's a balanced Rpath object
         return list(model.Group)
-    elif hasattr(model, "model") and "Group" in model.model.columns:
+    elif is_rpath_params(model):
         # It's an RpathParams object
         return list(model.model["Group"])
     else:
@@ -130,9 +131,9 @@ def _recreate_params_from_model(model: Rpath) -> RpathParams:
     groups = _get_groups_from_model(model)
 
     # Get types
-    if hasattr(model, "type"):
+    if is_balanced_model(model) and hasattr(model, "type"):
         types = list(model.type)
-    elif hasattr(model, "model") and "Type" in model.model.columns:
+    elif is_rpath_params(model) and "Type" in model.model.columns:
         types = list(model.model["Type"])
     else:
         raise ValueError("Cannot determine types from model object")
@@ -385,7 +386,7 @@ def ecopath_server(
         imported = model_data.get()
         if imported is not None:
             # Check if it's an RpathParams (not a balanced Rpath model)
-            if hasattr(imported, "model") and hasattr(imported, "diet"):
+            if is_rpath_params(imported) and hasattr(imported, "diet"):
                 # It's RpathParams - use it
                 params.set(imported)
                 n_groups = len(imported.model)
@@ -394,7 +395,7 @@ def ecopath_server(
                     f"Loaded model: {n_groups} groups, {n_diet} diet values",
                     type="message",
                 )
-            elif hasattr(imported, "NUM_GROUPS"):
+            elif is_balanced_model(imported):
                 # It's a balanced Rpath model - recreate params from balanced values
                 recreated_params = _recreate_params_from_model(imported)
                 params.set(recreated_params)

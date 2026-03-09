@@ -7,16 +7,11 @@ from pypath_shiny.pages.prebalance import (
     rpath_diagnostics_summary,
 )
 
-# Cross-package path — works in monorepo but not standalone installs.
-_DIAG_DIR = (
-    Path(__file__).parent.parent.parent
-    / "pypath"
-    / "tests"
-    / "data"
-    / "rpath_reference"
-    / "ecosim"
-    / "diagnostics"
-)
+# Cross-package path: diagnostics data lives in the core pypath package's test
+# directory.  This works in the monorepo layout but not when packages are
+# installed independently.  The skipif guard below handles the missing-data case.
+_PYPATH_TESTS_DATA = Path(__file__).parent.parent.parent / "pypath" / "tests" / "data"
+_DIAG_DIR = _PYPATH_TESTS_DATA / "rpath_reference" / "ecosim" / "diagnostics"
 
 
 @pytest.mark.skipif(not _DIAG_DIR.exists(), reason="cross-package data not available")

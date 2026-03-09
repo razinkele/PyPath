@@ -1137,11 +1137,16 @@ def ecosim_server(
             from pypath.core.params import create_rpath_params
 
             # Get groups and types safely
-            if hasattr(model, "Group"):
+            from pypath_shiny.pages.utils import (
+                is_balanced_model,
+                is_rpath_params,
+            )
+
+            if is_balanced_model(model):
                 # It's a balanced Rpath object
                 groups = list(model.Group)
                 types = list(model.type)
-            elif hasattr(model, "model") and "Group" in model.model.columns:
+            elif is_rpath_params(model):
                 # It's an RpathParams object
                 groups = list(model.model["Group"])
                 types = list(model.model["Type"])
@@ -1198,7 +1203,7 @@ def ecosim_server(
             # Update group choices (use groups extracted earlier)
             num_living_dead = (
                 model.NUM_LIVING + model.NUM_DEAD
-                if hasattr(model, "NUM_LIVING")
+                if is_balanced_model(model)
                 else len(groups)
             )
             group_names = groups[:num_living_dead]

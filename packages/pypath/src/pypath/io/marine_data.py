@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
+    import geopandas as gpd
+
     from pypath.spatial.environmental import EnvironmentalLayer
 
 import numpy as np
@@ -55,7 +57,7 @@ class MarineDataCache:
         logger.debug("Cached: %s (%d bytes)", key, len(data))
 
     @staticmethod
-    def cache_key(bbox: tuple, layer: str, **kwargs) -> str:
+    def cache_key(bbox: tuple[float, float, float, float], layer: str, **kwargs) -> str:
         """Generate deterministic cache key from parameters."""
         parts = {"bbox": list(bbox), "layer": layer, **kwargs}
         raw = json.dumps(parts, sort_keys=True)
@@ -79,7 +81,7 @@ class EMODnetHabitatsClient:
     def __init__(self, cache: MarineDataCache):
         self._cache = cache
 
-    def fetch_euseamap(self, bbox: tuple, eunis_level: int = 3):
+    def fetch_euseamap(self, bbox: tuple[float, float, float, float], eunis_level: int = 3):
         """Fetch EUSeaMap habitat polygons within a bounding box.
 
         Parameters
@@ -123,7 +125,7 @@ class EMODnetHabitatsClient:
         logger.info("Downloaded %d habitat features", len(gdf))
         return gdf
 
-    def rasterize_habitats(self, gdf, grid) -> np.ndarray:
+    def rasterize_habitats(self, gdf: "gpd.GeoDataFrame", grid: "gpd.GeoDataFrame") -> np.ndarray:
         """Assign majority EUNIS habitat class to each grid patch.
 
         Parameters
@@ -159,7 +161,7 @@ class EMODnetHabitatsClient:
         return habitat_per_patch
 
     @staticmethod
-    def get_habitat_types(gdf, level: int = 3) -> list:
+    def get_habitat_types(gdf: "gpd.GeoDataFrame", level: int = 3) -> list:
         """Extract unique EUNIS codes truncated to requested level.
 
         Parameters
@@ -208,7 +210,7 @@ class EMODnetBathymetryClient:
     def __init__(self, cache: MarineDataCache):
         self._cache = cache
 
-    def fetch_depth(self, bbox: tuple, resolution: float = 0.002):
+    def fetch_depth(self, bbox: tuple[float, float, float, float], resolution: float = 0.002):
         """Fetch depth raster for a bounding box.
 
         Parameters
@@ -267,7 +269,7 @@ class EMODnetBathymetryClient:
             logger.warning("rasterio not installed; cannot read GeoTIFF")
             raise
 
-    def sample_to_grid(self, raster: np.ndarray, transform: tuple, grid) -> np.ndarray:
+    def sample_to_grid(self, raster: np.ndarray, transform: tuple, grid: "gpd.GeoDataFrame") -> np.ndarray:
         """Average raster values within each grid patch.
 
         Parameters
@@ -322,7 +324,10 @@ class SalinityLoader:
 
         from pypath.spatial.environmental import EnvironmentalLayer
 
-        df = pd.read_csv(filepath)
+        resolved = Path(filepath).resolve()
+        if not resolved.is_file():
+            raise FileNotFoundError(f"Salinity CSV not found: {resolved}")
+        df = pd.read_csv(resolved)
         required = {"lon", "lat", "salinity"}
         if not required.issubset(df.columns):
             raise ValueError(

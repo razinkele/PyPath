@@ -8,7 +8,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 from pypath_shiny.config import PLOTS, UI
 
 # Import shared utilities (pypath path setup handled by app/__init__.py)
-from .utils import get_model_info
+from .utils import get_model_info, is_balanced_model, is_rpath_params
 
 
 def results_ui():
@@ -199,12 +199,12 @@ def results_server(
         if info is None:
             return pd.DataFrame()
 
-        if info["is_balanced"] and hasattr(model, "summary"):
+        if is_balanced_model(model) and hasattr(model, "summary"):
             return model.summary()
         elif info["params"] is not None:
             # Return params model table
-            params = info["params"] if not info["is_balanced"] else info["params"]
-            if hasattr(params, "model"):
+            params = info["params"]
+            if is_rpath_params(params):
                 return params.model[
                     ["Group", "Type", "Biomass", "PB", "QB", "EE"]
                 ].head(20)
@@ -624,11 +624,11 @@ def results_server(
         info = get_model_info(model)
         if info is None:
             return pd.DataFrame()
-        if info["is_balanced"] and hasattr(model, "summary"):
+        if is_balanced_model(model) and hasattr(model, "summary"):
             return model.summary()
         elif info["params"] is not None:
             params = info["params"] if not info["is_balanced"] else model.params
-            if hasattr(params, "model"):
+            if is_rpath_params(params):
                 return params.model
         return pd.DataFrame()
 
@@ -709,11 +709,11 @@ def results_server(
         model = model_data.get()
         info = get_model_info(model)
         if info is not None:
-            if info["is_balanced"] and hasattr(model, "summary"):
+            if is_balanced_model(model) and hasattr(model, "summary"):
                 return model.summary().to_csv(index=False)
             elif info["params"] is not None:
                 params = info["params"] if not info["is_balanced"] else model.params
-                if hasattr(params, "model"):
+                if is_rpath_params(params):
                     return params.model.to_csv(index=False)
         return ""
 

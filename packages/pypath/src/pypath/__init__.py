@@ -11,6 +11,7 @@ import logging
 
 # Configure default handler to avoid "No handler found" warnings
 logging.getLogger(__name__).addHandler(logging.NullHandler())
+logger = logging.getLogger(__name__)
 
 # Core imports
 # Patch numpy.corrcoef to handle constant identical series gracefully used in tests
@@ -121,7 +122,7 @@ def _corrcoef_safe(*args, **kwargs):
                 mat[0, 0] = 1.0
                 mat[1, 1] = 1.0
     except Exception:
-        pass
+        logger.debug("Failed to patch corrcoef for identical series", exc_info=True)
     return mat
 
 

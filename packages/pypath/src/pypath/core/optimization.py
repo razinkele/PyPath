@@ -4,10 +4,17 @@ This module provides tools to optimize Ecosim parameters to match observed time 
 using Bayesian optimization with Gaussian Processes.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+
+from pypath.core.ecopath import Rpath
+from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
+from pypath.core.params import RpathParams
+
+logger = logging.getLogger(__name__)
 
 try:
     from skopt import gp_minimize
@@ -17,10 +24,6 @@ try:
     HAS_SKOPT = True
 except ImportError:
     HAS_SKOPT = False
-
-from pypath.core.ecopath import Rpath
-from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
-from pypath.core.params import RpathParams
 
 
 @dataclass
@@ -273,7 +276,7 @@ class EcosimOptimizer:
             return simulated
         except Exception as e:
             if self.verbose:
-                print(f"Simulation failed with parameters {param_dict}: {e}")
+                logger.error(f"Simulation failed with parameters {param_dict}: {e}")
             # Return high penalty for failed simulations
             return None
 
@@ -391,8 +394,8 @@ class EcosimOptimizer:
             self.n_calls += 1
 
             if self.verbose:
-                print(f"\n=== Iteration {self.n_calls}/{n_calls} ===")
-                print("Parameters:", {k: f"{v:.4f}" for k, v in params.items()})
+                logger.info(f"=== Iteration {self.n_calls}/{n_calls} ===")
+                logger.info("Parameters: %s", {k: f"{v:.4f}" for k, v in params.items()})
 
             # Run simulation
             simulated = self._run_simulation(params)
@@ -401,7 +404,7 @@ class EcosimOptimizer:
             score = self._calculate_objective(simulated)
 
             if self.verbose:
-                print(f"Objective: {score:.6f}")
+                logger.info(f"Objective: {score:.6f}")
 
             # Store results
             all_params_list.append(params.copy())
@@ -411,10 +414,10 @@ class EcosimOptimizer:
 
         # Run optimization
         if self.verbose:
-            print(f"\nStarting Bayesian optimization with {n_calls} evaluations...")
-            print(f"Optimizing parameters: {list(param_bounds.keys())}")
-            print(f"Observed groups: {list(self.observed_data.keys())}")
-            print(f"Simulation years: {len(self.years)}")
+            logger.info(f"Starting Bayesian optimization with {n_calls} evaluations...")
+            logger.info(f"Optimizing parameters: {list(param_bounds.keys())}")
+            logger.info(f"Observed groups: {list(self.observed_data.keys())}")
+            logger.info(f"Simulation years: {len(self.years)}")
 
         self.n_calls = 0
         result = gp_minimize(
@@ -434,16 +437,16 @@ class EcosimOptimizer:
         convergence = [np.min(all_scores[: i + 1]) for i in range(len(all_scores))]
 
         if self.verbose:
-            print(f"\n{'=' * 60}")
-            print("OPTIMIZATION COMPLETE")
-            print(f"{'=' * 60}")
-            print(f"Best score: {best_score:.6f}")
-            print("Best parameters:")
+            logger.info(f"{'=' * 60}")
+            logger.info("OPTIMIZATION COMPLETE")
+            logger.info(f"{'=' * 60}")
+            logger.info(f"Best score: {best_score:.6f}")
+            logger.info("Best parameters:")
             for name, value in best_params.items():
-                print(f"  {name}: {value:.4f}")
-            print(f"Total evaluations: {self.n_calls}")
-            print(f"Optimization time: {optimization_time:.2f} seconds")
-            print(f"{'=' * 60}")
+                logger.info(f"  {name}: {value:.4f}")
+            logger.info(f"Total evaluations: {self.n_calls}")
+            logger.info(f"Optimization time: {optimization_time:.2f} seconds")
+            logger.info(f"{'=' * 60}")
 
         return OptimizationResult(
             best_params=best_params,
@@ -592,7 +595,7 @@ def plot_fit(
     simulated = optimizer._run_simulation(params)
 
     if simulated is None:
-        print("Simulation failed!")
+        logger.error("Simulation failed!")
         return None
 
     # Create figure

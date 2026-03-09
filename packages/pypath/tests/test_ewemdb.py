@@ -120,11 +120,11 @@ class TestReadEwemdb:
             elif table == "EcopathDietComp":
                 return diet_df
             elif table in ["EcopathFleet", "Fleet"]:
-                raise Exception("Table not found")
+                raise EwEDatabaseError("Table not found")
             elif table in ["EcopathCatch", "Catch"]:
-                raise Exception("Table not found")
+                raise EwEDatabaseError("Table not found")
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -182,7 +182,7 @@ class TestReadEwemdb:
             elif table in ["EcopathCatch", "Catch"]:
                 return catch_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -273,7 +273,7 @@ class TestReadEwemdb:
             elif table in ["EcosimCatch", "EcosimAnnualCatch"]:
                 return catch_yr_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -373,7 +373,7 @@ class TestReadEwemdb:
             elif table in ["EcosimFishing", "EcosimEffort"]:
                 return fishing_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -444,7 +444,7 @@ class TestReadEwemdb:
             elif table in ["EcosimForcing", "EcosimForcings", "EcosimForcingTable"]:
                 return forcing_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -515,7 +515,7 @@ class TestReadEwemdb:
             elif table in ["EcosimForcing", "EcosimForcings", "EcosimForcingTable"]:
                 return forcing_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -608,7 +608,7 @@ class TestReadEwemdb:
             elif table in ["EcosimFishing", "EcosimEffort", "EcosimEffortTable"]:
                 return fishing_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -732,7 +732,7 @@ class TestReadEwemdb:
             elif table == "EcospaceDispersal":
                 return dispersal_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -842,9 +842,9 @@ class TestReadEwemdb:
                 "EcospaceGrid",
                 "EcospaceDispersal",
             ]:
-                raise Exception("Table not found")
+                raise EwEDatabaseError("Table not found")
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -943,7 +943,7 @@ class TestReadEwemdb:
             elif table == "EcospaceDispersal":
                 return dispersal_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -1031,7 +1031,7 @@ class TestReadEwemdb:
             elif table in ["EcosimAnnualCatch", "EcosimCatchTable"]:
                 return catch_yr_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -1108,7 +1108,7 @@ class TestReadEwemdb:
             elif table in ["Ecospace_Dispersal", "EcospaceDispersal"]:
                 return dispersal_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 
@@ -1164,7 +1164,7 @@ class TestGetMetadata:
             elif table == "EcopathFleet":
                 return fleet_df
             else:
-                raise Exception(f"Unknown table: {table}")
+                raise EwEDatabaseError(f"Unknown table: {table}")
 
         mock_read_table.side_effect = mock_table_reader
 

@@ -262,7 +262,7 @@ def complex_foodweb_model():
 
 
 # LT2022 real model fixture
-DATA_FILE = Path(__file__).parent.parent / "Data" / "LT2022_0.5ST_final7.eweaccdb"
+DATA_FILE = Path(__file__).parent / "data" / "LT2022_0.5ST_final7.eweaccdb"
 
 
 @pytest.fixture

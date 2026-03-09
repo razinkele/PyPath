@@ -8,6 +8,7 @@ Based on the Prebal routine by Barbara Bauer (SU, 2016).
 """
 
 import logging
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -22,19 +23,45 @@ from pypath_shiny.pages.utils import (  # noqa: E402
     load_rpath_diagnostics,
 )
 
-# Resolve paths relative to this file's location for portability.
-# packages/pypath-shiny/src/pypath_shiny/pages/prebalance.py -> parents[5] = repo root
-_REPO_ROOT = Path(__file__).resolve().parents[5]
-_VERIFY_SCRIPT = _REPO_ROOT / "scripts" / "verify_rpath_reference.py"
+
+def _resolve_repo_root() -> Path | None:
+    """Try to locate the monorepo root via env var or well-known markers.
+
+    Returns None when running outside the monorepo (e.g. installed from PyPI).
+    """
+    # 1. Honour an explicit environment variable
+    env = os.environ.get("PYPATH_REPO_ROOT")
+    if env:
+        p = Path(env)
+        if p.is_dir():
+            return p
+
+    # 2. Walk up from this file looking for the monorepo marker (pyproject.toml
+    #    at the repo root alongside the packages/ directory).
+    candidate = Path(__file__).resolve()
+    for parent in candidate.parents:
+        if (parent / "packages" / "pypath").is_dir() and (
+            parent / "packages" / "pypath" / "pyproject.toml"
+        ).is_file():
+            return parent
+    return None
+
+
+_REPO_ROOT = _resolve_repo_root()
+_VERIFY_SCRIPT = (_REPO_ROOT / "scripts" / "verify_rpath_reference.py") if _REPO_ROOT else None
 _DIAG_DIR = (
-    _REPO_ROOT
-    / "packages"
-    / "pypath"
-    / "tests"
-    / "data"
-    / "rpath_reference"
-    / "ecosim"
-    / "diagnostics"
+    (
+        _REPO_ROOT
+        / "packages"
+        / "pypath"
+        / "tests"
+        / "data"
+        / "rpath_reference"
+        / "ecosim"
+        / "diagnostics"
+    )
+    if _REPO_ROOT
+    else None
 )
 
 
@@ -48,6 +75,8 @@ def rpath_diagnostics_summary(
     """
     if diag_dir is None:
         diag_dir = _DIAG_DIR
+    if diag_dir is None or not Path(diag_dir).is_dir():
+        return "No diagnostics available"
     out = load_rpath_diagnostics(Path(diag_dir))
     if out.get("meta") is None:
         return "No diagnostics available"
@@ -115,9 +144,15 @@ def run_verify_rpath(
 
     if diag_dir is None:
         diag_dir = _DIAG_DIR
+    if diag_dir is None or not Path(diag_dir).is_dir():
+        return {
+            "returncode": -1,
+            "output": "diagnostics directory not found",
+            "error": "missing_diag_dir",
+        }
 
     script = _VERIFY_SCRIPT
-    if not script.exists():
+    if script is None or not script.exists():
         return {
             "returncode": -1,
             "output": "verify script not found",

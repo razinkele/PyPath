@@ -30,26 +30,36 @@ def adjust_fishing(
     Modifies fishing-related forcing matrices (ForcedEffort, ForcedFRate,
     or ForcedCatch) for specified groups and time periods.
 
-    Args:
-        scenario: RsimScenario object to modify
-        parameter: One of 'ForcedEffort', 'ForcedFRate', or 'ForcedCatch'
-        group: Group name(s) or index(es) to modify. Can be:
-            - Single group name (str) or index (int)
-            - List of group names or indices
-        sim_year: Year(s) to modify. Can be:
-            - Single year (int)
-            - Range of years (range object)
-            - List of years
-        value: New value(s) to set. Can be:
-            - Single value applied to all specified cells
-            - Array matching the shape of selected cells
-        sim_month: Optional month(s) to modify (1-12). Only used for
-            ForcedEffort which is monthly. If None, modifies all months.
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    parameter : str
+        One of 'ForcedEffort', 'ForcedFRate', or 'ForcedCatch'
+    group : Union[str, int, List[Union[str, int]]]
+        Group name(s) or index(es) to modify. Can be:
+        - Single group name (str) or index (int)
+        - List of group names or indices
+    sim_year : Union[int, range, List[int]]
+        Year(s) to modify. Can be:
+        - Single year (int)
+        - Range of years (range object)
+        - List of years
+    value : Union[float, np.ndarray]
+        New value(s) to set. Can be:
+        - Single value applied to all specified cells
+        - Array matching the shape of selected cells
+    sim_month : Optional[Union[int, range, List[int]]]
+        Optional month(s) to modify (1-12). Only used for
+        ForcedEffort which is monthly. If None, modifies all months.
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
 
-    Example:
+    Examples
+    --------
         >>> # Double fishing mortality for 'Fish' group in years 10-20
         >>> scenario = adjust_fishing(
         ...     scenario,
@@ -126,25 +136,35 @@ def adjust_forcing(
     ForcedRecs, ForcedSearch, ForcedActresp, ForcedMigrate, ForcedBio)
     for specified groups and time periods.
 
-    Args:
-        scenario: RsimScenario object to modify
-        parameter: One of:
-            - 'ForcedPrey': Prey availability multiplier
-            - 'ForcedMort': Additional mortality multiplier
-            - 'ForcedRecs': Recruitment multiplier
-            - 'ForcedSearch': Search rate multiplier
-            - 'ForcedActresp': Active respiration multiplier
-            - 'ForcedMigrate': Migration rate (additive)
-            - 'ForcedBio': Biomass forcing (-1 = off)
-        group: Group name(s) or index(es) to modify
-        sim_year: Year(s) to modify
-        sim_month: Month(s) to modify (1-12)
-        value: New value(s) to set
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    parameter : str
+        One of:
+        - 'ForcedPrey': Prey availability multiplier
+        - 'ForcedMort': Additional mortality multiplier
+        - 'ForcedRecs': Recruitment multiplier
+        - 'ForcedSearch': Search rate multiplier
+        - 'ForcedActresp': Active respiration multiplier
+        - 'ForcedMigrate': Migration rate (additive)
+        - 'ForcedBio': Biomass forcing (-1 = off)
+    group : Union[str, int, List[Union[str, int]]]
+        Group name(s) or index(es) to modify
+    sim_year : Union[int, range, List[int]]
+        Year(s) to modify
+    sim_month : Union[int, range, List[int]]
+        Month(s) to modify (1-12)
+    value : Union[float, np.ndarray]
+        New value(s) to set
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
 
-    Example:
+    Examples
+    --------
         >>> # Reduce prey availability in summer
         >>> scenario = adjust_forcing(
         ...     scenario,
@@ -219,19 +239,26 @@ def adjust_scenario(
 
     Modifies simulation-wide parameters in the scenario's params object.
 
-    Args:
-        scenario: RsimScenario object to modify
-        parameter: Parameter name to modify. Common options:
-            - 'BURN_YEARS': Number of burn-in years (-1 = off)
-            - 'COUPLED': Coupling flag (0 = uncoupled, 1 = coupled)
-            - 'RK4_STEPS': Integration steps per month
-            - 'SENSE_LIMIT': Sensitivity limits [min, max]
-        value: New value to set
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    parameter : str
+        Parameter name to modify. Common options:
+        - 'BURN_YEARS': Number of burn-in years (-1 = off)
+        - 'COUPLED': Coupling flag (0 = uncoupled, 1 = coupled)
+        - 'RK4_STEPS': Integration steps per month
+        - 'SENSE_LIMIT': Sensitivity limits [min, max]
+    value : Union[float, int, np.ndarray]
+        New value to set
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
 
-    Example:
+    Examples
+    --------
         >>> # Enable burn-in period
         >>> scenario = adjust_scenario(scenario, 'BURN_YEARS', 10)
 
@@ -259,13 +286,20 @@ def set_vulnerability(
     - v = 2: Holling Type II (default)
     - v > 2: Approaches Type III
 
-    Args:
-        scenario: RsimScenario object to modify
-        predator: Predator group name or index
-        prey: Prey group name or index
-        value: New vulnerability value
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    predator : Union[str, int]
+        Predator group name or index
+    prey : Union[str, int]
+        Prey group name or index
+    value : float
+        New vulnerability value
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
     """
     pred_idx = _get_group_index(scenario, predator)
@@ -293,13 +327,20 @@ def set_handling_time(
     - d = 1000: Off (default)
     - d = 0: Maximum satiation effect
 
-    Args:
-        scenario: RsimScenario object to modify
-        predator: Predator group name or index
-        prey: Prey group name or index
-        value: New handling time value
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    predator : Union[str, int]
+        Predator group name or index
+    prey : Union[str, int]
+        Prey group name or index
+    value : float
+        New handling time value
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
     """
     pred_idx = _get_group_index(scenario, predator)
@@ -322,18 +363,25 @@ def adjust_group_parameter(
 
     Modifies group-level parameters in the scenario's params object.
 
-    Args:
-        scenario: RsimScenario object to modify
-        group: Group name or index
-        parameter: Parameter name. Options include:
-            - 'MzeroMort': Background mortality
-            - 'UnassimRespFrac': Unassimilated fraction
-            - 'ActiveRespFrac': Active respiration fraction
-            - 'FtimeAdj': Feeding time adjustment
-            - 'PBopt': Optimal P/B
-        value: New value to set
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    group : Union[str, int]
+        Group name or index
+    parameter : str
+        Parameter name. Options include:
+        - 'MzeroMort': Background mortality
+        - 'UnassimRespFrac': Unassimilated fraction
+        - 'ActiveRespFrac': Active respiration fraction
+        - 'FtimeAdj': Feeding time adjustment
+        - 'PBopt': Optimal P/B
+    value : float
+        New value to set
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
     """
     group_idx = _get_group_index(scenario, group) + 1  # +1 for "Outside"
@@ -464,16 +512,26 @@ def create_fishing_ramp(
     Convenience function to linearly interpolate fishing between
     two values over a range of years.
 
-    Args:
-        scenario: RsimScenario object to modify
-        group: Group to modify
-        start_year: First year of ramp
-        end_year: Last year of ramp
-        start_value: Value at start_year
-        end_value: Value at end_year
-        parameter: Fishing parameter to modify
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    group : Union[str, int]
+        Group to modify
+    start_year : int
+        First year of ramp
+    end_year : int
+        Last year of ramp
+    start_value : float
+        Value at start_year
+    end_value : float
+        Value at end_year
+    parameter : str
+        Fishing parameter to modify
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
     """
     years = list(range(start_year, end_year + 1))
@@ -497,15 +555,24 @@ def create_pulse_forcing(
     Convenience function to add periodic pulse events
     (e.g., recruitment pulses, mortality events).
 
-    Args:
-        scenario: RsimScenario object to modify
-        group: Group to modify
-        pulse_years: List of years with pulse events
-        pulse_months: Month(s) when pulse occurs
-        magnitude: Multiplier for pulse (>1 = increase, <1 = decrease)
-        parameter: Forcing parameter to modify
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    group : Union[str, int]
+        Group to modify
+    pulse_years : List[int]
+        List of years with pulse events
+    pulse_months : Union[int, List[int]]
+        Month(s) when pulse occurs
+    magnitude : float
+        Multiplier for pulse (>1 = increase, <1 = decrease)
+    parameter : str
+        Forcing parameter to modify
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
     """
     for year in pulse_years:
@@ -533,17 +600,26 @@ def create_seasonal_forcing(
     Applies a repeating 12-month pattern of forcing values
     across multiple years.
 
-    Args:
-        scenario: RsimScenario object to modify
-        group: Group to modify
-        years: Years to apply pattern
-        monthly_values: List of 12 values, one per month
-        parameter: Forcing parameter to modify
+    Parameters
+    ----------
+    scenario : RsimScenario
+        RsimScenario object to modify
+    group : Union[str, int]
+        Group to modify
+    years : Union[range, List[int]]
+        Years to apply pattern
+    monthly_values : List[float]
+        List of 12 values, one per month
+    parameter : str
+        Forcing parameter to modify
 
-    Returns:
+    Returns
+    -------
+    RsimScenario
         Modified scenario object
 
-    Example:
+    Examples
+    --------
         >>> # Higher prey availability in summer
         >>> seasonal = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3,
         ...             1.3, 1.2, 1.1, 1.0, 0.9, 0.8]
