@@ -395,7 +395,9 @@ class EcosimOptimizer:
 
             if self.verbose:
                 logger.info(f"=== Iteration {self.n_calls}/{n_calls} ===")
-                logger.info("Parameters: %s", {k: f"{v:.4f}" for k, v in params.items()})
+                logger.info(
+                    "Parameters: %s", {k: f"{v:.4f}" for k, v in params.items()}
+                )
 
             # Run simulation
             simulated = self._run_simulation(params)

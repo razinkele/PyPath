@@ -1000,7 +1000,14 @@ def read_ewemdb(
                 "Populated stanza params: %d groups",
                 params.stanzas.n_stanza_groups,
             )
-    except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError, IndexError, TypeError) as e:
+    except (
+        EwEDatabaseError,
+        FileNotFoundError,
+        ValueError,
+        KeyError,
+        IndexError,
+        TypeError,
+    ) as e:
         logger.debug("Could not read stanza tables: %s", e)
 
     # OPTIONAL: Read Ecosim scenarios and associated time-series if requested
@@ -1226,7 +1233,11 @@ def read_ewemdb(
                                                         (months, 1), dtype=float
                                                     )
                                                     ForcedEffort[:, 0] = arr
-                                                except (ValueError, TypeError, IndexError):
+                                                except (
+                                                    ValueError,
+                                                    TypeError,
+                                                    IndexError,
+                                                ):
                                                     ForcedEffort = None
 
                                         # create dataclasses
@@ -1306,7 +1317,12 @@ def read_ewemdb(
                                                 ForcedEffort=ForcedEffort,
                                             )
                                             scen["rsim_forcing"] = rsim_forcing
-                                        except (ValueError, TypeError, KeyError, IndexError) as _e:
+                                        except (
+                                            ValueError,
+                                            TypeError,
+                                            KeyError,
+                                            IndexError,
+                                        ) as _e:
                                             logger.debug(
                                                 f"Failed to construct RsimForcing: {_e}"
                                             )
@@ -1372,15 +1388,30 @@ def read_ewemdb(
                                                 ForcedCatch=fcatch,
                                             )
                                             scen["rsim_fishing"] = rsim_fishing
-                                        except (ValueError, TypeError, KeyError, IndexError) as _e:
+                                        except (
+                                            ValueError,
+                                            TypeError,
+                                            KeyError,
+                                            IndexError,
+                                        ) as _e:
                                             logger.debug(
                                                 f"Failed to construct RsimFishing: {_e}"
                                             )
-                                    except (ImportError, ValueError, TypeError, KeyError) as _e:
+                                    except (
+                                        ImportError,
+                                        ValueError,
+                                        TypeError,
+                                        KeyError,
+                                    ) as _e:
                                         logger.debug(
                                             f"Failed to import Rsim dataclasses or construct them: {_e}"
                                         )
-                                except (ValueError, TypeError, KeyError, IndexError) as _e:
+                                except (
+                                    ValueError,
+                                    TypeError,
+                                    KeyError,
+                                    IndexError,
+                                ) as _e:
                                     logger.debug(
                                         f"Failed to build forcing matrices for scenario {sid}: {_e}"
                                     )
@@ -2033,7 +2064,10 @@ def _resample_fishing_pivot_to_monthly(
                     )
                     dfm = pd.concat([pad, dfm], axis=1)
                 except (ValueError, TypeError):
-                    logger.debug("Failed to pad forcing DataFrame with leading zero column", exc_info=True)
+                    logger.debug(
+                        "Failed to pad forcing DataFrame with leading zero column",
+                        exc_info=True,
+                    )
                 result[key] = dfm
             else:
                 # fallback to scalar series handling
@@ -2124,7 +2158,11 @@ def _build_forcing_matrices(
                             )
                             mat[:, gi] = monthly
                         except (ValueError, IndexError):
-                            logger.debug("Failed to interpolate forcing time series for group %s", g, exc_info=True)
+                            logger.debug(
+                                "Failed to interpolate forcing time series for group %s",
+                                g,
+                                exc_info=True,
+                            )
         elif isinstance(val, dict) or isinstance(val, list) or val is None:
             # Skip; already handled elsewhere
             pass
@@ -2151,7 +2189,11 @@ def _build_forcing_matrices(
                         fe[g].astype(float).reindex(times).fillna(1.0).values,
                     )
                 except (ValueError, IndexError):
-                    logger.debug("Failed to interpolate ForcedEffort for gear %s", g, exc_info=True)
+                    logger.debug(
+                        "Failed to interpolate ForcedEffort for gear %s",
+                        g,
+                        exc_info=True,
+                    )
         result["ForcedEffort"] = fe_mat
 
     return result
@@ -2789,13 +2831,17 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
             groups_df = read_ewemdb_table(filepath, "EcopathGroup")
             metadata["num_groups"] = len(groups_df)
         except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
-            logger.debug("Failed to read EcopathGroup table for metadata", exc_info=True)
+            logger.debug(
+                "Failed to read EcopathGroup table for metadata", exc_info=True
+            )
 
         try:
             fleet_df = read_ewemdb_table(filepath, "EcopathFleet")
             metadata["num_fleets"] = len(fleet_df)
         except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
-            logger.debug("Failed to read EcopathFleet table for metadata", exc_info=True)
+            logger.debug(
+                "Failed to read EcopathFleet table for metadata", exc_info=True
+            )
 
         # Check for Ecosim scenarios
         try:
@@ -2811,7 +2857,9 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
                 if name_col:
                     metadata["scenarios"] = ecosim_df[name_col].tolist()
         except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
-            logger.debug("Failed to read EcosimScenario table for metadata", exc_info=True)
+            logger.debug(
+                "Failed to read EcosimScenario table for metadata", exc_info=True
+            )
 
         # Check for Ecospace
         try:
@@ -2819,7 +2867,9 @@ def get_ewemdb_metadata(filepath: str) -> Dict[str, Any]:
             if len(ecospace_df) > 0:
                 metadata["has_ecospace"] = True
         except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
-            logger.debug("Failed to read EcospaceScenario table for metadata", exc_info=True)
+            logger.debug(
+                "Failed to read EcospaceScenario table for metadata", exc_info=True
+            )
 
     except Exception as e:
         warnings.warn(f"Could not read all metadata: {e}")
