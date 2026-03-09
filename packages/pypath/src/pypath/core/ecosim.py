@@ -2295,20 +2295,19 @@ def rsim_run(
 
         # Compute consumption QQ matrix for this month to track Qlinks
         QQ_month = _compute_Q_matrix(params_dict, state, forcing_dict)
-        # Dynamic Ftime adjustment: reduce foraging time when consumption exceeds optimal
+        # Dynamic Ftime adjustment: Rpath formula (ecosim.cpp)
+        # new_Ftime = 0.1 + 0.9*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), cap 2.0
         if _has_ftime_adj:
-            Bbase_ft = params_dict.get("Bbase")
             for i in range(1, params.NUM_LIVING + 1):
                 if _ftime_adj[i] > 0 and state[i] > 0 and _ftime_qbopt[i] > 0:
-                    # Actual consumption rate for predator i
-                    actual_qb = float(np.nansum(QQ_month[:, i])) / state[i]
-                    if actual_qb > 0:
-                        ratio = _ftime_qbopt[i] / actual_qb
-                        _ftime_current[i] = (
-                            _ftime_adj[i] * ratio * _ftime_current[i]
-                            + (1 - _ftime_adj[i]) * _ftime_current[i]
-                        )
-                        _ftime_current[i] = max(0.01, min(1000.0, _ftime_current[i]))
+                    food_gain = float(np.nansum(QQ_month[:, i]))
+                    _ftime_current[i] = _ftime_update_rpath(
+                        _ftime_current[i],
+                        _ftime_adj[i],
+                        _ftime_qbopt[i],
+                        food_gain,
+                        state[i],
+                    )
         # Accumulate monthly Q (converted to monthly by dividing by 12)
         if annual_qlink is not None:
             for li in range(len(params.PreyFrom)):
@@ -2450,6 +2449,19 @@ def _build_link_matrix(params: RsimParams, link_values: np.ndarray) -> np.ndarra
         if prey < n and pred < n and i < len(link_values):
             matrix[prey, pred] = link_values[i]
     return matrix
+
+
+def _ftime_update_rpath(old_ftime, ftadj, qbopt, food_gain, biomass):
+    """Update foraging time using Rpath formula (ecosim.cpp).
+
+    new_Ftime = 0.1 + 0.9 * old_Ftime * ((1-adj) + adj * QBopt / (FoodGain/B))
+    Capped at 2.0 per Rpath.
+    """
+    if food_gain <= 0 or biomass <= 0 or qbopt <= 0:
+        return old_ftime
+    actual_qb = food_gain / biomass
+    new_ftime = 0.1 + 0.9 * old_ftime * ((1.0 - ftadj) + ftadj * qbopt / actual_qb)
+    return min(new_ftime, 2.0)
 
 
 def _compute_Q_matrix(
