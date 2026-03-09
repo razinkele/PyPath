@@ -187,6 +187,21 @@ app_ui = ui.page_fluid(
             _icon_label("bi-info-circle", "About"), about.about_ui(), value="About"
         ),
         ui.nav_control(
+            ui.tags.a(
+                ui.TagList(
+                    ui.tags.i(
+                        class_="bi bi-book",
+                        style="margin-right: 8px;",
+                    ),
+                    "API Documentation",
+                ),
+                href="https://razinkele.github.io/PyPath/",
+                target="_blank",
+                class_="btn btn-link text-start w-100 p-2",
+                style="text-decoration: none;",
+            ),
+        ),
+        ui.nav_control(
             ui.input_action_button(
                 "btn_settings",
                 _icon_label("bi-gear-fill", "Settings"),

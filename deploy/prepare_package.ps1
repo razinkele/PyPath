@@ -131,8 +131,13 @@ Write-Info "Cleaning up cache files..."
 Get-ChildItem -Path $PackageDir -Include "__pycache__", "*.pyc", ".pytest_cache" -Recurse -Force |
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-# Create version file
-$Version = (Get-Date -Format "yyyy.MM.dd")
+# Read version from pyproject.toml
+$PyprojectPath = Join-Path $ProjectRoot "packages\pypath\pyproject.toml"
+$Version = "unknown"
+if (Test-Path $PyprojectPath) {
+    $match = Select-String -Path $PyprojectPath -Pattern '^version\s*=\s*"(.+)"' | Select-Object -First 1
+    if ($match) { $Version = $match.Matches.Groups[1].Value }
+}
 $GitHash = ""
 try {
     $GitHash = (git -C $ProjectRoot rev-parse --short HEAD 2>$null)

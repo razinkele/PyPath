@@ -13,7 +13,7 @@ on:
         default: ''
   push:
     branches: [ main ]
-    tags: ['v*']
+    tags: ['v*', 'pypath-*-v*']
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -61,7 +61,7 @@ jobs:
         run: |
           set -e
           echo "GITHUB_REF=${GITHUB_REF:-}"
-          if [ -n "${GITHUB_REF:-}" ] && echo "${GITHUB_REF:-}" | grep -qE '^refs/tags/v'; then
+          if [ -n "${GITHUB_REF:-}" ] && echo "${GITHUB_REF:-}" | grep -qE '^refs/tags/(v|pypath-.*-v)'; then
             echo "is_production=true" >> $GITHUB_OUTPUT
             echo "tag_name=$(echo ${GITHUB_REF#refs/tags/})" >> $GITHUB_OUTPUT
           else
@@ -153,6 +153,9 @@ jobs:
           echo "Installing packages..."
           ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath'"
           ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath-shiny'"
+          # Log deployed version
+          ssh "$REMOTE" "'${TARGET}/venv/bin/python' -c 'import pypath; print(f\"Deployed pypath-ewe v{pypath.__version__}\")'"
+          ssh "$REMOTE" "'${TARGET}/venv/bin/python' -c 'import pypath_shiny; print(f\"Deployed pypath-shiny v{pypath_shiny.__version__}\")'"
           echo "Packages installed successfully."
 
       - name: Fix ownership

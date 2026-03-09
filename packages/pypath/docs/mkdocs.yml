@@ -9,12 +9,24 @@ theme:
   features:
     - navigation.sections
     - navigation.expand
+    - navigation.top
     - search.suggest
+    - search.highlight
     - content.code.copy
+    - content.tabs.link
   palette:
     - scheme: default
       primary: teal
       accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
 
 plugins:
   - search
@@ -26,6 +38,18 @@ plugins:
             show_source: true
             show_root_heading: true
             heading_level: 3
+            docstring_style: numpy
+            show_signature_annotations: true
+            separate_signature: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
 
 nav:
   - Home: index.md

@@ -1,0 +1,150 @@
+name: Release & Publish
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-core:
+    name: Release pypath-ewe
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/pypath
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: pip install python-semantic-release build
+
+      - name: Semantic Release (pypath-ewe)
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version --no-push --no-commit 2>&1 | tee /tmp/sr-output.txt
+          if grep -q "No release will be made" /tmp/sr-output.txt; then
+            echo "released=false" >> $GITHUB_OUTPUT
+          else
+            echo "released=true" >> $GITHUB_OUTPUT
+            echo "version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build package
+        if: steps.release.outputs.released == 'true'
+        run: python -m build
+
+      - name: Publish to PyPI
+        if: steps.release.outputs.released == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/pypath/dist/
+
+      - name: Commit version bump & tag
+        if: steps.release.outputs.released == 'true'
+        run: |
+          cd ../..
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packages/pypath/pyproject.toml packages/pypath/src/pypath/__init__.py packages/pypath/CHANGELOG.md
+          git commit -m "chore(release): pypath-ewe v${{ steps.release.outputs.version }}"
+          git tag "pypath-ewe-v${{ steps.release.outputs.version }}"
+          git push origin main --tags
+
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      version: ${{ steps.release.outputs.version }}
+
+  release-shiny:
+    name: Release pypath-shiny
+    needs: release-core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/pypath-shiny
+    steps:
+      - name: Checkout (latest, after core release commit)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: pip install python-semantic-release build
+
+      - name: Semantic Release (pypath-shiny)
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version --no-push --no-commit 2>&1 | tee /tmp/sr-output.txt
+          if grep -q "No release will be made" /tmp/sr-output.txt; then
+            echo "released=false" >> $GITHUB_OUTPUT
+          else
+            echo "released=true" >> $GITHUB_OUTPUT
+            echo "version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build package
+        if: steps.release.outputs.released == 'true'
+        run: python -m build
+
+      - name: Publish to PyPI
+        if: steps.release.outputs.released == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/pypath-shiny/dist/
+
+      - name: Commit version bump & tag
+        if: steps.release.outputs.released == 'true'
+        run: |
+          cd ../..
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packages/pypath-shiny/pyproject.toml packages/pypath-shiny/src/pypath_shiny/__init__.py packages/pypath-shiny/CHANGELOG.md
+          git commit -m "chore(release): pypath-shiny v${{ steps.release.outputs.version }}"
+          git tag "pypath-shiny-v${{ steps.release.outputs.version }}"
+          git push origin main --tags
+
+  create-github-release:
+    name: Create GitHub Release
+    needs: [release-core, release-shiny]
+    if: needs.release-core.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "pypath-ewe-v${{ needs.release-core.outputs.version }}"
+          name: "PyPath v${{ needs.release-core.outputs.version }}"
+          generate_release_notes: true

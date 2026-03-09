@@ -66,6 +66,8 @@ dev = [
     "black>=23.0",
     "ruff>=0.1",
     "mypy>=1.0",
+    "build>=1.0",
+    "python-semantic-release>=9.0",
 ]
 all = [
     "pypath-ewe[interactive,spatial,spatial-data,biodata,numba,docs,dev]",
@@ -106,3 +108,17 @@ ignore = ["E501"]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/pypath/__init__.py:__version__"]
+branch = "main"
+commit_message = "chore(release): pypath-ewe v{version}"
+tag_format = "pypath-ewe-v{version}"
+changelog_file = "CHANGELOG.md"
+build_command = "python -m build"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["feat", "fix", "perf", "refactor", "style", "docs", "test", "ci", "chore", "build"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]

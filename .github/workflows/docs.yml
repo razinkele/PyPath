@@ -1,0 +1,42 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/pypath/docs/**"
+      - "packages/pypath/src/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-docs:
+    name: Build & Deploy MkDocs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -e "packages/pypath[docs]"
+          pip install mkdocs-material "mkdocstrings[python]"
+
+      - name: Build docs
+        working-directory: packages/pypath/docs
+        run: mkdocs build --strict
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: packages/pypath/docs/site
+          publish_branch: gh-pages
