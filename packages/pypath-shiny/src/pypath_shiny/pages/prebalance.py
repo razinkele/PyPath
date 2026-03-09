@@ -48,7 +48,9 @@ def _resolve_repo_root() -> Path | None:
 
 
 _REPO_ROOT = _resolve_repo_root()
-_VERIFY_SCRIPT = (_REPO_ROOT / "scripts" / "verify_rpath_reference.py") if _REPO_ROOT else None
+_VERIFY_SCRIPT = (
+    (_REPO_ROOT / "scripts" / "verify_rpath_reference.py") if _REPO_ROOT else None
+)
 _DIAG_DIR = (
     (
         _REPO_ROOT
