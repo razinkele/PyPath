@@ -3,12 +3,11 @@
 import numpy as np
 import pytest
 
-from pypath.core.link_array import ActiveLinkArray
 from pypath.core.ecosim_deriv import (
     _compute_consumption_python,
     _compute_consumption_sparse_python,
 )
-
+from pypath.core.link_array import ActiveLinkArray
 
 # ---------------------------------------------------------------------------
 # ActiveLinkArray.from_bool_matrix
