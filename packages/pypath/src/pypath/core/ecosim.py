@@ -2003,12 +2003,23 @@ def rsim_run(
         month_in_year = (month - 1) % 12
 
         # Build forcing dict for this timestep
+        # ForcedPrey: prey availability multiplier per group per month.
+        # For producers this also serves as the primary production forcing.
+        _forced_prey = (
+            forcing.ForcedPrey[month - 1]
+            if hasattr(forcing, "ForcedPrey")
+            and forcing.ForcedPrey is not None
+            and month - 1 < len(forcing.ForcedPrey)
+            else np.ones(params.NUM_GROUPS + 1)
+        )
         forcing_dict = {
             "Ftime": _ftime_current,
             "ForcedBio": np.where(
                 forcing.ForcedBio[month - 1] > 0, forcing.ForcedBio[month - 1], 0
             ),
             "ForcedMigrate": forcing.ForcedMigrate[month - 1],
+            "ForcedPrey": _forced_prey,
+            "PP_forcing": _forced_prey,
             "ForcedEffort": (
                 fishing_obj.ForcedEffort[month - 1]
                 if month - 1 < len(fishing_obj.ForcedEffort)
