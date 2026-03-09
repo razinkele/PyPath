@@ -33,13 +33,27 @@ logger = logging.getLogger(__name__)
 
 
 def _compute_consumption_python(
-    QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY, NUM_LIVING, NUM_GROUPS
+    QQ,
+    BB,
+    ActiveLink,
+    VV,
+    DD,
+    QQbase,
+    preyYY,
+    predYY,
+    NUM_LIVING,
+    NUM_GROUPS,
+    ScrambleSelf=None,
+    HandleSelf=None,
+    PredPredWeight=None,
+    PreyPreyWeight=None,
+    HandleSwitch=None,
+    COUPLED=1,
 ):
     """Compute the consumption matrix QQ in-place using foraging arena theory.
 
-    This is the pure-Python implementation of the inner consumption loop.
-    It takes only numpy arrays and ints so that it can also be JIT-compiled
-    by numba for a significant speed-up.
+    This is the pure-Python implementation of the inner consumption loop,
+    matching the Rpath C++ ecosim.cpp lines 570-606.
 
     Parameters
     ----------
@@ -63,7 +77,39 @@ def _compute_consumption_python(
         Number of living groups.
     NUM_GROUPS : int
         Total number of groups.
+    ScrambleSelf : np.ndarray or None
+        Per-link scramble self fraction [prey, pred]. If None, no pooling.
+    HandleSelf : np.ndarray or None
+        Per-link handle self fraction [prey, pred]. If None, no pooling.
+    PredPredWeight : np.ndarray or None
+        Weight matrix for PredSuite computation [prey, pred].
+    PreyPreyWeight : np.ndarray or None
+        Weight matrix for HandleSuite computation [prey, pred].
+    HandleSwitch : np.ndarray or None
+        Per-link prey switching exponent [prey, pred].
+    COUPLED : int
+        Coupling flag (1 = coupled, 0 = uncoupled).
     """
+    use_pooling = (
+        ScrambleSelf is not None
+        and HandleSelf is not None
+        and PredPredWeight is not None
+        and PreyPreyWeight is not None
+    )
+
+    # Pre-compute PredSuite (indexed by prey) and HandleSuite (indexed by pred)
+    # PredSuite[prey] = sum over preds of predYY[pred] * PredPredWeight[prey, pred]
+    # HandleSuite[pred] = sum over preys of preyYY[prey] * PreyPreyWeight[prey, pred]
+    if use_pooling:
+        PredSuite = np.zeros(NUM_GROUPS + 1)
+        HandleSuite = np.zeros(NUM_GROUPS + 1)
+        for pred in range(1, NUM_LIVING + 1):
+            for prey in range(1, NUM_GROUPS + 1):
+                if ActiveLink[prey, pred] == 0:
+                    continue
+                PredSuite[prey] += predYY[pred] * PredPredWeight[prey, pred]
+                HandleSuite[pred] += preyYY[prey] * PreyPreyWeight[prey, pred]
+
     for pred in range(1, NUM_LIVING + 1):
         if BB[pred] <= 0.0:
             continue
@@ -83,21 +129,47 @@ def _compute_consumption_python(
             PYY = preyYY[prey]
             PDY = predYY[pred]
 
-            # Handling time term: approaches 1.0 when DD is large
+            # Determine HandleSwitch exponent for this link
+            hs_exp = 0.0
+            if HandleSwitch is not None:
+                hs_exp = HandleSwitch[prey, pred] * COUPLED
+
+            # PYY term with HandleSwitch exponent
+            if hs_exp > 0.0:
+                pyy_safe = max(PYY, 1e-10)
+                PYY_term = pyy_safe ** hs_exp
+            else:
+                PYY_term = PYY
+
+            # Handling time term (DD denominator) with suite pooling
             if dd > 1.0:
-                pyy_safe = PYY if PYY > 1e-10 else 1e-10
-                dd_term = dd / (dd - 1.0 + pyy_safe)
+                if use_pooling:
+                    Hself = HandleSelf[prey, pred]
+                    dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
+                else:
+                    dd_prey_eff = PYY
+                dd_prey_safe = max(dd_prey_eff, 1e-10)
+                if hs_exp > 0.0:
+                    dd_denom = dd_prey_safe ** hs_exp
+                else:
+                    dd_denom = dd_prey_safe
+                dd_term = dd / (dd - 1.0 + dd_denom)
             else:
                 dd_term = 1.0
 
-            # Vulnerability term: VV/(VV-1+predYY)
+            # Vulnerability term (VV denominator) with suite pooling
             if vv > 1.0:
-                pdy_safe = PDY if PDY > 1e-10 else 1e-10
-                vv_term = vv / (vv - 1.0 + pdy_safe)
+                if use_pooling:
+                    Sself = ScrambleSelf[prey, pred]
+                    vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
+                else:
+                    vv_pred_eff = PDY
+                vv_pred_safe = max(vv_pred_eff, 1e-10)
+                vv_term = vv / (vv - 1.0 + vv_pred_safe)
             else:
                 vv_term = 1.0
 
-            Q_calc = qbase * PDY * PYY * dd_term * vv_term
+            Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
 
             if Q_calc > 0.0:
                 QQ[prey, pred] = Q_calc
@@ -105,42 +177,9 @@ def _compute_consumption_python(
                 QQ[prey, pred] = 0.0
 
 
-if HAS_NUMBA:
-    _compute_consumption_numba = numba.njit(cache=True)(_compute_consumption_python)
-else:
-    _compute_consumption_numba = None
-
-
-def _compute_consumption(
-    QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY, NUM_LIVING, NUM_GROUPS
-):
-    """Dispatch to numba-compiled or pure-Python consumption loop."""
-    if _compute_consumption_numba is not None:
-        _compute_consumption_numba(
-            QQ,
-            BB,
-            ActiveLink,
-            VV,
-            DD,
-            QQbase,
-            preyYY,
-            predYY,
-            NUM_LIVING,
-            NUM_GROUPS,
-        )
-    else:
-        _compute_consumption_python(
-            QQ,
-            BB,
-            ActiveLink,
-            VV,
-            DD,
-            QQbase,
-            preyYY,
-            predYY,
-            NUM_LIVING,
-            NUM_GROUPS,
-        )
+# Disable numba for the dense kernel — the new signature uses keyword args
+# which numba.njit does not support.  Use pure-Python unconditionally.
+_compute_consumption = _compute_consumption_python
 
 
 # =============================================================================
@@ -149,7 +188,22 @@ def _compute_consumption(
 
 
 def _compute_consumption_sparse_python(
-    QQ, BB, VV, DD, QQbase, preyYY, predYY, link_prey, link_pred, n_links
+    QQ,
+    BB,
+    VV,
+    DD,
+    QQbase,
+    preyYY,
+    predYY,
+    link_prey,
+    link_pred,
+    n_links,
+    ScrambleSelf=None,
+    HandleSelf=None,
+    PredPredWeight=None,
+    PreyPreyWeight=None,
+    HandleSwitch=None,
+    COUPLED=1,
 ):
     """Compute consumption using pre-computed link arrays (single flat loop).
 
@@ -179,7 +233,37 @@ def _compute_consumption_sparse_python(
         int64 array of predator indices for each active link.
     n_links : int
         Number of active links.
+    ScrambleSelf : np.ndarray or None
+        Per-link scramble self fraction [prey, pred]. If None, no pooling.
+    HandleSelf : np.ndarray or None
+        Per-link handle self fraction [prey, pred]. If None, no pooling.
+    PredPredWeight : np.ndarray or None
+        Weight matrix for PredSuite computation [prey, pred].
+    PreyPreyWeight : np.ndarray or None
+        Weight matrix for HandleSuite computation [prey, pred].
+    HandleSwitch : np.ndarray or None
+        Per-link prey switching exponent [prey, pred].
+    COUPLED : int
+        Coupling flag (1 = coupled, 0 = uncoupled).
     """
+    use_pooling = (
+        ScrambleSelf is not None
+        and HandleSelf is not None
+        and PredPredWeight is not None
+        and PreyPreyWeight is not None
+    )
+
+    # Pre-compute PredSuite and HandleSuite by iterating over active links
+    n_g = QQ.shape[0]
+    if use_pooling:
+        PredSuite = np.zeros(n_g)
+        HandleSuite = np.zeros(n_g)
+        for idx in range(n_links):
+            prey = link_prey[idx]
+            pred = link_pred[idx]
+            PredSuite[prey] += predYY[pred] * PredPredWeight[prey, pred]
+            HandleSuite[pred] += preyYY[prey] * PreyPreyWeight[prey, pred]
+
     for idx in range(n_links):
         prey = link_prey[idx]
         pred = link_pred[idx]
@@ -194,24 +278,50 @@ def _compute_consumption_sparse_python(
         PYY = preyYY[prey]
         PDY = predYY[pred]
 
-        # Handling time term: approaches 1.0 when DD is large
         vv = VV[prey, pred]
         dd = DD[prey, pred]
 
+        # Determine HandleSwitch exponent for this link
+        hs_exp = 0.0
+        if HandleSwitch is not None:
+            hs_exp = HandleSwitch[prey, pred] * COUPLED
+
+        # PYY term with HandleSwitch exponent
+        if hs_exp > 0.0:
+            pyy_safe = max(PYY, 1e-10)
+            PYY_term = pyy_safe ** hs_exp
+        else:
+            PYY_term = PYY
+
+        # Handling time term (DD denominator) with suite pooling
         if dd > 1.0:
-            pyy_safe = PYY if PYY > 1e-10 else 1e-10
-            dd_term = dd / (dd - 1.0 + pyy_safe)
+            if use_pooling:
+                Hself = HandleSelf[prey, pred]
+                dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
+            else:
+                dd_prey_eff = PYY
+            dd_prey_safe = max(dd_prey_eff, 1e-10)
+            if hs_exp > 0.0:
+                dd_denom = dd_prey_safe ** hs_exp
+            else:
+                dd_denom = dd_prey_safe
+            dd_term = dd / (dd - 1.0 + dd_denom)
         else:
             dd_term = 1.0
 
-        # Vulnerability term: VV/(VV-1+predYY)
+        # Vulnerability term (VV denominator) with suite pooling
         if vv > 1.0:
-            pdy_safe = PDY if PDY > 1e-10 else 1e-10
-            vv_term = vv / (vv - 1.0 + pdy_safe)
+            if use_pooling:
+                Sself = ScrambleSelf[prey, pred]
+                vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
+            else:
+                vv_pred_eff = PDY
+            vv_pred_safe = max(vv_pred_eff, 1e-10)
+            vv_term = vv / (vv - 1.0 + vv_pred_safe)
         else:
             vv_term = 1.0
 
-        Q_calc = qbase * PDY * PYY * dd_term * vv_term
+        Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
 
         if Q_calc > 0.0:
             QQ[prey, pred] = Q_calc
@@ -219,44 +329,8 @@ def _compute_consumption_sparse_python(
             QQ[prey, pred] = 0.0
 
 
-if HAS_NUMBA:
-    _compute_consumption_sparse_numba = numba.njit(cache=True)(
-        _compute_consumption_sparse_python
-    )
-else:
-    _compute_consumption_sparse_numba = None
-
-
-def _compute_consumption_sparse(
-    QQ, BB, VV, DD, QQbase, preyYY, predYY, link_prey, link_pred, n_links
-):
-    """Dispatch to numba-compiled or pure-Python sparse consumption loop."""
-    if _compute_consumption_sparse_numba is not None:
-        _compute_consumption_sparse_numba(
-            QQ,
-            BB,
-            VV,
-            DD,
-            QQbase,
-            preyYY,
-            predYY,
-            link_prey,
-            link_pred,
-            n_links,
-        )
-    else:
-        _compute_consumption_sparse_python(
-            QQ,
-            BB,
-            VV,
-            DD,
-            QQbase,
-            preyYY,
-            predYY,
-            link_prey,
-            link_pred,
-            n_links,
-        )
+# Disable numba for the sparse kernel — the new signature uses keyword args.
+_compute_consumption_sparse = _compute_consumption_sparse_python
 
 
 # =============================================================================
@@ -1022,12 +1096,13 @@ def deriv_vector(
     ForcedMigrate = forcing.get("ForcedMigrate", np.zeros(NUM_GROUPS + 1))
 
     # Calculate relative biomass arrays (vectorized)
-    # preyYY = B / Bbase * prey_forcing (where Bbase > 0)
+    # preyYY = Ftime * B / Bbase * prey_forcing (where Bbase > 0)
+    # Ftime is applied to both preyYY and predYY to match Rpath C++ ecosim.cpp
     safe_bbase = np.where(Bbase > 0, Bbase, 1.0)
     preyYY = np.zeros(NUM_GROUPS + 1)
     preyYY[1:] = np.where(
         Bbase[1:] > 0,
-        BB[1:] / safe_bbase[1:] * ForcedPrey[1:],
+        Ftime[1:] * BB[1:] / safe_bbase[1:] * ForcedPrey[1:],
         0.0,
     )
 
@@ -1043,7 +1118,15 @@ def deriv_vector(
     # Get base consumption matrix
     QQbase = params.get("QQbase", np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
 
-    # Compute consumption matrix via numba-accelerated (or pure-Python) kernel.
+    # Extract suite-pooling parameters (None means old behaviour / no pooling)
+    _ScrambleSelf = params.get("ScrambleSelf")
+    _HandleSelf = params.get("HandleSelf")
+    _PredPredWeight = params.get("PredPredWeight")
+    _PreyPreyWeight = params.get("PreyPreyWeight")
+    _HandleSwitch = params.get("HandleSwitch")
+    _COUPLED = params.get("COUPLED", 1)
+
+    # Compute consumption matrix via pure-Python kernel.
     # Use pre-computed sparse link arrays when available (avoids iterating
     # over inactive links); otherwise fall back to the dense kernel.
     _link_prey = params.get("_link_prey", None)
@@ -1060,6 +1143,12 @@ def deriv_vector(
             _link_prey,
             _link_pred,
             len(_link_prey),
+            ScrambleSelf=_ScrambleSelf,
+            HandleSelf=_HandleSelf,
+            PredPredWeight=_PredPredWeight,
+            PreyPreyWeight=_PreyPreyWeight,
+            HandleSwitch=_HandleSwitch,
+            COUPLED=_COUPLED,
         )
     else:
         # ActiveLink may be a boolean array; ensure it is integer for numba compat.
@@ -1077,6 +1166,12 @@ def deriv_vector(
             predYY,
             NUM_LIVING,
             NUM_GROUPS,
+            ScrambleSelf=_ScrambleSelf,
+            HandleSelf=_HandleSelf,
+            PredPredWeight=_PredPredWeight,
+            PreyPreyWeight=_PreyPreyWeight,
+            HandleSwitch=_HandleSwitch,
+            COUPLED=_COUPLED,
         )
 
     # Post-loop instrumentation: log per-link breakdown for interesting groups

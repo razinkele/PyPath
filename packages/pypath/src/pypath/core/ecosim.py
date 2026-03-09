@@ -841,6 +841,7 @@ def rsim_scenario(
     rpath_params: RpathParams,
     years: range = range(1, 101),
     vulnerability: float = 2.0,
+    scenario_overrides: dict = None,
 ) -> RsimScenario:
     """Create a complete Ecosim scenario.
 
@@ -858,6 +859,11 @@ def rsim_scenario(
         - 1.0 = donor control (top-down)
         - 2.0 = mixed control
         - Higher values = more bottom-up control
+    scenario_overrides : dict, optional
+        EwE scenario-level parameter overrides. Keys:
+        - 'ftime_adjust': dict mapping 0-based group index -> FtimeAdjust value
+        - 'vv_overrides': dict mapping (prey_0based, pred_0based) -> VV value
+        - 'forced_bio': dict mapping 0-based group index -> array of annual biomass values
 
     Returns
     -------
@@ -868,6 +874,24 @@ def rsim_scenario(
         raise ValueError("Years must be a range of at least 2 years")
 
     params = rsim_params(rpath, mscramble=vulnerability)
+    # Apply scenario-level overrides from EwE database
+    if scenario_overrides:
+        # Apply FtimeAdjust per group
+        if "ftime_adjust" in scenario_overrides:
+            for g, val in scenario_overrides["ftime_adjust"].items():
+                ecosim_idx = g + 1  # 0-based group -> 1-based ecosim index
+                if ecosim_idx < len(params.FtimeAdj):
+                    params.FtimeAdj[ecosim_idx] = val
+
+        # Apply VV overrides from forcing matrix
+        if "vv_overrides" in scenario_overrides:
+            vv_dict = scenario_overrides["vv_overrides"]
+            for lk in range(len(params.PreyFrom)):
+                prey_g = params.PreyFrom[lk] - 1  # ecosim -> 0-based
+                pred_g = params.PreyTo[lk] - 1
+                if (prey_g, pred_g) in vv_dict:
+                    params.VV[lk] = vv_dict[(prey_g, pred_g)]
+
     # Preserve optional instrumentation and debug controls set on the
     # original RpathParams object by copying them onto the generated
     # rsim params object. This allows callers/tests to attach
@@ -1059,6 +1083,44 @@ def rsim_run(
     _links = ActiveLinkArray.from_bool_matrix(params_dict["ActiveLink"])
     params_dict["_link_prey"] = _links.prey
     params_dict["_link_pred"] = _links.pred
+
+    # --- Suite-pooling parameters for Rpath-compatible Q formula ----------
+    # HandleSelf / ScrambleSelf are per-link 1-D arrays on RsimParams;
+    # convert them to 2-D matrices indexed [prey, pred] like VV / DD.
+    params_dict["HandleSelf"] = (
+        _build_link_matrix(params, params.HandleSelf)
+        if hasattr(params, "HandleSelf")
+        else None
+    )
+    params_dict["ScrambleSelf"] = (
+        _build_link_matrix(params, params.ScrambleSelf)
+        if hasattr(params, "ScrambleSelf")
+        else None
+    )
+    params_dict["HandleSwitch"] = (
+        _build_link_matrix(params, params.HandleSwitch)
+        if hasattr(params, "HandleSwitch")
+        else None
+    )
+    params_dict["COUPLED"] = 1
+
+    # Build weight matrices (default 1.0 per active link)
+    n_pp = params.NUM_GROUPS + 1
+    PredPredWeight = np.zeros((n_pp, n_pp))
+    PreyPreyWeight = np.zeros((n_pp, n_pp))
+    if hasattr(params, "PredPredWeight") and hasattr(params, "PreyPreyWeight"):
+        PredPredWeight = _build_link_matrix(params, params.PredPredWeight)
+        PreyPreyWeight = _build_link_matrix(params, params.PreyPreyWeight)
+    else:
+        # Fallback: weight 1.0 for every active link
+        for lk in range(len(params.PreyFrom)):
+            prey = params.PreyFrom[lk]
+            pred = params.PreyTo[lk]
+            if prey < n_pp and pred < n_pp:
+                PredPredWeight[prey, pred] = 1.0
+                PreyPreyWeight[prey, pred] = 1.0
+    params_dict["PredPredWeight"] = PredPredWeight
+    params_dict["PreyPreyWeight"] = PreyPreyWeight
 
     # Propagate IBM groups if any functional groups are IBM-managed.
     if hasattr(params, "ibm_groups"):
@@ -1906,8 +1968,12 @@ def rsim_run(
         np.asarray(params_dict.get("NoIntegrate", np.zeros(n_groups))) != 0
     )
 
-    # Pre-copy Ftime once — it is static and doesn't change across months.
-    _ftime_snapshot = scenario.start_state.Ftime.copy()
+    # Ftime is dynamically adjusted when FtimeAdj > 0.
+    # Initialize from start state; updated each month based on consumption.
+    _ftime_current = scenario.start_state.Ftime.copy()
+    _ftime_adj = params.FtimeAdj
+    _ftime_qbopt = params.FtimeQBOpt
+    _has_ftime_adj = np.any(_ftime_adj > 0)
 
     # Main simulation loop
     # Debug: log fishing link summary before starting loop
@@ -1938,7 +2004,7 @@ def rsim_run(
 
         # Build forcing dict for this timestep
         forcing_dict = {
-            "Ftime": _ftime_snapshot,
+            "Ftime": _ftime_current,
             "ForcedBio": np.where(
                 forcing.ForcedBio[month - 1] > 0, forcing.ForcedBio[month - 1], 0
             ),
@@ -2218,6 +2284,20 @@ def rsim_run(
 
         # Compute consumption QQ matrix for this month to track Qlinks
         QQ_month = _compute_Q_matrix(params_dict, state, forcing_dict)
+        # Dynamic Ftime adjustment: reduce foraging time when consumption exceeds optimal
+        if _has_ftime_adj:
+            Bbase_ft = params_dict.get("Bbase")
+            for i in range(1, params.NUM_LIVING + 1):
+                if _ftime_adj[i] > 0 and state[i] > 0 and _ftime_qbopt[i] > 0:
+                    # Actual consumption rate for predator i
+                    actual_qb = float(np.nansum(QQ_month[:, i])) / state[i]
+                    if actual_qb > 0:
+                        ratio = _ftime_qbopt[i] / actual_qb
+                        _ftime_current[i] = (
+                            _ftime_adj[i] * ratio * _ftime_current[i]
+                            + (1 - _ftime_adj[i]) * _ftime_current[i]
+                        )
+                        _ftime_current[i] = max(0.01, min(1000.0, _ftime_current[i]))
         # Accumulate monthly Q (converted to monthly by dividing by 12)
         if annual_qlink is not None:
             for li in range(len(params.PreyFrom)):
