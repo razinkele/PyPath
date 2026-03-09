@@ -106,9 +106,7 @@ def _compute_consumption_python(
 
 
 if HAS_NUMBA:
-    _compute_consumption_numba = numba.njit(cache=True)(
-        _compute_consumption_python
-    )
+    _compute_consumption_numba = numba.njit(cache=True)(_compute_consumption_python)
 else:
     _compute_consumption_numba = None
 
@@ -119,13 +117,29 @@ def _compute_consumption(
     """Dispatch to numba-compiled or pure-Python consumption loop."""
     if _compute_consumption_numba is not None:
         _compute_consumption_numba(
-            QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY,
-            NUM_LIVING, NUM_GROUPS,
+            QQ,
+            BB,
+            ActiveLink,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
     else:
         _compute_consumption_python(
-            QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY,
-            NUM_LIVING, NUM_GROUPS,
+            QQ,
+            BB,
+            ActiveLink,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
 
@@ -219,13 +233,29 @@ def _compute_consumption_sparse(
     """Dispatch to numba-compiled or pure-Python sparse consumption loop."""
     if _compute_consumption_sparse_numba is not None:
         _compute_consumption_sparse_numba(
-            QQ, BB, VV, DD, QQbase, preyYY, predYY,
-            link_prey, link_pred, n_links,
+            QQ,
+            BB,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            link_prey,
+            link_pred,
+            n_links,
         )
     else:
         _compute_consumption_sparse_python(
-            QQ, BB, VV, DD, QQbase, preyYY, predYY,
-            link_prey, link_pred, n_links,
+            QQ,
+            BB,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            link_prey,
+            link_pred,
+            n_links,
         )
 
 
@@ -235,8 +265,20 @@ def _compute_consumption_sparse(
 
 
 def _compute_living_derivs_python(
-    deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates, GE_arr,
-    PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+    deriv,
+    QQ,
+    BB,
+    M0_arr,
+    ForcedMigrate,
+    FishMort,
+    pp_rates,
+    GE_arr,
+    PP_type,
+    PB,
+    QB,
+    ibm_mask,
+    NUM_LIVING,
+    NUM_GROUPS,
 ):
     """Compute derivatives for living groups in-place.
 
@@ -318,27 +360,61 @@ def _compute_living_derivs_python(
 
 
 if HAS_NUMBA:
-    _compute_living_derivs_numba = numba.njit(cache=True)(
-        _compute_living_derivs_python
-    )
+    _compute_living_derivs_numba = numba.njit(cache=True)(_compute_living_derivs_python)
 else:
     _compute_living_derivs_numba = None
 
 
 def _compute_living_derivs(
-    deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates, GE_arr,
-    PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+    deriv,
+    QQ,
+    BB,
+    M0_arr,
+    ForcedMigrate,
+    FishMort,
+    pp_rates,
+    GE_arr,
+    PP_type,
+    PB,
+    QB,
+    ibm_mask,
+    NUM_LIVING,
+    NUM_GROUPS,
 ):
     """Dispatch to numba-compiled or pure-Python living-group derivative kernel."""
     if _compute_living_derivs_numba is not None:
         _compute_living_derivs_numba(
-            deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
-            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+            deriv,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
     else:
         _compute_living_derivs_python(
-            deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
-            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+            deriv,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
 
@@ -348,8 +424,16 @@ def _compute_living_derivs(
 
 
 def _compute_detritus_derivs_python(
-    deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
-    decay_rate, NUM_LIVING, NUM_DEAD,
+    deriv,
+    QQ,
+    BB,
+    total_consump_by_pred,
+    Unassim,
+    DetFrac,
+    M0_arr,
+    decay_rate,
+    NUM_LIVING,
+    NUM_DEAD,
 ):
     """Compute derivatives for detritus groups in-place.
 
@@ -434,19 +518,43 @@ else:
 
 
 def _compute_detritus_derivs(
-    deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
-    decay_rate, NUM_LIVING, NUM_DEAD,
+    deriv,
+    QQ,
+    BB,
+    total_consump_by_pred,
+    Unassim,
+    DetFrac,
+    M0_arr,
+    decay_rate,
+    NUM_LIVING,
+    NUM_DEAD,
 ):
     """Dispatch to numba-compiled or pure-Python detritus derivative kernel."""
     if _compute_detritus_derivs_numba is not None:
         _compute_detritus_derivs_numba(
-            deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
-            decay_rate, NUM_LIVING, NUM_DEAD,
+            deriv,
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
     else:
         _compute_detritus_derivs_python(
-            deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
-            decay_rate, NUM_LIVING, NUM_DEAD,
+            deriv,
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
 
 
@@ -745,10 +853,7 @@ def deriv_vector(
 
     # Diagnostic: if trace requested, print spname type and membership check
     try:
-        if (
-            _TRACE_DEBUG_GROUPS is not None
-            or spname_list is not None
-        ):
+        if _TRACE_DEBUG_GROUPS is not None or spname_list is not None:
             spname = spname_list
             logger.debug(
                 "TRACE DEBUG: params.keys() sample=%s",
@@ -773,7 +878,12 @@ def deriv_vector(
     # predation/functional response calculations.
     try:
         no_integrate_mask = (
-            np.asarray(_NoIntegrate_raw if _NoIntegrate_raw is not None else np.zeros(NUM_GROUPS + 1)) != 0
+            np.asarray(
+                _NoIntegrate_raw
+                if _NoIntegrate_raw is not None
+                else np.zeros(NUM_GROUPS + 1)
+            )
+            != 0
         )
         if np.any(no_integrate_mask):
             Bbase_arr = params.get("Bbase", None)
@@ -940,14 +1050,33 @@ def deriv_vector(
     _link_pred = params.get("_link_pred", None)
     if _link_prey is not None and _link_pred is not None:
         _compute_consumption_sparse(
-            QQ, BB, VV, DD, QQbase, preyYY, predYY,
-            _link_prey, _link_pred, len(_link_prey),
+            QQ,
+            BB,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            _link_prey,
+            _link_pred,
+            len(_link_prey),
         )
     else:
         # ActiveLink may be a boolean array; ensure it is integer for numba compat.
-        _active_int = ActiveLink.astype(np.int64) if ActiveLink.dtype != np.int64 else ActiveLink
+        _active_int = (
+            ActiveLink.astype(np.int64) if ActiveLink.dtype != np.int64 else ActiveLink
+        )
         _compute_consumption(
-            QQ, BB, _active_int, VV, DD, QQbase, preyYY, predYY, NUM_LIVING, NUM_GROUPS,
+            QQ,
+            BB,
+            _active_int,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
     # Post-loop instrumentation: log per-link breakdown for interesting groups
@@ -1071,7 +1200,11 @@ def deriv_vector(
             )
 
     # Prepare arrays for the numba-accelerated living-group derivative kernel
-    _M0_safe = M0_arr if (M0_arr is not None and isinstance(M0_arr, np.ndarray)) else np.zeros(NUM_GROUPS + 1)
+    _M0_safe = (
+        M0_arr
+        if (M0_arr is not None and isinstance(M0_arr, np.ndarray))
+        else np.zeros(NUM_GROUPS + 1)
+    )
     _GE_arr = np.zeros(NUM_GROUPS + 1)
     for _gi in range(1, NUM_LIVING + 1):
         if QB[_gi] > 0.0:
@@ -1083,8 +1216,20 @@ def deriv_vector(
     _PP_type_int = np.asarray(PP_type, dtype=np.int64)
 
     _compute_living_derivs(
-        deriv, QQ, BB, _M0_safe, ForcedMigrate, FishMort, pp_rates,
-        _GE_arr, _PP_type_int, PB, QB, _ibm_mask, NUM_LIVING, NUM_GROUPS,
+        deriv,
+        QQ,
+        BB,
+        _M0_safe,
+        ForcedMigrate,
+        FishMort,
+        pp_rates,
+        _GE_arr,
+        _PP_type_int,
+        PB,
+        QB,
+        _ibm_mask,
+        NUM_LIVING,
+        NUM_GROUPS,
     )
 
     # Post-kernel instrumentation / debug logging for living groups
@@ -1174,13 +1319,17 @@ def deriv_vector(
                             qval = QQ[i, pred2]
                             if qval > 0:
                                 pname = (
-                                    spname_list[pred2] if spname_list is not None else None
+                                    spname_list[pred2]
+                                    if spname_list is not None
+                                    else None
                                 )
                                 contribs.append((pred2, pname, qval))
                         if contribs:
                             logger.debug("INSTR PREDATORS for prey i={}:".format(i))
                             for pid, pname, qv in contribs:
-                                logger.debug("  pred=%s name=%s Q=%.12e", pid, pname, qv)
+                                logger.debug(
+                                    "  pred=%s name=%s Q=%.12e", pid, pname, qv
+                                )
             except Exception as e:
                 logger.debug("Instrumentation error in deriv breakdown: %s", e)
 
@@ -1321,7 +1470,7 @@ def deriv_vector(
     # Pre-compute total consumption by each predator once, avoiding redundant
     # np.sum(QQ[1:, pred]) calls inside the per-detritus-group loop.
     # Shape: (NUM_LIVING,) where index j corresponds to pred = j + 1.
-    total_consump_by_pred = np.sum(QQ[1:, 1:NUM_LIVING + 1], axis=0)
+    total_consump_by_pred = np.sum(QQ[1:, 1 : NUM_LIVING + 1], axis=0)
 
     # Pre-fetch detritus decay rates outside the loop
     decay_rate = params.get("DetDecay", np.zeros(NUM_DEAD + 1))
@@ -1333,8 +1482,16 @@ def deriv_vector(
     # Compute detritus derivatives via numba-accelerated (or pure-Python) kernel
     try:
         _compute_detritus_derivs(
-            deriv, QQ, BB, total_consump_by_pred, Unassim, _DetFrac,
-            _M0_safe, _decay_rate, NUM_LIVING, NUM_DEAD,
+            deriv,
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            _DetFrac,
+            _M0_safe,
+            _decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
     except (IndexError, ValueError):
         # Fallback: rich debug information and re-raise for inspection
@@ -1397,9 +1554,7 @@ def deriv_vector(
                         )
                     )
                     if contrib != 0:
-                        pname = (
-                            spname_list[pred] if spname_list is not None else None
-                        )
+                        pname = spname_list[pred] if spname_list is not None else None
                         logger.debug(
                             "  pred=%s name=%s total_consump=%.12e unassim=%.12e DetFrac=%.12e contrib=%.12e",
                             pred,
@@ -1415,23 +1570,15 @@ def deriv_vector(
                     d,
                     det_idx,
                 )
-                _m0_vals = (
-                    M0_arr if M0_arr is not None else np.zeros(NUM_GROUPS + 1)
-                )
+                _m0_vals = M0_arr if M0_arr is not None else np.zeros(NUM_GROUPS + 1)
                 for grp in range(1, NUM_LIVING + 1):
                     contrib = (
                         _m0_vals[grp]
                         * BB[grp]
-                        * (
-                            _DetFrac[grp, det_idx]
-                            if _DetFrac.shape[1] > det_idx
-                            else 0
-                        )
+                        * (_DetFrac[grp, det_idx] if _DetFrac.shape[1] > det_idx else 0)
                     )
                     if contrib != 0:
-                        gname = (
-                            spname_list[grp] if spname_list is not None else None
-                        )
+                        gname = spname_list[grp] if spname_list is not None else None
                         logger.debug(
                             "  grp=%s name=%s M0=%.12e BB=%.12e DetFrac=%.12e contrib=%.12e",
                             grp,
@@ -1449,7 +1596,12 @@ def deriv_vector(
         # NoIntegrate: Rpath encodes fast-turnover groups as 0. Treat 0 as True for NoIntegrate
         # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
         no_integrate = (
-            np.asarray(_NoIntegrate_raw if _NoIntegrate_raw is not None else np.zeros(NUM_GROUPS + 1)) != 0
+            np.asarray(
+                _NoIntegrate_raw
+                if _NoIntegrate_raw is not None
+                else np.zeros(NUM_GROUPS + 1)
+            )
+            != 0
         )
         if np.any(no_integrate):
             deriv[no_integrate] = 0.0

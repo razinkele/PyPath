@@ -103,9 +103,7 @@ class RpathParams:
         )
 
 
-def get_groups_by_type(
-    groups: List[str], types: List[int]
-) -> Dict[str, List[str]]:
+def get_groups_by_type(groups: List[str], types: List[int]) -> Dict[str, List[str]]:
     """Return dict mapping type names to group lists.
 
     Parameters
