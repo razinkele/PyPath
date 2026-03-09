@@ -206,16 +206,32 @@ class TestSparseKernelParity:
         # Dense
         QQ_dense = np.zeros((n, n))
         _compute_consumption_python(
-            QQ_dense, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY,
-            NUM_LIVING, NUM_GROUPS,
+            QQ_dense,
+            BB,
+            ActiveLink,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
         # Sparse
         links = ActiveLinkArray.from_bool_matrix(ActiveLink)
         QQ_sparse = np.zeros((n, n))
         _compute_consumption_sparse_python(
-            QQ_sparse, BB, VV, DD, QQbase, preyYY, predYY,
-            links.prey, links.pred, links.n_links,
+            QQ_sparse,
+            BB,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            links.prey,
+            links.pred,
+            links.n_links,
         )
 
         np.testing.assert_allclose(QQ_sparse, QQ_dense, rtol=1e-12)

@@ -378,7 +378,9 @@ def rpath_stanzas(rpath_params: RpathParams) -> RpathParams:
     return rpath_params
 
 
-def rsim_stanzas(rpath_params: RpathParams, state: np.ndarray, params: dict) -> RsimStanzas:
+def rsim_stanzas(
+    rpath_params: RpathParams, state: np.ndarray, params: dict
+) -> RsimStanzas:
     """Initialize stanza parameters for Ecosim simulation.
 
     Creates the stanza parameter structure needed by rsim_run().
@@ -563,7 +565,9 @@ def rsim_stanzas(rpath_params: RpathParams, state: np.ndarray, params: dict) -> 
     return rstan
 
 
-def split_update(stanzas: RsimStanzas, state: np.ndarray, params: dict, sim_month: int) -> None:
+def split_update(
+    stanzas: RsimStanzas, state: np.ndarray, params: dict, sim_month: int
+) -> None:
     """Update stanza age structure for a simulation month.
 
     This updates the numbers-at-age, weight-at-age, and

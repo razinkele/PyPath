@@ -100,8 +100,16 @@ class TestComputeConsumptionKernel:
         NUM_GROUPS = 4
 
         _compute_consumption_python(
-            QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY,
-            NUM_LIVING, NUM_GROUPS,
+            QQ,
+            BB,
+            ActiveLink,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
         # At equilibrium (preyYY=1, predYY=1), Q = QQbase * 1 * 1 * dd_term * vv_term
@@ -141,12 +149,28 @@ class TestComputeConsumptionKernel:
         NUM_GROUPS = n - 1
 
         _compute_consumption_python(
-            QQ_py, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY,
-            NUM_LIVING, NUM_GROUPS,
+            QQ_py,
+            BB,
+            ActiveLink,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
         _compute_consumption_numba(
-            QQ_nb, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY,
-            NUM_LIVING, NUM_GROUPS,
+            QQ_nb,
+            BB,
+            ActiveLink,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
         np.testing.assert_allclose(QQ_nb, QQ_py, rtol=1e-14, atol=0.0)
@@ -168,7 +192,16 @@ class TestComputeConsumptionKernel:
         predYY[0] = 0.0
 
         _compute_consumption(
-            QQ, BB, ActiveLink, VV, DD, QQbase, preyYY, predYY, 3, 4,
+            QQ,
+            BB,
+            ActiveLink,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            3,
+            4,
         )
 
         assert QQ[1, 2] > 0.0
@@ -190,9 +223,9 @@ class TestComputeLivingDerivsKernel:
 
         # Consumption matrix: prey 1 eaten by pred 2, prey 2 eaten by pred 3
         QQ = np.zeros((n, n))
-        QQ[1, 2] = 0.5   # prey 1 consumed by pred 2
-        QQ[2, 3] = 0.3   # prey 2 consumed by pred 3
-        QQ[4, 1] = 0.2   # detritus consumed by group 1
+        QQ[1, 2] = 0.5  # prey 1 consumed by pred 2
+        QQ[2, 3] = 0.3  # prey 2 consumed by pred 3
+        QQ[4, 1] = 0.2  # detritus consumed by group 1
 
         BB = np.array([0.0, 10.0, 5.0, 2.0, 8.0])
         M0_arr = np.array([0.0, 0.1, 0.05, 0.02, 0.0])
@@ -216,21 +249,57 @@ class TestComputeLivingDerivsKernel:
         ibm_mask = np.zeros(n, dtype=np.int64)
 
         return (
-            QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates, GE_arr,
-            PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
     def test_python_kernel_correct(self):
         """Verify _compute_living_derivs_python produces correct derivatives."""
-        (QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates, GE_arr,
-         PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS) = self._make_small_model()
+        (
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
+        ) = self._make_small_model()
 
         n = NUM_GROUPS + 1
         deriv = np.zeros(n)
 
         _compute_living_derivs_python(
-            deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
-            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+            deriv,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
         # Group 1 (producer): consumption = QQ[4,1] = 0.2 (detritus eaten by group 1)
@@ -266,16 +335,41 @@ class TestComputeLivingDerivsKernel:
 
     def test_ibm_mask_skips_groups(self):
         """Verify groups with ibm_mask=1 are not computed by the kernel."""
-        (QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates, GE_arr,
-         PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS) = self._make_small_model()
+        (
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
+        ) = self._make_small_model()
 
         n = NUM_GROUPS + 1
         ibm_mask[2] = 1  # skip group 2
 
         deriv = np.zeros(n)
         _compute_living_derivs_python(
-            deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
-            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+            deriv,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
         # Group 2 should remain at zero
@@ -321,31 +415,80 @@ class TestComputeLivingDerivsKernel:
         deriv_nb = np.zeros(n)
 
         _compute_living_derivs_python(
-            deriv_py, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
-            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+            deriv_py,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
         _compute_living_derivs_numba(
-            deriv_nb, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
-            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+            deriv_nb,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
         np.testing.assert_allclose(deriv_nb, deriv_py, rtol=1e-14, atol=0.0)
 
     def test_dispatch_function_works(self):
         """Verify _compute_living_derivs dispatch runs without error."""
-        (QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates, GE_arr,
-         PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS) = self._make_small_model()
+        (
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
+        ) = self._make_small_model()
 
         n = NUM_GROUPS + 1
         deriv = np.zeros(n)
 
         _compute_living_derivs(
-            deriv, QQ, BB, M0_arr, ForcedMigrate, FishMort, pp_rates,
-            GE_arr, PP_type, PB, QB, ibm_mask, NUM_LIVING, NUM_GROUPS,
+            deriv,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            NUM_LIVING,
+            NUM_GROUPS,
         )
 
         # Should produce non-zero derivatives for living groups
-        assert np.any(deriv[1:NUM_LIVING + 1] != 0.0)
+        assert np.any(deriv[1 : NUM_LIVING + 1] != 0.0)
 
 
 # =============================================================================
@@ -365,8 +508,8 @@ class TestComputeDetritusKernel:
 
         QQ = np.zeros((n, n))
         # Some consumption links
-        QQ[1, 2] = 0.5   # prey 1 eaten by pred 2
-        QQ[2, 3] = 0.3   # prey 2 eaten by pred 3
+        QQ[1, 2] = 0.5  # prey 1 eaten by pred 2
+        QQ[2, 3] = 0.3  # prey 2 eaten by pred 3
         # Detritus consumption: detritus group 4 eaten by group 1
         QQ[4, 1] = 0.2
         QQ[4, 2] = 0.1
@@ -376,38 +519,62 @@ class TestComputeDetritusKernel:
         BB = np.array([0.0, 10.0, 5.0, 2.0, 8.0, 3.0])
 
         # total consumption by each predator: sum(QQ[1:, pred])
-        total_consump_by_pred = np.sum(QQ[1:, 1:NUM_LIVING + 1], axis=0)
+        total_consump_by_pred = np.sum(QQ[1:, 1 : NUM_LIVING + 1], axis=0)
 
         Unassim = np.array([0.0, 0.2, 0.3, 0.15, 0.0, 0.0])
 
         # DetFrac: rows = groups, cols = detritus indices (1-based)
         # Shape: (n, NUM_DEAD + 1) = (6, 3)
         DetFrac = np.zeros((n, NUM_DEAD + 1))
-        DetFrac[1, 1] = 0.6   # group 1 mortality goes 60% to det 1
-        DetFrac[1, 2] = 0.4   # and 40% to det 2
-        DetFrac[2, 1] = 1.0   # group 2 mortality goes 100% to det 1
-        DetFrac[3, 1] = 0.5   # group 3 mortality goes 50% to det 1
-        DetFrac[3, 2] = 0.5   # and 50% to det 2
+        DetFrac[1, 1] = 0.6  # group 1 mortality goes 60% to det 1
+        DetFrac[1, 2] = 0.4  # and 40% to det 2
+        DetFrac[2, 1] = 1.0  # group 2 mortality goes 100% to det 1
+        DetFrac[3, 1] = 0.5  # group 3 mortality goes 50% to det 1
+        DetFrac[3, 2] = 0.5  # and 50% to det 2
 
         M0_arr = np.array([0.0, 0.1, 0.05, 0.02, 0.0, 0.0])
         decay_rate = np.array([0.0, 0.01, 0.02])  # decay for det 1 and det 2
 
         return (
-            QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
-            decay_rate, NUM_LIVING, NUM_DEAD,
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
 
     def test_python_kernel_correct(self):
         """Verify _compute_detritus_derivs_python produces correct derivatives."""
-        (QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
-         decay_rate, NUM_LIVING, NUM_DEAD) = self._make_detritus_model()
+        (
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
+        ) = self._make_detritus_model()
 
         n = NUM_LIVING + NUM_DEAD + 1
         deriv = np.zeros(n)
 
         _compute_detritus_derivs_python(
-            deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac,
-            M0_arr, decay_rate, NUM_LIVING, NUM_DEAD,
+            deriv,
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
 
         # Detritus group 4 (d=4, det_idx=1):
@@ -479,7 +646,7 @@ class TestComputeDetritusKernel:
         BB = rng.uniform(0.5, 20.0, n)
         BB[0] = 0.0
 
-        total_consump_by_pred = np.sum(QQ[1:, 1:NUM_LIVING + 1], axis=0)
+        total_consump_by_pred = np.sum(QQ[1:, 1 : NUM_LIVING + 1], axis=0)
         Unassim = rng.uniform(0.0, 0.4, n)
         Unassim[0] = 0.0
         DetFrac = rng.uniform(0.0, 1.0, (n, NUM_DEAD + 1))
@@ -493,31 +660,64 @@ class TestComputeDetritusKernel:
         deriv_nb = np.zeros(n)
 
         _compute_detritus_derivs_python(
-            deriv_py, QQ, BB, total_consump_by_pred, Unassim, DetFrac,
-            M0_arr, decay_rate, NUM_LIVING, NUM_DEAD,
+            deriv_py,
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
         _compute_detritus_derivs_numba(
-            deriv_nb, QQ, BB, total_consump_by_pred, Unassim, DetFrac,
-            M0_arr, decay_rate, NUM_LIVING, NUM_DEAD,
+            deriv_nb,
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
 
         np.testing.assert_allclose(deriv_nb, deriv_py, rtol=1e-14, atol=0.0)
 
     def test_dispatch_function_works(self):
         """Verify _compute_detritus_derivs dispatch runs without error."""
-        (QQ, BB, total_consump_by_pred, Unassim, DetFrac, M0_arr,
-         decay_rate, NUM_LIVING, NUM_DEAD) = self._make_detritus_model()
+        (
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
+        ) = self._make_detritus_model()
 
         n = NUM_LIVING + NUM_DEAD + 1
         deriv = np.zeros(n)
 
         _compute_detritus_derivs(
-            deriv, QQ, BB, total_consump_by_pred, Unassim, DetFrac,
-            M0_arr, decay_rate, NUM_LIVING, NUM_DEAD,
+            deriv,
+            QQ,
+            BB,
+            total_consump_by_pred,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
 
         # Detritus groups should have non-zero derivatives
-        assert np.any(deriv[NUM_LIVING + 1:] != 0.0)
+        assert np.any(deriv[NUM_LIVING + 1 :] != 0.0)
 
     def test_empty_detritus(self):
         """Kernel handles zero detritus groups gracefully."""
@@ -535,8 +735,16 @@ class TestComputeDetritusKernel:
 
         # Should not raise
         _compute_detritus_derivs_python(
-            deriv, QQ, BB, total_consump, Unassim, DetFrac,
-            M0_arr, decay_rate, NUM_LIVING, NUM_DEAD,
+            deriv,
+            QQ,
+            BB,
+            total_consump,
+            Unassim,
+            DetFrac,
+            M0_arr,
+            decay_rate,
+            NUM_LIVING,
+            NUM_DEAD,
         )
 
         # No detritus groups, so deriv should remain all zeros
@@ -548,9 +756,7 @@ class TestComputeDetritusKernel:
 # =============================================================================
 
 
-@pytest.mark.skipif(
-    not REFERENCE_DIR.exists(), reason="Reference data not available"
-)
+@pytest.mark.skipif(not REFERENCE_DIR.exists(), reason="Reference data not available")
 class TestRsimRunWithNumba:
     """Test that a full rsim_run produces unchanged results with the new code path."""
 

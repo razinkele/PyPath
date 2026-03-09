@@ -81,7 +81,9 @@ class EMODnetHabitatsClient:
     def __init__(self, cache: MarineDataCache):
         self._cache = cache
 
-    def fetch_euseamap(self, bbox: tuple[float, float, float, float], eunis_level: int = 3):
+    def fetch_euseamap(
+        self, bbox: tuple[float, float, float, float], eunis_level: int = 3
+    ):
         """Fetch EUSeaMap habitat polygons within a bounding box.
 
         Parameters
@@ -125,7 +127,9 @@ class EMODnetHabitatsClient:
         logger.info("Downloaded %d habitat features", len(gdf))
         return gdf
 
-    def rasterize_habitats(self, gdf: "gpd.GeoDataFrame", grid: "gpd.GeoDataFrame") -> np.ndarray:
+    def rasterize_habitats(
+        self, gdf: "gpd.GeoDataFrame", grid: "gpd.GeoDataFrame"
+    ) -> np.ndarray:
         """Assign majority EUNIS habitat class to each grid patch.
 
         Parameters
@@ -210,7 +214,9 @@ class EMODnetBathymetryClient:
     def __init__(self, cache: MarineDataCache):
         self._cache = cache
 
-    def fetch_depth(self, bbox: tuple[float, float, float, float], resolution: float = 0.002):
+    def fetch_depth(
+        self, bbox: tuple[float, float, float, float], resolution: float = 0.002
+    ):
         """Fetch depth raster for a bounding box.
 
         Parameters
@@ -269,7 +275,9 @@ class EMODnetBathymetryClient:
             logger.warning("rasterio not installed; cannot read GeoTIFF")
             raise
 
-    def sample_to_grid(self, raster: np.ndarray, transform: tuple, grid: "gpd.GeoDataFrame") -> np.ndarray:
+    def sample_to_grid(
+        self, raster: np.ndarray, transform: tuple, grid: "gpd.GeoDataFrame"
+    ) -> np.ndarray:
         """Average raster values within each grid patch.
 
         Parameters
