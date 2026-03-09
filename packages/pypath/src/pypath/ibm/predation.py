@@ -30,6 +30,8 @@ import math
 from dataclasses import dataclass
 from typing import List
 
+import numpy as np
+
 from pypath.ibm.base import SuperIndividual
 
 logger = logging.getLogger(__name__)
@@ -108,25 +110,32 @@ def distribute_mortality(
     if not individuals:
         return []
 
-    total_n = sum(ind.n_represented for ind in individuals)
+    # Extract attributes into NumPy arrays for vectorised computation
+    n_repr = np.array([ind.n_represented for ind in individuals])
+    lengths = np.array([ind.length for ind in individuals])
+
+    total_n = n_repr.sum()
     total_deaths = total_n * total_mortality_rate * dt
 
-    # Selectivity-weighted abundance for each individual
-    weighted = [
-        ind.n_represented * size_selectivity(ind.length, params) for ind in individuals
-    ]
-    total_weighted = sum(weighted)
+    # Vectorised log-normal selectivity: sel = exp(-0.5 * z^2), 0 for length <= 0
+    positive = lengths > 0.0
+    z = np.zeros(len(individuals))
+    z[positive] = (
+        np.log(lengths[positive] / params.optimal_prey_length) / params.selectivity_sd
+    )
+    sel = np.where(positive, np.exp(-0.5 * z * z), 0.0)
+
+    # Selectivity-weighted abundance
+    weighted = n_repr * sel
+    total_weighted = weighted.sum()
 
     if total_weighted == 0.0:
         return [0.0] * len(individuals)
 
-    deaths: List[float] = []
-    for i, ind in enumerate(individuals):
-        d = total_deaths * weighted[i] / total_weighted
-        d = min(d, ind.n_represented)
-        deaths.append(d)
+    # Distribute deaths proportionally, cap at n_represented
+    deaths_arr = np.minimum(total_deaths * weighted / total_weighted, n_repr)
 
-    return deaths
+    return deaths_arr.tolist()
 
 
 def apply_predation_mortality(

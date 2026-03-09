@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def _gauss_solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Solve square linear system with partial pivoting using pure Python.
+    """Solve square linear system with partial pivoting using NumPy arrays.
 
     This provides a fallback solver that avoids calling into BLAS/LAPACK for
     small systems, which can be helpful on environments where underlying
@@ -28,30 +28,30 @@ def _gauss_solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
     is singular.
     """
     n = A.shape[0]
-    # Work on Python lists of floats
-    M = [list(map(float, A[i, :])) for i in range(n)]
-    y = [float(b[i]) for i in range(n)]
+    M = A.astype(float, copy=True)
+    y = b.astype(float, copy=True)
 
     for i in range(n):
         # Partial pivoting
-        pivot_row = max(range(i, n), key=lambda r: abs(M[r][i]))
-        if abs(M[pivot_row][i]) < 1e-15:
+        pivot_row = np.argmax(np.abs(M[i:, i])) + i
+        if abs(M[pivot_row, i]) < 1e-15:
             raise ValueError("Singular matrix")
+        # Swap rows
         if pivot_row != i:
-            M[i], M[pivot_row] = M[pivot_row], M[i]
+            M[[i, pivot_row]] = M[[pivot_row, i]]
             y[i], y[pivot_row] = y[pivot_row], y[i]
         # Normalize pivot row
-        piv = M[i][i]
-        M[i] = [val / piv for val in M[i]]
-        y[i] = y[i] / piv
+        piv = M[i, i]
+        M[i] /= piv
+        y[i] /= piv
         # Eliminate other rows
         for j in range(n):
             if j != i:
-                factor = M[j][i]
+                factor = M[j, i]
                 if factor != 0.0:
-                    M[j] = [mj - factor * mi for mj, mi in zip(M[j], M[i])]
-                    y[j] = y[j] - factor * y[i]
-    return np.array(y, dtype=float)
+                    M[j] -= factor * M[i]
+                    y[j] -= factor * y[i]
+    return y
 
 
 @dataclass
