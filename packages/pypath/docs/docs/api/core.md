@@ -141,8 +141,19 @@ Ecosim output summary statistics.
 
 ## Autofix (Stability Diagnostics)
 
-Automatic parameter calibration and diagnostic routines to prevent
+Automatic parameter diagnostics and repair routines to prevent Ecosim
 simulation crashes and improve model stability.
+
+Key functions:
+
+- `diagnose_crash_causes()` — identify critical issues (EE > 1, incomplete
+  diets) and warnings (low biomass, high vulnerability, extreme QQ)
+- `autofix_parameters()` — automatically cap vulnerabilities, enforce minimum
+  biomass, reduce extreme density dependence
+- `validate_and_fix_scenario()` — combined validation and repair in one step
+- `AutofixResult` — dataclass with applied fixes and diagnostic info
+
+See the [Autofix Guide](../guides/autofix.md) for practical usage.
 
 ::: pypath.core.autofix
     options:

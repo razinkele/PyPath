@@ -22,9 +22,14 @@ Key functions:
 
 - `read_ewemdb()` — load Ecopath parameters (biomass, diet, stanzas)
 - `read_ewemdb_table()` — read any raw table from the database
+- `list_ewemdb_tables()` — list all tables in an EwE database
+- `get_ewemdb_metadata()` — retrieve model metadata
 - `ecosim_scenario_from_ewemdb()` — load a complete Ecosim scenario with
   vulnerability overrides, foraging time adjustments, forced biomass,
   fishing effort, and environmental forcing from a specific EwE scenario ID
+
+See the [EwE Database Loading example](../examples/ewe-database.md) for
+a complete walkthrough.
 
 ::: pypath.io.ewemdb
     options:

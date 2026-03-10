@@ -61,13 +61,14 @@ output = rsim_run(scenario, method="AB")
 | Feature | Description |
 |---------|-------------|
 | **Ecopath** | Mass-balance food web modeling with multi-stanza support |
-| **Ecosim** | Dynamic simulation using foraging arena theory (Rpath-compatible) |
-| **Ecospace** | Spatially-explicit modeling with hexagonal grids |
-| **IBM** | Individual-based model coupling (bioenergetics, predation) |
+| **Ecosim** | Dynamic simulation using foraging arena theory (RK4 + Adams-Bashforth) |
+| **Ecospace** | Spatially-explicit modeling with regular, hexagonal, and irregular grids |
+| **IBM** | Individual-based model coupling (Wisconsin bioenergetics, size-structured predation, spatial movement) |
+| **Autofix** | Automatic crash diagnostics and parameter repair for simulation stability |
 | **State-Variable Forcing** | Data assimilation and prescribed scenarios |
 | **Diet Rewiring** | Adaptive foraging and prey switching |
 | **Optimization** | Parameter calibration with differential evolution |
-| **Data Import** | EwE databases, EcoBase, WoRMS/OBIS/FishBase, EMODnet |
+| **Data Import** | Native EwE databases (.eweaccdb), EcoBase, CSV, WoRMS/OBIS/FishBase, EMODnet |
 
 ## Ecosim Engine
 

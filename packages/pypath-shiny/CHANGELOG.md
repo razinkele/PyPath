@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.3.1 (2026-03-10)
+
+### Added
+- Ecospace Data Wizard improvements with KDTree-based environmental sampling
+
+### Changed
+- Updated to use pypath-ewe v0.3.1 core improvements
+
 ## v0.3.0 (2026-03-09)
 
 ### Added

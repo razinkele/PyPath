@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/tests-100%2B%20passing-brightgreen" alt="Tests Passing">
+  <img src="https://img.shields.io/badge/tests-937%20passing-brightgreen" alt="Tests Passing">
   <img src="https://img.shields.io/badge/coverage-95%25-brightgreen" alt="Coverage">
 </p>
 
@@ -46,11 +46,14 @@ pip install -e packages/pypath-shiny[dev]
 
 ### Ecopath with Ecosim
 - **Ecopath**: Mass-balance food web modeling with multi-stanza support
-- **Pre-Balance Diagnostics**: Comprehensive model validation before balancing (NEW)
-- **Ecosim**: Dynamic simulation using foraging arena theory
+- **Pre-Balance Diagnostics**: Comprehensive model validation before balancing
+- **Ecosim**: Dynamic simulation using foraging arena theory (RK4 + Adams-Bashforth)
+- **Ecospace**: Spatially-explicit modeling with regular, hexagonal, and irregular grids
+- **IBM**: Individual-Based Model coupling with Wisconsin bioenergetics
 - **Multi-stanza groups**: Age-structured populations with von Bertalanffy growth
-- **Fishing fleets**: Multiple gears with effort dynamics
-- **Data import**: Read EwE database files (.eweaccdb) and CSV
+- **Fishing fleets**: Multiple gears with spatially-explicit effort dynamics
+- **Autofix**: Automatic crash diagnostics and parameter repair for simulation stability
+- **Data import**: Native EwE databases (.eweaccdb), EcoBase, CSV, WoRMS/OBIS/FishBase, EMODnet
 
 ### Advanced Features (New in PyPath)
 
@@ -187,21 +190,30 @@ pip install -e "packages/pypath-shiny[dev]"
 
 ### Basic Ecopath/Ecosim
 ```python
-import pypath as pp
+from pypath import create_rpath_params, rpath, rsim_scenario, rsim_run
 
-# Read model from EwE database
-params = pp.read_eweaccdb('my_model.eweaccdb')
+# Create and balance a model
+params = create_rpath_params(
+    groups=["Phytoplankton", "Zooplankton", "Fish", "Detritus"],
+    types=[1, 0, 0, 2],
+)
+# ... set biomass, PB, QB, diet matrix ...
+model = rpath(params)
 
-# Balance the model
-model = pp.rpath(params, eco_name='My Ecosystem')
-print(model)
+# Run 50-year dynamic simulation (AB method matches Rpath/EwE)
+scenario = rsim_scenario(model, params, years=range(1, 51))
+output = rsim_run(scenario, method="AB")
+```
 
-# Create and run simulation
-scenario = pp.rsim_scenario(model, params, years=range(1, 101))
-output = pp.rsim_run(scenario, method='RK4')
+### Loading Native EwE Databases
+```python
+from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+from pypath import rsim_run
 
-# Visualize results
-pp.plot_biomass(output, groups=['Fish', 'Zooplankton'])
+# Load a complete scenario with all EwE settings (vulnerabilities,
+# foraging time, forced biomass, fishing effort, environmental forcing)
+scenario = ecosim_scenario_from_ewemdb("model.eweaccdb", scenario=16)
+output = rsim_run(scenario, method="AB")
 ```
 
 ### Pre-Balance Diagnostics
@@ -297,25 +309,31 @@ python generate_test_timeseries.py
 
 ## Testing
 
-PyPath includes comprehensive testing with 100+ tests covering all features.
+PyPath includes comprehensive testing with 937+ tests covering all features.
 
 ```bash
-# Run all tests
-pytest tests/ -v
+# Fast tests (excludes slow/integration)
+pytest packages/pypath/tests/ -q -m "not integration and not slow" --ignore=packages/pypath/tests/scripts
 
-# Run specific test suites
-pytest tests/test_forcing.py -v                    # State forcing tests (27 tests)
-pytest tests/test_diet_rewiring.py -v              # Diet rewiring tests (20 tests)
-pytest tests/test_optimization_unit.py -v          # Optimization tests (35 tests)
-pytest tests/test_rpath_compatibility.py -v        # Rpath compatibility tests
+# Full test suite (includes integration tests with EwE databases)
+pytest packages/pypath/tests/ -q --ignore=packages/pypath/tests/scripts
+
+# Shiny app tests
+pytest packages/pypath-shiny/tests/ -q --ignore=packages/pypath-shiny/tests/ui
+
+# Specific test suites
+pytest packages/pypath/tests/test_ecosim_ewemdb_run.py -v   # EwE database integration (27 tests)
+pytest packages/pypath/tests/test_ibm_bioenergetics.py -v    # IBM bioenergetics (19 tests)
+pytest packages/pypath/tests/test_connectivity.py -v         # Spatial connectivity (11 tests)
+pytest packages/pypath/tests/test_autofix.py -v              # Autofix diagnostics (8 tests)
 ```
 
 **Test Coverage:**
-- ✅ 100+ tests (all passing)
-- ✅ 95%+ code coverage
-- ✅ Unit, integration, and scenario tests
-- ✅ Edge case validation
-- ✅ Rpath compatibility verification
+- 937+ tests passing (core: 822+, IBM: 49, spatial: 40+, shiny: 115)
+- 95%+ code coverage
+- Unit, integration, and scenario tests
+- EwE database parity testing (LT2022 model)
+- Rpath compatibility verification
 
 ## Scientific Background
 
@@ -378,14 +396,17 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 |---------|-------|--------|
 | Core Ecopath/Ecosim | ✅ | ✅ |
 | Multi-stanza groups | ✅ | ✅ |
-| .eweaccdb import | ✅ | ✅ |
+| .eweaccdb import | ✅ | ✅ (full scenario loading) |
+| Ecospace (spatial) | ❌ | ✅ ⭐ |
+| Individual-Based Model | ❌ | ✅ ⭐ |
 | Pre-balance diagnostics | Limited | Comprehensive ⭐ |
 | State-variable forcing | ❌ | ✅ ⭐ |
 | Dynamic diet rewiring | ❌ | ✅ ⭐ |
-| Bayesian optimization | ❌ | ✅ ⭐ |
+| Parameter optimization | ❌ | ✅ ⭐ |
 | Interactive dashboard | Basic | Enhanced ⭐ |
-| Automatic model fixing | ❌ | ✅ ⭐ |
-| Comprehensive tests | Limited | 100+ tests ⭐ |
+| Autofix (crash repair) | ❌ | ✅ ⭐ |
+| EMODnet data integration | ❌ | ✅ ⭐ |
+| Comprehensive tests | Limited | 937+ tests ⭐ |
 | Documentation | Good | Extensive ⭐ |
 
 **See [FEATURES_VS_RPATH.md](docs/archive/FEATURES_VS_RPATH.md) for detailed comparison.**
@@ -395,18 +416,24 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 ### Current Version: 0.3.0 (Development)
 
 **Production Ready:**
-- ✅ Core Ecopath/Ecosim (100% Rpath compatible)
-- ✅ State-variable forcing (47 tests passing)
-- ✅ Dynamic diet rewiring (20 tests passing)
-- ✅ Bayesian optimization (35 tests passing)
-- ✅ Interactive dashboard (deployed)
-- ✅ Automatic model fixing (tested)
+- Core Ecopath/Ecosim (100% Rpath compatible, RK4 + Adams-Bashforth)
+- Ecospace spatial modeling (regular, hexagonal, irregular grids)
+- Individual-Based Model (Wisconsin bioenergetics, size-structured predation)
+- State-variable forcing and dynamic diet rewiring
+- Parameter optimization (differential evolution)
+- Autofix crash diagnostics and parameter repair
+- EwE native database loading (full scenario support)
+- EMODnet marine data integration (bathymetry, habitats, salinity)
+- Interactive Shiny dashboard (deployed on laguna.ku.lt)
+- 937+ tests passing across core, IBM, spatial, and Shiny packages
 
 **Roadmap:**
 - [x] Spatial Ecospace (completed Dec 2025)
-- [x] Comprehensive code refactoring (completed Dec 2025)
+- [x] Individual-Based Model (completed Feb 2026)
+- [x] EMODnet data integration (completed Mar 2026)
+- [x] EwE database full scenario loading (completed Mar 2026)
+- [x] Deep code review and performance optimization (completed Mar 2026)
 - [ ] Advanced fishing gear selectivity
-- [ ] Real-time data streaming
 - [ ] Cloud deployment tools
 
 ## Code Quality & Maintainability

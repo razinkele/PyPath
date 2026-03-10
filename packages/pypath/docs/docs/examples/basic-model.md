@@ -141,7 +141,8 @@ params = ecobase_to_rpath(model_data)
 
 ## Loading from EwE Database
 
-Read models from EwE's native Access database format:
+Read models from EwE's native Access database format. For the full guide,
+see [EwE Database Loading](ewe-database.md).
 
 ```python
 from pypath import read_ewemdb, rpath
@@ -162,6 +163,21 @@ from pypath import rsim_run
 scenario = ecosim_scenario_from_ewemdb("path/to/model.eweaccdb", scenario=16)
 output = rsim_run(scenario, method="AB")
 ```
+
+## Diagnosing Unstable Models
+
+If groups crash or biomass explodes, use autofix:
+
+```python
+from pypath.core.autofix import autofix_parameters
+
+fixed_params, result = autofix_parameters(model, scenario.params)
+print(f"Fixes applied: {len(result.fixes_applied)}")
+scenario.params = fixed_params
+output = rsim_run(scenario)
+```
+
+See the [Autofix Guide](../guides/autofix.md) for details.
 
 ## Loading from CSV Files
 

@@ -204,8 +204,32 @@ pip install -e "packages/pypath-shiny[dev]"
 pytest packages/pypath/tests -q -m "not integration and not slow"
 ```
 
+## Diagnosing and Fixing Unstable Models
+
+If your simulation crashes or produces unrealistic results, use the autofix
+module to identify and repair parameter issues:
+
+```python
+from pypath.core.autofix import diagnose_crash_causes, autofix_parameters
+
+# Diagnose potential problems
+report = diagnose_crash_causes(model, scenario.params)
+for issue in report["critical"]:
+    print(f"CRITICAL: {issue['type']} — group {issue['group']}")
+
+# Automatically fix parameters
+fixed_params, result = autofix_parameters(model, scenario.params)
+scenario.params = fixed_params
+output = rsim_run(scenario)
+```
+
+See the [Autofix Guide](guides/autofix.md) for details.
+
 ## Next Steps
 
 - [Basic Model Example](examples/basic-model.md) — Detailed walkthrough
+- [EwE Database Loading](examples/ewe-database.md) — Load native EwE models
 - [Spatial Modeling](examples/spatial.md) — Ecospace setup
+- [Individual-Based Model](examples/ibm.md) — IBM coupling
+- [Autofix Guide](guides/autofix.md) — Crash diagnostics and repair
 - [API Reference](api/core.md) — Full API docs
