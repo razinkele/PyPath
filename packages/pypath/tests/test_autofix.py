@@ -1,7 +1,6 @@
 """Tests for core autofix module."""
 
 import numpy as np
-import pytest
 
 from pypath.core.autofix import AutofixResult, autofix_parameters, diagnose_crash_causes
 
