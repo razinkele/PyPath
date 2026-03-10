@@ -2039,10 +2039,10 @@ def rsim_run(
             if month <= WARMUP_MONTHS and np.any(init_mask_loose):
                 state[init_mask_loose] = old_state[init_mask_loose]
         elif method.upper() == "AB":
-            # Warmup: use RK4 for the first few months to populate history and
-            # improve stability before switching to multi-step Adams-Bashforth
+            # Warmup: use RK4 for the first month to populate derivative history
+            # before switching to Adams-Bashforth 2-step (matching Rpath)
             if month <= 1:
-                # Use one year of RK4 warmup to get stable derivative history
+                # Use one RK4 step then switch to AB2
                 old_state = state.copy()
                 # Mark parent integration method so RK4 instrumentation reports 'AB' for warmup
                 params_dict["_integration_parent_method"] = "AB"

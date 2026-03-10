@@ -1932,11 +1932,12 @@ def integrate_ab(
     Bbase = params.get("Bbase", state)
     EPSILON = 1e-15
     BIGNUM = 1e15
-    for i in range(1, len(new_state)):
-        if Bbase[i] > 0:
-            new_state[i] = max(min(new_state[i], Bbase[i] * BIGNUM), Bbase[i] * EPSILON)
-        else:
-            new_state[i] = max(new_state[i], 0.0)
+    pos_mask = Bbase[1:] > 0
+    new_state[1:] = np.where(
+        pos_mask,
+        np.clip(new_state[1:], Bbase[1:] * EPSILON, Bbase[1:] * BIGNUM),
+        np.maximum(new_state[1:], 0.0),
+    )
 
     # Enforce NoIntegrate groups stay at baseline (if provided in params)
     try:
