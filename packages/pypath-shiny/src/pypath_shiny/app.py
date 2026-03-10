@@ -61,6 +61,7 @@ from pypath_shiny.pages import (  # noqa: E402
     optimization_demo,
     prebalance,
     results,
+    tutorial,
 )
 
 
@@ -114,6 +115,11 @@ app_ui = ui.page_fluid(
         # Core workflow pages
         ui.nav_panel(
             _icon_label("bi-house-fill", "Home"), home.home_ui(), value="Home"
+        ),
+        ui.nav_panel(
+            _icon_label("bi-mortarboard-fill", "Tutorial"),
+            tutorial.tutorial_ui(),
+            value="Tutorial",
         ),
         ui.nav_panel(
             _icon_label("bi-download", "Data Import"),
@@ -399,6 +405,7 @@ def server(input: Inputs, output: Outputs, session: Session):
             ),
         ),
         ("About", lambda: about.about_server(input, output, session)),
+        ("Tutorial", lambda: tutorial.tutorial_server(input, output, session)),
     ]
 
     # Initialize all server modules with error handling

@@ -530,6 +530,17 @@ def read_ewemdb(
         else:
             group_types = [0] * len(groups_df)  # Default to consumer
 
+    # Add fleets as type=3 groups (Rpath convention)
+    fleet_names = []
+    if fleet_df is not None:
+        fleet_name_col = next(
+            (c for c in ["FleetName", "Name", "Fleet"] if c in fleet_df.columns), None
+        )
+        if fleet_name_col:
+            fleet_names = fleet_df[fleet_name_col].tolist()
+            group_names = group_names + fleet_names
+            group_types = group_types + [3] * len(fleet_names)
+
     # Create RpathParams
     params = create_rpath_params(group_names, group_types)
 
@@ -568,10 +579,14 @@ def read_ewemdb(
         "DetInput": ["DetInputRemarks"],
     }
 
+    n_bio_groups = len(groups_df)
     for param_name, possible_cols in column_mapping.items():
         for col in possible_cols:
             if col in groups_df.columns:
                 values = groups_df[col].fillna(np.nan).tolist()
+                # Pad with NaN for fleet rows
+                if len(fleet_names) > 0:
+                    values = values + [np.nan] * len(fleet_names)
                 params.model[param_name] = values
                 break
 
@@ -580,7 +595,8 @@ def read_ewemdb(
     has_any_remarks = False
     found_remarks_cols = []
 
-    # Create ID to group name mapping
+    # Create ID to group name mapping (biological groups only, not fleets)
+    bio_group_names = group_names[: n_bio_groups]
     id_col = next(
         (
             c
@@ -590,9 +606,9 @@ def read_ewemdb(
         None,
     )
     if id_col:
-        id_to_name = dict(zip(groups_df[id_col].tolist(), group_names))
+        id_to_name = dict(zip(groups_df[id_col].tolist(), bio_group_names))
     else:
-        id_to_name = {i + 1: name for i, name in enumerate(group_names)}
+        id_to_name = {i + 1: name for i, name in enumerate(bio_group_names)}
 
     # Map VarName to our parameter names
     varname_to_param = {
@@ -1069,6 +1085,24 @@ def read_ewemdb(
                     "Ecosim_Annual_Catch",
                 ],
             )
+            # Ecosim scenario group settings (FtimeAdjust, MoPred, etc.)
+            scenario_group_df = _try_read_table_variants(
+                filepath,
+                [
+                    "EcosimScenarioGroup",
+                    "EcosimScenarioGroups",
+                    "Ecosim_Scenario_Group",
+                ],
+            )
+            # Ecosim forcing matrix (per-link VV overrides)
+            forcing_matrix_df = _try_read_table_variants(
+                filepath,
+                [
+                    "EcosimScenarioForcingMatrix",
+                    "EcosimForcingMatrix",
+                    "Ecosim_Scenario_Forcing_Matrix",
+                ],
+            )
             # Ecospace tables
             _try_read_table_variants(
                 filepath,
@@ -1097,7 +1131,7 @@ def read_ewemdb(
                 name = row.get("ScenarioName", row.get("Name", f"Scenario{sid}"))
                 start = row.get("StartYear", row.get("Start", None))
                 end = row.get("EndYear", row.get("End", None))
-                num_years = row.get("NumYears")
+                num_years = row.get("NumYears") or row.get("TotalTime")
                 if num_years is None and start is not None and end is not None:
                     try:
                         num_years = int(end) - int(start) + 1
@@ -1116,6 +1150,24 @@ def read_ewemdb(
                     or 1,
                     "description": row.get("Description", ""),
                 }
+
+                # Parse scenario group settings (FtimeAdjust, VV overrides)
+                scen["scenario_group_df"] = None
+                scen["forcing_matrix_df"] = None
+                if scenario_group_df is not None:
+                    if sid is not None and "ScenarioID" in scenario_group_df.columns:
+                        scen["scenario_group_df"] = scenario_group_df[
+                            scenario_group_df["ScenarioID"] == sid
+                        ].copy()
+                    else:
+                        scen["scenario_group_df"] = scenario_group_df.copy()
+                if forcing_matrix_df is not None:
+                    if sid is not None and "ScenarioID" in forcing_matrix_df.columns:
+                        scen["forcing_matrix_df"] = forcing_matrix_df[
+                            forcing_matrix_df["ScenarioID"] == sid
+                        ].copy()
+                    else:
+                        scen["forcing_matrix_df"] = forcing_matrix_df.copy()
 
                 # Filter forcing/fishing dataframes by ScenarioID if present
                 if forcing_df is not None:
@@ -2636,6 +2688,267 @@ def _construct_ecospace_params(ecospace_tables: Dict[str, Any], group_names: Lis
     return None
 
 
+def _build_scenario_overrides(
+    params: "RpathParams",
+    scenario_meta: dict,
+    group_names: list,
+) -> Optional[dict]:
+    """Build scenario_overrides dict from EwE database scenario tables.
+
+    Extracts FtimeAdjust per group and VV overrides from the
+    EcosimScenarioGroup and EcosimScenarioForcingMatrix tables.
+    Returns direct 0-based model indices (not EcopathGroupIDs).
+
+    Parameters
+    ----------
+    params : RpathParams
+        Model parameters (must have model["Group"])
+    scenario_meta : dict
+        Scenario metadata dict containing scenario_group_df and forcing_matrix_df
+    group_names : list
+        List of group names from the model (0-based order)
+
+    Returns
+    -------
+    dict or None
+        Dict with 'ftime_adjust' and/or 'vv_overrides' keys using 0-based
+        model indices, or None if no data.
+    """
+    overrides = {}
+
+    # Get model group names for matching
+    try:
+        model_groups = params.model["Group"].tolist()
+    except (AttributeError, KeyError):
+        model_groups = group_names or []
+
+    # Strip whitespace for matching
+    model_groups_stripped = [str(g).strip() for g in model_groups]
+
+    # Build EcopathGroupID -> 0-based model index mapping
+    # EcosimScenarioGroup has EcopathGroupID which matches EcopathGroup.GroupID
+    # We use the scenario_group_df rows (which have EcopathGroupID) and match
+    # by position: the sg_df rows are in the same order as model groups
+    sg_df = scenario_meta.get("scenario_group_df")
+    egid_to_model_idx = {}
+    if sg_df is not None and len(sg_df) > 0 and "EcopathGroupID" in sg_df.columns:
+        # The sg_df has one row per group, ordered by EcopathGroupID.
+        # We map each EcopathGroupID to 0-based model index by matching the
+        # order: the Nth row in sg_df corresponds to the Nth model group.
+        sg_sorted = sg_df.sort_values("EcopathGroupID").reset_index(drop=True)
+        for idx, (_, row) in enumerate(sg_sorted.iterrows()):
+            egid = int(row["EcopathGroupID"])
+            if idx < len(model_groups_stripped):
+                egid_to_model_idx[egid] = idx
+
+    # Parse FtimeAdjust from EcosimScenarioGroup
+    if sg_df is not None and len(sg_df) > 0:
+        ftime_adjust = {}
+        sg_sorted = sg_df.sort_values("EcopathGroupID").reset_index(drop=True)
+        for idx, (_, row) in enumerate(sg_sorted.iterrows()):
+            ftadj = row.get("FtimeAdjust")
+            if ftadj is not None and idx < len(model_groups_stripped):
+                ftime_adjust[idx] = float(ftadj)
+        if ftime_adjust:
+            overrides["ftime_adjust"] = ftime_adjust
+
+    # Parse VV overrides from EcosimScenarioForcingMatrix
+    fm_df = scenario_meta.get("forcing_matrix_df")
+    if fm_df is not None and len(fm_df) > 0:
+        # The forcing matrix uses EcosimScenarioGroup.GroupID (not EcopathGroupID)
+        # Build EcosimGroupID -> 0-based model index mapping
+        esim_to_model_idx = {}
+        if sg_df is not None:
+            sg_sorted = sg_df.sort_values("EcopathGroupID").reset_index(drop=True)
+            for idx, (_, row) in enumerate(sg_sorted.iterrows()):
+                esim_gid = row.get("GroupID")
+                if esim_gid is not None and idx < len(model_groups_stripped):
+                    esim_to_model_idx[int(esim_gid)] = idx
+
+        vv_overrides = {}
+        for _, row in fm_df.iterrows():
+            prey_esim = int(row.get("PreyID", -1))
+            pred_esim = int(row.get("PredID", -1))
+            vv = float(row.get("vulnerability", 2.0))
+
+            prey_idx = esim_to_model_idx.get(prey_esim, -1)
+            pred_idx = esim_to_model_idx.get(pred_esim, -1)
+            if prey_idx >= 0 and pred_idx >= 0:
+                vv_overrides[(prey_idx, pred_idx)] = vv
+
+        if vv_overrides:
+            overrides["vv_overrides"] = vv_overrides
+
+    return overrides if overrides else None
+
+
+def _apply_effort_shapes(
+    filepath: str,
+    selected: Dict[str, Any],
+    rsim: "RsimScenario",
+) -> None:
+    """Load effort forcing shapes from EwE6 tables and apply to scenario.
+
+    Reads EcosimScenarioFleet to find FishRateShapeID for each fleet,
+    then loads the shape data from EcosimShapeFishRate and writes it
+    into rsim.fishing.ForcedEffort.
+    """
+    try:
+        scenario_fleet_df = _try_read_table_variants(
+            filepath, ["EcosimScenarioFleet"]
+        )
+        fish_rate_shapes_df = _try_read_table_variants(
+            filepath, ["EcosimShapeFishRate"]
+        )
+        if scenario_fleet_df is None or fish_rate_shapes_df is None:
+            return
+
+        sid = selected.get("id")
+        if sid is not None and "ScenarioID" in scenario_fleet_df.columns:
+            fleet_rows = scenario_fleet_df[scenario_fleet_df["ScenarioID"] == sid]
+        else:
+            fleet_rows = scenario_fleet_df
+
+        n_months = rsim.fishing.ForcedEffort.shape[0]
+        n_gears = rsim.fishing.ForcedEffort.shape[1] - 1  # minus Outside column
+
+        for _, frow in fleet_rows.iterrows():
+            shape_id = frow.get("FishRateShapeID", 0)
+            if shape_id is None or int(shape_id) <= 0:
+                continue
+
+            shape_row = fish_rate_shapes_df[
+                fish_rate_shapes_df["ShapeID"] == int(shape_id)
+            ]
+            if len(shape_row) == 0:
+                continue
+
+            zscale = str(shape_row.iloc[0].get("zScale", ""))
+            vals = [float(v) for v in zscale.split() if v.strip()]
+            if not vals:
+                continue
+
+            # Determine fleet index (1-based in ForcedEffort)
+            fleet_id = frow.get("FleetID", frow.get("EcopathFleetID"))
+            if fleet_id is None:
+                continue
+
+            # Map fleet position: use EcopathFleetID order
+            # For simplicity, map to sequential gear index
+            gear_idx = 1  # Default to first gear
+            ecopath_fleet_id = frow.get("EcopathFleetID")
+            if ecopath_fleet_id is not None:
+                # Find position among all fleets for this scenario
+                all_fleet_ids = sorted(fleet_rows["EcopathFleetID"].unique())
+                if ecopath_fleet_id in all_fleet_ids:
+                    gear_idx = all_fleet_ids.index(ecopath_fleet_id) + 1
+
+            if gear_idx > n_gears:
+                continue
+
+            # Truncate or pad to match n_months
+            effort_arr = np.array(vals[:n_months], dtype=float)
+            if len(effort_arr) < n_months:
+                # Pad with last value
+                effort_arr = np.pad(
+                    effort_arr,
+                    (0, n_months - len(effort_arr)),
+                    mode="edge",
+                )
+
+            rsim.fishing.ForcedEffort[:, gear_idx] = effort_arr
+            logger.info(
+                "Applied effort shape %d to gear %d (%d months)",
+                int(shape_id),
+                gear_idx,
+                n_months,
+            )
+    except Exception as e:
+        logger.debug("Failed to apply effort shapes: %s", e)
+
+
+def _apply_forcing_shapes(
+    filepath: str,
+    selected: Dict[str, Any],
+    rsim: "RsimScenario",
+    params: "RpathParams",
+) -> None:
+    """Load environmental forcing shapes from EwE6 tables and apply to scenario.
+
+    Reads EcosimShapeTime for PP (primary production) forcing shapes linked
+    through EcosimScenarioGroup, and applies them to rsim.forcing arrays.
+    """
+    try:
+        shape_time_df = _try_read_table_variants(
+            filepath, ["EcosimShapeTime"]
+        )
+        scenario_group_df = selected.get("scenario_group_df")
+        if shape_time_df is None or scenario_group_df is None:
+            return
+
+        n_months = rsim.forcing.ForcedBio.shape[0]
+        n_groups = rsim.forcing.ForcedBio.shape[1]
+
+        # Build EcopathGroupID to positional index mapping
+        try:
+            group_ids = scenario_group_df["EcopathGroupID"].tolist()
+        except KeyError:
+            return
+
+        # Get group types to identify producers
+        try:
+            group_types = params.model["Type"].tolist()
+        except (AttributeError, KeyError):
+            group_types = []
+
+        # Check for PP forcing shapes in the scenario group settings
+        # EcosimShapeTime shapes with FunctionType/ApplicationType indicating
+        # environmental forcing are loaded via EcosimScenarioGroup references
+        # For now, look for shapes that match group names (PP forcing)
+        for shape_row_idx in range(len(shape_time_df)):
+            srow = shape_time_df.iloc[shape_row_idx]
+            title = str(srow.get("Title", "")).strip()
+            zscale = str(srow.get("zScale", ""))
+            vals = [float(v) for v in zscale.split() if v.strip()]
+            if not vals or not title:
+                continue
+
+            # Check if this shape matches a group name (PP forcing)
+            try:
+                group_names = params.model["Group"].tolist()
+            except (AttributeError, KeyError):
+                break
+
+            # Match by group name suffix (e.g. "Phytoplankton_biom" matches "Phytoplankton")
+            for g_idx, gname in enumerate(group_names):
+                if title.lower().startswith(gname.lower()):
+                    # This is a PP forcing shape for this group
+                    rsim_idx = g_idx + 1  # +1 for Outside offset
+                    if rsim_idx >= n_groups:
+                        continue
+
+                    # Only apply PP forcing to producers
+                    if g_idx < len(group_types) and group_types[g_idx] not in (1,):
+                        continue
+
+                    arr = np.array(vals[:n_months], dtype=float)
+                    if len(arr) < n_months:
+                        arr = np.pad(arr, (0, n_months - len(arr)), mode="edge")
+
+                    # Apply as PP forcing (ForcedPrey multiplier)
+                    rsim.forcing.ForcedPrey[:, rsim_idx] = arr
+                    logger.info(
+                        "Applied PP forcing shape '%s' to group %d (%s)",
+                        title,
+                        rsim_idx,
+                        gname,
+                    )
+                    break
+
+    except Exception as e:
+        logger.debug("Failed to apply forcing shapes: %s", e)
+
+
 def ecosim_scenario_from_ewemdb(
     filepath: str,
     scenario: Optional[Union[int, str]] = 1,
@@ -2700,8 +3013,22 @@ def ecosim_scenario_from_ewemdb(
         num = (
             int(selected.get("num_years"))
             if selected.get("num_years") is not None
-            else 1
+            else None
         )
+        # Fallback: infer from forcing time series length
+        if num is None:
+            ts = selected.get("forcing_ts")
+            if ts is not None:
+                ts_times = ts.get("_times", [])
+                if ts_times:
+                    num = len(ts_times)
+                    logger.info(
+                        "Inferred num_years=%d from forcing time series for scenario %s",
+                        num,
+                        selected.get("name"),
+                    )
+        if num is None:
+            num = 1
         # Ensure at least two years for RsimScenario compatibility
         if num < 2:
             logger.info(
@@ -2721,8 +3048,15 @@ def ecosim_scenario_from_ewemdb(
     except Exception as e:
         raise EwEDatabaseError(f"Failed to balance Ecopath model: {e}") from e
 
-    # Create RsimScenario
-    rsim = rsim_scenario(balanced, params, years=years)
+    # Build scenario overrides from EwE database tables
+    try:
+        group_names = params.model["Group"].tolist()
+    except (AttributeError, KeyError):
+        group_names = []
+    scenario_overrides = _build_scenario_overrides(params, selected, group_names)
+
+    # Create RsimScenario with overrides applied
+    rsim = rsim_scenario(balanced, params, years=years, scenario_overrides=scenario_overrides)
 
     # Replace default forcing/fishing with ones parsed from the DB if available
     try:
@@ -2733,6 +3067,12 @@ def ecosim_scenario_from_ewemdb(
     except (AttributeError, TypeError, ValueError):
         # Be defensive: leave defaults if replacement fails
         pass
+
+    # Load effort shapes from EwE6 tables (EcosimShapeFishRate)
+    _apply_effort_shapes(filepath, selected, rsim)
+
+    # Load environmental forcing shapes (EcosimShapeTime, EcosimScenarioGroup)
+    _apply_forcing_shapes(filepath, selected, rsim, params)
 
     # Try to construct and attach EcospaceParams if ecospace tables exist
     try:

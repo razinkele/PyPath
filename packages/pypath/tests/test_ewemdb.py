@@ -192,9 +192,11 @@ class TestReadEwemdb:
         try:
             params = read_ewemdb(temp_path)
 
-            assert len(params.model) == 2
-            # Fleet column should be added
+            assert len(params.model) == 3  # 2 bio groups + 1 fleet
+            # Fleet should be in model as type=3 group AND as column
             assert "Trawlers" in params.model.columns
+            assert params.model.iloc[2]["Type"] == 3
+            assert params.model.iloc[2]["Group"] == "Trawlers"
         finally:
             os.unlink(temp_path)
 
