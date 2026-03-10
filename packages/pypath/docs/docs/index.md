@@ -6,7 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI](https://img.shields.io/pypi/v/pypath-ewe)](https://pypi.org/project/pypath-ewe/)
 
-PyPath extends the R package [Rpath](https://github.com/NOAA-EDAB/Rpath) with advanced features while maintaining full core compatibility.
+PyPath provides a complete Python implementation of the EwE framework,
+with an Ecosim engine matching the
+[Rpath](https://github.com/NOAA-EDAB/Rpath) C++ reference implementation.
 
 ## Installation
 
@@ -20,7 +22,6 @@ pip install pypath-ewe
 pip install pypath-ewe[spatial]      # Ecospace spatial modeling
 pip install pypath-ewe[interactive]  # Plotly interactive plots
 pip install pypath-ewe[biodata]      # Species data from WoRMS/OBIS/FishBase
-pip install pypath-ewe[numba]        # JIT-compiled ODE solver (~40% faster)
 pip install pypath-ewe[all]          # Everything
 ```
 
@@ -39,9 +40,20 @@ params = create_rpath_params(
 # Balance the model
 model = rpath(params)
 
-# Run 50-year dynamic simulation
+# Run 50-year dynamic simulation (AB method matches Rpath)
 scenario = rsim_scenario(model, params, years=range(1, 51))
-output = rsim_run(scenario)
+output = rsim_run(scenario, method="AB")
+```
+
+### Loading EwE Database Models
+
+```python
+from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+from pypath import rsim_run
+
+# Load a complete scenario with all EwE settings
+scenario = ecosim_scenario_from_ewemdb("model.eweaccdb", scenario=16)
+output = rsim_run(scenario, method="AB")
 ```
 
 ## Key Features
@@ -49,13 +61,29 @@ output = rsim_run(scenario)
 | Feature | Description |
 |---------|-------------|
 | **Ecopath** | Mass-balance food web modeling with multi-stanza support |
-| **Ecosim** | Dynamic simulation using foraging arena theory |
+| **Ecosim** | Dynamic simulation using foraging arena theory (Rpath-compatible) |
 | **Ecospace** | Spatially-explicit modeling with hexagonal grids |
 | **IBM** | Individual-based model coupling (bioenergetics, predation) |
 | **State-Variable Forcing** | Data assimilation and prescribed scenarios |
 | **Diet Rewiring** | Adaptive foraging and prey switching |
-| **Optimization** | Bayesian parameter calibration |
-| **Data Import** | EwE databases, EcoBase, WoRMS/OBIS/FishBase |
+| **Optimization** | Parameter calibration with differential evolution |
+| **Data Import** | EwE databases, EcoBase, WoRMS/OBIS/FishBase, EMODnet |
+
+## Ecosim Engine
+
+The Ecosim derivative engine implements the full Rpath foraging arena
+functional response, including:
+
+- **HandleSelf/ScrambleSelf suite pooling** — competition among predators
+  sharing the same prey or handling time
+- **HandleSwitch exponent** — prey switching (predators target abundant prey)
+- **Adams-Bashforth 2-step integration** — matches Rpath's AB2 with 1-month
+  RK4 warmup
+- **Dynamic foraging time** — Rpath Ftime formula with 0.1 floor and 2.0 cap
+- **Fast equilibrium** — NoIntegrate groups track dynamic equilibrium via
+  `biomeq = TotGain / (TotLoss / B)` with SORWT=0.5 smoothing
+- **Environmental forcing** — ForcedPrey, PP_forcing, and ForcedBio arrays
+  propagated through the simulation loop
 
 ## Packages
 

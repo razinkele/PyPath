@@ -48,10 +48,6 @@ params.model.loc[2, "QB"] = 5.0
 params.model.loc[0, "EE"] = 0.8
 params.model.loc[1, "EE"] = 0.9
 params.model.loc[2, "EE"] = 0.5
-
-# Diet matrix (who eats whom)
-params.diet["Zooplankton"] = [1.0, 0.0, 0.0, 0.0, 0.0]
-params.diet["Small Fish"]  = [0.0, 1.0, 0.0, 0.0, 0.0]
 ```
 
 ### 2. Balance the Model (Ecopath)
@@ -75,7 +71,26 @@ output = rsim_run(scenario)
 print(output.biomass.shape)
 ```
 
-### 4. Pre-Balance Diagnostics
+### 4. Choosing an Integration Method
+
+PyPath supports two integration methods:
+
+```python
+# Runge-Kutta 4 (default) — stable, self-starting
+output_rk4 = rsim_run(scenario, method="RK4")
+
+# Adams-Bashforth 2-step — matches Rpath C++ engine
+output_ab = rsim_run(scenario, method="AB")
+```
+
+The `AB` method matches the Rpath reference implementation: it uses 1 month
+of RK4 warmup followed by the 2-step Adams-Bashforth formula. It also
+applies Rpath-style biomass bounds and dynamic fast equilibrium for
+NoIntegrate groups (detritus, fast-turnover species). Use `AB` when
+comparing results with EwE or Rpath, or when calibrating vulnerability
+parameters.
+
+### 5. Pre-Balance Diagnostics
 
 ```python
 from pypath.analysis.prebalance import prebalance_diagnostics
@@ -97,10 +112,86 @@ params = ecobase_to_rpath(model_data)
 
 ### From EwE Database (.eweaccdb)
 
-```python
-from pypath import read_ewemdb
+Load Ecopath parameters and optionally create a ready-to-run Ecosim
+scenario with all scenario settings (vulnerability overrides, foraging
+time adjustments, time series, forcing functions):
 
+```python
+from pypath import read_ewemdb, rpath
+from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+
+# Option A: Load just Ecopath parameters
 params = read_ewemdb("path/to/model.eweaccdb")
+model = rpath(params)
+
+# Option B: Load a complete Ecosim scenario (recommended for EwE models)
+scenario = ecosim_scenario_from_ewemdb("path/to/model.eweaccdb", scenario=16)
+output = rsim_run(scenario, method="AB")
+```
+
+`ecosim_scenario_from_ewemdb` reads the scenario's vulnerability matrix,
+foraging time adjustments, forced biomass time series, fishing effort, and
+environmental forcing directly from the database. This is the recommended
+way to reproduce EwE simulation results.
+
+### From CSV Files
+
+```python
+from pypath import read_rpath_params
+from pathlib import Path
+
+data_dir = Path("path/to/csv/files")
+params = read_rpath_params(
+    model_file=data_dir / "model.csv",
+    diet_file=data_dir / "diet.csv",
+    stanza_file=data_dir / "stanzas.csv",       # optional
+    stanza_group_file=data_dir / "stgroups.csv", # optional
+)
+```
+
+## Applying Fishing Pressure
+
+Use `adjust_fishing` to modify fishing effort during the simulation.
+
+```python
+from pypath import adjust_fishing
+
+# Double fishing effort on Small Fish from year 10 to 30
+adjust_fishing(scenario, group="Small Fish", value=2.0, years=range(10, 31))
+
+output = rsim_run(scenario)
+```
+
+## Adjusting Vulnerability
+
+Vulnerability parameters control the functional response shape:
+
+- `v = 1.0`: pure donor-controlled (prey availability limits consumption)
+- `v = 2.0`: mixed control (default)
+- `v > 10`: approaching recipient-controlled (predator abundance drives consumption)
+
+```python
+from pypath import set_vulnerability
+
+# Make Zooplankton highly vulnerable to Small Fish predation
+set_vulnerability(scenario, prey="Zooplankton", pred="Small Fish", value=5.0)
+```
+
+## Plotting Results
+
+```python
+import matplotlib.pyplot as plt
+
+# Plot biomass trajectories
+for i, name in enumerate(params.model.index):
+    if params.model.loc[i, "Type"] in (0, 1):  # consumers + producers
+        plt.plot(output.biomass[:, i + 1], label=name)
+
+plt.xlabel("Month")
+plt.ylabel("Biomass (t/km2)")
+plt.legend()
+plt.title("Ecosim Biomass Trajectories")
+plt.show()
 ```
 
 ## Development Setup
