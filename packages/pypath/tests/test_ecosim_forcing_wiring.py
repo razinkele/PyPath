@@ -2,8 +2,6 @@
 
 import warnings
 
-import numpy as np
-import pytest
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
@@ -79,5 +77,9 @@ class TestForcingWiring:
         finally:
             ecosim_mod.deriv_vector = orig_deriv
 
-        assert "ForcedPrey" in captured["forcing"], "ForcedPrey missing from forcing_dict"
-        assert "PP_forcing" in captured["forcing"], "PP_forcing missing from forcing_dict"
+        assert "ForcedPrey" in captured["forcing"], (
+            "ForcedPrey missing from forcing_dict"
+        )
+        assert "PP_forcing" in captured["forcing"], (
+            "PP_forcing missing from forcing_dict"
+        )

@@ -316,8 +316,10 @@ def rpath(
         else np.zeros(diet_values.shape[1])
     )
     # Vectorized: normalize diet by (1 - import_frac) for each predator column
-    import_fracs = import_row[:nliving] if len(import_row) >= nliving else np.pad(
-        import_row, (0, nliving - len(import_row))
+    import_fracs = (
+        import_row[:nliving]
+        if len(import_row) >= nliving
+        else np.pad(import_row, (0, nliving - len(import_row)))
     )
     denoms = np.where(1.0 - import_fracs > 0, 1.0 - import_fracs, 1.0)
     nodetrdiet = diet_values[np.ix_(living_idx, range(nliving))] / denoms[np.newaxis, :]
