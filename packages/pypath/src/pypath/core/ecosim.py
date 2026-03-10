@@ -2111,7 +2111,7 @@ def rsim_run(
                 state[init_mask] = old_state[init_mask]
 
         # Monthly M0 adjustment to enforce algebraic equilibrium for small residuals
-        if not params_dict.get("MONTHLY_M0_ADJUST", True):
+        if not params_dict.get("MONTHLY_M0_ADJUST", False):
             if params_dict.get("VERBOSE_DEBUG"):
                 logger.debug(
                     "skipping monthly M0 adjustment (disabled) for month=%s", month
