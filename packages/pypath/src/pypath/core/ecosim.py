@@ -2086,11 +2086,19 @@ def rsim_run(
                 state, new_deriv = integrate_ab(
                     state, derivs_history, params_dict, forcing_dict, fishing_dict, dt
                 )
-                # Ensure NoIntegrate groups remain fixed and have zero derivative
+                # Fast equilibrium for NoIntegrate groups (matches Rpath SORWT=0.5)
                 if np.any(no_integrate_mask):
-                    Bbase = params_dict.get("Bbase")
-                    if Bbase is not None:
-                        state[no_integrate_mask] = Bbase[no_integrate_mask]
+                    from pypath.core.ecosim_deriv import compute_biomeq
+
+                    QQ_ni = _compute_Q_matrix(params_dict, state, forcing_dict)
+                    for i in range(1, len(state)):
+                        if no_integrate_mask[i]:
+                            total_gain = float(np.nansum(QQ_ni[:, i]))
+                            total_loss = float(np.nansum(QQ_ni[i, :]))
+                            total_loss += params_dict["M0"][i] * state[i]
+                            state[i] = compute_biomeq(
+                                total_gain, total_loss, state[i]
+                            )
                     new_deriv[no_integrate_mask] = 0.0
                 derivs_history.insert(0, new_deriv)
                 if len(derivs_history) > 1:

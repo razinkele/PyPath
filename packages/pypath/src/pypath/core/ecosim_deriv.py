@@ -1878,6 +1878,19 @@ def _sanitize_deriv(v: np.ndarray) -> np.ndarray:
     return np.clip(v, -MAX_DERIV_MAG, MAX_DERIV_MAG)
 
 
+def compute_biomeq(total_gain, total_loss, biomass, sorwt=0.5):
+    """Compute fast-equilibrium biomass for NoIntegrate groups.
+
+    Rpath formula: biomeq = TotGain / (TotLoss / B)
+    Then: new_B = (1-SORWT)*biomeq + SORWT*old_B
+    """
+    if total_loss <= 0 or biomass <= 0:
+        return biomass
+    loss_rate = total_loss / biomass
+    biomeq = total_gain / loss_rate
+    return (1.0 - sorwt) * biomeq + sorwt * biomass
+
+
 def integrate_ab(
     state: np.ndarray,
     derivs_history: list,
