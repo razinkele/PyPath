@@ -596,7 +596,7 @@ def read_ewemdb(
     found_remarks_cols = []
 
     # Create ID to group name mapping (biological groups only, not fleets)
-    bio_group_names = group_names[: n_bio_groups]
+    bio_group_names = group_names[:n_bio_groups]
     id_col = next(
         (
             c
@@ -2794,9 +2794,7 @@ def _apply_effort_shapes(
     into rsim.fishing.ForcedEffort.
     """
     try:
-        scenario_fleet_df = _try_read_table_variants(
-            filepath, ["EcosimScenarioFleet"]
-        )
+        scenario_fleet_df = _try_read_table_variants(filepath, ["EcosimScenarioFleet"])
         fish_rate_shapes_df = _try_read_table_variants(
             filepath, ["EcosimShapeFishRate"]
         )
@@ -2879,9 +2877,7 @@ def _apply_forcing_shapes(
     through EcosimScenarioGroup, and applies them to rsim.forcing arrays.
     """
     try:
-        shape_time_df = _try_read_table_variants(
-            filepath, ["EcosimShapeTime"]
-        )
+        shape_time_df = _try_read_table_variants(filepath, ["EcosimShapeTime"])
         scenario_group_df = selected.get("scenario_group_df")
         if shape_time_df is None or scenario_group_df is None:
             return
@@ -3056,7 +3052,9 @@ def ecosim_scenario_from_ewemdb(
     scenario_overrides = _build_scenario_overrides(params, selected, group_names)
 
     # Create RsimScenario with overrides applied
-    rsim = rsim_scenario(balanced, params, years=years, scenario_overrides=scenario_overrides)
+    rsim = rsim_scenario(
+        balanced, params, years=years, scenario_overrides=scenario_overrides
+    )
 
     # Replace default forcing/fishing with ones parsed from the DB if available
     try:
