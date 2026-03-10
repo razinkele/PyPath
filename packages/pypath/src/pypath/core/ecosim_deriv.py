@@ -1889,8 +1889,8 @@ def integrate_ab(
     """
     Adams-Bashforth integration step.
 
-    Uses 4-step Adams-Bashforth method when history is available,
-    falls back to simpler methods with less history.
+    Uses 2-step Adams-Bashforth method (matching Rpath) when history is
+    available, falls back to Euler with no history.
 
     Parameters
     ----------
@@ -1918,58 +1918,35 @@ def integrate_ab(
 
     n_history = len(derivs_history)
 
-    if n_history >= 3:
-        # 4-step Adams-Bashforth
-        # y_{n+1} = y_n + dt/24 * (55*f_n - 59*f_{n-1} + 37*f_{n-2} - 9*f_{n-3})
-        coef = np.array([55, -59, 37, -9]) / 24.0
-        delta = coef[0] * deriv_current
-        for i, c in enumerate(coef[1:]):
-            if i < len(derivs_history):
-                delta += c * _sanitize_deriv(np.asarray(derivs_history[i]))
-        new_state = state + dt * delta
-    elif n_history >= 2:
-        # 3-step Adams-Bashforth
-        coef = np.array([23, -16, 5]) / 12.0
-        delta = (
-            coef[0] * deriv_current
-            + coef[1] * _sanitize_deriv(np.asarray(derivs_history[0]))
-            + coef[2] * _sanitize_deriv(np.asarray(derivs_history[1]))
+    if n_history >= 1:
+        # 2-step Adams-Bashforth (matches Rpath)
+        # y_{n+1} = y_n + dt/2 * (3*f_n - f_{n-1})
+        new_state = state + (dt / 2.0) * (
+            3.0 * deriv_current - _sanitize_deriv(np.asarray(derivs_history[0]))
         )
-        new_state = state + dt * delta
-    elif n_history >= 1:
-        # 2-step Adams-Bashforth
-        coef = np.array([3, -1]) / 2.0
-        delta = coef[0] * deriv_current + coef[1] * _sanitize_deriv(
-            np.asarray(derivs_history[0])
-        )
-        new_state = state + dt * delta
     else:
-        # Euler method
+        # Euler method (first step)
         new_state = state + dt * deriv_current
 
-    # Prevent extreme relative jumps that indicate instability
-    # Cap relative change per step to avoid runaway in Adams-Bashforth
-    eps = 1e-12
-    min_ratio = 1e-6
-    max_ratio = 10.0
-    ratios = new_state / np.where(state == 0, eps, state)
-    ratios = np.nan_to_num(ratios, nan=1.0, posinf=max_ratio, neginf=0.0)
-    ratios = np.clip(ratios, min_ratio, max_ratio)
-    new_state = state * ratios
-
-    # Ensure non-negative biomass
-    new_state = np.maximum(new_state, 0.0)
+    # Rpath-style bounds: pmax(pmin(B, Bref*BIGNUM), Bref*EPSILON)
+    Bbase = params.get("Bbase", state)
+    EPSILON = 1e-15
+    BIGNUM = 1e15
+    for i in range(1, len(new_state)):
+        if Bbase[i] > 0:
+            new_state[i] = max(min(new_state[i], Bbase[i] * BIGNUM), Bbase[i] * EPSILON)
+        else:
+            new_state[i] = max(new_state[i], 0.0)
 
     # Enforce NoIntegrate groups stay at baseline (if provided in params)
     try:
-        # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
         no_integrate = (
             np.asarray(params.get("NoIntegrate", np.zeros(len(new_state)))) != 0
         )
         if np.any(no_integrate):
-            Bbase = params.get("Bbase")
-            if Bbase is not None:
-                new_state[no_integrate] = Bbase[no_integrate]
+            Bbase_ni = params.get("Bbase")
+            if Bbase_ni is not None:
+                new_state[no_integrate] = Bbase_ni[no_integrate]
                 deriv_current[no_integrate] = 0.0
     except (TypeError, ValueError, IndexError):
         pass

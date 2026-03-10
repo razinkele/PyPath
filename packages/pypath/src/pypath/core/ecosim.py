@@ -2041,7 +2041,7 @@ def rsim_run(
         elif method.upper() == "AB":
             # Warmup: use RK4 for the first few months to populate history and
             # improve stability before switching to multi-step Adams-Bashforth
-            if month <= 12:
+            if month <= 1:
                 # Use one year of RK4 warmup to get stable derivative history
                 old_state = state.copy()
                 # Mark parent integration method so RK4 instrumentation reports 'AB' for warmup
@@ -2056,7 +2056,7 @@ def rsim_run(
                 if month == 1 and np.any(init_mask):
                     state[init_mask] = old_state[init_mask]
                 # Prevent groups with small initial residuals from changing during warmup
-                WARMUP_MONTHS = 12
+                WARMUP_MONTHS = 1
                 if month <= WARMUP_MONTHS and np.any(init_mask_loose):
                     state[init_mask_loose] = old_state[init_mask_loose]
                 try:
@@ -2073,7 +2073,7 @@ def rsim_run(
                     if np.any(no_integrate_mask):
                         new_deriv[no_integrate_mask] = 0.0
                     derivs_history.insert(0, new_deriv)
-                    if len(derivs_history) > 3:
+                    if len(derivs_history) > 1:
                         derivs_history.pop()
                 except Exception as e:
                     logger.debug("derivative history update failed: %s", e)
@@ -2093,7 +2093,7 @@ def rsim_run(
                         state[no_integrate_mask] = Bbase[no_integrate_mask]
                     new_deriv[no_integrate_mask] = 0.0
                 derivs_history.insert(0, new_deriv)
-                if len(derivs_history) > 3:
+                if len(derivs_history) > 1:
                     derivs_history.pop()
         else:
             # Unknown method: fallback to RK4 to be safe
