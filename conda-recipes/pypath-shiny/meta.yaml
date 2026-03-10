@@ -1,0 +1,48 @@
+{% set version = "0.3.1" %}
+
+package:
+  name: pypath-shiny
+  version: {{ version }}
+
+source:
+  path: ../../packages/pypath-shiny
+
+build:
+  entry_points:
+    - pypath-shiny = pypath_shiny.app:main
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  number: 0
+
+requirements:
+  host:
+    - python >=3.10
+    - setuptools >=68.0
+    - pip
+  run:
+    - python >=3.10
+    - pypath-ewe >=0.3.1
+    - shiny >=1.0.0
+    - shinyswatch >=0.7.0
+    - httpx >=0.24
+    - uvicorn >=0.23
+
+test:
+  imports:
+    - pypath_shiny
+  requires:
+    - python
+
+about:
+  home: https://github.com/razinkele/PyPath
+  summary: Shiny web frontend for PyPath EwE food web modeling
+  description: |
+    Interactive web dashboard for PyPath EwE food web modeling. Provides
+    model editing, Ecosim simulation, diet visualization, fishing scenarios,
+    species data lookup, and Ecospace spatial wizard.
+  license: MIT
+  license_file: LICENSE
+
+extra:
+  recipe-maintainers:
+    - razinkele

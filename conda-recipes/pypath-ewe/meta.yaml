@@ -1,0 +1,56 @@
+{% set version = "0.3.1" %}
+
+package:
+  name: pypath-ewe
+  version: {{ version }}
+
+source:
+  path: ../../packages/pypath
+
+build:
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  number: 0
+
+requirements:
+  host:
+    - python >=3.10
+    - setuptools >=68.0
+    - pip
+  run:
+    - python >=3.10
+    - numpy >=1.24
+    - pandas >=2.0
+    - scipy >=1.10
+    - matplotlib-base >=3.7
+
+test:
+  imports:
+    - pypath
+    - pypath.core.ecopath
+    - pypath.core.ecosim
+    - pypath.core.autofix
+    - pypath.io.ewemdb
+    - pypath.spatial.connectivity
+    - pypath.ibm.bioenergetics
+  commands:
+    - pip check
+  requires:
+    - pip
+    - python
+
+about:
+  home: https://github.com/razinkele/PyPath
+  summary: Python implementation of Ecopath with Ecosim (EwE) for food web modeling
+  description: |
+    PyPath provides a complete Python implementation of the Ecopath with Ecosim
+    (EwE) framework for aquatic food web modeling, with Ecosim engine matching
+    the Rpath C++ reference. Includes Ecospace spatial modeling, Individual-Based
+    Models, automatic crash diagnostics, and EMODnet data integration.
+  doc_url: https://razinkele.github.io/PyPath/
+  license: MIT
+  license_file: LICENSE
+
+extra:
+  recipe-maintainers:
+    - razinkele
