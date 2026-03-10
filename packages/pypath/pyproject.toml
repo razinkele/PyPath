@@ -55,6 +55,9 @@ biodata = [
 numba = [
     "numba>=0.57",
 ]
+ewedb = [
+    "pyodbc>=4.0",
+]
 docs = [
     "mkdocs>=1.5",
     "mkdocs-material>=9.0",
@@ -70,7 +73,7 @@ dev = [
     "python-semantic-release>=9.0",
 ]
 all = [
-    "pypath-ewe[interactive,spatial,spatial-data,biodata,numba,docs,dev]",
+    "pypath-ewe[interactive,spatial,spatial-data,biodata,numba,ewedb,docs,dev]",
 ]
 
 [project.urls]

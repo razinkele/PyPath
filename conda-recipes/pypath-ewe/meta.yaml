@@ -31,6 +31,7 @@ test:
     - pypath.core.ecosim
     - pypath.core.autofix
     - pypath.io.ewemdb
+    - pypath.io.ewe_writer
     - pypath.spatial.connectivity
     - pypath.ibm.bioenergetics
   commands:

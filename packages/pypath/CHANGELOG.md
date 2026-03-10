@@ -9,6 +9,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 ## v0.3.1 (2026-03-10)
 
 ### Added
+- **EwE Export**: New `write_ewemdb()` function exports PyPath models back to
+  native EwE `.eweaccdb` format (Access via pyodbc) or `.ewecsv.zip` (CSV
+  bundle fallback for cross-platform use). Supports Ecopath groups, diet,
+  fleets, stanzas, Ecosim scenarios, and Ecospace spatial data.
 - `ecosim_scenario_from_ewemdb()` — load complete Ecosim scenarios from native EwE
   databases with vulnerability overrides, foraging time, forced biomass, fishing effort,
   and environmental forcing

@@ -35,6 +35,30 @@ a complete walkthrough.
     options:
       show_root_heading: true
 
+### EwE Database Export
+
+Export PyPath models back to native EwE format:
+
+- `write_ewemdb(params, path)` — Auto-detects best backend
+- `write_ewemdb(params, path, backend="csv")` — Force CSV bundle
+- `write_ewemdb(params, path, scenarios=[scen1])` — Include Ecosim
+- `write_ewemdb(params, path, ecospace=ecospace)` — Include Ecospace
+
+**Example:**
+
+```python
+from pypath.io.ewe_writer import write_ewemdb
+
+# Export Ecopath model
+write_ewemdb(params, "my_model.eweaccdb")
+
+# With Ecosim scenarios
+write_ewemdb(params, "my_model.eweaccdb", scenarios=[scenario1])
+
+# Cross-platform CSV fallback
+write_ewemdb(params, "my_model.ewecsv.zip", backend="csv")
+```
+
 ## Biological Data (WoRMS/OBIS/FishBase)
 
 Integration with marine biological databases: WoRMS for taxonomy,
