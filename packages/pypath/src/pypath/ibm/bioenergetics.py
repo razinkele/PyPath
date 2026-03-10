@@ -37,6 +37,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 
@@ -280,3 +282,53 @@ def growth_step(
     new_energy_reserve = max(new_energy_reserve, 0.0)
 
     return (float(new_weight), float(new_energy_reserve))
+
+
+def growth_step_batch(
+    weights: np.ndarray,
+    energy_reserves: np.ndarray,
+    consumptions: np.ndarray,
+    temperature: float,
+    is_mature: np.ndarray,
+    dt: float,
+    params: BioenergParams,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorized growth step for all individuals at once.
+
+    Parameters
+    ----------
+    weights : np.ndarray
+        Body weights (grams), shape ``(n,)``.
+    energy_reserves : np.ndarray
+        Energy reserves, shape ``(n,)``.
+    consumptions : np.ndarray
+        Total consumption per individual, shape ``(n,)``.
+    temperature : float
+        Water temperature (degrees C).
+    is_mature : np.ndarray
+        Boolean array, shape ``(n,)``.
+    dt : float
+        Timestep (fraction of a year).
+    params : BioenergParams
+        Bioenergetics parameters.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        ``(new_weights, new_energy_reserves)``.
+    """
+    assim = consumptions * (1 - params.unassimilated_fraction)
+    sda = consumptions * params.sda_fraction
+    q10_factor = q10_temperature_factor(temperature, params.t_ref, params.q10)
+    met = params.ra * (weights ** params.rb) * q10_factor * dt * 365.0
+    net_energy = assim - met - sda
+
+    # Reproduction cost for mature fish with positive surplus
+    repro_cost = np.where(is_mature & (net_energy > 0), net_energy * params.reproduction_fraction, 0.0)
+    net_energy = net_energy - repro_cost
+
+    weight_change = net_energy / params.energy_density
+    new_weights = np.maximum(weights + weight_change, 0.1)
+    new_energy_reserves = np.maximum(energy_reserves + weight_change, 0.0)
+
+    return new_weights, new_energy_reserves

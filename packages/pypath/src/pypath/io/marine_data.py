@@ -342,11 +342,13 @@ class SalinityLoader:
                 f"CSV must have columns: {required}, got: {set(df.columns)}"
             )
 
-        values = np.zeros(grid.n_patches)
-        for i in range(grid.n_patches):
-            lon, lat = grid.patch_centroids[i]
-            dists = (df["lon"] - lon) ** 2 + (df["lat"] - lat) ** 2
-            values[i] = df.loc[dists.idxmin(), "salinity"]
+        from scipy.spatial import cKDTree
+
+        csv_coords = np.column_stack([df["lon"].values, df["lat"].values])
+        tree = cKDTree(csv_coords)
+        centroids = np.asarray(grid.patch_centroids)
+        _, indices = tree.query(centroids)
+        values = df["salinity"].values[indices]
 
         return EnvironmentalLayer(name="salinity", units="PSU", values=values)
 
@@ -390,15 +392,17 @@ class SalinityLoader:
             if dim in sal.dims:
                 sal = sal.isel({dim: 0})
 
-        values = np.zeros(grid.n_patches)
         lons = sal.coords[_find_coord(sal, "lon")].values
         lats = sal.coords[_find_coord(sal, "lat")].values
-
-        for i in range(grid.n_patches):
-            plon, plat = grid.patch_centroids[i]
-            lon_idx = np.argmin(np.abs(lons - plon))
-            lat_idx = np.argmin(np.abs(lats - plat))
-            values[i] = float(sal.values[lat_idx, lon_idx])
+        centroids = np.asarray(grid.patch_centroids)
+        lon_idx = np.argmin(
+            np.abs(lons[np.newaxis, :] - centroids[:, 0:1]), axis=1
+        )
+        lat_idx = np.argmin(
+            np.abs(lats[np.newaxis, :] - centroids[:, 1:2]), axis=1
+        )
+        sal_values = sal.values
+        values = sal_values[lat_idx, lon_idx].astype(float)
 
         ds.close()
         return EnvironmentalLayer(name="salinity", units="PSU", values=values)

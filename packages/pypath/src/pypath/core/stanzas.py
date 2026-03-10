@@ -281,8 +281,8 @@ def rpath_stanzas(rpath_params: RpathParams) -> RpathParams:
         bb_cum = np.cumsum(bb) / np.sum(bb)
 
         # Find age at 99.999% cumulative biomass
-        idx = np.argmax(bb_cum > 0.99999)
-        if idx == 0 and bb_cum[0] <= 0.99999:
+        idx = int(np.searchsorted(bb_cum, 0.99999, side="left"))
+        if idx >= len(ages):
             idx = len(ages) - 1
         last_month = int(np.ceil((ages[idx] + 1) / 12.0) * 12 - 1)
 

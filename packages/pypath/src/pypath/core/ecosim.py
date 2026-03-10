@@ -471,7 +471,12 @@ def rsim_params(
         if det_idx.size > 0:
             no_integrate[det_idx] = 1
     except Exception as e:
-        logger.debug("detritus NoIntegrate marking failed: %s", e)
+        warnings.warn(
+            f"Failed to mark detritus groups as NoIntegrate: {e}. "
+            f"Detritus dynamics may be incorrect.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # Predator-prey handling parameters
     handle_self = np.full(ngroups + 1, handleselfwt)

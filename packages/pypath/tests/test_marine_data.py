@@ -228,6 +228,27 @@ class TestSalinityLoader:
         assert layer.name == "salinity"
         assert layer.values.shape == (grid.n_patches,)
 
+    @pytest.mark.skipif(not _has_geopandas(), reason="geopandas not installed")
+    def test_load_csv_nearest_neighbor_correctness(self):
+        """KDTree picks the closest CSV point for each grid centroid."""
+        from pypath.io.marine_data import SalinityLoader
+        from pypath.spatial.ecospace_params import EcospaceGrid
+
+        grid = EcospaceGrid.from_regular_grid(bounds=(20, 55, 21, 56), nx=2, ny=2)
+        csv_path = os.path.join(self.tmpdir, "sal_sparse.csv")
+        # Place CSV points at known locations with distinct salinity values
+        with open(csv_path, "w") as f:
+            f.write("lon,lat,salinity\n")
+            f.write("20.25,55.25,5.0\n")  # SW corner
+            f.write("20.75,55.25,6.0\n")  # SE corner
+            f.write("20.25,55.75,7.0\n")  # NW corner
+            f.write("20.75,55.75,8.0\n")  # NE corner
+
+        layer = SalinityLoader.load_from_csv(csv_path, grid)
+        # Each patch should pick its nearest CSV point
+        assert len(layer.values) == grid.n_patches
+        assert set(layer.values) == {5.0, 6.0, 7.0, 8.0}
+
 
 class TestHabitatPreferenceBuilder:
     """Tests for HabitatPreferenceBuilder."""

@@ -41,6 +41,7 @@ from pypath.ibm.bioenergetics import (
     BioenergParams,
     allometric_length,
     growth_step,
+    growth_step_batch,
 )
 from pypath.ibm.predation import PredationParams, apply_predation_mortality
 from pypath.ibm.reproduction import (
@@ -398,46 +399,48 @@ class SmeltIBM(IBMGroup):
         # ================================================================
         # Phase 1: Forage + Grow
         # ================================================================
-        for ind in self.individuals:
-            # Maximum consumption scales allometrically with weight
-            # Using a simple Cmax = 0.1 * weight^0.7 * dt * 365 (per timestep)
-            max_consumption = 0.1 * (ind.weight**0.7) * dt * 365.0
+        n_ind = len(self.individuals)
+        ind_consumptions = np.empty(n_ind)
 
-            # Scale max_consumption by number represented for total group take
-            # But adaptive_forage works per-individual, consumption is per-individual
+        # Vectorized max_consumption: 0.1 * weight^0.7 * dt * 365
+        weights = np.array([ind.weight for ind in self.individuals])
+        max_consumptions = 0.1 * (weights ** 0.7) * dt * 365.0
+
+        # Foraging loop (sequential — adaptive_forage has iterative redistribution)
+        for i, ind in enumerate(self.individuals):
             allocation = adaptive_forage(
                 prey_available=prey_dict,
-                max_consumption=max_consumption,
+                max_consumption=max_consumptions[i],
                 individual_length=ind.length,
                 params=sp.foraging,
             )
-
-            # Total consumption by this super-individual (per real individual)
-            ind_consumption = sum(allocation.values())
-
-            # Accumulate consumption in tonnes:
-            # per-individual consumption * n_represented / 1e6
+            ind_consumptions[i] = sum(allocation.values())
             for prey_idx, amount in allocation.items():
                 if prey_idx < self.n_groups:
                     total_consumption[prey_idx] += amount * ind.n_represented / 1e6
 
-            # Grow: update weight and energy reserve
-            new_weight, new_energy = growth_step(
-                weight=ind.weight,
-                energy_reserve=ind.energy_reserve,
-                consumption=ind_consumption,
-                temperature=temperature,
-                is_mature=ind.is_mature,
-                dt=dt,
-                params=sp.bioenerg,
-            )
+        # Batch growth step (vectorized bioenergetics)
+        energy_reserves = np.array([ind.energy_reserve for ind in self.individuals])
+        is_mature = np.array([ind.is_mature for ind in self.individuals])
 
-            ind.weight = new_weight
-            ind.energy_reserve = new_energy
-            # Update length from new weight
-            ind.length = allometric_length(
-                ind.weight, sp.bioenerg.a_length, sp.bioenerg.b_length
-            )
+        new_weights, new_energies = growth_step_batch(
+            weights=weights,
+            energy_reserves=energy_reserves,
+            consumptions=ind_consumptions,
+            temperature=temperature,
+            is_mature=is_mature,
+            dt=dt,
+            params=sp.bioenerg,
+        )
+
+        # Batch allometric length
+        new_lengths = sp.bioenerg.a_length * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length
+
+        # Write back to individuals
+        for i, ind in enumerate(self.individuals):
+            ind.weight = float(new_weights[i])
+            ind.energy_reserve = float(new_energies[i])
+            ind.length = float(new_lengths[i])
 
         # ================================================================
         # Phase 2: Reproduce

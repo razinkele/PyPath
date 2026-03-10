@@ -833,6 +833,103 @@ def primary_production_forcing(
     return production
 
 
+def _resolve_instrument_groups(params, spname_list, num_groups):
+    """Resolve INSTRUMENT_GROUPS to a set of 0-based group indices.
+
+    Handles string group names (resolved via model DataFrame or spname) and
+    numeric indices (with automatic 1-based to 0-based conversion heuristic).
+
+    Parameters
+    ----------
+    params : dict or dataclass
+        Simulation parameters containing INSTRUMENT_GROUPS and optionally model.
+    spname_list : list or None
+        Species name list (1-based, with leading 'Outside').
+    num_groups : int
+        Total number of groups.
+
+    Returns
+    -------
+    set
+        Set of 0-based group indices to instrument.
+    """
+    raw = (
+        params.get("INSTRUMENT_GROUPS", None)
+        if isinstance(params, dict)
+        else getattr(params, "INSTRUMENT_GROUPS", None)
+    )
+    if raw is None:
+        return set()
+
+    instrument_set = set()
+    try:
+        numeric_inputs = []
+        for g in raw:
+            if isinstance(g, str):
+                # Prefer mapping via params['model'] if available
+                model_df = (
+                    params.get("model", None)
+                    if isinstance(params, dict)
+                    else getattr(params, "model", None)
+                )
+                if (
+                    model_df is not None
+                    and hasattr(model_df, "columns")
+                    and "Group" in model_df.columns
+                ):
+                    groups_list = list(model_df["Group"])
+                    if g in groups_list:
+                        instrument_set.add(groups_list.index(g))
+                        continue
+                # Fallback to spname mapping
+                if spname_list is not None and g in spname_list:
+                    sp_idx = spname_list.index(g)
+                    if sp_idx > 0:
+                        instrument_set.add(sp_idx - 1)
+            else:
+                try:
+                    numeric_inputs.append(int(g))
+                except (TypeError, ValueError):
+                    pass
+
+        # Heuristic: convert probable 1-based indices to 0-based
+        max_idx = num_groups - 1
+        if numeric_inputs:
+            if all(1 <= v <= num_groups for v in numeric_inputs) and min(numeric_inputs) >= 1:
+                logger.debug(
+                    "INSTRUMENT: detected probable 1-based numeric indices %s; converting",
+                    numeric_inputs,
+                )
+                warnings.warn(
+                    "Numeric INSTRUMENT_GROUPS indices are expected to be 0-based. "
+                    "Detected probable 1-based indices — converting to 0-based for now. "
+                    "Please update your code to use 0-based indices.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
+                numeric_inputs = [v - 1 for v in numeric_inputs]
+            for v in numeric_inputs:
+                instrument_set.add(v)
+
+        # Filter to valid range
+        instrument_set = {i for i in instrument_set if 0 <= i <= max_idx}
+
+        # Write back normalized indices
+        normalized = sorted(instrument_set)
+        try:
+            params["INSTRUMENT_GROUPS"] = normalized
+        except (TypeError, KeyError):
+            try:
+                setattr(params, "INSTRUMENT_GROUPS", normalized)
+            except (TypeError, AttributeError):
+                pass
+    except Exception as e:
+        logger.debug("Instrumentation group resolution error: %s", e)
+        instrument_set = set()
+
+    return instrument_set
+
+
 def deriv_vector(
     state: np.ndarray, params: dict, forcing: dict, fishing: dict, t: float = 0.0
 ) -> np.ndarray:
@@ -968,105 +1065,7 @@ def deriv_vector(
     except (TypeError, ValueError, IndexError):
         pass
 
-    # Instrumentation: resolve requested groups to 0-based indices (names or indices)
-    # NOTE: group names map via params['spname'] (which includes a leading 'Outside').
-    # We normalize to 0-based indices corresponding to `groups` list (0 => first real group).
-    INSTRUMENT_GROUPS = params.get("INSTRUMENT_GROUPS", None)
-    try:
-        logger.debug(
-            "INSTRUMENT-RAW: INSTRUMENT_GROUPS raw=%r type=%s params_is_dict=%s",
-            INSTRUMENT_GROUPS,
-            type(INSTRUMENT_GROUPS),
-            isinstance(params, dict),
-        )
-    except (TypeError, ValueError):
-        pass
-    instrument_set = set()
-    if INSTRUMENT_GROUPS is not None:
-        try:
-            spname = spname_list
-            numeric_inputs = []
-            for g in INSTRUMENT_GROUPS:
-                if isinstance(g, str):
-                    # Prefer mapping via params['model'] if available (stable group ordering)
-                    model_df = (
-                        params.get("model", None)
-                        if isinstance(params, dict)
-                        else getattr(params, "model", None)
-                    )
-                    if (
-                        model_df is not None
-                        and hasattr(model_df, "columns")
-                        and "Group" in model_df.columns
-                    ):
-                        groups_list = list(model_df["Group"])
-                        if g in groups_list:
-                            instrument_set.add(groups_list.index(g))
-                            continue
-                    # Fallback to spname mapping (may include leading 'Outside')
-                    if spname is not None and g in spname:
-                        sp_idx = spname.index(g)
-                        # Convert spname index (with leading 'Outside') to 0-based group index
-                        if sp_idx > 0:
-                            instrument_set.add(sp_idx - 1)
-                else:
-                    # Collect numeric inputs for later disambiguation
-                    try:
-                        numeric_inputs.append(int(g))
-                    except (TypeError, ValueError):
-                        pass
-            # Heuristic: if numeric inputs look like 1-based indices (all in 1..NUM_GROUPS),
-            # emit a DeprecationWarning and convert to 0-based by subtracting 1.
-            max_idx = NUM_GROUPS - 1
-            if numeric_inputs:
-                if (
-                    all(1 <= v <= NUM_GROUPS for v in numeric_inputs)
-                    and min(numeric_inputs) >= 1
-                ):
-                    # Likely 1-based indices; log, warn, and convert
-                    logger.debug(
-                        "INSTRUMENT: detected probable 1-based numeric indices %s; converting to 0-based",
-                        numeric_inputs,
-                    )
-                    warnings.warn(
-                        "Numeric INSTRUMENT_GROUPS indices are expected to be 0-based. "
-                        "Detected probable 1-based indices — converting to 0-based for now. "
-                        "Please update your code to use 0-based indices.",
-                        DeprecationWarning,
-                        stacklevel=3,
-                    )
-                    numeric_inputs = [v - 1 for v in numeric_inputs]
-                # Add numeric inputs (after any conversion) into instrument_set
-                for v in numeric_inputs:
-                    instrument_set.add(v)
-            # Filter to valid range [0, NUM_GROUPS-1]
-            instrument_set = set(i for i in instrument_set if 0 <= i <= max_idx)
-            # Ensure downstream uses the normalized (0-based) representation so
-            # instrumentation callback and other code sees converted indices.
-            try:
-                normalized = sorted(instrument_set)
-                try:
-                    params["INSTRUMENT_GROUPS"] = normalized
-                except (TypeError, KeyError):
-                    try:
-                        setattr(params, "INSTRUMENT_GROUPS", normalized)
-                    except (TypeError, AttributeError):
-                        pass
-                # Print normalization outcome for visibility
-                try:
-                    logger.debug(
-                        "INSTRUMENT-NORM: numeric_inputs=%s normalized=%s instrument_set=%s",
-                        numeric_inputs,
-                        normalized,
-                        instrument_set,
-                    )
-                except (TypeError, ValueError):
-                    pass
-            except (TypeError, ValueError):
-                pass
-        except Exception as e:
-            logger.debug("Instrumentation group resolution error: %s", e)
-            instrument_set = set()
+    instrument_set = _resolve_instrument_groups(params, spname_list, NUM_GROUPS)
 
     # Initialize consumption matrix
     QQ = np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1))

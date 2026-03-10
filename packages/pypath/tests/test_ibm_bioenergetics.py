@@ -9,11 +9,14 @@ integrated growth step.
 
 import pytest
 
+import numpy as np
+
 from pypath.ibm.bioenergetics import (
     BioenergParams,
     allometric_length,
     assimilation,
     growth_step,
+    growth_step_batch,
     metabolism,
     q10_temperature_factor,
 )
@@ -335,3 +338,42 @@ class TestGrowthStep:
         assert len(result) == 2
         assert isinstance(result[0], float)
         assert isinstance(result[1], float)
+
+
+class TestGrowthStepBatch:
+    """Verify growth_step_batch matches scalar growth_step element-wise."""
+
+    def test_batch_matches_scalar(self, default_params):
+        """Batch results match individual scalar calls."""
+        weights = np.array([5.0, 10.0, 20.0])
+        energy_reserves = np.array([0.5, 1.0, 0.2])
+        consumptions = np.array([3.0, 5.0, 1.0])
+        temperature = 15.0
+        is_mature = np.array([False, True, False])
+        dt = 1.0 / 12.0
+
+        new_w, new_e = growth_step_batch(
+            weights, energy_reserves, consumptions,
+            temperature, is_mature, dt, default_params,
+        )
+
+        for i in range(3):
+            sw, se = growth_step(
+                weights[i], energy_reserves[i], consumptions[i],
+                temperature, bool(is_mature[i]), dt, default_params,
+            )
+            assert new_w[i] == pytest.approx(sw, rel=1e-10)
+            assert new_e[i] == pytest.approx(se, rel=1e-10)
+
+    def test_batch_minimum_weight(self, default_params):
+        """Batch enforces minimum weight of 0.1."""
+        weights = np.array([0.1])
+        energy_reserves = np.array([0.0])
+        consumptions = np.array([0.0])
+        is_mature = np.array([False])
+
+        new_w, _ = growth_step_batch(
+            weights, energy_reserves, consumptions,
+            15.0, is_mature, 1.0, default_params,
+        )
+        assert new_w[0] >= 0.1
