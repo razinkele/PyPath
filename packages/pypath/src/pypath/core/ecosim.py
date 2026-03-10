@@ -2232,14 +2232,15 @@ def rsim_run(
             except Exception as e:
                 logger.debug("monthly M0 adjustment failed: %s", e)
 
-        # Apply NoIntegrate behavior: hold fast-turnover groups at baseline
-        try:
-            # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-            Bbase = params_dict.get("Bbase")
-            if Bbase is not None:
-                state[no_integrate_mask] = Bbase[no_integrate_mask]
-        except Exception as e:
-            logger.debug("NoIntegrate application failed: %s", e)
+        # NoIntegrate groups: for RK4, hold at baseline (no biomeq available);
+        # for AB, biomeq was already applied in the integration branch above.
+        if method.upper() != "AB":
+            try:
+                Bbase = params_dict.get("Bbase")
+                if Bbase is not None and np.any(no_integrate_mask):
+                    state[no_integrate_mask] = Bbase[no_integrate_mask]
+            except Exception as e:
+                logger.debug("NoIntegrate application failed: %s", e)
 
         # Replace invalid numeric values to prevent NaN/inf runaway and
         # ensure non-negative biomass
@@ -2287,19 +2288,14 @@ def rsim_run(
                 for grp_idx in low_biomass_groups:
                     crashed_groups.add(grp_idx + 1)  # +1 because we sliced from index 1
 
-        # Enforce NoIntegrate at the final step for this month (after stanza updates)
-        if np.any(no_integrate_mask):
+        # For non-AB methods, enforce NoIntegrate after stanza updates
+        if method.upper() != "AB" and np.any(no_integrate_mask):
             Bbase = params_dict.get("Bbase")
             if Bbase is not None:
                 state[no_integrate_mask] = Bbase[no_integrate_mask]
 
         # Store results
         out_biomass[month] = state
-        # Re-assert NoIntegrate groups in stored results to mitigate any numerical drift
-        if np.any(no_integrate_mask):
-            Bbase = params_dict.get("Bbase")
-            if Bbase is not None:
-                out_biomass[month, no_integrate_mask] = Bbase[no_integrate_mask]
 
         # Compute consumption QQ matrix for this month to track Qlinks
         QQ_month = _compute_Q_matrix(params_dict, state, forcing_dict)
