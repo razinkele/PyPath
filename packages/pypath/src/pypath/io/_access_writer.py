@@ -198,12 +198,26 @@ class AccessWriter:
         if df.empty:
             return
 
-        columns = df.columns.tolist()
+        # Get actual columns in the Access table to filter DataFrame
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute(f"SELECT TOP 1 * FROM [{table}]")
+            table_cols = {desc[0] for desc in cursor.description}
+            # Only use DataFrame columns that exist in the Access table
+            columns = [c for c in df.columns.tolist() if c in table_cols]
+            if not columns:
+                logger.warning(
+                    "No matching columns between DataFrame and table %s", table
+                )
+                return
+            df = df[columns]
+        except Exception:
+            # If we can't introspect, try all columns
+            columns = df.columns.tolist()
+
         col_str = ", ".join(f"[{c}]" for c in columns)
         placeholders = ", ".join("?" for _ in columns)
         sql = f"INSERT INTO [{table}] ({col_str}) VALUES ({placeholders})"
-
-        cursor = self._conn.cursor()
 
         for _, row in df.iterrows():
             values = []
@@ -253,32 +267,24 @@ class AccessWriter:
 
         # INSERT each built table into the Access database
         for table_name, df in writer._tables.items():
-            # Ensure the table exists (create if needed)
-            self._ensure_table(table_name)
+            # Ensure the table exists (create if needed, add missing columns)
+            self._ensure_table(table_name, df_columns=df.columns.tolist())
             self._insert_rows(table_name, df)
 
-    def _ensure_table(self, table_name: str) -> None:
+    def _ensure_table(self, table_name: str, df_columns: list = None) -> None:
         """Ensure a table exists in the database, creating it if needed.
+
+        Also adds missing columns if the table exists but the DataFrame
+        has columns not in the table.
 
         Parameters
         ----------
         table_name : str
             The EwE table name.
+        df_columns : list, optional
+            Column names from the DataFrame to ensure exist.
         """
         from pypath.io._ewe_schema import EWE_TABLES
-
-        # Check if table exists
-        cursor = self._conn.cursor()
-        try:
-            cursor.execute(f"SELECT TOP 1 * FROM [{table_name}]")
-            cursor.fetchall()
-            return  # Table exists
-        except Exception:
-            pass  # Table doesn't exist, create it
-
-        if table_name not in EWE_TABLES:
-            logger.warning("Table %s not in EWE schema, skipping", table_name)
-            return
 
         sql_type_map = {
             "INTEGER": "INTEGER",
@@ -287,9 +293,44 @@ class AccessWriter:
             "YESNO": "BIT",
         }
 
-        columns = EWE_TABLES[table_name]
+        # Check if table exists
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute(f"SELECT TOP 1 * FROM [{table_name}]")
+            cursor.fetchall()
+            # Table exists — check for missing columns
+            if df_columns:
+                existing_cols = {desc[0] for desc in cursor.description}
+                schema_cols = EWE_TABLES.get(table_name, {})
+                for col in df_columns:
+                    if col not in existing_cols:
+                        col_type = schema_cols.get(col, "TEXT")
+                        sql_type = sql_type_map.get(col_type, "TEXT(255)")
+                        try:
+                            cursor.execute(
+                                f"ALTER TABLE [{table_name}] ADD COLUMN [{col}] {sql_type}"
+                            )
+                        except Exception as e:
+                            logger.debug("Could not add column %s.%s: %s", table_name, col, e)
+            return
+        except Exception:
+            pass  # Table doesn't exist, create it
+
+        # Build column list from schema + any extra DataFrame columns
+        all_columns = {}
+        if table_name in EWE_TABLES:
+            all_columns.update(EWE_TABLES[table_name])
+        if df_columns:
+            for col in df_columns:
+                if col not in all_columns:
+                    all_columns[col] = "TEXT"  # default type for unknown columns
+
+        if not all_columns:
+            logger.warning("No column definitions for table %s, skipping", table_name)
+            return
+
         col_defs = []
-        for col_name, col_type in columns.items():
+        for col_name, col_type in all_columns.items():
             sql_type = sql_type_map.get(col_type, "TEXT(255)")
             col_defs.append(f"[{col_name}] {sql_type}")
 

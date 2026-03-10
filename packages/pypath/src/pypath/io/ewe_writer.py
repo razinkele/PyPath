@@ -84,7 +84,18 @@ def write_ewemdb(
     except Exception:
         import os
 
+        # Close connection first (Access writer holds a file lock)
+        conn = getattr(writer, "_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            writer._conn = None
         tmp = getattr(writer, "_tmp_path", None)
         if tmp and os.path.exists(tmp):
-            os.unlink(tmp)
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
         raise
