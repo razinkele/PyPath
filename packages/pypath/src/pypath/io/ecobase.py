@@ -392,7 +392,10 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
                         prey_name = group_seq_to_name.get(prey_seq, f"Group_{prey_seq}")
                         if pred_name not in result["diet"]:
                             result["diet"][pred_name] = {}
-                        result["diet"][pred_name][prey_name] = proportion
+                        if prey_name in result["diet"][pred_name]:
+                            result["diet"][pred_name][prey_name] += proportion
+                        else:
+                            result["diet"][pred_name][prey_name] = proportion
                 continue
 
             # Try to convert values appropriately
@@ -460,7 +463,10 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
                     if proportion > 0:
                         if pred_name not in result["diet"]:
                             result["diet"][pred_name] = {}
-                        result["diet"][pred_name][prey_name] = proportion
+                        if prey_name in result["diet"][pred_name]:
+                            result["diet"][pred_name][prey_name] += proportion
+                        else:
+                            result["diet"][pred_name][prey_name] = proportion
                 except (ValueError, TypeError):
                     continue
 
@@ -489,7 +495,10 @@ def get_ecobase_model(model_id: int, timeout: int = 60) -> Dict[str, Any]:
                             if proportion > 0:
                                 if pred_name not in result["diet"]:
                                     result["diet"][pred_name] = {}
-                                result["diet"][pred_name][prey_name] = proportion
+                                if prey_name in result["diet"][pred_name]:
+                                    result["diet"][pred_name][prey_name] += proportion
+                                else:
+                                    result["diet"][pred_name][prey_name] = proportion
                 except (ValueError, TypeError):
                     continue
 

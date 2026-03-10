@@ -154,7 +154,14 @@ def von_bertalanffy_weight(age: np.ndarray, k: float, d: float = 0.66667) -> np.
     -------
     np.ndarray
         Weight relative to Winf at each age
+
+    Raises
+    ------
+    ValueError
+        If d is not in the open interval (0, 1).
     """
+    if not (0 < d < 1):
+        raise ValueError(f"d must be in (0, 1), got {d}")
     return (1.0 - np.exp(-k * (1.0 - d) * age)) ** (1.0 / (1.0 - d))
 
 

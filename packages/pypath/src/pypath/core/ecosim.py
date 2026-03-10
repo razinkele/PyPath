@@ -176,6 +176,10 @@ class RsimParams:
     # PP_type: 0=consumer, 1=producer, 2=detritus
     PP_type: np.ndarray = None
 
+    # Fleet group indices (0-based) for resolving gear indices from FishThrough.
+    # Required when groups are in non-canonical order (e.g. detritus first).
+    fleet_idx: np.ndarray = None
+
     # Integration parameters
     BURN_YEARS: int = -1
     COUPLED: int = 1
@@ -404,6 +408,10 @@ def rsim_params(
     ngroups = rpath.NUM_GROUPS
     nbio = nliving + ndead
 
+    # 0-based indices of fleet groups (needed for gear index resolution when
+    # groups are in non-canonical order)
+    fleet_idx_arr = np.where(rpath.type == 3)[0]
+
     # Species names with "Outside" prepended
     spname = ["Outside"] + list(rpath.Group)
     spnum = np.arange(ngroups + 1)
@@ -615,11 +623,15 @@ def rsim_params(
     fish_to = [0]
 
     for gear_idx in range(ngear):
+        # Use fleet_idx_arr to get the actual 0-based group index of this fleet,
+        # rather than assuming canonical ordering (nliving + ndead + gear_idx).
+        fleet_grp_0based = int(fleet_idx_arr[gear_idx])
+        fleet_grp_1based = fleet_grp_0based + 1
         for grp_idx in range(ngroups):
             landing = rpath.Landings[grp_idx, gear_idx]
             if landing > 0 and b_baseref[grp_idx + 1] > 0:
                 fish_from.append(grp_idx + 1)
-                fish_through.append(nliving + ndead + gear_idx + 1)
+                fish_through.append(fleet_grp_1based)
                 fish_q.append(landing / b_baseref[grp_idx + 1])
                 fish_to.append(0)  # Landings go Outside
 
@@ -628,13 +640,13 @@ def rsim_params(
                 # Discards go to detritus based on fate
                 for det_idx in range(ndead):
                     det_frac = (
-                        rpath.DetFate[nliving + ndead + gear_idx, det_idx]
-                        if nliving + ndead + gear_idx < len(rpath.DetFate)
+                        rpath.DetFate[fleet_grp_0based, det_idx]
+                        if fleet_grp_0based < len(rpath.DetFate)
                         else 1.0 / ndead
                     )
                     if det_frac > 0:
                         fish_from.append(grp_idx + 1)
-                        fish_through.append(nliving + ndead + gear_idx + 1)
+                        fish_through.append(fleet_grp_1based)
                         fish_q.append(discard * det_frac / b_baseref[grp_idx + 1])
                         # Use dead global indices to avoid arithmetic/indexing ambiguity
                         fish_to.append(nliving + det_idx + 1)
@@ -747,6 +759,7 @@ def rsim_params(
         DetTo=det_to,
         NumDetLinks=len(det_from) - 1,
         PP_type=pp_type,
+        fleet_idx=fleet_idx_arr,
     )
 
 
@@ -1074,6 +1087,7 @@ def rsim_run(
         "FishFrom": getattr(params, "FishFrom", np.array([])),
         "FishTo": getattr(params, "FishTo", np.array([])),
         "FishQ": getattr(params, "FishQ", np.array([])),
+        "fleet_idx": getattr(params, "fleet_idx", None),
     }
 
     # Pre-compute sparse link arrays for the consumption kernel so that
@@ -1567,6 +1581,7 @@ def rsim_run(
                 "FishFrom": getattr(params, "FishFrom", np.array([])),
                 "FishTo": getattr(params, "FishTo", np.array([])),
                 "FishQ": getattr(params, "FishQ", np.array([])),
+                "fleet_idx": getattr(params, "fleet_idx", None),
             }
             # If Seabirds exists, add TRACE keys to params_test so deriv_vector prints breakdown
             try:
@@ -1994,6 +2009,13 @@ def rsim_run(
     except Exception as e:
         logger.debug("fishing link debug failed: %s", e)
 
+    # Build gear lookup from fleet_idx once before the monthly loop,
+    # for non-canonical group ordering support.
+    _run_gear_lookup = {}
+    if hasattr(params, "fleet_idx") and params.fleet_idx is not None:
+        for _pos, _grp0 in enumerate(params.fleet_idx):
+            _run_gear_lookup[int(_grp0)] = _pos + 1
+
     for month in range(1, n_months + 1):
         # Debug: indicate loop iteration for first few months
         if month <= 6:
@@ -2325,7 +2347,11 @@ def rsim_run(
             grp = params.FishFrom[i]
             gear_group_idx = params.FishThrough[i]
             # Convert group-based gear index to gear array index
-            gear_idx = int(gear_group_idx - params.NUM_LIVING - params.NUM_DEAD)
+            gear_0based = int(gear_group_idx) - 1
+            if _run_gear_lookup:
+                gear_idx = _run_gear_lookup.get(gear_0based, 0)
+            else:
+                gear_idx = int(gear_group_idx - params.NUM_LIVING - params.NUM_DEAD)
             effort_mult = (
                 forcing_dict["ForcedEffort"][gear_idx]
                 if 0 < gear_idx < len(forcing_dict["ForcedEffort"])

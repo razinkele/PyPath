@@ -327,7 +327,7 @@ def read_rpath_params(
         fleet_groups = model[model["Type"] == 3]["Group"].tolist()
         pedigree_data = {
             "Group": model["Group"].tolist(),
-            "B": [1.0] * len(model),
+            "Biomass": [1.0] * len(model),
             "PB": [1.0] * len(model),
             "QB": [1.0] * len(model),
             "Diet": [1.0] * len(model),

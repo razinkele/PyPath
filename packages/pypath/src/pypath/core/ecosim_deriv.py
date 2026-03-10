@@ -1233,15 +1233,31 @@ def deriv_vector(
         FishThrough = getattr(fishing, "FishThrough", np.array([0]))
         FishQ = getattr(fishing, "FishQ", np.array([0.0]))
 
+    # fleet_idx: 0-based array of fleet group indices, used to resolve gear
+    # indices from FishThrough values without assuming canonical group ordering.
+    if isinstance(params, dict):
+        fleet_idx = params.get("fleet_idx", None)
+    else:
+        fleet_idx = getattr(params, "fleet_idx", None)
+
+    # Build a fast lookup from 0-based group index to 1-based gear index.
+    # Falls back to the legacy arithmetic when fleet_idx is not available.
+    _gear_lookup = {}
+    if fleet_idx is not None:
+        for pos, grp_0 in enumerate(fleet_idx):
+            _gear_lookup[int(grp_0)] = pos + 1  # 1-based gear index
+
     # Calculate fishing mortality with effort scaling per gear
-    # Note: FishThrough contains GROUP indices of gears, not gear indices
-    # To get gear index: gear_idx = FishThrough[i] - NUM_LIVING - NUM_DEAD
+    # FishThrough contains 1-based GROUP indices of fleets.
     for i in range(1, len(FishFrom)):
         grp = int(FishFrom[i])
         gear_group_idx = int(FishThrough[i])
-        gear_idx = (
-            gear_group_idx - NUM_LIVING - NUM_DEAD
-        )  # Convert to gear index (1-based)
+        gear_0based = gear_group_idx - 1  # convert to 0-based group index
+        if _gear_lookup:
+            gear_idx = _gear_lookup.get(gear_0based, 0)
+        else:
+            # Legacy fallback: assumes canonical ordering
+            gear_idx = gear_group_idx - NUM_LIVING - NUM_DEAD
         effort_mult = (
             ForcedEffort[gear_idx] if 0 < gear_idx < len(ForcedEffort) else 1.0
         )
