@@ -1,6 +1,34 @@
 """Tests for EwE database export (writer) infrastructure."""
 
+import json
+import zipfile
+
+import numpy as np
+import pandas as pd
 import pytest
+
+from pypath.core.params import create_rpath_params
+
+
+def _make_simple_model():
+    """Create a minimal 5-group model for testing."""
+    params = create_rpath_params(
+        groups=["Phyto", "Zoo", "Fish", "Detritus", "Fleet1"],
+        types=[1, 0, 0, 2, 3],
+    )
+    params.model["Biomass"] = [10.0, 5.0, 2.0, 100.0, np.nan]
+    params.model["PB"] = [100.0, 40.0, 1.5, np.nan, np.nan]
+    params.model["QB"] = [0.0, 100.0, 5.0, np.nan, np.nan]
+    params.model["EE"] = [0.9, 0.8, 0.7, np.nan, np.nan]
+    params.model["Unassim"] = [0.0, 0.2, 0.2, np.nan, np.nan]
+    # Set some diet values
+    diet_groups = params.diet["Group"].tolist()
+    phyto_idx = diet_groups.index("Phyto")
+    zoo_idx = diet_groups.index("Zoo")
+    params.diet.iloc[phyto_idx, params.diet.columns.get_loc("Zoo")] = 1.0
+    params.diet.iloc[zoo_idx, params.diet.columns.get_loc("Fish")] = 0.8
+    params.diet.iloc[phyto_idx, params.diet.columns.get_loc("Fish")] = 0.2
+    return params
 
 
 class TestEweSchema:
@@ -47,3 +75,86 @@ class TestEweSchema:
         assert "Biomass" in RPATH_TO_EWE_COLUMNS
         assert "PB" in RPATH_TO_EWE_COLUMNS
         assert "QB" in RPATH_TO_EWE_COLUMNS
+
+
+class TestCsvBundleWriter:
+    def test_creates_zip_file(self, tmp_path):
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.ewecsv.zip"
+        writer = CsvBundleWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        assert outpath.exists()
+        assert zipfile.is_zipfile(outpath)
+
+    def test_zip_contains_manifest(self, tmp_path):
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.ewecsv.zip"
+        writer = CsvBundleWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        with zipfile.ZipFile(outpath) as zf:
+            assert "manifest.json" in zf.namelist()
+            manifest = json.loads(zf.read("manifest.json"))
+            assert manifest["ewe_version"] == "6.6"
+
+    def test_zip_contains_ecopath_group_csv(self, tmp_path):
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.ewecsv.zip"
+        writer = CsvBundleWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        with zipfile.ZipFile(outpath) as zf:
+            assert "EcopathGroup.csv" in zf.namelist()
+            df = pd.read_csv(zf.open("EcopathGroup.csv"))
+            assert len(df) == 4  # 4 bio groups, fleet separate
+            assert "GroupName" in df.columns
+            assert df.iloc[0]["GroupName"] == "Phyto"
+
+    def test_zip_contains_diet_csv(self, tmp_path):
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.ewecsv.zip"
+        writer = CsvBundleWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        with zipfile.ZipFile(outpath) as zf:
+            assert "EcopathDietComp.csv" in zf.namelist()
+            df = pd.read_csv(zf.open("EcopathDietComp.csv"))
+            assert len(df) >= 3
+            assert "PreyID" in df.columns
+            assert "Diet" in df.columns
+
+    def test_zip_contains_fleet_csv(self, tmp_path):
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.ewecsv.zip"
+        writer = CsvBundleWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        with zipfile.ZipFile(outpath) as zf:
+            assert "EcopathFleet.csv" in zf.namelist()
+            df = pd.read_csv(zf.open("EcopathFleet.csv"))
+            assert len(df) == 1
+            assert df.iloc[0]["FleetName"] == "Fleet1"
+
+    def test_biomass_values_roundtrip(self, tmp_path):
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.ewecsv.zip"
+        writer = CsvBundleWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        with zipfile.ZipFile(outpath) as zf:
+            df = pd.read_csv(zf.open("EcopathGroup.csv"))
+            assert abs(df.iloc[0]["Biomass"] - 10.0) < 1e-6
+            assert abs(df.iloc[1]["Biomass"] - 5.0) < 1e-6
