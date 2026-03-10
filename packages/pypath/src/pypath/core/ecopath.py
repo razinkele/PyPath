@@ -315,12 +315,12 @@ def rpath(
         if diet_values.shape[0] > ngroups
         else np.zeros(diet_values.shape[1])
     )
-    # For each predator column, normalize by (1 - import_frac) if possible
-    for j, pred_idx in enumerate(living_idx):
-        import_frac = import_row[j] if j < len(import_row) else 0.0
-        denom = 1.0 - import_frac if (1.0 - import_frac) > 0 else 1.0
-        for i, prey_idx in enumerate(living_idx):
-            nodetrdiet[i, j] = diet_values[prey_idx, j] / denom
+    # Vectorized: normalize diet by (1 - import_frac) for each predator column
+    import_fracs = import_row[:nliving] if len(import_row) >= nliving else np.pad(
+        import_row, (0, nliving - len(import_row))
+    )
+    denoms = np.where(1.0 - import_fracs > 0, 1.0 - import_fracs, 1.0)
+    nodetrdiet = diet_values[np.ix_(living_idx, range(nliving))] / denoms[np.newaxis, :]
 
     # Fill in GE (P/Q), QB, or PB from other inputs
     # Compute GE = PB/QB when QB is present and non-zero, otherwise use prodcons
@@ -662,16 +662,11 @@ def rpath(
         + det_input
     )
 
-    # Detritus consumption by living groups
+    # Detritus consumption by living groups (vectorized)
     # diet_values rows are in original order, columns are in living_idx order
-    detcons = np.zeros(ndead)
-    for d_local_idx, det_global_idx in enumerate(dead_idx):
-        # Get diet fraction from this detritus for each living predator
-        for pred_local_idx, pred_global_idx in enumerate(living_idx):
-            dc_frac = diet_values[det_global_idx, pred_local_idx]
-            pred_bio_qb = biomass[pred_global_idx] * qb[pred_global_idx]
-            if not np.isnan(pred_bio_qb):
-                detcons[d_local_idx] += dc_frac * pred_bio_qb
+    det_diet = diet_values[dead_idx, :nliving]  # (ndead, nliving)
+    bio_qb_living = np.nan_to_num(biomass[living_idx] * qb[living_idx])
+    detcons = det_diet @ bio_qb_living  # (ndead,)
 
     # Stage 2: Route unconsumed detritus through detritus-to-detritus fate matrix
     det_unused = np.maximum(0.0, detinputs1 - detcons)
