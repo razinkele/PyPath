@@ -81,6 +81,9 @@ Repository = "https://github.com/razinkele/PyPath"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+pypath = ["io/templates/*.eweaccdb"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
