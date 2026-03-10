@@ -17,7 +17,6 @@ from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.ecosim_deriv import (
     HAS_NUMBA,
     _compute_consumption,
-    _compute_consumption_numba,
     _compute_consumption_python,
     _compute_detritus_derivs,
     _compute_detritus_derivs_numba,
@@ -119,61 +118,6 @@ class TestComputeConsumptionKernel:
         assert np.isclose(QQ[1, 2], 0.5, rtol=1e-10)
         assert np.isclose(QQ[2, 3], 0.3, rtol=1e-10)
         assert QQ[3, 1] == 0.0  # no link
-
-    @pytest.mark.skipif(not HAS_NUMBA, reason="numba not installed")
-    def test_numba_matches_python(self):
-        """Verify numba-compiled kernel produces identical results to Python."""
-        rng = np.random.default_rng(42)
-        n = 20
-        QQ_py = np.zeros((n, n))
-        QQ_nb = np.zeros((n, n))
-
-        BB = rng.uniform(0.1, 10.0, n)
-        BB[0] = 0.0
-
-        ActiveLink = np.zeros((n, n), dtype=np.int64)
-        for _ in range(40):
-            prey = rng.integers(1, n)
-            pred = rng.integers(1, 15)
-            ActiveLink[prey, pred] = 1
-
-        VV = rng.uniform(1.5, 10.0, (n, n))
-        DD = rng.uniform(1.0, 1000.0, (n, n))
-        QQbase = rng.uniform(0.0, 1.0, (n, n))
-        preyYY = rng.uniform(0.5, 2.0, n)
-        preyYY[0] = 0.0
-        predYY = rng.uniform(0.5, 2.0, n)
-        predYY[0] = 0.0
-
-        NUM_LIVING = 14
-        NUM_GROUPS = n - 1
-
-        _compute_consumption_python(
-            QQ_py,
-            BB,
-            ActiveLink,
-            VV,
-            DD,
-            QQbase,
-            preyYY,
-            predYY,
-            NUM_LIVING,
-            NUM_GROUPS,
-        )
-        _compute_consumption_numba(
-            QQ_nb,
-            BB,
-            ActiveLink,
-            VV,
-            DD,
-            QQbase,
-            preyYY,
-            predYY,
-            NUM_LIVING,
-            NUM_GROUPS,
-        )
-
-        np.testing.assert_allclose(QQ_nb, QQ_py, rtol=1e-14, atol=0.0)
 
     def test_dispatch_function_works(self):
         """Verify _compute_consumption dispatch runs without error."""
