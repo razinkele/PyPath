@@ -101,14 +101,12 @@ class TestObjectiveFunctions:
         assert np.isclose(nrmse, 0.5)
 
     def test_nrmse_constant_values(self):
-        """NRMSE should handle constant values (returns NaN when range=0)."""
+        """NRMSE should raise ValueError when y_true has zero range."""
         y_true = np.array([5.0, 5.0, 5.0])
         y_pred = np.array([5.0, 5.0, 5.0])
 
-        # With range = 0, NRMSE = 0 / 0 = NaN
-        nrmse = normalized_root_mean_squared_error(y_true, y_pred)
-        # Should return NaN for constant values (division by zero in normalization)
-        assert np.isnan(nrmse) or nrmse == 0.0
+        with pytest.raises(ValueError, match="zero range"):
+            normalized_root_mean_squared_error(y_true, y_pred)
 
     def test_log_likelihood_perfect_fit(self):
         """Negative log-likelihood should be low for perfect fit."""
