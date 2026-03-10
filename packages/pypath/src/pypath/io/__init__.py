@@ -31,6 +31,7 @@ from pypath.io.ecobase import (
     list_ecobase_models,
     search_ecobase_models,
 )
+from pypath.io.ewe_writer import write_ewemdb
 from pypath.io.ewemdb import (
     EwEDatabaseError,
     check_ewemdb_support,
@@ -68,6 +69,7 @@ __all__ = [
     "EcoBaseModel",
     "EcoBaseGroupData",
     # EwE database
+    "write_ewemdb",
     "read_ewemdb",
     "list_ewemdb_tables",
     "read_ewemdb_table",

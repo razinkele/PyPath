@@ -208,3 +208,52 @@ class TestAccessWriter:
         writer.close()
         diet = read_ewemdb_table(str(outpath), "EcopathDietComp")
         assert len(diet) >= 3
+
+
+class TestWriteEwemdb:
+    """Test the public write_ewemdb() entry point."""
+
+    def test_write_csv_bundle(self, tmp_path):
+        from pypath.io.ewe_writer import write_ewemdb
+
+        params = _make_simple_model()
+        outpath = tmp_path / "model.ewecsv.zip"
+        write_ewemdb(params, str(outpath), backend="csv")
+        assert outpath.exists()
+        assert zipfile.is_zipfile(outpath)
+
+    def test_write_auto_detects_backend(self, tmp_path):
+        from pypath.io.ewe_writer import write_ewemdb
+
+        params = _make_simple_model()
+        outpath = tmp_path / "model_auto"
+        write_ewemdb(params, str(outpath), backend="auto")
+        # Should succeed regardless of ODBC availability
+
+    def test_write_rejects_empty_model(self, tmp_path):
+        from pypath.io.ewe_writer import write_ewemdb
+
+        params = create_rpath_params(groups=[], types=[])
+        with pytest.raises(ValueError, match="empty"):
+            write_ewemdb(params, str(tmp_path / "empty.ewecsv.zip"), backend="csv")
+
+    def test_csv_bundle_ecopath_roundtrip_values(self, tmp_path):
+        from pypath.io.ewe_writer import write_ewemdb
+
+        params = _make_simple_model()
+        outpath = tmp_path / "rt.ewecsv.zip"
+        write_ewemdb(params, str(outpath), backend="csv")
+        with zipfile.ZipFile(outpath) as zf:
+            groups = pd.read_csv(zf.open("EcopathGroup.csv"))
+            diet = pd.read_csv(zf.open("EcopathDietComp.csv"))
+        phyto = groups[groups["GroupName"] == "Phyto"].iloc[0]
+        assert abs(phyto["Biomass"] - 10.0) < 1e-6
+        assert abs(phyto["PB"] - 100.0) < 1e-6
+        assert len(diet) >= 3
+
+    def test_write_unknown_backend_raises(self, tmp_path):
+        from pypath.io.ewe_writer import write_ewemdb
+
+        params = _make_simple_model()
+        with pytest.raises(ValueError, match="Unknown backend"):
+            write_ewemdb(params, str(tmp_path / "x"), backend="sqlite")
