@@ -618,7 +618,8 @@ def rpath(
     # detritus PB/biomass is computed below)
     m0 = np.zeros(ngroups)
     for i, idx in enumerate(living_idx):
-        m0[idx] = pb[idx] * (1 - ee[idx])
+        ee_val = ee[idx] if np.isfinite(ee[idx]) else 1.0
+        m0[idx] = pb[idx] * (1 - ee_val)
 
     # Flows to detritus from living groups
     # M0 can be negative if EE > 1, but loss flows should be non-negative

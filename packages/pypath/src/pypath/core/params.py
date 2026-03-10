@@ -430,6 +430,18 @@ def check_rpath_params(params: RpathParams) -> bool:
         warnings.warn(f"Consumers missing both QB and ProdCons: {groups}")
         n_warnings += 1
 
+    # Check for invalid QB values (negative or sentinel -9999)
+    if "QB" in consumers.columns:
+        invalid_qb = consumers[
+            consumers["QB"].notna() & ((consumers["QB"] < 0) | (consumers["QB"] == -9999))
+        ]
+        if len(invalid_qb) > 0:
+            groups = invalid_qb["Group"].tolist()
+            warnings.warn(
+                f"Consumers with invalid QB values (negative or -9999): {groups}"
+            )
+            n_warnings += 1
+
     # Check diet columns sum to ~1 for consumers
     _n_living = len(model[model["Type"] <= 1])
     pred_groups = model[model["Type"] < 2]["Group"].tolist()

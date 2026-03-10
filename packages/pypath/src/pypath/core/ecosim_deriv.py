@@ -1346,16 +1346,8 @@ def deriv_vector(
     # Post-kernel instrumentation / debug logging for living groups
     # (kept outside numba kernel because it uses Python objects: strings, logging, etc.)
     _need_instr = bool(instrument_set) or _TRACE_DEBUG_GROUPS is not None
-    _need_seabird_trace = False
-    _seabird_idx = -1
-    try:
-        if spname_list is not None and "Seabirds" in spname_list:
-            _need_seabird_trace = True
-            _seabird_idx = spname_list.index("Seabirds")
-    except Exception:
-        pass
 
-    if _need_instr or _need_seabird_trace:
+    if _need_instr:
         for i in range(1, NUM_LIVING + 1):
             if i in ibm_groups:
                 continue
@@ -1370,21 +1362,6 @@ def deriv_vector(
                 production = float(_GE_arr[i] * consumption)
             else:
                 production = float(PB[i] * BB[i])
-
-            # Seabirds trace
-            try:
-                if _need_seabird_trace and i == _seabird_idx:
-                    logger.debug(
-                        "TRACE SEABIRDS i=%s name=Seabirds production=%.12e predation_loss=%.12e fish_loss=%.12e m0_loss=%.12e deriv=%.12e",
-                        i,
-                        production,
-                        predation_loss,
-                        FishMort[i] * BB[i],
-                        m0 * BB[i],
-                        deriv[i],
-                    )
-            except Exception as e:
-                logger.debug("Seabirds debug instrumentation error: %s", e)
 
             # Debug trace for specific groups if requested
             try:

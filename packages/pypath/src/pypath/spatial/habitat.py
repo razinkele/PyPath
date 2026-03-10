@@ -68,6 +68,9 @@ def create_gaussian_response(
     array([0.        , 0.60653066, 1.        , 0.60653066, 0.        ])
     """
 
+    if tolerance <= 0:
+        raise ValueError(f"tolerance must be > 0, got {tolerance}")
+
     def response_function(env_values: np.ndarray) -> np.ndarray:
         env_values = np.asarray(env_values, dtype=float)
 

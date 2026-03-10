@@ -428,14 +428,8 @@ def rsim_params(
     # Build PP_type array: 0=consumer, 1=producer, 2=detritus
     # This is based on the actual group types from the Rpath model
     pp_type = np.zeros(ngroups + 1, dtype=int)
-    for i in range(ngroups):
-        grp_type = int(rpath.type[i])
-        if grp_type == 0:
-            pp_type[i + 1] = 0  # Consumer
-        elif grp_type == 1:
-            pp_type[i + 1] = 1  # Producer (primary producer)
-        else:  # type == 2 (detritus) or type == 3 (fleet)
-            pp_type[i + 1] = 2  # Detritus / non-living
+    types = np.asarray(rpath.type, dtype=int)
+    pp_type[1:] = np.where(types == 0, 0, np.where(types == 1, 1, 2))
 
     # Active respiration = 1 - P/Q - Unassim (for consumers)
     qb = rpath.QB.copy()
@@ -707,11 +701,13 @@ def rsim_params(
         col_sums = np.sum(rpath.DetFate[:, :], axis=0)
         zero_cols = np.where(col_sums == 0)[0]
         if len(zero_cols) > 0:
-            det_names = [rpath.Group[nliving + zc] for zc in zero_cols]
-            logger.debug(
-                "DetFate columns with zero source fractions: cols=%s, detritus names=%s",
-                zero_cols,
-                det_names,
+            det_names = [rpath.Group[int(dead_idx[zc])] for zc in zero_cols if zc < len(dead_idx)]
+            warnings.warn(
+                f"DetFate columns with zero source fractions: "
+                f"cols={zero_cols.tolist()}, detritus={det_names}. "
+                f"These detritus groups receive no flow from any source.",
+                UserWarning,
+                stacklevel=2,
             )
         # Also report which detritus columns appear in det_to mapping
         det_to_cols = np.unique(

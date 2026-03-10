@@ -48,6 +48,8 @@ if HAS_NUMBA:
         for k in range(n_edges):
             i = rows[k]
             j = cols[k]
+            if distances[k] <= 0.0:
+                continue
             gradient = biomass[i] - biomass[j]
             flux = dispersal_rate * border_lengths[k] / distances[k] * gradient
             net_flux[i] -= flux
