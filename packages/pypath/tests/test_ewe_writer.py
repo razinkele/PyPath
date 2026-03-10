@@ -158,3 +158,53 @@ class TestCsvBundleWriter:
             df = pd.read_csv(zf.open("EcopathGroup.csv"))
             assert abs(df.iloc[0]["Biomass"] - 10.0) < 1e-6
             assert abs(df.iloc[1]["Biomass"] - 5.0) < 1e-6
+
+
+class TestAccessWriter:
+    """Test the Access database writer (requires pyodbc + Access driver)."""
+
+    @pytest.fixture(autouse=True)
+    def _skip_no_odbc(self):
+        """Skip tests if ODBC Access driver is not available."""
+        try:
+            from pypath.io._access_writer import AccessWriter
+
+            AccessWriter._check_odbc()
+        except (ImportError, RuntimeError):
+            pytest.skip("Access ODBC driver not available")
+
+    def test_creates_accdb_file(self, tmp_path):
+        from pypath.io._access_writer import AccessWriter
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.eweaccdb"
+        writer = AccessWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        assert outpath.exists()
+        assert outpath.stat().st_size > 0
+
+    def test_accdb_has_ecopath_group_table(self, tmp_path):
+        from pypath.io._access_writer import AccessWriter
+        from pypath.io.ewemdb import read_ewemdb_table
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.eweaccdb"
+        writer = AccessWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        groups = read_ewemdb_table(str(outpath), "EcopathGroup")
+        assert len(groups) == 4
+        assert groups.iloc[0]["GroupName"] == "Phyto"
+
+    def test_accdb_diet_roundtrip(self, tmp_path):
+        from pypath.io._access_writer import AccessWriter
+        from pypath.io.ewemdb import read_ewemdb_table
+
+        params = _make_simple_model()
+        outpath = tmp_path / "test_model.eweaccdb"
+        writer = AccessWriter(params, str(outpath))
+        writer.write_ecopath()
+        writer.close()
+        diet = read_ewemdb_table(str(outpath), "EcopathDietComp")
+        assert len(diet) >= 3
