@@ -736,7 +736,7 @@ class TestRsimRunWithNumba:
         )
 
     def test_rk4_and_ab_initial_consistency(self, seabirds_scenario):
-        """RK4 and AB should produce similar (not identical) results."""
+        """RK4 and AB should produce similar results for living groups."""
         out_rk4 = rsim_run(seabirds_scenario, method="RK4", years=range(1, 11))
         out_ab = rsim_run(seabirds_scenario, method="AB", years=range(1, 11))
 
@@ -744,11 +744,17 @@ class TestRsimRunWithNumba:
         bio_rk4_y1 = out_rk4.annual_Biomass[1, :]
         bio_ab_y1 = out_ab.annual_Biomass[1, :]
 
-        # Mask out zero-biomass groups
-        mask = (bio_rk4_y1 > 1e-10) & (bio_ab_y1 > 1e-10)
+        # Mask out zero-biomass groups and NoIntegrate groups.
+        # NoIntegrate groups diverge because AB uses dynamic biomeq
+        # while RK4 holds them at baseline.
+        no_int = np.asarray(
+            seabirds_scenario.params.NoIntegrate
+            if hasattr(seabirds_scenario.params, "NoIntegrate")
+            else np.zeros(len(bio_rk4_y1))
+        )
+        mask = (bio_rk4_y1 > 1e-10) & (bio_ab_y1 > 1e-10) & (no_int == 0)
         if np.any(mask):
             rel_diff = np.abs(bio_rk4_y1[mask] - bio_ab_y1[mask]) / bio_rk4_y1[mask]
-            # Methods differ but should be in the same ballpark for year 1
             assert np.max(rel_diff) < 0.5, (
                 f"RK4 and AB diverge too much at year 1: max rel diff = {np.max(rel_diff):.4f}"
             )
