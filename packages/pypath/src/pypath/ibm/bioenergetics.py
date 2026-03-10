@@ -324,7 +324,7 @@ def growth_step_batch(
     net_energy = assim - met - sda
 
     # Reproduction cost for mature fish with positive surplus
-    repro_cost = np.where(is_mature & (net_energy > 0), net_energy * params.reproduction_fraction, 0.0)
+    repro_cost = np.where(np.asarray(is_mature, dtype=bool) & (net_energy > 0), net_energy * params.reproduction_fraction, 0.0)
     net_energy = net_energy - repro_cost
 
     weight_change = net_energy / params.energy_density
