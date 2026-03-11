@@ -1014,7 +1014,7 @@ def deriv_vector(
     Bbase = params.get("Bbase", state.copy())  # Baseline biomass
     _SwitchPower = params.get("SwitchPower", 0.0)  # Prey switching power
     PP_type = params.get("PP_type", np.zeros(NUM_GROUPS + 1, dtype=int))
-    _Mediation = params.get("Mediation", {})  # Mediation configuration
+    _mediation = params.get("_mediation", None)
     # Pre-fetch spname and M0 once to avoid repeated dict lookups and
     # default-argument allocations ([None]*N, np.zeros) inside inner loops.
     spname_list = params.get("spname", None)

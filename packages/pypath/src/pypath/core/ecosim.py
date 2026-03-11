@@ -992,6 +992,8 @@ def rsim_run(
     scenario: RsimScenario,
     method: str = "RK4",
     years: Optional[range] = None,
+    *,
+    mediation=None,
 ) -> RsimOutput:
     """Run Ecosim simulation.
 
@@ -1136,6 +1138,9 @@ def rsim_run(
                 PreyPreyWeight[prey, pred] = 1.0
     params_dict["PredPredWeight"] = PredPredWeight
     params_dict["PreyPreyWeight"] = PreyPreyWeight
+
+    if mediation is not None:
+        params_dict["_mediation"] = mediation
 
     # Propagate IBM groups if any functional groups are IBM-managed.
     if hasattr(params, "ibm_groups"):
