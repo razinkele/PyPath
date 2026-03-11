@@ -174,6 +174,19 @@ try:
 except ImportError:
     HAS_ECOTRACER = False
 
+try:
+    from pypath.core.fleet_dynamics import (
+        FleetEconParams,
+        FleetDynamicsResult,
+        create_fleet_econ_params,
+        fleet_dynamics_step,
+        apply_quota_caps,
+    )
+
+    HAS_FLEET_DYNAMICS = True
+except ImportError:
+    HAS_FLEET_DYNAMICS = False
+
 __all__ = [
     # Ecopath
     "RpathParams",
@@ -312,4 +325,11 @@ __all__ = [
     "create_ecotracer_params",
     "ecotracer_deriv",
     "ecotracer_step",
+    # Fleet dynamics
+    "HAS_FLEET_DYNAMICS",
+    "FleetEconParams",
+    "FleetDynamicsResult",
+    "create_fleet_econ_params",
+    "fleet_dynamics_step",
+    "apply_quota_caps",
 ]
