@@ -1,10 +1,13 @@
-"""EwE 6 database schema constants for export writer.
+"""EwE 6.6+ database schema constants for export writer.
 
 Defines table names, column definitions, and mappings between
-RpathParams (PyPath) column names and native EwE 6 column names.
+RpathParams (PyPath) column names and native EwE 6.6+ column names.
 
 These constants are shared by both the Access (.ewemdb) writer
 and the CSV bundle writer.
+
+Column names and table names verified against real EwE 6.6+ databases
+(e.g. LT2022_0.5ST_final7.eweaccdb).
 """
 
 from collections import OrderedDict
@@ -13,7 +16,7 @@ from collections import OrderedDict
 # EWE_TABLES: {table_name: OrderedDict({column_name: sql_type, ...})}
 #
 # SQL types: "INTEGER", "DOUBLE", "TEXT", "YESNO"
-# Column order matches the canonical EwE 6 Access schema.
+# Column order matches the canonical EwE 6.6+ Access schema.
 # ---------------------------------------------------------------------------
 
 EWE_TABLES = {
@@ -23,88 +26,90 @@ EWE_TABLES = {
     "EcopathModel": OrderedDict(
         [
             ("ModelID", "INTEGER"),
-            ("ModelName", "TEXT"),
+            ("Name", "TEXT"),
             ("Description", "TEXT"),
             ("Author", "TEXT"),
             ("Contact", "TEXT"),
             ("LastSaved", "TEXT"),
-            ("AreaUnit", "TEXT"),
-            ("TimeUnit", "TEXT"),
-            ("Currency", "TEXT"),
-            ("NumGroups", "INTEGER"),
-            ("NumFleets", "INTEGER"),
-            ("NumLiving", "INTEGER"),
-            ("NumDetritus", "INTEGER"),
+            ("NumDigits", "INTEGER"),
             ("GroupDigits", "INTEGER"),
-            ("EcopathVersion", "DOUBLE"),
+            ("Area", "DOUBLE"),
+            ("FirstYear", "INTEGER"),
+            ("NumYears", "INTEGER"),
+            ("StepsPerYear", "INTEGER"),
+            ("UnitCurrency", "TEXT"),
+            ("UnitTime", "TEXT"),
+            ("UnitMonetary", "TEXT"),
+            ("LastSavedVersion", "TEXT"),
+            ("Country", "TEXT"),
+            ("EcosystemType", "TEXT"),
         ]
     ),
     "EcopathGroup": OrderedDict(
         [
             ("GroupID", "INTEGER"),
-            ("ModelID", "INTEGER"),
             ("GroupName", "TEXT"),
             ("Sequence", "INTEGER"),
             ("Type", "INTEGER"),
-            ("PP", "INTEGER"),
-            ("Area", "DOUBLE"),
             ("Biomass", "DOUBLE"),
-            ("BiomassAreaRate", "DOUBLE"),
-            ("BiomassHabitat", "DOUBLE"),
-            ("PB", "DOUBLE"),
-            ("QB", "DOUBLE"),
-            ("EE", "DOUBLE"),
-            ("GE", "DOUBLE"),
-            ("GS", "DOUBLE"),
-            ("BA", "DOUBLE"),
-            ("BaBi", "DOUBLE"),
-            ("Emig", "DOUBLE"),
-            ("EmigRate", "DOUBLE"),
-            ("Immig", "DOUBLE"),
-            ("ImmigEmig", "DOUBLE"),
-            ("DetInput", "DOUBLE"),
+            ("Area", "DOUBLE"),
+            ("ProdBiom", "DOUBLE"),
+            ("ConsBiom", "DOUBLE"),
+            ("EcoEfficiency", "DOUBLE"),
+            ("ProdCons", "DOUBLE"),
+            ("BiomAcc", "DOUBLE"),
+            ("BiomAccRate", "DOUBLE"),
+            ("Unassim", "DOUBLE"),
+            ("DtImports", "DOUBLE"),
+            ("Export", "DOUBLE"),
+            ("Catch", "DOUBLE"),
+            ("ImpVar", "DOUBLE"),
             ("NonMarketValue", "DOUBLE"),
-            ("pprod", "DOUBLE"),
-            ("VBK", "DOUBLE"),
+            ("Respiration", "DOUBLE"),
+            ("PoolColor", "INTEGER"),
+            ("Immigration", "DOUBLE"),
+            ("Emigration", "DOUBLE"),
+            ("EmigRate", "DOUBLE"),
+            ("Production", "DOUBLE"),
+            ("vbK", "DOUBLE"),
+            ("OtherMort", "DOUBLE"),
         ]
     ),
     "EcopathDietComp": OrderedDict(
         [
-            ("ModelID", "INTEGER"),
             ("PredID", "INTEGER"),
             ("PreyID", "INTEGER"),
             ("Diet", "DOUBLE"),
+            ("DetritusFate", "DOUBLE"),
         ]
     ),
     "EcopathFleet": OrderedDict(
         [
             ("FleetID", "INTEGER"),
-            ("ModelID", "INTEGER"),
             ("FleetName", "TEXT"),
             ("Sequence", "INTEGER"),
             ("FixedCost", "DOUBLE"),
+            ("VariableCost", "DOUBLE"),
             ("SailingCost", "DOUBLE"),
-            ("ProfitMargin", "DOUBLE"),
+            ("PoolColor", "INTEGER"),
+            ("NominalEffort", "DOUBLE"),
         ]
     ),
     "EcopathCatch": OrderedDict(
         [
-            ("ModelID", "INTEGER"),
-            ("FleetID", "INTEGER"),
             ("GroupID", "INTEGER"),
+            ("FleetID", "INTEGER"),
             ("Landing", "DOUBLE"),
-            ("Discard", "DOUBLE"),
+            ("Discards", "DOUBLE"),
             ("DiscardMortality", "DOUBLE"),
             ("Price", "DOUBLE"),
         ]
     ),
-    "EcopathDetritusFate": OrderedDict(
+    "EcopathDiscardFate": OrderedDict(
         [
-            ("ModelID", "INTEGER"),
             ("GroupID", "INTEGER"),
-            ("DetritusID", "INTEGER"),
             ("FleetID", "INTEGER"),
-            ("DetritusFate", "DOUBLE"),
+            ("DiscardFate", "DOUBLE"),
         ]
     ),
     # -----------------------------------------------------------------------
@@ -113,23 +118,27 @@ EWE_TABLES = {
     "Stanza": OrderedDict(
         [
             ("StanzaID", "INTEGER"),
-            ("ModelID", "INTEGER"),
             ("StanzaName", "TEXT"),
+            ("HatchCode", "INTEGER"),
             ("BABsplit", "DOUBLE"),
             ("WmatWinf", "DOUBLE"),
             ("RecPower", "DOUBLE"),
-            ("VBK", "DOUBLE"),
+            ("FixedFecundity", "DOUBLE"),
+            ("LeadingLifeStage", "INTEGER"),
+            ("EggAtSpawn", "DOUBLE"),
+            ("LeadingCB", "DOUBLE"),
+            ("RecStanza", "INTEGER"),
         ]
     ),
     "StanzaLifeStage": OrderedDict(
         [
-            ("StanzaID", "INTEGER"),
-            ("LifeStageID", "INTEGER"),
-            ("ModelID", "INTEGER"),
             ("GroupID", "INTEGER"),
-            ("Months", "INTEGER"),
-            ("LeadingLifeStage", "YESNO"),
-            ("LeadingBiomass", "YESNO"),
+            ("StanzaID", "INTEGER"),
+            ("Sequence", "INTEGER"),
+            ("AgeStart", "INTEGER"),
+            ("Mortality", "DOUBLE"),
+            ("vbK", "DOUBLE"),
+            ("SpawnProp", "DOUBLE"),
         ]
     ),
     # -----------------------------------------------------------------------
@@ -138,76 +147,83 @@ EWE_TABLES = {
     "EcosimScenario": OrderedDict(
         [
             ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
             ("ScenarioName", "TEXT"),
             ("Description", "TEXT"),
-            ("NumYears", "INTEGER"),
-            ("StepsPerYear", "INTEGER"),
-            ("StepsPerMonth", "INTEGER"),
-            ("Discount", "DOUBLE"),
-            ("NudgeChecked", "YESNO"),
+            ("Author", "TEXT"),
+            ("Contact", "TEXT"),
+            ("LastSaved", "TEXT"),
+            ("TotalTime", "DOUBLE"),
+            ("StepSize", "DOUBLE"),
+            ("EquilibriumStepSize", "DOUBLE"),
+            ("EquilScaleMax", "DOUBLE"),
+            ("sorwt", "DOUBLE"),
             ("SystemRecovery", "DOUBLE"),
-        ]
-    ),
-    "EcosimGroupInfo": OrderedDict(
-        [
-            ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
-            ("GroupID", "INTEGER"),
-            ("MaxRelPB", "DOUBLE"),
-            ("MaxRelFeedTime", "DOUBLE"),
-            ("FeedTimeAdjRate", "DOUBLE"),
-            ("OtherProdRate", "DOUBLE"),
-            ("PredEffectRate", "DOUBLE"),
-            ("DenDepCatchability", "DOUBLE"),
-            ("QBMaxQBO", "DOUBLE"),
-            ("SwitchingPower", "DOUBLE"),
+            ("Discount", "DOUBLE"),
+            ("NudgeStart", "DOUBLE"),
+            ("NudgeEnd", "DOUBLE"),
+            ("NudgeFactor", "DOUBLE"),
+            ("DoInteg", "YESNO"),
+            ("UseNudge", "YESNO"),
+            ("LastSavedVersion", "TEXT"),
+            ("ForagingTimeLowerLimit", "DOUBLE"),
         ]
     ),
     "EcosimScenarioGroup": OrderedDict(
         [
             ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
+            ("EcopathGroupID", "INTEGER"),
             ("GroupID", "INTEGER"),
-            ("VulMult", "DOUBLE"),
-        ]
-    ),
-    "EcosimForcing": OrderedDict(
-        [
-            ("ForcingID", "INTEGER"),
-            ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
-            ("ForcingName", "TEXT"),
-            ("ForcingType", "INTEGER"),
-        ]
-    ),
-    "EcosimShapeTime": OrderedDict(
-        [
-            ("ShapeID", "INTEGER"),
-            ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
-            ("TimeStep", "INTEGER"),
-            ("Value", "DOUBLE"),
+            ("FishMortShapeID", "INTEGER"),
+            ("Pbmaxs", "DOUBLE"),
+            ("FtimeMax", "DOUBLE"),
+            ("FtimeAdjust", "DOUBLE"),
+            ("MoPred", "DOUBLE"),
+            ("FishRateMax", "DOUBLE"),
+            ("Show", "YESNO"),
+            ("RiskTime", "DOUBLE"),
+            ("QmQo", "DOUBLE"),
+            ("CmCo", "DOUBLE"),
+            ("SwitchPower", "DOUBLE"),
+            ("FishMortMax", "DOUBLE"),
+            ("Blim", "DOUBLE"),
+            ("Bbase", "DOUBLE"),
+            ("Fopt", "DOUBLE"),
+            ("BiomassCV", "DOUBLE"),
+            ("FixedF", "DOUBLE"),
+            ("AdditivePredMort", "DOUBLE"),
         ]
     ),
     "EcosimScenarioForcingMatrix": OrderedDict(
         [
             ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
-            ("ForcingID", "INTEGER"),
-            ("GroupID", "INTEGER"),
+            ("PredID", "INTEGER"),
             ("PreyID", "INTEGER"),
+            ("vulnerability", "DOUBLE"),
+        ]
+    ),
+    "EcosimShape": OrderedDict(
+        [
+            ("ShapeID", "INTEGER"),
+            ("ShapeType", "INTEGER"),
+            ("IsSeasonal", "YESNO"),
+        ]
+    ),
+    "EcosimShapeTime": OrderedDict(
+        [
+            ("ShapeID", "INTEGER"),
+            ("zScale", "DOUBLE"),
+            ("Title", "TEXT"),
+            ("zMaxScale", "DOUBLE"),
+            ("FunctionType", "INTEGER"),
+            ("ApplicationType", "INTEGER"),
+            ("FunctionParams", "TEXT"),
         ]
     ),
     "EcosimShapeFishRate": OrderedDict(
         [
             ("ShapeID", "INTEGER"),
-            ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
-            ("FleetID", "INTEGER"),
-            ("GroupID", "INTEGER"),
-            ("TimeStep", "INTEGER"),
-            ("Value", "DOUBLE"),
+            ("zScale", "DOUBLE"),
+            ("Title", "TEXT"),
         ]
     ),
     # -----------------------------------------------------------------------
@@ -216,99 +232,68 @@ EWE_TABLES = {
     "EcospaceScenario": OrderedDict(
         [
             ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
             ("ScenarioName", "TEXT"),
             ("Description", "TEXT"),
-            ("NumRows", "INTEGER"),
-            ("NumCols", "INTEGER"),
+            ("Author", "TEXT"),
+            ("Contact", "TEXT"),
+            ("LastSaved", "TEXT"),
+            ("EcosimScenarioID", "INTEGER"),
+            ("Inrow", "INTEGER"),
+            ("Incol", "INTEGER"),
             ("CellLength", "DOUBLE"),
-            ("BaseLat", "DOUBLE"),
-            ("BaseLon", "DOUBLE"),
-            ("NumYears", "INTEGER"),
-            ("StepsPerYear", "INTEGER"),
+            ("CellSize", "DOUBLE"),
+            ("TimeStep", "DOUBLE"),
+            ("TotalTime", "DOUBLE"),
+            ("MinLon", "DOUBLE"),
+            ("MinLat", "DOUBLE"),
+            ("LastSavedVersion", "TEXT"),
         ]
     ),
-    "EcospaceGroup": OrderedDict(
+    "EcospaceScenarioGroup": OrderedDict(
         [
             ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
             ("GroupID", "INTEGER"),
-            ("DispRate", "DOUBLE"),
-            ("DispRateM", "DOUBLE"),
-            ("RelDisp", "DOUBLE"),
-            ("RelVul", "DOUBLE"),
-            ("RelFeedRate", "DOUBLE"),
-            ("GravityX", "DOUBLE"),
-            ("GravityY", "DOUBLE"),
+            ("EcopathGroupID", "INTEGER"),
+            ("Mvel", "DOUBLE"),
+            ("RelMoveBad", "DOUBLE"),
+            ("RelVulBad", "DOUBLE"),
             ("IsAdvected", "YESNO"),
-            ("IsMigrating", "YESNO"),
+            ("IsMigratory", "YESNO"),
+            ("BarrierAvoidanceWeight", "DOUBLE"),
         ]
     ),
-    "EcospaceHabitat": OrderedDict(
+    "EcospaceScenarioHabitat": OrderedDict(
         [
-            ("HabitatID", "INTEGER"),
             ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
+            ("HabitatID", "INTEGER"),
             ("HabitatName", "TEXT"),
+            ("Sequence", "INTEGER"),
         ]
     ),
-    "EcospaceMap": OrderedDict(
+    "EcospaceScenarioMPA": OrderedDict(
         [
             ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
-            ("Row", "INTEGER"),
-            ("Col", "INTEGER"),
-            ("Depth", "DOUBLE"),
-            ("InModelArea", "YESNO"),
-            ("HabitatID", "INTEGER"),
-            ("RegionID", "INTEGER"),
             ("MPAID", "INTEGER"),
-        ]
-    ),
-    "EcospaceMPA": OrderedDict(
-        [
-            ("MPAID", "INTEGER"),
-            ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
-            ("MPAName", "TEXT"),
-            ("IsActive", "YESNO"),
-        ]
-    ),
-    "EcospaceRegion": OrderedDict(
-        [
-            ("RegionID", "INTEGER"),
-            ("ScenarioID", "INTEGER"),
-            ("ModelID", "INTEGER"),
-            ("RegionName", "TEXT"),
+            ("Sequence", "INTEGER"),
+            ("MPAname", "TEXT"),
+            ("MPAmonth", "INTEGER"),
         ]
     ),
 }
 
 # ---------------------------------------------------------------------------
-# RPATH_TO_EWE_COLUMNS: RpathParams column name → EwE 6 column name
+# RPATH_TO_EWE_COLUMNS: RpathParams column name -> EwE 6.6+ column name
 # ---------------------------------------------------------------------------
 
 RPATH_TO_EWE_COLUMNS = {
     "Group": "GroupName",
     "Type": "Type",
     "Biomass": "Biomass",
-    "PB": "PB",
-    "QB": "QB",
-    "EE": "EE",
-    "ProdCons": "GE",
-    "Unassim": "GS",
-    "BioAcc": "BA",
-    "DetInput": "ImmigEmig",
-}
-
-# ---------------------------------------------------------------------------
-# TYPE_TO_PP: RpathParams Type value → EwE PP code
-#   0 = consumer, 1 = producer, 2 = detritus, 3 = fleet (mapped to 0)
-# ---------------------------------------------------------------------------
-
-TYPE_TO_PP = {
-    0: 0,  # consumer
-    1: 1,  # producer
-    2: 2,  # detritus
-    3: 0,  # fleet (treated as consumer type in EwE PP)
+    "PB": "ProdBiom",
+    "QB": "ConsBiom",
+    "EE": "EcoEfficiency",
+    "ProdCons": "ProdCons",
+    "Unassim": "Unassim",
+    "BioAcc": "BiomAcc",
+    "DetInput": "DtImports",
 }

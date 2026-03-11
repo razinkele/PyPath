@@ -76,7 +76,7 @@ class TestCsvRoundTrip:
             groups = pd.read_csv(zf.open("EcopathGroup.csv"))
 
         bio_mask = params.model["Type"] != 3
-        for col, ewe_col in [("PB", "PB"), ("QB", "QB")]:
+        for col, ewe_col in [("PB", "ProdBiom"), ("QB", "ConsBiom")]:
             orig = params.model[bio_mask][col].values
             exp = groups[ewe_col].values
             for o, e in zip(orig, exp):

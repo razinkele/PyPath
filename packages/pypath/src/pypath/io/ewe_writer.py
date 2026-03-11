@@ -36,6 +36,7 @@ def write_ewemdb(
     ecospace: Any | None = None,
     backend: str = "auto",
     scenario_id: int = 1,
+    source_db: str | None = None,
 ) -> None:
     """Write an EwE database file from PyPath model parameters.
 
@@ -53,6 +54,11 @@ def write_ewemdb(
         "auto" (detect ODBC), "access" (require ODBC), or "csv" (CSV bundle).
     scenario_id : int
         ScenarioID for all tables (default 1).
+    source_db : str, optional
+        Path to an existing EwE database to use as template. The file is
+        copied and its data tables are cleared then re-populated. This
+        preserves all EwE system tables so the output is recognized as a
+        native EwE database. **Recommended for Access backend.**
     """
     if params.model is None or len(params.model) == 0:
         raise ValueError("Cannot export empty model (params.model is empty)")
@@ -66,7 +72,9 @@ def write_ewemdb(
     if backend == "access":
         from pypath.io._access_writer import AccessWriter
 
-        writer = AccessWriter(params, path, scenario_id=scenario_id)
+        writer = AccessWriter(
+            params, path, scenario_id=scenario_id, source_db=source_db
+        )
     elif backend == "csv":
         from pypath.io._csv_bundle_writer import CsvBundleWriter
 

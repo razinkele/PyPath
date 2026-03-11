@@ -109,13 +109,13 @@ from pypath.io.ewe_writer import write_ewemdb
 params = read_ewemdb(db_path)
 
 # Write as Access database (primary)
-out_accdb = str(Path(__file__).parent / "LT2022_calibrated.eweaccdb")
-write_ewemdb(params, out_accdb, scenarios=[scen], backend="access")
+out_accdb = str(Path(db_path).parent / "LT2022_calibrated.eweaccdb")
+write_ewemdb(params, out_accdb, scenarios=[scen], backend="access", source_db=db_path)
 print(f"Written Access DB: {out_accdb}")
 print(f"  Size: {Path(out_accdb).stat().st_size:,} bytes")
 
 # Also write as CSV bundle (cross-platform fallback)
-out_csv = str(Path(__file__).parent / "LT2022_calibrated.ewecsv.zip")
+out_csv = str(Path(db_path).parent / "LT2022_calibrated.ewecsv.zip")
 write_ewemdb(params, out_csv, scenarios=[scen], backend="csv")
 print(f"Written CSV bundle: {out_csv}")
 print(f"  Size: {Path(out_csv).stat().st_size:,} bytes")

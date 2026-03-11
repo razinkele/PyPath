@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from pypath.io._ewe_schema import EWE_TABLES, RPATH_TO_EWE_COLUMNS, TYPE_TO_PP
+from pypath.io._ewe_schema import EWE_TABLES, RPATH_TO_EWE_COLUMNS
 
 logger = logging.getLogger(__name__)
 
@@ -69,30 +69,31 @@ class CsvBundleWriter:
             group_rows.append(
                 {
                     "GroupID": i + 1,
-                    "ModelID": self._scenario_id,
                     "GroupName": row["Group"],
                     "Sequence": i + 1,
                     "Type": rpath_type,
-                    "PP": TYPE_TO_PP.get(rpath_type, 0),
-                    "Area": 1.0,
                     "Biomass": _nan_to_none(row.get("Biomass")),
-                    "BiomassAreaRate": _nan_to_none(row.get("Biomass")),
-                    "BiomassHabitat": 1.0,
-                    "PB": _nan_to_none(row.get("PB")),
-                    "QB": _nan_to_none(row.get("QB")),
-                    "EE": _nan_to_none(row.get("EE")),
-                    "GE": _nan_to_none(row.get("ProdCons")),
-                    "GS": _nan_to_none(row.get("Unassim")),
-                    "BA": _nan_to_none(row.get("BioAcc")),
-                    "BaBi": None,
-                    "Emig": None,
-                    "EmigRate": None,
-                    "Immig": None,
-                    "ImmigEmig": _nan_to_none(row.get("DetInput")),
-                    "DetInput": None,
+                    "Area": 1.0,
+                    "ProdBiom": _nan_to_none(row.get("PB")),
+                    "ConsBiom": _nan_to_none(row.get("QB")),
+                    "EcoEfficiency": _nan_to_none(row.get("EE")),
+                    "ProdCons": _nan_to_none(row.get("ProdCons")),
+                    "BiomAcc": _nan_to_none(row.get("BioAcc")),
+                    "BiomAccRate": None,
+                    "Unassim": _nan_to_none(row.get("Unassim")),
+                    "DtImports": _nan_to_none(row.get("DetInput")),
+                    "Export": None,
+                    "Catch": None,
+                    "ImpVar": None,
                     "NonMarketValue": None,
-                    "pprod": None,
-                    "VBK": None,
+                    "Respiration": None,
+                    "PoolColor": None,
+                    "Immigration": None,
+                    "Emigration": None,
+                    "EmigRate": None,
+                    "Production": None,
+                    "vbK": None,
+                    "OtherMort": None,
                 }
             )
         self._tables["EcopathGroup"] = pd.DataFrame(group_rows)
@@ -103,12 +104,13 @@ class CsvBundleWriter:
             fleet_rows.append(
                 {
                     "FleetID": i + 1,
-                    "ModelID": self._scenario_id,
                     "FleetName": row["Group"],
                     "Sequence": i + 1,
                     "FixedCost": None,
+                    "VariableCost": None,
                     "SailingCost": None,
-                    "ProfitMargin": None,
+                    "PoolColor": None,
+                    "NominalEffort": None,
                 }
             )
         self._tables["EcopathFleet"] = pd.DataFrame(fleet_rows)
@@ -139,7 +141,6 @@ class CsvBundleWriter:
                         continue
                     diet_rows.append(
                         {
-                            "ModelID": self._scenario_id,
                             "PredID": pred_id,
                             "PreyID": prey_id,
                             "Diet": float(val),
@@ -168,11 +169,10 @@ class CsvBundleWriter:
                     if landing > 0 or discard > 0:
                         catch_rows.append(
                             {
-                                "ModelID": self._scenario_id,
                                 "FleetID": fi + 1,
                                 "GroupID": gi + 1,
                                 "Landing": landing,
-                                "Discard": discard,
+                                "Discards": discard,
                                 "DiscardMortality": None,
                                 "Price": None,
                             }
@@ -190,14 +190,19 @@ class CsvBundleWriter:
                     stanza_rows.append(
                         {
                             "StanzaID": i + 1,
-                            "ModelID": self._scenario_id,
                             "StanzaName": row.get(
-                                "StGroupName", row.get("StanzaName", f"Stanza{i+1}")
+                                "StGroupName",
+                                row.get("StanzaName", f"Stanza{i+1}"),
                             ),
+                            "HatchCode": 0,
                             "BABsplit": _nan_to_none(row.get("BABsplit")),
                             "WmatWinf": _nan_to_none(row.get("WmatWinf")),
                             "RecPower": _nan_to_none(row.get("RecPower")),
-                            "VBK": _nan_to_none(row.get("VBGF_Ksp", row.get("VBK"))),
+                            "FixedFecundity": 0.0,
+                            "LeadingLifeStage": 0,
+                            "EggAtSpawn": 0.0,
+                            "LeadingCB": 0.0,
+                            "RecStanza": 0,
                         }
                     )
                 self._tables["Stanza"] = pd.DataFrame(stanza_rows)
@@ -210,19 +215,22 @@ class CsvBundleWriter:
                     group_id = name_to_id.get(group_name, 0)
                     ls_rows.append(
                         {
-                            "StanzaID": int(row.get("StGroupNum", 1)),
-                            "LifeStageID": i + 1,
-                            "ModelID": self._scenario_id,
                             "GroupID": group_id,
-                            "Months": int(row.get("Last", row.get("Months", 0))),
-                            "LeadingLifeStage": bool(
-                                row.get("Leading", row.get("LeadingLifeStage", False))
+                            "StanzaID": int(row.get("StGroupNum", 1)),
+                            "Sequence": i + 1,
+                            "AgeStart": int(
+                                row.get("First", row.get("AgeStart", 0))
                             ),
-                            "LeadingBiomass": bool(
+                            "Mortality": float(
+                                row.get("Z", row.get("Mortality", 0.0))
+                            ),
+                            "vbK": float(
                                 row.get(
-                                    "LeadingB", row.get("LeadingBiomass", False)
+                                    "VBGF_Ksp",
+                                    row.get("vbK", row.get("VBK", 0.0)),
                                 )
                             ),
+                            "SpawnProp": 0.0,
                         }
                     )
                 self._tables["StanzaLifeStage"] = pd.DataFrame(ls_rows)
@@ -232,21 +240,28 @@ class CsvBundleWriter:
             [
                 {
                     "ModelID": self._scenario_id,
-                    "ModelName": "PyPath Export",
+                    "Name": "PyPath Export",
                     "Description": f"Exported by PyPath on "
                     f"{datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')}",
                     "Author": "",
                     "Contact": "",
-                    "LastSaved": datetime.now(tz=timezone.utc).isoformat(),
-                    "AreaUnit": "km^2",
-                    "TimeUnit": "year",
-                    "Currency": "t",
-                    "NumGroups": n_bio,
-                    "NumFleets": n_fleet,
-                    "NumLiving": n_living,
-                    "NumDetritus": n_detritus,
+                    "LastSaved": (
+                        datetime.now(tz=timezone.utc)
+                        - datetime(1899, 12, 30, tzinfo=timezone.utc)
+                    ).total_seconds()
+                    / 86400.0,
+                    "NumDigits": 5,
                     "GroupDigits": 5,
-                    "EcopathVersion": 6.6,
+                    "Area": 1.0,
+                    "FirstYear": 1,
+                    "NumYears": 1,
+                    "StepsPerYear": 12,
+                    "UnitCurrency": 0,  # 0=default metric (t/km^2)
+                    "UnitTime": 0,  # 0=default (year)
+                    "UnitMonetary": "",
+                    "LastSavedVersion": "6.6",
+                    "Country": "",
+                    "EcosystemType": "",
                 }
             ]
         )
@@ -265,10 +280,10 @@ class CsvBundleWriter:
         scen_rows = []
         group_info_rows = []
         fish_rate_rows = []
-        forcing_rows = []
+        shape_rows = []
         shape_time_rows = []
         forcing_matrix_rows = []
-        forcing_id_counter = 1
+        shape_id_counter = 1
 
         for si, scen in enumerate(scenarios):
             scen_id = si + 1
@@ -283,52 +298,45 @@ class CsvBundleWriter:
             scen_rows.append(
                 {
                     "ScenarioID": scen_id,
-                    "ScenarioName": getattr(scen, "eco_name", f"Scenario {scen_id}"),
-                    "ScenarioDescription": "Exported from PyPath",
-                    "NumYears": num_years,
-                    "StartYear": getattr(scen, "start_year", 1),
+                    "ScenarioName": getattr(
+                        scen, "eco_name", f"Scenario {scen_id}"
+                    ),
+                    "Description": "Exported from PyPath",
+                    "Author": "",
+                    "Contact": "",
+                    "LastSaved": "",
+                    "TotalTime": float(num_years),
+                    "StepSize": 1.0 / 12.0,
+                    "EquilibriumStepSize": 1.0,
+                    "SystemRecovery": 0.0,
+                    "Discount": 0.0,
+                    "ForagingTimeLowerLimit": 0.0,
                 }
             )
 
             if p is None:
                 continue
 
-            # --- EcosimGroupInfo: group-level VV, MaxRelPB, etc. ---
-            # VV/DD are per-link in RsimParams, but EwE stores per-group defaults.
-            # We export the median VV per predator group as the group-level value.
+            # --- EcosimScenarioGroup: group-level Ecosim settings ---
             n_groups = getattr(p, "NUM_GROUPS", 0) + 1  # +1 for Outside
-            vv_by_group = {}
-            dd_by_group = {}
-            if hasattr(p, "PreyTo") and hasattr(p, "VV"):
-                for link_idx in range(len(p.PreyTo)):
-                    pred = int(p.PreyTo[link_idx])
-                    if pred not in vv_by_group:
-                        vv_by_group[pred] = []
-                        dd_by_group[pred] = []
-                    vv_by_group[pred].append(float(p.VV[link_idx]))
-                    if hasattr(p, "DD") and link_idx < len(p.DD):
-                        dd_by_group[pred].append(float(p.DD[link_idx]))
 
             for gi in range(1, n_groups):  # skip Outside (0)
-                median_vv = float(np.median(vv_by_group[gi])) if gi in vv_by_group else 2.0
-                median_dd = float(np.median(dd_by_group[gi])) if gi in dd_by_group else 0.0
                 group_info_rows.append(
                     {
                         "ScenarioID": scen_id,
+                        "EcopathGroupID": gi,
                         "GroupID": gi,
-                        "VV": median_vv,
-                        "DD": median_dd,
-                        "MaxRelPB": float(p.MaxRelPB[gi])
+                        "Pbmaxs": float(p.MaxRelPB[gi])
                         if hasattr(p, "MaxRelPB") and gi < len(p.MaxRelPB)
                         else 2.0,
-                        "MaxRelFeedingTime": float(p.MaxRelFeedingTime[gi])
+                        "FtimeMax": float(p.MaxRelFeedingTime[gi])
                         if hasattr(p, "MaxRelFeedingTime")
                         and gi < len(p.MaxRelFeedingTime)
                         else 2.0,
-                        "FtimeAdj": float(p.FtimeAdj[gi])
+                        "FtimeAdjust": float(p.FtimeAdj[gi])
                         if hasattr(p, "FtimeAdj") and gi < len(p.FtimeAdj)
                         else 0.0,
-                        "SwitchingPower": 0.0,
+                        "SwitchPower": 0.0,
                     }
                 )
 
@@ -338,76 +346,82 @@ class CsvBundleWriter:
                     forcing_matrix_rows.append(
                         {
                             "ScenarioID": scen_id,
-                            "LinkID": link_idx + 1,
-                            "PreyID": int(p.PreyFrom[link_idx]),
                             "PredID": int(p.PreyTo[link_idx]),
-                            "VV": float(p.VV[link_idx]),
-                            "DD": float(p.DD[link_idx])
-                            if hasattr(p, "DD") and link_idx < len(p.DD)
-                            else 0.0,
-                            "HandleTime": float(p.HandleSwitch[link_idx])
-                            if hasattr(p, "HandleSwitch")
-                            and link_idx < len(p.HandleSwitch)
-                            else 0.0,
+                            "PreyID": int(p.PreyFrom[link_idx]),
+                            "vulnerability": float(p.VV[link_idx]),
                         }
                     )
 
             # --- Fishing effort shapes (EcosimShapeFishRate) ---
-            if hasattr(scen, "fishing") and hasattr(scen.fishing, "FishingEffort"):
+            if hasattr(scen, "fishing") and hasattr(
+                scen.fishing, "FishingEffort"
+            ):
                 effort = scen.fishing.FishingEffort
                 for fi in range(effort.shape[0]):
+                    has_non_default = False
                     for t in range(effort.shape[1]):
                         val = float(effort[fi, t])
                         if abs(val - 1.0) > 1e-9:
-                            fish_rate_rows.append(
-                                {
-                                    "ShapeID": fi + 1,
-                                    "ScenarioID": scen_id,
-                                    "FleetID": fi + 1,
-                                    "TimeStep": t,
-                                    "Value": val,
-                                }
-                            )
+                            has_non_default = True
+                            break
+                    if has_non_default:
+                        fish_rate_rows.append(
+                            {
+                                "ShapeID": fi + 1,
+                                "zScale": 1.0,
+                                "Title": f"FishingEffort_Fleet{fi+1}",
+                            }
+                        )
 
-            # --- Environmental forcing (EcosimForcing + EcosimShapeTime) ---
+            # --- Environmental forcing (EcosimShape + EcosimShapeTime) ---
             if hasattr(scen, "forcing") and hasattr(scen.forcing, "ForcedBio"):
                 forced = scen.forcing.ForcedBio
                 for gi in range(forced.shape[0]):
                     # Only export if not all 1.0 (non-trivial forcing)
                     col = forced[gi, :]
                     if np.any(np.abs(col - 1.0) > 1e-9):
-                        fid = forcing_id_counter
-                        forcing_id_counter += 1
-                        forcing_rows.append(
+                        sid = shape_id_counter
+                        shape_id_counter += 1
+                        shape_rows.append(
                             {
-                                "ForcingID": fid,
-                                "ScenarioID": scen_id,
-                                "ForcingName": f"BioForcing_Group{gi}",
-                                "ForcingType": 0,
-                                "GroupID": gi,
+                                "ShapeID": sid,
+                                "ShapeType": 0,
+                                "IsSeasonal": False,
                             }
                         )
-                        for t in range(len(col)):
-                            shape_time_rows.append(
-                                {
-                                    "ForcingID": fid,
-                                    "ScenarioID": scen_id,
-                                    "TimeStep": t,
-                                    "Value": float(col[t]),
-                                }
-                            )
+                        shape_time_rows.append(
+                            {
+                                "ShapeID": sid,
+                                "zScale": 1.0,
+                                "Title": f"BioForcing_Group{gi}",
+                                "zMaxScale": 1.0,
+                                "FunctionType": 0,
+                                "ApplicationType": 0,
+                                "FunctionParams": "",
+                            }
+                        )
+                if shape_rows:
+                    logger.warning(
+                        "Forcing time series values cannot be fully "
+                        "serialized in EwE 6.6+ format (requires "
+                        "EcosimTimeSeries* tables, not yet implemented). "
+                        "Shape metadata exported; per-timestep values "
+                        "are omitted."
+                    )
 
         self._tables["EcosimScenario"] = pd.DataFrame(scen_rows)
         if group_info_rows:
-            self._tables["EcosimGroupInfo"] = pd.DataFrame(group_info_rows)
+            self._tables["EcosimScenarioGroup"] = pd.DataFrame(
+                group_info_rows
+            )
         if forcing_matrix_rows:
             self._tables["EcosimScenarioForcingMatrix"] = pd.DataFrame(
                 forcing_matrix_rows
             )
         if fish_rate_rows:
             self._tables["EcosimShapeFishRate"] = pd.DataFrame(fish_rate_rows)
-        if forcing_rows:
-            self._tables["EcosimForcing"] = pd.DataFrame(forcing_rows)
+        if shape_rows:
+            self._tables["EcosimShape"] = pd.DataFrame(shape_rows)
         if shape_time_rows:
             self._tables["EcosimShapeTime"] = pd.DataFrame(shape_time_rows)
 
@@ -438,11 +452,13 @@ class CsvBundleWriter:
                     {
                         "ScenarioID": sid,
                         "ScenarioName": "PyPath Ecospace",
-                        "NRows": getattr(grid, "n_rows", 0),
-                        "NCols": getattr(grid, "n_cols", 0),
+                        "Description": "",
+                        "Inrow": getattr(grid, "n_rows", 0),
+                        "Incol": getattr(grid, "n_cols", 0),
+                        "CellLength": getattr(grid, "cell_size", 1.0),
                         "CellSize": getattr(grid, "cell_size", 1.0),
-                        "OriginLat": getattr(grid, "origin_lat", 0.0),
-                        "OriginLon": getattr(grid, "origin_lon", 0.0),
+                        "MinLat": getattr(grid, "origin_lat", 0.0),
+                        "MinLon": getattr(grid, "origin_lon", 0.0),
                     }
                 ]
             )
@@ -454,13 +470,18 @@ class CsvBundleWriter:
                     {
                         "ScenarioID": sid,
                         "GroupID": gi + 1,
-                        "DispersalRate": float(ecospace.dispersal_rate[gi]),
-                        "AdvectionEnabled": bool(ecospace.advection_enabled[gi])
+                        "EcopathGroupID": gi + 1,
+                        "Mvel": float(ecospace.dispersal_rate[gi]),
+                        "RelMoveBad": 2.0,
+                        "RelVulBad": 2.0,
+                        "IsAdvected": bool(ecospace.advection_enabled[gi])
                         if hasattr(ecospace, "advection_enabled")
                         else False,
+                        "IsMigratory": False,
+                        "BarrierAvoidanceWeight": 0.0,
                     }
                 )
-            self._tables["EcospaceGroup"] = pd.DataFrame(group_rows)
+            self._tables["EcospaceScenarioGroup"] = pd.DataFrame(group_rows)
 
         logger.info("write_ecospace: spatial data written")
 

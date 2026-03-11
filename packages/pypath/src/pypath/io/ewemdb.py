@@ -477,6 +477,14 @@ def read_ewemdb(
     if "ScenarioID" in groups_df.columns:
         groups_df = groups_df[groups_df["ScenarioID"] == scenario].copy()
 
+    # Sort by Sequence to ensure consistent ordering across backends
+    seq_col = next(
+        (c for c in ["Sequence", "sequence", "GroupID"] if c in groups_df.columns),
+        None,
+    )
+    if seq_col is not None:
+        groups_df = groups_df.sort_values(seq_col).reset_index(drop=True)
+
     # Extract group information
     # Column names vary between EwE versions, so we try multiple options
     name_cols = ["GroupName", "Name", "group_name", "name"]
