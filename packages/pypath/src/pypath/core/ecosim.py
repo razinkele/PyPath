@@ -539,7 +539,7 @@ def rsim_params(
     )
     # Find all nonzero DC entries using vectorized indexing (predator-major order)
     for pred_idx in np.where(valid_pred)[0]:
-        prey_indices = np.where(dc[:nliving + ndead, pred_idx] > 0)[0]
+        prey_indices = np.where(dc[: nliving + ndead, pred_idx] > 0)[0]
         for prey_idx in prey_indices:
             q = dc[prey_idx, pred_idx] * qb[pred_idx] * rpath.Biomass[pred_idx]
             if q > 0:
@@ -706,7 +706,9 @@ def rsim_params(
         col_sums = np.sum(rpath.DetFate[:, :], axis=0)
         zero_cols = np.where(col_sums == 0)[0]
         if len(zero_cols) > 0:
-            det_names = [rpath.Group[int(dead_idx[zc])] for zc in zero_cols if zc < len(dead_idx)]
+            det_names = [
+                rpath.Group[int(dead_idx[zc])] for zc in zero_cols if zc < len(dead_idx)
+            ]
             warnings.warn(
                 f"DetFate columns with zero source fractions: "
                 f"cols={zero_cols.tolist()}, detritus={det_names}. "
@@ -1711,9 +1713,7 @@ def rsim_run(
             )
             # Accept small changes only (absolute threshold)
             if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
-                logger.debug(
-                    "assigning M0 for grp=%d diff=%.6e", grp, diff
-                )
+                logger.debug("assigning M0 for grp=%d diff=%.6e", grp, diff)
                 # Iteratively refine M0 to drive the raw (no-NoIntegrate) initial residual toward zero
                 MAX_M0_ITER = 5
                 TOL_INIT_DERIV_ITER = 1e-10
@@ -1820,7 +1820,6 @@ def rsim_run(
                     )
     except Exception as e:
         logger.debug("M0 adjustment failed: %s", e, exc_info=True)
-
 
     # Final check: compute derivative using the params dict that will be persisted
     # and make a small algebraic correction if a tiny residual remains.
@@ -2028,9 +2027,7 @@ def rsim_run(
                             total_gain = float(np.nansum(QQ_ni[:, i]))
                             total_loss = float(np.nansum(QQ_ni[i, :]))
                             total_loss += params_dict["M0"][i] * state[i]
-                            state[i] = compute_biomeq(
-                                total_gain, total_loss, state[i]
-                            )
+                            state[i] = compute_biomeq(total_gain, total_loss, state[i])
                     new_deriv[no_integrate_mask] = 0.0
                 derivs_history.insert(0, new_deriv)
                 if len(derivs_history) > 1:

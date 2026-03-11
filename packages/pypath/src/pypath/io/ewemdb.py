@@ -604,7 +604,7 @@ def read_ewemdb(
     found_remarks_cols = []
 
     # Create ID to group name mapping (biological groups only, not fleets)
-    bio_group_names = group_names[: n_bio_groups]
+    bio_group_names = group_names[:n_bio_groups]
     id_col = next(
         (
             c
@@ -2802,9 +2802,7 @@ def _apply_effort_shapes(
     into rsim.fishing.ForcedEffort.
     """
     try:
-        scenario_fleet_df = _try_read_table_variants(
-            filepath, ["EcosimScenarioFleet"]
-        )
+        scenario_fleet_df = _try_read_table_variants(filepath, ["EcosimScenarioFleet"])
         fish_rate_shapes_df = _try_read_table_variants(
             filepath, ["EcosimShapeFishRate"]
         )
@@ -2887,9 +2885,7 @@ def _apply_forcing_shapes(
     through EcosimScenarioGroup, and applies them to rsim.forcing arrays.
     """
     try:
-        shape_time_df = _try_read_table_variants(
-            filepath, ["EcosimShapeTime"]
-        )
+        shape_time_df = _try_read_table_variants(filepath, ["EcosimShapeTime"])
         scenario_group_df = selected.get("scenario_group_df")
         if shape_time_df is None or scenario_group_df is None:
             return
@@ -3064,7 +3060,9 @@ def ecosim_scenario_from_ewemdb(
     scenario_overrides = _build_scenario_overrides(params, selected, group_names)
 
     # Create RsimScenario with overrides applied
-    rsim = rsim_scenario(balanced, params, years=years, scenario_overrides=scenario_overrides)
+    rsim = rsim_scenario(
+        balanced, params, years=years, scenario_overrides=scenario_overrides
+    )
 
     # Replace default forcing/fishing with ones parsed from the DB if available
     try:
@@ -3245,9 +3243,7 @@ def check_ewemdb_support() -> Dict[str, bool]:
     }
 
 
-def read_timeseries(
-    filepath: str, scenario: int = 1
-) -> "EweTimeSeriesCollection":
+def read_timeseries(filepath: str, scenario: int = 1) -> "EweTimeSeriesCollection":
     """Read time series data from an EwE database.
 
     Reads the EcosimTimeSeries and EcosimTimeSeriesValues tables and
@@ -3298,12 +3294,18 @@ def read_timeseries(
         dat_type = int(row.get("DatType", 0))
 
         group_id = row.get("GroupID")
-        group_idx = int(group_id) - 1 if pd.notna(group_id) and int(group_id) > 0 else None
+        group_idx = (
+            int(group_id) - 1 if pd.notna(group_id) and int(group_id) > 0 else None
+        )
 
         fleet_id = row.get("FleetID")
-        fleet_idx = int(fleet_id) - 1 if pd.notna(fleet_id) and int(fleet_id) > 0 else None
+        fleet_idx = (
+            int(fleet_id) - 1 if pd.notna(fleet_id) and int(fleet_id) > 0 else None
+        )
 
-        dataset_id = int(row.get("DatasetID", 0)) if pd.notna(row.get("DatasetID")) else 0
+        dataset_id = (
+            int(row.get("DatasetID", 0)) if pd.notna(row.get("DatasetID")) else 0
+        )
 
         # WtType is a method enum (0=SS, 1=SSLog, etc.), NOT a weight value.
         weight = 1.0
@@ -3371,7 +3373,9 @@ def read_mediation(db_path: str) -> "MediationCollection":
                     yy = 1.0
                 y_vals.append(float(yy))
             # Use only the first n_points values
-            if n_points is not None and not (isinstance(n_points, float) and np.isnan(n_points)):
+            if n_points is not None and not (
+                isinstance(n_points, float) and np.isnan(n_points)
+            ):
                 n_pts = int(n_points)
                 if n_pts < 9:
                     y_vals = y_vals[:n_pts]
@@ -3401,7 +3405,9 @@ def read_mediation(db_path: str) -> "MediationCollection":
             if sid not in shape_ids:
                 continue
             weight_val = row.get("AppliedWeight", 1.0)
-            if weight_val is None or (isinstance(weight_val, float) and np.isnan(weight_val)):
+            if weight_val is None or (
+                isinstance(weight_val, float) and np.isnan(weight_val)
+            ):
                 weight_val = 1.0
             links.append(
                 MediationLink(
@@ -3425,7 +3431,9 @@ def read_mediation(db_path: str) -> "MediationCollection":
             if sid not in shape_ids:
                 continue
             weight_val = row.get("AppliedWeight", 1.0)
-            if weight_val is None or (isinstance(weight_val, float) and np.isnan(weight_val)):
+            if weight_val is None or (
+                isinstance(weight_val, float) and np.isnan(weight_val)
+            ):
                 weight_val = 1.0
             links.append(
                 MediationLink(
@@ -3439,7 +3447,9 @@ def read_mediation(db_path: str) -> "MediationCollection":
     # Read landings mediation links
     if "EcosimScenarioshapeMedWeightsLandings" in tables:
         try:
-            landing_df = read_ewemdb_table(db_path, "EcosimScenarioshapeMedWeightsLandings")
+            landing_df = read_ewemdb_table(
+                db_path, "EcosimScenarioshapeMedWeightsLandings"
+            )
         except Exception:
             landing_df = pd.DataFrame()
 
@@ -3448,7 +3458,9 @@ def read_mediation(db_path: str) -> "MediationCollection":
             if sid not in shape_ids:
                 continue
             weight_val = row.get("AppliedWeight", 1.0)
-            if weight_val is None or (isinstance(weight_val, float) and np.isnan(weight_val)):
+            if weight_val is None or (
+                isinstance(weight_val, float) and np.isnan(weight_val)
+            ):
                 weight_val = 1.0
             links.append(
                 MediationLink(
@@ -3512,11 +3524,13 @@ def read_pedigree(db_path: str) -> tuple:
                 level_id = int(row.get("LevelID", 0))
                 # Look up CV from pedigree levels
                 cv = config.level_to_cv.get(var_name, {}).get(level_id, 0.0)
-                group_records.append({
-                    "GroupID": group_id,
-                    "VarName": var_name,
-                    "CV": cv,
-                })
+                group_records.append(
+                    {
+                        "GroupID": group_id,
+                        "VarName": var_name,
+                        "CV": cv,
+                    }
+                )
         except Exception:
             pass
 
