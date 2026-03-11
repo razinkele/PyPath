@@ -8,9 +8,10 @@ The LT2022 model is a 25-group Lithuanian coastal food web with
 23 living groups, 1 detritus group, and 1 fishing fleet.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pytest
-from pathlib import Path
 
 DATA_DIR = Path(__file__).parents[3] / "Data"
 DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
@@ -28,6 +29,7 @@ def ecopath_params():
     if not _db_available():
         pytest.skip("LT2022 database not found")
     from pypath.io.ewemdb import read_ewemdb
+
     return read_ewemdb(DB_PATH)
 
 
@@ -35,6 +37,7 @@ def ecopath_params():
 def balanced_model(ecopath_params):
     """Balance the Ecopath model."""
     from pypath.core.ecopath import rpath
+
     return rpath(ecopath_params)
 
 
@@ -44,6 +47,7 @@ def ecosim_scenario_1():
     if not _db_available():
         pytest.skip("LT2022 database not found")
     from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+
     return ecosim_scenario_from_ewemdb(DB_PATH, scenario=1)
 
 
@@ -53,6 +57,7 @@ def ecosim_scenario_16():
     if not _db_available():
         pytest.skip("LT2022 database not found")
     from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+
     return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16)
 
 
@@ -74,7 +79,10 @@ class TestEcopathFromEwemdb:
         assert balanced_model.NUM_DEAD == 1
 
     def test_group_names_present(self, balanced_model):
-        names = [str(balanced_model.Group[i]).strip() for i in range(balanced_model.NUM_GROUPS)]
+        names = [
+            str(balanced_model.Group[i]).strip()
+            for i in range(balanced_model.NUM_GROUPS)
+        ]
         joined = " ".join(names)
         assert "Herring" in joined
         assert "Cod" in joined
@@ -84,7 +92,9 @@ class TestEcopathFromEwemdb:
     def test_biomass_positive_for_living(self, balanced_model):
         for i in range(balanced_model.NUM_GROUPS):
             b = balanced_model.Biomass[i]
-            assert b >= 0, f"Group {i} ({balanced_model.Group[i]}): negative biomass {b}"
+            assert b >= 0, (
+                f"Group {i} ({balanced_model.Group[i]}): negative biomass {b}"
+            )
 
     def test_ee_bounded(self, balanced_model):
         """EE should be in [0, 1] for living groups (with small tolerance)."""
@@ -96,8 +106,11 @@ class TestEcopathFromEwemdb:
 
     def test_stanza_data_loaded(self, ecopath_params):
         """The model has multi-stanza groups (Blue mussel juv/ad)."""
-        assert hasattr(ecopath_params, 'stanzas')
-        if hasattr(ecopath_params.stanzas, 'stgroups') and ecopath_params.stanzas.stgroups is not None:
+        assert hasattr(ecopath_params, "stanzas")
+        if (
+            hasattr(ecopath_params.stanzas, "stgroups")
+            and ecopath_params.stanzas.stgroups is not None
+        ):
             assert len(ecopath_params.stanzas.stgroups) >= 1
 
 
@@ -110,14 +123,14 @@ class TestEcosimScenarioLoading:
     """Verify Ecosim scenario is correctly built from EwE database."""
 
     def test_scenario_has_params(self, ecosim_scenario_1):
-        assert hasattr(ecosim_scenario_1, 'params')
+        assert hasattr(ecosim_scenario_1, "params")
         assert ecosim_scenario_1.params is not None
 
     def test_scenario_has_forcing(self, ecosim_scenario_1):
-        assert hasattr(ecosim_scenario_1, 'forcing')
+        assert hasattr(ecosim_scenario_1, "forcing")
 
     def test_scenario_has_fishing(self, ecosim_scenario_1):
-        assert hasattr(ecosim_scenario_1, 'fishing')
+        assert hasattr(ecosim_scenario_1, "fishing")
 
     def test_predprey_links(self, ecosim_scenario_1):
         """Predator-prey link arrays should be populated."""
@@ -152,6 +165,7 @@ class TestEcosimRunScenario1:
     @pytest.fixture(scope="class")
     def sim_output(self, ecosim_scenario_1):
         from pypath.core.ecosim import rsim_run
+
         return rsim_run(ecosim_scenario_1, method="AB")
 
     def test_simulation_completes(self, sim_output):
@@ -186,9 +200,7 @@ class TestEcosimRunScenario1:
         for i in range(len(initial)):
             if initial[i] > 1e-6:
                 ratio = final[i] / initial[i]
-                assert ratio < 100, (
-                    f"Group {i}: biomass exploded {ratio:.1f}x"
-                )
+                assert ratio < 100, f"Group {i}: biomass exploded {ratio:.1f}x"
 
 
 # =========================================================================
@@ -202,6 +214,7 @@ class TestEcosimRunScenario16:
     @pytest.fixture(scope="class")
     def sim_output(self, ecosim_scenario_16):
         from pypath.core.ecosim import rsim_run
+
         return rsim_run(ecosim_scenario_16, method="AB")
 
     def test_simulation_completes(self, sim_output):
@@ -222,8 +235,8 @@ class TestEcosimRunScenario16:
 
     def test_ss_reasonable(self, sim_output, ecosim_scenario_16):
         """Sum of squares should be within reasonable bounds."""
-        from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
         from pypath.core.ecopath import rpath
+        from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
 
         params = read_ewemdb(DB_PATH)
         model = rpath(params)
@@ -260,7 +273,9 @@ class TestEcosimRunScenario16:
                 total_ss += np.sum((sim[:n] - vals[:n]) ** 2)
                 n_series += 1
 
-        assert total_ss < 800, f"SS={total_ss:.1f} should be < 800 (n_series={n_series})"
+        assert total_ss < 800, (
+            f"SS={total_ss:.1f} should be < 800 (n_series={n_series})"
+        )
 
 
 # =========================================================================
@@ -275,6 +290,7 @@ class TestEwemdbTableStructure:
         if not _db_available():
             pytest.skip("LT2022 database not found")
         from pypath.io.ewemdb import read_ewemdb_table
+
         df = read_ewemdb_table(DB_PATH, "EcosimScenario")
         assert len(df) >= 15
         assert "ScenarioID" in df.columns
@@ -285,6 +301,7 @@ class TestEwemdbTableStructure:
         if not _db_available():
             pytest.skip("LT2022 database not found")
         from pypath.io.ewemdb import read_ewemdb_table
+
         df = read_ewemdb_table(DB_PATH, "EcosimScenarioForcingMatrix")
         assert len(df) > 100
         assert "vulnerability" in df.columns
@@ -295,6 +312,7 @@ class TestEwemdbTableStructure:
         if not _db_available():
             pytest.skip("LT2022 database not found")
         from pypath.io.ewemdb import read_ewemdb_table
+
         df = read_ewemdb_table(DB_PATH, "EcosimScenarioGroup")
         assert len(df) > 100
         assert "FtimeAdjust" in df.columns
@@ -303,6 +321,7 @@ class TestEwemdbTableStructure:
         if not _db_available():
             pytest.skip("LT2022 database not found")
         from pypath.io.ewemdb import read_ewemdb_table
+
         df = read_ewemdb_table(DB_PATH, "EcosimTimeSeries")
         assert len(df) > 100
         assert "TimeSeriesID" in df.columns

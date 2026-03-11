@@ -99,6 +99,15 @@ try:
     HAS_OPTIMIZATION = bool(HAS_SKOPT)
 except ImportError:
     HAS_OPTIMIZATION = False
+from pypath.core.calibration import CalibrationResult, fit_to_timeseries
+from pypath.core.mediation import (
+    MediationCollection,
+    MediationLink,
+    MediationShape,
+    make_negative_shape,
+    make_positive_shape,
+    make_ushape,
+)
 from pypath.core.plotting import (
     HAS_NETWORKX,
     HAS_PLOTLY,
@@ -123,18 +132,15 @@ from pypath.core.timeseries import (
     apply_timeseries_drivers,
     load_timeseries,
 )
-from pypath.core.calibration import CalibrationResult, fit_to_timeseries
-from pypath.core.mediation import (
-    MediationCollection,
-    MediationLink,
-    MediationShape,
-    make_negative_shape,
-    make_positive_shape,
-    make_ushape,
-)
 
 # Monte Carlo / Pedigree / Sensitivity (optional)
 try:
+    from pypath.core.montecarlo import (
+        HAS_JOBLIB,
+        MCConfig,
+        MCResult,
+        run_montecarlo,
+    )
     from pypath.core.pedigree import (
         DietDistribution,
         PedigreeConfig,
@@ -142,12 +148,6 @@ try:
         apply_sample,
         build_distributions,
         sample_parameters,
-    )
-    from pypath.core.montecarlo import (
-        HAS_JOBLIB,
-        MCConfig,
-        MCResult,
-        run_montecarlo,
     )
     from pypath.core.sensitivity import (
         HAS_SALIB,

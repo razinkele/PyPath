@@ -49,15 +49,11 @@ class TestValidateAdjacencySymmetry:
     """Tests for validate_adjacency_symmetry."""
 
     def test_symmetric_matrix(self):
-        adj = scipy.sparse.csr_matrix(
-            np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
-        )
+        adj = scipy.sparse.csr_matrix(np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]))
         assert validate_adjacency_symmetry(adj) is True
 
     def test_asymmetric_matrix(self):
-        adj = scipy.sparse.csr_matrix(
-            np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]])
-        )
+        adj = scipy.sparse.csr_matrix(np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]]))
         assert validate_adjacency_symmetry(adj) is False
 
     def test_empty_matrix(self):
@@ -70,9 +66,7 @@ class TestGetConnectivityGraphStats:
 
     def test_linear_chain(self):
         """3-node chain: 0-1-2."""
-        adj = scipy.sparse.csr_matrix(
-            np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
-        )
+        adj = scipy.sparse.csr_matrix(np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]))
         stats = get_connectivity_graph_stats(adj)
         assert stats["n_nodes"] == 3
         assert stats["n_edges"] == 2
@@ -83,18 +77,14 @@ class TestGetConnectivityGraphStats:
 
     def test_isolated_node(self):
         """Node 2 has no connections."""
-        adj = scipy.sparse.csr_matrix(
-            np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]])
-        )
+        adj = scipy.sparse.csr_matrix(np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]]))
         stats = get_connectivity_graph_stats(adj)
         assert stats["isolated_patches"] == [2]
         assert stats["min_degree"] == 0
 
     def test_fully_connected(self):
         """3-node fully connected."""
-        adj = scipy.sparse.csr_matrix(
-            np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
-        )
+        adj = scipy.sparse.csr_matrix(np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]]))
         stats = get_connectivity_graph_stats(adj)
         assert stats["n_edges"] == 3
         assert stats["mean_degree"] == 2.0

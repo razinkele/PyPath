@@ -1,16 +1,17 @@
 """Integration tests for mediation functions with Ecosim simulation."""
+
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.mediation import (
     MediationCollection,
     MediationLink,
-    MediationShape,
-    make_positive_shape,
     make_negative_shape,
+    make_positive_shape,
 )
 from pypath.core.params import create_rpath_params
 
@@ -124,6 +125,4 @@ class TestMediationIntegration:
         scenario2 = rsim_scenario(rpath_result, params, years=range(1, 11))
         result2 = rsim_run(scenario2, mediation=None)
 
-        np.testing.assert_allclose(
-            result1.out_Biomass, result2.out_Biomass, atol=1e-12
-        )
+        np.testing.assert_allclose(result1.out_Biomass, result2.out_Biomass, atol=1e-12)

@@ -3,11 +3,12 @@
 Runs ensemble simulations with parameter sampling from pedigree-defined
 distributions. Supports parallel execution and streaming statistics.
 """
+
 from __future__ import annotations
 
 import logging
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 import numpy as np
@@ -97,8 +98,9 @@ def _run_single_ecosim(rpath_result, sampled_params, config):
     try:
         years = config.ecosim_years if config.ecosim_years is not None else range(1, 11)
         scenario = rsim_scenario(rpath_result, sampled_params, years=years)
-        result = rsim_run(scenario, method=config.ecosim_method,
-                          mediation=config.mediation)
+        result = rsim_run(
+            scenario, method=config.ecosim_method, mediation=config.mediation
+        )
         return result.out_Biomass
     except Exception:
         return None
@@ -129,7 +131,6 @@ def run_montecarlo(
     MCResult
     """
     from pypath.core.pedigree import (
-        PedigreeConfig,
         apply_sample,
         build_distributions,
         sample_parameters,
@@ -161,13 +162,19 @@ def run_montecarlo(
 
         if rpath_result is not None:
             n_feasible += 1
-            bio = rpath_result.Biomass[:n_groups] if hasattr(rpath_result, "Biomass") else None
+            bio = (
+                rpath_result.Biomass[:n_groups]
+                if hasattr(rpath_result, "Biomass")
+                else None
+            )
             if bio is not None:
                 ecopath_biomass.append(bio.copy())
             if config.store_runs:
-                ecopath_runs_list.append({
-                    "Biomass": bio.copy() if bio is not None else None,
-                })
+                ecopath_runs_list.append(
+                    {
+                        "Biomass": bio.copy() if bio is not None else None,
+                    }
+                )
 
             if not config.ecopath_only:
                 ecosim_bio = _run_single_ecosim(rpath_result, sampled_params, config)
@@ -184,33 +191,38 @@ def run_montecarlo(
     ecopath_stats = {}
     if ecopath_biomass:
         bio_array = np.array(ecopath_biomass)  # (n_feasible, n_groups)
-        ecopath_stats["Biomass"] = pd.DataFrame({
-            "mean": np.mean(bio_array, axis=0),
-            "std": np.std(bio_array, axis=0),
-            "p5": np.percentile(bio_array, 5, axis=0),
-            "p25": np.percentile(bio_array, 25, axis=0),
-            "p50": np.percentile(bio_array, 50, axis=0),
-            "p75": np.percentile(bio_array, 75, axis=0),
-            "p95": np.percentile(bio_array, 95, axis=0),
-        })
+        ecopath_stats["Biomass"] = pd.DataFrame(
+            {
+                "mean": np.mean(bio_array, axis=0),
+                "std": np.std(bio_array, axis=0),
+                "p5": np.percentile(bio_array, 5, axis=0),
+                "p25": np.percentile(bio_array, 25, axis=0),
+                "p50": np.percentile(bio_array, 50, axis=0),
+                "p75": np.percentile(bio_array, 75, axis=0),
+                "p95": np.percentile(bio_array, 95, axis=0),
+            }
+        )
 
     # Compute ecosim statistics
     ecosim_stats = None
     if ecosim_biomass_list:
         # All arrays should have same shape; exclude padding col 0
         min_t = min(b.shape[0] for b in ecosim_biomass_list)
-        stacked = np.array([b[:min_t, 1:n_groups + 1] for b in ecosim_biomass_list])
+        stacked = np.array([b[:min_t, 1 : n_groups + 1] for b in ecosim_biomass_list])
         # stacked: (n_ecosim, timesteps, n_groups)
         ecosim_stats = {
-            "Biomass": np.stack([
-                np.mean(stacked, axis=0),
-                np.std(stacked, axis=0),
-                np.percentile(stacked, 5, axis=0),
-                np.percentile(stacked, 25, axis=0),
-                np.percentile(stacked, 50, axis=0),
-                np.percentile(stacked, 75, axis=0),
-                np.percentile(stacked, 95, axis=0),
-            ], axis=-1),  # (timesteps, n_groups, 7)
+            "Biomass": np.stack(
+                [
+                    np.mean(stacked, axis=0),
+                    np.std(stacked, axis=0),
+                    np.percentile(stacked, 5, axis=0),
+                    np.percentile(stacked, 25, axis=0),
+                    np.percentile(stacked, 50, axis=0),
+                    np.percentile(stacked, 75, axis=0),
+                    np.percentile(stacked, 95, axis=0),
+                ],
+                axis=-1,
+            ),  # (timesteps, n_groups, 7)
         }
 
     feasibility_rate = n_feasible / config.n_samples if config.n_samples > 0 else 0.0
