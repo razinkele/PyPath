@@ -3461,3 +3461,68 @@ def read_mediation(db_path: str) -> "MediationCollection":
             )
 
     return MediationCollection(shapes=shapes, links=links)
+
+
+def read_pedigree(db_path: str) -> tuple:
+    """Read pedigree tables from an EwE database.
+
+    Parameters
+    ----------
+    db_path : str
+        Path to the .eweaccdb database file.
+
+    Returns
+    -------
+    tuple[PedigreeConfig, pd.DataFrame]
+        (config, group_pedigree) where:
+        - config: PedigreeConfig with level_to_cv mapping
+        - group_pedigree: DataFrame with columns [GroupID, VarName, CV]
+    """
+    from pypath.core.pedigree import PedigreeConfig
+
+    try:
+        tables = list_ewemdb_tables(db_path)
+    except Exception:
+        return PedigreeConfig(), pd.DataFrame(columns=["GroupID", "VarName", "CV"])
+
+    config = PedigreeConfig()
+
+    # Read Pedigree level definitions
+    if "Pedigree" in tables:
+        try:
+            ped_df = read_ewemdb_table(db_path, "Pedigree")
+            for _, row in ped_df.iterrows():
+                var_name = str(row.get("VarName", ""))
+                level_id = int(row.get("LevelID", 0))
+                index_val = float(row.get("IndexValue", 0.0))
+                if var_name not in config.level_to_cv:
+                    config.level_to_cv[var_name] = {}
+                config.level_to_cv[var_name][level_id] = index_val
+        except Exception:
+            pass
+
+    # Read per-group pedigree assignments
+    group_records = []
+    if "EcopathGroupPedigree" in tables:
+        try:
+            gp_df = read_ewemdb_table(db_path, "EcopathGroupPedigree")
+            for _, row in gp_df.iterrows():
+                group_id = int(row.get("GroupID", 0))
+                var_name = str(row.get("VarName", ""))
+                level_id = int(row.get("LevelID", 0))
+                # Look up CV from pedigree levels
+                cv = config.level_to_cv.get(var_name, {}).get(level_id, 0.0)
+                group_records.append({
+                    "GroupID": group_id,
+                    "VarName": var_name,
+                    "CV": cv,
+                })
+        except Exception:
+            pass
+
+    group_pedigree = pd.DataFrame(
+        group_records if group_records else [],
+        columns=["GroupID", "VarName", "CV"],
+    )
+
+    return config, group_pedigree
