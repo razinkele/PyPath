@@ -394,6 +394,33 @@ EWE_TABLES = {
         ("Landing", "DOUBLE"),
         ("Discards", "DOUBLE"),
     ]),
+    # -------------------------------------------------------------------
+    # Ecotracer tables
+    # -------------------------------------------------------------------
+    "EcotracerScenario": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("ScenarioName", "TEXT"),
+        ("Description", "TEXT"),
+        ("Author", "TEXT"),
+        ("Contact", "TEXT"),
+        ("LastSaved", "TEXT"),
+        ("ConForcingShapeID", "INTEGER"),
+        ("Czero", "DOUBLE"),
+        ("Cinflow", "DOUBLE"),
+        ("Coutflow", "DOUBLE"),
+        ("Cdecay", "DOUBLE"),
+        ("LastSavedVersion", "TEXT"),
+    ]),
+    "EcotracerScenarioGroup": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("EcopathGroupID", "INTEGER"),
+        ("Czero", "DOUBLE"),
+        ("Cimmig", "DOUBLE"),
+        ("Cenv", "DOUBLE"),
+        ("Cdecay", "DOUBLE"),
+        ("CassimProp", "DOUBLE"),
+        ("CmetabolismRate", "DOUBLE"),
+    ]),
 }
 
 # ---------------------------------------------------------------------------

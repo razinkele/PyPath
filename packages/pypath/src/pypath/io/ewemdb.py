@@ -3526,3 +3526,72 @@ def read_pedigree(db_path: str) -> tuple:
     )
 
     return config, group_pedigree
+
+
+def read_ecotracer(db_path: str, n_groups: int) -> "EcotracerParams":
+    """Read Ecotracer parameters from an EwE database.
+
+    Parameters
+    ----------
+    db_path : str
+        Path to the .eweaccdb database file.
+    n_groups : int
+        Number of groups (NUM_LIVING + NUM_DEAD).
+
+    Returns
+    -------
+    EcotracerParams
+        Tracer parameters with per-group values.
+        Returns default params if tables are missing/empty.
+    """
+    from pypath.core.ecotracer import EcotracerParams, create_ecotracer_params
+
+    try:
+        tables = list_ewemdb_tables(db_path)
+    except Exception:
+        return create_ecotracer_params(n_groups)
+
+    params = create_ecotracer_params(n_groups)
+
+    # Read scenario-level defaults
+    default_czero = 0.0
+    default_cinflow = 0.0
+    default_cdecay = 0.0
+    if "EcotracerScenario" in tables:
+        try:
+            sc_df = read_ewemdb_table(db_path, "EcotracerScenario")
+            if len(sc_df) > 0:
+                row = sc_df.iloc[0]
+                default_czero = float(row.get("Czero", 0.0) or 0.0)
+                default_cinflow = float(row.get("Cinflow", 0.0) or 0.0)
+                default_cdecay = float(row.get("Cdecay", 0.0) or 0.0)
+                params.czero[:] = default_czero
+                params.cimmig[:] = default_cinflow
+                params.cdecay[:] = default_cdecay
+        except Exception:
+            pass
+
+    # Read per-group overrides
+    if "EcotracerScenarioGroup" in tables:
+        try:
+            gp_df = read_ewemdb_table(db_path, "EcotracerScenarioGroup")
+            for _, row in gp_df.iterrows():
+                group_id = int(row.get("EcopathGroupID", 0))
+                idx = group_id - 1  # 1-based to 0-based
+                if 0 <= idx < n_groups:
+                    if pd.notna(row.get("Czero")):
+                        params.czero[idx] = float(row["Czero"])
+                    if pd.notna(row.get("Cimmig")):
+                        params.cimmig[idx] = float(row["Cimmig"])
+                    if pd.notna(row.get("Cenv")):
+                        params.cenv[idx] = float(row["Cenv"])
+                    if pd.notna(row.get("Cdecay")):
+                        params.cdecay[idx] = float(row["Cdecay"])
+                    if pd.notna(row.get("CassimProp")):
+                        params.cassim[idx] = float(row["CassimProp"])
+                    if pd.notna(row.get("CmetabolismRate")):
+                        params.cmetab[idx] = float(row["CmetabolismRate"])
+        except Exception:
+            pass
+
+    return params
