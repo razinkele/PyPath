@@ -240,3 +240,49 @@ class TestMediationCollection:
         assert land_mult.shape == (2, 4)
         assert land_mult[0, 2] == pytest.approx(1.5)
         assert land_mult[0, 0] == pytest.approx(1.0)  # unaffected
+
+
+from pypath.core.mediation import make_positive_shape, make_negative_shape, make_ushape
+
+
+class TestParametricFactories:
+    def test_positive_shape_endpoints(self):
+        s = make_positive_shape(low=0.5, high=2.0, shape=1.0)
+        assert s.evaluate(0.0) == pytest.approx(0.5, abs=0.01)
+        # At x=2, formula gives low + (high-low)*2/3 ≈ 1.5; last point > midpoint
+        assert s.y_points[-1] > s.y_points[len(s.y_points) // 2]
+
+    def test_positive_shape_midpoint(self):
+        s = make_positive_shape(low=0.5, high=2.0, shape=1.0)
+        mid = s.evaluate(1.0)
+        assert 0.5 < mid < 2.0
+
+    def test_negative_shape_endpoints(self):
+        s = make_negative_shape(low=0.5, high=2.0, shape=1.0)
+        assert s.evaluate(0.0) == pytest.approx(2.0, abs=0.01)
+        # At x=2, formula gives high - (high-low)*2/3 ≈ 1.0; last point < midpoint
+        assert s.y_points[-1] < s.y_points[len(s.y_points) // 2]
+
+    def test_ushape_endpoints(self):
+        s = make_ushape(low=0.5, high=2.0, shape=1.0)
+        assert s.evaluate(1.0) == pytest.approx(2.0, abs=0.01)
+
+    def test_positive_shape_steepness(self):
+        s1 = make_positive_shape(shape=0.5)
+        s2 = make_positive_shape(shape=2.0)
+        # At x=0.5, steeper shape should be closer to midpoint
+        v1 = s1.evaluate(0.5)
+        v2 = s2.evaluate(0.5)
+        # Both should be between low and high but differ
+        assert v1 != pytest.approx(v2, abs=0.01)
+
+    def test_factory_returns_mediation_shape(self):
+        s = make_positive_shape()
+        assert isinstance(s, MediationShape)
+        assert len(s.x_points) == 9
+        assert len(s.y_points) == 9
+
+    def test_factory_custom_n_points(self):
+        s = make_positive_shape(n_points=5)
+        assert len(s.x_points) == 5
+        assert len(s.y_points) == 5

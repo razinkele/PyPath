@@ -158,3 +158,55 @@ class MediationCollection:
             if fi is not None and gi is not None and fi < n_fleets and gi < n_groups:
                 mult[fi, gi] *= val
         return mult
+
+
+def make_positive_shape(
+    shape_id: int = 0,
+    name: str = "positive",
+    low: float = 0.5,
+    high: float = 2.0,
+    shape: float = 1.0,
+    n_points: int = 9,
+) -> MediationShape:
+    """Create a positive (increasing) mediation shape.
+
+    y = low + (high - low) * x^shape / (1 + x^shape)
+    """
+    x = np.linspace(0.0, 2.0, n_points)
+    y = low + (high - low) * x**shape / (1.0 + x**shape)
+    return MediationShape(shape_id=shape_id, name=name, x_points=x, y_points=y)
+
+
+def make_negative_shape(
+    shape_id: int = 0,
+    name: str = "negative",
+    low: float = 0.5,
+    high: float = 2.0,
+    shape: float = 1.0,
+    n_points: int = 9,
+) -> MediationShape:
+    """Create a negative (decreasing) mediation shape.
+
+    y = high - (high - low) * x^shape / (1 + x^shape)
+    """
+    x = np.linspace(0.0, 2.0, n_points)
+    y = high - (high - low) * x**shape / (1.0 + x**shape)
+    return MediationShape(shape_id=shape_id, name=name, x_points=x, y_points=y)
+
+
+def make_ushape(
+    shape_id: int = 0,
+    name: str = "u-shaped",
+    low: float = 0.5,
+    high: float = 2.0,
+    shape: float = 1.0,
+    n_points: int = 9,
+) -> MediationShape:
+    """Create a U-shaped mediation shape (peaks at x=1.0).
+
+    y = high - (high - low) * |x-1|^shape / (1 + |x-1|^shape)
+    """
+    x = np.linspace(0.0, 2.0, n_points)
+    abs_diff = np.abs(x - 1.0)
+    y = high - (high - low) * abs_diff**shape / (1.0 + abs_diff**shape)
+    return MediationShape(shape_id=shape_id, name=name, x_points=x, y_points=y)
