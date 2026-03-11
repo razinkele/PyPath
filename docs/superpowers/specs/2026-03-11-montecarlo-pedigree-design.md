@@ -85,6 +85,7 @@ class PedigreeConfig:
     - Biomass, PB, QB, Catch → **ScalarDistribution** (log-normal, strictly positive)
     - Diet → **DietDistribution** (Dirichlet, per-consumer column)
   - Skips parameters with CV = 0 (known exactly)
+  - If all pedigree values are 1.0 (the default from `create_rpath_params`), issue `warnings.warn("All pedigree values are 1.0 (default = 100% CV). Consider setting pedigree values before MC analysis.", UserWarning)`. A CV of 1.0 is technically valid but produces very wide distributions and low feasibility rates.
   - Skips stanza groups (multi-stanza parameters are internally derived; sampling lead stanza Biomass propagates through stanza calculations — warn via `logger.info`)
   - If `config` provided and `params.pedigree` contains LevelID integers, converts to CVs using `config.level_to_cv` mapping
   - Fleet pedigree CVs apply to **landings only** (discards are not independently sampled — they scale proportionally)
@@ -97,10 +98,15 @@ class PedigreeConfig:
   - `method="random"`: Direct sampling from distributions via `rng`
 
 - `apply_sample(params: RpathParams, sample: dict) -> RpathParams`
-  - Creates a targeted copy: `params.model.copy()`, `params.diet.copy()`, shallow copy of other fields
+  - Creates a targeted copy: `params.model.copy()`, `params.diet.copy()`, and `copy.deepcopy(params.stanzas)` if stanza groups exist (stanza calculations can modify parameters in-place)
   - Applies sampled scalar values to `model` DataFrame
   - Applies sampled diet vectors to `diet` DataFrame columns
   - Original params object is never modified
+
+**Edge cases:**
+- **Dirichlet with zero prey proportions:** Prey items with proportion 0.0 are excluded from Dirichlet sampling (alpha must be > 0). Sampled vector is placed back into the full prey vector with zeros preserved.
+- **LHS + Dirichlet:** LHS applies only to scalar parameters. Diet distributions are always sampled directly from Dirichlet (no inverse CDF for multivariate distributions).
+- **Failed Ecosim runs:** If `rsim_run()` crashes mid-simulation (shorter output), the run is counted as failed and excluded from streaming statistics. Only complete runs contribute to `ecosim_stats`.
 
 ---
 
@@ -116,7 +122,7 @@ class MCConfig:
     method: str = "lhs"             # "lhs" or "random"
     seed: int | None = None         # for reproducibility
     ecopath_only: bool = False      # skip Ecosim propagation
-    ecosim_years: range | None = None  # years for Ecosim runs
+    ecosim_years: range | None = None  # years for Ecosim; defaults to range(1, 11) if None and not ecopath_only
     store_runs: bool = False        # keep individual run outputs
     n_jobs: int = 1                 # parallelism (joblib → futures → sequential)
     # Ecosim pass-through options
