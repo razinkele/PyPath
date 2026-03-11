@@ -3,6 +3,12 @@ import numpy as np
 import pytest
 
 from pypath.core.calibration import CalibrationResult, _compute_ss
+from pypath.core.calibration import fit_to_timeseries
+from pypath.core.timeseries import (
+    DATTYPE_REL_BIOMASS,
+    EweTimeSeries,
+    EweTimeSeriesCollection,
+)
 
 
 class TestCalibrationResult:
@@ -85,3 +91,119 @@ class TestComputeSS:
         assert 1 in ss_by_group
         assert ss_by_group[0] > 0
         assert ss_by_group[1] == pytest.approx(0.0, abs=1e-10)
+
+
+@pytest.mark.slow
+class TestFitToTimeseries:
+    @pytest.fixture
+    def simple_model(self):
+        """Build a balanced 4-group model: producer -> consumer -> predator + detritus."""
+        import warnings
+
+        from pypath.core.ecopath import rpath
+        from pypath.core.params import create_rpath_params
+
+        params = create_rpath_params(
+            groups=["Producer", "Consumer", "Predator", "Detritus"],
+            types=[1, 0, 0, 2],
+        )
+
+        # Producer
+        params.model.loc[0, "Biomass"] = 10.0
+        params.model.loc[0, "PB"] = 200.0
+        params.model.loc[0, "EE"] = 0.8
+
+        # Consumer
+        params.model.loc[1, "Biomass"] = 5.0
+        params.model.loc[1, "PB"] = 50.0
+        params.model.loc[1, "QB"] = 150.0
+        params.model.loc[1, "EE"] = 0.9
+
+        # Predator
+        params.model.loc[2, "Biomass"] = 2.0
+        params.model.loc[2, "PB"] = 1.0
+        params.model.loc[2, "QB"] = 5.0
+        params.model.loc[2, "EE"] = 0.5
+
+        # Detritus
+        params.model.loc[3, "Biomass"] = 100.0
+
+        params.model["BioAcc"] = 0.0
+        params.model["Unassim"] = 0.2
+        params.model.loc[0, "Unassim"] = 0.0
+        params.model.loc[3, "Unassim"] = 0.0
+
+        # Detritus fate: all goes to Detritus group
+        params.model["Detritus"] = 1.0
+        params.model.loc[3, "Detritus"] = 0.0
+
+        # Diet rows: Producer, Consumer, Predator, Detritus, Import
+        # Consumer eats 100% Producer
+        params.diet["Consumer"] = [1.0, 0.0, 0.0, 0.0, 0.0]
+        # Predator eats 100% Consumer
+        params.diet["Predator"] = [0.0, 1.0, 0.0, 0.0, 0.0]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            balanced = rpath(params)
+
+        return balanced, params
+
+    def test_ss_decreases(self, simple_model):
+        from pypath.core.ecosim import rsim_run, rsim_scenario
+
+        balanced, params = simple_model
+        scenario = rsim_scenario(balanced, params, years=range(1, 11))
+
+        output = rsim_run(scenario)
+        n_years = 10
+        obs_bio = np.zeros(n_years)
+        for yr in range(n_years):
+            start = yr * 12
+            end = start + 12
+            obs_bio[yr] = np.mean(output.out_Biomass[start:end, 2])  # Consumer col 2
+
+        rng = np.random.default_rng(42)
+        obs_noisy = obs_bio * (1.0 + 0.1 * rng.standard_normal(n_years))
+        obs_noisy = np.maximum(obs_noisy, 0.01)
+
+        ts = EweTimeSeriesCollection([
+            EweTimeSeries(1, "Consumer", DATTYPE_REL_BIOMASS, 1, None, obs_noisy),
+        ])
+
+        result = fit_to_timeseries(
+            balanced, params, ts,
+            fit_vv=True, fit_pp=False,
+            method="differential_evolution",
+            max_iterations=50,
+            verbose=False,
+        )
+
+        assert isinstance(result, CalibrationResult)
+        assert result.ss >= 0
+        assert result.n_iterations > 0
+        assert len(result.link_map) > 0
+        assert len(result.best_vv) == len(result.link_map)
+
+    def test_dict_input_backward_compat(self, simple_model):
+        balanced, params = simple_model
+        obs_dict = {1: np.array([5.0, 5.1, 4.9, 5.0, 5.2])}
+
+        result = fit_to_timeseries(
+            balanced, params, obs_dict,
+            fit_vv=True,
+            method="differential_evolution",
+            max_iterations=20,
+            verbose=False,
+        )
+        assert isinstance(result, CalibrationResult)
+        assert result.ss >= 0
+
+    def test_fit_pp_raises_not_implemented(self, simple_model):
+        balanced, params = simple_model
+        ts = EweTimeSeriesCollection([
+            EweTimeSeries(1, "Consumer", DATTYPE_REL_BIOMASS, 1, None,
+                          np.array([5.0, 5.1, 4.9])),
+        ])
+        with pytest.raises(NotImplementedError):
+            fit_to_timeseries(balanced, params, ts, fit_pp=True)
