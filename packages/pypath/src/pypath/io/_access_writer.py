@@ -702,6 +702,12 @@ class AccessWriter:
             return
         self._build_tables_via_csv_writer("write_timeseries", timeseries=timeseries)
 
+    def write_mediation(self, collection) -> None:
+        """Write mediation shapes and links via CSV bundle writer."""
+        if collection is None:
+            return
+        self._build_tables_via_csv_writer("write_mediation", collection=collection)
+
     def close(self) -> None:
         """Close the database connection and move temp file to final path."""
         try:

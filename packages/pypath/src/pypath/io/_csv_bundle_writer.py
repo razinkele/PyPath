@@ -531,6 +531,77 @@ class CsvBundleWriter:
             columns=["TimeSeriesID", "ScenarioID", "Season", "Value"]
         )
 
+    def write_mediation(self, collection) -> None:
+        """Write mediation shapes and link assignments.
+
+        Parameters
+        ----------
+        collection : MediationCollection
+            The mediation collection to write.
+        """
+        if collection is None:
+            return
+
+        # Write shapes table
+        shape_rows = []
+        for shape in collection.shapes:
+            row = {
+                "ShapeID": shape.shape_id,
+                "Title": shape.name,
+                "nPoints": len(shape.y_points),
+            }
+            # Pad/truncate to 9 YY columns
+            for i in range(9):
+                if i < len(shape.y_points):
+                    row[f"YY{i + 1}"] = float(shape.y_points[i])
+                else:
+                    row[f"YY{i + 1}"] = 1.0
+            shape_rows.append(row)
+        self._tables["EcosimShapeMediation"] = pd.DataFrame(shape_rows)
+
+        # Write group links
+        group_rows = []
+        for link in collection.group_links:
+            group_rows.append({
+                "ScenarioID": 1,
+                "ShapeID": link.shape_id,
+                "GroupID": link.mediator_idx + 1,  # 0-based to 1-based
+                "PredID": link.pred_idx + 1,
+                "PreyID": link.prey_idx + 1,
+                "AppliedWeight": link.weight,
+            })
+        self._tables["EcosimScenarioshapeMedWeightsGroup"] = pd.DataFrame(
+            group_rows
+        )
+
+        # Write fleet links
+        fleet_rows = []
+        for link in collection.fleet_links:
+            fleet_rows.append({
+                "ScenarioID": 1,
+                "ShapeID": link.shape_id,
+                "GroupID": link.mediator_idx + 1,
+                "FleetID": link.fleet_idx + 1,
+                "AppliedWeight": link.weight,
+            })
+        self._tables["EcosimScenarioshapeMedWeightsFleet"] = pd.DataFrame(
+            fleet_rows
+        )
+
+        # Write landings links
+        landing_rows = []
+        for link in collection.landing_links:
+            landing_rows.append({
+                "ScenarioID": 1,
+                "ShapeID": link.shape_id,
+                "GroupID": link.mediator_idx + 1,
+                "FleetID": link.landing_fleet_idx + 1,
+                "AppliedWeight": link.weight,
+            })
+        self._tables["EcosimScenarioshapeMedWeightsLandings"] = pd.DataFrame(
+            landing_rows
+        )
+
     def close(self) -> None:
         """Write all tables to a zip file, then atomically rename to final path."""
         manifest = {
