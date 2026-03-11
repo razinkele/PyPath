@@ -39,7 +39,9 @@ from pypath.io.ewemdb import (
     list_ewemdb_tables,
     read_ewemdb,
     read_ewemdb_table,
+    read_timeseries,
 )
+from pypath.io.timeseries_csv import load_timeseries_csv
 
 try:
     from pypath.io.marine_data import (
@@ -88,6 +90,9 @@ __all__ = [
     "SpeciesNotFoundError",
     "APIConnectionError",
     "AmbiguousSpeciesError",
+    # Time series I/O
+    "read_timeseries",
+    "load_timeseries_csv",
     # Utilities
     "safe_float",
     "fetch_url",

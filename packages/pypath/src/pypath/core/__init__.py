@@ -111,6 +111,19 @@ from pypath.core.plotting import (
     plot_trophic_spectrum,
     save_plots,
 )
+from pypath.core.timeseries import (
+    DATTYPE_ABS_BIOMASS,
+    DATTYPE_CATCH,
+    DATTYPE_EFFORT,
+    DATTYPE_FISHING_MORTALITY,
+    DATTYPE_FORCED_BIOMASS,
+    DATTYPE_REL_BIOMASS,
+    EweTimeSeries,
+    EweTimeSeriesCollection,
+    apply_timeseries_drivers,
+    load_timeseries,
+)
+from pypath.core.calibration import CalibrationResult, fit_to_timeseries
 
 __all__ = [
     # Ecopath
@@ -204,4 +217,18 @@ __all__ = [
     "save_plots",
     "HAS_NETWORKX",
     "HAS_PLOTLY",
+    # Time series
+    "DATTYPE_ABS_BIOMASS",
+    "DATTYPE_CATCH",
+    "DATTYPE_EFFORT",
+    "DATTYPE_FISHING_MORTALITY",
+    "DATTYPE_FORCED_BIOMASS",
+    "DATTYPE_REL_BIOMASS",
+    "EweTimeSeries",
+    "EweTimeSeriesCollection",
+    "apply_timeseries_drivers",
+    "load_timeseries",
+    # Calibration
+    "CalibrationResult",
+    "fit_to_timeseries",
 ]
