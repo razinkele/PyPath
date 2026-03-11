@@ -365,6 +365,7 @@ class RsimOutput:
     Gear_Catch_disp: np.ndarray
     start_state: RsimState
     params: dict
+    ecotracer: "EcotracerResult | None" = None
 
 
 def rsim_params(
@@ -994,6 +995,7 @@ def rsim_run(
     years: Optional[range] = None,
     *,
     mediation=None,
+    ecotracer=None,
 ) -> RsimOutput:
     """Run Ecosim simulation.
 
@@ -1926,6 +1928,17 @@ def rsim_run(
         for _pos, _grp0 in enumerate(params.fleet_idx):
             _run_gear_lookup[int(_grp0)] = _pos + 1
 
+    # Ecotracer initialization
+    _ecotracer_conc = None
+    _ecotracer_out = None
+    if ecotracer is not None:
+        from pypath.core.ecotracer import ecotracer_step as _ecotracer_step_fn
+
+        n_eco_groups = params.NUM_GROUPS
+        _ecotracer_conc = ecotracer.czero[:n_eco_groups].copy()
+        _ecotracer_out = np.zeros((n_months + 1, n_eco_groups))
+        _ecotracer_out[0] = _ecotracer_conc.copy()
+
     for month in range(1, n_months + 1):
         # Debug: indicate loop iteration for first few months
         if month <= 6:
@@ -2231,6 +2244,17 @@ def rsim_run(
 
         # Compute consumption QQ matrix for this month to track Qlinks
         QQ_month = _compute_Q_matrix(params_dict, state, forcing_dict)
+        # Ecotracer step (after biomass integration and Q computation)
+        if _ecotracer_conc is not None:
+            n_eco = len(_ecotracer_conc)
+            eco_biomass = state[1:n_eco + 1]
+            eco_Q = QQ_month[1:n_eco + 1, 1:n_eco + 1]
+            # detritus_fate=None for now (Phase 1 simplification)
+            _ecotracer_conc = _ecotracer_step_fn(
+                _ecotracer_conc, eco_biomass, eco_Q, ecotracer,
+                dt=1.0 / 12, detritus_fate=None, n_living=params.NUM_LIVING,
+            )
+            _ecotracer_out[month] = _ecotracer_conc.copy()
         # Dynamic Ftime adjustment: Rpath formula (ecosim.cpp)
         # new_Ftime = 0.1 + 0.9*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), cap 2.0
         if _has_ftime_adj:
@@ -2307,6 +2331,25 @@ def rsim_run(
     else:
         stanza_biomass_out = stanza_biomass
 
+    # Ecotracer annual averaging
+    _ecotracer_result = None
+    if _ecotracer_out is not None:
+        from pypath.core.ecotracer import EcotracerResult
+
+        n_eco_groups = _ecotracer_out.shape[1]
+        annual_conc = np.zeros((n_years, n_eco_groups))
+        for yr in range(n_years):
+            start_m = yr * 12 + 1
+            end_m = (yr + 1) * 12 + 1
+            annual_conc[yr] = np.mean(_ecotracer_out[start_m:end_m], axis=0)
+
+        group_names = [params.spname[i] for i in range(1, n_eco_groups + 1)]
+        _ecotracer_result = EcotracerResult(
+            out_Conc=_ecotracer_out,
+            annual_Conc=annual_conc,
+            group_names=group_names,
+        )
+
     # Create end state
     end_state = RsimState(
         Biomass=state.copy(),
@@ -2364,6 +2407,7 @@ def rsim_run(
             "NUM_LIVING": params.NUM_LIVING,
             "years": n_years,
         },
+        ecotracer=_ecotracer_result,
     )
 
 
