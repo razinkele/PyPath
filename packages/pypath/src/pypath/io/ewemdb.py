@@ -3329,3 +3329,135 @@ def read_timeseries(
         )
 
     return EweTimeSeriesCollection(series_list)
+
+
+def read_mediation(db_path: str) -> "MediationCollection":
+    """Read mediation shapes and link assignments from an EwE database.
+
+    Parameters
+    ----------
+    db_path : str
+        Path to the .eweaccdb database file.
+
+    Returns
+    -------
+    MediationCollection
+        Collection of shapes and links. Empty if mediation tables are missing.
+    """
+    from pypath.core.mediation import MediationCollection, MediationLink, MediationShape
+
+    try:
+        tables = list_ewemdb_tables(db_path)
+    except Exception:
+        return MediationCollection(shapes=[], links=[])
+
+    # Read shapes
+    shapes = []
+    if "EcosimShapeMediation" in tables:
+        try:
+            shape_df = read_ewemdb_table(db_path, "EcosimShapeMediation")
+        except Exception:
+            shape_df = pd.DataFrame()
+
+        for _, row in shape_df.iterrows():
+            shape_id = row["ShapeID"]
+            title = row.get("Title", f"Shape_{shape_id}")
+            n_points = row.get("nPoints", 9)
+            # EwE 6 stores 9 Y values at evenly-spaced X from 0 to 2.0
+            y_vals = []
+            for i in range(1, 10):
+                yy = row.get(f"YY{i}", 1.0)
+                if yy is None or (isinstance(yy, float) and np.isnan(yy)):
+                    yy = 1.0
+                y_vals.append(float(yy))
+            # Use only the first n_points values
+            if n_points is not None and not (isinstance(n_points, float) and np.isnan(n_points)):
+                n_pts = int(n_points)
+                if n_pts < 9:
+                    y_vals = y_vals[:n_pts]
+            x_vals = np.linspace(0.0, 2.0, len(y_vals))
+            shapes.append(
+                MediationShape(
+                    shape_id=int(shape_id),
+                    name=str(title),
+                    x_points=x_vals,
+                    y_points=np.array(y_vals),
+                )
+            )
+
+    # Build shape lookup
+    shape_ids = {s.shape_id for s in shapes}
+
+    # Read group mediation links
+    links = []
+    if "EcosimScenarioshapeMedWeightsGroup" in tables:
+        try:
+            group_df = read_ewemdb_table(db_path, "EcosimScenarioshapeMedWeightsGroup")
+        except Exception:
+            group_df = pd.DataFrame()
+
+        for _, row in group_df.iterrows():
+            sid = int(row["ShapeID"])
+            if sid not in shape_ids:
+                continue
+            weight_val = row.get("AppliedWeight", 1.0)
+            if weight_val is None or (isinstance(weight_val, float) and np.isnan(weight_val)):
+                weight_val = 1.0
+            links.append(
+                MediationLink(
+                    shape_id=sid,
+                    mediator_idx=int(row["GroupID"]) - 1,  # 1-based to 0-based
+                    prey_idx=int(row["PreyID"]) - 1,
+                    pred_idx=int(row["PredID"]) - 1,
+                    weight=float(weight_val),
+                )
+            )
+
+    # Read fleet mediation links
+    if "EcosimScenarioshapeMedWeightsFleet" in tables:
+        try:
+            fleet_df = read_ewemdb_table(db_path, "EcosimScenarioshapeMedWeightsFleet")
+        except Exception:
+            fleet_df = pd.DataFrame()
+
+        for _, row in fleet_df.iterrows():
+            sid = int(row["ShapeID"])
+            if sid not in shape_ids:
+                continue
+            weight_val = row.get("AppliedWeight", 1.0)
+            if weight_val is None or (isinstance(weight_val, float) and np.isnan(weight_val)):
+                weight_val = 1.0
+            links.append(
+                MediationLink(
+                    shape_id=sid,
+                    mediator_idx=int(row["GroupID"]) - 1,
+                    fleet_idx=int(row["FleetID"]) - 1,
+                    weight=float(weight_val),
+                )
+            )
+
+    # Read landings mediation links
+    if "EcosimScenarioshapeMedWeightsLandings" in tables:
+        try:
+            landing_df = read_ewemdb_table(db_path, "EcosimScenarioshapeMedWeightsLandings")
+        except Exception:
+            landing_df = pd.DataFrame()
+
+        for _, row in landing_df.iterrows():
+            sid = int(row["ShapeID"])
+            if sid not in shape_ids:
+                continue
+            weight_val = row.get("AppliedWeight", 1.0)
+            if weight_val is None or (isinstance(weight_val, float) and np.isnan(weight_val)):
+                weight_val = 1.0
+            links.append(
+                MediationLink(
+                    shape_id=sid,
+                    mediator_idx=int(row["GroupID"]) - 1,
+                    landing_group_idx=int(row.get("GroupID", 1)) - 1,
+                    landing_fleet_idx=int(row["FleetID"]) - 1,
+                    weight=float(weight_val),
+                )
+            )
+
+    return MediationCollection(shapes=shapes, links=links)
