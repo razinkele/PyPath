@@ -8,6 +8,7 @@ including the derivative calculations and integration methods.
 from __future__ import annotations
 
 import copy
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
@@ -636,6 +637,20 @@ def rsim_params(
 
             discard = rpath.Discards[grp_idx, gear_idx]
             if discard > 0 and b_baseref[grp_idx + 1] > 0:
+                if ndead == 0:
+                    warnings.warn(
+                        f"Discard for group {rpath.Group[grp_idx]} "
+                        f"({discard:.4f}) cannot be routed: no detritus "
+                        f"groups in model. Discards will be lost.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                    # Route to Outside instead of silently vanishing
+                    fish_from.append(grp_idx + 1)
+                    fish_through.append(fleet_grp_1based)
+                    fish_q.append(discard / b_baseref[grp_idx + 1])
+                    fish_to.append(0)  # Outside
+                    continue
                 # Discards go to detritus based on fate
                 for det_idx in range(ndead):
                     det_frac = (
