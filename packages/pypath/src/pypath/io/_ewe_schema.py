@@ -226,35 +226,43 @@ EWE_TABLES = {
             ("Title", "TEXT"),
         ]
     ),
-    "EcosimTimeSeries": OrderedDict([
-        ("TimeSeriesID", "INTEGER"),
-        ("ScenarioID", "INTEGER"),
-        ("Name", "TEXT"),
-        ("DatType", "INTEGER"),
-        ("GroupID", "INTEGER"),
-        ("FleetID", "INTEGER"),
-        ("DatasetID", "INTEGER"),
-        ("WtType", "INTEGER"),
-        ("PoolColor", "INTEGER"),
-    ]),
-    "EcosimTimeSeriesValues": OrderedDict([
-        ("TimeSeriesID", "INTEGER"),
-        ("ScenarioID", "INTEGER"),
-        ("TimeStep", "INTEGER"),
-        ("Value", "DOUBLE"),
-    ]),
-    "EcosimTimeSeriesDataset": OrderedDict([
-        ("DatasetID", "INTEGER"),
-        ("ScenarioID", "INTEGER"),
-        ("DatasourceName", "TEXT"),
-        ("Enabled", "YESNO"),
-    ]),
-    "EcosimTimeSeriesSeason": OrderedDict([
-        ("TimeSeriesID", "INTEGER"),
-        ("ScenarioID", "INTEGER"),
-        ("Season", "INTEGER"),
-        ("Value", "DOUBLE"),
-    ]),
+    "EcosimTimeSeries": OrderedDict(
+        [
+            ("TimeSeriesID", "INTEGER"),
+            ("ScenarioID", "INTEGER"),
+            ("Name", "TEXT"),
+            ("DatType", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("DatasetID", "INTEGER"),
+            ("WtType", "INTEGER"),
+            ("PoolColor", "INTEGER"),
+        ]
+    ),
+    "EcosimTimeSeriesValues": OrderedDict(
+        [
+            ("TimeSeriesID", "INTEGER"),
+            ("ScenarioID", "INTEGER"),
+            ("TimeStep", "INTEGER"),
+            ("Value", "DOUBLE"),
+        ]
+    ),
+    "EcosimTimeSeriesDataset": OrderedDict(
+        [
+            ("DatasetID", "INTEGER"),
+            ("ScenarioID", "INTEGER"),
+            ("DatasourceName", "TEXT"),
+            ("Enabled", "YESNO"),
+        ]
+    ),
+    "EcosimTimeSeriesSeason": OrderedDict(
+        [
+            ("TimeSeriesID", "INTEGER"),
+            ("ScenarioID", "INTEGER"),
+            ("Season", "INTEGER"),
+            ("Value", "DOUBLE"),
+        ]
+    ),
     # -----------------------------------------------------------------------
     # Ecospace tables
     # -----------------------------------------------------------------------
@@ -311,36 +319,50 @@ EWE_TABLES = {
     # -----------------------------------------------------------------------
     # Mediation tables
     # -----------------------------------------------------------------------
-    "EcosimShapeMediation": OrderedDict([
-        ("ShapeID", "INTEGER"),
-        ("Title", "TEXT"),
-        ("nPoints", "INTEGER"),
-        ("YY1", "DOUBLE"), ("YY2", "DOUBLE"), ("YY3", "DOUBLE"),
-        ("YY4", "DOUBLE"), ("YY5", "DOUBLE"), ("YY6", "DOUBLE"),
-        ("YY7", "DOUBLE"), ("YY8", "DOUBLE"), ("YY9", "DOUBLE"),
-    ]),
-    "EcosimScenarioshapeMedWeightsGroup": OrderedDict([
-        ("ScenarioID", "INTEGER"),
-        ("ShapeID", "INTEGER"),
-        ("GroupID", "INTEGER"),
-        ("PredID", "INTEGER"),
-        ("PreyID", "INTEGER"),
-        ("AppliedWeight", "DOUBLE"),
-    ]),
-    "EcosimScenarioshapeMedWeightsFleet": OrderedDict([
-        ("ScenarioID", "INTEGER"),
-        ("ShapeID", "INTEGER"),
-        ("GroupID", "INTEGER"),
-        ("FleetID", "INTEGER"),
-        ("AppliedWeight", "DOUBLE"),
-    ]),
-    "EcosimScenarioshapeMedWeightsLandings": OrderedDict([
-        ("ScenarioID", "INTEGER"),
-        ("ShapeID", "INTEGER"),
-        ("GroupID", "INTEGER"),
-        ("FleetID", "INTEGER"),
-        ("AppliedWeight", "DOUBLE"),
-    ]),
+    "EcosimShapeMediation": OrderedDict(
+        [
+            ("ShapeID", "INTEGER"),
+            ("Title", "TEXT"),
+            ("nPoints", "INTEGER"),
+            ("YY1", "DOUBLE"),
+            ("YY2", "DOUBLE"),
+            ("YY3", "DOUBLE"),
+            ("YY4", "DOUBLE"),
+            ("YY5", "DOUBLE"),
+            ("YY6", "DOUBLE"),
+            ("YY7", "DOUBLE"),
+            ("YY8", "DOUBLE"),
+            ("YY9", "DOUBLE"),
+        ]
+    ),
+    "EcosimScenarioshapeMedWeightsGroup": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("ShapeID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("PredID", "INTEGER"),
+            ("PreyID", "INTEGER"),
+            ("AppliedWeight", "DOUBLE"),
+        ]
+    ),
+    "EcosimScenarioshapeMedWeightsFleet": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("ShapeID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("AppliedWeight", "DOUBLE"),
+        ]
+    ),
+    "EcosimScenarioshapeMedWeightsLandings": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("ShapeID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("AppliedWeight", "DOUBLE"),
+        ]
+    ),
 }
 
 # ---------------------------------------------------------------------------

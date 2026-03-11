@@ -1,21 +1,14 @@
 """Tests for time series I/O (CSV and database)."""
-import tempfile
-from pathlib import Path
 
 import numpy as np
-import pandas as pd
-import pytest
 
 from pypath.core.timeseries import (
     DATTYPE_CATCH,
-    DATTYPE_FORCED_BIOMASS,
     DATTYPE_REL_BIOMASS,
     EweTimeSeries,
     EweTimeSeriesCollection,
 )
 from pypath.io.ewemdb import read_timeseries
-
-
 from pypath.io.timeseries_csv import load_timeseries_csv
 
 
@@ -100,17 +93,26 @@ class TestLoadTimeseriesCsvSimpleFormat:
 
 class TestCsvRoundtrip:
     def test_roundtrip(self, tmp_path):
-        original = EweTimeSeriesCollection([
-            EweTimeSeries(1, "Cod", DATTYPE_REL_BIOMASS, 0, None, np.array([1.0, 1.2, 0.9])),
-            EweTimeSeries(2, "Catch", DATTYPE_CATCH, 1, 0, np.array([10.0, 12.0, 11.0])),
-        ])
+        original = EweTimeSeriesCollection(
+            [
+                EweTimeSeries(
+                    1, "Cod", DATTYPE_REL_BIOMASS, 0, None, np.array([1.0, 1.2, 0.9])
+                ),
+                EweTimeSeries(
+                    2, "Catch", DATTYPE_CATCH, 1, 0, np.array([10.0, 12.0, 11.0])
+                ),
+            ]
+        )
         csv_path = tmp_path / "roundtrip.csv"
         df = original.to_dataframe()
         df.to_csv(csv_path, index=False)
         reloaded = load_timeseries_csv(csv_path, format="simple")
         assert len(reloaded.series) == 2
         for orig_s in original.series:
-            matches = [s for s in reloaded.series
-                       if s.group_idx == orig_s.group_idx and s.dat_type == orig_s.dat_type]
+            matches = [
+                s
+                for s in reloaded.series
+                if s.group_idx == orig_s.group_idx and s.dat_type == orig_s.dat_type
+            ]
             assert len(matches) == 1
             np.testing.assert_array_almost_equal(matches[0].values, orig_s.values)

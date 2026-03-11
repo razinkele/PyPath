@@ -1,4 +1,5 @@
 """Tests for pypath.core.timeseries module."""
+
 import numpy as np
 import pytest
 
@@ -10,8 +11,8 @@ from pypath.core.timeseries import (
     DATTYPE_FORCED_BIOMASS,
     DATTYPE_REL_BIOMASS,
     EweTimeSeries,
+    EweTimeSeriesCollection,
 )
-from pypath.core.timeseries import EweTimeSeriesCollection
 
 
 class TestDatTypeConstants:
@@ -83,11 +84,26 @@ class TestEweTimeSeries:
 def _make_collection():
     """Helper: build a collection with 5 series of different types."""
     series = [
-        EweTimeSeries(1, "Cod rel bio", DATTYPE_REL_BIOMASS, 0, None, np.array([1.0, 1.2, 0.9])),
-        EweTimeSeries(2, "Herring abs bio", DATTYPE_ABS_BIOMASS, 1, None, np.array([50.0, 55.0, 48.0])),
-        EweTimeSeries(3, "Cod catch", DATTYPE_CATCH, 0, 0, np.array([10.0, 12.0, 11.0])),
-        EweTimeSeries(4, "Forced phyto", DATTYPE_FORCED_BIOMASS, 2, None, np.array([5.0, 5.5])),
-        EweTimeSeries(5, "Trawl effort", DATTYPE_EFFORT, None, 0, np.array([1.0, 1.1, 1.2])),
+        EweTimeSeries(
+            1, "Cod rel bio", DATTYPE_REL_BIOMASS, 0, None, np.array([1.0, 1.2, 0.9])
+        ),
+        EweTimeSeries(
+            2,
+            "Herring abs bio",
+            DATTYPE_ABS_BIOMASS,
+            1,
+            None,
+            np.array([50.0, 55.0, 48.0]),
+        ),
+        EweTimeSeries(
+            3, "Cod catch", DATTYPE_CATCH, 0, 0, np.array([10.0, 12.0, 11.0])
+        ),
+        EweTimeSeries(
+            4, "Forced phyto", DATTYPE_FORCED_BIOMASS, 2, None, np.array([5.0, 5.5])
+        ),
+        EweTimeSeries(
+            5, "Trawl effort", DATTYPE_EFFORT, None, 0, np.array([1.0, 1.1, 1.2])
+        ),
     ]
     return EweTimeSeriesCollection(series)
 
@@ -190,8 +206,14 @@ class TestApplyTimeseriesDrivers:
     def test_forced_biomass(self):
         scenario = _make_mock_scenario()
         series = [
-            EweTimeSeries(1, "Forced phyto", DATTYPE_FORCED_BIOMASS, 2, None,
-                          np.array([5.0, 5.5, 6.0])),
+            EweTimeSeries(
+                1,
+                "Forced phyto",
+                DATTYPE_FORCED_BIOMASS,
+                2,
+                None,
+                np.array([5.0, 5.5, 6.0]),
+            ),
         ]
         coll = EweTimeSeriesCollection(series)
         apply_timeseries_drivers(scenario, coll)
@@ -202,8 +224,9 @@ class TestApplyTimeseriesDrivers:
     def test_forced_effort(self):
         scenario = _make_mock_scenario()
         series = [
-            EweTimeSeries(2, "Trawl effort", DATTYPE_EFFORT, None, 0,
-                          np.array([1.5, 2.0, 2.5])),
+            EweTimeSeries(
+                2, "Trawl effort", DATTYPE_EFFORT, None, 0, np.array([1.5, 2.0, 2.5])
+            ),
         ]
         coll = EweTimeSeriesCollection(series)
         apply_timeseries_drivers(scenario, coll)
@@ -213,8 +236,14 @@ class TestApplyTimeseriesDrivers:
     def test_forced_frate(self):
         scenario = _make_mock_scenario()
         series = [
-            EweTimeSeries(3, "Cod F", DATTYPE_FISHING_MORTALITY, 1, None,
-                          np.array([0.3, 0.4, 0.5])),
+            EweTimeSeries(
+                3,
+                "Cod F",
+                DATTYPE_FISHING_MORTALITY,
+                1,
+                None,
+                np.array([0.3, 0.4, 0.5]),
+            ),
         ]
         coll = EweTimeSeriesCollection(series)
         apply_timeseries_drivers(scenario, coll)
@@ -224,8 +253,9 @@ class TestApplyTimeseriesDrivers:
     def test_negative_forced_biomass_raises(self):
         scenario = _make_mock_scenario()
         series = [
-            EweTimeSeries(1, "Bad", DATTYPE_FORCED_BIOMASS, 0, None,
-                          np.array([-1.0, 2.0])),
+            EweTimeSeries(
+                1, "Bad", DATTYPE_FORCED_BIOMASS, 0, None, np.array([-1.0, 2.0])
+            ),
         ]
         coll = EweTimeSeriesCollection(series)
         with pytest.raises(ValueError, match="negative"):
@@ -234,8 +264,9 @@ class TestApplyTimeseriesDrivers:
     def test_unknown_group_warns(self):
         scenario = _make_mock_scenario(n_groups=3)
         series = [
-            EweTimeSeries(1, "Ghost", DATTYPE_FORCED_BIOMASS, 99, None,
-                          np.array([1.0, 2.0])),
+            EweTimeSeries(
+                1, "Ghost", DATTYPE_FORCED_BIOMASS, 99, None, np.array([1.0, 2.0])
+            ),
         ]
         coll = EweTimeSeriesCollection(series)
         with pytest.warns(UserWarning, match="group"):
@@ -244,8 +275,7 @@ class TestApplyTimeseriesDrivers:
     def test_unknown_fleet_warns(self):
         scenario = _make_mock_scenario(n_gears=1)
         series = [
-            EweTimeSeries(1, "Ghost fleet", DATTYPE_EFFORT, None, 99,
-                          np.array([1.0])),
+            EweTimeSeries(1, "Ghost fleet", DATTYPE_EFFORT, None, 99, np.array([1.0])),
         ]
         coll = EweTimeSeriesCollection(series)
         with pytest.warns(UserWarning, match="fleet"):
@@ -254,8 +284,7 @@ class TestApplyTimeseriesDrivers:
     def test_no_drivers_is_noop(self):
         scenario = _make_mock_scenario()
         series = [
-            EweTimeSeries(1, "Obs", DATTYPE_REL_BIOMASS, 0, None,
-                          np.array([1.0, 1.1])),
+            EweTimeSeries(1, "Obs", DATTYPE_REL_BIOMASS, 0, None, np.array([1.0, 1.1])),
         ]
         coll = EweTimeSeriesCollection(series)
         bio_before = scenario.forcing.ForcedBio.copy()
@@ -267,8 +296,14 @@ class TestApplyTimeseriesDrivers:
     def test_nan_values_preserve_temporal_position(self):
         scenario = _make_mock_scenario(n_months=48, n_years=4)
         series = [
-            EweTimeSeries(1, "F", DATTYPE_FORCED_BIOMASS, 0, None,
-                          np.array([5.0, np.nan, 6.0, 7.0])),
+            EweTimeSeries(
+                1,
+                "F",
+                DATTYPE_FORCED_BIOMASS,
+                0,
+                None,
+                np.array([5.0, np.nan, 6.0, 7.0]),
+            ),
         ]
         coll = EweTimeSeriesCollection(series)
         apply_timeseries_drivers(scenario, coll)
@@ -284,11 +319,7 @@ from pypath.core.timeseries import load_timeseries
 class TestLoadTimeseries:
     def test_csv_dispatch(self, tmp_path):
         csv_path = tmp_path / "test.csv"
-        csv_path.write_text(
-            "time,group,value,dat_type\n"
-            "1,0,1.0,0\n"
-            "2,0,1.2,0\n"
-        )
+        csv_path.write_text("time,group,value,dat_type\n1,0,1.0,0\n2,0,1.2,0\n")
         coll = load_timeseries(csv_path)
         assert len(coll.series) == 1
 

@@ -1,4 +1,5 @@
 """Tests for pypath.core.mediation module."""
+
 import numpy as np
 import pytest
 
@@ -8,7 +9,8 @@ from pypath.core.mediation import MediationShape
 class TestMediationShape:
     def test_construction(self):
         s = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
@@ -18,7 +20,8 @@ class TestMediationShape:
 
     def test_evaluate_at_known_points(self):
         s = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
@@ -28,7 +31,8 @@ class TestMediationShape:
 
     def test_evaluate_interpolation(self):
         s = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
@@ -37,7 +41,8 @@ class TestMediationShape:
 
     def test_evaluate_clamp_below(self):
         s = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
@@ -45,7 +50,8 @@ class TestMediationShape:
 
     def test_evaluate_clamp_above(self):
         s = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
@@ -53,7 +59,8 @@ class TestMediationShape:
 
     def test_evaluate_single_point(self):
         s = MediationShape(
-            shape_id=1, name="const",
+            shape_id=1,
+            name="const",
             x_points=np.array([1.0]),
             y_points=np.array([2.0]),
         )
@@ -62,7 +69,7 @@ class TestMediationShape:
         assert s.evaluate(5.0) == pytest.approx(2.0)
 
 
-from pypath.core.mediation import MediationLink, MediationCollection
+from pypath.core.mediation import MediationCollection, MediationLink
 
 
 class TestMediationLink:
@@ -79,8 +86,10 @@ class TestMediationLink:
 
     def test_landing_link(self):
         link = MediationLink(
-            shape_id=1, mediator_idx=0,
-            landing_group_idx=1, landing_fleet_idx=0,
+            shape_id=1,
+            mediator_idx=0,
+            landing_group_idx=1,
+            landing_fleet_idx=0,
         )
         assert link.landing_group_idx == 1
         assert link.landing_fleet_idx == 0
@@ -93,7 +102,8 @@ class TestMediationLink:
 class TestMediationCollection:
     def _make_shape(self):
         return MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
@@ -124,19 +134,25 @@ class TestMediationCollection:
 
     def test_landing_links_filter(self):
         links = [
-            MediationLink(shape_id=1, mediator_idx=0, landing_group_idx=1, landing_fleet_idx=0),
+            MediationLink(
+                shape_id=1, mediator_idx=0, landing_group_idx=1, landing_fleet_idx=0
+            ),
         ]
         coll = MediationCollection(shapes=[self._make_shape()], links=links)
         assert len(coll.landing_links) == 1
 
     def test_compute_group_multipliers_basic(self):
         shape = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
         link = MediationLink(
-            shape_id=1, mediator_idx=0, prey_idx=1, pred_idx=2,
+            shape_id=1,
+            mediator_idx=0,
+            prey_idx=1,
+            pred_idx=2,
         )
         coll = MediationCollection(shapes=[shape], links=[link])
         n = 4
@@ -152,12 +168,14 @@ class TestMediationCollection:
 
     def test_compute_group_multipliers_multiplicative(self):
         shape1 = MediationShape(
-            shape_id=1, name="s1",
+            shape_id=1,
+            name="s1",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 2.0]),
         )
         shape2 = MediationShape(
-            shape_id=2, name="s2",
+            shape_id=2,
+            name="s2",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.25, 0.5, 0.75]),
         )
@@ -177,12 +195,17 @@ class TestMediationCollection:
     def test_compute_group_multipliers_with_weight(self):
         """Non-default weight scales the multiplier."""
         shape = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
         link = MediationLink(
-            shape_id=1, mediator_idx=0, prey_idx=1, pred_idx=2, weight=0.5,
+            shape_id=1,
+            mediator_idx=0,
+            prey_idx=1,
+            pred_idx=2,
+            weight=0.5,
         )
         coll = MediationCollection(shapes=[shape], links=[link])
         n = 4
@@ -205,7 +228,8 @@ class TestMediationCollection:
 
     def test_compute_fleet_multipliers(self):
         shape = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
@@ -223,13 +247,16 @@ class TestMediationCollection:
 
     def test_compute_landing_multipliers(self):
         shape = MediationShape(
-            shape_id=1, name="test",
+            shape_id=1,
+            name="test",
             x_points=np.array([0.0, 1.0, 2.0]),
             y_points=np.array([0.5, 1.0, 1.5]),
         )
         link = MediationLink(
-            shape_id=1, mediator_idx=0,
-            landing_group_idx=2, landing_fleet_idx=0,
+            shape_id=1,
+            mediator_idx=0,
+            landing_group_idx=2,
+            landing_fleet_idx=0,
         )
         coll = MediationCollection(shapes=[shape], links=[link])
         n = 4
@@ -242,7 +269,7 @@ class TestMediationCollection:
         assert land_mult[0, 0] == pytest.approx(1.0)  # unaffected
 
 
-from pypath.core.mediation import make_positive_shape, make_negative_shape, make_ushape
+from pypath.core.mediation import make_negative_shape, make_positive_shape, make_ushape
 
 
 class TestParametricFactories:

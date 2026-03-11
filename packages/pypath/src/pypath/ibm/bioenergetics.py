@@ -320,11 +320,15 @@ def growth_step_batch(
     assim = consumptions * (1 - params.unassimilated_fraction)
     sda = consumptions * params.sda_fraction
     q10_factor = q10_temperature_factor(temperature, params.t_ref, params.q10)
-    met = params.ra * (weights ** params.rb) * q10_factor * dt * 365.0
+    met = params.ra * (weights**params.rb) * q10_factor * dt * 365.0
     net_energy = assim - met - sda
 
     # Reproduction cost for mature fish with positive surplus
-    repro_cost = np.where(np.asarray(is_mature, dtype=bool) & (net_energy > 0), net_energy * params.reproduction_fraction, 0.0)
+    repro_cost = np.where(
+        np.asarray(is_mature, dtype=bool) & (net_energy > 0),
+        net_energy * params.reproduction_fraction,
+        0.0,
+    )
     net_energy = net_energy - repro_cost
 
     weight_change = net_energy / params.energy_density

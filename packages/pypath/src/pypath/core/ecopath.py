@@ -374,8 +374,10 @@ def rpath(
         else np.zeros(diet_values.shape[1])
     )
     # Vectorized: normalize diet by (1 - import_frac) for each predator column
-    import_fracs = import_row[:nliving] if len(import_row) >= nliving else np.pad(
-        import_row, (0, nliving - len(import_row))
+    import_fracs = (
+        import_row[:nliving]
+        if len(import_row) >= nliving
+        else np.pad(import_row, (0, nliving - len(import_row)))
     )
     denoms = np.where(1.0 - import_fracs > 0, 1.0 - import_fracs, 1.0)
     nodetrdiet = diet_values[np.ix_(living_idx, range(nliving))] / denoms[np.newaxis, :]
@@ -484,9 +486,17 @@ def rpath(
         )
 
         A, b_vec = _build_balance_system(
-            nliving, living_idx, living_biomass, living_pb, living_ee,
-            living_qb, living_catch, living_bioacc, nodetrdiet,
-            original_no_pb, pred_unknown_mask,
+            nliving,
+            living_idx,
+            living_biomass,
+            living_pb,
+            living_ee,
+            living_qb,
+            living_catch,
+            living_bioacc,
+            nodetrdiet,
+            original_no_pb,
+            pred_unknown_mask,
         )
 
         # Validate
@@ -598,9 +608,17 @@ def rpath(
         dtype=bool,
     )
     A, b_vec = _build_balance_system(
-        nliving, living_idx, living_biomass, living_pb, living_ee,
-        living_qb, living_catch, living_bioacc, nodetrdiet,
-        original_no_pb, pred_unknown_mask,
+        nliving,
+        living_idx,
+        living_biomass,
+        living_pb,
+        living_ee,
+        living_qb,
+        living_catch,
+        living_bioacc,
+        nodetrdiet,
+        original_no_pb,
+        pred_unknown_mask,
     )
 
     # Save final solve results in context for debug output
@@ -740,12 +758,16 @@ def rpath(
         diet_values[ngroups, :] if diet_values.shape[0] > ngroups else np.zeros(nliving)
     )
     total_diet = np.sum(full_diet[:, :nliving], axis=0)
-    import_fracs = import_row[:nliving] if len(import_row) >= nliving else np.zeros(nliving)
+    import_fracs = (
+        import_row[:nliving] if len(import_row) >= nliving else np.zeros(nliving)
+    )
     denom = 1.0 - import_fracs
     norm_mask = (total_diet > 0) & (denom > 0) & (import_fracs < 1)
     safe_denom = np.where(norm_mask, denom, 1.0)
     full_diet[:, :nliving] = np.where(
-        norm_mask[np.newaxis, :], full_diet[:, :nliving] / safe_denom[np.newaxis, :], 0.0
+        norm_mask[np.newaxis, :],
+        full_diet[:, :nliving] / safe_denom[np.newaxis, :],
+        0.0,
     )
 
     # Set up linear system: (I - DC^T) * TL = 1
