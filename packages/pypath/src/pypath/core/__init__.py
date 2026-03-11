@@ -161,6 +161,19 @@ try:
 except ImportError:
     HAS_MONTECARLO = False
 
+try:
+    from pypath.core.ecotracer import (
+        EcotracerParams,
+        EcotracerResult,
+        create_ecotracer_params,
+        ecotracer_deriv,
+        ecotracer_step,
+    )
+
+    HAS_ECOTRACER = True
+except ImportError:
+    HAS_ECOTRACER = False
+
 __all__ = [
     # Ecopath
     "RpathParams",
@@ -292,4 +305,11 @@ __all__ = [
     "SensitivityConfig",
     "run_sensitivity",
     "HAS_SALIB",
+    # Ecotracer
+    "HAS_ECOTRACER",
+    "EcotracerParams",
+    "EcotracerResult",
+    "create_ecotracer_params",
+    "ecotracer_deriv",
+    "ecotracer_step",
 ]
