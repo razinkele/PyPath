@@ -366,6 +366,7 @@ class RsimOutput:
     start_state: RsimState
     params: dict
     ecotracer: "EcotracerResult | None" = None
+    fleet_dynamics: "FleetDynamicsResult | None" = None
 
 
 def rsim_params(
@@ -996,6 +997,7 @@ def rsim_run(
     *,
     mediation=None,
     ecotracer=None,
+    fleet_dynamics=None,
 ) -> RsimOutput:
     """Run Ecosim simulation.
 
@@ -1939,6 +1941,28 @@ def rsim_run(
         _ecotracer_out = np.zeros((n_months + 1, n_eco_groups))
         _ecotracer_out[0] = _ecotracer_conc.copy()
 
+    # Fleet dynamics initialization
+    _fleet_capacity = None
+    _fleet_out_effort = None
+    _fleet_out_revenue = None
+    _fleet_out_cost = None
+    _fleet_out_profit = None
+    _fleet_cumul_catch = None
+    _original_fish_q = None
+    if fleet_dynamics is not None:
+        from pypath.core.fleet_dynamics import fleet_dynamics_step as _fleet_step_fn
+        from pypath.core.fleet_dynamics import apply_quota_caps as _fleet_quota_fn
+
+        _n_fd_fleets = params.NUM_GEARS
+        _fleet_capacity = fishing_obj.ForcedEffort[0, 1:_n_fd_fleets + 1].copy()
+        _fleet_out_effort = np.zeros((n_months + 1, _n_fd_fleets))
+        _fleet_out_revenue = np.zeros((n_months + 1, _n_fd_fleets))
+        _fleet_out_cost = np.zeros((n_months + 1, _n_fd_fleets))
+        _fleet_out_profit = np.zeros((n_months + 1, _n_fd_fleets))
+        _fleet_out_effort[0] = _fleet_capacity.copy()
+        _fleet_cumul_catch = np.zeros((_n_fd_fleets, params.NUM_GROUPS))
+        _original_fish_q = params.FishQ.copy()
+
     for month in range(1, n_months + 1):
         # Debug: indicate loop iteration for first few months
         if month <= 6:
@@ -2310,6 +2334,73 @@ def rsim_run(
             out_catch[month, grp] += catch
             out_gear_catch[month, i] = catch
 
+        # Fleet dynamics step (after catch computation)
+        if _fleet_capacity is not None:
+            # Reset cumulative catch at year boundary (BEFORE accumulation)
+            month_in_year = (month - 1) % 12
+            if month_in_year == 0 and month > 1:
+                _fleet_cumul_catch[:] = 0.0
+                # Restore original FishQ so all links reopen for new quota year
+                params.FishQ = _original_fish_q.copy()
+
+            # Accumulate catch into cumulative tracker by fleet and group
+            for i in range(1, len(params.FishFrom)):
+                gear_group_idx = params.FishThrough[i]
+                gear_0based = int(gear_group_idx) - 1
+                if _run_gear_lookup:
+                    gear_idx = _run_gear_lookup.get(gear_0based, 0)
+                else:
+                    gear_idx = int(gear_group_idx - params.NUM_LIVING - params.NUM_DEAD)
+                fleet_0 = gear_idx - 1
+                group_0 = int(params.FishFrom[i]) - 1
+                if 0 <= fleet_0 < _n_fd_fleets and 0 <= group_0 < params.NUM_GROUPS:
+                    _fleet_cumul_catch[fleet_0, group_0] += out_gear_catch[month, i]
+
+            # Update capacity and effort
+            _fleet_capacity, _fleet_effort = _fleet_step_fn(
+                _fleet_capacity, out_gear_catch[month],
+                _fleet_cumul_catch, fleet_dynamics,
+                params.FishThrough, params.FishFrom,
+                _run_gear_lookup, n_fleets=_n_fd_fleets,
+            )
+
+            # Write effort into ForcedEffort for next month
+            if month < n_months:
+                fishing_obj.ForcedEffort[month, 1:_n_fd_fleets + 1] = _fleet_effort
+
+            # Apply quota caps if TAC is set
+            if fleet_dynamics.tac is not None:
+                capped_q = _fleet_quota_fn(
+                    params.FishQ, _fleet_cumul_catch, fleet_dynamics.tac,
+                    params.FishThrough, params.FishFrom, _run_gear_lookup,
+                )
+                params.FishQ = capped_q
+                fishing_dict["FishQ"] = capped_q  # propagate to derivative
+
+            # Store results — compute revenue/cost/profit for output
+            _revenue = np.zeros(_n_fd_fleets)
+            for i in range(1, len(params.FishThrough)):
+                gear_group_idx = params.FishThrough[i]
+                gear_0based = int(gear_group_idx) - 1
+                if _run_gear_lookup:
+                    gear_idx = _run_gear_lookup.get(gear_0based, 0)
+                else:
+                    gear_idx = int(gear_group_idx - params.NUM_LIVING - params.NUM_DEAD)
+                fleet_0 = gear_idx - 1
+                if 0 <= fleet_0 < _n_fd_fleets and i < len(fleet_dynamics.price):
+                    _revenue[fleet_0] += out_gear_catch[month, i] * fleet_dynamics.price[i]
+
+            _cost = np.zeros(_n_fd_fleets)
+            for g in range(_n_fd_fleets):
+                _cost[g] = fleet_dynamics.fixed_cost[g] / 12.0 + (
+                    fleet_dynamics.variable_cost[g] + fleet_dynamics.sailing_cost[g]
+                ) * _fleet_capacity[g]
+
+            _fleet_out_effort[month] = _fleet_effort
+            _fleet_out_revenue[month] = _revenue
+            _fleet_out_cost[month] = _cost
+            _fleet_out_profit[month] = _revenue - _cost
+
     # Calculate annual values
     annual_biomass = np.zeros((n_years, n_groups))
     annual_catch = np.zeros((n_years, n_groups))
@@ -2348,6 +2439,40 @@ def rsim_run(
             out_Conc=_ecotracer_out,
             annual_Conc=annual_conc,
             group_names=group_names,
+        )
+
+    # Fleet dynamics annual averaging
+    _fleet_result = None
+    if _fleet_out_effort is not None:
+        from pypath.core.fleet_dynamics import FleetDynamicsResult
+
+        annual_effort = np.zeros((n_years, _n_fd_fleets))
+        annual_profit = np.zeros((n_years, _n_fd_fleets))
+        for yr in range(n_years):
+            start_m = yr * 12 + 1
+            end_m = (yr + 1) * 12 + 1
+            annual_effort[yr] = np.mean(_fleet_out_effort[start_m:end_m], axis=0)
+            annual_profit[yr] = np.sum(_fleet_out_profit[start_m:end_m], axis=0)
+
+        fleet_names = []
+        if hasattr(params, "fleet_idx") and params.fleet_idx is not None:
+            for fi in params.fleet_idx:
+                idx_1based = int(fi) + 1
+                if idx_1based < len(params.spname):
+                    fleet_names.append(params.spname[idx_1based])
+                else:
+                    fleet_names.append(f"Fleet{idx_1based}")
+        else:
+            fleet_names = [f"Fleet{i+1}" for i in range(_n_fd_fleets)]
+
+        _fleet_result = FleetDynamicsResult(
+            out_Effort=_fleet_out_effort,
+            out_Revenue=_fleet_out_revenue,
+            out_Cost=_fleet_out_cost,
+            out_Profit=_fleet_out_profit,
+            annual_Effort=annual_effort,
+            annual_Profit=annual_profit,
+            fleet_names=fleet_names,
         )
 
     # Create end state
@@ -2408,6 +2533,7 @@ def rsim_run(
             "years": n_years,
         },
         ecotracer=_ecotracer_result,
+        fleet_dynamics=_fleet_result,
     )
 
 
