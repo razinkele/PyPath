@@ -26,49 +26,80 @@ Dependency flow: `sensitivity.py` → `montecarlo.py` → `pedigree.py` → `par
 
 ### ParameterDistribution
 
+Two distribution types: scalar (for Biomass, PB, QB, Catch) and diet (for diet composition vectors).
+
 ```python
 @dataclass
-class ParameterDistribution:
-    """A single parameter's sampling distribution."""
-    param_name: str          # e.g. "Biomass", "PB", "QB", "Diet"
+class ScalarDistribution:
+    """A single scalar parameter's sampling distribution (log-normal)."""
+    param_name: str          # e.g. "Biomass", "PB", "QB", "Catch"
     group_idx: int           # 0-based group index
     base_value: float        # current Ecopath value
     cv: float                # coefficient of variation from pedigree
-    dist_type: str           # "lognormal", "normal", "dirichlet"
     bounds: tuple[float, float] | None = None  # optional hard bounds
+
+@dataclass
+class DietDistribution:
+    """A predator's diet composition distribution (Dirichlet)."""
+    pred_idx: int            # 0-based predator group index
+    base_proportions: np.ndarray  # current diet column (prey proportions, sum=1)
+    cv: float                # controls Dirichlet concentration (higher CV = more spread)
+
+ParameterDistribution = ScalarDistribution | DietDistribution
 ```
+
+**Log-normal parameterization (mean-preserving):**
+For a parameter with base value `v` and coefficient of variation `CV`:
+- `sigma = sqrt(ln(1 + CV^2))`
+- `mu = ln(v) - sigma^2/2`
+- This ensures `E[X] = v` (the mean of the sampled distribution equals the base value).
+
+**Dirichlet parameterization:**
+For a diet column with base proportions `p` and CV:
+- Concentration `alpha = p / CV^2` (higher CV → flatter distribution, lower CV → concentrated near base)
+- Each sample is drawn from `Dirichlet(alpha)` and automatically sums to 1.0.
 
 ### PedigreeConfig
 
 ```python
 @dataclass
 class PedigreeConfig:
-    """Configuration for pedigree-to-CV mapping."""
-    index_to_cv: dict[int, float] = field(default_factory=lambda: {
-        1: 0.0, 2: 0.1, 3: 0.2, 4: 0.3, 5: 0.4, 6: 0.5, 7: 0.6, 8: 0.8
-    })
-```
+    """Configuration for pedigree-to-CV mapping.
 
-Used when importing from EwE databases where pedigree stores index values (1-8) rather than CVs directly. In the Python API, `params.pedigree` values are treated as CVs directly.
+    EwE 6 stores pedigree as (VarName, LevelID) pairs in the Pedigree table,
+    where each VarName has its own set of levels with IndexValue (confidence)
+    and Confidence (%) columns. The IndexValue is treated as the CV.
+
+    In the Python API, params.pedigree values are treated as CVs directly.
+    PedigreeConfig is only needed when importing from EwE databases.
+    """
+    # VarName -> {LevelID -> CV} mapping (populated from Pedigree table)
+    level_to_cv: dict[str, dict[int, float]] = field(default_factory=dict)
+```
 
 ### Key Functions
 
 - `build_distributions(params: RpathParams, config: PedigreeConfig | None = None) -> list[ParameterDistribution]`
   - Reads `params.pedigree` DataFrame columns (Biomass, PB, QB, Diet, Fleet1..N)
   - Maps each cell to a distribution:
-    - Biomass, PB, QB, Catch → **log-normal** (strictly positive)
-    - Diet → **Dirichlet** (per-consumer column, CV controls concentration parameter)
+    - Biomass, PB, QB, Catch → **ScalarDistribution** (log-normal, strictly positive)
+    - Diet → **DietDistribution** (Dirichlet, per-consumer column)
   - Skips parameters with CV = 0 (known exactly)
-  - If `config` provided, converts index values to CVs first
+  - Skips stanza groups (multi-stanza parameters are internally derived; sampling lead stanza Biomass propagates through stanza calculations — warn via `logger.info`)
+  - If `config` provided and `params.pedigree` contains LevelID integers, converts to CVs using `config.level_to_cv` mapping
+  - Fleet pedigree CVs apply to **landings only** (discards are not independently sampled — they scale proportionally)
 
 - `sample_parameters(distributions: list[ParameterDistribution], n_samples: int, method: str = "lhs", rng: np.random.Generator | None = None) -> list[dict]`
-  - Returns N parameter sets, each a dict mapping `(param_name, group_idx) → sampled_value`
-  - `method="lhs"`: Uses `scipy.stats.qmc.LatinHypercube` for stratified coverage
+  - Returns N parameter sets as list of dicts
+  - For `ScalarDistribution`: dict key = `(param_name, group_idx)`, value = float
+  - For `DietDistribution`: dict key = `("Diet", pred_idx)`, value = np.ndarray (prey proportions)
+  - `method="lhs"`: Uses `scipy.stats.qmc.LatinHypercube` for stratified coverage. LHS operates in the unit hypercube; samples are mapped to parameter space via inverse CDF of the target distribution.
   - `method="random"`: Direct sampling from distributions via `rng`
-  - Diet columns sampled via Dirichlet, then renormalized to sum to 1.0
 
 - `apply_sample(params: RpathParams, sample: dict) -> RpathParams`
-  - Returns a deep copy of params with sampled values applied to `params.model` and `params.diet`
+  - Creates a targeted copy: `params.model.copy()`, `params.diet.copy()`, shallow copy of other fields
+  - Applies sampled scalar values to `model` DataFrame
+  - Applies sampled diet vectors to `diet` DataFrame columns
   - Original params object is never modified
 
 ---
@@ -88,7 +119,10 @@ class MCConfig:
     ecosim_years: range | None = None  # years for Ecosim runs
     store_runs: bool = False        # keep individual run outputs
     n_jobs: int = 1                 # parallelism (joblib → futures → sequential)
-    mediation: "MediationCollection | None" = None  # pass through to rsim_run
+    # Ecosim pass-through options
+    mediation: "MediationCollection | None" = None
+    ecosim_method: str = "RK4"      # "RK4" or "AB" integration method
+    eco_area: float = 1.0           # Ecopath model area
 ```
 
 ### MCResult
@@ -103,7 +137,9 @@ class MCResult:
 
     # Streaming statistics (always available)
     ecopath_stats: dict[str, pd.DataFrame]  # key=param, df has columns: mean, std, p5, p25, p50, p75, p95
-    ecosim_stats: dict[str, np.ndarray] | None  # key=output, array shape: (timesteps, groups, 7_stats)
+    ecosim_stats: dict[str, np.ndarray] | None  # key=output, array shape: (timesteps, n_groups, 7_stats)
+    # Note: ecosim_stats excludes the 1-based padding column 0 from out_Biomass.
+    # Indices align with 0-based group_idx. timesteps = monthly resolution from Ecosim.
 
     # Optional raw storage
     ecopath_runs: list[dict] | None
@@ -134,11 +170,11 @@ def run_montecarlo(
 2. `sample_parameters(distributions, config.n_samples, config.method, rng)` → N samples
 3. For each sample:
    a. `apply_sample(params, sample)` → sampled_params
-   b. `rpath(sampled_params)` → keep if mass balance succeeds (no exception)
+   b. `rpath(sampled_params, eco_area=config.eco_area)` → keep if mass balance succeeds (no exception)
    c. Collect Ecopath outputs (Biomass, TL, etc.)
 4. If not `ecopath_only`, for each feasible result:
    a. `rsim_scenario(rpath_result, sampled_params, years=config.ecosim_years)`
-   b. `rsim_run(scenario, mediation=config.mediation)`
+   b. `rsim_run(scenario, method=config.ecosim_method, mediation=config.mediation)`
    c. Collect `out_Biomass` trajectories
 5. Compute streaming statistics incrementally (Welford's algorithm for mean/variance)
 6. Return `MCResult`
@@ -200,7 +236,7 @@ class SobolResult:
 - Run model at all sample points (same pipeline as MC)
 - Use `SALib.analyze.sobol.analyze()` for index computation
 
-**Total runs:** `n_samples * (2k + 2)`. For 30 params, 1024 base → 63,488 runs. User is warned if this exceeds a threshold (e.g. 10,000).
+**Total runs:** `n_samples * (2k + 2)`. For 30 params, 1024 base → 63,488 runs. If total runs exceed 10,000, issue `warnings.warn(f"Sobol analysis requires {n_runs} model evaluations", UserWarning)` before proceeding.
 
 ### Configuration & Entry Point
 
@@ -209,7 +245,7 @@ class SobolResult:
 class SensitivityConfig:
     method: str = "morris"           # "morris" or "sobol"
     n_trajectories: int = 10         # Morris only
-    n_levels: int = 4                # Morris only
+    n_levels: int = 4                # Morris: grid levels (delta = n_levels/(2*(n_levels-1)))
     n_samples: int = 1024            # Sobol only
     seed: int | None = None
     n_jobs: int = 1
@@ -223,6 +259,7 @@ def run_sensitivity(
     config: SensitivityConfig | None = None,
     *,
     pedigree_config: PedigreeConfig | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> MorrisResult | SobolResult:
 ```
 
@@ -232,53 +269,102 @@ def run_sensitivity(
 
 ### Schema Additions (`_ewe_schema.py`)
 
+Based on actual EwE 6.6+ database structure (verified against LT2022 model):
+
 ```python
+# Pedigree metadata: defines level names and CVs per variable type
 "Pedigree": {
-    "PedigreeID": "INTEGER",
+    "LevelID": "INTEGER",
     "LevelName": "TEXT",
-    "LevelDescription": "TEXT",
-    "IndexValue": "INTEGER",
-    "ConfidenceInterval": "DOUBLE",
+    "VarName": "TEXT",          # PBInput, QBInput, BiomassAreaInput, DietComp, TCatchInput
+    "Sequence": "INTEGER",
+    "IndexValue": "DOUBLE",     # this IS the CV value (e.g. 0.1, 0.2, 0.5)
+    "Confidence": "DOUBLE",     # confidence percentage (e.g. 70.0, 60.0)
+    "LevelColor": "INTEGER",
+    "Description": "TEXT",
 },
+# Per-group pedigree assignment: normalized (one row per group-variable pair)
 "EcopathGroupPedigree": {
     "GroupID": "INTEGER",
-    "ScenarioID": "INTEGER",
-    "BiomassCI": "INTEGER",
-    "PBCI": "INTEGER",
-    "QBCI": "INTEGER",
-    "DietCI": "INTEGER",
-    "CatchCI": "INTEGER",
+    "VarName": "TEXT",          # matches Pedigree.VarName
+    "LevelID": "INTEGER",      # FK to Pedigree.LevelID
+},
+# Monte Carlo sample metadata
+"EcopathSample": {
+    "SampleID": "INTEGER",
+    "Hash": "TEXT",
+    "Source": "TEXT",
+    "Generated": "TEXT",
+    "Rating": "DOUBLE",
+    "SS": "DOUBLE",
+},
+# Sampled group parameters per MC iteration
+"EcopathGroupSample": {
+    "SampleID": "INTEGER",
+    "GroupID": "INTEGER",
+    "Biomass": "DOUBLE",
+    "ProdBiom": "DOUBLE",
+    "ConsBiom": "DOUBLE",
+    "EcoEfficiency": "DOUBLE",
+    "BiomAcc": "DOUBLE",
+    "ImpVar": "DOUBLE",
+    "BiomAccRate": "DOUBLE",
+},
+# Sampled diet composition per MC iteration
+"EcopathDietCompSample": {
+    "SampleID": "INTEGER",
+    "PredID": "INTEGER",
+    "PreyID": "INTEGER",
+    "Diet": "DOUBLE",
+},
+# Sampled catch per MC iteration
+"EcopathGroupCatchSample": {
+    "SampleID": "INTEGER",
+    "GroupID": "INTEGER",
+    "FleetID": "INTEGER",
+    "Landing": "DOUBLE",
+    "Discards": "DOUBLE",
 },
 ```
 
 ### Reader (`ewemdb.py`)
 
 ```python
-def read_pedigree(db_path: str) -> tuple[PedigreeConfig, dict[int, dict[str, float]]]:
+def read_pedigree(db_path: str) -> tuple[PedigreeConfig, pd.DataFrame]:
     """Read pedigree tables from EwE database.
 
     Returns (config, group_pedigree) where:
-    - config: PedigreeConfig with index_to_cv mapping from Pedigree table
-    - group_pedigree: {group_id: {"Biomass": cv, "PB": cv, ...}} with CVs already converted
+    - config: PedigreeConfig with level_to_cv mapping from Pedigree table
+    - group_pedigree: DataFrame with columns [GroupID, VarName, CV]
+      where CV is the IndexValue from the Pedigree table for the assigned LevelID
     """
 ```
 
-- Reads `Pedigree` table → builds `index_to_cv` mapping
-- Reads `EcopathGroupPedigree` → converts indices to CVs using the mapping
-- Missing tables → returns default config + empty dict
+- Reads `Pedigree` table → builds `config.level_to_cv = {VarName: {LevelID: IndexValue}}` mapping
+- Reads `EcopathGroupPedigree` → joins with Pedigree on (VarName, LevelID) to get CV
+- Maps VarName to params.pedigree column names: `BiomassAreaInput→Biomass`, `PBInput→PB`, `QBInput→QB`, `DietComp→Diet`, `TCatchInput→Catch`
+- Updates `params.pedigree` DataFrame with CVs from database
+- Missing tables → returns default config + empty DataFrame
 
 ### Writer
 
 - `write_pedigree()` on CsvBundleWriter and AccessWriter
 - `write_ewemdb()` gains optional `pedigree_config` parameter
-- Writes both Pedigree and EcopathGroupPedigree tables
+- Writes Pedigree and EcopathGroupPedigree tables
 
-### MC Results Export
+### MC Sample Writer
 
-No EwE schema for MC results — these are PyPath-native:
+- `write_mc_samples(result: MCResult)` writes the 4 sample tables:
+  - `EcopathSample` — one row per feasible run (SampleID, Hash, Source="PyPath MC")
+  - `EcopathGroupSample` — sampled B, PB, QB per group per run
+  - `EcopathDietCompSample` — sampled diet per pred-prey per run
+  - `EcopathGroupCatchSample` — sampled landings/discards per group-fleet per run
+- Only available when `store_runs=True` (raw samples required)
+
+### MC Results Export (PyPath-native)
+
 - `MCResult.to_dataframe()` → summary stats as pandas DataFrame
 - `MCResult.to_dict()` → JSON-serializable dict
-- Users save to CSV/JSON as preferred
 
 ---
 
@@ -347,7 +433,7 @@ No EwE schema for MC results — these are PyPath-native:
 
 | File | Change |
 |------|--------|
-| `io/_ewe_schema.py` | Add Pedigree + EcopathGroupPedigree table definitions |
+| `io/_ewe_schema.py` | Add 6 tables: Pedigree, EcopathGroupPedigree, EcopathSample, EcopathGroupSample, EcopathDietCompSample, EcopathGroupCatchSample |
 | `io/ewemdb.py` | Add read_pedigree() function |
 | `io/ewe_writer.py` | Add pedigree_config param to write_ewemdb() |
 | `io/_csv_bundle_writer.py` | Add write_pedigree() method |
