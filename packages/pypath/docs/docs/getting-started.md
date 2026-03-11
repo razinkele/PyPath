@@ -149,6 +149,24 @@ params = read_rpath_params(
 )
 ```
 
+## Exporting Models to EwE Format
+
+Export your model back to native EwE 6.6+ format for use in the EwE desktop
+application, or as a cross-platform CSV bundle:
+
+```python
+from pypath.io.ewe_writer import write_ewemdb
+
+# Export as Access database (Windows, requires ODBC driver)
+write_ewemdb(params, "my_model.eweaccdb")
+
+# Export as CSV bundle (cross-platform)
+write_ewemdb(params, "my_model.ewecsv.zip", backend="csv")
+
+# Include Ecosim scenarios
+write_ewemdb(params, "my_model.eweaccdb", scenarios=[scenario])
+```
+
 ## Applying Fishing Pressure
 
 Use `adjust_fishing` to modify fishing effort during the simulation.

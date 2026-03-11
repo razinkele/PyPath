@@ -68,7 +68,7 @@ output = rsim_run(scenario, method="AB")
 | **State-Variable Forcing** | Data assimilation and prescribed scenarios |
 | **Diet Rewiring** | Adaptive foraging and prey switching |
 | **Optimization** | Parameter calibration with differential evolution |
-| **Data Import** | Native EwE databases (.eweaccdb), EcoBase, CSV, WoRMS/OBIS/FishBase, EMODnet |
+| **Data Import/Export** | Native EwE 6.6+ databases (.eweaccdb) read & write, EcoBase, CSV, WoRMS/OBIS/FishBase, EMODnet |
 
 ## Ecosim Engine
 

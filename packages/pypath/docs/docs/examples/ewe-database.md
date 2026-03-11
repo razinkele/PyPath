@@ -192,6 +192,51 @@ for _, row in biomass_ts.iterrows():
 print(f"Total SS: {total_ss:.1f}")
 ```
 
+## Exporting Models Back to EwE Format
+
+PyPath can write models back to native EwE 6.6+ format. The exported
+databases use the correct EwE 6.6+ schema and load directly in the EwE
+desktop application.
+
+### Round-Trip: Read, Modify, Write
+
+```python
+from pypath.io.ewemdb import read_ewemdb
+from pypath.io.ewe_writer import write_ewemdb
+
+# Load existing model
+params = read_ewemdb("original_model.eweaccdb")
+
+# Modify parameters
+params.model.loc[0, "Biomass"] = 12.5  # Adjust phytoplankton biomass
+
+# Write back to EwE format
+write_ewemdb(params, "modified_model.eweaccdb")
+```
+
+### Export to CSV Bundle (Cross-Platform)
+
+If you don't have the Access ODBC driver (Linux/macOS), use the CSV
+bundle format:
+
+```python
+write_ewemdb(params, "my_model.ewecsv.zip", backend="csv")
+```
+
+The CSV bundle is a ZIP file containing one CSV per EwE table, which can
+be imported by EwE or read back by PyPath.
+
+### Export with Ecosim Scenarios
+
+```python
+from pypath import rsim_scenario, rpath
+
+model = rpath(params)
+scenario = rsim_scenario(model, params, years=range(1, 51))
+
+write_ewemdb(params, "with_ecosim.eweaccdb", scenarios=[scenario])
+```
+
 ## Common EwE Database Tables
 
 | Table | Contents |

@@ -6,6 +6,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.3.2 (2026-03-11)
+
+### Fixed
+- **EwE 6.6+ Schema Compatibility**: Rewrote export schema to match native
+  EwE 6.6+ desktop database format. Exported `.eweaccdb` files now load
+  correctly in EwE 6.6+ without errors.
+  - Renamed ~40 columns to match EwE 6.6+ names (`PB` -> `ProdBiom`,
+    `QB` -> `ConsBiom`, `EE` -> `EcoEfficiency`, `BioAcc` -> `BiomAcc`,
+    `DetInput` -> `DtImports`, etc.)
+  - Renamed ~15 tables (`EcosimGroupInfo` -> `EcosimScenarioGroup`,
+    `EcosimForcing` -> `EcosimShape`, `Ecospace*` -> `EcospaceScenario*`)
+  - Replaced template database with full 88-table EwE 6.6+ schema
+  - Added type coercion for Access integer enum fields (`UnitCurrency`,
+    `UnitTime`)
+  - Added `Sequence`-based ordering in reader for stable round-trips
+  - Fixed `Required field` errors caused by NULL values in Access columns
+    with Required constraints
+
 ## v0.3.1 (2026-03-10)
 
 ### Added

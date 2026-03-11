@@ -1,4 +1,4 @@
-{% set version = "0.3.1" %}
+{% set version = "0.3.2" %}
 
 package:
   name: pypath-ewe
@@ -47,7 +47,8 @@ about:
     PyPath provides a complete Python implementation of the Ecopath with Ecosim
     (EwE) framework for aquatic food web modeling, with Ecosim engine matching
     the Rpath C++ reference. Includes Ecospace spatial modeling, Individual-Based
-    Models, automatic crash diagnostics, and EMODnet data integration.
+    Models, automatic crash diagnostics, EMODnet data integration, and native
+    EwE 6.6+ database import/export (.eweaccdb and .ewecsv.zip).
   doc_url: https://razinkele.github.io/PyPath/
   license: MIT
   license_file: LICENSE

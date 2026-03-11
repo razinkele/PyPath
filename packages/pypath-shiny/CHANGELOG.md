@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.3.2 (2026-03-11)
+
+### Changed
+- Updated to use pypath-ewe v0.3.2 (EwE 6.6+ schema compatibility fix)
+
 ## v0.3.1 (2026-03-10)
 
 ### Added

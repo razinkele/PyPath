@@ -37,19 +37,31 @@ a complete walkthrough.
 
 ### EwE Database Export
 
-Export PyPath models back to native EwE format:
+Export PyPath models back to native EwE 6.6+ format. Exported databases
+use the correct EwE 6.6+ schema (column names, table names, integer enum
+fields) and load directly in the EwE desktop application.
 
 - `write_ewemdb(params, path)` — Auto-detects best backend
-- `write_ewemdb(params, path, backend="csv")` — Force CSV bundle
-- `write_ewemdb(params, path, scenarios=[scen1])` — Include Ecosim
-- `write_ewemdb(params, path, ecospace=ecospace)` — Include Ecospace
+- `write_ewemdb(params, path, backend="access")` — Force Access (.eweaccdb)
+- `write_ewemdb(params, path, backend="csv")` — Force CSV bundle (.ewecsv.zip)
+- `write_ewemdb(params, path, scenarios=[scen1])` — Include Ecosim scenarios
+- `write_ewemdb(params, path, ecospace=ecospace)` — Include Ecospace spatial data
+- `write_ewemdb(params, path, source_db="ref.eweaccdb")` — Use existing DB as template
+
+**Backends:**
+
+| Backend | Extension | Requires | Platform |
+|---------|-----------|----------|----------|
+| `access` | `.eweaccdb` | pyodbc + Access ODBC driver | Windows |
+| `csv` | `.ewecsv.zip` | None | Cross-platform |
+| `auto` | Either | Auto-detects ODBC | Any |
 
 **Example:**
 
 ```python
 from pypath.io.ewe_writer import write_ewemdb
 
-# Export Ecopath model
+# Export Ecopath model (auto-detects backend)
 write_ewemdb(params, "my_model.eweaccdb")
 
 # With Ecosim scenarios
@@ -57,6 +69,12 @@ write_ewemdb(params, "my_model.eweaccdb", scenarios=[scenario1])
 
 # Cross-platform CSV fallback
 write_ewemdb(params, "my_model.ewecsv.zip", backend="csv")
+
+# Round-trip: read -> modify -> write back
+from pypath.io.ewemdb import read_ewemdb
+params = read_ewemdb("original.eweaccdb")
+# ... modify params ...
+write_ewemdb(params, "modified.eweaccdb")
 ```
 
 ## Biological Data (WoRMS/OBIS/FishBase)

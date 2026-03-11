@@ -1,4 +1,4 @@
-{% set version = "0.3.1" %}
+{% set version = "0.3.2" %}
 
 package:
   name: pypath-shiny
@@ -21,7 +21,7 @@ requirements:
     - pip
   run:
     - python >=3.10
-    - pypath-ewe >=0.3.1
+    - pypath-ewe >=0.3.2
     - shiny >=1.0.0
     - shinyswatch >=0.7.0
     - httpx >=0.24
