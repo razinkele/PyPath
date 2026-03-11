@@ -696,6 +696,12 @@ class AccessWriter:
             return
         self._build_tables_via_csv_writer("write_ecospace", ecospace=ecospace)
 
+    def write_timeseries(self, timeseries=None) -> None:
+        """Write time series tables to the Access database."""
+        if timeseries is None:
+            return
+        self._build_tables_via_csv_writer("write_timeseries", timeseries=timeseries)
+
     def close(self) -> None:
         """Close the database connection and move temp file to final path."""
         try:

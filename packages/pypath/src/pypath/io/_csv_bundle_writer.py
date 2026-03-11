@@ -485,6 +485,47 @@ class CsvBundleWriter:
 
         logger.info("write_ecospace: spatial data written")
 
+    def write_timeseries(self, timeseries=None) -> None:
+        """Write time series tables to the CSV bundle."""
+        if timeseries is None or not timeseries.series:
+            return
+
+        meta_rows = []
+        for s in timeseries.series:
+            meta_rows.append({
+                "TimeSeriesID": s.series_id,
+                "ScenarioID": self._scenario_id,
+                "Name": s.name,
+                "DatType": s.dat_type,
+                "GroupID": (s.group_idx + 1) if s.group_idx is not None else 0,
+                "FleetID": (s.fleet_idx + 1) if s.fleet_idx is not None else 0,
+                "DatasetID": s.dataset_id,
+                "WtType": 0,
+                "PoolColor": 0,
+            })
+        self._tables["EcosimTimeSeries"] = pd.DataFrame(meta_rows)
+
+        val_rows = []
+        for s in timeseries.series:
+            for t, v in enumerate(s.values):
+                if not np.isnan(v):
+                    val_rows.append({
+                        "TimeSeriesID": s.series_id,
+                        "ScenarioID": self._scenario_id,
+                        "TimeStep": t + 1,
+                        "Value": v,
+                    })
+        if val_rows:
+            self._tables["EcosimTimeSeriesValues"] = pd.DataFrame(val_rows)
+
+        dataset_ids = {s.dataset_id for s in timeseries.series}
+        ds_rows = [
+            {"DatasetID": did, "ScenarioID": self._scenario_id,
+             "DatasourceName": f"Dataset_{did}", "Enabled": True}
+            for did in sorted(dataset_ids)
+        ]
+        self._tables["EcosimTimeSeriesDataset"] = pd.DataFrame(ds_rows)
+
     def close(self) -> None:
         """Write all tables to a zip file, then atomically rename to final path."""
         manifest = {

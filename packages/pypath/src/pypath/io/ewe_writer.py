@@ -34,6 +34,7 @@ def write_ewemdb(
     *,
     scenarios: list[Any] | None = None,
     ecospace: Any | None = None,
+    timeseries: Any | None = None,
     backend: str = "auto",
     scenario_id: int = 1,
     source_db: str | None = None,
@@ -50,6 +51,8 @@ def write_ewemdb(
         Ecosim scenarios to include.
     ecospace : EcospaceParams, optional
         Ecospace spatial parameters.
+    timeseries : EweTimeSeriesCollection, optional
+        Time series data to include.
     backend : str
         "auto" (detect ODBC), "access" (require ODBC), or "csv" (CSV bundle).
     scenario_id : int
@@ -88,6 +91,7 @@ def write_ewemdb(
         writer.write_ecopath()
         writer.write_ecosim(scenarios)
         writer.write_ecospace(ecospace)
+        writer.write_timeseries(timeseries)
         writer.close()
     except Exception:
         import os
