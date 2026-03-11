@@ -5,7 +5,6 @@ and Ftime application to preyYY, matching Rpath C++ ecosim.cpp lines 570-606.
 """
 
 import numpy as np
-import pytest
 
 from pypath.core.ecosim_deriv import (
     _compute_consumption_python,

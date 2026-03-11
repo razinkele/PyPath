@@ -1,7 +1,7 @@
 """Tests for pypath.core.montecarlo module."""
+
 import warnings as _warnings
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -31,28 +31,42 @@ class TestMCConfig:
 class TestMCResult:
     def test_construction(self):
         result = MCResult(
-            n_total=100, n_feasible=80, n_ecosim=0,
+            n_total=100,
+            n_feasible=80,
+            n_ecosim=0,
             ecopath_stats={"Biomass": pd.DataFrame({"mean": [1.0]})},
             ecosim_stats=None,
-            ecopath_runs=None, ecosim_runs=None,
-            feasibility_rate=0.8, parameter_samples=None,
+            ecopath_runs=None,
+            ecosim_runs=None,
+            feasibility_rate=0.8,
+            parameter_samples=None,
         )
         assert result.n_total == 100
         assert result.n_feasible == 80
         assert result.feasibility_rate == 0.8
 
     def test_to_dataframe(self):
-        stats = pd.DataFrame({
-            "mean": [10.0, 5.0], "std": [1.0, 0.5],
-            "p5": [8.0, 4.0], "p25": [9.0, 4.5],
-            "p50": [10.0, 5.0], "p75": [11.0, 5.5], "p95": [12.0, 6.0],
-        })
+        stats = pd.DataFrame(
+            {
+                "mean": [10.0, 5.0],
+                "std": [1.0, 0.5],
+                "p5": [8.0, 4.0],
+                "p25": [9.0, 4.5],
+                "p50": [10.0, 5.0],
+                "p75": [11.0, 5.5],
+                "p95": [12.0, 6.0],
+            }
+        )
         result = MCResult(
-            n_total=100, n_feasible=80, n_ecosim=0,
+            n_total=100,
+            n_feasible=80,
+            n_ecosim=0,
             ecopath_stats={"Biomass": stats},
             ecosim_stats=None,
-            ecopath_runs=None, ecosim_runs=None,
-            feasibility_rate=0.8, parameter_samples=None,
+            ecopath_runs=None,
+            ecosim_runs=None,
+            feasibility_rate=0.8,
+            parameter_samples=None,
         )
         df = result.to_dataframe()
         assert isinstance(df, pd.DataFrame)
@@ -60,11 +74,15 @@ class TestMCResult:
 
     def test_to_dict(self):
         result = MCResult(
-            n_total=10, n_feasible=8, n_ecosim=0,
+            n_total=10,
+            n_feasible=8,
+            n_ecosim=0,
             ecopath_stats={},
             ecosim_stats=None,
-            ecopath_runs=None, ecosim_runs=None,
-            feasibility_rate=0.8, parameter_samples=None,
+            ecopath_runs=None,
+            ecosim_runs=None,
+            feasibility_rate=0.8,
+            parameter_samples=None,
         )
         d = result.to_dict()
         assert isinstance(d, dict)
@@ -118,8 +136,9 @@ class TestRunMontecarlo:
 
     def test_store_runs(self):
         params = _make_mc_params()
-        config = MCConfig(n_samples=10, method="random", seed=42,
-                          ecopath_only=True, store_runs=True)
+        config = MCConfig(
+            n_samples=10, method="random", seed=42, ecopath_only=True, store_runs=True
+        )
         result = run_montecarlo(params, config)
         assert result.ecopath_runs is not None
         assert len(result.ecopath_runs) == result.n_feasible
@@ -142,8 +161,11 @@ class TestRunMontecarlo:
     def test_with_ecosim(self):
         params = _make_mc_params()
         config = MCConfig(
-            n_samples=5, method="random", seed=42,
-            ecopath_only=False, ecosim_years=range(1, 6),
+            n_samples=5,
+            method="random",
+            seed=42,
+            ecopath_only=False,
+            ecosim_years=range(1, 6),
         )
         result = run_montecarlo(params, config)
         assert result.n_ecosim > 0, "Expected at least 1 successful Ecosim run"
@@ -153,6 +175,7 @@ class TestRunMontecarlo:
         params = _make_mc_params()
         config = MCConfig(n_samples=5, method="random", seed=42, ecopath_only=True)
         calls = []
-        result = run_montecarlo(params, config,
-                                 progress_callback=lambda i, n: calls.append((i, n)))
+        result = run_montecarlo(
+            params, config, progress_callback=lambda i, n: calls.append((i, n))
+        )
         assert len(calls) > 0

@@ -1,4 +1,5 @@
 """Tests for pypath.core.ecotracer module."""
+
 import numpy as np
 import pytest
 
@@ -87,9 +88,9 @@ class TestEcotracerDeriv:
         Q = np.zeros((3, 3))
         deriv = ecotracer_deriv(conc, biomass, Q, params, n_living=2)
         # dC/dt = cenv + cimmig - (cdecay + cmetab) * 0 = cenv + cimmig
-        assert deriv[0] == pytest.approx(0.1)   # cenv only
+        assert deriv[0] == pytest.approx(0.1)  # cenv only
         assert deriv[1] == pytest.approx(0.05)  # cimmig only
-        assert deriv[2] == pytest.approx(0.0)   # detritus, no input, no fate
+        assert deriv[2] == pytest.approx(0.0)  # detritus, no input, no fate
 
     def test_decay_losses(self):
         """Positive concentration with decay/metabolism loses mass."""
@@ -157,6 +158,7 @@ class TestEcotracerStep:
     def test_analytic_update_with_loss(self):
         """Analytic solution matches exact for constant input."""
         import math
+
         params = EcotracerParams(
             czero=np.zeros(1),
             cenv=np.array([1.0]),
