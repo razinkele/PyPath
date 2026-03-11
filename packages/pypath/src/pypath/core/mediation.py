@@ -40,3 +40,45 @@ class MediationShape:
         if len(self.x_points) <= 1:
             return float(self.y_points[0]) if len(self.y_points) > 0 else 1.0
         return float(np.interp(relative_biomass, self.x_points, self.y_points))
+
+
+@dataclass
+class MediationLink:
+    """Maps a mediation shape to a specific interaction.
+
+    Exactly one target type should be specified:
+    - Group: prey_idx and pred_idx both set
+    - Fleet: fleet_idx set
+    - Landings: landing_group_idx and landing_fleet_idx both set
+
+    All indices are 0-based.
+    """
+
+    shape_id: int
+    mediator_idx: int
+    prey_idx: int | None = None
+    pred_idx: int | None = None
+    fleet_idx: int | None = None
+    landing_group_idx: int | None = None
+    landing_fleet_idx: int | None = None
+    weight: float = 1.0
+
+
+@dataclass
+class MediationCollection:
+    """Container for mediation shapes and their link assignments."""
+
+    shapes: list[MediationShape]
+    links: list[MediationLink]
+
+    @property
+    def group_links(self) -> list[MediationLink]:
+        return [l for l in self.links if l.prey_idx is not None and l.pred_idx is not None]
+
+    @property
+    def fleet_links(self) -> list[MediationLink]:
+        return [l for l in self.links if l.fleet_idx is not None]
+
+    @property
+    def landing_links(self) -> list[MediationLink]:
+        return [l for l in self.links if l.landing_group_idx is not None]
