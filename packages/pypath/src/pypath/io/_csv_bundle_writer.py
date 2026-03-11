@@ -526,6 +526,11 @@ class CsvBundleWriter:
         ]
         self._tables["EcosimTimeSeriesDataset"] = pd.DataFrame(ds_rows)
 
+        # Write empty season table so EwE 6 finds the expected table
+        self._tables["EcosimTimeSeriesSeason"] = pd.DataFrame(
+            columns=["TimeSeriesID", "ScenarioID", "Season", "Value"]
+        )
+
     def close(self) -> None:
         """Write all tables to a zip file, then atomically rename to final path."""
         manifest = {

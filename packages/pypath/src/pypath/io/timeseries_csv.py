@@ -38,6 +38,12 @@ def load_timeseries_csv(
 
 
 def _load_ewe_format(path: Path) -> EweTimeSeriesCollection:
+    """Load EwE CSV export format.
+
+    Note: group_idx is assigned sequentially (0, 1, 2, ...) based on column
+    position. This may not match actual model group indices if columns are
+    reordered. Use a ``group_map`` or the database reader for reliable mapping.
+    """
     df = pd.read_csv(path, header=0)
     series_names = list(df.columns[1:])
     dat_types_row = df.iloc[0]

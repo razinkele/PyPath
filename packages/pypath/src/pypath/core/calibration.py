@@ -48,7 +48,7 @@ class CalibrationResult:
     ss_by_group: dict[int, float]
     n_iterations: int
     converged: bool
-    fitted_scenario: object
+    fitted_scenario: RsimScenario | None
     link_map: list[tuple[int, int]]
 
 
@@ -234,8 +234,8 @@ def fit_to_timeseries(
 
         try:
             output = rsim_run(scenario)
-        except Exception as e:
-            logger.debug("Simulation failed: %s", e)
+        except (RuntimeError, ValueError, FloatingPointError) as e:
+            logger.warning("Simulation failed during optimization: %s", e)
             return 1e10
 
         predicted: dict[int, np.ndarray] = {}
