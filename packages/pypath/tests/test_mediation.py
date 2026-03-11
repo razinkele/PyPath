@@ -128,3 +128,115 @@ class TestMediationCollection:
         ]
         coll = MediationCollection(shapes=[self._make_shape()], links=links)
         assert len(coll.landing_links) == 1
+
+    def test_compute_group_multipliers_basic(self):
+        shape = MediationShape(
+            shape_id=1, name="test",
+            x_points=np.array([0.0, 1.0, 2.0]),
+            y_points=np.array([0.5, 1.0, 1.5]),
+        )
+        link = MediationLink(
+            shape_id=1, mediator_idx=0, prey_idx=1, pred_idx=2,
+        )
+        coll = MediationCollection(shapes=[shape], links=[link])
+        n = 4
+        BB = np.ones(n + 1)
+        Bbase = np.ones(n + 1)
+        BB[1] = 2.0  # mediator (idx 0) at 2x -> shape(2.0) = 1.5
+        ActiveLink = np.zeros((n + 1, n + 1), dtype=int)
+        ActiveLink[2, 3] = 1
+        mult = coll.compute_group_multipliers(BB, Bbase, ActiveLink)
+        assert mult.shape == (n + 1, n + 1)
+        assert mult[2, 3] == pytest.approx(1.5)
+        assert mult[1, 1] == pytest.approx(1.0)  # unaffected
+
+    def test_compute_group_multipliers_multiplicative(self):
+        shape1 = MediationShape(
+            shape_id=1, name="s1",
+            x_points=np.array([0.0, 1.0, 2.0]),
+            y_points=np.array([0.5, 1.0, 2.0]),
+        )
+        shape2 = MediationShape(
+            shape_id=2, name="s2",
+            x_points=np.array([0.0, 1.0, 2.0]),
+            y_points=np.array([0.25, 0.5, 0.75]),
+        )
+        link1 = MediationLink(shape_id=1, mediator_idx=0, prey_idx=2, pred_idx=3)
+        link2 = MediationLink(shape_id=2, mediator_idx=1, prey_idx=2, pred_idx=3)
+        coll = MediationCollection(shapes=[shape1, shape2], links=[link1, link2])
+        n = 5
+        BB = np.ones(n + 1)
+        Bbase = np.ones(n + 1)
+        BB[1] = 2.0  # mediator_idx=0 at 2x -> shape1(2.0) = 2.0
+        BB[2] = 1.0  # mediator_idx=1 at 1x -> shape2(1.0) = 0.5
+        ActiveLink = np.zeros((n + 1, n + 1), dtype=int)
+        ActiveLink[3, 4] = 1
+        mult = coll.compute_group_multipliers(BB, Bbase, ActiveLink)
+        assert mult[3, 4] == pytest.approx(2.0 * 0.5)  # multiplicative
+
+    def test_compute_group_multipliers_with_weight(self):
+        """Non-default weight scales the multiplier."""
+        shape = MediationShape(
+            shape_id=1, name="test",
+            x_points=np.array([0.0, 1.0, 2.0]),
+            y_points=np.array([0.5, 1.0, 1.5]),
+        )
+        link = MediationLink(
+            shape_id=1, mediator_idx=0, prey_idx=1, pred_idx=2, weight=0.5,
+        )
+        coll = MediationCollection(shapes=[shape], links=[link])
+        n = 4
+        BB = np.ones(n + 1)
+        Bbase = np.ones(n + 1)
+        BB[1] = 2.0  # mediator at 2x -> shape(2.0) = 1.5, * weight 0.5
+        ActiveLink = np.zeros((n + 1, n + 1), dtype=int)
+        ActiveLink[2, 3] = 1
+        mult = coll.compute_group_multipliers(BB, Bbase, ActiveLink)
+        assert mult[2, 3] == pytest.approx(1.5 * 0.5)
+
+    def test_compute_group_multipliers_empty(self):
+        coll = MediationCollection(shapes=[], links=[])
+        n = 3
+        BB = np.ones(n + 1)
+        Bbase = np.ones(n + 1)
+        ActiveLink = np.zeros((n + 1, n + 1), dtype=int)
+        mult = coll.compute_group_multipliers(BB, Bbase, ActiveLink)
+        np.testing.assert_array_equal(mult, np.ones((n + 1, n + 1)))
+
+    def test_compute_fleet_multipliers(self):
+        shape = MediationShape(
+            shape_id=1, name="test",
+            x_points=np.array([0.0, 1.0, 2.0]),
+            y_points=np.array([0.5, 1.0, 1.5]),
+        )
+        link = MediationLink(shape_id=1, mediator_idx=0, fleet_idx=1)
+        coll = MediationCollection(shapes=[shape], links=[link])
+        n = 4
+        BB = np.ones(n + 1)
+        Bbase = np.ones(n + 1)
+        BB[1] = 0.5  # mediator at 0.5x -> shape(0.5) = 0.75
+        fleet_mult = coll.compute_fleet_multipliers(BB, Bbase, n_fleets=3)
+        assert len(fleet_mult) == 3
+        assert fleet_mult[1] == pytest.approx(0.75)
+        assert fleet_mult[0] == pytest.approx(1.0)  # unaffected
+        assert fleet_mult[2] == pytest.approx(1.0)  # unaffected
+
+    def test_compute_landing_multipliers(self):
+        shape = MediationShape(
+            shape_id=1, name="test",
+            x_points=np.array([0.0, 1.0, 2.0]),
+            y_points=np.array([0.5, 1.0, 1.5]),
+        )
+        link = MediationLink(
+            shape_id=1, mediator_idx=0,
+            landing_group_idx=2, landing_fleet_idx=0,
+        )
+        coll = MediationCollection(shapes=[shape], links=[link])
+        n = 4
+        BB = np.ones(n + 1)
+        Bbase = np.ones(n + 1)
+        BB[1] = 2.0  # mediator at 2x -> shape(2.0) = 1.5
+        land_mult = coll.compute_landing_multipliers(BB, Bbase, n_fleets=2, n_groups=4)
+        assert land_mult.shape == (2, 4)
+        assert land_mult[0, 2] == pytest.approx(1.5)
+        assert land_mult[0, 0] == pytest.approx(1.0)  # unaffected

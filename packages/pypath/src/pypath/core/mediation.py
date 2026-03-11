@@ -82,3 +82,79 @@ class MediationCollection:
     @property
     def landing_links(self) -> list[MediationLink]:
         return [l for l in self.links if l.landing_group_idx is not None]
+
+    def _get_shape(self, shape_id: int) -> MediationShape | None:
+        for s in self.shapes:
+            if s.shape_id == shape_id:
+                return s
+        return None
+
+    def compute_group_multipliers(
+        self, BB: np.ndarray, Bbase: np.ndarray, ActiveLink: np.ndarray
+    ) -> np.ndarray:
+        """Compute 2D (n+1, n+1) multiplier matrix for group mediation.
+
+        For each group link, evaluate the shape at BB[mediator+1]/Bbase[mediator+1]
+        and set mult[prey+1, pred+1]. Multiple links on the same pair multiply together.
+        """
+        n_plus_1 = len(BB)
+        mult = np.ones((n_plus_1, n_plus_1))
+        for link in self.group_links:
+            shape = self._get_shape(link.shape_id)
+            if shape is None:
+                continue
+            med_col = link.mediator_idx + 1
+            if med_col >= n_plus_1 or Bbase[med_col] == 0:
+                continue
+            rel_b = BB[med_col] / Bbase[med_col]
+            val = shape.evaluate(rel_b) * link.weight
+            prey_row = link.prey_idx + 1
+            pred_col = link.pred_idx + 1
+            if prey_row < n_plus_1 and pred_col < n_plus_1:
+                mult[prey_row, pred_col] *= val
+        return mult
+
+    def compute_fleet_multipliers(
+        self, BB: np.ndarray, Bbase: np.ndarray, n_fleets: int
+    ) -> np.ndarray:
+        """Compute per-fleet multiplier array.
+
+        Each fleet link evaluates the shape at mediator relative biomass.
+        Default 1.0 for unaffected fleets.
+        """
+        mult = np.ones(n_fleets)
+        for link in self.fleet_links:
+            shape = self._get_shape(link.shape_id)
+            if shape is None:
+                continue
+            med_col = link.mediator_idx + 1
+            if med_col >= len(BB) or Bbase[med_col] == 0:
+                continue
+            rel_b = BB[med_col] / Bbase[med_col]
+            val = shape.evaluate(rel_b) * link.weight
+            if link.fleet_idx is not None and link.fleet_idx < n_fleets:
+                mult[link.fleet_idx] *= val
+        return mult
+
+    def compute_landing_multipliers(
+        self, BB: np.ndarray, Bbase: np.ndarray, n_fleets: int, n_groups: int
+    ) -> np.ndarray:
+        """Compute (n_fleets, n_groups) multiplier matrix for landings.
+
+        Default 1.0 for unaffected fleet-group combinations.
+        """
+        mult = np.ones((n_fleets, n_groups))
+        for link in self.landing_links:
+            shape = self._get_shape(link.shape_id)
+            if shape is None:
+                continue
+            med_col = link.mediator_idx + 1
+            if med_col >= len(BB) or Bbase[med_col] == 0:
+                continue
+            rel_b = BB[med_col] / Bbase[med_col]
+            val = shape.evaluate(rel_b) * link.weight
+            fi = link.landing_fleet_idx
+            gi = link.landing_group_idx
+            if fi is not None and gi is not None and fi < n_fleets and gi < n_groups:
+                mult[fi, gi] *= val
+        return mult
