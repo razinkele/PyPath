@@ -3595,3 +3595,127 @@ def read_ecotracer(db_path: str, n_groups: int) -> "EcotracerParams":
             pass
 
     return params
+
+
+def read_fleet_dynamics(
+    db_path: str,
+    n_fleets: int,
+    n_links: int,
+    n_groups: int,
+    fleet_ids: list[int],
+    fishing_links: dict,
+) -> "FleetEconParams":
+    """Read fleet dynamics parameters from an EwE database.
+
+    Parameters
+    ----------
+    db_path : str
+        Path to the .eweaccdb database file.
+    n_fleets : int
+        Number of fleets.
+    n_links : int
+        Number of fishing links (length of FishFrom array).
+    n_groups : int
+        Number of biological groups (NUM_LIVING + NUM_DEAD).
+    fleet_ids : list[int]
+        1-based EcopathFleetID values, in fleet array order.
+    fishing_links : dict
+        Must contain 'FishFrom' and 'FishThrough' arrays (1-based).
+
+    Returns
+    -------
+    FleetEconParams
+        Fleet dynamics parameters. Returns defaults if tables missing.
+    """
+    from pypath.core.fleet_dynamics import create_fleet_econ_params
+
+    try:
+        tables = list_ewemdb_tables(db_path)
+    except Exception:
+        return create_fleet_econ_params(n_fleets, n_links)
+
+    params = create_fleet_econ_params(n_fleets, n_links)
+
+    # Build fleet_id -> 0-based index mapping
+    fid_to_idx = {fid: i for i, fid in enumerate(fleet_ids)}
+
+    # Read costs from EcopathFleet
+    if "EcopathFleet" in tables:
+        try:
+            fl_df = read_ewemdb_table(db_path, "EcopathFleet")
+            for _, row in fl_df.iterrows():
+                fid = int(row.get("FleetID", 0))
+                idx = fid_to_idx.get(fid)
+                if idx is not None and idx < n_fleets:
+                    if pd.notna(row.get("FixedCost")):
+                        params.fixed_cost[idx] = float(row["FixedCost"])
+                    if pd.notna(row.get("VariableCost")):
+                        params.variable_cost[idx] = float(row["VariableCost"])
+                    if pd.notna(row.get("SailingCost")):
+                        params.sailing_cost[idx] = float(row["SailingCost"])
+        except Exception:
+            pass
+
+    # Read prices from EcopathCatch — map (GroupID, FleetID) to fishing links
+    if "EcopathCatch" in tables:
+        try:
+            catch_df = read_ewemdb_table(db_path, "EcopathCatch")
+            price_map = {}
+            for _, row in catch_df.iterrows():
+                gid = int(row.get("GroupID", 0))
+                fid = int(row.get("FleetID", 0))
+                if pd.notna(row.get("Price")):
+                    price_map[(gid, fid)] = float(row["Price"])
+
+            fish_from = fishing_links.get("FishFrom", [])
+            fish_through = fishing_links.get("FishThrough", [])
+            for i in range(1, min(len(fish_from), len(fish_through), n_links)):
+                grp_1based = int(fish_from[i])
+                # Match gear to fleet: try each fleet_id to find price
+                for fid in fleet_ids:
+                    key = (grp_1based, fid)
+                    if key in price_map:
+                        params.price[i] = price_map[key]
+                        break
+        except Exception:
+            pass
+
+    # Read effort dynamics from EcosimScenarioFleet
+    if "EcosimScenarioFleet" in tables:
+        try:
+            sf_df = read_ewemdb_table(db_path, "EcosimScenarioFleet")
+            for _, row in sf_df.iterrows():
+                fid = int(row.get("EcopathFleetID", 0))
+                idx = fid_to_idx.get(fid)
+                if idx is not None and idx < n_fleets:
+                    if pd.notna(row.get("CapDepreciate")):
+                        params.cap_depreciate[idx] = float(row["CapDepreciate"])
+                    if pd.notna(row.get("CapBaseGrowth")):
+                        params.cap_base_growth[idx] = float(row["CapBaseGrowth"])
+                    if pd.notna(row.get("EffPower")):
+                        params.eff_power[idx] = float(row["EffPower"])
+        except Exception:
+            pass
+
+    # Read quotas from EcosimScenarioQuota
+    if "EcosimScenarioQuota" in tables:
+        try:
+            q_df = read_ewemdb_table(db_path, "EcosimScenarioQuota")
+            if len(q_df) > 0:
+                tac = np.zeros((n_fleets, n_groups))
+                has_quota = False
+                for _, row in q_df.iterrows():
+                    fid = int(row.get("FleetID", 0))
+                    gid = int(row.get("GroupID", 0))
+                    fidx = fid_to_idx.get(fid)
+                    gidx = gid - 1  # 1-based to 0-based
+                    if fidx is not None and 0 <= gidx < n_groups:
+                        if pd.notna(row.get("TAC")) and float(row["TAC"]) > 0:
+                            tac[fidx, gidx] = float(row["TAC"])
+                            has_quota = True
+                if has_quota:
+                    params.tac = tac
+        except Exception:
+            pass
+
+    return params
