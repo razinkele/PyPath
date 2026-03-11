@@ -90,15 +90,21 @@ Key behaviors:
 
 ### Quota enforcement (separate from effort dynamics)
 
+**Indexing convention**: `FishThrough[i]` and `FishFrom[i]` are 1-based (Ecosim internals). `fleet_lookup` maps `gear_0based_group_idx -> 1-based_gear_array_idx`. For 0-based fleet arrays (capacity, cost, tac), use `gear_idx - 1`. For 0-based group indexing in `tac`, use `group_idx - 1`.
+
 ```
 for each fishing link i:
-    fleet_g = FishThrough[i] mapped to fleet index
-    group_j = FishFrom[i]
-    if tac is not None and tac[fleet_g, group_j] > 0:
-        if cumulative_catch[fleet_g, group_j] >= tac[fleet_g, group_j]:
+    gear_group = FishThrough[i]          # 1-based group index of fleet
+    gear_0based = gear_group - 1
+    gear_idx = fleet_lookup[gear_0based]  # 1-based gear array index
+    fleet_0 = gear_idx - 1               # 0-based fleet index for tac/capacity
+    group_0 = FishFrom[i] - 1            # 0-based group index
+
+    if tac is not None and tac[fleet_0, group_0] > 0:
+        if cumulative_catch[fleet_0, group_0] >= tac[fleet_0, group_0]:
             effective_FishQ[i] = 0  # stop fishing this link for rest of year
 
-# Reset cumulative catch at year boundary (month % 12 == 1)
+# Reset cumulative catch at year boundary: (month - 1) % 12 == 0 and month > 1
 ```
 
 ### Functions
@@ -114,10 +120,14 @@ def fleet_dynamics_step(
     params: FleetEconParams,
     fish_through: np.ndarray,      # (n_links,) fleet index per fishing link (1-based)
     fish_from: np.ndarray,         # (n_links,) group index per fishing link (1-based)
-    fleet_lookup: dict,            # maps gear_0based -> fleet array index (1-based)
+    fleet_lookup: dict,            # maps gear_0based -> 1-based gear array index
+    n_fleets: int,                 # number of fleets (for 0-based array sizing)
     dt: float = 1.0 / 12,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Update fleet capacity and compute effort multipliers.
+
+    Internally converts fleet_lookup values to 0-based (gear_idx - 1) for
+    indexing into capacity/cost/revenue arrays.
 
     Returns (new_capacity, effort_multipliers) where effort_multipliers
     has shape (n_fleets,) and replaces ForcedEffort for the next month.
@@ -126,10 +136,10 @@ def fleet_dynamics_step(
 def apply_quota_caps(
     fish_q: np.ndarray,            # (n_links,) current FishQ values
     cumulative_catch: np.ndarray,  # (n_fleets, n_groups) cumulative annual catch
-    tac: np.ndarray,               # (n_fleets, n_groups) TAC allocation
-    fish_through: np.ndarray,      # (n_links,) fleet index per fishing link (1-based)
+    tac: np.ndarray,               # (n_fleets, n_groups) TAC allocation (0-based both axes)
+    fish_through: np.ndarray,      # (n_links,) fleet group index per fishing link (1-based)
     fish_from: np.ndarray,         # (n_links,) group index per fishing link (1-based)
-    fleet_lookup: dict,            # maps gear_0based -> fleet array index (1-based)
+    fleet_lookup: dict,            # maps gear_0based -> 1-based gear array index
 ) -> np.ndarray:
     """Zero out FishQ for links that have reached their TAC.
 
@@ -145,16 +155,16 @@ def apply_quota_caps(
 
 When `fleet_dynamics` is provided:
 
-1. **Before loop**: Initialize `capacity = ForcedEffort[0, 1:]` (initial effort = initial capacity for each gear). Allocate output arrays. Initialize `cumulative_catch = zeros(n_fleets, n_groups)`. Store initial effort at t=0.
+1. **Before loop**: Initialize `capacity = scenario.fishing.ForcedEffort[0, 1:].copy()` (initial effort = initial capacity for each gear, from `RsimFishing.ForcedEffort` which has shape `(n_months, n_gears+1)` with 1-based gear indexing). Allocate output arrays. Initialize `cumulative_catch = zeros(n_fleets, n_groups)`. Store initial effort at t=0.
 
 2. **Each monthly step** (after catch computation at lines 2255-2287):
-   - Accumulate catch into `cumulative_catch` by fleet and group
+   - Accumulate catch into `cumulative_catch` by fleet and group (use `out_gear_catch[month, :]` for per-link catch)
    - Call `fleet_dynamics_step(capacity, monthly_catch_links, cumulative_catch, fleet_dynamics, ...)` to get updated capacity and effort multipliers
-   - Write new effort multipliers into `forcing_dict["ForcedEffort"]` for next month's derivative computation
+   - Write new effort into `fishing_obj.ForcedEffort[month, 1:]` so the next iteration's `forcing_dict` construction picks it up (since `forcing_dict` is rebuilt each month from `fishing_obj.ForcedEffort[month - 1]`)
    - If `tac` is set, call `apply_quota_caps()` and modify effective FishQ for next step
    - Store results in output arrays
 
-3. **Year boundary** (when `month % 12 == 0`): Reset `cumulative_catch` to zeros for new quota year.
+3. **Year boundary** (when `(month - 1) % 12 == 0 and month > 1`): Reset `cumulative_catch` to zeros for new quota year.
 
 4. **After loop**: Compute annual averages/totals, attach `FleetDynamicsResult` to `RsimOutput.fleet_dynamics`.
 
@@ -162,7 +172,9 @@ When `fleet_dynamics` is provided:
 
 **Interaction with ForcedEffort**: When fleet dynamics is active, the dynamic effort *replaces* the forced effort for each gear each month. The initial ForcedEffort[0] serves as the starting capacity. Subsequent months use dynamically computed effort.
 
-**Interaction with mediation**: Fleet mediation multipliers (from Phase 2) are applied *after* effort dynamics. The dynamic effort is the base, mediation modifies it further.
+**Interaction with mediation**: Fleet mediation multipliers (from Phase 2) are applied *after* effort dynamics. The dynamic effort is the base, mediation modifies it further. No additional code is needed — mediation is already applied inside `deriv_vector()` at line 1270 (`effort_mult *= _fleet_med[gear_idx]`), so it naturally multiplies on top of the dynamic effort written to `ForcedEffort`.
+
+**Note on schema tables**: The `EcosimScenarioFleet` and `EcosimScenarioQuota` column names should be validated against an actual EwE 6 `.eweaccdb` database during implementation. The `CostOfEffort` column in `EcosimScenarioFleet` is separate from `VariableCost` in `EcopathFleet` — the former may represent an additional effort-specific cost modifier.
 
 ---
 
