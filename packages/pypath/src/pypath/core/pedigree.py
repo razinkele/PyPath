@@ -176,3 +176,129 @@ def build_distributions(
             ))
 
     return distributions
+
+
+def sample_parameters(
+    distributions: list[ParameterDistribution],
+    n_samples: int,
+    method: str = "lhs",
+    rng: np.random.Generator | None = None,
+) -> list[dict]:
+    """Generate parameter samples from distributions.
+
+    Parameters
+    ----------
+    distributions : list[ParameterDistribution]
+        Parameter distributions from build_distributions().
+    n_samples : int
+        Number of samples to generate.
+    method : str
+        "lhs" for Latin Hypercube Sampling, "random" for direct sampling.
+    rng : np.random.Generator, optional
+        Random number generator for reproducibility.
+
+    Returns
+    -------
+    list[dict]
+        N parameter sets. Keys are (param_name, group_idx) tuples.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    scalars = [d for d in distributions if isinstance(d, ScalarDistribution)]
+    diets = [d for d in distributions if isinstance(d, DietDistribution)]
+
+    # Generate scalar samples
+    if method == "lhs" and len(scalars) > 0:
+        from scipy.stats.qmc import LatinHypercube
+
+        sampler = LatinHypercube(d=len(scalars), seed=rng)
+        unit_samples = sampler.random(n=n_samples)  # (n_samples, n_scalars)
+        scalar_samples = np.empty_like(unit_samples)
+        for j, dist in enumerate(scalars):
+            sigma = math.sqrt(math.log(1 + dist.cv**2))
+            mu = math.log(dist.base_value) - sigma**2 / 2
+            # Map uniform [0,1] to lognormal via inverse CDF
+            from scipy.stats import lognorm
+
+            scalar_samples[:, j] = lognorm.ppf(
+                unit_samples[:, j], s=sigma, scale=math.exp(mu),
+            )
+    else:
+        # Direct random sampling
+        scalar_samples = np.empty((n_samples, len(scalars)))
+        for j, dist in enumerate(scalars):
+            sigma = math.sqrt(math.log(1 + dist.cv**2))
+            mu = math.log(dist.base_value) - sigma**2 / 2
+            scalar_samples[:, j] = rng.lognormal(mean=mu, sigma=sigma, size=n_samples)
+
+    # Generate diet samples (always direct — no LHS for Dirichlet)
+    # Note: the import row (last element) is included in Dirichlet sampling
+    # if it has a non-zero proportion. This means import fraction varies
+    # with other diet proportions. To fix import, set its proportion to 0.
+    diet_samples: list[list[np.ndarray]] = []
+    for dist in diets:
+        nonzero_mask = dist.base_proportions > 0
+        p_nonzero = dist.base_proportions[nonzero_mask]
+        alpha = p_nonzero / dist.cv**2
+        samples_for_diet = []
+        for _ in range(n_samples):
+            sampled = rng.dirichlet(alpha)
+            full = np.zeros_like(dist.base_proportions)
+            full[nonzero_mask] = sampled
+            samples_for_diet.append(full)
+        diet_samples.append(samples_for_diet)
+
+    # Assemble into list of dicts
+    result = []
+    for i in range(n_samples):
+        sample: dict = {}
+        for j, dist in enumerate(scalars):
+            sample[(dist.param_name, dist.group_idx)] = float(scalar_samples[i, j])
+        for k, dist in enumerate(diets):
+            sample[("Diet", dist.pred_idx)] = diet_samples[k][i]
+        result.append(sample)
+
+    return result
+
+
+def apply_sample(params: "RpathParams", sample: dict) -> "RpathParams":
+    """Apply a parameter sample to a copy of RpathParams.
+
+    Parameters
+    ----------
+    params : RpathParams
+        Original parameters (not modified).
+    sample : dict
+        Parameter sample from sample_parameters().
+
+    Returns
+    -------
+    RpathParams
+        New params with sampled values applied.
+    """
+    from pypath.core.params import RpathParams, RpathStanzaParams
+
+    new_model = params.model.copy()
+    new_diet = params.diet.copy()
+
+    # Deep copy stanzas if present
+    new_stanzas = copy.deepcopy(params.stanzas)
+
+    for key, value in sample.items():
+        param_name, idx = key
+        if param_name == "Diet":
+            group_name = new_model.loc[idx, "Group"]
+            if group_name in new_diet.columns:
+                new_diet[group_name] = value
+        else:
+            new_model.loc[idx, param_name] = value
+
+    return RpathParams(
+        model=new_model,
+        diet=new_diet,
+        stanzas=new_stanzas,
+        pedigree=params.pedigree,
+        remarks=params.remarks,
+        ecosim=params.ecosim,
+    )

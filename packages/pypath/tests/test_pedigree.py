@@ -128,3 +128,101 @@ class TestBuildDistributions:
                   if isinstance(d, ScalarDistribution)
                   and d.param_name == "PB" and d.group_idx == 2]
         assert len(det_pb) == 0
+
+
+from pypath.core.pedigree import sample_parameters, apply_sample
+
+
+class TestSampleParameters:
+    def _make_distributions(self):
+        return [
+            ScalarDistribution("Biomass", 0, 10.0, 0.2),
+            ScalarDistribution("PB", 0, 200.0, 0.3),
+            ScalarDistribution("Biomass", 1, 5.0, 0.1),
+            DietDistribution(1, np.array([0.6, 0.3, 0.1, 0.0]), 0.2),
+        ]
+
+    def test_returns_correct_count(self):
+        dists = self._make_distributions()
+        samples = sample_parameters(dists, n_samples=5, method="random",
+                                     rng=np.random.default_rng(42))
+        assert len(samples) == 5
+
+    def test_sample_keys(self):
+        dists = self._make_distributions()
+        samples = sample_parameters(dists, n_samples=3, method="random",
+                                     rng=np.random.default_rng(42))
+        s = samples[0]
+        assert ("Biomass", 0) in s
+        assert ("PB", 0) in s
+        assert ("Diet", 1) in s
+
+    def test_scalar_values_positive(self):
+        dists = [ScalarDistribution("Biomass", 0, 10.0, 0.2)]
+        samples = sample_parameters(dists, n_samples=100, method="random",
+                                     rng=np.random.default_rng(42))
+        for s in samples:
+            assert s[("Biomass", 0)] > 0
+
+    def test_diet_sums_to_one(self):
+        dists = [DietDistribution(1, np.array([0.6, 0.3, 0.1, 0.0]), 0.2)]
+        samples = sample_parameters(dists, n_samples=50, method="random",
+                                     rng=np.random.default_rng(42))
+        for s in samples:
+            diet = s[("Diet", 1)]
+            assert np.sum(diet) == pytest.approx(1.0, abs=1e-10)
+            assert diet[3] == 0.0  # zero preserved
+
+    def test_seed_reproducibility(self):
+        dists = self._make_distributions()
+        s1 = sample_parameters(dists, 5, "random", rng=np.random.default_rng(123))
+        s2 = sample_parameters(dists, 5, "random", rng=np.random.default_rng(123))
+        for a, b in zip(s1, s2):
+            assert a[("Biomass", 0)] == b[("Biomass", 0)]
+
+    def test_lhs_returns_correct_count(self):
+        dists = [ScalarDistribution("Biomass", 0, 10.0, 0.2)]
+        samples = sample_parameters(dists, n_samples=10, method="lhs",
+                                     rng=np.random.default_rng(42))
+        assert len(samples) == 10
+
+    def test_lhs_values_positive(self):
+        dists = [ScalarDistribution("Biomass", 0, 10.0, 0.2)]
+        samples = sample_parameters(dists, n_samples=50, method="lhs",
+                                     rng=np.random.default_rng(42))
+        for s in samples:
+            assert s[("Biomass", 0)] > 0
+
+
+class TestApplySample:
+    def test_applies_scalar_values(self):
+        params = create_rpath_params(
+            groups=["Producer", "Consumer", "Detritus"], types=[1, 0, 2],
+        )
+        params.model.loc[0, "Biomass"] = 10.0
+        params.model.loc[1, "Biomass"] = 5.0
+        sample = {("Biomass", 0): 12.0, ("Biomass", 1): 4.5}
+        new_params = apply_sample(params, sample)
+        assert new_params.model.loc[0, "Biomass"] == 12.0
+        assert new_params.model.loc[1, "Biomass"] == 4.5
+
+    def test_original_unchanged(self):
+        params = create_rpath_params(
+            groups=["Producer", "Consumer", "Detritus"], types=[1, 0, 2],
+        )
+        params.model.loc[0, "Biomass"] = 10.0
+        sample = {("Biomass", 0): 99.0}
+        apply_sample(params, sample)
+        assert params.model.loc[0, "Biomass"] == 10.0
+
+    def test_applies_diet(self):
+        params = create_rpath_params(
+            groups=["Producer", "Consumer", "Detritus"], types=[1, 0, 2],
+        )
+        params.diet["Consumer"] = [0.8, 0.0, 0.2, 0.0]
+        new_diet = np.array([0.7, 0.0, 0.3, 0.0])
+        sample = {("Diet", 1): new_diet}
+        new_params = apply_sample(params, sample)
+        np.testing.assert_array_almost_equal(
+            new_params.diet["Consumer"].values, new_diet,
+        )
