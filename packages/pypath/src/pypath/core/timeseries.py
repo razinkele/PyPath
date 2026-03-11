@@ -241,3 +241,39 @@ def apply_timeseries_drivers(
         col = s.group_idx + 1
         n_years = scenario.fishing.ForcedFRate.shape[0]
         scenario.fishing.ForcedFRate[:, col] = _interpolate_to_length(s.values, n_years)
+
+
+def load_timeseries(path: str | Path) -> EweTimeSeriesCollection:
+    """Load time series from a file, dispatching by extension.
+
+    Supported extensions:
+    - ``.csv`` -> CSV loader (simple format)
+    - ``.eweaccdb``, ``.ewemdb``, ``.accdb`` -> EwE database reader
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the time series file.
+
+    Returns
+    -------
+    EweTimeSeriesCollection
+
+    Raises
+    ------
+    ValueError
+        If the file extension is not recognized.
+    """
+    path = Path(path)
+    ext = path.suffix.lower()
+    if ext == ".csv":
+        from pypath.io.timeseries_csv import load_timeseries_csv
+        return load_timeseries_csv(path, format="simple")
+    elif ext in (".eweaccdb", ".ewemdb", ".accdb"):
+        from pypath.io.ewemdb import read_timeseries
+        return read_timeseries(str(path))
+    else:
+        raise ValueError(
+            f"Unsupported file extension '{ext}'. "
+            f"Use .csv, .eweaccdb, .ewemdb, or .accdb."
+        )

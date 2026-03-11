@@ -276,3 +276,24 @@ class TestApplyTimeseriesDrivers:
         assert abs(bio[0] - 5.0) < 0.5
         assert abs(bio[-1] - 7.0) < 0.5
         assert 5.0 < bio[12] < 6.0
+
+
+from pypath.core.timeseries import load_timeseries
+
+
+class TestLoadTimeseries:
+    def test_csv_dispatch(self, tmp_path):
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text(
+            "time,group,value,dat_type\n"
+            "1,0,1.0,0\n"
+            "2,0,1.2,0\n"
+        )
+        coll = load_timeseries(csv_path)
+        assert len(coll.series) == 1
+
+    def test_unknown_extension_raises(self, tmp_path):
+        bad_path = tmp_path / "test.xyz"
+        bad_path.write_text("data")
+        with pytest.raises(ValueError, match="extension"):
+            load_timeseries(bad_path)
