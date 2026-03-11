@@ -3243,3 +3243,89 @@ def check_ewemdb_support() -> Dict[str, bool]:
         "mdb_tools": HAS_MDB_TOOLS,
         "any_available": HAS_PYODBC or HAS_PYPYODBC or HAS_MDB_TOOLS,
     }
+
+
+def read_timeseries(
+    filepath: str, scenario: int = 1
+) -> "EweTimeSeriesCollection":
+    """Read time series data from an EwE database.
+
+    Reads the EcosimTimeSeries and EcosimTimeSeriesValues tables and
+    constructs an EweTimeSeriesCollection. If tables are missing,
+    returns an empty collection.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the EwE database file (.eweaccdb, .ewemdb, or .accdb).
+    scenario : int
+        Scenario ID to filter by (default 1).
+
+    Returns
+    -------
+    EweTimeSeriesCollection
+        Collection of all time series in the database.
+    """
+    from pypath.core.timeseries import EweTimeSeries, EweTimeSeriesCollection
+
+    try:
+        tables = list_ewemdb_tables(filepath)
+    except Exception:
+        return EweTimeSeriesCollection([])
+
+    if "EcosimTimeSeries" not in tables or "EcosimTimeSeriesValues" not in tables:
+        return EweTimeSeriesCollection([])
+
+    try:
+        meta_df = read_ewemdb_table(filepath, "EcosimTimeSeries")
+        values_df = read_ewemdb_table(filepath, "EcosimTimeSeriesValues")
+    except Exception:
+        return EweTimeSeriesCollection([])
+
+    if meta_df.empty or values_df.empty:
+        return EweTimeSeriesCollection([])
+
+    # Filter by scenario if ScenarioID column exists
+    if "ScenarioID" in meta_df.columns:
+        meta_df = meta_df[meta_df["ScenarioID"] == scenario]
+    if "ScenarioID" in values_df.columns:
+        values_df = values_df[values_df["ScenarioID"] == scenario]
+
+    series_list = []
+    for _, row in meta_df.iterrows():
+        ts_id = int(row["TimeSeriesID"])
+        name = str(row.get("Name", f"Series_{ts_id}"))
+        dat_type = int(row.get("DatType", 0))
+
+        group_id = row.get("GroupID")
+        group_idx = int(group_id) - 1 if pd.notna(group_id) and int(group_id) > 0 else None
+
+        fleet_id = row.get("FleetID")
+        fleet_idx = int(fleet_id) - 1 if pd.notna(fleet_id) and int(fleet_id) > 0 else None
+
+        dataset_id = int(row.get("DatasetID", 0)) if pd.notna(row.get("DatasetID")) else 0
+
+        # WtType is a method enum (0=SS, 1=SSLog, etc.), NOT a weight value.
+        weight = 1.0
+
+        # Extract values for this series, sorted by timestep
+        ts_vals = values_df[values_df["TimeSeriesID"] == ts_id].sort_values("TimeStep")
+        values = ts_vals["Value"].to_numpy(dtype=float)
+
+        if len(values) == 0:
+            continue
+
+        series_list.append(
+            EweTimeSeries(
+                series_id=ts_id,
+                name=name,
+                dat_type=dat_type,
+                group_idx=group_idx,
+                fleet_idx=fleet_idx,
+                values=values,
+                weight=weight,
+                dataset_id=dataset_id,
+            )
+        )
+
+    return EweTimeSeriesCollection(series_list)
