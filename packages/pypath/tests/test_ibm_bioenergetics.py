@@ -7,9 +7,8 @@ allometric length conversion, metabolism, assimilation, and the
 integrated growth step.
 """
 
-import pytest
-
 import numpy as np
+import pytest
 
 from pypath.ibm.bioenergetics import (
     BioenergParams,
@@ -353,14 +352,24 @@ class TestGrowthStepBatch:
         dt = 1.0 / 12.0
 
         new_w, new_e = growth_step_batch(
-            weights, energy_reserves, consumptions,
-            temperature, is_mature, dt, default_params,
+            weights,
+            energy_reserves,
+            consumptions,
+            temperature,
+            is_mature,
+            dt,
+            default_params,
         )
 
         for i in range(3):
             sw, se = growth_step(
-                weights[i], energy_reserves[i], consumptions[i],
-                temperature, bool(is_mature[i]), dt, default_params,
+                weights[i],
+                energy_reserves[i],
+                consumptions[i],
+                temperature,
+                bool(is_mature[i]),
+                dt,
+                default_params,
             )
             assert new_w[i] == pytest.approx(sw, rel=1e-10)
             assert new_e[i] == pytest.approx(se, rel=1e-10)
@@ -373,7 +382,12 @@ class TestGrowthStepBatch:
         is_mature = np.array([False])
 
         new_w, _ = growth_step_batch(
-            weights, energy_reserves, consumptions,
-            15.0, is_mature, 1.0, default_params,
+            weights,
+            energy_reserves,
+            consumptions,
+            15.0,
+            is_mature,
+            1.0,
+            default_params,
         )
         assert new_w[0] >= 0.1

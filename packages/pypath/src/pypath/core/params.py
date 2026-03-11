@@ -433,7 +433,8 @@ def check_rpath_params(params: RpathParams) -> bool:
     # Check for invalid QB values (negative or sentinel -9999)
     if "QB" in consumers.columns:
         invalid_qb = consumers[
-            consumers["QB"].notna() & ((consumers["QB"] < 0) | (consumers["QB"] == -9999))
+            consumers["QB"].notna()
+            & ((consumers["QB"] < 0) | (consumers["QB"] == -9999))
         ]
         if len(invalid_qb) > 0:
             groups = invalid_qb["Group"].tolist()

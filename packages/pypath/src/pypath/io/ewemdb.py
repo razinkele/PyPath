@@ -604,7 +604,7 @@ def read_ewemdb(
     found_remarks_cols = []
 
     # Create ID to group name mapping (biological groups only, not fleets)
-    bio_group_names = group_names[: n_bio_groups]
+    bio_group_names = group_names[:n_bio_groups]
     id_col = next(
         (
             c
@@ -2802,9 +2802,7 @@ def _apply_effort_shapes(
     into rsim.fishing.ForcedEffort.
     """
     try:
-        scenario_fleet_df = _try_read_table_variants(
-            filepath, ["EcosimScenarioFleet"]
-        )
+        scenario_fleet_df = _try_read_table_variants(filepath, ["EcosimScenarioFleet"])
         fish_rate_shapes_df = _try_read_table_variants(
             filepath, ["EcosimShapeFishRate"]
         )
@@ -2887,9 +2885,7 @@ def _apply_forcing_shapes(
     through EcosimScenarioGroup, and applies them to rsim.forcing arrays.
     """
     try:
-        shape_time_df = _try_read_table_variants(
-            filepath, ["EcosimShapeTime"]
-        )
+        shape_time_df = _try_read_table_variants(filepath, ["EcosimShapeTime"])
         scenario_group_df = selected.get("scenario_group_df")
         if shape_time_df is None or scenario_group_df is None:
             return
@@ -3064,7 +3060,9 @@ def ecosim_scenario_from_ewemdb(
     scenario_overrides = _build_scenario_overrides(params, selected, group_names)
 
     # Create RsimScenario with overrides applied
-    rsim = rsim_scenario(balanced, params, years=years, scenario_overrides=scenario_overrides)
+    rsim = rsim_scenario(
+        balanced, params, years=years, scenario_overrides=scenario_overrides
+    )
 
     # Replace default forcing/fishing with ones parsed from the DB if available
     try:
@@ -3245,9 +3243,7 @@ def check_ewemdb_support() -> Dict[str, bool]:
     }
 
 
-def read_timeseries(
-    filepath: str, scenario: int = 1
-) -> "EweTimeSeriesCollection":
+def read_timeseries(filepath: str, scenario: int = 1) -> "EweTimeSeriesCollection":
     """Read time series data from an EwE database.
 
     Reads the EcosimTimeSeries and EcosimTimeSeriesValues tables and
@@ -3298,12 +3294,18 @@ def read_timeseries(
         dat_type = int(row.get("DatType", 0))
 
         group_id = row.get("GroupID")
-        group_idx = int(group_id) - 1 if pd.notna(group_id) and int(group_id) > 0 else None
+        group_idx = (
+            int(group_id) - 1 if pd.notna(group_id) and int(group_id) > 0 else None
+        )
 
         fleet_id = row.get("FleetID")
-        fleet_idx = int(fleet_id) - 1 if pd.notna(fleet_id) and int(fleet_id) > 0 else None
+        fleet_idx = (
+            int(fleet_id) - 1 if pd.notna(fleet_id) and int(fleet_id) > 0 else None
+        )
 
-        dataset_id = int(row.get("DatasetID", 0)) if pd.notna(row.get("DatasetID")) else 0
+        dataset_id = (
+            int(row.get("DatasetID", 0)) if pd.notna(row.get("DatasetID")) else 0
+        )
 
         # WtType is a method enum (0=SS, 1=SSLog, etc.), NOT a weight value.
         weight = 1.0

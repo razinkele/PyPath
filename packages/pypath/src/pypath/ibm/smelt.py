@@ -39,8 +39,6 @@ from pypath.ibm.behavior import (
 )
 from pypath.ibm.bioenergetics import (
     BioenergParams,
-    allometric_length,
-    growth_step,
     growth_step_batch,
 )
 from pypath.ibm.predation import PredationParams, apply_predation_mortality
@@ -404,7 +402,7 @@ class SmeltIBM(IBMGroup):
 
         # Vectorized max_consumption: 0.1 * weight^0.7 * dt * 365
         weights = np.array([ind.weight for ind in self.individuals])
-        max_consumptions = 0.1 * (weights ** 0.7) * dt * 365.0
+        max_consumptions = 0.1 * (weights**0.7) * dt * 365.0
 
         # Foraging loop (sequential — adaptive_forage has iterative redistribution)
         for i, ind in enumerate(self.individuals):
@@ -434,7 +432,9 @@ class SmeltIBM(IBMGroup):
         )
 
         # Batch allometric length
-        new_lengths = sp.bioenerg.a_length * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length
+        new_lengths = (
+            sp.bioenerg.a_length * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length
+        )
 
         # Write back to individuals
         for i, ind in enumerate(self.individuals):

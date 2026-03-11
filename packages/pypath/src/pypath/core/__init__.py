@@ -99,6 +99,7 @@ try:
     HAS_OPTIMIZATION = bool(HAS_SKOPT)
 except ImportError:
     HAS_OPTIMIZATION = False
+from pypath.core.calibration import CalibrationResult, fit_to_timeseries
 from pypath.core.plotting import (
     HAS_NETWORKX,
     HAS_PLOTLY,
@@ -123,7 +124,6 @@ from pypath.core.timeseries import (
     apply_timeseries_drivers,
     load_timeseries,
 )
-from pypath.core.calibration import CalibrationResult, fit_to_timeseries
 
 __all__ = [
     # Ecopath

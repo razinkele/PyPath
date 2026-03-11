@@ -1,6 +1,7 @@
 """Tests for Ftime (foraging time) dynamic adjustment matching Rpath."""
-import numpy as np
+
 import pytest
+
 from pypath.core.ecosim import _ftime_update_rpath
 
 

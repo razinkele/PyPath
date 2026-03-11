@@ -226,35 +226,43 @@ EWE_TABLES = {
             ("Title", "TEXT"),
         ]
     ),
-    "EcosimTimeSeries": OrderedDict([
-        ("TimeSeriesID", "INTEGER"),
-        ("ScenarioID", "INTEGER"),
-        ("Name", "TEXT"),
-        ("DatType", "INTEGER"),
-        ("GroupID", "INTEGER"),
-        ("FleetID", "INTEGER"),
-        ("DatasetID", "INTEGER"),
-        ("WtType", "INTEGER"),
-        ("PoolColor", "INTEGER"),
-    ]),
-    "EcosimTimeSeriesValues": OrderedDict([
-        ("TimeSeriesID", "INTEGER"),
-        ("ScenarioID", "INTEGER"),
-        ("TimeStep", "INTEGER"),
-        ("Value", "DOUBLE"),
-    ]),
-    "EcosimTimeSeriesDataset": OrderedDict([
-        ("DatasetID", "INTEGER"),
-        ("ScenarioID", "INTEGER"),
-        ("DatasourceName", "TEXT"),
-        ("Enabled", "YESNO"),
-    ]),
-    "EcosimTimeSeriesSeason": OrderedDict([
-        ("TimeSeriesID", "INTEGER"),
-        ("ScenarioID", "INTEGER"),
-        ("Season", "INTEGER"),
-        ("Value", "DOUBLE"),
-    ]),
+    "EcosimTimeSeries": OrderedDict(
+        [
+            ("TimeSeriesID", "INTEGER"),
+            ("ScenarioID", "INTEGER"),
+            ("Name", "TEXT"),
+            ("DatType", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("DatasetID", "INTEGER"),
+            ("WtType", "INTEGER"),
+            ("PoolColor", "INTEGER"),
+        ]
+    ),
+    "EcosimTimeSeriesValues": OrderedDict(
+        [
+            ("TimeSeriesID", "INTEGER"),
+            ("ScenarioID", "INTEGER"),
+            ("TimeStep", "INTEGER"),
+            ("Value", "DOUBLE"),
+        ]
+    ),
+    "EcosimTimeSeriesDataset": OrderedDict(
+        [
+            ("DatasetID", "INTEGER"),
+            ("ScenarioID", "INTEGER"),
+            ("DatasourceName", "TEXT"),
+            ("Enabled", "YESNO"),
+        ]
+    ),
+    "EcosimTimeSeriesSeason": OrderedDict(
+        [
+            ("TimeSeriesID", "INTEGER"),
+            ("ScenarioID", "INTEGER"),
+            ("Season", "INTEGER"),
+            ("Value", "DOUBLE"),
+        ]
+    ),
     # -----------------------------------------------------------------------
     # Ecospace tables
     # -----------------------------------------------------------------------
