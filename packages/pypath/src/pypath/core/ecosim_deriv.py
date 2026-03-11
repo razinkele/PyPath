@@ -1121,6 +1121,11 @@ def deriv_vector(
     if _mediation is not None:
         _med_multipliers = _mediation.compute_group_multipliers(BB, Bbase, ActiveLink)
 
+    # Compute fleet mediation multipliers (applied to fishing effort per gear)
+    _fleet_med = None
+    if _mediation is not None:
+        _fleet_med = _mediation.compute_fleet_multipliers(BB, Bbase, NUM_GEARS)
+
     # Compute consumption matrix via pure-Python kernel.
     # Use pre-computed sparse link arrays when available (avoids iterating
     # over inactive links); otherwise fall back to the dense kernel.
@@ -1258,6 +1263,8 @@ def deriv_vector(
         effort_mult = (
             ForcedEffort[gear_idx] if 0 < gear_idx < len(ForcedEffort) else 1.0
         )
+        if _fleet_med is not None:
+            effort_mult *= _fleet_med[gear_idx]
         FishMort[grp] += FishQ[i] * effort_mult
 
     for i in range(1, NUM_LIVING + 1):
