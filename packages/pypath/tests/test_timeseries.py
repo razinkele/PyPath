@@ -165,3 +165,114 @@ class TestEweTimeSeriesCollection:
         # Cod rel bio: 3, Herring abs bio: 3, Cod catch: 3,
         # Forced phyto: 2 (3rd is NaN), Trawl effort: 3 = 14
         assert len(df) == 14
+
+
+from unittest.mock import MagicMock
+
+from pypath.core.timeseries import apply_timeseries_drivers
+
+
+def _make_mock_scenario(n_months=36, n_groups=5, n_gears=2, n_years=3):
+    """Create a mock scenario with forcing arrays matching real initialization."""
+    scenario = MagicMock()
+    scenario.forcing.ForcedBio = np.full((n_months, n_groups + 1), -1.0)
+    scenario.fishing.ForcedEffort = np.ones((n_months, n_gears + 1))
+    scenario.fishing.ForcedFRate = np.zeros((n_years, n_groups + 1))
+    scenario.params.NUM_GROUPS = n_groups
+    scenario.params.NUM_LIVING = n_groups
+    scenario.params.NUM_GEARS = n_gears
+    scenario.params.STEPS_PER_MONTH = 1
+    scenario.params.STEPS_PER_YEAR = 12
+    return scenario
+
+
+class TestApplyTimeseriesDrivers:
+    def test_forced_biomass(self):
+        scenario = _make_mock_scenario()
+        series = [
+            EweTimeSeries(1, "Forced phyto", DATTYPE_FORCED_BIOMASS, 2, None,
+                          np.array([5.0, 5.5, 6.0])),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        apply_timeseries_drivers(scenario, coll)
+        bio = scenario.forcing.ForcedBio[:, 3]
+        assert not np.all(bio == -1.0)
+        assert abs(bio[0] - 5.0) < 0.5
+
+    def test_forced_effort(self):
+        scenario = _make_mock_scenario()
+        series = [
+            EweTimeSeries(2, "Trawl effort", DATTYPE_EFFORT, None, 0,
+                          np.array([1.5, 2.0, 2.5])),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        apply_timeseries_drivers(scenario, coll)
+        effort = scenario.fishing.ForcedEffort[:, 1]
+        assert not np.all(effort == 1.0), "Effort should differ from baseline 1.0"
+
+    def test_forced_frate(self):
+        scenario = _make_mock_scenario()
+        series = [
+            EweTimeSeries(3, "Cod F", DATTYPE_FISHING_MORTALITY, 1, None,
+                          np.array([0.3, 0.4, 0.5])),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        apply_timeseries_drivers(scenario, coll)
+        frate = scenario.fishing.ForcedFRate[:, 2]
+        np.testing.assert_array_almost_equal(frate, [0.3, 0.4, 0.5])
+
+    def test_negative_forced_biomass_raises(self):
+        scenario = _make_mock_scenario()
+        series = [
+            EweTimeSeries(1, "Bad", DATTYPE_FORCED_BIOMASS, 0, None,
+                          np.array([-1.0, 2.0])),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        with pytest.raises(ValueError, match="negative"):
+            apply_timeseries_drivers(scenario, coll)
+
+    def test_unknown_group_warns(self):
+        scenario = _make_mock_scenario(n_groups=3)
+        series = [
+            EweTimeSeries(1, "Ghost", DATTYPE_FORCED_BIOMASS, 99, None,
+                          np.array([1.0, 2.0])),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        with pytest.warns(UserWarning, match="group"):
+            apply_timeseries_drivers(scenario, coll)
+
+    def test_unknown_fleet_warns(self):
+        scenario = _make_mock_scenario(n_gears=1)
+        series = [
+            EweTimeSeries(1, "Ghost fleet", DATTYPE_EFFORT, None, 99,
+                          np.array([1.0])),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        with pytest.warns(UserWarning, match="fleet"):
+            apply_timeseries_drivers(scenario, coll)
+
+    def test_no_drivers_is_noop(self):
+        scenario = _make_mock_scenario()
+        series = [
+            EweTimeSeries(1, "Obs", DATTYPE_REL_BIOMASS, 0, None,
+                          np.array([1.0, 1.1])),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        bio_before = scenario.forcing.ForcedBio.copy()
+        effort_before = scenario.fishing.ForcedEffort.copy()
+        apply_timeseries_drivers(scenario, coll)
+        np.testing.assert_array_equal(scenario.forcing.ForcedBio, bio_before)
+        np.testing.assert_array_equal(scenario.fishing.ForcedEffort, effort_before)
+
+    def test_nan_values_preserve_temporal_position(self):
+        scenario = _make_mock_scenario(n_months=48, n_years=4)
+        series = [
+            EweTimeSeries(1, "F", DATTYPE_FORCED_BIOMASS, 0, None,
+                          np.array([5.0, np.nan, 6.0, 7.0])),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        apply_timeseries_drivers(scenario, coll)
+        bio = scenario.forcing.ForcedBio[:, 1]
+        assert abs(bio[0] - 5.0) < 0.5
+        assert abs(bio[-1] - 7.0) < 0.5
+        assert 5.0 < bio[12] < 6.0

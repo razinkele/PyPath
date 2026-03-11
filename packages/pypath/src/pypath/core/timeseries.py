@@ -145,3 +145,99 @@ class EweTimeSeriesCollection:
                         "dat_type": s.dat_type,
                     })
         return pd.DataFrame(rows)
+
+
+def _interpolate_to_length(values: np.ndarray, target_len: int) -> np.ndarray:
+    """Interpolate a time series to a target length, handling NaN values.
+
+    NaN values are interpolated through (preserving temporal position)
+    rather than stripped.
+    """
+    n = len(values)
+    src_indices = np.arange(n)
+    target_indices = np.linspace(0, n - 1, target_len)
+
+    valid_mask = ~np.isnan(values)
+    if not np.any(valid_mask):
+        return np.full(target_len, np.nan)
+
+    valid_idx = src_indices[valid_mask]
+    valid_vals = values[valid_mask]
+
+    return np.interp(target_indices, valid_idx, valid_vals)
+
+
+def apply_timeseries_drivers(
+    scenario: "RsimScenario",
+    collection: EweTimeSeriesCollection,
+) -> None:
+    """Apply driver time series to an Ecosim scenario's forcing arrays.
+
+    Modifies ``scenario`` in place. Only processes driver series
+    (forced biomass, effort, fishing mortality). Observed series are ignored.
+
+    Parameters
+    ----------
+    scenario : RsimScenario
+        The Ecosim scenario to modify.
+    collection : EweTimeSeriesCollection
+        Time series collection containing driver series.
+
+    Raises
+    ------
+    ValueError
+        If any forced biomass values are negative (excluding NaN).
+    """
+    n_groups = scenario.params.NUM_GROUPS
+    n_gears = scenario.params.NUM_GEARS
+
+    for s in collection.forced_biomass:
+        if s.group_idx is None:
+            continue
+        if s.group_idx >= n_groups:
+            warnings.warn(
+                f"Time series '{s.name}' references group index {s.group_idx} "
+                f"but model only has {n_groups} groups. Skipping.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+        valid_vals = s.values[~np.isnan(s.values)]
+        if len(valid_vals) > 0 and np.any(valid_vals < 0):
+            raise ValueError(
+                f"Time series '{s.name}' contains negative forced biomass values."
+            )
+        col = s.group_idx + 1
+        n_months = scenario.forcing.ForcedBio.shape[0]
+        scenario.forcing.ForcedBio[:, col] = _interpolate_to_length(s.values, n_months)
+
+    for s in collection.forced_effort:
+        if s.fleet_idx is None:
+            continue
+        if s.fleet_idx >= n_gears:
+            warnings.warn(
+                f"Time series '{s.name}' references fleet index {s.fleet_idx} "
+                f"but model only has {n_gears} fleets. Skipping.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+        col = s.fleet_idx + 1
+        n_months = scenario.fishing.ForcedEffort.shape[0]
+        scenario.fishing.ForcedEffort[:, col] = _interpolate_to_length(s.values, n_months)
+
+    fmort_series = [s for s in collection.series if s.dat_type == DATTYPE_FISHING_MORTALITY]
+    for s in fmort_series:
+        if s.group_idx is None:
+            continue
+        if s.group_idx >= n_groups:
+            warnings.warn(
+                f"Time series '{s.name}' references group index {s.group_idx} "
+                f"but model only has {n_groups} groups. Skipping.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+        col = s.group_idx + 1
+        n_years = scenario.fishing.ForcedFRate.shape[0]
+        scenario.fishing.ForcedFRate[:, col] = _interpolate_to_length(s.values, n_years)
