@@ -42,7 +42,7 @@ def _make_params(
 ):
     """Build a 1-fleet / 2-link FleetEconParams for testing."""
     if price is None:
-        price = np.array([1.0, 1.0])  # per link (0-based), length N_LINKS
+        price = np.array([0.0, 1.0, 1.0])  # per link (index 0 unused), length N_LINKS
     return FleetEconParams(
         fixed_cost=np.array([fixed_cost]),
         variable_cost=np.array([variable_cost]),
@@ -182,7 +182,7 @@ class TestFleetDynamicsStep:
     def test_profitable_fleet_grows(self):
         """Revenue > cost → capacity increases."""
         params = _make_params(
-            price=np.array([10.0, 10.0]),  # high price
+            price=np.array([0.0, 10.0, 10.0]),  # high price (index 0 unused)
             variable_cost=0.0,
             sailing_cost=0.0,
             fixed_cost=0.0,
@@ -211,7 +211,7 @@ class TestFleetDynamicsStep:
     def test_unprofitable_fleet_shrinks(self):
         """No catch (zero revenue) → capacity depreciates."""
         params = _make_params(
-            price=np.array([1.0, 1.0]),
+            price=np.array([0.0, 1.0, 1.0]),  # index 0 unused
             variable_cost=0.0,
             sailing_cost=0.0,
             fixed_cost=0.0,

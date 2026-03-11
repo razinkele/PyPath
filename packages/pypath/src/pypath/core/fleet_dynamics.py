@@ -168,8 +168,8 @@ def fleet_dynamics_step(
     cost = np.zeros(n_fleets)
 
     # Step 1: Compute revenue per fleet from fishing links
-    n_links = len(monthly_catch) - 1  # index 0 is unused padding
-    for i in range(1, n_links + 1):
+    # price array has same length as FishFrom (index 0 unused, like FishFrom[0])
+    for i in range(1, len(monthly_catch)):
         gear_0based = int(fish_through[i]) - 1
         gear_idx = fleet_lookup.get(gear_0based, 0)
         if gear_idx == 0:
@@ -177,9 +177,7 @@ def fleet_dynamics_step(
         fleet_0 = gear_idx - 1
         if fleet_0 < 0 or fleet_0 >= n_fleets:
             continue
-        # price is indexed by link (0-based link index = i-1)
-        link_0 = i - 1
-        price_i = params.price[link_0] if link_0 < len(params.price) else 0.0
+        price_i = params.price[i] if i < len(params.price) else 0.0
         revenue[fleet_0] += monthly_catch[i] * price_i
 
     # Step 2: Compute cost per fleet
