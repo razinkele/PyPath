@@ -10,7 +10,7 @@
 
 ### EcotracerParams
 
-Dataclass holding per-group tracer parameters. All arrays are 0-based, length = number of living + detritus groups (no fleets, no padding).
+Dataclass holding per-group tracer parameters. All arrays are 0-based, length `n_groups = NUM_LIVING + NUM_DEAD` (matches `params.NUM_GROUPS` in Ecosim internals). No fleets, no padding column.
 
 ```python
 @dataclass
@@ -54,12 +54,14 @@ dC_i/dt = dietary_intake_i + cenv_i + cimmig_i - (cdecay_i + cmetab_i) * C_i
 
 Where:
 ```
-dietary_intake_i = cassim_i * sum_j(Q_ij * C_j) / B_i
+dietary_intake_i = cassim_i * sum_j(Q_ij * C_j) / B_i   (if B_i > 1e-10)
+                 = 0                                      (if B_i <= 1e-10)
 ```
 
 - `Q_ij` = consumption of prey j by predator i (from Ecosim consumption matrix)
 - `C_j` = current concentration in prey j
 - `B_i` = current biomass of predator i
+- When `B_i` is near zero (crashed group), dietary intake is zero to avoid division by zero
 
 ### Detritus groups
 
@@ -67,7 +69,7 @@ dietary_intake_i = cassim_i * sum_j(Q_ij * C_j) / B_i
 dC_det/dt = (weighted avg of contributor concentrations) - cdecay_det * C_det
 ```
 
-Detritus receives contaminant from dead matter proportional to detritus fate fractions and contributor concentrations.
+Detritus receives contaminant from dead matter proportional to detritus fate fractions and contributor concentrations. `detritus_fate` has shape `(n_living, n_detritus)` — fraction of each living group's non-predation mortality going to each detritus pool. Sourced from the Ecopath model's detritus fate matrix. When `None`, detritus concentration only decays (no new contaminant input from dead matter).
 
 ### Functions
 
@@ -75,11 +77,13 @@ Detritus receives contaminant from dead matter proportional to detritus fate fra
 def ecotracer_deriv(
     conc: np.ndarray,        # (n_groups,) current concentrations
     biomass: np.ndarray,     # (n_groups,) current biomass
-    Q_matrix: np.ndarray,    # (n_groups, n_groups) consumption matrix Q[prey, pred]
+    Q_matrix: np.ndarray,    # (n_groups, n_groups) consumption matrix Q[prey, pred], 0-based
     params: EcotracerParams,
-    detritus_fate: np.ndarray | None = None,  # (n_groups,) detritus fate fractions
+    detritus_fate: np.ndarray | None = None,  # (n_living, n_detritus) fate fractions
+    n_living: int = 0,       # number of living groups (rest are detritus)
 ) -> np.ndarray:
-    """Compute dC/dt for all groups. Returns (n_groups,) array."""
+    """Compute dC/dt for all groups. Returns (n_groups,) array.
+    Guards against B_i <= 1e-10 (sets dietary_intake to 0)."""
 
 def ecotracer_step(
     conc: np.ndarray,
@@ -88,8 +92,22 @@ def ecotracer_step(
     params: EcotracerParams,
     dt: float,
     detritus_fate: np.ndarray | None = None,
+    n_living: int = 0,
 ) -> np.ndarray:
-    """Euler step: conc + dC/dt * dt, clamped to >= 0. Returns updated (n_groups,) array."""
+    """Analytic update for tracer concentration (unconditionally stable).
+
+    For each group i:
+      input_i = dietary_intake_i + cenv_i + cimmig_i
+      loss_rate_i = cdecay_i + cmetab_i
+      if loss_rate_i > 0:
+          C_i(t+dt) = input_i/loss_rate_i + (C_i(t) - input_i/loss_rate_i) * exp(-loss_rate_i*dt)
+      else:
+          C_i(t+dt) = C_i(t) + input_i * dt
+
+    This is exact for constant input/loss within the timestep and avoids
+    Euler instability when (cdecay + cmetab) * dt > 1. Result clamped to >= 0.
+    Returns updated (n_groups,) array.
+    """
 ```
 
 ---
@@ -103,18 +121,28 @@ When `ecotracer` is provided:
 1. **Before loop**: Initialize `conc = ecotracer.czero.copy()`, allocate output array `out_Conc` of shape `(n_months+1, n_groups)`, store initial concentrations at t=0.
 
 2. **Each monthly step** (after biomass integration):
-   - Extract current biomass from state (0-based, exclude padding col 0)
-   - Extract consumption matrix Q from the existing `QQ` variable in the loop
-   - Call `ecotracer_step(conc, biomass, Q, ecotracer, dt=1/12)`
+   - Extract current biomass: `biomass = state[1:n_groups+1]` (strip 1-based padding col 0)
+   - Reuse the consumption matrix `QQ_month` already computed for Qlink tracking via `_compute_Q_matrix(params_dict, state, forcing_dict)`
+   - Slice to 0-based: `Q = QQ_month[1:n_groups+1, 1:n_groups+1]`
+   - Call `ecotracer_step(conc, biomass, Q, ecotracer, dt=1/12, detritus_fate, n_living)`
    - Store `conc` in `out_Conc[month]`
 
-3. **After loop**: Compute `annual_Conc` by averaging monthly values per year. Attach `EcotracerResult` to `RsimOutput` as `.ecotracer` attribute.
+3. **After loop**: Compute `annual_Conc` by averaging monthly values per year, using the same window as `annual_Biomass`: `annual_Conc[yr] = mean(out_Conc[yr*12+1 : (yr+1)*12+1])`. Attach `EcotracerResult` to `RsimOutput` as `.ecotracer` attribute.
 
-**Return type**: `rsim_run` still returns `RsimOutput`. The `EcotracerResult` is accessed via `output.ecotracer` (None if not used). This requires adding an optional `ecotracer: EcotracerResult | None = None` field to `RsimOutput`.
+**Return type**: `rsim_run` still returns `RsimOutput`. The `EcotracerResult` is accessed via `output.ecotracer` (None if not used). Adding `ecotracer: EcotracerResult | None = None` as the **last field** of `RsimOutput` (with default `None`) is backward-compatible since all existing code uses keyword access.
 
 ### Consumption matrix extraction
 
-The Ecosim loop already computes `QQ[prey, pred]` (the consumption matrix) each timestep. This matrix is available inside the monthly loop and can be passed directly to `ecotracer_step()`. The Q matrix uses 1-based indexing internally; the ecotracer functions receive the 0-based slice `QQ[1:n+1, 1:n+1]`.
+`deriv_vector()` computes `QQ` internally but does not return it. The monthly loop in `rsim_run()` already calls `_compute_Q_matrix(params_dict, state, forcing_dict)` after each biomass integration step for Qlink tracking — this produces `QQ_month` with shape `(NUM_GROUPS+1, NUM_GROUPS+1)` using 1-based indexing. The ecotracer receives the 0-based slice `QQ_month[1:n_groups+1, 1:n_groups+1]`.
+
+### Scenario-level defaults
+
+`EcotracerScenario` has global defaults (`Czero`, `Cinflow`, `Coutflow`, `Cdecay`). In `read_ecotracer()`, these serve as fallback values when `EcotracerScenarioGroup` doesn't have a per-group override:
+- `Czero` → default for `czero` array
+- `Cinflow` → default for `cimmig` array (immigration inflow)
+- `Cdecay` → default for `cdecay` array
+- `Coutflow` → not mapped to EcotracerParams (outflow is modeled via metabolism/decay)
+- `ConForcingShapeID` → not supported in this implementation (time-varying concentration forcing is out of scope)
 
 ---
 
@@ -196,8 +224,10 @@ def read_ecotracer(db_path: str, n_groups: int) -> EcotracerParams:
   - Zero concentration → only cenv/cimmig inputs
   - Zero dietary intake → only decay/metabolism losses
   - Known Q matrix → verifiable dietary uptake
-- ecotracer_step() Euler integration correctness
+- ecotracer_step() analytic update correctness (matches exact solution for constant input)
+- ecotracer_step() stable for high decay rates (cdecay*dt > 1)
 - Concentration clamped to >= 0
+- B_i = 0 → dietary intake is zero (no division by zero)
 
 ### I/O tests (`test_ecotracer_io.py`)
 - Schema tables exist with correct columns
