@@ -124,6 +124,14 @@ from pypath.core.timeseries import (
     load_timeseries,
 )
 from pypath.core.calibration import CalibrationResult, fit_to_timeseries
+from pypath.core.mediation import (
+    MediationCollection,
+    MediationLink,
+    MediationShape,
+    make_negative_shape,
+    make_positive_shape,
+    make_ushape,
+)
 
 __all__ = [
     # Ecopath
@@ -231,4 +239,11 @@ __all__ = [
     # Calibration
     "CalibrationResult",
     "fit_to_timeseries",
+    # Mediation
+    "MediationShape",
+    "MediationLink",
+    "MediationCollection",
+    "make_positive_shape",
+    "make_negative_shape",
+    "make_ushape",
 ]

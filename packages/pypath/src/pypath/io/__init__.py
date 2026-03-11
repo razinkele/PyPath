@@ -39,6 +39,7 @@ from pypath.io.ewemdb import (
     list_ewemdb_tables,
     read_ewemdb,
     read_ewemdb_table,
+    read_mediation,
     read_timeseries,
 )
 from pypath.io.timeseries_csv import load_timeseries_csv
@@ -75,6 +76,7 @@ __all__ = [
     "read_ewemdb",
     "list_ewemdb_tables",
     "read_ewemdb_table",
+    "read_mediation",
     "get_ewemdb_metadata",
     "check_ewemdb_support",
     "EwEDatabaseError",
