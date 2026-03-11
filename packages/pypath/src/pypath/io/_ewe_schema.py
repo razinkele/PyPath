@@ -341,6 +341,59 @@ EWE_TABLES = {
         ("FleetID", "INTEGER"),
         ("AppliedWeight", "DOUBLE"),
     ]),
+    # -------------------------------------------------------------------
+    # Pedigree tables
+    # -------------------------------------------------------------------
+    "Pedigree": OrderedDict([
+        ("LevelID", "INTEGER"),
+        ("LevelName", "TEXT"),
+        ("VarName", "TEXT"),
+        ("Sequence", "INTEGER"),
+        ("IndexValue", "DOUBLE"),
+        ("Confidence", "DOUBLE"),
+        ("LevelColor", "INTEGER"),
+        ("Description", "TEXT"),
+    ]),
+    "EcopathGroupPedigree": OrderedDict([
+        ("GroupID", "INTEGER"),
+        ("VarName", "TEXT"),
+        ("LevelID", "INTEGER"),
+    ]),
+    # -------------------------------------------------------------------
+    # Monte Carlo sample tables
+    # -------------------------------------------------------------------
+    "EcopathSample": OrderedDict([
+        ("SampleID", "INTEGER"),
+        ("Hash", "TEXT"),
+        ("Source", "TEXT"),
+        ("Generated", "TEXT"),
+        ("Rating", "DOUBLE"),
+        ("SS", "DOUBLE"),
+    ]),
+    "EcopathGroupSample": OrderedDict([
+        ("SampleID", "INTEGER"),
+        ("GroupID", "INTEGER"),
+        ("Biomass", "DOUBLE"),
+        ("ProdBiom", "DOUBLE"),
+        ("ConsBiom", "DOUBLE"),
+        ("EcoEfficiency", "DOUBLE"),
+        ("BiomAcc", "DOUBLE"),
+        ("ImpVar", "DOUBLE"),
+        ("BiomAccRate", "DOUBLE"),
+    ]),
+    "EcopathDietCompSample": OrderedDict([
+        ("SampleID", "INTEGER"),
+        ("PredID", "INTEGER"),
+        ("PreyID", "INTEGER"),
+        ("Diet", "DOUBLE"),
+    ]),
+    "EcopathGroupCatchSample": OrderedDict([
+        ("SampleID", "INTEGER"),
+        ("GroupID", "INTEGER"),
+        ("FleetID", "INTEGER"),
+        ("Landing", "DOUBLE"),
+        ("Discards", "DOUBLE"),
+    ]),
 }
 
 # ---------------------------------------------------------------------------
