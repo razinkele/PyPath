@@ -1022,23 +1022,6 @@ def deriv_vector(
     _NoIntegrate_raw = params.get("NoIntegrate", None)
     _TRACE_DEBUG_GROUPS = params.get("TRACE_DEBUG_GROUPS", None)
 
-    # Diagnostic: if trace requested, print spname type and membership check
-    try:
-        if _TRACE_DEBUG_GROUPS is not None or spname_list is not None:
-            spname = spname_list
-            logger.debug(
-                "TRACE DEBUG: params.keys() sample=%s",
-                list(params.keys())[:20],
-            )
-            logger.debug(
-                "TRACE DEBUG: spname type=%s len=%s contains_Seabirds=%s",
-                type(spname),
-                len(spname) if spname is not None else 0,
-                "Seabirds" in spname if spname is not None else False,
-            )
-    except Exception as e:
-        logger.debug("TRACE DEBUG: params introspection failed: %s", e)
-
     # Current biomass (state variable)
     BB = state.copy()
 

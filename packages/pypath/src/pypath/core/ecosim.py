@@ -530,46 +530,31 @@ def rsim_params(
             scale_factor = 1.0 / total_diet
             dc[:, pred_idx] *= scale_factor
             import_row[pred_idx] *= scale_factor
-    # Loop over predators first to keep order consistent with reference (predator-major order)
-    for pred_idx in range(nliving):
-        # Skip non-consumers
-        if rpath.type[pred_idx] != 0:
-            continue
-        # Skip if predator has invalid QB value
-        if qb[pred_idx] <= 0 or qb[pred_idx] == -9999 or np.isnan(qb[pred_idx]):
-            continue
-        for prey_idx in range(nliving + ndead):
-            if dc[prey_idx, pred_idx] > 0:
+    # Build valid predator mask: consumers (type==0) with valid QB
+    valid_pred = (
+        (rpath.type[:nliving] == 0)
+        & (qb[:nliving] > 0)
+        & (qb[:nliving] != -9999)
+        & ~np.isnan(qb[:nliving])
+    )
+    # Find all nonzero DC entries using vectorized indexing (predator-major order)
+    for pred_idx in np.where(valid_pred)[0]:
+        prey_indices = np.where(dc[:nliving + ndead, pred_idx] > 0)[0]
+        for prey_idx in prey_indices:
+            q = dc[prey_idx, pred_idx] * qb[pred_idx] * rpath.Biomass[pred_idx]
+            if q > 0:
                 pred_from.append(prey_idx + 1)
                 pred_to.append(pred_idx + 1)
-                q = dc[prey_idx, pred_idx] * qb[pred_idx] * rpath.Biomass[pred_idx]
-                # Ensure Q is non-negative
-                if q > 0:
-                    pred_q.append(q)
-                else:
-                    # Remove the last appended pred_from and pred_to
-                    pred_from.pop()
-                    pred_to.pop()
+                pred_q.append(q)
 
-    # Handle import (last row of DC = nrow)
-    # Import links: prey from Outside (index 0)
-    # Note: import_row was already normalized above
-    for pred_idx in range(nliving):
-        # Skip if this "predator" is not a consumer (type=0)
-        if rpath.type[pred_idx] != 0:
-            continue
-        # Skip if predator has invalid QB value
-        if qb[pred_idx] <= 0 or qb[pred_idx] == -9999 or np.isnan(qb[pred_idx]):
-            continue
-        if import_row[pred_idx] > 0:
+    # Handle import links: prey from Outside (index 0)
+    import_valid = valid_pred & (import_row[:nliving] > 0)
+    for pred_idx in np.where(import_valid)[0]:
+        q = import_row[pred_idx] * qb[pred_idx] * rpath.Biomass[pred_idx]
+        if q > 0:
             pred_from.append(0)  # From Outside
             pred_to.append(pred_idx + 1)
-            q = import_row[pred_idx] * qb[pred_idx] * rpath.Biomass[pred_idx]
-            if q > 0:
-                pred_q.append(q)
-            else:
-                pred_from.pop()
-                pred_to.pop()
+            pred_q.append(q)
 
     # Combine links
     prey_from = np.array([0] + prim_from + pred_from)
@@ -1517,14 +1502,6 @@ def rsim_run(
         # this used a zero-fishing dict which caused M0 to be nudged to
         # compensate for "missing" fishing, double-counting it once the fix
         # that populates fishing_dict from params was applied.
-        # If Seabirds exists, request trace debug in deriv_vector to expose components
-        # Set TRACE unconditionally (no silent failure) so logs are consistent
-        if hasattr(params, "spname") and "Seabirds" in params.spname:
-            sidx = params.spname.index("Seabirds")
-            params_no_noint["TRACE_DEBUG_GROUPS"] = [sidx]
-            # Provide species names list to deriv_vector for trace printing
-            params_no_noint["spname"] = params.spname
-            logger.debug("requesting TRACE_DEBUG_GROUPS for seabirds idx=%d", sidx)
         # Threshold for considering small initial derivatives
         ADJUST_DERIV_MAX = 1e-3
         logger.debug(
@@ -1539,16 +1516,6 @@ def rsim_run(
                 "TRACE_DEBUG_GROUPS", None
             )
             deriv_test = deriv_vector(state.copy(), params_test, forcing0, fishing_dict)
-            try:
-                if "Seabirds" in params.spname:
-                    sidx = params.spname.index("Seabirds")
-                    logger.debug(
-                        "post-deriv debug: init_deriv[seab]=%.6e deriv_test[seab]=%.6e",
-                        init_deriv[sidx],
-                        deriv_test[sidx],
-                    )
-            except Exception as e:
-                logger.debug("derivative comparison debug failed: %s", e)
         except Exception as e:
             logger.debug("derivative comparison debug failed: %s", e)
             deriv_test = None
@@ -1563,17 +1530,6 @@ def rsim_run(
         )
         try:
             logger.debug("init_deriv sample[:10]=%s", init_deriv[:10])
-        except Exception as e:
-            logger.debug("init_deriv debug logging failed: %s", e)
-        # If Seabirds exists, report its index/value
-        try:
-            if "Seabirds" in params.spname:
-                sidx = params.spname.index("Seabirds")
-                logger.debug(
-                    "Seabirds index=%d init_deriv=%.6e (no NoIntegrate applied)",
-                    sidx,
-                    init_deriv[sidx],
-                )
         except Exception as e:
             logger.debug("init_deriv debug logging failed: %s", e)
 
@@ -1599,14 +1555,6 @@ def rsim_run(
                 "FishQ": getattr(params, "FishQ", np.array([])),
                 "fleet_idx": getattr(params, "fleet_idx", None),
             }
-            # If Seabirds exists, add TRACE keys to params_test so deriv_vector prints breakdown
-            try:
-                if "Seabirds" in params.spname:
-                    sidx = params.spname.index("Seabirds")
-                    params_test["TRACE_DEBUG_GROUPS"] = [sidx]
-                    params_test["spname"] = params.spname
-            except Exception as e:
-                logger.debug("TRACE key addition failed: %s", e)
             deriv_test = deriv_vector(state.copy(), params_test, forcing0, fishing_dict)
             diffs = np.abs(init_deriv - deriv_test)
             TH = 1e-12
@@ -1652,27 +1600,6 @@ def rsim_run(
                         )
                 except Exception as e:
                     logger.debug("parameter comparison failed: %s", e)
-            # Quick QQ check for Seabirds if present
-            try:
-                if "Seabirds" in params.spname:
-                    sidx = params.spname.index("Seabirds")
-                    QQ_a = params_dict.get("QQbase")
-                    QQ_b = params_test.get("QQbase")
-                    if (
-                        QQ_a is not None
-                        and QQ_b is not None
-                        and QQ_a.shape == QQ_b.shape
-                    ):
-                        col_diff = np.nanmax(np.abs(QQ_a[:, sidx] - QQ_b[:, sidx]))
-                        row_diff = np.nanmax(np.abs(QQ_a[sidx, :] - QQ_b[sidx, :]))
-                        if col_diff > 0 or row_diff > 0:
-                            logger.debug(
-                                "QQ differences for Seabirds col_diff=%.6e row_diff=%.6e",
-                                col_diff,
-                                row_diff,
-                            )
-            except Exception as e:
-                logger.debug("QQ Seabirds check failed: %s", e)
         except Exception as e:
             logger.debug("derivative comparison failed: %s", e)
 
@@ -1777,37 +1704,10 @@ def rsim_run(
                 desired_m0,
                 diff,
             )
-            # Extra debugging for Seabirds specifically
-            try:
-                if "Seabirds" in params.spname:
-                    sidx = params.spname.index("Seabirds")
-                    if grp == sidx:
-                        logger.debug(
-                            "Seabirds calculation: B=%.6e consumption=%.6e pred_loss=%.6e production=%.6e fish_loss=%.6e current_m0=%.6e desired_m0=%.6e diff=%.6e",
-                            B,
-                            consumption,
-                            predation_loss,
-                            production,
-                            fish_loss,
-                            current_m0,
-                            desired_m0,
-                            diff,
-                        )
-            except Exception as e:
-                logger.debug("Seabirds debug logging failed: %s", e)
             # Accept small changes only (absolute threshold)
             if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
-                seab_lbl = ""
-                try:
-                    if (
-                        "Seabirds" in params.spname
-                        and params.spname.index("Seabirds") == grp
-                    ):
-                        seab_lbl = "Seabirds"
-                except Exception as e:
-                    logger.debug("Seabirds label lookup failed: %s", e)
                 logger.debug(
-                    "assigning M0 for grp=%d (%s) diff=%.6e", grp, seab_lbl, diff
+                    "assigning M0 for grp=%d diff=%.6e", grp, diff
                 )
                 # Iteratively refine M0 to drive the raw (no-NoIntegrate) initial residual toward zero
                 MAX_M0_ITER = 5
@@ -1916,17 +1816,6 @@ def rsim_run(
     except Exception as e:
         logger.debug("M0 adjustment failed: %s", e, exc_info=True)
 
-    # Debug: report M0 small sample
-    try:
-        if "Seabirds" in params.spname:
-            sidx = params.spname.index("Seabirds")
-            logger.debug(
-                "M0 after adjust for Seabirds idx=%d value=%.6e",
-                sidx,
-                params_dict["M0"][sidx],
-            )
-    except Exception as e:
-        logger.debug("M0 post-adjust debug failed: %s", e)
 
     # Final check: compute derivative using the params dict that will be persisted
     # and make a small algebraic correction if a tiny residual remains.

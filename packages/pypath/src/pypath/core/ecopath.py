@@ -172,6 +172,64 @@ class Rpath:
         )
 
 
+def _build_balance_system(
+    nliving,
+    living_idx,
+    living_biomass,
+    living_pb,
+    living_ee,
+    living_qb,
+    living_catch,
+    living_bioacc,
+    nodetrdiet,
+    original_no_pb,
+    unknown_biomass_mask,
+):
+    """Build the linear system (A, b_vec) for the Ecopath mass-balance solve.
+
+    Parameters
+    ----------
+    nliving : int
+    living_idx : array of int, global indices of living groups
+    living_biomass, living_pb, living_ee, living_qb : arrays of float
+    living_catch, living_bioacc : arrays of float
+    nodetrdiet : 2-D array (nliving x nliving), diet fractions excluding detritus
+    original_no_pb : array of bool, indexed by global group index
+    unknown_biomass_mask : array of bool (length nliving), True if biomass unknown
+
+    Returns
+    -------
+    A : 2-D array (nliving x nliving)
+    b_vec : 1-D array (nliving,)
+    """
+    bio_qb = np.nan_to_num(living_biomass * living_qb, nan=0.0)
+    bio_qb = np.where(unknown_biomass_mask, 0.0, bio_qb)
+    cons = nodetrdiet * bio_qb[np.newaxis, :]
+    b_vec = living_catch + living_bioacc + np.sum(cons, axis=1)
+
+    A = np.zeros((nliving, nliving))
+    for i in range(nliving):
+        g_idx = living_idx[i]
+        if original_no_pb[g_idx]:
+            A[i, i] = living_biomass[i] * living_ee[i]
+        elif np.isnan(living_ee[i]):
+            A[i, i] = (
+                living_biomass[i] * living_pb[i]
+                if not np.isnan(living_biomass[i])
+                else living_pb[i] * living_ee[i]
+            )
+        else:
+            A[i, i] = living_pb[i] * living_ee[i]
+
+    qb_dc = nodetrdiet * living_qb[np.newaxis, :]
+    qb_dc = np.nan_to_num(qb_dc, nan=0.0)
+    for j in range(nliving):
+        if unknown_biomass_mask[j]:
+            A[:, j] -= qb_dc[:, j]
+
+    return A, b_vec
+
+
 def rpath(
     rpath_params: RpathParams,
     eco_name: str = "",
@@ -416,12 +474,7 @@ def rpath(
         living_no_b = np.isnan(living_biomass)
         living_no_ee = np.isnan(living_ee)
 
-        # Consumption matrix: each column j shows consumption by predator j
-        bio_qb = np.where(
-            np.isnan(living_biomass * living_qb), 0.0, living_biomass * living_qb
-        )
-        # Zero consumption contributions from predators whose biomass is unknown
-        # (their predation terms are moved into A instead)
+        # Build unknown-biomass mask for predators whose B is being solved
         pred_unknown_mask = np.array(
             [
                 original_no_b[pred_global] or np.isnan(biomass[pred_global])
@@ -429,43 +482,12 @@ def rpath(
             ],
             dtype=bool,
         )
-        bio_qb = np.where(pred_unknown_mask, 0.0, bio_qb)
-        cons = nodetrdiet * bio_qb[np.newaxis, :]
 
-        # RHS: exports + predation
-        b_vec = living_catch + living_bioacc + np.sum(cons, axis=1)
-
-        # Build A matrix for this iteration
-        A = np.zeros((nliving, nliving))
-        for i in range(nliving):
-            g_idx = living_idx[i]
-            if original_no_pb[g_idx]:  # Solve for PB: A[i,i] = B*EE, x[i] = PB
-                A[i, i] = living_biomass[i] * living_ee[i]
-            elif living_no_ee[i]:  # Solve for EE
-                A[i, i] = (
-                    living_biomass[i] * living_pb[i]
-                    if not np.isnan(living_biomass[i])
-                    else living_pb[i] * living_ee[i]
-                )
-            else:  # Solve for B
-                A[i, i] = living_pb[i] * living_ee[i]
-
-        qb_dc = nodetrdiet * living_qb[np.newaxis, :]
-        qb_dc = np.nan_to_num(qb_dc, nan=0.0)
-        for j in range(nliving):
-            # Treat a predator as having unknown biomass if it was originally missing
-            # or if we've flipped it to unknown in an earlier iteration (biomass NaN).
-            pred_global = living_idx[j]
-            pred_unknown = original_no_b[pred_global] or np.isnan(biomass[pred_global])
-            if pred_unknown:
-                logger.debug(
-                    "predator %s treated as unknown (original_no_b=%s, biomass_nan=%s)",
-                    pred_global,
-                    original_no_b[pred_global],
-                    np.isnan(biomass[pred_global]),
-                )
-            if pred_unknown:
-                A[:, j] -= qb_dc[:, j]
+        A, b_vec = _build_balance_system(
+            nliving, living_idx, living_biomass, living_pb, living_ee,
+            living_qb, living_catch, living_bioacc, nodetrdiet,
+            original_no_pb, pred_unknown_mask,
+        )
 
         # Validate
         if not np.all(np.isfinite(A)) or not np.all(np.isfinite(b_vec)):
@@ -568,9 +590,6 @@ def rpath(
     living_qb = qb[living_idx]
     living_pb = pb[living_idx]
     living_ee = ee[living_idx]
-    bio_qb = np.where(
-        np.isnan(living_biomass * living_qb), 0.0, living_biomass * living_qb
-    )
     pred_unknown_mask = np.array(
         [
             original_no_b[pred_global] or np.isnan(biomass[pred_global])
@@ -578,27 +597,11 @@ def rpath(
         ],
         dtype=bool,
     )
-    bio_qb = np.where(pred_unknown_mask, 0.0, bio_qb)
-    cons = nodetrdiet * bio_qb[np.newaxis, :]
-    b_vec = living_catch + living_bioacc + np.sum(cons, axis=1)
-    A = np.zeros((nliving, nliving))
-    for i in range(nliving):
-        g_idx = living_idx[i]
-        if original_no_pb[g_idx]:
-            A[i, i] = living_biomass[i] * living_ee[i]
-        elif np.isnan(living_ee[i]):
-            A[i, i] = (
-                living_biomass[i] * living_pb[i]
-                if not np.isnan(living_biomass[i])
-                else living_pb[i] * living_ee[i]
-            )
-        else:
-            A[i, i] = living_pb[i] * living_ee[i]
-    qb_dc = nodetrdiet * living_qb[np.newaxis, :]
-    qb_dc = np.nan_to_num(qb_dc, nan=0.0)
-    for j in range(nliving):
-        if np.isnan(living_biomass[j]):
-            A[:, j] -= qb_dc[:, j]
+    A, b_vec = _build_balance_system(
+        nliving, living_idx, living_biomass, living_pb, living_ee,
+        living_qb, living_catch, living_bioacc, nodetrdiet,
+        original_no_pb, pred_unknown_mask,
+    )
 
     # Save final solve results in context for debug output
     # (x and b_vec/A are available from the last iteration)
@@ -730,21 +733,20 @@ def rpath(
     full_diet = np.zeros((n_bio, n_bio))
 
     # Fill in diet values - rows are prey (in bio_idx order), cols are predators (living only)
-    for i, prey_global_idx in enumerate(bio_idx):
-        for j in range(len(living_idx)):
-            full_diet[i, j] = diet_values[prey_global_idx, j]
+    full_diet[:, :nliving] = diet_values[bio_idx, :nliving]
 
     # Normalize to exclude import
     import_row = (
         diet_values[ngroups, :] if diet_values.shape[0] > ngroups else np.zeros(nliving)
     )
-    for j in range(nliving):
-        total_diet = np.sum(full_diet[:, j])
-        import_frac = import_row[j] if j < len(import_row) else 0
-        if total_diet > 0 and (1 - import_frac) > 0:
-            full_diet[:, j] = (
-                full_diet[:, j] / (1 - import_frac) if import_frac < 1 else 0
-            )
+    total_diet = np.sum(full_diet[:, :nliving], axis=0)
+    import_fracs = import_row[:nliving] if len(import_row) >= nliving else np.zeros(nliving)
+    denom = 1.0 - import_fracs
+    norm_mask = (total_diet > 0) & (denom > 0) & (import_fracs < 1)
+    safe_denom = np.where(norm_mask, denom, 1.0)
+    full_diet[:, :nliving] = np.where(
+        norm_mask[np.newaxis, :], full_diet[:, :nliving] / safe_denom[np.newaxis, :], 0.0
+    )
 
     # Set up linear system: (I - DC^T) * TL = 1
     tl_matrix = np.eye(n_bio) - full_diet.T
