@@ -113,13 +113,18 @@ def _compute_elementary_effects(
     delta = n_levels / (2 * (n_levels - 1))
     elementary_effects = [[] for _ in range(k)]
 
-    for t in range(n_trajectories):
-        start = t * (k + 1)
-        for step in range(k):
-            diff = trajectories[start + step + 1] - trajectories[start + step]
-            changed_idx = np.argmax(np.abs(diff))
-            ee = (y_values[start + step + 1] - y_values[start + step]) / delta
-            elementary_effects[changed_idx].append(ee)
+    with np.errstate(invalid="ignore"):
+        for t in range(n_trajectories):
+            start = t * (k + 1)
+            for step in range(k):
+                diff = trajectories[start + step + 1] - trajectories[start + step]
+                changed_idx = np.argmax(np.abs(diff))
+                y1 = y_values[start + step + 1]
+                y0 = y_values[start + step]
+                if np.isnan(y1) or np.isnan(y0):
+                    continue
+                ee = (y1 - y0) / delta
+                elementary_effects[changed_idx].append(ee)
 
     mu_star = np.array([np.mean(np.abs(ee)) if ee else 0.0 for ee in elementary_effects])
     sigma = np.array([np.std(ee) if len(ee) > 1 else 0.0 for ee in elementary_effects])
