@@ -133,6 +133,34 @@ from pypath.core.mediation import (
     make_ushape,
 )
 
+# Monte Carlo / Pedigree / Sensitivity (optional)
+try:
+    from pypath.core.pedigree import (
+        DietDistribution,
+        PedigreeConfig,
+        ScalarDistribution,
+        apply_sample,
+        build_distributions,
+        sample_parameters,
+    )
+    from pypath.core.montecarlo import (
+        HAS_JOBLIB,
+        MCConfig,
+        MCResult,
+        run_montecarlo,
+    )
+    from pypath.core.sensitivity import (
+        HAS_SALIB,
+        MorrisResult,
+        SensitivityConfig,
+        SobolResult,
+        run_sensitivity,
+    )
+
+    HAS_MONTECARLO = True
+except ImportError:
+    HAS_MONTECARLO = False
+
 __all__ = [
     # Ecopath
     "RpathParams",
@@ -246,4 +274,22 @@ __all__ = [
     "make_positive_shape",
     "make_negative_shape",
     "make_ushape",
+    # Pedigree & Monte Carlo
+    "HAS_MONTECARLO",
+    "PedigreeConfig",
+    "ScalarDistribution",
+    "DietDistribution",
+    "build_distributions",
+    "sample_parameters",
+    "apply_sample",
+    "MCConfig",
+    "MCResult",
+    "run_montecarlo",
+    "HAS_JOBLIB",
+    # Sensitivity
+    "MorrisResult",
+    "SobolResult",
+    "SensitivityConfig",
+    "run_sensitivity",
+    "HAS_SALIB",
 ]
