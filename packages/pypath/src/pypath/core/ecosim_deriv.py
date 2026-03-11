@@ -49,6 +49,7 @@ def _compute_consumption_python(
     PreyPreyWeight=None,
     HandleSwitch=None,
     COUPLED=1,
+    med_multipliers=None,
 ):
     """Compute the consumption matrix QQ in-place using foraging arena theory.
 
@@ -171,6 +172,9 @@ def _compute_consumption_python(
 
             Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
 
+            if med_multipliers is not None:
+                Q_calc *= med_multipliers[prey, pred]
+
             if Q_calc > 0.0:
                 QQ[prey, pred] = Q_calc
             else:
@@ -204,6 +208,7 @@ def _compute_consumption_sparse_python(
     PreyPreyWeight=None,
     HandleSwitch=None,
     COUPLED=1,
+    med_multipliers=None,
 ):
     """Compute consumption using pre-computed link arrays (single flat loop).
 
@@ -322,6 +327,9 @@ def _compute_consumption_sparse_python(
             vv_term = 1.0
 
         Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
+
+        if med_multipliers is not None:
+            Q_calc *= med_multipliers[prey, pred]
 
         if Q_calc > 0.0:
             QQ[prey, pred] = Q_calc
@@ -1108,6 +1116,11 @@ def deriv_vector(
     _HandleSwitch = params.get("HandleSwitch")
     _COUPLED = params.get("COUPLED", 1)
 
+    # Compute mediation multipliers (if mediation functions are configured)
+    _med_multipliers = None
+    if _mediation is not None:
+        _med_multipliers = _mediation.compute_group_multipliers(BB, Bbase, ActiveLink)
+
     # Compute consumption matrix via pure-Python kernel.
     # Use pre-computed sparse link arrays when available (avoids iterating
     # over inactive links); otherwise fall back to the dense kernel.
@@ -1131,6 +1144,7 @@ def deriv_vector(
             PreyPreyWeight=_PreyPreyWeight,
             HandleSwitch=_HandleSwitch,
             COUPLED=_COUPLED,
+            med_multipliers=_med_multipliers,
         )
     else:
         # ActiveLink may be a boolean array; ensure it is integer for numba compat.
@@ -1154,6 +1168,7 @@ def deriv_vector(
             PreyPreyWeight=_PreyPreyWeight,
             HandleSwitch=_HandleSwitch,
             COUPLED=_COUPLED,
+            med_multipliers=_med_multipliers,
         )
 
     # Post-loop instrumentation: log per-link breakdown for interesting groups
