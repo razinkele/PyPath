@@ -395,6 +395,26 @@ EWE_TABLES = {
         ("Discards", "DOUBLE"),
     ]),
     # -------------------------------------------------------------------
+    # Fleet dynamics tables
+    # -------------------------------------------------------------------
+    "EcosimScenarioFleet": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("EcopathFleetID", "INTEGER"),
+        ("CapDepreciate", "DOUBLE"),
+        ("CapBaseGrowth", "DOUBLE"),
+        ("EffPower", "DOUBLE"),
+        ("QmaxQbase", "DOUBLE"),
+        ("QchangeRate", "DOUBLE"),
+        ("CostOfEffort", "DOUBLE"),
+    ]),
+    "EcosimScenarioQuota": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("GroupID", "INTEGER"),
+        ("FleetID", "INTEGER"),
+        ("QuotaShare", "DOUBLE"),
+        ("TAC", "DOUBLE"),
+    ]),
+    # -------------------------------------------------------------------
     # Ecotracer tables
     # -------------------------------------------------------------------
     "EcotracerScenario": OrderedDict([
