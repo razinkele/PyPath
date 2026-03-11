@@ -706,7 +706,9 @@ def rsim_params(
         col_sums = np.sum(rpath.DetFate[:, :], axis=0)
         zero_cols = np.where(col_sums == 0)[0]
         if len(zero_cols) > 0:
-            det_names = [rpath.Group[int(dead_idx[zc])] for zc in zero_cols if zc < len(dead_idx)]
+            det_names = [
+                rpath.Group[int(dead_idx[zc])] for zc in zero_cols if zc < len(dead_idx)
+            ]
             warnings.warn(
                 f"DetFate columns with zero source fractions: "
                 f"cols={zero_cols.tolist()}, detritus={det_names}. "
@@ -2119,9 +2121,7 @@ def rsim_run(
                             total_gain = float(np.nansum(QQ_ni[:, i]))
                             total_loss = float(np.nansum(QQ_ni[i, :]))
                             total_loss += params_dict["M0"][i] * state[i]
-                            state[i] = compute_biomeq(
-                                total_gain, total_loss, state[i]
-                            )
+                            state[i] = compute_biomeq(total_gain, total_loss, state[i])
                     new_deriv[no_integrate_mask] = 0.0
                 derivs_history.insert(0, new_deriv)
                 if len(derivs_history) > 1:

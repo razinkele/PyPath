@@ -2,8 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
-from pathlib import Path
 
 from pypath.core.params import create_rpath_params, read_rpath_params
 

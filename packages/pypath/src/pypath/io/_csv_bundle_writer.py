@@ -11,12 +11,10 @@ import os
 import tempfile
 import zipfile
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
-
-from pypath.io._ewe_schema import EWE_TABLES, RPATH_TO_EWE_COLUMNS
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +190,7 @@ class CsvBundleWriter:
                             "StanzaID": i + 1,
                             "StanzaName": row.get(
                                 "StGroupName",
-                                row.get("StanzaName", f"Stanza{i+1}"),
+                                row.get("StanzaName", f"Stanza{i + 1}"),
                             ),
                             "HatchCode": 0,
                             "BABsplit": _nan_to_none(row.get("BABsplit")),
@@ -218,12 +216,8 @@ class CsvBundleWriter:
                             "GroupID": group_id,
                             "StanzaID": int(row.get("StGroupNum", 1)),
                             "Sequence": i + 1,
-                            "AgeStart": int(
-                                row.get("First", row.get("AgeStart", 0))
-                            ),
-                            "Mortality": float(
-                                row.get("Z", row.get("Mortality", 0.0))
-                            ),
+                            "AgeStart": int(row.get("First", row.get("AgeStart", 0))),
+                            "Mortality": float(row.get("Z", row.get("Mortality", 0.0))),
                             "vbK": float(
                                 row.get(
                                     "VBGF_Ksp",
@@ -298,9 +292,7 @@ class CsvBundleWriter:
             scen_rows.append(
                 {
                     "ScenarioID": scen_id,
-                    "ScenarioName": getattr(
-                        scen, "eco_name", f"Scenario {scen_id}"
-                    ),
+                    "ScenarioName": getattr(scen, "eco_name", f"Scenario {scen_id}"),
                     "Description": "Exported from PyPath",
                     "Author": "",
                     "Contact": "",
@@ -353,9 +345,7 @@ class CsvBundleWriter:
                     )
 
             # --- Fishing effort shapes (EcosimShapeFishRate) ---
-            if hasattr(scen, "fishing") and hasattr(
-                scen.fishing, "FishingEffort"
-            ):
+            if hasattr(scen, "fishing") and hasattr(scen.fishing, "FishingEffort"):
                 effort = scen.fishing.FishingEffort
                 for fi in range(effort.shape[0]):
                     has_non_default = False
@@ -369,7 +359,7 @@ class CsvBundleWriter:
                             {
                                 "ShapeID": fi + 1,
                                 "zScale": 1.0,
-                                "Title": f"FishingEffort_Fleet{fi+1}",
+                                "Title": f"FishingEffort_Fleet{fi + 1}",
                             }
                         )
 
@@ -411,9 +401,7 @@ class CsvBundleWriter:
 
         self._tables["EcosimScenario"] = pd.DataFrame(scen_rows)
         if group_info_rows:
-            self._tables["EcosimScenarioGroup"] = pd.DataFrame(
-                group_info_rows
-            )
+            self._tables["EcosimScenarioGroup"] = pd.DataFrame(group_info_rows)
         if forcing_matrix_rows:
             self._tables["EcosimScenarioForcingMatrix"] = pd.DataFrame(
                 forcing_matrix_rows
