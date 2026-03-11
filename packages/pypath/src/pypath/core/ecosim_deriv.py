@@ -724,7 +724,10 @@ def prey_switching(
 def mediation_function(
     mediation_type: int, med_bio: float, med_base: float, med_params: Dict[str, float]
 ) -> float:
-    """
+    """.. deprecated::
+        Use :class:`pypath.core.mediation.MediationShape` and its ``evaluate()``
+        method instead. This function is kept for backward compatibility.
+
     Calculate mediation effect on predation.
 
     Mediation allows a third party (mediator) to affect the predator-prey
