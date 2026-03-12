@@ -3,12 +3,14 @@
 from unittest.mock import MagicMock
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from pypath.core.indicators import (
     EcosystemIndicators,
     FlowAnalysis,
     ecosystem_indicators,
+    ecosystem_indicators_timeseries,
     finn_cycling_index,
     flow_analysis,
     transfer_efficiency,
@@ -349,3 +351,91 @@ class TestEcosystemIndicators:
         rpath.Discards = np.zeros((4, 2))
         result = ecosystem_indicators(rpath)
         assert np.isnan(result.mtl_catch)
+
+
+class TestEcosystemIndicatorsTimeseries:
+    """Tests for ecosystem_indicators_timeseries() function."""
+
+    def _make_ecosim_output(self, n_years=5, n_groups=5):
+        """Create mock RsimOutput with annual arrays.
+
+        n_groups must match rpath's NUM_LIVING + NUM_DEAD (5 for _make_rpath_5group).
+        Arrays are 1-based: shape (n_years, n_groups+1).
+        """
+        output = MagicMock()
+        output.annual_Biomass = np.ones((n_years, n_groups + 1)) * 5.0
+        output.annual_Biomass[:, 0] = 0.0  # index 0 unused
+        # Vary biomass over time for group 1
+        for yr in range(n_years):
+            output.annual_Biomass[yr, 1] = 20.0 - yr * 2  # declining
+
+        output.annual_Catch = np.zeros((n_years, n_groups + 1))
+        output.annual_Catch[:, 3] = 0.5  # small fish catch
+        output.annual_Catch[:, 4] = 0.3  # large fish catch
+        return output
+
+    def _make_scenario(self, n_years=5, n_groups=5):
+        """Create mock RsimScenario (n_groups matches rpath)."""
+        scenario = MagicMock()
+        scenario.params = MagicMock()
+        scenario.params.NUM_GROUPS = n_groups
+        scenario.params.NUM_LIVING = n_groups - 1
+        scenario.params.NUM_DEAD = 1
+        return scenario
+
+    def test_returns_dataframe(self):
+        """Should return a pandas DataFrame."""
+        rpath = _make_rpath_5group()
+        output = self._make_ecosim_output()
+        scenario = self._make_scenario()
+        result = ecosystem_indicators_timeseries(output, scenario, rpath)
+        assert isinstance(result, pd.DataFrame)
+
+    def test_correct_columns(self):
+        """DataFrame should have expected columns."""
+        rpath = _make_rpath_5group()
+        output = self._make_ecosim_output()
+        scenario = self._make_scenario()
+        result = ecosystem_indicators_timeseries(output, scenario, rpath)
+        expected_cols = {
+            "year", "mtl_catch", "marine_trophic_index",
+            "catch_biomass_ratio", "gross_efficiency", "shannon_diversity",
+        }
+        assert set(result.columns) == expected_cols
+
+    def test_correct_row_count(self):
+        """Should have one row per year."""
+        rpath = _make_rpath_5group()
+        output = self._make_ecosim_output(n_years=10)
+        scenario = self._make_scenario()
+        result = ecosystem_indicators_timeseries(output, scenario, rpath)
+        assert len(result) == 10
+
+    def test_values_change_over_time(self):
+        """Shannon diversity should change when biomass varies."""
+        rpath = _make_rpath_5group()
+        output = self._make_ecosim_output()
+        scenario = self._make_scenario()
+        result = ecosystem_indicators_timeseries(output, scenario, rpath)
+        # Biomass of group 1 declines, so diversity changes
+        assert result["shannon_diversity"].iloc[0] != result["shannon_diversity"].iloc[-1]
+
+    def test_consistent_with_static_at_t0(self):
+        """Timeseries year 0 should match static indicators when biomass matches."""
+        rpath = _make_rpath_5group()
+        output = self._make_ecosim_output(n_years=1)
+        scenario = self._make_scenario()
+        # Set annual biomass to match rpath.Biomass exactly
+        for i in range(1, rpath.NUM_LIVING + rpath.NUM_DEAD + 1):
+            output.annual_Biomass[0, i] = rpath.Biomass[i]
+        # Set annual catch to match rpath landings+discards
+        for i in range(1, rpath.NUM_LIVING + rpath.NUM_DEAD + 1):
+            output.annual_Catch[0, i] = (
+                np.sum(rpath.Landings[i, 1:]) + np.sum(rpath.Discards[i, 1:])
+            )
+        ts = ecosystem_indicators_timeseries(output, scenario, rpath)
+        static = ecosystem_indicators(rpath)
+        assert ts["mtl_catch"].iloc[0] == pytest.approx(static.mtl_catch, abs=1e-10)
+        assert ts["shannon_diversity"].iloc[0] == pytest.approx(
+            static.shannon_diversity, abs=1e-10
+        )

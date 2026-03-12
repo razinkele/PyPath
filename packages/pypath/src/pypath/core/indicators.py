@@ -479,3 +479,106 @@ def ecosystem_indicators(rpath: Rpath) -> EcosystemIndicators:
         shannon_diversity=shannon_diversity,
         kempton_q=kempton_q,
     )
+
+
+def ecosystem_indicators_timeseries(
+    output: RsimOutput,
+    scenario: RsimScenario,
+    rpath: Rpath,
+) -> pd.DataFrame:
+    """Compute ecosystem indicators per year from Ecosim output.
+
+    Parameters
+    ----------
+    output : RsimOutput
+        Ecosim simulation output with annual_Biomass and annual_Catch.
+    scenario : RsimScenario
+        Ecosim scenario for group count validation.
+    rpath : Rpath
+        Balanced Ecopath model for trophic levels and group types.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: year, mtl_catch, marine_trophic_index,
+        catch_biomass_ratio, gross_efficiency, shannon_diversity.
+        One row per year.
+    """
+    import pandas as pd
+
+    n_years = output.annual_Biomass.shape[0]
+    n_living = rpath.NUM_LIVING
+    n_dead = rpath.NUM_DEAD
+    n_internal = n_living + n_dead
+
+    # Validate array dimensions match scenario
+    if output.annual_Biomass.shape[1] < n_internal + 1:
+        logger.warning(
+            "annual_Biomass has %d columns but need %d for %d groups",
+            output.annual_Biomass.shape[1],
+            n_internal + 1,
+            n_internal,
+        )
+
+    rows = []
+    for yr in range(n_years):
+        biomass = output.annual_Biomass[yr]  # 1-based
+        catch_arr = output.annual_Catch[yr]  # 1-based
+
+        total_catch = np.sum(catch_arr[1:n_internal + 1])
+
+        # MTL catch
+        if total_catch > 0:
+            mtl_catch = np.sum(
+                rpath.TL[1:n_internal + 1] * catch_arr[1:n_internal + 1]
+            ) / total_catch
+        else:
+            mtl_catch = np.nan
+
+        # Marine Trophic Index (TL >= 3.25)
+        mti_mask = (catch_arr[1:n_internal + 1] > 0) & (
+            rpath.TL[1:n_internal + 1] >= 3.25
+        )
+        mti_c = catch_arr[1:n_internal + 1][mti_mask]
+        mti_t = rpath.TL[1:n_internal + 1][mti_mask]
+        if np.sum(mti_c) > 0:
+            marine_trophic_index = np.sum(mti_t * mti_c) / np.sum(mti_c)
+        else:
+            marine_trophic_index = np.nan
+
+        # Catch/Biomass ratio (living groups)
+        living_b = np.sum(biomass[1:n_living + 1])
+        catch_biomass_ratio = total_catch / living_b if living_b > 0 else np.nan
+
+        # Gross efficiency (catch / NPP using dynamic biomass)
+        # PB is static (from Ecopath); biomass is dynamic (from Ecosim)
+        npp = 0.0
+        for i in range(1, n_living + 1):
+            if rpath.type[i] == 1:  # producer
+                npp += rpath.PB[i] * biomass[i]
+        gross_efficiency = total_catch / npp if npp > 0 else np.nan
+
+        # Shannon diversity (living groups with B > 0)
+        living_bio = []
+        for i in range(1, n_living + 1):
+            if rpath.type[i] in (0, 1) and biomass[i] > 0:
+                living_bio.append(biomass[i])
+
+        if len(living_bio) > 0:
+            living_bio = np.array(living_bio)
+            total_b = np.sum(living_bio)
+            p = living_bio / total_b
+            shannon_diversity = -np.sum(p * np.log(p))
+        else:
+            shannon_diversity = np.nan
+
+        rows.append({
+            "year": yr,
+            "mtl_catch": mtl_catch,
+            "marine_trophic_index": marine_trophic_index,
+            "catch_biomass_ratio": catch_biomass_ratio,
+            "gross_efficiency": gross_efficiency,
+            "shannon_diversity": shannon_diversity,
+        })
+
+    return pd.DataFrame(rows)
