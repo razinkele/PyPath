@@ -34,23 +34,23 @@ from pypath.io.ecobase import (
 )
 from pypath.io.ewe_writer import write_ewemdb
 from pypath.io.ewemdb import (
+    EcospaceReadResult,
     EwEDatabaseError,
+    TaxonomyData,
+    TaxonomyRecord,
     check_ewemdb_support,
     get_ewemdb_metadata,
     list_ewemdb_tables,
+    read_ecospace,
+    read_ecotracer,
     read_ewemdb,
     read_ewemdb_table,
-    read_ecotracer,
     read_fleet_dynamics,
-    read_ecospace,
-    read_mpa_config,
     read_mediation,
-    EcospaceReadResult,
+    read_mpa_config,
     read_pedigree,
     read_taxonomy,
     read_timeseries,
-    TaxonomyData,
-    TaxonomyRecord,
 )
 from pypath.io.timeseries_csv import load_timeseries_csv
 

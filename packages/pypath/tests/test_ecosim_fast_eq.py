@@ -1,5 +1,5 @@
 """Tests for fast equilibrium (NoIntegrate groups) matching Rpath."""
-import numpy as np
+
 import pytest
 
 

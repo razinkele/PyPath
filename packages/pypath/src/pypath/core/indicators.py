@@ -114,10 +114,9 @@ def _build_flow_matrix(rpath: Rpath) -> tuple[np.ndarray, int]:
     # External flows: respiration
     for i in range(1, n_living + 1):
         if rpath.QB[i] > 0 and rpath.Biomass[i] > 0:
-            resp = (
-                (1.0 - rpath.Unassim[i]) * rpath.QB[i] * rpath.Biomass[i]
-                - rpath.PB[i] * rpath.Biomass[i]
-            )
+            resp = (1.0 - rpath.Unassim[i]) * rpath.QB[i] * rpath.Biomass[i] - rpath.PB[
+                i
+            ] * rpath.Biomass[i]
             if resp > 0:
                 T[resp_idx, i - 1] = resp
 
@@ -171,9 +170,7 @@ def flow_analysis(rpath: Rpath) -> FlowAnalysis:
     for i in range(n_total):
         for j in range(n_total):
             if T[i, j] > 0 and t_row[i] > 0 and t_col[j] > 0:
-                ascendency += T[i, j] * np.log2(
-                    T[i, j] * tst / (t_row[i] * t_col[j])
-                )
+                ascendency += T[i, j] * np.log2(T[i, j] * tst / (t_row[i] * t_col[j]))
 
     # Capacity: C = -Σ T[i,j] * log2(T[i,j] / TST)
     capacity = 0.0
@@ -202,9 +199,7 @@ def flow_analysis(rpath: Rpath) -> FlowAnalysis:
     )
 
 
-def _finn_cycling_index_from_matrix(
-    T: np.ndarray, n_internal: int
-) -> float:
+def _finn_cycling_index_from_matrix(T: np.ndarray, n_internal: int) -> float:
     """Compute Finn Cycling Index from internal flow matrix.
 
     Following Finn (1976) / Ulanowicz (1986):
@@ -306,7 +301,11 @@ def _transfer_efficiency_from_rpath(rpath: Rpath) -> np.ndarray:
         return np.array([])
 
     max_bin = max(tl_bins.keys())
-    min_bin = min(b for b in tl_bins.keys() if b >= 2) if any(b >= 2 for b in tl_bins) else None
+    min_bin = (
+        min(b for b in tl_bins.keys() if b >= 2)
+        if any(b >= 2 for b in tl_bins)
+        else None
+    )
 
     if min_bin is None:
         return np.array([])
@@ -415,21 +414,24 @@ def ecosystem_indicators(rpath: Rpath) -> EcosystemIndicators:
 
     # --- MTL catch ---
     if total_catch > 0:
-        mtl_catch = np.sum(rpath.TL[1:n_internal + 1] * catch[1:n_internal + 1]) / total_catch
+        mtl_catch = (
+            np.sum(rpath.TL[1 : n_internal + 1] * catch[1 : n_internal + 1])
+            / total_catch
+        )
     else:
         mtl_catch = np.nan
 
     # --- Marine Trophic Index (TL >= 3.25 only) ---
-    mti_mask = (catch[1:n_internal + 1] > 0) & (rpath.TL[1:n_internal + 1] >= 3.25)
-    mti_catch = catch[1:n_internal + 1][mti_mask]
-    mti_tl = rpath.TL[1:n_internal + 1][mti_mask]
+    mti_mask = (catch[1 : n_internal + 1] > 0) & (rpath.TL[1 : n_internal + 1] >= 3.25)
+    mti_catch = catch[1 : n_internal + 1][mti_mask]
+    mti_tl = rpath.TL[1 : n_internal + 1][mti_mask]
     if np.sum(mti_catch) > 0:
         marine_trophic_index = np.sum(mti_tl * mti_catch) / np.sum(mti_catch)
     else:
         marine_trophic_index = np.nan
 
     # --- Catch/Biomass ratio (living groups only) ---
-    living_biomass = np.sum(rpath.Biomass[1:n_living + 1])
+    living_biomass = np.sum(rpath.Biomass[1 : n_living + 1])
     catch_biomass_ratio = total_catch / living_biomass if living_biomass > 0 else np.nan
 
     # --- Gross efficiency (catch / NPP) ---
@@ -525,29 +527,30 @@ def ecosystem_indicators_timeseries(
         biomass = output.annual_Biomass[yr]  # 1-based
         catch_arr = output.annual_Catch[yr]  # 1-based
 
-        total_catch = np.sum(catch_arr[1:n_internal + 1])
+        total_catch = np.sum(catch_arr[1 : n_internal + 1])
 
         # MTL catch
         if total_catch > 0:
-            mtl_catch = np.sum(
-                rpath.TL[1:n_internal + 1] * catch_arr[1:n_internal + 1]
-            ) / total_catch
+            mtl_catch = (
+                np.sum(rpath.TL[1 : n_internal + 1] * catch_arr[1 : n_internal + 1])
+                / total_catch
+            )
         else:
             mtl_catch = np.nan
 
         # Marine Trophic Index (TL >= 3.25)
-        mti_mask = (catch_arr[1:n_internal + 1] > 0) & (
-            rpath.TL[1:n_internal + 1] >= 3.25
+        mti_mask = (catch_arr[1 : n_internal + 1] > 0) & (
+            rpath.TL[1 : n_internal + 1] >= 3.25
         )
-        mti_c = catch_arr[1:n_internal + 1][mti_mask]
-        mti_t = rpath.TL[1:n_internal + 1][mti_mask]
+        mti_c = catch_arr[1 : n_internal + 1][mti_mask]
+        mti_t = rpath.TL[1 : n_internal + 1][mti_mask]
         if np.sum(mti_c) > 0:
             marine_trophic_index = np.sum(mti_t * mti_c) / np.sum(mti_c)
         else:
             marine_trophic_index = np.nan
 
         # Catch/Biomass ratio (living groups)
-        living_b = np.sum(biomass[1:n_living + 1])
+        living_b = np.sum(biomass[1 : n_living + 1])
         catch_biomass_ratio = total_catch / living_b if living_b > 0 else np.nan
 
         # Gross efficiency (catch / NPP using dynamic biomass)
@@ -572,13 +575,15 @@ def ecosystem_indicators_timeseries(
         else:
             shannon_diversity = np.nan
 
-        rows.append({
-            "year": yr,
-            "mtl_catch": mtl_catch,
-            "marine_trophic_index": marine_trophic_index,
-            "catch_biomass_ratio": catch_biomass_ratio,
-            "gross_efficiency": gross_efficiency,
-            "shannon_diversity": shannon_diversity,
-        })
+        rows.append(
+            {
+                "year": yr,
+                "mtl_catch": mtl_catch,
+                "marine_trophic_index": marine_trophic_index,
+                "catch_biomass_ratio": catch_biomass_ratio,
+                "gross_efficiency": gross_efficiency,
+                "shannon_diversity": shannon_diversity,
+            }
+        )
 
     return pd.DataFrame(rows)
