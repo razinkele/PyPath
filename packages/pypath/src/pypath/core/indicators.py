@@ -359,3 +359,123 @@ def transfer_efficiency(rpath: Rpath) -> np.ndarray:
         Empty array if no groups at TL >= 2.
     """
     return _transfer_efficiency_from_rpath(rpath)
+
+
+@dataclass
+class EcosystemIndicators:
+    """Ecosystem summary indicators from balanced Ecopath model.
+
+    Attributes
+    ----------
+    mtl_catch : float
+        Mean trophic level of catch.
+    marine_trophic_index : float
+        MTL of catch excluding groups with TL < 3.25.
+    catch_biomass_ratio : float
+        Total catch / total living biomass.
+    gross_efficiency : float
+        Total catch / net primary production.
+    shannon_diversity : float
+        Shannon H' of biomass (living groups), natural log.
+    kempton_q : float
+        Biomass evenness in TL 3-4 range.
+    """
+
+    mtl_catch: float
+    marine_trophic_index: float
+    catch_biomass_ratio: float
+    gross_efficiency: float
+    shannon_diversity: float
+    kempton_q: float
+
+
+def ecosystem_indicators(rpath: Rpath) -> EcosystemIndicators:
+    """Compute ecosystem summary indicators from a balanced Ecopath model.
+
+    Parameters
+    ----------
+    rpath : Rpath
+        Balanced Ecopath model.
+
+    Returns
+    -------
+    EcosystemIndicators
+        Static ecosystem summary metrics.
+    """
+    n_living = rpath.NUM_LIVING
+    n_dead = rpath.NUM_DEAD
+    n_internal = n_living + n_dead
+
+    # Compute catch per group
+    catch = np.zeros(n_internal + 1)
+    for i in range(1, n_internal + 1):
+        catch[i] = np.sum(rpath.Landings[i, 1:]) + np.sum(rpath.Discards[i, 1:])
+
+    total_catch = np.sum(catch[1:])
+
+    # --- MTL catch ---
+    if total_catch > 0:
+        mtl_catch = np.sum(rpath.TL[1:n_internal + 1] * catch[1:n_internal + 1]) / total_catch
+    else:
+        mtl_catch = np.nan
+
+    # --- Marine Trophic Index (TL >= 3.25 only) ---
+    mti_mask = (catch[1:n_internal + 1] > 0) & (rpath.TL[1:n_internal + 1] >= 3.25)
+    mti_catch = catch[1:n_internal + 1][mti_mask]
+    mti_tl = rpath.TL[1:n_internal + 1][mti_mask]
+    if np.sum(mti_catch) > 0:
+        marine_trophic_index = np.sum(mti_tl * mti_catch) / np.sum(mti_catch)
+    else:
+        marine_trophic_index = np.nan
+
+    # --- Catch/Biomass ratio (living groups only) ---
+    living_biomass = np.sum(rpath.Biomass[1:n_living + 1])
+    catch_biomass_ratio = total_catch / living_biomass if living_biomass > 0 else np.nan
+
+    # --- Gross efficiency (catch / NPP) ---
+    npp = 0.0
+    for i in range(1, n_living + 1):
+        if rpath.type[i] == 1:  # producer
+            npp += rpath.PB[i] * rpath.Biomass[i]
+    gross_efficiency = total_catch / npp if npp > 0 else np.nan
+
+    # --- Shannon diversity (living groups with B > 0) ---
+    living_b = []
+    for i in range(1, n_living + 1):
+        if rpath.type[i] in (0, 1) and rpath.Biomass[i] > 0:
+            living_b.append(rpath.Biomass[i])
+
+    if len(living_b) > 0:
+        living_b = np.array(living_b)
+        total_b = np.sum(living_b)
+        p = living_b / total_b
+        shannon_diversity = -np.sum(p * np.log(p))
+    else:
+        shannon_diversity = np.nan
+
+    # --- Kempton Q (TL in [3, 4)) ---
+    q_biomasses = []
+    for i in range(1, n_living + 1):
+        if rpath.type[i] in (0, 1) and 3.0 <= rpath.TL[i] < 4.0:
+            q_biomasses.append(rpath.Biomass[i])
+
+    if len(q_biomasses) >= 4:
+        q_biomasses = np.sort(q_biomasses)
+        b25 = np.percentile(q_biomasses, 25)
+        b75 = np.percentile(q_biomasses, 75)
+        s = len(q_biomasses)
+        if b75 > b25 and b25 > 0:
+            kempton_q = 0.5 * s / (np.log(b75) - np.log(b25))
+        else:
+            kempton_q = np.nan
+    else:
+        kempton_q = np.nan
+
+    return EcosystemIndicators(
+        mtl_catch=mtl_catch,
+        marine_trophic_index=marine_trophic_index,
+        catch_biomass_ratio=catch_biomass_ratio,
+        gross_efficiency=gross_efficiency,
+        shannon_diversity=shannon_diversity,
+        kempton_q=kempton_q,
+    )

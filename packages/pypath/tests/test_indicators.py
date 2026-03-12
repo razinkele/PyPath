@@ -6,7 +6,9 @@ import numpy as np
 import pytest
 
 from pypath.core.indicators import (
+    EcosystemIndicators,
     FlowAnalysis,
+    ecosystem_indicators,
     finn_cycling_index,
     flow_analysis,
     transfer_efficiency,
@@ -224,3 +226,126 @@ class TestTransferEfficiency:
         rpath.Discards = np.zeros((2, 1))
         te = transfer_efficiency(rpath)
         assert len(te) == 0
+
+
+def _make_rpath_5group():
+    """Create a 5-group model for ecosystem indicator tests.
+
+    Groups:
+    1: Phytoplankton (producer, TL=1.0, B=20, PB=50, QB=0)
+    2: Zooplankton (consumer, TL=2.0, B=10, PB=10, QB=30)
+    3: Small fish (consumer, TL=3.0, B=5, PB=1, QB=5)
+    4: Large fish (consumer, TL=4.0, B=2, PB=0.3, QB=1.5)
+    5: Detritus (type=2, TL=1.0, B=5)
+    """
+    rpath = MagicMock()
+    rpath.NUM_LIVING = 4
+    rpath.NUM_DEAD = 1
+    rpath.NUM_GEARS = 1
+
+    rpath.Biomass = np.array([0.0, 20.0, 10.0, 5.0, 2.0, 5.0])
+    rpath.PB = np.array([0.0, 50.0, 10.0, 1.0, 0.3, 0.0])
+    rpath.QB = np.array([0.0, 0.0, 30.0, 5.0, 1.5, 0.0])
+    rpath.EE = np.array([0.0, 0.8, 0.7, 0.6, 0.5, 0.5])
+    rpath.Unassim = np.array([0.0, 0.0, 0.2, 0.2, 0.2, 0.0])
+    rpath.TL = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 1.0])
+    rpath.type = np.array([0, 1, 0, 0, 0, 2])
+
+    rpath.DC = np.zeros((6, 6))
+    rpath.DC[1, 2] = 1.0   # zoo eats phyto
+    rpath.DC[2, 3] = 1.0   # small fish eats zoo
+    rpath.DC[3, 4] = 1.0   # large fish eats small fish
+
+    # Fleet catches small fish (0.5) and large fish (0.3)
+    rpath.Landings = np.zeros((6, 2))
+    rpath.Landings[3, 1] = 0.5   # small fish landings
+    rpath.Landings[4, 1] = 0.3   # large fish landings
+    rpath.Discards = np.zeros((6, 2))
+
+    return rpath
+
+
+class TestEcosystemIndicators:
+    """Tests for ecosystem_indicators() function."""
+
+    def test_mtl_catch_weighted(self):
+        """MTL catch = Σ(TL*Catch) / Σ(Catch).
+
+        Small fish: TL=3.0, Catch=0.5
+        Large fish: TL=4.0, Catch=0.3
+        MTL = (3.0*0.5 + 4.0*0.3) / (0.5 + 0.3) = 2.7/0.8 = 3.375
+        """
+        rpath = _make_rpath_5group()
+        result = ecosystem_indicators(rpath)
+        assert result.mtl_catch == pytest.approx(3.375, abs=1e-10)
+
+    def test_mti_excludes_low_tl(self):
+        """Marine Trophic Index excludes groups with TL < 3.25.
+
+        Only large fish (TL=4.0, Catch=0.3) qualifies.
+        MTI = 4.0
+        """
+        rpath = _make_rpath_5group()
+        result = ecosystem_indicators(rpath)
+        assert result.marine_trophic_index == pytest.approx(4.0, abs=1e-10)
+
+    def test_mti_nan_when_no_groups_above_cutoff(self):
+        """MTI should be NaN when no groups have TL >= 3.25."""
+        rpath = _make_rpath_3group()  # max TL=2.0
+        result = ecosystem_indicators(rpath)
+        assert np.isnan(result.marine_trophic_index)
+
+    def test_catch_biomass_ratio(self):
+        """Catch/Biomass = total catch / total living biomass.
+
+        Catch = 0.5 + 0.3 = 0.8
+        Living biomass = 20 + 10 + 5 + 2 = 37
+        Ratio = 0.8/37 ≈ 0.02162
+        """
+        rpath = _make_rpath_5group()
+        result = ecosystem_indicators(rpath)
+        assert result.catch_biomass_ratio == pytest.approx(0.8 / 37.0, abs=1e-10)
+
+    def test_gross_efficiency(self):
+        """Gross efficiency = total catch / NPP.
+
+        NPP = PB[1]*B[1] = 50*20 = 1000 (only phytoplankton is producer)
+        Catch = 0.8
+        GE = 0.8/1000 = 0.0008
+        """
+        rpath = _make_rpath_5group()
+        result = ecosystem_indicators(rpath)
+        assert result.gross_efficiency == pytest.approx(0.0008, abs=1e-10)
+
+    def test_shannon_diversity_equal_biomass(self):
+        """Shannon diversity of n equal-biomass groups ≈ ln(n)."""
+        rpath = MagicMock()
+        rpath.NUM_LIVING = 4
+        rpath.NUM_DEAD = 0
+        rpath.NUM_GEARS = 0
+        rpath.Biomass = np.array([0.0, 1.0, 1.0, 1.0, 1.0])
+        rpath.PB = np.array([0.0, 1.0, 1.0, 1.0, 1.0])
+        rpath.QB = np.array([0.0, 0.0, 1.0, 1.0, 1.0])
+        rpath.TL = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+        rpath.type = np.array([0, 1, 0, 0, 0])
+        rpath.Landings = np.zeros((5, 1))
+        rpath.Discards = np.zeros((5, 1))
+        rpath.EE = np.zeros(5)
+        rpath.Unassim = np.zeros(5)
+        rpath.DC = np.zeros((5, 5))
+        result = ecosystem_indicators(rpath)
+        assert result.shannon_diversity == pytest.approx(np.log(4), abs=0.01)
+
+    def test_kempton_q_few_groups(self):
+        """Kempton Q returns NaN when fewer than 4 groups in TL 3-4."""
+        rpath = _make_rpath_3group()  # only TL 1 and 2
+        result = ecosystem_indicators(rpath)
+        assert np.isnan(result.kempton_q)
+
+    def test_zero_catch_mtl_nan(self):
+        """MTL catch should be NaN when total catch is 0."""
+        rpath = _make_rpath_3group()
+        rpath.Landings = np.zeros((4, 2))
+        rpath.Discards = np.zeros((4, 2))
+        result = ecosystem_indicators(rpath)
+        assert np.isnan(result.mtl_catch)
