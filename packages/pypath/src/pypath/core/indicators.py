@@ -205,8 +205,76 @@ def flow_analysis(rpath: Rpath) -> FlowAnalysis:
 def _finn_cycling_index_from_matrix(
     T: np.ndarray, n_internal: int
 ) -> float:
-    """Compute Finn Cycling Index from flow matrix (stub)."""
-    return 0.0
+    """Compute Finn Cycling Index from internal flow matrix.
+
+    Following Finn (1976) / Ulanowicz (1986):
+    1. Extract internal flows only (n_internal x n_internal)
+    2. Compute throughflow per compartment
+    3. Build output coefficient matrix G
+    4. Compute Leontief inverse N = (I - G)^{-1}
+    5. Cycled flow = throughflow - straight-through flow
+    6. FCI = sum(cycled) / TST
+    """
+    # Extract internal sub-matrix
+    T_int = T[:n_internal, :n_internal]
+
+    # Throughflow: total flow out of each compartment (column sums of full matrix)
+    # Uses full matrix so throughflow includes flows to external sinks
+    # (respiration, export), capturing total flow through each compartment.
+    throughflow = np.sum(T[:, :n_internal], axis=0)
+
+    # Skip if no throughflow
+    if np.sum(throughflow) == 0:
+        return 0.0
+
+    # Build output coefficient matrix: G[i,j] = T_int[i,j] / throughflow[j]
+    G = np.zeros((n_internal, n_internal))
+    for j in range(n_internal):
+        if throughflow[j] > 0:
+            G[:, j] = T_int[:, j] / throughflow[j]
+
+    # Leontief inverse: N = (I - G)^{-1}
+    I_minus_G = np.eye(n_internal) - G
+    try:
+        N = np.linalg.inv(I_minus_G)
+    except np.linalg.LinAlgError:
+        logger.warning("Singular matrix in Finn cycling calculation, returning 0.0")
+        return 0.0
+
+    # Straight-through and cycled flows
+    tst = np.sum(T)
+    if tst == 0:
+        return 0.0
+
+    total_cycled = 0.0
+    for i in range(n_internal):
+        if N[i, i] > 0 and throughflow[i] > 0:
+            straight = throughflow[i] / N[i, i]
+            cycled = throughflow[i] - straight
+            total_cycled += cycled
+
+    return total_cycled / tst
+
+
+def finn_cycling_index(rpath: Rpath) -> float:
+    """Compute Finn Cycling Index for a balanced Ecopath model.
+
+    The Finn Cycling Index (FCI) measures the fraction of total system
+    throughput that is recycled. Values near 0 indicate linear flow;
+    values near 1 indicate high recycling.
+
+    Parameters
+    ----------
+    rpath : Rpath
+        Balanced Ecopath model.
+
+    Returns
+    -------
+    float
+        Finn Cycling Index in [0, 1].
+    """
+    T, n_internal = _build_flow_matrix(rpath)
+    return _finn_cycling_index_from_matrix(T, n_internal)
 
 
 def _transfer_efficiency_from_rpath(rpath: Rpath) -> np.ndarray:

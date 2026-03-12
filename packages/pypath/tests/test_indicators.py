@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from pypath.core.indicators import FlowAnalysis, flow_analysis
+from pypath.core.indicators import FlowAnalysis, finn_cycling_index, flow_analysis
 
 
 def _make_rpath_3group():
@@ -141,3 +141,38 @@ class TestFlowAnalysis:
         assert result.total_system_throughput == 0.0
         assert result.ascendency == 0.0
         assert result.capacity == 0.0
+
+
+class TestFinnCyclingIndex:
+    """Tests for finn_cycling_index() function."""
+
+    def test_linear_chain_no_cycling(self):
+        """Linear chain (no recycling) should have FCI = 0."""
+        rpath = _make_rpath_3group()
+        fci = finn_cycling_index(rpath)
+        assert fci == pytest.approx(0.0, abs=1e-10)
+
+    def test_detritus_feedback_positive_cycling(self):
+        """Detritus feeding back to consumer should give FCI > 0."""
+        rpath = _make_rpath_3group()
+        rpath.DC[1, 2] = 0.8   # prey=producer, pred=consumer
+        rpath.DC[3, 2] = 0.2   # prey=detritus, pred=consumer
+        fci = finn_cycling_index(rpath)
+        assert fci > 0.0
+
+    def test_fci_in_unit_interval(self):
+        """FCI should be in [0, 1]."""
+        rpath = _make_rpath_3group()
+        rpath.DC[1, 2] = 0.8
+        rpath.DC[3, 2] = 0.2
+        fci = finn_cycling_index(rpath)
+        assert 0 <= fci <= 1
+
+    def test_fci_matches_flow_analysis(self):
+        """finn_cycling_index() should match flow_analysis().finn_cycling_index."""
+        rpath = _make_rpath_3group()
+        rpath.DC[1, 2] = 0.8
+        rpath.DC[3, 2] = 0.2
+        fci_standalone = finn_cycling_index(rpath)
+        fa = flow_analysis(rpath)
+        assert fci_standalone == pytest.approx(fa.finn_cycling_index, abs=1e-10)
