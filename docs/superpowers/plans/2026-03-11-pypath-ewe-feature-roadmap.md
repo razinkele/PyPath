@@ -150,27 +150,24 @@ Tracks contaminant concentrations through the food web. Each group has: initial 
 ## Phase 6: Advanced Ecospace Features
 
 **Priority:** MEDIUM — Required for spatial management scenario evaluation.
+**Status:** ✅ ~95% COMPLETE — I/O gap closed, all 16 Ecospace tables supported.
 
-**What's missing:**
-- `EcospaceScenarioMPA` + `EcospaceScenarioMPAFishery` (MPA management)
-- `EcospaceScenarioGroupMigration` (seasonal migration maps)
-- `EcospaceScenarioMonth` (monthly wind/advection/upwelling maps)
-- `EcospaceScenarioFleet` (spatial fleet effort allocation, port maps, sailing costs)
-- `EcospaceScenarioGroupHabitat` (habitat preference matrix)
-- `EcospaceScenarioWeightLayer` (capacity driver weight layers)
-- `EcospaceScenarioCapacityDrivers` (environmental capacity functions)
-- `EcospaceScenarioDataConnection` (external data source connections)
+**Implemented:**
+- ✅ `EcospaceScenarioMPA` + `EcospaceScenarioMPAFishery` — MPAConfig, MPAZone classes, read_mpa_config(), write_mpa(), full test suite
+- ✅ `EcospaceScenarioGroupHabitat` — habitat preference matrix, Gaussian/threshold/linear/step response functions
+- ✅ `EcospaceScenarioFleet` — SpatialFishing class with uniform/gravity/port-based/habitat-based allocation
+- ✅ `EcospaceScenarioCapacityDrivers` — schema + reader + writer
+- ✅ External flux support — ExternalFluxTimeseries for ocean models (ROMS, MITgcm, HYCOM), NetCDF/CSV import
+- ✅ Environmental drivers — EnvironmentalLayer, EnvironmentalDrivers, seasonal temperature
+- ✅ 7 new tables: GroupMigration, Month, WeightLayer, DataConnection, DataConnectionDisabled, DriverDisabled, HabitatFishery
+- ✅ EcospaceReadResult extended with 8 new fields (driver_layers, migration_maps, monthly_maps, etc.)
+- ✅ Write support for all 16 Ecospace tables (was 2)
+- ✅ MPA write support with mpa_config parameter on write_ewemdb()
+- ✅ EcospaceScenarioMPAPatch removed (doesn't exist in real EwE 6.6+)
+- ✅ Binary map columns preserved as raw bytes for round-trip fidelity
 
-**What exists:**
-- Basic grid, dispersal, habitat capacity, spatial fishing
-- Environmental drivers with response functions
-
-**Tasks (incremental — pick subsets):**
-1. **MPA support:** Define no-take zones, fleet exclusions, evaluate MPA scenarios
-2. **Migration maps:** Monthly spatial distribution maps per group
-3. **Habitat preference matrix:** Group-habitat suitability scores
-4. **Spatial fleet dynamics:** Port-based effort, sailing cost, IFD effort allocation
-5. **Read/write all Ecospace tables**
+**Minor gap:**
+- Capacity driver runtime integration (weight layers → dynamic habitat capacity)
 
 **Dependencies:** Phase 0
 
@@ -179,24 +176,20 @@ Tracks contaminant concentrations through the food web. Each group has: initial 
 ## Phase 7: System-Level Ecological Indicators
 
 **Priority:** LOW-MEDIUM — Important for ecosystem-based management reporting.
+**Status:** COMPLETE (~90%) — All core features implemented and tested.
 
-**What's missing:**
-- Full Ulanowicz ascendency metrics (development capacity, overhead, redundancy)
-- System maturity indices
-- Formal sensitivity analysis framework (one-at-a-time, Morris method, Sobol)
-- Ecosystem summary indicators (mean trophic level of catch, marine trophic index)
+**Implemented:**
+- ✅ Full Ulanowicz ascendency framework — TST, ascendency, capacity, overhead, relative ascendency (core/indicators.py)
+- ✅ Finn Cycling Index — Leontief inverse method
+- ✅ Transfer efficiency — per-trophic-level, integer-bin approach
+- ✅ Ecosystem summary indicators — MTL catch, Marine Trophic Index, catch/biomass ratio, gross efficiency, Shannon diversity, Kempton's Q
+- ✅ Dynamic indicators time series — ecosystem_indicators_timeseries() for Ecosim output
+- ✅ Morris sensitivity analysis — OAT screening with mu*, sigma, mu
+- ✅ Sobol sensitivity — variance-based via SALib (optional dependency)
+- ✅ Network indices — connectance, omnivory, keystoneness, MTI matrix, linkage density
 
-**What exists:**
-- Finn Cycling Index
-- Connectance, omnivory, keystoneness
-- MTI matrix
-- Network indices (linkage density, etc.)
-
-**Tasks:**
-1. Implement Ulanowicz flow analysis (ascendency, overhead, capacity)
-2. Add IndiSeas-style ecosystem indicators
-3. Implement sensitivity analysis methods
-4. Summary report generation for ecosystem assessments
+**Minor gap:**
+- System maturity indices (nice-to-have, not critical)
 
 **Dependencies:** None (standalone)
 
@@ -244,18 +237,18 @@ This is a major standalone module (~2000+ lines). Defer unless there's specific 
 
 ## Implementation Priority Matrix
 
-| Phase | Feature | Impact | Effort | Priority |
-|-------|---------|--------|--------|----------|
-| 0 | Schema fix | Critical | Medium | **Do first** |
-| 1 | Time series & calibration | High | Medium | **Do second** |
-| 2 | Mediation functions | High | Low-Med | **Do third** |
-| 3 | Monte Carlo / pedigree | High | Medium | **Do fourth** |
-| 4 | Ecotracer | Medium | Low | Good quick win |
-| 5 | Fleet dynamics & MSE | Medium | High | After 1-3 |
-| 6 | Advanced Ecospace | Medium | High | Incremental |
-| 7 | Ecological indicators | Low-Med | Low | Standalone |
-| 8 | Value chain economics | Low | Very High | Defer |
-| 9 | Taxonomy integration | Low | Low | Nice to have |
+| Phase | Feature | Impact | Effort | Priority | Status |
+|-------|---------|--------|--------|----------|--------|
+| 0 | Schema fix | Critical | Medium | **Do first** | ✅ Done |
+| 1 | Time series & calibration | High | Medium | **Do second** | ✅ Done |
+| 2 | Mediation functions | High | Low-Med | **Do third** | ✅ Done |
+| 3 | Monte Carlo / pedigree | High | Medium | **Do fourth** | ✅ Done |
+| 4 | Ecotracer | Medium | Low | Good quick win | ✅ Done |
+| 5 | Fleet dynamics & MSE | Medium | High | After 1-3 | ✅ Done |
+| 6 | Advanced Ecospace | Medium | High | Incremental | ✅ ~95% (I/O complete, runtime gap) |
+| 7 | Ecological indicators | Low-Med | Low | Standalone | ✅ ~90% Done |
+| 8 | Value chain economics | Low | Very High | Defer | Not started |
+| 9 | Taxonomy integration | Low | Low | Nice to have | ✅ Done |
 
 ---
 
@@ -282,19 +275,21 @@ Note: 100% coverage is not a goal. Some tables (Quote, UpdateLog, cOOPStorable, 
 ## Recommended Execution Order
 
 ```
-Phase 0 (schema fix) ──> Phase 1 (time series) ──> Phase 2 (mediation)
+Phase 0 (schema fix) ──> Phase 1 (time series) ──> Phase 2 (mediation)       ✅ ALL DONE
                                                          │
                                                          v
-                                               Phase 3 (Monte Carlo)
+                                               Phase 3 (Monte Carlo)          ✅ DONE
                                                          │
                                                          v
-                                          Phase 4 (ecotracer) ──> Phase 5 (fleet/MSE)
+                                          Phase 4 (ecotracer) ──> Phase 5 (fleet/MSE)  ✅ DONE
                                                                         │
                                                                         v
-Phase 7 (indicators) ───────────────────────────────────> Phase 6 (ecospace)
+Phase 7 (indicators) ✅ ────────────────────────────────> Phase 6 (ecospace) ⚠️ gaps remain
                                                                         │
-                                                                        v
-                                                               Phase 8 (economics)
+Phase 9 (taxonomy) ✅                                                   v
+                                                               Phase 8 (economics) ❌
 ```
 
-Phases 0-3 form the critical path. Phase 7 can be done anytime (no dependencies). Phase 4 is a good standalone addition whenever needed.
+**Remaining work:**
+- Phase 6 minor gap: capacity driver runtime integration (weight layers → dynamic habitat capacity)
+- Phase 8: Value chain economics (21 tables, major effort — defer unless demand)
