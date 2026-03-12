@@ -1,8 +1,6 @@
 """Test that discards warn when no detritus groups exist."""
-import warnings
 
-import numpy as np
-import pytest
+import warnings
 
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_scenario
@@ -43,9 +41,7 @@ def test_discard_warns_when_no_detritus():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         rsim_scenario(balanced, params, years=range(1, 6))
-        discard_warnings = [
-            x for x in w if "discard" in str(x.message).lower()
-        ]
+        discard_warnings = [x for x in w if "discard" in str(x.message).lower()]
         assert len(discard_warnings) > 0, (
             "Expected warning about discards with no detritus groups"
         )

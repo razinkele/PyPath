@@ -4,6 +4,7 @@ Mediation allows a third species (mediator) to modify predator-prey
 interactions, fleet catchability, or landing proportions based on
 the mediator's relative biomass and a user-defined response shape.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -73,7 +74,9 @@ class MediationCollection:
 
     @property
     def group_links(self) -> list[MediationLink]:
-        return [l for l in self.links if l.prey_idx is not None and l.pred_idx is not None]
+        return [
+            l for l in self.links if l.prey_idx is not None and l.pred_idx is not None
+        ]
 
     @property
     def fleet_links(self) -> list[MediationLink]:
