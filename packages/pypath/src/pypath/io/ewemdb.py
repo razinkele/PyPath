@@ -107,6 +107,58 @@ class TaxonomyData:
     stanza_assignments: "pd.DataFrame"
 
 
+@dataclass
+class ValueChainData:
+    """Raw EwE value chain tables as DataFrames for round-trip I/O."""
+
+    parameters: "pd.DataFrame | None" = None
+    units: "pd.DataFrame | None" = None
+    economic_units: "pd.DataFrame | None" = None
+    producers: "pd.DataFrame | None" = None
+    processors: "pd.DataFrame | None" = None
+    distributors: "pd.DataFrame | None" = None
+    wholesalers: "pd.DataFrame | None" = None
+    retailers: "pd.DataFrame | None" = None
+    consumers: "pd.DataFrame | None" = None
+    links: "pd.DataFrame | None" = None
+    link_defaults: "pd.DataFrame | None" = None
+    link_landings: "pd.DataFrame | None" = None
+    oop_storables: "pd.DataFrame | None" = None
+    producer_defaults: "pd.DataFrame | None" = None
+    processing_defaults: "pd.DataFrame | None" = None
+    distribution_defaults: "pd.DataFrame | None" = None
+    wholesaler_defaults: "pd.DataFrame | None" = None
+    retailer_defaults: "pd.DataFrame | None" = None
+    consumer_defaults: "pd.DataFrame | None" = None
+    flow_diagram: "pd.DataFrame | None" = None
+    flow_positions: "pd.DataFrame | None" = None
+
+
+_VALUE_CHAIN_TABLES = {
+    "oop_storables": "cOOPStorable",
+    "parameters": "cParameters",
+    "units": "cUnit",
+    "economic_units": "cEconomicUnit",
+    "producers": "cProducerUnit",
+    "processors": "cProcessingUnit",
+    "distributors": "cDistributionUnit",
+    "wholesalers": "cWholesalerUnit",
+    "retailers": "cRetailerUnit",
+    "consumers": "cConsumerUnit",
+    "producer_defaults": "cProducerDefault",
+    "processing_defaults": "cProcessingDefault",
+    "distribution_defaults": "cDistributionDefault",
+    "wholesaler_defaults": "cWholesalerDefault",
+    "retailer_defaults": "cRetailerDefault",
+    "consumer_defaults": "cConsumerDefault",
+    "links": "cLink",
+    "link_defaults": "cLinkDefault",
+    "link_landings": "cLinkLandings",
+    "flow_diagram": "cFlowDiagram",
+    "flow_positions": "cFlowPosition",
+}
+
+
 # Try to import database drivers
 HAS_PYODBC = False
 HAS_PYPYODBC = False
@@ -4339,3 +4391,35 @@ def read_taxonomy(db_path: str) -> TaxonomyData:
         group_assignments=group_assignments,
         stanza_assignments=stanza_assignments,
     )
+
+
+def read_value_chain(db_path: str) -> ValueChainData | None:
+    """Read value chain economics tables from an EwE database.
+
+    Parameters
+    ----------
+    db_path : str
+        Path to the EwE database file.
+
+    Returns
+    -------
+    ValueChainData or None
+        Populated dataclass if value chain tables exist, None otherwise.
+    """
+    # Check if cOOPStorable exists (sentinel for value chain data)
+    try:
+        oop_df = read_ewemdb_table(db_path, "cOOPStorable")
+        if oop_df is None or len(oop_df) == 0:
+            return None
+    except (EwEDatabaseError, Exception):
+        return None
+
+    fields: dict[str, pd.DataFrame | None] = {}
+    for attr_name, table_name in _VALUE_CHAIN_TABLES.items():
+        try:
+            df = read_ewemdb_table(db_path, table_name)
+            fields[attr_name] = df if df is not None and len(df) > 0 else None
+        except (EwEDatabaseError, Exception):
+            fields[attr_name] = None
+
+    return ValueChainData(**fields)

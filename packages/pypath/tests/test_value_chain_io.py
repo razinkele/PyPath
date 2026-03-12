@@ -91,3 +91,60 @@ class TestValueChainSchema:
         cols = EWE_TABLES["cProducerUnit"]
         assert "EcopathFleetID" in cols
         assert "ObserverCost" in cols
+
+
+class TestValueChainReader:
+    """Test read_value_chain() function."""
+
+    def test_read_value_chain_returns_dataclass(self):
+        from pypath.io.ewemdb import read_value_chain, ValueChainData
+
+        sample = _make_sample_value_chain_dfs()
+
+        def _mock_read(db, tbl):
+            if tbl in sample:
+                return sample[tbl]
+            return pd.DataFrame()
+
+        with patch("pypath.io.ewemdb.read_ewemdb_table", side_effect=_mock_read):
+            result = read_value_chain("fake.ewemdb")
+
+        assert isinstance(result, ValueChainData)
+        assert result.oop_storables is not None
+        assert len(result.oop_storables) == 2
+        assert result.producers is not None
+        assert result.producers.iloc[0]["EcopathFleetID"] == 1
+
+    def test_read_value_chain_empty_db_returns_none(self):
+        from pypath.io.ewemdb import read_value_chain, EwEDatabaseError
+
+        def _mock_read(db, tbl):
+            raise EwEDatabaseError(f"Table {tbl} not found")
+
+        with patch("pypath.io.ewemdb.read_ewemdb_table", side_effect=_mock_read):
+            result = read_value_chain("fake.ewemdb")
+
+        assert result is None
+
+    def test_read_value_chain_partial_tables(self):
+        from pypath.io.ewemdb import read_value_chain
+
+        sample = {
+            "cOOPStorable": pd.DataFrame({
+                "xCLASS_NAMEx": ["cProducerUnit"],
+                "DBID": [1],
+                "AllowEvents": [True],
+            }),
+        }
+
+        def _mock_read(db, tbl):
+            if tbl in sample:
+                return sample[tbl]
+            return pd.DataFrame()
+
+        with patch("pypath.io.ewemdb.read_ewemdb_table", side_effect=_mock_read):
+            result = read_value_chain("fake.ewemdb")
+
+        assert result is not None
+        assert result.oop_storables is not None
+        assert result.producers is None
