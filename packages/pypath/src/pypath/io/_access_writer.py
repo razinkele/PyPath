@@ -89,6 +89,22 @@ class AccessWriter:
         "EcosimScenario",
     ]
     _ECOSPACE_TABLES = [
+        # Children first (cleared first)
+        "EcospaceScenarioGroupMigration",
+        "EcospaceScenarioMonth",
+        "EcospaceScenarioWeightLayer",
+        "EcospaceScenarioDataConnection",
+        "EcospaceScenarioDataConnectionDisabled",
+        "EcospaceScenarioDriverDisabled",
+        "EcospaceScenarioDriverLayer",
+        "EcospaceScenarioHabitatFishery",
+        "EcospaceScenarioGroupHabitat",
+        "EcospaceScenarioCapacityDrivers",
+        "EcospaceScenarioFleet",
+        "EcospaceScenarioMPAFishery",
+        "EcospaceScenarioMPA",
+        "EcospaceScenarioHabitat",
+        # Parents
         "EcospaceScenarioGroup",
         "EcospaceScenario",
     ]

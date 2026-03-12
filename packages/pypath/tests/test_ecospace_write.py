@@ -379,3 +379,26 @@ class TestWriter:
         assert "EcospaceScenarioGroup" in writer._tables
         grp_df = writer._tables["EcospaceScenarioGroup"]
         assert len(grp_df) == 3  # 3 groups
+
+
+from pypath.io._access_writer import AccessWriter
+
+
+class TestAccessWriter:
+    """Access writer table list tests."""
+
+    def test_ecospace_tables_count(self):
+        """_ECOSPACE_TABLES has all 16 Ecospace tables."""
+        assert len(AccessWriter._ECOSPACE_TABLES) == 16
+
+    def test_ecospace_tables_children_before_parents(self):
+        """Children tables are listed before parent tables for safe clearing."""
+        tables = AccessWriter._ECOSPACE_TABLES
+        # EcospaceScenario must be last (parent of all)
+        assert tables[-1] == "EcospaceScenario"
+        # EcospaceScenarioGroup must be second-to-last
+        assert tables[-2] == "EcospaceScenarioGroup"
+        # MPA child before MPA parent
+        mpa_fishery_idx = tables.index("EcospaceScenarioMPAFishery")
+        mpa_idx = tables.index("EcospaceScenarioMPA")
+        assert mpa_fishery_idx < mpa_idx
