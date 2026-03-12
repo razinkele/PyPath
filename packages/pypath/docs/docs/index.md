@@ -69,6 +69,13 @@ output = rsim_run(scenario, method="AB")
 | **Diet Rewiring** | Adaptive foraging and prey switching |
 | **Optimization** | Parameter calibration with differential evolution |
 | **Data Import/Export** | Native EwE 6.6+ databases (.eweaccdb) read & write, EcoBase, CSV, WoRMS/OBIS/FishBase, EMODnet |
+| **Time Series & Calibration** | SS fitting against observed biomass, catch, effort, fishing mortality |
+| **Mediation Functions** | Trophic mediation: modify vulnerability based on third-party group biomass |
+| **Monte Carlo / Pedigree** | Pedigree-based uncertainty analysis with Morris and Sobol sensitivity |
+| **Ecotracer** | Contaminant tracking through the food web, coupled to Ecosim dynamics |
+| **Fleet Dynamics** | Profit-driven effort allocation, quota management, MSE framework |
+| **Ecological Indicators** | Ascendency, Finn Cycling Index, transfer efficiency, system maturity |
+| **Value Chain Economics** | Round-trip I/O for all 21 EwE value chain tables |
 
 ## Ecosim Engine
 

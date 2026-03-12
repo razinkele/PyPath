@@ -77,6 +77,20 @@ params = read_ewemdb("original.eweaccdb")
 write_ewemdb(params, "modified.eweaccdb")
 ```
 
+### Specialized EwE Readers
+
+Additional functions for reading specific EwE subsystem data:
+
+- `read_timeseries()` — time series data (biomass, catch, effort, fishing mortality)
+- `read_mediation()` — mediation shapes and link assignments
+- `read_pedigree()` — data quality pedigree values
+- `read_ecotracer()` — contaminant tracking parameters
+- `read_fleet_dynamics()` — fleet economic scenario parameters
+- `read_ecospace()` — Ecospace spatial parameters (16 tables)
+- `read_mpa_config()` — MPA zone configuration
+- `read_taxonomy()` — taxonomy species records and group assignments
+- `read_value_chain()` — value chain economics (21 c-prefix tables)
+
 ## Biological Data (WoRMS/OBIS/FishBase)
 
 Integration with marine biological databases: WoRMS for taxonomy,

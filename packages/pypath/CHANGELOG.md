@@ -6,6 +6,72 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.3.3 (2026-03-12)
+
+### Added
+
+**Time Series & Calibration (Phase 1)**
+- `EweTimeSeries`, `EweTimeSeriesCollection` — time series data structures for biomass, catch, effort, fishing mortality
+- `apply_timeseries_drivers()` — apply time series as Ecosim forcing
+- `load_timeseries()` — load time series from CSV
+- `fit_to_timeseries()` — SS fitting against reference time series (EwE's standard calibration approach)
+- `CalibrationResult` — calibration output with fitted parameters and diagnostics
+- `read_timeseries()` — read time series from EwE databases (4 tables: EcosimTimeSeries, EcosimTimeSeriesDataset, EcosimTimeSeriesGroup, EcosimTimeSeriesFleet)
+
+**Mediation Functions (Phase 2)**
+- `MediationShape`, `MediationLink`, `MediationCollection` — trophic mediation function data structures
+- `make_positive_shape()`, `make_negative_shape()`, `make_ushape()` — shape constructors
+- Mediation multipliers applied in Ecosim consumption kernel (`deriv_vector`)
+- `read_mediation()` — read mediation shapes/weights from EwE databases
+- Write support for mediation tables
+
+**Monte Carlo / Pedigree (Phase 3)**
+- `PedigreeConfig`, `ScalarDistribution`, `DietDistribution` — pedigree-based parameter distributions
+- `build_distributions()`, `sample_parameters()`, `apply_sample()` — sampling engine
+- `MCConfig`, `MCResult`, `run_montecarlo()` — Monte Carlo simulation with parallel support (joblib)
+- `MorrisResult`, `SobolResult`, `SensitivityConfig`, `run_sensitivity()` — Morris OAT and Sobol variance-based sensitivity analysis (SALib)
+- `read_pedigree()` — read pedigree tables from EwE databases
+
+**Ecotracer (Phase 4)**
+- `EcotracerParams`, `EcotracerResult` — contaminant tracking parameters and results
+- `create_ecotracer_params()`, `ecotracer_deriv()`, `ecotracer_step()` — tracer mass balance equations coupled to Ecosim dynamics
+- `read_ecotracer()` — read Ecotracer tables from EwE databases
+
+**Fleet Dynamics & MSE (Phase 5)**
+- `FleetEconParams`, `FleetDynamicsResult` — fleet economic parameters and dynamics results
+- `create_fleet_econ_params()`, `fleet_dynamics_step()`, `apply_quota_caps()` — effort response to profit, TAC allocation
+- `read_fleet_dynamics()` — read fleet scenario tables from EwE databases
+
+**Advanced Ecospace I/O (Phase 6)**
+- Extended `EcospaceReadResult` with 8 new fields (driver_layers, migration_maps, monthly_maps, weight_layers, etc.)
+- Full 16-table Ecospace write support (was 2)
+- MPA zone support: `MPAConfig`, `MPAZone`, `read_mpa_config()`, `write_mpa()`
+- Capacity driver runtime integration (scalar weight application)
+
+**Ecological Indicators (Phase 7)**
+- `FlowAnalysis`, `flow_analysis()` — Ulanowicz ascendency framework (TST, ascendency, capacity, overhead)
+- `finn_cycling_index()` — Leontief inverse method
+- `transfer_efficiency()` — per-trophic-level transfer efficiency
+- `EcosystemIndicators`, `ecosystem_indicators()` — MTL, Marine Trophic Index, Shannon diversity, Kempton's Q
+- `ecosystem_indicators_timeseries()` — dynamic indicators from Ecosim output
+- `SystemMaturityIndices`, `system_maturity()` — Odum's ecosystem development indicators (P/R, B/TST, mean path length)
+- Morris and Sobol sensitivity analysis
+
+**Value Chain Economics I/O (Phase 8)**
+- `ValueChainData` — dataclass for 21 c-prefix EwE value chain tables
+- `read_value_chain()` — read value chain economics tables from EwE databases
+- Write support for all 21 value chain tables (CSV and Access backends)
+- `write_ewemdb()` now accepts `value_chain=` parameter
+
+**Taxonomy Integration (Phase 9)**
+- `TaxonomyData`, `TaxonomyRecord` — taxonomy data structures
+- `read_taxonomy()` — read EcopathTaxon, EcopathGroupTaxon, EcopathStanzaTaxon tables
+- Write support for taxonomy tables
+
+**EwE Database Table Coverage**
+- Now covers 72 of 84 EwE database tables (86% coverage, up from 25%)
+- Schema definitions for all tables in `_ewe_schema.py`
+
 ## v0.3.2 (2026-03-11)
 
 ### Fixed

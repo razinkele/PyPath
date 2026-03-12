@@ -243,6 +243,22 @@ output = rsim_run(scenario)
 
 See the [Autofix Guide](guides/autofix.md) for details.
 
+## What's New in v0.3.3
+
+PyPath now covers 86% of all EwE database tables (72 of 84) with full
+read/write support. Key additions:
+
+- **Time series calibration** — `fit_to_timeseries()` for SS fitting
+- **Mediation functions** — `MediationShape`, applied in Ecosim consumption kernel
+- **Monte Carlo** — `run_montecarlo()` with pedigree-based sampling
+- **Sensitivity analysis** — Morris OAT and Sobol via `run_sensitivity()`
+- **Ecotracer** — Contaminant tracking with `ecotracer_step()`
+- **Fleet dynamics** — `fleet_dynamics_step()` for profit-driven effort
+- **Ecological indicators** — `flow_analysis()`, `ecosystem_indicators()`, `system_maturity()`
+- **Value chain I/O** — `read_value_chain()` / `write_ewemdb(value_chain=...)`
+
+See the [API Reference](api/core.md) for full documentation of all new modules.
+
 ## Next Steps
 
 - [Basic Model Example](examples/basic-model.md) — Detailed walkthrough
@@ -251,3 +267,6 @@ See the [Autofix Guide](guides/autofix.md) for details.
 - [Individual-Based Model](examples/ibm.md) — IBM coupling
 - [Autofix Guide](guides/autofix.md) — Crash diagnostics and repair
 - [API Reference](api/core.md) — Full API docs
+- [Time Series & Calibration](api/core.md#time-series-calibration) — Fitting to observed data
+- [Mediation Functions](api/core.md#mediation-functions) — Trophic mediation
+- [Monte Carlo & Sensitivity](api/core.md#pedigree-monte-carlo) — Uncertainty analysis

@@ -176,3 +176,84 @@ Physical and biological constants used throughout PyPath.
 ::: pypath.core.constants
     options:
       show_root_heading: true
+
+## Time Series & Calibration
+
+Time series data structures for observed data and calibration against
+EwE reference series.
+
+::: pypath.core.timeseries
+    options:
+      show_root_heading: true
+      members_order: source
+
+## Calibration
+
+Sum-of-squares fitting against reference time series.
+
+::: pypath.core.calibration
+    options:
+      show_root_heading: true
+      members_order: source
+
+## Mediation Functions
+
+Trophic mediation functions that modify predator-prey vulnerability
+based on the biomass of a mediating group.
+
+::: pypath.core.mediation
+    options:
+      show_root_heading: true
+      members_order: source
+
+## Pedigree & Monte Carlo
+
+Pedigree-based parameter uncertainty and Monte Carlo sampling.
+
+::: pypath.core.pedigree
+    options:
+      show_root_heading: true
+      members_order: source
+
+::: pypath.core.montecarlo
+    options:
+      show_root_heading: true
+      members_order: source
+
+## Sensitivity Analysis
+
+Morris OAT screening and Sobol variance-based sensitivity analysis.
+
+::: pypath.core.sensitivity
+    options:
+      show_root_heading: true
+      members_order: source
+
+## Ecotracer (Contaminant Tracking)
+
+Track contaminant concentrations through the food web coupled to
+Ecosim biomass dynamics.
+
+::: pypath.core.ecotracer
+    options:
+      show_root_heading: true
+      members_order: source
+
+## Fleet Dynamics
+
+Dynamic fleet effort response to profitability with quota management.
+
+::: pypath.core.fleet_dynamics
+    options:
+      show_root_heading: true
+      members_order: source
+
+## Ecological Indicators
+
+Ecosystem-level indicators including Ulanowicz flow analysis,
+Finn Cycling Index, transfer efficiency, and system maturity indices.
+
+::: pypath.core.indicators
+    options:
+      show_root_heading: true
+      members_order: source

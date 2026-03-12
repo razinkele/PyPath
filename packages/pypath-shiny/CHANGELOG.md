@@ -6,6 +6,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.3.3 (2026-03-12)
+
+### Changed
+- Updated to use pypath-ewe v0.3.3 (time series calibration, mediation,
+  Monte Carlo, ecotracer, fleet dynamics, ecological indicators, value
+  chain I/O, taxonomy integration — 86% EwE table coverage)
+
 ## v0.3.2 (2026-03-11)
 
 ### Changed

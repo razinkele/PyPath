@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/tests-937%20passing-brightgreen" alt="Tests Passing">
+  <img src="https://img.shields.io/badge/tests-1243%20passing-brightgreen" alt="Tests Passing">
   <img src="https://img.shields.io/badge/coverage-95%25-brightgreen" alt="Coverage">
 </p>
 
@@ -35,12 +35,15 @@ pip install -e packages/pypath-shiny[dev]
 **PyPath = Rpath + Advanced Features**
 
 - ✅ **100% Rpath Core Compatibility** - All standard Ecopath/Ecosim functionality
-- ⭐ **State-Variable Forcing** - Data assimilation and prescribed scenarios (NEW)
-- ⭐ **Dynamic Diet Rewiring** - Adaptive foraging and prey switching (NEW)
-- ⭐ **Bayesian Optimization** - Automated parameter calibration (NEW)
-- ⭐ **Modern UI** - Interactive Shiny dashboard with 11 themes (NEW)
-- ⭐ **Automatic Model Fixing** - Intelligent error correction (NEW)
-- 🚀 **Production Ready** - 100+ tests, 95%+ coverage, comprehensive documentation
+- ⭐ **Time Series Calibration** - SS fitting against observed data (EwE standard workflow)
+- ⭐ **Mediation Functions** - Trophic mediation via third-party biomass
+- ⭐ **Monte Carlo & Sensitivity** - Pedigree-based uncertainty, Morris/Sobol analysis
+- ⭐ **Ecotracer** - Contaminant tracking through the food web
+- ⭐ **Fleet Dynamics** - Profit-driven effort, quota management (MSE)
+- ⭐ **Ecological Indicators** - Ascendency, cycling index, system maturity
+- ⭐ **EwE I/O Parity** - 72/84 tables (86% coverage), round-trip fidelity
+- ⭐ **Modern UI** - Interactive Shiny dashboard with 11 themes
+- 🚀 **Production Ready** - 1243+ tests, comprehensive documentation
 
 ## Core Features
 
@@ -55,92 +58,29 @@ pip install -e packages/pypath-shiny[dev]
 - **Autofix**: Automatic crash diagnostics and parameter repair for simulation stability
 - **Data import**: Native EwE databases (.eweaccdb), EcoBase, CSV, WoRMS/OBIS/FishBase, EMODnet
 
-### Advanced Features (New in PyPath)
+### EwE Feature Parity (Phases 1-9)
 
-#### 1. State-Variable Forcing ⭐
-Force any state variable to follow observed or prescribed time series.
+PyPath now covers 86% of all EwE database tables with full read/write support:
 
-```python
-from pypath.core.forcing import create_biomass_forcing
+| Feature | Module | Status |
+|---------|--------|--------|
+| Time Series & Calibration | `core.timeseries`, `core.calibration` | ✅ |
+| Mediation Functions | `core.mediation` | ✅ |
+| Monte Carlo / Pedigree | `core.montecarlo`, `core.pedigree` | ✅ |
+| Ecotracer (Contaminants) | `core.ecotracer` | ✅ |
+| Fleet Dynamics & MSE | `core.fleet_dynamics` | ✅ |
+| Advanced Ecospace (16 tables) | `io.ewemdb` | ✅ |
+| Ecological Indicators | `core.indicators` | ✅ |
+| Value Chain Economics (I/O) | `io.ewemdb` | ✅ |
+| Taxonomy Integration | `io.ewemdb` | ✅ |
 
-# Force phytoplankton to satellite chlorophyll observations
-forcing = create_biomass_forcing(
-    group_idx=0,
-    observed_biomass={2000: 15.0, 2005: 18.0, 2010: 16.0},
-    mode='replace'
-)
-```
-
-**Capabilities:**
-- 7 state variables (biomass, catch, recruitment, mortality, etc.)
-- 4 forcing modes (REPLACE, ADD, MULTIPLY, RESCALE)
-- Temporal interpolation
-- Multiple simultaneous forcing
-
-**Use cases:** Calibration, climate scenarios, fishing policies, hybrid models
-
-#### 2. Dynamic Diet Rewiring ⭐
-Adaptive predator diet based on changing prey biomass.
-
-```python
-from pypath.core.forcing import create_diet_rewiring
-
-# Enable prey switching
-diet_rewiring = create_diet_rewiring(
-    switching_power=2.5,  # Moderate switching
-    update_interval=12    # Annual updates
-)
-```
-
-**Capabilities:**
-- Prey switching model
-- Configurable switching power (1.0-5.0+)
-- Flexible update intervals
-- Automatic diet normalization
-
-**Use cases:** Adaptive foraging, prey refuges, predator responses
-
-#### 3. Bayesian Optimization ⭐
-Automated parameter calibration using Gaussian Processes.
-
-```python
-from pypath.core.optimization import bayesian_optimize_ecosim
-
-# Optimize vulnerabilities to match observed data
-result = bayesian_optimize_ecosim(
-    model=model,
-    params=params,
-    observed_data=observed_biomass,
-    param_config=[
-        {'param': 'vulnerabilities', 'bounds': (1.0, 3.0), 'groups': [0, 1, 2]}
-    ],
-    n_iterations=50
-)
-```
-
-**Capabilities:**
-- Multi-parameter optimization
-- 5 objective functions (RMSE, NRMSE, MAPE, MAE, log-likelihood)
-- Acquisition functions (EI, UCB, PI)
-- Automatic logging
-
-**Use cases:** Model calibration, uncertainty analysis, parameter estimation
-
-#### 4. Interactive Dashboard ⭐
+#### Interactive Dashboard ⭐
 Modern Shiny interface with advanced features.
 
 ```bash
-# Method 1: Using CLI (recommended)
-shiny run app/app.py
-
-# Method 2: Using run script
-python run_app.py
-
-# Custom port
-python run_app.py --port 8080
-
-# Development mode with auto-reload (not for production)
-python run_app.py --reload
+# Install and run
+pip install pypath-shiny
+pypath-shiny
 ```
 
 **Features:**
@@ -309,7 +249,7 @@ python generate_test_timeseries.py
 
 ## Testing
 
-PyPath includes comprehensive testing with 937+ tests covering all features.
+PyPath includes comprehensive testing with 1243+ tests covering all features.
 
 ```bash
 # Fast tests (excludes slow/integration)
@@ -329,7 +269,7 @@ pytest packages/pypath/tests/test_autofix.py -v              # Autofix diagnosti
 ```
 
 **Test Coverage:**
-- 937+ tests passing (core: 822+, IBM: 49, spatial: 40+, shiny: 115)
+- 1243+ tests passing across core, IBM, spatial, and Shiny packages
 - 95%+ code coverage
 - Unit, integration, and scenario tests
 - EwE database parity testing (LT2022 model)
@@ -405,27 +345,37 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 | Parameter optimization | ❌ | ✅ ⭐ |
 | Interactive dashboard | Basic | Enhanced ⭐ |
 | Autofix (crash repair) | ❌ | ✅ ⭐ |
+| Time series calibration | Limited | ✅ SS fitting ⭐ |
+| Mediation functions | ❌ | ✅ ⭐ |
+| Monte Carlo / Pedigree | ❌ | ✅ ⭐ |
+| Ecotracer | ❌ | ✅ ⭐ |
+| Fleet dynamics / MSE | ❌ | ✅ ⭐ |
+| Ecological indicators | ❌ | ✅ ⭐ |
+| EwE database export | ❌ | ✅ 86% coverage ⭐ |
 | EMODnet data integration | ❌ | ✅ ⭐ |
-| Comprehensive tests | Limited | 937+ tests ⭐ |
+| Comprehensive tests | Limited | 1243+ tests ⭐ |
 | Documentation | Good | Extensive ⭐ |
 
 **See [FEATURES_VS_RPATH.md](docs/archive/FEATURES_VS_RPATH.md) for detailed comparison.**
 
 ## Development Status
 
-### Current Version: 0.3.0 (Development)
+### Current Version: 0.3.3 (Development)
 
 **Production Ready:**
 - Core Ecopath/Ecosim (100% Rpath compatible, RK4 + Adams-Bashforth)
 - Ecospace spatial modeling (regular, hexagonal, irregular grids)
 - Individual-Based Model (Wisconsin bioenergetics, size-structured predation)
-- State-variable forcing and dynamic diet rewiring
-- Parameter optimization (differential evolution)
-- Autofix crash diagnostics and parameter repair
-- EwE native database loading (full scenario support)
+- Time series calibration and SS fitting against observed data
+- Mediation functions for trophic mediation
+- Monte Carlo / Pedigree uncertainty analysis
+- Ecotracer contaminant tracking coupled to Ecosim
+- Fleet dynamics with profit-driven effort and quota management (MSE)
+- Ecological indicators (ascendency, cycling index, system maturity)
+- EwE native database loading (72/84 tables, 86% coverage)
 - EMODnet marine data integration (bathymetry, habitats, salinity)
 - Interactive Shiny dashboard (deployed on laguna.ku.lt)
-- 937+ tests passing across core, IBM, spatial, and Shiny packages
+- 1243+ tests passing across core, IBM, spatial, and Shiny packages
 
 **Roadmap:**
 - [x] Spatial Ecospace (completed Dec 2025)
@@ -433,8 +383,15 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 - [x] EMODnet data integration (completed Mar 2026)
 - [x] EwE database full scenario loading (completed Mar 2026)
 - [x] Deep code review and performance optimization (completed Mar 2026)
-- [ ] Advanced fishing gear selectivity
-- [ ] Cloud deployment tools
+- [x] Time series calibration (completed Mar 2026)
+- [x] Mediation functions (completed Mar 2026)
+- [x] Monte Carlo / Pedigree uncertainty (completed Mar 2026)
+- [x] Ecotracer contaminant tracking (completed Mar 2026)
+- [x] Fleet dynamics & MSE (completed Mar 2026)
+- [x] Ecological indicators (completed Mar 2026)
+- [x] Value chain economics I/O (completed Mar 2026)
+- [x] Taxonomy integration (completed Mar 2026)
+- [x] EwE database 86% table coverage (completed Mar 2026)
 
 ## Code Quality & Maintainability
 
@@ -469,12 +426,12 @@ See [PHASE2_COMPLETE_2025-12-19.md](docs/archive/PHASE2_COMPLETE_2025-12-19.md) 
 
 Contributions are welcome! We're particularly interested in:
 
-- New objective functions for optimization
-- Additional forcing types (temperature, habitat quality)
-- Advanced prey switching models
-- Spatial capabilities
-- Performance optimizations
-- Documentation improvements
+- New ecological indicators and analysis methods
+- Additional EwE database table coverage (currently 72/84)
+- Improved calibration algorithms and objective functions
+- Spatial Ecospace enhancements
+- Performance optimizations for large models
+- Documentation, tutorials, and worked examples
 
 Please read our [contributing guidelines](CONTRIBUTING.md) before submitting a pull request.
 

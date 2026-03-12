@@ -7,8 +7,16 @@ Python implementation of Ecopath with Ecosim (EwE) for food web modeling.
 - **Ecopath** -- mass-balance parameterization of food web models
 - **Ecosim** -- time-dynamic simulation with forcing functions and fishing scenarios
 - **Ecospace** -- spatially explicit ecosystem modeling with habitat maps and dispersal
+- **Time Series & Calibration** -- SS fitting against observed biomass, catch, effort data
+- **Mediation Functions** -- trophic mediation via third-party group biomass
+- **Monte Carlo / Pedigree** -- uncertainty analysis with pedigree-based sampling
+- **Ecotracer** -- contaminant tracking coupled to Ecosim dynamics
+- **Fleet Dynamics** -- profit-driven effort allocation and quota management
+- **Ecological Indicators** -- ascendency, cycling index, transfer efficiency, system maturity
 - **Stanza groups** -- multi-stanza (age-structured) population modeling
-- **EcoBase / EwE database** -- import models from online databases
+- **EwE I/O** -- read/write 72 of 84 EwE database tables (86% coverage)
+- **EcoBase** -- import models from online databases
+- **Species Data** -- WoRMS, OBIS, FishBase integration
 
 ## Installation
 
