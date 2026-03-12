@@ -4,6 +4,7 @@ Tracks contaminant concentrations alongside Ecosim biomass dynamics.
 Each group has initial concentration, environmental/immigration inputs,
 decay, assimilation, and metabolism rates.
 """
+
 from __future__ import annotations
 
 import logging
@@ -122,7 +123,9 @@ def ecotracer_deriv(
     for i in range(n_living):
         # Dietary intake: cassim_i * sum_j(Q[j, i] * C[j]) / B_i
         if biomass[i] > _BIOMASS_THRESHOLD:
-            dietary_intake = params.cassim[i] * np.dot(Q_matrix[:, i], conc) / biomass[i]
+            dietary_intake = (
+                params.cassim[i] * np.dot(Q_matrix[:, i], conc) / biomass[i]
+            )
         else:
             dietary_intake = 0.0
 
@@ -201,7 +204,9 @@ def ecotracer_step(
     for i in range(n_groups):
         # Dietary intake (living groups only)
         if i < n_living and biomass[i] > _BIOMASS_THRESHOLD:
-            dietary_intake = params.cassim[i] * np.dot(Q_matrix[:, i], conc) / biomass[i]
+            dietary_intake = (
+                params.cassim[i] * np.dot(Q_matrix[:, i], conc) / biomass[i]
+            )
         elif i >= n_living:
             # Detritus input
             dietary_intake = 0.0
@@ -219,7 +224,9 @@ def ecotracer_step(
         if loss_rate > 0:
             # Analytic solution: exact for constant input within timestep
             equilibrium = total_input / loss_rate
-            new_conc[i] = equilibrium + (conc[i] - equilibrium) * math.exp(-loss_rate * dt)
+            new_conc[i] = equilibrium + (conc[i] - equilibrium) * math.exp(
+                -loss_rate * dt
+            )
         else:
             # No loss: simple linear accumulation
             new_conc[i] = conc[i] + total_input * dt

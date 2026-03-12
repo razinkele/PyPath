@@ -62,7 +62,9 @@ class EcospaceGrid:
     edge_lengths: Dict[Tuple[int, int], float]
     crs: str = "EPSG:4326"
     geometry: Optional[object] = None  # gpd.GeoDataFrame when available
-    cell_metadata: Optional["pd.DataFrame"] = None  # row/col/depth/habitat_type_id per patch
+    cell_metadata: Optional["pd.DataFrame"] = (
+        None  # row/col/depth/habitat_type_id per patch
+    )
 
     def __post_init__(self):
         """Validate grid data."""

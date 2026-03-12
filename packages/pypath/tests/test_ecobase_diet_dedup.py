@@ -2,10 +2,7 @@
 
 from unittest.mock import patch
 
-import pytest
-
 from pypath.io.ecobase import get_ecobase_model
-
 
 DUPLICATE_DIET_XML = """<?xml version="1.0"?>
 <ecobase>

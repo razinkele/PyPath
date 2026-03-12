@@ -395,12 +395,8 @@ class SalinityLoader:
         lons = sal.coords[_find_coord(sal, "lon")].values
         lats = sal.coords[_find_coord(sal, "lat")].values
         centroids = np.asarray(grid.patch_centroids)
-        lon_idx = np.argmin(
-            np.abs(lons[np.newaxis, :] - centroids[:, 0:1]), axis=1
-        )
-        lat_idx = np.argmin(
-            np.abs(lats[np.newaxis, :] - centroids[:, 1:2]), axis=1
-        )
+        lon_idx = np.argmin(np.abs(lons[np.newaxis, :] - centroids[:, 0:1]), axis=1)
+        lat_idx = np.argmin(np.abs(lats[np.newaxis, :] - centroids[:, 1:2]), axis=1)
         sal_values = sal.values
         values = sal_values[lat_idx, lon_idx].astype(float)
 
