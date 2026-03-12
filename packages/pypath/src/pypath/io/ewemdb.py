@@ -32,6 +32,7 @@ import re
 import shutil
 import subprocess
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
@@ -3719,6 +3720,204 @@ def read_fleet_dynamics(
             pass
 
     return params
+
+
+@dataclass
+class EcospaceReadResult:
+    """Result of reading Ecospace configuration from an EwE database."""
+
+    ecospace: "EcospaceParams"
+    habitat_types: dict
+    fleet_info: Optional[pd.DataFrame]
+    capacity_drivers: Optional[pd.DataFrame]
+    scenario_meta: dict
+
+
+def read_ecospace(
+    db_path: str,
+    n_groups: int,
+    scenario_id: int = 1,
+    grid: "Optional[EcospaceGrid]" = None,
+) -> EcospaceReadResult:
+    """Read Ecospace configuration from an EwE database.
+
+    Parameters
+    ----------
+    db_path : str
+        Path to the .eweaccdb database file.
+    n_groups : int
+        Number of living + dead groups (from Ecopath model).
+    scenario_id : int
+        Scenario ID to filter by (default 1).
+    grid : EcospaceGrid, optional
+        User-provided spatial grid. If None, a regular grid is constructed
+        from Inrow/Incol/CellLength in EcospaceScenario.
+
+    Returns
+    -------
+    EcospaceReadResult
+
+    Raises
+    ------
+    EwEDatabaseError
+        If EcospaceScenario table is missing.
+    """
+    from pypath.spatial.ecospace_params import EcospaceParams
+
+    tables = list_ewemdb_tables(db_path)
+
+    # 1. Read EcospaceScenario (required)
+    if "EcospaceScenario" not in tables:
+        raise EwEDatabaseError("EcospaceScenario table not found in database")
+
+    scenario_df = read_ewemdb_table(db_path, "EcospaceScenario")
+    scenario_df = scenario_df[scenario_df["ScenarioID"] == scenario_id]
+    if len(scenario_df) == 0:
+        raise EwEDatabaseError(
+            f"No EcospaceScenario with ScenarioID={scenario_id}"
+        )
+    scenario_row = scenario_df.iloc[0]
+
+    scenario_meta = {}
+    for col in [
+        "ScenarioName", "Description", "Inrow", "Incol",
+        "CellLength", "CellSize", "MinLon", "MinLat",
+        "TotalTime", "TimeStep",
+    ]:
+        if col in scenario_row.index:
+            scenario_meta[col] = scenario_row[col]
+
+    # 2. Grid construction
+    if grid is None:
+        n_rows = int(scenario_row.get("Inrow", 1))
+        n_cols = int(scenario_row.get("Incol", 1))
+        cell_length = float(scenario_row.get("CellLength", 1.0))
+        min_lon = float(scenario_row.get("MinLon", 0.0))
+        min_lat = float(scenario_row.get("MinLat", 0.0))
+        logger.warning(
+            "No grid provided; building fallback %dx%d grid. "
+            "Land/water distinction not available without basemap.",
+            n_rows, n_cols,
+        )
+        grid = _build_fallback_grid(n_rows, n_cols, cell_length, min_lon, min_lat)
+
+    n_patches = grid.n_patches
+
+    # 3. Read habitat types
+    habitat_types: dict = {}  # 0-based ID -> name
+    if "EcospaceScenarioHabitat" in tables:
+        try:
+            hab_df = read_ewemdb_table(db_path, "EcospaceScenarioHabitat")
+            hab_df = hab_df[hab_df["ScenarioID"] == scenario_id]
+            for _, row in hab_df.iterrows():
+                hid = int(row["HabitatID"]) - 1  # 1-based -> 0-based
+                name = str(row.get("HabitatName", f"Habitat{hid}"))
+                habitat_types[hid] = name
+        except Exception as e:
+            logger.warning("Failed to read EcospaceScenarioHabitat: %s", e)
+
+    # 4. Build habitat_preference [n_groups, n_patches]
+    habitat_preference = np.ones((n_groups, n_patches))
+    if "EcospaceScenarioGroupHabitat" in tables and habitat_types:
+        try:
+            gh_df = read_ewemdb_table(db_path, "EcospaceScenarioGroupHabitat")
+            gh_df = gh_df[gh_df["ScenarioID"] == scenario_id]
+
+            group_hab_pref: dict = {}
+            for _, row in gh_df.iterrows():
+                gid = int(row["GroupID"]) - 1  # 0-based
+                hid = int(row["HabitatID"]) - 1  # 0-based
+                pref = float(row.get("Preference", 1.0))
+                if gid < n_groups:
+                    group_hab_pref.setdefault(gid, {})[hid] = pref
+
+            if (
+                grid.cell_metadata is not None
+                and "habitat_type_id" in grid.cell_metadata.columns
+            ):
+                patch_hab_types = grid.cell_metadata["habitat_type_id"].values
+            else:
+                patch_hab_types = np.zeros(n_patches, dtype=int)
+
+            for gid, hab_prefs in group_hab_pref.items():
+                for p in range(n_patches):
+                    hab_type = int(patch_hab_types[p])
+                    if hab_type in hab_prefs:
+                        habitat_preference[gid, p] = hab_prefs[hab_type]
+        except Exception as e:
+            logger.warning("Failed to read EcospaceScenarioGroupHabitat: %s", e)
+
+    habitat_capacity = np.ones((n_groups, n_patches))
+
+    # 5. Read group spatial params
+    dispersal_rate = np.zeros(n_groups)
+    advection_enabled = np.zeros(n_groups, dtype=bool)
+    gravity_strength = np.zeros(n_groups)
+
+    if "EcospaceScenarioGroup" in tables:
+        try:
+            grp_df = read_ewemdb_table(db_path, "EcospaceScenarioGroup")
+            grp_df = grp_df[grp_df["ScenarioID"] == scenario_id]
+            for _, row in grp_df.iterrows():
+                gid = int(row["GroupID"]) - 1  # 0-based
+                if 0 <= gid < n_groups:
+                    dispersal_rate[gid] = float(row.get("Mvel", 0.0))
+                    is_adv = row.get("IsAdvected", False)
+                    if isinstance(is_adv, str):
+                        is_adv = is_adv.lower() in ("yes", "true", "1")
+                    elif isinstance(is_adv, (int, float)):
+                        is_adv = bool(is_adv)
+                    advection_enabled[gid] = is_adv
+                else:
+                    logger.warning(
+                        "EcospaceScenarioGroup GroupID=%d beyond n_groups=%d, skipped",
+                        gid + 1,
+                        n_groups,
+                    )
+        except Exception as e:
+            logger.warning("Failed to read EcospaceScenarioGroup: %s", e)
+
+    # 6. Read fleet info
+    fleet_info: Optional[pd.DataFrame] = None
+    if "EcospaceScenarioFleet" in tables:
+        try:
+            fleet_df = read_ewemdb_table(db_path, "EcospaceScenarioFleet")
+            fleet_df = fleet_df[fleet_df["ScenarioID"] == scenario_id]
+            drop_cols = [c for c in fleet_df.columns if c.endswith("Map")]
+            fleet_info = fleet_df.drop(columns=drop_cols, errors="ignore")
+        except Exception as e:
+            logger.warning("Failed to read EcospaceScenarioFleet: %s", e)
+
+    # 7. Read capacity drivers
+    capacity_drivers: Optional[pd.DataFrame] = None
+    if "EcospaceScenarioCapacityDrivers" in tables:
+        try:
+            cap_df = read_ewemdb_table(db_path, "EcospaceScenarioCapacityDrivers")
+            cap_df = cap_df[cap_df["ScenarioID"] == scenario_id]
+            if len(cap_df) > 0:
+                capacity_drivers = cap_df
+        except Exception as e:
+            logger.warning(
+                "Failed to read EcospaceScenarioCapacityDrivers: %s", e
+            )
+
+    # 8. Build EcospaceParams
+    ecospace = EcospaceParams(
+        grid=grid,
+        habitat_preference=habitat_preference,
+        habitat_capacity=habitat_capacity,
+        dispersal_rate=dispersal_rate,
+        advection_enabled=advection_enabled,
+        gravity_strength=gravity_strength,
+    )
+
+    return EcospaceReadResult(
+        ecospace=ecospace,
+        habitat_types=habitat_types,
+        fleet_info=fleet_info,
+        capacity_drivers=capacity_drivers,
+        scenario_meta=scenario_meta,
+    )
 
 
 def _build_fallback_grid(

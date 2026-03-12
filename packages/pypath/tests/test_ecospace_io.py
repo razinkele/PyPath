@@ -3,8 +3,57 @@ import numpy as np
 import pandas as pd
 import pytest
 import scipy.sparse
+from unittest.mock import patch
 
 from pypath.spatial.ecospace_params import EcospaceGrid
+
+
+def _mock_scenario_df(n_rows=3, n_cols=3, cell_length=10.0):
+    return pd.DataFrame([{
+        "ScenarioID": 1, "ScenarioName": "Test", "Description": "Test scenario",
+        "Inrow": n_rows, "Incol": n_cols, "CellLength": cell_length,
+        "CellSize": cell_length ** 2, "MinLon": 20.0, "MinLat": 55.0,
+        "TotalTime": 10.0, "TimeStep": 1.0,
+    }])
+
+
+def _mock_group_df(n_groups=2):
+    rows = []
+    for i in range(n_groups):
+        rows.append({
+            "ScenarioID": 1, "GroupID": i + 1, "EcopathGroupID": i + 1,
+            "Mvel": 0.5 * (i + 1), "RelMoveBad": 0.5, "RelVulBad": 0.5,
+            "IsAdvected": True if i == 0 else False, "IsMigratory": False,
+            "BarrierAvoidanceWeight": 0.0,
+        })
+    return pd.DataFrame(rows)
+
+
+def _mock_habitat_df():
+    return pd.DataFrame([
+        {"ScenarioID": 1, "HabitatID": 1, "HabitatName": "Rocky", "Sequence": 1},
+        {"ScenarioID": 1, "HabitatID": 2, "HabitatName": "Sandy", "Sequence": 2},
+    ])
+
+
+def _mock_group_habitat_df(n_groups=2):
+    rows = []
+    for g in range(1, n_groups + 1):
+        rows.append({"ScenarioID": 1, "GroupID": g, "HabitatID": 1, "Preference": 0.8})
+        rows.append({"ScenarioID": 1, "GroupID": g, "HabitatID": 2, "Preference": 0.3})
+    return pd.DataFrame(rows)
+
+
+def _mock_fleet_df():
+    return pd.DataFrame([
+        {"ScenarioID": 1, "FleetID": 1, "EcopathFleetID": 1, "EffPower": 1.0, "SEMult": 1.0},
+    ])
+
+
+def _mock_capacity_df():
+    return pd.DataFrame([
+        {"ScenarioID": 1, "GroupID": 1, "VarDBID": 1, "ShapeID": 1, "Target": 0},
+    ])
 
 
 class TestEcospaceGridCellMetadata:
@@ -175,3 +224,161 @@ class TestBuildFallbackGrid:
         grid = _build_fallback_grid(n_rows=2, n_cols=2, cell_length=7.5)
         for edge_len in grid.edge_lengths.values():
             assert edge_len == pytest.approx(7.5)
+
+
+class TestReadEcospace:
+    def _read_with_mocks(self, table_map, n_groups=2, grid=None):
+        from pypath.io.ewemdb import read_ecospace
+        with patch("pypath.io.ewemdb.list_ewemdb_tables",
+                    return_value=list(table_map.keys())):
+            with patch("pypath.io.ewemdb.read_ewemdb_table",
+                       side_effect=lambda path, tbl: table_map[tbl]):
+                return read_ecospace("fake.eweaccdb", n_groups=n_groups, grid=grid)
+
+    def test_builds_fallback_grid(self):
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(n_rows=2, n_cols=3),
+            "EcospaceScenarioGroup": _mock_group_df(2),
+        }
+        result = self._read_with_mocks(table_map, n_groups=2)
+        assert result.ecospace.grid.n_patches == 6
+        assert result.ecospace.habitat_preference.shape == (2, 6)
+        assert result.ecospace.habitat_capacity.shape == (2, 6)
+        np.testing.assert_array_equal(result.ecospace.habitat_capacity, 1.0)
+
+    def test_group_params_mapped(self):
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(n_rows=2, n_cols=2),
+            "EcospaceScenarioGroup": _mock_group_df(2),
+        }
+        result = self._read_with_mocks(table_map, n_groups=2)
+        assert result.ecospace.dispersal_rate[0] == pytest.approx(0.5)
+        assert result.ecospace.dispersal_rate[1] == pytest.approx(1.0)
+        assert result.ecospace.advection_enabled[0] == True
+        assert result.ecospace.advection_enabled[1] == False
+        np.testing.assert_array_equal(result.ecospace.gravity_strength, 0.0)
+
+    def test_habitat_preference_from_group_habitat(self):
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(n_rows=2, n_cols=2),
+            "EcospaceScenarioGroup": _mock_group_df(2),
+            "EcospaceScenarioHabitat": _mock_habitat_df(),
+            "EcospaceScenarioGroupHabitat": _mock_group_habitat_df(2),
+        }
+        result = self._read_with_mocks(table_map, n_groups=2)
+        assert result.ecospace.habitat_preference[0, 0] == pytest.approx(0.8)
+        assert result.ecospace.habitat_preference[1, 0] == pytest.approx(0.8)
+
+    def test_uses_provided_grid(self):
+        from pypath.spatial import create_1d_grid
+        user_grid = create_1d_grid(n_patches=5, spacing=1.0)
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(),
+            "EcospaceScenarioGroup": _mock_group_df(2),
+        }
+        result = self._read_with_mocks(table_map, n_groups=2, grid=user_grid)
+        assert result.ecospace.grid.n_patches == 5
+        assert result.ecospace.habitat_preference.shape == (2, 5)
+
+    def test_missing_optional_tables_defaults(self):
+        table_map = {"EcospaceScenario": _mock_scenario_df(n_rows=2, n_cols=2)}
+        result = self._read_with_mocks(table_map, n_groups=2)
+        np.testing.assert_array_equal(result.ecospace.dispersal_rate, 0.0)
+        np.testing.assert_array_equal(result.ecospace.advection_enabled, False)
+        np.testing.assert_array_equal(result.ecospace.habitat_preference, 1.0)
+        assert result.fleet_info is None
+        assert result.capacity_drivers is None
+
+    def test_missing_ecospace_scenario_raises(self):
+        from pypath.io.ewemdb import read_ecospace, EwEDatabaseError
+        with patch("pypath.io.ewemdb.list_ewemdb_tables", return_value=["SomeOtherTable"]):
+            with pytest.raises(EwEDatabaseError):
+                read_ecospace("fake.eweaccdb", n_groups=2)
+
+    def test_scenario_metadata_populated(self):
+        table_map = {"EcospaceScenario": _mock_scenario_df()}
+        result = self._read_with_mocks(table_map, n_groups=2)
+        assert result.scenario_meta["ScenarioName"] == "Test"
+        assert result.scenario_meta["Description"] == "Test scenario"
+        assert result.scenario_meta["Inrow"] == 3
+        assert result.scenario_meta["Incol"] == 3
+
+    def test_fleet_info_populated(self):
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(n_rows=2, n_cols=2),
+            "EcospaceScenarioFleet": _mock_fleet_df(),
+        }
+        result = self._read_with_mocks(table_map, n_groups=2)
+        assert result.fleet_info is not None
+        assert len(result.fleet_info) == 1
+        assert result.fleet_info.iloc[0]["EffPower"] == 1.0
+
+    def test_capacity_drivers_populated(self):
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(n_rows=2, n_cols=2),
+            "EcospaceScenarioCapacityDrivers": _mock_capacity_df(),
+        }
+        result = self._read_with_mocks(table_map, n_groups=2)
+        assert result.capacity_drivers is not None
+        assert len(result.capacity_drivers) == 1
+
+    def test_habitat_types_dict(self):
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(n_rows=2, n_cols=2),
+            "EcospaceScenarioHabitat": _mock_habitat_df(),
+        }
+        result = self._read_with_mocks(table_map, n_groups=2)
+        assert result.habitat_types[0] == "Rocky"
+        assert result.habitat_types[1] == "Sandy"
+
+    def test_index_conversion_1based_to_0based(self):
+        group_df = pd.DataFrame([{
+            "ScenarioID": 1, "GroupID": 3, "EcopathGroupID": 3,
+            "Mvel": 2.5, "RelMoveBad": 0.5, "RelVulBad": 0.5,
+            "IsAdvected": False, "IsMigratory": False, "BarrierAvoidanceWeight": 0.0,
+        }])
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(n_rows=2, n_cols=2),
+            "EcospaceScenarioGroup": group_df,
+        }
+        result = self._read_with_mocks(table_map, n_groups=3)
+        assert result.ecospace.dispersal_rate[2] == pytest.approx(2.5)
+        assert result.ecospace.dispersal_rate[0] == 0.0
+
+    def test_yesno_boolean_conversion(self):
+        for adv_val, expected in [("Yes", True), ("yes", True), (1, True),
+                                   ("No", False), (0, False), (False, False)]:
+            group_df = pd.DataFrame([{
+                "ScenarioID": 1, "GroupID": 1, "EcopathGroupID": 1,
+                "Mvel": 1.0, "RelMoveBad": 0.5, "RelVulBad": 0.5,
+                "IsAdvected": adv_val, "IsMigratory": False, "BarrierAvoidanceWeight": 0.0,
+            }])
+            table_map = {
+                "EcospaceScenario": _mock_scenario_df(n_rows=1, n_cols=1),
+                "EcospaceScenarioGroup": group_df,
+            }
+            result = self._read_with_mocks(table_map, n_groups=1)
+            assert result.ecospace.advection_enabled[0] == expected, f"IsAdvected={adv_val!r} should map to {expected}"
+
+    def test_group_beyond_n_groups_ignored(self):
+        group_df = pd.DataFrame([
+            {"ScenarioID": 1, "GroupID": 1, "EcopathGroupID": 1,
+             "Mvel": 1.0, "RelMoveBad": 0.5, "RelVulBad": 0.5,
+             "IsAdvected": False, "IsMigratory": False, "BarrierAvoidanceWeight": 0.0},
+            {"ScenarioID": 1, "GroupID": 99, "EcopathGroupID": 99,
+             "Mvel": 5.0, "RelMoveBad": 0.5, "RelVulBad": 0.5,
+             "IsAdvected": False, "IsMigratory": False, "BarrierAvoidanceWeight": 0.0},
+        ])
+        table_map = {
+            "EcospaceScenario": _mock_scenario_df(n_rows=1, n_cols=1),
+            "EcospaceScenarioGroup": group_df,
+        }
+        result = self._read_with_mocks(table_map, n_groups=2)
+        assert result.ecospace.dispersal_rate[0] == pytest.approx(1.0)
+        assert result.ecospace.dispersal_rate[1] == 0.0
+
+    def test_zero_groups_handled(self):
+        table_map = {"EcospaceScenario": _mock_scenario_df(n_rows=1, n_cols=1)}
+        result = self._read_with_mocks(table_map, n_groups=0)
+        assert result.ecospace.habitat_preference.shape == (0, 1)
+        assert result.ecospace.dispersal_rate.shape == (0,)
