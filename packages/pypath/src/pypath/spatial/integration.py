@@ -39,6 +39,8 @@ def deriv_vector_spatial(
     environmental_drivers: Optional[EnvironmentalDrivers],
     t: float = 0.0,
     dt: float = 1.0 / 12.0,
+    mpa_effort_mask: Optional[np.ndarray] = None,
+    mpa_cap_mult: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Calculate spatial derivative (local dynamics + movement).
 
@@ -95,27 +97,33 @@ def deriv_vector_spatial(
     # Step 1: Calculate local dynamics for each patch
     # Pre-compute habitat capacity modifications if needed
     params_need_modification = (
-        environmental_drivers is not None
+        (environmental_drivers is not None or mpa_cap_mult is not None)
         and hasattr(ecospace, "habitat_capacity")
         and "B_BaseRef" in params
     )
 
     if params_need_modification:
         # Pre-compute all modified B_BaseRef arrays for all patches
-        # This is more efficient than copying params for each patch
         b_base_ref_original = params["B_BaseRef"]
-        capacity_multipliers = ecospace.habitat_capacity  # [n_groups, n_patches]
-        n_ecospace_groups = capacity_multipliers.shape[0]
+        n_ecospace_groups = ecospace.habitat_capacity.shape[0]
 
         # Create modified B_BaseRef for each patch (vectorized)
-        # Only need to modify if we actually have habitat capacity
         b_base_ref_patches = np.tile(b_base_ref_original[:, np.newaxis], (1, n_patches))
 
-        # Apply capacity multipliers to living groups only (skip index 0)
-        for g_idx in range(n_ecospace_groups):
-            state_idx = g_idx + 1  # Skip index 0 (Outside)
-            if state_idx < len(b_base_ref_original):
-                b_base_ref_patches[state_idx, :] *= capacity_multipliers[g_idx, :]
+        # Apply habitat capacity multipliers (only when environmental drivers present)
+        if environmental_drivers is not None:
+            capacity_multipliers = ecospace.habitat_capacity  # [n_groups, n_patches]
+            for g_idx in range(n_ecospace_groups):
+                state_idx = g_idx + 1  # Skip index 0 (Outside)
+                if state_idx < len(b_base_ref_original):
+                    b_base_ref_patches[state_idx, :] *= capacity_multipliers[g_idx, :]
+
+        # Apply MPA capacity bonus (uniform across groups)
+        if mpa_cap_mult is not None:
+            for g_idx in range(n_ecospace_groups):
+                state_idx = g_idx + 1
+                if state_idx < len(b_base_ref_original):
+                    b_base_ref_patches[state_idx, :] *= mpa_cap_mult
 
     # Build SpatialContext for each IBM group
     ibm_groups = params.get("ibm_groups", {})
@@ -188,8 +196,16 @@ def deriv_vector_spatial(
         state_patch = state_spatial[:, patch_idx]
         if params_need_modification:
             patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
+        # MPA effort masking: create per-patch forcing with zeroed effort
+        patch_forcing = forcing
+        if mpa_effort_mask is not None:
+            patch_forcing = forcing.copy()
+            patch_effort = forcing["ForcedEffort"].copy()
+            n_mask_fleets = mpa_effort_mask.shape[1]
+            patch_effort[1 : n_mask_fleets + 1] *= mpa_effort_mask[patch_idx, :]
+            patch_forcing["ForcedEffort"] = patch_effort
         deriv_spatial[:, patch_idx] = deriv_vector(
-            state_patch, patch_params, forcing, fishing, t=t
+            state_patch, patch_params, patch_forcing, fishing, t=t
         )
 
     try:
@@ -218,18 +234,29 @@ def deriv_vector_spatial(
             for patch_idx in range(n_patches):
                 state_patch = state_spatial[:, patch_idx]
 
+                # MPA effort masking
+                patch_forcing = forcing
+                if mpa_effort_mask is not None:
+                    patch_forcing = forcing.copy()
+                    patch_effort = forcing["ForcedEffort"].copy()
+                    n_mask_fleets = mpa_effort_mask.shape[1]
+                    patch_effort[1 : n_mask_fleets + 1] *= mpa_effort_mask[
+                        patch_idx, :
+                    ]
+                    patch_forcing["ForcedEffort"] = patch_effort
+
                 if params_need_modification:
                     b_base_ref_backup = params["B_BaseRef"]
                     params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
                     try:
                         deriv_local = deriv_vector(
-                            state_patch, params, forcing, fishing, t=t
+                            state_patch, params, patch_forcing, fishing, t=t
                         )
                     finally:
                         params["B_BaseRef"] = b_base_ref_backup
                 else:
                     deriv_local = deriv_vector(
-                        state_patch, params, forcing, fishing, t=t
+                        state_patch, params, patch_forcing, fishing, t=t
                     )
 
                 deriv_spatial[:, patch_idx] = deriv_local
@@ -253,6 +280,8 @@ def rsim_run_spatial(
     years: Optional[range] = None,
     ecospace: Optional[EcospaceParams] = None,
     environmental_drivers: Optional[EnvironmentalDrivers] = None,
+    *,
+    mpa: Optional["MPAConfig"] = None,
 ) -> RsimOutput:
     """Run spatial Ecosim simulation.
 
@@ -422,6 +451,15 @@ def rsim_run_spatial(
             ),
         }
 
+        # MPA effort mask and capacity multiplier for this month
+        _mpa_effort_mask = None
+        _mpa_cap_mult = None
+        if mpa is not None:
+            _mpa_effort_mask = mpa.get_effort_mask(
+                n_patches, params.NUM_GEARS, month_idx
+            )
+            _mpa_cap_mult = mpa.get_capacity_multipliers(n_patches, month_idx)
+
         # RK4 integration
         # k1 = f(t, y)
         k1 = deriv_vector_spatial(
@@ -433,6 +471,8 @@ def rsim_run_spatial(
             environmental_drivers,
             t=t,
             dt=DELTA_T,
+            mpa_effort_mask=_mpa_effort_mask,
+            mpa_cap_mult=_mpa_cap_mult,
         )
 
         # k2 = f(t + dt/2, y + k1*dt/2)
@@ -445,6 +485,8 @@ def rsim_run_spatial(
             environmental_drivers,
             t=t + DELTA_T / 2,
             dt=DELTA_T,
+            mpa_effort_mask=_mpa_effort_mask,
+            mpa_cap_mult=_mpa_cap_mult,
         )
 
         # k3 = f(t + dt/2, y + k2*dt/2)
@@ -457,6 +499,8 @@ def rsim_run_spatial(
             environmental_drivers,
             t=t + DELTA_T / 2,
             dt=DELTA_T,
+            mpa_effort_mask=_mpa_effort_mask,
+            mpa_cap_mult=_mpa_cap_mult,
         )
 
         # k4 = f(t + dt, y + k3*dt)
@@ -469,6 +513,8 @@ def rsim_run_spatial(
             environmental_drivers,
             t=t + DELTA_T,
             dt=DELTA_T,
+            mpa_effort_mask=_mpa_effort_mask,
+            mpa_cap_mult=_mpa_cap_mult,
         )
 
         # Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
