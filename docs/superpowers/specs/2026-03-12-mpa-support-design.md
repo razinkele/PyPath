@@ -133,6 +133,8 @@ When `mpa` is provided:
 
 **No changes to `SpatialFishing`** — MPA is applied within the spatial derivative, not the allocation layer.
 
+**Thread safety note:** `deriv_vector_spatial()` has both a parallel path (ThreadPoolExecutor) and a sequential fallback. When `mpa_effort_mask` is provided, both paths must create per-patch forcing copies (not share the forcing dict), mirroring the existing `patch_params` copy pattern for thread safety.
+
 ---
 
 ## 3. I/O Layer
