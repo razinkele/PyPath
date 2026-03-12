@@ -59,14 +59,19 @@ class EcosystemIndicators:
 
 ### Flow matrix construction
 
-From a balanced Ecopath model, build `T[i,j]` = flow from group j to group i:
+From a balanced Ecopath model, build an extended flow matrix that includes internal compartments (living groups + detritus) plus external sinks (respiration, export). This ensures ascendency is computed over the complete system.
 
-- **Consumption:** `T[pred, prey] = diet[pred, prey] × QB[pred] × B[pred]`
-- **Respiration per group:** `R[i] = assimilated - production = (1 - Unassim[i]) × QB[i] × B[i] - PB[i] × B[i]`
-- **Flow to detritus:** unassimilated food + non-predation mortality. `FD[i] = Unassim[i] × QB[i] × B[i] + (1 - EE[i]) × PB[i] × B[i]`
+**Internal flows (between compartments):**
+- **Consumption:** `T[pred, prey] = rpath.DC[prey, pred] × rpath.QB[pred] × rpath.Biomass[pred]`
+- **Flow to detritus:** `FD[i] = Unassim[i] × QB[i] × B[i] + (1 - EE[i]) × PB[i] × B[i]`
+
+**External flows (to sinks outside the system):**
+- **Respiration per group:** `R[i] = (1 - Unassim[i]) × QB[i] × B[i] - PB[i] × B[i]`
 - **Export (catch):** `E[i] = Catch[i]` (sum of landings + discards across fleets)
 
-All values come from `rpath.model` (Biomass, PB, QB, EE, Unassim, Type) and `rpath.diet`.
+For ascendency/capacity: the flow matrix `T` is extended with additional sink rows for respiration and export. For Finn cycling: only internal flows (consumption + detritus) are used since cycling cannot involve external sinks.
+
+All values come from `rpath` numpy arrays (Biomass, PB, QB, EE, Unassim, type) and `rpath.DC` (diet composition). All arrays are 1-based (index 0 unused).
 
 ### Total System Throughput (TST)
 
@@ -78,7 +83,7 @@ All values come from `rpath.model` (Biomass, PB, QB, EE, Unassim, Type) and `rpa
 A = Σᵢⱼ T[i,j] × log₂(T[i,j] × TST / (T_in[i] × T_out[j]))
 ```
 
-Where `T_in[i] = Σⱼ T[i,j]` (total inflow to i) and `T_out[j] = Σᵢ T[i,j]` (total outflow from j). Only summed over non-zero T[i,j]. Uses log base 2.
+Where `T_in[i] = Σⱼ T[i,j]` (total inflow to i) and `T_out[j] = Σᵢ T[i,j]` (total outflow from j). Only summed over terms where `T[i,j] > 0` AND `T_in[i] > 0` AND `T_out[j] > 0`. Uses log base 2.
 
 ### Development Capacity
 
@@ -96,17 +101,22 @@ C = -Σᵢⱼ T[i,j] × log₂(T[i,j] / TST)
 
 ### Finn Cycling Index
 
-1. Build the input coefficient matrix: `Q[i,j] = T[i,j] / T_in[j]` where `T_in[j]` is total input to compartment j
-2. Compute Leontief inverse: `L = (I - Q)⁻¹` using `np.linalg.inv()`
-3. Straight-through flow for each group: `straight[i] = throughput[i] / L[i,i]`
-4. Cycled flow: `cycled[i] = throughput[i] - straight[i]`
-5. `FCI = Σ cycled[i] / TST`
+Following Finn (1976) / Ulanowicz (1986):
 
-If `(I - Q)` is singular (degenerate model), return 0.0 with a warning.
+1. Compute throughflow for each compartment: `throughflow[i] = Σⱼ T[i,j]` (total flow through compartment i; at steady state, inflow = outflow)
+2. Build the output coefficient matrix: `G[i,j] = T[i,j] / throughflow[j]` (fraction of j's throughflow going to i)
+3. Compute Leontief inverse: `N = (I - G)⁻¹` using `np.linalg.inv()`
+4. Straight-through flow: `straight[i] = throughflow[i] / N[i,i]`
+5. Cycled flow: `cycled[i] = throughflow[i] - straight[i]`
+6. `FCI = Σ cycled[i] / TST`
+
+If `(I - G)` is singular (degenerate model), return 0.0 with a warning. Guard against zero throughflow by skipping compartments with throughflow = 0.
 
 ### Transfer Efficiency
 
-1. Compute trophic levels for all groups (from `rpath`)
+Simplified integer-bin approach (not full Lindeman spine decomposition). Sufficient for summary reporting; full fractional decomposition can be added later.
+
+1. Compute trophic levels for all groups (from `rpath.TL`)
 2. Assign integer TL bins: `bin[i] = floor(TL[i])`
 3. For each trophic level L (from 2 upward):
    - Input = total consumption by groups in bin L
@@ -149,31 +159,34 @@ Over living groups (Type 0 and 1) with B > 0. Uses natural log.
 
 **Kempton's Q:**
 ```
-Q = (S - 1) / (ln(B_75) - ln(B_25))
+Q = 0.5 × S / (ln(B_75) - ln(B_25))
 ```
 Where S = number of living groups with TL in [3, 4), B_75 and B_25 are the 75th and 25th percentile biomasses of those groups. Returns `np.nan` if fewer than 4 groups in range or if B_25 = B_75.
 
 ### Extracting values from `Rpath`
 
-- `B[i]` = `rpath.model.loc[i, "Biomass"]`
-- `PB[i]` = `rpath.model.loc[i, "PB"]`
-- `QB[i]` = `rpath.model.loc[i, "QB"]`
-- `EE[i]` = `rpath.model.loc[i, "EE"]`
+All `Rpath` arrays are 1-based (index 0 is unused). Groups are indexed 1..NUM_GROUPS.
+
+- `B[i]` = `rpath.Biomass[i]`
+- `PB[i]` = `rpath.PB[i]`
+- `QB[i]` = `rpath.QB[i]`
+- `EE[i]` = `rpath.EE[i]`
 - `TL[i]` = `rpath.TL[i]` (trophic level, computed during balance)
-- `Catch[i]` = sum of fleet landings for group i (from `rpath.model` fleet columns, or `rpath.catch` if available)
-- `Type[i]` = `rpath.model.loc[i, "Type"]` (0=consumer, 1=producer, 2=detritus, 3=fleet)
-- `Unassim[i]` = `rpath.model.loc[i, "Unassim"]`
+- `Catch[i]` = `np.sum(rpath.Landings[i, 1:]) + np.sum(rpath.Discards[i, 1:])` (Landings/Discards are 2D: [groups+1, gears+1], 1-based)
+- `Type[i]` = `rpath.type[i]` (0=consumer, 1=producer, 2=detritus, 3=fleet)
+- `Unassim[i]` = `rpath.Unassim[i]`
+- `DC[pred, prey]` = `rpath.DC[prey, pred]` (diet composition matrix)
 
 ### Dynamic (from `RsimOutput`)
 
 `ecosystem_indicators_timeseries(output, scenario, rpath) → pd.DataFrame`
 
 Parameters:
-- `output`: `RsimOutput` with `out_Biomass[months, groups]` and `out_Catch[months, groups]`
+- `output`: `RsimOutput` with `annual_Biomass[years, groups+1]` and `annual_Catch[years, groups+1]` (pre-computed annual means, 1-based group indexing)
 - `scenario`: `RsimScenario` for group count and time range
 - `rpath`: balanced model for trophic levels and group types
 
-Computes per-year (annual mean biomass/catch):
+Computes per-year using the pre-aggregated annual arrays:
 - MTL catch, Marine Trophic Index, catch/biomass ratio, gross efficiency, Shannon diversity
 
 Returns DataFrame with columns: `year`, `mtl_catch`, `marine_trophic_index`, `catch_biomass_ratio`, `gross_efficiency`, `shannon_diversity`. One row per year.
