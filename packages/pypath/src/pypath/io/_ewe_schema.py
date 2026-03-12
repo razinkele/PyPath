@@ -308,6 +308,21 @@ EWE_TABLES = {
             ("MPAmonth", "INTEGER"),
         ]
     ),
+    "EcospaceScenarioMPAFishery": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("MPAID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("Excluded", "YESNO"),
+        ]
+    ),
+    "EcospaceScenarioMPAPatch": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("MPAID", "INTEGER"),
+            ("PatchID", "INTEGER"),
+        ]
+    ),
     # -----------------------------------------------------------------------
     # Mediation tables
     # -----------------------------------------------------------------------
