@@ -196,19 +196,21 @@ Tracks contaminant concentrations through the food web. Each group has: initial 
 
 ## Phase 8: Value Chain Economics
 
-**Priority:** LOW — Specialized use case, 21 tables, significant implementation effort.
+**Priority:** LOW — Specialized use case, 21 tables.
+**Status:** ✅ COMPLETE (I/O parity) — All 21 c-prefix tables supported for round-trip read/write.
 
-**What's missing:**
-- Full supply chain model: producer -> processor -> wholesaler -> retailer -> consumer
-- 21 `c`-prefix tables in EwE database
-- Economic optimization (maximize value across chain)
-- Price elasticity effects on fishing effort
+**Implemented:**
+- ✅ 21 table schemas in `EWE_TABLES` (`_ewe_schema.py`)
+- ✅ `ValueChainData` dataclass — raw DataFrame passthrough for all tables
+- ✅ `read_value_chain()` — standalone reader function
+- ✅ `write_value_chain()` — CSV bundle and Access writer support
+- ✅ `write_ewemdb()` integration via `value_chain=` parameter
+- ✅ 10 tests covering schema, reader, writer, integration
 
-**What exists:**
-- Basic fleet cost parameters (FixedCost, SailingCost)
-
-**Tasks:**
-This is a major standalone module (~2000+ lines). Defer unless there's specific user demand.
+**Not implemented (runtime economics):**
+- Economic equilibrium solver, price elasticity, optimization
+- Supply chain graph reconstruction from DBID joins
+- These would require ~2000+ lines and are deferred unless demand arises
 
 **Dependencies:** Phase 5 (fleet dynamics)
 
@@ -246,7 +248,7 @@ This is a major standalone module (~2000+ lines). Defer unless there's specific 
 | 5 | Fleet dynamics & MSE | Medium | High | After 1-3 | ✅ Done |
 | 6 | Advanced Ecospace | Medium | High | Incremental | ✅ Done |
 | 7 | Ecological indicators | Low-Med | Low | Standalone | ✅ Done |
-| 8 | Value chain economics | Low | Very High | Defer | Not started |
+| 8 | Value chain economics (I/O) | Low | Low | Done | ✅ Done |
 | 9 | Taxonomy integration | Low | Low | Nice to have | ✅ Done |
 
 ---
@@ -286,8 +288,7 @@ Phase 0 (schema fix) ──> Phase 1 (time series) ──> Phase 2 (mediation)  
 Phase 7 (indicators) ✅ ────────────────────────────────> Phase 6 (ecospace) ✅
                                                                         │
 Phase 9 (taxonomy) ✅                                                   v
-                                                               Phase 8 (economics) ❌
+                                                               Phase 8 (economics I/O) ✅
 ```
 
-**Remaining work:**
-- Phase 8: Value chain economics (21 tables, major effort — defer unless demand)
+**All phases complete.** Runtime economics (equilibrium solver, price elasticity) deferred — I/O parity achieved for all 21 value chain tables.
