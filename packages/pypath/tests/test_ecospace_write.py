@@ -170,6 +170,60 @@ class TestReader:
         assert "SailCostMap" in result.fleet_info.columns
         assert result.fleet_info.iloc[0]["PortMap"] == b"\xFF"
 
+    @patch("pypath.io.ewemdb.list_ewemdb_tables")
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_capacity_driver_weight_applied(self, mock_read, mock_list):
+        """Capacity driver with Target=0 applies weight to habitat_capacity."""
+        tables = _mock_ecospace_tables()
+        tables["EcospaceScenarioCapacityDrivers"] = pd.DataFrame([{
+            "ScenarioID": 1, "GroupID": 1, "VarDBID": 1,
+            "ShapeID": 1, "Target": 0,
+        }])
+        tables["EcospaceScenarioWeightLayer"] = pd.DataFrame([{
+            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
+            "Name": "W1", "Description": "test",
+            "Weight": 0.5, "LayerMap": b"\xAA",
+        }])
+
+        def _read(db, tbl):
+            if tbl in tables:
+                return tables[tbl]
+            raise EwEDatabaseError(f"No table {tbl}")
+
+        mock_list.return_value = list(tables.keys())
+        mock_read.side_effect = _read
+        result = read_ecospace("dummy.eweaccdb", n_groups=3)
+        # Group 0 (GroupID=1) should have capacity *= 0.5
+        assert result.ecospace.habitat_capacity[0, 0] == pytest.approx(0.5)
+        # Group 1 (GroupID=2) should be unchanged (1.0)
+        assert result.ecospace.habitat_capacity[1, 0] == pytest.approx(1.0)
+
+    @patch("pypath.io.ewemdb.list_ewemdb_tables")
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_capacity_driver_target_nonzero_ignored(self, mock_read, mock_list):
+        """Capacity driver with Target != 0 does not affect habitat_capacity."""
+        tables = _mock_ecospace_tables()
+        tables["EcospaceScenarioCapacityDrivers"] = pd.DataFrame([{
+            "ScenarioID": 1, "GroupID": 1, "VarDBID": 1,
+            "ShapeID": 1, "Target": 1,  # Not capacity
+        }])
+        tables["EcospaceScenarioWeightLayer"] = pd.DataFrame([{
+            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
+            "Name": "W1", "Description": "test",
+            "Weight": 0.5, "LayerMap": b"\xAA",
+        }])
+
+        def _read(db, tbl):
+            if tbl in tables:
+                return tables[tbl]
+            raise EwEDatabaseError(f"No table {tbl}")
+
+        mock_list.return_value = list(tables.keys())
+        mock_read.side_effect = _read
+        result = read_ecospace("dummy.eweaccdb", n_groups=3)
+        # All groups should remain at 1.0
+        assert result.ecospace.habitat_capacity[0, 0] == pytest.approx(1.0)
+
 
 from pypath.io._csv_bundle_writer import CsvBundleWriter
 from pypath.core.params import create_rpath_params

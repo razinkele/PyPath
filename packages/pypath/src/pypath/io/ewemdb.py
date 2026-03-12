@@ -3956,6 +3956,33 @@ def read_ecospace(
         else:
             extra_fields[field_name] = None
 
+    # 7c. Apply capacity driver weights to habitat_capacity
+    # Capacity drivers link groups to environmental layers via weight layers.
+    # When Target=0 (habitat capacity), the weight layer's scalar Weight value
+    # is applied as a uniform multiplier across all patches for that group.
+    # Binary LayerMap spatial data is preserved as raw bytes but not parsed here.
+    weight_layers_df = extra_fields.get("weight_layers")
+    if capacity_drivers is not None and weight_layers_df is not None:
+        for _, row in capacity_drivers.iterrows():
+            if int(row.get("Target", -1)) != 0:
+                continue
+            gid = int(row["GroupID"]) - 1  # 1-based -> 0-based
+            layer_id = int(row.get("VarDBID", -1))
+            if gid < 0 or gid >= n_groups:
+                continue
+            # Find matching weight layers for this driver
+            matching = weight_layers_df[weight_layers_df["LayerID"] == layer_id]
+            for _, wl in matching.iterrows():
+                weight = float(wl.get("Weight", 1.0))
+                if weight != 1.0:
+                    habitat_capacity[gid, :] *= weight
+                    logger.debug(
+                        "Capacity driver: group %d, layer %d, weight %.3f",
+                        gid + 1,
+                        layer_id,
+                        weight,
+                    )
+
     # 8. Build EcospaceParams
     ecospace = EcospaceParams(
         grid=grid,
