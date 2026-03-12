@@ -3755,6 +3755,15 @@ class EcospaceReadResult:
     fleet_info: Optional[pd.DataFrame]
     capacity_drivers: Optional[pd.DataFrame]
     scenario_meta: dict
+    # Advanced Ecospace tables (Phase 6)
+    driver_layers: Optional[pd.DataFrame] = None
+    migration_maps: Optional[pd.DataFrame] = None
+    monthly_maps: Optional[pd.DataFrame] = None
+    weight_layers: Optional[pd.DataFrame] = None
+    data_connections: Optional[pd.DataFrame] = None
+    disabled_connections: Optional[pd.DataFrame] = None
+    disabled_drivers: Optional[pd.DataFrame] = None
+    habitat_fishery: Optional[pd.DataFrame] = None
 
 
 def read_ecospace(
@@ -3907,8 +3916,7 @@ def read_ecospace(
         try:
             fleet_df = read_ewemdb_table(db_path, "EcospaceScenarioFleet")
             fleet_df = fleet_df[fleet_df["ScenarioID"] == scenario_id]
-            drop_cols = [c for c in fleet_df.columns if c.endswith("Map")]
-            fleet_info = fleet_df.drop(columns=drop_cols, errors="ignore")
+            fleet_info = fleet_df
         except Exception as e:
             logger.warning("Failed to read EcospaceScenarioFleet: %s", e)
 
@@ -3924,6 +3932,29 @@ def read_ecospace(
             logger.warning(
                 "Failed to read EcospaceScenarioCapacityDrivers: %s", e
             )
+
+    # 7b. Read additional Ecospace tables (raw DataFrames, binary maps preserved)
+    _optional_tables = {
+        "driver_layers": "EcospaceScenarioDriverLayer",
+        "migration_maps": "EcospaceScenarioGroupMigration",
+        "monthly_maps": "EcospaceScenarioMonth",
+        "weight_layers": "EcospaceScenarioWeightLayer",
+        "data_connections": "EcospaceScenarioDataConnection",
+        "disabled_connections": "EcospaceScenarioDataConnectionDisabled",
+        "disabled_drivers": "EcospaceScenarioDriverDisabled",
+        "habitat_fishery": "EcospaceScenarioHabitatFishery",
+    }
+    extra_fields: dict = {}
+    for field_name, table_name in _optional_tables.items():
+        if table_name in tables:
+            try:
+                df = read_ewemdb_table(db_path, table_name)
+                df = df[df["ScenarioID"] == scenario_id]
+                extra_fields[field_name] = df if len(df) > 0 else None
+            except EwEDatabaseError:
+                extra_fields[field_name] = None
+        else:
+            extra_fields[field_name] = None
 
     # 8. Build EcospaceParams
     ecospace = EcospaceParams(
@@ -3941,6 +3972,7 @@ def read_ecospace(
         fleet_info=fleet_info,
         capacity_drivers=capacity_drivers,
         scenario_meta=scenario_meta,
+        **extra_fields,
     )
 
 
