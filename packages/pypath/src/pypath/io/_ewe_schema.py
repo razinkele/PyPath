@@ -354,13 +354,6 @@ EWE_TABLES = {
             ("Excluded", "YESNO"),
         ]
     ),
-    "EcospaceScenarioMPAPatch": OrderedDict(
-        [
-            ("ScenarioID", "INTEGER"),
-            ("MPAID", "INTEGER"),
-            ("PatchID", "INTEGER"),
-        ]
-    ),
     "EcospaceScenarioFleet": OrderedDict(
         [
             ("ScenarioID", "INTEGER"),
@@ -400,6 +393,61 @@ EWE_TABLES = {
             ("LayerUnits", "TEXT"),
         ]
     ),
+    # Additional Ecospace tables (verified against EwE 6.6+ LT2022 database)
+    "EcospaceScenarioGroupMigration": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("GroupID", "INTEGER"),
+        ("MonthID", "INTEGER"),
+        ("Map", "LONGBINARY"),
+    ]),
+    "EcospaceScenarioMonth": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("MonthID", "INTEGER"),
+        ("WindXVelMap", "LONGBINARY"),
+        ("WindYVelMap", "LONGBINARY"),
+        ("AdvectionXVelMap", "LONGBINARY"),
+        ("AdvectionYVelMap", "LONGBINARY"),
+        ("UpwellingMap", "LONGBINARY"),
+    ]),
+    "EcospaceScenarioWeightLayer": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("LayerID", "INTEGER"),
+        ("Sequence", "INTEGER"),
+        ("Name", "TEXT"),
+        ("Description", "TEXT"),
+        ("Weight", "DOUBLE"),
+        ("LayerMap", "LONGBINARY"),
+    ]),
+    "EcospaceScenarioDataConnection": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("VarName", "TEXT"),
+        ("LayerID", "INTEGER"),
+        ("Sequence", "INTEGER"),
+        ("DatasetGUID", "TEXT"),
+        ("DatasetTypeName", "TEXT"),
+        ("DatasetCfg", "TEXT"),
+        ("ConverterTypeName", "TEXT"),
+        ("ConverterCfg", "TEXT"),
+        ("Scale", "DOUBLE"),
+        ("ScaleType", "INTEGER"),
+        ("CustomDateStart", "TEXT"),
+        ("CustomDateEnd", "TEXT"),
+    ]),
+    "EcospaceScenarioDataConnectionDisabled": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("LayerID", "INTEGER"),
+        ("Varname", "TEXT"),
+    ]),
+    "EcospaceScenarioDriverDisabled": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("LayerID", "INTEGER"),
+        ("Target", "TEXT"),
+    ]),
+    "EcospaceScenarioHabitatFishery": OrderedDict([
+        ("ScenarioID", "INTEGER"),
+        ("FleetID", "INTEGER"),
+        ("HabitatID", "INTEGER"),
+    ]),
     # -----------------------------------------------------------------------
     # Mediation tables
     # -----------------------------------------------------------------------
