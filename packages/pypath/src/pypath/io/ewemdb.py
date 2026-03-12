@@ -32,7 +32,7 @@ import re
 import shutil
 import subprocess
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
@@ -81,6 +81,30 @@ def _validate_sql_identifier(name: str, kind: str = "identifier") -> None:
     """Reject names that could enable SQL injection."""
     if not _SAFE_SQL_IDENT.match(name):
         raise ValueError(f"Unsafe SQL {kind} name rejected: {name!r}")
+
+
+@dataclass
+class TaxonomyRecord:
+    """A single species/taxon entry from EcopathTaxon."""
+
+    taxon_id: int
+    scientific_name: str
+    common_name: str
+    taxonomy: dict
+    external_keys: dict
+    traits: dict
+    metadata: dict = field(default_factory=dict)
+    source_name: str = ""
+    source_key: str = ""
+
+
+@dataclass
+class TaxonomyData:
+    """Complete taxonomy data from an EwE model."""
+
+    taxa: list
+    group_assignments: "pd.DataFrame"
+    stanza_assignments: "pd.DataFrame"
 
 
 # Try to import database drivers
@@ -4104,3 +4128,155 @@ def read_mpa_config(
         )
 
     return MPAConfig(zones=zones)
+
+
+# ---------------------------------------------------------------------------
+# Taxonomy reader
+# ---------------------------------------------------------------------------
+
+# Column name -> key mapping for TaxonomyRecord construction
+_TAXON_EXTERNAL_KEYS = {
+    "CodeAphia": "aphia_id",
+    "CodeFB": "fishbase_code",
+    "CodeSLB": "sealifebase_code",
+    "CodeOBIS": "obis_code",
+    "CodeSAUP": "saup_code",
+    "CodeFAO": "fao_code",
+    "CodeAquaMaps": "aquamaps_code",
+    "CodeLCID": "lsid",
+}
+
+_TAXON_TRAITS = {
+    "Winf": "winf",
+    "vbgfK": "vbgf_k",
+    "MeanWeight": "mean_weight",
+    "MeanLength": "mean_length",
+    "MaxLength": "max_length",
+    "MeanLifeSpan": "mean_lifespan",
+    "VulnerabiltyIndex": "vulnerability_index",
+}
+
+_TAXON_METADATA = {
+    "EcologyType": "ecology_type",
+    "OrganismType": "organism_type",
+    "Exploited": "exploited",
+    "ConservationStatus": "conservation_status",
+    "OccurrenceStatus": "occurrence_status",
+    "ExploitationStatus": "exploitation_status",
+    "LastUpdated": "last_updated",
+}
+
+
+def _sentinel_to_none(value, sentinel=-9999):
+    """Convert EwE sentinel values to None."""
+    if isinstance(value, (int, float)) and value == sentinel:
+        return None
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    return value
+
+
+def _none_to_sentinel(value, sql_type, sentinel=-9999):
+    """Convert None back to EwE sentinel for writing."""
+    if value is None:
+        return "" if sql_type == "TEXT" else sentinel
+    return value
+
+
+def read_taxonomy(db_path: str) -> TaxonomyData:
+    """Read taxonomy tables from an EwE database.
+
+    Parameters
+    ----------
+    db_path : str
+        Path to the .eweaccdb database file.
+
+    Returns
+    -------
+    TaxonomyData
+        Taxonomy records, group assignments, and stanza assignments.
+        Empty defaults if tables are missing.
+    """
+    try:
+        tables = list_ewemdb_tables(db_path)
+    except Exception:
+        return TaxonomyData(
+            taxa=[],
+            group_assignments=pd.DataFrame(
+                columns=["TaxonID", "EcopathGroupID", "Proportion", "PropCatch"]
+            ),
+            stanza_assignments=pd.DataFrame(columns=["TaxonID", "StanzaID"]),
+        )
+
+    # Read EcopathTaxon
+    taxa = []
+    if "EcopathTaxon" in tables:
+        try:
+            df = read_ewemdb_table(db_path, "EcopathTaxon")
+            for _, row in df.iterrows():
+                genus = str(row.get("GenusName", "") or "").strip()
+                species = str(row.get("SpeciesName", "") or "").strip()
+                sci_name = f"{genus} {species}".strip()
+
+                taxonomy = {
+                    "class_name": str(row.get("ClassName", "") or "").strip(),
+                    "order_name": str(row.get("OrderName", "") or "").strip(),
+                    "family_name": str(row.get("FamilyName", "") or "").strip(),
+                    "genus_name": genus,
+                    "species_name": species,
+                }
+
+                external_keys = {}
+                for col, key in _TAXON_EXTERNAL_KEYS.items():
+                    val = row.get(col)
+                    external_keys[key] = _sentinel_to_none(val)
+
+                traits = {}
+                for col, key in _TAXON_TRAITS.items():
+                    val = row.get(col)
+                    traits[key] = _sentinel_to_none(val)
+
+                metadata = {}
+                for col, key in _TAXON_METADATA.items():
+                    val = row.get(col)
+                    metadata[key] = _sentinel_to_none(val)
+
+                taxa.append(TaxonomyRecord(
+                    taxon_id=int(row["TaxonID"]),
+                    scientific_name=sci_name,
+                    common_name=str(row.get("CommonName", "") or "").strip(),
+                    taxonomy=taxonomy,
+                    external_keys=external_keys,
+                    traits=traits,
+                    metadata=metadata,
+                    source_name=str(row.get("SourceName", "") or "").strip(),
+                    source_key=str(row.get("SourceKey", "") or "").strip(),
+                ))
+        except Exception as e:
+            logger.warning("Failed to read EcopathTaxon: %s", e)
+
+    # Read EcopathGroupTaxon
+    group_cols = ["TaxonID", "EcopathGroupID", "Proportion", "PropCatch"]
+    if "EcopathGroupTaxon" in tables:
+        try:
+            group_assignments = read_ewemdb_table(db_path, "EcopathGroupTaxon")
+        except Exception:
+            group_assignments = pd.DataFrame(columns=group_cols)
+    else:
+        group_assignments = pd.DataFrame(columns=group_cols)
+
+    # Read EcopathStanzaTaxon
+    stanza_cols = ["TaxonID", "StanzaID"]
+    if "EcopathStanzaTaxon" in tables:
+        try:
+            stanza_assignments = read_ewemdb_table(db_path, "EcopathStanzaTaxon")
+        except Exception:
+            stanza_assignments = pd.DataFrame(columns=stanza_cols)
+    else:
+        stanza_assignments = pd.DataFrame(columns=stanza_cols)
+
+    return TaxonomyData(
+        taxa=taxa,
+        group_assignments=group_assignments,
+        stanza_assignments=stanza_assignments,
+    )

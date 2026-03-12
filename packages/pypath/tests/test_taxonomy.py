@@ -34,3 +34,151 @@ class TestSchema:
         assert cols["Winf"] == "DOUBLE"
         assert cols["vbgfK"] == "DOUBLE"
         assert len(cols) == 31
+
+
+from pypath.io.ewemdb import TaxonomyRecord, TaxonomyData, read_taxonomy
+
+
+def _make_taxon_row():
+    """Build a dict mimicking one row from EcopathTaxon table."""
+    return {
+        "TaxonID": 1,
+        "ClassName": "Actinopteri",
+        "OrderName": "Gadiformes",
+        "FamilyName": "Gadidae",
+        "GenusName": "Gadus",
+        "SpeciesName": "morhua",
+        "CommonName": "Atlantic cod",
+        "SourceName": "PyPath-biodata",
+        "SourceKey": "126436",
+        "LastUpdated": 0.0,
+        "EcologyType": -9999,
+        "OrganismType": -9999,
+        "Exploited": -9999,
+        "ConservationStatus": -9999,
+        "OccurrenceStatus": -9999,
+        "MeanWeight": -9999.0,
+        "MeanLength": 50.0,
+        "MaxLength": 200.0,
+        "MeanLifeSpan": -9999.0,
+        "VulnerabiltyIndex": -9999.0,
+        "CodeSAUP": -9999,
+        "CodeFB": 69,
+        "CodeSLB": -9999,
+        "CodeLCID": "",
+        "CodeFAO": "",
+        "Winf": 15000.0,
+        "vbgfK": 0.15,
+        "ExploitationStatus": "",
+        "CodeAquaMaps": "",
+        "CodeAphia": 126436,
+        "CodeOBIS": -9999,
+    }
+
+
+class TestReader:
+    """read_taxonomy() tests."""
+
+    @patch("pypath.io.ewemdb.list_ewemdb_tables")
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_reads_taxon_records(self, mock_read, mock_tables):
+        """Reads EcopathTaxon rows into TaxonomyRecord list."""
+        mock_tables.return_value = [
+            "EcopathTaxon", "EcopathGroupTaxon", "EcopathStanzaTaxon"
+        ]
+        row = _make_taxon_row()
+        mock_read.side_effect = lambda db, table: {
+            "EcopathTaxon": pd.DataFrame([row]),
+            "EcopathGroupTaxon": pd.DataFrame(
+                columns=["TaxonID", "EcopathGroupID", "Proportion", "PropCatch"]
+            ),
+            "EcopathStanzaTaxon": pd.DataFrame(
+                columns=["TaxonID", "StanzaID"]
+            ),
+        }[table]
+
+        result = read_taxonomy("fake.eweaccdb")
+        assert len(result.taxa) == 1
+        t = result.taxa[0]
+        assert t.taxon_id == 1
+        assert t.scientific_name == "Gadus morhua"
+        assert t.common_name == "Atlantic cod"
+        assert t.taxonomy["class_name"] == "Actinopteri"
+        assert t.taxonomy["genus_name"] == "Gadus"
+        assert t.external_keys["aphia_id"] == 126436
+        assert t.external_keys["fishbase_code"] == 69
+        assert t.source_name == "PyPath-biodata"
+
+    @patch("pypath.io.ewemdb.list_ewemdb_tables")
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_reads_group_taxon_dataframe(self, mock_read, mock_tables):
+        """Reads EcopathGroupTaxon into DataFrame."""
+        mock_tables.return_value = [
+            "EcopathTaxon", "EcopathGroupTaxon", "EcopathStanzaTaxon"
+        ]
+        gt_df = pd.DataFrame([
+            {"TaxonID": 1, "EcopathGroupID": 3, "Proportion": 0.5, "PropCatch": 0.5},
+            {"TaxonID": 2, "EcopathGroupID": 3, "Proportion": 0.5, "PropCatch": 0.5},
+        ])
+        mock_read.side_effect = lambda db, table: {
+            "EcopathTaxon": pd.DataFrame(columns=list(_make_taxon_row().keys())),
+            "EcopathGroupTaxon": gt_df,
+            "EcopathStanzaTaxon": pd.DataFrame(columns=["TaxonID", "StanzaID"]),
+        }[table]
+
+        result = read_taxonomy("fake.eweaccdb")
+        assert len(result.group_assignments) == 2
+        assert list(result.group_assignments.columns) == [
+            "TaxonID", "EcopathGroupID", "Proportion", "PropCatch"
+        ]
+
+    @patch("pypath.io.ewemdb.list_ewemdb_tables")
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_reads_stanza_taxon_dataframe(self, mock_read, mock_tables):
+        """Reads EcopathStanzaTaxon into DataFrame."""
+        mock_tables.return_value = [
+            "EcopathTaxon", "EcopathGroupTaxon", "EcopathStanzaTaxon"
+        ]
+        st_df = pd.DataFrame([{"TaxonID": 1, "StanzaID": 1}])
+        mock_read.side_effect = lambda db, table: {
+            "EcopathTaxon": pd.DataFrame(columns=list(_make_taxon_row().keys())),
+            "EcopathGroupTaxon": pd.DataFrame(
+                columns=["TaxonID", "EcopathGroupID", "Proportion", "PropCatch"]
+            ),
+            "EcopathStanzaTaxon": st_df,
+        }[table]
+
+        result = read_taxonomy("fake.eweaccdb")
+        assert len(result.stanza_assignments) == 1
+
+    @patch("pypath.io.ewemdb.list_ewemdb_tables")
+    def test_missing_tables_return_empty(self, mock_tables):
+        """Missing tables return empty defaults, not errors."""
+        mock_tables.return_value = ["EcopathGroup"]  # no taxonomy tables
+        result = read_taxonomy("fake.eweaccdb")
+        assert result.taxa == []
+        assert len(result.group_assignments) == 0
+        assert list(result.group_assignments.columns) == [
+            "TaxonID", "EcopathGroupID", "Proportion", "PropCatch"
+        ]
+        assert len(result.stanza_assignments) == 0
+
+    @patch("pypath.io.ewemdb.list_ewemdb_tables")
+    @patch("pypath.io.ewemdb.read_ewemdb_table")
+    def test_sentinel_values_converted_to_none(self, mock_read, mock_tables):
+        """-9999 sentinel values are converted to None in traits and metadata."""
+        mock_tables.return_value = ["EcopathTaxon"]
+        row = _make_taxon_row()
+        mock_read.side_effect = lambda db, table: pd.DataFrame([row])
+
+        result = read_taxonomy("fake.eweaccdb")
+        t = result.taxa[0]
+        # Traits with -9999 should be None
+        assert t.traits["mean_weight"] is None
+        assert t.traits["vulnerability_index"] is None
+        # Traits with real values should be kept
+        assert t.traits["mean_length"] == 50.0
+        assert t.traits["winf"] == 15000.0
+        # Metadata with -9999 should be None
+        assert t.metadata["ecology_type"] is None
+        assert t.metadata["organism_type"] is None
