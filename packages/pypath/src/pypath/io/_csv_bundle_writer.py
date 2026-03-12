@@ -756,6 +756,18 @@ class CsvBundleWriter:
         self._tables["EcopathGroupTaxon"] = taxonomy.group_assignments.copy()
         self._tables["EcopathStanzaTaxon"] = taxonomy.stanza_assignments.copy()
 
+    def write_value_chain(self, value_chain=None) -> None:
+        """Write value chain economics tables to the CSV bundle."""
+        if value_chain is None:
+            return
+
+        from pypath.io.ewemdb import _VALUE_CHAIN_TABLES
+
+        for attr_name, table_name in _VALUE_CHAIN_TABLES.items():
+            df = getattr(value_chain, attr_name, None)
+            if df is not None and len(df) > 0:
+                self._tables[table_name] = df
+
     def close(self) -> None:
         """Write all tables to a zip file, then atomically rename to final path."""
         manifest = {

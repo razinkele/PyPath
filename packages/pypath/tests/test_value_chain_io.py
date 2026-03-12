@@ -148,3 +148,71 @@ class TestValueChainReader:
         assert result is not None
         assert result.oop_storables is not None
         assert result.producers is None
+
+
+class TestValueChainWriter:
+    """Test write_value_chain() on CSV bundle writer."""
+
+    def _make_value_chain_data(self):
+        from pypath.io.ewemdb import ValueChainData
+
+        sample = _make_sample_value_chain_dfs()
+        return ValueChainData(
+            oop_storables=sample["cOOPStorable"],
+            parameters=sample["cParameters"],
+            units=sample["cUnit"],
+            economic_units=sample["cEconomicUnit"],
+            producers=sample["cProducerUnit"],
+            processors=sample["cProcessingUnit"],
+            links=sample["cLink"],
+            link_defaults=sample["cLinkDefault"],
+            link_landings=sample["cLinkLandings"],
+        )
+
+    def test_csv_writer_produces_value_chain_tables(self, tmp_path):
+        import numpy as np
+        from pypath.core.params import create_rpath_params
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = create_rpath_params(
+            groups=["Phyto", "Zoo", "Detritus", "Fleet"],
+            types=[1, 0, 2, 3],
+        )
+        params.model["Biomass"] = [10.0, 5.0, 100.0, np.nan]
+        params.model["PB"] = [50.0, 10.0, np.nan, np.nan]
+        params.model["QB"] = [0.0, 30.0, np.nan, np.nan]
+
+        out = str(tmp_path / "test_vc.csv.zip")
+        writer = CsvBundleWriter(params, out, scenario_id=1)
+        writer.write_ecopath()
+
+        vc = self._make_value_chain_data()
+        writer.write_value_chain(vc)
+        writer.close()
+
+        assert "cOOPStorable" in writer._tables
+        assert "cProducerUnit" in writer._tables
+        assert "cLinkLandings" in writer._tables
+        assert len(writer._tables["cOOPStorable"]) == 2
+
+    def test_csv_writer_none_value_chain_no_tables(self, tmp_path):
+        import numpy as np
+        from pypath.core.params import create_rpath_params
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = create_rpath_params(
+            groups=["Phyto", "Zoo", "Detritus", "Fleet"],
+            types=[1, 0, 2, 3],
+        )
+        params.model["Biomass"] = [10.0, 5.0, 100.0, np.nan]
+        params.model["PB"] = [50.0, 10.0, np.nan, np.nan]
+        params.model["QB"] = [0.0, 30.0, np.nan, np.nan]
+
+        out = str(tmp_path / "test_no_vc.csv.zip")
+        writer = CsvBundleWriter(params, out, scenario_id=1)
+        writer.write_ecopath()
+        writer.write_value_chain(None)
+        writer.close()
+
+        c_tables = [t for t in writer._tables if t.startswith("c")]
+        assert len(c_tables) == 0
