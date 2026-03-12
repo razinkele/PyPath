@@ -16,6 +16,7 @@ from pypath.io.biodata import (
     FishBaseTraits,
     SpeciesInfo,
     SpeciesNotFoundError,
+    auto_populate_taxonomy,
     batch_get_species_info,
     biodata_to_rpath,
     clear_cache,
@@ -46,7 +47,10 @@ from pypath.io.ewemdb import (
     read_mediation,
     EcospaceReadResult,
     read_pedigree,
+    read_taxonomy,
     read_timeseries,
+    TaxonomyData,
+    TaxonomyRecord,
 )
 from pypath.io.timeseries_csv import load_timeseries_csv
 
@@ -92,6 +96,10 @@ __all__ = [
     "get_ewemdb_metadata",
     "check_ewemdb_support",
     "EwEDatabaseError",
+    # Taxonomy
+    "read_taxonomy",
+    "TaxonomyRecord",
+    "TaxonomyData",
     # Biodiversity databases
     "get_species_info",
     "batch_get_species_info",
@@ -104,6 +112,7 @@ __all__ = [
     "SpeciesNotFoundError",
     "APIConnectionError",
     "AmbiguousSpeciesError",
+    "auto_populate_taxonomy",
     # Time series I/O
     "read_timeseries",
     "load_timeseries_csv",
