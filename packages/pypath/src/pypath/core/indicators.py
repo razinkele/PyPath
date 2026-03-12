@@ -278,5 +278,84 @@ def finn_cycling_index(rpath: Rpath) -> float:
 
 
 def _transfer_efficiency_from_rpath(rpath: Rpath) -> np.ndarray:
-    """Compute per-TL transfer efficiency (stub)."""
-    return np.array([])
+    """Compute per-TL transfer efficiency using integer-bin approach.
+
+    1. Assign integer TL bins: bin[i] = floor(TL[i])
+    2. For each level L (from 2 upward):
+       - Input = total consumption by groups in bin L
+       - Output = total consumption of groups in bin L by groups in bin L+1
+       - TE[L] = Output / Input (0.0 if Input = 0)
+    3. Return array indexed by TL bin (starting from TL 2)
+    """
+    n_living = rpath.NUM_LIVING
+    n_dead = rpath.NUM_DEAD
+    n_internal = n_living + n_dead
+
+    if n_living == 0:
+        return np.array([])
+
+    # Assign integer TL bins for living groups
+    tl_bins = {}
+    for i in range(1, n_living + 1):
+        tl_bin = int(np.floor(rpath.TL[i]))
+        if tl_bin not in tl_bins:
+            tl_bins[tl_bin] = []
+        tl_bins[tl_bin].append(i)
+
+    if not tl_bins:
+        return np.array([])
+
+    max_bin = max(tl_bins.keys())
+    min_bin = min(b for b in tl_bins.keys() if b >= 2) if any(b >= 2 for b in tl_bins) else None
+
+    if min_bin is None:
+        return np.array([])
+
+    # Compute consumption for each group
+    consumption = np.zeros(n_internal + 1)
+    for i in range(1, n_living + 1):
+        if rpath.QB[i] > 0 and rpath.Biomass[i] > 0:
+            consumption[i] = rpath.QB[i] * rpath.Biomass[i]
+
+    te_values = []
+    for level in range(min_bin, max_bin + 1):
+        # Input = total consumption by groups in this bin
+        groups_in_bin = tl_bins.get(level, [])
+        total_input = sum(consumption[g] for g in groups_in_bin)
+
+        # Output = total consumption of groups in this bin by groups in bin+1
+        groups_in_next = tl_bins.get(level + 1, [])
+        total_output = 0.0
+        for pred in groups_in_next:
+            if consumption[pred] <= 0:
+                continue
+            for prey in groups_in_bin:
+                dc_frac = rpath.DC[prey, pred]
+                if dc_frac > 0:
+                    total_output += dc_frac * consumption[pred]
+
+        te = total_output / total_input if total_input > 0 else 0.0
+        te_values.append(te)
+
+    return np.array(te_values)
+
+
+def transfer_efficiency(rpath: Rpath) -> np.ndarray:
+    """Compute per-trophic-level transfer efficiency.
+
+    Uses simplified integer-bin approach: groups are binned by
+    floor(TL), and efficiency is computed as the ratio of flow
+    from level L to level L+1 divided by total input to level L.
+
+    Parameters
+    ----------
+    rpath : Rpath
+        Balanced Ecopath model.
+
+    Returns
+    -------
+    np.ndarray
+        Transfer efficiency per TL bin (starting from TL 2).
+        Empty array if no groups at TL >= 2.
+    """
+    return _transfer_efficiency_from_rpath(rpath)

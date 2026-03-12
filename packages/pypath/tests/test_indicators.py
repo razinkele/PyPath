@@ -5,7 +5,12 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from pypath.core.indicators import FlowAnalysis, finn_cycling_index, flow_analysis
+from pypath.core.indicators import (
+    FlowAnalysis,
+    finn_cycling_index,
+    flow_analysis,
+    transfer_efficiency,
+)
 
 
 def _make_rpath_3group():
@@ -176,3 +181,46 @@ class TestFinnCyclingIndex:
         fci_standalone = finn_cycling_index(rpath)
         fa = flow_analysis(rpath)
         assert fci_standalone == pytest.approx(fa.finn_cycling_index, abs=1e-10)
+
+
+class TestTransferEfficiency:
+    """Tests for transfer_efficiency() function."""
+
+    def test_returns_array(self):
+        """Should return numpy array."""
+        rpath = _make_rpath_3group()
+        te = transfer_efficiency(rpath)
+        assert isinstance(te, np.ndarray)
+
+    def test_values_in_unit_interval(self):
+        """All TE values should be in [0, 1]."""
+        rpath = _make_rpath_3group()
+        te = transfer_efficiency(rpath)
+        for val in te:
+            assert 0 <= val <= 1
+
+    def test_matches_flow_analysis(self):
+        """transfer_efficiency() should match flow_analysis().transfer_efficiency."""
+        rpath = _make_rpath_3group()
+        te_standalone = transfer_efficiency(rpath)
+        fa = flow_analysis(rpath)
+        np.testing.assert_array_almost_equal(te_standalone, fa.transfer_efficiency)
+
+    def test_single_tl_returns_empty(self):
+        """Model with only TL=1 groups has no transfer to compute."""
+        rpath = MagicMock()
+        rpath.NUM_LIVING = 1
+        rpath.NUM_DEAD = 0
+        rpath.NUM_GEARS = 0
+        rpath.Biomass = np.array([0.0, 5.0])
+        rpath.PB = np.array([0.0, 1.0])
+        rpath.QB = np.array([0.0, 0.0])
+        rpath.EE = np.array([0.0, 0.5])
+        rpath.Unassim = np.array([0.0, 0.0])
+        rpath.TL = np.array([0.0, 1.0])
+        rpath.type = np.array([0, 1])
+        rpath.DC = np.zeros((2, 2))
+        rpath.Landings = np.zeros((2, 1))
+        rpath.Discards = np.zeros((2, 1))
+        te = transfer_efficiency(rpath)
+        assert len(te) == 0
