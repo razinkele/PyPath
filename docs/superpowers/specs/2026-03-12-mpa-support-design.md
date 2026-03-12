@@ -47,11 +47,16 @@ class MPAConfig:
         """
 
     def get_effort_mask(self, n_patches: int, n_fleets: int, month: int) -> np.ndarray:
-        """Return (n_patches, n_fleets) boolean mask. True = open, False = closed.
+        """Return (n_patches, n_fleets) float mask. 1.0 = open, 0.0 = closed.
 
-        For each active zone, sets mask[patch, fleet] = False for all
+        For each active zone, sets mask[patch, fleet] = 0.0 for all
         (patch, fleet) pairs where patch is in zone.patches and fleet is
         in zone.excluded_fleets (or all fleets if excluded_fleets is None).
+
+        Patch indices are validated: out-of-range indices are skipped
+        with a logged warning.
+
+        Returns float array (not boolean) to support future partial closures.
         """
 
     def get_capacity_multipliers(self, n_patches: int, month: int) -> np.ndarray:
@@ -60,6 +65,10 @@ class MPAConfig:
         For each patch, the multiplier is the product of capacity_bonus
         values from all active zones covering that patch. Patches not in
         any active MPA get multiplier 1.0.
+
+        Note: overlapping MPAs stack multiplicatively (e.g., two zones
+        with bonus 1.3 each produce 1.69). This can produce large values
+        if many zones overlap.
         """
 ```
 
@@ -76,21 +85,53 @@ def create_mpa_config(zones: list[MPAZone] | None = None) -> MPAConfig:
 
 `rsim_run_spatial(scenario, ..., mpa=mpa_config)` — keyword-only argument, default None.
 
+### How fishing works in rsim_run_spatial (current code)
+
+The current spatial simulation does NOT use `SpatialFishing` for effort allocation. Instead:
+- `fishing_dict` is built once before the loop with `FishQ` and `FishingMort` arrays (scalar, not per-patch).
+- `forcing_dict["ForcedEffort"]` provides per-gear effort multipliers (1D, not per-patch).
+- `deriv_vector_spatial()` calls `deriv_vector()` per-patch, passing the same `fishing_dict` and `forcing_dict` to each patch.
+
+Therefore, MPA effort masking must operate at the `fishing_dict`/`forcing_dict` level on a per-patch basis.
+
+### MPA effort masking
+
+When `mpa` is provided, each monthly step:
+
+1. Compute `effort_mask = mpa.get_effort_mask(n_patches, n_fleets, month)` — shape `(n_patches, n_fleets)`, values 0.0 or 1.0.
+
+2. Inside `deriv_vector_spatial()`, in the per-patch loop where `deriv_vector()` is called: create a per-patch `forcing_dict` copy with `ForcedEffort` multiplied by the patch's effort mask row. For MPA patches, excluded fleets get `ForcedEffort[gear_idx] = 0`, which zeros their fishing mortality for that patch.
+
+   Concretely, `deriv_vector_spatial()` gains an optional `mpa_effort_mask: np.ndarray | None = None` parameter. When provided (shape `[n_patches, n_fleets]`), for each patch `p`:
+   ```
+   if mpa_effort_mask is not None:
+       patch_forcing = forcing_dict.copy()
+       patch_effort = forcing_dict["ForcedEffort"].copy()
+       patch_effort[1:n_fleets+1] *= mpa_effort_mask[p, :]
+       patch_forcing["ForcedEffort"] = patch_effort
+   ```
+   This creates a per-patch effort that zeros excluded fleets.
+
+3. `rsim_run_spatial()` passes `mpa_effort_mask` to `deriv_vector_spatial()` each month.
+
+### MPA capacity multiplier
+
+`ecospace.habitat_capacity` has shape `[n_groups, n_patches]`. In `deriv_vector_spatial()`, it is used to modify `b_base_ref_patches` (line ~118):
+```
+b_base_ref_patches[state_idx, :] *= capacity_multipliers[g_idx, :]
+```
+
 When `mpa` is provided:
+1. Compute `cap_mult = mpa.get_capacity_multipliers(n_patches, month)` — shape `(n_patches,)`.
+2. Pass `mpa_cap_mult` to `deriv_vector_spatial()`. After the existing `habitat_capacity` multiplication (line ~118), apply: `b_base_ref_patches[state_idx, :] *= mpa_cap_mult`. This broadcasts `(n_patches,)` across all groups uniformly.
+3. This is a temporary per-step modification (not stored), so temporal closures work correctly.
 
-1. **Each monthly step**, before effort allocation and derivative computation:
-   - Compute `effort_mask = mpa.get_effort_mask(n_patches, n_fleets, month)`
-   - Apply mask to spatial fishing effort: `effort_spatial *= effort_mask` (element-wise). This zeros effort for excluded fleets in MPA patches.
-   - Compute `cap_mult = mpa.get_capacity_multipliers(n_patches, month)`
-   - Multiply into the habitat capacity array passed to `deriv_vector_spatial()`. This is a temporary modification (recomputed each month), so temporal closures work correctly.
+### Modified functions
 
-2. **Effort mask application point**: Inside `rsim_run_spatial()`, after `SpatialFishing.allocate_effort()` returns the effort array but before it's passed to the derivative. This keeps MPA logic out of the allocation algorithms themselves.
+- `deriv_vector_spatial()` gains two optional parameters: `mpa_effort_mask=None` and `mpa_cap_mult=None`.
+- `rsim_run_spatial()` computes the mask/multiplier each month and passes them through.
 
-3. **Capacity multiplier application point**: The existing `habitat_capacity` parameter in `EcospaceParams` is per-patch. Before passing to `deriv_vector_spatial()`, create a temporary copy: `effective_capacity = habitat_capacity * cap_mult`. This avoids permanently modifying the params object.
-
-**No changes to `deriv_vector_spatial()`** — it already accepts habitat capacity as an input. The MPA effects are applied upstream.
-
-**No changes to `SpatialFishing` allocation methods** — MPA is a post-filter applied in `rsim_run_spatial()`.
+**No changes to `SpatialFishing`** — MPA is applied within the spatial derivative, not the allocation layer.
 
 ---
 
@@ -133,10 +174,11 @@ def read_mpa_config(
     db_path: str,
     n_patches: int,
     fleet_ids: list[int],
+    scenario_id: int = 1,
 ) -> MPAConfig:
     """Read MPA configuration from an EwE database.
 
-    Reads EcospaceScenarioMPA for zone definitions,
+    Reads EcospaceScenarioMPA for zone definitions (filtered by scenario_id),
     EcospaceScenarioMPAPatch for patch assignments,
     and EcospaceScenarioMPAFishery for fleet exclusions.
 
@@ -146,6 +188,8 @@ def read_mpa_config(
     Returns empty MPAConfig if tables are missing.
     """
 ```
+
+**Module placement:** `read_mpa_config` lives in `io/ewemdb.py`, consistent with `read_ecotracer`, `read_fleet_dynamics`, and other I/O readers. It imports `MPAZone`/`MPAConfig` from `spatial.mpa` via lazy import (same pattern as fleet_dynamics importing from `core.fleet_dynamics`).
 
 **Mapping conventions:**
 - `MPAmonth` in the schema maps to `start_month`. A value of 0 means active from simulation start.
@@ -196,8 +240,8 @@ def read_mpa_config(
 ### Modified files
 | File | Change |
 |------|--------|
-| `spatial/integration.py` | rsim_run_spatial() gains `mpa=None` kwarg; applies effort mask and capacity multipliers each month |
+| `spatial/integration.py` | `deriv_vector_spatial()` gains `mpa_effort_mask` and `mpa_cap_mult` params; `rsim_run_spatial()` gains `mpa=None` kwarg, computes mask/multipliers each month |
 | `spatial/__init__.py` | Export MPAZone, MPAConfig, create_mpa_config |
 | `io/_ewe_schema.py` | Add EcospaceScenarioMPAFishery, EcospaceScenarioMPAPatch tables |
-| `io/ewemdb.py` | Add read_mpa_config() |
-| `io/__init__.py` | Export read_mpa_config |
+| `io/ewemdb.py` | Add read_mpa_config() (lazy import from spatial.mpa) |
+| `io/__init__.py` | Export `read_mpa_config` |
