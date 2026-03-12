@@ -111,6 +111,13 @@ from pypath.spatial.habitat import (
 # Spatial integration
 from pypath.spatial.integration import deriv_vector_spatial, rsim_run_spatial
 
+# MPA support
+from pypath.spatial.mpa import (
+    MPAConfig,
+    MPAZone,
+    create_mpa_config,
+)
+
 __all__ = [
     # Core classes
     "EcospaceGrid",
@@ -160,6 +167,10 @@ __all__ = [
     # Spatial integration
     "deriv_vector_spatial",
     "rsim_run_spatial",
+    # MPA support
+    "MPAZone",
+    "MPAConfig",
+    "create_mpa_config",
     # Spatial fishing
     "SpatialFishing",
     "allocate_uniform",
