@@ -714,6 +714,12 @@ class AccessWriter:
             return
         self._build_tables_via_csv_writer("write_ecospace", ecospace=ecospace)
 
+    def write_mpa(self, mpa_config=None) -> None:
+        """Write MPA tables to the Access database."""
+        if mpa_config is None:
+            return
+        self._build_tables_via_csv_writer("write_mpa", mpa_config=mpa_config)
+
     def write_timeseries(self, timeseries=None) -> None:
         """Write time series tables to the Access database."""
         if timeseries is None:

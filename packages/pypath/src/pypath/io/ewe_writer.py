@@ -34,6 +34,7 @@ def write_ewemdb(
     *,
     scenarios: list[Any] | None = None,
     ecospace: Any | None = None,
+    mpa_config: Any | None = None,
     timeseries: Any | None = None,
     mediation: Any | None = None,
     taxonomy: Any | None = None,
@@ -51,8 +52,10 @@ def write_ewemdb(
         Output file path.
     scenarios : list of RsimScenario, optional
         Ecosim scenarios to include.
-    ecospace : EcospaceParams, optional
+    ecospace : EcospaceParams or EcospaceReadResult, optional
         Ecospace spatial parameters.
+    mpa_config : MPAConfig, optional
+        MPA zone configuration to include.
     timeseries : EweTimeSeriesCollection, optional
         Time series data to include.
     mediation : MediationCollection, optional
@@ -97,6 +100,7 @@ def write_ewemdb(
         writer.write_ecopath()
         writer.write_ecosim(scenarios)
         writer.write_ecospace(ecospace)
+        writer.write_mpa(mpa_config)
         writer.write_timeseries(timeseries)
         writer.write_mediation(mediation)
         writer.write_taxonomy(taxonomy)

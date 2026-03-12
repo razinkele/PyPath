@@ -536,6 +536,53 @@ class CsvBundleWriter:
 
         logger.info("write_ecospace: spatial data written")
 
+    def write_mpa(self, mpa_config=None) -> None:
+        """Convert MPAConfig to EwE MPA table DataFrames.
+
+        Parameters
+        ----------
+        mpa_config : MPAConfig, optional
+            MPA zone configuration to export.
+        """
+        if mpa_config is None:
+            return
+        zones = getattr(mpa_config, "zones", [])
+        if not zones:
+            return
+
+        sid = self._scenario_id
+
+        mpa_rows = []
+        fishery_rows = []
+        for seq, zone in enumerate(zones, start=1):
+            mpa_rows.append({
+                "ScenarioID": sid,
+                "MPAID": zone.mpa_id,
+                "Sequence": seq,
+                "MPAname": zone.name,
+                "MPAmonth": zone.start_month,
+            })
+            if zone.excluded_fleets is not None:
+                for fleet_idx in zone.excluded_fleets:
+                    fishery_rows.append({
+                        "ScenarioID": sid,
+                        "MPAID": zone.mpa_id,
+                        "FleetID": fleet_idx + 1,  # 0-based -> 1-based
+                        "Excluded": True,
+                    })
+
+        self._tables["EcospaceScenarioMPA"] = pd.DataFrame(mpa_rows)
+        if fishery_rows:
+            self._tables["EcospaceScenarioMPAFishery"] = pd.DataFrame(
+                fishery_rows
+            )
+
+        logger.info(
+            "write_mpa: %d zones, %d fleet exclusions",
+            len(mpa_rows),
+            len(fishery_rows),
+        )
+
     def write_timeseries(self, timeseries=None) -> None:
         """Write time series tables to the CSV bundle."""
         if timeseries is None or not timeseries.series:

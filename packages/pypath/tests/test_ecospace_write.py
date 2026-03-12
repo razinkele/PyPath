@@ -402,3 +402,52 @@ class TestAccessWriter:
         mpa_fishery_idx = tables.index("EcospaceScenarioMPAFishery")
         mpa_idx = tables.index("EcospaceScenarioMPA")
         assert mpa_fishery_idx < mpa_idx
+
+
+from pypath.spatial.mpa import MPAConfig, MPAZone
+
+
+class TestMPAWriter:
+    """write_mpa() tests."""
+
+    def test_mpa_config_written(self):
+        """MPAConfig converted to EcospaceScenarioMPA + MPA Fishery tables."""
+        params = _make_test_params()
+        zones = [
+            MPAZone(
+                mpa_id=1, name="Reserve A", patches=[0, 1],
+                start_month=1, excluded_fleets=[0, 2],
+            ),
+            MPAZone(
+                mpa_id=2, name="Reserve B", patches=[3],
+                start_month=6, excluded_fleets=[1],
+            ),
+        ]
+        mpa_config = MPAConfig(zones=zones)
+
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_mpa(mpa_config=mpa_config)
+
+        # Check MPA table
+        assert "EcospaceScenarioMPA" in writer._tables
+        mpa_df = writer._tables["EcospaceScenarioMPA"]
+        assert len(mpa_df) == 2
+        assert mpa_df.iloc[0]["MPAname"] == "Reserve A"
+        assert mpa_df.iloc[1]["MPAmonth"] == 6
+
+        # Check MPA Fishery table (0-based fleet -> 1-based FleetID)
+        assert "EcospaceScenarioMPAFishery" in writer._tables
+        fish_df = writer._tables["EcospaceScenarioMPAFishery"]
+        # Zone 1 has 2 excluded fleets [0,2], Zone 2 has 1 excluded fleet [1]
+        assert len(fish_df) == 3
+        assert set(fish_df["FleetID"]) == {1, 2, 3}  # 0-based -> 1-based
+        assert all(fish_df["Excluded"] == True)  # noqa: E712
+
+    def test_empty_mpa_config(self):
+        """Empty MPAConfig writes no tables (no error)."""
+        params = _make_test_params()
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_mpa(mpa_config=MPAConfig(zones=[]))
+
+        assert "EcospaceScenarioMPA" not in writer._tables
+        assert "EcospaceScenarioMPAFishery" not in writer._tables
