@@ -3,6 +3,7 @@
 Morris elementary effects screening and optional Sobol variance-based
 sensitivity analysis (requires SALib).
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,7 +66,9 @@ class SensitivityConfig:
 
 
 def _generate_morris_trajectories(
-    k: int, n_trajectories: int, n_levels: int = 4,
+    k: int,
+    n_trajectories: int,
+    n_levels: int = 4,
     rng: np.random.Generator | None = None,
 ) -> np.ndarray:
     """Generate Morris OAT trajectories in the unit hypercube.
@@ -126,7 +129,9 @@ def _compute_elementary_effects(
                 ee = (y1 - y0) / delta
                 elementary_effects[changed_idx].append(ee)
 
-    mu_star = np.array([np.mean(np.abs(ee)) if ee else 0.0 for ee in elementary_effects])
+    mu_star = np.array(
+        [np.mean(np.abs(ee)) if ee else 0.0 for ee in elementary_effects]
+    )
     sigma = np.array([np.std(ee) if len(ee) > 1 else 0.0 for ee in elementary_effects])
     mu = np.array([np.mean(ee) if ee else 0.0 for ee in elementary_effects])
 
@@ -162,20 +167,18 @@ def run_sensitivity(
     -------
     MorrisResult or SobolResult
     """
+    from pypath.core.ecopath import rpath as run_rpath
     from pypath.core.pedigree import (
         ScalarDistribution,
         apply_sample,
         build_distributions,
     )
-    from pypath.core.ecopath import rpath as run_rpath
 
     if config is None:
         config = SensitivityConfig()
 
     if config.method == "sobol" and not HAS_SALIB:
-        raise ImportError(
-            "Install SALib for Sobol analysis: pip install SALib"
-        )
+        raise ImportError("Install SALib for Sobol analysis: pip install SALib")
 
     rng = np.random.default_rng(config.seed)
     distributions = build_distributions(params, pedigree_config)
@@ -194,6 +197,7 @@ def run_sensitivity(
             sigma = math.sqrt(math.log(1 + dist.cv**2))
             mu = math.log(dist.base_value) - sigma**2 / 2
             from scipy.stats import lognorm
+
             val = float(lognorm.ppf(x_unit[j], s=sigma, scale=math.exp(mu)))
             sample[(dist.param_name, dist.group_idx)] = val
 
@@ -212,7 +216,10 @@ def run_sensitivity(
 
     if config.method == "morris":
         trajectories = _generate_morris_trajectories(
-            k, config.n_trajectories, config.n_levels, rng,
+            k,
+            config.n_trajectories,
+            config.n_levels,
+            rng,
         )
         n_evals = len(trajectories)
         y_values = np.empty(n_evals)
@@ -222,7 +229,11 @@ def run_sensitivity(
                 progress_callback(i + 1, n_evals)
 
         result = _compute_elementary_effects(
-            trajectories, y_values, k, config.n_trajectories, config.n_levels,
+            trajectories,
+            y_values,
+            k,
+            config.n_trajectories,
+            config.n_levels,
         )
         result.parameter_names = param_names
         result.output_name = config.output_variable

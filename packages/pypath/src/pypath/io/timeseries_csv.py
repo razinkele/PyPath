@@ -1,9 +1,9 @@
 """CSV loading for EwE time series data."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from pypath.core.timeseries import EweTimeSeries, EweTimeSeriesCollection
@@ -73,7 +73,9 @@ def _load_simple_format(path: Path) -> EweTimeSeriesCollection:
     df = pd.read_csv(path)
     required = {"time", "group", "value", "dat_type"}
     if not required.issubset(set(df.columns)):
-        raise ValueError(f"Simple format requires columns {required}, got {set(df.columns)}")
+        raise ValueError(
+            f"Simple format requires columns {required}, got {set(df.columns)}"
+        )
     series_list = []
     series_id = 1
     for (group, dat_type), group_df in df.groupby(["group", "dat_type"]):

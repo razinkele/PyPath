@@ -241,9 +241,7 @@ def deriv_vector_spatial(
                     patch_forcing = forcing.copy()
                     patch_effort = forcing["ForcedEffort"].copy()
                     n_mask_fleets = mpa_effort_mask.shape[1]
-                    patch_effort[1 : n_mask_fleets + 1] *= mpa_effort_mask[
-                        patch_idx, :
-                    ]
+                    patch_effort[1 : n_mask_fleets + 1] *= mpa_effort_mask[patch_idx, :]
                     patch_forcing["ForcedEffort"] = patch_effort
 
                 if params_need_modification:

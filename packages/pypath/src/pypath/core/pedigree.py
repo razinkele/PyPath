@@ -4,6 +4,7 @@ Pedigree values (coefficients of variation) define parameter uncertainty.
 This module converts pedigree CVs to statistical distributions and generates
 parameter samples for Monte Carlo analysis.
 """
+
 from __future__ import annotations
 
 import copy
@@ -14,7 +15,6 @@ from dataclasses import dataclass, field
 from typing import Union
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,6 @@ def build_distributions(
     list[ParameterDistribution]
         Distributions for all parameters with CV > 0.
     """
-    from pypath.core.params import RpathParams
 
     pedigree = params.pedigree
     if pedigree is None:
@@ -144,12 +143,14 @@ def build_distributions(
             if np.isnan(base_val) or base_val <= 0:
                 continue
 
-            distributions.append(ScalarDistribution(
-                param_name=param_name,
-                group_idx=idx,
-                base_value=float(base_val),
-                cv=cv,
-            ))
+            distributions.append(
+                ScalarDistribution(
+                    param_name=param_name,
+                    group_idx=idx,
+                    base_value=float(base_val),
+                    cv=cv,
+                )
+            )
 
     # Diet distributions: one per consumer with Diet CV > 0
     if "Diet" in pedigree.columns:
@@ -169,11 +170,13 @@ def build_distributions(
             if np.nansum(diet_col) <= 0:
                 continue
 
-            distributions.append(DietDistribution(
-                pred_idx=idx,
-                base_proportions=diet_col,
-                cv=cv,
-            ))
+            distributions.append(
+                DietDistribution(
+                    pred_idx=idx,
+                    base_proportions=diet_col,
+                    cv=cv,
+                )
+            )
 
     return distributions
 
@@ -222,7 +225,9 @@ def sample_parameters(
             from scipy.stats import lognorm
 
             scalar_samples[:, j] = lognorm.ppf(
-                unit_samples[:, j], s=sigma, scale=math.exp(mu),
+                unit_samples[:, j],
+                s=sigma,
+                scale=math.exp(mu),
             )
     else:
         # Direct random sampling
@@ -277,7 +282,7 @@ def apply_sample(params: "RpathParams", sample: dict) -> "RpathParams":
     RpathParams
         New params with sampled values applied.
     """
-    from pypath.core.params import RpathParams, RpathStanzaParams
+    from pypath.core.params import RpathParams
 
     new_model = params.model.copy()
     new_diet = params.diet.copy()
