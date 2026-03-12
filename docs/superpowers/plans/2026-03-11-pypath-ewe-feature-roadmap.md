@@ -150,7 +150,7 @@ Tracks contaminant concentrations through the food web. Each group has: initial 
 ## Phase 6: Advanced Ecospace Features
 
 **Priority:** MEDIUM — Required for spatial management scenario evaluation.
-**Status:** ✅ ~95% COMPLETE — I/O gap closed, all 16 Ecospace tables supported.
+**Status:** ✅ COMPLETE — I/O gap closed, all 16 Ecospace tables supported, capacity driver weights applied at runtime.
 
 **Implemented:**
 - ✅ `EcospaceScenarioMPA` + `EcospaceScenarioMPAFishery` — MPAConfig, MPAZone classes, read_mpa_config(), write_mpa(), full test suite
@@ -166,8 +166,9 @@ Tracks contaminant concentrations through the food web. Each group has: initial 
 - ✅ EcospaceScenarioMPAPatch removed (doesn't exist in real EwE 6.6+)
 - ✅ Binary map columns preserved as raw bytes for round-trip fidelity
 
-**Minor gap:**
-- Capacity driver runtime integration (weight layers → dynamic habitat capacity)
+- ✅ Capacity driver runtime integration — weight layer scalar Weight applied to habitat_capacity at read time
+
+**Note:** Binary LayerMap raster decoding deferred — raw bytes preserved for round-trip, spatial weight application uses scalar Weight field.
 
 **Dependencies:** Phase 0
 
@@ -176,7 +177,7 @@ Tracks contaminant concentrations through the food web. Each group has: initial 
 ## Phase 7: System-Level Ecological Indicators
 
 **Priority:** LOW-MEDIUM — Important for ecosystem-based management reporting.
-**Status:** COMPLETE (~90%) — All core features implemented and tested.
+**Status:** ✅ COMPLETE — All core features implemented and tested.
 
 **Implemented:**
 - ✅ Full Ulanowicz ascendency framework — TST, ascendency, capacity, overhead, relative ascendency (core/indicators.py)
@@ -187,9 +188,7 @@ Tracks contaminant concentrations through the food web. Each group has: initial 
 - ✅ Morris sensitivity analysis — OAT screening with mu*, sigma, mu
 - ✅ Sobol sensitivity — variance-based via SALib (optional dependency)
 - ✅ Network indices — connectance, omnivory, keystoneness, MTI matrix, linkage density
-
-**Minor gap:**
-- System maturity indices (nice-to-have, not critical)
+- ✅ System maturity indices — P/R ratio, B/TST ratio, net production, mean path length (SystemMaturityIndices, system_maturity())
 
 **Dependencies:** None (standalone)
 
@@ -245,8 +244,8 @@ This is a major standalone module (~2000+ lines). Defer unless there's specific 
 | 3 | Monte Carlo / pedigree | High | Medium | **Do fourth** | ✅ Done |
 | 4 | Ecotracer | Medium | Low | Good quick win | ✅ Done |
 | 5 | Fleet dynamics & MSE | Medium | High | After 1-3 | ✅ Done |
-| 6 | Advanced Ecospace | Medium | High | Incremental | ✅ ~95% (I/O complete, runtime gap) |
-| 7 | Ecological indicators | Low-Med | Low | Standalone | ✅ ~90% Done |
+| 6 | Advanced Ecospace | Medium | High | Incremental | ✅ Done |
+| 7 | Ecological indicators | Low-Med | Low | Standalone | ✅ Done |
 | 8 | Value chain economics | Low | Very High | Defer | Not started |
 | 9 | Taxonomy integration | Low | Low | Nice to have | ✅ Done |
 
@@ -284,12 +283,11 @@ Phase 0 (schema fix) ──> Phase 1 (time series) ──> Phase 2 (mediation)  
                                           Phase 4 (ecotracer) ──> Phase 5 (fleet/MSE)  ✅ DONE
                                                                         │
                                                                         v
-Phase 7 (indicators) ✅ ────────────────────────────────> Phase 6 (ecospace) ⚠️ gaps remain
+Phase 7 (indicators) ✅ ────────────────────────────────> Phase 6 (ecospace) ✅
                                                                         │
 Phase 9 (taxonomy) ✅                                                   v
                                                                Phase 8 (economics) ❌
 ```
 
 **Remaining work:**
-- Phase 6 minor gap: capacity driver runtime integration (weight layers → dynamic habitat capacity)
 - Phase 8: Value chain economics (21 tables, major effort — defer unless demand)
