@@ -22,12 +22,10 @@ class TestMPASchema:
         assert tbl["FleetID"] == "INTEGER"
         assert tbl["Excluded"] == "YESNO"
 
-    def test_mpa_patch_table_exists(self):
+    def test_mpa_patch_table_removed(self):
+        """EcospaceScenarioMPAPatch doesn't exist in real EwE 6.6+ databases."""
         from pypath.io._ewe_schema import EWE_TABLES
-        assert "EcospaceScenarioMPAPatch" in EWE_TABLES
-        tbl = EWE_TABLES["EcospaceScenarioMPAPatch"]
-        assert tbl["MPAID"] == "INTEGER"
-        assert tbl["PatchID"] == "INTEGER"
+        assert "EcospaceScenarioMPAPatch" not in EWE_TABLES
 
 
 class TestReadMPAConfig:
