@@ -1,6 +1,6 @@
 # Advanced Ecospace Features Design Spec
 
-**Goal:** Close the Ecospace I/O gap — add 7 missing EwE 6.6+ tables to the schema, extend the reader with 8 new fields, expand write support from 2 to 14 Ecospace tables, and add MPA write support. Binary map columns are preserved as raw bytes for round-trip fidelity.
+**Goal:** Close the Ecospace I/O gap — add 7 missing EwE 6.6+ tables to the schema, extend the reader with 8 new fields, expand write support from 2 to 16 Ecospace tables, and add MPA write support. Binary map columns are preserved as raw bytes for round-trip fidelity.
 
 **Approach:** Extend existing modules — schema in `_ewe_schema.py`, reader in `ewemdb.py`, writer in `_csv_bundle_writer.py`/`_access_writer.py`/`ewe_writer.py`. No new source files except tests.
 
@@ -135,9 +135,15 @@ except EwEDatabaseError:
 
 Binary map columns are kept as-is (raw bytes from pyodbc). No parsing or conversion.
 
+### Fleet info Map columns
+
+The existing reader drops Map columns from `fleet_info` (`PortMap`, `SailCostMap`). Change the reader to **preserve** these binary columns for round-trip fidelity, consistent with our approach for all other binary map columns. This means `fleet_info` will contain the raw bytes for `PortMap` and `SailCostMap`.
+
 ### `EcospaceScenarioDriverLayer`
 
-This table is already defined in `_ewe_schema.py` but not read by `read_ecospace()`. Add it to the reader using the same pattern as the new tables. The `LayerMAP` column contains binary raster data — preserved as raw bytes.
+This table is already defined in `_ewe_schema.py` but not read by `read_ecospace()`. Add it to the reader using the same pattern as the new tables. The `LayerMAP` column (note: capital MAP, matching the real EwE schema) contains binary raster data — preserved as raw bytes.
+
+Note: `EcospaceScenarioWeightLayer` uses `LayerMap` (lowercase "ap"). This casing inconsistency exists in the real EwE database schema — preserve it exactly.
 
 ---
 
@@ -149,7 +155,7 @@ This table is already defined in `_ewe_schema.py` but not read by `read_ecospace
 
 ### CSV bundle writer: `write_ecospace()`
 
-Extend the existing method to write all 14 Ecospace tables. For each new table, the pattern is:
+Extend the existing method to write all 16 Ecospace tables (the existing 2 + 14 new). The existing `EcospaceScenario` and `EcospaceScenarioGroup` writing logic is preserved unchanged. For each new table, the pattern is:
 
 **DataFrame fields** (direct passthrough):
 - `migration_maps` → `EcospaceScenarioGroupMigration`
@@ -171,6 +177,8 @@ For DataFrame fields, writing is straightforward — store the DataFrame in `sel
 
 For `habitat_preference`, iterate over groups and habitats to build rows. The habitat IDs come from `habitat_types` dict keys.
 
+**Index convention:** The reader converts EwE's 1-based `HabitatID` to 0-based keys in `habitat_types`. The writer must convert back: `HabitatID = key + 1`. Same for `GroupID` in `EcospaceScenarioGroupHabitat`: PyPath uses 0-based group indices, EwE uses 1-based `GroupID`.
+
 ### MPA writer: `write_mpa()`
 
 New method on both `CsvBundleWriter` and `AccessWriter`. Converts `MPAConfig` back to EwE tables:
@@ -178,11 +186,13 @@ New method on both `CsvBundleWriter` and `AccessWriter`. Converts `MPAConfig` ba
 - `MPAConfig.zones` → `EcospaceScenarioMPA` rows: `{ScenarioID, MPAID: zone.mpa_id, Sequence, MPAname: zone.name, MPAmonth: zone.start_month}`
 - `MPAConfig.zones[].excluded_fleets` → `EcospaceScenarioMPAFishery` rows: `{ScenarioID, MPAID, FleetID, Excluded: True}`
 
+**Index convention:** `MPAZone.mpa_id` is stored as-is from the reader (1-based `MPAID` from EwE). `MPAZone.excluded_fleets` contains 0-based fleet indices — the writer must convert to 1-based `FleetID` (`fleet_idx + 1`).
+
 Note: `EcospaceScenarioMPAPatch` is NOT written (doesn't exist in real EwE).
 
 ### Access writer: `_ECOSPACE_TABLES`
 
-Update from 2 to 14 tables. Order matters for foreign key constraints — parent tables before children:
+Update from 2 to 16 tables. Order matters for foreign key constraints — parent tables before children:
 
 ```python
 _ECOSPACE_TABLES = [
@@ -307,8 +317,8 @@ All tests use mocked database connections, matching the pattern from `test_taxon
 |------|--------|
 | `io/_ewe_schema.py` | Add 7 tables, remove `EcospaceScenarioMPAPatch` |
 | `io/ewemdb.py` | Add 8 fields to `EcospaceReadResult`, read new tables in `read_ecospace()` |
-| `io/_csv_bundle_writer.py` | Extend `write_ecospace()` for 14 tables, add `write_mpa()` |
-| `io/_access_writer.py` | Update `_ECOSPACE_TABLES` (2 → 14), add `write_mpa()` |
+| `io/_csv_bundle_writer.py` | Extend `write_ecospace()` for 16 tables, add `write_mpa()` |
+| `io/_access_writer.py` | Update `_ECOSPACE_TABLES` (2 → 16), add `write_mpa()` |
 | `io/ewe_writer.py` | Add `mpa_config` parameter to `write_ewemdb()` |
 
 ### Not in scope
