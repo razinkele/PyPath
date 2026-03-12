@@ -533,6 +533,52 @@ EWE_TABLES = {
         ("CassimProp", "DOUBLE"),
         ("CmetabolismRate", "DOUBLE"),
     ]),
+    # -------------------------------------------------------------------
+    # Taxonomy tables
+    # -------------------------------------------------------------------
+    "EcopathTaxon": OrderedDict([
+        ("TaxonID", "INTEGER"),
+        ("ClassName", "TEXT"),
+        ("OrderName", "TEXT"),
+        ("FamilyName", "TEXT"),
+        ("GenusName", "TEXT"),
+        ("SpeciesName", "TEXT"),
+        ("CommonName", "TEXT"),
+        ("SourceName", "TEXT"),
+        ("SourceKey", "TEXT"),
+        ("LastUpdated", "DOUBLE"),
+        ("EcologyType", "INTEGER"),
+        ("OrganismType", "INTEGER"),
+        ("Exploited", "INTEGER"),
+        ("ConservationStatus", "INTEGER"),
+        ("OccurrenceStatus", "INTEGER"),
+        ("MeanWeight", "DOUBLE"),
+        ("MeanLength", "DOUBLE"),
+        ("MaxLength", "DOUBLE"),
+        ("MeanLifeSpan", "DOUBLE"),
+        ("VulnerabiltyIndex", "DOUBLE"),
+        ("CodeSAUP", "INTEGER"),
+        ("CodeFB", "INTEGER"),
+        ("CodeSLB", "INTEGER"),
+        ("CodeLCID", "TEXT"),
+        ("CodeFAO", "TEXT"),
+        ("Winf", "DOUBLE"),
+        ("vbgfK", "DOUBLE"),
+        ("ExploitationStatus", "TEXT"),
+        ("CodeAquaMaps", "TEXT"),
+        ("CodeAphia", "INTEGER"),
+        ("CodeOBIS", "INTEGER"),
+    ]),
+    "EcopathGroupTaxon": OrderedDict([
+        ("TaxonID", "INTEGER"),
+        ("EcopathGroupID", "INTEGER"),
+        ("Proportion", "DOUBLE"),
+        ("PropCatch", "DOUBLE"),
+    ]),
+    "EcopathStanzaTaxon": OrderedDict([
+        ("TaxonID", "INTEGER"),
+        ("StanzaID", "INTEGER"),
+    ]),
 }
 
 # ---------------------------------------------------------------------------
