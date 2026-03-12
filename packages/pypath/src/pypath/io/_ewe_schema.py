@@ -270,12 +270,43 @@ EWE_TABLES = {
             ("Inrow", "INTEGER"),
             ("Incol", "INTEGER"),
             ("CellLength", "DOUBLE"),
-            ("CellSize", "DOUBLE"),
             ("TimeStep", "DOUBLE"),
+            ("PredictEffort", "YESNO"),
+            ("IFDPower", "DOUBLE"),
             ("TotalTime", "DOUBLE"),
+            ("ModelType", "INTEGER"),
+            ("NumThreads", "INTEGER"),
+            ("NumPacketsMultiplier", "DOUBLE"),
+            ("AdjustSpace", "YESNO"),
+            ("UseExact", "YESNO"),
+            ("Tolerance", "DOUBLE"),
             ("MinLon", "DOUBLE"),
             ("MinLat", "DOUBLE"),
+            ("DepthMap", "LONGBINARY"),
+            ("RelPPMap", "LONGBINARY"),
+            ("RelCinMap", "LONGBINARY"),
+            ("DepthAMap", "LONGBINARY"),
             ("LastSavedVersion", "TEXT"),
+            ("NumRegions", "INTEGER"),
+            ("RegionMap", "LONGBINARY"),
+            ("CellSize", "DOUBLE"),
+            ("UseEffortDistrThreshold", "YESNO"),
+            ("EffortDistrThreshold", "DOUBLE"),
+            ("ExclusionMap", "LONGBINARY"),
+            ("AssumeSquareCells", "YESNO"),
+            ("CoordinateSystemWKT", "TEXT"),
+            ("FlowMap", "LONGBINARY"),
+            ("FitResponseType", "INTEGER"),
+            ("Q10DriverMap", "LONGBINARY"),
+            ("UseSpinup", "YESNO"),
+            ("SpinupYears", "INTEGER"),
+            ("CellAreaMap", "LONGBINARY"),
+            ("NumEffortZones", "INTEGER"),
+            ("EffortZoneMap", "LONGBINARY"),
+            ("UsePenaltySearch", "YESNO"),
+            ("NoFishWeight", "DOUBLE"),
+            ("PenaltyPower", "DOUBLE"),
+            ("FirstPenaltyMonth", "INTEGER"),
         ]
     ),
     "EcospaceScenarioGroup": OrderedDict(
@@ -289,6 +320,12 @@ EWE_TABLES = {
             ("IsAdvected", "YESNO"),
             ("IsMigratory", "YESNO"),
             ("BarrierAvoidanceWeight", "DOUBLE"),
+            ("CapacityMap", "LONGBINARY"),
+            ("CapacityCalType", "INTEGER"),
+            ("InMigAreaMovement", "DOUBLE"),
+            ("OtherMortMap", "LONGBINARY"),
+            ("KMoveFit", "DOUBLE"),
+            ("FTarget", "DOUBLE"),
         ]
     ),
     "EcospaceScenarioHabitat": OrderedDict(
@@ -297,6 +334,7 @@ EWE_TABLES = {
             ("HabitatID", "INTEGER"),
             ("HabitatName", "TEXT"),
             ("Sequence", "INTEGER"),
+            ("HabitatMap", "LONGBINARY"),
         ]
     ),
     "EcospaceScenarioMPA": OrderedDict(
@@ -321,6 +359,45 @@ EWE_TABLES = {
             ("ScenarioID", "INTEGER"),
             ("MPAID", "INTEGER"),
             ("PatchID", "INTEGER"),
+        ]
+    ),
+    "EcospaceScenarioFleet": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("EcopathFleetID", "INTEGER"),
+            ("EffPower", "DOUBLE"),
+            ("PortMap", "LONGBINARY"),
+            ("SailCostMap", "LONGBINARY"),
+            ("SEMult", "DOUBLE"),
+        ]
+    ),
+    "EcospaceScenarioGroupHabitat": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("HabitatID", "INTEGER"),
+            ("Preference", "DOUBLE"),
+        ]
+    ),
+    "EcospaceScenarioCapacityDrivers": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("VarDBID", "INTEGER"),
+            ("ShapeID", "INTEGER"),
+            ("Target", "INTEGER"),
+        ]
+    ),
+    "EcospaceScenarioDriverLayer": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("LayerID", "INTEGER"),
+            ("Sequence", "INTEGER"),
+            ("LayerName", "TEXT"),
+            ("LayerDescription", "TEXT"),
+            ("LayerMAP", "LONGBINARY"),
+            ("LayerUnits", "TEXT"),
         ]
     ),
     # -----------------------------------------------------------------------
