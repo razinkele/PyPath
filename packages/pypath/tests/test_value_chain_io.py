@@ -216,3 +216,45 @@ class TestValueChainWriter:
 
         c_tables = [t for t in writer._tables if t.startswith("c")]
         assert len(c_tables) == 0
+
+
+class TestValueChainIntegration:
+    """Test write_ewemdb() integration with value_chain parameter."""
+
+    def test_write_ewemdb_with_value_chain(self, tmp_path):
+        import numpy as np
+        from pypath.core.params import create_rpath_params
+        from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import ValueChainData
+
+        params = create_rpath_params(
+            groups=["Phyto", "Zoo", "Detritus", "Fleet"],
+            types=[1, 0, 2, 3],
+        )
+        params.model["Biomass"] = [10.0, 5.0, 100.0, np.nan]
+        params.model["PB"] = [50.0, 10.0, np.nan, np.nan]
+        params.model["QB"] = [0.0, 30.0, np.nan, np.nan]
+
+        sample = _make_sample_value_chain_dfs()
+        vc = ValueChainData(
+            oop_storables=sample["cOOPStorable"],
+            parameters=sample["cParameters"],
+            units=sample["cUnit"],
+            producers=sample["cProducerUnit"],
+            link_landings=sample["cLinkLandings"],
+        )
+
+        out = str(tmp_path / "test_vc_full.csv.zip")
+        write_ewemdb(params, out, backend="csv", value_chain=vc)
+
+        import zipfile
+        with zipfile.ZipFile(out) as zf:
+            names = zf.namelist()
+            assert "cOOPStorable.csv" in names
+            assert "cProducerUnit.csv" in names
+            assert "cLinkLandings.csv" in names
+
+    def test_io_exports_value_chain_symbols(self):
+        from pypath.io import read_value_chain, ValueChainData
+        assert read_value_chain is not None
+        assert ValueChainData is not None

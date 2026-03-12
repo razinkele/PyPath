@@ -49,8 +49,10 @@ from pypath.io.ewemdb import (
     read_pedigree,
     read_taxonomy,
     read_timeseries,
+    read_value_chain,
     TaxonomyData,
     TaxonomyRecord,
+    ValueChainData,
 )
 from pypath.io.timeseries_csv import load_timeseries_csv
 
@@ -113,6 +115,9 @@ __all__ = [
     "APIConnectionError",
     "AmbiguousSpeciesError",
     "auto_populate_taxonomy",
+    # Value chain
+    "read_value_chain",
+    "ValueChainData",
     # Time series I/O
     "read_timeseries",
     "load_timeseries_csv",

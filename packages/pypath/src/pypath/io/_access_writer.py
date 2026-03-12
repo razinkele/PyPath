@@ -738,6 +738,14 @@ class AccessWriter:
             return
         self._build_tables_via_csv_writer("write_taxonomy", taxonomy=taxonomy)
 
+    def write_value_chain(self, value_chain=None) -> None:
+        """Write value chain economics tables to the Access database."""
+        if value_chain is None:
+            return
+        self._build_tables_via_csv_writer(
+            "write_value_chain", value_chain=value_chain
+        )
+
     def close(self) -> None:
         """Close the database connection and move temp file to final path."""
         try:

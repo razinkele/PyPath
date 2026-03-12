@@ -38,6 +38,7 @@ def write_ewemdb(
     timeseries: Any | None = None,
     mediation: Any | None = None,
     taxonomy: Any | None = None,
+    value_chain: Any | None = None,
     backend: str = "auto",
     scenario_id: int = 1,
     source_db: str | None = None,
@@ -62,6 +63,8 @@ def write_ewemdb(
         Mediation shapes and link assignments to include.
     taxonomy : TaxonomyData, optional
         Taxonomy species records and group assignments to include.
+    value_chain : ValueChainData, optional
+        Value chain economics data (21 c-prefix tables) to include.
     backend : str
         "auto" (detect ODBC), "access" (require ODBC), or "csv" (CSV bundle).
     scenario_id : int
@@ -104,6 +107,7 @@ def write_ewemdb(
         writer.write_timeseries(timeseries)
         writer.write_mediation(mediation)
         writer.write_taxonomy(taxonomy)
+        writer.write_value_chain(value_chain)
         writer.close()
     except Exception:
         import os
