@@ -3721,6 +3721,79 @@ def read_fleet_dynamics(
     return params
 
 
+def _build_fallback_grid(
+    n_rows: int,
+    n_cols: int,
+    cell_length: float,
+    min_lon: float = 0.0,
+    min_lat: float = 0.0,
+) -> "EcospaceGrid":
+    """Build a regular raster grid from EwE scenario dimensions.
+
+    Creates square cells in a row-major layout. All cells are treated as
+    water (no land exclusion). Adjacency uses rook neighborhood (shared edges,
+    no diagonals).
+    """
+    import scipy.sparse
+    from pypath.spatial.ecospace_params import EcospaceGrid
+
+    n_patches = n_rows * n_cols
+    cell_area = cell_length ** 2
+
+    # Patch IDs, areas
+    patch_ids = np.arange(n_patches)
+    patch_areas = np.full(n_patches, cell_area)
+
+    # Centroids: row-major layout
+    rows_arr = np.arange(n_patches) // n_cols
+    cols_arr = np.arange(n_patches) % n_cols
+    lon = min_lon + (cols_arr + 0.5) * cell_length
+    lat = min_lat + (rows_arr + 0.5) * cell_length
+    centroids = np.column_stack([lon, lat])
+
+    # Rook adjacency and edge lengths
+    row_idx = []
+    col_idx = []
+    edge_lengths = {}
+    for p in range(n_patches):
+        r, c = divmod(p, n_cols)
+        # Right neighbor
+        if c + 1 < n_cols:
+            q = r * n_cols + (c + 1)
+            row_idx.extend([p, q])
+            col_idx.extend([q, p])
+            edge_lengths[(min(p, q), max(p, q))] = cell_length
+        # Below neighbor
+        if r + 1 < n_rows:
+            q = (r + 1) * n_cols + c
+            row_idx.extend([p, q])
+            col_idx.extend([q, p])
+            edge_lengths[(min(p, q), max(p, q))] = cell_length
+
+    data = np.ones(len(row_idx), dtype=int)
+    adjacency = scipy.sparse.csr_matrix(
+        (data, (row_idx, col_idx)), shape=(n_patches, n_patches)
+    )
+
+    # Cell metadata for round-tripping
+    meta = pd.DataFrame({
+        "row": rows_arr,
+        "col": cols_arr,
+        "depth": np.zeros(n_patches),
+        "habitat_type_id": np.zeros(n_patches, dtype=int),
+    })
+
+    return EcospaceGrid(
+        n_patches=n_patches,
+        patch_ids=patch_ids,
+        patch_areas=patch_areas,
+        patch_centroids=centroids,
+        adjacency_matrix=adjacency,
+        edge_lengths=edge_lengths,
+        cell_metadata=meta,
+    )
+
+
 def read_mpa_config(
     db_path: str,
     n_patches: int,

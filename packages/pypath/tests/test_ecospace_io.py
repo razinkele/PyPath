@@ -116,3 +116,62 @@ class TestEcospaceSchema:
         tbl = EWE_TABLES["EcospaceScenarioDriverLayer"]
         assert tbl["LayerName"] == "TEXT"
         assert tbl["LayerMAP"] == "LONGBINARY"
+
+
+class TestBuildFallbackGrid:
+    def test_builds_correct_patch_count(self):
+        from pypath.io.ewemdb import _build_fallback_grid
+        grid = _build_fallback_grid(n_rows=3, n_cols=4, cell_length=10.0)
+        assert grid.n_patches == 12
+
+    def test_cell_areas(self):
+        from pypath.io.ewemdb import _build_fallback_grid
+        grid = _build_fallback_grid(n_rows=2, n_cols=2, cell_length=5.0)
+        np.testing.assert_array_equal(grid.patch_areas, 25.0)
+
+    def test_rook_adjacency(self):
+        from pypath.io.ewemdb import _build_fallback_grid
+        # 2x3 grid:
+        #  0  1  2
+        #  3  4  5
+        grid = _build_fallback_grid(n_rows=2, n_cols=3, cell_length=1.0)
+        adj = grid.adjacency_matrix.toarray()
+        # Patch 0: neighbors 1 (right), 3 (below)
+        assert adj[0, 1] == 1
+        assert adj[0, 3] == 1
+        assert adj[0, 2] == 0  # not diagonal
+        # Patch 4 (center): neighbors 1, 3, 5
+        assert adj[4, 1] == 1
+        assert adj[4, 3] == 1
+        assert adj[4, 5] == 1
+        assert adj[4, 0] == 0  # not diagonal
+
+    def test_centroids_with_origin(self):
+        from pypath.io.ewemdb import _build_fallback_grid
+        grid = _build_fallback_grid(
+            n_rows=2, n_cols=2, cell_length=10.0,
+            min_lon=20.0, min_lat=55.0,
+        )
+        # Patch 0 at row=0,col=0 -> centroid at (20+5, 55+5) = (25, 60)
+        assert grid.patch_centroids[0, 0] == pytest.approx(25.0)
+        assert grid.patch_centroids[0, 1] == pytest.approx(60.0)
+
+    def test_cell_metadata_populated(self):
+        from pypath.io.ewemdb import _build_fallback_grid
+        grid = _build_fallback_grid(n_rows=2, n_cols=3, cell_length=1.0)
+        assert grid.cell_metadata is not None
+        assert len(grid.cell_metadata) == 6
+        assert "row" in grid.cell_metadata.columns
+        assert "col" in grid.cell_metadata.columns
+
+    def test_single_cell_grid(self):
+        from pypath.io.ewemdb import _build_fallback_grid
+        grid = _build_fallback_grid(n_rows=1, n_cols=1, cell_length=1.0)
+        assert grid.n_patches == 1
+        assert grid.adjacency_matrix.nnz == 0  # no neighbors
+
+    def test_edge_lengths_equal_cell_length(self):
+        from pypath.io.ewemdb import _build_fallback_grid
+        grid = _build_fallback_grid(n_rows=2, n_cols=2, cell_length=7.5)
+        for edge_len in grid.edge_lengths.values():
+            assert edge_len == pytest.approx(7.5)
