@@ -3719,3 +3719,116 @@ def read_fleet_dynamics(
             pass
 
     return params
+
+
+def read_mpa_config(
+    db_path: str,
+    n_patches: int,
+    fleet_ids: list[int],
+    scenario_id: int = 1,
+) -> "MPAConfig":
+    """Read MPA configuration from an EwE database.
+
+    Parameters
+    ----------
+    db_path : str
+        Path to the .eweaccdb database file.
+    n_patches : int
+        Number of spatial patches.
+    fleet_ids : list[int]
+        1-based EcopathFleetID values, in fleet array order.
+    scenario_id : int
+        Scenario ID to filter by (default 1).
+
+    Returns
+    -------
+    MPAConfig
+        MPA configuration. Returns empty config if tables missing.
+    """
+    from pypath.spatial.mpa import MPAConfig, MPAZone, create_mpa_config
+
+    try:
+        tables = list_ewemdb_tables(db_path)
+    except Exception:
+        return create_mpa_config()
+
+    if "EcospaceScenarioMPA" not in tables:
+        return create_mpa_config()
+
+    try:
+        mpa_df = read_ewemdb_table(db_path, "EcospaceScenarioMPA")
+        mpa_df = mpa_df[mpa_df.get("ScenarioID", pd.Series()) == scenario_id]
+        if len(mpa_df) == 0:
+            return create_mpa_config()
+    except Exception:
+        return create_mpa_config()
+
+    # Build patch mapping: MPAID -> list of 0-based patch indices
+    patch_map = {}
+    if "EcospaceScenarioMPAPatch" in tables:
+        try:
+            patch_df = read_ewemdb_table(db_path, "EcospaceScenarioMPAPatch")
+            patch_df = patch_df[
+                patch_df.get("ScenarioID", pd.Series()) == scenario_id
+            ]
+            for _, row in patch_df.iterrows():
+                mpa_id = int(row.get("MPAID", 0))
+                patch_1based = int(row.get("PatchID", 0))
+                patch_0based = patch_1based - 1
+                if 0 <= patch_0based < n_patches:
+                    patch_map.setdefault(mpa_id, []).append(patch_0based)
+        except Exception:
+            pass
+
+    # Build fleet exclusion mapping: MPAID -> list of 0-based fleet indices
+    fid_to_idx = {fid: i for i, fid in enumerate(fleet_ids)}
+    fleet_excl_map = {}
+    if "EcospaceScenarioMPAFishery" in tables:
+        try:
+            fish_df = read_ewemdb_table(db_path, "EcospaceScenarioMPAFishery")
+            fish_df = fish_df[
+                fish_df.get("ScenarioID", pd.Series()) == scenario_id
+            ]
+            for _, row in fish_df.iterrows():
+                mpa_id = int(row.get("MPAID", 0))
+                fleet_1based = int(row.get("FleetID", 0))
+                excluded = row.get("Excluded", False)
+                # Handle YESNO type: could be bool, int, or string
+                if isinstance(excluded, str):
+                    excluded = excluded.lower() in ("yes", "true", "1")
+                elif isinstance(excluded, (int, float)):
+                    excluded = bool(excluded)
+                if excluded:
+                    fleet_0 = fid_to_idx.get(fleet_1based)
+                    if fleet_0 is not None:
+                        fleet_excl_map.setdefault(mpa_id, []).append(fleet_0)
+        except Exception:
+            pass
+
+    # Build MPAZone objects
+    has_fishery_table = "EcospaceScenarioMPAFishery" in tables
+    zones = []
+    for _, row in mpa_df.iterrows():
+        mpa_id = int(row.get("MPAID", 0))
+        name = str(row.get("MPAname", f"MPA{mpa_id}"))
+        start_month = int(row.get("MPAmonth", 0))
+        patches = patch_map.get(mpa_id, [])
+        excluded = fleet_excl_map.get(mpa_id)
+        # If fishery table exists but no exclusions for this MPA -> open (empty list)
+        # If fishery table absent entirely -> no-take (None = all fleets excluded)
+        if excluded is None and has_fishery_table:
+            excluded = []
+
+        zones.append(
+            MPAZone(
+                mpa_id=mpa_id,
+                name=name,
+                patches=patches,
+                start_month=start_month,
+                end_month=None,  # EwE 6 MPAs are permanent
+                excluded_fleets=excluded,
+                capacity_bonus=1.0,  # PyPath extension, not in EwE DB
+            )
+        )
+
+    return MPAConfig(zones=zones)
