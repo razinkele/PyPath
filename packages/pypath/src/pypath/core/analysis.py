@@ -290,11 +290,24 @@ def calculate_network_indices(rpath: Rpath) -> NetworkIndices:
         total_throughput += rpath.PB[grp] * rpath.Biomass[grp]
 
     # Transfer efficiency (between adjacent trophic levels)
-    # Simplified: production/consumption at each level
-    transfer_efficiency = 0.1  # Default placeholder
+    from pypath.core.indicators import finn_cycling_index as _finn_cycling_index
+    from pypath.core.indicators import transfer_efficiency as _transfer_efficiency
 
-    # Finn Cycling Index (placeholder - requires full flow analysis)
-    finn_cycling_index = 0.0
+    try:
+        _te_array = _transfer_efficiency(rpath)
+        transfer_efficiency = (
+            float(np.mean(_te_array[_te_array > 0]))
+            if np.any(_te_array > 0)
+            else 0.0
+        )
+    except (AttributeError, TypeError):
+        transfer_efficiency = 0.0
+
+    # Finn Cycling Index
+    try:
+        finn_cycling_index = _finn_cycling_index(rpath)
+    except (AttributeError, TypeError):
+        finn_cycling_index = 0.0
 
     return NetworkIndices(
         n_groups=n_total,

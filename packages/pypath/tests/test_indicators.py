@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pypath.core.analysis import calculate_network_indices
 from pypath.core.indicators import (
     EcosystemIndicators,
     FlowAnalysis,
@@ -439,3 +440,24 @@ class TestEcosystemIndicatorsTimeseries:
         assert ts["shannon_diversity"].iloc[0] == pytest.approx(
             static.shannon_diversity, abs=1e-10
         )
+
+
+class TestIntegration:
+    """Tests for integration with analysis.py."""
+
+    def test_network_indices_transfer_efficiency_not_placeholder(self):
+        """calculate_network_indices() should return computed TE, not 0.1 placeholder."""
+        rpath = _make_rpath_5group()
+        indices = calculate_network_indices(rpath)
+        # 5-group model has groups at TL 1,2,3,4 so TE should be meaningful
+        assert indices.transfer_efficiency != 0.1
+        assert indices.transfer_efficiency >= 0.0
+
+    def test_network_indices_finn_cycling_not_placeholder(self):
+        """calculate_network_indices() should compute FCI, not return 0.0 placeholder."""
+        rpath = _make_rpath_3group()
+        # Add detritus feedback to create cycling
+        rpath.DC[1, 2] = 0.8
+        rpath.DC[3, 2] = 0.2
+        indices = calculate_network_indices(rpath)
+        assert indices.finn_cycling_index > 0.0

@@ -187,6 +187,16 @@ try:
 except ImportError:
     HAS_FLEET_DYNAMICS = False
 
+from pypath.core.indicators import (
+    FlowAnalysis,
+    EcosystemIndicators,
+    flow_analysis,
+    finn_cycling_index,
+    transfer_efficiency,
+    ecosystem_indicators,
+    ecosystem_indicators_timeseries,
+)
+
 __all__ = [
     # Ecopath
     "RpathParams",
@@ -332,4 +342,12 @@ __all__ = [
     "create_fleet_econ_params",
     "fleet_dynamics_step",
     "apply_quota_caps",
+    # Indicators
+    "FlowAnalysis",
+    "EcosystemIndicators",
+    "flow_analysis",
+    "finn_cycling_index",
+    "transfer_efficiency",
+    "ecosystem_indicators",
+    "ecosystem_indicators_timeseries",
 ]
