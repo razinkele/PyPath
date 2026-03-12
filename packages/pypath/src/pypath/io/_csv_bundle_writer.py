@@ -443,8 +443,10 @@ class CsvBundleWriter:
         if ecospace is None:
             return
 
+        # Unwrap EcospaceReadResult -> EcospaceParams for base table logic
+        eco = ecospace.ecospace if hasattr(ecospace, "ecospace") else ecospace
         sid = self._scenario_id
-        grid = ecospace.grid if hasattr(ecospace, "grid") else None
+        grid = eco.grid if hasattr(eco, "grid") else None
 
         if grid is not None:
             self._tables["EcospaceScenario"] = pd.DataFrame(
@@ -463,25 +465,74 @@ class CsvBundleWriter:
                 ]
             )
 
-        if hasattr(ecospace, "dispersal_rate"):
+        if hasattr(eco, "dispersal_rate"):
             group_rows = []
-            for gi in range(len(ecospace.dispersal_rate)):
+            for gi in range(len(eco.dispersal_rate)):
                 group_rows.append(
                     {
                         "ScenarioID": sid,
                         "GroupID": gi + 1,
                         "EcopathGroupID": gi + 1,
-                        "Mvel": float(ecospace.dispersal_rate[gi]),
+                        "Mvel": float(eco.dispersal_rate[gi]),
                         "RelMoveBad": 2.0,
                         "RelVulBad": 2.0,
-                        "IsAdvected": bool(ecospace.advection_enabled[gi])
-                        if hasattr(ecospace, "advection_enabled")
+                        "IsAdvected": bool(eco.advection_enabled[gi])
+                        if hasattr(eco, "advection_enabled")
                         else False,
                         "IsMigratory": False,
                         "BarrierAvoidanceWeight": 0.0,
                     }
                 )
             self._tables["EcospaceScenarioGroup"] = pd.DataFrame(group_rows)
+
+        # Write habitat tables (structured conversion)
+        habitat_types = getattr(ecospace, "habitat_types", None)
+        if habitat_types:
+            hab_rows = []
+            for hid_0based, name in habitat_types.items():
+                hab_rows.append({
+                    "ScenarioID": sid,
+                    "HabitatID": hid_0based + 1,  # 0-based -> 1-based
+                    "HabitatName": name,
+                    "Sequence": hid_0based + 1,
+                    "HabitatMap": None,
+                })
+            self._tables["EcospaceScenarioHabitat"] = pd.DataFrame(hab_rows)
+
+        # Write group-habitat preferences (structured conversion)
+        if habitat_types and hasattr(eco, "habitat_preference"):
+            gh_rows = []
+            n_groups = eco.habitat_preference.shape[0]
+            for gi in range(n_groups):
+                for hid_0based in habitat_types:
+                    gh_rows.append({
+                        "ScenarioID": sid,
+                        "GroupID": gi + 1,  # 0-based -> 1-based
+                        "HabitatID": hid_0based + 1,  # 0-based -> 1-based
+                        "Preference": 1.0,
+                    })
+            if gh_rows:
+                self._tables["EcospaceScenarioGroupHabitat"] = pd.DataFrame(
+                    gh_rows
+                )
+
+        # Write DataFrame passthrough tables
+        _df_fields = {
+            "fleet_info": "EcospaceScenarioFleet",
+            "capacity_drivers": "EcospaceScenarioCapacityDrivers",
+            "driver_layers": "EcospaceScenarioDriverLayer",
+            "migration_maps": "EcospaceScenarioGroupMigration",
+            "monthly_maps": "EcospaceScenarioMonth",
+            "weight_layers": "EcospaceScenarioWeightLayer",
+            "data_connections": "EcospaceScenarioDataConnection",
+            "disabled_connections": "EcospaceScenarioDataConnectionDisabled",
+            "disabled_drivers": "EcospaceScenarioDriverDisabled",
+            "habitat_fishery": "EcospaceScenarioHabitatFishery",
+        }
+        for attr_name, table_name in _df_fields.items():
+            df = getattr(ecospace, attr_name, None)
+            if df is not None and len(df) > 0:
+                self._tables[table_name] = df
 
         logger.info("write_ecospace: spatial data written")
 

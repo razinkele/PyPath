@@ -169,3 +169,213 @@ class TestReader:
         assert "PortMap" in result.fleet_info.columns
         assert "SailCostMap" in result.fleet_info.columns
         assert result.fleet_info.iloc[0]["PortMap"] == b"\xFF"
+
+
+from pypath.io._csv_bundle_writer import CsvBundleWriter
+from pypath.core.params import create_rpath_params
+
+
+def _make_test_params():
+    """Build minimal RpathParams for writer tests."""
+    params = create_rpath_params(
+        groups=["Fish", "Zooplankton", "Detritus"],
+        types=[0, 0, 2],
+        stgroups=None,
+    )
+    params.model.loc["Fish", "Biomass"] = 10.0
+    params.model.loc["Fish", "PB"] = 0.5
+    params.model.loc["Fish", "QB"] = 2.0
+    params.model.loc["Fish", "EE"] = 0.9
+    params.model.loc["Zooplankton", "Biomass"] = 50.0
+    params.model.loc["Zooplankton", "PB"] = 20.0
+    params.model.loc["Zooplankton", "QB"] = 40.0
+    params.model.loc["Zooplankton", "EE"] = 0.8
+    params.model.loc["Detritus", "Biomass"] = 100.0
+    params.model.loc["Detritus", "DetInput"] = 0.0
+    params.diet.loc["Fish", "Zooplankton"] = 0.8
+    params.diet.loc["Fish", "Detritus"] = 0.2
+    params.diet.loc["Zooplankton", "Detritus"] = 1.0
+    return params
+
+
+def _make_ecospace_read_result():
+    """Build an EcospaceReadResult with all fields populated for writer tests."""
+    from pypath.spatial.ecospace_params import EcospaceParams, EcospaceGrid
+
+    grid = EcospaceGrid.from_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
+    ecospace = EcospaceParams(
+        grid=grid,
+        habitat_preference=np.ones((3, 9)),
+        habitat_capacity=np.ones((3, 9)),
+        dispersal_rate=np.array([1.0, 2.0, 0.0]),
+        advection_enabled=np.array([True, False, False]),
+        gravity_strength=np.zeros(3),
+    )
+
+    return EcospaceReadResult(
+        ecospace=ecospace,
+        habitat_types={0: "Reef", 1: "Sand"},
+        fleet_info=pd.DataFrame([{
+            "ScenarioID": 1, "FleetID": 1, "EcopathFleetID": 1,
+            "EffPower": 1.0, "PortMap": b"\xFF", "SailCostMap": b"\xEE",
+            "SEMult": 1.0,
+        }]),
+        capacity_drivers=pd.DataFrame([{
+            "ScenarioID": 1, "GroupID": 1, "VarDBID": 1,
+            "ShapeID": 1, "Target": 1,
+        }]),
+        scenario_meta={"ScenarioName": "Test"},
+        driver_layers=pd.DataFrame([{
+            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
+            "LayerName": "Temp", "LayerDescription": "SST",
+            "LayerMAP": b"\x00\x01", "LayerUnits": "C",
+        }]),
+        migration_maps=pd.DataFrame([{
+            "ScenarioID": 1, "GroupID": 1, "MonthID": 1, "Map": b"\x10",
+        }]),
+        monthly_maps=pd.DataFrame([{
+            "ScenarioID": 1, "MonthID": 1,
+            "WindXVelMap": b"\x01", "WindYVelMap": b"\x02",
+            "AdvectionXVelMap": b"\x03", "AdvectionYVelMap": b"\x04",
+            "UpwellingMap": b"\x05",
+        }]),
+        weight_layers=pd.DataFrame([{
+            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
+            "Name": "W1", "Description": "test",
+            "Weight": 0.5, "LayerMap": b"\xAA",
+        }]),
+        data_connections=pd.DataFrame([{
+            "ScenarioID": 1, "VarName": "SST", "LayerID": 1, "Sequence": 1,
+            "DatasetGUID": "abc", "DatasetTypeName": "NetCDF",
+            "DatasetCfg": "{}", "ConverterTypeName": "Linear",
+            "ConverterCfg": "{}", "Scale": 1.0, "ScaleType": 0,
+            "CustomDateStart": "", "CustomDateEnd": "",
+        }]),
+        disabled_connections=pd.DataFrame([{
+            "ScenarioID": 1, "LayerID": 1, "Varname": "SST",
+        }]),
+        disabled_drivers=pd.DataFrame([{
+            "ScenarioID": 1, "LayerID": 1, "Target": "group1",
+        }]),
+        habitat_fishery=pd.DataFrame([{
+            "ScenarioID": 1, "FleetID": 1, "HabitatID": 1,
+        }]),
+    )
+
+
+class TestWriter:
+    """write_ecospace() writer extension tests."""
+
+    def test_habitat_tables_written(self):
+        """Habitat types and preferences written to correct tables."""
+        params = _make_test_params()
+        result = _make_ecospace_read_result()
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_ecospace(result)
+
+        assert "EcospaceScenarioHabitat" in writer._tables
+        hab_df = writer._tables["EcospaceScenarioHabitat"]
+        assert len(hab_df) == 2  # 2 habitat types
+        assert set(hab_df["HabitatName"]) == {"Reef", "Sand"}
+        # 0-based keys -> 1-based HabitatID
+        assert set(hab_df["HabitatID"]) == {1, 2}
+
+        assert "EcospaceScenarioGroupHabitat" in writer._tables
+
+    def test_fleet_info_written(self):
+        """Fleet info DataFrame written including binary map columns."""
+        params = _make_test_params()
+        result = _make_ecospace_read_result()
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_ecospace(result)
+
+        assert "EcospaceScenarioFleet" in writer._tables
+        fleet_df = writer._tables["EcospaceScenarioFleet"]
+        assert len(fleet_df) == 1
+        assert "PortMap" in fleet_df.columns
+
+    def test_dataframe_passthrough_tables(self):
+        """All DataFrame passthrough tables written correctly."""
+        params = _make_test_params()
+        result = _make_ecospace_read_result()
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_ecospace(result)
+
+        passthrough = {
+            "EcospaceScenarioGroupMigration": "migration_maps",
+            "EcospaceScenarioMonth": "monthly_maps",
+            "EcospaceScenarioWeightLayer": "weight_layers",
+            "EcospaceScenarioDataConnection": "data_connections",
+            "EcospaceScenarioDataConnectionDisabled": "disabled_connections",
+            "EcospaceScenarioDriverDisabled": "disabled_drivers",
+            "EcospaceScenarioHabitatFishery": "habitat_fishery",
+            "EcospaceScenarioDriverLayer": "driver_layers",
+            "EcospaceScenarioCapacityDrivers": "capacity_drivers",
+        }
+        for table_name in passthrough:
+            assert table_name in writer._tables, f"{table_name} not written"
+
+    def test_migration_map_binary_preserved(self):
+        """Binary map bytes round-trip through writer."""
+        params = _make_test_params()
+        result = _make_ecospace_read_result()
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_ecospace(result)
+
+        mig_df = writer._tables["EcospaceScenarioGroupMigration"]
+        assert mig_df.iloc[0]["Map"] == b"\x10"
+
+    def test_monthly_maps_5_binary_columns(self):
+        """EcospaceScenarioMonth has all 5 binary map columns."""
+        params = _make_test_params()
+        result = _make_ecospace_read_result()
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_ecospace(result)
+
+        month_df = writer._tables["EcospaceScenarioMonth"]
+        for col in ["WindXVelMap", "WindYVelMap", "AdvectionXVelMap",
+                     "AdvectionYVelMap", "UpwellingMap"]:
+            assert col in month_df.columns
+
+    def test_empty_result_writes_no_extra_tables(self):
+        """EcospaceReadResult with all None fields writes only base tables."""
+        params = _make_test_params()
+        from pypath.spatial.ecospace_params import EcospaceParams, EcospaceGrid
+        grid = EcospaceGrid.from_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((3, 9)),
+            habitat_capacity=np.ones((3, 9)),
+            dispersal_rate=np.array([1.0, 2.0, 0.0]),
+            advection_enabled=np.array([True, False, False]),
+            gravity_strength=np.zeros(3),
+        )
+        result = EcospaceReadResult(
+            ecospace=ecospace,
+            habitat_types={},
+            fleet_info=None,
+            capacity_drivers=None,
+            scenario_meta={},
+        )
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_ecospace(result)
+
+        assert "EcospaceScenario" in writer._tables
+        assert "EcospaceScenarioGroup" in writer._tables
+        assert "EcospaceScenarioGroupMigration" not in writer._tables
+        assert "EcospaceScenarioMonth" not in writer._tables
+
+    def test_existing_base_tables_unchanged(self):
+        """Existing EcospaceScenario and EcospaceScenarioGroup logic preserved."""
+        params = _make_test_params()
+        result = _make_ecospace_read_result()
+        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer.write_ecospace(result)
+
+        assert "EcospaceScenario" in writer._tables
+        scen_df = writer._tables["EcospaceScenario"]
+        assert "Inrow" in scen_df.columns
+
+        assert "EcospaceScenarioGroup" in writer._tables
+        grp_df = writer._tables["EcospaceScenarioGroup"]
+        assert len(grp_df) == 3  # 3 groups
