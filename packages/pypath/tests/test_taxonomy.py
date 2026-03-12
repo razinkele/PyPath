@@ -289,3 +289,161 @@ class TestWriter:
         assert len(writer._tables["EcopathTaxon"]) == 0
         assert len(writer._tables["EcopathGroupTaxon"]) == 0
         assert len(writer._tables["EcopathStanzaTaxon"]) == 0
+
+
+from pypath.io.biodata import auto_populate_taxonomy, SpeciesInfo
+
+
+def _mock_species_info(name="Atlantic cod"):
+    """Build a mock SpeciesInfo."""
+    return SpeciesInfo(
+        common_name=name,
+        scientific_name="Gadus morhua",
+        aphia_id=126436,
+        authority="Linnaeus, 1758",
+        trophic_level=4.0,
+        max_length=200.0,
+        growth_params={"K": 0.15, "Loo": 132.0},
+    )
+
+
+def _mock_worms_record():
+    """Build a mock WoRMS API record."""
+    return {
+        "AphiaID": 126436,
+        "scientificname": "Gadus morhua",
+        "class": "Actinopteri",
+        "order": "Gadiformes",
+        "family": "Gadidae",
+        "genus": "Gadus",
+    }
+
+
+def _mock_rpath(group_names):
+    """Build a minimal mock Rpath with Group array."""
+    rpath = MagicMock()
+    rpath.Group = np.array(group_names)
+    return rpath
+
+
+class TestAutoPopulate:
+    """auto_populate_taxonomy() tests."""
+
+    @patch("pypath.io.biodata._fetch_worms_accepted")
+    @patch("pypath.io.biodata.get_species_info")
+    def test_builds_taxonomy_data(self, mock_get, mock_worms):
+        """Builds TaxonomyData with correct fields from species map."""
+        mock_get.return_value = _mock_species_info()
+        mock_worms.return_value = _mock_worms_record()
+        rpath = _mock_rpath(["Phyto", "Zoo", "Cod", "Detritus"])
+
+        result = auto_populate_taxonomy(
+            rpath, {"Cod": ["Atlantic cod"]}
+        )
+
+        assert len(result.taxa) == 1
+        t = result.taxa[0]
+        assert t.taxon_id == 1
+        assert t.scientific_name == "Gadus morhua"
+        assert t.taxonomy["class_name"] == "Actinopteri"
+        assert t.taxonomy["family_name"] == "Gadidae"
+        assert t.external_keys["aphia_id"] == 126436
+        assert t.traits["winf"] == 132.0
+        assert t.traits["vbgf_k"] == 0.15
+        assert t.source_name == "PyPath-biodata"
+
+    @patch("pypath.io.biodata._fetch_worms_accepted")
+    @patch("pypath.io.biodata.get_species_info")
+    def test_multi_species_equal_proportion(self, mock_get, mock_worms):
+        """Multi-species groups get equal Proportion (1/n)."""
+        info1 = _mock_species_info("Atlantic cod")
+        info2 = SpeciesInfo(
+            common_name="Herring",
+            scientific_name="Clupea harengus",
+            aphia_id=126417,
+            authority="Linnaeus, 1758",
+        )
+        mock_get.side_effect = lambda name, **kw: {
+            "Atlantic cod": info1, "Herring": info2
+        }[name]
+        mock_worms.side_effect = lambda aid, **kw: {
+            126436: _mock_worms_record(),
+            126417: {"AphiaID": 126417, "scientificname": "Clupea harengus",
+                     "class": "Actinopteri", "order": "Clupeiformes",
+                     "family": "Clupeidae", "genus": "Clupea"},
+        }[aid]
+        rpath = _mock_rpath(["Fish", "Detritus"])
+
+        result = auto_populate_taxonomy(
+            rpath, {"Fish": ["Atlantic cod", "Herring"]}
+        )
+
+        assert len(result.group_assignments) == 2
+        props = result.group_assignments["Proportion"].tolist()
+        assert all(abs(p - 0.5) < 1e-10 for p in props)
+        # EcopathGroupID should be 1 (Fish is at index 0, + 1)
+        assert all(result.group_assignments["EcopathGroupID"] == 1)
+
+    @patch("pypath.io.biodata._fetch_worms_accepted")
+    @patch("pypath.io.biodata.get_species_info")
+    def test_custom_proportions(self, mock_get, mock_worms):
+        """Custom proportions are respected."""
+        info1 = _mock_species_info("Atlantic cod")
+        info2 = SpeciesInfo(
+            common_name="Herring",
+            scientific_name="Clupea harengus",
+            aphia_id=126417,
+            authority="Linnaeus, 1758",
+        )
+        mock_get.side_effect = lambda name, **kw: {
+            "Atlantic cod": info1, "Herring": info2
+        }[name]
+        mock_worms.side_effect = lambda aid, **kw: {
+            126436: _mock_worms_record(),
+            126417: {"AphiaID": 126417, "scientificname": "Clupea harengus",
+                     "class": "Actinopteri", "order": "Clupeiformes",
+                     "family": "Clupeidae", "genus": "Clupea"},
+        }[aid]
+        rpath = _mock_rpath(["Fish", "Detritus"])
+
+        result = auto_populate_taxonomy(
+            rpath,
+            {"Fish": ["Atlantic cod", "Herring"]},
+            proportions={"Fish": [0.7, 0.3]},
+        )
+
+        props = result.group_assignments["Proportion"].tolist()
+        assert abs(props[0] - 0.7) < 1e-10
+        assert abs(props[1] - 0.3) < 1e-10
+
+    @patch("pypath.io.biodata.get_species_info")
+    def test_lookup_failure_logged_as_warning(self, mock_get, caplog):
+        """Species lookup failure is logged as warning, others still processed."""
+        mock_get.side_effect = Exception("API error")
+        rpath = _mock_rpath(["Fish", "Detritus"])
+
+        import logging
+        with caplog.at_level(logging.WARNING, logger="pypath.io.biodata"):
+            result = auto_populate_taxonomy(
+                rpath, {"Fish": ["Unknown species"]}
+            )
+
+        assert len(result.taxa) == 0
+        assert len(result.group_assignments) == 0
+        assert "Species lookup failed" in caplog.text
+        assert "Unknown species" in caplog.text
+
+    @patch("pypath.io.biodata._fetch_worms_accepted")
+    @patch("pypath.io.biodata.get_species_info")
+    def test_group_id_lookup_correct(self, mock_get, mock_worms):
+        """Group names mapped to correct 1-based EcopathGroupID."""
+        mock_get.return_value = _mock_species_info()
+        mock_worms.return_value = _mock_worms_record()
+        # "Cod" is at index 2 -> EcopathGroupID = 3
+        rpath = _mock_rpath(["Phyto", "Zoo", "Cod", "Detritus"])
+
+        result = auto_populate_taxonomy(
+            rpath, {"Cod": ["Atlantic cod"]}
+        )
+
+        assert result.group_assignments.iloc[0]["EcopathGroupID"] == 3

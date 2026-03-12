@@ -1298,3 +1298,175 @@ def get_cache_stats() -> Dict[str, Union[int, float]]:
     >>> print(f"Cache hit rate: {stats['hit_rate']:.2%}")
     """
     return _biodata_cache.stats()
+
+
+def auto_populate_taxonomy(
+    rpath,
+    group_species_map: dict,
+    proportions: dict = None,
+) -> "TaxonomyData":
+    """Auto-populate taxonomy data from species names using WoRMS/FishBase.
+
+    Parameters
+    ----------
+    rpath : Rpath
+        Balanced Ecopath model output (pypath.core.ecopath.Rpath).
+        Used to look up group indices by name (rpath.Group).
+    group_species_map : dict[str, list[str]]
+        {group_name: [species_name, ...]}. Names can be common or scientific.
+    proportions : dict[str, list[float]], optional
+        {group_name: [proportion, ...]}. Must sum to 1.0 per group.
+        If None, defaults to equal split (1/n).
+
+    Returns
+    -------
+    TaxonomyData
+        Populated taxonomy data with species records and group assignments.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from pypath.io.ewemdb import TaxonomyData, TaxonomyRecord
+
+    # Collect unique species across all groups
+    species_to_info = {}
+    species_to_worms = {}
+
+    all_species = []
+    for names in group_species_map.values():
+        all_species.extend(names)
+    unique_species = list(dict.fromkeys(all_species))  # preserve order, dedup
+
+    # Look up each species (parallel via ThreadPoolExecutor)
+    def _fetch_one(name):
+        try:
+            info = get_species_info(name, include_occurrences=False)
+        except Exception as e:
+            logger.warning("Species lookup failed for %r: %s", name, e)
+            return name, None, {}
+        try:
+            worms_record = _fetch_worms_accepted(info.aphia_id)
+        except Exception as e:
+            logger.warning(
+                "WoRMS classification lookup failed for %r: %s", name, e
+            )
+            worms_record = {}
+        return name, info, worms_record
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        for name, info, worms in executor.map(_fetch_one, unique_species):
+            if info is not None:
+                species_to_info[name] = info
+                species_to_worms[name] = worms
+
+    # Build TaxonomyRecords
+    taxa = []
+    name_to_taxon_id = {}
+    taxon_counter = 0
+
+    for name in unique_species:
+        if name not in species_to_info:
+            continue
+        info = species_to_info[name]
+        worms = species_to_worms.get(name, {})
+
+        taxon_counter += 1
+        name_to_taxon_id[name] = taxon_counter
+
+        sci_name = info.scientific_name
+        species_part = sci_name.split(" ", 1)[1] if " " in sci_name else ""
+
+        taxonomy = {
+            "class_name": str(worms.get("class", "") or ""),
+            "order_name": str(worms.get("order", "") or ""),
+            "family_name": str(worms.get("family", "") or ""),
+            "genus_name": str(worms.get("genus", "") or ""),
+            "species_name": species_part,
+        }
+
+        external_keys = {"aphia_id": info.aphia_id}
+
+        traits = {
+            "max_length": info.max_length,
+            "winf": (
+                info.growth_params.get("Loo")
+                if info.growth_params
+                else None
+            ),
+            "vbgf_k": (
+                info.growth_params.get("K")
+                if info.growth_params
+                else None
+            ),
+            "mean_weight": None,
+            "mean_length": None,
+            "mean_lifespan": None,
+            "vulnerability_index": None,
+        }
+
+        taxa.append(
+            TaxonomyRecord(
+                taxon_id=taxon_counter,
+                scientific_name=sci_name,
+                common_name=info.common_name,
+                taxonomy=taxonomy,
+                external_keys=external_keys,
+                traits=traits,
+                metadata={},
+                source_name="PyPath-biodata",
+                source_key=str(info.aphia_id),
+            )
+        )
+
+    # Build group_assignments
+    group_rows = []
+    for group_name, species_names in group_species_map.items():
+        # Look up EcopathGroupID (0-based index + 1)
+        matches = np.where(rpath.Group == group_name)[0]
+        if len(matches) == 0:
+            logger.warning(
+                "Group %r not found in rpath.Group, skipping", group_name
+            )
+            continue
+        group_id = int(matches[0]) + 1  # 0-based -> 1-based
+
+        # Filter to successfully looked-up species
+        valid_names = [n for n in species_names if n in name_to_taxon_id]
+        if not valid_names:
+            continue
+
+        n = len(valid_names)
+        group_props = None
+        if proportions and group_name in proportions:
+            group_props = proportions[group_name]
+        else:
+            group_props = [1.0 / n] * n
+
+        for i, name in enumerate(valid_names):
+            prop = group_props[i] if i < len(group_props) else 1.0 / n
+            group_rows.append(
+                {
+                    "TaxonID": name_to_taxon_id[name],
+                    "EcopathGroupID": group_id,
+                    "Proportion": prop,
+                    "PropCatch": prop,
+                }
+            )
+
+    group_assignments = (
+        pd.DataFrame(
+            group_rows,
+            columns=["TaxonID", "EcopathGroupID", "Proportion", "PropCatch"],
+        )
+        if group_rows
+        else pd.DataFrame(
+            columns=["TaxonID", "EcopathGroupID", "Proportion", "PropCatch"]
+        )
+    )
+
+    stanza_assignments = pd.DataFrame(columns=["TaxonID", "StanzaID"])
+
+    return TaxonomyData(
+        taxa=taxa,
+        group_assignments=group_assignments,
+        stanza_assignments=stanza_assignments,
+    )
