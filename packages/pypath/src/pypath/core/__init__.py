@@ -190,11 +190,13 @@ except ImportError:
 from pypath.core.indicators import (
     FlowAnalysis,
     EcosystemIndicators,
+    SystemMaturityIndices,
     flow_analysis,
     finn_cycling_index,
     transfer_efficiency,
     ecosystem_indicators,
     ecosystem_indicators_timeseries,
+    system_maturity,
 )
 
 __all__ = [
@@ -345,9 +347,11 @@ __all__ = [
     # Indicators
     "FlowAnalysis",
     "EcosystemIndicators",
+    "SystemMaturityIndices",
     "flow_analysis",
     "finn_cycling_index",
     "transfer_efficiency",
     "ecosystem_indicators",
     "ecosystem_indicators_timeseries",
+    "system_maturity",
 ]

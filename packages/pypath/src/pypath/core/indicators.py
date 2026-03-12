@@ -481,6 +481,115 @@ def ecosystem_indicators(rpath: Rpath) -> EcosystemIndicators:
     )
 
 
+@dataclass
+class SystemMaturityIndices:
+    """Odum's ecosystem development / maturity indicators.
+
+    Attributes
+    ----------
+    total_production : float
+        Sum of production across all living groups (P = Σ PB×B).
+    total_respiration : float
+        Sum of respiration across all living groups (R = Σ QB×B×Unassim + metabolism).
+    total_biomass : float
+        Sum of biomass across all living groups.
+    net_production : float
+        Total production minus total respiration (P - R).
+    pr_ratio : float
+        Production / Respiration ratio. Mature ecosystems approach 1.0.
+    b_tst_ratio : float
+        Total biomass / total system throughput. Higher in mature ecosystems.
+    mean_path_length : float
+        Average number of trophic transfers per unit of energy.
+        Computed as TST / total consumption at TL 1.
+    """
+
+    total_production: float
+    total_respiration: float
+    total_biomass: float
+    net_production: float
+    pr_ratio: float
+    b_tst_ratio: float
+    mean_path_length: float
+
+
+def system_maturity(rpath: Rpath) -> SystemMaturityIndices:
+    """Compute Odum's ecosystem maturity indicators.
+
+    Parameters
+    ----------
+    rpath : Rpath
+        Balanced Ecopath model.
+
+    Returns
+    -------
+    SystemMaturityIndices
+    """
+    n_living = rpath.NUM_LIVING
+    n_dead = rpath.NUM_DEAD
+    n_internal = n_living + n_dead
+
+    # Total production: Σ PB[i] × B[i] for all living groups
+    total_production = 0.0
+    for i in range(1, n_living + 1):
+        total_production += rpath.PB[i] * rpath.Biomass[i]
+
+    # Total respiration: for each consumer, R = QB×B×(1-Unassim) - PB×B
+    # For producers, R = PB×B - net primary production exported
+    # Simplified: R = Σ (QB×B - PB×B) for consumers, PB×B×(1-EE) for producers
+    # EwE approach: respiration = assimilated consumption - production
+    total_respiration = 0.0
+    for i in range(1, n_living + 1):
+        if rpath.type[i] == 1:  # producer
+            # Producer respiration = production - what's consumed by others
+            # Simplification: R = P × (1 - EE) for producers
+            total_respiration += rpath.PB[i] * rpath.Biomass[i] * (
+                1.0 - rpath.EE[i]
+            )
+        else:  # consumer
+            # R = assimilated food - production = QB×B×(1-Unassim) - PB×B
+            assimilated = rpath.QB[i] * rpath.Biomass[i] * (
+                1.0 - rpath.Unassim[i]
+            )
+            production = rpath.PB[i] * rpath.Biomass[i]
+            resp = assimilated - production
+            total_respiration += max(0.0, resp)
+
+    total_biomass = float(np.sum(rpath.Biomass[1:n_living + 1]))
+    net_production = total_production - total_respiration
+    pr_ratio = (
+        total_production / total_respiration if total_respiration > 0 else np.nan
+    )
+
+    # B/TST ratio
+    T, _ = _build_flow_matrix(rpath)
+    tst = float(np.sum(T))
+    b_tst_ratio = total_biomass / tst if tst > 0 else np.nan
+
+    # Mean path length: TST / total input at base level
+    # Base input = total consumption at TL 1 (primary production + detrital input)
+    base_input = 0.0
+    for i in range(1, n_internal + 1):
+        if rpath.type[i] == 1:  # producer
+            base_input += rpath.PB[i] * rpath.Biomass[i]
+        elif rpath.type[i] == 2:  # detritus
+            # Detrital input from outside
+            det_input = getattr(rpath, "DetInput", None)
+            if det_input is not None and i < len(det_input):
+                base_input += det_input[i]
+    mean_path_length = tst / base_input if base_input > 0 else np.nan
+
+    return SystemMaturityIndices(
+        total_production=total_production,
+        total_respiration=total_respiration,
+        total_biomass=total_biomass,
+        net_production=net_production,
+        pr_ratio=pr_ratio,
+        b_tst_ratio=b_tst_ratio,
+        mean_path_length=mean_path_length,
+    )
+
+
 def ecosystem_indicators_timeseries(
     output: RsimOutput,
     scenario: RsimScenario,

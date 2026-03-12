@@ -10,10 +10,12 @@ from pypath.core.analysis import calculate_network_indices
 from pypath.core.indicators import (
     EcosystemIndicators,
     FlowAnalysis,
+    SystemMaturityIndices,
     ecosystem_indicators,
     ecosystem_indicators_timeseries,
     finn_cycling_index,
     flow_analysis,
+    system_maturity,
     transfer_efficiency,
 )
 
@@ -461,3 +463,88 @@ class TestIntegration:
         rpath.DC[3, 2] = 0.2
         indices = calculate_network_indices(rpath)
         assert indices.finn_cycling_index > 0.0
+
+
+class TestSystemMaturity:
+    """Tests for system_maturity() Odum's maturity indicators."""
+
+    def test_3group_basic(self):
+        """Basic maturity indices for simple 3-group model."""
+        rpath = _make_rpath_3group()
+        m = system_maturity(rpath)
+        assert isinstance(m, SystemMaturityIndices)
+
+        # Producer B=10, PB=2 → production=20
+        # Consumer B=5, PB=0.5 → production=2.5
+        assert m.total_production == pytest.approx(22.5)
+
+        # Total biomass = 10 + 5 = 15 (living only)
+        assert m.total_biomass == pytest.approx(15.0)
+
+        # Net production = P - R
+        assert m.net_production == pytest.approx(
+            m.total_production - m.total_respiration
+        )
+
+        # P/R > 1 for immature system
+        assert m.pr_ratio > 1.0
+
+        # B/TST is positive
+        assert m.b_tst_ratio > 0.0
+
+    def test_pr_ratio_consumers_only(self):
+        """Consumer respiration = assimilated - production."""
+        rpath = _make_rpath_3group()
+        m = system_maturity(rpath)
+
+        # Consumer: QB=2, B=5, Unassim=0.2 → assimilated = 2×5×0.8 = 8
+        # Consumer production = PB×B = 0.5×5 = 2.5
+        # Consumer respiration = 8 - 2.5 = 5.5
+        consumer_resp = 2.0 * 5.0 * (1.0 - 0.2) - 0.5 * 5.0
+        assert consumer_resp == pytest.approx(5.5)
+
+        # Producer: PB=2, B=10, EE=0.8 → resp = 20×(1-0.8) = 4.0
+        producer_resp = 2.0 * 10.0 * (1.0 - 0.8)
+        assert producer_resp == pytest.approx(4.0)
+
+        assert m.total_respiration == pytest.approx(
+            consumer_resp + producer_resp
+        )
+
+    def test_5group_mean_path_length_positive(self):
+        """5-group model has positive mean path length."""
+        rpath5 = _make_rpath_5group()
+        m5 = system_maturity(rpath5)
+
+        assert m5.mean_path_length > 0.0
+        assert not np.isnan(m5.mean_path_length)
+        # B/TST should also be positive
+        assert m5.b_tst_ratio > 0.0
+
+    def test_zero_model_returns_nan(self):
+        """Model with zero biomass returns NaN ratios."""
+        rpath = MagicMock()
+        rpath.NUM_LIVING = 1
+        rpath.NUM_DEAD = 1
+        rpath.Biomass = np.array([0.0, 0.0, 0.0])
+        rpath.PB = np.array([0.0, 0.0, 0.0])
+        rpath.QB = np.array([0.0, 0.0, 0.0])
+        rpath.EE = np.array([0.0, 0.0, 0.0])
+        rpath.Unassim = np.array([0.0, 0.0, 0.0])
+        rpath.TL = np.array([0.0, 1.0, 1.0])
+        rpath.type = np.array([0, 1, 2])
+        rpath.DC = np.zeros((3, 3))
+        rpath.Landings = np.zeros((3, 1))
+        rpath.Discards = np.zeros((3, 1))
+
+        m = system_maturity(rpath)
+        assert np.isnan(m.pr_ratio)
+        assert np.isnan(m.b_tst_ratio)
+        assert np.isnan(m.mean_path_length)
+
+    def test_exported_from_core(self):
+        """SystemMaturityIndices and system_maturity exported from core."""
+        from pypath.core import SystemMaturityIndices as SMI
+        from pypath.core import system_maturity as sm
+        assert SMI is SystemMaturityIndices
+        assert sm is system_maturity
