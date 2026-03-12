@@ -97,6 +97,8 @@ class AccessWriter:
         "EcopathGroupSample",
         "EcopathGroupCatchSample",
         "EcopathStanzaTaxon",
+        "EcopathGroupTaxon",
+        "EcopathTaxon",
         "EcopathDietComp",
         "EcopathCatch",
         "EcopathDiscardFate",
@@ -707,6 +709,12 @@ class AccessWriter:
         if collection is None:
             return
         self._build_tables_via_csv_writer("write_mediation", collection=collection)
+
+    def write_taxonomy(self, taxonomy=None) -> None:
+        """Write taxonomy tables to the Access database."""
+        if taxonomy is None:
+            return
+        self._build_tables_via_csv_writer("write_taxonomy", taxonomy=taxonomy)
 
     def close(self) -> None:
         """Close the database connection and move temp file to final path."""

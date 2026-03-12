@@ -182,3 +182,110 @@ class TestReader:
         # Metadata with -9999 should be None
         assert t.metadata["ecology_type"] is None
         assert t.metadata["organism_type"] is None
+
+
+class TestWriter:
+    """write_taxonomy() tests."""
+
+    def _make_taxonomy_data(self):
+        """Build a small TaxonomyData for testing."""
+        taxa = [
+            TaxonomyRecord(
+                taxon_id=1,
+                scientific_name="Gadus morhua",
+                common_name="Atlantic cod",
+                taxonomy={
+                    "class_name": "Actinopteri",
+                    "order_name": "Gadiformes",
+                    "family_name": "Gadidae",
+                    "genus_name": "Gadus",
+                    "species_name": "morhua",
+                },
+                external_keys={"aphia_id": 126436, "fishbase_code": 69},
+                traits={"winf": 15000.0, "vbgf_k": 0.15, "mean_weight": None},
+                metadata={"ecology_type": None},
+                source_name="PyPath-biodata",
+                source_key="126436",
+            ),
+        ]
+        group_assignments = pd.DataFrame([
+            {"TaxonID": 1, "EcopathGroupID": 3, "Proportion": 1.0, "PropCatch": 1.0},
+        ])
+        stanza_assignments = pd.DataFrame(columns=["TaxonID", "StanzaID"])
+        return TaxonomyData(taxa, group_assignments, stanza_assignments)
+
+    def test_csv_writer_builds_tables(self):
+        """CsvBundleWriter.write_taxonomy() builds correct table dicts."""
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        writer = CsvBundleWriter.__new__(CsvBundleWriter)
+        writer._params = None
+        writer._scenario_id = 1
+        writer._tables = {}
+
+        taxonomy = self._make_taxonomy_data()
+        writer.write_taxonomy(taxonomy=taxonomy)
+
+        assert "EcopathTaxon" in writer._tables
+        assert "EcopathGroupTaxon" in writer._tables
+        assert "EcopathStanzaTaxon" in writer._tables
+
+        taxon_df = writer._tables["EcopathTaxon"]
+        assert len(taxon_df) == 1
+        assert taxon_df.iloc[0]["GenusName"] == "Gadus"
+        assert taxon_df.iloc[0]["SpeciesName"] == "morhua"
+        assert taxon_df.iloc[0]["CodeAphia"] == 126436
+        # None traits should be written as -9999
+        assert taxon_df.iloc[0]["MeanWeight"] == -9999
+
+    def test_round_trip(self):
+        """Write then read back produces equivalent data."""
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        taxonomy = self._make_taxonomy_data()
+
+        # Write
+        writer = CsvBundleWriter.__new__(CsvBundleWriter)
+        writer._params = None
+        writer._scenario_id = 1
+        writer._tables = {}
+        writer.write_taxonomy(taxonomy=taxonomy)
+
+        # Simulate read from the written tables
+        with patch("pypath.io.ewemdb.list_ewemdb_tables") as mock_tables, \
+             patch("pypath.io.ewemdb.read_ewemdb_table") as mock_read:
+            mock_tables.return_value = [
+                "EcopathTaxon", "EcopathGroupTaxon", "EcopathStanzaTaxon"
+            ]
+            mock_read.side_effect = lambda db, table: writer._tables[table]
+
+            result = read_taxonomy("fake.eweaccdb")
+
+        assert len(result.taxa) == 1
+        t = result.taxa[0]
+        assert t.scientific_name == "Gadus morhua"
+        assert t.external_keys["aphia_id"] == 126436
+        assert t.traits["winf"] == 15000.0
+        assert t.traits["mean_weight"] is None  # -9999 -> None round-trip
+
+    def test_empty_taxonomy_writes_empty_tables(self):
+        """Empty TaxonomyData writes empty tables without error."""
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        writer = CsvBundleWriter.__new__(CsvBundleWriter)
+        writer._params = None
+        writer._scenario_id = 1
+        writer._tables = {}
+
+        empty = TaxonomyData(
+            taxa=[],
+            group_assignments=pd.DataFrame(
+                columns=["TaxonID", "EcopathGroupID", "Proportion", "PropCatch"]
+            ),
+            stanza_assignments=pd.DataFrame(columns=["TaxonID", "StanzaID"]),
+        )
+        writer.write_taxonomy(taxonomy=empty)
+
+        assert len(writer._tables["EcopathTaxon"]) == 0
+        assert len(writer._tables["EcopathGroupTaxon"]) == 0
+        assert len(writer._tables["EcopathStanzaTaxon"]) == 0

@@ -602,6 +602,62 @@ class CsvBundleWriter:
             landing_rows
         )
 
+    def write_taxonomy(self, taxonomy=None) -> None:
+        """Write taxonomy tables to the CSV bundle."""
+        if taxonomy is None:
+            return
+
+        from pypath.io._ewe_schema import EWE_TABLES
+        from pypath.io.ewemdb import (
+            _TAXON_EXTERNAL_KEYS, _TAXON_TRAITS, _TAXON_METADATA,
+            _none_to_sentinel,
+        )
+
+        taxon_schema = EWE_TABLES["EcopathTaxon"]
+        key_to_col = {v: k for k, v in _TAXON_EXTERNAL_KEYS.items()}
+        trait_to_col = {v: k for k, v in _TAXON_TRAITS.items()}
+        meta_to_col = {v: k for k, v in _TAXON_METADATA.items()}
+
+        # Build EcopathTaxon rows
+        taxon_rows = []
+        for t in taxonomy.taxa:
+            row = {
+                "TaxonID": t.taxon_id,
+                "GenusName": t.taxonomy.get("genus_name", ""),
+                "SpeciesName": t.taxonomy.get("species_name", ""),
+                "ClassName": t.taxonomy.get("class_name", ""),
+                "OrderName": t.taxonomy.get("order_name", ""),
+                "FamilyName": t.taxonomy.get("family_name", ""),
+                "CommonName": t.common_name,
+                "SourceName": t.source_name,
+                "SourceKey": t.source_key,
+            }
+            for key, col in key_to_col.items():
+                val = t.external_keys.get(key)
+                sql_type = taxon_schema.get(col, "INTEGER")
+                row[col] = _none_to_sentinel(val, sql_type)
+
+            for key, col in trait_to_col.items():
+                val = t.traits.get(key)
+                row[col] = _none_to_sentinel(val, "DOUBLE")
+
+            for key, col in meta_to_col.items():
+                val = t.metadata.get(key)
+                sql_type = taxon_schema.get(col, "INTEGER")
+                row[col] = _none_to_sentinel(val, sql_type)
+
+            taxon_rows.append(row)
+
+        self._tables["EcopathTaxon"] = pd.DataFrame(
+            taxon_rows,
+            columns=list(taxon_schema.keys()),
+        ) if taxon_rows else pd.DataFrame(
+            columns=list(taxon_schema.keys())
+        )
+
+        self._tables["EcopathGroupTaxon"] = taxonomy.group_assignments.copy()
+        self._tables["EcopathStanzaTaxon"] = taxonomy.stanza_assignments.copy()
+
     def close(self) -> None:
         """Write all tables to a zip file, then atomically rename to final path."""
         manifest = {

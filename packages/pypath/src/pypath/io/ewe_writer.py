@@ -36,6 +36,7 @@ def write_ewemdb(
     ecospace: Any | None = None,
     timeseries: Any | None = None,
     mediation: Any | None = None,
+    taxonomy: Any | None = None,
     backend: str = "auto",
     scenario_id: int = 1,
     source_db: str | None = None,
@@ -56,6 +57,8 @@ def write_ewemdb(
         Time series data to include.
     mediation : MediationCollection, optional
         Mediation shapes and link assignments to include.
+    taxonomy : TaxonomyData, optional
+        Taxonomy species records and group assignments to include.
     backend : str
         "auto" (detect ODBC), "access" (require ODBC), or "csv" (CSV bundle).
     scenario_id : int
@@ -96,6 +99,7 @@ def write_ewemdb(
         writer.write_ecospace(ecospace)
         writer.write_timeseries(timeseries)
         writer.write_mediation(mediation)
+        writer.write_taxonomy(taxonomy)
         writer.close()
     except Exception:
         import os
