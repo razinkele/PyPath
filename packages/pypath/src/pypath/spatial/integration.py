@@ -196,6 +196,7 @@ def deriv_vector_spatial(
         state_patch = state_spatial[:, patch_idx]
         if params_need_modification:
             patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
+            patch_params["Bbase"] = b_base_ref_patches[:, patch_idx]
         # MPA effort masking: create per-patch forcing with zeroed effort
         patch_forcing = forcing
         if mpa_effort_mask is not None:
@@ -247,13 +248,18 @@ def deriv_vector_spatial(
 
                 if params_need_modification:
                     b_base_ref_backup = params["B_BaseRef"]
-                    params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
+                    b_base_backup = params.get("Bbase")
+                    modified = b_base_ref_patches[:, patch_idx]
+                    params["B_BaseRef"] = modified
+                    params["Bbase"] = modified
                     try:
                         deriv_local = deriv_vector(
                             state_patch, params, patch_forcing, fishing, t=t
                         )
                     finally:
                         params["B_BaseRef"] = b_base_ref_backup
+                        if b_base_backup is not None:
+                            params["Bbase"] = b_base_backup
                 else:
                     deriv_local = deriv_vector(
                         state_patch, params, patch_forcing, fishing, t=t
