@@ -372,6 +372,93 @@ class SmeltIBM(IBMGroup):
         np.add.at(result, patches[valid], biomasses[valid])
         return result
 
+    def _consolidate_population(self) -> None:
+        """Merge similar super-individuals when population exceeds the cap.
+
+        Groups individuals by ``(life_stage, patch_idx)`` and merges the
+        two most similar (by weight) within each group until the total count
+        is at or below ``self.params.max_super_individuals``.  Biomass is
+        conserved exactly: the merged individual inherits the weighted-mean
+        weight and recomputes length from allometry.
+        """
+        cap = self.params.max_super_individuals
+        if len(self.individuals) <= cap:
+            return
+
+        from collections import defaultdict
+
+        sp = self.params
+
+        # Group by (life_stage, patch_idx)
+        groups: Dict[tuple, List[SuperIndividual]] = defaultdict(list)
+        for ind in self.individuals:
+            groups[(ind.life_stage, ind.patch_idx)].append(ind)
+
+        # Within each group, sort by weight and merge closest pairs
+        while sum(len(v) for v in groups.values()) > cap:
+            # Find the largest group to merge within
+            largest_key = max(groups, key=lambda k: len(groups[k]))
+            grp = groups[largest_key]
+            if len(grp) < 2:
+                break
+            grp.sort(key=lambda x: x.weight)
+
+            # Merge the two closest by weight (adjacent after sort)
+            best_idx = 0
+            best_diff = float("inf")
+            for j in range(len(grp) - 1):
+                diff = abs(grp[j + 1].weight - grp[j].weight)
+                if diff < best_diff:
+                    best_diff = diff
+                    best_idx = j
+
+            a = grp[best_idx]
+            b = grp[best_idx + 1]
+
+            # Save allometric params BEFORE mutation
+            a_n = a.n_represented
+            b_n = b.n_represented
+            total_n = a_n + b_n
+
+            if total_n > 0:
+                # Weighted-mean weight (conserves biomass exactly)
+                merged_weight = (a_n * a.weight + b_n * b.weight) / total_n
+                merged_age = (a_n * a.age + b_n * b.age) / total_n
+                merged_energy = (
+                    a_n * a.energy_reserve + b_n * b.energy_reserve
+                ) / total_n
+                merged_dd = (a_n * a.degree_days + b_n * b.degree_days) / total_n
+                merged_yolk = (
+                    a_n * a.yolk_energy_kj + b_n * b.yolk_energy_kj
+                ) / total_n
+
+                a.n_represented = total_n
+                a.weight = merged_weight
+                a.age = merged_age
+                a.energy_reserve = merged_energy
+                a.degree_days = merged_dd
+                a.yolk_energy_kj = merged_yolk
+
+                # Recompute length from allometry
+                if a.life_stage < 3 and sp.larval is not None:
+                    a.length = (
+                        sp.larval.a_length_larval
+                        * max(a.weight, 0.0) ** sp.larval.b_length_larval
+                    )
+                else:
+                    a.length = (
+                        sp.bioenerg.a_length
+                        * max(a.weight, 0.0) ** sp.bioenerg.b_length
+                    )
+
+            # Remove b from the group
+            grp.pop(best_idx + 1)
+
+        # Rebuild self.individuals from groups
+        self.individuals = []
+        for grp in groups.values():
+            self.individuals.extend(grp)
+
     def compute_step(
         self,
         prey_available: np.ndarray,
@@ -628,6 +715,10 @@ class SmeltIBM(IBMGroup):
 
         # Update population
         self.individuals = survivors
+
+        # Consolidate if over cap
+        if len(self.individuals) > sp.max_super_individuals:
+            self._consolidate_population()
 
         # Record consumption
         self._last_consumption = total_consumption

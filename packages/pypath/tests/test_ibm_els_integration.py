@@ -93,3 +93,30 @@ def test_egg_no_hatching_below_threshold():
     eggs = [i for i in ibm.individuals if i.life_stage == 0]
     assert len(eggs) == 1
     assert eggs[0].degree_days == 0.0
+
+
+def test_population_cap_consolidation():
+    params = SmeltParams.baltic_defaults_els()
+    params.max_super_individuals = 10
+    ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
+    for i in range(15):
+        ibm.individuals.append(
+            SuperIndividual(
+                id=i,
+                n_represented=1000.0,
+                weight=0.001,
+                length=0.10,
+                age=0.0,
+                energy_reserve=0.0,
+                patch_idx=0,
+                is_mature=False,
+                sex=0,
+                life_stage=0,
+            )
+        )
+    ibm._next_id = 15
+    biomass_before = sum(i.n_represented * i.weight for i in ibm.individuals)
+    ibm._consolidate_population()
+    assert len(ibm.individuals) <= params.max_super_individuals
+    biomass_after = sum(i.n_represented * i.weight for i in ibm.individuals)
+    assert biomass_after == pytest.approx(biomass_before, rel=1e-10)
