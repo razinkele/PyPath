@@ -245,7 +245,7 @@ where:
   G2 = (1 / (T_max - T_opt)) * ln(CQ * (1 - V2) / V2)
 ```
 
-Parameters in `LarvalParams`: `cmax_t_opt` (default: 18°C), `cmax_t_min` (default: 2°C), `cmax_t_max` (default: 28°C). The dome shape ensures consumption drops at both cold and warm extremes.
+Parameters in `LarvalParams`: `cmax_t_opt` (default: 18°C), `cmax_t_min` (default: 2°C), `cmax_t_max` (default: 28°C), `cmax_CQ` (default: 2.4, controls curve steepness), `cmax_V1` (default: 0.02, proportion of Cmax at T_min), `cmax_V2` (default: 0.02, proportion of Cmax at T_max). The dome shape ensures consumption drops at both cold and warm extremes.
 
 ### Assimilation Efficiency — Size-Dependent
 
@@ -397,11 +397,11 @@ env_forcing = {
     'month': 6,
     'zoo_peak_day': 150,
     'dissolved_oxygen': 6.5,      # global default
-    'zoo_density': 0.8,           # global default (mg C/m³)
+    'zoo_density': 80.0,          # global default (mg C/m³)
     'zone_forcing': {             # NEW — overrides per zone when present
-        0: {'temperature': 8.0, 'dissolved_oxygen': 7.5, 'zoo_density': 0.3},
-        1: {'temperature': 12.0, 'dissolved_oxygen': 4.5, 'zoo_density': 1.2},
-        2: {'temperature': 9.0, 'dissolved_oxygen': 8.0, 'zoo_density': 0.8},
+        0: {'temperature': 8.0, 'dissolved_oxygen': 7.5, 'zoo_density': 30.0},   # mg C/m³ — low in river
+        1: {'temperature': 12.0, 'dissolved_oxygen': 4.5, 'zoo_density': 120.0},  # mg C/m³ — high in lagoon nursery
+        2: {'temperature': 9.0, 'dissolved_oxygen': 8.0, 'zoo_density': 80.0},    # mg C/m³ — moderate coastal
     }
 }
 ```
