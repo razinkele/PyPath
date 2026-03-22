@@ -304,23 +304,31 @@ At 5mm (alpha ≈ 0): pure zooplankton concentration-dependent. At 50mm (alpha �
 cmax(w, T) = c_a * w^c_b * f(T) * dt_days    # g/timestep (c_a is a daily rate, scaled by dt_days)
 ```
 
-**Temperature dome function `f(T)`** — Thornton-Lessem formulation (Fish Bioenergetics 3.0/4.0 standard):
+**Temperature dome function `f(T)`** — Thornton-Lessem formulation (Fish Bioenergetics 3.0/4.0 standard, Thornton & Lessem 1978):
 
 ```
 f(T) = K_A * K_B
 where:
-  K_A = (V1 * L1) / (1 + V1 * (L1 - 1))    # ascending limb (V1 in numerator, NOT CQ)
-  K_B = (V2 * L2) / (1 + V2 * (L2 - 1))    # descending limb
+  K_A = (CK1 * L1) / (1 + CK1 * (L1 - 1))    # ascending sigmoid (CK1 in numerator)
+  K_B = (CK4 * L2) / (1 + CK4 * (L2 - 1))    # descending sigmoid (CK4 in numerator)
   # BOTH K_A and K_B are always computed for all T; they are NOT conditional branches
-  L1 = exp(G1 * (T - T_min))
-  L2 = exp(G2 * (T_max - T))
-  G1 = (1 / (T_opt - T_min)) * ln(V1 * (1 - CK1) / CK1)
-  G2 = (1 / (T_max - T_opt)) * ln(V2 * (1 - CK4) / CK4)
+  L1 = exp(G1 * (T - CQ))
+  L2 = exp(G2 * (CTL - T))
+  G1 = (1 / (CTO - CQ)) * ln(0.98 * (1 - CK1) / (CK1 * 0.02))
+  G2 = (1 / (CTL - CTM)) * ln(0.98 * (1 - CK4) / (CK4 * 0.02))
 ```
 
-**IMPORTANT:** V1 and V2 are large constants controlling curve steepness (NOT small proportions). CK1 and CK4 are the small proportions of Cmax at T_min and T_max respectively.
+**FB3 parameter naming convention:**
+- **CQ** = lower temperature where rate = CK1 fraction of max (≈ T_min). Default: 2°C
+- **CTO** = temperature where ascending limb reaches 0.98 of max (≈ T_opt). Default: 18°C
+- **CTM** = temperature where descending limb is still 0.98 of max (≈ T_opt + a few °C). Default: 20°C
+- **CTL** = upper temperature where rate = CK4 fraction of max (≈ T_max). Default: 28°C
+- **CK1** = small fraction of max at CQ (typically 0.01–0.05). Default: 0.01
+- **CK4** = small fraction of max at CTL (typically 0.01–0.05). Default: 0.01
 
-Parameters in `LarvalParams`: `cmax_t_opt` (default: 18°C), `cmax_t_min` (default: 2°C), `cmax_t_max` (default: 28°C), `cmax_V1` (default: 0.9, steepness of ascending limb), `cmax_V2` (default: 0.9, steepness of descending limb), `cmax_CK1` (default: 0.02, proportion of Cmax at T_min), `cmax_CK4` (default: 0.02, proportion of Cmax at T_max). The dome shape gives f(T_opt) ≈ 0.98, f(T_min) ≈ CK1 ≈ 0.02, f(T_max) ≈ CK4 ≈ 0.02.
+Note: G1 and G2 use hardcoded 0.98 and 0.02 — these define the logistic steepness and are NOT free parameters. The dome gives f(CTO) ≈ 0.98, f(CQ) ≈ CK1 ≈ 0.01, f(CTL) ≈ CK4 ≈ 0.01.
+
+Parameters in `LarvalParams`: `cmax_CQ` (default: 2.0°C), `cmax_CTO` (default: 18.0°C), `cmax_CTM` (default: 20.0°C), `cmax_CTL` (default: 28.0°C), `cmax_CK1` (default: 0.01), `cmax_CK4` (default: 0.01).
 
 ### Assimilation Efficiency — Size-Dependent
 

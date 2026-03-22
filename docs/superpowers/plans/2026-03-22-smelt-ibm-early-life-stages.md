@@ -72,7 +72,7 @@ def test_super_individual_egg():
     )
     assert egg.life_stage == 0
     assert egg.weight == 0.001
-    assert egg.length == 0.15  # cm, not mm
+    assert egg.length == 0.10  # cm (1.0 mm)
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -126,7 +126,7 @@ def test_egg_params_defaults():
     assert p.dd_mortality == 272.4
     assert p.t_zero == 1.8
     assert p.egg_weight == 0.001
-    assert p.egg_length_cm == 0.15
+    assert p.egg_length_cm == 0.10
     assert p.max_egg_cohorts == 3
     assert p.background_mortality_rate == 0.05
     assert p.o2_lethal == 2.0
@@ -333,11 +333,9 @@ git commit -m "feat(ibm): add egg mortality (background, oxygen, thermal)"
 
 ---
 
-### Task 1.4: Add SmeltParams Optional fields and baltic_defaults_els()
+### Task 1.4a: Add SmeltParams Optional fields and baltic_defaults_els()
 
-> **NOTE:** Task 1.4 (param dataclasses) and 1.5 (SmeltParams fields) were originally reversed. They are now correctly ordered: param classes first (Task 1.5), then SmeltParams (Task 1.6). But since SmeltParams needs the classes at import time, we implement them together in a single task.
-
-> **IMPORTANT:** Before implementing this task, first implement the param dataclasses below (YolkSacParams, LarvalParams, OxygenParams, ZoneParams) in `development.py`, then add the SmeltParams fields. Both are in this single task.
+> **PREREQUISITE:** Task 1.4b (below) must be completed first — `baltic_defaults_els()` imports YolkSacParams, LarvalParams, etc. **Execute 1.4b BEFORE 1.4a.**
 
 **Files:**
 - Modify: `packages/pypath/src/pypath/ibm/smelt.py`
@@ -418,7 +416,7 @@ git commit -m "feat(ibm): add Optional early life stage params to SmeltParams wi
 
 ---
 
-### Task 1.5: Add YolkSacParams, LarvalParams, OxygenParams, ZoneParams dataclasses
+### Task 1.4b: Add YolkSacParams, LarvalParams, OxygenParams, ZoneParams dataclasses
 
 **Files:**
 - Modify: `packages/pypath/src/pypath/ibm/development.py`
@@ -441,7 +439,7 @@ def test_yolk_sac_params_defaults():
 def test_larval_params_defaults():
     from pypath.ibm.development import LarvalParams
     p = LarvalParams()
-    assert p.rs_a_larval == 0.005
+    assert p.rs_a_larval == 0.12
     assert p.zooplankton_prey_idx == 1
     assert p.k_half_zoo == 100.0
     assert p.juvenile_length_cm == 2.0
@@ -505,13 +503,13 @@ class LarvalParams:
     ae_max: float = 0.73
     cmax_c_a: float = 0.3
     cmax_c_b: float = 0.7
-    cmax_t_opt: float = 18.0
-    cmax_t_min: float = 2.0
-    cmax_t_max: float = 28.0
-    cmax_V1: float = 0.9
-    cmax_V2: float = 0.9
-    cmax_CK1: float = 0.02
-    cmax_CK4: float = 0.02
+    cmax_CQ: float = 2.0
+    cmax_CTO: float = 18.0
+    cmax_CTM: float = 20.0
+    cmax_CTL: float = 28.0
+    cmax_CK1: float = 0.01
+    cmax_CK4: float = 0.01
+    rs_a: float = 0.00132  # basal Rs for ontogenetic model: ra / (1 + am_max)
     a_length_larval: float = 5.0
     b_length_larval: float = 0.35
     background_mortality_rate: float = 0.01
@@ -741,7 +739,8 @@ if self.params.egg is not None:
             # Check hatching
             if check_hatching(ind.degree_days, self.params.egg.dd_hatch):
                 ind.life_stage = 1
-                ind.yolk_energy_kj = self.params.yolk_sac.initial_yolk_kj
+                if self.params.yolk_sac is not None:
+                    ind.yolk_energy_kj = self.params.yolk_sac.initial_yolk_kj
                 hatched.append(ind)
             else:
                 # Apply egg mortality
@@ -801,7 +800,16 @@ def test_population_cap_consolidation():
 
 - [ ] **Step 2: Run to verify failure**
 
-- [ ] **Step 3: Implement _consolidate_population()**
+- [ ] **Step 3: Implement _consolidate_population() and call it at end of Phase 4 (bookkeeping)**
+
+Add at the end of Phase 4 in `compute_step()`, after adding recruits and removing senescent fish:
+```python
+# Population cap — consolidate if over limit
+if len(self.individuals) > self.params.max_super_individuals:
+    self._consolidate_population()
+```
+
+Implementation of `_consolidate_population()`:
 
 ```python
 def _consolidate_population(self) -> None:
@@ -835,8 +843,11 @@ def _consolidate_population(self) -> None:
                 a.yolk_energy_kj = w_avg(a.yolk_energy_kj, b.yolk_energy_kj)
                 a.starvation_days = w_avg(a.starvation_days, b.starvation_days)
                 a.energy_reserve = w_avg(a.energy_reserve, b.energy_reserve)
-                # Non-averaged fields
-                a.length = self.params.bioenerg.a_length * a.weight ** self.params.bioenerg.b_length
+                # Non-averaged fields — use larval allometry for early stages
+                if a.life_stage < 3 and self.params.larval is not None:
+                    a.length = self.params.larval.a_length_larval * a.weight ** self.params.larval.b_length_larval
+                else:
+                    a.length = self.params.bioenerg.a_length * a.weight ** self.params.bioenerg.b_length
                 a.is_mature = a.is_mature or b.is_mature
                 # NOW mutate n_represented
                 a.n_represented = total_n
@@ -1087,30 +1098,32 @@ For each `life_stage == 1` individual: deplete yolk via `compute_yolk_depletion(
 ```python
 def test_thornton_lessem_at_t_opt():
     from pypath.ibm.bioenergetics import thornton_lessem
-    f = thornton_lessem(18.0, t_min=2.0, t_opt=18.0, t_max=28.0, V1=0.9, V2=0.9, CK1=0.02, CK4=0.02)
-    assert f == pytest.approx(0.98, abs=0.05)  # ~0.98 at T_opt
+    # CTO=18 is where ascending limb reaches 0.98; CTM=20 is where descending starts
+    # At T=18 (=CTO): K_A ≈ 0.98, K_B ≈ high → f ≈ 0.96+
+    f = thornton_lessem(18.0, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01)
+    assert f > 0.90
 
 
 def test_thornton_lessem_at_extremes():
     from pypath.ibm.bioenergetics import thornton_lessem
-    # At T_min: f ≈ CK1 ≈ 0.02 (not zero)
-    f_cold = thornton_lessem(2.0, t_min=2.0, t_opt=18.0, t_max=28.0, V1=0.9, V2=0.9, CK1=0.02, CK4=0.02)
-    f_hot = thornton_lessem(28.0, t_min=2.0, t_opt=18.0, t_max=28.0, V1=0.9, V2=0.9, CK1=0.02, CK4=0.02)
-    assert 0.0 < f_cold < 0.05  # small but not zero at boundary
+    # At CQ=2: f ≈ CK1 ≈ 0.01
+    f_cold = thornton_lessem(2.0, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01)
+    f_hot = thornton_lessem(28.0, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01)
+    assert 0.0 < f_cold < 0.05  # small but not zero
     assert 0.0 < f_hot < 0.05
-    # Below T_min: zero
-    f_below = thornton_lessem(1.0, t_min=2.0, t_opt=18.0, t_max=28.0, V1=0.9, V2=0.9, CK1=0.02, CK4=0.02)
+    # Below CQ: zero
+    f_below = thornton_lessem(1.0, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01)
     assert f_below == 0.0
 
 
 def test_thornton_lessem_dome_shape():
     from pypath.ibm.bioenergetics import thornton_lessem
     temps = [5, 10, 15, 18, 20, 25]
-    vals = [thornton_lessem(t, 2.0, 18.0, 28.0, 0.9, 0.9, 0.02, 0.02) for t in temps]
+    vals = [thornton_lessem(t, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01) for t in temps]
     # Should increase to peak then decrease
     assert vals[3] > vals[0]  # 18C > 5C
     assert vals[3] > vals[5]  # 18C > 25C
-    assert all(0 <= v <= 1.1 for v in vals)
+    assert all(0 <= v <= 1.0 for v in vals)
 ```
 
 - [ ] **Step 2: Implement thornton_lessem()**
@@ -1119,23 +1132,27 @@ def test_thornton_lessem_dome_shape():
 import math
 
 def thornton_lessem(
-    temp: float, t_min: float, t_opt: float, t_max: float,
-    V1: float, V2: float, CK1: float, CK4: float,
+    temp: float, CQ: float, CTO: float, CTM: float, CTL: float,
+    CK1: float, CK4: float,
 ) -> float:
     """Thornton-Lessem temperature function (Fish Bioenergetics 3.0/4.0).
 
-    V1, V2: steepness parameters for ascending/descending limbs (~0.9)
-    CK1, CK4: proportion of Cmax at T_min and T_max (~0.02)
-    Returns f(T) in [0, ~1], peaking near T_opt.
+    CQ: lower temp where rate = CK1 (~T_min)
+    CTO: temp where ascending limb = 0.98 (~T_opt)
+    CTM: temp where descending limb still = 0.98 (> CTO)
+    CTL: upper temp where rate = CK4 (~T_max)
+    CK1: fraction of max at CQ (small, ~0.01)
+    CK4: fraction of max at CTL (small, ~0.01)
+    Returns f(T) in [0, ~0.98], dome-shaped.
     """
-    if temp < t_min or temp > t_max:
+    if temp < CQ or temp > CTL:
         return 0.0
-    G1 = (1.0 / (t_opt - t_min)) * math.log(V1 * (1.0 - CK1) / CK1)
-    G2 = (1.0 / (t_max - t_opt)) * math.log(V2 * (1.0 - CK4) / CK4)
-    L1 = math.exp(G1 * (temp - t_min))
-    L2 = math.exp(G2 * (t_max - temp))
-    K_A = (V1 * L1) / (1.0 + V1 * (L1 - 1.0))
-    K_B = (V2 * L2) / (1.0 + V2 * (L2 - 1.0))
+    G1 = (1.0 / (CTO - CQ)) * math.log(0.98 * (1.0 - CK1) / (CK1 * 0.02))
+    G2 = (1.0 / (CTL - CTM)) * math.log(0.98 * (1.0 - CK4) / (CK4 * 0.02))
+    L1 = math.exp(G1 * (temp - CQ))
+    L2 = math.exp(G2 * (CTL - temp))
+    K_A = (CK1 * L1) / (1.0 + CK1 * (L1 - 1.0))
+    K_B = (CK4 * L2) / (1.0 + CK4 * (L2 - 1.0))
     return max(0.0, K_A * K_B)
 ```
 
