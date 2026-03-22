@@ -32,6 +32,13 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext, SuperIndividual
+from pypath.ibm.development import (
+    EggParams,
+    LarvalParams,
+    OxygenParams,
+    YolkSacParams,
+    ZoneParams,
+)
 from pypath.ibm.behavior import (
     ForagingParams,
     MovementParams,
@@ -94,6 +101,12 @@ class SmeltParams:
     vbgf_linf_mean: float = 25.0
     vbgf_linf_sd: float = 3.0
     max_age: float = 10.0
+    max_super_individuals: int = 2000
+    egg: Optional[EggParams] = None
+    yolk_sac: Optional[YolkSacParams] = None
+    larval: Optional[LarvalParams] = None
+    oxygen: Optional[OxygenParams] = None
+    zones: Optional[ZoneParams] = None
 
     @classmethod
     def baltic_defaults(cls) -> "SmeltParams":
@@ -168,6 +181,26 @@ class SmeltParams:
             vbgf_linf_sd=3.0,
             max_age=10.0,
         )
+
+    @classmethod
+    def baltic_defaults_els(cls) -> "SmeltParams":
+        """Return Baltic smelt defaults with early life stages enabled.
+
+        Creates a standard ``baltic_defaults()`` parameter set and adds
+        default EggParams, YolkSacParams, LarvalParams, and OxygenParams
+        for mechanistic egg-to-larva modeling.
+
+        Returns
+        -------
+        SmeltParams
+            Fully populated parameter object with ELS enabled.
+        """
+        base = cls.baltic_defaults()
+        base.egg = EggParams()
+        base.yolk_sac = YolkSacParams()
+        base.larval = LarvalParams()
+        base.oxygen = OxygenParams()
+        return base
 
 
 class SmeltIBM(IBMGroup):

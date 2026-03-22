@@ -238,3 +238,28 @@ class TestSmeltIBMStep:
         consumption = smelt.get_consumption_by_prey()
         assert isinstance(consumption, np.ndarray)
         assert len(consumption) == smelt.n_groups
+
+
+class TestSmeltParamsELS:
+    """Test SmeltParams early life stage optional fields."""
+
+    def test_baltic_defaults_unchanged(self):
+        p = SmeltParams.baltic_defaults()
+        assert p.egg is None
+        assert p.yolk_sac is None
+        assert p.larval is None
+        assert p.oxygen is None
+        assert p.zones is None
+
+    def test_baltic_defaults_els(self):
+        p = SmeltParams.baltic_defaults_els()
+        assert p.egg is not None
+        assert p.egg.dd_hatch == 149.0
+        assert p.yolk_sac is not None
+        assert p.larval is not None
+        assert p.oxygen is not None
+        assert p.zones is None
+
+    def test_max_super_individuals_default(self):
+        p = SmeltParams.baltic_defaults()
+        assert p.max_super_individuals == 2000
