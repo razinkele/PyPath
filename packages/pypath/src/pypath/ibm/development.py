@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
 
 @dataclass
 class EggParams:
@@ -83,3 +85,49 @@ def check_thermal_mortality(degree_days: float, dd_mortality: float) -> bool:
         True if mortality threshold is reached.
     """
     return degree_days >= dd_mortality
+
+
+def apply_egg_mortality(
+    n_represented: float,
+    background_rate: float,
+    dt_days: float,
+    o2: float,
+    o2_lethal: float,
+    degree_days: float,
+    dd_mortality: float,
+    hypoxia_mortality_rate: float = 0.5,
+) -> float:
+    """Apply egg mortality from background, hypoxia, and thermal sources.
+
+    Parameters
+    ----------
+    n_represented : float
+        Number of eggs represented.
+    background_rate : float
+        Daily background mortality rate.
+    dt_days : float
+        Time step in days.
+    o2 : float
+        Dissolved oxygen concentration (mg/L).
+    o2_lethal : float
+        Lethal oxygen threshold (mg/L).
+    degree_days : float
+        Current accumulated degree-days.
+    dd_mortality : float
+        Degree-day threshold for thermal mortality.
+    hypoxia_mortality_rate : float
+        Maximum additional mortality rate under complete anoxia.
+
+    Returns
+    -------
+    float
+        Surviving number of eggs.
+    """
+    if check_thermal_mortality(degree_days, dd_mortality):
+        return 0.0
+    total_rate = background_rate
+    if o2 < o2_lethal:
+        total_rate += hypoxia_mortality_rate * (1.0 - o2 / o2_lethal)
+    if total_rate <= 0.0:
+        return n_represented
+    return n_represented * np.exp(-total_rate * dt_days)

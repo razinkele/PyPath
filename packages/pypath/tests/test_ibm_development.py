@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from pypath.ibm.development import EggParams, accumulate_degree_days, check_hatching, check_thermal_mortality
+from pypath.ibm.development import EggParams, accumulate_degree_days, check_hatching, check_thermal_mortality, apply_egg_mortality
 
 
 def test_egg_params_defaults():
@@ -50,3 +50,35 @@ def test_hatching_at_different_temperatures():
 def test_thermal_mortality():
     assert check_thermal_mortality(degree_days=272.4, dd_mortality=272.4) is True
     assert check_thermal_mortality(degree_days=200.0, dd_mortality=272.4) is False
+
+
+def test_egg_background_mortality():
+    n = apply_egg_mortality(
+        n_represented=1e6, background_rate=0.05, dt_days=30.0,
+        o2=8.0, o2_lethal=2.0, degree_days=50.0, dd_mortality=272.4,
+    )
+    assert n == pytest.approx(1e6 * np.exp(-0.05 * 30), rel=0.01)
+
+
+def test_egg_oxygen_mortality():
+    n = apply_egg_mortality(
+        n_represented=1e6, background_rate=0.0, dt_days=30.0,
+        o2=1.0, o2_lethal=2.0, degree_days=50.0, dd_mortality=272.4,
+    )
+    assert n < 1e6
+
+
+def test_egg_thermal_mortality_kills_all():
+    n = apply_egg_mortality(
+        n_represented=1e6, background_rate=0.0, dt_days=1.0,
+        o2=8.0, o2_lethal=2.0, degree_days=272.4, dd_mortality=272.4,
+    )
+    assert n == 0.0
+
+
+def test_egg_no_mortality_good_conditions():
+    n = apply_egg_mortality(
+        n_represented=1e6, background_rate=0.0, dt_days=1.0,
+        o2=8.0, o2_lethal=2.0, degree_days=50.0, dd_mortality=272.4,
+    )
+    assert n == 1e6
