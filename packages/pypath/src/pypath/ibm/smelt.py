@@ -26,6 +26,7 @@ SmeltIBM
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -38,13 +39,18 @@ from pypath.ibm.development import (
     OxygenParams,
     YolkSacParams,
     ZoneParams,
+    accumulate_degree_days,
+    apply_egg_mortality,
     check_first_feeding,
+    check_hatching,
     compute_yolk_depletion,
 )
 from pypath.ibm.behavior import (
     ForagingParams,
     MovementParams,
     adaptive_forage,
+    calculate_movement_probabilities,
+    should_migrate,
 )
 from pypath.ibm.bioenergetics import (
     BioenergParams,
@@ -63,6 +69,11 @@ from pypath.ibm.reproduction import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Default dissolved-oxygen concentration (mg/L) used when env_forcing has no
+# 'dissolved_oxygen' or 'o2' key.  99.0 represents a normoxic "no limitation"
+# sentinel so oxygen never artificially caps consumption or survival.
+_DEFAULT_O2 = 99.0
 
 
 @dataclass
@@ -390,8 +401,6 @@ class SmeltIBM(IBMGroup):
         if len(self.individuals) <= cap:
             return
 
-        from collections import defaultdict
-
         sp = self.params
 
         # Group by (life_stage, patch_idx)
@@ -555,15 +564,9 @@ class SmeltIBM(IBMGroup):
         # Phase 1a: Egg development (degree-day accumulation + hatching)
         # ================================================================
         if sp.egg is not None:
-            from pypath.ibm.development import (
-                accumulate_degree_days,
-                apply_egg_mortality,
-                check_hatching,
-            )
-
             dt_days = dt * 365.0
             # Support both 'dissolved_oxygen' and legacy 'o2' keys
-            o2 = env_forcing.get("dissolved_oxygen", env_forcing.get("o2", 10.0))
+            o2 = env_forcing.get("dissolved_oxygen", env_forcing.get("o2", _DEFAULT_O2))
             active_individuals: List[SuperIndividual] = []
 
             for ind in self.individuals:
@@ -572,7 +575,7 @@ class SmeltIBM(IBMGroup):
                     ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
                     ind_temp = ind_env.get("temperature", temperature)
                     ind_o2 = ind_env.get(
-                        "dissolved_oxygen", ind_env.get("o2", 10.0)
+                        "dissolved_oxygen", ind_env.get("o2", _DEFAULT_O2)
                     )
                     # Accumulate degree-days
                     ind.degree_days = accumulate_degree_days(
@@ -608,7 +611,7 @@ class SmeltIBM(IBMGroup):
                     ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
                     ind_temp = ind_env.get("temperature", temperature)
                     ind_o2 = ind_env.get(
-                        "dissolved_oxygen", ind_env.get("o2", 10.0)
+                        "dissolved_oxygen", ind_env.get("o2", _DEFAULT_O2)
                     )
                     yolk_rate = compute_yolk_depletion(
                         weight=ind.weight,
@@ -731,7 +734,7 @@ class SmeltIBM(IBMGroup):
 
                 # Oxygen limitation on consumption (per-zone)
                 o2_feeding = ind_env.get(
-                    "dissolved_oxygen", ind_env.get("o2", 99.0)
+                    "dissolved_oxygen", ind_env.get("o2", _DEFAULT_O2)
                 )
 
                 # Compute per-individual oxygen scalar based on life stage
@@ -778,6 +781,9 @@ class SmeltIBM(IBMGroup):
                 # --- Adaptive foraging consumption ---
                 c_adaptive_vec = np.zeros(self.n_groups)
                 if alpha > 0.01:
+                    # Pre-existing heuristic for the adaptive foraging path;
+                    # differs from Thornton-Lessem Cmax intentionally to give
+                    # a simpler, weight-only upper bound on adult consumption.
                     max_cons = 0.1 * (w ** 0.7) * dt_days
                     max_cons *= o2_scale  # oxygen limitation
                     allocation = adaptive_forage(
@@ -861,7 +867,7 @@ class SmeltIBM(IBMGroup):
                 if ind.life_stage == 2:
                     ind_env_o2 = self._resolve_forcing(env_forcing, ind.patch_idx)
                     o2_val = ind_env_o2.get(
-                        "dissolved_oxygen", ind_env_o2.get("o2", 99.0)
+                        "dissolved_oxygen", ind_env_o2.get("o2", _DEFAULT_O2)
                     )
                     if o2_val < sp.oxygen.o2_lethal_larva:
                         lp_bg = sp.larval.background_mortality_rate if sp.larval else 0.01
@@ -887,8 +893,6 @@ class SmeltIBM(IBMGroup):
 
         if sp.egg is not None:
             # ELS mode: collect eggs by zone and create egg cohorts
-            from collections import defaultdict
-
             eggs_by_zone: Dict[int, float] = defaultdict(float)
             for ind in self.individuals:
                 eggs_from = spawn(ind, temperature, sp.reproduction)
@@ -993,8 +997,6 @@ class SmeltIBM(IBMGroup):
 
         patch_biomass = None
         if spatial_context is not None:
-            from pypath.ibm.behavior import calculate_movement_probabilities
-
             for ind in self.individuals:
                 probs = calculate_movement_probabilities(
                     current_patch=ind.patch_idx,
@@ -1010,8 +1012,6 @@ class SmeltIBM(IBMGroup):
 
         elif sp.zones is not None:
             # Standalone zonal mode (3-zone Curonian Lagoon model)
-            from pypath.ibm.behavior import should_migrate
-
             conn = sp.zones.connectivity
             n_zones = len(conn)
 

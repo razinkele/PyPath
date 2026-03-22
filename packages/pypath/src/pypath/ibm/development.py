@@ -7,6 +7,7 @@ and oxygen effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
@@ -90,7 +91,7 @@ class OxygenParams:
 class ZoneParams:
     """Spatial zone connectivity parameters for the Curonian Lagoon."""
 
-    connectivity: np.ndarray = None
+    connectivity: Optional[np.ndarray] = None
     zone_names: tuple = ("river", "lagoon", "coastal")
     base_drift_rate: float = 0.3
 
