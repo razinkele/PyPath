@@ -51,6 +51,8 @@ from pypath.ibm.bioenergetics import (
     allometric_length,
     growth_step,
     growth_step_batch,
+    growth_step_batch_ontogenetic,
+    thornton_lessem,
 )
 from pypath.ibm.predation import PredationParams, apply_predation_mortality
 from pypath.ibm.reproduction import (
@@ -618,66 +620,149 @@ class SmeltIBM(IBMGroup):
 
             self.individuals = active_individuals
 
-        # Filter: only juvenile/adult (life_stage >= 3) go through Phase 1
+        # Filter: feeding individuals (life_stage >= 2) go through Phase 1;
+        # eggs (0) and yolk-sac larvae (1) are excluded.
         if sp.egg is not None:
-            adults = [ind for ind in self.individuals if ind.life_stage >= 3]
-            early = [ind for ind in self.individuals if ind.life_stage < 3]
+            feeding = [ind for ind in self.individuals if ind.life_stage >= 2]
+            early = [ind for ind in self.individuals if ind.life_stage < 2]
         else:
-            adults = self.individuals
+            feeding = self.individuals
             early = []
 
         # ================================================================
-        # Phase 1: Forage + Grow
+        # Phase 1: Forage + Grow (with ontogenetic blending for larvae)
         # ================================================================
-        n_ind = len(adults)
+        n_ind = len(feeding)
         ind_consumptions = np.empty(n_ind)
 
-        # Vectorized max_consumption: 0.1 * weight^0.7 * dt * 365
-        if n_ind > 0:
-            weights = np.array([ind.weight for ind in adults])
-            max_consumptions = 0.1 * (weights ** 0.7) * dt * 365.0
+        dt_days = dt * 365.0
 
-            # Foraging loop (sequential — adaptive_forage has iterative redistribution)
-            for i, ind in enumerate(adults):
-                allocation = adaptive_forage(
-                    prey_available=prey_dict,
-                    max_consumption=max_consumptions[i],
-                    individual_length=ind.length,
-                    params=sp.foraging,
-                )
-                ind_consumptions[i] = sum(allocation.values())
-                for prey_idx, amount in allocation.items():
-                    if prey_idx < self.n_groups:
-                        total_consumption[prey_idx] += amount * ind.n_represented / 1e6
+        if n_ind > 0:
+            weights = np.array([ind.weight for ind in feeding])
+
+            # Determine zoo_density for larval consumption
+            zoo_density = env_forcing.get("zoo_density", None)
+            if zoo_density is None and sp.larval is not None:
+                pidx = sp.larval.zooplankton_prey_idx
+                if pidx < len(prey_available):
+                    zoo_density = (
+                        prey_available[pidx] * sp.larval.zoo_conversion_factor
+                    )
+                else:
+                    zoo_density = 0.0
+            elif zoo_density is None:
+                zoo_density = 0.0
+
+            # Sigmoid helper for blending
+            def _sigmoid(x):
+                return 1.0 / (1.0 + np.exp(-np.clip(x, -30, 30)))
+
+            # Foraging loop with consumption blending
+            for i, ind in enumerate(feeding):
+                w = ind.weight
+
+                if sp.larval is not None:
+                    alpha = float(
+                        _sigmoid(
+                            (w - sp.larval.w_forage_mid) / sp.larval.w_forage_scale
+                        )
+                    )
+                else:
+                    alpha = 1.0  # pure adaptive foraging
+
+                # --- Larval consumption (concentration-dependent) ---
+                c_larval_vec = np.zeros(self.n_groups)
+                if alpha < 0.99 and sp.larval is not None:
+                    lp = sp.larval
+                    f_temp = thornton_lessem(
+                        temperature,
+                        CQ=lp.cmax_CQ,
+                        CTO=lp.cmax_CTO,
+                        CTM=lp.cmax_CTM,
+                        CTL=lp.cmax_CTL,
+                        CK1=lp.cmax_CK1,
+                        CK4=lp.cmax_CK4,
+                    )
+                    cmax = lp.cmax_c_a * (w ** lp.cmax_c_b) * f_temp * dt_days
+                    denom = zoo_density + lp.k_half_zoo
+                    c_larval_scalar = cmax * (zoo_density / denom) if denom > 0 else 0.0
+                    pidx = lp.zooplankton_prey_idx
+                    if pidx < self.n_groups:
+                        c_larval_vec[pidx] = c_larval_scalar
+
+                # --- Adaptive foraging consumption ---
+                c_adaptive_vec = np.zeros(self.n_groups)
+                if alpha > 0.01:
+                    max_cons = 0.1 * (w ** 0.7) * dt_days
+                    allocation = adaptive_forage(
+                        prey_available=prey_dict,
+                        max_consumption=max_cons,
+                        individual_length=ind.length,
+                        params=sp.foraging,
+                    )
+                    for prey_idx, amount in allocation.items():
+                        if prey_idx < self.n_groups:
+                            c_adaptive_vec[prey_idx] = amount
+
+                # --- Blend ---
+                c_total_vec = (1.0 - alpha) * c_larval_vec + alpha * c_adaptive_vec
+
+                ind_consumptions[i] = c_total_vec.sum()
+                for prey_idx in range(self.n_groups):
+                    if c_total_vec[prey_idx] > 0:
+                        total_consumption[prey_idx] += (
+                            c_total_vec[prey_idx] * ind.n_represented / 1e6
+                        )
 
             # Batch growth step (vectorized bioenergetics)
-            energy_reserves = np.array([ind.energy_reserve for ind in adults])
-            is_mature = np.array([ind.is_mature for ind in adults])
+            energy_reserves = np.array([ind.energy_reserve for ind in feeding])
+            is_mature = np.array([ind.is_mature for ind in feeding])
 
-            new_weights, new_energies = growth_step_batch(
-                weights=weights,
-                energy_reserves=energy_reserves,
-                consumptions=ind_consumptions,
-                temperature=temperature,
-                is_mature=is_mature,
-                dt=dt,
-                params=sp.bioenerg,
-            )
+            if sp.larval is not None:
+                new_weights, new_energies = growth_step_batch_ontogenetic(
+                    weights=weights,
+                    energy_reserves=energy_reserves,
+                    consumptions=ind_consumptions,
+                    temperature=temperature,
+                    is_mature=is_mature,
+                    dt=dt,
+                    bioenerg_params=sp.bioenerg,
+                    larval_params=sp.larval,
+                )
+            else:
+                new_weights, new_energies = growth_step_batch(
+                    weights=weights,
+                    energy_reserves=energy_reserves,
+                    consumptions=ind_consumptions,
+                    temperature=temperature,
+                    is_mature=is_mature,
+                    dt=dt,
+                    params=sp.bioenerg,
+                )
 
-            # Batch allometric length
-            new_lengths = (
-                sp.bioenerg.a_length
-                * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length
-            )
+            # Batch allometric length (use larval allometry for small fish)
+            if sp.larval is not None:
+                new_lengths = np.where(
+                    new_weights < sp.larval.w_forage_mid,
+                    sp.larval.a_length_larval
+                    * np.maximum(new_weights, 0.0) ** sp.larval.b_length_larval,
+                    sp.bioenerg.a_length
+                    * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length,
+                )
+            else:
+                new_lengths = (
+                    sp.bioenerg.a_length
+                    * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length
+                )
 
             # Write back to individuals
-            for i, ind in enumerate(adults):
+            for i, ind in enumerate(feeding):
                 ind.weight = float(new_weights[i])
                 ind.energy_reserve = float(new_energies[i])
                 ind.length = float(new_lengths[i])
 
-        # Recombine early life stages with adults
-        self.individuals = early + adults
+        # Recombine early life stages with feeding individuals
+        self.individuals = early + feeding
 
         # ================================================================
         # Phase 2: Reproduce
@@ -756,6 +841,13 @@ class SmeltIBM(IBMGroup):
         # Age all survivors
         for ind in survivors:
             ind.age += dt
+
+        # Juvenile transition: advance life_stage 2→3 when length threshold met
+        if sp.larval is not None:
+            juv_len = sp.larval.juvenile_length_cm
+            for ind in survivors:
+                if ind.life_stage == 2 and ind.length >= juv_len:
+                    ind.life_stage = 3
 
         # Remove fish that exceeded max_age
         survivors = [ind for ind in survivors if ind.age <= sp.max_age]

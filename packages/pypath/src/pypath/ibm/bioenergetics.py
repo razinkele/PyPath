@@ -487,7 +487,9 @@ def growth_step_batch_ontogenetic(
 
     # --- Weight and energy reserve update ---
     weight_change = net_energy / bp.energy_density
-    new_weights = np.maximum(weights + weight_change, 0.1)
+    # Use a lower minimum weight (0.0001g) than the adult model (0.1g)
+    # to accommodate larvae that naturally weigh < 0.1g.
+    new_weights = np.maximum(weights + weight_change, 0.0001)
     new_energy_reserves = np.maximum(energy_reserves + weight_change, 0.0)
 
     return new_weights, new_energy_reserves
