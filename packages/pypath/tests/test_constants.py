@@ -1,4 +1,5 @@
 """Tests for pypath.core.constants module."""
+
 import pytest
 
 from pypath.core import constants
@@ -15,8 +16,12 @@ class TestBiologicalConstants:
         assert constants.DEFAULT_VULNERABILITY < constants.MAX_VULNERABILITY_SAFE
 
     def test_prey_switching_bounds(self):
-        assert constants.MIN_PREY_SWITCHING_POWER < constants.DEFAULT_PREY_SWITCHING_POWER
-        assert constants.DEFAULT_PREY_SWITCHING_POWER < constants.MAX_PREY_SWITCHING_POWER
+        assert (
+            constants.MIN_PREY_SWITCHING_POWER < constants.DEFAULT_PREY_SWITCHING_POWER
+        )
+        assert (
+            constants.DEFAULT_PREY_SWITCHING_POWER < constants.MAX_PREY_SWITCHING_POWER
+        )
 
 
 class TestNumericalThresholds:

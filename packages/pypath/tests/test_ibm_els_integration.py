@@ -124,14 +124,23 @@ def test_population_cap_consolidation():
 
 # ---- Yolk-sac to larva transition tests (Task 2.3) ----
 
+
 def test_yolk_sac_to_larva_transition():
     """Yolk-sac larva with depleted yolk + sufficient zoo transitions to life_stage=2."""
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     yolk_larva = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.01,  # below threshold of 0.02
+        id=0,
+        n_represented=1e4,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.01,  # below threshold of 0.02
     )
     ibm.individuals = [yolk_larva]
     ibm._next_id = 1
@@ -150,9 +159,18 @@ def test_yolk_sac_starvation_death():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     starving = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.01, starvation_days=5.0,
+        id=0,
+        n_represented=1e4,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.01,
+        starvation_days=5.0,
     )
     ibm.individuals = [starving]
     ibm._next_id = 1
@@ -168,9 +186,17 @@ def test_yolk_sac_still_on_yolk():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     well_fed = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.10,  # well above threshold of 0.02
+        id=0,
+        n_represented=1e4,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.10,  # well above threshold of 0.02
     )
     ibm.individuals = [well_fed]
     ibm._next_id = 1
@@ -188,9 +214,17 @@ def test_zoo_density_derived_from_prey_available():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     larva = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.01,  # below threshold
+        id=0,
+        n_represented=1e4,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.01,  # below threshold
     )
     ibm.individuals = [larva]
     ibm._next_id = 1
@@ -208,13 +242,20 @@ def test_juvenile_transition():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     larva = SuperIndividual(
-        id=0, n_represented=100.0, weight=5.0, length=2.5,  # above 2.0cm threshold
-        age=0.3, energy_reserve=0.5, patch_idx=0, is_mature=False, sex=0,
+        id=0,
+        n_represented=100.0,
+        weight=5.0,
+        length=2.5,  # above 2.0cm threshold
+        age=0.3,
+        energy_reserve=0.5,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
         life_stage=2,
     )
     ibm.individuals = [larva]
     ibm._next_id = 1
-    env = {'temperature': 15.0, 'month': 6, 'zoo_peak_day': 150, 'zoo_density': 80.0}
+    env = {"temperature": 15.0, "month": 6, "zoo_peak_day": 150, "zoo_density": 80.0}
     ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     assert ibm.individuals[0].life_stage == 3  # transitioned to juvenile
 
@@ -224,9 +265,9 @@ def test_full_lifecycle_multi_step():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     ibm.initialize_from_ecosim(biomass=1.0, params={}, n_super_individuals=20)
-    env = {'temperature': 12.0, 'month': 4, 'zoo_peak_day': 120, 'zoo_density': 100.0}
+    env = {"temperature": 12.0, "month": 4, "zoo_peak_day": 120, "zoo_density": 100.0}
     for step in range(6):
-        env['month'] = 4 + step
+        env["month"] = 4 + step
         ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     # After 6 months, should have individuals at various life stages
     stages = set(i.life_stage for i in ibm.individuals)
@@ -239,13 +280,20 @@ def test_senescent_removal():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     old_fish = SuperIndividual(
-        id=0, n_represented=100.0, weight=15.0, length=8.0,
-        age=10.5, energy_reserve=1.5, patch_idx=0, is_mature=True, sex=0,
+        id=0,
+        n_represented=100.0,
+        weight=15.0,
+        length=8.0,
+        age=10.5,
+        energy_reserve=1.5,
+        patch_idx=0,
+        is_mature=True,
+        sex=0,
         life_stage=4,
     )
     ibm.individuals = [old_fish]
     ibm._next_id = 1
-    env = {'temperature': 15.0, 'month': 6, 'zoo_peak_day': 150, 'zoo_density': 80.0}
+    env = {"temperature": 15.0, "month": 6, "zoo_peak_day": 150, "zoo_density": 80.0}
     ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     remaining = [i for i in ibm.individuals if i.age > params.max_age]
     assert len(remaining) == 0

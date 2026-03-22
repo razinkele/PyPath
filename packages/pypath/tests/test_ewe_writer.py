@@ -336,7 +336,6 @@ class TestCsvBundleWriter:
 
     def test_csv_catch_uses_discards(self, tmp_path):
         """Catch table should use 'Discards' (plural) per EwE 6.6+."""
-        from pypath.io._csv_bundle_writer import CsvBundleWriter
         from pypath.io._ewe_schema import EWE_TABLES
 
         cols = EWE_TABLES["EcopathCatch"]

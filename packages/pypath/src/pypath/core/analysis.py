@@ -296,9 +296,7 @@ def calculate_network_indices(rpath: Rpath) -> NetworkIndices:
     try:
         _te_array = _transfer_efficiency(rpath)
         transfer_efficiency = (
-            float(np.mean(_te_array[_te_array > 0]))
-            if np.any(_te_array > 0)
-            else 0.0
+            float(np.mean(_te_array[_te_array > 0])) if np.any(_te_array > 0) else 0.0
         )
     except (AttributeError, TypeError):
         transfer_efficiency = 0.0

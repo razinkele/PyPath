@@ -6,15 +6,12 @@ This script demonstrates the full round-trip workflow:
 3. Write the modified model back as a new EwE database
 """
 
-import sys
 from pathlib import Path
 
 import numpy as np
 
 # ── Step 1: Explore what's in the database ──────────────────────────
-db_path = str(
-    Path(__file__).parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb"
-)
+db_path = str(Path(__file__).parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb")
 print(f"Database: {Path(db_path).name}\n")
 
 from pypath.io.ewemdb import get_ewemdb_metadata
@@ -98,12 +95,14 @@ for i in range(1, min(8, cal_last_12.shape[1])):
     base_avg = np.mean(last_12[:, i])
     cal_avg = np.mean(cal_last_12[:, i])
     pct = ((cal_avg - base_avg) / base_avg * 100) if base_avg > 0 else 0
-    print(f"  {scen.params.spname[i]:30s} base={base_avg:.4f}  cal={cal_avg:.4f}  ({pct:+.1f}%)")
+    print(
+        f"  {scen.params.spname[i]:30s} base={base_avg:.4f}  cal={cal_avg:.4f}  ({pct:+.1f}%)"
+    )
 
 # ── Step 6: Write back as new EwE database ──────────────────────────
 print("\n--- Writing Calibrated Model ---")
-from pypath.io.ewemdb import read_ewemdb
 from pypath.io.ewe_writer import write_ewemdb
+from pypath.io.ewemdb import read_ewemdb
 
 # Re-read the original Ecopath params (for the model/diet structure)
 params = read_ewemdb(db_path)
@@ -154,6 +153,7 @@ with zipfile.ZipFile(out_csv) as zf:
     for t in tables:
         if "Ecosim" in t:
             import pandas as pd
+
             df = pd.read_csv(zf.open(f"{t}.csv"))
             print(f"    {t}: {len(df)} rows")
 

@@ -68,11 +68,17 @@ class TestSuperIndividual:
         )
         assert si.total_biomass_tonnes() == pytest.approx(0.0)
 
-
     def test_super_individual_life_stage_default(self):
         ind = SuperIndividual(
-            id=1, n_represented=100.0, weight=10.0, length=5.0,
-            age=1.0, energy_reserve=1.0, patch_idx=0, is_mature=False, sex=0,
+            id=1,
+            n_represented=100.0,
+            weight=10.0,
+            length=5.0,
+            age=1.0,
+            energy_reserve=1.0,
+            patch_idx=0,
+            is_mature=False,
+            sex=0,
         )
         assert ind.life_stage == 4  # default: adult
         assert ind.degree_days == 0.0
@@ -81,9 +87,18 @@ class TestSuperIndividual:
 
     def test_super_individual_egg(self):
         egg = SuperIndividual(
-            id=1, n_represented=1e6, weight=0.001, length=0.10,
-            age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-            life_stage=0, degree_days=0.0, yolk_energy_kj=0.0,
+            id=1,
+            n_represented=1e6,
+            weight=0.001,
+            length=0.10,
+            age=0.0,
+            energy_reserve=0.0,
+            patch_idx=0,
+            is_mature=False,
+            sex=0,
+            life_stage=0,
+            degree_days=0.0,
+            yolk_energy_kj=0.0,
         )
         assert egg.life_stage == 0
         assert egg.weight == 0.001

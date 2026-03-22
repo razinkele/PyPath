@@ -7,10 +7,9 @@ Guards against regressions where code assumes groups are in canonical
 import warnings
 
 import numpy as np
-import pytest
 
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_scenario, rsim_run
+from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
 
 
