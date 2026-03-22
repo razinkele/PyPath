@@ -124,14 +124,23 @@ def test_population_cap_consolidation():
 
 # ---- Yolk-sac to larva transition tests (Task 2.3) ----
 
+
 def test_yolk_sac_to_larva_transition():
     """Yolk-sac larva with depleted yolk + sufficient zoo transitions to life_stage=2."""
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     yolk_larva = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.01,  # below threshold of 0.02
+        id=0,
+        n_represented=1e4,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.01,  # below threshold of 0.02
     )
     ibm.individuals = [yolk_larva]
     ibm._next_id = 1
@@ -150,9 +159,18 @@ def test_yolk_sac_starvation_death():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     starving = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.01, starvation_days=5.0,
+        id=0,
+        n_represented=1e4,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.01,
+        starvation_days=5.0,
     )
     ibm.individuals = [starving]
     ibm._next_id = 1
@@ -168,9 +186,17 @@ def test_yolk_sac_still_on_yolk():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     well_fed = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.10,  # well above threshold of 0.02
+        id=0,
+        n_represented=1e4,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.10,  # well above threshold of 0.02
     )
     ibm.individuals = [well_fed]
     ibm._next_id = 1
@@ -188,9 +214,17 @@ def test_zoo_density_derived_from_prey_available():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     larva = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.01,  # below threshold
+        id=0,
+        n_represented=1e4,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.01,  # below threshold
     )
     ibm.individuals = [larva]
     ibm._next_id = 1

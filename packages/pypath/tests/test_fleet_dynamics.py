@@ -1,17 +1,16 @@
 """Tests for fleet_dynamics module: FleetEconParams, FleetDynamicsResult,
 create_fleet_econ_params, fleet_dynamics_step, apply_quota_caps."""
+
 import numpy as np
-import pytest
 
 from pypath.core.fleet_dynamics import (
+    _CAPACITY_FLOOR,
     FleetDynamicsResult,
     FleetEconParams,
-    _CAPACITY_FLOOR,
     apply_quota_caps,
     create_fleet_econ_params,
     fleet_dynamics_step,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared test fixtures
@@ -25,9 +24,9 @@ N_FLEETS = 1
 N_LINKS = 2
 N_GROUPS = 2
 
-FISH_THROUGH = np.array([0, 4, 4], dtype=float)   # length 3 (index 0 unused)
-FISH_FROM = np.array([0, 1, 2], dtype=float)        # length 3 (index 0 unused)
-FLEET_LOOKUP = {3: 1}                               # gear_0based=3 -> gear_idx=1
+FISH_THROUGH = np.array([0, 4, 4], dtype=float)  # length 3 (index 0 unused)
+FISH_FROM = np.array([0, 1, 2], dtype=float)  # length 3 (index 0 unused)
+FLEET_LOOKUP = {3: 1}  # gear_0based=3 -> gear_idx=1
 
 
 def _make_params(
@@ -63,6 +62,7 @@ def _make_cumulative():
 # ---------------------------------------------------------------------------
 # TestFleetEconParams
 # ---------------------------------------------------------------------------
+
 
 class TestFleetEconParams:
     def test_construction(self):
@@ -116,6 +116,7 @@ class TestFleetEconParams:
 # TestFleetDynamicsResult
 # ---------------------------------------------------------------------------
 
+
 class TestFleetDynamicsResult:
     def test_construction(self):
         """Create with zero arrays and verify shapes."""
@@ -146,6 +147,7 @@ class TestFleetDynamicsResult:
 # TestCreateFleetEconParams
 # ---------------------------------------------------------------------------
 
+
 class TestCreateFleetEconParams:
     def test_defaults(self):
         """Verify all zeros, eff_power=1, tac=None."""
@@ -175,6 +177,7 @@ class TestCreateFleetEconParams:
 # ---------------------------------------------------------------------------
 # TestFleetDynamicsStep
 # ---------------------------------------------------------------------------
+
 
 class TestFleetDynamicsStep:
     """Tests for fleet_dynamics_step()."""
@@ -215,7 +218,7 @@ class TestFleetDynamicsStep:
             variable_cost=0.0,
             sailing_cost=0.0,
             fixed_cost=0.0,
-            cap_depreciate=0.2,   # 20% annual depreciation
+            cap_depreciate=0.2,  # 20% annual depreciation
             cap_base_growth=1.0,
         )
         capacity = np.array([1.0])
@@ -332,6 +335,7 @@ class TestFleetDynamicsStep:
 # TestApplyQuotaCaps
 # ---------------------------------------------------------------------------
 
+
 class TestApplyQuotaCaps:
     """Tests for apply_quota_caps()."""
 
@@ -341,8 +345,8 @@ class TestApplyQuotaCaps:
 
     def test_below_tac_unchanged(self):
         """Cumulative catch below TAC → FishQ unchanged."""
-        tac = np.array([[100.0, 100.0]])   # (n_fleets=1, n_groups=2)
-        cumul = np.array([[10.0, 10.0]])   # well below TAC
+        tac = np.array([[100.0, 100.0]])  # (n_fleets=1, n_groups=2)
+        cumul = np.array([[10.0, 10.0]])  # well below TAC
         fish_q = self._make_fish_q()
 
         result = apply_quota_caps(
@@ -358,8 +362,8 @@ class TestApplyQuotaCaps:
 
     def test_at_tac_zeroed(self):
         """Cumulative catch >= TAC → FishQ zeroed for that link."""
-        tac = np.array([[5.0, 5.0]])     # (n_fleets=1, n_groups=2)
-        cumul = np.array([[5.0, 5.0]])   # exactly at TAC
+        tac = np.array([[5.0, 5.0]])  # (n_fleets=1, n_groups=2)
+        cumul = np.array([[5.0, 5.0]])  # exactly at TAC
         fish_q = self._make_fish_q()
 
         result = apply_quota_caps(
@@ -389,7 +393,7 @@ class TestApplyQuotaCaps:
             tac=tac,
             fish_through=FISH_THROUGH,
             fish_from=FISH_FROM,
-            fleet_lookup=empty_lookup,   # no mapping → gear_idx=0 → skip
+            fleet_lookup=empty_lookup,  # no mapping → gear_idx=0 → skip
         )
 
         # With empty fleet_lookup, no link gets zeroed

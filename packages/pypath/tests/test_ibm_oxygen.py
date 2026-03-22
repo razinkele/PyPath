@@ -1,12 +1,10 @@
 """Tests for Package 4: Oxygen physiology integration in SmeltIBM."""
 
 import numpy as np
-import pytest
 
 from pypath.ibm.base import SuperIndividual
 from pypath.ibm.bioenergetics import oxygen_scalar
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
-
 
 # ---- Task 4.1: Oxygen scalar integration into consumption ----
 
@@ -126,9 +124,17 @@ def test_egg_oxygen_mortality_uses_dissolved_oxygen_key():
 
     def make_egg():
         return SuperIndividual(
-            id=0, n_represented=1e6, weight=0.001, length=0.10,
-            age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-            life_stage=0, degree_days=50.0,
+            id=0,
+            n_represented=1e6,
+            weight=0.001,
+            length=0.10,
+            age=0.0,
+            energy_reserve=0.0,
+            patch_idx=0,
+            is_mature=False,
+            sex=0,
+            life_stage=0,
+            degree_days=50.0,
         )
 
     ibm_low.individuals = [make_egg()]
@@ -136,8 +142,20 @@ def test_egg_oxygen_mortality_uses_dissolved_oxygen_key():
     ibm_high.individuals = [make_egg()]
     ibm_high._next_id = 1
 
-    env_low = {"temperature": 5.0, "month": 3, "zoo_peak_day": 120, "zoo_density": 80.0, "dissolved_oxygen": 0.5}
-    env_high = {"temperature": 5.0, "month": 3, "zoo_peak_day": 120, "zoo_density": 80.0, "dissolved_oxygen": 10.0}
+    env_low = {
+        "temperature": 5.0,
+        "month": 3,
+        "zoo_peak_day": 120,
+        "zoo_density": 80.0,
+        "dissolved_oxygen": 0.5,
+    }
+    env_high = {
+        "temperature": 5.0,
+        "month": 3,
+        "zoo_peak_day": 120,
+        "zoo_density": 80.0,
+        "dissolved_oxygen": 10.0,
+    }
 
     ibm_low.compute_step(np.zeros(6), 0.0, env_low, dt=1 / 12)
     ibm_high.compute_step(np.zeros(6), 0.0, env_high, dt=1 / 12)
@@ -156,23 +174,43 @@ def test_yolk_sac_oxygen_stress_accelerates_depletion():
 
     def make_yolk_larva():
         return SuperIndividual(
-            id=0, n_represented=1e4, weight=0.001, length=0.10,
-            age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-            life_stage=1, yolk_energy_kj=0.10,
+            id=0,
+            n_represented=1e4,
+            weight=0.001,
+            length=0.10,
+            age=0.0,
+            energy_reserve=0.0,
+            patch_idx=0,
+            is_mature=False,
+            sex=0,
+            life_stage=1,
+            yolk_energy_kj=0.10,
         )
 
     # Normal oxygen
     ibm_norm = SmeltIBM(group_index=2, n_groups=6, params=params)
     ibm_norm.individuals = [make_yolk_larva()]
     ibm_norm._next_id = 1
-    env_norm = {"temperature": 10.0, "month": 4, "zoo_peak_day": 120, "zoo_density": 80.0, "dissolved_oxygen": 8.0}
+    env_norm = {
+        "temperature": 10.0,
+        "month": 4,
+        "zoo_peak_day": 120,
+        "zoo_density": 80.0,
+        "dissolved_oxygen": 8.0,
+    }
     ibm_norm.compute_step(np.zeros(6), 0.0, env_norm, dt=1 / 365)
 
     # Low oxygen (below pcrit_yolk_sac = 3.5)
     ibm_hyp = SmeltIBM(group_index=2, n_groups=6, params=params)
     ibm_hyp.individuals = [make_yolk_larva()]
     ibm_hyp._next_id = 1
-    env_hyp = {"temperature": 10.0, "month": 4, "zoo_peak_day": 120, "zoo_density": 80.0, "dissolved_oxygen": 1.0}
+    env_hyp = {
+        "temperature": 10.0,
+        "month": 4,
+        "zoo_peak_day": 120,
+        "zoo_density": 80.0,
+        "dissolved_oxygen": 1.0,
+    }
     ibm_hyp.compute_step(np.zeros(6), 0.0, env_hyp, dt=1 / 365)
 
     yolk_norm = [i for i in ibm_norm.individuals if i.life_stage == 1]
@@ -188,14 +226,28 @@ def test_yolk_sac_lethal_oxygen_mortality():
     params = SmeltParams.baltic_defaults_els()
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     larva = SuperIndividual(
-        id=0, n_represented=1e6, weight=0.001, length=0.10,
-        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
-        life_stage=1, yolk_energy_kj=0.10,
+        id=0,
+        n_represented=1e6,
+        weight=0.001,
+        length=0.10,
+        age=0.0,
+        energy_reserve=0.0,
+        patch_idx=0,
+        is_mature=False,
+        sex=0,
+        life_stage=1,
+        yolk_energy_kj=0.10,
     )
     ibm.individuals = [larva]
     ibm._next_id = 1
     # O2 below o2_lethal_yolk_sac (1.5 mg/L)
-    env = {"temperature": 10.0, "month": 4, "zoo_peak_day": 120, "zoo_density": 80.0, "dissolved_oxygen": 0.5}
+    env = {
+        "temperature": 10.0,
+        "month": 4,
+        "zoo_peak_day": 120,
+        "zoo_density": 80.0,
+        "dissolved_oxygen": 0.5,
+    }
     ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     yolk_larvae = [i for i in ibm.individuals if i.life_stage == 1]
     if yolk_larvae:

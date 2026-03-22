@@ -13,7 +13,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -51,8 +50,7 @@ def _find_access_driver() -> str:
             return driver
 
     raise RuntimeError(
-        "No Microsoft Access ODBC driver found. "
-        f"Available drivers: {available}"
+        f"No Microsoft Access ODBC driver found. Available drivers: {available}"
     )
 
 
@@ -215,7 +213,8 @@ class AccessWriter:
             if still_blocked:
                 logger.warning(
                     "Could not clear tables after %d passes: %s",
-                    max_passes, still_blocked,
+                    max_passes,
+                    still_blocked,
                 )
 
     @staticmethod
@@ -261,13 +260,10 @@ class AccessWriter:
 
                 cat = win32com.client.Dispatch("ADOX.Catalog")
                 cat.Create(
-                    f"Provider=Microsoft.ACE.OLEDB.12.0;"
-                    f"Data Source={self._tmp_path};"
+                    f"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={self._tmp_path};"
                 )
                 cat = None
-                conn_str = (
-                    f"DRIVER={{{self._driver}}};DBQ={self._tmp_path};"
-                )
+                conn_str = f"DRIVER={{{self._driver}}};DBQ={self._tmp_path};"
                 conn = pyodbc.connect(conn_str)
                 conn.autocommit = True
             except (ImportError, Exception) as e:
@@ -291,15 +287,11 @@ class AccessWriter:
                 for col_name, col_type in columns.items():
                     sql_type = sql_type_map.get(col_type, "TEXT(255)")
                     col_defs.append(f"[{col_name}] {sql_type}")
-                create_sql = (
-                    f"CREATE TABLE [{table_name}] ({', '.join(col_defs)})"
-                )
+                create_sql = f"CREATE TABLE [{table_name}] ({', '.join(col_defs)})"
                 try:
                     cursor.execute(create_sql)
                 except pyodbc.Error as e:
-                    logger.debug(
-                        "Table %s may already exist: %s", table_name, e
-                    )
+                    logger.debug("Table %s may already exist: %s", table_name, e)
         finally:
             conn.close()
 
@@ -496,7 +488,9 @@ class AccessWriter:
                 rename_map[col] = _ALIASES[col]
                 keep_cols.append(col)
                 claimed.add(_ALIASES[col])
-            elif col.lower() in access_lower and access_lower[col.lower()] not in claimed:
+            elif (
+                col.lower() in access_lower and access_lower[col.lower()] not in claimed
+            ):
                 # Case-insensitive match
                 target = access_lower[col.lower()]
                 rename_map[col] = target
@@ -505,7 +499,8 @@ class AccessWriter:
             else:
                 logger.debug(
                     "Dropping column %s.%s (not in Access table)",
-                    table_name, col,
+                    table_name,
+                    col,
                 )
 
         df = df[keep_cols]
@@ -553,7 +548,9 @@ class AccessWriter:
                                 f"ALTER TABLE [{table_name}] ADD COLUMN [{col}] {sql_type}"
                             )
                         except Exception as e:
-                            logger.debug("Could not add column %s.%s: %s", table_name, col, e)
+                            logger.debug(
+                                "Could not add column %s.%s: %s", table_name, col, e
+                            )
             return
         except Exception:
             pass  # Table doesn't exist, create it
@@ -695,12 +692,17 @@ class AccessWriter:
                 except Exception as e:
                     logger.debug(
                         "Could not update VV for pred=%d prey=%d: %s",
-                        pred_id, prey_id, e,
+                        pred_id,
+                        prey_id,
+                        e,
                     )
 
             logger.info(
                 "Updated %d/%d vulnerability values to %.2f for scenario %d",
-                updated, len(db_links), calibrated_vv, sid,
+                updated,
+                len(db_links),
+                calibrated_vv,
+                sid,
             )
 
     def write_ecospace(self, ecospace=None) -> None:
@@ -742,9 +744,7 @@ class AccessWriter:
         """Write value chain economics tables to the Access database."""
         if value_chain is None:
             return
-        self._build_tables_via_csv_writer(
-            "write_value_chain", value_chain=value_chain
-        )
+        self._build_tables_via_csv_writer("write_value_chain", value_chain=value_chain)
 
     def close(self) -> None:
         """Close the database connection and move temp file to final path."""
