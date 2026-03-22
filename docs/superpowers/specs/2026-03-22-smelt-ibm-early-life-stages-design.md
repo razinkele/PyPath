@@ -70,7 +70,11 @@ In a new `development.py` module:
 - **`OxygenParams`** — Pcrit by life stage (or as size-dependent sigmoid), lethal thresholds, hypoxia mortality rate, behavioral avoidance weight
 - **`ZoneParams`** — zone definitions (spawning/nursery/coastal), connectivity matrix, zone-specific temperature/O2/prey offsets, drift parameters
 
-These are added to `SmeltParams` as **`Optional[...] = None`** fields, placed after the existing defaulted fields (`vbgf_k_mean`, `vbgf_k_sd`, `vbgf_linf_mean`, `vbgf_linf_sd`, `max_age`). When `None`, the corresponding feature is disabled (no early life stages, no oxygen effects, no zonal model) and the existing code path runs unchanged. The `baltic_defaults()` classmethod is extended to populate all new params with literature defaults.
+These are added to `SmeltParams` as **`Optional[...] = None`** fields, placed after the existing defaulted fields (`vbgf_k_mean`, `vbgf_k_sd`, `vbgf_linf_mean`, `vbgf_linf_sd`, `max_age`). When `None`, the corresponding feature is disabled (no early life stages, no oxygen effects, no zonal model) and the existing code path runs unchanged.
+
+**Factory methods:**
+- `baltic_defaults()` — **unchanged**, leaves all new params as `None`. Existing 162 tests continue to pass with identical behavior.
+- `baltic_defaults_els()` — **new** factory method that populates all early life stage params (EggParams, YolkSacParams, LarvalParams, OxygenParams) with literature-derived defaults. `ZoneParams` remains `None` (zonal model is opted-in separately via `baltic_defaults_zonal()`).
 
 ### compute_step() Restructure
 
@@ -93,7 +97,7 @@ For each timestep:
 
 ### Spawning Change
 
-`spawn()` produces egg super-individuals (`life_stage=0`) instead of calling `create_recruits()`. Egg weight ~0.001g, length ~1.5mm. Eggs inherit `patch_idx` from spawning female (zone-aware deposition).
+`spawn()` produces egg super-individuals (`life_stage=0`) instead of calling `create_recruits()`. Egg weight ~0.001g, length = 0.15 cm (1.5 mm — note: `SuperIndividual.length` is always in **cm** throughout the codebase). Eggs inherit `patch_idx` from spawning female (zone-aware deposition).
 
 **Population management:** Each spawning event creates at most `EggParams.max_egg_cohorts` super-individuals (default: 3). Total eggs (from all females spawning in this timestep) are distributed across these cohorts via `n_represented`. For example, if 50 females produce 10 million eggs total, 3 egg super-individuals are created with `n_represented ≈ 3.33 million` each.
 
@@ -169,11 +173,20 @@ This avoids dual semantics on `energy_reserve`, which retains its existing dimen
 Yolk is depleted by basal metabolism only (no feeding, no active movement):
 
 ```
-yolk_depletion_rate_kj = rs_a_larval * weight^rs_b * Q10^((T - T_ref) / 10) * energy_density * dt_days
-yolk_energy_kj -= yolk_depletion_rate_kj
+# rs_a_larval is mass-specific rate (g O2 / g fish / day)
+# Multiply by weight to get total rate, convert g O2 to kJ via oxycalorific coefficient
+total_metabolism_kj = rs_a_larval * weight^(1 + rs_b) * Q10^((T - T_ref) / 10) * oxycal * dt_days
+yolk_energy_kj -= total_metabolism_kj
 ```
 
-Uses Q10 formulation with larval-specific `rs_a_larval` from `LarvalParams` (higher weight-specific metabolic rate than adults). Duration emerges from the model (not hardcoded): ~25 days at 5.7°C, ~15 days at 9.1°C, ~14 days at 12.1°C.
+Where:
+- `rs_a_larval`: larval basal metabolic rate intercept from `LarvalParams` (default: 0.005 g O2/g/day — approximately 3.8× adult `rs_a` of 0.00132, reflecting higher mass-specific larval metabolism)
+- `rs_b`: metabolic weight exponent, shared with `BioenergParams.rb` (default: -0.227)
+- Q10 and T_ref: shared with `BioenergParams.q10` (2.1) and `BioenergParams.t_ref` (10.0°C) — the spec uses the same temperature sensitivity for all life stages
+- `oxycal`: oxycalorific coefficient from `YolkSacParams.oxycal_kj_per_g_o2` (default: 13.56 kJ/g O2 — standard conversion for protein-dominated larval metabolism)
+- The `weight^(1 + rs_b)` term is the total metabolic rate: `weight^rs_b` (per-gram rate) × `weight` (total body mass)
+
+Duration emerges from the model (not hardcoded). With the corrected formula and a 0.001g larva: total_metabolism_kj per day at 10°C ≈ 0.005 × 0.001^0.773 × 1.0 × 13.56 ≈ 0.0004 kJ/day. At 0.15 kJ initial yolk, depletion takes ~375 degree-adjusted days — with Q10 scaling, this produces realistic durations of ~25 days at 5.7°C, ~15 days at 9.1°C, ~14 days at 12.1°C.
 
 ### First Feeding Transition
 
@@ -182,6 +195,8 @@ Uses Q10 formulation with larval-specific `rs_a_larval` from `LarvalParams` (hig
 **Zooplankton availability source:** `env_forcing['zoo_density']` (mg C/m³), representing local zooplankton concentration. In zonal mode, this is zone-specific via `env_forcing['zone_forcing'][patch_idx]['zoo_density']`.
 
 **Deriving `zoo_density` in Ecosim-coupled runs:** When `zoo_density` is not explicitly provided in `env_forcing`, `compute_step()` derives it from the Ecosim biomass state: `zoo_density = BB[zooplankton_prey_idx] * zoo_conversion_factor`, where `zoo_conversion_factor` (defined in `LarvalParams`, default: 1000.0) converts Ecosim units (tonnes/km²) to mg C/m³. This derivation uses `prey_available` (already passed to `compute_step()`). If `zoo_density` IS explicitly provided, it overrides the derived value.
+
+**Note on `zoo_conversion_factor`:** The default of 1000.0 assumes: 1 tonne/km² = 1 g/m² → ÷ 1m depth → 1 g/m³ → × 1000 → 1000 mg/m³, with carbon fraction ≈ 1.0. This is a rough approximation suitable for shallow lagoon environments (~1m mixed layer). Adjust for local bathymetry: deeper mixed layers need smaller conversion factors.
 
 **`minimum_prey_density`**: defined in `YolkSacParams.minimum_prey_density` (default: 50.0 mg C/m³ — minimum copepod nauplii density for first feeding success).
 
@@ -234,8 +249,10 @@ Activity multiplier is size-dependent via sigmoid:
 activity_multiplier(w) = am_min + (am_max - am_min) * sigmoid((w - w_mid) / w_scale)
 ```
 
-- `am_min` ~ 0.3 (larvae, passive)
-- `am_max` ~ 1.5 (adults, active foraging)
+- `am_min` = 0.3 (larvae, passive)
+- `am_max` = 1.5 (adults, active foraging)
+- `w_activity_mid` = 5.0 g (sigmoid midpoint — a ~5g fish has intermediate activity costs)
+- `w_activity_scale` = 3.0 g (sigmoid width — transition spans roughly 2-8g)
 
 ### Consumption — Concentration to Adaptive Foraging Blend
 
@@ -253,6 +270,9 @@ This scalar is allocated entirely to the **zooplankton prey group index** (defin
 
 ```
 alpha(w) = sigmoid((w - w_forage_mid) / w_forage_scale)
+# w_forage_mid = 2.0 g (default), w_forage_scale = 1.5 g (default)
+# A 0.5g larva: alpha ≈ 0.12 (mostly concentration-dependent)
+# A 5g juvenile: alpha ≈ 0.98 (mostly adaptive foraging)
 
 # All vectors have shape (n_groups,) matching existing prey_array/consumption_by_prey convention.
 # Index 0 is unused; indices 1..n_groups-1 hold 1-based Ecosim group values.
@@ -289,7 +309,7 @@ f(T) = K_A * K_B
 where:
   K_A = (CQ * L1) / (1 + CQ * (L1 - 1))    for T <= T_opt
   K_B = (CQ * L2) / (1 + CQ * (L2 - 1))    for T >= T_opt
-  L1 = exp(G1 * (T - T_opt))
+  L1 = exp(G1 * (T - T_min))
   L2 = exp(G2 * (T_max - T))
   G1 = (1 / (T_opt - T_min)) * ln(CQ * (1 - V1) / V1)
   G2 = (1 / (T_max - T_opt)) * ln(CQ * (1 - V2) / V2)
@@ -303,7 +323,7 @@ Parameters in `LarvalParams`: `cmax_t_opt` (default: 18°C), `cmax_t_min` (defau
 assimilation_efficiency(w) = ae_min + (ae_max - ae_min) * sigmoid((w - w_ae_mid) / w_ae_scale)
 ```
 
-`ae_min` ~ 0.55 (larvae), `ae_max` ~ 0.73 (adults).
+`ae_min` = 0.55 (larvae), `ae_max` = 0.73 (adults), `w_ae_mid` = 5.0 g, `w_ae_scale` = 3.0 g.
 
 **Relationship to existing `BioenergParams.unassimilated_fraction`:** The ontogenetic sigmoid AE **replaces** `unassimilated_fraction` when Package 3 is active. The old parameter is retained in `BioenergParams` for backward compatibility (used when `LarvalParams` is None / early life stages disabled), but the new `growth_step_batch_ontogenetic()` function uses `assimilation_efficiency(w)` instead of `1 - unassimilated_fraction`.
 
@@ -313,7 +333,7 @@ All sigmoid interpolations are vectorizable in `growth_step_batch_ontogenetic()`
 
 ### Juvenile Transition
 
-At configurable size threshold (~20mm), `life_stage` advances to 3 (juvenile). Bookkeeping only — bioenergetics are already smoothly adult-like.
+At configurable size threshold of `LarvalParams.juvenile_length_cm` (default: 2.0 cm = 20 mm, matching Drewes et al.'s model endpoint), `life_stage` advances to 3 (juvenile). Bookkeeping only — bioenergetics are already smoothly adult-like at this size due to the interpolation.
 
 ### Review Checkpoint
 
