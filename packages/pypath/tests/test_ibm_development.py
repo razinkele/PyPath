@@ -82,3 +82,45 @@ def test_egg_no_mortality_good_conditions():
         o2=8.0, o2_lethal=2.0, degree_days=50.0, dd_mortality=272.4,
     )
     assert n == 1e6
+
+
+def test_yolk_sac_params_defaults():
+    from pypath.ibm.development import YolkSacParams
+    p = YolkSacParams()
+    assert p.initial_yolk_kj == 0.15
+    assert p.first_feeding_threshold_kj == 0.02
+    assert p.minimum_prey_density == 50.0
+    assert p.point_of_no_return == 4.0
+    assert p.oxycal_kj_per_g_o2 == 13.56
+    assert p.background_mortality_rate == 0.02
+
+
+def test_larval_params_defaults():
+    from pypath.ibm.development import LarvalParams
+    p = LarvalParams()
+    assert p.rs_a_larval == 0.12
+    assert p.zooplankton_prey_idx == 1
+    assert p.k_half_zoo == 100.0
+    assert p.juvenile_length_cm == 2.0
+    assert p.w_forage_mid == 2.0
+    assert p.w_activity_mid == 5.0
+    assert p.ae_min == 0.55
+    assert p.ae_max == 0.73
+    assert p.cmax_CTO == 18.0
+    assert p.zoo_conversion_factor == 1000.0
+    assert p.background_mortality_rate == 0.01
+
+
+def test_oxygen_params_defaults():
+    from pypath.ibm.development import OxygenParams
+    p = OxygenParams()
+    assert p.pcrit_egg == 4.0
+    assert p.pcrit_adult == 2.0
+    assert p.hypoxia_mortality_rate == 0.5
+
+
+def test_zone_params_defaults():
+    from pypath.ibm.development import ZoneParams
+    p = ZoneParams()
+    assert p.connectivity.shape == (3, 3)
+    assert p.connectivity[0].sum() == pytest.approx(1.0)
