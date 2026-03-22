@@ -218,6 +218,22 @@ class SmeltParams:
         base.oxygen = OxygenParams()
         return base
 
+    @classmethod
+    def baltic_defaults_zonal(cls) -> "SmeltParams":
+        """Return Baltic smelt defaults with ELS and zonal model enabled.
+
+        Creates a ``baltic_defaults_els()`` parameter set and adds default
+        ``ZoneParams`` for the 3-zone Curonian Lagoon spatial model.
+
+        Returns
+        -------
+        SmeltParams
+            Fully populated parameter object with ELS + zones enabled.
+        """
+        base = cls.baltic_defaults_els()
+        base.zones = ZoneParams()
+        return base
+
 
 class SmeltIBM(IBMGroup):
     """Concrete IBM group implementation for Baltic smelt.
@@ -248,6 +264,8 @@ class SmeltIBM(IBMGroup):
         self._last_consumption: np.ndarray = np.zeros(n_groups)
         self._next_id: int = 0
         self._rng: np.random.Generator = np.random.default_rng(42)
+        self._o2_warning_issued: bool = False
+        self._temp_warning_issued: bool = False
 
     def initialize_from_ecosim(
         self,
@@ -546,10 +564,23 @@ class SmeltIBM(IBMGroup):
         """
         sp = self.params
         temperature = env_forcing.get("temperature", 10.0)
+        if "temperature" not in env_forcing and not self._temp_warning_issued:
+            logger.debug(
+                "SmeltIBM: 'temperature' missing from env_forcing, defaulting to 10.0"
+            )
+            self._temp_warning_issued = True
         month = env_forcing.get("month", 6)
         zoo_peak_day = env_forcing.get("zoo_peak_day", 120.0)
 
         biomass_before = self.get_aggregate_biomass()
+
+        # Pre-compute zone forcing cache to avoid redundant _resolve_forcing calls
+        _zone_cache: Dict[int, dict] = {}
+
+        def _get_zone_forcing(zone_idx: int) -> dict:
+            if zone_idx not in _zone_cache:
+                _zone_cache[zone_idx] = self._resolve_forcing(env_forcing, zone_idx)
+            return _zone_cache[zone_idx]
 
         # Convert prey_available ndarray to dict for adaptive_forage
         prey_dict: Dict[int, float] = {}
@@ -567,12 +598,23 @@ class SmeltIBM(IBMGroup):
             dt_days = dt * 365.0
             # Support both 'dissolved_oxygen' and legacy 'o2' keys
             o2 = env_forcing.get("dissolved_oxygen", env_forcing.get("o2", _DEFAULT_O2))
+            if (
+                "dissolved_oxygen" not in env_forcing
+                and "o2" not in env_forcing
+                and not self._o2_warning_issued
+            ):
+                logger.debug(
+                    "SmeltIBM: 'dissolved_oxygen'/'o2' missing from env_forcing, "
+                    "defaulting to %.1f (no limitation)",
+                    _DEFAULT_O2,
+                )
+                self._o2_warning_issued = True
             active_individuals: List[SuperIndividual] = []
 
             for ind in self.individuals:
                 if ind.life_stage == 0:
                     # Resolve zone-specific forcing for this individual
-                    ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
+                    ind_env = _get_zone_forcing(ind.patch_idx)
                     ind_temp = ind_env.get("temperature", temperature)
                     ind_o2 = ind_env.get(
                         "dissolved_oxygen", ind_env.get("o2", _DEFAULT_O2)
@@ -608,7 +650,7 @@ class SmeltIBM(IBMGroup):
                 elif ind.life_stage == 1 and sp.yolk_sac is not None:
                     # Phase 1b: Yolk-sac depletion + first feeding
                     # Resolve zone-specific forcing for this individual
-                    ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
+                    ind_env = _get_zone_forcing(ind.patch_idx)
                     ind_temp = ind_env.get("temperature", temperature)
                     ind_o2 = ind_env.get(
                         "dissolved_oxygen", ind_env.get("o2", _DEFAULT_O2)
@@ -634,6 +676,7 @@ class SmeltIBM(IBMGroup):
                     # Oxygen lethal mortality for yolk-sac larvae
                     if (
                         sp.oxygen is not None
+                        and sp.oxygen.o2_lethal_yolk_sac > 0.0
                         and ind_o2 < sp.oxygen.o2_lethal_yolk_sac
                     ):
                         o2_mort_rate = (
@@ -643,6 +686,7 @@ class SmeltIBM(IBMGroup):
                         )
                         ind.n_represented *= np.exp(-o2_mort_rate * dt_days)
                         if ind.n_represented < 1.0:
+                            ind.n_represented = 0.0
                             continue  # cohort dead
 
                     # Determine zoo_density from zone-resolved env or prey_available
@@ -716,7 +760,7 @@ class SmeltIBM(IBMGroup):
                 w = ind.weight
 
                 # Resolve zone-specific forcing for this individual
-                ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
+                ind_env = _get_zone_forcing(ind.patch_idx)
                 ind_temp = ind_env.get("temperature", temperature)
 
                 # Determine zoo_density for larval consumption (per-zone)
@@ -812,7 +856,7 @@ class SmeltIBM(IBMGroup):
 
             # Per-individual temperature from zone-specific forcing
             temps = np.array([
-                self._resolve_forcing(env_forcing, ind.patch_idx).get('temperature', temperature)
+                _get_zone_forcing(ind.patch_idx).get('temperature', temperature)
                 for ind in feeding
             ])
 
@@ -865,11 +909,11 @@ class SmeltIBM(IBMGroup):
             dt_days_mort = dt * 365.0
             for ind in feeding:
                 if ind.life_stage == 2:
-                    ind_env_o2 = self._resolve_forcing(env_forcing, ind.patch_idx)
+                    ind_env_o2 = _get_zone_forcing(ind.patch_idx)
                     o2_val = ind_env_o2.get(
                         "dissolved_oxygen", ind_env_o2.get("o2", _DEFAULT_O2)
                     )
-                    if o2_val < sp.oxygen.o2_lethal_larva:
+                    if sp.oxygen.o2_lethal_larva > 0.0 and o2_val < sp.oxygen.o2_lethal_larva:
                         lp_bg = sp.larval.background_mortality_rate if sp.larval else 0.01
                         o2_mort = (
                             lp_bg
@@ -902,7 +946,7 @@ class SmeltIBM(IBMGroup):
                 if zone_eggs > 0:
                     n_cohorts = min(
                         sp.egg.max_egg_cohorts,
-                        max(1, int(zone_eggs / 1e6)),
+                        max(1, int(zone_eggs / sp.egg.eggs_per_cohort)),
                     )
                     per_cohort = zone_eggs / n_cohorts
                     for _i in range(n_cohorts):
@@ -1022,7 +1066,7 @@ class SmeltIBM(IBMGroup):
 
                 # Spawning migration: mature adults migrate to river
                 if ind.life_stage == 4 and ind.is_mature:
-                    ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
+                    ind_env = _get_zone_forcing(ind.patch_idx)
                     ind_temp = ind_env.get("temperature", temperature)
                     if should_migrate(ind_temp, month, sp.movement):
                         ind.patch_idx = 0  # migrate to spawning zone
@@ -1044,7 +1088,30 @@ class SmeltIBM(IBMGroup):
 
                 # Active movement for juveniles and non-migrating adults
                 if ind.life_stage >= 3:
-                    probs = conn[ind.patch_idx]
+                    probs = conn[ind.patch_idx].copy().astype(float)
+                    # O2 behavioral avoidance: weight connectivity by oxygen quality
+                    if sp.oxygen is not None:
+                        pcrit = (
+                            sp.oxygen.pcrit_juvenile
+                            if ind.life_stage == 3
+                            else sp.oxygen.pcrit_adult
+                        )
+                        for z in range(n_zones):
+                            z_env = _get_zone_forcing(z)
+                            z_o2 = z_env.get(
+                                "dissolved_oxygen", z_env.get("o2", _DEFAULT_O2)
+                            )
+                            probs[z] *= (
+                                oxygen_scalar(z_o2, pcrit)
+                                * sp.oxygen.oxygen_avoidance_weight
+                                + (1.0 - sp.oxygen.oxygen_avoidance_weight)
+                            )
+                        # Renormalize
+                        p_sum = probs.sum()
+                        if p_sum > 0:
+                            probs /= p_sum
+                        else:
+                            probs = conn[ind.patch_idx].copy().astype(float)
                     new_zone = int(self._rng.choice(n_zones, p=probs))
                     allowed = _ALLOWED_ZONES.get(ind.life_stage, {0, 1, 2})
                     if new_zone in allowed:

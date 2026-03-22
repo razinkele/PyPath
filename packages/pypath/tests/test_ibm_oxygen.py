@@ -114,8 +114,12 @@ def test_egg_oxygen_mortality_integration():
     }
     ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     surviving_eggs = [i for i in ibm.individuals if i.life_stage == 0]
+    # Under severe hypoxia (O2=1.0), eggs may be fully eliminated or reduced
     if surviving_eggs:
-        assert surviving_eggs[0].n_represented < 1e6  # some died from hypoxia
+        assert surviving_eggs[0].n_represented < 1e6, "Expected mortality from hypoxia"
+    # Either way, the cohort was decimated — original 1e6 is not intact
+    total_egg_n = sum(e.n_represented for e in surviving_eggs)
+    assert total_egg_n < 1e6, "Expected egg mortality under hypoxia"
 
 
 def test_egg_oxygen_mortality_uses_dissolved_oxygen_key():
@@ -178,9 +182,10 @@ def test_yolk_sac_oxygen_stress_accelerates_depletion():
     yolk_norm = [i for i in ibm_norm.individuals if i.life_stage == 1]
     yolk_hyp = [i for i in ibm_hyp.individuals if i.life_stage == 1]
 
-    if yolk_norm and yolk_hyp:
-        # Hypoxic larvae should have less yolk remaining
-        assert yolk_hyp[0].yolk_energy_kj < yolk_norm[0].yolk_energy_kj
+    assert len(yolk_norm) > 0, "Expected normal yolk-sac larvae to survive"
+    assert len(yolk_hyp) > 0, "Expected hypoxic yolk-sac larvae to survive"
+    # Hypoxic larvae should have less yolk remaining
+    assert yolk_hyp[0].yolk_energy_kj < yolk_norm[0].yolk_energy_kj
 
 
 def test_yolk_sac_lethal_oxygen_mortality():
@@ -198,8 +203,12 @@ def test_yolk_sac_lethal_oxygen_mortality():
     env = {"temperature": 10.0, "month": 4, "zoo_peak_day": 120, "zoo_density": 80.0, "dissolved_oxygen": 0.5}
     ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     yolk_larvae = [i for i in ibm.individuals if i.life_stage == 1]
+    # Under severe hypoxia (O2=0.5 << lethal 1.5), cohort may be fully eliminated
     if yolk_larvae:
-        assert yolk_larvae[0].n_represented < 1e6
+        assert yolk_larvae[0].n_represented < 1e6, "Expected mortality from hypoxia"
+    # Either way, the original 1e6 should be reduced
+    total_n = sum(l.n_represented for l in yolk_larvae)
+    assert total_n < 1e6, "Expected yolk-sac mortality under lethal O2"
 
 
 # ---- Task 4.3: Oxygen avoidance score (unit tests) ----

@@ -24,6 +24,12 @@ class EggParams:
     max_egg_cohorts: int = 3
     background_mortality_rate: float = 0.05
     o2_lethal: float = 2.0
+    eggs_per_cohort: float = 1e6
+
+    def __post_init__(self):
+        assert self.dd_hatch < self.dd_mortality, (
+            f"dd_hatch ({self.dd_hatch}) must be < dd_mortality ({self.dd_mortality})"
+        )
 
 
 @dataclass
@@ -36,6 +42,12 @@ class YolkSacParams:
     point_of_no_return: float = 4.0
     oxycal_kj_per_g_o2: float = 13.56
     background_mortality_rate: float = 0.02
+
+    def __post_init__(self):
+        assert self.initial_yolk_kj > self.first_feeding_threshold_kj, (
+            f"initial_yolk_kj ({self.initial_yolk_kj}) must be > "
+            f"first_feeding_threshold_kj ({self.first_feeding_threshold_kj})"
+        )
 
 
 @dataclass
@@ -69,6 +81,14 @@ class LarvalParams:
     a_length_larval: float = 5.0
     b_length_larval: float = 0.35
     background_mortality_rate: float = 0.01
+
+    def __post_init__(self):
+        assert self.cmax_CQ < self.cmax_CTO < self.cmax_CTM < self.cmax_CTL, (
+            f"Temperature parameters must satisfy CQ < CTO < CTM < CTL, got "
+            f"CQ={self.cmax_CQ}, CTO={self.cmax_CTO}, CTM={self.cmax_CTM}, CTL={self.cmax_CTL}"
+        )
+        # NOTE: cmax_CTO=18°C may be 2-3°C too warm for Baltic smelt;
+        # consider 15-16°C for Curonian Lagoon
 
 
 @dataclass
@@ -205,7 +225,7 @@ def apply_egg_mortality(
     if check_thermal_mortality(degree_days, dd_mortality):
         return 0.0
     total_rate = background_rate
-    if o2 < o2_lethal:
+    if o2_lethal > 0.0 and o2 < o2_lethal:
         total_rate += hypoxia_mortality_rate * (1.0 - o2 / o2_lethal)
     if total_rate <= 0.0:
         return n_represented

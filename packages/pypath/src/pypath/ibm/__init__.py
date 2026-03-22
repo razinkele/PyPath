@@ -43,7 +43,7 @@ Example
 5e-05
 """
 
-from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext, SuperIndividual
+from pypath.ibm.base import IBMGroup, IBMStepResult, LifeStage, SpatialContext, SuperIndividual
 from pypath.ibm.behavior import ForagingParams, MovementParams
 from pypath.ibm.bioenergetics import BioenergParams
 from pypath.ibm.development import (
@@ -61,6 +61,7 @@ __all__ = [
     "SuperIndividual",
     "IBMStepResult",
     "IBMGroup",
+    "LifeStage",
     "SpatialContext",
     "BioenergParams",
     "ForagingParams",

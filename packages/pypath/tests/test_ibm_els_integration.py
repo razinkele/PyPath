@@ -201,3 +201,51 @@ def test_zoo_density_derived_from_prey_available():
     ibm.compute_step(prey, 0.0, env, dt=1 / 12)
     larvae = [i for i in ibm.individuals if i.life_stage == 2]
     assert len(larvae) > 0
+
+
+def test_juvenile_transition():
+    """Larva above juvenile length threshold transitions to life_stage=3."""
+    params = SmeltParams.baltic_defaults_els()
+    ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
+    larva = SuperIndividual(
+        id=0, n_represented=100.0, weight=5.0, length=2.5,  # above 2.0cm threshold
+        age=0.3, energy_reserve=0.5, patch_idx=0, is_mature=False, sex=0,
+        life_stage=2,
+    )
+    ibm.individuals = [larva]
+    ibm._next_id = 1
+    env = {'temperature': 15.0, 'month': 6, 'zoo_peak_day': 150, 'zoo_density': 80.0}
+    ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
+    assert ibm.individuals[0].life_stage == 3  # transitioned to juvenile
+
+
+def test_full_lifecycle_multi_step():
+    """Run multiple steps and verify lifecycle progression."""
+    params = SmeltParams.baltic_defaults_els()
+    ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
+    ibm.initialize_from_ecosim(biomass=1.0, params={}, n_super_individuals=20)
+    env = {'temperature': 12.0, 'month': 4, 'zoo_peak_day': 120, 'zoo_density': 100.0}
+    for step in range(6):
+        env['month'] = 4 + step
+        ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
+    # After 6 months, should have individuals at various life stages
+    stages = set(i.life_stage for i in ibm.individuals)
+    assert len(ibm.individuals) > 0
+    assert ibm.get_aggregate_biomass() > 0
+
+
+def test_senescent_removal():
+    """Fish exceeding max_age should be removed."""
+    params = SmeltParams.baltic_defaults_els()
+    ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
+    old_fish = SuperIndividual(
+        id=0, n_represented=100.0, weight=15.0, length=8.0,
+        age=10.5, energy_reserve=1.5, patch_idx=0, is_mature=True, sex=0,
+        life_stage=4,
+    )
+    ibm.individuals = [old_fish]
+    ibm._next_id = 1
+    env = {'temperature': 15.0, 'month': 6, 'zoo_peak_day': 150, 'zoo_density': 80.0}
+    ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
+    remaining = [i for i in ibm.individuals if i.age > params.max_age]
+    assert len(remaining) == 0

@@ -37,8 +37,12 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from pypath.ibm.development import LarvalParams
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +95,11 @@ class BioenergParams:
     b_length: float
     energy_density: float = 5.0
     reproduction_fraction: float = 0.3
+
+    def __post_init__(self):
+        assert self.energy_density > 0, (
+            f"energy_density must be > 0, got {self.energy_density}"
+        )
 
 
 def q10_temperature_factor(temp: float, t_ref: float, q10: float) -> float:
@@ -268,13 +277,8 @@ def growth_step(
     # Update weight and energy reserve
     new_weight = weight + weight_change
 
-    # Handle energy reserve: surplus increases reserve, deficit drains it
-    if net_energy >= 0.0:
-        # Surplus: store a fraction in energy reserve
-        new_energy_reserve = energy_reserve + net_energy / params.energy_density
-    else:
-        # Deficit: drain energy reserve first
-        new_energy_reserve = energy_reserve + net_energy / params.energy_density
+    # Update energy reserve: surplus increases it, deficit drains it
+    new_energy_reserve = energy_reserve + net_energy / params.energy_density
 
     # Enforce minimum weight
     new_weight = max(new_weight, 0.1)
@@ -373,15 +377,28 @@ def thornton_lessem(
     float
         Temperature scaling factor in [0, ~0.98], dome-shaped.
     """
+    # Parameter validation
+    if not (0 < CK1 < 1):
+        raise ValueError(f"CK1 must be in (0, 1), got {CK1}")
+    if not (0 < CK4 < 1):
+        raise ValueError(f"CK4 must be in (0, 1), got {CK4}")
+    if CTO <= CQ:
+        raise ValueError(f"CTO must be > CQ, got CTO={CTO}, CQ={CQ}")
+    if CTL <= CTM:
+        raise ValueError(f"CTL must be > CTM, got CTL={CTL}, CTM={CTM}")
+
     if temp < CQ or temp > CTL:
         return 0.0
     G1 = (1.0 / (CTO - CQ)) * math.log(0.98 * (1.0 - CK1) / (CK1 * 0.02))
     G2 = (1.0 / (CTL - CTM)) * math.log(0.98 * (1.0 - CK4) / (CK4 * 0.02))
-    L1 = math.exp(G1 * (temp - CQ))
-    L2 = math.exp(G2 * (CTL - temp))
+    L1 = math.exp(min(G1 * (temp - CQ), 700))
+    L2 = math.exp(min(G2 * (CTL - temp), 700))
     K_A = (CK1 * L1) / (1.0 + CK1 * (L1 - 1.0))
     K_B = (CK4 * L2) / (1.0 + CK4 * (L2 - 1.0))
-    return max(0.0, K_A * K_B)
+    result = K_A * K_B
+    if not math.isfinite(result):
+        return 0.0
+    return max(0.0, result)
 
 
 def oxygen_scalar(o2: float, pcrit: float) -> float:
@@ -453,6 +470,7 @@ def growth_step_batch_ontogenetic(
 
     # --- Sigmoid helper (vectorized) ---
     def _sigmoid(x: np.ndarray) -> np.ndarray:
+        x = np.clip(x, -30, 30)
         return 1.0 / (1.0 + np.exp(-x))
 
     # --- Activity multiplier: size-dependent ---

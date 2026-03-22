@@ -168,6 +168,9 @@ def partial_rank_correlation(
         if np.std(resid_j) > 0 and np.std(resid_y) > 0:
             prcc[j] = np.corrcoef(resid_j, resid_y)[0, 1]
         else:
+            logger.warning(
+                "Zero-variance residuals for parameter %d — PRCC set to 0.0", j
+            )
             prcc[j] = 0.0
 
     return prcc

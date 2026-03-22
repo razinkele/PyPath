@@ -21,11 +21,22 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+class LifeStage(IntEnum):
+    """Life stage codes used by IBM super-individuals."""
+
+    EGG = 0
+    YOLK_SAC = 1
+    LARVA = 2
+    JUVENILE = 3
+    ADULT = 4
 
 
 @dataclass
@@ -49,7 +60,7 @@ class SuperIndividual:
     age : float
         Age (years).
     energy_reserve : float
-        Dimensionless energy reserve index (0-1 typical range).
+        Energy reserve (grams-equivalent, initialized as weight * 0.1).
     patch_idx : int
         Spatial patch index where this super-individual currently resides.
     is_mature : bool
