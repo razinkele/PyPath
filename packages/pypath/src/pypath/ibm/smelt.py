@@ -464,6 +464,34 @@ class SmeltIBM(IBMGroup):
         for grp in groups.values():
             self.individuals.extend(grp)
 
+    def _resolve_forcing(self, env_forcing: dict, patch_idx: int) -> dict:
+        """Resolve environment for a specific zone/patch.
+
+        When ``env_forcing`` contains a ``'zone_forcing'`` dict keyed by
+        zone index, the zone-specific values override the global defaults.
+        If no zone override exists for the given *patch_idx*, the original
+        ``env_forcing`` is returned unchanged.
+
+        Parameters
+        ----------
+        env_forcing : dict
+            Global environmental forcing dict, optionally containing a
+            ``'zone_forcing'`` key mapping zone indices to override dicts.
+        patch_idx : int
+            Zone or patch index to resolve for.
+
+        Returns
+        -------
+        dict
+            Resolved forcing dict with zone-specific overrides applied.
+        """
+        zone_forcing = env_forcing.get("zone_forcing")
+        if zone_forcing and patch_idx in zone_forcing:
+            resolved = dict(env_forcing)  # shallow copy
+            resolved.update(zone_forcing[patch_idx])
+            return resolved
+        return env_forcing
+
     def compute_step(
         self,
         prey_available: np.ndarray,
@@ -538,9 +566,15 @@ class SmeltIBM(IBMGroup):
 
             for ind in self.individuals:
                 if ind.life_stage == 0:
+                    # Resolve zone-specific forcing for this individual
+                    ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
+                    ind_temp = ind_env.get("temperature", temperature)
+                    ind_o2 = ind_env.get(
+                        "dissolved_oxygen", ind_env.get("o2", 10.0)
+                    )
                     # Accumulate degree-days
                     ind.degree_days = accumulate_degree_days(
-                        ind.degree_days, temperature, sp.egg.t_zero, dt_days
+                        ind.degree_days, ind_temp, sp.egg.t_zero, dt_days
                     )
                     # Apply egg mortality
                     hypoxia_rate = (
@@ -552,7 +586,7 @@ class SmeltIBM(IBMGroup):
                         n_represented=ind.n_represented,
                         background_rate=sp.egg.background_mortality_rate,
                         dt_days=dt_days,
-                        o2=o2,
+                        o2=ind_o2,
                         o2_lethal=sp.egg.o2_lethal,
                         degree_days=ind.degree_days,
                         dd_mortality=sp.egg.dd_mortality,
@@ -568,9 +602,15 @@ class SmeltIBM(IBMGroup):
                     active_individuals.append(ind)
                 elif ind.life_stage == 1 and sp.yolk_sac is not None:
                     # Phase 1b: Yolk-sac depletion + first feeding
+                    # Resolve zone-specific forcing for this individual
+                    ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
+                    ind_temp = ind_env.get("temperature", temperature)
+                    ind_o2 = ind_env.get(
+                        "dissolved_oxygen", ind_env.get("o2", 10.0)
+                    )
                     yolk_rate = compute_yolk_depletion(
                         weight=ind.weight,
-                        temperature=temperature,
+                        temperature=ind_temp,
                         rs_a_larval=sp.larval.rs_a_larval if sp.larval else 0.12,
                         rs_b=sp.bioenerg.rb,
                         q10=sp.bioenerg.q10,
@@ -579,26 +619,29 @@ class SmeltIBM(IBMGroup):
                         dt_days=dt_days,
                     )
                     # Oxygen stress: accelerate yolk depletion under hypoxia
-                    if sp.oxygen is not None and o2 < sp.oxygen.pcrit_yolk_sac:
+                    if sp.oxygen is not None and ind_o2 < sp.oxygen.pcrit_yolk_sac:
                         stress_factor = 1.0 + 0.5 * (
-                            1.0 - o2 / sp.oxygen.pcrit_yolk_sac
+                            1.0 - ind_o2 / sp.oxygen.pcrit_yolk_sac
                         )
                         yolk_rate *= stress_factor
                     ind.yolk_energy_kj = max(0.0, ind.yolk_energy_kj - yolk_rate)
 
                     # Oxygen lethal mortality for yolk-sac larvae
-                    if sp.oxygen is not None and o2 < sp.oxygen.o2_lethal_yolk_sac:
+                    if (
+                        sp.oxygen is not None
+                        and ind_o2 < sp.oxygen.o2_lethal_yolk_sac
+                    ):
                         o2_mort_rate = (
                             sp.yolk_sac.background_mortality_rate
                             + sp.oxygen.hypoxia_mortality_rate
-                            * (1.0 - o2 / sp.oxygen.o2_lethal_yolk_sac)
+                            * (1.0 - ind_o2 / sp.oxygen.o2_lethal_yolk_sac)
                         )
                         ind.n_represented *= np.exp(-o2_mort_rate * dt_days)
                         if ind.n_represented < 1.0:
                             continue  # cohort dead
 
-                    # Determine zoo_density from env or prey_available
-                    zoo_density = env_forcing.get("zoo_density", None)
+                    # Determine zoo_density from zone-resolved env or prey_available
+                    zoo_density = ind_env.get("zoo_density", None)
                     if zoo_density is None and sp.larval is not None:
                         pidx = sp.larval.zooplankton_prey_idx
                         if pidx < len(prey_available):
@@ -659,32 +702,35 @@ class SmeltIBM(IBMGroup):
         if n_ind > 0:
             weights = np.array([ind.weight for ind in feeding])
 
-            # Determine zoo_density for larval consumption
-            zoo_density = env_forcing.get("zoo_density", None)
-            if zoo_density is None and sp.larval is not None:
-                pidx = sp.larval.zooplankton_prey_idx
-                if pidx < len(prey_available):
-                    zoo_density = (
-                        prey_available[pidx] * sp.larval.zoo_conversion_factor
-                    )
-                else:
-                    zoo_density = 0.0
-            elif zoo_density is None:
-                zoo_density = 0.0
-
             # Sigmoid helper for blending
             def _sigmoid(x):
                 return 1.0 / (1.0 + np.exp(-np.clip(x, -30, 30)))
 
-            # Oxygen limitation on consumption (Cmax multiplier)
-            # When dissolved_oxygen is absent, default to 99.0 (no limitation)
-            o2_feeding = env_forcing.get(
-                "dissolved_oxygen", env_forcing.get("o2", 99.0)
-            )
-
             # Foraging loop with consumption blending
             for i, ind in enumerate(feeding):
                 w = ind.weight
+
+                # Resolve zone-specific forcing for this individual
+                ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
+                ind_temp = ind_env.get("temperature", temperature)
+
+                # Determine zoo_density for larval consumption (per-zone)
+                zoo_density = ind_env.get("zoo_density", None)
+                if zoo_density is None and sp.larval is not None:
+                    pidx = sp.larval.zooplankton_prey_idx
+                    if pidx < len(prey_available):
+                        zoo_density = (
+                            prey_available[pidx] * sp.larval.zoo_conversion_factor
+                        )
+                    else:
+                        zoo_density = 0.0
+                elif zoo_density is None:
+                    zoo_density = 0.0
+
+                # Oxygen limitation on consumption (per-zone)
+                o2_feeding = ind_env.get(
+                    "dissolved_oxygen", ind_env.get("o2", 99.0)
+                )
 
                 # Compute per-individual oxygen scalar based on life stage
                 o2_scale = 1.0
@@ -711,7 +757,7 @@ class SmeltIBM(IBMGroup):
                 if alpha < 0.99 and sp.larval is not None:
                     lp = sp.larval
                     f_temp = thornton_lessem(
-                        temperature,
+                        ind_temp,
                         CQ=lp.cmax_CQ,
                         CTO=lp.cmax_CTO,
                         CTM=lp.cmax_CTM,
@@ -801,18 +847,19 @@ class SmeltIBM(IBMGroup):
 
         # Apply oxygen-dependent lethal mortality to feeding larvae
         if sp.oxygen is not None and n_ind > 0:
-            o2_feeding = env_forcing.get(
-                "dissolved_oxygen", env_forcing.get("o2", 99.0)
-            )
-            if o2_feeding < sp.oxygen.o2_lethal_larva:
-                dt_days_mort = dt * 365.0
-                for ind in feeding:
-                    if ind.life_stage == 2:
+            dt_days_mort = dt * 365.0
+            for ind in feeding:
+                if ind.life_stage == 2:
+                    ind_env_o2 = self._resolve_forcing(env_forcing, ind.patch_idx)
+                    o2_val = ind_env_o2.get(
+                        "dissolved_oxygen", ind_env_o2.get("o2", 99.0)
+                    )
+                    if o2_val < sp.oxygen.o2_lethal_larva:
                         lp_bg = sp.larval.background_mortality_rate if sp.larval else 0.01
                         o2_mort = (
                             lp_bg
                             + sp.oxygen.hypoxia_mortality_rate
-                            * (1.0 - o2_feeding / sp.oxygen.o2_lethal_larva)
+                            * (1.0 - o2_val / sp.oxygen.o2_lethal_larva)
                         )
                         ind.n_represented *= np.exp(-o2_mort * dt_days_mort)
 
