@@ -27,21 +27,29 @@ This design bridges the two, creating a complete lifecycle IBM for Baltic smelt 
 5. **Zonal spatial model** — 3 functional zones (river spawning, lagoon nursery, coastal feeding) designed from the start, with ontogenetic habitat shifts.
 6. **Validation data** — catch monitoring/CPUE for adults, recruitment indices for early life stages.
 
+## Conventions
+
+- **`dt`** is in **years** (fraction of a year, typically 1/12 for monthly timesteps), matching the existing Ecosim convention.
+- **`dt_days = dt * 365.0`** is the conversion used throughout (matching `bioenergetics.py` line 253). All daily-rate formulas use `dt_days`.
+- **Ecosim arrays are 1-based**: index 0 is "Outside", groups occupy indices 1 through `n_groups`. All consumption vectors in this spec have shape `(n_groups + 1,)` to match this convention. `zooplankton_prey_idx` and all prey indices are 1-based Ecosim indices.
+- **`n_groups`** refers to the total number of Ecosim groups (living + dead), consistent with `RsimParams.NUM_GROUPS`.
+
 ---
 
 ## Architecture Foundation
 
 ### SuperIndividual Extensions
 
-Three new fields appended **after all existing non-default fields** in the `SuperIndividual` dataclass (required by Python dataclass field ordering — new default-valued fields must follow existing non-default fields):
+Four new fields appended **after all existing non-default fields** in the `SuperIndividual` dataclass (required by Python dataclass field ordering — new default-valued fields must follow existing non-default fields):
 
 ```python
-life_stage: int = 4         # 0=egg, 1=yolk_sac, 2=larva, 3=juvenile, 4=adult
-degree_days: float = 0.0    # accumulated thermal development (°C·day)
-starvation_days: float = 0.0  # consecutive days without sufficient feeding
+life_stage: int = 4          # 0=egg, 1=yolk_sac, 2=larva, 3=juvenile, 4=adult
+degree_days: float = 0.0     # accumulated thermal development (°C·day), egg stage only
+starvation_days: float = 0.0 # consecutive days without sufficient feeding
+yolk_energy_kj: float = 0.0  # yolk energy in kJ (only meaningful for life_stage 0-1)
 ```
 
-All existing code continues unchanged — current individuals default to `life_stage=4` (adult). Existing code already uses keyword arguments for `SuperIndividual` construction (verified in `reproduction.py`), so adding default-valued fields at the end is safe.
+All existing code continues unchanged — current individuals default to `life_stage=4` (adult). Existing code uses keyword arguments for `SuperIndividual` construction (verified in `reproduction.py` and `smelt.py`). `smelt.py:initialize_from_ecosim()` (line 282) also uses keyword construction. **Pre-implementation check:** verify no test constructs `SuperIndividual` via positional `*args` unpacking from a 9-element list — such code would silently lose the new fields.
 
 ### New Parameter Dataclasses
 
@@ -78,6 +86,12 @@ For each timestep:
 
 `spawn()` produces egg super-individuals (`life_stage=0`) instead of calling `create_recruits()`. Egg weight ~0.001g, length ~1.5mm. Eggs inherit `patch_idx` from spawning female (zone-aware deposition).
 
+**Population management:** Each spawning event creates at most `EggParams.max_egg_cohorts` super-individuals (default: 3). Total eggs (from all females spawning in this timestep) are distributed across these cohorts via `n_represented`. For example, if 50 females produce 10 million eggs total, 3 egg super-individuals are created with `n_represented ≈ 3.33 million` each.
+
+**Population cap:** `self.individuals` is capped at `SmeltParams.max_super_individuals` (default: 2000). When the cap is reached, same-stage, same-zone cohorts are consolidated: the two smallest cohorts (by `n_represented`) are merged into one, summing `n_represented` and averaging `weight`, `age`, `degree_days`. This keeps the list bounded while preserving total biomass.
+
+**Performance guarantee:** Eggs (life_stage=0) and yolk-sac larvae (life_stage=1) skip Phase 1 foraging entirely — they are excluded from the `adaptive_forage()` loop and `growth_step_batch()` call. Only their degree-day/yolk depletion is computed (O(1) per cohort).
+
 ### Degree-Day Accumulation
 
 Each timestep:
@@ -93,7 +107,7 @@ if temperature > T₀:
 
 ### Hatching
 
-When `degree_days >= DD_hatch`, egg transitions to `life_stage=1` (yolk-sac). Degree-days reset to 0 for the new stage.
+When `degree_days >= DD_hatch`, egg transitions to `life_stage=1` (yolk-sac) and `yolk_energy_kj` is initialized from `YolkSacParams.initial_yolk_kj`. The `degree_days` field is **only meaningful for the egg stage** (life_stage=0) — it is not used after hatching and is left at its final value (no reset needed).
 
 ### Egg Mortality — Three Sources
 
@@ -121,24 +135,34 @@ Plot degree-day accumulation curves at 5.7°C, 9.1°C, and 12.1°C. The simple l
 
 ### Yolk-Sac Model
 
-Hatched individuals (`life_stage=1`) carry yolk energy in the `energy_reserve` field. **For early life stages (life_stage 0–2), `energy_reserve` is in kilojoules (kJ)**. This differs from the current adult usage where `energy_reserve` is a dimensionless index — the reinterpretation is safe because early and adult stages never share energy reserve values (recruits are re-initialized when transitioning to juvenile stage).
+Hatched individuals (`life_stage=1`) carry yolk energy in a **new field** `yolk_energy_kj` added to `SuperIndividual`:
 
-**Initial yolk energy at hatch:** defined in `YolkSacParams.initial_yolk_kj`. Default: 0.15 kJ (based on ~0.001g egg weight × 5 kJ/g energy density × ~30× yolk-to-body ratio for smelt eggs). Set on the `SuperIndividual` when transitioning from egg to yolk-sac stage.
+```python
+yolk_energy_kj: float = 0.0  # yolk energy in kJ (only meaningful for life_stage 0-1)
+```
+
+This avoids dual semantics on `energy_reserve`, which retains its existing dimensionless interpretation for juveniles and adults. Larvae (life_stage=2) use `energy_reserve` in its standard meaning once they enter the bioenergetics growth model. The `yolk_energy_kj` field is ignored (remains 0.0) for life_stage >= 2.
+
+**Initial yolk energy at hatch:** defined in `YolkSacParams.initial_yolk_kj`. Default: 0.15 kJ (based on ~0.001g egg weight × 5 kJ/g energy density × ~30× yolk-to-body ratio for smelt eggs). Set on `SuperIndividual.yolk_energy_kj` when transitioning from egg to yolk-sac stage.
 
 Yolk is depleted by basal metabolism only (no feeding, no active movement):
 
 ```
 yolk_depletion_rate_kj = rs_a_larval * weight^rs_b * Q10^((T - T_ref) / 10) * energy_density * dt_days
-energy_reserve -= yolk_depletion_rate_kj
+yolk_energy_kj -= yolk_depletion_rate_kj
 ```
 
 Uses Q10 formulation with larval-specific `rs_a_larval` from `LarvalParams` (higher weight-specific metabolic rate than adults). Duration emerges from the model (not hardcoded): ~25 days at 5.7°C, ~15 days at 9.1°C, ~14 days at 12.1°C.
 
 ### First Feeding Transition
 
-**`first_feeding_threshold`**: defined in `YolkSacParams.first_feeding_threshold_kj` (default: 0.02 kJ — ~13% of initial yolk). When `energy_reserve <= first_feeding_threshold_kj`:
+**`first_feeding_threshold`**: defined in `YolkSacParams.first_feeding_threshold_kj` (default: 0.02 kJ — ~13% of initial yolk). When `yolk_energy_kj <= first_feeding_threshold_kj`:
 
-**Zooplankton availability source:** `env_forcing['zoo_density']` (mg C/m³), representing local zooplankton concentration. In zonal mode, this is zone-specific via `env_forcing['zone_forcing'][patch_idx]['zoo_density']`. **`minimum_prey_density`**: defined in `YolkSacParams.minimum_prey_density` (default: 50.0 mg C/m³ — minimum copepod nauplii density for first feeding success).
+**Zooplankton availability source:** `env_forcing['zoo_density']` (mg C/m³), representing local zooplankton concentration. In zonal mode, this is zone-specific via `env_forcing['zone_forcing'][patch_idx]['zoo_density']`.
+
+**Deriving `zoo_density` in Ecosim-coupled runs:** When `zoo_density` is not explicitly provided in `env_forcing`, `compute_step()` derives it from the Ecosim biomass state: `zoo_density = BB[zooplankton_prey_idx] * zoo_conversion_factor`, where `zoo_conversion_factor` (defined in `LarvalParams`, default: 1000.0) converts Ecosim units (tonnes/km²) to mg C/m³. This derivation uses `prey_available` (already passed to `compute_step()`). If `zoo_density` IS explicitly provided, it overrides the derived value.
+
+**`minimum_prey_density`**: defined in `YolkSacParams.minimum_prey_density` (default: 50.0 mg C/m³ — minimum copepod nauplii density for first feeding success).
 
 ```
 zoo_density = env_forcing['zoo_density']  # or zone-specific variant
@@ -200,7 +224,7 @@ activity_multiplier(w) = am_min + (am_max - am_min) * sigmoid((w - w_mid) / w_sc
 C_larval_scalar = cmax(w) * (zoo / (zoo + K_half))    # scalar consumption (g/timestep)
 ```
 
-This scalar is allocated entirely to the **zooplankton prey group index** (defined in `LarvalParams.zooplankton_prey_idx`, default: 1). The result is a per-prey consumption dict: `{zooplankton_prey_idx: C_larval_scalar}`.
+This scalar is allocated entirely to the **zooplankton prey group index** (defined in `LarvalParams.zooplankton_prey_idx`, default: 1 — a **1-based Ecosim index**; validated in `SmeltParams` to be >= 1). The result is a per-prey consumption dict: `{zooplankton_prey_idx: C_larval_scalar}`.
 
 **Adult consumption** comes from the existing `adaptive_forage()` which returns `Dict[int, float]` — consumption allocated across all prey groups by profitability.
 
@@ -209,12 +233,15 @@ This scalar is allocated entirely to the **zooplankton prey group index** (defin
 ```
 alpha(w) = sigmoid((w - w_forage_mid) / w_forage_scale)
 
-# Build larval consumption vector: all consumption goes to zooplankton group
-C_larval_vec = np.zeros(n_groups)
-C_larval_vec[zooplankton_prey_idx] = C_larval_scalar
+# All vectors have shape (n_groups + 1,) matching Ecosim 1-based convention
+# Index 0 = "Outside", indices 1..n_groups = Ecosim groups
 
-# Build adaptive forage vector from dict
-C_adaptive_vec = np.zeros(n_groups)
+# Build larval consumption vector: all consumption goes to zooplankton group
+C_larval_vec = np.zeros(n_groups + 1)
+C_larval_vec[zooplankton_prey_idx] = C_larval_scalar   # 1-based index
+
+# Build adaptive forage vector from dict (keys are already 1-based)
+C_adaptive_vec = np.zeros(n_groups + 1)
 for prey_idx, amount in adaptive_forage_result.items():
     C_adaptive_vec[prey_idx] = amount
 
@@ -418,9 +445,25 @@ drift_probability = base_drift_rate * flow_multiplier(month)
 
 Drift probability decreases as larvae grow and develop swimming capacity — smooth ontogenetic transition.
 
+### Ecospace Coexistence
+
+The 3-zone model and full Ecospace grids are **mutually exclusive spatial modes**, resolved by priority:
+
+1. **`SpatialContext` provided (Ecospace mode):** The IBM uses the full Ecospace grid. `ZoneParams` provides a `zone_of_patch: np.ndarray` of shape `(n_patches,)` mapping each Ecospace patch to a zone (0, 1, or 2). Zone-specific forcing is resolved from the patch's zone. Juveniles/adults use `SpatialContext.adjacency` for movement. Passive drift for early stages uses `ZoneParams.connectivity_matrix` applied at the zone level (a larva drifts from one zone to another, then is assigned a random patch within the target zone).
+
+2. **`ZoneParams` only (standalone zonal mode):** The IBM uses its own 3-zone connectivity matrix. `patch_idx` values are 0, 1, 2 directly. No Ecospace adjacency matrix.
+
+3. **Neither (0D fallback):** All individuals in a single well-mixed environment. Backward compatible with current behavior.
+
+Note: Ecospace's `calculate_spatial_flux()` already skips IBM groups (`if group_idx in ibm_groups: continue`), so there is no conflict with Ecospace's diffusion/advection. The IBM always handles its own movement in Phase 5.
+
+### Passive Drift and Ecospace
+
+Passive drift for yolk-sac larvae and early larvae uses `ZoneParams.connectivity_matrix` (the 3×3 base probability matrix), **not** the Ecospace adjacency. This is because drift is a zone-level process (larvae move from spawning grounds to nursery), not a cell-level diffusion. Only juveniles and adults (life_stage >= 3) use the full `SpatialContext.adjacency` for within-zone and between-zone movement.
+
 ### Backward Compatibility
 
-Without spatial context, model collapses to 0D (single well-mixed zone).
+Without spatial context or ZoneParams, model collapses to 0D (single well-mixed zone).
 
 ### Review Checkpoint
 
@@ -435,10 +478,10 @@ Eggs stay in zone 0. Larvae drift to zone 1. Juveniles concentrate in zone 1 wit
 **Stage A:** Ecosim-level — fit vulnerability parameters (VV) to adult biomass time series using `fit_to_timeseries()`. Anchors food web context.
 
 **Stage B:** IBM-specific — fit early life stage parameters to recruitment indices:
-- `larval_base_survival`
-- `zooplankton_match_window`
-- `point_of_no_return`
-- `egg_O2_lethal`
+- `egg_background_mortality_rate` — controls egg-stage survival
+- `minimum_prey_density` — first-feeding threshold
+- `point_of_no_return` — starvation window severity
+- `egg_O2_lethal` — oxygen mortality threshold
 - `DD_hatch` (if Curonian Lagoon data suggests deviation from Keller defaults)
 
 Uses `differential_evolution` optimizer with log-ratio SS against recruitment index time series.
@@ -460,12 +503,13 @@ N = 500–1000 runs. Key parameters:
 |-----------|-------|
 | DD_hatch | 120–180 °C·day |
 | T₀ | 1.0–3.0 °C |
-| larval_base_survival | 0.001–0.05 |
+| egg_background_mortality_rate | 0.01–0.10 /day |
+| minimum_prey_density | 20–100 mg C/m³ |
 | point_of_no_return | 2–7 days |
 | Pcrit (larval) | 2.0–4.0 mg/L |
 | activity_multiplier range | 0.2–0.5, 1.0–2.0 |
 | w_mid (bioenergetics transition) | 1–10 g |
-| zooplankton_match_window | 10–25 days |
+| K_half (zooplankton half-saturation) | 50–200 mg C/m³ |
 
 Analysis: partial rank correlation coefficients (PRCC).
 
