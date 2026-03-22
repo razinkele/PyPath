@@ -333,90 +333,7 @@ git commit -m "feat(ibm): add egg mortality (background, oxygen, thermal)"
 
 ---
 
-### Task 1.4a: Add SmeltParams Optional fields and baltic_defaults_els()
-
-> **PREREQUISITE:** Task 1.4b (below) must be completed first — `baltic_defaults_els()` imports YolkSacParams, LarvalParams, etc. **Execute 1.4b BEFORE 1.4a.**
-
-**Files:**
-- Modify: `packages/pypath/src/pypath/ibm/smelt.py`
-- Modify: `packages/pypath/tests/test_ibm_smelt.py`
-
-- [ ] **Step 1: Write failing tests**
-
-```python
-# Add to test_ibm_smelt.py:
-def test_baltic_defaults_unchanged():
-    """baltic_defaults() must NOT populate early life stage params."""
-    p = SmeltParams.baltic_defaults()
-    assert p.egg is None
-    assert p.yolk_sac is None
-    assert p.larval is None
-    assert p.oxygen is None
-    assert p.zones is None
-
-
-def test_baltic_defaults_els():
-    p = SmeltParams.baltic_defaults_els()
-    assert p.egg is not None
-    assert p.egg.dd_hatch == 149.0
-    assert p.yolk_sac is not None
-    assert p.larval is not None
-    assert p.oxygen is not None
-    assert p.zones is None  # zonal is separate
-
-
-def test_max_super_individuals_default():
-    p = SmeltParams.baltic_defaults()
-    assert p.max_super_individuals == 2000
-```
-
-- [ ] **Step 2: Run to verify failures**
-
-- [ ] **Step 3: Add Optional fields to SmeltParams and baltic_defaults_els()**
-
-In `smelt.py`, add after `max_age` field:
-
-```python
-    max_super_individuals: int = 2000
-    egg: Optional[EggParams] = None
-    yolk_sac: Optional[YolkSacParams] = None
-    larval: Optional[LarvalParams] = None
-    oxygen: Optional[OxygenParams] = None
-    zones: Optional[ZoneParams] = None
-```
-
-Add import: `from pypath.ibm.development import EggParams, YolkSacParams, LarvalParams, OxygenParams, ZoneParams`
-Add `from typing import Optional`
-
-Add classmethod:
-
-```python
-    @classmethod
-    def baltic_defaults_els(cls) -> "SmeltParams":
-        """Baltic defaults with early life stages enabled."""
-        base = cls.baltic_defaults()
-        base.egg = EggParams()
-        base.yolk_sac = YolkSacParams()
-        base.larval = LarvalParams()
-        base.oxygen = OxygenParams()
-        return base
-```
-
-- [ ] **Step 4: Run ALL existing tests + new tests**
-
-Run: `python -m pytest packages/pypath/tests/test_ibm_smelt.py packages/pypath/tests/test_ibm_ecosim_integration.py -q`
-Expected: ALL PASS (including all pre-existing tests)
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add packages/pypath/src/pypath/ibm/smelt.py packages/pypath/src/pypath/ibm/development.py packages/pypath/tests/test_ibm_smelt.py
-git commit -m "feat(ibm): add Optional early life stage params to SmeltParams with baltic_defaults_els()"
-```
-
----
-
-### Task 1.4b: Add YolkSacParams, LarvalParams, OxygenParams, ZoneParams dataclasses
+### Task 1.4: Add YolkSacParams, LarvalParams, OxygenParams, ZoneParams dataclasses
 
 **Files:**
 - Modify: `packages/pypath/src/pypath/ibm/development.py`
@@ -447,7 +364,7 @@ def test_larval_params_defaults():
     assert p.w_activity_mid == 5.0
     assert p.ae_min == 0.55
     assert p.ae_max == 0.73
-    assert p.cmax_t_opt == 18.0
+    assert p.cmax_CTO == 18.0
     assert p.zoo_conversion_factor == 1000.0
     assert p.background_mortality_rate == 0.01
 
@@ -551,6 +468,87 @@ class ZoneParams:
 ```bash
 git add packages/pypath/src/pypath/ibm/development.py packages/pypath/tests/test_ibm_development.py
 git commit -m "feat(ibm): add YolkSacParams, LarvalParams, OxygenParams, ZoneParams"
+```
+
+---
+
+### Task 1.5: Add SmeltParams Optional fields and baltic_defaults_els()
+
+**Files:**
+- Modify: `packages/pypath/src/pypath/ibm/smelt.py`
+- Modify: `packages/pypath/tests/test_ibm_smelt.py`
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# Add to test_ibm_smelt.py:
+def test_baltic_defaults_unchanged():
+    """baltic_defaults() must NOT populate early life stage params."""
+    p = SmeltParams.baltic_defaults()
+    assert p.egg is None
+    assert p.yolk_sac is None
+    assert p.larval is None
+    assert p.oxygen is None
+    assert p.zones is None
+
+
+def test_baltic_defaults_els():
+    p = SmeltParams.baltic_defaults_els()
+    assert p.egg is not None
+    assert p.egg.dd_hatch == 149.0
+    assert p.yolk_sac is not None
+    assert p.larval is not None
+    assert p.oxygen is not None
+    assert p.zones is None  # zonal is separate
+
+
+def test_max_super_individuals_default():
+    p = SmeltParams.baltic_defaults()
+    assert p.max_super_individuals == 2000
+```
+
+- [ ] **Step 2: Run to verify failures**
+
+- [ ] **Step 3: Add Optional fields to SmeltParams and baltic_defaults_els()**
+
+In `smelt.py`, add after `max_age` field:
+
+```python
+    max_super_individuals: int = 2000
+    egg: Optional[EggParams] = None
+    yolk_sac: Optional[YolkSacParams] = None
+    larval: Optional[LarvalParams] = None
+    oxygen: Optional[OxygenParams] = None
+    zones: Optional[ZoneParams] = None
+```
+
+Add import: `from pypath.ibm.development import EggParams, YolkSacParams, LarvalParams, OxygenParams, ZoneParams`
+Add `from typing import Optional`
+
+Add classmethod:
+
+```python
+    @classmethod
+    def baltic_defaults_els(cls) -> "SmeltParams":
+        """Baltic defaults with early life stages enabled."""
+        base = cls.baltic_defaults()
+        base.egg = EggParams()
+        base.yolk_sac = YolkSacParams()
+        base.larval = LarvalParams()
+        base.oxygen = OxygenParams()
+        return base
+```
+
+- [ ] **Step 4: Run ALL existing tests + new tests**
+
+Run: `python -m pytest packages/pypath/tests/test_ibm_smelt.py packages/pypath/tests/test_ibm_ecosim_integration.py -q`
+Expected: ALL PASS (including all pre-existing tests)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/pypath/src/pypath/ibm/smelt.py packages/pypath/src/pypath/ibm/development.py packages/pypath/tests/test_ibm_smelt.py
+git commit -m "feat(ibm): add Optional early life stage params to SmeltParams with baltic_defaults_els()"
 ```
 
 ---
