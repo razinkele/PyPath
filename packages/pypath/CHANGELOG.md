@@ -6,6 +6,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.4.0 (2026-03-22)
+
+### Added
+
+**Smelt IBM Early Life Stages — Complete Lifecycle Model**
+
+Based on Drewes et al. (2025) *Ecological Modelling* 510:111313 and Keller et al. (2020) *J Fish Biol* 97(2):368-381.
+
+- **Egg stage** — Temperature-dependent degree-day development (DD_hatch=149 °C·day, T₀=1.8°C), 3-source mortality (thermal/oxygen/background), per-zone spawning deposition
+- **Yolk-sac stage** — Q10-scaled basal metabolism yolk depletion, first feeding transition with point-of-no-return starvation (4 days), Cushing match/mismatch now emergent from mechanistic processes
+- **Larval bioenergetics** — Thornton-Lessem (Fish Bioenergetics 3.0) temperature dome for Cmax, ontogenetic sigmoid interpolation (Rs+Ra metabolism split, size-dependent assimilation efficiency), consumption blending from concentration-dependent Type II → adaptive foraging
+- **Oxygen physiology** — Full lifecycle Pcrit-based metabolic scope reduction (Pcrit 4.0→2.0 mg/L egg→adult), lethal thresholds for early stages, stress-accelerated yolk depletion, behavioral O2 avoidance
+- **Curonian Lagoon zonal model** — 3-zone spatial (river spawning/lagoon nursery/coastal feeding), zone-specific environmental forcing, passive drift for yolk-sac/larvae, ontogenetic habitat constraints, spawning migration
+- **Calibration framework** — `calibrate_els()` wrapper for IBM-coupled parameter fitting, `lhs_sensitivity()` Latin Hypercube Sampling, `partial_rank_correlation()` PRCC analysis
+
+**New parameter dataclasses:** `EggParams`, `YolkSacParams`, `LarvalParams`, `OxygenParams`, `ZoneParams`
+
+**New factory method:** `SmeltParams.baltic_defaults_els()` — enables early life stages with literature defaults. `baltic_defaults()` unchanged (backward compatible).
+
+**New `SuperIndividual` fields:** `life_stage` (0=egg, 1=yolk_sac, 2=larva, 3=juvenile, 4=adult), `degree_days`, `starvation_days`, `yolk_energy_kj`
+
+**Population management:** Configurable super-individual cap (default 2000) with biomass-preserving cohort consolidation.
+
+**67 new tests** (229 IBM tests total, 1502 total across all packages).
+
+### Changed
+- `compute_step()` restructured with life-stage routing (Phase 1a eggs, 1b yolk-sac, 1c ontogenetic bioenergetics)
+- `growth_step_batch()` and `growth_step_batch_ontogenetic()` now accept array temperatures for per-zone thermal forcing
+
 ## v0.3.3 (2026-03-12)
 
 ### Added

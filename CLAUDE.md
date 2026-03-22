@@ -37,10 +37,12 @@ packages/
         reproduction.py            # Stochastic spawning + larval survival
         integration.py             # Derivative override + mass balance checker
         smelt.py                   # SmeltIBM concrete implementation for Baltic smelt
-    tests/                         # 551 core tests + 144 IBM tests
+        development.py             # Early life stage params (EggParams, YolkSacParams, LarvalParams, OxygenParams, ZoneParams)
+        calibration_els.py         # ELS calibration, LHS sensitivity, PRCC analysis
+    tests/                         # 551 core tests + 229 IBM tests
     example_model_data/            # CSV example model files
     docs/                          # MkDocs API documentation
-    pyproject.toml                 # pypath-ewe v0.3.0
+    pyproject.toml                 # pypath-ewe v0.4.0
 
   pypath-shiny/                    # Web frontend (PyPI: pypath-shiny)
     src/pypath_shiny/
@@ -53,7 +55,7 @@ packages/
       static/                      # CSS, logos, icons
     tests/                         # 115 app tests
       ui/                          # Playwright UI tests (optional)
-    pyproject.toml                 # pypath-shiny v0.3.0
+    pyproject.toml                 # pypath-shiny v0.4.0
 ```
 
 ## Package Details
@@ -62,7 +64,7 @@ packages/
 |---|---|---|
 | **PyPI name** | `pypath-ewe` | `pypath-shiny` |
 | **Import** | `import pypath` | `import pypath_shiny` |
-| **Version** | 0.3.0 | 0.3.0 |
+| **Version** | 0.4.0 | 0.4.0 |
 | **Dependencies** | numpy, pandas, scipy, matplotlib | pypath-ewe, shiny, shinyswatch |
 | **Entry point** | Library | `pypath-shiny` CLI command |
 

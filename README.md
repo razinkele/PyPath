@@ -353,19 +353,25 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 | Ecological indicators | ❌ | ✅ ⭐ |
 | EwE database export | ❌ | ✅ 86% coverage ⭐ |
 | EMODnet data integration | ❌ | ✅ ⭐ |
-| Comprehensive tests | Limited | 1243+ tests ⭐ |
+| IBM early life stages | ❌ | ✅ Complete lifecycle ⭐ |
+| Comprehensive tests | Limited | 1500+ tests ⭐ |
 | Documentation | Good | Extensive ⭐ |
 
 **See [FEATURES_VS_RPATH.md](docs/archive/FEATURES_VS_RPATH.md) for detailed comparison.**
 
 ## Development Status
 
-### Current Version: 0.3.3 (Development)
+### Current Version: 0.4.0
 
 **Production Ready:**
 - Core Ecopath/Ecosim (100% Rpath compatible, RK4 + Adams-Bashforth)
 - Ecospace spatial modeling (regular, hexagonal, irregular grids)
-- Individual-Based Model (Wisconsin bioenergetics, size-structured predation)
+- Individual-Based Model with **complete lifecycle** (egg → yolk-sac → larva → juvenile → adult)
+  - Mechanistic early life stages based on Drewes et al. (2025) and Keller et al. (2020)
+  - Degree-day egg development, yolk-sac depletion, first-feeding transition
+  - Thornton-Lessem (FB3) temperature dome, ontogenetic bioenergetics interpolation
+  - Full lifecycle oxygen physiology (Pcrit metabolic scope reduction)
+  - Curonian Lagoon 3-zone spatial model with ontogenetic habitat shifts
 - Time series calibration and SS fitting against observed data
 - Mediation functions for trophic mediation
 - Monte Carlo / Pedigree uncertainty analysis
@@ -375,7 +381,7 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 - EwE native database loading (72/84 tables, 86% coverage)
 - EMODnet marine data integration (bathymetry, habitats, salinity)
 - Interactive Shiny dashboard (deployed on laguna.ku.lt)
-- 1243+ tests passing across core, IBM, spatial, and Shiny packages
+- 1500+ tests passing across core, IBM, spatial, and Shiny packages
 
 **Roadmap:**
 - [x] Spatial Ecospace (completed Dec 2025)
@@ -392,6 +398,7 @@ PyPath implements the Ecopath with Ecosim approach with modern extensions:
 - [x] Value chain economics I/O (completed Mar 2026)
 - [x] Taxonomy integration (completed Mar 2026)
 - [x] EwE database 86% table coverage (completed Mar 2026)
+- [x] Smelt IBM early life stages — complete lifecycle model (completed Mar 2026)
 
 ## Code Quality & Maintainability
 

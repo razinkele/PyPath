@@ -46,6 +46,13 @@ Example
 from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext, SuperIndividual
 from pypath.ibm.behavior import ForagingParams, MovementParams
 from pypath.ibm.bioenergetics import BioenergParams
+from pypath.ibm.development import (
+    EggParams,
+    LarvalParams,
+    OxygenParams,
+    YolkSacParams,
+    ZoneParams,
+)
 from pypath.ibm.predation import PredationParams
 from pypath.ibm.reproduction import ReproductionParams
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
@@ -60,8 +67,13 @@ __all__ = [
     "MovementParams",
     "PredationParams",
     "ReproductionParams",
+    "EggParams",
+    "YolkSacParams",
+    "LarvalParams",
+    "OxygenParams",
+    "ZoneParams",
     "SmeltParams",
     "SmeltIBM",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
