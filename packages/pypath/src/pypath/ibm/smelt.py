@@ -33,6 +33,20 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext, SuperIndividual
+from pypath.ibm.behavior import (
+    ForagingParams,
+    MovementParams,
+    adaptive_forage,
+    calculate_movement_probabilities,
+    should_migrate,
+)
+from pypath.ibm.bioenergetics import (
+    BioenergParams,
+    growth_step_batch,
+    growth_step_batch_ontogenetic,
+    oxygen_scalar,
+    thornton_lessem,
+)
 from pypath.ibm.development import (
     EggParams,
     LarvalParams,
@@ -44,22 +58,6 @@ from pypath.ibm.development import (
     check_first_feeding,
     check_hatching,
     compute_yolk_depletion,
-)
-from pypath.ibm.behavior import (
-    ForagingParams,
-    MovementParams,
-    adaptive_forage,
-    calculate_movement_probabilities,
-    should_migrate,
-)
-from pypath.ibm.bioenergetics import (
-    BioenergParams,
-    allometric_length,
-    growth_step,
-    growth_step_batch,
-    growth_step_batch_ontogenetic,
-    oxygen_scalar,
-    thornton_lessem,
 )
 from pypath.ibm.predation import PredationParams, apply_predation_mortality
 from pypath.ibm.reproduction import (
@@ -470,7 +468,9 @@ class SmeltIBM(IBMGroup):
                 a.energy_reserve = merged_energy
                 a.degree_days = merged_dd
                 a.yolk_energy_kj = merged_yolk
-                a.starvation_days = (a_n * a.starvation_days + b_n * b.starvation_days) / total_n
+                a.starvation_days = (
+                    a_n * a.starvation_days + b_n * b.starvation_days
+                ) / total_n
                 a.is_mature = a.is_mature or b.is_mature
 
                 # Recompute length from allometry
@@ -695,8 +695,7 @@ class SmeltIBM(IBMGroup):
                         pidx = sp.larval.zooplankton_prey_idx
                         if pidx < len(prey_available):
                             zoo_density = (
-                                prey_available[pidx]
-                                * sp.larval.zoo_conversion_factor
+                                prey_available[pidx] * sp.larval.zoo_conversion_factor
                             )
                         else:
                             zoo_density = 0.0
@@ -814,7 +813,7 @@ class SmeltIBM(IBMGroup):
                         CK1=lp.cmax_CK1,
                         CK4=lp.cmax_CK4,
                     )
-                    cmax = lp.cmax_c_a * (w ** lp.cmax_c_b) * f_temp * dt_days
+                    cmax = lp.cmax_c_a * (w**lp.cmax_c_b) * f_temp * dt_days
                     cmax *= o2_scale  # oxygen limitation
                     denom = zoo_density + lp.k_half_zoo
                     c_larval_scalar = cmax * (zoo_density / denom) if denom > 0 else 0.0
@@ -828,7 +827,7 @@ class SmeltIBM(IBMGroup):
                     # Pre-existing heuristic for the adaptive foraging path;
                     # differs from Thornton-Lessem Cmax intentionally to give
                     # a simpler, weight-only upper bound on adult consumption.
-                    max_cons = 0.1 * (w ** 0.7) * dt_days
+                    max_cons = 0.1 * (w**0.7) * dt_days
                     max_cons *= o2_scale  # oxygen limitation
                     allocation = adaptive_forage(
                         prey_available=prey_dict,
@@ -855,10 +854,12 @@ class SmeltIBM(IBMGroup):
             is_mature = np.array([ind.is_mature for ind in feeding])
 
             # Per-individual temperature from zone-specific forcing
-            temps = np.array([
-                _get_zone_forcing(ind.patch_idx).get('temperature', temperature)
-                for ind in feeding
-            ])
+            temps = np.array(
+                [
+                    _get_zone_forcing(ind.patch_idx).get("temperature", temperature)
+                    for ind in feeding
+                ]
+            )
 
             if sp.larval is not None:
                 new_weights, new_energies = growth_step_batch_ontogenetic(
@@ -913,12 +914,15 @@ class SmeltIBM(IBMGroup):
                     o2_val = ind_env_o2.get(
                         "dissolved_oxygen", ind_env_o2.get("o2", _DEFAULT_O2)
                     )
-                    if sp.oxygen.o2_lethal_larva > 0.0 and o2_val < sp.oxygen.o2_lethal_larva:
-                        lp_bg = sp.larval.background_mortality_rate if sp.larval else 0.01
-                        o2_mort = (
-                            lp_bg
-                            + sp.oxygen.hypoxia_mortality_rate
-                            * (1.0 - o2_val / sp.oxygen.o2_lethal_larva)
+                    if (
+                        sp.oxygen.o2_lethal_larva > 0.0
+                        and o2_val < sp.oxygen.o2_lethal_larva
+                    ):
+                        lp_bg = (
+                            sp.larval.background_mortality_rate if sp.larval else 0.01
+                        )
+                        o2_mort = lp_bg + sp.oxygen.hypoxia_mortality_rate * (
+                            1.0 - o2_val / sp.oxygen.o2_lethal_larva
                         )
                         ind.n_represented *= np.exp(-o2_mort * dt_days_mort)
 
@@ -1032,11 +1036,11 @@ class SmeltIBM(IBMGroup):
         # ================================================================
         # Ontogenetic habitat constraints: allowed zones per life stage
         _ALLOWED_ZONES = {
-            0: {0},          # Eggs: river only (sessile)
-            1: {0, 1},       # Yolk-sac: river, lagoon
-            2: {0, 1},       # Larvae: river, lagoon
-            3: {1, 2},       # Juvenile: lagoon, coastal
-            4: {0, 1, 2},    # Adult: all zones
+            0: {0},  # Eggs: river only (sessile)
+            1: {0, 1},  # Yolk-sac: river, lagoon
+            2: {0, 1},  # Larvae: river, lagoon
+            3: {1, 2},  # Juvenile: lagoon, coastal
+            4: {0, 1, 2},  # Adult: all zones
         }
 
         patch_biomass = None
@@ -1101,10 +1105,10 @@ class SmeltIBM(IBMGroup):
                             z_o2 = z_env.get(
                                 "dissolved_oxygen", z_env.get("o2", _DEFAULT_O2)
                             )
-                            probs[z] *= (
-                                oxygen_scalar(z_o2, pcrit)
-                                * sp.oxygen.oxygen_avoidance_weight
-                                + (1.0 - sp.oxygen.oxygen_avoidance_weight)
+                            probs[z] *= oxygen_scalar(
+                                z_o2, pcrit
+                            ) * sp.oxygen.oxygen_avoidance_weight + (
+                                1.0 - sp.oxygen.oxygen_avoidance_weight
                             )
                         # Renormalize
                         p_sum = probs.sum()

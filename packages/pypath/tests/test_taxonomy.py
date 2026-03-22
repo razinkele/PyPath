@@ -1,9 +1,9 @@
 """Tests for taxonomy table read/write/auto-populate."""
+
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
-import pytest
-from unittest.mock import patch, MagicMock
-from dataclasses import field
 
 from pypath.io._ewe_schema import EWE_TABLES
 
@@ -36,7 +36,7 @@ class TestSchema:
         assert len(cols) == 31
 
 
-from pypath.io.ewemdb import TaxonomyRecord, TaxonomyData, read_taxonomy
+from pypath.io.ewemdb import TaxonomyData, TaxonomyRecord, read_taxonomy
 
 
 def _make_taxon_row():
@@ -84,7 +84,9 @@ class TestReader:
     def test_reads_taxon_records(self, mock_read, mock_tables):
         """Reads EcopathTaxon rows into TaxonomyRecord list."""
         mock_tables.return_value = [
-            "EcopathTaxon", "EcopathGroupTaxon", "EcopathStanzaTaxon"
+            "EcopathTaxon",
+            "EcopathGroupTaxon",
+            "EcopathStanzaTaxon",
         ]
         row = _make_taxon_row()
         mock_read.side_effect = lambda db, table: {
@@ -92,9 +94,7 @@ class TestReader:
             "EcopathGroupTaxon": pd.DataFrame(
                 columns=["TaxonID", "EcopathGroupID", "Proportion", "PropCatch"]
             ),
-            "EcopathStanzaTaxon": pd.DataFrame(
-                columns=["TaxonID", "StanzaID"]
-            ),
+            "EcopathStanzaTaxon": pd.DataFrame(columns=["TaxonID", "StanzaID"]),
         }[table]
 
         result = read_taxonomy("fake.eweaccdb")
@@ -114,12 +114,26 @@ class TestReader:
     def test_reads_group_taxon_dataframe(self, mock_read, mock_tables):
         """Reads EcopathGroupTaxon into DataFrame."""
         mock_tables.return_value = [
-            "EcopathTaxon", "EcopathGroupTaxon", "EcopathStanzaTaxon"
+            "EcopathTaxon",
+            "EcopathGroupTaxon",
+            "EcopathStanzaTaxon",
         ]
-        gt_df = pd.DataFrame([
-            {"TaxonID": 1, "EcopathGroupID": 3, "Proportion": 0.5, "PropCatch": 0.5},
-            {"TaxonID": 2, "EcopathGroupID": 3, "Proportion": 0.5, "PropCatch": 0.5},
-        ])
+        gt_df = pd.DataFrame(
+            [
+                {
+                    "TaxonID": 1,
+                    "EcopathGroupID": 3,
+                    "Proportion": 0.5,
+                    "PropCatch": 0.5,
+                },
+                {
+                    "TaxonID": 2,
+                    "EcopathGroupID": 3,
+                    "Proportion": 0.5,
+                    "PropCatch": 0.5,
+                },
+            ]
+        )
         mock_read.side_effect = lambda db, table: {
             "EcopathTaxon": pd.DataFrame(columns=list(_make_taxon_row().keys())),
             "EcopathGroupTaxon": gt_df,
@@ -129,7 +143,10 @@ class TestReader:
         result = read_taxonomy("fake.eweaccdb")
         assert len(result.group_assignments) == 2
         assert list(result.group_assignments.columns) == [
-            "TaxonID", "EcopathGroupID", "Proportion", "PropCatch"
+            "TaxonID",
+            "EcopathGroupID",
+            "Proportion",
+            "PropCatch",
         ]
 
     @patch("pypath.io.ewemdb.list_ewemdb_tables")
@@ -137,7 +154,9 @@ class TestReader:
     def test_reads_stanza_taxon_dataframe(self, mock_read, mock_tables):
         """Reads EcopathStanzaTaxon into DataFrame."""
         mock_tables.return_value = [
-            "EcopathTaxon", "EcopathGroupTaxon", "EcopathStanzaTaxon"
+            "EcopathTaxon",
+            "EcopathGroupTaxon",
+            "EcopathStanzaTaxon",
         ]
         st_df = pd.DataFrame([{"TaxonID": 1, "StanzaID": 1}])
         mock_read.side_effect = lambda db, table: {
@@ -159,7 +178,10 @@ class TestReader:
         assert result.taxa == []
         assert len(result.group_assignments) == 0
         assert list(result.group_assignments.columns) == [
-            "TaxonID", "EcopathGroupID", "Proportion", "PropCatch"
+            "TaxonID",
+            "EcopathGroupID",
+            "Proportion",
+            "PropCatch",
         ]
         assert len(result.stanza_assignments) == 0
 
@@ -208,9 +230,16 @@ class TestWriter:
                 source_key="126436",
             ),
         ]
-        group_assignments = pd.DataFrame([
-            {"TaxonID": 1, "EcopathGroupID": 3, "Proportion": 1.0, "PropCatch": 1.0},
-        ])
+        group_assignments = pd.DataFrame(
+            [
+                {
+                    "TaxonID": 1,
+                    "EcopathGroupID": 3,
+                    "Proportion": 1.0,
+                    "PropCatch": 1.0,
+                },
+            ]
+        )
         stanza_assignments = pd.DataFrame(columns=["TaxonID", "StanzaID"])
         return TaxonomyData(taxa, group_assignments, stanza_assignments)
 
@@ -252,10 +281,14 @@ class TestWriter:
         writer.write_taxonomy(taxonomy=taxonomy)
 
         # Simulate read from the written tables
-        with patch("pypath.io.ewemdb.list_ewemdb_tables") as mock_tables, \
-             patch("pypath.io.ewemdb.read_ewemdb_table") as mock_read:
+        with (
+            patch("pypath.io.ewemdb.list_ewemdb_tables") as mock_tables,
+            patch("pypath.io.ewemdb.read_ewemdb_table") as mock_read,
+        ):
             mock_tables.return_value = [
-                "EcopathTaxon", "EcopathGroupTaxon", "EcopathStanzaTaxon"
+                "EcopathTaxon",
+                "EcopathGroupTaxon",
+                "EcopathStanzaTaxon",
             ]
             mock_read.side_effect = lambda db, table: writer._tables[table]
 
@@ -291,7 +324,7 @@ class TestWriter:
         assert len(writer._tables["EcopathStanzaTaxon"]) == 0
 
 
-from pypath.io.biodata import auto_populate_taxonomy, SpeciesInfo
+from pypath.io.biodata import SpeciesInfo, auto_populate_taxonomy
 
 
 def _mock_species_info(name="Atlantic cod"):
@@ -337,9 +370,7 @@ class TestAutoPopulate:
         mock_worms.return_value = _mock_worms_record()
         rpath = _mock_rpath(["Phyto", "Zoo", "Cod", "Detritus"])
 
-        result = auto_populate_taxonomy(
-            rpath, {"Cod": ["Atlantic cod"]}
-        )
+        result = auto_populate_taxonomy(rpath, {"Cod": ["Atlantic cod"]})
 
         assert len(result.taxa) == 1
         t = result.taxa[0]
@@ -364,19 +395,23 @@ class TestAutoPopulate:
             authority="Linnaeus, 1758",
         )
         mock_get.side_effect = lambda name, **kw: {
-            "Atlantic cod": info1, "Herring": info2
+            "Atlantic cod": info1,
+            "Herring": info2,
         }[name]
         mock_worms.side_effect = lambda aid, **kw: {
             126436: _mock_worms_record(),
-            126417: {"AphiaID": 126417, "scientificname": "Clupea harengus",
-                     "class": "Actinopteri", "order": "Clupeiformes",
-                     "family": "Clupeidae", "genus": "Clupea"},
+            126417: {
+                "AphiaID": 126417,
+                "scientificname": "Clupea harengus",
+                "class": "Actinopteri",
+                "order": "Clupeiformes",
+                "family": "Clupeidae",
+                "genus": "Clupea",
+            },
         }[aid]
         rpath = _mock_rpath(["Fish", "Detritus"])
 
-        result = auto_populate_taxonomy(
-            rpath, {"Fish": ["Atlantic cod", "Herring"]}
-        )
+        result = auto_populate_taxonomy(rpath, {"Fish": ["Atlantic cod", "Herring"]})
 
         assert len(result.group_assignments) == 2
         props = result.group_assignments["Proportion"].tolist()
@@ -396,13 +431,19 @@ class TestAutoPopulate:
             authority="Linnaeus, 1758",
         )
         mock_get.side_effect = lambda name, **kw: {
-            "Atlantic cod": info1, "Herring": info2
+            "Atlantic cod": info1,
+            "Herring": info2,
         }[name]
         mock_worms.side_effect = lambda aid, **kw: {
             126436: _mock_worms_record(),
-            126417: {"AphiaID": 126417, "scientificname": "Clupea harengus",
-                     "class": "Actinopteri", "order": "Clupeiformes",
-                     "family": "Clupeidae", "genus": "Clupea"},
+            126417: {
+                "AphiaID": 126417,
+                "scientificname": "Clupea harengus",
+                "class": "Actinopteri",
+                "order": "Clupeiformes",
+                "family": "Clupeidae",
+                "genus": "Clupea",
+            },
         }[aid]
         rpath = _mock_rpath(["Fish", "Detritus"])
 
@@ -423,10 +464,9 @@ class TestAutoPopulate:
         rpath = _mock_rpath(["Fish", "Detritus"])
 
         import logging
+
         with caplog.at_level(logging.WARNING, logger="pypath.io.biodata"):
-            result = auto_populate_taxonomy(
-                rpath, {"Fish": ["Unknown species"]}
-            )
+            result = auto_populate_taxonomy(rpath, {"Fish": ["Unknown species"]})
 
         assert len(result.taxa) == 0
         assert len(result.group_assignments) == 0
@@ -442,8 +482,6 @@ class TestAutoPopulate:
         # "Cod" is at index 2 -> EcopathGroupID = 3
         rpath = _mock_rpath(["Phyto", "Zoo", "Cod", "Detritus"])
 
-        result = auto_populate_taxonomy(
-            rpath, {"Cod": ["Atlantic cod"]}
-        )
+        result = auto_populate_taxonomy(rpath, {"Cod": ["Atlantic cod"]})
 
         assert result.group_assignments.iloc[0]["EcopathGroupID"] == 3

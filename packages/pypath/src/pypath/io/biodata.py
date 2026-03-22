@@ -1346,9 +1346,7 @@ def auto_populate_taxonomy(
         try:
             worms_record = _fetch_worms_accepted(info.aphia_id)
         except Exception as e:
-            logger.warning(
-                "WoRMS classification lookup failed for %r: %s", name, e
-            )
+            logger.warning("WoRMS classification lookup failed for %r: %s", name, e)
             worms_record = {}
         return name, info, worms_record
 
@@ -1387,16 +1385,8 @@ def auto_populate_taxonomy(
 
         traits = {
             "max_length": info.max_length,
-            "winf": (
-                info.growth_params.get("Loo")
-                if info.growth_params
-                else None
-            ),
-            "vbgf_k": (
-                info.growth_params.get("K")
-                if info.growth_params
-                else None
-            ),
+            "winf": (info.growth_params.get("Loo") if info.growth_params else None),
+            "vbgf_k": (info.growth_params.get("K") if info.growth_params else None),
             "mean_weight": None,
             "mean_length": None,
             "mean_lifespan": None,
@@ -1423,9 +1413,7 @@ def auto_populate_taxonomy(
         # Look up EcopathGroupID (0-based index + 1)
         matches = np.where(rpath.Group == group_name)[0]
         if len(matches) == 0:
-            logger.warning(
-                "Group %r not found in rpath.Group, skipping", group_name
-            )
+            logger.warning("Group %r not found in rpath.Group, skipping", group_name)
             continue
         group_id = int(matches[0]) + 1  # 0-based -> 1-based
 

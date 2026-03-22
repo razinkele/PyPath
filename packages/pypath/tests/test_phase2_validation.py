@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 import pytest
 
+
 # Task 10: dispersal zero-distance guard
 class TestDispersalZeroDistance:
     def test_zero_distance_no_crash(self):

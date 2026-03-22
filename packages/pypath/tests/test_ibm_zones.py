@@ -3,13 +3,12 @@
 Package 5 of the smelt ELS implementation: zone-forcing resolution,
 passive drift, ontogenetic habitat constraints, and spawning migration.
 """
+
 import numpy as np
-import pytest
 
 from pypath.ibm.base import SuperIndividual
 from pypath.ibm.development import ZoneParams
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
-
 
 # =====================================================================
 # Task 5.1: Zone-forcing resolution

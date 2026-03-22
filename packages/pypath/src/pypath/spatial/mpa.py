@@ -3,6 +3,7 @@
 Defines MPA zones with fleet-selective, temporally-dynamic closures
 and optional habitat capacity bonuses.
 """
+
 from __future__ import annotations
 
 import logging

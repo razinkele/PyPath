@@ -67,9 +67,7 @@ def create_via_odbc(path: str) -> None:
         os.unlink(path)
 
     # Try CREATE_DB first
-    create_conn_str = (
-        f"DRIVER={{{driver}}};DBQ={path};CREATE_DB={path};"
-    )
+    create_conn_str = f"DRIVER={{{driver}}};DBQ={path};CREATE_DB={path};"
     try:
         conn = pyodbc.connect(create_conn_str)
         conn.autocommit = True
@@ -104,10 +102,7 @@ def create_via_adox(path: str) -> None:
         os.unlink(path)
 
     cat = win32com.client.Dispatch("ADOX.Catalog")
-    cat.Create(
-        f"Provider=Microsoft.ACE.OLEDB.12.0;"
-        f"Data Source={path};"
-    )
+    cat.Create(f"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={path};")
     cat = None
     print(f"  Created empty database via ADOX: {path}")
 
