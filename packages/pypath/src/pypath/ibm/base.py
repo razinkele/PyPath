@@ -56,6 +56,14 @@ class SuperIndividual:
         Whether this super-individual has reached sexual maturity.
     sex : int
         Sex code (0 = female, 1 = male, or other coding as needed).
+    life_stage : int
+        Life stage code (0=egg, 1=yolk_sac, 2=larva, 3=juvenile, 4=adult).
+    degree_days : float
+        Accumulated thermal development in degree-days (°C·day), egg stage only.
+    starvation_days : float
+        Consecutive days without sufficient feeding.
+    yolk_energy_kj : float
+        Yolk energy in kJ (only meaningful for life_stage 0-1).
     """
 
     id: int
@@ -67,6 +75,10 @@ class SuperIndividual:
     patch_idx: int
     is_mature: bool
     sex: int
+    life_stage: int = 4          # 0=egg, 1=yolk_sac, 2=larva, 3=juvenile, 4=adult
+    degree_days: float = 0.0     # accumulated thermal development (°C·day), egg stage only
+    starvation_days: float = 0.0 # consecutive days without sufficient feeding
+    yolk_energy_kj: float = 0.0  # yolk energy in kJ (only meaningful for life_stage 0-1)
 
     def total_biomass_tonnes(self) -> float:
         """Return total biomass represented by this super-individual in tonnes.
