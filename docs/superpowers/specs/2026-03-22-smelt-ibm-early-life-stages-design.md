@@ -33,7 +33,7 @@ This design bridges the two, creating a complete lifecycle IBM for Baltic smelt 
 
 ### SuperIndividual Extensions
 
-Three new fields added to `SuperIndividual` dataclass:
+Three new fields appended **after all existing non-default fields** in the `SuperIndividual` dataclass (required by Python dataclass field ordering — new default-valued fields must follow existing non-default fields):
 
 ```python
 life_stage: int = 4         # 0=egg, 1=yolk_sac, 2=larva, 3=juvenile, 4=adult
@@ -41,7 +41,7 @@ degree_days: float = 0.0    # accumulated thermal development (°C·day)
 starvation_days: float = 0.0  # consecutive days without sufficient feeding
 ```
 
-All existing code continues unchanged — current individuals default to `life_stage=4` (adult).
+All existing code continues unchanged — current individuals default to `life_stage=4` (adult). Existing code already uses keyword arguments for `SuperIndividual` construction (verified in `reproduction.py`), so adding default-valued fields at the end is safe.
 
 ### New Parameter Dataclasses
 
@@ -107,7 +107,13 @@ Eggs are sessile — no movement in Phase 5 for `life_stage=0`.
 
 ### Review Checkpoint
 
-Plot degree-day accumulation curves at 5.7°C, 9.1°C, 12.1°C. Hatching at ~40, ~23, ~12.5 days respectively (Keller et al. Table 4).
+Plot degree-day accumulation curves at 5.7°C, 9.1°C, and 12.1°C. The simple linear DD model predicts hatching at:
+
+- 5.7°C: DD rate = 3.9 °C·day/day → 149 / 3.9 = **38.2 days**
+- 9.1°C: DD rate = 7.3 °C·day/day → 149 / 7.3 = **20.4 days**
+- 12.1°C: DD rate = 10.3 °C·day/day → 149 / 10.3 = **14.5 days**
+
+**Note:** Keller et al. (2020) report empirical observations of ~40, ~23, and ~12.5 days respectively. The discrepancy (especially at 9.1°C and 12.1°C) arises because development rate is not perfectly linear with temperature — Keller also provides an Arrhenius formulation (T_A = 11,229 K) that captures this nonlinearity. The linear DD model is a first-order approximation; if validation shows systematic bias, the Arrhenius formulation can be substituted (same `EggParams` interface, different `accumulate_development()` implementation).
 
 ---
 
@@ -115,34 +121,43 @@ Plot degree-day accumulation curves at 5.7°C, 9.1°C, 12.1°C. Hatching at ~40,
 
 ### Yolk-Sac Model
 
-Hatched individuals (`life_stage=1`) carry energy reserve as yolk. Depleted by basal metabolism only (no feeding, no active movement):
+Hatched individuals (`life_stage=1`) carry yolk energy in the `energy_reserve` field. **For early life stages (life_stage 0–2), `energy_reserve` is in kilojoules (kJ)**. This differs from the current adult usage where `energy_reserve` is a dimensionless index — the reinterpretation is safe because early and adult stages never share energy reserve values (recruits are re-initialized when transitioning to juvenile stage).
+
+**Initial yolk energy at hatch:** defined in `YolkSacParams.initial_yolk_kj`. Default: 0.15 kJ (based on ~0.001g egg weight × 5 kJ/g energy density × ~30× yolk-to-body ratio for smelt eggs). Set on the `SuperIndividual` when transitioning from egg to yolk-sac stage.
+
+Yolk is depleted by basal metabolism only (no feeding, no active movement):
 
 ```
-yolk_depletion_rate = basal_metabolism(weight, temperature)
-energy_reserve -= yolk_depletion_rate * dt_days
+yolk_depletion_rate_kj = rs_a_larval * weight^rs_b * Q10^((T - T_ref) / 10) * energy_density * dt_days
+energy_reserve -= yolk_depletion_rate_kj
 ```
 
-Uses Q10 formulation with larval-specific `ra` (higher weight-specific metabolic rate). Duration emerges from the model (not hardcoded): ~25 days at 5.7°C, ~15 days at 9.1°C, ~14 days at 12.1°C.
+Uses Q10 formulation with larval-specific `rs_a_larval` from `LarvalParams` (higher weight-specific metabolic rate than adults). Duration emerges from the model (not hardcoded): ~25 days at 5.7°C, ~15 days at 9.1°C, ~14 days at 12.1°C.
 
 ### First Feeding Transition
 
-When `energy_reserve <= first_feeding_threshold`:
+**`first_feeding_threshold`**: defined in `YolkSacParams.first_feeding_threshold_kj` (default: 0.02 kJ — ~13% of initial yolk). When `energy_reserve <= first_feeding_threshold_kj`:
+
+**Zooplankton availability source:** `env_forcing['zoo_density']` (mg C/m³), representing local zooplankton concentration. In zonal mode, this is zone-specific via `env_forcing['zone_forcing'][patch_idx]['zoo_density']`. **`minimum_prey_density`**: defined in `YolkSacParams.minimum_prey_density` (default: 50.0 mg C/m³ — minimum copepod nauplii density for first feeding success).
 
 ```
-if zooplankton_available >= minimum_prey_density:
+zoo_density = env_forcing['zoo_density']  # or zone-specific variant
+
+if zoo_density >= params.yolk_sac.minimum_prey_density:
     life_stage = 2 (larva, exogenous feeding)
     starvation_days = 0
+    energy_reserve = initial_larval_reserve  # re-initialize for larval bioenergetics
 else:
     starvation_days += dt_days
-    if starvation_days > point_of_no_return:
+    if starvation_days > params.yolk_sac.point_of_no_return:
         individual dies (starvation)
 ```
 
-**Point of no return (PNR):** ~3–5 days (configurable). After PNR, larvae are too weak to feed.
+**Point of no return (PNR):** `YolkSacParams.point_of_no_return` (default: 4.0 days). After PNR, larvae are irreversibly starved.
 
 ### Cushing Match/Mismatch
 
-Moved from the current instant-recruitment to here — where it biologically belongs. The match/mismatch between yolk exhaustion timing and zooplankton availability drives first-feeding success.
+The match/mismatch effect is now emergent rather than explicit. In the current code, `create_recruits()` applies `larval_survival_probability()` (Gaussian match/mismatch) to compute instantaneous survival. With the new early life stages, the match/mismatch arises naturally: if yolk is exhausted when zooplankton density is low, larvae hit PNR and die. The explicit `larval_survival_probability()` function and the current `create_recruits()` are **deprecated** — spawning now produces eggs directly, and survival emerges from the mechanistic egg→yolk-sac→larva pipeline. The deprecated functions remain in `reproduction.py` for backward compatibility (existing tests that call them directly still pass), but `SmeltIBM.compute_step()` no longer calls them.
 
 ### Oxygen Effects
 
@@ -179,21 +194,58 @@ activity_multiplier(w) = am_min + (am_max - am_min) * sigmoid((w - w_mid) / w_sc
 
 ### Consumption — Concentration to Adaptive Foraging Blend
 
+**Larval consumption** uses a Type II functional response on zooplankton density from `env_forcing['zoo_density']`:
+
 ```
-C_larval(w, zoo) = cmax(w) * (zoo / (zoo + K_half))    # Type II functional response
-C_total = (1 - alpha(w)) * C_larval + alpha(w) * C_adaptive_forage
-alpha(w) = sigmoid((w - w_forage_mid) / w_forage_scale)
+C_larval_scalar = cmax(w) * (zoo / (zoo + K_half))    # scalar consumption (g/timestep)
 ```
 
-5mm larva: pure concentration-dependent. 50mm juvenile: pure adaptive foraging. 15mm fish: blend.
+This scalar is allocated entirely to the **zooplankton prey group index** (defined in `LarvalParams.zooplankton_prey_idx`, default: 1). The result is a per-prey consumption dict: `{zooplankton_prey_idx: C_larval_scalar}`.
+
+**Adult consumption** comes from the existing `adaptive_forage()` which returns `Dict[int, float]` — consumption allocated across all prey groups by profitability.
+
+**Blending** operates on the per-prey consumption vectors:
+
+```
+alpha(w) = sigmoid((w - w_forage_mid) / w_forage_scale)
+
+# Build larval consumption vector: all consumption goes to zooplankton group
+C_larval_vec = np.zeros(n_groups)
+C_larval_vec[zooplankton_prey_idx] = C_larval_scalar
+
+# Build adaptive forage vector from dict
+C_adaptive_vec = np.zeros(n_groups)
+for prey_idx, amount in adaptive_forage_result.items():
+    C_adaptive_vec[prey_idx] = amount
+
+# Blend
+C_total_vec = (1 - alpha) * C_larval_vec + alpha * C_adaptive_vec
+```
+
+At 5mm (alpha ≈ 0): pure zooplankton concentration-dependent. At 50mm (alpha ≈ 1): pure adaptive foraging across all prey. At 15mm: blend of both.
+
+**`K_half`**: half-saturation constant in `LarvalParams.k_half_zoo` (default: 100.0 mg C/m³).
 
 ### Cmax Scaling
 
 ```
-cmax(w) = c_a * w^c_b * f(T)
+cmax(w, T) = c_a * w^c_b * f(T)
 ```
 
-Temperature dome function `f(T)` peaks at optimal temperature.
+**Temperature dome function `f(T)`** — Thornton-Lessem formulation (standard in fish bioenergetics):
+
+```
+f(T) = K_A * K_B
+where:
+  K_A = (CQ * L1) / (1 + CQ * (L1 - 1))    for T <= T_opt
+  K_B = (CQ * L2) / (1 + CQ * (L2 - 1))    for T >= T_opt
+  L1 = exp(G1 * (T - T_opt))
+  L2 = exp(G2 * (T_max - T))
+  G1 = (1 / (T_opt - T_min)) * ln(CQ * (1 - V1) / V1)
+  G2 = (1 / (T_max - T_opt)) * ln(CQ * (1 - V2) / V2)
+```
+
+Parameters in `LarvalParams`: `cmax_t_opt` (default: 18°C), `cmax_t_min` (default: 2°C), `cmax_t_max` (default: 28°C). The dome shape ensures consumption drops at both cold and warm extremes.
 
 ### Assimilation Efficiency — Size-Dependent
 
@@ -203,9 +255,11 @@ assimilation_efficiency(w) = ae_min + (ae_max - ae_min) * sigmoid((w - w_ae_mid)
 
 `ae_min` ~ 0.55 (larvae), `ae_max` ~ 0.73 (adults).
 
+**Relationship to existing `BioenergParams.unassimilated_fraction`:** The ontogenetic sigmoid AE **replaces** `unassimilated_fraction` when Package 3 is active. The old parameter is retained in `BioenergParams` for backward compatibility (used when `LarvalParams` is None / early life stages disabled), but the new `growth_step_batch_ontogenetic()` function uses `assimilation_efficiency(w)` instead of `1 - unassimilated_fraction`.
+
 ### Implementation
 
-All sigmoid interpolations are vectorizable in `growth_step_batch()`. No branching by `life_stage` — body size drives everything.
+All sigmoid interpolations are vectorizable in `growth_step_batch_ontogenetic()` — a new function alongside the existing `growth_step_batch()`. No branching by `life_stage` — body size drives everything.
 
 ### Juvenile Transition
 
@@ -215,7 +269,7 @@ At configurable size threshold (~20mm), `life_stage` advances to 3 (juvenile). B
 
 - Growth 5mm→20mm: ~0.3–0.5 mm/day at 15°C
 - Metabolic scope dome-shaped vs temperature
-- At adult sizes: identical to current Wisconsin model output (backward compatibility)
+- **Backward compatibility via re-parameterization:** The Rs + Ra formulation with `activity_multiplier` changes the total metabolism calculation. At adult sizes, total metabolism = Rs × (1 + am_max). To match the current Wisconsin model, the new `rs_a` parameter must satisfy: `rs_a * (1 + am_max) = ra` (the existing metabolic intercept). With `am_max = 1.5`, this means `rs_a = ra / 2.5 = 0.0033 / 2.5 = 0.00132`. The `baltic_defaults()` method will set `rs_a` from this relationship automatically. Existing `growth_step_batch()` (used when `LarvalParams` is None) remains unchanged — only `growth_step_batch_ontogenetic()` uses the new formulation.
 
 ---
 
@@ -254,8 +308,10 @@ Below `O2_lethal`, mortality increases sharply:
 
 ```
 if O2 < O2_lethal[life_stage]:
-    mortality_rate = base_mortality + hypoxia_mortality * (1 - O2 / O2_lethal)
+    mortality_rate = stage_background_mortality + OxygenParams.hypoxia_mortality_rate * (1 - O2 / O2_lethal)
 ```
+
+Here `stage_background_mortality` is the life stage-specific baseline mortality (from `EggParams.background_mortality_rate` for eggs, zero for other stages that have predation mortality in Phase 3). `OxygenParams.hypoxia_mortality_rate` (default: 0.5 /day) is the maximum additional mortality at zero oxygen.
 
 Juveniles and adults: sublethal effects only (reduced Cmax) — they can swim away.
 
@@ -301,7 +357,16 @@ From:
   Coastal  0.1    0.2     0.7
 ```
 
-Configurable in `ZoneParams`. Actual movement modulated by behavioral scoring.
+Configurable in `ZoneParams`. Actual movement for active stages (juvenile/adult) combines the base connectivity with behavioral scoring:
+
+```
+# For active movement (life_stage >= 3):
+behavioral_score[j] = habitat_weight * quality[j] + food_weight * food[j]
+                     + predator_weight * (1/(1+pred[j])) + oxygen_weight * O2_score[j]
+final_prob[i, j] = normalize(base_connectivity[i, j] * behavioral_score[j])
+```
+
+For passive stages (yolk-sac, larvae), only the base connectivity matrix applies — no behavioral modulation.
 
 ### Ontogenetic Habitat Shifts
 
@@ -324,15 +389,24 @@ if life_stage == 4 and is_mature and should_migrate(temperature, month, params):
 
 ### Zone-Specific Forcing
 
-Each zone has own temperature, oxygen, prey density — driven by seasonal profiles or external coupling:
+Each zone has own temperature, oxygen, prey density. The `env_forcing` dict gains a `'zone_forcing'` key alongside existing top-level keys:
 
 ```python
-zone_forcing = {
-    0: {'temperature': 8.0, 'dissolved_oxygen': 7.5, 'zoo_density': 0.3},
-    1: {'temperature': 12.0, 'dissolved_oxygen': 4.5, 'zoo_density': 1.2},
-    2: {'temperature': 9.0, 'dissolved_oxygen': 8.0, 'zoo_density': 0.8},
+env_forcing = {
+    'temperature': 12.0,          # global default (used in non-zonal mode)
+    'month': 6,
+    'zoo_peak_day': 150,
+    'dissolved_oxygen': 6.5,      # global default
+    'zoo_density': 0.8,           # global default (mg C/m³)
+    'zone_forcing': {             # NEW — overrides per zone when present
+        0: {'temperature': 8.0, 'dissolved_oxygen': 7.5, 'zoo_density': 0.3},
+        1: {'temperature': 12.0, 'dissolved_oxygen': 4.5, 'zoo_density': 1.2},
+        2: {'temperature': 9.0, 'dissolved_oxygen': 8.0, 'zoo_density': 0.8},
+    }
 }
 ```
+
+When `'zone_forcing'` is present, `compute_step()` resolves each individual's environmental conditions from their `patch_idx`. When absent, all individuals experience the top-level global values (backward compatible, non-zonal mode).
 
 ### Larval Drift
 
