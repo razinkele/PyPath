@@ -52,6 +52,7 @@ from pypath.ibm.bioenergetics import (
     growth_step,
     growth_step_batch,
     growth_step_batch_ontogenetic,
+    oxygen_scalar,
     thornton_lessem,
 )
 from pypath.ibm.predation import PredationParams, apply_predation_mortality
@@ -531,7 +532,8 @@ class SmeltIBM(IBMGroup):
             )
 
             dt_days = dt * 365.0
-            o2 = env_forcing.get("o2", 10.0)
+            # Support both 'dissolved_oxygen' and legacy 'o2' keys
+            o2 = env_forcing.get("dissolved_oxygen", env_forcing.get("o2", 10.0))
             active_individuals: List[SuperIndividual] = []
 
             for ind in self.individuals:
@@ -576,7 +578,24 @@ class SmeltIBM(IBMGroup):
                         oxycal=sp.yolk_sac.oxycal_kj_per_g_o2,
                         dt_days=dt_days,
                     )
+                    # Oxygen stress: accelerate yolk depletion under hypoxia
+                    if sp.oxygen is not None and o2 < sp.oxygen.pcrit_yolk_sac:
+                        stress_factor = 1.0 + 0.5 * (
+                            1.0 - o2 / sp.oxygen.pcrit_yolk_sac
+                        )
+                        yolk_rate *= stress_factor
                     ind.yolk_energy_kj = max(0.0, ind.yolk_energy_kj - yolk_rate)
+
+                    # Oxygen lethal mortality for yolk-sac larvae
+                    if sp.oxygen is not None and o2 < sp.oxygen.o2_lethal_yolk_sac:
+                        o2_mort_rate = (
+                            sp.yolk_sac.background_mortality_rate
+                            + sp.oxygen.hypoxia_mortality_rate
+                            * (1.0 - o2 / sp.oxygen.o2_lethal_yolk_sac)
+                        )
+                        ind.n_represented *= np.exp(-o2_mort_rate * dt_days)
+                        if ind.n_represented < 1.0:
+                            continue  # cohort dead
 
                     # Determine zoo_density from env or prey_available
                     zoo_density = env_forcing.get("zoo_density", None)
@@ -657,9 +676,26 @@ class SmeltIBM(IBMGroup):
             def _sigmoid(x):
                 return 1.0 / (1.0 + np.exp(-np.clip(x, -30, 30)))
 
+            # Oxygen limitation on consumption (Cmax multiplier)
+            # When dissolved_oxygen is absent, default to 99.0 (no limitation)
+            o2_feeding = env_forcing.get(
+                "dissolved_oxygen", env_forcing.get("o2", 99.0)
+            )
+
             # Foraging loop with consumption blending
             for i, ind in enumerate(feeding):
                 w = ind.weight
+
+                # Compute per-individual oxygen scalar based on life stage
+                o2_scale = 1.0
+                if sp.oxygen is not None:
+                    if ind.life_stage == 2:
+                        pcrit = sp.oxygen.pcrit_larva
+                    elif ind.life_stage == 3:
+                        pcrit = sp.oxygen.pcrit_juvenile
+                    else:
+                        pcrit = sp.oxygen.pcrit_adult
+                    o2_scale = oxygen_scalar(o2_feeding, pcrit)
 
                 if sp.larval is not None:
                     alpha = float(
@@ -684,6 +720,7 @@ class SmeltIBM(IBMGroup):
                         CK4=lp.cmax_CK4,
                     )
                     cmax = lp.cmax_c_a * (w ** lp.cmax_c_b) * f_temp * dt_days
+                    cmax *= o2_scale  # oxygen limitation
                     denom = zoo_density + lp.k_half_zoo
                     c_larval_scalar = cmax * (zoo_density / denom) if denom > 0 else 0.0
                     pidx = lp.zooplankton_prey_idx
@@ -694,6 +731,7 @@ class SmeltIBM(IBMGroup):
                 c_adaptive_vec = np.zeros(self.n_groups)
                 if alpha > 0.01:
                     max_cons = 0.1 * (w ** 0.7) * dt_days
+                    max_cons *= o2_scale  # oxygen limitation
                     allocation = adaptive_forage(
                         prey_available=prey_dict,
                         max_consumption=max_cons,
@@ -760,6 +798,26 @@ class SmeltIBM(IBMGroup):
                 ind.weight = float(new_weights[i])
                 ind.energy_reserve = float(new_energies[i])
                 ind.length = float(new_lengths[i])
+
+        # Apply oxygen-dependent lethal mortality to feeding larvae
+        if sp.oxygen is not None and n_ind > 0:
+            o2_feeding = env_forcing.get(
+                "dissolved_oxygen", env_forcing.get("o2", 99.0)
+            )
+            if o2_feeding < sp.oxygen.o2_lethal_larva:
+                dt_days_mort = dt * 365.0
+                for ind in feeding:
+                    if ind.life_stage == 2:
+                        lp_bg = sp.larval.background_mortality_rate if sp.larval else 0.01
+                        o2_mort = (
+                            lp_bg
+                            + sp.oxygen.hypoxia_mortality_rate
+                            * (1.0 - o2_feeding / sp.oxygen.o2_lethal_larva)
+                        )
+                        ind.n_represented *= np.exp(-o2_mort * dt_days_mort)
+
+            # Remove dead individuals
+            feeding = [ind for ind in feeding if ind.n_represented >= 1.0]
 
         # Recombine early life stages with feeding individuals
         self.individuals = early + feeding
