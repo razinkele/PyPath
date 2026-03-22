@@ -482,20 +482,54 @@ class SmeltIBM(IBMGroup):
         # Approximate spawn day from month
         spawn_day = month * 30.0
 
-        for ind in self.individuals:
-            total_eggs = spawn(ind, temperature, sp.reproduction)
-            if total_eggs > 0.0:
-                new_recruits = create_recruits(
-                    total_eggs=total_eggs,
-                    spawn_day=spawn_day,
-                    zoo_peak_day=zoo_peak_day,
-                    patch_idx=ind.patch_idx,
-                    next_id=self._next_id,
-                    params=sp.reproduction,
-                    n_super_individuals=1,
-                )
-                self._next_id += len(new_recruits)
-                recruits.extend(new_recruits)
+        if sp.egg is not None:
+            # ELS mode: collect eggs by zone and create egg cohorts
+            from collections import defaultdict
+
+            eggs_by_zone: Dict[int, float] = defaultdict(float)
+            for ind in self.individuals:
+                eggs_from = spawn(ind, temperature, sp.reproduction)
+                if eggs_from > 0:
+                    eggs_by_zone[ind.patch_idx] += eggs_from
+            for zone_idx, zone_eggs in eggs_by_zone.items():
+                if zone_eggs > 0:
+                    n_cohorts = min(
+                        sp.egg.max_egg_cohorts,
+                        max(1, int(zone_eggs / 1e6)),
+                    )
+                    per_cohort = zone_eggs / n_cohorts
+                    for _i in range(n_cohorts):
+                        egg_si = SuperIndividual(
+                            id=self._next_id,
+                            n_represented=per_cohort,
+                            weight=sp.egg.egg_weight,
+                            length=sp.egg.egg_length_cm,
+                            age=0.0,
+                            energy_reserve=0.0,
+                            patch_idx=zone_idx,
+                            is_mature=False,
+                            sex=0,
+                            life_stage=0,
+                            degree_days=0.0,
+                        )
+                        recruits.append(egg_si)
+                        self._next_id += 1
+        else:
+            # Legacy mode: create recruits directly via create_recruits()
+            for ind in self.individuals:
+                total_eggs = spawn(ind, temperature, sp.reproduction)
+                if total_eggs > 0.0:
+                    new_recruits = create_recruits(
+                        total_eggs=total_eggs,
+                        spawn_day=spawn_day,
+                        zoo_peak_day=zoo_peak_day,
+                        patch_idx=ind.patch_idx,
+                        next_id=self._next_id,
+                        params=sp.reproduction,
+                        n_super_individuals=1,
+                    )
+                    self._next_id += len(new_recruits)
+                    recruits.extend(new_recruits)
 
         # ================================================================
         # Phase 3: Apply predation mortality
