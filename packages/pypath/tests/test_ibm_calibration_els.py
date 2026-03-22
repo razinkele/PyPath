@@ -19,10 +19,8 @@ def test_calibrate_els_runs():
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     ibm.initialize_from_ecosim(biomass=1.0, params={}, n_super_individuals=10)
     observed = {0: 100.0, 1: 120.0, 2: 90.0}
-    result = calibrate_els(None, None, ibm, observed, max_iterations=5)
-    assert isinstance(result, ELSCalibrationResult)
-    assert result.n_evaluations > 0
-    assert len(result.best_params) > 0
+    with pytest.raises(NotImplementedError, match="simulation runner"):
+        calibrate_els(None, None, ibm, observed, max_iterations=5)
 
 
 def test_els_calibration_result_fields():
@@ -38,10 +36,8 @@ def test_els_calibration_result_fields():
 
 def test_lhs_sensitivity_runs():
     ranges = {"param_a": (0.0, 1.0), "param_b": (10.0, 100.0)}
-    result = lhs_sensitivity(None, ranges, n_samples=10)
-    assert result["param_matrix"].shape == (10, 2)
-    assert len(result["outputs"]) == 10
-    assert result["param_names"] == ["param_a", "param_b"]
+    with pytest.raises(NotImplementedError, match="simulation runner"):
+        lhs_sensitivity(None, ranges, n_samples=10)
 
 
 # --- Task 6.3: PRCC analysis ---

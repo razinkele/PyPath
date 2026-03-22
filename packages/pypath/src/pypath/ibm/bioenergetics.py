@@ -289,7 +289,7 @@ def growth_step_batch(
     weights: np.ndarray,
     energy_reserves: np.ndarray,
     consumptions: np.ndarray,
-    temperature: float,
+    temperature: "float | np.ndarray",
     is_mature: np.ndarray,
     dt: float,
     params: BioenergParams,
@@ -304,8 +304,8 @@ def growth_step_batch(
         Energy reserves, shape ``(n,)``.
     consumptions : np.ndarray
         Total consumption per individual, shape ``(n,)``.
-    temperature : float
-        Water temperature (degrees C).
+    temperature : float or np.ndarray
+        Water temperature (degrees C). Scalar or per-individual array.
     is_mature : np.ndarray
         Boolean array, shape ``(n,)``.
     dt : float
@@ -411,7 +411,7 @@ def growth_step_batch_ontogenetic(
     weights: np.ndarray,
     energy_reserves: np.ndarray,
     consumptions: np.ndarray,
-    temperature: float,
+    temperature: "float | np.ndarray",
     is_mature: np.ndarray,
     dt: float,
     bioenerg_params: BioenergParams,
@@ -432,8 +432,8 @@ def growth_step_batch_ontogenetic(
         Energy reserves, shape ``(n,)``.
     consumptions : np.ndarray
         Total consumption per individual, shape ``(n,)``.
-    temperature : float
-        Water temperature (degrees C).
+    temperature : float or np.ndarray
+        Water temperature (degrees C). Scalar or per-individual array.
     is_mature : np.ndarray
         Boolean array, shape ``(n,)``.
     dt : float

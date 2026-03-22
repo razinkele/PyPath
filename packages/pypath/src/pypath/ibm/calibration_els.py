@@ -54,61 +54,10 @@ def calibrate_els(
     -------
     ELSCalibrationResult
     """
-    if param_bounds is None:
-        param_bounds = {
-            "egg_background_mortality_rate": (0.01, 0.10),
-            "minimum_prey_density": (20.0, 100.0),
-            "point_of_no_return": (2.0, 7.0),
-            "dd_hatch": (120.0, 180.0),
-        }
-
-    best_score = float("inf")
-    best_params = {}
-    n_evals = 0
-
-    try:
-        from scipy.optimize import differential_evolution
-
-        param_names = list(param_bounds.keys())
-        bounds = [param_bounds[name] for name in param_names]
-
-        def objective(x):
-            nonlocal n_evals
-            n_evals += 1
-            # Apply parameters
-            for name, val in zip(param_names, x):
-                if name == "egg_background_mortality_rate":
-                    ibm_group.params.egg.background_mortality_rate = val
-                elif name == "minimum_prey_density":
-                    ibm_group.params.yolk_sac.minimum_prey_density = val
-                elif name == "point_of_no_return":
-                    ibm_group.params.yolk_sac.point_of_no_return = val
-                elif name == "dd_hatch":
-                    ibm_group.params.egg.dd_hatch = val
-
-            # Run would require full Ecosim integration -- return placeholder
-            # In real use, this runs rsim_run with IBM and computes SS
-            logger.debug(
-                "Eval %d: params=%s", n_evals, dict(zip(param_names, x))
-            )
-            return np.sum(x)  # placeholder objective
-
-        result = differential_evolution(
-            objective, bounds, maxiter=max_iterations, seed=42
-        )
-        best_params = dict(zip(param_names, result.x))
-        best_score = result.fun
-        converged = result.success
-
-    except ImportError:
-        logger.warning("scipy not available -- calibration requires scipy")
-        converged = False
-
-    return ELSCalibrationResult(
-        best_params=best_params,
-        best_score=best_score,
-        n_evaluations=n_evals,
-        converged=converged,
+    raise NotImplementedError(
+        "calibrate_els() requires a simulation runner to be wired up. "
+        "The Ecosim+IBM simulation loop integration is not yet implemented. "
+        "Use fit_to_timeseries() for standard Ecosim calibration."
     )
 
 
@@ -160,17 +109,11 @@ def lhs_sensitivity(
     # Scale to bounds
     param_matrix = bounds[:, 0] + samples * (bounds[:, 1] - bounds[:, 0])
 
-    outputs = np.zeros(n_samples)
-    for i in range(n_samples):
-        # Each sample would run a full simulation
-        # Placeholder: output = sum of params (replaced with actual sim)
-        outputs[i] = np.sum(param_matrix[i])
-
-    return {
-        "param_matrix": param_matrix,
-        "outputs": outputs,
-        "param_names": param_names,
-    }
+    # Each sample would run a full simulation — not yet implemented
+    raise NotImplementedError(
+        "lhs_sensitivity() requires a simulation runner. "
+        "The per-sample Ecosim+IBM execution loop is not yet implemented."
+    )
 
 
 def partial_rank_correlation(

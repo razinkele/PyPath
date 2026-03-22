@@ -397,7 +397,7 @@ class SmeltIBM(IBMGroup):
         # Group by (life_stage, patch_idx)
         groups: Dict[tuple, List[SuperIndividual]] = defaultdict(list)
         for ind in self.individuals:
-            groups[(ind.life_stage, ind.patch_idx)].append(ind)
+            groups[(ind.life_stage, ind.patch_idx, ind.sex)].append(ind)
 
         # Within each group, sort by weight and merge closest pairs
         while sum(len(v) for v in groups.values()) > cap:
@@ -443,6 +443,8 @@ class SmeltIBM(IBMGroup):
                 a.energy_reserve = merged_energy
                 a.degree_days = merged_dd
                 a.yolk_energy_kj = merged_yolk
+                a.starvation_days = (a_n * a.starvation_days + b_n * b.starvation_days) / total_n
+                a.is_mature = a.is_mature or b.is_mature
 
                 # Recompute length from allometry
                 if a.life_stage < 3 and sp.larval is not None:
@@ -802,12 +804,18 @@ class SmeltIBM(IBMGroup):
             energy_reserves = np.array([ind.energy_reserve for ind in feeding])
             is_mature = np.array([ind.is_mature for ind in feeding])
 
+            # Per-individual temperature from zone-specific forcing
+            temps = np.array([
+                self._resolve_forcing(env_forcing, ind.patch_idx).get('temperature', temperature)
+                for ind in feeding
+            ])
+
             if sp.larval is not None:
                 new_weights, new_energies = growth_step_batch_ontogenetic(
                     weights=weights,
                     energy_reserves=energy_reserves,
                     consumptions=ind_consumptions,
-                    temperature=temperature,
+                    temperature=temps,
                     is_mature=is_mature,
                     dt=dt,
                     bioenerg_params=sp.bioenerg,
@@ -818,20 +826,21 @@ class SmeltIBM(IBMGroup):
                     weights=weights,
                     energy_reserves=energy_reserves,
                     consumptions=ind_consumptions,
-                    temperature=temperature,
+                    temperature=temps,
                     is_mature=is_mature,
                     dt=dt,
                     params=sp.bioenerg,
                 )
 
-            # Batch allometric length (use larval allometry for small fish)
+            # Batch allometric length (use larval allometry based on life_stage)
             if sp.larval is not None:
+                life_stages = np.array([ind.life_stage for ind in feeding])
                 new_lengths = np.where(
-                    new_weights < sp.larval.w_forage_mid,
+                    life_stages < 3,
                     sp.larval.a_length_larval
-                    * np.maximum(new_weights, 0.0) ** sp.larval.b_length_larval,
+                    * np.maximum(new_weights, 1e-6) ** sp.larval.b_length_larval,
                     sp.bioenerg.a_length
-                    * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length,
+                    * np.maximum(new_weights, 1e-6) ** sp.bioenerg.b_length,
                 )
             else:
                 new_lengths = (
