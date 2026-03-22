@@ -19,7 +19,7 @@
 |------|---------------|
 | `packages/pypath/src/pypath/ibm/development.py` | EggParams, YolkSacParams, LarvalParams, OxygenParams, ZoneParams dataclasses + degree-day/yolk/oxygen helper functions |
 | `packages/pypath/tests/test_ibm_development.py` | Tests for development.py (egg DD, yolk depletion, first feeding, oxygen scalar) |
-| `packages/pypath/tests/test_ibm_ontogenetic.py` | Tests for ontogenetic bioenergetics (Thornton-Lessem, consumption blend, sigmoid interpolation) — created in Task 3.1 |
+| `packages/pypath/tests/test_ibm_ontogenetic.py` | Tests for ontogenetic bioenergetics (Thornton-Lessem, consumption blend, sigmoid interpolation) — Thornton-Lessem tests go in `test_ibm_bioenergetics.py` (existing); create this file in Task 3.3 for `growth_step_batch_ontogenetic()` and consumption blending tests |
 | `packages/pypath/tests/test_ibm_zones.py` | Tests for zonal spatial model (connectivity, drift, zone forcing) — created in Task 5.1 |
 | `packages/pypath/tests/test_ibm_els_integration.py` | End-to-end early life stage tests with Ecosim coupling |
 
@@ -333,19 +333,11 @@ git commit -m "feat(ibm): add egg mortality (background, oxygen, thermal)"
 
 ---
 
-### Task 1.4: Add YolkSacParams, LarvalParams, OxygenParams, ZoneParams stubs
+### Task 1.4: Add SmeltParams Optional fields and baltic_defaults_els()
 
-> **NOTE:** This task was reordered before 1.5 (SmeltParams fields) because `baltic_defaults_els()` needs to import these classes.
+> **NOTE:** Task 1.4 (param dataclasses) and 1.5 (SmeltParams fields) were originally reversed. They are now correctly ordered: param classes first (Task 1.5), then SmeltParams (Task 1.6). But since SmeltParams needs the classes at import time, we implement them together in a single task.
 
-**Files:**
-- Modify: `packages/pypath/src/pypath/ibm/development.py`
-- Modify: `packages/pypath/tests/test_ibm_development.py`
-
-(See original Task 1.5 content below for the implementation — the steps are identical, just reordered.)
-
----
-
-### Task 1.5: Add SmeltParams Optional fields and baltic_defaults_els()
+> **IMPORTANT:** Before implementing this task, first implement the param dataclasses below (YolkSacParams, LarvalParams, OxygenParams, ZoneParams) in `development.py`, then add the SmeltParams fields. Both are in this single task.
 
 **Files:**
 - Modify: `packages/pypath/src/pypath/ibm/smelt.py`
@@ -426,7 +418,7 @@ git commit -m "feat(ibm): add Optional early life stage params to SmeltParams wi
 
 ---
 
-### Task 1.5: Add YolkSacParams, LarvalParams, OxygenParams, ZoneParams stubs
+### Task 1.5: Add YolkSacParams, LarvalParams, OxygenParams, ZoneParams dataclasses
 
 **Files:**
 - Modify: `packages/pypath/src/pypath/ibm/development.py`
@@ -563,6 +555,8 @@ git commit -m "feat(ibm): add YolkSacParams, LarvalParams, OxygenParams, ZonePar
 ---
 
 ### Task 1.6: Implement egg spawning in compute_step()
+
+> **NOTE:** Tasks were renumbered: old 1.4→merged into 1.4+1.5, old 1.5→1.5, old 1.6→1.6, old 1.7→1.7, old 1.8→1.8, old 1.9→1.9.
 
 **Files:**
 - Modify: `packages/pypath/src/pypath/ibm/smelt.py`
