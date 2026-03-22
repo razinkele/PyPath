@@ -299,7 +299,7 @@ At 5mm (alpha ≈ 0): pure zooplankton concentration-dependent. At 50mm (alpha �
 ### Cmax Scaling
 
 ```
-cmax(w, T) = c_a * w^c_b * f(T)
+cmax(w, T) = c_a * w^c_b * f(T) * dt_days    # g/timestep (c_a is a daily rate, scaled by dt_days)
 ```
 
 **Temperature dome function `f(T)`** — Thornton-Lessem formulation (standard in fish bioenergetics):
@@ -307,8 +307,9 @@ cmax(w, T) = c_a * w^c_b * f(T)
 ```
 f(T) = K_A * K_B
 where:
-  K_A = (CQ * L1) / (1 + CQ * (L1 - 1))    for T <= T_opt
-  K_B = (CQ * L2) / (1 + CQ * (L2 - 1))    for T >= T_opt
+  K_A = (CQ * L1) / (1 + CQ * (L1 - 1))    # ascending limb (dominates for T < T_opt)
+  K_B = (CQ * L2) / (1 + CQ * (L2 - 1))    # descending limb (dominates for T > T_opt)
+  # BOTH K_A and K_B are always computed for all T; they are NOT conditional branches
   L1 = exp(G1 * (T - T_min))
   L2 = exp(G2 * (T_max - T))
   G1 = (1 / (T_opt - T_min)) * ln(CQ * (1 - V1) / V1)
