@@ -31,8 +31,17 @@ This design bridges the two, creating a complete lifecycle IBM for Baltic smelt 
 
 - **`dt`** is in **years** (fraction of a year, typically 1/12 for monthly timesteps), matching the existing Ecosim convention.
 - **`dt_days = dt * 365.0`** is the conversion used throughout (matching `bioenergetics.py` line 253). All daily-rate formulas use `dt_days`.
-- **Ecosim arrays are 1-based**: index 0 is "Outside", groups occupy indices 1 through `n_groups`. All consumption vectors in this spec have shape `(n_groups + 1,)` to match this convention. `zooplankton_prey_idx` and all prey indices are 1-based Ecosim indices.
 - **`n_groups`** refers to the total number of Ecosim groups (living + dead), consistent with `RsimParams.NUM_GROUPS`.
+
+### Array indexing convention (critical for integration)
+
+The Ecosim QQ matrix is `(n_groups+1, n_groups+1)` with 1-based group indices. However, the IBM integration layer (`integration.py`) translates to a different convention:
+
+- **`prey_available`** passed to `compute_step()`: shape `(n_groups,)`, indexed with 1-based Ecosim indices stored in a 0-based array. Index 0 is unused (always 0.0). Indices 1 through n_groups-1 hold prey rates. This is the existing behavior of `extract_prey_availability()` → `prey_array`.
+- **`consumption_by_prey`** returned in `IBMStepResult`: shape `(n_groups,)`, same convention. `apply_ibm_to_derivative()` iterates `consumption_by_prey[prey_idx]` and subtracts from `deriv[prey_idx]` directly.
+- **`zooplankton_prey_idx`** and all prey group indices in this spec are **1-based Ecosim indices** stored in arrays indexed 0 through n_groups-1. Validated to be `>= 1` and `< n_groups` in `SmeltParams`.
+
+**The blending pseudocode in Package 3 uses the same `(n_groups,)` convention** as the existing codebase. The consumption vectors in the blending code are NOT `(n_groups+1,)` — they match the existing `prey_array` shape.
 
 ---
 
@@ -61,7 +70,7 @@ In a new `development.py` module:
 - **`OxygenParams`** — Pcrit by life stage (or as size-dependent sigmoid), lethal thresholds, hypoxia mortality rate, behavioral avoidance weight
 - **`ZoneParams`** — zone definitions (spawning/nursery/coastal), connectivity matrix, zone-specific temperature/O2/prey offsets, drift parameters
 
-These are added to `SmeltParams` alongside existing `BioenergParams`, `PredationParams`, etc.
+These are added to `SmeltParams` as **`Optional[...] = None`** fields, placed after the existing defaulted fields (`vbgf_k_mean`, `vbgf_k_sd`, `vbgf_linf_mean`, `vbgf_linf_sd`, `max_age`). When `None`, the corresponding feature is disabled (no early life stages, no oxygen effects, no zonal model) and the existing code path runs unchanged. The `baltic_defaults()` classmethod is extended to populate all new params with literature defaults.
 
 ### compute_step() Restructure
 
@@ -88,7 +97,19 @@ For each timestep:
 
 **Population management:** Each spawning event creates at most `EggParams.max_egg_cohorts` super-individuals (default: 3). Total eggs (from all females spawning in this timestep) are distributed across these cohorts via `n_represented`. For example, if 50 females produce 10 million eggs total, 3 egg super-individuals are created with `n_represented ≈ 3.33 million` each.
 
-**Population cap:** `self.individuals` is capped at `SmeltParams.max_super_individuals` (default: 2000). When the cap is reached, same-stage, same-zone cohorts are consolidated: the two smallest cohorts (by `n_represented`) are merged into one, summing `n_represented` and averaging `weight`, `age`, `degree_days`. This keeps the list bounded while preserving total biomass.
+**Population cap:** `self.individuals` is capped at `SmeltParams.max_super_individuals` (default: 2000). When the cap is reached, same-stage, same-zone, same-sex cohorts are consolidated: the two smallest cohorts (by `n_represented`) are merged into one with:
+- `n_represented` = sum
+- `weight` = weighted average (by `n_represented`)
+- `age` = weighted average
+- `length` = recomputed from merged weight via allometry (`a_length * weight ^ b_length`)
+- `degree_days` = weighted average (only meaningful for eggs)
+- `yolk_energy_kj` = weighted average (only meaningful for yolk-sac)
+- `starvation_days` = weighted average
+- `energy_reserve` = weighted average
+- `is_mature` = either (OR — if one is mature, merged cohort is mature)
+- `id` = new id from `_next_id`
+
+This keeps the list bounded while preserving total biomass and population structure.
 
 **Performance guarantee:** Eggs (life_stage=0) and yolk-sac larvae (life_stage=1) skip Phase 1 foraging entirely — they are excluded from the `adaptive_forage()` loop and `growth_step_batch()` call. Only their degree-day/yolk depletion is computed (O(1) per cohort).
 
@@ -170,7 +191,7 @@ zoo_density = env_forcing['zoo_density']  # or zone-specific variant
 if zoo_density >= params.yolk_sac.minimum_prey_density:
     life_stage = 2 (larva, exogenous feeding)
     starvation_days = 0
-    energy_reserve = initial_larval_reserve  # re-initialize for larval bioenergetics
+    energy_reserve = weight * 0.1  # re-initialize using same convention as adult (weight * 0.1)
 else:
     starvation_days += dt_days
     if starvation_days > params.yolk_sac.point_of_no_return:
@@ -226,27 +247,29 @@ C_larval_scalar = cmax(w) * (zoo / (zoo + K_half))    # scalar consumption (g/ti
 
 This scalar is allocated entirely to the **zooplankton prey group index** (defined in `LarvalParams.zooplankton_prey_idx`, default: 1 — a **1-based Ecosim index**; validated in `SmeltParams` to be >= 1). The result is a per-prey consumption dict: `{zooplankton_prey_idx: C_larval_scalar}`.
 
-**Adult consumption** comes from the existing `adaptive_forage()` which returns `Dict[int, float]` — consumption allocated across all prey groups by profitability.
+**Adult consumption** comes from the existing `adaptive_forage()` which returns `Dict[int, float]` — consumption allocated across prey groups by profitability. Keys follow the `prey_available` indexing convention (1-based Ecosim indices stored in the dict from `extract_prey_availability()`).
 
 **Blending** operates on the per-prey consumption vectors:
 
 ```
 alpha(w) = sigmoid((w - w_forage_mid) / w_forage_scale)
 
-# All vectors have shape (n_groups + 1,) matching Ecosim 1-based convention
-# Index 0 = "Outside", indices 1..n_groups = Ecosim groups
+# All vectors have shape (n_groups,) matching existing prey_array/consumption_by_prey convention.
+# Index 0 is unused; indices 1..n_groups-1 hold 1-based Ecosim group values.
 
 # Build larval consumption vector: all consumption goes to zooplankton group
-C_larval_vec = np.zeros(n_groups + 1)
-C_larval_vec[zooplankton_prey_idx] = C_larval_scalar   # 1-based index
+C_larval_vec = np.zeros(n_groups)
+C_larval_vec[zooplankton_prey_idx] = C_larval_scalar   # 1-based Ecosim index, >= 1
 
-# Build adaptive forage vector from dict (keys are already 1-based)
-C_adaptive_vec = np.zeros(n_groups + 1)
+# Build adaptive forage vector from dict (keys are 1-based from prey_available)
+C_adaptive_vec = np.zeros(n_groups)
 for prey_idx, amount in adaptive_forage_result.items():
-    C_adaptive_vec[prey_idx] = amount
+    if prey_idx < n_groups:
+        C_adaptive_vec[prey_idx] = amount
 
 # Blend
 C_total_vec = (1 - alpha) * C_larval_vec + alpha * C_adaptive_vec
+# This becomes IBMStepResult.consumption_by_prey (shape n_groups,)
 ```
 
 At 5mm (alpha ≈ 0): pure zooplankton concentration-dependent. At 50mm (alpha ≈ 1): pure adaptive foraging across all prey. At 15mm: blend of both.
@@ -338,7 +361,13 @@ if O2 < O2_lethal[life_stage]:
     mortality_rate = stage_background_mortality + OxygenParams.hypoxia_mortality_rate * (1 - O2 / O2_lethal)
 ```
 
-Here `stage_background_mortality` is the life stage-specific baseline mortality (from `EggParams.background_mortality_rate` for eggs, zero for other stages that have predation mortality in Phase 3). `OxygenParams.hypoxia_mortality_rate` (default: 0.5 /day) is the maximum additional mortality at zero oxygen.
+Here `stage_background_mortality` is the life stage-specific baseline mortality rate (/day):
+- **Eggs:** `EggParams.background_mortality_rate` (default: 0.05 /day — invertebrate predation on sessile eggs)
+- **Yolk-sac:** `YolkSacParams.background_mortality_rate` (default: 0.02 /day — some predation, but mainly PNR starvation drives mortality)
+- **Larvae:** `LarvalParams.background_mortality_rate` (default: 0.01 /day — predation in Phase 3 is the main mortality source, this covers additional diffuse losses)
+- **Juveniles/Adults:** 0.0 (predation in Phase 3 is the sole non-oxygen mortality source)
+
+`OxygenParams.hypoxia_mortality_rate` (default: 0.5 /day) is the maximum additional mortality at zero oxygen.
 
 Juveniles and adults: sublethal effects only (reduced Cmax) — they can swim away.
 
