@@ -430,50 +430,117 @@ class SmeltIBM(IBMGroup):
         total_consumption = np.zeros(self.n_groups)
 
         # ================================================================
+        # Phase 1a: Egg development (degree-day accumulation + hatching)
+        # ================================================================
+        if sp.egg is not None:
+            from pypath.ibm.development import (
+                accumulate_degree_days,
+                apply_egg_mortality,
+                check_hatching,
+            )
+
+            dt_days = dt * 365.0
+            o2 = env_forcing.get("o2", 10.0)
+            active_individuals: List[SuperIndividual] = []
+
+            for ind in self.individuals:
+                if ind.life_stage == 0:
+                    # Accumulate degree-days
+                    ind.degree_days = accumulate_degree_days(
+                        ind.degree_days, temperature, sp.egg.t_zero, dt_days
+                    )
+                    # Apply egg mortality
+                    hypoxia_rate = (
+                        sp.oxygen.hypoxia_mortality_rate
+                        if sp.oxygen is not None
+                        else 0.5
+                    )
+                    ind.n_represented = apply_egg_mortality(
+                        n_represented=ind.n_represented,
+                        background_rate=sp.egg.background_mortality_rate,
+                        dt_days=dt_days,
+                        o2=o2,
+                        o2_lethal=sp.egg.o2_lethal,
+                        degree_days=ind.degree_days,
+                        dd_mortality=sp.egg.dd_mortality,
+                        hypoxia_mortality_rate=hypoxia_rate,
+                    )
+                    if ind.n_represented < 1.0:
+                        continue  # egg cohort dead
+                    # Check hatching
+                    if check_hatching(ind.degree_days, sp.egg.dd_hatch):
+                        ind.life_stage = 1
+                        if sp.yolk_sac is not None:
+                            ind.yolk_energy_kj = sp.yolk_sac.initial_yolk_kj
+                    active_individuals.append(ind)
+                elif ind.life_stage == 1:
+                    # Yolk-sac larvae pass through (future: yolk depletion)
+                    active_individuals.append(ind)
+                else:
+                    active_individuals.append(ind)
+
+            self.individuals = active_individuals
+
+        # Filter: only juvenile/adult (life_stage >= 3) go through Phase 1
+        if sp.egg is not None:
+            adults = [ind for ind in self.individuals if ind.life_stage >= 3]
+            early = [ind for ind in self.individuals if ind.life_stage < 3]
+        else:
+            adults = self.individuals
+            early = []
+
+        # ================================================================
         # Phase 1: Forage + Grow
         # ================================================================
-        n_ind = len(self.individuals)
+        n_ind = len(adults)
         ind_consumptions = np.empty(n_ind)
 
         # Vectorized max_consumption: 0.1 * weight^0.7 * dt * 365
-        weights = np.array([ind.weight for ind in self.individuals])
-        max_consumptions = 0.1 * (weights ** 0.7) * dt * 365.0
+        if n_ind > 0:
+            weights = np.array([ind.weight for ind in adults])
+            max_consumptions = 0.1 * (weights ** 0.7) * dt * 365.0
 
-        # Foraging loop (sequential — adaptive_forage has iterative redistribution)
-        for i, ind in enumerate(self.individuals):
-            allocation = adaptive_forage(
-                prey_available=prey_dict,
-                max_consumption=max_consumptions[i],
-                individual_length=ind.length,
-                params=sp.foraging,
+            # Foraging loop (sequential — adaptive_forage has iterative redistribution)
+            for i, ind in enumerate(adults):
+                allocation = adaptive_forage(
+                    prey_available=prey_dict,
+                    max_consumption=max_consumptions[i],
+                    individual_length=ind.length,
+                    params=sp.foraging,
+                )
+                ind_consumptions[i] = sum(allocation.values())
+                for prey_idx, amount in allocation.items():
+                    if prey_idx < self.n_groups:
+                        total_consumption[prey_idx] += amount * ind.n_represented / 1e6
+
+            # Batch growth step (vectorized bioenergetics)
+            energy_reserves = np.array([ind.energy_reserve for ind in adults])
+            is_mature = np.array([ind.is_mature for ind in adults])
+
+            new_weights, new_energies = growth_step_batch(
+                weights=weights,
+                energy_reserves=energy_reserves,
+                consumptions=ind_consumptions,
+                temperature=temperature,
+                is_mature=is_mature,
+                dt=dt,
+                params=sp.bioenerg,
             )
-            ind_consumptions[i] = sum(allocation.values())
-            for prey_idx, amount in allocation.items():
-                if prey_idx < self.n_groups:
-                    total_consumption[prey_idx] += amount * ind.n_represented / 1e6
 
-        # Batch growth step (vectorized bioenergetics)
-        energy_reserves = np.array([ind.energy_reserve for ind in self.individuals])
-        is_mature = np.array([ind.is_mature for ind in self.individuals])
+            # Batch allometric length
+            new_lengths = (
+                sp.bioenerg.a_length
+                * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length
+            )
 
-        new_weights, new_energies = growth_step_batch(
-            weights=weights,
-            energy_reserves=energy_reserves,
-            consumptions=ind_consumptions,
-            temperature=temperature,
-            is_mature=is_mature,
-            dt=dt,
-            params=sp.bioenerg,
-        )
+            # Write back to individuals
+            for i, ind in enumerate(adults):
+                ind.weight = float(new_weights[i])
+                ind.energy_reserve = float(new_energies[i])
+                ind.length = float(new_lengths[i])
 
-        # Batch allometric length
-        new_lengths = sp.bioenerg.a_length * np.maximum(new_weights, 0.0) ** sp.bioenerg.b_length
-
-        # Write back to individuals
-        for i, ind in enumerate(self.individuals):
-            ind.weight = float(new_weights[i])
-            ind.energy_reserve = float(new_energies[i])
-            ind.length = float(new_lengths[i])
+        # Recombine early life stages with adults
+        self.individuals = early + adults
 
         # ================================================================
         # Phase 2: Reproduce
