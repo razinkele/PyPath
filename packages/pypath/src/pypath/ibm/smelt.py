@@ -971,8 +971,17 @@ class SmeltIBM(IBMGroup):
         self._last_consumption = total_consumption
 
         # ================================================================
-        # Phase 5: Spatial movement (only when spatial context provided)
+        # Phase 5: Spatial movement
         # ================================================================
+        # Ontogenetic habitat constraints: allowed zones per life stage
+        _ALLOWED_ZONES = {
+            0: {0},          # Eggs: river only (sessile)
+            1: {0, 1},       # Yolk-sac: river, lagoon
+            2: {0, 1},       # Larvae: river, lagoon
+            3: {1, 2},       # Juvenile: lagoon, coastal
+            4: {0, 1, 2},    # Adult: all zones
+        }
+
         patch_biomass = None
         if spatial_context is not None:
             from pypath.ibm.behavior import calculate_movement_probabilities
@@ -989,6 +998,50 @@ class SmeltIBM(IBMGroup):
                 ind.patch_idx = int(self._rng.choice(len(probs), p=probs))
 
             patch_biomass = self._aggregate_by_patch(spatial_context.n_patches)
+
+        elif sp.zones is not None:
+            # Standalone zonal mode (3-zone Curonian Lagoon model)
+            from pypath.ibm.behavior import should_migrate
+
+            conn = sp.zones.connectivity
+            n_zones = len(conn)
+
+            for ind in self.individuals:
+                # Eggs: sessile — no movement
+                if ind.life_stage == 0:
+                    continue
+
+                # Spawning migration: mature adults migrate to river
+                if ind.life_stage == 4 and ind.is_mature:
+                    ind_env = self._resolve_forcing(env_forcing, ind.patch_idx)
+                    ind_temp = ind_env.get("temperature", temperature)
+                    if should_migrate(ind_temp, month, sp.movement):
+                        ind.patch_idx = 0  # migrate to spawning zone
+                        continue
+
+                # Passive drift for yolk-sac and larvae
+                if ind.life_stage in (1, 2):
+                    drift_rate = sp.zones.base_drift_rate
+                    # Larvae have reduced drift as they grow
+                    if ind.life_stage == 2:
+                        drift_rate *= max(0.1, 1.0 - ind.length / 2.0)
+                    if self._rng.random() < drift_rate:
+                        probs = conn[ind.patch_idx]
+                        new_zone = int(self._rng.choice(n_zones, p=probs))
+                        allowed = _ALLOWED_ZONES.get(ind.life_stage, {0, 1, 2})
+                        if new_zone in allowed:
+                            ind.patch_idx = new_zone
+                    continue
+
+                # Active movement for juveniles and non-migrating adults
+                if ind.life_stage >= 3:
+                    probs = conn[ind.patch_idx]
+                    new_zone = int(self._rng.choice(n_zones, p=probs))
+                    allowed = _ALLOWED_ZONES.get(ind.life_stage, {0, 1, 2})
+                    if new_zone in allowed:
+                        ind.patch_idx = new_zone
+
+            patch_biomass = self._aggregate_by_patch(n_zones)
 
         # Compute results
         biomass_after = self.get_aggregate_biomass()
