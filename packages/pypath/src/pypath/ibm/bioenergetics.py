@@ -35,6 +35,7 @@ BioenergParams
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -328,6 +329,164 @@ def growth_step_batch(
     net_energy = net_energy - repro_cost
 
     weight_change = net_energy / params.energy_density
+    new_weights = np.maximum(weights + weight_change, 0.1)
+    new_energy_reserves = np.maximum(energy_reserves + weight_change, 0.0)
+
+    return new_weights, new_energy_reserves
+
+
+def thornton_lessem(
+    temp: float,
+    CQ: float,
+    CTO: float,
+    CTM: float,
+    CTL: float,
+    CK1: float,
+    CK4: float,
+) -> float:
+    """Thornton-Lessem temperature function (Fish Bioenergetics 3.0/4.0).
+
+    Produces a dome-shaped temperature response curve widely used in fish
+    bioenergetics models (Thornton & Lessem 1978).  The result f(T) ranges
+    from ~CK1 at CQ (cold extreme) to ~0.98 near CTO-CTM (optimum) to
+    ~CK4 at CTL (hot extreme).
+
+    Parameters
+    ----------
+    temp : float
+        Current water temperature (degrees C).
+    CQ : float
+        Lower temperature where rate = CK1 fraction of maximum (~T_min).
+    CTO : float
+        Temperature where ascending limb reaches 0.98 of max (~T_opt).
+    CTM : float
+        Temperature where descending limb is still 0.98 of max (> CTO).
+    CTL : float
+        Upper temperature where rate = CK4 fraction of maximum (~T_max).
+    CK1 : float
+        Small fraction of max at CQ (typically 0.01-0.05).
+    CK4 : float
+        Small fraction of max at CTL (typically 0.01-0.05).
+
+    Returns
+    -------
+    float
+        Temperature scaling factor in [0, ~0.98], dome-shaped.
+    """
+    if temp < CQ or temp > CTL:
+        return 0.0
+    G1 = (1.0 / (CTO - CQ)) * math.log(0.98 * (1.0 - CK1) / (CK1 * 0.02))
+    G2 = (1.0 / (CTL - CTM)) * math.log(0.98 * (1.0 - CK4) / (CK4 * 0.02))
+    L1 = math.exp(G1 * (temp - CQ))
+    L2 = math.exp(G2 * (CTL - temp))
+    K_A = (CK1 * L1) / (1.0 + CK1 * (L1 - 1.0))
+    K_B = (CK4 * L2) / (1.0 + CK4 * (L2 - 1.0))
+    return max(0.0, K_A * K_B)
+
+
+def oxygen_scalar(o2: float, pcrit: float) -> float:
+    """Compute oxygen limitation scalar.
+
+    Returns 1.0 when dissolved oxygen is at or above the critical threshold
+    (``pcrit``), and scales linearly to 0.0 as oxygen approaches zero.
+
+    Parameters
+    ----------
+    o2 : float
+        Dissolved oxygen concentration (mg/L).
+    pcrit : float
+        Critical oxygen threshold (mg/L) below which limitation begins.
+
+    Returns
+    -------
+    float
+        Oxygen scalar in [0, 1].
+    """
+    if o2 >= pcrit:
+        return 1.0
+    return max(0.0, o2 / pcrit)
+
+
+def growth_step_batch_ontogenetic(
+    weights: np.ndarray,
+    energy_reserves: np.ndarray,
+    consumptions: np.ndarray,
+    temperature: float,
+    is_mature: np.ndarray,
+    dt: float,
+    bioenerg_params: BioenergParams,
+    larval_params: "LarvalParams",
+) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorized growth step with ontogenetic (size-dependent) interpolation.
+
+    Extends the Wisconsin bioenergetics model with sigmoid-interpolated
+    activity multiplier, assimilation efficiency, and basal metabolism split
+    (Rs + Ra).  At large (adult) body sizes the results converge to those of
+    :func:`growth_step_batch` when ``larval_params.rs_a * (1 + am_max) == ra``.
+
+    Parameters
+    ----------
+    weights : np.ndarray
+        Body weights (grams), shape ``(n,)``.
+    energy_reserves : np.ndarray
+        Energy reserves, shape ``(n,)``.
+    consumptions : np.ndarray
+        Total consumption per individual, shape ``(n,)``.
+    temperature : float
+        Water temperature (degrees C).
+    is_mature : np.ndarray
+        Boolean array, shape ``(n,)``.
+    dt : float
+        Timestep (fraction of a year).
+    bioenerg_params : BioenergParams
+        Standard bioenergetics parameters.
+    larval_params : LarvalParams
+        Ontogenetic interpolation parameters.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        ``(new_weights, new_energy_reserves)``.
+    """
+    lp = larval_params
+    bp = bioenerg_params
+
+    # --- Sigmoid helper (vectorized) ---
+    def _sigmoid(x: np.ndarray) -> np.ndarray:
+        return 1.0 / (1.0 + np.exp(-x))
+
+    # --- Activity multiplier: size-dependent ---
+    am = lp.am_min + (lp.am_max - lp.am_min) * _sigmoid(
+        (weights - lp.w_activity_mid) / lp.w_activity_scale
+    )
+
+    # --- Metabolism: Rs * (1 + am) ---
+    q10_factor = q10_temperature_factor(temperature, bp.t_ref, bp.q10)
+    # rs_a * w^rb gives per-gram basal rate; multiply by (1 + am) for total met rate
+    met = lp.rs_a * (weights ** bp.rb) * q10_factor * (1.0 + am) * dt * 365.0
+
+    # --- Assimilation efficiency: size-dependent ---
+    ae = lp.ae_min + (lp.ae_max - lp.ae_min) * _sigmoid(
+        (weights - lp.w_ae_mid) / lp.w_ae_scale
+    )
+    assim = consumptions * ae
+
+    # --- SDA ---
+    sda = consumptions * bp.sda_fraction
+
+    # --- Net energy ---
+    net_energy = assim - met - sda
+
+    # --- Reproduction cost for mature fish with positive surplus ---
+    repro_cost = np.where(
+        np.asarray(is_mature, dtype=bool) & (net_energy > 0),
+        net_energy * bp.reproduction_fraction,
+        0.0,
+    )
+    net_energy = net_energy - repro_cost
+
+    # --- Weight and energy reserve update ---
+    weight_change = net_energy / bp.energy_density
     new_weights = np.maximum(weights + weight_change, 0.1)
     new_energy_reserves = np.maximum(energy_reserves + weight_change, 0.0)
 

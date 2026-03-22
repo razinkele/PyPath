@@ -377,3 +377,125 @@ class TestGrowthStepBatch:
             15.0, is_mature, 1.0, default_params,
         )
         assert new_w[0] >= 0.1
+
+
+class TestThorntonLessem:
+    """Test Thornton-Lessem temperature dome function."""
+
+    def test_at_t_opt(self):
+        """At CTO (ascending peak), f should be > 0.90."""
+        from pypath.ibm.bioenergetics import thornton_lessem
+
+        f = thornton_lessem(
+            18.0, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01
+        )
+        assert f > 0.90
+
+    def test_at_extremes(self):
+        """At CQ and CTL the function should return small values; below CQ returns 0."""
+        from pypath.ibm.bioenergetics import thornton_lessem
+
+        f_cold = thornton_lessem(
+            2.0, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01
+        )
+        f_hot = thornton_lessem(
+            28.0, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01
+        )
+        assert 0.0 < f_cold < 0.05
+        assert 0.0 < f_hot < 0.05
+
+        f_below = thornton_lessem(
+            1.0, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01
+        )
+        assert f_below == 0.0
+
+    def test_dome_shape(self):
+        """Function should produce a dome: rising then falling."""
+        from pypath.ibm.bioenergetics import thornton_lessem
+
+        temps = [5, 10, 15, 18, 20, 25]
+        vals = [
+            thornton_lessem(
+                t, CQ=2.0, CTO=18.0, CTM=20.0, CTL=28.0, CK1=0.01, CK4=0.01
+            )
+            for t in temps
+        ]
+        assert vals[3] > vals[0]  # 18C > 5C
+        assert vals[3] > vals[5]  # 18C > 25C
+        assert all(0 <= v <= 1.0 for v in vals)
+
+
+class TestOxygenScalar:
+    """Test oxygen_scalar function."""
+
+    def test_above_pcrit(self):
+        """Above pcrit, oxygen scalar is 1.0."""
+        from pypath.ibm.bioenergetics import oxygen_scalar
+
+        assert oxygen_scalar(8.0, 2.0) == 1.0
+
+    def test_below_pcrit(self):
+        """Below pcrit, oxygen scalar scales linearly."""
+        from pypath.ibm.bioenergetics import oxygen_scalar
+
+        assert oxygen_scalar(1.0, 2.0) == pytest.approx(0.5)
+
+    def test_zero(self):
+        """At zero oxygen, scalar is 0.0."""
+        from pypath.ibm.bioenergetics import oxygen_scalar
+
+        assert oxygen_scalar(0.0, 2.0) == 0.0
+
+
+class TestGrowthStepBatchOntogenetic:
+    """Test ontogenetic growth step function."""
+
+    def test_adult_matches_original(self):
+        """At adult sizes, ontogenetic growth should approximate original."""
+        from pypath.ibm.bioenergetics import (
+            growth_step_batch,
+            growth_step_batch_ontogenetic,
+        )
+        from pypath.ibm.smelt import SmeltParams
+
+        params = SmeltParams.baltic_defaults_els()
+        bp = params.bioenerg
+        lp = params.larval
+
+        weights = np.array([20.0, 30.0, 50.0])
+        energy = np.array([2.0, 3.0, 5.0])
+        consumption = np.array([1.0, 1.5, 2.5])
+        is_mature = np.array([True, True, True])
+
+        w_old, e_old = growth_step_batch(
+            weights, energy, consumption, 15.0, is_mature, 1 / 12, bp
+        )
+        w_new, e_new = growth_step_batch_ontogenetic(
+            weights, energy, consumption, 15.0, is_mature, 1 / 12, bp, lp
+        )
+
+        np.testing.assert_allclose(w_new, w_old, rtol=0.05)
+
+    def test_larva_runs(self):
+        """Larval growth should produce finite positive values."""
+        from pypath.ibm.bioenergetics import growth_step_batch_ontogenetic
+        from pypath.ibm.smelt import SmeltParams
+
+        params = SmeltParams.baltic_defaults_els()
+        weights = np.array([0.1, 0.5])
+        energy = np.array([0.01, 0.05])
+        consumption = np.array([0.01, 0.05])
+        is_mature = np.array([False, False])
+
+        w_new, e_new = growth_step_batch_ontogenetic(
+            weights,
+            energy,
+            consumption,
+            15.0,
+            is_mature,
+            1 / 12,
+            params.bioenerg,
+            params.larval,
+        )
+        assert all(w_new > 0)
+        assert all(np.isfinite(w_new))
