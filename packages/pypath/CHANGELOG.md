@@ -6,6 +6,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.4.1 (2026-03-22)
+
+### Fixed
+- Thornton-Lessem: NaN/overflow protection with input validation (CK1/CK4 in (0,1), CTO>CQ, CTL>CTM), exp() overflow clamping, isfinite check
+- Division-by-zero guards on all `o2_lethal` divisions in egg mortality and smelt.py
+- Hypoxic yolk-sac mortality now correctly sets `n_represented=0.0` before skipping (fixes mortality accounting)
+- Sigmoid overflow clip in `growth_step_batch_ontogenetic` (matching smelt.py's -30/30 clip)
+- Weak test assertions in oxygen tests replaced with unconditional checks
+- Dead code removed in `growth_step` (identical if/else branches)
+- `energy_reserve` docstring corrected from "dimensionless 0-1" to "grams-equivalent"
+
+### Added
+- `LifeStage` IntEnum (EGG=0, YOLK_SAC=1, LARVA=2, JUVENILE=3, ADULT=4) for self-documenting comparisons
+- `baltic_defaults_zonal()` factory method (populates ZoneParams)
+- `EggParams.eggs_per_cohort` field (replaces magic number 1e6)
+- O2 behavioral avoidance integrated into Phase 5 zonal movement scoring
+- `__post_init__` validation on EggParams, YolkSacParams, LarvalParams
+- Zone forcing pre-computation cache in compute_step (performance)
+- Warnings logged when O2 or temperature defaults are used (missing env_forcing keys)
+- PRCC zero-variance residual warning
+- Tests: juvenile transition, full lifecycle multi-step, senescent removal
+
 ## v0.4.0 (2026-03-22)
 
 ### Added
