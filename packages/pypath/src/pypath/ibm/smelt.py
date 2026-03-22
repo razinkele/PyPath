@@ -38,6 +38,8 @@ from pypath.ibm.development import (
     OxygenParams,
     YolkSacParams,
     ZoneParams,
+    check_first_feeding,
+    compute_yolk_depletion,
 )
 from pypath.ibm.behavior import (
     ForagingParams,
@@ -560,9 +562,57 @@ class SmeltIBM(IBMGroup):
                         if sp.yolk_sac is not None:
                             ind.yolk_energy_kj = sp.yolk_sac.initial_yolk_kj
                     active_individuals.append(ind)
-                elif ind.life_stage == 1:
-                    # Yolk-sac larvae pass through (future: yolk depletion)
-                    active_individuals.append(ind)
+                elif ind.life_stage == 1 and sp.yolk_sac is not None:
+                    # Phase 1b: Yolk-sac depletion + first feeding
+                    yolk_rate = compute_yolk_depletion(
+                        weight=ind.weight,
+                        temperature=temperature,
+                        rs_a_larval=sp.larval.rs_a_larval if sp.larval else 0.12,
+                        rs_b=sp.bioenerg.rb,
+                        q10=sp.bioenerg.q10,
+                        t_ref=sp.bioenerg.t_ref,
+                        oxycal=sp.yolk_sac.oxycal_kj_per_g_o2,
+                        dt_days=dt_days,
+                    )
+                    ind.yolk_energy_kj = max(0.0, ind.yolk_energy_kj - yolk_rate)
+
+                    # Determine zoo_density from env or prey_available
+                    zoo_density = env_forcing.get("zoo_density", None)
+                    if zoo_density is None and sp.larval is not None:
+                        pidx = sp.larval.zooplankton_prey_idx
+                        if pidx < len(prey_available):
+                            zoo_density = (
+                                prey_available[pidx]
+                                * sp.larval.zoo_conversion_factor
+                            )
+                        else:
+                            zoo_density = 0.0
+                    elif zoo_density is None:
+                        zoo_density = 0.0
+
+                    status = check_first_feeding(
+                        yolk_energy_kj=ind.yolk_energy_kj,
+                        threshold_kj=sp.yolk_sac.first_feeding_threshold_kj,
+                        zoo_density=zoo_density,
+                        minimum_prey=sp.yolk_sac.minimum_prey_density,
+                        starvation_days=ind.starvation_days,
+                        pnr=sp.yolk_sac.point_of_no_return,
+                    )
+
+                    if status == "feed":
+                        ind.life_stage = 2
+                        ind.energy_reserve = ind.weight * 0.1
+                        ind.starvation_days = 0.0
+                        active_individuals.append(ind)
+                    elif status == "dead":
+                        ind.n_represented = 0.0
+                        # do not add to active — effectively removed
+                    elif status == "starving":
+                        ind.starvation_days += dt_days
+                        active_individuals.append(ind)
+                    else:
+                        # "yolk_sac" — still on yolk
+                        active_individuals.append(ind)
                 else:
                     active_individuals.append(ind)
 

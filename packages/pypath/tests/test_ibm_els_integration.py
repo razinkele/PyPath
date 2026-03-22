@@ -120,3 +120,82 @@ def test_population_cap_consolidation():
     assert len(ibm.individuals) <= params.max_super_individuals
     biomass_after = sum(i.n_represented * i.weight for i in ibm.individuals)
     assert biomass_after == pytest.approx(biomass_before, rel=1e-10)
+
+
+# ---- Yolk-sac to larva transition tests (Task 2.3) ----
+
+def test_yolk_sac_to_larva_transition():
+    """Yolk-sac larva with depleted yolk + sufficient zoo transitions to life_stage=2."""
+    params = SmeltParams.baltic_defaults_els()
+    ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
+    yolk_larva = SuperIndividual(
+        id=0, n_represented=1e4, weight=0.001, length=0.10,
+        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
+        life_stage=1, yolk_energy_kj=0.01,  # below threshold of 0.02
+    )
+    ibm.individuals = [yolk_larva]
+    ibm._next_id = 1
+    env = {"temperature": 12.0, "month": 5, "zoo_peak_day": 120, "zoo_density": 80.0}
+    ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
+    larvae = [i for i in ibm.individuals if i.life_stage == 2]
+    assert len(larvae) > 0
+    # Verify energy_reserve was initialized
+    assert larvae[0].energy_reserve == pytest.approx(larvae[0].weight * 0.1, rel=0.01)
+
+
+def test_yolk_sac_starvation_death():
+    """Yolk-sac larva past PNR with low zoo dies."""
+    params = SmeltParams.baltic_defaults_els()
+    ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
+    starving = SuperIndividual(
+        id=0, n_represented=1e4, weight=0.001, length=0.10,
+        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
+        life_stage=1, yolk_energy_kj=0.01, starvation_days=5.0,
+    )
+    ibm.individuals = [starving]
+    ibm._next_id = 1
+    env = {"temperature": 10.0, "month": 5, "zoo_peak_day": 120, "zoo_density": 10.0}
+    ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
+    # Should be removed (dead)
+    yolk_sac = [i for i in ibm.individuals if i.life_stage == 1]
+    assert len(yolk_sac) == 0
+
+
+def test_yolk_sac_still_on_yolk():
+    """Yolk-sac larva with plenty of yolk stays at life_stage=1."""
+    params = SmeltParams.baltic_defaults_els()
+    ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
+    well_fed = SuperIndividual(
+        id=0, n_represented=1e4, weight=0.001, length=0.10,
+        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
+        life_stage=1, yolk_energy_kj=0.10,  # well above threshold of 0.02
+    )
+    ibm.individuals = [well_fed]
+    ibm._next_id = 1
+    env = {"temperature": 10.0, "month": 4, "zoo_peak_day": 120, "zoo_density": 80.0}
+    # Use a small dt (1 day = 1/365 yr) so yolk is not fully depleted
+    ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 365)
+    yolk_sac = [i for i in ibm.individuals if i.life_stage == 1]
+    assert len(yolk_sac) == 1
+    # Yolk should have decreased (~0.008 kJ/day at 10C)
+    assert yolk_sac[0].yolk_energy_kj < 0.10
+
+
+def test_zoo_density_derived_from_prey_available():
+    """When zoo_density is absent from env, derive from prey_available."""
+    params = SmeltParams.baltic_defaults_els()
+    ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
+    larva = SuperIndividual(
+        id=0, n_represented=1e4, weight=0.001, length=0.10,
+        age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
+        life_stage=1, yolk_energy_kj=0.01,  # below threshold
+    )
+    ibm.individuals = [larva]
+    ibm._next_id = 1
+    # No zoo_density in env; prey_available[1] * 1000 = 0.1 * 1000 = 100 > 50
+    prey = np.zeros(6)
+    prey[1] = 0.1  # zooplankton_prey_idx=1
+    env = {"temperature": 10.0, "month": 5, "zoo_peak_day": 120}
+    ibm.compute_step(prey, 0.0, env, dt=1 / 12)
+    larvae = [i for i in ibm.individuals if i.life_stage == 2]
+    assert len(larvae) > 0
