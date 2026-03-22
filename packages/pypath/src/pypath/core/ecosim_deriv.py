@@ -138,7 +138,7 @@ def _compute_consumption_python(
             # PYY term with HandleSwitch exponent
             if hs_exp > 0.0:
                 pyy_safe = max(PYY, 1e-10)
-                PYY_term = pyy_safe ** hs_exp
+                PYY_term = pyy_safe**hs_exp
             else:
                 PYY_term = PYY
 
@@ -151,7 +151,7 @@ def _compute_consumption_python(
                     dd_prey_eff = PYY
                 dd_prey_safe = max(dd_prey_eff, 1e-10)
                 if hs_exp > 0.0:
-                    dd_denom = dd_prey_safe ** hs_exp
+                    dd_denom = dd_prey_safe**hs_exp
                 else:
                     dd_denom = dd_prey_safe
                 dd_term = dd / (dd - 1.0 + dd_denom)
@@ -294,7 +294,7 @@ def _compute_consumption_sparse_python(
         # PYY term with HandleSwitch exponent
         if hs_exp > 0.0:
             pyy_safe = max(PYY, 1e-10)
-            PYY_term = pyy_safe ** hs_exp
+            PYY_term = pyy_safe**hs_exp
         else:
             PYY_term = PYY
 
@@ -307,7 +307,7 @@ def _compute_consumption_sparse_python(
                 dd_prey_eff = PYY
             dd_prey_safe = max(dd_prey_eff, 1e-10)
             if hs_exp > 0.0:
-                dd_denom = dd_prey_safe ** hs_exp
+                dd_denom = dd_prey_safe**hs_exp
             else:
                 dd_denom = dd_prey_safe
             dd_term = dd / (dd - 1.0 + dd_denom)
@@ -906,7 +906,10 @@ def _resolve_instrument_groups(params, spname_list, num_groups):
         # Heuristic: convert probable 1-based indices to 0-based
         max_idx = num_groups - 1
         if numeric_inputs:
-            if all(1 <= v <= num_groups for v in numeric_inputs) and min(numeric_inputs) >= 1:
+            if (
+                all(1 <= v <= num_groups for v in numeric_inputs)
+                and min(numeric_inputs) >= 1
+            ):
                 logger.debug(
                     "INSTRUMENT: detected probable 1-based numeric indices %s; converting",
                     numeric_inputs,

@@ -541,7 +541,7 @@ def rsim_params(
     )
     # Find all nonzero DC entries using vectorized indexing (predator-major order)
     for pred_idx in np.where(valid_pred)[0]:
-        prey_indices = np.where(dc[:nliving + ndead, pred_idx] > 0)[0]
+        prey_indices = np.where(dc[: nliving + ndead, pred_idx] > 0)[0]
         for prey_idx in prey_indices:
             q = dc[prey_idx, pred_idx] * qb[pred_idx] * rpath.Biomass[pred_idx]
             if q > 0:
@@ -708,7 +708,9 @@ def rsim_params(
         col_sums = np.sum(rpath.DetFate[:, :], axis=0)
         zero_cols = np.where(col_sums == 0)[0]
         if len(zero_cols) > 0:
-            det_names = [rpath.Group[int(dead_idx[zc])] for zc in zero_cols if zc < len(dead_idx)]
+            det_names = [
+                rpath.Group[int(dead_idx[zc])] for zc in zero_cols if zc < len(dead_idx)
+            ]
             warnings.warn(
                 f"DetFate columns with zero source fractions: "
                 f"cols={zero_cols.tolist()}, detritus={det_names}. "
@@ -1715,9 +1717,7 @@ def rsim_run(
             )
             # Accept small changes only (absolute threshold)
             if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
-                logger.debug(
-                    "assigning M0 for grp=%d diff=%.6e", grp, diff
-                )
+                logger.debug("assigning M0 for grp=%d diff=%.6e", grp, diff)
                 # Iteratively refine M0 to drive the raw (no-NoIntegrate) initial residual toward zero
                 MAX_M0_ITER = 5
                 TOL_INIT_DERIV_ITER = 1e-10
@@ -1824,7 +1824,6 @@ def rsim_run(
                     )
     except Exception as e:
         logger.debug("M0 adjustment failed: %s", e, exc_info=True)
-
 
     # Final check: compute derivative using the params dict that will be persisted
     # and make a small algebraic correction if a tiny residual remains.
@@ -1950,11 +1949,11 @@ def rsim_run(
     _fleet_cumul_catch = None
     _original_fish_q = None
     if fleet_dynamics is not None:
-        from pypath.core.fleet_dynamics import fleet_dynamics_step as _fleet_step_fn
         from pypath.core.fleet_dynamics import apply_quota_caps as _fleet_quota_fn
+        from pypath.core.fleet_dynamics import fleet_dynamics_step as _fleet_step_fn
 
         _n_fd_fleets = params.NUM_GEARS
-        _fleet_capacity = fishing_obj.ForcedEffort[0, 1:_n_fd_fleets + 1].copy()
+        _fleet_capacity = fishing_obj.ForcedEffort[0, 1 : _n_fd_fleets + 1].copy()
         _fleet_out_effort = np.zeros((n_months + 1, _n_fd_fleets))
         _fleet_out_revenue = np.zeros((n_months + 1, _n_fd_fleets))
         _fleet_out_cost = np.zeros((n_months + 1, _n_fd_fleets))
@@ -2065,9 +2064,7 @@ def rsim_run(
                             total_gain = float(np.nansum(QQ_ni[:, i]))
                             total_loss = float(np.nansum(QQ_ni[i, :]))
                             total_loss += params_dict["M0"][i] * state[i]
-                            state[i] = compute_biomeq(
-                                total_gain, total_loss, state[i]
-                            )
+                            state[i] = compute_biomeq(total_gain, total_loss, state[i])
                     new_deriv[no_integrate_mask] = 0.0
                 derivs_history.insert(0, new_deriv)
                 if len(derivs_history) > 1:
@@ -2271,12 +2268,17 @@ def rsim_run(
         # Ecotracer step (after biomass integration and Q computation)
         if _ecotracer_conc is not None:
             n_eco = len(_ecotracer_conc)
-            eco_biomass = state[1:n_eco + 1]
-            eco_Q = QQ_month[1:n_eco + 1, 1:n_eco + 1]
+            eco_biomass = state[1 : n_eco + 1]
+            eco_Q = QQ_month[1 : n_eco + 1, 1 : n_eco + 1]
             # detritus_fate=None for now (Phase 1 simplification)
             _ecotracer_conc = _ecotracer_step_fn(
-                _ecotracer_conc, eco_biomass, eco_Q, ecotracer,
-                dt=1.0 / 12, detritus_fate=None, n_living=params.NUM_LIVING,
+                _ecotracer_conc,
+                eco_biomass,
+                eco_Q,
+                ecotracer,
+                dt=1.0 / 12,
+                detritus_fate=None,
+                n_living=params.NUM_LIVING,
             )
             _ecotracer_out[month] = _ecotracer_conc.copy()
         # Dynamic Ftime adjustment: Rpath formula (ecosim.cpp)
@@ -2358,21 +2360,29 @@ def rsim_run(
 
             # Update capacity and effort
             _fleet_capacity, _fleet_effort = _fleet_step_fn(
-                _fleet_capacity, out_gear_catch[month],
-                _fleet_cumul_catch, fleet_dynamics,
-                params.FishThrough, params.FishFrom,
-                _run_gear_lookup, n_fleets=_n_fd_fleets,
+                _fleet_capacity,
+                out_gear_catch[month],
+                _fleet_cumul_catch,
+                fleet_dynamics,
+                params.FishThrough,
+                params.FishFrom,
+                _run_gear_lookup,
+                n_fleets=_n_fd_fleets,
             )
 
             # Write effort into ForcedEffort for next month
             if month < n_months:
-                fishing_obj.ForcedEffort[month, 1:_n_fd_fleets + 1] = _fleet_effort
+                fishing_obj.ForcedEffort[month, 1 : _n_fd_fleets + 1] = _fleet_effort
 
             # Apply quota caps if TAC is set
             if fleet_dynamics.tac is not None:
                 capped_q = _fleet_quota_fn(
-                    params.FishQ, _fleet_cumul_catch, fleet_dynamics.tac,
-                    params.FishThrough, params.FishFrom, _run_gear_lookup,
+                    params.FishQ,
+                    _fleet_cumul_catch,
+                    fleet_dynamics.tac,
+                    params.FishThrough,
+                    params.FishFrom,
+                    _run_gear_lookup,
                 )
                 params.FishQ = capped_q
                 fishing_dict["FishQ"] = capped_q  # propagate to derivative
@@ -2388,13 +2398,17 @@ def rsim_run(
                     gear_idx = int(gear_group_idx - params.NUM_LIVING - params.NUM_DEAD)
                 fleet_0 = gear_idx - 1
                 if 0 <= fleet_0 < _n_fd_fleets and i < len(fleet_dynamics.price):
-                    _revenue[fleet_0] += out_gear_catch[month, i] * fleet_dynamics.price[i]
+                    _revenue[fleet_0] += (
+                        out_gear_catch[month, i] * fleet_dynamics.price[i]
+                    )
 
             _cost = np.zeros(_n_fd_fleets)
             for g in range(_n_fd_fleets):
-                _cost[g] = fleet_dynamics.fixed_cost[g] / 12.0 + (
-                    fleet_dynamics.variable_cost[g] + fleet_dynamics.sailing_cost[g]
-                ) * _fleet_capacity[g]
+                _cost[g] = (
+                    fleet_dynamics.fixed_cost[g] / 12.0
+                    + (fleet_dynamics.variable_cost[g] + fleet_dynamics.sailing_cost[g])
+                    * _fleet_capacity[g]
+                )
 
             _fleet_out_effort[month] = _fleet_effort
             _fleet_out_revenue[month] = _revenue
@@ -2463,7 +2477,7 @@ def rsim_run(
                 else:
                     fleet_names.append(f"Fleet{idx_1based}")
         else:
-            fleet_names = [f"Fleet{i+1}" for i in range(_n_fd_fleets)]
+            fleet_names = [f"Fleet{i + 1}" for i in range(_n_fd_fleets)]
 
         _fleet_result = FleetDynamicsResult(
             out_Effort=_fleet_out_effort,

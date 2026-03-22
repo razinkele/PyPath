@@ -1,4 +1,5 @@
 """Tests for IBM early life stage calibration and sensitivity analysis."""
+
 import numpy as np
 import pytest
 
@@ -9,7 +10,6 @@ from pypath.ibm.calibration_els import (
     partial_rank_correlation,
 )
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
-
 
 # --- Task 6.1: ELS-aware calibration wrapper ---
 
