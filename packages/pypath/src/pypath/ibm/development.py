@@ -209,3 +209,90 @@ def apply_egg_mortality(
     if total_rate <= 0.0:
         return n_represented
     return n_represented * np.exp(-total_rate * dt_days)
+
+
+def compute_yolk_depletion(
+    weight: float,
+    temperature: float,
+    rs_a_larval: float,
+    rs_b: float,
+    q10: float,
+    t_ref: float,
+    oxycal: float,
+    dt_days: float,
+) -> float:
+    """Compute yolk energy depleted by basal metabolism over one time step.
+
+    Yolk-sac larvae have no feeding or active movement; yolk is consumed
+    solely by standard metabolism scaled allometrically and by Q10
+    temperature dependence.
+
+    Parameters
+    ----------
+    weight : float
+        Individual body weight (grams).
+    temperature : float
+        Water temperature (degrees Celsius).
+    rs_a_larval : float
+        Larval basal metabolic rate intercept (g O2 / g / day).
+    rs_b : float
+        Metabolic weight exponent (typically negative).
+    q10 : float
+        Q10 temperature coefficient.
+    t_ref : float
+        Reference temperature for Q10 scaling (degrees Celsius).
+    oxycal : float
+        Oxycalorific coefficient (kJ per g O2).
+    dt_days : float
+        Time step in days.
+
+    Returns
+    -------
+    float
+        Energy depleted from yolk (kJ) during this time step.
+    """
+    q10_factor = q10 ** ((temperature - t_ref) / 10.0)
+    return rs_a_larval * (weight ** (1.0 + rs_b)) * q10_factor * oxycal * dt_days
+
+
+def check_first_feeding(
+    yolk_energy_kj: float,
+    threshold_kj: float,
+    zoo_density: float,
+    minimum_prey: float,
+    starvation_days: float,
+    pnr: float,
+) -> str:
+    """Determine the feeding status of a yolk-sac larva.
+
+    Evaluates whether a larva should remain on yolk, transition to
+    exogenous feeding, continue starving, or die from point-of-no-return
+    starvation.
+
+    Parameters
+    ----------
+    yolk_energy_kj : float
+        Current yolk energy (kJ).
+    threshold_kj : float
+        Yolk energy threshold below which the larva must start feeding.
+    zoo_density : float
+        Local zooplankton density (mg C / m^3).
+    minimum_prey : float
+        Minimum prey density required for successful first feeding.
+    starvation_days : float
+        Consecutive days without sufficient food.
+    pnr : float
+        Point of no return — maximum starvation days before death.
+
+    Returns
+    -------
+    str
+        One of ``"yolk_sac"``, ``"feed"``, ``"dead"``, or ``"starving"``.
+    """
+    if yolk_energy_kj > threshold_kj:
+        return "yolk_sac"
+    if zoo_density >= minimum_prey:
+        return "feed"
+    if starvation_days > pnr:
+        return "dead"
+    return "starving"

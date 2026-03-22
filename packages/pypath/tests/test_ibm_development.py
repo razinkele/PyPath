@@ -124,3 +124,53 @@ def test_zone_params_defaults():
     p = ZoneParams()
     assert p.connectivity.shape == (3, 3)
     assert p.connectivity[0].sum() == pytest.approx(1.0)
+
+
+# ---- Yolk depletion tests (Task 2.1) ----
+
+def test_yolk_depletion_rate():
+    from pypath.ibm.development import compute_yolk_depletion
+    rate = compute_yolk_depletion(
+        weight=0.001, temperature=10.0, rs_a_larval=0.12,
+        rs_b=-0.227, q10=2.1, t_ref=10.0, oxycal=13.56, dt_days=1.0,
+    )
+    assert rate == pytest.approx(0.0079, rel=0.05)
+
+
+def test_yolk_duration_at_different_temps():
+    from pypath.ibm.development import compute_yolk_depletion, YolkSacParams
+    p = YolkSacParams()
+    for temp, expected_days in [(5.7, 25), (9.1, 17), (12.1, 14)]:
+        yolk = p.initial_yolk_kj
+        day = 0
+        while yolk > p.first_feeding_threshold_kj and day < 200:
+            rate = compute_yolk_depletion(
+                weight=0.001, temperature=temp, rs_a_larval=0.12,
+                rs_b=-0.227, q10=2.1, t_ref=10.0,
+                oxycal=p.oxycal_kj_per_g_o2, dt_days=1.0,
+            )
+            yolk -= rate
+            day += 1
+        assert day == pytest.approx(expected_days, abs=5)
+
+
+# ---- First feeding tests (Task 2.2) ----
+
+def test_first_feeding_success():
+    from pypath.ibm.development import check_first_feeding
+    assert check_first_feeding(0.01, 0.02, 80.0, 50.0, 0.0, 4.0) == "feed"
+
+
+def test_first_feeding_starvation():
+    from pypath.ibm.development import check_first_feeding
+    assert check_first_feeding(0.01, 0.02, 10.0, 50.0, 5.0, 4.0) == "dead"
+
+
+def test_first_feeding_waiting():
+    from pypath.ibm.development import check_first_feeding
+    assert check_first_feeding(0.01, 0.02, 10.0, 50.0, 2.0, 4.0) == "starving"
+
+
+def test_yolk_not_exhausted():
+    from pypath.ibm.development import check_first_feeding
+    assert check_first_feeding(0.10, 0.02, 80.0, 50.0, 0.0, 4.0) == "yolk_sac"
