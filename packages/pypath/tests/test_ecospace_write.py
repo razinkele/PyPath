@@ -1,8 +1,10 @@
 """Tests for advanced Ecospace I/O (schema, reader, writer, MPA)."""
+
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch, MagicMock
 
 from pypath.io._ewe_schema import EWE_TABLES
 
@@ -53,57 +55,137 @@ class TestSchema:
         assert "EcospaceScenarioMPAPatch" not in EWE_TABLES
 
 
-from pypath.io.ewemdb import EcospaceReadResult, read_ecospace, EwEDatabaseError
+from pypath.io.ewemdb import EcospaceReadResult, EwEDatabaseError, read_ecospace
 
 
 def _mock_ecospace_tables():
     """Build mock table DataFrames for read_ecospace() testing."""
     return {
-        "EcospaceScenario": pd.DataFrame([{
-            "ScenarioID": 1, "ScenarioName": "Test", "Description": "",
-            "Inrow": 3, "Incol": 3, "CellLength": 1.0, "CellSize": 1.0,
-            "MinLon": 0.0, "MinLat": 0.0, "TotalTime": 10, "TimeStep": 1.0,
-        }]),
-        "EcospaceScenarioDriverLayer": pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
-            "LayerName": "Temperature", "LayerDescription": "SST",
-            "LayerMAP": b"\x00\x01\x02", "LayerUnits": "C",
-        }]),
-        "EcospaceScenarioGroupMigration": pd.DataFrame([{
-            "ScenarioID": 1, "GroupID": 1, "MonthID": 1, "Map": b"\x10\x20",
-        }]),
-        "EcospaceScenarioMonth": pd.DataFrame([{
-            "ScenarioID": 1, "MonthID": 1,
-            "WindXVelMap": b"\x01", "WindYVelMap": b"\x02",
-            "AdvectionXVelMap": b"\x03", "AdvectionYVelMap": b"\x04",
-            "UpwellingMap": b"\x05",
-        }]),
-        "EcospaceScenarioWeightLayer": pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
-            "Name": "Weight1", "Description": "test",
-            "Weight": 0.5, "LayerMap": b"\xAA",
-        }]),
-        "EcospaceScenarioDataConnection": pd.DataFrame([{
-            "ScenarioID": 1, "VarName": "SST", "LayerID": 1, "Sequence": 1,
-            "DatasetGUID": "abc-123", "DatasetTypeName": "NetCDF",
-            "DatasetCfg": "{}", "ConverterTypeName": "Linear",
-            "ConverterCfg": "{}", "Scale": 1.0, "ScaleType": 0,
-            "CustomDateStart": "", "CustomDateEnd": "",
-        }]),
-        "EcospaceScenarioDataConnectionDisabled": pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Varname": "SST",
-        }]),
-        "EcospaceScenarioDriverDisabled": pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Target": "group1",
-        }]),
-        "EcospaceScenarioHabitatFishery": pd.DataFrame([{
-            "ScenarioID": 1, "FleetID": 1, "HabitatID": 1,
-        }]),
-        "EcospaceScenarioFleet": pd.DataFrame([{
-            "ScenarioID": 1, "FleetID": 1, "EcopathFleetID": 1,
-            "EffPower": 1.0, "PortMap": b"\xFF", "SailCostMap": b"\xEE",
-            "SEMult": 1.0,
-        }]),
+        "EcospaceScenario": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "ScenarioName": "Test",
+                    "Description": "",
+                    "Inrow": 3,
+                    "Incol": 3,
+                    "CellLength": 1.0,
+                    "CellSize": 1.0,
+                    "MinLon": 0.0,
+                    "MinLat": 0.0,
+                    "TotalTime": 10,
+                    "TimeStep": 1.0,
+                }
+            ]
+        ),
+        "EcospaceScenarioDriverLayer": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Sequence": 1,
+                    "LayerName": "Temperature",
+                    "LayerDescription": "SST",
+                    "LayerMAP": b"\x00\x01\x02",
+                    "LayerUnits": "C",
+                }
+            ]
+        ),
+        "EcospaceScenarioGroupMigration": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "GroupID": 1,
+                    "MonthID": 1,
+                    "Map": b"\x10\x20",
+                }
+            ]
+        ),
+        "EcospaceScenarioMonth": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "MonthID": 1,
+                    "WindXVelMap": b"\x01",
+                    "WindYVelMap": b"\x02",
+                    "AdvectionXVelMap": b"\x03",
+                    "AdvectionYVelMap": b"\x04",
+                    "UpwellingMap": b"\x05",
+                }
+            ]
+        ),
+        "EcospaceScenarioWeightLayer": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Sequence": 1,
+                    "Name": "Weight1",
+                    "Description": "test",
+                    "Weight": 0.5,
+                    "LayerMap": b"\xaa",
+                }
+            ]
+        ),
+        "EcospaceScenarioDataConnection": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "VarName": "SST",
+                    "LayerID": 1,
+                    "Sequence": 1,
+                    "DatasetGUID": "abc-123",
+                    "DatasetTypeName": "NetCDF",
+                    "DatasetCfg": "{}",
+                    "ConverterTypeName": "Linear",
+                    "ConverterCfg": "{}",
+                    "Scale": 1.0,
+                    "ScaleType": 0,
+                    "CustomDateStart": "",
+                    "CustomDateEnd": "",
+                }
+            ]
+        ),
+        "EcospaceScenarioDataConnectionDisabled": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Varname": "SST",
+                }
+            ]
+        ),
+        "EcospaceScenarioDriverDisabled": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Target": "group1",
+                }
+            ]
+        ),
+        "EcospaceScenarioHabitatFishery": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "FleetID": 1,
+                    "HabitatID": 1,
+                }
+            ]
+        ),
+        "EcospaceScenarioFleet": pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "FleetID": 1,
+                    "EcopathFleetID": 1,
+                    "EffPower": 1.0,
+                    "PortMap": b"\xff",
+                    "SailCostMap": b"\xee",
+                    "SEMult": 1.0,
+                }
+            ]
+        ),
     }
 
 
@@ -168,22 +250,37 @@ class TestReader:
         assert result.fleet_info is not None
         assert "PortMap" in result.fleet_info.columns
         assert "SailCostMap" in result.fleet_info.columns
-        assert result.fleet_info.iloc[0]["PortMap"] == b"\xFF"
+        assert result.fleet_info.iloc[0]["PortMap"] == b"\xff"
 
     @patch("pypath.io.ewemdb.list_ewemdb_tables")
     @patch("pypath.io.ewemdb.read_ewemdb_table")
     def test_capacity_driver_weight_applied(self, mock_read, mock_list):
         """Capacity driver with Target=0 applies weight to habitat_capacity."""
         tables = _mock_ecospace_tables()
-        tables["EcospaceScenarioCapacityDrivers"] = pd.DataFrame([{
-            "ScenarioID": 1, "GroupID": 1, "VarDBID": 1,
-            "ShapeID": 1, "Target": 0,
-        }])
-        tables["EcospaceScenarioWeightLayer"] = pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
-            "Name": "W1", "Description": "test",
-            "Weight": 0.5, "LayerMap": b"\xAA",
-        }])
+        tables["EcospaceScenarioCapacityDrivers"] = pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "GroupID": 1,
+                    "VarDBID": 1,
+                    "ShapeID": 1,
+                    "Target": 0,
+                }
+            ]
+        )
+        tables["EcospaceScenarioWeightLayer"] = pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Sequence": 1,
+                    "Name": "W1",
+                    "Description": "test",
+                    "Weight": 0.5,
+                    "LayerMap": b"\xaa",
+                }
+            ]
+        )
 
         def _read(db, tbl):
             if tbl in tables:
@@ -203,15 +300,30 @@ class TestReader:
     def test_capacity_driver_target_nonzero_ignored(self, mock_read, mock_list):
         """Capacity driver with Target != 0 does not affect habitat_capacity."""
         tables = _mock_ecospace_tables()
-        tables["EcospaceScenarioCapacityDrivers"] = pd.DataFrame([{
-            "ScenarioID": 1, "GroupID": 1, "VarDBID": 1,
-            "ShapeID": 1, "Target": 1,  # Not capacity
-        }])
-        tables["EcospaceScenarioWeightLayer"] = pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
-            "Name": "W1", "Description": "test",
-            "Weight": 0.5, "LayerMap": b"\xAA",
-        }])
+        tables["EcospaceScenarioCapacityDrivers"] = pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "GroupID": 1,
+                    "VarDBID": 1,
+                    "ShapeID": 1,
+                    "Target": 1,  # Not capacity
+                }
+            ]
+        )
+        tables["EcospaceScenarioWeightLayer"] = pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Sequence": 1,
+                    "Name": "W1",
+                    "Description": "test",
+                    "Weight": 0.5,
+                    "LayerMap": b"\xaa",
+                }
+            ]
+        )
 
         def _read(db, tbl):
             if tbl in tables:
@@ -225,8 +337,8 @@ class TestReader:
         assert result.ecospace.habitat_capacity[0, 0] == pytest.approx(1.0)
 
 
-from pypath.io._csv_bundle_writer import CsvBundleWriter
 from pypath.core.params import create_rpath_params
+from pypath.io._csv_bundle_writer import CsvBundleWriter
 
 
 def _make_test_params():
@@ -254,7 +366,7 @@ def _make_test_params():
 
 def _make_ecospace_read_result():
     """Build an EcospaceReadResult with all fields populated for writer tests."""
-    from pypath.spatial.ecospace_params import EcospaceParams, EcospaceGrid
+    from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
 
     grid = EcospaceGrid.from_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
     ecospace = EcospaceParams(
@@ -269,51 +381,126 @@ def _make_ecospace_read_result():
     return EcospaceReadResult(
         ecospace=ecospace,
         habitat_types={0: "Reef", 1: "Sand"},
-        fleet_info=pd.DataFrame([{
-            "ScenarioID": 1, "FleetID": 1, "EcopathFleetID": 1,
-            "EffPower": 1.0, "PortMap": b"\xFF", "SailCostMap": b"\xEE",
-            "SEMult": 1.0,
-        }]),
-        capacity_drivers=pd.DataFrame([{
-            "ScenarioID": 1, "GroupID": 1, "VarDBID": 1,
-            "ShapeID": 1, "Target": 1,
-        }]),
+        fleet_info=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "FleetID": 1,
+                    "EcopathFleetID": 1,
+                    "EffPower": 1.0,
+                    "PortMap": b"\xff",
+                    "SailCostMap": b"\xee",
+                    "SEMult": 1.0,
+                }
+            ]
+        ),
+        capacity_drivers=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "GroupID": 1,
+                    "VarDBID": 1,
+                    "ShapeID": 1,
+                    "Target": 1,
+                }
+            ]
+        ),
         scenario_meta={"ScenarioName": "Test"},
-        driver_layers=pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
-            "LayerName": "Temp", "LayerDescription": "SST",
-            "LayerMAP": b"\x00\x01", "LayerUnits": "C",
-        }]),
-        migration_maps=pd.DataFrame([{
-            "ScenarioID": 1, "GroupID": 1, "MonthID": 1, "Map": b"\x10",
-        }]),
-        monthly_maps=pd.DataFrame([{
-            "ScenarioID": 1, "MonthID": 1,
-            "WindXVelMap": b"\x01", "WindYVelMap": b"\x02",
-            "AdvectionXVelMap": b"\x03", "AdvectionYVelMap": b"\x04",
-            "UpwellingMap": b"\x05",
-        }]),
-        weight_layers=pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Sequence": 1,
-            "Name": "W1", "Description": "test",
-            "Weight": 0.5, "LayerMap": b"\xAA",
-        }]),
-        data_connections=pd.DataFrame([{
-            "ScenarioID": 1, "VarName": "SST", "LayerID": 1, "Sequence": 1,
-            "DatasetGUID": "abc", "DatasetTypeName": "NetCDF",
-            "DatasetCfg": "{}", "ConverterTypeName": "Linear",
-            "ConverterCfg": "{}", "Scale": 1.0, "ScaleType": 0,
-            "CustomDateStart": "", "CustomDateEnd": "",
-        }]),
-        disabled_connections=pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Varname": "SST",
-        }]),
-        disabled_drivers=pd.DataFrame([{
-            "ScenarioID": 1, "LayerID": 1, "Target": "group1",
-        }]),
-        habitat_fishery=pd.DataFrame([{
-            "ScenarioID": 1, "FleetID": 1, "HabitatID": 1,
-        }]),
+        driver_layers=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Sequence": 1,
+                    "LayerName": "Temp",
+                    "LayerDescription": "SST",
+                    "LayerMAP": b"\x00\x01",
+                    "LayerUnits": "C",
+                }
+            ]
+        ),
+        migration_maps=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "GroupID": 1,
+                    "MonthID": 1,
+                    "Map": b"\x10",
+                }
+            ]
+        ),
+        monthly_maps=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "MonthID": 1,
+                    "WindXVelMap": b"\x01",
+                    "WindYVelMap": b"\x02",
+                    "AdvectionXVelMap": b"\x03",
+                    "AdvectionYVelMap": b"\x04",
+                    "UpwellingMap": b"\x05",
+                }
+            ]
+        ),
+        weight_layers=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Sequence": 1,
+                    "Name": "W1",
+                    "Description": "test",
+                    "Weight": 0.5,
+                    "LayerMap": b"\xaa",
+                }
+            ]
+        ),
+        data_connections=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "VarName": "SST",
+                    "LayerID": 1,
+                    "Sequence": 1,
+                    "DatasetGUID": "abc",
+                    "DatasetTypeName": "NetCDF",
+                    "DatasetCfg": "{}",
+                    "ConverterTypeName": "Linear",
+                    "ConverterCfg": "{}",
+                    "Scale": 1.0,
+                    "ScaleType": 0,
+                    "CustomDateStart": "",
+                    "CustomDateEnd": "",
+                }
+            ]
+        ),
+        disabled_connections=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Varname": "SST",
+                }
+            ]
+        ),
+        disabled_drivers=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "LayerID": 1,
+                    "Target": "group1",
+                }
+            ]
+        ),
+        habitat_fishery=pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "FleetID": 1,
+                    "HabitatID": 1,
+                }
+            ]
+        ),
     )
 
 
@@ -387,14 +574,20 @@ class TestWriter:
         writer.write_ecospace(result)
 
         month_df = writer._tables["EcospaceScenarioMonth"]
-        for col in ["WindXVelMap", "WindYVelMap", "AdvectionXVelMap",
-                     "AdvectionYVelMap", "UpwellingMap"]:
+        for col in [
+            "WindXVelMap",
+            "WindYVelMap",
+            "AdvectionXVelMap",
+            "AdvectionYVelMap",
+            "UpwellingMap",
+        ]:
             assert col in month_df.columns
 
     def test_empty_result_writes_no_extra_tables(self):
         """EcospaceReadResult with all None fields writes only base tables."""
         params = _make_test_params()
-        from pypath.spatial.ecospace_params import EcospaceParams, EcospaceGrid
+        from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
+
         grid = EcospaceGrid.from_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
         ecospace = EcospaceParams(
             grid=grid,
@@ -469,12 +662,18 @@ class TestMPAWriter:
         params = _make_test_params()
         zones = [
             MPAZone(
-                mpa_id=1, name="Reserve A", patches=[0, 1],
-                start_month=1, excluded_fleets=[0, 2],
+                mpa_id=1,
+                name="Reserve A",
+                patches=[0, 1],
+                start_month=1,
+                excluded_fleets=[0, 2],
             ),
             MPAZone(
-                mpa_id=2, name="Reserve B", patches=[3],
-                start_month=6, excluded_fleets=[1],
+                mpa_id=2,
+                name="Reserve B",
+                patches=[3],
+                start_month=6,
+                excluded_fleets=[1],
             ),
         ]
         mpa_config = MPAConfig(zones=zones)

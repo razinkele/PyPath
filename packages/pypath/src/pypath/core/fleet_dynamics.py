@@ -6,10 +6,11 @@ and total allowable catch (TAC) quotas can cap fishing activity.
 Each fleet has capacity that grows when profitable and depreciates otherwise.
 Effort is derived from capacity via an efficiency power relationship.
 """
+
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -204,7 +205,7 @@ def fleet_dynamics_step(
         new_capacity[g] = max(new_capacity[g], _CAPACITY_FLOOR)
 
     # Step 7: Effort from capacity
-    effort = new_capacity ** params.eff_power
+    effort = new_capacity**params.eff_power
 
     return new_capacity, effort
 

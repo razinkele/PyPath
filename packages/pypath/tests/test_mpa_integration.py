@@ -1,17 +1,19 @@
 """Integration tests for MPA with spatial Ecosim."""
+
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_scenario
+from pypath.core.params import create_rpath_params
 from pypath.spatial import (
     EcospaceParams,
     create_1d_grid,
     rsim_run_spatial,
 )
-from pypath.spatial.mpa import MPAZone, MPAConfig
-from pypath.core.params import create_rpath_params
+from pypath.spatial.mpa import MPAConfig, MPAZone
 
 
 def _make_spatial_model():
@@ -71,9 +73,11 @@ class TestMPAIntegration:
         scenario = rsim_scenario(rpath_result, params, years=range(1, 4))
         ecospace = _make_ecospace(n_patches=3, n_groups=4)
 
-        mpa = MPAConfig(zones=[
-            MPAZone(mpa_id=1, name="Center", patches=[1]),
-        ])
+        mpa = MPAConfig(
+            zones=[
+                MPAZone(mpa_id=1, name="Center", patches=[1]),
+            ]
+        )
 
         result = rsim_run_spatial(scenario, ecospace=ecospace, mpa=mpa)
 
@@ -82,7 +86,9 @@ class TestMPAIntegration:
         final_spatial = result.out_Biomass_spatial[-1]  # [n_groups+1, n_patches]
         consumer_idx = 2  # 1-based state index
         mpa_biomass = final_spatial[consumer_idx, 1]  # center patch
-        avg_unprotected = (final_spatial[consumer_idx, 0] + final_spatial[consumer_idx, 2]) / 2
+        avg_unprotected = (
+            final_spatial[consumer_idx, 0] + final_spatial[consumer_idx, 2]
+        ) / 2
         assert mpa_biomass >= avg_unprotected
 
     def test_no_mpa_same_as_none(self):
@@ -128,9 +134,11 @@ class TestMPAIntegration:
         scenario = rsim_scenario(rpath_result, params, years=range(1, 4))
         ecospace = _make_ecospace(n_patches=3, n_groups=4)
 
-        mpa = MPAConfig(zones=[
-            MPAZone(mpa_id=1, name="Delayed", patches=[1], start_month=12),
-        ])
+        mpa = MPAConfig(
+            zones=[
+                MPAZone(mpa_id=1, name="Delayed", patches=[1], start_month=12),
+            ]
+        )
 
         result = rsim_run_spatial(scenario, ecospace=ecospace, mpa=mpa)
 
@@ -180,10 +188,11 @@ class TestMPAIntegration:
         ecospace = _make_ecospace(n_patches=3, n_groups=5)
 
         # Only exclude fleet 0 (FleetA), fleet 1 (FleetB) can still fish
-        mpa = MPAConfig(zones=[
-            MPAZone(mpa_id=1, name="Selective", patches=[1],
-                    excluded_fleets=[0]),
-        ])
+        mpa = MPAConfig(
+            zones=[
+                MPAZone(mpa_id=1, name="Selective", patches=[1], excluded_fleets=[0]),
+            ]
+        )
 
         result = rsim_run_spatial(scenario, ecospace=ecospace, mpa=mpa)
 
@@ -203,12 +212,16 @@ class TestMPAIntegration:
         scenario = rsim_scenario(rpath_result, params, years=range(1, 4))
         ecospace = _make_ecospace(n_patches=3, n_groups=4)
 
-        mpa_bonus = MPAConfig(zones=[
-            MPAZone(mpa_id=1, name="Bonus", patches=[1], capacity_bonus=1.5),
-        ])
-        mpa_no_bonus = MPAConfig(zones=[
-            MPAZone(mpa_id=1, name="NoBonus", patches=[1], capacity_bonus=1.0),
-        ])
+        mpa_bonus = MPAConfig(
+            zones=[
+                MPAZone(mpa_id=1, name="Bonus", patches=[1], capacity_bonus=1.5),
+            ]
+        )
+        mpa_no_bonus = MPAConfig(
+            zones=[
+                MPAZone(mpa_id=1, name="NoBonus", patches=[1], capacity_bonus=1.0),
+            ]
+        )
 
         result_bonus = rsim_run_spatial(scenario, ecospace=ecospace, mpa=mpa_bonus)
         result_no_bonus = rsim_run_spatial(
@@ -219,7 +232,5 @@ class TestMPAIntegration:
         # The bonus modifies Bbase, altering vulnerability exchange dynamics
         consumer_idx = 2  # 1-based state index for Consumer
         bonus_biomass = result_bonus.out_Biomass_spatial[-1, consumer_idx, 1]
-        no_bonus_biomass = result_no_bonus.out_Biomass_spatial[
-            -1, consumer_idx, 1
-        ]
+        no_bonus_biomass = result_no_bonus.out_Biomass_spatial[-1, consumer_idx, 1]
         assert bonus_biomass != no_bonus_biomass

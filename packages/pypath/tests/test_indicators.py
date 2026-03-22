@@ -8,7 +8,6 @@ import pytest
 
 from pypath.core.analysis import calculate_network_indices
 from pypath.core.indicators import (
-    EcosystemIndicators,
     FlowAnalysis,
     SystemMaturityIndices,
     ecosystem_indicators,
@@ -167,8 +166,8 @@ class TestFinnCyclingIndex:
     def test_detritus_feedback_positive_cycling(self):
         """Detritus feeding back to consumer should give FCI > 0."""
         rpath = _make_rpath_3group()
-        rpath.DC[1, 2] = 0.8   # prey=producer, pred=consumer
-        rpath.DC[3, 2] = 0.2   # prey=detritus, pred=consumer
+        rpath.DC[1, 2] = 0.8  # prey=producer, pred=consumer
+        rpath.DC[3, 2] = 0.2  # prey=detritus, pred=consumer
         fci = finn_cycling_index(rpath)
         assert fci > 0.0
 
@@ -257,14 +256,14 @@ def _make_rpath_5group():
     rpath.type = np.array([0, 1, 0, 0, 0, 2])
 
     rpath.DC = np.zeros((6, 6))
-    rpath.DC[1, 2] = 1.0   # zoo eats phyto
-    rpath.DC[2, 3] = 1.0   # small fish eats zoo
-    rpath.DC[3, 4] = 1.0   # large fish eats small fish
+    rpath.DC[1, 2] = 1.0  # zoo eats phyto
+    rpath.DC[2, 3] = 1.0  # small fish eats zoo
+    rpath.DC[3, 4] = 1.0  # large fish eats small fish
 
     # Fleet catches small fish (0.5) and large fish (0.3)
     rpath.Landings = np.zeros((6, 2))
-    rpath.Landings[3, 1] = 0.5   # small fish landings
-    rpath.Landings[4, 1] = 0.3   # large fish landings
+    rpath.Landings[3, 1] = 0.5  # small fish landings
+    rpath.Landings[4, 1] = 0.3  # large fish landings
     rpath.Discards = np.zeros((6, 2))
 
     return rpath
@@ -401,8 +400,12 @@ class TestEcosystemIndicatorsTimeseries:
         scenario = self._make_scenario()
         result = ecosystem_indicators_timeseries(output, scenario, rpath)
         expected_cols = {
-            "year", "mtl_catch", "marine_trophic_index",
-            "catch_biomass_ratio", "gross_efficiency", "shannon_diversity",
+            "year",
+            "mtl_catch",
+            "marine_trophic_index",
+            "catch_biomass_ratio",
+            "gross_efficiency",
+            "shannon_diversity",
         }
         assert set(result.columns) == expected_cols
 
@@ -421,7 +424,9 @@ class TestEcosystemIndicatorsTimeseries:
         scenario = self._make_scenario()
         result = ecosystem_indicators_timeseries(output, scenario, rpath)
         # Biomass of group 1 declines, so diversity changes
-        assert result["shannon_diversity"].iloc[0] != result["shannon_diversity"].iloc[-1]
+        assert (
+            result["shannon_diversity"].iloc[0] != result["shannon_diversity"].iloc[-1]
+        )
 
     def test_consistent_with_static_at_t0(self):
         """Timeseries year 0 should match static indicators when biomass matches."""
@@ -433,8 +438,8 @@ class TestEcosystemIndicatorsTimeseries:
             output.annual_Biomass[0, i] = rpath.Biomass[i]
         # Set annual catch to match rpath landings+discards
         for i in range(1, rpath.NUM_LIVING + rpath.NUM_DEAD + 1):
-            output.annual_Catch[0, i] = (
-                np.sum(rpath.Landings[i, 1:]) + np.sum(rpath.Discards[i, 1:])
+            output.annual_Catch[0, i] = np.sum(rpath.Landings[i, 1:]) + np.sum(
+                rpath.Discards[i, 1:]
             )
         ts = ecosystem_indicators_timeseries(output, scenario, rpath)
         static = ecosystem_indicators(rpath)
@@ -507,9 +512,7 @@ class TestSystemMaturity:
         producer_resp = 2.0 * 10.0 * (1.0 - 0.8)
         assert producer_resp == pytest.approx(4.0)
 
-        assert m.total_respiration == pytest.approx(
-            consumer_resp + producer_resp
-        )
+        assert m.total_respiration == pytest.approx(consumer_resp + producer_resp)
 
     def test_5group_mean_path_length_positive(self):
         """5-group model has positive mean path length."""
@@ -546,5 +549,6 @@ class TestSystemMaturity:
         """SystemMaturityIndices and system_maturity exported from core."""
         from pypath.core import SystemMaturityIndices as SMI
         from pypath.core import system_maturity as sm
+
         assert SMI is SystemMaturityIndices
         assert sm is system_maturity

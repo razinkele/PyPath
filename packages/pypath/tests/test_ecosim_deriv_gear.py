@@ -249,6 +249,6 @@ def test_deriv_fishing_mort_noncanonical(noncanonical_model):
         f"Expected derivative shape ({ngroups + 1},), got {deriv.shape}"
     )
     # No NaN in derivative
-    assert not np.any(np.isnan(deriv[:ngroups + 1])), (
+    assert not np.any(np.isnan(deriv[: ngroups + 1])), (
         f"Derivative contains NaN: {deriv}"
     )
