@@ -97,7 +97,9 @@ For each timestep:
 
 ### Spawning Change
 
-`spawn()` produces egg super-individuals (`life_stage=0`) instead of calling `create_recruits()`. Egg weight ~0.001g, length = 0.15 cm (1.5 mm — note: `SuperIndividual.length` is always in **cm** throughout the codebase). Eggs inherit `patch_idx` from spawning female (zone-aware deposition).
+`spawn()` produces egg super-individuals (`life_stage=0`) instead of calling `create_recruits()`. Egg weight ~0.001g, length = 0.10 cm (1.0 mm, matching Keller et al. 2020 egg diameter — note: `SuperIndividual.length` is always in **cm** throughout the codebase). Eggs inherit `patch_idx` from spawning female (zone-aware deposition).
+
+**Larval allometry:** The adult allometric relationship (`a_length=0.55, b_length=0.333`) is not valid for sub-milligram larvae. `LarvalParams` includes larval-specific allometric parameters: `a_length_larval` (default: 5.0 cm/g^b), `b_length_larval` (default: 0.35). These produce realistic larval lengths: `5.0 * 0.001^0.35 = 0.45 cm` (4.5 mm) for a first-feeding larva, matching published TL of 4-5 mm (Keller et al. 2020). Length for life_stage 0-2 is computed from larval allometry; life_stage >= 3 uses adult allometry. The transition happens at the juvenile threshold (2.0 cm).
 
 **Population management:** Each spawning event creates at most `EggParams.max_egg_cohorts` super-individuals (default: 3). Total eggs (from all females spawning in this timestep) are distributed across these cohorts via `n_represented`. For example, if 50 females produce 10 million eggs total, 3 egg super-individuals are created with `n_represented ≈ 3.33 million` each.
 
@@ -180,13 +182,13 @@ yolk_energy_kj -= total_metabolism_kj
 ```
 
 Where:
-- `rs_a_larval`: larval basal metabolic rate intercept from `LarvalParams` (default: 0.005 g O2/g/day — approximately 3.8× adult `rs_a` of 0.00132, reflecting higher mass-specific larval metabolism)
+- `rs_a_larval`: larval basal metabolic rate intercept from `LarvalParams` (default: 0.12 g O2/g/day — approximately 91× adult `rs_a` of 0.00132). This high value reflects the extremely high mass-specific metabolic rate of sub-milligram yolk-sac larvae. The allometric relationship `weight^(1+rs_b)` with `rs_b = -0.227` produces very small values at 0.001g (0.001^0.773 ≈ 0.0048), so `rs_a_larval` must be correspondingly large to produce realistic depletion rates
 - `rs_b`: metabolic weight exponent, shared with `BioenergParams.rb` (default: -0.227)
 - Q10 and T_ref: shared with `BioenergParams.q10` (2.1) and `BioenergParams.t_ref` (10.0°C) — the spec uses the same temperature sensitivity for all life stages
 - `oxycal`: oxycalorific coefficient from `YolkSacParams.oxycal_kj_per_g_o2` (default: 13.56 kJ/g O2 — standard conversion for protein-dominated larval metabolism)
 - The `weight^(1 + rs_b)` term is the total metabolic rate: `weight^rs_b` (per-gram rate) × `weight` (total body mass)
 
-Duration emerges from the model (not hardcoded). With the corrected formula and a 0.001g larva: total_metabolism_kj per day at 10°C ≈ 0.005 × 0.001^0.773 × 1.0 × 13.56 ≈ 0.0004 kJ/day. At 0.15 kJ initial yolk, depletion takes ~375 degree-adjusted days — with Q10 scaling, this produces realistic durations of ~25 days at 5.7°C, ~15 days at 9.1°C, ~14 days at 12.1°C.
+Duration emerges from the model (not hardcoded). With `rs_a_larval = 0.12` and a 0.001g larva at 10°C: total_metabolism_kj per day = 0.12 × 0.001^0.773 × 1.0 × 13.56 ≈ 0.0079 kJ/day. At 0.15 kJ initial yolk and 0.02 kJ threshold, net depletion = 0.13 kJ, taking ~16.5 days at 10°C. With Q10 scaling at other temperatures: ~25 days at 5.7°C (Q10 factor 0.63), ~14 days at 12.1°C (Q10 factor 1.15).
 
 ### First Feeding Transition
 
@@ -302,21 +304,23 @@ At 5mm (alpha ≈ 0): pure zooplankton concentration-dependent. At 50mm (alpha �
 cmax(w, T) = c_a * w^c_b * f(T) * dt_days    # g/timestep (c_a is a daily rate, scaled by dt_days)
 ```
 
-**Temperature dome function `f(T)`** — Thornton-Lessem formulation (standard in fish bioenergetics):
+**Temperature dome function `f(T)`** — Thornton-Lessem formulation (Fish Bioenergetics 3.0/4.0 standard):
 
 ```
 f(T) = K_A * K_B
 where:
-  K_A = (CQ * L1) / (1 + CQ * (L1 - 1))    # ascending limb (dominates for T < T_opt)
-  K_B = (CQ * L2) / (1 + CQ * (L2 - 1))    # descending limb (dominates for T > T_opt)
+  K_A = (V1 * L1) / (1 + V1 * (L1 - 1))    # ascending limb (V1 in numerator, NOT CQ)
+  K_B = (V2 * L2) / (1 + V2 * (L2 - 1))    # descending limb
   # BOTH K_A and K_B are always computed for all T; they are NOT conditional branches
   L1 = exp(G1 * (T - T_min))
   L2 = exp(G2 * (T_max - T))
-  G1 = (1 / (T_opt - T_min)) * ln(CQ * (1 - V1) / V1)
-  G2 = (1 / (T_max - T_opt)) * ln(CQ * (1 - V2) / V2)
+  G1 = (1 / (T_opt - T_min)) * ln(V1 * (1 - CK1) / CK1)
+  G2 = (1 / (T_max - T_opt)) * ln(V2 * (1 - CK4) / CK4)
 ```
 
-Parameters in `LarvalParams`: `cmax_t_opt` (default: 18°C), `cmax_t_min` (default: 2°C), `cmax_t_max` (default: 28°C), `cmax_CQ` (default: 2.4, controls curve steepness), `cmax_V1` (default: 0.02, proportion of Cmax at T_min), `cmax_V2` (default: 0.02, proportion of Cmax at T_max). The dome shape ensures consumption drops at both cold and warm extremes.
+**IMPORTANT:** V1 and V2 are large constants controlling curve steepness (NOT small proportions). CK1 and CK4 are the small proportions of Cmax at T_min and T_max respectively.
+
+Parameters in `LarvalParams`: `cmax_t_opt` (default: 18°C), `cmax_t_min` (default: 2°C), `cmax_t_max` (default: 28°C), `cmax_V1` (default: 0.9, steepness of ascending limb), `cmax_V2` (default: 0.9, steepness of descending limb), `cmax_CK1` (default: 0.02, proportion of Cmax at T_min), `cmax_CK4` (default: 0.02, proportion of Cmax at T_max). The dome shape gives f(T_opt) ≈ 0.98, f(T_min) ≈ CK1 ≈ 0.02, f(T_max) ≈ CK4 ≈ 0.02.
 
 ### Assimilation Efficiency — Size-Dependent
 

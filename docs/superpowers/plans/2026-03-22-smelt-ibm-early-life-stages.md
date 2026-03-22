@@ -66,7 +66,7 @@ def test_super_individual_life_stage_default():
 
 def test_super_individual_egg():
     egg = SuperIndividual(
-        id=1, n_represented=1e6, weight=0.001, length=0.15,
+        id=1, n_represented=1e6, weight=0.001, length=0.10,
         age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
         life_stage=0, degree_days=0.0, yolk_energy_kj=0.0,
     )
@@ -206,7 +206,7 @@ class EggParams:
     dd_mortality: float = 272.4
     t_zero: float = 1.8
     egg_weight: float = 0.001
-    egg_length_cm: float = 0.15
+    egg_length_cm: float = 0.10
     max_egg_cohorts: int = 3
     background_mortality_rate: float = 0.05
     o2_lethal: float = 2.0
@@ -488,7 +488,7 @@ class YolkSacParams:
 
 @dataclass
 class LarvalParams:
-    rs_a_larval: float = 0.005
+    rs_a_larval: float = 0.12
     zooplankton_prey_idx: int = 1
     k_half_zoo: float = 100.0
     zoo_conversion_factor: float = 1000.0
@@ -508,9 +508,12 @@ class LarvalParams:
     cmax_t_opt: float = 18.0
     cmax_t_min: float = 2.0
     cmax_t_max: float = 28.0
-    cmax_CQ: float = 2.4
-    cmax_V1: float = 0.02
-    cmax_V2: float = 0.02
+    cmax_V1: float = 0.9
+    cmax_V2: float = 0.9
+    cmax_CK1: float = 0.02
+    cmax_CK4: float = 0.02
+    a_length_larval: float = 5.0
+    b_length_larval: float = 0.35
     background_mortality_rate: float = 0.01
 
 
@@ -677,7 +680,7 @@ def test_egg_degree_day_accumulation():
     # Manually inject eggs
     from pypath.ibm.base import SuperIndividual
     egg = SuperIndividual(
-        id=0, n_represented=1e6, weight=0.001, length=0.15,
+        id=0, n_represented=1e6, weight=0.001, length=0.10,
         age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
         life_stage=0, degree_days=0.0,
     )
@@ -701,7 +704,7 @@ def test_egg_no_hatching_below_threshold():
 
     from pypath.ibm.base import SuperIndividual
     egg = SuperIndividual(
-        id=0, n_represented=1e6, weight=0.001, length=0.15,
+        id=0, n_represented=1e6, weight=0.001, length=0.10,
         age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
         life_stage=0, degree_days=0.0,
     )
@@ -782,7 +785,7 @@ def test_population_cap_consolidation():
     # Create 15 eggs (over cap)
     for i in range(15):
         ibm.individuals.append(SuperIndividual(
-            id=i, n_represented=1000.0, weight=0.001, length=0.15,
+            id=i, n_represented=1000.0, weight=0.001, length=0.10,
             age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
             life_stage=0,
         ))
@@ -821,16 +824,22 @@ def _consolidate_population(self) -> None:
                     self.individuals.remove(b)
                     merged = True
                     break
-                w_avg = lambda fa, fb: (a.n_represented * fa + b.n_represented * fb) / total_n
-                a.n_represented = total_n
+                # Save original n_represented BEFORE mutation for weighted averaging
+                a_n = a.n_represented
+                b_n = b.n_represented
+                w_avg = lambda fa, fb: (a_n * fa + b_n * fb) / total_n
+                # Compute ALL weighted averages BEFORE mutating n_represented
                 a.weight = w_avg(a.weight, b.weight)
                 a.age = w_avg(a.age, b.age)
-                a.length = self.params.bioenerg.a_length * a.weight ** self.params.bioenerg.b_length
                 a.degree_days = w_avg(a.degree_days, b.degree_days)
                 a.yolk_energy_kj = w_avg(a.yolk_energy_kj, b.yolk_energy_kj)
                 a.starvation_days = w_avg(a.starvation_days, b.starvation_days)
                 a.energy_reserve = w_avg(a.energy_reserve, b.energy_reserve)
+                # Non-averaged fields
+                a.length = self.params.bioenerg.a_length * a.weight ** self.params.bioenerg.b_length
                 a.is_mature = a.is_mature or b.is_mature
+                # NOW mutate n_represented
+                a.n_represented = total_n
                 a.id = self._next_id
                 self._next_id += 1
                 self.individuals.remove(b)
@@ -898,24 +907,24 @@ git commit --allow-empty -m "checkpoint: Package 1 (Egg Stage) complete — scie
 ```python
 def test_yolk_depletion_rate():
     from pypath.ibm.development import compute_yolk_depletion
-    # 0.001g larva at 10°C, Q10=2.1, T_ref=10, rs_a_larval=0.005, oxycal=13.56
+    # 0.001g larva at 10°C, Q10=2.1, T_ref=10, rs_a_larval=0.12, oxycal=13.56
     rate = compute_yolk_depletion(
-        weight=0.001, temperature=10.0, rs_a_larval=0.005,
+        weight=0.001, temperature=10.0, rs_a_larval=0.12,
         rs_b=-0.227, q10=2.1, t_ref=10.0, oxycal=13.56, dt_days=1.0,
     )
-    # 0.005 * 0.001^0.773 * 1.0 * 13.56 * 1 ≈ 0.000327 kJ/day
-    assert rate == pytest.approx(0.000327, rel=0.05)
+    # 0.12 * 0.001^0.773 * 1.0 * 13.56 * 1 ≈ 0.0079 kJ/day
+    assert rate == pytest.approx(0.0079, rel=0.05)
 
 
 def test_yolk_duration_at_different_temps():
     from pypath.ibm.development import compute_yolk_depletion, YolkSacParams
     p = YolkSacParams()
-    for temp, expected_days in [(5.7, 25), (9.1, 15), (12.1, 14)]:
+    for temp, expected_days in [(5.7, 25), (9.1, 17), (12.1, 14)]:
         yolk = p.initial_yolk_kj
         day = 0
-        while yolk > p.first_feeding_threshold_kj and day < 100:
+        while yolk > p.first_feeding_threshold_kj and day < 200:
             rate = compute_yolk_depletion(
-                weight=0.001, temperature=temp, rs_a_larval=0.005,
+                weight=0.001, temperature=temp, rs_a_larval=0.12,
                 rs_b=-0.227, q10=2.1, t_ref=10.0,
                 oxycal=p.oxycal_kj_per_g_o2, dt_days=1.0,
             )
@@ -1028,7 +1037,7 @@ def test_yolk_sac_to_larva_transition():
 
     from pypath.ibm.base import SuperIndividual
     yolk_larva = SuperIndividual(
-        id=0, n_represented=1e4, weight=0.001, length=0.15,
+        id=0, n_represented=1e4, weight=0.001, length=0.10,
         age=0.0, energy_reserve=0.0, patch_idx=0, is_mature=False, sex=0,
         life_stage=1, yolk_energy_kj=0.01,  # below threshold
     )
@@ -1078,26 +1087,26 @@ For each `life_stage == 1` individual: deplete yolk via `compute_yolk_depletion(
 ```python
 def test_thornton_lessem_at_t_opt():
     from pypath.ibm.bioenergetics import thornton_lessem
-    f = thornton_lessem(18.0, t_min=2.0, t_opt=18.0, t_max=28.0, CQ=2.4, V1=0.02, V2=0.02)
-    assert f == pytest.approx(1.0, abs=0.02)
+    f = thornton_lessem(18.0, t_min=2.0, t_opt=18.0, t_max=28.0, V1=0.9, V2=0.9, CK1=0.02, CK4=0.02)
+    assert f == pytest.approx(0.98, abs=0.05)  # ~0.98 at T_opt
 
 
 def test_thornton_lessem_at_extremes():
     from pypath.ibm.bioenergetics import thornton_lessem
-    # At T_min: f ≈ V1 * K_B ≈ 0.02 * ~1.0 ≈ 0.02 (not zero)
-    f_cold = thornton_lessem(2.0, t_min=2.0, t_opt=18.0, t_max=28.0, CQ=2.4, V1=0.02, V2=0.02)
-    f_hot = thornton_lessem(28.0, t_min=2.0, t_opt=18.0, t_max=28.0, CQ=2.4, V1=0.02, V2=0.02)
+    # At T_min: f ≈ CK1 ≈ 0.02 (not zero)
+    f_cold = thornton_lessem(2.0, t_min=2.0, t_opt=18.0, t_max=28.0, V1=0.9, V2=0.9, CK1=0.02, CK4=0.02)
+    f_hot = thornton_lessem(28.0, t_min=2.0, t_opt=18.0, t_max=28.0, V1=0.9, V2=0.9, CK1=0.02, CK4=0.02)
     assert 0.0 < f_cold < 0.05  # small but not zero at boundary
     assert 0.0 < f_hot < 0.05
     # Below T_min: zero
-    f_below = thornton_lessem(1.0, t_min=2.0, t_opt=18.0, t_max=28.0, CQ=2.4, V1=0.02, V2=0.02)
+    f_below = thornton_lessem(1.0, t_min=2.0, t_opt=18.0, t_max=28.0, V1=0.9, V2=0.9, CK1=0.02, CK4=0.02)
     assert f_below == 0.0
 
 
 def test_thornton_lessem_dome_shape():
     from pypath.ibm.bioenergetics import thornton_lessem
     temps = [5, 10, 15, 18, 20, 25]
-    vals = [thornton_lessem(t, 2.0, 18.0, 28.0, 2.4, 0.02, 0.02) for t in temps]
+    vals = [thornton_lessem(t, 2.0, 18.0, 28.0, 0.9, 0.9, 0.02, 0.02) for t in temps]
     # Should increase to peak then decrease
     assert vals[3] > vals[0]  # 18C > 5C
     assert vals[3] > vals[5]  # 18C > 25C
@@ -1111,18 +1120,22 @@ import math
 
 def thornton_lessem(
     temp: float, t_min: float, t_opt: float, t_max: float,
-    CQ: float, V1: float, V2: float,
+    V1: float, V2: float, CK1: float, CK4: float,
 ) -> float:
-    # Both K_A and K_B are always computed — no conditional branches per spec
-    # At T_min: f(T) ≈ V1 (~0.02), at T_max: f(T) ≈ V2 (~0.02), at T_opt: f(T) ≈ 1.0
+    """Thornton-Lessem temperature function (Fish Bioenergetics 3.0/4.0).
+
+    V1, V2: steepness parameters for ascending/descending limbs (~0.9)
+    CK1, CK4: proportion of Cmax at T_min and T_max (~0.02)
+    Returns f(T) in [0, ~1], peaking near T_opt.
+    """
     if temp < t_min or temp > t_max:
-        return 0.0  # truly out of range, guard against math domain errors
-    G1 = (1.0 / (t_opt - t_min)) * math.log(CQ * (1.0 - V1) / V1)
-    G2 = (1.0 / (t_max - t_opt)) * math.log(CQ * (1.0 - V2) / V2)
+        return 0.0
+    G1 = (1.0 / (t_opt - t_min)) * math.log(V1 * (1.0 - CK1) / CK1)
+    G2 = (1.0 / (t_max - t_opt)) * math.log(V2 * (1.0 - CK4) / CK4)
     L1 = math.exp(G1 * (temp - t_min))
     L2 = math.exp(G2 * (t_max - temp))
-    K_A = (CQ * L1) / (1.0 + CQ * (L1 - 1.0))
-    K_B = (CQ * L2) / (1.0 + CQ * (L2 - 1.0))
+    K_A = (V1 * L1) / (1.0 + V1 * (L1 - 1.0))
+    K_B = (V2 * L2) / (1.0 + V2 * (L2 - 1.0))
     return max(0.0, K_A * K_B)
 ```
 
