@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from pypath.spatial.mpa import (
-    MPAZone,
     MPAConfig,
+    MPAZone,
     create_mpa_config,
 )
 

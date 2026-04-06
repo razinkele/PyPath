@@ -5,7 +5,7 @@ import pytest
 
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
-from pypath.core.ecotracer import EcotracerParams, create_ecotracer_params
+from pypath.core.ecotracer import create_ecotracer_params
 from pypath.core.params import create_rpath_params
 
 

@@ -8,7 +8,6 @@ import pytest
 
 from pypath.core.analysis import calculate_network_indices
 from pypath.core.indicators import (
-    EcosystemIndicators,
     FlowAnalysis,
     SystemMaturityIndices,
     ecosystem_indicators,

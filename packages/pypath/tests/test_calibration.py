@@ -3,8 +3,7 @@
 import numpy as np
 import pytest
 
-from pypath.core.calibration import CalibrationResult, _compute_ss
-from pypath.core.calibration import fit_to_timeseries
+from pypath.core.calibration import CalibrationResult, _compute_ss, fit_to_timeseries
 from pypath.core.timeseries import (
     DATTYPE_REL_BIOMASS,
     EweTimeSeries,

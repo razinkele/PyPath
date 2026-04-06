@@ -1,10 +1,11 @@
 """Integration tests for Ecospace I/O with spatial Ecosim."""
 
+import warnings
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
-import warnings
-from unittest.mock import patch
 
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_scenario
