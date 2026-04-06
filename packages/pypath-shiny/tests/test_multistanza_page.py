@@ -1,4 +1,5 @@
 """Tests for pages/multistanza.py — UI renders and server signature."""
+
 import inspect
 
 from pypath_shiny.pages.multistanza import multistanza_server, multistanza_ui

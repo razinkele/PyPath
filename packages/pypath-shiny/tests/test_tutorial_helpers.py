@@ -1,7 +1,13 @@
 """Tests for pages/tutorial.py — _code_block and _step_card helpers."""
+
 import inspect
 
-from pypath_shiny.pages.tutorial import _code_block, _step_card, tutorial_server, tutorial_ui
+from pypath_shiny.pages.tutorial import (
+    _code_block,
+    _step_card,
+    tutorial_server,
+    tutorial_ui,
+)
 
 
 class TestCodeBlock:

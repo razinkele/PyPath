@@ -1,8 +1,7 @@
 """Tests for prebalance._resolve_repo_root."""
+
 import os
 from pathlib import Path
-
-import pytest
 
 from pypath_shiny.pages.prebalance import _resolve_repo_root
 

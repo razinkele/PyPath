@@ -2,11 +2,11 @@
 
 The pypath-shiny package should be installed via `pip install -e packages/pypath-shiny`.
 """
+
 import json
 
 import pandas as pd
 import pytest
-
 from pypath.core.ecopath import rpath
 from pypath.core.params import create_rpath_params
 

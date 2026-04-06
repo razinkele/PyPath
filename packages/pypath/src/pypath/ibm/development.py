@@ -4,6 +4,7 @@ Provides dataclasses for egg, yolk-sac, larval, oxygen, and zone parameters,
 plus helper functions for degree-day accumulation, hatching, yolk depletion,
 and oxygen effects.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -117,11 +118,13 @@ class ZoneParams:
 
     def __post_init__(self):
         if self.connectivity is None:
-            self.connectivity = np.array([
-                [0.7, 0.3, 0.0],
-                [0.1, 0.7, 0.2],
-                [0.1, 0.2, 0.7],
-            ])
+            self.connectivity = np.array(
+                [
+                    [0.7, 0.3, 0.0],
+                    [0.1, 0.7, 0.2],
+                    [0.1, 0.2, 0.7],
+                ]
+            )
 
 
 def accumulate_degree_days(

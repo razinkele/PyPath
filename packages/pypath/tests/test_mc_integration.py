@@ -1,4 +1,5 @@
 """Integration tests for Monte Carlo and sensitivity analysis."""
+
 import numpy as np
 import pytest
 import warnings
@@ -52,8 +53,11 @@ class TestMCIntegration:
         """Full pipeline: pedigree -> MC(n=10, ecosim) -> ecosim_stats shape."""
         params = _make_mc_model()
         config = MCConfig(
-            n_samples=10, method="random", seed=42,
-            ecopath_only=False, ecosim_years=range(1, 6),
+            n_samples=10,
+            method="random",
+            seed=42,
+            ecopath_only=False,
+            ecosim_years=range(1, 6),
         )
         result = run_montecarlo(params, config)
         if result.n_ecosim > 0:
@@ -77,8 +81,11 @@ class TestMCIntegration:
         """store_runs=True -> raw outputs accessible."""
         params = _make_mc_model()
         config = MCConfig(
-            n_samples=10, method="random", seed=42,
-            ecopath_only=True, store_runs=True,
+            n_samples=10,
+            method="random",
+            seed=42,
+            ecopath_only=True,
+            store_runs=True,
         )
         result = run_montecarlo(params, config)
         assert result.ecopath_runs is not None
@@ -87,9 +94,12 @@ class TestMCIntegration:
     def test_morris_screening(self):
         """Morris on 3-group model -> all params ranked."""
         from pypath.core.sensitivity import SensitivityConfig, run_sensitivity
+
         params = _make_mc_model()
         config = SensitivityConfig(
-            method="morris", n_trajectories=5, seed=42,
+            method="morris",
+            n_trajectories=5,
+            seed=42,
             ecopath_only=True,
         )
         result = run_sensitivity(params, config)

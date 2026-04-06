@@ -1,9 +1,8 @@
 """Tests for pages/validation.py — all 5 validation functions."""
+
 import numpy as np
 import pandas as pd
-import pytest
 
-from pypath_shiny.config import NO_DATA_VALUE
 from pypath_shiny.pages.validation import (
     validate_biomass,
     validate_ee,

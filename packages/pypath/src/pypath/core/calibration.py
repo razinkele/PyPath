@@ -3,6 +3,7 @@
 Provides fit_to_timeseries() for optimizing Ecosim vulnerability (VV)
 and primary production (PP) parameters against observed time series.
 """
+
 from __future__ import annotations
 
 import logging
@@ -89,7 +90,7 @@ def _compute_ss(
             pred_v = pred_v * scale
 
         log_ratios = np.log(pred_v / obs_v)
-        group_ss = w * np.sum(log_ratios ** 2)
+        group_ss = w * np.sum(log_ratios**2)
         ss_by_group[grp_idx] = group_ss
         total_ss += group_ss
 
@@ -192,7 +193,7 @@ def fit_to_timeseries(
         if s.group_idx is not None:
             observed[s.group_idx] = s.values[:n_obs_years]
             weights[s.group_idx] = s.weight
-            relative[s.group_idx] = (s.dat_type == DATTYPE_REL_BIOMASS)
+            relative[s.group_idx] = s.dat_type == DATTYPE_REL_BIOMASS
 
     for s in timeseries.observed_catch:
         if s.group_idx is not None and s.group_idx not in observed:

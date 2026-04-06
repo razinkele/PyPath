@@ -1,4 +1,5 @@
 """Tests for pages/data_import.py — UI renders and server signature."""
+
 import inspect
 
 from pypath_shiny.pages.data_import import import_server, import_ui

@@ -1,4 +1,5 @@
 """Tests for pypath.spatial.mpa module."""
+
 import numpy as np
 import pytest
 
@@ -55,9 +56,7 @@ class TestMPAConfigGetActiveZones:
         assert z in cfg.get_active_zones(100)
 
     def test_temporal_zone_active_in_window(self):
-        z = MPAZone(
-            mpa_id=1, name="Temp", patches=[0], start_month=6, end_month=18
-        )
+        z = MPAZone(mpa_id=1, name="Temp", patches=[0], start_month=6, end_month=18)
         cfg = MPAConfig(zones=[z])
         assert z not in cfg.get_active_zones(5)
         assert z in cfg.get_active_zones(6)

@@ -140,12 +140,8 @@ class TestAccessRoundTrip:
 
         params_back = read_ewemdb(str(outpath))
 
-        orig_names = params_orig.model[params_orig.model["Type"] != 3][
-            "Group"
-        ].tolist()
-        back_names = params_back.model[params_back.model["Type"] != 3][
-            "Group"
-        ].tolist()
+        orig_names = params_orig.model[params_orig.model["Type"] != 3]["Group"].tolist()
+        back_names = params_back.model[params_back.model["Type"] != 3]["Group"].tolist()
         assert back_names == orig_names
 
     def test_access_biomass_roundtrip(self, lt2022_path, tmp_path):

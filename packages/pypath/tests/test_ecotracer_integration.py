@@ -1,4 +1,5 @@
 """Integration tests for Ecotracer with Ecosim."""
+
 import numpy as np
 import pytest
 
@@ -57,7 +58,7 @@ class TestEcotracerIntegration:
         scenario = rsim_scenario(rpath_result, params, years=range(1, 6))
         eco_params = create_ecotracer_params(3)
         eco_params.czero[0] = 1.0  # contaminate producer
-        eco_params.cenv[0] = 0.1   # ongoing environmental input
+        eco_params.cenv[0] = 0.1  # ongoing environmental input
 
         result = rsim_run(scenario, ecotracer=eco_params)
 
@@ -72,7 +73,9 @@ class TestEcotracerIntegration:
         scenario = rsim_scenario(rpath_result, params, years=range(1, 3))
         eco_params = create_ecotracer_params(3)
         eco_params.czero = np.array([1.0, 1.0, 0.5])
-        eco_params.cdecay = np.array([5.0, 5.0, 1.0])  # high decay to dominate dietary intake
+        eco_params.cdecay = np.array(
+            [5.0, 5.0, 1.0]
+        )  # high decay to dominate dietary intake
         eco_params.cassim[:] = 0.0  # disable dietary uptake to isolate decay
 
         result = rsim_run(scenario, ecotracer=eco_params)

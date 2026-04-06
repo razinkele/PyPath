@@ -1,4 +1,5 @@
 """Tests for pages/about.py — _get_version helper."""
+
 import inspect
 
 from pypath_shiny.pages.about import _get_version, about_server, about_ui

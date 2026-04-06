@@ -1,4 +1,4 @@
-{% set version = "0.3.2" %}
+{% set version = "0.4.2" %}
 
 package:
   name: pypath-ewe
@@ -34,6 +34,8 @@ test:
     - pypath.io.ewe_writer
     - pypath.spatial.connectivity
     - pypath.ibm.bioenergetics
+    - pypath.ibm.development
+    - pypath.ibm.calibration_els
   commands:
     - pip check
   requires:
@@ -56,3 +58,4 @@ about:
 extra:
   recipe-maintainers:
     - razinkele
+

@@ -1,22 +1,20 @@
 """Tests for pypath_shiny.config module — dataclass defaults and singletons."""
+
 import pytest
 
 from pypath_shiny.config import (
     DEFAULTS,
     DISPLAY,
     IBM,
+    NO_DATA_VALUE,
     PARAM_RANGES,
     PLOTS,
     SPATIAL,
     THRESHOLDS,
-    UI,
-    VALIDATION,
-    DisplayConfig,
-    PlotConfig,
-    ValidationConfig,
-    NO_DATA_VALUE,
     TYPE_LABELS,
+    UI,
     VALID_GROUP_TYPES,
+    VALIDATION,
 )
 
 
@@ -84,7 +82,11 @@ class TestThresholdsConfig:
 class TestParamRangesConfig:
     def test_years_range(self):
         assert PARAM_RANGES.years_min < PARAM_RANGES.years_max
-        assert PARAM_RANGES.years_min <= PARAM_RANGES.years_default <= PARAM_RANGES.years_max
+        assert (
+            PARAM_RANGES.years_min
+            <= PARAM_RANGES.years_default
+            <= PARAM_RANGES.years_max
+        )
 
     def test_vulnerability_range(self):
         assert PARAM_RANGES.vulnerability_min < PARAM_RANGES.vulnerability_max
@@ -132,5 +134,15 @@ class TestIBMConfigMatchesSmelt:
 
 class TestSingletonInstances:
     def test_all_singletons_exist(self):
-        for obj in [DISPLAY, PLOTS, DEFAULTS, SPATIAL, VALIDATION, UI, THRESHOLDS, PARAM_RANGES, IBM]:
+        for obj in [
+            DISPLAY,
+            PLOTS,
+            DEFAULTS,
+            SPATIAL,
+            VALIDATION,
+            UI,
+            THRESHOLDS,
+            PARAM_RANGES,
+            IBM,
+        ]:
             assert obj is not None

@@ -1,4 +1,5 @@
 """Integration tests for Ecospace I/O with spatial Ecosim."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -44,27 +45,60 @@ class TestEcospaceIOIntegration:
         """EcospaceParams from read_ecospace can run a spatial simulation."""
         from pypath.io.ewemdb import read_ecospace
 
-        scenario_df = pd.DataFrame([{
-            "ScenarioID": 1, "ScenarioName": "IntTest",
-            "Description": "", "Inrow": 2, "Incol": 2,
-            "CellLength": 10.0, "CellSize": 100.0,
-            "MinLon": 0.0, "MinLat": 0.0,
-            "TotalTime": 2.0, "TimeStep": 1.0,
-        }])
-        group_df = pd.DataFrame([
-            {"ScenarioID": 1, "GroupID": 1, "EcopathGroupID": 1,
-             "Mvel": 1.0, "RelMoveBad": 0.5, "RelVulBad": 0.5,
-             "IsAdvected": False, "IsMigratory": False,
-             "BarrierAvoidanceWeight": 0.0},
-            {"ScenarioID": 1, "GroupID": 2, "EcopathGroupID": 2,
-             "Mvel": 0.5, "RelMoveBad": 0.5, "RelVulBad": 0.5,
-             "IsAdvected": False, "IsMigratory": False,
-             "BarrierAvoidanceWeight": 0.0},
-            {"ScenarioID": 1, "GroupID": 3, "EcopathGroupID": 3,
-             "Mvel": 0.0, "RelMoveBad": 0.5, "RelVulBad": 0.5,
-             "IsAdvected": False, "IsMigratory": False,
-             "BarrierAvoidanceWeight": 0.0},
-        ])
+        scenario_df = pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "ScenarioName": "IntTest",
+                    "Description": "",
+                    "Inrow": 2,
+                    "Incol": 2,
+                    "CellLength": 10.0,
+                    "CellSize": 100.0,
+                    "MinLon": 0.0,
+                    "MinLat": 0.0,
+                    "TotalTime": 2.0,
+                    "TimeStep": 1.0,
+                }
+            ]
+        )
+        group_df = pd.DataFrame(
+            [
+                {
+                    "ScenarioID": 1,
+                    "GroupID": 1,
+                    "EcopathGroupID": 1,
+                    "Mvel": 1.0,
+                    "RelMoveBad": 0.5,
+                    "RelVulBad": 0.5,
+                    "IsAdvected": False,
+                    "IsMigratory": False,
+                    "BarrierAvoidanceWeight": 0.0,
+                },
+                {
+                    "ScenarioID": 1,
+                    "GroupID": 2,
+                    "EcopathGroupID": 2,
+                    "Mvel": 0.5,
+                    "RelMoveBad": 0.5,
+                    "RelVulBad": 0.5,
+                    "IsAdvected": False,
+                    "IsMigratory": False,
+                    "BarrierAvoidanceWeight": 0.0,
+                },
+                {
+                    "ScenarioID": 1,
+                    "GroupID": 3,
+                    "EcopathGroupID": 3,
+                    "Mvel": 0.0,
+                    "RelMoveBad": 0.5,
+                    "RelVulBad": 0.5,
+                    "IsAdvected": False,
+                    "IsMigratory": False,
+                    "BarrierAvoidanceWeight": 0.0,
+                },
+            ]
+        )
         table_map = {
             "EcospaceScenario": scenario_df,
             "EcospaceScenarioGroup": group_df,
@@ -72,10 +106,13 @@ class TestEcospaceIOIntegration:
 
         # n_groups=4: Producer + Consumer + Det + Fleet (all groups including fleets)
         # This must match scenario.params.NUM_GROUPS so ecospace arrays are sized correctly
-        with patch("pypath.io.ewemdb.list_ewemdb_tables",
-                    return_value=list(table_map.keys())):
-            with patch("pypath.io.ewemdb.read_ewemdb_table",
-                       side_effect=lambda path, tbl: table_map[tbl]):
+        with patch(
+            "pypath.io.ewemdb.list_ewemdb_tables", return_value=list(table_map.keys())
+        ):
+            with patch(
+                "pypath.io.ewemdb.read_ewemdb_table",
+                side_effect=lambda path, tbl: table_map[tbl],
+            ):
                 eco_result = read_ecospace("fake.eweaccdb", n_groups=4)
 
         # Build Ecopath/Ecosim model

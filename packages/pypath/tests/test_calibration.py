@@ -1,4 +1,5 @@
 """Tests for pypath.core.calibration module."""
+
 import numpy as np
 import pytest
 
@@ -31,9 +32,13 @@ class TestCalibrationResult:
         vv = np.array([2.0, 3.0, 4.0])
         link_map = [(0, 1), (1, 2), (0, 2)]
         result = CalibrationResult(
-            best_vv=vv, best_pp=None, ss=0.0,
-            ss_by_group={}, n_iterations=0,
-            converged=True, fitted_scenario=None,
+            best_vv=vv,
+            best_pp=None,
+            ss=0.0,
+            ss_by_group={},
+            n_iterations=0,
+            converged=True,
+            fitted_scenario=None,
             link_map=link_map,
         )
         assert len(result.best_vv) == len(result.link_map)
@@ -167,13 +172,18 @@ class TestFitToTimeseries:
         obs_noisy = obs_bio * (1.0 + 0.1 * rng.standard_normal(n_years))
         obs_noisy = np.maximum(obs_noisy, 0.01)
 
-        ts = EweTimeSeriesCollection([
-            EweTimeSeries(1, "Consumer", DATTYPE_REL_BIOMASS, 1, None, obs_noisy),
-        ])
+        ts = EweTimeSeriesCollection(
+            [
+                EweTimeSeries(1, "Consumer", DATTYPE_REL_BIOMASS, 1, None, obs_noisy),
+            ]
+        )
 
         result = fit_to_timeseries(
-            balanced, params, ts,
-            fit_vv=True, fit_pp=False,
+            balanced,
+            params,
+            ts,
+            fit_vv=True,
+            fit_pp=False,
             method="differential_evolution",
             max_iterations=50,
             verbose=False,
@@ -190,7 +200,9 @@ class TestFitToTimeseries:
         obs_dict = {1: np.array([5.0, 5.1, 4.9, 5.0, 5.2])}
 
         result = fit_to_timeseries(
-            balanced, params, obs_dict,
+            balanced,
+            params,
+            obs_dict,
             fit_vv=True,
             method="differential_evolution",
             max_iterations=20,
@@ -201,9 +213,17 @@ class TestFitToTimeseries:
 
     def test_fit_pp_raises_not_implemented(self, simple_model):
         balanced, params = simple_model
-        ts = EweTimeSeriesCollection([
-            EweTimeSeries(1, "Consumer", DATTYPE_REL_BIOMASS, 1, None,
-                          np.array([5.0, 5.1, 4.9])),
-        ])
+        ts = EweTimeSeriesCollection(
+            [
+                EweTimeSeries(
+                    1,
+                    "Consumer",
+                    DATTYPE_REL_BIOMASS,
+                    1,
+                    None,
+                    np.array([5.0, 5.1, 4.9]),
+                ),
+            ]
+        )
         with pytest.raises(NotImplementedError):
             fit_to_timeseries(balanced, params, ts, fit_pp=True)

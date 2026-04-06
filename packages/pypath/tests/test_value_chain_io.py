@@ -8,54 +8,70 @@ from unittest.mock import patch
 def _make_sample_value_chain_dfs():
     """Create minimal sample DataFrames for all key tables."""
     return {
-        "cOOPStorable": pd.DataFrame({
-            "xCLASS_NAMEx": ["cProducerUnit", "cProcessingUnit"],
-            "DBID": [1, 2],
-            "AllowEvents": [True, False],
-        }),
-        "cParameters": pd.DataFrame({
-            "EquilibriumEffortMin": [0.5],
-            "EquilibriumEffortMax": [2.0],
-            "EquilibriumEffortIncrement": [0.1],
-            "RunWithEcopath": [True],
-            "RunWithEcosim": [False],
-            "RunWithSearches": [False],
-        }),
-        "cUnit": pd.DataFrame({
-            "Sequence": [1, 2],
-            "Name": ["Trawler Fleet", "Fish Processor"],
-            "Nationality": ["LT", "LT"],
-            "NameLocal": ["", ""],
-            "DBID": [1, 2],
-        }),
-        "cEconomicUnit": pd.DataFrame({
-            "DBID": [1, 2],
-            "RevenueLocalDomestic": [100.0, 200.0],
-            "CostOperating": [50.0, 80.0],
-        }),
-        "cProducerUnit": pd.DataFrame({
-            "DBID": [1],
-            "ObserverCost": [10.0],
-            "ObserverRate": [0.5],
-            "TicketProducts": [""],
-            "EcopathFleetID": [1],
-        }),
-        "cProcessingUnit": pd.DataFrame({
-            "DBID": [2],
-            "AgriculturalProducts": [""],
-            "AgriculturalInput": [""],
-        }),
+        "cOOPStorable": pd.DataFrame(
+            {
+                "xCLASS_NAMEx": ["cProducerUnit", "cProcessingUnit"],
+                "DBID": [1, 2],
+                "AllowEvents": [True, False],
+            }
+        ),
+        "cParameters": pd.DataFrame(
+            {
+                "EquilibriumEffortMin": [0.5],
+                "EquilibriumEffortMax": [2.0],
+                "EquilibriumEffortIncrement": [0.1],
+                "RunWithEcopath": [True],
+                "RunWithEcosim": [False],
+                "RunWithSearches": [False],
+            }
+        ),
+        "cUnit": pd.DataFrame(
+            {
+                "Sequence": [1, 2],
+                "Name": ["Trawler Fleet", "Fish Processor"],
+                "Nationality": ["LT", "LT"],
+                "NameLocal": ["", ""],
+                "DBID": [1, 2],
+            }
+        ),
+        "cEconomicUnit": pd.DataFrame(
+            {
+                "DBID": [1, 2],
+                "RevenueLocalDomestic": [100.0, 200.0],
+                "CostOperating": [50.0, 80.0],
+            }
+        ),
+        "cProducerUnit": pd.DataFrame(
+            {
+                "DBID": [1],
+                "ObserverCost": [10.0],
+                "ObserverRate": [0.5],
+                "TicketProducts": [""],
+                "EcopathFleetID": [1],
+            }
+        ),
+        "cProcessingUnit": pd.DataFrame(
+            {
+                "DBID": [2],
+                "AgriculturalProducts": [""],
+                "AgriculturalInput": [""],
+            }
+        ),
         "cLink": pd.DataFrame({"DBID": [1]}),
-        "cLinkDefault": pd.DataFrame({
-            "LinkType": [0],
-            "BiomassRatio": [1.0],
-            "ValuePerTon": [500.0],
-            "ValueRatio": [1.0],
-        }),
-        "cLinkLandings": pd.DataFrame({
-            "EcopathGroupID": [3],
-            "ValuePerTon": [250.0],
-        }),
+        "cLinkDefault": pd.DataFrame(
+            {
+                "LinkType": [0],
+                "BiomassRatio": [1.0],
+                "ValuePerTon": [500.0],
+                "ValueRatio": [1.0],
+            }
+        ),
+        "cLinkLandings": pd.DataFrame(
+            {
+                "EcopathGroupID": [3],
+                "ValuePerTon": [250.0],
+            }
+        ),
     }
 
 
@@ -66,13 +82,27 @@ class TestValueChainSchema:
         from pypath.io._ewe_schema import EWE_TABLES
 
         expected_tables = [
-            "cOOPStorable", "cParameters", "cUnit", "cEconomicUnit",
-            "cProducerUnit", "cProcessingUnit", "cDistributionUnit",
-            "cWholesalerUnit", "cRetailerUnit", "cConsumerUnit",
-            "cProducerDefault", "cProcessingDefault", "cDistributionDefault",
-            "cWholesalerDefault", "cRetailerDefault", "cConsumerDefault",
-            "cLink", "cLinkDefault", "cLinkLandings",
-            "cFlowDiagram", "cFlowPosition",
+            "cOOPStorable",
+            "cParameters",
+            "cUnit",
+            "cEconomicUnit",
+            "cProducerUnit",
+            "cProcessingUnit",
+            "cDistributionUnit",
+            "cWholesalerUnit",
+            "cRetailerUnit",
+            "cConsumerUnit",
+            "cProducerDefault",
+            "cProcessingDefault",
+            "cDistributionDefault",
+            "cWholesalerDefault",
+            "cRetailerDefault",
+            "cConsumerDefault",
+            "cLink",
+            "cLinkDefault",
+            "cLinkLandings",
+            "cFlowDiagram",
+            "cFlowPosition",
         ]
         for table in expected_tables:
             assert table in EWE_TABLES, f"Missing table: {table}"
@@ -130,11 +160,13 @@ class TestValueChainReader:
         from pypath.io.ewemdb import read_value_chain
 
         sample = {
-            "cOOPStorable": pd.DataFrame({
-                "xCLASS_NAMEx": ["cProducerUnit"],
-                "DBID": [1],
-                "AllowEvents": [True],
-            }),
+            "cOOPStorable": pd.DataFrame(
+                {
+                    "xCLASS_NAMEx": ["cProducerUnit"],
+                    "DBID": [1],
+                    "AllowEvents": [True],
+                }
+            ),
         }
 
         def _mock_read(db, tbl):
@@ -248,6 +280,7 @@ class TestValueChainIntegration:
         write_ewemdb(params, out, backend="csv", value_chain=vc)
 
         import zipfile
+
         with zipfile.ZipFile(out) as zf:
             names = zf.namelist()
             assert "cOOPStorable.csv" in names
@@ -256,5 +289,6 @@ class TestValueChainIntegration:
 
     def test_io_exports_value_chain_symbols(self):
         from pypath.io import read_value_chain, ValueChainData
+
         assert read_value_chain is not None
         assert ValueChainData is not None

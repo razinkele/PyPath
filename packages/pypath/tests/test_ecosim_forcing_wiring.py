@@ -79,5 +79,9 @@ class TestForcingWiring:
         finally:
             ecosim_mod.deriv_vector = orig_deriv
 
-        assert "ForcedPrey" in captured["forcing"], "ForcedPrey missing from forcing_dict"
-        assert "PP_forcing" in captured["forcing"], "PP_forcing missing from forcing_dict"
+        assert "ForcedPrey" in captured["forcing"], (
+            "ForcedPrey missing from forcing_dict"
+        )
+        assert "PP_forcing" in captured["forcing"], (
+            "PP_forcing missing from forcing_dict"
+        )

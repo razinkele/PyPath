@@ -6,7 +6,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
-## v0.4.1 (2026-03-22)
+## v0.4.2 (2026-04-06)
+
+### Fixed
+
+- **ibm/integration.py**: Fix 1-based → 0-based prey index and derivative offset (critical runtime bug)
+- **core/ecosim_advanced.py**: Add missing `stanza_biomass=None` default arg to `RsimOutput`
+- **core/ecosim.py**: Add `dead_idx` definition; move `stanza_biomass` to end with default; add `TYPE_CHECKING` imports for `EcotracerResult`, `FleetDynamicsResult`
+- **core/forcing.py**: Fix `update_diet` return type annotation to `np.ndarray | None`
+- **spatial/dispersal.py**: Guard division by zero with `safe_distances`
+- **core/montecarlo.py**, **pedigree.py**, **sensitivity.py**: Add `TYPE_CHECKING` imports for `RpathParams`, `PedigreeConfig`
+- **core/timeseries.py**, **spatial/ecospace_params.py**: Add `TYPE_CHECKING` import for `pandas`
+- **io/ewemdb.py**: Add `TYPE_CHECKING` imports; tighten SQL identifier regex (no Unicode); replace `pd.read_sql` with cursor-based approach to avoid `RuntimeWarning`
+- **io/biodata.py**: Add `TYPE_CHECKING` import for `TaxonomyData`
+- **spatial/integration.py**: Add `TYPE_CHECKING` import for `MPAConfig`; bounds check for `habitat_capacity` shape
+- **io/_access_writer.py**: Fix `Optional` param and type annotations for local variables
+- **io/ewe_writer.py**: `Union` type annotation for writer variable
+- **core/ecosim_advanced.py**: `range | list[int]` annotation for indices
+- **spatial/habitat.py**: Use `np.clip` in geometric mean to avoid bias
+- **spatial/connectivity.py**: Named constant `_KM_PER_DEGREE_LAT = 111.0`
+- **ibm/predation.py**: Validate `optimal_prey_length` and `selectivity_sd > 0`
+- **ibm/behavior.py**: Additive inertia bonus after normalization
+- **spatial/external_flux.py**: Use context manager for `xr.open_dataset`
+- **core/analysis.py**: `np.divide` with `where=` to suppress div-by-zero warnings
+- **core/ecosim_deriv.py**: Cache resolved `INSTRUMENT_GROUPS` to prevent 574 `DeprecationWarnings` per simulation run (815 → 33 warnings per test run)
+- **tests/test_import_diet.py**: Remove spurious `return` from test function
+
+
 
 ### Fixed
 - Thornton-Lessem: NaN/overflow protection with input validation (CK1/CK4 in (0,1), CTO>CQ, CTL>CTM), exp() overflow clamping, isfinite check

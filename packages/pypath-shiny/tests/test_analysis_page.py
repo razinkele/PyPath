@@ -1,4 +1,5 @@
 """Tests for pages/analysis.py — UI renders and server signature."""
+
 import inspect
 
 from pypath_shiny.pages.analysis import analysis_server, analysis_ui

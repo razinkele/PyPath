@@ -1,4 +1,5 @@
 """Tests for AB2 integrator matching Rpath."""
+
 import numpy as np
 import pytest
 from unittest.mock import patch
@@ -23,9 +24,7 @@ class TestAB2Integration:
         }
 
         with patch("pypath.core.ecosim_deriv.deriv_vector", return_value=deriv_current):
-            new_state, new_deriv = integrate_ab(
-                state, [deriv_prev], params, {}, {}, dt
-            )
+            new_state, new_deriv = integrate_ab(state, [deriv_prev], params, {}, {}, dt)
 
         np.testing.assert_allclose(new_state[1:], expected[1:], rtol=1e-6)
 

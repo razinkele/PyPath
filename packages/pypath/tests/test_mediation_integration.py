@@ -1,4 +1,5 @@
 """Integration tests for mediation functions with Ecosim simulation."""
+
 import numpy as np
 import pytest
 import warnings
@@ -124,6 +125,4 @@ class TestMediationIntegration:
         scenario2 = rsim_scenario(rpath_result, params, years=range(1, 11))
         result2 = rsim_run(scenario2, mediation=None)
 
-        np.testing.assert_allclose(
-            result1.out_Biomass, result2.out_Biomass, atol=1e-12
-        )
+        np.testing.assert_allclose(result1.out_Biomass, result2.out_Biomass, atol=1e-12)

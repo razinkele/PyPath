@@ -1,4 +1,5 @@
 """Tests for ecopath.py private helpers."""
+
 import pytest
 
 from pypath_shiny.pages.ecopath import (
@@ -22,6 +23,7 @@ class TestConvertInputToNumeric:
         result = _convert_input_to_numeric("")
         # Either None or NaN is acceptable for empty input
         import math
+
         assert result is None or (isinstance(result, float) and math.isnan(result))
 
     def test_non_numeric_string_raises(self):

@@ -98,4 +98,77 @@
   Date="3:21:54 AM Monday, December 8, 2025">
   <Message>Model closed</Message>
 </Log_Message>
+<Session_Started
+  Date="12:05:31 AM Wednesday, March 11, 2026">
+  <Model>LT2022_0.5ST_final7</Model>
+  <LogFile>C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Data\LT2022_0.5ST_final7_log.xml</LogFile>
+  <Is64BitExe>True</Is64BitExe>
+  <CultureOS>English (United States)</CultureOS>
+  <CultureUI>English (United States)</CultureUI>
+  <DecimalSeparator>.</DecimalSeparator>
+</Session_Started>
+<Information_Message
+  Date="12:05:32 AM Wednesday, March 11, 2026">
+  <Message>Ecopath model 'C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Data\LT2022_0.5ST_final7.eweaccdb' loaded.</Message>
+  <Message_Type>DataAddedOrRemoved</Message_Type>
+  <Message_Source>Ecopath</Message_Source>
+  <Message_DataType>NotSet</Message_DataType>
+</Information_Message>
+<Information_Message
+  Date="12:07:37 AM Wednesday, March 11, 2026">
+  <Message>Ecopath run completed.</Message>
+  <Message_Type>Any</Message_Type>
+  <Message_Source>Ecopath</Message_Source>
+  <Message_DataType>NotSet</Message_DataType>
+</Information_Message>
+<Log_Message
+  Date="12:07:58 AM Wednesday, March 11, 2026">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="12:07:58 AM Wednesday, March 11, 2026">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="12:07:58 AM Wednesday, March 11, 2026">
+  <Message>Ecosim scenario closed</Message>
+</Log_Message>
+<Information_Message
+  Date="12:07:59 AM Wednesday, March 11, 2026">
+  <Message>Ecosim scenario 'SR test' loaded.</Message>
+  <Message_Type>DataAddedOrRemoved</Message_Type>
+  <Message_Source>Ecosim</Message_Source>
+  <Message_DataType>EcoSimScenario</Message_DataType>
+</Information_Message>
+<Information_Message
+  Date="12:08:22 AM Wednesday, March 11, 2026">
+  <Message>Time Series dataset 'fittingdata9' loaded.</Message>
+  <Message_Type>DataAddedOrRemoved</Message_Type>
+  <Message_Source>TimeSeries</Message_Source>
+  <Message_DataType>TimeSeriesDataset</Message_DataType>
+</Information_Message>
+<Log_Message
+  Date="12:16:39 AM Wednesday, March 11, 2026">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="12:16:39 AM Wednesday, March 11, 2026">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="12:16:39 AM Wednesday, March 11, 2026">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="12:16:39 AM Wednesday, March 11, 2026">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="12:16:39 AM Wednesday, March 11, 2026">
+  <Message>Ecosim scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="12:16:39 AM Wednesday, March 11, 2026">
+  <Message>Model closed</Message>
+</Log_Message>
 </doc>

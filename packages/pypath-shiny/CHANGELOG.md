@@ -6,7 +6,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
-## v0.3.3 (2026-03-12)
+## v0.4.1 (2026-04-06)
+
+### Fixed
+- **pages/analysis.py**: Return `ui.div()` instead of `None` from `render.ui` (prevents blank panel crash)
+- **pages/ecosim.py**: Guard `scen is not None` before accessing `scen.params`
+
+### Tests
+- Comprehensive test coverage: 143 new tests (280 total, up from 137)
+- New test files covering: config dataclasses + IBM/SmeltParams alignment, all 5 validation
+  functions, `format_dataframe_for_display` (sentinel masking, rounding, type labels, stanza/remarks),
+  `create_cell_styles` (no_data priority, QB non-applicable, remarks, stanza styles),
+  `get_model_info` (balanced/unbalanced models), `load_rpath_diagnostics` (corrupted JSON, missing
+  CSVs), ecopath helpers (`_get_groups_from_model`, `_recreate_params_from_model` with diet
+  reconstruction), `_get_version`, tutorial helpers (`_code_block`, `_step_card` with badge),
+  `_resolve_repo_root` (env var, walk-up), UI render assertions for all page modules,
+  demo page server signature checks
+
+
 
 ### Changed
 - Updated to use pypath-ewe v0.3.3 (time series calibration, mediation,

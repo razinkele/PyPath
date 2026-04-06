@@ -1,4 +1,5 @@
 """Tests for pages/results.py — UI renders and server signature."""
+
 import inspect
 
 from pypath_shiny.pages.results import results_server, results_ui

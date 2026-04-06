@@ -1,9 +1,16 @@
 """Tests for demo page modules — UI renders and server signatures."""
+
 import inspect
 
-from pypath_shiny.pages.diet_rewiring_demo import diet_rewiring_demo_server, diet_rewiring_demo_ui
+from pypath_shiny.pages.diet_rewiring_demo import (
+    diet_rewiring_demo_server,
+    diet_rewiring_demo_ui,
+)
 from pypath_shiny.pages.forcing_demo import forcing_demo_server, forcing_demo_ui
-from pypath_shiny.pages.optimization_demo import optimization_demo_server, optimization_demo_ui
+from pypath_shiny.pages.optimization_demo import (
+    optimization_demo_server,
+    optimization_demo_ui,
+)
 
 
 def test_forcing_demo_ui_renders():

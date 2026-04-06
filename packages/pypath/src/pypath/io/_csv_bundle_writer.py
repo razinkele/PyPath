@@ -192,7 +192,7 @@ class CsvBundleWriter:
                             "StanzaID": i + 1,
                             "StanzaName": row.get(
                                 "StGroupName",
-                                row.get("StanzaName", f"Stanza{i+1}"),
+                                row.get("StanzaName", f"Stanza{i + 1}"),
                             ),
                             "HatchCode": 0,
                             "BABsplit": _nan_to_none(row.get("BABsplit")),
@@ -218,12 +218,8 @@ class CsvBundleWriter:
                             "GroupID": group_id,
                             "StanzaID": int(row.get("StGroupNum", 1)),
                             "Sequence": i + 1,
-                            "AgeStart": int(
-                                row.get("First", row.get("AgeStart", 0))
-                            ),
-                            "Mortality": float(
-                                row.get("Z", row.get("Mortality", 0.0))
-                            ),
+                            "AgeStart": int(row.get("First", row.get("AgeStart", 0))),
+                            "Mortality": float(row.get("Z", row.get("Mortality", 0.0))),
                             "vbK": float(
                                 row.get(
                                     "VBGF_Ksp",
@@ -298,9 +294,7 @@ class CsvBundleWriter:
             scen_rows.append(
                 {
                     "ScenarioID": scen_id,
-                    "ScenarioName": getattr(
-                        scen, "eco_name", f"Scenario {scen_id}"
-                    ),
+                    "ScenarioName": getattr(scen, "eco_name", f"Scenario {scen_id}"),
                     "Description": "Exported from PyPath",
                     "Author": "",
                     "Contact": "",
@@ -353,9 +347,7 @@ class CsvBundleWriter:
                     )
 
             # --- Fishing effort shapes (EcosimShapeFishRate) ---
-            if hasattr(scen, "fishing") and hasattr(
-                scen.fishing, "FishingEffort"
-            ):
+            if hasattr(scen, "fishing") and hasattr(scen.fishing, "FishingEffort"):
                 effort = scen.fishing.FishingEffort
                 for fi in range(effort.shape[0]):
                     has_non_default = False
@@ -369,7 +361,7 @@ class CsvBundleWriter:
                             {
                                 "ShapeID": fi + 1,
                                 "zScale": 1.0,
-                                "Title": f"FishingEffort_Fleet{fi+1}",
+                                "Title": f"FishingEffort_Fleet{fi + 1}",
                             }
                         )
 
@@ -411,9 +403,7 @@ class CsvBundleWriter:
 
         self._tables["EcosimScenario"] = pd.DataFrame(scen_rows)
         if group_info_rows:
-            self._tables["EcosimScenarioGroup"] = pd.DataFrame(
-                group_info_rows
-            )
+            self._tables["EcosimScenarioGroup"] = pd.DataFrame(group_info_rows)
         if forcing_matrix_rows:
             self._tables["EcosimScenarioForcingMatrix"] = pd.DataFrame(
                 forcing_matrix_rows
@@ -490,13 +480,15 @@ class CsvBundleWriter:
         if habitat_types:
             hab_rows = []
             for hid_0based, name in habitat_types.items():
-                hab_rows.append({
-                    "ScenarioID": sid,
-                    "HabitatID": hid_0based + 1,  # 0-based -> 1-based
-                    "HabitatName": name,
-                    "Sequence": hid_0based + 1,
-                    "HabitatMap": None,
-                })
+                hab_rows.append(
+                    {
+                        "ScenarioID": sid,
+                        "HabitatID": hid_0based + 1,  # 0-based -> 1-based
+                        "HabitatName": name,
+                        "Sequence": hid_0based + 1,
+                        "HabitatMap": None,
+                    }
+                )
             self._tables["EcospaceScenarioHabitat"] = pd.DataFrame(hab_rows)
 
         # Write group-habitat preferences (structured conversion)
@@ -505,16 +497,16 @@ class CsvBundleWriter:
             n_groups = eco.habitat_preference.shape[0]
             for gi in range(n_groups):
                 for hid_0based in habitat_types:
-                    gh_rows.append({
-                        "ScenarioID": sid,
-                        "GroupID": gi + 1,  # 0-based -> 1-based
-                        "HabitatID": hid_0based + 1,  # 0-based -> 1-based
-                        "Preference": 1.0,
-                    })
+                    gh_rows.append(
+                        {
+                            "ScenarioID": sid,
+                            "GroupID": gi + 1,  # 0-based -> 1-based
+                            "HabitatID": hid_0based + 1,  # 0-based -> 1-based
+                            "Preference": 1.0,
+                        }
+                    )
             if gh_rows:
-                self._tables["EcospaceScenarioGroupHabitat"] = pd.DataFrame(
-                    gh_rows
-                )
+                self._tables["EcospaceScenarioGroupHabitat"] = pd.DataFrame(gh_rows)
 
         # Write DataFrame passthrough tables
         _df_fields = {
@@ -555,27 +547,29 @@ class CsvBundleWriter:
         mpa_rows = []
         fishery_rows = []
         for seq, zone in enumerate(zones, start=1):
-            mpa_rows.append({
-                "ScenarioID": sid,
-                "MPAID": zone.mpa_id,
-                "Sequence": seq,
-                "MPAname": zone.name,
-                "MPAmonth": zone.start_month,
-            })
+            mpa_rows.append(
+                {
+                    "ScenarioID": sid,
+                    "MPAID": zone.mpa_id,
+                    "Sequence": seq,
+                    "MPAname": zone.name,
+                    "MPAmonth": zone.start_month,
+                }
+            )
             if zone.excluded_fleets is not None:
                 for fleet_idx in zone.excluded_fleets:
-                    fishery_rows.append({
-                        "ScenarioID": sid,
-                        "MPAID": zone.mpa_id,
-                        "FleetID": fleet_idx + 1,  # 0-based -> 1-based
-                        "Excluded": True,
-                    })
+                    fishery_rows.append(
+                        {
+                            "ScenarioID": sid,
+                            "MPAID": zone.mpa_id,
+                            "FleetID": fleet_idx + 1,  # 0-based -> 1-based
+                            "Excluded": True,
+                        }
+                    )
 
         self._tables["EcospaceScenarioMPA"] = pd.DataFrame(mpa_rows)
         if fishery_rows:
-            self._tables["EcospaceScenarioMPAFishery"] = pd.DataFrame(
-                fishery_rows
-            )
+            self._tables["EcospaceScenarioMPAFishery"] = pd.DataFrame(fishery_rows)
 
         logger.info(
             "write_mpa: %d zones, %d fleet exclusions",
@@ -590,36 +584,44 @@ class CsvBundleWriter:
 
         meta_rows = []
         for s in timeseries.series:
-            meta_rows.append({
-                "TimeSeriesID": s.series_id,
-                "ScenarioID": self._scenario_id,
-                "Name": s.name,
-                "DatType": s.dat_type,
-                "GroupID": (s.group_idx + 1) if s.group_idx is not None else 0,
-                "FleetID": (s.fleet_idx + 1) if s.fleet_idx is not None else 0,
-                "DatasetID": s.dataset_id,
-                "WtType": 0,
-                "PoolColor": 0,
-            })
+            meta_rows.append(
+                {
+                    "TimeSeriesID": s.series_id,
+                    "ScenarioID": self._scenario_id,
+                    "Name": s.name,
+                    "DatType": s.dat_type,
+                    "GroupID": (s.group_idx + 1) if s.group_idx is not None else 0,
+                    "FleetID": (s.fleet_idx + 1) if s.fleet_idx is not None else 0,
+                    "DatasetID": s.dataset_id,
+                    "WtType": 0,
+                    "PoolColor": 0,
+                }
+            )
         self._tables["EcosimTimeSeries"] = pd.DataFrame(meta_rows)
 
         val_rows = []
         for s in timeseries.series:
             for t, v in enumerate(s.values):
                 if not np.isnan(v):
-                    val_rows.append({
-                        "TimeSeriesID": s.series_id,
-                        "ScenarioID": self._scenario_id,
-                        "TimeStep": t + 1,
-                        "Value": v,
-                    })
+                    val_rows.append(
+                        {
+                            "TimeSeriesID": s.series_id,
+                            "ScenarioID": self._scenario_id,
+                            "TimeStep": t + 1,
+                            "Value": v,
+                        }
+                    )
         if val_rows:
             self._tables["EcosimTimeSeriesValues"] = pd.DataFrame(val_rows)
 
         dataset_ids = {s.dataset_id for s in timeseries.series}
         ds_rows = [
-            {"DatasetID": did, "ScenarioID": self._scenario_id,
-             "DatasourceName": f"Dataset_{did}", "Enabled": True}
+            {
+                "DatasetID": did,
+                "ScenarioID": self._scenario_id,
+                "DatasourceName": f"Dataset_{did}",
+                "Enabled": True,
+            }
             for did in sorted(dataset_ids)
         ]
         self._tables["EcosimTimeSeriesDataset"] = pd.DataFrame(ds_rows)
@@ -660,42 +662,44 @@ class CsvBundleWriter:
         # Write group links
         group_rows = []
         for link in collection.group_links:
-            group_rows.append({
-                "ScenarioID": 1,
-                "ShapeID": link.shape_id,
-                "GroupID": link.mediator_idx + 1,  # 0-based to 1-based
-                "PredID": link.pred_idx + 1,
-                "PreyID": link.prey_idx + 1,
-                "AppliedWeight": link.weight,
-            })
-        self._tables["EcosimScenarioshapeMedWeightsGroup"] = pd.DataFrame(
-            group_rows
-        )
+            group_rows.append(
+                {
+                    "ScenarioID": 1,
+                    "ShapeID": link.shape_id,
+                    "GroupID": link.mediator_idx + 1,  # 0-based to 1-based
+                    "PredID": link.pred_idx + 1,
+                    "PreyID": link.prey_idx + 1,
+                    "AppliedWeight": link.weight,
+                }
+            )
+        self._tables["EcosimScenarioshapeMedWeightsGroup"] = pd.DataFrame(group_rows)
 
         # Write fleet links
         fleet_rows = []
         for link in collection.fleet_links:
-            fleet_rows.append({
-                "ScenarioID": 1,
-                "ShapeID": link.shape_id,
-                "GroupID": link.mediator_idx + 1,
-                "FleetID": link.fleet_idx + 1,
-                "AppliedWeight": link.weight,
-            })
-        self._tables["EcosimScenarioshapeMedWeightsFleet"] = pd.DataFrame(
-            fleet_rows
-        )
+            fleet_rows.append(
+                {
+                    "ScenarioID": 1,
+                    "ShapeID": link.shape_id,
+                    "GroupID": link.mediator_idx + 1,
+                    "FleetID": link.fleet_idx + 1,
+                    "AppliedWeight": link.weight,
+                }
+            )
+        self._tables["EcosimScenarioshapeMedWeightsFleet"] = pd.DataFrame(fleet_rows)
 
         # Write landings links
         landing_rows = []
         for link in collection.landing_links:
-            landing_rows.append({
-                "ScenarioID": 1,
-                "ShapeID": link.shape_id,
-                "GroupID": link.mediator_idx + 1,
-                "FleetID": link.landing_fleet_idx + 1,
-                "AppliedWeight": link.weight,
-            })
+            landing_rows.append(
+                {
+                    "ScenarioID": 1,
+                    "ShapeID": link.shape_id,
+                    "GroupID": link.mediator_idx + 1,
+                    "FleetID": link.landing_fleet_idx + 1,
+                    "AppliedWeight": link.weight,
+                }
+            )
         self._tables["EcosimScenarioshapeMedWeightsLandings"] = pd.DataFrame(
             landing_rows
         )
@@ -707,7 +711,9 @@ class CsvBundleWriter:
 
         from pypath.io._ewe_schema import EWE_TABLES
         from pypath.io.ewemdb import (
-            _TAXON_EXTERNAL_KEYS, _TAXON_TRAITS, _TAXON_METADATA,
+            _TAXON_EXTERNAL_KEYS,
+            _TAXON_TRAITS,
+            _TAXON_METADATA,
             _none_to_sentinel,
         )
 
@@ -746,11 +752,13 @@ class CsvBundleWriter:
 
             taxon_rows.append(row)
 
-        self._tables["EcopathTaxon"] = pd.DataFrame(
-            taxon_rows,
-            columns=list(taxon_schema.keys()),
-        ) if taxon_rows else pd.DataFrame(
-            columns=list(taxon_schema.keys())
+        self._tables["EcopathTaxon"] = (
+            pd.DataFrame(
+                taxon_rows,
+                columns=list(taxon_schema.keys()),
+            )
+            if taxon_rows
+            else pd.DataFrame(columns=list(taxon_schema.keys()))
         )
 
         self._tables["EcopathGroupTaxon"] = taxonomy.group_assignments.copy()

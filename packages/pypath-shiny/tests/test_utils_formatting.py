@@ -1,9 +1,8 @@
 """Tests for format_dataframe_for_display and create_cell_styles."""
-import numpy as np
+
 import pandas as pd
 import pytest
 
-from pypath_shiny.config import NO_DATA_VALUE
 from pypath_shiny.pages.utils import create_cell_styles, format_dataframe_for_display
 
 
@@ -23,16 +22,16 @@ class TestFormatDataframeForDisplay:
     def test_no_data_sentinel_becomes_nan(self, basic_df):
         fmt, nd, rm, sm = format_dataframe_for_display(basic_df)
         assert pd.isna(fmt["Biomass"].iloc[1])
-        assert nd["Biomass"].iloc[1] == True
+        assert nd["Biomass"].iloc[1]
 
     def test_no_data_mask_false_for_valid(self, basic_df):
         fmt, nd, rm, sm = format_dataframe_for_display(basic_df)
-        assert nd["Biomass"].iloc[0] == False
+        assert not nd["Biomass"].iloc[0]
 
     def test_negative_sentinel_also_masked(self):
         df = pd.DataFrame({"Group": ["Fish"], "Biomass": [-9999]})
         fmt, nd, rm, sm = format_dataframe_for_display(df)
-        assert nd["Biomass"].iloc[0] == True
+        assert nd["Biomass"].iloc[0]
         assert pd.isna(fmt["Biomass"].iloc[0])
 
     def test_decimal_rounding_custom(self, basic_df):
@@ -60,9 +59,9 @@ class TestFormatDataframeForDisplay:
         _, _, _, sm = format_dataframe_for_display(
             df, stanza_groups=["SmeltJuv", "SmeltAdult"]
         )
-        assert sm["Biomass"].iloc[0] == True
-        assert sm["Biomass"].iloc[1] == True
-        assert sm["Biomass"].iloc[2] == False
+        assert sm["Biomass"].iloc[0]
+        assert sm["Biomass"].iloc[1]
+        assert not sm["Biomass"].iloc[2]
 
     def test_stanza_mask_none_no_effect(self, basic_df):
         _, _, _, sm = format_dataframe_for_display(basic_df, stanza_groups=None)
@@ -72,8 +71,8 @@ class TestFormatDataframeForDisplay:
         df = pd.DataFrame({"Group": ["Fish"], "Biomass": [1.0]})
         remarks_df = pd.DataFrame({"Group": [""], "Biomass": ["some remark"]})
         _, _, rm, _ = format_dataframe_for_display(df, remarks_df=remarks_df)
-        assert rm["Biomass"].iloc[0] == True
-        assert rm["Group"].iloc[0] == False
+        assert rm["Biomass"].iloc[0]
+        assert not rm["Group"].iloc[0]
 
     def test_empty_dataframe(self):
         df = pd.DataFrame({"Group": [], "Biomass": []})
@@ -100,12 +99,8 @@ class TestCreateCellStyles:
         assert bio_styles[0]["style"]["background-color"] == "#f0f0f0"
 
     def test_no_styles_for_valid_data(self):
-        df = pd.DataFrame(
-            {"Group": ["Fish"], "Type": ["Consumer"], "Biomass": [10.0]}
-        )
-        no_data = pd.DataFrame(
-            {"Group": [False], "Type": [False], "Biomass": [False]}
-        )
+        df = pd.DataFrame({"Group": ["Fish"], "Type": ["Consumer"], "Biomass": [10.0]})
+        no_data = pd.DataFrame({"Group": [False], "Type": [False], "Biomass": [False]})
         styles = create_cell_styles(df, no_data)
         assert len(styles) == 0
 

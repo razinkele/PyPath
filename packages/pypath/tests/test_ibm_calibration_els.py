@@ -1,4 +1,5 @@
 """Tests for IBM early life stage calibration and sensitivity analysis."""
+
 import numpy as np
 import pytest
 

@@ -1,7 +1,6 @@
 """Tests for get_model_info and load_rpath_diagnostics."""
-import json
 
-import pytest
+import json
 
 from pypath_shiny.pages.utils import get_model_info, load_rpath_diagnostics
 
