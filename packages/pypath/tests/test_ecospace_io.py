@@ -1,10 +1,11 @@
 """Tests for Ecospace I/O (read_ecospace + schema)."""
 
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
 import scipy.sparse
-from unittest.mock import patch
 
 from pypath.spatial.ecospace_params import EcospaceGrid
 
@@ -349,7 +350,7 @@ class TestReadEcospace:
         assert result.capacity_drivers is None
 
     def test_missing_ecospace_scenario_raises(self):
-        from pypath.io.ewemdb import read_ecospace, EwEDatabaseError
+        from pypath.io.ewemdb import EwEDatabaseError, read_ecospace
 
         with patch(
             "pypath.io.ewemdb.list_ewemdb_tables", return_value=["SomeOtherTable"]

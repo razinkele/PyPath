@@ -1,8 +1,8 @@
 """Tests for Value Chain Economics I/O."""
 
-import pandas as pd
-import pytest
 from unittest.mock import patch
+
+import pandas as pd
 
 
 def _make_sample_value_chain_dfs():
@@ -127,7 +127,7 @@ class TestValueChainReader:
     """Test read_value_chain() function."""
 
     def test_read_value_chain_returns_dataclass(self):
-        from pypath.io.ewemdb import read_value_chain, ValueChainData
+        from pypath.io.ewemdb import ValueChainData, read_value_chain
 
         sample = _make_sample_value_chain_dfs()
 
@@ -146,7 +146,7 @@ class TestValueChainReader:
         assert result.producers.iloc[0]["EcopathFleetID"] == 1
 
     def test_read_value_chain_empty_db_returns_none(self):
-        from pypath.io.ewemdb import read_value_chain, EwEDatabaseError
+        from pypath.io.ewemdb import EwEDatabaseError, read_value_chain
 
         def _mock_read(db, tbl):
             raise EwEDatabaseError(f"Table {tbl} not found")
@@ -203,6 +203,7 @@ class TestValueChainWriter:
 
     def test_csv_writer_produces_value_chain_tables(self, tmp_path):
         import numpy as np
+
         from pypath.core.params import create_rpath_params
         from pypath.io._csv_bundle_writer import CsvBundleWriter
 
@@ -229,6 +230,7 @@ class TestValueChainWriter:
 
     def test_csv_writer_none_value_chain_no_tables(self, tmp_path):
         import numpy as np
+
         from pypath.core.params import create_rpath_params
         from pypath.io._csv_bundle_writer import CsvBundleWriter
 
@@ -255,6 +257,7 @@ class TestValueChainIntegration:
 
     def test_write_ewemdb_with_value_chain(self, tmp_path):
         import numpy as np
+
         from pypath.core.params import create_rpath_params
         from pypath.io.ewe_writer import write_ewemdb
         from pypath.io.ewemdb import ValueChainData
@@ -288,7 +291,7 @@ class TestValueChainIntegration:
             assert "cLinkLandings.csv" in names
 
     def test_io_exports_value_chain_symbols(self):
-        from pypath.io import read_value_chain, ValueChainData
+        from pypath.io import ValueChainData, read_value_chain
 
         assert read_value_chain is not None
         assert ValueChainData is not None

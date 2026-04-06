@@ -1,12 +1,10 @@
 """Tests for Package 4: Oxygen physiology integration in SmeltIBM."""
 
 import numpy as np
-import pytest
 
 from pypath.ibm.base import SuperIndividual
 from pypath.ibm.bioenergetics import oxygen_scalar
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
-
 
 # ---- Task 4.1: Oxygen scalar integration into consumption ----
 

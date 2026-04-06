@@ -8,9 +8,10 @@ The LT2022 model is a 25-group Lithuanian coastal food web with
 23 living groups, 1 detritus group, and 1 fishing fleet.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pytest
-from pathlib import Path
 
 DATA_DIR = Path(__file__).parents[3] / "Data"
 DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
@@ -234,8 +235,8 @@ class TestEcosimRunScenario16:
 
     def test_ss_reasonable(self, sim_output, ecosim_scenario_16):
         """Sum of squares should be within reasonable bounds."""
-        from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
         from pypath.core.ecopath import rpath
+        from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
 
         params = read_ewemdb(DB_PATH)
         model = rpath(params)

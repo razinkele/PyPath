@@ -1,11 +1,9 @@
 """I/O tests for pedigree functions."""
 
-import numpy as np
-import pandas as pd
-import pytest
 from unittest.mock import patch
 
-from pypath.core.pedigree import PedigreeConfig
+import pandas as pd
+import pytest
 
 
 class TestPedigreeSchema:

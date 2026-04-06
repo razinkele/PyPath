@@ -1,17 +1,17 @@
 """Integration tests for mediation functions with Ecosim simulation."""
 
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.mediation import (
     MediationCollection,
     MediationLink,
-    MediationShape,
-    make_positive_shape,
     make_negative_shape,
+    make_positive_shape,
 )
 from pypath.core.params import create_rpath_params
 

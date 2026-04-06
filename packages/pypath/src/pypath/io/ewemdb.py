@@ -3646,7 +3646,7 @@ def read_ecotracer(db_path: str, n_groups: int) -> "EcotracerParams":
         Tracer parameters with per-group values.
         Returns default params if tables are missing/empty.
     """
-    from pypath.core.ecotracer import EcotracerParams, create_ecotracer_params
+    from pypath.core.ecotracer import create_ecotracer_params
 
     try:
         tables = list_ewemdb_tables(db_path)
@@ -4098,6 +4098,7 @@ def _build_fallback_grid(
     no diagonals).
     """
     import scipy.sparse
+
     from pypath.spatial.ecospace_params import EcospaceGrid
 
     n_patches = n_rows * n_cols

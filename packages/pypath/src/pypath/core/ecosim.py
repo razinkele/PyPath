@@ -1952,8 +1952,8 @@ def rsim_run(
     _fleet_cumul_catch = None
     _original_fish_q = None
     if fleet_dynamics is not None:
-        from pypath.core.fleet_dynamics import fleet_dynamics_step as _fleet_step_fn
         from pypath.core.fleet_dynamics import apply_quota_caps as _fleet_quota_fn
+        from pypath.core.fleet_dynamics import fleet_dynamics_step as _fleet_step_fn
 
         _n_fd_fleets = params.NUM_GEARS
         _fleet_capacity = fishing_obj.ForcedEffort[0, 1 : _n_fd_fleets + 1].copy()

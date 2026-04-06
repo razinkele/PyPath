@@ -2,17 +2,15 @@
 create_fleet_econ_params, fleet_dynamics_step, apply_quota_caps."""
 
 import numpy as np
-import pytest
 
 from pypath.core.fleet_dynamics import (
+    _CAPACITY_FLOOR,
     FleetDynamicsResult,
     FleetEconParams,
-    _CAPACITY_FLOOR,
     apply_quota_caps,
     create_fleet_econ_params,
     fleet_dynamics_step,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared test fixtures
