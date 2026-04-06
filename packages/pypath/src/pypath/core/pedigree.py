@@ -4,6 +4,7 @@ Pedigree values (coefficients of variation) define parameter uncertainty.
 This module converts pedigree CVs to statistical distributions and generates
 parameter samples for Monte Carlo analysis.
 """
+
 from __future__ import annotations
 
 import copy
@@ -11,10 +12,13 @@ import logging
 import math
 import warnings
 from dataclasses import dataclass, field
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from pypath.core.params import RpathParams
 
 logger = logging.getLogger(__name__)
 
@@ -144,12 +148,14 @@ def build_distributions(
             if np.isnan(base_val) or base_val <= 0:
                 continue
 
-            distributions.append(ScalarDistribution(
-                param_name=param_name,
-                group_idx=idx,
-                base_value=float(base_val),
-                cv=cv,
-            ))
+            distributions.append(
+                ScalarDistribution(
+                    param_name=param_name,
+                    group_idx=idx,
+                    base_value=float(base_val),
+                    cv=cv,
+                )
+            )
 
     # Diet distributions: one per consumer with Diet CV > 0
     if "Diet" in pedigree.columns:
@@ -169,11 +175,13 @@ def build_distributions(
             if np.nansum(diet_col) <= 0:
                 continue
 
-            distributions.append(DietDistribution(
-                pred_idx=idx,
-                base_proportions=diet_col,
-                cv=cv,
-            ))
+            distributions.append(
+                DietDistribution(
+                    pred_idx=idx,
+                    base_proportions=diet_col,
+                    cv=cv,
+                )
+            )
 
     return distributions
 
@@ -222,7 +230,9 @@ def sample_parameters(
             from scipy.stats import lognorm
 
             scalar_samples[:, j] = lognorm.ppf(
-                unit_samples[:, j], s=sigma, scale=math.exp(mu),
+                unit_samples[:, j],
+                s=sigma,
+                scale=math.exp(mu),
             )
     else:
         # Direct random sampling

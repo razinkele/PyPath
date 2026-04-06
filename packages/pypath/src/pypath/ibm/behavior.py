@@ -152,9 +152,6 @@ def calculate_movement_probabilities(
             + params.food_weight * food_density[p]
             + params.predator_weight * pred_avoidance
         )
-        # Apply inertia bonus to current patch
-        if p == current_patch:
-            score += (1.0 - params.base_speed) * score
         probs[p] = score
 
     total = probs.sum()
@@ -164,6 +161,14 @@ def calculate_movement_probabilities(
         return probs
 
     probs /= total
+
+    # Apply additive inertia bonus after normalization so zero-quality patches
+    # still retain some probability of staying.  Then renormalize.
+    inertia = 1.0 - params.base_speed
+    if inertia > 0.0:
+        probs[current_patch] = max(probs[current_patch], 0.0) + inertia
+        probs /= probs.sum()
+
     return probs
 
 

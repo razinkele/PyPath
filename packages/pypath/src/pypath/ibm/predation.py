@@ -110,6 +110,13 @@ def distribute_mortality(
     if not individuals:
         return []
 
+    if params.optimal_prey_length <= 0:
+        raise ValueError(
+            f"optimal_prey_length must be > 0, got {params.optimal_prey_length}"
+        )
+    if params.selectivity_sd <= 0:
+        raise ValueError(f"selectivity_sd must be > 0, got {params.selectivity_sd}")
+
     # Extract attributes into NumPy arrays for vectorised computation
     n_repr = np.array([ind.n_represented for ind in individuals])
     lengths = np.array([ind.length for ind in individuals])

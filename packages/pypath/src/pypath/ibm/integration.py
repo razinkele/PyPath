@@ -158,12 +158,14 @@ def apply_ibm_to_derivative(
     group_idx = ibm_group.group_index
     n_groups = ibm_group.n_groups
 
-    # Extract prey availability as a dict, then convert to array
+    # Extract prey availability as a dict, then convert to array.
+    # extract_prey_availability returns 1-based keys; convert to 0-based indices.
     prey_dict = extract_prey_availability(QQ, group_idx, n_groups)
     prey_array = np.zeros(n_groups)
     for prey_idx, rate in prey_dict.items():
-        if prey_idx < n_groups:
-            prey_array[prey_idx] = rate
+        zero_idx = prey_idx - 1
+        if 0 <= zero_idx < n_groups:
+            prey_array[zero_idx] = rate
 
     # Extract predation pressure from all living predators
     # Use n_groups as upper bound for n_living (safe default)
@@ -181,8 +183,9 @@ def apply_ibm_to_derivative(
     # Override derivative: dB/dt = (new_biomass - current_biomass) / dt
     deriv[group_idx] = (result.biomass - BB[group_idx]) / dt
 
-    # Subtract IBM consumption from prey derivatives
+    # Subtract IBM consumption from prey derivatives.
+    # consumption_by_prey is 0-based; deriv is 1-based (index 0 = "Outside").
     for prey_idx in range(len(result.consumption_by_prey)):
         consumed = result.consumption_by_prey[prey_idx]
-        if consumed != 0.0 and prey_idx < len(deriv):
-            deriv[prey_idx] -= consumed / dt
+        if consumed != 0.0 and (prey_idx + 1) < len(deriv):
+            deriv[prey_idx + 1] -= consumed / dt

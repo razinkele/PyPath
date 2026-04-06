@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from pypath.core.ecosim import RsimOutput, RsimScenario
     from pypath.spatial.ecospace_params import EcospaceParams, EnvironmentalDrivers
+    from pypath.spatial.mpa import MPAConfig
 
 
 def deriv_vector_spatial(
@@ -115,7 +116,10 @@ def deriv_vector_spatial(
             capacity_multipliers = ecospace.habitat_capacity  # [n_groups, n_patches]
             for g_idx in range(n_ecospace_groups):
                 state_idx = g_idx + 1  # Skip index 0 (Outside)
-                if state_idx < len(b_base_ref_original):
+                if (
+                    state_idx < len(b_base_ref_original)
+                    and g_idx < capacity_multipliers.shape[0]
+                ):
                     b_base_ref_patches[state_idx, :] *= capacity_multipliers[g_idx, :]
 
         # Apply MPA capacity bonus (uniform across groups)
@@ -241,9 +245,7 @@ def deriv_vector_spatial(
                     patch_forcing = forcing.copy()
                     patch_effort = forcing["ForcedEffort"].copy()
                     n_mask_fleets = mpa_effort_mask.shape[1]
-                    patch_effort[1 : n_mask_fleets + 1] *= mpa_effort_mask[
-                        patch_idx, :
-                    ]
+                    patch_effort[1 : n_mask_fleets + 1] *= mpa_effort_mask[patch_idx, :]
                     patch_forcing["ForcedEffort"] = patch_effort
 
                 if params_need_modification:

@@ -230,14 +230,19 @@ class TestApplyIBMToDerivative:
         assert deriv[3] == pytest.approx(expected_deriv)
 
     def test_subtracts_consumption_from_prey_derivatives(self):
-        """Prey derivatives should be reduced by IBM consumption / dt."""
+        """Prey derivatives should be reduced by IBM consumption / dt.
+
+        consumption_by_prey is 0-based; deriv is 1-based (index 0 = Outside).
+        Consuming from 0-based prey index k must subtract from deriv[k+1].
+        """
         n_groups = 5
         dt = 1.0 / 12.0
 
-        # IBM consumes 0.6 from prey 1 and 0.4 from prey 2
+        # IBM consumes 0.6 from 0-based prey index 0 (= Ecosim group 1)
+        # and 0.4 from 0-based prey index 1 (= Ecosim group 2)
         consumption = np.zeros(n_groups)
-        consumption[1] = 0.6
-        consumption[2] = 0.4
+        consumption[0] = 0.6
+        consumption[1] = 0.4
 
         ibm = MockIBM(
             group_index=3,
@@ -253,8 +258,8 @@ class TestApplyIBMToDerivative:
         QQ[1, 3] = 0.5  # predator 3 eats prey 1
 
         deriv = np.zeros(n_groups + 1)
-        deriv[1] = 5.0  # some existing derivative for prey 1
-        deriv[2] = 3.0  # some existing derivative for prey 2
+        deriv[1] = 5.0  # existing derivative for Ecosim group 1
+        deriv[2] = 3.0  # existing derivative for Ecosim group 2
 
         forcing = {}
 
@@ -267,7 +272,9 @@ class TestApplyIBMToDerivative:
             dt=dt,
         )
 
+        # 0-based index 0 → Ecosim group 1 → deriv[1]
         assert deriv[1] == pytest.approx(5.0 - 0.6 / dt)
+        # 0-based index 1 → Ecosim group 2 → deriv[2]
         assert deriv[2] == pytest.approx(3.0 - 0.4 / dt)
 
     def test_no_consumption_leaves_prey_unchanged(self):

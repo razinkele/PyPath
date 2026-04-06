@@ -3,6 +3,7 @@
 Provides data classes for observed and forced time series used in Ecosim
 calibration and scenario forcing.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -13,6 +14,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from pypath.core.ecosim import RsimScenario
 
 # --- DatType constants (EwE 6 standard codes) ---
@@ -90,7 +93,11 @@ class EweTimeSeriesCollection:
     @property
     def observed_biomass(self) -> list[EweTimeSeries]:
         """Series with dat_type in {0 (relative), 1 (absolute)}."""
-        return [s for s in self.series if s.dat_type in (DATTYPE_REL_BIOMASS, DATTYPE_ABS_BIOMASS)]
+        return [
+            s
+            for s in self.series
+            if s.dat_type in (DATTYPE_REL_BIOMASS, DATTYPE_ABS_BIOMASS)
+        ]
 
     @property
     def observed_catch(self) -> list[EweTimeSeries]:
@@ -138,12 +145,16 @@ class EweTimeSeriesCollection:
         for s in self.series:
             for t, v in enumerate(s.values):
                 if not np.isnan(v):
-                    rows.append({
-                        "time": t + 1,
-                        "group": s.group_idx if s.group_idx is not None else s.fleet_idx,
-                        "value": v,
-                        "dat_type": s.dat_type,
-                    })
+                    rows.append(
+                        {
+                            "time": t + 1,
+                            "group": s.group_idx
+                            if s.group_idx is not None
+                            else s.fleet_idx,
+                            "value": v,
+                            "dat_type": s.dat_type,
+                        }
+                    )
         return pd.DataFrame(rows)
 
 
@@ -224,9 +235,13 @@ def apply_timeseries_drivers(
             continue
         col = s.fleet_idx + 1
         n_months = scenario.fishing.ForcedEffort.shape[0]
-        scenario.fishing.ForcedEffort[:, col] = _interpolate_to_length(s.values, n_months)
+        scenario.fishing.ForcedEffort[:, col] = _interpolate_to_length(
+            s.values, n_months
+        )
 
-    fmort_series = [s for s in collection.series if s.dat_type == DATTYPE_FISHING_MORTALITY]
+    fmort_series = [
+        s for s in collection.series if s.dat_type == DATTYPE_FISHING_MORTALITY
+    ]
     for s in fmort_series:
         if s.group_idx is None:
             continue
@@ -268,9 +283,11 @@ def load_timeseries(path: str | Path) -> EweTimeSeriesCollection:
     ext = path.suffix.lower()
     if ext == ".csv":
         from pypath.io.timeseries_csv import load_timeseries_csv
+
         return load_timeseries_csv(path, format="simple")
     elif ext in (".eweaccdb", ".ewemdb", ".accdb"):
         from pypath.io.ewemdb import read_timeseries
+
         return read_timeseries(str(path))
     else:
         raise ValueError(

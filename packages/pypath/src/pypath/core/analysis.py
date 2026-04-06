@@ -296,9 +296,7 @@ def calculate_network_indices(rpath: Rpath) -> NetworkIndices:
     try:
         _te_array = _transfer_efficiency(rpath)
         transfer_efficiency = (
-            float(np.mean(_te_array[_te_array > 0]))
-            if np.any(_te_array > 0)
-            else 0.0
+            float(np.mean(_te_array[_te_array > 0])) if np.any(_te_array > 0) else 0.0
         )
     except (AttributeError, TypeError):
         transfer_efficiency = 0.0
@@ -423,17 +421,33 @@ def summarize_ecosim_output(
     biomass_mean = np.mean(biomass, axis=0)
     biomass_std = np.std(biomass, axis=0)
 
-    # Coefficient of variation
-    biomass_cv = np.where(biomass_mean > 0, biomass_std / biomass_mean, 0)
+    # Coefficient of variation — safe division to avoid RuntimeWarning on zeros
+    biomass_cv = np.divide(
+        biomass_std,
+        biomass_mean,
+        out=np.zeros_like(biomass_std),
+        where=biomass_mean > 0,
+    )
 
-    # Relative change
-    biomass_change = np.where(biomass_start > 0, biomass_end / biomass_start - 1, 0)
+    # Relative change — safe division
+    biomass_change = np.divide(
+        biomass_end,
+        biomass_start,
+        out=np.zeros_like(biomass_end),
+        where=biomass_start > 0,
+    )
+    biomass_change = np.where(biomass_start > 0, biomass_change - 1, 0)
 
     # Catch statistics
     total_catch = np.sum(catch, axis=0)
     mean_annual_catch = np.mean(catch, axis=0)
     catch_std = np.std(catch, axis=0)
-    catch_cv = np.where(mean_annual_catch > 0, catch_std / mean_annual_catch, 0)
+    catch_cv = np.divide(
+        catch_std,
+        mean_annual_catch,
+        out=np.zeros_like(catch_std),
+        where=mean_annual_catch > 0,
+    )
 
     return EcosimSummary(
         group_names=list(group_names),

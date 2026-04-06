@@ -365,8 +365,8 @@ def calculate_habitat_suitability(
         suitability = np.min(responses, axis=1)
 
     elif combine_method == "geometric_mean":
-        # Geometric mean
-        suitability = np.exp(np.mean(np.log(responses + 1e-10), axis=1))
+        # Geometric mean — clip to avoid log(0) bias on non-zero responses
+        suitability = np.exp(np.mean(np.log(np.clip(responses, 1e-10, None)), axis=1))
 
     elif combine_method == "average":
         # Arithmetic mean

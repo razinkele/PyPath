@@ -87,58 +87,54 @@ def load_external_flux_from_netcdf(
     from pypath.spatial.ecospace_params import ExternalFluxTimeseries
 
     # Load NetCDF using xarray
-    ds = xr.open_dataset(filepath)
+    with xr.open_dataset(filepath) as ds:
+        # Check for required variables
+        if time_var not in ds:
+            raise ValueError(
+                f"Time variable '{time_var}' not found in NetCDF. Available: {list(ds.variables)}"
+            )
 
-    # Check for required variables
-    if time_var not in ds:
-        raise ValueError(
-            f"Time variable '{time_var}' not found in NetCDF. Available: {list(ds.variables)}"
-        )
+        if flux_var not in ds:
+            raise ValueError(
+                f"Flux variable '{flux_var}' not found in NetCDF. Available: {list(ds.variables)}"
+            )
 
-    if flux_var not in ds:
-        raise ValueError(
-            f"Flux variable '{flux_var}' not found in NetCDF. Available: {list(ds.variables)}"
-        )
+        # Load time
+        times = ds[time_var].values
 
-    # Load time
-    times = ds[time_var].values
+        # Convert time to years if needed
+        if hasattr(ds[time_var], "units"):
+            units = ds[time_var].units
+            if "days" in units.lower():
+                times = times / 365.25
+            elif "months" in units.lower():
+                times = times / 12.0
 
-    # Convert time to years if needed
-    if hasattr(ds[time_var], "units"):
-        units = ds[time_var].units
-        if "days" in units.lower():
-            times = times / 365.25
-        elif "months" in units.lower():
-            times = times / 12.0
+        # Load flux data
+        flux_data = ds[flux_var].values
 
-    # Load flux data
-    flux_data = ds[flux_var].values
+        # Validate dimensions
+        if flux_data.ndim != 4:
+            raise ValueError(
+                f"Flux variable must be 4D [time, group, patch_from, patch_to], "
+                f"got {flux_data.ndim}D with shape {flux_data.shape}"
+            )
 
-    # Validate dimensions
-    if flux_data.ndim != 4:
-        raise ValueError(
-            f"Flux variable must be 4D [time, group, patch_from, patch_to], "
-            f"got {flux_data.ndim}D with shape {flux_data.shape}"
-        )
+        n_timesteps, n_groups, n_patches_from, n_patches_to = flux_data.shape
 
-    n_timesteps, n_groups, n_patches_from, n_patches_to = flux_data.shape
+        if n_patches_from != n_patches_to:
+            raise ValueError(
+                f"Flux matrix must be square [patch_from, patch_to], "
+                f"got {n_patches_from} x {n_patches_to}"
+            )
 
-    if n_patches_from != n_patches_to:
-        raise ValueError(
-            f"Flux matrix must be square [patch_from, patch_to], "
-            f"got {n_patches_from} x {n_patches_to}"
-        )
-
-    # Determine group indices
-    if group_mapping is not None:
-        # Use provided mapping
-        group_indices = np.array(list(group_mapping.values()))
-    else:
-        # Sequential indices
-        group_indices = np.arange(n_groups)
-
-    # Close dataset
-    ds.close()
+        # Determine group indices
+        if group_mapping is not None:
+            # Use provided mapping
+            group_indices = np.array(list(group_mapping.values()))
+        else:
+            # Sequential indices
+            group_indices = np.arange(n_groups)
 
     return ExternalFluxTimeseries(
         flux_data=flux_data,

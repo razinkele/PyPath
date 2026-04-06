@@ -138,7 +138,7 @@ def _compute_consumption_python(
             # PYY term with HandleSwitch exponent
             if hs_exp > 0.0:
                 pyy_safe = max(PYY, 1e-10)
-                PYY_term = pyy_safe ** hs_exp
+                PYY_term = pyy_safe**hs_exp
             else:
                 PYY_term = PYY
 
@@ -151,7 +151,7 @@ def _compute_consumption_python(
                     dd_prey_eff = PYY
                 dd_prey_safe = max(dd_prey_eff, 1e-10)
                 if hs_exp > 0.0:
-                    dd_denom = dd_prey_safe ** hs_exp
+                    dd_denom = dd_prey_safe**hs_exp
                 else:
                     dd_denom = dd_prey_safe
                 dd_term = dd / (dd - 1.0 + dd_denom)
@@ -294,7 +294,7 @@ def _compute_consumption_sparse_python(
         # PYY term with HandleSwitch exponent
         if hs_exp > 0.0:
             pyy_safe = max(PYY, 1e-10)
-            PYY_term = pyy_safe ** hs_exp
+            PYY_term = pyy_safe**hs_exp
         else:
             PYY_term = PYY
 
@@ -307,7 +307,7 @@ def _compute_consumption_sparse_python(
                 dd_prey_eff = PYY
             dd_prey_safe = max(dd_prey_eff, 1e-10)
             if hs_exp > 0.0:
-                dd_denom = dd_prey_safe ** hs_exp
+                dd_denom = dd_prey_safe**hs_exp
             else:
                 dd_denom = dd_prey_safe
             dd_term = dd / (dd - 1.0 + dd_denom)
@@ -872,6 +872,15 @@ def _resolve_instrument_groups(params, spname_list, num_groups):
     if raw is None:
         return set()
 
+    # Return cached resolved set from a previous call to avoid re-triggering heuristics
+    resolved_cache = (
+        params.get("_instrument_groups_resolved", None)
+        if isinstance(params, dict)
+        else getattr(params, "_instrument_groups_resolved", None)
+    )
+    if resolved_cache is not None:
+        return set(resolved_cache)
+
     instrument_set = set()
     try:
         numeric_inputs = []
@@ -903,10 +912,16 @@ def _resolve_instrument_groups(params, spname_list, num_groups):
                 except (TypeError, ValueError):
                     pass
 
-        # Heuristic: convert probable 1-based indices to 0-based
+        # Heuristic: convert probable 1-based indices to 0-based.
+        # Fires when all values are in [1, num_groups] and none equals 0 —
+        # a strong signal that the caller used 1-based indexing.
+        # The cache above prevents re-triggering this warning on subsequent calls.
         max_idx = num_groups - 1
         if numeric_inputs:
-            if all(1 <= v <= num_groups for v in numeric_inputs) and min(numeric_inputs) >= 1:
+            if (
+                all(1 <= v <= num_groups for v in numeric_inputs)
+                and min(numeric_inputs) >= 1
+            ):
                 logger.debug(
                     "INSTRUMENT: detected probable 1-based numeric indices %s; converting",
                     numeric_inputs,
@@ -925,12 +940,17 @@ def _resolve_instrument_groups(params, spname_list, num_groups):
         # Filter to valid range
         instrument_set = {i for i in instrument_set if 0 <= i <= max_idx}
 
-        # Write back normalized indices
+        # Cache resolved indices under a private key to skip re-resolution on subsequent
+        # derivative steps (avoids spurious DeprecationWarnings on repeated calls).
+        # Also write back to INSTRUMENT_GROUPS so downstream code (e.g. integrate_ab
+        # instrumentation at line ~1987) reads the already-normalized 0-based list.
         normalized = sorted(instrument_set)
         try:
+            params["_instrument_groups_resolved"] = normalized
             params["INSTRUMENT_GROUPS"] = normalized
         except (TypeError, KeyError):
             try:
+                setattr(params, "_instrument_groups_resolved", normalized)
                 setattr(params, "INSTRUMENT_GROUPS", normalized)
             except (TypeError, AttributeError):
                 pass

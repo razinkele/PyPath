@@ -278,8 +278,6 @@ class TestEwemdbDietParsing:
 
         assert non_zero > 0, "Diet matrix should have non-zero entries"
 
-        return params
-
 
 if __name__ == "__main__":
     # Run tests with verbose output

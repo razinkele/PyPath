@@ -295,7 +295,7 @@ class DietRewiring:
 
     def update_diet(
         self, prey_biomass: np.ndarray, predator_idx: Optional[int] = None
-    ) -> np.ndarray:
+    ) -> "np.ndarray | None":
         """Update diet preferences based on prey availability.
 
         Uses a prey switching model where diet preferences shift toward

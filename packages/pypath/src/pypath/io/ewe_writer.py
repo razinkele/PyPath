@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
+    from pypath.io._access_writer import AccessWriter
+    from pypath.io._csv_bundle_writer import CsvBundleWriter
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +89,7 @@ def write_ewemdb(
     if backend == "access":
         from pypath.io._access_writer import AccessWriter
 
-        writer = AccessWriter(
+        writer: AccessWriter | CsvBundleWriter = AccessWriter(
             params, path, scenario_id=scenario_id, source_db=source_db
         )
     elif backend == "csv":
@@ -119,7 +121,7 @@ def write_ewemdb(
                 conn.close()
             except Exception:
                 pass
-            writer._conn = None
+            setattr(writer, "_conn", None)
         tmp = getattr(writer, "_tmp_path", None)
         if tmp and os.path.exists(tmp):
             try:

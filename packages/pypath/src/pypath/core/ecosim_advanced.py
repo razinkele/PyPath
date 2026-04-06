@@ -58,7 +58,7 @@ def apply_state_forcing(
 
         if group_idx == -1:
             # Apply to all groups
-            indices = range(len(state))
+            indices: range | list[int] = range(len(state))
         else:
             # Apply to specific group
             indices = [group_idx]
@@ -337,6 +337,7 @@ def rsim_run_advanced(
         annual_Catch=np.zeros_like(annual_biomass),
         annual_QB=np.zeros((n_years + 1, n_groups)),
         annual_Qlink=np.zeros((n_years + 1, params.NumPredPreyLinks + 1)),
+        stanza_biomass=None,
         end_state=end_state,
         crash_year=-1,
         crashed_groups=set(),

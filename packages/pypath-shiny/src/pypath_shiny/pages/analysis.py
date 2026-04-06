@@ -294,7 +294,7 @@ def analysis_server(
                 "Balance an Ecopath model first to see network analysis.",
                 class_="alert alert-info",
             )
-        return None
+        return ui.div()
 
     @output
     @render.ui

@@ -1435,7 +1435,11 @@ def ecosim_server(
 
         if output.crash_year > 0:
             # Get crashed group names
-            crashed_names = [scen.params.spname[i] for i in output.crashed_groups]
+            crashed_names = (
+                [scen.params.spname[i] for i in output.crashed_groups]
+                if scen is not None
+                else []
+            )
 
             # Format group list
             if len(crashed_names) <= 3:

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse
@@ -25,6 +25,9 @@ try:
 except ImportError:
     _GIS_AVAILABLE = False
     gpd = None
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +65,9 @@ class EcospaceGrid:
     edge_lengths: Dict[Tuple[int, int], float]
     crs: str = "EPSG:4326"
     geometry: Optional[object] = None  # gpd.GeoDataFrame when available
-    cell_metadata: Optional["pd.DataFrame"] = None  # row/col/depth/habitat_type_id per patch
+    cell_metadata: Optional["pd.DataFrame"] = (
+        None  # row/col/depth/habitat_type_id per patch
+    )
 
     def __post_init__(self):
         """Validate grid data."""

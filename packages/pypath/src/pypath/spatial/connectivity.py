@@ -27,6 +27,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+_KM_PER_DEGREE_LAT = 111.0  # approx; varies ±0.3% by latitude
+
 
 def build_adjacency_from_gdf(
     gdf: "gpd.GeoDataFrame", method: str = "rook"
@@ -141,7 +143,9 @@ def calculate_patch_distances(grid: "EcospaceGrid") -> np.ndarray:
     # Vectorized distance calculation (much faster than nested loops)
     # Calculate all pairwise distances at once
     distances_deg = cdist(centroids, centroids, metric="euclidean")
-    distances = distances_deg * 111.0  # Rough conversion from degrees to km
+    distances = (
+        distances_deg * _KM_PER_DEGREE_LAT
+    )  # Rough conversion from degrees to km
 
     return distances
 

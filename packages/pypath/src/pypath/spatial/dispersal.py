@@ -220,7 +220,9 @@ def diffusion_flux(
     gradients = biomass_vector[rows] - biomass_vector[cols]
 
     # Vectorized flux calculation
-    flux_rates = dispersal_rate * border_lengths / distances
+    # Guard against zero distances (e.g. same-centroid adjacent patches)
+    safe_distances = np.where(distances == 0, np.inf, distances)
+    flux_rates = dispersal_rate * border_lengths / safe_distances
     flux_values = flux_rates * gradients
 
     # Accumulate fluxes using np.add.at (vectorized accumulation)
