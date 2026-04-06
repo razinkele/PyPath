@@ -7,9 +7,8 @@ allometric length conversion, metabolism, assimilation, and the
 integrated growth step.
 """
 
-import pytest
-
 import numpy as np
+import pytest
 
 from pypath.ibm.bioenergetics import (
     BioenergParams,

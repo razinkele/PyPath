@@ -29,8 +29,8 @@ class TestCsvRoundTrip:
     """Read LT2022 -> write CSV bundle -> read back CSVs -> compare."""
 
     def test_group_names_survive(self, lt2022_path, tmp_path):
-        from pypath.io.ewemdb import read_ewemdb
         from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
 
         params = read_ewemdb(lt2022_path)
         outpath = tmp_path / "rt_test.ewecsv.zip"
@@ -44,8 +44,8 @@ class TestCsvRoundTrip:
         assert exported_names == original_names
 
     def test_biomass_values_match(self, lt2022_path, tmp_path):
-        from pypath.io.ewemdb import read_ewemdb
         from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
 
         params = read_ewemdb(lt2022_path)
         outpath = tmp_path / "rt_test.ewecsv.zip"
@@ -65,8 +65,8 @@ class TestCsvRoundTrip:
                 np.testing.assert_allclose(exp, orig, rtol=1e-6)
 
     def test_pb_qb_values_match(self, lt2022_path, tmp_path):
-        from pypath.io.ewemdb import read_ewemdb
         from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
 
         params = read_ewemdb(lt2022_path)
         outpath = tmp_path / "rt_test.ewecsv.zip"
@@ -86,8 +86,8 @@ class TestCsvRoundTrip:
                     np.testing.assert_allclose(e, o, rtol=1e-6)
 
     def test_diet_count_matches(self, lt2022_path, tmp_path):
-        from pypath.io.ewemdb import read_ewemdb
         from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
 
         params = read_ewemdb(lt2022_path)
         outpath = tmp_path / "rt_test.ewecsv.zip"
@@ -103,8 +103,8 @@ class TestCsvRoundTrip:
         assert len(diet) == original_nonzero
 
     def test_fleet_names_survive(self, lt2022_path, tmp_path):
-        from pypath.io.ewemdb import read_ewemdb
         from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
 
         params = read_ewemdb(lt2022_path)
         outpath = tmp_path / "rt_test.ewecsv.zip"
@@ -131,8 +131,8 @@ class TestAccessRoundTrip:
             pytest.skip("Access ODBC driver not available")
 
     def test_access_group_names_roundtrip(self, lt2022_path, tmp_path):
-        from pypath.io.ewemdb import read_ewemdb
         from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
 
         params_orig = read_ewemdb(lt2022_path)
         outpath = tmp_path / "rt_access.eweaccdb"
@@ -145,8 +145,8 @@ class TestAccessRoundTrip:
         assert back_names == orig_names
 
     def test_access_biomass_roundtrip(self, lt2022_path, tmp_path):
-        from pypath.io.ewemdb import read_ewemdb
         from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
 
         params_orig = read_ewemdb(lt2022_path)
         outpath = tmp_path / "rt_access.eweaccdb"

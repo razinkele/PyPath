@@ -6,7 +6,6 @@ This script demonstrates the full round-trip workflow:
 3. Write the modified model back as a new EwE database
 """
 
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -102,8 +101,8 @@ for i in range(1, min(8, cal_last_12.shape[1])):
 
 # ── Step 6: Write back as new EwE database ──────────────────────────
 print("\n--- Writing Calibrated Model ---")
-from pypath.io.ewemdb import read_ewemdb
 from pypath.io.ewe_writer import write_ewemdb
+from pypath.io.ewemdb import read_ewemdb
 
 # Re-read the original Ecopath params (for the model/diet structure)
 params = read_ewemdb(db_path)

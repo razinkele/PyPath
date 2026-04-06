@@ -13,7 +13,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd

@@ -1,10 +1,9 @@
 """Integration tests for Monte Carlo and sensitivity analysis."""
 
-import numpy as np
-import pytest
 import warnings
 
-from pypath.core.ecopath import rpath
+import pytest
+
 from pypath.core.montecarlo import MCConfig, run_montecarlo
 from pypath.core.params import create_rpath_params
 

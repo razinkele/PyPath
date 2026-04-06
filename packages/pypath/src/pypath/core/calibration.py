@@ -14,7 +14,6 @@ import numpy as np
 
 if TYPE_CHECKING:
     from pypath.core.ecosim import RsimScenario
-    from pypath.core.timeseries import EweTimeSeriesCollection
 
 logger = logging.getLogger(__name__)
 

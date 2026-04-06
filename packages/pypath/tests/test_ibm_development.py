@@ -1,11 +1,12 @@
 import numpy as np
 import pytest
+
 from pypath.ibm.development import (
     EggParams,
     accumulate_degree_days,
+    apply_egg_mortality,
     check_hatching,
     check_thermal_mortality,
-    apply_egg_mortality,
 )
 
 
@@ -182,7 +183,7 @@ def test_yolk_depletion_rate():
 
 
 def test_yolk_duration_at_different_temps():
-    from pypath.ibm.development import compute_yolk_depletion, YolkSacParams
+    from pypath.ibm.development import YolkSacParams, compute_yolk_depletion
 
     p = YolkSacParams()
     for temp, expected_days in [(5.7, 25), (9.1, 17), (12.1, 14)]:
