@@ -37,7 +37,10 @@ biodata = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "ruff>=0.1",
+    # Pinned to one formatter generation: `ruff format` output changed
+    # between 0.15 and 0.16, and an unpinned spec let CI float to a
+    # newer ruff than the tree was formatted with, failing the format gate.
+    "ruff>=0.15.4,<0.16",
     "build>=1.0",
     "python-semantic-release>=9.0",
 ]
