@@ -46,8 +46,14 @@ jobs:
           channels: conda-forge
           conda-remove-defaults: true
 
+      # Into base, not the activated env: `conda build` is a subcommand of the
+      # base installation, so installing it into setup-miniconda's `test` env
+      # leaves `conda build` an invalid choice.
       - name: Install build tooling
-        run: conda install -y conda-build anaconda-client
+        run: |
+          conda install -y -n base conda-build anaconda-client
+          conda build --version
+          anaconda --version
 
       - name: Check recipe versions against the packages
         run: |
