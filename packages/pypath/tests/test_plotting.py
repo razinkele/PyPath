@@ -474,9 +474,7 @@ class TestRealModel:
         assert sum(G.nodes[i]["is_detritus"] for i in G.nodes()) == n_dead
         assert G.number_of_edges() > 0
         assert all(np.isfinite(G.nodes[i]["tl"]) for i in G.nodes())
-        assert _group_labels(model, n_total) == [
-            str(g) for g in model.Group[:n_total]
-        ]
+        assert _group_labels(model, n_total) == [str(g) for g in model.Group[:n_total]]
 
     @pytest.mark.skipif(not HAS_NETWORKX, reason="networkx not installed")
     def test_foodweb_renders(self, model):
@@ -492,9 +490,7 @@ class TestRealModel:
         expected = float(np.sum(model.Biomass[: model.NUM_LIVING]))
         assert total == pytest.approx(expected, rel=1e-9)
         # The shifted window would have summed the detritus group instead
-        shifted = float(
-            np.sum(model.Biomass[1 : model.NUM_LIVING + 1])
-        )
+        shifted = float(np.sum(model.Biomass[1 : model.NUM_LIVING + 1]))
         assert expected != pytest.approx(shifted)
         plt.close(fig)
 
@@ -504,9 +500,7 @@ class TestRealModel:
         ax = fig.get_axes()[0]
         total = sum(patch.get_height() for patch in ax.patches)
         n_living = model.NUM_LIVING
-        expected = float(
-            np.sum(model.PB[:n_living] * model.Biomass[:n_living])
-        )
+        expected = float(np.sum(model.PB[:n_living] * model.Biomass[:n_living]))
         assert total == pytest.approx(expected, rel=1e-9)
         plt.close(fig)
 
