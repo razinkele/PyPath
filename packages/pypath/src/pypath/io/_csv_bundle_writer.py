@@ -11,12 +11,12 @@ import os
 import tempfile
 import zipfile
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
 
-from pypath.io._ewe_schema import EWE_TABLES, RPATH_TO_EWE_COLUMNS
+from pypath.io._ewe_schema import EWE_TABLES
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,6 @@ class CsvBundleWriter:
         fleet_groups = model[fleet_mask].reset_index(drop=True)
 
         n_bio = len(bio_groups)
-        n_fleet = len(fleet_groups)
-        n_living = int((bio_groups["Type"].isin([0, 1])).sum())
-        n_detritus = int((bio_groups["Type"] == 2).sum())
 
         # --- EcopathGroup ---
         group_rows: List[Dict[str, Any]] = []
@@ -709,11 +706,10 @@ class CsvBundleWriter:
         if taxonomy is None:
             return
 
-        from pypath.io._ewe_schema import EWE_TABLES
         from pypath.io.ewemdb import (
             _TAXON_EXTERNAL_KEYS,
-            _TAXON_TRAITS,
             _TAXON_METADATA,
+            _TAXON_TRAITS,
             _none_to_sentinel,
         )
 

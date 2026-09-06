@@ -1,12 +1,13 @@
 """Tests for taxonomy table read/write/auto-populate."""
 
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
-import pytest
-from unittest.mock import patch, MagicMock
-from dataclasses import field
 
 from pypath.io._ewe_schema import EWE_TABLES
+from pypath.io.biodata import SpeciesInfo, auto_populate_taxonomy
+from pypath.io.ewemdb import TaxonomyData, TaxonomyRecord, read_taxonomy
 
 
 class TestSchema:
@@ -35,9 +36,6 @@ class TestSchema:
         assert cols["Winf"] == "DOUBLE"
         assert cols["vbgfK"] == "DOUBLE"
         assert len(cols) == 31
-
-
-from pypath.io.ewemdb import TaxonomyRecord, TaxonomyData, read_taxonomy
 
 
 def _make_taxon_row():
@@ -323,9 +321,6 @@ class TestWriter:
         assert len(writer._tables["EcopathTaxon"]) == 0
         assert len(writer._tables["EcopathGroupTaxon"]) == 0
         assert len(writer._tables["EcopathStanzaTaxon"]) == 0
-
-
-from pypath.io.biodata import auto_populate_taxonomy, SpeciesInfo
 
 
 def _mock_species_info(name="Atlantic cod"):

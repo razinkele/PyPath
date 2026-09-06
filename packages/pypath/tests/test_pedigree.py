@@ -3,7 +3,15 @@
 import numpy as np
 import pytest
 
-from pypath.core.pedigree import ScalarDistribution, DietDistribution
+from pypath.core.params import create_rpath_params
+from pypath.core.pedigree import (
+    DietDistribution,
+    PedigreeConfig,
+    ScalarDistribution,
+    apply_sample,
+    build_distributions,
+    sample_parameters,
+)
 
 
 class TestScalarDistribution:
@@ -43,10 +51,6 @@ class TestDietDistribution:
         props = np.array([0.5, 0.3, 0.2])
         d = DietDistribution(pred_idx=0, base_proportions=props, cv=0.1)
         assert np.sum(d.base_proportions) == pytest.approx(1.0)
-
-
-from pypath.core.pedigree import PedigreeConfig, build_distributions
-from pypath.core.params import create_rpath_params
 
 
 class TestPedigreeConfig:
@@ -150,9 +154,6 @@ class TestBuildDistributions:
             and d.group_idx == 2
         ]
         assert len(det_pb) == 0
-
-
-from pypath.core.pedigree import sample_parameters, apply_sample
 
 
 class TestSampleParameters:

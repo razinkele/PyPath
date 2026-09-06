@@ -2,11 +2,11 @@
 
 import warnings as _warnings
 
-import numpy as np
 import pandas as pd
 import pytest
 
-from pypath.core.montecarlo import MCConfig, MCResult
+from pypath.core.montecarlo import MCConfig, MCResult, run_montecarlo
+from pypath.core.params import create_rpath_params
 
 
 class TestMCConfig:
@@ -91,10 +91,6 @@ class TestMCResult:
         assert d["feasibility_rate"] == 0.8
 
 
-from pypath.core.montecarlo import run_montecarlo
-from pypath.core.params import create_rpath_params
-
-
 def _make_mc_params():
     """3-group model with moderate pedigree CVs."""
     params = create_rpath_params(
@@ -176,7 +172,7 @@ class TestRunMontecarlo:
         params = _make_mc_params()
         config = MCConfig(n_samples=5, method="random", seed=42, ecopath_only=True)
         calls = []
-        result = run_montecarlo(
+        run_montecarlo(
             params, config, progress_callback=lambda i, n: calls.append((i, n))
         )
         assert len(calls) > 0

@@ -7,6 +7,8 @@ from pypath.core.ecotracer import (
     EcotracerParams,
     EcotracerResult,
     create_ecotracer_params,
+    ecotracer_deriv,
+    ecotracer_step,
 )
 
 
@@ -64,9 +66,6 @@ class TestCreateEcotracerParams:
         p = create_ecotracer_params(10)
         for arr in [p.czero, p.cenv, p.cimmig, p.cdecay, p.cassim, p.cmetab]:
             assert arr.shape == (10,)
-
-
-from pypath.core.ecotracer import ecotracer_deriv, ecotracer_step
 
 
 class TestEcotracerDeriv:

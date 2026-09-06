@@ -75,16 +75,18 @@ class MediationCollection:
     @property
     def group_links(self) -> list[MediationLink]:
         return [
-            l for l in self.links if l.prey_idx is not None and l.pred_idx is not None
+            link
+            for link in self.links
+            if link.prey_idx is not None and link.pred_idx is not None
         ]
 
     @property
     def fleet_links(self) -> list[MediationLink]:
-        return [l for l in self.links if l.fleet_idx is not None]
+        return [link for link in self.links if link.fleet_idx is not None]
 
     @property
     def landing_links(self) -> list[MediationLink]:
-        return [l for l in self.links if l.landing_group_idx is not None]
+        return [link for link in self.links if link.landing_group_idx is not None]
 
     def _get_shape(self, shape_id: int) -> MediationShape | None:
         for s in self.shapes:

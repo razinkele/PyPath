@@ -1,7 +1,7 @@
 """Tests for Ftime (foraging time) dynamic adjustment matching Rpath."""
 
-import numpy as np
 import pytest
+
 from pypath.core.ecosim import _ftime_update_rpath
 
 
@@ -16,7 +16,7 @@ class TestFtimeUpdateFormula:
 
         actual_qb = food_gain / biomass  # = 4.0
         # 0.1 + 0.9 * 1.0 * (0.5 + 0.5 * 5.0 / 4.0) = 0.1 + 0.9 * 1.125 = 1.1125
-        expected = 0.1 + 0.9 * 1.0 * (0.5 + 0.5 * 5.0 / 4.0)
+        expected = 0.1 + 0.9 * 1.0 * (0.5 + 0.5 * qbopt / actual_qb)
 
         result = _ftime_update_rpath(old_ftime, ftadj, qbopt, food_gain, biomass)
         assert result == pytest.approx(expected, rel=1e-6)

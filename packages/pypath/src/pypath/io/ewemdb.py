@@ -2982,9 +2982,7 @@ def _apply_forcing_shapes(
         n_groups = rsim.forcing.ForcedBio.shape[1]
 
         # Build EcopathGroupID to positional index mapping
-        try:
-            group_ids = scenario_group_df["EcopathGroupID"].tolist()
-        except KeyError:
+        if "EcopathGroupID" not in scenario_group_df:
             return
 
         # Get group types to identify producers
@@ -3646,7 +3644,7 @@ def read_ecotracer(db_path: str, n_groups: int) -> "EcotracerParams":
         Tracer parameters with per-group values.
         Returns default params if tables are missing/empty.
     """
-    from pypath.core.ecotracer import EcotracerParams, create_ecotracer_params
+    from pypath.core.ecotracer import create_ecotracer_params
 
     try:
         tables = list_ewemdb_tables(db_path)
@@ -4098,6 +4096,7 @@ def _build_fallback_grid(
     no diagonals).
     """
     import scipy.sparse
+
     from pypath.spatial.ecospace_params import EcospaceGrid
 
     n_patches = n_rows * n_cols

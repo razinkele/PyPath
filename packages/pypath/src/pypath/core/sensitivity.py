@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 try:
-    import SALib
+    import SALib  # noqa: F401  (availability probe)
     from SALib.analyze import sobol as salib_sobol
     from SALib.sample import saltelli
 
@@ -171,12 +171,12 @@ def run_sensitivity(
     -------
     MorrisResult or SobolResult
     """
+    from pypath.core.ecopath import rpath as run_rpath
     from pypath.core.pedigree import (
         ScalarDistribution,
         apply_sample,
         build_distributions,
     )
-    from pypath.core.ecopath import rpath as run_rpath
 
     if config is None:
         config = SensitivityConfig()

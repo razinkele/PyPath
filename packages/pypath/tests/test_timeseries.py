@@ -1,5 +1,7 @@
 """Tests for pypath.core.timeseries module."""
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
 
@@ -11,8 +13,10 @@ from pypath.core.timeseries import (
     DATTYPE_FORCED_BIOMASS,
     DATTYPE_REL_BIOMASS,
     EweTimeSeries,
+    EweTimeSeriesCollection,
+    apply_timeseries_drivers,
+    load_timeseries,
 )
-from pypath.core.timeseries import EweTimeSeriesCollection
 
 
 class TestDatTypeConstants:
@@ -183,11 +187,6 @@ class TestEweTimeSeriesCollection:
         assert len(df) == 14
 
 
-from unittest.mock import MagicMock
-
-from pypath.core.timeseries import apply_timeseries_drivers
-
-
 def _make_mock_scenario(n_months=36, n_groups=5, n_gears=2, n_years=3):
     """Create a mock scenario with forcing arrays matching real initialization."""
     scenario = MagicMock()
@@ -311,9 +310,6 @@ class TestApplyTimeseriesDrivers:
         assert abs(bio[0] - 5.0) < 0.5
         assert abs(bio[-1] - 7.0) < 0.5
         assert 5.0 < bio[12] < 6.0
-
-
-from pypath.core.timeseries import load_timeseries
 
 
 class TestLoadTimeseries:

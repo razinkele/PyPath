@@ -1,11 +1,17 @@
 """Tests for advanced Ecospace I/O (schema, reader, writer, MPA)."""
 
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch, MagicMock
 
+from pypath.core.params import create_rpath_params
+from pypath.io._access_writer import AccessWriter
+from pypath.io._csv_bundle_writer import CsvBundleWriter
 from pypath.io._ewe_schema import EWE_TABLES
+from pypath.io.ewemdb import EcospaceReadResult, EwEDatabaseError, read_ecospace
+from pypath.spatial.mpa import MPAConfig, MPAZone
 
 
 class TestSchema:
@@ -52,9 +58,6 @@ class TestSchema:
     def test_mpa_patch_removed(self):
         """EcospaceScenarioMPAPatch does not exist in real EwE 6.6+ databases."""
         assert "EcospaceScenarioMPAPatch" not in EWE_TABLES
-
-
-from pypath.io.ewemdb import EcospaceReadResult, read_ecospace, EwEDatabaseError
 
 
 def _mock_ecospace_tables():
@@ -336,10 +339,6 @@ class TestReader:
         assert result.ecospace.habitat_capacity[0, 0] == pytest.approx(1.0)
 
 
-from pypath.io._csv_bundle_writer import CsvBundleWriter
-from pypath.core.params import create_rpath_params
-
-
 def _make_test_params():
     """Build minimal RpathParams for writer tests."""
     params = create_rpath_params(
@@ -365,7 +364,7 @@ def _make_test_params():
 
 def _make_ecospace_read_result():
     """Build an EcospaceReadResult with all fields populated for writer tests."""
-    from pypath.spatial.ecospace_params import EcospaceParams, EcospaceGrid
+    from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
 
     grid = EcospaceGrid.from_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
     ecospace = EcospaceParams(
@@ -585,7 +584,7 @@ class TestWriter:
     def test_empty_result_writes_no_extra_tables(self):
         """EcospaceReadResult with all None fields writes only base tables."""
         params = _make_test_params()
-        from pypath.spatial.ecospace_params import EcospaceParams, EcospaceGrid
+        from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
 
         grid = EcospaceGrid.from_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
         ecospace = EcospaceParams(
@@ -627,9 +626,6 @@ class TestWriter:
         assert len(grp_df) == 3  # 3 groups
 
 
-from pypath.io._access_writer import AccessWriter
-
-
 class TestAccessWriter:
     """Access writer table list tests."""
 
@@ -648,9 +644,6 @@ class TestAccessWriter:
         mpa_fishery_idx = tables.index("EcospaceScenarioMPAFishery")
         mpa_idx = tables.index("EcospaceScenarioMPA")
         assert mpa_fishery_idx < mpa_idx
-
-
-from pypath.spatial.mpa import MPAConfig, MPAZone
 
 
 class TestMPAWriter:

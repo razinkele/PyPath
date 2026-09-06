@@ -3,7 +3,14 @@
 import numpy as np
 import pytest
 
-from pypath.core.mediation import MediationShape
+from pypath.core.mediation import (
+    MediationCollection,
+    MediationLink,
+    MediationShape,
+    make_negative_shape,
+    make_positive_shape,
+    make_ushape,
+)
 
 
 class TestMediationShape:
@@ -67,9 +74,6 @@ class TestMediationShape:
         assert s.evaluate(0.0) == pytest.approx(2.0)
         assert s.evaluate(1.0) == pytest.approx(2.0)
         assert s.evaluate(5.0) == pytest.approx(2.0)
-
-
-from pypath.core.mediation import MediationLink, MediationCollection
 
 
 class TestMediationLink:
@@ -267,9 +271,6 @@ class TestMediationCollection:
         assert land_mult.shape == (2, 4)
         assert land_mult[0, 2] == pytest.approx(1.5)
         assert land_mult[0, 0] == pytest.approx(1.0)  # unaffected
-
-
-from pypath.core.mediation import make_positive_shape, make_negative_shape, make_ushape
 
 
 class TestParametricFactories:

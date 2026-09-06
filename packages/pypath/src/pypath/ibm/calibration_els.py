@@ -108,7 +108,7 @@ def lhs_sensitivity(
     samples = sampler.random(n=n_samples)
 
     # Scale to bounds
-    param_matrix = bounds[:, 0] + samples * (bounds[:, 1] - bounds[:, 0])
+    _param_matrix = bounds[:, 0] + samples * (bounds[:, 1] - bounds[:, 0])
 
     # Each sample would run a full simulation — not yet implemented
     raise NotImplementedError(

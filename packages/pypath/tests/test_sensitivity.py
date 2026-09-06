@@ -6,8 +6,8 @@ import pytest
 from pypath.core.sensitivity import (
     MorrisResult,
     SensitivityConfig,
-    _generate_morris_trajectories,
     _compute_elementary_effects,
+    _generate_morris_trajectories,
 )
 
 
@@ -83,8 +83,8 @@ class TestSensitivityConfig:
         from pypath.core.sensitivity import HAS_SALIB
 
         if not HAS_SALIB:
-            from pypath.core.sensitivity import run_sensitivity
             from pypath.core.params import create_rpath_params
+            from pypath.core.sensitivity import run_sensitivity
 
             params = create_rpath_params(
                 groups=["A", "B", "Det"],

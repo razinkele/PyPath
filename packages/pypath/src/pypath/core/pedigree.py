@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Union
 
 import numpy as np
-import pandas as pd
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -102,7 +101,6 @@ def build_distributions(
     list[ParameterDistribution]
         Distributions for all parameters with CV > 0.
     """
-    from pypath.core.params import RpathParams
 
     pedigree = params.pedigree
     if pedigree is None:
@@ -287,7 +285,7 @@ def apply_sample(params: "RpathParams", sample: dict) -> "RpathParams":
     RpathParams
         New params with sampled values applied.
     """
-    from pypath.core.params import RpathParams, RpathStanzaParams
+    from pypath.core.params import RpathParams
 
     new_model = params.model.copy()
     new_diet = params.diet.copy()

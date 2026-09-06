@@ -1,12 +1,10 @@
 """Tests for Package 4: Oxygen physiology integration in SmeltIBM."""
 
 import numpy as np
-import pytest
 
 from pypath.ibm.base import SuperIndividual
 from pypath.ibm.bioenergetics import oxygen_scalar
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
-
 
 # ---- Task 4.1: Oxygen scalar integration into consumption ----
 
@@ -261,7 +259,7 @@ def test_yolk_sac_lethal_oxygen_mortality():
     if yolk_larvae:
         assert yolk_larvae[0].n_represented < 1e6, "Expected mortality from hypoxia"
     # Either way, the original 1e6 should be reduced
-    total_n = sum(l.n_represented for l in yolk_larvae)
+    total_n = sum(larva.n_represented for larva in yolk_larvae)
     assert total_n < 1e6, "Expected yolk-sac mortality under lethal O2"
 
 

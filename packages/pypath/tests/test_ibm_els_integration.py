@@ -17,7 +17,7 @@ def test_spawning_produces_eggs():
         "zoo_peak_day": 120,
         "zoo_density": 80.0,
     }
-    result = ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
+    ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     eggs = [i for i in ibm.individuals if i.life_stage == 0]
     assert len(eggs) <= params.egg.max_egg_cohorts
     if eggs:
@@ -30,7 +30,7 @@ def test_existing_behavior_when_els_disabled():
     ibm = SmeltIBM(group_index=2, n_groups=6, params=params)
     ibm.initialize_from_ecosim(biomass=1.0, params={}, n_super_individuals=50)
     env = {"temperature": 8.0, "month": 4, "zoo_peak_day": 120}
-    result = ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
+    ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     eggs = [i for i in ibm.individuals if i.life_stage == 0]
     assert len(eggs) == 0
 
@@ -270,7 +270,6 @@ def test_full_lifecycle_multi_step():
         env["month"] = 4 + step
         ibm.compute_step(np.zeros(6), 0.0, env, dt=1 / 12)
     # After 6 months, should have individuals at various life stages
-    stages = set(i.life_stage for i in ibm.individuals)
     assert len(ibm.individuals) > 0
     assert ibm.get_aggregate_biomass() > 0
 

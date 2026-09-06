@@ -6,16 +6,24 @@ This script demonstrates the full round-trip workflow:
 3. Write the modified model back as a new EwE database
 """
 
-import sys
+import json
+import zipfile
 from pathlib import Path
 
 import numpy as np
+
+from pypath.core.ecosim import rsim_run
+from pypath.io.ewe_writer import write_ewemdb
+from pypath.io.ewemdb import (
+    ecosim_scenario_from_ewemdb,
+    get_ewemdb_metadata,
+    read_ewemdb,
+)
 
 # ── Step 1: Explore what's in the database ──────────────────────────
 db_path = str(Path(__file__).parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb")
 print(f"Database: {Path(db_path).name}\n")
 
-from pypath.io.ewemdb import get_ewemdb_metadata
 
 meta = get_ewemdb_metadata(db_path)
 print(f"Model: {meta['name']}")
@@ -30,7 +38,6 @@ for s in meta.get("scenarios", []):
 
 # ── Step 2: Load scenario 1 as a full RsimScenario ─────────────────
 print("\n--- Loading Ecosim Scenario 1 ---")
-from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
 
 scen = ecosim_scenario_from_ewemdb(db_path, scenario=1, years=range(1, 51))
 print(f"Scenario loaded: {scen.eco_name}")
@@ -45,7 +52,6 @@ for i in range(min(10, len(scen.params.VV))):
 
 # ── Step 3: Run baseline Ecosim ─────────────────────────────────────
 print("\n--- Running Baseline Ecosim ---")
-from pypath.core.ecosim import rsim_run
 
 baseline_out = rsim_run(scen, method="RK4", years=range(1, 51))
 print(f"Baseline run complete: {baseline_out.out_Biomass.shape[0]} months")
@@ -102,8 +108,6 @@ for i in range(1, min(8, cal_last_12.shape[1])):
 
 # ── Step 6: Write back as new EwE database ──────────────────────────
 print("\n--- Writing Calibrated Model ---")
-from pypath.io.ewemdb import read_ewemdb
-from pypath.io.ewe_writer import write_ewemdb
 
 # Re-read the original Ecopath params (for the model/diet structure)
 params = read_ewemdb(db_path)
@@ -142,8 +146,6 @@ for o, b in zip(bio_orig, bio_back):
 print(f"  Biomass values: {'OK' if mismatches == 0 else f'{mismatches} mismatches'}")
 
 # Check Ecosim tables exist in the CSV bundle
-import json
-import zipfile
 
 with zipfile.ZipFile(out_csv) as zf:
     manifest = json.loads(zf.read("manifest.json"))

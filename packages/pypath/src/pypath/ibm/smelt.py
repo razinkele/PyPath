@@ -33,6 +33,20 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from pypath.ibm.base import IBMGroup, IBMStepResult, SpatialContext, SuperIndividual
+from pypath.ibm.behavior import (
+    ForagingParams,
+    MovementParams,
+    adaptive_forage,
+    calculate_movement_probabilities,
+    should_migrate,
+)
+from pypath.ibm.bioenergetics import (
+    BioenergParams,
+    growth_step_batch,
+    growth_step_batch_ontogenetic,
+    oxygen_scalar,
+    thornton_lessem,
+)
 from pypath.ibm.development import (
     EggParams,
     LarvalParams,
@@ -44,22 +58,6 @@ from pypath.ibm.development import (
     check_first_feeding,
     check_hatching,
     compute_yolk_depletion,
-)
-from pypath.ibm.behavior import (
-    ForagingParams,
-    MovementParams,
-    adaptive_forage,
-    calculate_movement_probabilities,
-    should_migrate,
-)
-from pypath.ibm.bioenergetics import (
-    BioenergParams,
-    allometric_length,
-    growth_step,
-    growth_step_batch,
-    growth_step_batch_ontogenetic,
-    oxygen_scalar,
-    thornton_lessem,
 )
 from pypath.ibm.predation import PredationParams, apply_predation_mortality
 from pypath.ibm.reproduction import (
@@ -598,8 +596,6 @@ class SmeltIBM(IBMGroup):
         # ================================================================
         if sp.egg is not None:
             dt_days = dt * 365.0
-            # Support both 'dissolved_oxygen' and legacy 'o2' keys
-            o2 = env_forcing.get("dissolved_oxygen", env_forcing.get("o2", _DEFAULT_O2))
             if (
                 "dissolved_oxygen" not in env_forcing
                 and "o2" not in env_forcing

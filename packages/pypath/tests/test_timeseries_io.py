@@ -1,22 +1,14 @@
 """Tests for time series I/O (CSV and database)."""
 
-import tempfile
-from pathlib import Path
-
 import numpy as np
-import pandas as pd
-import pytest
 
 from pypath.core.timeseries import (
     DATTYPE_CATCH,
-    DATTYPE_FORCED_BIOMASS,
     DATTYPE_REL_BIOMASS,
     EweTimeSeries,
     EweTimeSeriesCollection,
 )
 from pypath.io.ewemdb import read_timeseries
-
-
 from pypath.io.timeseries_csv import load_timeseries_csv
 
 

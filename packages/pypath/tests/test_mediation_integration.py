@@ -1,17 +1,17 @@
 """Integration tests for mediation functions with Ecosim simulation."""
 
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.mediation import (
     MediationCollection,
     MediationLink,
-    MediationShape,
-    make_positive_shape,
     make_negative_shape,
+    make_positive_shape,
 )
 from pypath.core.params import create_rpath_params
 
@@ -107,7 +107,7 @@ class TestMediationIntegration:
         med = MediationCollection(shapes=[shape], links=[link])
 
         scenario_base = rsim_scenario(rpath_result, params, years=range(1, 11))
-        result_base = rsim_run(scenario_base)
+        rsim_run(scenario_base)
 
         scenario_med = rsim_scenario(rpath_result, params, years=range(1, 11))
         result_med = rsim_run(scenario_med, mediation=med)

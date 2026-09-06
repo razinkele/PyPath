@@ -8,13 +8,11 @@ from __future__ import annotations
 
 import logging
 import warnings
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import pandas as pd
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -24,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Optional parallel execution
 try:
-    from joblib import Parallel, delayed
+    from joblib import Parallel, delayed  # noqa: F401  (availability probe)
 
     HAS_JOBLIB = True
 except ImportError:
@@ -137,7 +135,6 @@ def run_montecarlo(
     MCResult
     """
     from pypath.core.pedigree import (
-        PedigreeConfig,
         apply_sample,
         build_distributions,
         sample_parameters,
