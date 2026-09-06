@@ -505,11 +505,11 @@ def _make_ecospace_read_result():
 class TestWriter:
     """write_ecospace() writer extension tests."""
 
-    def test_habitat_tables_written(self):
+    def test_habitat_tables_written(self, tmp_path):
         """Habitat types and preferences written to correct tables."""
         params = _make_test_params()
         result = _make_ecospace_read_result()
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_ecospace(result)
 
         assert "EcospaceScenarioHabitat" in writer._tables
@@ -521,11 +521,11 @@ class TestWriter:
 
         assert "EcospaceScenarioGroupHabitat" in writer._tables
 
-    def test_fleet_info_written(self):
+    def test_fleet_info_written(self, tmp_path):
         """Fleet info DataFrame written including binary map columns."""
         params = _make_test_params()
         result = _make_ecospace_read_result()
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_ecospace(result)
 
         assert "EcospaceScenarioFleet" in writer._tables
@@ -533,11 +533,11 @@ class TestWriter:
         assert len(fleet_df) == 1
         assert "PortMap" in fleet_df.columns
 
-    def test_dataframe_passthrough_tables(self):
+    def test_dataframe_passthrough_tables(self, tmp_path):
         """All DataFrame passthrough tables written correctly."""
         params = _make_test_params()
         result = _make_ecospace_read_result()
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_ecospace(result)
 
         passthrough = {
@@ -554,21 +554,21 @@ class TestWriter:
         for table_name in passthrough:
             assert table_name in writer._tables, f"{table_name} not written"
 
-    def test_migration_map_binary_preserved(self):
+    def test_migration_map_binary_preserved(self, tmp_path):
         """Binary map bytes round-trip through writer."""
         params = _make_test_params()
         result = _make_ecospace_read_result()
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_ecospace(result)
 
         mig_df = writer._tables["EcospaceScenarioGroupMigration"]
         assert mig_df.iloc[0]["Map"] == b"\x10"
 
-    def test_monthly_maps_5_binary_columns(self):
+    def test_monthly_maps_5_binary_columns(self, tmp_path):
         """EcospaceScenarioMonth has all 5 binary map columns."""
         params = _make_test_params()
         result = _make_ecospace_read_result()
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_ecospace(result)
 
         month_df = writer._tables["EcospaceScenarioMonth"]
@@ -581,7 +581,7 @@ class TestWriter:
         ]:
             assert col in month_df.columns
 
-    def test_empty_result_writes_no_extra_tables(self):
+    def test_empty_result_writes_no_extra_tables(self, tmp_path):
         """EcospaceReadResult with all None fields writes only base tables."""
         params = _make_test_params()
         from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
@@ -602,7 +602,7 @@ class TestWriter:
             capacity_drivers=None,
             scenario_meta={},
         )
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_ecospace(result)
 
         assert "EcospaceScenario" in writer._tables
@@ -610,11 +610,11 @@ class TestWriter:
         assert "EcospaceScenarioGroupMigration" not in writer._tables
         assert "EcospaceScenarioMonth" not in writer._tables
 
-    def test_existing_base_tables_unchanged(self):
+    def test_existing_base_tables_unchanged(self, tmp_path):
         """Existing EcospaceScenario and EcospaceScenarioGroup logic preserved."""
         params = _make_test_params()
         result = _make_ecospace_read_result()
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_ecospace(result)
 
         assert "EcospaceScenario" in writer._tables
@@ -649,7 +649,7 @@ class TestAccessWriter:
 class TestMPAWriter:
     """write_mpa() tests."""
 
-    def test_mpa_config_written(self):
+    def test_mpa_config_written(self, tmp_path):
         """MPAConfig converted to EcospaceScenarioMPA + MPA Fishery tables."""
         params = _make_test_params()
         zones = [
@@ -670,7 +670,7 @@ class TestMPAWriter:
         ]
         mpa_config = MPAConfig(zones=zones)
 
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_mpa(mpa_config=mpa_config)
 
         # Check MPA table
@@ -688,10 +688,10 @@ class TestMPAWriter:
         assert set(fish_df["FleetID"]) == {1, 2, 3}  # 0-based -> 1-based
         assert all(fish_df["Excluded"] == True)  # noqa: E712
 
-    def test_empty_mpa_config(self):
+    def test_empty_mpa_config(self, tmp_path):
         """Empty MPAConfig writes no tables (no error)."""
         params = _make_test_params()
-        writer = CsvBundleWriter(params, "/tmp/test.csv", scenario_id=1)
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
         writer.write_mpa(mpa_config=MPAConfig(zones=[]))
 
         assert "EcospaceScenarioMPA" not in writer._tables
