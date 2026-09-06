@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings: conda build runs build.sh on
+# Linux and macOS, where CRLF makes the interpreter line fail.
+*.sh text eol=lf
+*.bat text eol=crlf
