@@ -19,6 +19,7 @@ import numpy as np
 
 # Import ecosim_deriv at module level - no circular dependency exists
 from pypath.core.ecosim_deriv import HAS_NUMBA, deriv_vector
+from pypath.spatial.fishing import SpatialFishing, effort_multipliers
 
 # Cap the worker pool to avoid over-subscription on large machines.
 _N_WORKERS = min(os.cpu_count() or 4, 8)
@@ -42,6 +43,7 @@ def deriv_vector_spatial(
     dt: float = 1.0 / 12.0,
     mpa_effort_mask: Optional[np.ndarray] = None,
     mpa_cap_mult: Optional[np.ndarray] = None,
+    effort_multiplier: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Calculate spatial derivative (local dynamics + movement).
 
@@ -94,6 +96,15 @@ def deriv_vector_spatial(
 
     # Initialize derivative
     deriv_spatial = np.zeros_like(state_spatial, dtype=float)
+
+    # Per-patch, per-fleet effort scaling. MPA closures and spatial effort
+    # allocation both scale a fleet's effort in a patch, so they compose.
+    if effort_multiplier is None:
+        patch_effort_mask = mpa_effort_mask
+    elif mpa_effort_mask is None:
+        patch_effort_mask = effort_multiplier
+    else:
+        patch_effort_mask = mpa_effort_mask * effort_multiplier
 
     # Step 1: Calculate local dynamics for each patch
     # Pre-compute habitat capacity modifications if needed
@@ -201,13 +212,13 @@ def deriv_vector_spatial(
         if params_need_modification:
             patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
             patch_params["Bbase"] = b_base_ref_patches[:, patch_idx]
-        # MPA effort masking: create per-patch forcing with zeroed effort
+        # Per-patch effort: MPA closures and spatial effort allocation
         patch_forcing = forcing
-        if mpa_effort_mask is not None:
+        if patch_effort_mask is not None:
             patch_forcing = forcing.copy()
             patch_effort = forcing["ForcedEffort"].copy()
-            n_mask_fleets = mpa_effort_mask.shape[1]
-            patch_effort[1 : n_mask_fleets + 1] *= mpa_effort_mask[patch_idx, :]
+            n_mask_fleets = patch_effort_mask.shape[1]
+            patch_effort[1 : n_mask_fleets + 1] *= patch_effort_mask[patch_idx, :]
             patch_forcing["ForcedEffort"] = patch_effort
         deriv_spatial[:, patch_idx] = deriv_vector(
             state_patch, patch_params, patch_forcing, fishing, t=t
@@ -239,13 +250,15 @@ def deriv_vector_spatial(
             for patch_idx in range(n_patches):
                 state_patch = state_spatial[:, patch_idx]
 
-                # MPA effort masking
+                # Per-patch effort: MPA closures and spatial effort allocation
                 patch_forcing = forcing
-                if mpa_effort_mask is not None:
+                if patch_effort_mask is not None:
                     patch_forcing = forcing.copy()
                     patch_effort = forcing["ForcedEffort"].copy()
-                    n_mask_fleets = mpa_effort_mask.shape[1]
-                    patch_effort[1 : n_mask_fleets + 1] *= mpa_effort_mask[patch_idx, :]
+                    n_mask_fleets = patch_effort_mask.shape[1]
+                    patch_effort[1 : n_mask_fleets + 1] *= patch_effort_mask[
+                        patch_idx, :
+                    ]
                     patch_forcing["ForcedEffort"] = patch_effort
 
                 if params_need_modification:
@@ -290,6 +303,7 @@ def rsim_run_spatial(
     environmental_drivers: Optional[EnvironmentalDrivers] = None,
     *,
     mpa: Optional["MPAConfig"] = None,
+    spatial_fishing: Optional["SpatialFishing"] = None,
 ) -> RsimOutput:
     """Run spatial Ecosim simulation.
 
@@ -311,6 +325,12 @@ def rsim_run_spatial(
         If None, runs standard non-spatial Ecosim
     environmental_drivers : EnvironmentalDrivers, optional
         Time-varying environmental layers for habitat capacity
+    mpa : MPAConfig, optional
+        Marine protected areas; closes patches to some or all fleets
+    spatial_fishing : SpatialFishing, optional
+        How fleet effort is distributed across patches. Effort is redistributed
+        relative to the grid mean, so total fleet effort is unchanged and
+        "uniform" reproduces a run with no spatial fishing.
 
     Returns
     -------
@@ -459,6 +479,21 @@ def rsim_run_spatial(
             ),
         }
 
+        # Spatial effort allocation for this month, from the biomass at the
+        # start of the step. Held constant across the RK4 stages, like the MPA
+        # mask, so effort does not chase biomass within a single step.
+        _effort_mult = None
+        if spatial_fishing is not None:
+            _effort_mult = effort_multipliers(
+                spatial_fishing,
+                n_patches,
+                params.NUM_GEARS,
+                biomass=current_biomass,
+                grid=ecospace.grid,
+                habitat_preference=ecospace.habitat_preference,
+                month=month_idx - 1,
+            )
+
         # MPA effort mask and capacity multiplier for this month
         _mpa_effort_mask = None
         _mpa_cap_mult = None
@@ -481,6 +516,7 @@ def rsim_run_spatial(
             dt=DELTA_T,
             mpa_effort_mask=_mpa_effort_mask,
             mpa_cap_mult=_mpa_cap_mult,
+            effort_multiplier=_effort_mult,
         )
 
         # k2 = f(t + dt/2, y + k1*dt/2)
@@ -495,6 +531,7 @@ def rsim_run_spatial(
             dt=DELTA_T,
             mpa_effort_mask=_mpa_effort_mask,
             mpa_cap_mult=_mpa_cap_mult,
+            effort_multiplier=_effort_mult,
         )
 
         # k3 = f(t + dt/2, y + k2*dt/2)
@@ -509,6 +546,7 @@ def rsim_run_spatial(
             dt=DELTA_T,
             mpa_effort_mask=_mpa_effort_mask,
             mpa_cap_mult=_mpa_cap_mult,
+            effort_multiplier=_effort_mult,
         )
 
         # k4 = f(t + dt, y + k3*dt)
@@ -523,6 +561,7 @@ def rsim_run_spatial(
             dt=DELTA_T,
             mpa_effort_mask=_mpa_effort_mask,
             mpa_cap_mult=_mpa_cap_mult,
+            effort_multiplier=_effort_mult,
         )
 
         # Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)

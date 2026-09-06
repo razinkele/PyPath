@@ -88,6 +88,7 @@ from pypath.spatial.fishing import (
     allocate_port_based,
     allocate_uniform,
     create_spatial_fishing,
+    effort_multipliers,
     validate_effort_allocation,
 )
 
@@ -178,6 +179,7 @@ __all__ = [
     "allocate_port_based",
     "allocate_habitat_based",
     "create_spatial_fishing",
+    "effort_multipliers",
     "validate_effort_allocation",
 ]
 

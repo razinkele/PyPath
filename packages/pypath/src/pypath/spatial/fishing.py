@@ -353,6 +353,140 @@ def allocate_habitat_based(
     return effort
 
 
+def effort_multipliers(
+    spatial_fishing: "SpatialFishing",
+    n_patches: int,
+    n_gears: int,
+    biomass: Optional[np.ndarray] = None,
+    grid: Optional["EcospaceGrid"] = None,
+    habitat_preference: Optional[np.ndarray] = None,
+    month: int = 0,
+) -> np.ndarray:
+    """Per-patch, per-gear effort multipliers for a spatial simulation.
+
+    The spatial solver applies the fleet's `ForcedEffort` in every patch, so an
+    allocation has to reach it as a *relative* multiplier rather than as an
+    absolute split. Each gear's allocation is therefore normalised to mean 1.0
+    across patches: total effort over the grid is unchanged, and a "uniform"
+    allocation reproduces a run with no spatial fishing exactly.
+
+    Parameters
+    ----------
+    spatial_fishing : SpatialFishing
+        Allocation settings.
+    n_patches : int
+        Number of spatial patches.
+    n_gears : int
+        Number of fishing gears (excluding the "Outside" column).
+    biomass : np.ndarray, optional
+        Current biomass [n_groups + 1, n_patches]. Required for "gravity".
+    grid : EcospaceGrid, optional
+        Grid, required for "port" allocation.
+    habitat_preference : np.ndarray, optional
+        Habitat preference [n_groups + 1, n_patches] or [n_patches], required
+        for "habitat" allocation.
+    month : int
+        Month index, used to select a slice of a "prescribed" allocation.
+
+    Returns
+    -------
+    np.ndarray
+        Multipliers [n_patches, n_gears], each column averaging 1.0.
+        An allocation that cannot be computed falls back to ones (uniform).
+
+    Examples
+    --------
+    >>> f = SpatialFishing(allocation_type="uniform")
+    >>> effort_multipliers(f, n_patches=4, n_gears=1)
+    array([[1.],
+           [1.],
+           [1.],
+           [1.]])
+    """
+    ones = np.ones((n_patches, max(n_gears, 0)))
+    if n_gears <= 0 or n_patches <= 0 or spatial_fishing is None:
+        return ones
+
+    kind = spatial_fishing.allocation_type
+
+    def _normalise(alloc: np.ndarray) -> np.ndarray:
+        """Scale an allocation to mean 1.0, or fall back to uniform."""
+        alloc = np.asarray(alloc, dtype=float).ravel()
+        if alloc.shape[0] != n_patches or not np.all(np.isfinite(alloc)):
+            return np.ones(n_patches)
+        alloc = np.clip(alloc, 0.0, None)
+        total = alloc.sum()
+        if total <= 1e-12:
+            return np.ones(n_patches)
+        return alloc * (n_patches / total)
+
+    per_gear = []
+    for gear in range(1, n_gears + 1):
+        try:
+            if kind == "gravity":
+                if biomass is None:
+                    raise ValueError("gravity allocation requires biomass")
+                alloc = allocate_gravity(
+                    np.asarray(biomass, dtype=float),
+                    target_groups=spatial_fishing.target_groups,
+                    total_effort=1.0,
+                    alpha=spatial_fishing.gravity_alpha,
+                    beta=spatial_fishing.gravity_beta,
+                    port_patches=spatial_fishing.port_patches,
+                    grid=grid,
+                )
+            elif kind == "port":
+                if grid is None or spatial_fishing.port_patches is None:
+                    raise ValueError("port allocation requires grid and port_patches")
+                alloc = allocate_port_based(
+                    grid,
+                    spatial_fishing.port_patches,
+                    total_effort=1.0,
+                    beta=spatial_fishing.gravity_beta,
+                )
+            elif kind == "habitat":
+                if habitat_preference is None:
+                    raise ValueError("habitat allocation requires habitat_preference")
+                pref = np.asarray(habitat_preference, dtype=float)
+                if pref.ndim == 2:
+                    # Average preference over the real groups (skip "Outside")
+                    pref = pref[1:].mean(axis=0) if pref.shape[0] > 1 else pref[0]
+                alloc = allocate_habitat_based(pref, total_effort=1.0)
+            elif kind in ("prescribed", "custom"):
+                supplied = spatial_fishing.effort_allocation
+                if kind == "custom" and spatial_fishing.custom_allocation_function:
+                    alloc = spatial_fishing.custom_allocation_function(
+                        biomass, month, spatial_fishing
+                    )
+                elif supplied is None:
+                    raise ValueError(f"{kind} allocation requires effort_allocation")
+                else:
+                    supplied = np.asarray(supplied, dtype=float)
+                    # [n_months, n_gears + 1, n_patches] or [n_gears + 1, n_patches]
+                    if supplied.ndim == 3:
+                        idx = min(month, supplied.shape[0] - 1)
+                        alloc = supplied[idx, gear]
+                    elif supplied.ndim == 2:
+                        alloc = supplied[gear]
+                    else:
+                        alloc = supplied
+            else:  # "uniform" and anything unrecognised
+                alloc = np.ones(n_patches)
+        except (ValueError, IndexError, TypeError, AttributeError) as e:
+            logger.warning(
+                "Spatial effort allocation '%s' failed for gear %d (%s); "
+                "using uniform effort",
+                kind,
+                gear,
+                e,
+            )
+            alloc = np.ones(n_patches)
+
+        per_gear.append(_normalise(alloc))
+
+    return np.column_stack(per_gear)
+
+
 def create_spatial_fishing(
     n_months: int,
     n_gears: int,

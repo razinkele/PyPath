@@ -226,8 +226,16 @@ class TestHexagonSizes:
         boundary_gdf = gpd.GeoDataFrame([{"geometry": boundary}], crs="EPSG:4326")
 
         grid = create_hexagonal_grid_in_boundary(boundary_gdf, hexagon_size_km=3.0)
+        grid_small = create_hexagonal_grid_in_boundary(
+            boundary_gdf, hexagon_size_km=1.0
+        )
 
-        assert grid.n_patches < 20  # Should create few large hexagons
+        # Large hexagons cover the same boundary with far fewer patches.
+        # The full tessellation is kept: patches that pass the coverage
+        # test are never dropped, so the count is whatever tiles the area.
+        assert grid.n_patches > 0
+        assert grid.n_patches < grid_small.n_patches / 4
+        assert len(grid.geometry) == grid.n_patches
 
     def test_standard_sizes(self):
         """Test common hexagon sizes (0.5, 1.0, 2.0 km)."""

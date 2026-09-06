@@ -21,7 +21,9 @@ import pandas as pd
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.spatial import (
     EcospaceGrid,
+    SpatialFishing,
     allocate_gravity,
+    allocate_habitat_based,
     allocate_port_based,
     allocate_uniform,
     create_1d_grid,
@@ -44,6 +46,55 @@ except ImportError:
     Polygon = None
 
 logger = logging.getLogger(__name__)
+
+
+def parse_habitat_csv(path, n_patches):
+    """Parse a habitat preference CSV into an array of `n_patches` values.
+
+    The file must hold one numeric column with one row per patch (a header is
+    optional). Values are clipped to [0, 1]. Raises ValueError when the shape
+    does not match the current grid.
+    """
+    with open(path, encoding="utf-8-sig") as fh:
+        first_line = fh.readline().strip()
+
+    # A headerless file would otherwise lose its first value to the header row
+    def _is_numeric(line):
+        parts = [p.strip() for p in line.split(",") if p.strip()]
+        if not parts:
+            return False
+        try:
+            [float(p) for p in parts]
+        except ValueError:
+            return False
+        return True
+
+    df = pd.read_csv(path, header=None if _is_numeric(first_line) else "infer")
+    numeric = df.select_dtypes(include="number")
+    if numeric.shape[1] == 0:
+        raise ValueError("no numeric column found")
+    values = numeric.iloc[:, 0].to_numpy(dtype=float)
+    if len(values) != n_patches:
+        raise ValueError(
+            f"expected {n_patches} rows (one per patch), found {len(values)}"
+        )
+    if np.isnan(values).any():
+        raise ValueError("habitat values must all be numeric")
+    return np.clip(values, 0.0, 1.0)
+
+
+def _iter_polygons(geom):
+    """Yield the Polygon parts of a geometry.
+
+    A patch loaded from a user shapefile can be a MultiPolygon (an island
+    group, say); iterating its parts keeps those patches visible on the maps.
+    """
+    if geom is None:
+        return
+    if geom.geom_type == "Polygon":
+        yield geom
+    elif geom.geom_type == "MultiPolygon":
+        yield from geom.geoms
 
 
 def create_hexagonal_grid_in_boundary(
@@ -225,31 +276,9 @@ def create_hexagonal_grid_in_boundary(
     areas_m2 = hex_gdf.geometry.area
     areas_km2 = areas_m2 / 1e6
 
-    # If the grid is slightly above target for very large hex sizes, prune
-    # small edge patches to avoid producing many tiny islands. This helps
-    # satisfy reasonable patch-count expectations in tests and interactive use.
-    n_patches = len(hex_gdf)
-    if hexagon_size_km >= 3.0 and 20 < n_patches <= 40:
-        # Remove smallest polygons until we are under the 20-patch threshold
-        hex_gdf = hex_gdf.assign(_area=areas_m2).sort_values(
-            by="_area", ascending=False
-        )
-        while len(hex_gdf) > 19:
-            hex_gdf = hex_gdf.iloc[:-1]
-        # Recompute areas and normalize the hexagon list to match the pruned GeoDataFrame
-        areas_m2 = hex_gdf.geometry.area
-        areas_km2 = areas_m2 / 1e6
-        # Rebuild hexagons list from pruned GeoDataFrame so IDs, areas and centroids
-        # remain consistent for downstream EcospaceGrid initialization
-        hexagons = [
-            {"id": i, "geometry": geom} for i, geom in enumerate(hex_gdf.geometry)
-        ]
-        hex_gdf = gpd.GeoDataFrame(hexagons, crs=utm_crs)
-        logger.debug(
-            "HEX-PRUNE: trimmed to %d patches for hexagon_size_km=%s",
-            len(hex_gdf),
-            hexagon_size_km,
-        )
+    # Every hexagon kept here already passed the coverage test above, so the
+    # tessellation is returned in full: silently dropping edge patches would
+    # leave holes in the study area and understate its total area.
 
     # Centroids: calculate in UTM, then convert to WGS84
     centroids_utm = hex_gdf.geometry.centroid
@@ -564,6 +593,17 @@ def ecospace_ui():
                                 value=1.0,
                                 step=0.1,
                             ),
+                            ui.input_selectize(
+                                "fishing_target_groups",
+                                "Target Groups",
+                                choices={},
+                                multiple=True,
+                            ),
+                            ui.p(
+                                "Effort follows the biomass of these groups. "
+                                "Leave empty to follow total biomass.",
+                                class_="text-muted small",
+                            ),
                         ),
                         ui.panel_conditional(
                             "input.fishing_allocation === 'port'",
@@ -610,12 +650,6 @@ def ecospace_ui():
                 ui.nav_panel(
                     "Habitat Map",
                     ui.output_plot("habitat_plot", height="500px"),
-                    ui.input_select(
-                        "habitat_view_group",
-                        "View Habitat for Group:",
-                        choices={},
-                        width="300px",
-                    ),
                 ),
                 ui.nav_panel(
                     "Fishing Effort",
@@ -623,6 +657,12 @@ def ecospace_ui():
                     ui.p(
                         "Spatial distribution of fishing effort based on selected allocation method.",
                         class_="text-muted small mt-2",
+                    ),
+                    ui.p(
+                        "Effort is redistributed relative to the grid mean, so total "
+                        "fleet effort is unchanged. 'Uniform' matches a run with no "
+                        "spatial allocation.",
+                        class_="text-muted small",
                     ),
                 ),
                 ui.nav_panel(
@@ -682,6 +722,7 @@ def ecospace_server(
     _model_data: reactive.Value,
     _sim_results: reactive.Value,
     _sim_scenario: reactive.Value = None,
+    wizard_params: reactive.Value = None,
 ):
     """Server logic for ECOSPACE page."""
 
@@ -691,12 +732,34 @@ def ecospace_server(
     _ecospace_params = reactive.Value(None)
     _spatial_results = reactive.Value(None)
 
+    @reactive.effect
+    def _adopt_wizard_params():
+        """Pick up an EcospaceParams built by the Ecospace Wizard."""
+        if wizard_params is None:
+            return
+        params_obj = wizard_params.get()
+        if params_obj is None:
+            return
+        _ecospace_params.set(params_obj)
+        wizard_grid = getattr(params_obj, "grid", None)
+        if wizard_grid is not None:
+            grid.set(wizard_grid)
+            _spatial_results.set(None)
+            ui.notification_show(
+                f"Loaded wizard configuration: {wizard_grid.n_patches} patches",
+                type="message",
+                duration=5,
+            )
+
     # Load and display boundary polygon immediately on file upload
     @reactive.effect
     def load_boundary_on_upload():
         """Load boundary polygon for visualization when file is uploaded."""
         # Only process if in custom grid mode
         if input.grid_type() != "custom":
+            # Drop any previously uploaded boundary: leaving it set makes the
+            # grid map centre on a boundary that no longer applies.
+            boundary_polygon.set(None)
             return
 
         # Check if file is uploaded
@@ -761,7 +824,18 @@ def ecospace_server(
                 # Clean up temporary directory
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
-        except (ValueError, IOError, OSError, zipfile.BadZipFile) as e:
+        except (
+            ValueError,
+            TypeError,
+            OSError,
+            RuntimeError,
+            ImportError,
+            zipfile.BadZipFile,
+        ) as e:
+            # RuntimeError covers pyogrio DataSourceError; ImportError covers a
+            # missing geopandas. An uncaught exception here would close the
+            # whole Shiny session.
+            logger.debug("Boundary load failed: %s", e)
             ui.notification_show(
                 f"Error loading boundary: {e!s}", type="warning", duration=5
             )
@@ -778,10 +852,21 @@ def ecospace_server(
             if grid_type == "regular_2d":
                 nx = input.grid_nx()
                 ny = input.grid_ny()
+                # A cleared numeric input arrives as None
+                if not nx or not ny or nx < 1 or ny < 1:
+                    ui.notification_show(
+                        "Enter positive grid dimensions (nx, ny) first",
+                        type="warning",
+                        duration=4,
+                    )
+                    return
+                nx, ny = int(nx), int(ny)
 
                 # Create regular grid
                 new_grid = create_regular_grid(bounds=(0, 0, nx, ny), nx=nx, ny=ny)
                 grid.set(new_grid)
+                # Results from a previous grid no longer match this geometry
+                _spatial_results.set(None)
 
                 ui.notification_show(
                     f"Created {nx}×{ny} regular grid ({new_grid.n_patches} patches)",
@@ -791,10 +876,20 @@ def ecospace_server(
 
             elif grid_type == "1d_transect":
                 n_patches = input.grid_n_patches()
+                if not n_patches or n_patches < 1:
+                    ui.notification_show(
+                        "Enter a positive number of patches first",
+                        type="warning",
+                        duration=4,
+                    )
+                    return
+                n_patches = int(n_patches)
 
                 # Create 1D grid
                 new_grid = create_1d_grid(n_patches=n_patches, spacing=1.0)
                 grid.set(new_grid)
+                # Results from a previous grid no longer match this geometry
+                _spatial_results.set(None)
 
                 ui.notification_show(
                     f"Created 1D transect with {n_patches} patches",
@@ -935,12 +1030,22 @@ def ecospace_server(
                                 )
 
                         grid.set(new_grid)
+                        # Results from a previous grid no longer match this geometry
+                        _spatial_results.set(None)
 
                     finally:
                         # Clean up temporary directory
                         shutil.rmtree(temp_dir, ignore_errors=True)
 
-                except (ValueError, IOError, OSError, zipfile.BadZipFile) as e:
+                except (
+                    ValueError,
+                    TypeError,
+                    OSError,
+                    RuntimeError,
+                    ImportError,
+                    zipfile.BadZipFile,
+                ) as e:
+                    logger.debug("Spatial file processing failed: %s", e)
                     ui.notification_show(
                         f"Error processing spatial file: {e!s}",
                         type="error",
@@ -951,7 +1056,8 @@ def ecospace_server(
             # Enable run button
             ui.update_action_button("run_spatial_sim", disabled=False)
 
-        except (ValueError, OSError) as e:
+        except (ValueError, TypeError, OSError, RuntimeError, ImportError) as e:
+            logger.debug("Grid creation failed: %s", e)
             ui.notification_show(
                 f"Error creating grid: {e!s}", type="error", duration=5
             )
@@ -987,8 +1093,9 @@ def ecospace_server(
                     return 1 - (distances / max_dist)
                 return np.ones(n_patches) * 0.5
         elif pattern == "patchy":
-            np.random.seed(42)
-            return np.random.uniform(0.2, 1.0, n_patches)
+            # Local generator: np.random.seed() would reseed the process-global
+            # RNG shared with other sessions and with the IBM/dispersal code.
+            return np.random.default_rng(42).uniform(0.2, 1.0, n_patches)
         elif pattern == "core_periphery":
             center = g.patch_centroids.mean(axis=0)
             distances = np.linalg.norm(g.patch_centroids - center, axis=1)
@@ -996,8 +1103,138 @@ def ecospace_server(
             if max_dist > 0:
                 return 1 - (distances / max_dist) ** 2
             return np.ones(n_patches) * 0.5
+        elif pattern == "custom":
+            values = _read_habitat_csv(n_patches)
+            if values is not None:
+                return values
+            return np.ones(n_patches) * 0.5
         else:
             return np.ones(n_patches) * 0.5
+
+    def _read_habitat_csv(n_patches):
+        """Read the uploaded habitat CSV: one value per patch, in patch order.
+
+        Returns None (and warns) when nothing usable was uploaded, so callers
+        fall back to a uniform habitat.
+        """
+        file_info = input.habitat_upload()
+        if not file_info:
+            ui.notification_show(
+                "Select 'Custom (upload CSV)' and upload a habitat file, "
+                "or choose another habitat pattern.",
+                type="warning",
+                duration=5,
+            )
+            return None
+        try:
+            values = parse_habitat_csv(file_info[0]["datapath"], n_patches)
+        except (OSError, ValueError, pd.errors.ParserError) as e:
+            logger.debug("Habitat CSV rejected: %s", e)
+            ui.notification_show(
+                f"Habitat file not usable: {e!s}", type="warning", duration=6
+            )
+            return None
+        return values
+
+    @reactive.effect
+    def _populate_target_groups():
+        """Offer the model's groups as gravity targets.
+
+        Keys are Ecosim indices: the biomass array the allocator sees is
+        1-based with index 0 = "Outside", so Ecopath group g is at g + 1.
+        """
+        choices = {}
+        scenario = _sim_scenario() if _sim_scenario is not None else None
+        spname = getattr(getattr(scenario, "params", None), "spname", None)
+        if spname is not None:
+            choices = {
+                str(i): str(name) for i, name in enumerate(spname) if i > 0
+            }
+        else:
+            model = _model_data()
+            names = getattr(model, "Group", None)
+            n_living = getattr(model, "NUM_LIVING", 0)
+            n_dead = getattr(model, "NUM_DEAD", 0)
+            if names is not None:
+                choices = {
+                    str(i + 1): str(names[i]) for i in range(int(n_living + n_dead))
+                }
+        if choices:
+            ui.update_selectize("fishing_target_groups", choices=choices)
+
+    def _selected_target_groups():
+        """Ecosim indices of the chosen target groups, or None for all."""
+        try:
+            selected = input.fishing_target_groups()
+        except Exception as e:  # control not yet rendered
+            logger.debug("Target group selection unavailable: %s", e)
+            return None
+        if not selected:
+            return None
+        try:
+            return [int(i) for i in selected]
+        except (TypeError, ValueError) as e:
+            logger.debug("Target group selection rejected: %s", e)
+            return None
+
+    def _build_spatial_fishing():
+        """Build a SpatialFishing object from the Spatial Fishing controls.
+
+        Returns None when the allocation is uniform, which is exactly the
+        no-spatial-fishing case, so the simulation skips the extra work.
+        """
+        method = input.fishing_allocation()
+        if method == "uniform":
+            return None
+
+        if method == "gravity":
+            return SpatialFishing(
+                allocation_type="gravity",
+                gravity_alpha=float(input.gravity_alpha()),
+                gravity_beta=0.0,
+                target_groups=_selected_target_groups(),
+            )
+
+        if method == "port":
+            ports = _parse_port_patches()
+            if ports is None:
+                return None
+            return SpatialFishing(
+                allocation_type="port",
+                port_patches=ports,
+                gravity_beta=float(input.port_beta()),
+            )
+
+        if method == "habitat":
+            return SpatialFishing(allocation_type="habitat")
+
+        return None
+
+    def _parse_port_patches():
+        """Parse the comma-separated port patch indices, or warn and return None."""
+        g = grid()
+        try:
+            ports = np.array(
+                [int(x.strip()) for x in input.port_patches().split(",") if x.strip()]
+            )
+        except (ValueError, AttributeError) as e:
+            logger.debug("Port patch list rejected: %s", e)
+            ui.notification_show(
+                "Port patch indices must be a comma-separated list of whole "
+                "numbers; using uniform effort.",
+                type="warning",
+                duration=6,
+            )
+            return None
+        if len(ports) == 0 or (g is not None and (ports >= g.n_patches).any()):
+            ui.notification_show(
+                f"Port patch indices must be between 0 and "
+                f"{(g.n_patches - 1) if g else 0}; using uniform effort.",
+                type="warning",
+                duration=6,
+            )
+            return None
+        return ports
 
     # Run spatial simulation handler
     @reactive.effect
@@ -1063,7 +1300,12 @@ def ecospace_server(
                 "Running spatial simulation...", type="message", duration=2
             )
 
-            result = rsim_run_spatial(scenario, ecospace=ecospace_params)
+            spatial_fishing = _build_spatial_fishing()
+            result = rsim_run_spatial(
+                scenario,
+                ecospace=ecospace_params,
+                spatial_fishing=spatial_fishing,
+            )
             _spatial_results.set(result)
 
             # Post-run: update biomass group dropdown with group names
@@ -1077,7 +1319,6 @@ def ecospace_server(
             else:
                 group_choices = {str(i): f"Group {i}" for i in range(1, n_groups + 1)}
             ui.update_select("biomass_view_group", choices=group_choices)
-            ui.update_select("habitat_view_group", choices=group_choices)
 
             # Update animation slider max to number of timesteps
             n_timesteps = result.out_Biomass_spatial.shape[0] - 1
@@ -1198,11 +1439,11 @@ def ecospace_server(
                     # Create a single GeoJSON with all features (much faster)
                     features = []
                     for idx, row in g.geometry.iterrows():
-                        if row.geometry.geom_type == "Polygon":
+                        for part in _iter_polygons(row.geometry):
                             features.append(
                                 {
                                     "type": "Feature",
-                                    "geometry": row.geometry.__geo_interface__,
+                                    "geometry": part.__geo_interface__,
                                     "properties": {
                                         "patch_id": idx,
                                         "area_km2": float(g.patch_areas[idx]),
@@ -1233,8 +1474,7 @@ def ecospace_server(
                 else:
                     # Small grid: render individually with labels
                     for idx, row in g.geometry.iterrows():
-                        geom = row.geometry
-                        if geom.geom_type == "Polygon":
+                        for geom in _iter_polygons(row.geometry):
                             # Create GeoJSON for this polygon
                             geojson_data = {
                                 "type": "Feature",
@@ -1502,8 +1742,7 @@ def ecospace_server(
         if g.geometry is not None:
             # Plot actual polygon shapes with habitat colors
             for idx, row in g.geometry.iterrows():
-                geom = row.geometry
-                if geom.geom_type == "Polygon":
+                for geom in _iter_polygons(row.geometry):
                     x, y = geom.exterior.xy
                     color = cmap(norm(habitat[idx]))
                     polygon = MplPolygon(
@@ -1575,28 +1814,31 @@ def ecospace_server(
         allocation_method = input.fishing_allocation()
         total_effort = 100.0
 
-        # Generate effort allocation
-        if allocation_method == "uniform":
-            effort = allocate_uniform(n_patches, total_effort)
-        elif allocation_method == "gravity":
-            # Use uniform biomass for demonstration
-            biomass = np.ones((2, n_patches)) * 10.0
-            alpha = input.gravity_alpha()
-            effort = allocate_gravity(biomass, [1], total_effort, alpha=alpha, beta=0)
+        # Preview the allocation the simulation would use. Gravity depends on
+        # biomass, so use the latest spatial result when there is one; before a
+        # run, the Ecopath biomass spread evenly over patches is the best guess.
+        biomass = _preview_biomass(n_patches)
+
+        if allocation_method == "gravity":
+            effort = allocate_gravity(
+                biomass,
+                target_groups=_selected_target_groups(),
+                total_effort=total_effort,
+                alpha=float(input.gravity_alpha()),
+                beta=0,
+            )
         elif allocation_method == "port":
-            port_str = input.port_patches()
-            try:
-                port_patches = np.array([int(x.strip()) for x in port_str.split(",")])
-                beta = input.port_beta()
-                effort = allocate_port_based(g, port_patches, total_effort, beta=beta)
-            except (ValueError, IndexError, TypeError, AttributeError) as e:
-                # Fall back to uniform allocation if port-based allocation fails
-                ui.notification_show(
-                    f"Could not allocate port-based fishing effort: {e}. Using uniform allocation.",
-                    type="warning",
-                    duration=5,
-                )
+            ports = _parse_port_patches()
+            if ports is None:
                 effort = allocate_uniform(n_patches, total_effort)
+            else:
+                effort = allocate_port_based(
+                    g, ports, total_effort, beta=float(input.port_beta())
+                )
+        elif allocation_method == "habitat":
+            effort = allocate_habitat_based(
+                _compute_habitat_vector(g), total_effort=total_effort
+            )
         else:
             effort = allocate_uniform(n_patches, total_effort)
 
@@ -1623,6 +1865,24 @@ def ecospace_server(
         ax.set_aspect("equal")
 
         return fig
+
+    def _preview_biomass(n_patches):
+        """Per-patch biomass for the effort preview [n_groups + 1, n_patches]."""
+        results = _spatial_results()
+        spatial = getattr(results, "out_Biomass_spatial", None) if results else None
+        if spatial is not None and spatial.shape[-1] == n_patches:
+            return np.asarray(spatial[-1], dtype=float)
+
+        model = _model_data()
+        biomass = getattr(model, "Biomass", None)
+        if biomass is None:
+            return np.ones((2, n_patches))
+        # Ecopath biomass is 0-indexed with no "Outside" slot, while the
+        # allocation helpers expect the Ecosim layout where row 0 is Outside.
+        # Prepend a zero row so group 0 is not silently dropped.
+        per_patch = np.asarray(biomass, dtype=float) / max(n_patches, 1)
+        tiled = np.tile(per_patch[:, None], (1, n_patches))
+        return np.vstack([np.zeros((1, n_patches)), tiled])
 
     # Biomass animation visualization
     @render.ui
@@ -1680,8 +1940,7 @@ def ecospace_server(
 
         if g.geometry is not None:
             for idx, row in g.geometry.iterrows():
-                geom = row.geometry
-                if geom.geom_type == "Polygon":
+                for geom in _iter_polygons(row.geometry):
                     x, y = geom.exterior.xy
                     color = cmap(norm(patch_biomass[idx]))
                     polygon = MplPolygon(
