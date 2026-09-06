@@ -130,7 +130,7 @@ jobs:
             for f in dist-conda/noarch/${pkg}-*.conda; do
               [ -e "$f" ] || continue
               echo "uploading $f"
-              "$CONDA/bin/anaconda" --token "$ANACONDA_TOKEN" \n                upload --user razinka "$f"
+              "$CONDA/bin/anaconda" --token "$ANACONDA_TOKEN" upload --user razinka "$f"
             done
           done
 
