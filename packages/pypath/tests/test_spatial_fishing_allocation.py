@@ -219,7 +219,9 @@ class TestSpatialFishingInSimulation:
         mpa = MPAConfig(zones=[MPAZone(mpa_id=1, name="Reserve", patches=[closed])])
 
         fishing = SpatialFishing("habitat")
-        without = rsim_run_spatial(fished_scenario, ecospace=eco, spatial_fishing=fishing)
+        without = rsim_run_spatial(
+            fished_scenario, ecospace=eco, spatial_fishing=fishing
+        )
         with_mpa = rsim_run_spatial(
             fished_scenario, ecospace=eco, spatial_fishing=fishing, mpa=mpa
         )

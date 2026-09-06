@@ -1147,9 +1147,7 @@ def ecospace_server(
         scenario = _sim_scenario() if _sim_scenario is not None else None
         spname = getattr(getattr(scenario, "params", None), "spname", None)
         if spname is not None:
-            choices = {
-                str(i): str(name) for i, name in enumerate(spname) if i > 0
-            }
+            choices = {str(i): str(name) for i, name in enumerate(spname) if i > 0}
         else:
             model = _model_data()
             names = getattr(model, "Group", None)

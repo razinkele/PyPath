@@ -1,9 +1,9 @@
 """Integration test: LT2022 model with scenario 16 should not crash Zooplankton."""
 
-import warnings
+from pathlib import Path
+
 import numpy as np
 import pytest
-from pathlib import Path
 
 DATA_DIR = Path(__file__).parents[3] / "Data"
 DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
@@ -45,9 +45,9 @@ class TestLT2022Parity:
 
     def test_ss_improves_over_baseline(self, lt2022_scenario):
         """Sum of squares should be lower than 725 (the old broken baseline)."""
+        from pypath.core.ecopath import rpath
         from pypath.core.ecosim import rsim_run
         from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
-        from pypath.core.ecopath import rpath
 
         out = rsim_run(lt2022_scenario, method="AB")
 

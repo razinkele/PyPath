@@ -1,8 +1,9 @@
 """Tests for AB2 integrator matching Rpath."""
 
-import numpy as np
-import pytest
 from unittest.mock import patch
+
+import numpy as np
+
 from pypath.core.ecosim_deriv import integrate_ab
 
 

@@ -146,8 +146,9 @@ class TestNewFeature:
         """Test that feature exists."""
         try:
             from pages import new_feature
-            assert hasattr(new_feature, 'feature_ui')
-            assert hasattr(new_feature, 'feature_server')
+
+            assert hasattr(new_feature, "feature_ui")
+            assert hasattr(new_feature, "feature_server")
         except ImportError:
             pytest.skip("Module not available")
 

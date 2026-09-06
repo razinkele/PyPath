@@ -77,7 +77,7 @@ In `SmeltIBM.compute_step()`, each super-individual's timestep proceeds as:
 
 ```python
 # 1. Maximum consumption (allometric scaling)
-max_consumption = 0.1 * (weight ** 0.7) * dt * 365.0
+max_consumption = 0.1 * (weight**0.7) * dt * 365.0
 
 # 2. Adaptive foraging allocates max_consumption across prey
 allocation = adaptive_forage(prey_dict, max_consumption, length, foraging_params)
@@ -125,16 +125,16 @@ To parameterize for, say, **pike-perch (Sander lucioperca)**:
 from pypath.ibm.bioenergetics import BioenergParams
 
 pikeperch_bioenerg = BioenergParams(
-    ra=0.0028,                    # Lower basal metabolism than smelt
-    rb=-0.20,                     # Similar weight scaling
-    q10=2.3,                      # Slightly higher temperature sensitivity
-    t_ref=15.0,                   # Warmer preference species
-    sda_fraction=0.15,            # Lower SDA (piscivore, efficient digestion)
+    ra=0.0028,  # Lower basal metabolism than smelt
+    rb=-0.20,  # Similar weight scaling
+    q10=2.3,  # Slightly higher temperature sensitivity
+    t_ref=15.0,  # Warmer preference species
+    sda_fraction=0.15,  # Lower SDA (piscivore, efficient digestion)
     unassimilated_fraction=0.20,  # Fish prey = high assimilation
-    a_length=0.50,                # From FishBase L-W for pike-perch
-    b_length=0.333,               # Isometric
-    energy_density=5.5,           # Slightly higher than smelt
-    reproduction_fraction=0.25,   # Moderate spawner
+    a_length=0.50,  # From FishBase L-W for pike-perch
+    b_length=0.333,  # Isometric
+    energy_density=5.5,  # Slightly higher than smelt
+    reproduction_fraction=0.25,  # Moderate spawner
 )
 ```
 
@@ -215,12 +215,14 @@ patches are directly reachable:
 import scipy.sparse as sp
 
 # Example: 4-patch linear arrangement (0-1-2-3)
-adjacency = sp.csr_matrix([
-    [0, 1, 0, 0],   # patch 0 connects to 1
-    [1, 0, 1, 0],   # patch 1 connects to 0, 2
-    [0, 1, 0, 1],   # patch 2 connects to 1, 3
-    [0, 0, 1, 0],   # patch 3 connects to 2
-])
+adjacency = sp.csr_matrix(
+    [
+        [0, 1, 0, 0],  # patch 0 connects to 1
+        [1, 0, 1, 0],  # patch 1 connects to 0, 2
+        [0, 1, 0, 1],  # patch 2 connects to 1, 3
+        [0, 0, 1, 0],  # patch 3 connects to 2
+    ]
+)
 ```
 
 Ecospace builds this automatically from grid cell adjacency. For custom
@@ -232,8 +234,10 @@ Seasonal migration is controlled by `should_migrate()`:
 
 ```python
 def should_migrate(temperature, month, params):
-    return (temperature > params.migration_temp_threshold
-            and month in params.migration_months)
+    return (
+        temperature > params.migration_temp_threshold
+        and month in params.migration_months
+    )
 ```
 
 This is a simple gate -- when true, the standard movement algorithm is
@@ -261,7 +265,7 @@ from pypath.ibm.behavior import ForagingParams
 foraging_params = ForagingParams(
     energy_content=np.array([0, 0, 0, 3.5, 4.0, 0, 6.0, ...]),  # kJ/g by group
     #                                  ^gr3  ^gr4       ^gr6
-    handling_time=np.array([0, 0, 0, 1.0, 1.2, 0, 2.0, ...]),    # time/g
+    handling_time=np.array([0, 0, 0, 1.0, 1.2, 0, 2.0, ...]),  # time/g
     #                                ^gr3  ^gr4       ^gr6
 )
 # Profitability: gr3=3.5, gr4=3.33, gr6=3.0
@@ -276,10 +280,10 @@ foraging_params = ForagingParams(
 from pypath.ibm.behavior import MovementParams
 
 MovementParams(
-    base_speed=0.6,          # Highly mobile
-    habitat_weight=0.2,      # Less tied to bottom habitat
-    food_weight=0.6,         # Strongly follows plankton patches
-    predator_weight=0.2,     # School provides some protection
+    base_speed=0.6,  # Highly mobile
+    habitat_weight=0.2,  # Less tied to bottom habitat
+    food_weight=0.6,  # Strongly follows plankton patches
+    predator_weight=0.2,  # School provides some protection
     migration_temp_threshold=6.0,
     migration_months=(4, 5, 6, 9, 10),  # Spring + autumn migrations
 )
@@ -289,9 +293,9 @@ MovementParams(
 
 ```python
 MovementParams(
-    base_speed=0.15,         # Sedentary
-    habitat_weight=0.6,      # Strong bottom-type preference
-    food_weight=0.2,         # Feeds locally
+    base_speed=0.15,  # Sedentary
+    habitat_weight=0.6,  # Strong bottom-type preference
+    food_weight=0.2,  # Feeds locally
     predator_weight=0.2,
     migration_temp_threshold=8.0,
     migration_months=(3, 4),  # Short spawning migration
@@ -302,10 +306,10 @@ MovementParams(
 
 ```python
 MovementParams(
-    base_speed=0.25,         # Moderate movement
-    habitat_weight=0.5,      # Territory/structure dependent
-    food_weight=0.4,         # Follows prey concentrations
-    predator_weight=0.1,     # Low predation risk
+    base_speed=0.25,  # Moderate movement
+    habitat_weight=0.5,  # Territory/structure dependent
+    food_weight=0.4,  # Follows prey concentrations
+    predator_weight=0.1,  # Low predation risk
     migration_temp_threshold=12.0,
     migration_months=(4, 5),
 )
@@ -343,7 +347,7 @@ from pypath.ibm.predation import PredationParams
 
 PredationParams(
     optimal_prey_length=10.0,  # cm -- peak vulnerability length
-    selectivity_sd=0.5,        # log-normal width
+    selectivity_sd=0.5,  # log-normal width
 )
 ```
 

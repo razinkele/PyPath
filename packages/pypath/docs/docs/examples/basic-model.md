@@ -31,19 +31,19 @@ in `groups` above.
 
 ```python
 # Biomass (t/km2)
-params.model.loc[0, "Biomass"] = 10.0   # Phytoplankton
-params.model.loc[1, "Biomass"] = 5.0    # Zooplankton
-params.model.loc[2, "Biomass"] = 2.0    # Small Fish
+params.model.loc[0, "Biomass"] = 10.0  # Phytoplankton
+params.model.loc[1, "Biomass"] = 5.0  # Zooplankton
+params.model.loc[2, "Biomass"] = 2.0  # Small Fish
 params.model.loc[3, "Biomass"] = 100.0  # Detritus
 
 # Production/Biomass ratios (yr-1)
 params.model.loc[0, "PB"] = 200.0  # Phytoplankton: high turnover
-params.model.loc[1, "PB"] = 50.0   # Zooplankton
-params.model.loc[2, "PB"] = 1.0    # Small Fish: low turnover
+params.model.loc[1, "PB"] = 50.0  # Zooplankton
+params.model.loc[2, "PB"] = 1.0  # Small Fish: low turnover
 
 # Consumption/Biomass ratios (yr-1, consumers only)
 params.model.loc[1, "QB"] = 150.0  # Zooplankton
-params.model.loc[2, "QB"] = 5.0    # Small Fish
+params.model.loc[2, "QB"] = 5.0  # Small Fish
 
 # Ecotrophic Efficiency (fraction of production consumed in the system)
 params.model.loc[0, "EE"] = 0.8
@@ -192,8 +192,8 @@ data_dir = Path("path/to/csv/files")
 params = read_rpath_params(
     model_file=data_dir / "model.csv",
     diet_file=data_dir / "diet.csv",
-    stanza_file=data_dir / "stanzas.csv",       # optional
-    stanza_group_file=data_dir / "stgroups.csv", # optional
+    stanza_file=data_dir / "stanzas.csv",  # optional
+    stanza_group_file=data_dir / "stgroups.csv",  # optional
 )
 ```
 

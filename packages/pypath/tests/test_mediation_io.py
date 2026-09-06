@@ -1,15 +1,9 @@
 """I/O tests for mediation functions."""
 
-import numpy as np
-import pytest
-from unittest.mock import patch, MagicMock
-import pandas as pd
+from unittest.mock import patch
 
-from pypath.core.mediation import (
-    MediationCollection,
-    MediationLink,
-    MediationShape,
-)
+import pandas as pd
+import pytest
 
 
 class TestReadMediation:

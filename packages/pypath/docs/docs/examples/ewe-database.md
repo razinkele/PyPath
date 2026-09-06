@@ -122,6 +122,7 @@ out16 = rsim_run(scen16, method="AB")
 
 # Compare results
 import numpy as np
+
 print(f"Scenario 1  crashed groups: {out1.crashed_groups}")
 print(f"Scenario 16 crashed groups: {out16.crashed_groups}")
 ```
@@ -140,6 +141,7 @@ model = rpath(params)
 
 # Build an Ecosim scenario
 from pypath import rsim_scenario
+
 scenario = rsim_scenario(model, params, years=range(1, 51))
 
 # Diagnose potential issues

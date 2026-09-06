@@ -72,6 +72,7 @@ write_ewemdb(params, "my_model.ewecsv.zip", backend="csv")
 
 # Round-trip: read -> modify -> write back
 from pypath.io.ewemdb import read_ewemdb
+
 params = read_ewemdb("original.eweaccdb")
 # ... modify params ...
 write_ewemdb(params, "modified.eweaccdb")

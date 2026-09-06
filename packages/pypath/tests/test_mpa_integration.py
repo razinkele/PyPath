@@ -1,18 +1,19 @@
 """Integration tests for MPA with spatial Ecosim."""
 
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_scenario
+from pypath.core.params import create_rpath_params
 from pypath.spatial import (
     EcospaceParams,
     create_1d_grid,
     rsim_run_spatial,
 )
-from pypath.spatial.mpa import MPAZone, MPAConfig
-from pypath.core.params import create_rpath_params
+from pypath.spatial.mpa import MPAConfig, MPAZone
 
 
 def _make_spatial_model():

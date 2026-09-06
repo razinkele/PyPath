@@ -11,8 +11,8 @@ from pypath.core.timeseries import (
     DATTYPE_FORCED_BIOMASS,
     DATTYPE_REL_BIOMASS,
     EweTimeSeries,
+    EweTimeSeriesCollection,
 )
-from pypath.core.timeseries import EweTimeSeriesCollection
 
 
 class TestDatTypeConstants:

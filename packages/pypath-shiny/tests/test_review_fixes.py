@@ -494,7 +494,9 @@ class TestReactiveDecoratorsBindTheRightFunction:
                     for n in ast.walk(node)
                     if not isinstance(n, (ast.FunctionDef, ast.Lambda))
                 )
-                if returns_value and node.name.startswith(("_build", "_parse", "_make")):
+                if returns_value and node.name.startswith(
+                    ("_build", "_parse", "_make")
+                ):
                     offenders.append(f"{path.name}:{node.name}")
         assert offenders == []
 
@@ -508,17 +510,15 @@ class TestReactiveDecoratorsBindTheRightFunction:
             node.name
             for node in ast.walk(tree)
             if isinstance(node, ast.FunctionDef)
-            and any(
-                "run_spatial_sim" in ast.unparse(d) for d in node.decorator_list
-            )
+            and any("run_spatial_sim" in ast.unparse(d) for d in node.decorator_list)
         }
         assert bound == {"_run_spatial_simulation"}, bound
 
     def test_spatial_fishing_helpers_are_called_by_the_handler(self):
         """_build_spatial_fishing must actually be invoked, not just defined."""
-        src = next(
-            p for p in self._page_files() if p.name == "ecospace.py"
-        ).read_text(encoding="utf-8")
+        src = next(p for p in self._page_files() if p.name == "ecospace.py").read_text(
+            encoding="utf-8"
+        )
         assert "spatial_fishing = _build_spatial_fishing()" in src
         assert "spatial_fishing=spatial_fishing" in src
 

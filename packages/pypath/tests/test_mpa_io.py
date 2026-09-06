@@ -1,9 +1,8 @@
 """I/O tests for MPA support."""
 
-import numpy as np
-import pandas as pd
-import pytest
 from unittest.mock import patch
+
+import pandas as pd
 
 
 class TestMPASchema:

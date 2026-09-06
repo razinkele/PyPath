@@ -1,9 +1,9 @@
 """I/O tests for Fleet Dynamics."""
 
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
-import pytest
-from unittest.mock import patch
 
 
 class TestFleetDynamicsSchema:

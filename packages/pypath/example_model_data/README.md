@@ -110,7 +110,7 @@ from pypath.io.rpath_io import read_rpath_params
 from pypath.core.ecopath import rpath
 
 # Load parameters
-params = read_rpath_params('example_model_data/model.csv')
+params = read_rpath_params("example_model_data/model.csv")
 
 # Balance the model
 model = rpath(params)
@@ -128,14 +128,15 @@ from pypath.core.ecosim import rsim_scenario, rsim_run
 scenario = rsim_scenario(model, params, years=range(1, 51))
 
 # Run simulation
-result = rsim_run(scenario, method='RK4')
+result = rsim_run(scenario, method="RK4")
 
 # Plot results
 import matplotlib.pyplot as plt
+
 plt.plot(result.annual_Biomass)
-plt.xlabel('Year')
-plt.ylabel('Biomass (t/km²)')
-plt.legend(model.Group[:model.NUM_LIVING])
+plt.xlabel("Year")
+plt.ylabel("Biomass (t/km²)")
+plt.legend(model.Group[: model.NUM_LIVING])
 plt.show()
 ```
 
@@ -156,13 +157,10 @@ optimizer = EcosimOptimizer(
     params=params,
     observed_data=observed_data,
     years=range(1, 51),
-    objective='mse'
+    objective="mse",
 )
 
-result = optimizer.optimize(
-    param_bounds={'vulnerability': (1.0, 5.0)},
-    n_calls=50
-)
+result = optimizer.optimize(param_bounds={"vulnerability": (1.0, 5.0)}, n_calls=50)
 
 print(f"Best vulnerability: {result.best_params['vulnerability']:.3f}")
 ```
@@ -174,16 +172,16 @@ print(f"Best vulnerability: {result.best_params['vulnerability']:.3f}")
 scenario.EFFORT[0, :] = 1.5  # Fleet 0 = Trawl
 
 # Run with increased effort
-result_fishing = rsim_run(scenario, method='RK4')
+result_fishing = rsim_run(scenario, method="RK4")
 
 # Compare biomass
 plt.figure(figsize=(10, 6))
-plt.plot(result.annual_Biomass[:, 8], label='Baseline')
-plt.plot(result_fishing.annual_Biomass[:, 8], label='Increased trawling')
-plt.xlabel('Year')
-plt.ylabel('Demersal fish biomass (t/km²)')
+plt.plot(result.annual_Biomass[:, 8], label="Baseline")
+plt.plot(result_fishing.annual_Biomass[:, 8], label="Increased trawling")
+plt.xlabel("Year")
+plt.ylabel("Demersal fish biomass (t/km²)")
 plt.legend()
-plt.title('Impact of Increased Trawling Effort')
+plt.title("Impact of Increased Trawling Effort")
 plt.show()
 ```
 

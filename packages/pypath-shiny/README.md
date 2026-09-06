@@ -29,6 +29,7 @@ Or from Python:
 
 ```python
 from pypath_shiny.app import app
+
 app.run()
 ```
 
