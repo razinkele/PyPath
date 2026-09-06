@@ -370,8 +370,74 @@ def optimization_demo_ui():
     )
 
 
+def build_optimization_code(param_type, objective, n_iterations, acquisition):
+    """Build the example script shown on the optimization demo page.
+
+    A plain function (no reactive reads) so the code renderer and the
+    download handler can share it.
+    """
+    return f"""# Bayesian Optimization Example
+# Generated from PyPath Demo
+
+from pypath.core.optimization import bayesian_optimize_ecosim
+
+# Set up optimization
+result = bayesian_optimize_ecosim(
+    model=model,
+    params=params,
+    observed_data=observed_biomass,
+    param_config=[
+        {{
+            'param': '{param_type}',
+            'bounds': (1.0, 3.0),
+            'groups': [0, 1, 2, 3]
+        }}
+    ],
+    n_iterations={n_iterations},
+    n_initial=10,
+    objective='{objective}',
+    acquisition='{acquisition}',
+    verbose=True
+)
+
+# Get best parameters
+best_params = result['best_params']
+best_score = result['best_score']
+
+print(f"Best parameters: {{best_params}}")
+print(f"Best score: {{best_score:.4f}}")
+
+# Apply optimized parameters to model
+for group_idx, value in best_params.items():
+    params.{param_type}[group_idx] = value
+
+# Run simulation with optimized parameters
+optimized_scenario = rsim_scenario(model, params)
+optimized_result = rsim_run(optimized_scenario)
+
+# Plot convergence
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 5))
+plt.plot(result['convergence'])
+plt.xlabel('Iteration')
+plt.ylabel('Best Objective Value')
+plt.title('Optimization Convergence')
+plt.grid(True)
+plt.show()
+"""
+
+
 def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
     """Server logic for optimization demonstration."""
+
+    def _rng():
+        """Seeded generator local to this demo.
+
+        np.random.seed() would reseed the process-global RNG, which is shared
+        with every other session and with the IBM/dispersal code.
+        """
+        return np.random.default_rng(42)
 
     # Reactive values
     optimization_results = reactive.Value(None)
@@ -394,12 +460,14 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         biomass = baseline * np.exp(-true_param * 0.05 * np.arange(n_years))
 
         # Add noise
-        noise = np.random.normal(0, 0.5, n_years)
+        noise = _rng().normal(0, 0.5, n_years)
         biomass = biomass + noise
 
         df = pd.DataFrame({"Year": years, "Observed_Biomass": biomass})
 
         synthetic_data.set(df)
+        # New observations invalidate any previous optimization run
+        optimization_results.set(None)
 
     @reactive.effect
     @reactive.event(input.opt_run_demo)
@@ -413,7 +481,7 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
             true_param = 2.2
             baseline = 20.0
             biomass = baseline * np.exp(-true_param * 0.05 * np.arange(n_years))
-            noise = np.random.normal(0, 0.5, n_years)
+            noise = _rng().normal(0, 0.5, n_years)
             biomass = biomass + noise
             df = pd.DataFrame({"Year": years, "Observed_Biomass": biomass})
             synthetic_data.set(df)
@@ -421,10 +489,19 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         n_iterations = input.n_iterations()
         n_initial = input.n_initial()
 
+        if n_initial >= n_iterations:
+            ui.notification_show(
+                f"Initial points ({n_initial}) must be fewer than total "
+                f"evaluations ({n_iterations}); no optimization steps would run.",
+                type="warning",
+                duration=6,
+            )
+            return
+
         # Simulate Bayesian optimization process
         # (This is a simplified demo - real implementation uses actual Ecosim)
 
-        np.random.seed(42)
+        rng = _rng()
 
         # True optimum (unknown to optimizer)
         true_optimum = 2.2
@@ -433,7 +510,7 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         param_min, param_max = 1.0, 3.0
 
         # Initial random points
-        X = np.random.uniform(param_min, param_max, n_initial)
+        X = rng.uniform(param_min, param_max, n_initial)
 
         # Objective function (simplified)
         def objective(param):
@@ -480,7 +557,7 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
             # Propose new point (simplified - real uses GP + acquisition)
             # Gradually focus near best point
             exploration = max(0.5 - i / n_iterations, 0.1)
-            new_x = X[best_idx] + np.random.normal(0, exploration)
+            new_x = X[best_idx] + rng.normal(0, exploration)
             new_x = np.clip(new_x, param_min, param_max)
 
             X = np.append(X, new_x)
@@ -495,6 +572,14 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
             "best_y": np.min(y),
             "true_optimum": true_optimum,
             "convergence": [np.min(y[: i + 1]) for i in range(len(y))],
+            # Settings this run actually used, so the summary does not report
+            # slider values the user changed afterwards.
+            "config": {
+                "n_initial": n_initial,
+                "n_iterations": n_iterations,
+                "acquisition": input.acquisition(),
+                "objective": input.objective(),
+            },
         }
 
         optimization_results.set(results)
@@ -547,6 +632,16 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         if results is None:
             return ""
 
+        cfg = results.get(
+            "config",
+            {
+                "n_initial": input.n_initial(),
+                "n_iterations": input.n_iterations(),
+                "acquisition": input.acquisition(),
+                "objective": input.objective(),
+            },
+        )
+
         summary = f"""
 Optimization Results:
 --------------------
@@ -556,11 +651,11 @@ True Optimum: {results["true_optimum"]:.4f}
 Error: {abs(results["best_x"] - results["true_optimum"]):.4f}
 
 Total Evaluations: {len(results["X"])}
-Initial Points: {input.n_initial()}
-Optimization Steps: {input.n_iterations() - input.n_initial()}
+Initial Points: {cfg["n_initial"]}
+Optimization Steps: {cfg["n_iterations"] - cfg["n_initial"]}
 
-Acquisition Function: {input.acquisition()}
-Objective Function: {input.objective().upper()}
+Acquisition Function: {cfg["acquisition"]}
+Objective Function: {cfg["objective"].upper()}
         """
         return summary
 
@@ -704,69 +799,21 @@ Objective Function: {input.objective().upper()}
 
         return render.DataGrid(df, width="100%", height="400px")
 
+    def _opt_code():
+        return build_optimization_code(
+            input.param_type(),
+            input.objective(),
+            input.n_iterations(),
+            input.acquisition(),
+        )
+
     @output
     @render.code
     def opt_code_example():
         """Generate Python code example."""
-        param_type = input.param_type()
-        objective = input.objective()
-        n_iterations = input.n_iterations()
-        acquisition = input.acquisition()
-
-        code = f"""# Bayesian Optimization Example
-# Generated from PyPath Demo
-
-from pypath.core.optimization import bayesian_optimize_ecosim
-
-# Set up optimization
-result = bayesian_optimize_ecosim(
-    model=model,
-    params=params,
-    observed_data=observed_biomass,
-    param_config=[
-        {{
-            'param': '{param_type}',
-            'bounds': (1.0, 3.0),
-            'groups': [0, 1, 2, 3]
-        }}
-    ],
-    n_iterations={n_iterations},
-    n_initial=10,
-    objective='{objective}',
-    acquisition='{acquisition}',
-    verbose=True
-)
-
-# Get best parameters
-best_params = result['best_params']
-best_score = result['best_score']
-
-print(f"Best parameters: {{best_params}}")
-print(f"Best score: {{best_score:.4f}}")
-
-# Apply optimized parameters to model
-for group_idx, value in best_params.items():
-    params.{param_type}[group_idx] = value
-
-# Run simulation with optimized parameters
-optimized_scenario = rsim_scenario(model, params)
-optimized_result = rsim_run(optimized_scenario)
-
-# Plot convergence
-import matplotlib.pyplot as plt
-
-plt.figure(figsize=(10, 5))
-plt.plot(result['convergence'])
-plt.xlabel('Iteration')
-plt.ylabel('Best Objective Value')
-plt.title('Optimization Convergence')
-plt.grid(True)
-plt.show()
-"""
-        return code
+        return _opt_code()
 
     @render.download(filename="optimization_example.py")
     def opt_download_code():
-        """Download code example."""
-        code = opt_code_example()
-        return code
+        """Download code example (yield: a returned str is treated as a path)."""
+        yield _opt_code()

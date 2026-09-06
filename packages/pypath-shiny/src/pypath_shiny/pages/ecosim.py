@@ -1,5 +1,7 @@
 """Ecosim simulation page module."""
 
+import logging
+
 import numpy as np
 import pandas as pd
 
@@ -26,6 +28,35 @@ def _require_balanced_model_or_notify(model) -> bool:
             duration=6,
         )
         return False
+    return True
+
+
+logger = logging.getLogger(__name__)
+
+
+def apply_prey_forcing(scen, group, multiplier):
+    """Set the prey-availability multiplier for one group on a scenario.
+
+    `ForcedPrey` is (n_months, NUM_GROUPS + 1) and 1-based in the group axis;
+    the core multiplies prey availability by it each month. Any previous
+    forcing is reset first so runs do not accumulate.
+
+    Returns True when a multiplier was applied.
+    """
+    forcing = getattr(scen, "forcing", None)
+    if forcing is None or getattr(forcing, "ForcedPrey", None) is None:
+        return False
+
+    forcing.ForcedPrey[:] = 1.0
+
+    if multiplier is None or float(multiplier) == 1.0 or not group:
+        return False
+
+    spname = [str(n) for n in getattr(scen.params, "spname", [])]
+    if group not in spname:
+        return False
+
+    forcing.ForcedPrey[:, spname.index(group)] = float(multiplier)
     return True
 
 
@@ -169,7 +200,6 @@ def ecosim_ui() -> ui.Tag:
                         "increase": "Increase effort",
                         "decrease": "Decrease effort",
                         "closure": "Fishery closure",
-                        "custom": "Custom",
                     },
                     selected="baseline",
                 ),
@@ -434,12 +464,14 @@ def ecosim_server(
     # Reactive values for this page
     scenario = reactive.Value(None)
     sim_output = reactive.Value(None)
+    # Years the current scenario was actually built with (input.sim_years() may
+    # have been changed since).
+    scenario_years = reactive.Value(None)
     show_help_scenario = reactive.Value(False)
     show_help_progress = reactive.Value(False)
     show_help_timeseries = reactive.Value(False)
     show_help_catch = reactive.Value(False)
     show_help_summary = reactive.Value(False)
-    _show_autofix_help = reactive.Value(False)
 
     @reactive.effect
     @reactive.event(input.btn_help_scenario)
@@ -582,7 +614,7 @@ def ecosim_server(
                         ui.tags.strong("Configure settings"), " in the left sidebar:"
                     ),
                     ui.tags.ul(
-                        ui.tags.li("Simulation years (1-500)"),
+                        ui.tags.li("Simulation years (2-500)"),
                         ui.tags.li("Integration method (RK4 recommended)"),
                         ui.tags.li("Vulnerability (functional response type)"),
                         ui.tags.li(
@@ -693,7 +725,8 @@ def ecosim_server(
                 ),
                 ui.h6("What is a 'Crash'?"),
                 ui.p(
-                    f"A crash is detected when any group's biomass falls below {THRESHOLDS.crash_threshold} (1/10,000 of reference biomass). "
+                    f"A crash is detected when any group's biomass falls below the absolute "
+                    f"threshold {THRESHOLDS.crash_threshold} t/km². "
                     "This threshold filters out numerical noise while catching biologically meaningful crashes."
                 ),
                 ui.tags.ul(
@@ -1106,11 +1139,7 @@ def ecosim_server(
                 ),
             )
 
-        else:  # custom
-            return ui.p(
-                "Upload custom effort CSV or define in Results tab.",
-                class_="text-muted",
-            )
+        return ui.p("", class_="text-muted")
 
     @reactive.effect
     @reactive.event(input.btn_create_scenario)
@@ -1166,13 +1195,9 @@ def ecosim_server(
             orig_params.model["BioAcc"] = model.BA
             orig_params.model["Type"] = types
 
-            # Reconstruct diet matrix from DC (diet composition)
-            # DC is (ngroups + 1, nliving) where last row is import
-            nliving = model.NUM_LIVING
-            for i in range(model.NUM_GROUPS):
-                for j in range(nliving):
-                    if i < nliving:  # Living groups eat
-                        orig_params.diet.iloc[i, j + 1] = model.DC[i, j]
+            # Note: the diet matrix is not copied back into orig_params -
+            # rsim_scenario rebuilds it from rpath.DC via rsim_params and only
+            # reads the 'model' attribute of the params object.
 
             new_scenario = rsim_scenario(
                 model, orig_params, years=years, vulnerability=input.vulnerability()
@@ -1199,22 +1224,28 @@ def ecosim_server(
             scenario.set(new_scenario)
             if sim_scenario is not None:
                 sim_scenario.set(new_scenario)
+            # A new scenario invalidates results from the previous one
+            sim_output.set(None)
+            if sim_results is not None:
+                sim_results.set(None)
 
-            # Update group choices (use groups extracted earlier)
-            num_living_dead = (
-                model.NUM_LIVING + model.NUM_DEAD
-                if is_balanced_model(model)
-                else len(groups)
-            )
-            group_names = groups[:num_living_dead]
+            # Update group choices. Select biomass groups by type rather than
+            # by position: the core supports non-canonical group ordering.
+            if is_balanced_model(model) and hasattr(model, "type"):
+                type_arr = np.asarray(model.type)
+                group_names = [str(g) for g, t in zip(groups, type_arr) if t < 3]
+            else:
+                group_names = list(groups)
             ui.update_selectize(
                 "plot_groups", choices=group_names, selected=group_names[:3]
             )
             ui.update_select("forcing_group", choices=group_names)
 
+            scenario_years.set(input.sim_years())
             ui.notification_show("Scenario created successfully!", type="message")
 
         except Exception as e:
+            logger.exception("Scenario creation failed")
             ui.notification_show(f"Error creating scenario: {str(e)}", type="error")
 
     def _apply_fishing_scenario(scen: RsimScenario, input: Inputs):
@@ -1278,7 +1309,8 @@ def ecosim_server(
 
         return ui.div(
             ui.tags.i(class_="bi bi-check-circle me-2"),
-            f"Scenario ready: {scen.params.NUM_GROUPS} groups, {input.sim_years()} years",
+            f"Scenario ready: {scen.params.NUM_GROUPS} groups, "
+            f"{scenario_years.get()} years",
             class_="alert alert-success",
         )
 
@@ -1330,6 +1362,16 @@ def ecosim_server(
         plt.tight_layout()
         return fig
 
+    def _apply_biomass_forcing(scen):
+        """Apply the Biomass Forcing card to the scenario's prey multiplier."""
+        if apply_prey_forcing(scen, input.forcing_group(), input.forcing_multiplier()):
+            ui.notification_show(
+                f"Prey availability for {input.forcing_group()} forced to "
+                f"{input.forcing_multiplier():g}x",
+                type="message",
+                duration=4,
+            )
+
     @reactive.effect
     @reactive.event(input.btn_run_sim)
     def _run_simulation():
@@ -1341,6 +1383,8 @@ def ecosim_server(
             return
 
         try:
+            _apply_biomass_forcing(scen)
+
             # Check if diet rewiring is enabled
             diet_rewiring_enabled = input.enable_diet_rewiring()
 
@@ -1388,14 +1432,20 @@ def ecosim_server(
                 else:
                     groups_str = f"{', '.join(crashed_names[:3])}, +{len(crashed_names) - 3} more"
 
-                # Check if groups recovered
-                _final_biomass = {
-                    i: output.end_state.Biomass[i] for i in output.crashed_groups
-                }
+                # Check if groups recovered, relative to their baseline biomass:
+                # an absolute floor would exclude naturally small groups.
+                base = getattr(scen.params, "B_BaseRef", None)
+
+                def _recovered(i):
+                    end = output.end_state.Biomass[i]
+                    if base is not None and len(base) > i and base[i] > 0:
+                        return end > THRESHOLDS.recovery_threshold * base[i]
+                    return end > THRESHOLDS.crash_threshold
+
                 recovered = [
                     name
                     for i, name in zip(output.crashed_groups, crashed_names)
-                    if output.end_state.Biomass[i] > THRESHOLDS.recovery_threshold
+                    if _recovered(i)
                 ]
 
                 if recovered:
@@ -1417,6 +1467,7 @@ def ecosim_server(
                 ui.notification_show(success_msg, type="message")
 
         except Exception as e:
+            logger.exception("Simulation failed")
             ui.notification_show(f"Simulation error: {str(e)}", type="error")
 
     @output

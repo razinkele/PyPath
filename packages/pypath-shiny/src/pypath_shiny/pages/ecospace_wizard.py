@@ -56,6 +56,25 @@ def ecospace_wizard_ui():
     )
 
 
+def shared_group_names(shared_data, default_n=5):
+    """Group names from ``shared_data.params`` (a reactive.Value) with a fallback.
+
+    The stored object may be an RpathParams (``.model`` DataFrame) or a balanced
+    Rpath (``.Group`` array). Must be called inside a reactive context.
+    """
+    p = None
+    if shared_data is not None and hasattr(shared_data, "params"):
+        val = shared_data.params
+        p = val() if callable(val) else val
+    if p is not None:
+        df = getattr(p, "model", None)
+        if df is not None and hasattr(df, "columns") and "Group" in df.columns:
+            return [str(g) for g in df["Group"]]
+        if hasattr(p, "Group"):
+            return [str(g) for g in p.Group]
+    return [f"Group {i + 1}" for i in range(default_n)]
+
+
 def ecospace_wizard_server(
     input: Inputs, output: Outputs, session: Session, shared_data=None
 ):
@@ -73,7 +92,7 @@ def ecospace_wizard_server(
     preference_matrix = reactive.value(None)
 
     @reactive.effect
-    @reactive.event(input.wizard_drawn_polygon)
+    @reactive.event(input.wizard_drawn_polygon, ignore_none=False)
     def _capture_polygon():
         raw = input.wizard_drawn_polygon()
         if raw:
@@ -120,18 +139,42 @@ def ecospace_wizard_server(
             nx = max(2, int((bounds[2] - bounds[0]) / cell_deg))
             ny = max(2, int((bounds[3] - bounds[1]) / cell_deg))
 
-            grid = EcospaceGrid.from_regular_grid(
-                bounds=(bounds[0], bounds[1], bounds[2], bounds[3]),
-                nx=nx,
-                ny=ny,
-            )
+            grid = None
+            if grid_type == "hexagonal":
+                # Tessellate the drawn polygon with hexagons of the chosen size
+                try:
+                    import geopandas as gpd
+
+                    from pypath_shiny.pages.ecospace import (
+                        create_hexagonal_grid_in_boundary,
+                    )
+
+                    boundary_gdf = gpd.GeoDataFrame(
+                        [{"geometry": polygon}], crs="EPSG:4326"
+                    )
+                    grid = create_hexagonal_grid_in_boundary(
+                        boundary_gdf, hexagon_size_km=cell_size_km
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Hexagonal grid failed (%s); falling back to a regular grid",
+                        e,
+                    )
+                    grid = None
+
+            if grid is None:
+                grid = EcospaceGrid.from_regular_grid(
+                    bounds=(bounds[0], bounds[1], bounds[2], bounds[3]),
+                    nx=nx,
+                    ny=ny,
+                )
+                grid_type = "regular"
+
             ecospace_grid.set(grid)
             logger.info(
-                "Created %s grid: %d patches (%dx%d)",
+                "Created %s grid: %d patches",
                 grid_type,
                 grid.n_patches,
-                nx,
-                ny,
             )
         except Exception as e:
             logger.error("Grid creation failed: %s", e)
@@ -285,27 +328,22 @@ def ecospace_wizard_server(
             rows.append(row)
         return pd.DataFrame(rows)
 
-    @render.ui
-    def wizard_preference_editor():
-        """Editable preference matrix."""
+    @reactive.calc
+    def _preference_prefs():
+        """Preference matrix for the current habitat types and preset.
+
+        A reactive calc rather than a render side effect, so the matrix used by
+        'Create Ecospace Model' does not depend on whether the editor rendered.
+        """
         hab = habitat_types_arr.get()
         if hab is None:
-            return ui.p("Complete Steps 3-4 first.", class_="text-muted")
+            return None, None, None
 
         import numpy as np
         from pypath.io.marine_data import HabitatPreferenceBuilder
 
         habitat_types = sorted(set(hab))
-
-        # Get group names from shared_data if available
-        if (
-            shared_data
-            and hasattr(shared_data, "params")
-            and shared_data.params is not None
-        ):
-            group_names = list(shared_data.params.model.Group)
-        else:
-            group_names = [f"Group {i + 1}" for i in range(5)]
+        group_names = shared_group_names(shared_data)
 
         builder = HabitatPreferenceBuilder()
         preset = input.wizard_preset()
@@ -317,8 +355,20 @@ def ecospace_wizard_server(
         else:
             # Default moderate preferences
             prefs = np.ones((len(group_names), len(habitat_types))) * 0.5
+        return prefs, group_names, habitat_types
 
+    @reactive.effect
+    def _store_preference_matrix():
+        """Keep `preference_matrix` in step with the inputs, not with rendering."""
+        prefs, _, _ = _preference_prefs()
         preference_matrix.set(prefs)
+
+    @render.ui
+    def wizard_preference_editor():
+        """Editable preference matrix."""
+        prefs, group_names, habitat_types = _preference_prefs()
+        if prefs is None:
+            return ui.p("Complete Steps 3-4 first.", class_="text-muted")
 
         # Build an HTML table showing the preference matrix
         import pandas as pd
@@ -349,14 +399,7 @@ def ecospace_wizard_server(
         import pandas as pd
 
         # Get group names
-        if (
-            shared_data
-            and hasattr(shared_data, "params")
-            and shared_data.params is not None
-        ):
-            group_names = list(shared_data.params.model.Group)
-        else:
-            group_names = [f"Group {i + 1}" for i in range(5)]
+        group_names = shared_group_names(shared_data)
 
         default_rate = input.wizard_dispersal_default()
         gravity = input.wizard_gravity()
@@ -471,14 +514,7 @@ def ecospace_wizard_server(
             )
 
             # Get group names
-            if (
-                shared_data
-                and hasattr(shared_data, "params")
-                and shared_data.params is not None
-            ):
-                group_names = list(shared_data.params.model.Group)
-            else:
-                group_names = [f"Group {i + 1}" for i in range(5)]
+            group_names = shared_group_names(shared_data)
 
             n_groups = len(group_names)
             habitat_types = sorted(set(hab))
@@ -519,9 +555,10 @@ def ecospace_wizard_server(
                 environmental_drivers=env,
             )
 
-            # Store in shared_data for the Ecospace page to use
-            if shared_data is not None:
-                shared_data.ecospace_params = params
+            # Hand the configuration to the Ecospace page via the shared
+            # reactive value it watches.
+            if shared_data is not None and hasattr(shared_data, "ecospace_params"):
+                shared_data.ecospace_params.set(params)
 
             logger.info(
                 "Created EcospaceParams: %d patches, %d groups, %d habitat types",
@@ -529,8 +566,19 @@ def ecospace_wizard_server(
                 n_groups,
                 len(habitat_types),
             )
+            ui.notification_show(
+                f"Ecospace configuration ready: {grid.n_patches} patches, "
+                f"{n_groups} groups. Open the Ecospace page to run it.",
+                type="message",
+                duration=8,
+            )
         except Exception as e:
-            logger.error("Failed to create EcospaceParams: %s", e)
+            logger.exception("Failed to create EcospaceParams")
+            ui.notification_show(
+                f"Could not build the Ecospace configuration: {e!s}",
+                type="error",
+                duration=8,
+            )
 
     @render.ui
     def wizard_step_content():

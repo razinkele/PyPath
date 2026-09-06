@@ -585,6 +585,13 @@ def prebalance_server(
         when available.
         """
         diag_dir = _DIAG_DIR
+        if diag_dir is None:
+            # Installed outside the monorepo: no reference diagnostics shipped.
+            return make_rpath_status_badge(
+                rpath_diagnostics_summary(None),
+                note="Rpath reference diagnostics ship only with a source checkout.",
+                link=None,
+            )
         diag = load_rpath_diagnostics(diag_dir)
         status = rpath_diagnostics_summary(diag_dir)
         note = diag.get("note") if diag else None
@@ -632,20 +639,16 @@ def prebalance_server(
                 ui.h5("Verification output:"),
                 ui.tags.pre(result.get("output", "")),
             )
-            # Preferred: show modal if session supports it
-            try:
-                session.show_modal(ui.modal_dialog(body, title=title, size="lg"))
-            except AttributeError:
-                # Fallback: expose the body via a reactive value rendered inline
-                rpath_modal_content.set(body)
+            ui.modal_show(ui.modal(body, title=title, size="l", easy_close=True))
+            # Also expose inline so tests and Playwright can read the content
+            rpath_modal_content.set(body)
         except Exception as e:
+            logger.exception("Rpath diagnostics modal failed")
             err_body = ui.tags.div(ui.tags.p(str(e)))
-            try:
-                session.show_modal(
-                    ui.modal_dialog(err_body, title="Rpath Diagnostics - Error")
-                )
-            except AttributeError:
-                rpath_modal_content.set(err_body)
+            ui.modal_show(
+                ui.modal(err_body, title="Rpath Diagnostics - Error", easy_close=True)
+            )
+            rpath_modal_content.set(err_body)
 
     @output
     @render.ui
@@ -760,6 +763,11 @@ def prebalance_server(
         report = diagnostic_report()
         data = model_data()
 
+        # The prebalance plots read `model.model`, so they need RpathParams.
+        # `model_data` becomes a balanced Rpath once the user balances.
+        if data is not None and not is_rpath_params(data):
+            data = None
+
         if report is None or data is None:
             import matplotlib.pyplot as plt
 
@@ -767,7 +775,10 @@ def prebalance_server(
             ax.text(
                 0.5,
                 0.5,
-                "No diagnostics run yet",
+                "No diagnostics run yet"
+                if diagnostic_report() is None
+                else "Diagnostic plots need unbalanced parameters.\n"
+                "Re-run diagnostics before balancing.",
                 ha="center",
                 va="center",
                 fontsize=14,

@@ -245,6 +245,10 @@ def analysis_server(
             logger.error("Error calculating network indices: %s", e, exc_info=True)
             return None
 
+    # Last calculation error, so status messages can distinguish "no balanced
+    # model" from "the calculation failed".
+    calc_error = reactive.Value(None)
+
     @reactive.calc
     def get_mti_matrix():
         """Calculate MTI matrix."""
@@ -255,6 +259,7 @@ def analysis_server(
             return mixed_trophic_impacts(model)
         except Exception as e:
             logger.error("Error calculating MTI: %s", e, exc_info=True)
+            calc_error.set(str(e))
             return None
 
     @reactive.calc
@@ -267,6 +272,7 @@ def analysis_server(
             return keystoneness_index(model)
         except Exception as e:
             logger.error("Error calculating keystoneness: %s", e, exc_info=True)
+            calc_error.set(str(e))
             return None
 
     @reactive.calc
@@ -306,13 +312,14 @@ def analysis_server(
 
         rows = []
         # NetworkIndices is a dataclass, access via attributes
+        # Attribute names must match pypath.core.analysis.NetworkIndices
         system_attrs = [
             ("total_throughput", "Total System Throughput", "t/km²/yr"),
-            ("total_production", "Total Production", "t/km²/yr"),
-            ("total_consumption", "Total Consumption", "t/km²/yr"),
-            ("total_respiration", "Total Respiration", "t/km²/yr"),
             ("total_biomass", "Total Biomass", "t/km²"),
-            ("system_omnivory_index", "System Omnivory Index", ""),
+            ("mean_trophic_level", "Mean Trophic Level (biomass-weighted)", ""),
+            ("max_trophic_level", "Max Trophic Level", ""),
+            ("omnivory_index", "Mean Omnivory Index", ""),
+            ("system_omnivory", "System Omnivory Index", ""),
         ]
 
         for attr, label, unit in system_attrs:
@@ -339,13 +346,13 @@ def analysis_server(
             return ui.p("No indices available.", class_="text-muted")
 
         rows = []
+        # Attribute names must match pypath.core.analysis.NetworkIndices
         flow_attrs = [
-            ("ascendency", "Ascendency", ""),
-            ("development_capacity", "Development Capacity", ""),
-            ("overhead", "Overhead", ""),
             ("finn_cycling_index", "Finn Cycling Index", "%"),
+            ("transfer_efficiency", "Mean Transfer Efficiency", "%"),
             ("connectance", "Connectance", ""),
-            ("num_links", "Number of Links", ""),
+            ("linkage_density", "Linkage Density", ""),
+            ("n_links", "Number of Links", ""),
         ]
 
         for attr, label, unit in flow_attrs:
@@ -449,7 +456,7 @@ def analysis_server(
 
         try:
             metric = input.spectrum_metric()
-            fig = plot_trophic_spectrum(model, metric=metric)
+            fig = plot_trophic_spectrum(model, by=metric)
             return fig
         except Exception as e:
             fig, ax = plt.subplots()
@@ -466,17 +473,29 @@ def analysis_server(
 
     # === Mixed Trophic Impacts ===
 
+    def _unavailable_alert(what):
+        """Alert explaining why `what` could not be calculated."""
+        if get_balanced_model() is None:
+            return ui.div(
+                ui.tags.i(class_="bi bi-info-circle me-2"),
+                f"Balance an Ecopath model to calculate {what}.",
+                class_="alert alert-info",
+            )
+        err = calc_error.get()
+        return ui.div(
+            ui.tags.i(class_="bi bi-exclamation-triangle me-2"),
+            f"Could not calculate {what}"
+            + (f": {err}" if err else ". See the server log for details."),
+            class_="alert alert-warning",
+        )
+
     @output
     @render.ui
     def mti_status():
         """Show MTI analysis status."""
         mti = get_mti_matrix()
         if mti is None:
-            return ui.div(
-                ui.tags.i(class_="bi bi-info-circle me-2"),
-                "Balance an Ecopath model to calculate Mixed Trophic Impacts.",
-                class_="alert alert-info",
-            )
+            return _unavailable_alert("Mixed Trophic Impacts")
         return None
 
     @output
@@ -489,7 +508,8 @@ def analysis_server(
             return None
 
         try:
-            fig = plot_mti_heatmap(mti, model)
+            n = mti.shape[0]
+            fig = plot_mti_heatmap(mti, group_names=[str(g) for g in model.Group[:n]])
             return fig
         except Exception as e:
             fig, ax = plt.subplots()
@@ -514,7 +534,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No MTI available"]})
 
         try:
-            groups = model.Group
+            groups = list(model.Group[: mti.shape[0]])
 
             # Flatten matrix and find top impacts
             impacts = []
@@ -541,7 +561,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["No MTI available"]})
 
         try:
-            groups = model.Group
+            groups = list(model.Group[: mti.shape[0]])
 
             # Flatten matrix and find top negative impacts
             impacts = []
@@ -566,11 +586,7 @@ def analysis_server(
         """Show keystoneness status."""
         ks = get_keystoneness()
         if ks is None:
-            return ui.div(
-                ui.tags.i(class_="bi bi-info-circle me-2"),
-                "Balance an Ecopath model to calculate keystoneness.",
-                class_="alert alert-info",
-            )
+            return _unavailable_alert("keystoneness")
         return None
 
     @output
@@ -583,12 +599,10 @@ def analysis_server(
             return pd.DataFrame({"Message": ["Balance model first"]})
 
         try:
-            groups = model.Group
+            groups = list(model.Group[: len(ks)])
 
             # Create DataFrame with group names
-            df = pd.DataFrame(
-                {"Group": groups[: len(ks)], "Keystoneness": np.round(ks, 4)}
-            )
+            df = pd.DataFrame({"Group": groups, "Keystoneness": np.round(ks, 4)})
             df = df.sort_values("Keystoneness", ascending=False).head(10)
             return df
         except Exception as e:
@@ -605,17 +619,18 @@ def analysis_server(
             return None
 
         try:
-            groups = model.Group
-            biomass = model.Biomass
+            n = len(ks)
+            groups = np.asarray(model.Group[:n])
+            biomass = np.asarray(model.Biomass[:n], dtype=float)
 
             fig, ax = plt.subplots(figsize=(8, 6))
 
             # Filter valid points
-            valid = (biomass > 0) & (~np.isnan(ks[: len(biomass)]))
+            valid = (biomass > 0) & (~np.isnan(ks))
 
             _scatter = ax.scatter(
                 np.log10(biomass[valid] + THRESHOLDS.log_offset_small),
-                ks[: len(biomass)][valid],
+                ks[valid],
                 s=100,
                 alpha=0.7,
                 c="steelblue",
@@ -623,7 +638,7 @@ def analysis_server(
 
             # Annotate top species
             for i, (g, b, k) in enumerate(
-                zip(groups[valid], biomass[valid], ks[: len(biomass)][valid])
+                zip(groups[valid], biomass[valid], ks[valid])
             ):
                 if k > np.percentile(ks[~np.isnan(ks)], 75):
                     ax.annotate(
@@ -676,8 +691,12 @@ def analysis_server(
         if check is None:
             return ui.p("No balance check available.", class_="text-muted")
 
-        is_balanced = check.get("balanced", False)
-        issues = check.get("issues", [])
+        is_balanced = check.get("is_balanced", False)
+        issues = [
+            m
+            for m in check.get("messages", [])
+            if not str(m).startswith("Model is properly balanced")
+        ]
 
         badge_class = "bg-success" if is_balanced else "bg-warning"
         status_text = "Balanced" if is_balanced else "Issues Found"
@@ -853,4 +872,5 @@ def analysis_server(
 
             yield output.getvalue()
         except Exception as e:
+            logger.exception("Exporting model data failed")
             yield f"Error exporting: {str(e)}"

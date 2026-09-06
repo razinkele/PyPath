@@ -360,8 +360,13 @@ def import_server(
         )
 
     @reactive.effect
+    @reactive.event(input.ecobase_models_table_selected_rows, ignore_none=False)
     def _update_selected_model():
-        """Update selected model when row is clicked."""
+        """Update the selected model when the table selection changes.
+
+        Keyed on the selection input so a freshly loaded model list does not
+        re-apply a stale row index, and clearing the selection clears the id.
+        """
         models = ecobase_models.get()
         selected_rows = input.ecobase_models_table_selected_rows()
 
@@ -370,6 +375,8 @@ def import_server(
             if row_idx < len(models):
                 model_id = models.iloc[row_idx]["model_number"]
                 selected_model_id.set(int(model_id))
+                return
+        selected_model_id.set(None)
 
     @output
     @render.ui
@@ -513,12 +520,14 @@ def import_server(
                 and params.stanzas.n_stanza_groups > 0
             ):
                 n_stanza = params.stanzas.n_stanza_groups
-                _n_stages = (
+                n_stages = (
                     len(params.stanzas.stindiv)
                     if params.stanzas.stindiv is not None
                     else 0
                 )
-                stanza_info = f", {n_stanza} stanza group(s)"
+                stanza_info = (
+                    f", {n_stanza} stanza group(s) with {n_stages} life stages"
+                )
 
             ui.notification_show(
                 f"Imported model with {len(params.model)} groups{remarks_info}{stanza_info}",
@@ -1113,22 +1122,37 @@ Phytoplankton"""
                 input_id = (
                     f"biomass_{sp_name.replace(' ', '_').replace('-', '_').lower()}"
                 )
+                # biodata_to_rpath names groups by scientific_name by default,
+                # so biomass estimates must be keyed the same way.
+                group_key = row.get("scientific_name") or sp_name
 
                 # Get the input value
                 try:
                     biomass_val = input[input_id]()
                     if biomass_val is not None and biomass_val > 0:
-                        biomass_estimates[sp_name] = biomass_val
+                        biomass_estimates[group_key] = biomass_val
                 except Exception as e:
                     # If input doesn't exist or error, use default
                     logger.debug("Failed to read biomass input for %s: %s", sp_name, e)
-                    biomass_estimates[sp_name] = 1.0
+                    biomass_estimates[group_key] = 1.0
+
+            # A cleared numeric input yields None
+            area_km2 = input.biodata_area()
+            if not area_km2 or area_km2 <= 0:
+                ui.notification_show(
+                    "Enter a positive study area (km²) first",
+                    type="warning",
+                    duration=4,
+                )
+                return
 
             ui.notification_show("Creating Ecopath model...", duration=3)
 
             # Create model using biodata_to_rpath
             params = biodata_to_rpath(
-                df, biomass_estimates=biomass_estimates, area_km2=input.biodata_area()
+                df,
+                biomass_estimates=biomass_estimates,
+                area_km2=area_km2,
             )
 
             biodata_model.set(params)

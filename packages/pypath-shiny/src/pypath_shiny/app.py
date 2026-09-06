@@ -327,6 +327,9 @@ def server(input: Inputs, output: Outputs, session: Session):
             self.sim_results = sim_results_ref
             # Additional reactive value for pages expecting params structure
             self.params = reactive.Value(None)
+            # EcospaceParams built by the Ecospace Wizard, read by the
+            # Ecospace page.
+            self.ecospace_params = reactive.Value(None)
 
     shared_data = SharedData(model_data, sim_results)
 
@@ -359,7 +362,13 @@ def server(input: Inputs, output: Outputs, session: Session):
         (
             "Ecospace",
             lambda: ecospace.ecospace_server(
-                input, output, session, model_data, sim_results, sim_scenario
+                input,
+                output,
+                session,
+                model_data,
+                sim_results,
+                sim_scenario,
+                shared_data.ecospace_params,
             ),
         ),
         (
@@ -421,6 +430,10 @@ def server(input: Inputs, output: Outputs, session: Session):
 def main():
     """Launch the PyPath Shiny application."""
     import uvicorn
+
+    from pypath_shiny.logger import configure_logging
+
+    configure_logging()
 
     uvicorn.run("pypath_shiny.app:app", host="0.0.0.0", port=8000, reload=True)
 

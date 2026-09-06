@@ -33,7 +33,7 @@ def forcing_demo_ui():
                     choices={
                         "biomass": "Biomass Forcing",
                         "recruitment": "Recruitment Forcing",
-                        "fishing": "Fishing Mortality",
+                        "fishing_mortality": "Fishing Mortality",
                         "primary_production": "Primary Production",
                     },
                     selected="biomass",
@@ -289,11 +289,115 @@ def forcing_demo_ui():
     )
 
 
+def build_forcing_code(forcing_type, mode, group_idx, pattern, pattern_args=None):
+    """Build the example script shown on the forcing demo page.
+
+    A plain function (no reactive reads) so the code renderer and the
+    download handler can share it.
+    """
+    pattern_args = pattern_args or {}
+    code = f"""# State-Variable Forcing Example
+# Generated from PyPath Demo
+
+import numpy as np
+from pypath.core.forcing import create_biomass_forcing, StateForcing
+from pypath.core.ecosim import rsim_run
+from pypath.core.ecosim_advanced import rsim_run_advanced
+
+# Generate {pattern} pattern
+years = np.linspace(2000, 2020, 241)
+"""
+
+    if pattern == "seasonal":
+        amplitude = pattern_args.get("amplitude", 0.2)
+        baseline = pattern_args.get("baseline", 10.0)
+        code += (
+            f"values = {baseline} + {amplitude} * {baseline} "
+            "* np.sin(2 * np.pi * years)\n"
+        )
+    elif pattern == "trend":
+        start = pattern_args.get("start", 10.0)
+        end = pattern_args.get("end", 20.0)
+        code += f"values = np.linspace({start}, {end}, len(years))\n"
+    else:
+        code += (
+            f"# TODO: replace with your own '{pattern}' time series "
+            "(one value per entry in `years`)\n"
+            "values = np.full(len(years), 10.0)\n"
+        )
+
+    if forcing_type == "biomass":
+        code += f"""
+# Create biomass forcing
+forcing = create_biomass_forcing(
+    group_idx={group_idx},
+    observed_biomass=values,
+    years=years,
+    mode='{mode}',
+    interpolate=True
+)
+"""
+    else:
+        code += f"""
+# Create custom forcing
+forcing = StateForcing()
+forcing.add_forcing(
+    group_idx={group_idx},
+    variable='{forcing_type}',
+    time_series=values,
+    years=years,
+    mode='{mode}',
+    interpolate=True
+)
+"""
+
+    code += """
+# Run simulation with forcing
+result = rsim_run_advanced(
+    scenario,
+    state_forcing=forcing,
+    verbose=True
+)
+
+# Compare with baseline
+baseline_result = rsim_run(scenario)
+
+# Plot results
+import matplotlib.pyplot as plt
+plt.figure(figsize=(12, 6))
+plt.plot(baseline_result.annual_Biomass[:, group_idx], label='Baseline')
+plt.plot(result.annual_Biomass[:, group_idx], label='With Forcing')
+plt.legend()
+plt.xlabel('Year')
+plt.ylabel('Biomass')
+plt.title('Effect of Forcing')
+plt.show()
+"""
+    return code
+
+
 def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
     """Server logic for forcing demonstration."""
 
     # Reactive values
     forcing_obj = reactive.Value(None)
+    # Bumped by the Run button; the comparison tab renders only after a run.
+    demo_run_count = reactive.Value(0)
+
+    @reactive.effect
+    @reactive.event(input.forcing_run_demo)
+    def _run_demo():
+        """Run the demo comparison for the current forcing."""
+        if forcing_obj() is None:
+            ui.notification_show(
+                "Generate a forcing pattern first.", type="warning", duration=4
+            )
+            return
+        demo_run_count.set(demo_run_count() + 1)
+        ui.notification_show(
+            "Simulation comparison updated.", type="message", duration=3
+        )
+
     time_series_data = reactive.Value(None)
 
     @reactive.effect
@@ -441,6 +545,14 @@ Data Points: {len(df)}
     @render.ui
     def forcing_comparison_plot():
         """Plot comparison of forced vs unforced simulation."""
+        # Gate on the Run button so the tab reflects an explicit run
+        if demo_run_count() == 0:
+            return ui.div(
+                ui.tags.p(
+                    "Generate forcing, then click 'Run Demo Simulation'",
+                    class_="text-muted text-center p-5",
+                )
+            )
         df = time_series_data()
         if df is None:
             return ui.div(
@@ -525,88 +637,32 @@ Data Points: {len(df)}
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
+    def _forcing_code_inputs():
+        """Collect the UI state needed to build the example script."""
+        pattern = input.pattern_type()
+        pattern_args = {}
+        if pattern == "seasonal":
+            pattern_args = {
+                "amplitude": input.seasonal_amplitude(),
+                "baseline": input.seasonal_baseline(),
+            }
+        elif pattern == "trend":
+            pattern_args = {"start": input.trend_start(), "end": input.trend_end()}
+        return {
+            "forcing_type": input.forcing_type(),
+            "mode": input.forcing_mode(),
+            "group_idx": input.group_idx(),
+            "pattern": pattern,
+            "pattern_args": pattern_args,
+        }
+
     @output
     @render.code
     def forcing_code_example():
         """Generate Python code example."""
-        forcing_type = input.forcing_type()
-        mode = input.forcing_mode()
-        group_idx = input.group_idx()
-        pattern = input.pattern_type()
-
-        code = f"""# State-Variable Forcing Example
-# Generated from PyPath Demo
-
-import numpy as np
-from pypath.core.forcing import create_biomass_forcing, StateForcing
-from pypath.core.ecosim_advanced import rsim_run_advanced
-
-# Generate {pattern} pattern
-years = np.linspace(2000, 2020, 241)
-"""
-
-        if pattern == "seasonal":
-            amplitude = input.seasonal_amplitude()
-            baseline = input.seasonal_baseline()
-            code += f"""values = {baseline} + {amplitude} * {baseline} * np.sin(2 * np.pi * years)
-"""
-        elif pattern == "trend":
-            start = input.trend_start()
-            end = input.trend_end()
-            code += f"""values = np.linspace({start}, {end}, len(years))
-"""
-
-        if forcing_type == "biomass":
-            code += f"""
-# Create biomass forcing
-forcing = create_biomass_forcing(
-    group_idx={group_idx},
-    observed_biomass=values,
-    years=years,
-    mode='{mode}',
-    interpolate=True
-)
-"""
-        else:
-            code += f"""
-# Create custom forcing
-forcing = StateForcing()
-forcing.add_forcing(
-    group_idx={group_idx},
-    variable='{forcing_type}',
-    time_series=values,
-    years=years,
-    mode='{mode}',
-    interpolate=True
-)
-"""
-
-        code += """
-# Run simulation with forcing
-result = rsim_run_advanced(
-    scenario,
-    state_forcing=forcing,
-    verbose=True
-)
-
-# Compare with baseline
-baseline_result = rsim_run(scenario)
-
-# Plot results
-import matplotlib.pyplot as plt
-plt.figure(figsize=(12, 6))
-plt.plot(baseline_result.annual_Biomass[:, group_idx], label='Baseline')
-plt.plot(result.annual_Biomass[:, group_idx], label='With Forcing')
-plt.legend()
-plt.xlabel('Year')
-plt.ylabel('Biomass')
-plt.title('Effect of Forcing')
-plt.show()
-"""
-        return code
+        return build_forcing_code(**_forcing_code_inputs())
 
     @render.download(filename="forcing_example.py")
     def forcing_download_code():
-        """Download code example."""
-        code = forcing_code_example()
-        return code
+        """Download code example (yield: a returned str is treated as a path)."""
+        yield build_forcing_code(**_forcing_code_inputs())

@@ -1,5 +1,7 @@
 """Results and visualization page module."""
 
+import logging
+
 import numpy as np
 import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
@@ -9,6 +11,22 @@ from pypath_shiny.config import PLOTS, UI
 
 # Import shared utilities (pypath path setup handled by app/__init__.py)
 from .utils import get_model_info, is_balanced_model, is_rpath_params
+
+logger = logging.getLogger(__name__)
+
+
+def _apply_plot_style(plt, style):
+    """Apply a named matplotlib style; unknown styles fall back to default.
+
+    Call this inside ``plt.rc_context()`` so the change does not leak into
+    other renders or user sessions (matplotlib rcParams are process-global).
+    """
+    if not style or style == "default":
+        return
+    try:
+        plt.style.use(style)
+    except (OSError, KeyError, ValueError) as e:
+        logger.warning("Plot style '%s' not available: %s. Using default.", style, e)
 
 
 def results_ui():
@@ -43,9 +61,9 @@ def results_ui():
                     "Plot Style",
                     choices={
                         "default": "Default",
-                        "seaborn": "Seaborn",
+                        "seaborn-v0_8": "Seaborn",
                         "ggplot": "GGPlot",
-                        "dark": "Dark Background",
+                        "dark_background": "Dark Background",
                     },
                 ),
                 ui.input_select(
@@ -55,7 +73,7 @@ def results_ui():
                         "tab10": "Tab10",
                         "Set2": "Set2",
                         "Paired": "Paired",
-                        "husl": "HUSL",
+                        "viridis": "Viridis",
                     },
                 ),
                 width=280,
@@ -216,6 +234,11 @@ def results_server(
         """Trophic level bar plot."""
         import matplotlib.pyplot as plt
 
+        with plt.rc_context():
+            _apply_plot_style(plt, input.plot_style())
+            return _tl_bar_plot_impl(plt)
+
+    def _tl_bar_plot_impl(plt):
         model = model_data.get()
         info = get_model_info(model)
 
@@ -242,11 +265,6 @@ def results_server(
                 transform=ax.transAxes,
             )
             return fig
-
-        # Apply plot style
-        style = input.plot_style()
-        if style != "default":
-            plt.style.use(style)
 
         n_bio = info["num_living"] + info["num_dead"]
         groups = info["groups"][:n_bio]
@@ -514,6 +532,11 @@ def results_server(
         """Simulation biomass results plot."""
         import matplotlib.pyplot as plt
 
+        with plt.rc_context():
+            _apply_plot_style(plt, input.plot_style())
+            return _results_biomass_plot_impl(plt)
+
+    def _results_biomass_plot_impl(plt):
         sim = sim_results.get()
         model = model_data.get()
         info = get_model_info(model)
@@ -542,19 +565,6 @@ def results_server(
                 transform=ax.transAxes,
             )
             return fig
-
-        # Apply plot style
-        style = input.plot_style()
-        if style != "default":
-            try:
-                plt.style.use(style)
-            except (OSError, KeyError) as e:
-                # Style not available, use default
-                import logging
-
-                logging.getLogger(__name__).warning(
-                    "Plot style '%s' not available: %s. Using default.", style, e
-                )
 
         n_months = sim.out_Biomass.shape[0]
         time = np.arange(n_months) / 12
@@ -626,10 +636,8 @@ def results_server(
             return pd.DataFrame()
         if is_balanced_model(model) and hasattr(model, "summary"):
             return model.summary()
-        elif info["params"] is not None:
-            params = info["params"] if not info["is_balanced"] else model.params
-            if is_rpath_params(params):
-                return params.model
+        if is_rpath_params(info["params"]):
+            return info["params"].model
         return pd.DataFrame()
 
     @output
@@ -710,12 +718,12 @@ def results_server(
         info = get_model_info(model)
         if info is not None:
             if is_balanced_model(model) and hasattr(model, "summary"):
-                return model.summary().to_csv(index=False)
-            elif info["params"] is not None:
-                params = info["params"] if not info["is_balanced"] else model.params
-                if is_rpath_params(params):
-                    return params.model.to_csv(index=False)
-        return ""
+                yield model.summary().to_csv(index=False)
+                return
+            if is_rpath_params(info["params"]):
+                yield info["params"].model.to_csv(index=False)
+                return
+        yield ""
 
     @render.download(filename="pypath_simulation.csv")
     def download_sim_csv():
@@ -729,8 +737,9 @@ def results_server(
             groups = info["groups"]
             df = pd.DataFrame(sim.out_Biomass[:, 1 : n_bio + 1], columns=groups[:n_bio])
             df.insert(0, "Month", range(len(df)))
-            return df.to_csv(index=False)
-        return ""
+            yield df.to_csv(index=False)
+            return
+        yield ""
 
     @render.download(filename="pypath_annual_summary.csv")
     def download_annual_csv():
@@ -746,5 +755,6 @@ def results_server(
                 sim.annual_Catch[:, 1 : n_living + 1], columns=groups[:n_living]
             )
             df.insert(0, "Year", range(1, len(df) + 1))
-            return df.to_csv(index=False)
-        return ""
+            yield df.to_csv(index=False)
+            return
+        yield ""

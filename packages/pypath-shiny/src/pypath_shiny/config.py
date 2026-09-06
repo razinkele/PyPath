@@ -210,7 +210,7 @@ class ParameterRangesConfig:
     """Parameter ranges for UI sliders and inputs."""
 
     # Simulation time ranges
-    years_min: int = 1
+    years_min: int = 2  # rsim_scenario requires at least 2 years
     years_max: int = 500
     years_default: int = 50
 

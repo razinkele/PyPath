@@ -1,5 +1,6 @@
 """Ecopath model page module."""
 
+import logging
 from typing import List, Union
 
 import numpy as np
@@ -7,7 +8,7 @@ import pandas as pd
 from pypath.core.ecopath import Rpath, rpath
 
 # pypath imports (path setup handled by app/__init__.py)
-from pypath.core.params import RpathParams, create_rpath_params
+from pypath.core.params import RpathParams, create_rpath_params, read_rpath_params
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
@@ -76,6 +77,9 @@ def _get_groups_from_model(model: Union[Rpath, RpathParams]) -> List[str]:
         raise ValueError("Cannot determine group names from model object")
 
 
+logger = logging.getLogger(__name__)
+
+
 def _recreate_params_from_model(model: Rpath) -> RpathParams:
     """Recreate RpathParams from a balanced Rpath model.
 
@@ -107,9 +111,10 @@ def _recreate_params_from_model(model: Rpath) -> RpathParams:
     - Diet matrix from DC (diet composition) matrix
     - Group types preserved
 
+    - Landings/discards per fleet and detritus fate columns
+
     **Not Reconstructed:**
-    - Fishing catches (landings/discards) - can be edited afterward
-    - Multi-stanza parameters - would need separate handling
+    - Multi-stanza parameters and remarks - would need separate handling
 
     The resulting RpathParams object is unbalanced and will need to be
     re-balanced with `rpath()` after any modifications.
@@ -151,16 +156,52 @@ def _recreate_params_from_model(model: Rpath) -> RpathParams:
     # Set types
     params.model["Type"] = types
 
-    # Reconstruct diet matrix from DC (diet composition)
-    # DC is (ngroups + 1, nliving) where last row is import
+    # Reconstruct diet matrix from DC (diet composition).
+    # DC is (n_living + n_dead + 1, n_living): one row per prey group (living,
+    # then detritus) plus a trailing Import row; one column per living predator.
+    # Assign by name so non-canonical group ordering is handled.
     nliving = model.NUM_LIVING
-    for i in range(model.NUM_GROUPS):
-        for j in range(nliving):
-            if i < nliving:  # Living groups eat
-                params.diet.iloc[i, j + 1] = model.DC[i, j]
+    n_prey = model.NUM_LIVING + model.NUM_DEAD
+    prey_names = [str(g) for g in model.Group[:n_prey]] + ["Import"]
+    pred_names = [str(g) for g in model.Group[:nliving]]
+    dc = np.asarray(model.DC, dtype=float)
+    if dc.shape[0] >= len(prey_names) and dc.shape[1] >= nliving:
+        diet = params.diet.set_index("Group")
+        for j, pred in enumerate(pred_names):
+            if pred not in diet.columns:
+                continue
+            for i, prey in enumerate(prey_names):
+                if prey in diet.index:
+                    diet.loc[prey, pred] = dc[i, j]
+        params.diet = diet.reset_index()
+    else:
+        logger.warning(
+            "DC shape %s does not match %d prey x %d predators; diet not copied",
+            dc.shape,
+            len(prey_names),
+            nliving,
+        )
 
-    # Note: Fishing catches would need to be reconstructed from Landings/Discards
-    # For now, we'll leave them as-is (they can be edited later)
+    # Landings / discards per fleet and detritus fate, for non-fleet rows
+    type_arr = np.asarray(model.type)
+    non_fleet = params.model["Type"] < 3
+    fleet_names = [str(g) for g in np.asarray(model.Group)[type_arr == 3]]
+    landings = getattr(model, "Landings", None)
+    discards = getattr(model, "Discards", None)
+    for k, fleet in enumerate(fleet_names):
+        if landings is not None and landings.ndim == 2 and landings.shape[1] > k:
+            if fleet in params.model.columns:
+                params.model.loc[non_fleet, fleet] = landings[type_arr < 3, k]
+        if discards is not None and discards.ndim == 2 and discards.shape[1] > k:
+            if f"{fleet}.disc" in params.model.columns:
+                params.model.loc[non_fleet, f"{fleet}.disc"] = discards[type_arr < 3, k]
+
+    det_names = [str(g) for g in np.asarray(model.Group)[type_arr == 2]]
+    det_fate = getattr(model, "DetFate", None)
+    for k, det in enumerate(det_names):
+        if det_fate is not None and det_fate.ndim == 2 and det_fate.shape[1] > k:
+            if det in params.model.columns:
+                params.model.loc[non_fleet, det] = det_fate[type_arr < 3, k]
 
     return params
 
@@ -235,9 +276,9 @@ def ecopath_ui():
                         ui.h6("Or Load from File"),
                         ui.input_file(
                             "upload_params",
-                            "Upload Parameters (CSV)",
+                            "Upload model.csv and diet.csv",
                             accept=[".csv"],
-                            multiple=False,
+                            multiple=True,
                         ),
                         style="padding-top: 10px;",
                     ),
@@ -396,7 +437,14 @@ def ecopath_server(
                     type="message",
                 )
             elif is_balanced_model(imported):
-                # It's a balanced Rpath model - recreate params from balanced values
+                # If this is the model we just balanced from our own params, keep
+                # those params: recreating them from the Rpath would drop
+                # stanzas and remarks and round-trip every other column.
+                with reactive.isolate():
+                    own = balanced_model.get()
+                if own is imported:
+                    return
+                # A balanced Rpath from elsewhere - recreate editable params
                 recreated_params = _recreate_params_from_model(imported)
                 params.set(recreated_params)
                 ui.notification_show(
@@ -771,122 +819,249 @@ def ecopath_server(
 
         return render.DataGrid(formatted_df, styles=styles)
 
-    # Track cell edits from DataGrids and update params
-    @reactive.effect
-    def _handle_model_params_edit():
-        """Handle edits to model parameters table."""
-        edit = input.model_params_table_cell_edit()
-        if edit is None:
-            return
+    # Cell edits from the editable DataGrids arrive through Shiny's patch
+    # mechanism (``@<grid>.set_patch_fn``), not through an input value. The
+    # patch function returns the value the grid should display; returning the
+    # original cell value reverts an invalid edit.
+    def _resolve_patch(renderer, patch):
+        """Map a grid patch to (display_df, column_name, group_name)."""
+        with reactive.isolate():
+            df = renderer.data()
+        col_name = df.columns[patch["column_index"]]
+        row = df.iloc[patch["row_index"]]
+        group_name = str(row["Group"]) if "Group" in df.columns else None
+        return df, col_name, group_name
 
-        p = params.get()
-        if p is None:
-            return
+    def _original_cell(df, patch):
+        """Return the currently displayed value so an invalid edit is reverted."""
+        val = df.iat[patch["row_index"], patch["column_index"]]
+        if val is None or (isinstance(val, float) and np.isnan(val)):
+            return ""
+        return val
 
-        row = edit["row"]
-        col_name = edit["column"]
-        new_value = edit["value"]
-        group_name = (
-            p.model.loc[row, "Group"] if "Group" in p.model.columns else f"Row {row}"
+    @model_params_table.set_patch_fn
+    def _handle_model_params_edit(*, patch: render.CellPatch) -> render.CellValue:
+        """Handle edits to the model parameters table."""
+        df, col_name, group_name = _resolve_patch(model_params_table, patch)
+        original = _original_cell(df, patch)
+        new_value = patch["value"]
+
+        with reactive.isolate():
+            p = params.get()
+        if p is None or group_name is None:
+            return original
+
+        if col_name in ("Group", "Type") or col_name not in p.model.columns:
+            ui.notification_show(
+                f"Column '{col_name}' cannot be edited here",
+                type="warning",
+                duration=3,
+            )
+            return original
+
+        # Locate the row by group name: the displayed frame may be a
+        # filtered/reordered view of p.model, so positional indices are unsafe.
+        matches = p.model.index[p.model["Group"].astype(str) == group_name]
+        if len(matches) == 0:
+            return original
+        row_idx = matches[0]
+
+        try:
+            numeric_value = _convert_input_to_numeric(new_value)
+        except (ValueError, TypeError):
+            ui.notification_show(
+                f"Invalid numeric value for {col_name}: '{new_value}'",
+                type="error",
+                duration=4,
+            )
+            return original
+
+        is_valid, error_msg = True, None
+        if col_name == "Biomass" and not np.isnan(numeric_value):
+            is_valid, error_msg = validate_biomass(numeric_value, group_name)
+        elif col_name == "PB" and not np.isnan(numeric_value):
+            group_type = (
+                p.model.loc[row_idx, "Type"] if "Type" in p.model.columns else None
+            )
+            is_valid, error_msg = validate_pb(numeric_value, group_name, group_type)
+        elif col_name == "EE" and not np.isnan(numeric_value):
+            is_valid, error_msg = validate_ee(numeric_value, group_name)
+
+        if not is_valid:
+            ui.notification_show(
+                f"Invalid value for {col_name}: {error_msg}",
+                type="warning",
+                duration=5,
+            )
+            return original
+
+        p.model.loc[row_idx, col_name] = numeric_value
+        ui.notification_show(
+            f"Updated {col_name} for {group_name}", type="message", duration=2
         )
+        return "" if np.isnan(numeric_value) else round(float(numeric_value), 3)
 
-        # Update the params
-        if col_name in p.model.columns and col_name != "Group":
-            try:
-                # Convert value
-                numeric_value = _convert_input_to_numeric(new_value)
+    @diet_matrix_table.set_patch_fn
+    def _handle_diet_matrix_edit(*, patch: render.CellPatch) -> render.CellValue:
+        """Handle edits to the diet matrix table."""
+        df, col_name, prey_name = _resolve_patch(diet_matrix_table, patch)
+        original = _original_cell(df, patch)
+        new_value = patch["value"]
 
-                # Validate based on column type
-                is_valid = True
-                error_msg = None
+        with reactive.isolate():
+            p = params.get()
+        if p is None or prey_name is None:
+            return original
 
-                if col_name == "Biomass" and not np.isnan(numeric_value):
-                    is_valid, error_msg = validate_biomass(numeric_value, group_name)
-                elif col_name == "PB" and not np.isnan(numeric_value):
-                    group_type = (
-                        p.model.loc[row, "Type"] if "Type" in p.model.columns else None
-                    )
-                    is_valid, error_msg = validate_pb(
-                        numeric_value, group_name, group_type
-                    )
-                elif col_name == "EE" and not np.isnan(numeric_value):
-                    is_valid, error_msg = validate_ee(numeric_value, group_name)
+        if col_name == "Group" or col_name not in p.diet.columns:
+            ui.notification_show(
+                f"Column '{col_name}' cannot be edited here",
+                type="warning",
+                duration=3,
+            )
+            return original
 
-                if is_valid:
-                    p.model.loc[row, col_name] = numeric_value
-                    ui.notification_show(
-                        f"Updated {col_name} for {group_name}",
-                        type="message",
-                        duration=2,
-                    )
-                else:
-                    ui.notification_show(
-                        f"Invalid value for {col_name}: {error_msg}",
-                        type="warning",
-                        duration=5,
-                    )
+        matches = p.diet.index[p.diet["Group"].astype(str) == prey_name]
+        if len(matches) == 0:
+            return original
+        row_idx = matches[0]
 
-            except (ValueError, TypeError):
-                ui.notification_show(
-                    f"Invalid numeric value for {col_name}: '{new_value}'",
-                    type="error",
-                    duration=4,
-                )
+        try:
+            numeric_value = float(new_value) if new_value not in (None, "") else 0.0
+        except (ValueError, TypeError):
+            ui.notification_show(
+                f"Invalid numeric value for diet: '{new_value}'",
+                type="error",
+                duration=4,
+            )
+            return original
+
+        if numeric_value < 0:
+            ui.notification_show(
+                f"Diet proportion cannot be negative: {numeric_value:.3f}",
+                type="error",
+                duration=4,
+            )
+            return original
+        if numeric_value > 1:
+            ui.notification_show(
+                f"Diet proportion cannot exceed 1.0: {numeric_value:.3f}",
+                type="warning",
+                duration=4,
+            )
+            return original
+
+        p.diet.loc[row_idx, col_name] = numeric_value
+        ui.notification_show(
+            f"Updated diet: {prey_name} → {col_name}", type="message", duration=2
+        )
+        return round(numeric_value, 3)
+
+    @fisheries_table.set_patch_fn
+    def _handle_fisheries_edit(*, patch: render.CellPatch) -> render.CellValue:
+        """Persist landings/discards edits into params.model."""
+        df, col_name, group_name = _resolve_patch(fisheries_table, patch)
+        original = _original_cell(df, patch)
+        new_value = patch["value"]
+
+        with reactive.isolate():
+            p = params.get()
+        if p is None or group_name is None or col_name == "Group":
+            return original
+
+        # Display columns are "<fleet>_Land" / "<fleet>_Disc"; the params table
+        # stores them as "<fleet>" and "<fleet>.disc".
+        if col_name.endswith("_Land"):
+            target = col_name[: -len("_Land")]
+        elif col_name.endswith("_Disc"):
+            target = col_name[: -len("_Disc")] + ".disc"
+        else:
+            return original
+
+        if target not in p.model.columns:
+            ui.notification_show(
+                f"Column '{target}' is not part of this model",
+                type="warning",
+                duration=3,
+            )
+            return original
+
+        matches = p.model.index[p.model["Group"].astype(str) == group_name]
+        if len(matches) == 0:
+            return original
+        row_idx = matches[0]
+
+        try:
+            numeric_value = _convert_input_to_numeric(new_value)
+        except (ValueError, TypeError):
+            ui.notification_show(
+                f"Invalid numeric value: '{new_value}'", type="error", duration=4
+            )
+            return original
+
+        if not np.isnan(numeric_value) and numeric_value < 0:
+            ui.notification_show(
+                "Landings and discards cannot be negative",
+                type="error",
+                duration=4,
+            )
+            return original
+
+        p.model.loc[row_idx, target] = numeric_value
+        ui.notification_show(
+            f"Updated {col_name} for {group_name}", type="message", duration=2
+        )
+        return "" if np.isnan(numeric_value) else round(float(numeric_value), 3)
 
     @reactive.effect
-    def _handle_diet_matrix_edit():
-        """Handle edits to diet matrix table."""
-        edit = input.diet_matrix_table_cell_edit()
-        if edit is None:
+    @reactive.event(input.upload_params)
+    def _load_params_from_csv():
+        """Build RpathParams from an uploaded model.csv + diet.csv pair."""
+        files = input.upload_params()
+        if not files:
             return
 
-        p = params.get()
-        if p is None:
-            return
-
-        row = edit["row"]
-        col_name = edit["column"]
-        new_value = edit["value"]
-        prey_name = (
-            p.diet.loc[row, "Group"] if "Group" in p.diet.columns else f"Row {row}"
-        )
-
-        # Update the diet matrix
-        if col_name in p.diet.columns and col_name != "Group":
+        model_file = diet_file = None
+        for f in files:
             try:
-                # Convert value
-                numeric_value = float(new_value) if new_value else 0.0
-
-                # Validate diet proportion (0-1)
-                if numeric_value < 0:
-                    ui.notification_show(
-                        f"Diet proportion cannot be negative: {numeric_value:.3f}",
-                        type="error",
-                        duration=4,
-                    )
-                    return
-
-                if numeric_value > 1:
-                    ui.notification_show(
-                        f"Diet proportion cannot exceed 1.0: {numeric_value:.3f}",
-                        type="warning",
-                        duration=4,
-                    )
-                    return
-
-                p.diet.loc[row, col_name] = numeric_value
+                cols = set(pd.read_csv(f["datapath"], nrows=0).columns)
+            except (OSError, ValueError, pd.errors.ParserError) as e:
+                logger.debug("Could not read %s: %s", f["name"], e)
                 ui.notification_show(
-                    f"Updated diet: {prey_name} → {col_name}",
-                    type="message",
-                    duration=2,
+                    f"Could not read {f['name']}: {e!s}", type="error", duration=6
                 )
+                return
+            # The model table carries a Type column; the diet matrix does not.
+            if "Type" in cols:
+                model_file = f["datapath"]
+            else:
+                diet_file = f["datapath"]
 
-            except (ValueError, TypeError):
-                ui.notification_show(
-                    f"Invalid numeric value for diet: '{new_value}'",
-                    type="error",
-                    duration=4,
-                )
+        if model_file is None or diet_file is None:
+            ui.notification_show(
+                "Upload both files together: a model CSV (with a Type column) "
+                "and a diet composition CSV.",
+                type="warning",
+                duration=8,
+            )
+            return
+
+        try:
+            new_params = read_rpath_params(model_file, diet_file)
+        except Exception as e:
+            logger.exception("Reading uploaded parameter CSVs failed")
+            ui.notification_show(
+                f"Could not build parameters: {e!s}", type="error", duration=8
+            )
+            return
+
+        params.set(new_params)
+        model_data.set(new_params)
+        ui.notification_show(
+            f"Loaded {len(new_params.model)} groups from uploaded CSVs",
+            type="message",
+            duration=5,
+        )
 
     @reactive.effect
     @reactive.event(input.btn_balance)
@@ -916,8 +1091,9 @@ def ecopath_server(
             else:
                 p.model["DetInput"] = p.model["DetInput"].fillna(0.0)
 
-            # For living groups, set a default Unassim if needed
-            living_mask = p.model["Type"] < 2
+            # Consumers (Type < 1) with Unassim 0 get the default; producers
+            # (Type == 1) legitimately have Unassim 0 and are left alone.
+            living_mask = p.model["Type"] < 1
             p.model.loc[living_mask & (p.model["Unassim"] == 0), "Unassim"] = (
                 DEFAULTS.unassim_consumers
             )
@@ -967,9 +1143,7 @@ def ecopath_server(
             ui.notification_show("Model balanced successfully!", type="message")
 
         except Exception as e:
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("Model balancing failed")
             ui.notification_show(f"Error balancing model: {str(e)}", type="error")
 
     @output
@@ -1224,5 +1398,6 @@ def ecopath_server(
         """Download parameters as CSV."""
         p = params.get()
         if p is not None:
-            return p.model.to_csv(index=False)
-        return ""
+            yield p.model.to_csv(index=False)
+        else:
+            yield ""

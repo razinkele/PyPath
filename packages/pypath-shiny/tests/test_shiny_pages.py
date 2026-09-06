@@ -291,8 +291,11 @@ class TestEcospacePage:
             sig = inspect.signature(ecospace.ecospace_server)
             params = list(sig.parameters.keys())
 
-            # Should have: input, output, session, model_data, sim_results, sim_scenario
-            assert len(params) == 6
+            # input, output, session, model_data, sim_results, sim_scenario,
+            # plus optional extras such as wizard_params
+            assert len(params) >= 6
+            for extra in params[6:]:
+                assert sig.parameters[extra].default is not inspect.Parameter.empty
             assert any(p.lstrip("_") == "model_data" for p in params)
             assert any(p.lstrip("_") == "sim_results" for p in params)
             assert any(p.lstrip("_") == "sim_scenario" for p in params)

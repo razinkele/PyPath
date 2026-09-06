@@ -1,5 +1,6 @@
 """Home page module."""
 
+import logging
 import warnings
 
 import pandas as pd
@@ -9,6 +10,8 @@ from shiny import Inputs, Outputs, Session, reactive, ui
 
 # Import centralized configuration
 from pypath_shiny.config import DEFAULTS
+
+logger = logging.getLogger(__name__)
 
 
 def home_ui():
@@ -736,4 +739,5 @@ def home_server(
             ui.update_navs("main_nav", selected="Ecopath Model")
 
         except Exception as e:
+            logger.exception("Loading the example model failed")
             ui.notification_show(f"Error loading example model: {str(e)}", type="error")

@@ -328,6 +328,54 @@ def diet_rewiring_demo_ui():
     )
 
 
+def build_diet_rewiring_code(switching_power, update_interval, min_proportion):
+    """Build the example script shown on the diet rewiring demo page.
+
+    A plain function (no reactive reads) so the code renderer and the
+    download handler can share it.
+    """
+    return f"""# Dynamic Diet Rewiring Example
+# Generated from PyPath Demo
+
+from pypath.core.forcing import create_diet_rewiring
+from pypath.core.ecosim_advanced import rsim_run_advanced
+
+# Create diet rewiring configuration
+diet_rewiring = create_diet_rewiring(
+    switching_power={switching_power},
+    min_proportion={min_proportion},
+    update_interval={update_interval}
+)
+
+# Run simulation with diet rewiring
+result = rsim_run_advanced(
+    scenario,
+    diet_rewiring=diet_rewiring,
+    verbose=True
+)
+
+# Access updated diet matrix
+# The diet will adapt as prey biomass changes during simulation
+
+# Plot diet evolution
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Extract diet from simulation (if saved)
+# This is conceptual - actual implementation depends on output structure
+months = np.arange(len(result.out_Biomass))
+diet_history = []  # Would be extracted from simulation
+
+plt.figure(figsize=(12, 6))
+plt.plot(months, diet_history)
+plt.xlabel('Month')
+plt.ylabel('Diet Proportion')
+plt.title('Diet Evolution with Prey Switching')
+plt.legend(['Prey 1', 'Prey 2', 'Prey 3'])
+plt.show()
+"""
+
+
 def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
     """Server logic for diet rewiring demonstration."""
 
@@ -618,58 +666,20 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
+    def _diet_code():
+        return build_diet_rewiring_code(
+            input.demo_switching_power(),
+            input.update_interval(),
+            input.min_proportion(),
+        )
+
     @output
     @render.code
     def diet_code_example():
         """Generate Python code example."""
-        switching_power = input.demo_switching_power()
-        update_interval = input.update_interval()
-        min_proportion = input.min_proportion()
-
-        code = f"""# Dynamic Diet Rewiring Example
-# Generated from PyPath Demo
-
-from pypath.core.forcing import create_diet_rewiring
-from pypath.core.ecosim_advanced import rsim_run_advanced
-
-# Create diet rewiring configuration
-diet_rewiring = create_diet_rewiring(
-    switching_power={switching_power},
-    min_proportion={min_proportion},
-    update_interval={update_interval}
-)
-
-# Run simulation with diet rewiring
-result = rsim_run_advanced(
-    scenario,
-    diet_rewiring=diet_rewiring,
-    verbose=True
-)
-
-# Access updated diet matrix
-# The diet will adapt as prey biomass changes during simulation
-
-# Plot diet evolution
-import matplotlib.pyplot as plt
-import numpy as np
-
-# Extract diet from simulation (if saved)
-# This is conceptual - actual implementation depends on output structure
-months = np.arange(len(result.out_Biomass))
-diet_history = []  # Would be extracted from simulation
-
-plt.figure(figsize=(12, 6))
-plt.plot(months, diet_history)
-plt.xlabel('Month')
-plt.ylabel('Diet Proportion')
-plt.title('Diet Evolution with Prey Switching')
-plt.legend(['Prey 1', 'Prey 2', 'Prey 3'])
-plt.show()
-"""
-        return code
+        return _diet_code()
 
     @render.download(filename="diet_rewiring_example.py")
     def diet_download_code():
-        """Download code example."""
-        code = diet_code_example()
-        return code
+        """Download code example (yield: a returned str is treated as a path)."""
+        yield _diet_code()

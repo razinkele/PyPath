@@ -4,6 +4,8 @@ Multi-stanza Groups Page
 Interactive setup and visualization of age-structured populations with von Bertalanffy growth.
 """
 
+import logging
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -13,6 +15,8 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 # Configuration imports
 from pypath_shiny.config import PARAM_RANGES
 from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
+
+logger = logging.getLogger(__name__)
 
 
 def multistanza_ui():
@@ -81,7 +85,7 @@ def multistanza_ui():
                 ),
                 ui.input_action_button(
                     "save_stanzas",
-                    "Save Configuration",
+                    "Save to Model",
                     class_="btn-success w-100 mt-2",
                 ),
                 width=300,
@@ -214,6 +218,74 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
                 # Fallback for balanced Rpath model
                 groups = params.Group.tolist()
                 ui.update_select("stanza_group", choices=groups)
+
+    @reactive.effect
+    @reactive.event(input.save_stanzas)
+    def save_stanza_configuration():
+        """Write the calculated age ranges into the model's stanza parameters.
+
+        `stindiv` holds First/Last as ages in months for each stanza of a
+        multi-stanza group, which is what the calculated table provides.
+        """
+        df = stanza_data()
+        if df is None:
+            ui.notification_show(
+                "Calculate stanza properties first.", type="warning", duration=4
+            )
+            return
+
+        params = shared_data.params()
+        if not is_rpath_params(params):
+            ui.notification_show(
+                "Load unbalanced model parameters before saving stanzas.",
+                type="warning",
+                duration=6,
+            )
+            return
+
+        stanzas = getattr(params, "stanzas", None)
+        stindiv = getattr(stanzas, "stindiv", None) if stanzas is not None else None
+        group = input.stanza_group()
+        if stindiv is None or len(stindiv) == 0 or not group:
+            ui.notification_show(
+                "This model has no multi-stanza groups to update.",
+                type="warning",
+                duration=6,
+            )
+            return
+
+        member = stindiv.index[stindiv["Group"].astype(str) == str(group)]
+        if len(member) == 0:
+            ui.notification_show(
+                f"'{group}' is not part of a multi-stanza group.",
+                type="warning",
+                duration=6,
+            )
+            return
+        # All groups sharing this stanza group are its stanzas, in order
+        st_group_num = stindiv.loc[member[0], "StGroupNum"]
+        rows = stindiv.index[stindiv["StGroupNum"] == st_group_num]
+        if len(rows) != len(df):
+            ui.notification_show(
+                f"This stanza group has {len(rows)} stanza(s) but {len(df)} were "
+                "calculated. Set 'Number of Stanzas' to match.",
+                type="warning",
+                duration=8,
+            )
+            return
+
+        for row_idx, (_, stanza) in zip(rows, df.iterrows()):
+            stindiv.loc[row_idx, "First"] = round(stanza["Age_Start"] * 12)
+            stindiv.loc[row_idx, "Last"] = round(stanza["Age_End"] * 12)
+
+        logger.info(
+            "Saved %d stanza age ranges for stanza group of %s", len(rows), group
+        )
+        ui.notification_show(
+            f"Saved {len(rows)} stanza age ranges to {group}.",
+            type="message",
+            duration=5,
+        )
 
     @reactive.effect
     @reactive.event(input.calculate_stanzas)
@@ -362,7 +434,7 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             margin=dict(l=50, r=50, t=50, b=50),
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="growth_plot"))
+        return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="growth_plot_fig"))
 
     @output
     @render.data_frame
@@ -426,11 +498,13 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             margin=dict(l=50, r=50, t=50, b=50),
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="biomass_plot"))
+        return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="biomass_plot_fig"))
 
     @render.download(filename="stanza_configuration.csv")
     def download_stanzas():
         """Download stanza configuration as CSV."""
         df = stanza_data()
         if df is not None:
-            return df.to_csv(index=False)
+            yield df.to_csv(index=False)
+        else:
+            yield ""

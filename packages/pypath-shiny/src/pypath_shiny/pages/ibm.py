@@ -279,6 +279,29 @@ def ibm_ui():
     )
 
 
+def _model_group_table(model):
+    """Return ``[(row_index, name, type)]`` for an RpathParams or balanced Rpath.
+
+    ``row_index`` is the 0-based position in the model table; Ecosim arrays
+    use ``row_index + 1`` (index 0 is the Outside placeholder).
+    """
+    if model is None:
+        return []
+    df = getattr(model, "model", None)
+    if df is not None and hasattr(df, "iterrows"):
+        rows = []
+        for idx, row in df.iterrows():
+            name = row.get("Group", row.get("group", f"Group {idx}"))
+            gtype = row.get("Type", row.get("type", None))
+            rows.append((int(idx), str(name), gtype))
+        return rows
+    if hasattr(model, "Group") and hasattr(model, "type"):
+        return [
+            (i, str(g), int(t)) for i, (g, t) in enumerate(zip(model.Group, model.type))
+        ]
+    return []
+
+
 def ibm_server(
     input: Inputs,
     _output: Outputs,
@@ -301,26 +324,15 @@ def ibm_server(
     @reactive.effect
     def _update_group_choices():
         """Populate group dropdown with consumer groups from the model."""
-        model = _model_data()
-        if model is None:
-            return
-        if not hasattr(model, "model") or model.model is None:
+        rows = _model_group_table(_model_data())
+        if not rows:
             return
 
-        df = model.model
         # Filter to consumer groups (Type == 0)
-        choices = {}
-        for idx, row in df.iterrows():
-            group_type = row.get("Type", row.get("type", None))
-            group_name = row.get("Group", row.get("group", f"Group {idx}"))
-            if group_type == 0:
-                choices[str(idx)] = group_name
-
+        choices = {str(idx): name for idx, name, gtype in rows if gtype == 0}
         if not choices:
             # Fallback: offer all groups
-            for idx, row in df.iterrows():
-                group_name = row.get("Group", row.get("group", f"Group {idx}"))
-                choices[str(idx)] = group_name
+            choices = {str(idx): name for idx, name, _ in rows}
 
         ui.update_select("ibm_group_select", choices=choices)
 
@@ -433,7 +445,10 @@ def ibm_server(
             return
 
         try:
-            group_idx = int(group_str)
+            row_idx = int(group_str)
+            # Ecosim arrays are 1-based (index 0 = Outside); SmeltIBM and
+            # ecosim_deriv expect that 1-based index as group_index.
+            group_idx = row_idx + 1
             n_groups = scenario.params.NUM_GROUPS
 
             # Build parameters
@@ -447,8 +462,8 @@ def ibm_server(
                 params=params,
             )
 
-            # Get equilibrium biomass for this group (1-based index in Ecosim)
-            biomass = float(scenario.params.B_BaseRef[group_idx + 1])
+            # Equilibrium biomass for this group (group_idx is already 1-based)
+            biomass = float(scenario.params.B_BaseRef[group_idx])
 
             n_super = int(input.ibm_n_super())
             ibm.initialize_from_ecosim(
@@ -460,9 +475,9 @@ def ibm_server(
             ibm_group_instance.set(ibm)
 
             # Get group name for notification
-            df = model.model
-            group_name = df.iloc[group_idx].get(
-                "Group", df.iloc[group_idx].get("group", f"Group {group_idx}")
+            group_name = next(
+                (n for i, n, _ in _model_group_table(model) if i == row_idx),
+                f"Group {row_idx}",
             )
 
             ui.notification_show(
@@ -536,7 +551,7 @@ def ibm_server(
                 n_groups=ibm.n_groups,
                 params=ibm.params,
             )
-            biomass = float(ibm_scenario.params.B_BaseRef[ibm.group_index + 1])
+            biomass = float(ibm_scenario.params.B_BaseRef[ibm.group_index])
             ibm_fresh.initialize_from_ecosim(
                 biomass=biomass,
                 params={},
@@ -564,20 +579,30 @@ def ibm_server(
     @render.table
     def ibm_param_summary():
         """Show parameter summary table."""
+
+        def fmt(value, spec):
+            """Format a numeric input; a cleared field yields None."""
+            if value is None:
+                return "-"
+            try:
+                return format(value, spec)
+            except (TypeError, ValueError):
+                return str(value)
+
         rows = [
-            ("VBGF K", f"{input.ibm_vbgf_k():.3f}", "yr⁻¹"),
-            ("VBGF Linf", f"{input.ibm_vbgf_linf():.1f}", "cm"),
-            ("Max age", f"{input.ibm_max_age():.0f}", "years"),
-            ("Q10", f"{input.ibm_q10():.1f}", ""),
-            ("Reference temp.", f"{input.ibm_t_ref():.1f}", "°C"),
-            ("Ra", f"{input.ibm_ra():.4f}", "g O₂/g/day"),
-            ("Energy density", f"{input.ibm_energy_density():.1f}", "kJ/g"),
-            ("Optimal prey L", f"{input.ibm_optimal_prey_length():.1f}", "cm"),
-            ("Selectivity σ", f"{input.ibm_selectivity_sd():.2f}", ""),
-            ("Fecundity coeff.", f"{input.ibm_fecundity_coeff():.0f}", "eggs/g^exp"),
-            ("Larval survival", f"{input.ibm_larval_survival():.3f}", ""),
-            ("Spawning temp.", f"{input.ibm_spawning_temp():.1f}", "°C"),
-            ("N super-ind.", f"{input.ibm_n_super()}", ""),
+            ("VBGF K", fmt(input.ibm_vbgf_k(), ".3f"), "yr⁻¹"),
+            ("VBGF Linf", fmt(input.ibm_vbgf_linf(), ".1f"), "cm"),
+            ("Max age", fmt(input.ibm_max_age(), ".0f"), "years"),
+            ("Q10", fmt(input.ibm_q10(), ".1f"), ""),
+            ("Reference temp.", fmt(input.ibm_t_ref(), ".1f"), "°C"),
+            ("Ra", fmt(input.ibm_ra(), ".4f"), "g O₂/g/day"),
+            ("Energy density", fmt(input.ibm_energy_density(), ".1f"), "kJ/g"),
+            ("Optimal prey L", fmt(input.ibm_optimal_prey_length(), ".1f"), "cm"),
+            ("Selectivity σ", fmt(input.ibm_selectivity_sd(), ".2f"), ""),
+            ("Fecundity coeff.", fmt(input.ibm_fecundity_coeff(), ".0f"), "eggs/g^exp"),
+            ("Larval survival", fmt(input.ibm_larval_survival(), ".3f"), ""),
+            ("Spawning temp.", fmt(input.ibm_spawning_temp(), ".1f"), "°C"),
+            ("N super-ind.", fmt(input.ibm_n_super(), "d"), ""),
         ]
         return pd.DataFrame(rows, columns=["Parameter", "Value", "Unit"])
 
@@ -594,6 +619,14 @@ def ibm_server(
             )
 
         n_ind = len(ibm.individuals)
+        if n_ind == 0:
+            return ui.div(
+                ui.tags.i(class_="bi bi-exclamation-triangle me-2"),
+                "IBM initialized with no super-individuals. "
+                "Increase 'Number of super-individuals' and initialize again.",
+                class_="alert alert-warning",
+            )
+
         total_biomass = ibm.get_aggregate_biomass()
         ages = [ind.age for ind in ibm.individuals]
         weights = [ind.weight for ind in ibm.individuals]
@@ -741,8 +774,8 @@ def ibm_server(
         ibm = ibm_group_instance()
         req(ibm is not None)
 
-        # Ecosim uses 1-based indexing: group_index + 1
-        col = ibm.group_index + 1
+        # group_index is already the 1-based Ecosim column
+        col = ibm.group_index
 
         fig, ax = plt.subplots(figsize=(10, 5))
 
@@ -777,8 +810,8 @@ def ibm_server(
                     "Group",
                     model.model.iloc[ibm.group_index].get("group", group_name),
                 )
-            except (IndexError, AttributeError):
-                pass
+            except (IndexError, AttributeError) as e:
+                logger.debug("Could not resolve IBM group name: %s", e)
 
         ax.set_xlabel("Time (months)")
         ax.set_ylabel("Biomass (t/km²)")
@@ -878,7 +911,7 @@ def ibm_server(
         ibm = ibm_group_instance()
         req(ibm is not None)
 
-        col = ibm.group_index + 1
+        col = ibm.group_index
 
         fig, axes = plt.subplots(2, 1, figsize=(10, 5), sharex=True)
 
