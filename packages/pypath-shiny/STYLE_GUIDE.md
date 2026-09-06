@@ -19,7 +19,9 @@ This style guide documents the coding conventions and patterns used in the PyPat
 
 - **Server functions**: `{module_name}_server(input, output, session)`
   ```python
-  def ecopath_server(input: Inputs, output: Outputs, session: Session, model_data: reactive.Value):
+  def ecopath_server(
+      input: Inputs, output: Outputs, session: Session, model_data: reactive.Value
+  ):
       """Ecopath page server logic."""
       # ... server code ...
   ```
@@ -59,7 +61,7 @@ def is_balanced_model(model) -> bool:
     bool
         True if model is balanced
     """
-    return hasattr(model, 'NUM_LIVING')
+    return hasattr(model, "NUM_LIVING")
 ```
 
 ---
@@ -124,7 +126,9 @@ Apply to all `@reactive.effect` with `@reactive.event(input.btn_*)`:
 
 ```python
 from app.logger import get_logger
+
 logger = get_logger(__name__)
+
 
 @reactive.effect
 @reactive.event(input.btn_action)
@@ -225,7 +229,7 @@ ui.input_numeric(
     "Simulation Years",
     value=PARAM_RANGES.years_default,
     min=PARAM_RANGES.years_min,
-    max=PARAM_RANGES.years_max
+    max=PARAM_RANGES.years_max,
 )
 
 if biomass < THRESHOLDS.crash_threshold:
@@ -236,8 +240,8 @@ ui.input_numeric(
     "sim_years",
     "Simulation Years",
     value=50,  # Should use PARAM_RANGES.years_default
-    min=1,     # Should use PARAM_RANGES.years_min
-    max=500    # Should use PARAM_RANGES.years_max
+    min=1,  # Should use PARAM_RANGES.years_min
+    max=500,  # Should use PARAM_RANGES.years_max
 )
 
 if biomass < 0.0001:  # Should use THRESHOLDS.crash_threshold
@@ -256,7 +260,7 @@ Use **NumPy-style docstrings** for all public functions:
 def format_dataframe_for_display(
     df: pd.DataFrame,
     decimal_places: Optional[int] = None,
-    remarks_df: Optional[pd.DataFrame] = None
+    remarks_df: Optional[pd.DataFrame] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Format a DataFrame for display with number formatting and cell styling.
 
@@ -340,8 +344,8 @@ ui.span(
     ui.tags.i(
         class_="bi bi-info-circle",
         title="Controls predator-prey functional response. 1=bottom-up, 2=mixed, higher=top-down.",
-        style="cursor: help;"
-    )
+        style="cursor: help;",
+    ),
 )
 ```
 
@@ -358,7 +362,7 @@ ui.tags.details(
             ui.tags.dd("Standing stock biomass (t/km²)"),
             # ... more items ...
         )
-    )
+    ),
 )
 ```
 
@@ -375,8 +379,8 @@ ui.nav_panel(
             ui.h5("Overview"),
             ui.p("This demo shows..."),
             # ... more help content ...
-        )
-    )
+        ),
+    ),
 )
 ```
 
@@ -406,7 +410,7 @@ ui.layout_sidebar(
         width=UI.sidebar_width
     ),
     # Main content with tabs
-    ui.navset_card_tab(...)
+    ui.navset_card_tab(...),
 )
 ```
 
@@ -444,7 +448,7 @@ if is_balanced_model(model):
     indices = calculate_network_indices(model)
 
 # BAD - Direct hasattr check
-if hasattr(model, 'NUM_LIVING'):
+if hasattr(model, "NUM_LIVING"):
     indices = calculate_network_indices(model)
 ```
 
@@ -526,7 +530,7 @@ ecobase_models = reactive.Value(None)
 
 # BAD - Too generic
 params = reactive.Value(None)  # params for what?
-data = reactive.Value(None)    # what kind of data?
+data = reactive.Value(None)  # what kind of data?
 ```
 
 ### Notification Messages

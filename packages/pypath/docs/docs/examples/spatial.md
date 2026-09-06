@@ -51,7 +51,7 @@ from pypath.spatial.gis_utils import create_hexagonal_grid
 # Hexagonal grid covering a 100x100 km area
 grid = create_hexagonal_grid(
     bounds=(0, 0, 100, 100),  # (xmin, ymin, xmax, ymax)
-    resolution=10.0,           # 10 km cell diameter
+    resolution=10.0,  # 10 km cell diameter
 )
 ```
 
@@ -152,8 +152,10 @@ assert validate_adjacency_symmetry(grid.adjacency), "Adjacency must be symmetric
 # Get graph statistics
 stats = get_connectivity_graph_stats(grid.adjacency)
 print(f"Patches: {stats['n_nodes']}, Edges: {stats['n_edges']}")
-print(f"Degree: min={stats['min_degree']}, mean={stats['mean_degree']:.1f}, max={stats['max_degree']}")
-if stats['isolated_patches']:
+print(
+    f"Degree: min={stats['min_degree']}, mean={stats['mean_degree']:.1f}, max={stats['max_degree']}"
+)
+if stats["isolated_patches"]:
     print(f"WARNING: Isolated patches: {stats['isolated_patches']}")
 
 # Pairwise distances between patches
@@ -194,7 +196,7 @@ See the [IBM Example](ibm.md) and
 from pypath.ibm.smelt import SmeltIBM, SmeltParams
 
 smelt = SmeltIBM(
-    group_index=3,   # which Ecopath group this IBM replaces
+    group_index=3,  # which Ecopath group this IBM replaces
     n_groups=ng,
     params=SmeltParams.baltic_defaults(),
 )

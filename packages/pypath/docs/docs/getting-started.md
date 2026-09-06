@@ -30,9 +30,9 @@ params = create_rpath_params(
 )
 
 # Set biomass (t/km2)
-params.model.loc[0, "Biomass"] = 10.0   # Phytoplankton
-params.model.loc[1, "Biomass"] = 5.0    # Zooplankton
-params.model.loc[2, "Biomass"] = 2.0    # Small Fish
+params.model.loc[0, "Biomass"] = 10.0  # Phytoplankton
+params.model.loc[1, "Biomass"] = 5.0  # Zooplankton
+params.model.loc[2, "Biomass"] = 2.0  # Small Fish
 params.model.loc[3, "Biomass"] = 100.0  # Detritus
 
 # Production/biomass ratios
@@ -144,8 +144,8 @@ data_dir = Path("path/to/csv/files")
 params = read_rpath_params(
     model_file=data_dir / "model.csv",
     diet_file=data_dir / "diet.csv",
-    stanza_file=data_dir / "stanzas.csv",       # optional
-    stanza_group_file=data_dir / "stgroups.csv", # optional
+    stanza_file=data_dir / "stanzas.csv",  # optional
+    stanza_group_file=data_dir / "stgroups.csv",  # optional
 )
 ```
 
