@@ -6,6 +6,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.5.0 (2026-09-06)
+
+### Changed (breaking)
+
+- **core/analysis.py**: `keystoneness_index()` now returns `n_groups` values instead of `n_groups + 1`, and `export_ecopath_to_dataframe()` emits group **names** rather than integer indices. Callers indexing the old padded array need updating.
+
+### Fixed
+
+- **core/analysis.py**, **core/indicators.py**, **core/plotting.py**: Converted from a 1-based Rpath layout that no real `Rpath` uses. Real arrays are 0-based of length `NUM_GROUPS`, `DC` is `(NUM_GROUPS + 1, NUM_LIVING)` with a trailing Import row, and `Landings`/`Discards` are `(NUM_GROUPS, NUM_GEARS)`. On the shipped example model `mixed_trophic_impacts()`, `flow_analysis()` and `plot_foodweb()` all raised `IndexError`; the Analysis page swallowed those and rendered zeros or an error onto the canvas.
+- **core/indicators.py**: `Landings[i, 1:]` dropped gear 0, so a one-fleet model reported zero catch — mean trophic level of the catch came back `NaN` and catch/biomass `0.0`.
+- **core/plotting.py**: `plot_trophic_spectrum()` failed silently, dropping the first living group (the primary producer) and counting a detritus group as living — a 22% error in total biomass on the example model.
+- **core/plotting.py**: Food web node labels now use real group names instead of positional `G{i}` labels.
+- **ibm/smelt.py**: Removed a dead `o2` that the per-individual, zone-specific `ind_o2` had superseded.
+- **io/ewemdb.py**: Replaced a KeyError-probe assignment with an explicit column-membership check.
+
+### Added
+
+- **spatial/fishing.py**: `effort_multipliers()` turns a `SpatialFishing` allocation into per-patch, per-gear multipliers normalised to mean 1.0, so total fleet effort is conserved and a uniform allocation reproduces a run with no spatial fishing exactly.
+- **spatial/integration.py**: `rsim_run_spatial(..., spatial_fishing=)` and `deriv_vector_spatial(..., effort_multiplier=)`, both optional and additive. MPA closures compose with an allocation by multiplication.
+
+### Internal
+
+- Cleared 181 ruff errors that had kept CI red since at least 2026-03-12.
+
+
 ## v0.4.2 (2026-04-06)
 
 ### Fixed

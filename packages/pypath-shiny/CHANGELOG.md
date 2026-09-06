@@ -6,6 +6,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.4.2 (2026-09-06)
+
+### Fixed
+
+- **Ecospace**: The Spatial Fishing controls (allocation method, gravity alpha, port distance decay, habitat targeting) now drive the simulation instead of only redrawing a preview. Added a Target Groups multi-select for `SpatialFishing.target_groups`; leaving it empty follows total biomass, as before.
+- **Ecospace**: Fixed a decorator that had been captured by a helper inserted above the run handler, which left the Run Spatial Simulation button doing nothing.
+- **Ecospace**: Removed a pruning block that discarded 9 of 28 hexagonal patches; habitat CSV parsing now sniffs for a header instead of eating the first data row.
+- **Ecopath**: Table edits are applied through `set_patch_fn`; the previous `input.<id>_cell_edit` effects do not exist in Shiny 1.7, so edits to the model, diet and fisheries tables were silently discarded. Rows resolve by group name rather than position.
+- **All pages**: Eight `@render.download` handlers returned a `str`, which Shiny treats as a file path; `download_params` raised `WinError 123`. All now yield.
+- **Ecosim**: The Biomass Forcing card now writes into `forcing.ForcedPrey`; previously it had no effect on the scenario.
+- **Analysis**: Food web, trophic spectrum and network indices work again, following the indexing fixes in pypath-ewe 0.5.0.
+- **logger.py**: `configure_logging()` clears existing handlers and creates the log directory on every run.
+
+### Changed
+
+- Requires `pypath-ewe >= 0.5.0`.
+
+
 ## v0.4.1 (2026-04-06)
 
 ### Fixed
