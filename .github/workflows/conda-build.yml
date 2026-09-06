@@ -1,0 +1,147 @@
+name: Conda Build & Publish
+
+# Builds the two noarch conda packages on a runner rather than a developer
+# machine, and optionally publishes them to the `razinka` Anaconda channel.
+#
+# Run it from the Actions tab ("Run workflow"). It always builds and attaches
+# the .conda files to the run, so it is useful for verifying a recipe even
+# when no upload is intended.
+#
+# Publishing requires an ANACONDA_TOKEN repository secret. Create one with:
+#   anaconda auth --create --name github-actions --scopes "api:write"
+# then add it under Settings -> Secrets and variables -> Actions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Upload the built packages to the razinka channel"
+        type: boolean
+        default: false
+      packages:
+        description: "Which packages to build"
+        type: choice
+        default: both
+        options: [both, pypath-ewe, pypath-shiny]
+
+concurrency:
+  group: conda-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build noarch packages
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          channels: conda-forge
+          conda-remove-defaults: true
+
+      - name: Install build tooling
+        run: conda install -y conda-build anaconda-client
+
+      - name: Check recipe versions against the packages
+        run: |
+          python - <<'PY'
+          import re, pathlib, sys
+          pairs = [
+              ("pypath-ewe", "packages/pypath/pyproject.toml",
+               "packages/pypath/src/pypath/__init__.py"),
+              ("pypath-shiny", "packages/pypath-shiny/pyproject.toml",
+               "packages/pypath-shiny/src/pypath_shiny/__init__.py"),
+          ]
+          bad = False
+          for name, proj, init in pairs:
+              recipe = pathlib.Path(f"conda-recipes/{name}/meta.yaml").read_text()
+              v_recipe = re.search(r'set version = "(.+?)"', recipe).group(1)
+              v_proj = re.search(r'^version = "(.+?)"',
+                                 pathlib.Path(proj).read_text(), re.M).group(1)
+              v_init = re.search(r'__version__ = "(.+?)"',
+                                 pathlib.Path(init).read_text()).group(1)
+              ok = v_recipe == v_proj == v_init
+              bad |= not ok
+              print(f"{name:14s} recipe={v_recipe} pyproject={v_proj} "
+                    f"__init__={v_init}  {'OK' if ok else 'MISMATCH'}")
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Build pypath-ewe
+        if: inputs.packages == 'both' || inputs.packages == 'pypath-ewe'
+        run: |
+          conda build conda-recipes/pypath-ewe \
+            --no-anaconda-upload --output-folder dist-conda
+
+      # pypath-shiny depends on pypath-ewe >= the version just built, which is
+      # not on the channel yet, so the local output folder is added as a channel
+      # for the dependency solve during its test phase.
+      - name: Build pypath-shiny
+        if: inputs.packages == 'both' || inputs.packages == 'pypath-shiny'
+        run: |
+          EXTRA=""
+          if [ -d dist-conda ]; then EXTRA="-c ./dist-conda"; fi
+          conda build conda-recipes/pypath-shiny $EXTRA \
+            --no-anaconda-upload --output-folder dist-conda
+
+      - name: List what was built
+        run: ls -la dist-conda/noarch/
+
+      - name: Upload packages as run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: conda-packages
+          path: dist-conda/noarch/*.conda
+          if-no-files-found: error
+
+      - name: Check the publish token is present
+        if: inputs.publish
+        env:
+          ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+        run: |
+          if [ -z "$ANACONDA_TOKEN" ]; then
+            echo "::error::publish was requested but the ANACONDA_TOKEN secret is not set."
+            echo "Create one with: anaconda auth --create --name github-actions --scopes 'api:write'"
+            exit 1
+          fi
+
+      # pypath-ewe goes first: pypath-shiny pins pypath-ewe >=0.5.0 and would be
+      # uninstallable if the core were not on the channel already.
+      - name: Publish to the razinka channel
+        if: inputs.publish
+        env:
+          ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+        run: |
+          set -euo pipefail
+          for pkg in pypath-ewe pypath-shiny; do
+            for f in dist-conda/noarch/${pkg}-*.conda; do
+              [ -e "$f" ] || continue
+              echo "uploading $f"
+              anaconda --token "$ANACONDA_TOKEN" upload --user razinka "$f"
+            done
+          done
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Conda build"
+            echo
+            if [ -d dist-conda/noarch ]; then
+              echo '```'
+              ls -1 dist-conda/noarch/*.conda 2>/dev/null || echo "no packages built"
+              echo '```'
+            fi
+            if [ "${{ inputs.publish }}" = "true" ]; then
+              echo "Published to the \`razinka\` channel."
+            else
+              echo "Not published. Download them from the run artifacts, or re-run with **publish** checked."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
