@@ -53,7 +53,7 @@ jobs:
         run: |
           conda install -y -n base conda-build anaconda-client
           conda build --version
-          anaconda --version
+          "$CONDA/bin/anaconda" --version
 
       - name: Check recipe versions against the packages
         run: |
@@ -130,7 +130,7 @@ jobs:
             for f in dist-conda/noarch/${pkg}-*.conda; do
               [ -e "$f" ] || continue
               echo "uploading $f"
-              anaconda --token "$ANACONDA_TOKEN" upload --user razinka "$f"
+              "$CONDA/bin/anaconda" --token "$ANACONDA_TOKEN" \n                upload --user razinka "$f"
             done
           done
 
