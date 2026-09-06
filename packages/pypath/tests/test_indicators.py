@@ -1,5 +1,6 @@
 """Unit tests for ecological indicators module."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -8,7 +9,6 @@ import pytest
 
 from pypath.core.analysis import calculate_network_indices
 from pypath.core.indicators import (
-    EcosystemIndicators,
     FlowAnalysis,
     SystemMaturityIndices,
     ecosystem_indicators,
@@ -21,7 +21,7 @@ from pypath.core.indicators import (
 
 
 def _make_rpath_3group():
-    """Create a simple 3-group model: producer(1), consumer(2), detritus(3).
+    """Create a simple 3-group model: producer(0), consumer(1), detritus(2).
 
     Producer: B=10, PB=2, QB=0 (type=1, producer)
     Consumer: B=5, PB=0.5, QB=2 (type=0, consumer), eats 100% producer
@@ -33,25 +33,27 @@ def _make_rpath_3group():
     rpath = MagicMock()
     rpath.NUM_LIVING = 2
     rpath.NUM_DEAD = 1
+    rpath.NUM_GROUPS = 3
     rpath.NUM_GEARS = 1
 
-    # All arrays are 1-based (index 0 unused)
-    rpath.Biomass = np.array([0.0, 10.0, 5.0, 3.0])
-    rpath.PB = np.array([0.0, 2.0, 0.5, 0.0])
-    rpath.QB = np.array([0.0, 0.0, 2.0, 0.0])
-    rpath.EE = np.array([0.0, 0.8, 0.7, 0.5])
-    rpath.Unassim = np.array([0.0, 0.0, 0.2, 0.0])
-    rpath.TL = np.array([0.0, 1.0, 2.0, 1.0])
-    rpath.type = np.array([0, 1, 0, 2])  # producer, consumer, detritus
+    # Layout matches a real Rpath: 1-D arrays are 0-based of length
+    # NUM_GROUPS, DC is (NUM_GROUPS + 1, NUM_LIVING) with a trailing Import
+    # row, and Landings/Discards are (NUM_GROUPS, NUM_GEARS).
+    rpath.Biomass = np.array([10.0, 5.0, 3.0])
+    rpath.PB = np.array([2.0, 0.5, 0.0])
+    rpath.QB = np.array([0.0, 2.0, 0.0])
+    rpath.EE = np.array([0.8, 0.7, 0.5])
+    rpath.Unassim = np.array([0.0, 0.2, 0.0])
+    rpath.TL = np.array([1.0, 2.0, 1.0])
+    rpath.type = np.array([1, 0, 2])  # producer, consumer, detritus
 
-    # DC[prey, pred]: consumer(2) eats 100% producer(1)
-    rpath.DC = np.zeros((4, 4))
-    rpath.DC[1, 2] = 1.0  # prey=1 (producer), pred=2 (consumer)
+    # DC[prey, pred]: consumer (living col 1) eats 100% producer (row 0)
+    rpath.DC = np.zeros((4, 2))
+    rpath.DC[0, 1] = 1.0
 
-    # Landings/Discards: [groups+1, gears+1], 1-based
-    rpath.Landings = np.zeros((4, 2))
-    rpath.Landings[2, 1] = 0.5  # consumer caught by fleet 1
-    rpath.Discards = np.zeros((4, 2))
+    rpath.Landings = np.zeros((3, 1))
+    rpath.Landings[1, 0] = 0.5  # consumer caught by the only fleet
+    rpath.Discards = np.zeros((3, 1))
 
     return rpath
 
@@ -119,17 +121,18 @@ class TestFlowAnalysis:
         rpath = MagicMock()
         rpath.NUM_LIVING = 1
         rpath.NUM_DEAD = 0
-        rpath.NUM_GEARS = 0
-        rpath.Biomass = np.array([0.0, 5.0])
-        rpath.PB = np.array([0.0, 1.0])
-        rpath.QB = np.array([0.0, 0.0])
-        rpath.EE = np.array([0.0, 0.5])
-        rpath.Unassim = np.array([0.0, 0.0])
-        rpath.TL = np.array([0.0, 1.0])
-        rpath.type = np.array([0, 1])
-        rpath.DC = np.zeros((2, 2))
-        rpath.Landings = np.zeros((2, 1))
-        rpath.Discards = np.zeros((2, 1))
+        rpath.NUM_GROUPS = 1
+        rpath.NUM_GEARS = 1
+        rpath.Biomass = np.array([5.0])
+        rpath.PB = np.array([1.0])
+        rpath.QB = np.array([0.0])
+        rpath.EE = np.array([0.5])
+        rpath.Unassim = np.array([0.0])
+        rpath.TL = np.array([1.0])
+        rpath.type = np.array([1])
+        rpath.DC = np.zeros((2, 1))
+        rpath.Landings = np.zeros((1, 1))
+        rpath.Discards = np.zeros((1, 1))
         result = flow_analysis(rpath)
         assert isinstance(result, FlowAnalysis)
 
@@ -138,17 +141,18 @@ class TestFlowAnalysis:
         rpath = MagicMock()
         rpath.NUM_LIVING = 2
         rpath.NUM_DEAD = 1
-        rpath.NUM_GEARS = 0
-        rpath.Biomass = np.zeros(4)
-        rpath.PB = np.zeros(4)
-        rpath.QB = np.zeros(4)
-        rpath.EE = np.zeros(4)
-        rpath.Unassim = np.zeros(4)
-        rpath.TL = np.zeros(4)
-        rpath.type = np.array([0, 0, 0, 2])
-        rpath.DC = np.zeros((4, 4))
-        rpath.Landings = np.zeros((4, 1))
-        rpath.Discards = np.zeros((4, 1))
+        rpath.NUM_GROUPS = 3
+        rpath.NUM_GEARS = 1
+        rpath.Biomass = np.zeros(3)
+        rpath.PB = np.zeros(3)
+        rpath.QB = np.zeros(3)
+        rpath.EE = np.zeros(3)
+        rpath.Unassim = np.zeros(3)
+        rpath.TL = np.zeros(3)
+        rpath.type = np.array([0, 0, 2])
+        rpath.DC = np.zeros((4, 2))
+        rpath.Landings = np.zeros((3, 1))
+        rpath.Discards = np.zeros((3, 1))
         result = flow_analysis(rpath)
         assert result.total_system_throughput == 0.0
         assert result.ascendency == 0.0
@@ -167,24 +171,24 @@ class TestFinnCyclingIndex:
     def test_detritus_feedback_positive_cycling(self):
         """Detritus feeding back to consumer should give FCI > 0."""
         rpath = _make_rpath_3group()
-        rpath.DC[1, 2] = 0.8  # prey=producer, pred=consumer
-        rpath.DC[3, 2] = 0.2  # prey=detritus, pred=consumer
+        rpath.DC[0, 1] = 0.8  # prey=producer(0), pred=consumer(col 1)
+        rpath.DC[2, 1] = 0.2  # prey=detritus(2), pred=consumer(col 1)
         fci = finn_cycling_index(rpath)
         assert fci > 0.0
 
     def test_fci_in_unit_interval(self):
         """FCI should be in [0, 1]."""
         rpath = _make_rpath_3group()
-        rpath.DC[1, 2] = 0.8
-        rpath.DC[3, 2] = 0.2
+        rpath.DC[0, 1] = 0.8
+        rpath.DC[2, 1] = 0.2
         fci = finn_cycling_index(rpath)
         assert 0 <= fci <= 1
 
     def test_fci_matches_flow_analysis(self):
         """finn_cycling_index() should match flow_analysis().finn_cycling_index."""
         rpath = _make_rpath_3group()
-        rpath.DC[1, 2] = 0.8
-        rpath.DC[3, 2] = 0.2
+        rpath.DC[0, 1] = 0.8
+        rpath.DC[2, 1] = 0.2
         fci_standalone = finn_cycling_index(rpath)
         fa = flow_analysis(rpath)
         assert fci_standalone == pytest.approx(fa.finn_cycling_index, abs=1e-10)
@@ -218,17 +222,18 @@ class TestTransferEfficiency:
         rpath = MagicMock()
         rpath.NUM_LIVING = 1
         rpath.NUM_DEAD = 0
-        rpath.NUM_GEARS = 0
-        rpath.Biomass = np.array([0.0, 5.0])
-        rpath.PB = np.array([0.0, 1.0])
-        rpath.QB = np.array([0.0, 0.0])
-        rpath.EE = np.array([0.0, 0.5])
-        rpath.Unassim = np.array([0.0, 0.0])
-        rpath.TL = np.array([0.0, 1.0])
-        rpath.type = np.array([0, 1])
-        rpath.DC = np.zeros((2, 2))
-        rpath.Landings = np.zeros((2, 1))
-        rpath.Discards = np.zeros((2, 1))
+        rpath.NUM_GROUPS = 1
+        rpath.NUM_GEARS = 1
+        rpath.Biomass = np.array([5.0])
+        rpath.PB = np.array([1.0])
+        rpath.QB = np.array([0.0])
+        rpath.EE = np.array([0.5])
+        rpath.Unassim = np.array([0.0])
+        rpath.TL = np.array([1.0])
+        rpath.type = np.array([1])
+        rpath.DC = np.zeros((2, 1))
+        rpath.Landings = np.zeros((1, 1))
+        rpath.Discards = np.zeros((1, 1))
         te = transfer_efficiency(rpath)
         assert len(te) == 0
 
@@ -236,36 +241,39 @@ class TestTransferEfficiency:
 def _make_rpath_5group():
     """Create a 5-group model for ecosystem indicator tests.
 
-    Groups:
-    1: Phytoplankton (producer, TL=1.0, B=20, PB=50, QB=0)
-    2: Zooplankton (consumer, TL=2.0, B=10, PB=10, QB=30)
-    3: Small fish (consumer, TL=3.0, B=5, PB=1, QB=5)
-    4: Large fish (consumer, TL=4.0, B=2, PB=0.3, QB=1.5)
-    5: Detritus (type=2, TL=1.0, B=5)
+    Groups (0-based, matching a real Rpath):
+    0: Phytoplankton (producer, TL=1.0, B=20, PB=50, QB=0)
+    1: Zooplankton (consumer, TL=2.0, B=10, PB=10, QB=30)
+    2: Small fish (consumer, TL=3.0, B=5, PB=1, QB=5)
+    3: Large fish (consumer, TL=4.0, B=2, PB=0.3, QB=1.5)
+    4: Detritus (type=2, TL=1.0, B=5)
     """
     rpath = MagicMock()
     rpath.NUM_LIVING = 4
     rpath.NUM_DEAD = 1
     rpath.NUM_GEARS = 1
 
-    rpath.Biomass = np.array([0.0, 20.0, 10.0, 5.0, 2.0, 5.0])
-    rpath.PB = np.array([0.0, 50.0, 10.0, 1.0, 0.3, 0.0])
-    rpath.QB = np.array([0.0, 0.0, 30.0, 5.0, 1.5, 0.0])
-    rpath.EE = np.array([0.0, 0.8, 0.7, 0.6, 0.5, 0.5])
-    rpath.Unassim = np.array([0.0, 0.0, 0.2, 0.2, 0.2, 0.0])
-    rpath.TL = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 1.0])
-    rpath.type = np.array([0, 1, 0, 0, 0, 2])
+    rpath.NUM_GROUPS = 5
 
-    rpath.DC = np.zeros((6, 6))
-    rpath.DC[1, 2] = 1.0  # zoo eats phyto
-    rpath.DC[2, 3] = 1.0  # small fish eats zoo
-    rpath.DC[3, 4] = 1.0  # large fish eats small fish
+    rpath.Biomass = np.array([20.0, 10.0, 5.0, 2.0, 5.0])
+    rpath.PB = np.array([50.0, 10.0, 1.0, 0.3, 0.0])
+    rpath.QB = np.array([0.0, 30.0, 5.0, 1.5, 0.0])
+    rpath.EE = np.array([0.8, 0.7, 0.6, 0.5, 0.5])
+    rpath.Unassim = np.array([0.0, 0.2, 0.2, 0.2, 0.0])
+    rpath.TL = np.array([1.0, 2.0, 3.0, 4.0, 1.0])
+    rpath.type = np.array([1, 0, 0, 0, 2])
+
+    # DC is (NUM_GROUPS + 1, NUM_LIVING): rows are prey, cols are predators
+    rpath.DC = np.zeros((6, 4))
+    rpath.DC[0, 1] = 1.0  # zoo eats phyto
+    rpath.DC[1, 2] = 1.0  # small fish eats zoo
+    rpath.DC[2, 3] = 1.0  # large fish eats small fish
 
     # Fleet catches small fish (0.5) and large fish (0.3)
-    rpath.Landings = np.zeros((6, 2))
-    rpath.Landings[3, 1] = 0.5  # small fish landings
-    rpath.Landings[4, 1] = 0.3  # large fish landings
-    rpath.Discards = np.zeros((6, 2))
+    rpath.Landings = np.zeros((5, 1))
+    rpath.Landings[2, 0] = 0.5  # small fish landings
+    rpath.Landings[3, 0] = 0.3  # large fish landings
+    rpath.Discards = np.zeros((5, 1))
 
     return rpath
 
@@ -314,7 +322,7 @@ class TestEcosystemIndicators:
     def test_gross_efficiency(self):
         """Gross efficiency = total catch / NPP.
 
-        NPP = PB[1]*B[1] = 50*20 = 1000 (only phytoplankton is producer)
+        NPP = PB[0]*B[0] = 50*20 = 1000 (only phytoplankton is producer)
         Catch = 0.8
         GE = 0.8/1000 = 0.0008
         """
@@ -327,17 +335,18 @@ class TestEcosystemIndicators:
         rpath = MagicMock()
         rpath.NUM_LIVING = 4
         rpath.NUM_DEAD = 0
-        rpath.NUM_GEARS = 0
-        rpath.Biomass = np.array([0.0, 1.0, 1.0, 1.0, 1.0])
-        rpath.PB = np.array([0.0, 1.0, 1.0, 1.0, 1.0])
-        rpath.QB = np.array([0.0, 0.0, 1.0, 1.0, 1.0])
-        rpath.TL = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
-        rpath.type = np.array([0, 1, 0, 0, 0])
-        rpath.Landings = np.zeros((5, 1))
-        rpath.Discards = np.zeros((5, 1))
-        rpath.EE = np.zeros(5)
-        rpath.Unassim = np.zeros(5)
-        rpath.DC = np.zeros((5, 5))
+        rpath.NUM_GROUPS = 4
+        rpath.NUM_GEARS = 1
+        rpath.Biomass = np.array([1.0, 1.0, 1.0, 1.0])
+        rpath.PB = np.array([1.0, 1.0, 1.0, 1.0])
+        rpath.QB = np.array([0.0, 1.0, 1.0, 1.0])
+        rpath.TL = np.array([1.0, 2.0, 3.0, 4.0])
+        rpath.type = np.array([1, 0, 0, 0])
+        rpath.Landings = np.zeros((4, 1))
+        rpath.Discards = np.zeros((4, 1))
+        rpath.EE = np.zeros(4)
+        rpath.Unassim = np.zeros(4)
+        rpath.DC = np.zeros((5, 4))
         result = ecosystem_indicators(rpath)
         assert result.shannon_diversity == pytest.approx(np.log(4), abs=0.01)
 
@@ -350,8 +359,8 @@ class TestEcosystemIndicators:
     def test_zero_catch_mtl_nan(self):
         """MTL catch should be NaN when total catch is 0."""
         rpath = _make_rpath_3group()
-        rpath.Landings = np.zeros((4, 2))
-        rpath.Discards = np.zeros((4, 2))
+        rpath.Landings = np.zeros((3, 1))
+        rpath.Discards = np.zeros((3, 1))
         result = ecosystem_indicators(rpath)
         assert np.isnan(result.mtl_catch)
 
@@ -434,13 +443,12 @@ class TestEcosystemIndicatorsTimeseries:
         rpath = _make_rpath_5group()
         output = self._make_ecosim_output(n_years=1)
         scenario = self._make_scenario()
-        # Set annual biomass to match rpath.Biomass exactly
-        for i in range(1, rpath.NUM_LIVING + rpath.NUM_DEAD + 1):
-            output.annual_Biomass[0, i] = rpath.Biomass[i]
-        # Set annual catch to match rpath landings+discards
-        for i in range(1, rpath.NUM_LIVING + rpath.NUM_DEAD + 1):
-            output.annual_Catch[0, i] = np.sum(rpath.Landings[i, 1:]) + np.sum(
-                rpath.Discards[i, 1:]
+        # Ecosim output is 1-based with index 0 = "Outside"; Rpath is 0-based.
+        # Ecopath group g therefore lands at Ecosim index g + 1.
+        for g in range(rpath.NUM_LIVING + rpath.NUM_DEAD):
+            output.annual_Biomass[0, g + 1] = rpath.Biomass[g]
+            output.annual_Catch[0, g + 1] = np.sum(rpath.Landings[g, :]) + np.sum(
+                rpath.Discards[g, :]
             )
         ts = ecosystem_indicators_timeseries(output, scenario, rpath)
         static = ecosystem_indicators(rpath)
@@ -465,8 +473,8 @@ class TestIntegration:
         """calculate_network_indices() should compute FCI, not return 0.0 placeholder."""
         rpath = _make_rpath_3group()
         # Add detritus feedback to create cycling
-        rpath.DC[1, 2] = 0.8
-        rpath.DC[3, 2] = 0.2
+        rpath.DC[0, 1] = 0.8
+        rpath.DC[2, 1] = 0.2
         indices = calculate_network_indices(rpath)
         assert indices.finn_cycling_index > 0.0
 
@@ -553,3 +561,127 @@ class TestSystemMaturity:
 
         assert SMI is SystemMaturityIndices
         assert sm is system_maturity
+
+
+EXAMPLE_DATA = Path(__file__).parent.parent / "example_model_data"
+
+
+@pytest.mark.skipif(
+    not (EXAMPLE_DATA / "model.csv").exists(), reason="example model data missing"
+)
+class TestRealModel:
+    """Every indicator against a real balanced Rpath.
+
+    The hand-built mocks above previously encoded 1-based arrays, which no
+    real Rpath uses, so the whole module could be off by one and still pass.
+    These tests run the same functions on an actual balanced model; before
+    the indexing fix, flow_analysis() raised IndexError here.
+    """
+
+    @pytest.fixture(scope="class")
+    def model(self):
+        from pypath.core.ecopath import rpath
+        from pypath.core.params import read_rpath_params
+
+        params = read_rpath_params(
+            str(EXAMPLE_DATA / "model.csv"),
+            str(EXAMPLE_DATA / "diet.csv"),
+        )
+        return rpath(params)
+
+    def test_flow_analysis_runs_and_is_self_consistent(self, model):
+        fa = flow_analysis(model)
+        assert fa.total_system_throughput > 0
+        assert fa.capacity > 0
+        assert fa.overhead == pytest.approx(fa.capacity - fa.ascendency)
+        assert 0.0 <= fa.relative_ascendency <= 1.0
+        assert 0.0 <= fa.finn_cycling_index <= 1.0
+        assert np.all(np.isfinite(fa.transfer_efficiency))
+
+    def test_flow_matrix_covers_every_internal_group(self, model):
+        """Group 0 is a real group, not an unused padding slot."""
+        from pypath.core.indicators import _build_flow_matrix
+
+        T, n_internal = _build_flow_matrix(model)
+        assert n_internal == model.NUM_LIVING + model.NUM_DEAD
+        assert T.shape == (n_internal + 2, n_internal + 2)
+        # The first living group participates in at least one flow
+        assert T[0, :].sum() + T[:, 0].sum() > 0
+
+    def test_transfer_efficiency_is_a_fraction(self, model):
+        te = transfer_efficiency(model)
+        assert np.all(te >= 0.0)
+        assert np.all(te <= 1.0)
+
+    def test_ecosystem_indicators_use_real_group_properties(self, model):
+        ei = ecosystem_indicators(model)
+        n_living = model.NUM_LIVING
+        # Shannon diversity is bounded by ln(number of living groups)
+        assert 0.0 < ei.shannon_diversity <= np.log(n_living)
+
+    def test_system_maturity_biomass_counts_living_only(self, model):
+        sm = system_maturity(model)
+        expected = float(np.sum(model.Biomass[: model.NUM_LIVING]))
+        assert sm.total_biomass == pytest.approx(expected)
+        assert sm.total_production > 0
+        assert sm.b_tst_ratio > 0
+
+    @staticmethod
+    def _fished_model():
+        """A 4-group model with detritivory and one fleet landing only Fish."""
+        from pypath.core.ecopath import rpath
+        from pypath.core.params import create_rpath_params
+
+        params = create_rpath_params(
+            ["Phyto", "Zoo", "Fish", "Detritus", "Trawl"], [1, 0, 0, 2, 3]
+        )
+        params.model.loc[0, ["Biomass", "PB", "EE"]] = [20.0, 60.0, 0.6]
+        params.model.loc[1, ["Biomass", "PB", "QB", "EE"]] = [8.0, 25.0, 80.0, 0.7]
+        params.model.loc[2, ["Biomass", "PB", "QB", "EE"]] = [3.0, 1.5, 6.0, 0.5]
+        params.model.loc[3, "Biomass"] = 10.0
+        # Diet columns are ["Group"] + living groups, so Zoo is col 2, Fish col 3
+        params.diet.iloc[0, 2] = 0.8
+        params.diet.iloc[3, 2] = 0.2  # detritivory closes a cycle
+        params.diet.iloc[1, 3] = 0.7
+        params.diet.iloc[3, 3] = 0.3
+        params.model.loc[2, "Trawl"] = 0.4
+        return rpath(params), params
+
+    def test_catch_indicators_see_every_gear_column(self):
+        """Landings is (NUM_GROUPS, NUM_GEARS); gear 0 must not be dropped."""
+        model, _ = self._fished_model()
+
+        ei = ecosystem_indicators(model)
+        # The single landed group is Fish, so mean TL of the catch is its TL
+        assert ei.mtl_catch == pytest.approx(model.TL[2])
+        assert ei.catch_biomass_ratio == pytest.approx(
+            0.4 / np.sum(model.Biomass[: model.NUM_LIVING])
+        )
+        assert ei.gross_efficiency > 0
+        # Detritivory means the system cycles
+        assert finn_cycling_index(model) > 0
+
+    def test_timeseries_keeps_the_two_conventions_apart(self):
+        """Ecosim output is 1-based (0 = Outside); Rpath is 0-based.
+
+        Fish is the only landed group, so the mean trophic level of the catch
+        must equal Fish's TL. If the Ecosim slice were treated as 0-based,
+        Fish's catch would be paired with the previous group's TL instead.
+        """
+        from pypath.core.ecosim import rsim_run, rsim_scenario
+
+        model, params = self._fished_model()
+        scenario = rsim_scenario(model, params, years=range(1, 4))
+        output = rsim_run(scenario, method="RK4", years=range(1, 4))
+
+        # The Outside slot is what makes the two layouts differ by one
+        assert output.annual_Biomass.shape[1] == model.NUM_GROUPS + 1
+        assert scenario.params.spname[0] == "Outside"
+
+        ts = ecosystem_indicators_timeseries(output, scenario, model)
+        assert len(ts) == output.annual_Biomass.shape[0]
+        fish_tl = model.TL[2]
+        assert ts["mtl_catch"].iloc[0] == pytest.approx(fish_tl)
+        assert fish_tl != pytest.approx(model.TL[1])  # the value discriminates
+        assert (ts["shannon_diversity"] > 0).all()
+        assert (ts["catch_biomass_ratio"] > 0).all()

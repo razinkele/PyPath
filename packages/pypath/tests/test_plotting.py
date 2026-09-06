@@ -5,6 +5,7 @@ Tests for food web visualization, time series plots,
 and other plotting functions.
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -155,10 +156,10 @@ class TestPlotTrophicSpectrum:
         """Should return matplotlib Figure."""
         rpath = MagicMock()
         rpath.NUM_LIVING = 4
-        rpath.TL = np.array([0, 1.0, 2.0, 2.5, 3.5])
-        rpath.Biomass = np.array([0, 100, 50, 20, 5])
-        rpath.PB = np.array([0, 2.0, 1.0, 0.5, 0.2])
-        rpath.QB = np.array([0, 0, 10, 5, 2])
+        rpath.TL = np.array([1.0, 2.0, 2.5, 3.5])
+        rpath.Biomass = np.array([100, 50, 20, 5])
+        rpath.PB = np.array([2.0, 1.0, 0.5, 0.2])
+        rpath.QB = np.array([0, 10, 5, 2])
 
         fig = plot_trophic_spectrum(rpath)
 
@@ -169,10 +170,10 @@ class TestPlotTrophicSpectrum:
         """Should aggregate by production when specified."""
         rpath = MagicMock()
         rpath.NUM_LIVING = 3
-        rpath.TL = np.array([0, 1.0, 2.0, 3.0])
-        rpath.Biomass = np.array([0, 100, 50, 10])
-        rpath.PB = np.array([0, 2.0, 1.0, 0.5])
-        rpath.QB = np.array([0, 0, 10, 5])
+        rpath.TL = np.array([1.0, 2.0, 3.0])
+        rpath.Biomass = np.array([100, 50, 10])
+        rpath.PB = np.array([2.0, 1.0, 0.5])
+        rpath.QB = np.array([0, 10, 5])
 
         fig = plot_trophic_spectrum(rpath, by="production")
 
@@ -183,10 +184,10 @@ class TestPlotTrophicSpectrum:
         """Should aggregate by consumption when specified."""
         rpath = MagicMock()
         rpath.NUM_LIVING = 3
-        rpath.TL = np.array([0, 1.0, 2.0, 3.0])
-        rpath.Biomass = np.array([0, 100, 50, 10])
-        rpath.PB = np.array([0, 2.0, 1.0, 0.5])
-        rpath.QB = np.array([0, 0, 10, 5])
+        rpath.TL = np.array([1.0, 2.0, 3.0])
+        rpath.Biomass = np.array([100, 50, 10])
+        rpath.PB = np.array([2.0, 1.0, 0.5])
+        rpath.QB = np.array([0, 10, 5])
 
         fig = plot_trophic_spectrum(rpath, by="consumption")
 
@@ -197,10 +198,10 @@ class TestPlotTrophicSpectrum:
         """Should raise ValueError for invalid 'by' parameter."""
         rpath = MagicMock()
         rpath.NUM_LIVING = 2
-        rpath.TL = np.array([0, 1.0, 2.0])
-        rpath.Biomass = np.array([0, 100, 50])
-        rpath.PB = np.array([0, 2.0, 1.0])
-        rpath.QB = np.array([0, 0, 10])
+        rpath.TL = np.array([1.0, 2.0])
+        rpath.Biomass = np.array([100, 50])
+        rpath.PB = np.array([2.0, 1.0])
+        rpath.QB = np.array([0, 10])
 
         with pytest.raises(ValueError):
             plot_trophic_spectrum(rpath, by="invalid")
@@ -247,14 +248,16 @@ class TestPlotFoodweb:
         rpath = MagicMock()
         rpath.NUM_LIVING = 3
         rpath.NUM_DEAD = 1
-        rpath.TL = np.array([0, 1.0, 2.0, 3.0, 1.0])
-        rpath.Biomass = np.array([0, 100, 50, 10, 20])
-        rpath.DC = np.zeros((5, 5))
+        rpath.NUM_GROUPS = 4
+        rpath.TL = np.array([1.0, 2.0, 3.0, 1.0])
+        rpath.Biomass = np.array([100, 50, 10, 20])
+        # DC is (NUM_GROUPS + 1, NUM_LIVING): rows prey, cols predators
+        rpath.DC = np.zeros((5, 3))
+        rpath.DC[0, 1] = 0.5
         rpath.DC[1, 2] = 0.5
-        rpath.DC[2, 3] = 0.5
-        rpath.DC[4, 2] = 0.5
-        rpath.QB = np.array([0, 0, 10, 5, 0])
-        rpath.PB = np.array([0, 2.0, 1.0, 0.5, 0])
+        rpath.DC[3, 1] = 0.5  # detritus eaten by group 1
+        rpath.QB = np.array([0, 10, 5, 0])
+        rpath.PB = np.array([2.0, 1.0, 0.5, 0])
 
         fig = plot_foodweb(rpath)
 
@@ -266,13 +269,14 @@ class TestPlotFoodweb:
         rpath = MagicMock()
         rpath.NUM_LIVING = 3
         rpath.NUM_DEAD = 0
-        rpath.TL = np.array([0, 1.0, 2.0, 3.0])
-        rpath.Biomass = np.array([0, 100, 50, 10])
-        rpath.DC = np.zeros((4, 4))
+        rpath.NUM_GROUPS = 3
+        rpath.TL = np.array([1.0, 2.0, 3.0])
+        rpath.Biomass = np.array([100, 50, 10])
+        rpath.DC = np.zeros((4, 3))
+        rpath.DC[0, 1] = 0.8
         rpath.DC[1, 2] = 0.8
-        rpath.DC[2, 3] = 0.8
-        rpath.QB = np.array([0, 0, 10, 5])
-        rpath.PB = np.array([0, 2.0, 1.0, 0.5])
+        rpath.QB = np.array([0, 10, 5])
+        rpath.PB = np.array([2.0, 1.0, 0.5])
 
         fig = plot_foodweb(rpath, layout="trophic")
 
@@ -284,12 +288,13 @@ class TestPlotFoodweb:
         rpath = MagicMock()
         rpath.NUM_LIVING = 3
         rpath.NUM_DEAD = 0
-        rpath.TL = np.array([0, 1.0, 2.0, 3.0])
-        rpath.Biomass = np.array([0, 100, 50, 10])
-        rpath.DC = np.zeros((4, 4))
-        rpath.DC[1, 2] = 0.8
-        rpath.QB = np.array([0, 0, 10, 5])
-        rpath.PB = np.array([0, 2.0, 1.0, 0.5])
+        rpath.NUM_GROUPS = 3
+        rpath.TL = np.array([1.0, 2.0, 3.0])
+        rpath.Biomass = np.array([100, 50, 10])
+        rpath.DC = np.zeros((4, 3))
+        rpath.DC[0, 1] = 0.8
+        rpath.QB = np.array([0, 10, 5])
+        rpath.PB = np.array([2.0, 1.0, 0.5])
 
         fig = plot_foodweb(rpath, layout="spring")
 
@@ -301,12 +306,13 @@ class TestPlotFoodweb:
         rpath = MagicMock()
         rpath.NUM_LIVING = 2
         rpath.NUM_DEAD = 0
-        rpath.TL = np.array([0, 1.0, 2.0])
-        rpath.Biomass = np.array([0, 100, 50])
-        rpath.DC = np.zeros((3, 3))
-        rpath.DC[1, 2] = 0.8
-        rpath.QB = np.array([0, 0, 10])
-        rpath.PB = np.array([0, 2.0, 1.0])
+        rpath.NUM_GROUPS = 2
+        rpath.TL = np.array([1.0, 2.0])
+        rpath.Biomass = np.array([100, 50])
+        rpath.DC = np.zeros((3, 2))
+        rpath.DC[0, 1] = 0.8
+        rpath.QB = np.array([0, 10])
+        rpath.PB = np.array([2.0, 1.0])
 
         fig = plot_foodweb(rpath, node_size_by="production")
 
@@ -415,3 +421,99 @@ class TestInteractivePlots:
         fig = plot_foodweb_interactive(rpath)
 
         assert isinstance(fig, go.Figure)
+
+
+EXAMPLE_DATA = Path(__file__).parent.parent / "example_model_data"
+
+
+@pytest.mark.skipif(
+    not (EXAMPLE_DATA / "model.csv").exists(), reason="example model data missing"
+)
+class TestRealModel:
+    """Rpath-based plots against a real balanced model.
+
+    The mocks above previously used 1-based arrays, which no real Rpath uses,
+    so these functions could be off by one and still pass. Before the indexing
+    fix plot_foodweb() raised IndexError here, and plot_trophic_spectrum()
+    silently dropped the first living group while counting a detritus group
+    as living.
+    """
+
+    @pytest.fixture(scope="class")
+    def model(self):
+        from pypath.core.ecopath import rpath
+        from pypath.core.params import read_rpath_params
+
+        params = read_rpath_params(
+            str(EXAMPLE_DATA / "model.csv"),
+            str(EXAMPLE_DATA / "diet.csv"),
+        )
+        return rpath(params)
+
+    @pytest.mark.skipif(not HAS_NETWORKX, reason="networkx not installed")
+    def test_foodweb_graph_covers_every_group_once(self, model):
+        import networkx as nx
+
+        from pypath.core.plotting import _group_labels
+
+        n_living, n_dead = model.NUM_LIVING, model.NUM_DEAD
+        n_total = n_living + n_dead
+
+        # Rebuild the graph the way plot_foodweb does, so node identity is
+        # assertable without reaching into the figure.
+        G = nx.DiGraph()
+        for i in range(n_total):
+            G.add_node(i, tl=model.TL[i], is_detritus=i >= n_living)
+        for pred in range(n_living):
+            for prey in range(n_total):
+                if model.DC[prey, pred] > 0:
+                    G.add_edge(prey, pred)
+
+        assert G.number_of_nodes() == n_total
+        assert 0 in G.nodes()  # group 0 is a real group, not padding
+        assert sum(G.nodes[i]["is_detritus"] for i in G.nodes()) == n_dead
+        assert G.number_of_edges() > 0
+        assert all(np.isfinite(G.nodes[i]["tl"]) for i in G.nodes())
+        assert _group_labels(model, n_total) == [
+            str(g) for g in model.Group[:n_total]
+        ]
+
+    @pytest.mark.skipif(not HAS_NETWORKX, reason="networkx not installed")
+    def test_foodweb_renders(self, model):
+        fig = plot_foodweb(model)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_trophic_spectrum_conserves_living_biomass(self, model):
+        """Bars must sum to the living biomass, not a shifted window of it."""
+        fig = plot_trophic_spectrum(model, by="biomass")
+        ax = fig.get_axes()[0]
+        total = sum(patch.get_height() for patch in ax.patches)
+        expected = float(np.sum(model.Biomass[: model.NUM_LIVING]))
+        assert total == pytest.approx(expected, rel=1e-9)
+        # The shifted window would have summed the detritus group instead
+        shifted = float(
+            np.sum(model.Biomass[1 : model.NUM_LIVING + 1])
+        )
+        assert expected != pytest.approx(shifted)
+        plt.close(fig)
+
+    def test_trophic_spectrum_includes_the_first_producer(self, model):
+        """The old slice dropped group 0, the base of the food web."""
+        fig = plot_trophic_spectrum(model, by="production")
+        ax = fig.get_axes()[0]
+        total = sum(patch.get_height() for patch in ax.patches)
+        n_living = model.NUM_LIVING
+        expected = float(
+            np.sum(model.PB[:n_living] * model.Biomass[:n_living])
+        )
+        assert total == pytest.approx(expected, rel=1e-9)
+        plt.close(fig)
+
+    @pytest.mark.skipif(not HAS_PLOTLY, reason="plotly not installed")
+    @pytest.mark.skipif(not HAS_NETWORKX, reason="networkx not installed")
+    def test_interactive_foodweb_renders(self, model):
+        from pypath.core.plotting import plot_foodweb_interactive
+
+        fig = plot_foodweb_interactive(model)
+        assert fig is not None

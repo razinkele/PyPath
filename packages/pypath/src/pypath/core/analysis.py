@@ -13,6 +13,7 @@ Based on Rpath's analysis functions.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -21,6 +22,8 @@ import pandas as pd
 
 from pypath.core.ecopath import Rpath
 from pypath.core.ecosim import RsimOutput, RsimScenario
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # MIXED TROPHIC IMPACTS (MTI)
@@ -61,19 +64,23 @@ def mixed_trophic_impacts(rpath: Rpath) -> np.ndarray:
     """
     n_groups = rpath.NUM_LIVING + rpath.NUM_DEAD
 
-    # Get diet composition matrix
-    DC = rpath.DC[1 : n_groups + 1, 1 : n_groups + 1].copy()
+    # Diet composition as a square (prey x predator) matrix over living+detritus
+    # groups. Rpath arrays are 0-indexed; rpath.DC has one row per prey group
+    # (plus a trailing import row) and one column per living predator.
+    DC = np.zeros((n_groups, n_groups))
+    n_pred = min(rpath.DC.shape[1], n_groups)
+    DC[:, :n_pred] = rpath.DC[:n_groups, :n_pred]
 
     # Calculate Q matrix: Q[i,j] = proportion of j consumed by i
     Q = np.zeros((n_groups, n_groups))
 
     for pred in range(n_groups):
         for prey in range(n_groups):
-            if rpath.Biomass[pred + 1] > 0 and rpath.QB[pred + 1] > 0:
+            if rpath.Biomass[pred] > 0 and rpath.QB[pred] > 0:
                 # Consumption of prey by pred
-                consump = DC[prey, pred] * rpath.QB[pred + 1] * rpath.Biomass[pred + 1]
+                consump = DC[prey, pred] * rpath.QB[pred] * rpath.Biomass[pred]
                 # Production of prey
-                prod = rpath.PB[prey + 1] * rpath.Biomass[prey + 1]
+                prod = rpath.PB[prey] * rpath.Biomass[prey]
                 if prod > 0:
                     Q[pred, prey] = consump / prod
 
@@ -113,29 +120,31 @@ def keystoneness_index(rpath: Rpath, mti: Optional[np.ndarray] = None) -> np.nda
     Returns
     -------
     np.ndarray
-        Keystoneness index for each group (1 to NUM_GROUPS)
+        Keystoneness index for each living and detritus group, aligned with
+        ``rpath.Group[:NUM_LIVING + NUM_DEAD]`` (0-indexed, same order as the
+        MTI matrix).
     """
     if mti is None:
         mti = mixed_trophic_impacts(rpath)
 
     n_groups = mti.shape[0]
-    keystoneness = np.zeros(n_groups + 1)  # 0-indexed with 0 unused
+    keystoneness = np.zeros(n_groups)
 
     # Total biomass
-    total_bio = np.sum(rpath.Biomass[1 : n_groups + 1])
+    total_bio = np.sum(rpath.Biomass[:n_groups])
 
     for i in range(n_groups):
         # Overall impact: sum of absolute impacts excluding self
         impact = np.sum(np.abs(mti[i, :])) - np.abs(mti[i, i])
 
         # Biomass proportion
-        bio_prop = rpath.Biomass[i + 1] / total_bio if total_bio > 0 else 0
+        bio_prop = rpath.Biomass[i] / total_bio if total_bio > 0 else 0
 
         # Keystoneness
         if bio_prop > 0:
-            keystoneness[i + 1] = impact * np.log(1.0 / bio_prop)
+            keystoneness[i] = impact * np.log(1.0 / bio_prop)
         else:
-            keystoneness[i + 1] = 0
+            keystoneness[i] = 0
 
     return keystoneness
 
@@ -213,8 +222,8 @@ def calculate_network_indices(rpath: Rpath) -> NetworkIndices:
 
     # Count trophic links
     n_links = 0
-    for pred in range(1, n_living + 1):
-        for prey in range(1, n_total + 1):
+    for pred in range(n_living):
+        for prey in range(n_total):
             if rpath.DC[prey, pred] > 0:
                 n_links += 1
 
@@ -228,11 +237,11 @@ def calculate_network_indices(rpath: Rpath) -> NetworkIndices:
     omnivory_sum = 0.0
     n_consumers = 0
 
-    for pred in range(1, n_living + 1):
+    for pred in range(n_living):
         prey_tls = []
         prey_fracs = []
 
-        for prey in range(1, n_total + 1):
+        for prey in range(n_total):
             if rpath.DC[prey, pred] > 0:
                 prey_tls.append(rpath.TL[prey])
                 prey_fracs.append(rpath.DC[prey, pred])
@@ -251,14 +260,14 @@ def calculate_network_indices(rpath: Rpath) -> NetworkIndices:
     system_omni = 0.0
     total_consump = 0.0
 
-    for pred in range(1, n_living + 1):
+    for pred in range(n_living):
         if rpath.QB[pred] > 0:
             consump = rpath.QB[pred] * rpath.Biomass[pred]
             total_consump += consump
 
             prey_tls = []
             prey_fracs = []
-            for prey in range(1, n_total + 1):
+            for prey in range(n_total):
                 if rpath.DC[prey, pred] > 0:
                     prey_tls.append(rpath.TL[prey])
                     prey_fracs.append(rpath.DC[prey, pred])
@@ -273,18 +282,18 @@ def calculate_network_indices(rpath: Rpath) -> NetworkIndices:
     system_omnivory = system_omni / total_consump if total_consump > 0 else 0
 
     # Mean and max trophic level
-    biomass = rpath.Biomass[1 : n_living + 1]
-    tl = rpath.TL[1 : n_living + 1]
+    biomass = rpath.Biomass[:n_living]
+    tl = rpath.TL[:n_living]
 
     mean_trophic_level = np.average(tl, weights=biomass) if np.sum(biomass) > 0 else 0
     max_trophic_level = np.max(tl) if len(tl) > 0 else 0
 
     # Total biomass and throughput
-    total_biomass = np.sum(rpath.Biomass[1 : n_total + 1])
+    total_biomass = np.sum(rpath.Biomass[:n_total])
 
     # Throughput: sum of consumption + respiration + flow to detritus
     total_throughput = 0.0
-    for grp in range(1, n_living + 1):
+    for grp in range(n_living):
         if rpath.QB[grp] > 0:
             total_throughput += rpath.QB[grp] * rpath.Biomass[grp]
         total_throughput += rpath.PB[grp] * rpath.Biomass[grp]
@@ -298,13 +307,17 @@ def calculate_network_indices(rpath: Rpath) -> NetworkIndices:
         transfer_efficiency = (
             float(np.mean(_te_array[_te_array > 0])) if np.any(_te_array > 0) else 0.0
         )
-    except (AttributeError, TypeError):
+    except (AttributeError, TypeError, IndexError, ValueError) as e:
+        # pypath.core.indicators still assumes 1-indexed Rpath arrays
+        logger.warning("transfer_efficiency unavailable: %s", e)
         transfer_efficiency = 0.0
 
     # Finn Cycling Index
     try:
         finn_cycling_index = _finn_cycling_index(rpath)
-    except (AttributeError, TypeError):
+    except (AttributeError, TypeError, IndexError, ValueError) as e:
+        # pypath.core.indicators still assumes 1-indexed Rpath arrays
+        logger.warning("finn_cycling_index unavailable: %s", e)
         finn_cycling_index = 0.0
 
     return NetworkIndices(
@@ -542,27 +555,31 @@ def check_ecopath_balance(rpath: Rpath, tolerance: float = 0.01) -> Dict[str, An
         "messages": [],
     }
 
-    n_groups = rpath.NUM_LIVING + rpath.NUM_DEAD
+    def _name(i: int) -> str:
+        try:
+            return str(rpath.Group[i])
+        except (AttributeError, IndexError, TypeError):
+            return f"Group {i}"
 
-    # Check EE
-    for i in range(1, rpath.NUM_LIVING + 1):
+    # Check EE (Rpath arrays are 0-indexed)
+    for i in range(rpath.NUM_LIVING):
         if rpath.EE[i] > 1.0 + tolerance:
             results["ee_issues"].append(i)
             results["is_balanced"] = False
-            results["messages"].append(f"Group {i}: EE = {rpath.EE[i]:.4f} > 1")
+            results["messages"].append(f"{_name(i)}: EE = {rpath.EE[i]:.4f} > 1")
 
-    # Check diet sums
-    for pred in range(1, rpath.NUM_LIVING + 1):
+    # Check diet sums (all prey rows incl. import for each living predator)
+    for pred in range(rpath.NUM_LIVING):
         if rpath.QB[pred] > 0:  # Is a consumer
-            diet_sum = np.sum(rpath.DC[1 : n_groups + 1, pred])
+            diet_sum = np.sum(rpath.DC[:, pred])
             if abs(diet_sum - 1.0) > tolerance:
                 results["diet_issues"].append(pred)
                 results["messages"].append(
-                    f"Group {pred}: Diet sum = {diet_sum:.4f} != 1"
+                    f"{_name(pred)}: Diet sum = {diet_sum:.4f} != 1"
                 )
 
     # Check production/consumption balance
-    for i in range(1, rpath.NUM_LIVING + 1):
+    for i in range(rpath.NUM_LIVING):
         if rpath.QB[i] > 0:
             _consumption = rpath.QB[i] * rpath.Biomass[i]
             _production = rpath.PB[i] * rpath.Biomass[i]
@@ -571,7 +588,7 @@ def check_ecopath_balance(rpath: Rpath, tolerance: float = 0.01) -> Dict[str, An
             ge = rpath.PB[i] / rpath.QB[i] if rpath.QB[i] > 0 else 0
             if ge > 1.0 + tolerance or ge < 0:
                 results["balance_issues"].append(i)
-                results["messages"].append(f"Group {i}: GE = {ge:.4f} (should be 0-1)")
+                results["messages"].append(f"{_name(i)}: GE = {ge:.4f} (should be 0-1)")
 
     if not results["messages"]:
         results["messages"].append("Model is properly balanced")
@@ -673,34 +690,35 @@ def export_ecopath_to_dataframe(rpath: Rpath) -> Dict[str, pd.DataFrame]:
     n_groups = rpath.NUM_LIVING + rpath.NUM_DEAD
 
     # Groups DataFrame
+    names = [str(g) for g in rpath.Group[:n_groups]]
     groups_data = {
-        "Group": range(1, n_groups + 1),
+        "Group": names,
         "Type": ["Living"] * rpath.NUM_LIVING + ["Detritus"] * rpath.NUM_DEAD,
-        "TL": rpath.TL[1 : n_groups + 1],
-        "Biomass": rpath.Biomass[1 : n_groups + 1],
-        "PB": rpath.PB[1 : n_groups + 1],
-        "QB": rpath.QB[1 : n_groups + 1],
-        "EE": rpath.EE[1 : n_groups + 1],
+        "TL": rpath.TL[:n_groups],
+        "Biomass": rpath.Biomass[:n_groups],
+        "PB": rpath.PB[:n_groups],
+        "QB": rpath.QB[:n_groups],
+        "EE": rpath.EE[:n_groups],
     }
     groups_df = pd.DataFrame(groups_data)
 
-    # Diet matrix
+    # Diet matrix (rows = prey, columns = living predators)
     diet_df = pd.DataFrame(
-        rpath.DC[1 : n_groups + 1, 1 : rpath.NUM_LIVING + 1],
-        index=[f"Prey_{i}" for i in range(1, n_groups + 1)],
-        columns=[f"Pred_{i}" for i in range(1, rpath.NUM_LIVING + 1)],
+        rpath.DC[:n_groups, : rpath.NUM_LIVING],
+        index=names,
+        columns=names[: rpath.NUM_LIVING],
     )
 
     # Simplified flows
     flows_data = []
-    for pred in range(1, rpath.NUM_LIVING + 1):
-        for prey in range(1, n_groups + 1):
+    for pred in range(rpath.NUM_LIVING):
+        for prey in range(n_groups):
             if rpath.DC[prey, pred] > 0:
                 flow = rpath.DC[prey, pred] * rpath.QB[pred] * rpath.Biomass[pred]
                 flows_data.append(
                     {
-                        "From": prey,
-                        "To": pred,
+                        "From": names[prey],
+                        "To": names[pred],
                         "Diet_Fraction": rpath.DC[prey, pred],
                         "Flow": flow,
                     }

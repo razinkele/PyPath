@@ -46,6 +46,21 @@ from pypath.core.ecosim import RsimOutput
 # =============================================================================
 
 
+def _group_labels(rpath, n_total: int) -> List[str]:
+    """Display names for the first ``n_total`` groups.
+
+    Falls back to positional labels when the model carries no usable Group
+    array, which is the case for the hand-built mocks used in tests.
+    """
+    names = getattr(rpath, "Group", None)
+    try:
+        if names is not None and len(names) >= n_total:
+            return [str(names[i]) for i in range(n_total)]
+    except TypeError:
+        pass
+    return [f"G{i}" for i in range(n_total)]
+
+
 def plot_foodweb(
     rpath: Rpath,
     title: str = "Food Web",
@@ -101,15 +116,18 @@ def plot_foodweb(
     G = nx.DiGraph()
 
     # Add nodes
-    for i in range(1, n_total + 1):
+    # Rpath arrays are 0-based over NUM_GROUPS; groups 0..n_living-1 are
+    # living and n_living..n_total-1 are detritus. DC is (NUM_GROUPS + 1,
+    # NUM_LIVING), so its columns are predators and its rows are prey.
+    for i in range(n_total):
         G.add_node(
-            i, tl=rpath.TL[i], biomass=rpath.Biomass[i], is_detritus=i > n_living
+            i, tl=rpath.TL[i], biomass=rpath.Biomass[i], is_detritus=i >= n_living
         )
 
     # Add edges (from prey to predator)
     max_flow = 0
-    for pred in range(1, n_living + 1):
-        for prey in range(1, n_total + 1):
+    for pred in range(n_living):
+        for prey in range(n_total):
             if rpath.DC[prey, pred] > 0:
                 flow = rpath.DC[prey, pred] * rpath.QB[pred] * rpath.Biomass[pred]
                 max_flow = max(max_flow, flow)
@@ -147,7 +165,7 @@ def plot_foodweb(
 
     # Calculate node sizes
     if node_size_by == "biomass":
-        max_bio = max(rpath.Biomass[1 : n_total + 1])
+        max_bio = max(rpath.Biomass[:n_total])
         node_sizes = [500 + 2000 * (rpath.Biomass[i] / max_bio) for i in G.nodes()]
     elif node_size_by == "production":
         prods = [rpath.PB[i] * rpath.Biomass[i] for i in G.nodes()]
@@ -200,7 +218,8 @@ def plot_foodweb(
     )
 
     if show_labels:
-        labels = {i: f"G{i}" for i in G.nodes()}
+        names = _group_labels(rpath, n_total)
+        labels = {i: names[i] for i in G.nodes()}
         nx.draw_networkx_labels(G, pos, labels, font_size=8, ax=ax)
 
     # Add colorbar for trophic levels
@@ -465,16 +484,17 @@ def plot_trophic_spectrum(
     n_living = rpath.NUM_LIVING
 
     # Get values and trophic levels
-    tl = rpath.TL[1 : n_living + 1]
+    # Living groups occupy indices 0..n_living-1 of the 0-based Rpath arrays.
+    tl = rpath.TL[:n_living]
 
     if by == "biomass":
-        values = rpath.Biomass[1 : n_living + 1]
+        values = rpath.Biomass[:n_living]
         ylabel = "Biomass"
     elif by == "production":
-        values = rpath.PB[1 : n_living + 1] * rpath.Biomass[1 : n_living + 1]
+        values = rpath.PB[:n_living] * rpath.Biomass[:n_living]
         ylabel = "Production"
     elif by == "consumption":
-        values = rpath.QB[1 : n_living + 1] * rpath.Biomass[1 : n_living + 1]
+        values = rpath.QB[:n_living] * rpath.Biomass[:n_living]
         ylabel = "Consumption"
     else:
         raise ValueError(f"Unknown 'by' value: {by}")
@@ -686,13 +706,13 @@ def plot_foodweb_interactive(
 
     # Build graph for layout
     G = nx.DiGraph()
-    for i in range(1, n_total + 1):
+    for i in range(n_total):
         G.add_node(i, tl=rpath.TL[i], biomass=rpath.Biomass[i])
 
     max_flow = 0
     edges = []
-    for pred in range(1, n_living + 1):
-        for prey in range(1, n_total + 1):
+    for pred in range(n_living):
+        for prey in range(n_total):
             if rpath.DC[prey, pred] > 0:
                 flow = rpath.DC[prey, pred] * rpath.QB[pred] * rpath.Biomass[pred]
                 max_flow = max(max_flow, flow)
@@ -717,13 +737,13 @@ def plot_foodweb_interactive(
     # Node trace
     node_x = [pos[node][0] for node in G.nodes()]
     node_y = [pos[node][1] for node in G.nodes()]
+    labels = _group_labels(rpath, n_total)
     node_text = [
-        f"Group {n}<br>TL: {rpath.TL[n]:.2f}<br>B: {rpath.Biomass[n]:.4f}"
+        f"{labels[n]}<br>TL: {rpath.TL[n]:.2f}<br>B: {rpath.Biomass[n]:.4f}"
         for n in G.nodes()
     ]
     node_size = [
-        10 + 30 * rpath.Biomass[n] / max(rpath.Biomass[1 : n_total + 1])
-        for n in G.nodes()
+        10 + 30 * rpath.Biomass[n] / max(rpath.Biomass[:n_total]) for n in G.nodes()
     ]
 
     node_trace = go.Scatter(
@@ -731,7 +751,7 @@ def plot_foodweb_interactive(
         y=node_y,
         mode="markers+text",
         hoverinfo="text",
-        text=[f"G{n}" for n in G.nodes()],
+        text=[labels[n] for n in G.nodes()],
         hovertext=node_text,
         textposition="top center",
         marker=dict(

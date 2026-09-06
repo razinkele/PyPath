@@ -87,20 +87,22 @@ def _build_flow_matrix(rpath: Rpath) -> tuple[np.ndarray, int]:
 
     # Internal flows: consumption
     # T[pred_idx, prey_idx] = DC[prey, pred] * QB[pred] * B[pred]
-    # (0-based indices in T, 1-based in rpath arrays)
-    for pred in range(1, n_living + 1):
+    # Rpath arrays are 0-based over NUM_GROUPS, and DC has one column per
+    # living predator, so T and rpath share the same index for internal groups.
+    # DC's trailing Import row is past n_internal and is deliberately skipped.
+    for pred in range(n_living):
         if rpath.QB[pred] <= 0 or rpath.Biomass[pred] <= 0:
             continue
         consumption = rpath.QB[pred] * rpath.Biomass[pred]
-        for prey in range(1, n_internal + 1):
+        for prey in range(n_internal):
             dc_frac = rpath.DC[prey, pred]
             if dc_frac > 0:
-                T[pred - 1, prey - 1] = dc_frac * consumption
+                T[pred, prey] = dc_frac * consumption
 
     # Flow to detritus (routed to first detritus group)
     # TODO: Use rpath.DetFate to distribute across multiple detritus groups
     det_idx = n_living  # 0-based index of first detritus group
-    for i in range(1, n_internal + 1):
+    for i in range(n_internal):
         fd = 0.0
         # Unassimilated consumption
         if rpath.QB[i] > 0 and rpath.Biomass[i] > 0:
@@ -109,22 +111,23 @@ def _build_flow_matrix(rpath: Rpath) -> tuple[np.ndarray, int]:
         if rpath.PB[i] > 0 and rpath.Biomass[i] > 0:
             fd += (1.0 - rpath.EE[i]) * rpath.PB[i] * rpath.Biomass[i]
         if fd > 0:
-            T[det_idx, i - 1] = fd
+            T[det_idx, i] = fd
 
     # External flows: respiration
-    for i in range(1, n_living + 1):
+    for i in range(n_living):
         if rpath.QB[i] > 0 and rpath.Biomass[i] > 0:
             resp = (1.0 - rpath.Unassim[i]) * rpath.QB[i] * rpath.Biomass[i] - rpath.PB[
                 i
             ] * rpath.Biomass[i]
             if resp > 0:
-                T[resp_idx, i - 1] = resp
+                T[resp_idx, i] = resp
 
     # External flows: export (catch)
-    for i in range(1, n_internal + 1):
-        catch = np.sum(rpath.Landings[i, 1:]) + np.sum(rpath.Discards[i, 1:])
+    # Landings/Discards are (NUM_GROUPS, NUM_GEARS): every gear column counts.
+    for i in range(n_internal):
+        catch = np.sum(rpath.Landings[i, :]) + np.sum(rpath.Discards[i, :])
         if catch > 0:
-            T[export_idx, i - 1] = catch
+            T[export_idx, i] = catch
 
     return T, n_internal
 
@@ -291,7 +294,7 @@ def _transfer_efficiency_from_rpath(rpath: Rpath) -> np.ndarray:
 
     # Assign integer TL bins for living groups
     tl_bins = {}
-    for i in range(1, n_living + 1):
+    for i in range(n_living):
         tl_bin = int(np.floor(rpath.TL[i]))
         if tl_bin not in tl_bins:
             tl_bins[tl_bin] = []
@@ -311,8 +314,8 @@ def _transfer_efficiency_from_rpath(rpath: Rpath) -> np.ndarray:
         return np.array([])
 
     # Compute consumption for each group
-    consumption = np.zeros(n_internal + 1)
-    for i in range(1, n_living + 1):
+    consumption = np.zeros(n_internal)
+    for i in range(n_living):
         if rpath.QB[i] > 0 and rpath.Biomass[i] > 0:
             consumption[i] = rpath.QB[i] * rpath.Biomass[i]
 
@@ -406,44 +409,43 @@ def ecosystem_indicators(rpath: Rpath) -> EcosystemIndicators:
     n_internal = n_living + n_dead
 
     # Compute catch per group
-    catch = np.zeros(n_internal + 1)
-    for i in range(1, n_internal + 1):
-        catch[i] = np.sum(rpath.Landings[i, 1:]) + np.sum(rpath.Discards[i, 1:])
+    # Landings/Discards are (NUM_GROUPS, NUM_GEARS), 0-based: sum all gears.
+    catch = np.zeros(n_internal)
+    for i in range(n_internal):
+        catch[i] = np.sum(rpath.Landings[i, :]) + np.sum(rpath.Discards[i, :])
 
-    total_catch = np.sum(catch[1:])
+    total_catch = np.sum(catch)
+    tl_internal = rpath.TL[:n_internal]
 
     # --- MTL catch ---
     if total_catch > 0:
-        mtl_catch = (
-            np.sum(rpath.TL[1 : n_internal + 1] * catch[1 : n_internal + 1])
-            / total_catch
-        )
+        mtl_catch = np.sum(tl_internal * catch) / total_catch
     else:
         mtl_catch = np.nan
 
     # --- Marine Trophic Index (TL >= 3.25 only) ---
-    mti_mask = (catch[1 : n_internal + 1] > 0) & (rpath.TL[1 : n_internal + 1] >= 3.25)
-    mti_catch = catch[1 : n_internal + 1][mti_mask]
-    mti_tl = rpath.TL[1 : n_internal + 1][mti_mask]
+    mti_mask = (catch > 0) & (tl_internal >= 3.25)
+    mti_catch = catch[mti_mask]
+    mti_tl = tl_internal[mti_mask]
     if np.sum(mti_catch) > 0:
         marine_trophic_index = np.sum(mti_tl * mti_catch) / np.sum(mti_catch)
     else:
         marine_trophic_index = np.nan
 
     # --- Catch/Biomass ratio (living groups only) ---
-    living_biomass = np.sum(rpath.Biomass[1 : n_living + 1])
+    living_biomass = np.sum(rpath.Biomass[:n_living])
     catch_biomass_ratio = total_catch / living_biomass if living_biomass > 0 else np.nan
 
     # --- Gross efficiency (catch / NPP) ---
     npp = 0.0
-    for i in range(1, n_living + 1):
+    for i in range(n_living):
         if rpath.type[i] == 1:  # producer
             npp += rpath.PB[i] * rpath.Biomass[i]
     gross_efficiency = total_catch / npp if npp > 0 else np.nan
 
     # --- Shannon diversity (living groups with B > 0) ---
     living_b = []
-    for i in range(1, n_living + 1):
+    for i in range(n_living):
         if rpath.type[i] in (0, 1) and rpath.Biomass[i] > 0:
             living_b.append(rpath.Biomass[i])
 
@@ -457,7 +459,7 @@ def ecosystem_indicators(rpath: Rpath) -> EcosystemIndicators:
 
     # --- Kempton Q (TL in [3, 4)) ---
     q_biomasses = []
-    for i in range(1, n_living + 1):
+    for i in range(n_living):
         if rpath.type[i] in (0, 1) and 3.0 <= rpath.TL[i] < 4.0:
             q_biomasses.append(rpath.Biomass[i])
 
@@ -533,7 +535,7 @@ def system_maturity(rpath: Rpath) -> SystemMaturityIndices:
 
     # Total production: Σ PB[i] × B[i] for all living groups
     total_production = 0.0
-    for i in range(1, n_living + 1):
+    for i in range(n_living):
         total_production += rpath.PB[i] * rpath.Biomass[i]
 
     # Total respiration: for each consumer, R = QB×B×(1-Unassim) - PB×B
@@ -541,7 +543,7 @@ def system_maturity(rpath: Rpath) -> SystemMaturityIndices:
     # Simplified: R = Σ (QB×B - PB×B) for consumers, PB×B×(1-EE) for producers
     # EwE approach: respiration = assimilated consumption - production
     total_respiration = 0.0
-    for i in range(1, n_living + 1):
+    for i in range(n_living):
         if rpath.type[i] == 1:  # producer
             # Producer respiration = production - what's consumed by others
             # Simplification: R = P × (1 - EE) for producers
@@ -553,7 +555,7 @@ def system_maturity(rpath: Rpath) -> SystemMaturityIndices:
             resp = assimilated - production
             total_respiration += max(0.0, resp)
 
-    total_biomass = float(np.sum(rpath.Biomass[1 : n_living + 1]))
+    total_biomass = float(np.sum(rpath.Biomass[:n_living]))
     net_production = total_production - total_respiration
     pr_ratio = total_production / total_respiration if total_respiration > 0 else np.nan
 
@@ -565,7 +567,7 @@ def system_maturity(rpath: Rpath) -> SystemMaturityIndices:
     # Mean path length: TST / total input at base level
     # Base input = total consumption at TL 1 (primary production + detrital input)
     base_input = 0.0
-    for i in range(1, n_internal + 1):
+    for i in range(n_internal):
         if rpath.type[i] == 1:  # producer
             base_input += rpath.PB[i] * rpath.Biomass[i]
         elif rpath.type[i] == 2:  # detritus
@@ -627,26 +629,27 @@ def ecosystem_indicators_timeseries(
 
     rows = []
     for yr in range(n_years):
-        biomass = output.annual_Biomass[yr]  # 1-based
-        catch_arr = output.annual_Catch[yr]  # 1-based
+        # Two indexing conventions meet here. Ecosim output arrays are
+        # 1-based with index 0 = "Outside", while Rpath arrays are 0-based
+        # over NUM_GROUPS. Ecopath group g therefore sits at Ecosim index
+        # g + 1, and the two are sliced separately rather than together.
+        biomass = output.annual_Biomass[yr]  # 1-based (0 = Outside)
+        catch_arr = output.annual_Catch[yr]  # 1-based (0 = Outside)
 
-        total_catch = np.sum(catch_arr[1 : n_internal + 1])
+        catch_internal = catch_arr[1 : n_internal + 1]
+        tl_internal = rpath.TL[:n_internal]
+        total_catch = np.sum(catch_internal)
 
         # MTL catch
         if total_catch > 0:
-            mtl_catch = (
-                np.sum(rpath.TL[1 : n_internal + 1] * catch_arr[1 : n_internal + 1])
-                / total_catch
-            )
+            mtl_catch = np.sum(tl_internal * catch_internal) / total_catch
         else:
             mtl_catch = np.nan
 
         # Marine Trophic Index (TL >= 3.25)
-        mti_mask = (catch_arr[1 : n_internal + 1] > 0) & (
-            rpath.TL[1 : n_internal + 1] >= 3.25
-        )
-        mti_c = catch_arr[1 : n_internal + 1][mti_mask]
-        mti_t = rpath.TL[1 : n_internal + 1][mti_mask]
+        mti_mask = (catch_internal > 0) & (tl_internal >= 3.25)
+        mti_c = catch_internal[mti_mask]
+        mti_t = tl_internal[mti_mask]
         if np.sum(mti_c) > 0:
             marine_trophic_index = np.sum(mti_t * mti_c) / np.sum(mti_c)
         else:
@@ -659,16 +662,16 @@ def ecosystem_indicators_timeseries(
         # Gross efficiency (catch / NPP using dynamic biomass)
         # PB is static (from Ecopath); biomass is dynamic (from Ecosim)
         npp = 0.0
-        for i in range(1, n_living + 1):
+        for i in range(n_living):
             if rpath.type[i] == 1:  # producer
-                npp += rpath.PB[i] * biomass[i]
+                npp += rpath.PB[i] * biomass[i + 1]
         gross_efficiency = total_catch / npp if npp > 0 else np.nan
 
         # Shannon diversity (living groups with B > 0)
         living_bio = []
-        for i in range(1, n_living + 1):
-            if rpath.type[i] in (0, 1) and biomass[i] > 0:
-                living_bio.append(biomass[i])
+        for i in range(n_living):
+            if rpath.type[i] in (0, 1) and biomass[i + 1] > 0:
+                living_bio.append(biomass[i + 1])
 
         if len(living_bio) > 0:
             living_bio = np.array(living_bio)
