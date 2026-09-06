@@ -49,9 +49,12 @@ jobs:
       # Into base, not the activated env: `conda build` is a subcommand of the
       # base installation, so installing it into setup-miniconda's `test` env
       # leaves `conda build` an invalid choice.
+      # anaconda-client 1.14 replaced the classic CLI with an anaconda-cli-base
+      # wrapper that has no --version and a different command surface. Pin below
+      # it so `anaconda --token ... upload --user ...` keeps working.
       - name: Install build tooling
         run: |
-          conda install -y -n base conda-build anaconda-client
+          conda install -y -n base conda-build "anaconda-client<1.14"
           conda build --version
           "$CONDA/bin/anaconda" --version
 
