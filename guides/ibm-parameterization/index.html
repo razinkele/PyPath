@@ -1,0 +1,2005 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python implementation of Ecopath with Ecosim (EwE) for food web modeling">
+      
+      
+      
+        <link rel="canonical" href="https://razinkele.github.io/PyPath/guides/ibm-parameterization/">
+      
+      
+        <link rel="prev" href="../../api/analysis/">
+      
+      
+        <link rel="next" href="../autofix/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>IBM Parameterization - PyPath EwE Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ibm-bioenergetics-spatial-movement-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PyPath EwE Documentation" class="md-header__button md-logo" aria-label="PyPath EwE Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PyPath EwE Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              IBM Parameterization
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/razinkele/PyPath" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    razinkele/PyPath
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PyPath EwE Documentation" class="md-nav__button md-logo" aria-label="PyPath EwE Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PyPath EwE Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/razinkele/PyPath" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    razinkele/PyPath
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core (Ecopath/Ecosim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spatial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatial (Ecospace)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM Parameterization
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM Parameterization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-wisconsin-bioenergetics-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Wisconsin Bioenergetics Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Wisconsin Bioenergetics Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-energy-budget-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Energy Budget Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameter-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#temperature-dependence-q10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temperature Dependence (Q10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-consumption-feeds-into-growth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Consumption Feeds Into Growth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-processing-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch Processing (Performance)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#customizing-for-a-new-species" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customizing for a New Species
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-spatial-movement-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Spatial Movement Algorithm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Spatial Movement Algorithm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#movement-decision-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement Decision Algorithm
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#movement-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inertia-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inertia Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predator-avoidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predator Avoidance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adjacency-matrix-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adjacency Matrix Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-trigger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Trigger
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adaptive-foraging-prey-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adaptive Foraging (Prey Selection)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#movement-profiles-for-different-species-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement Profiles for Different Species Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-size-structured-predation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Size-Structured Predation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Size-Structured Predation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tuning-selectivity_sd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tuning selectivity_sd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predation-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predation Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-reproduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Reproduction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Reproduction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reproduction-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproduction Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-practical-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Practical Tips
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../autofix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autofix & Crash Repair
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/basic-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/ewe-database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EwE Database Loading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/spatial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatial Modeling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual-Based Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-wisconsin-bioenergetics-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Wisconsin Bioenergetics Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Wisconsin Bioenergetics Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-energy-budget-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Energy Budget Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameter-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#temperature-dependence-q10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temperature Dependence (Q10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-consumption-feeds-into-growth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Consumption Feeds Into Growth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-processing-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch Processing (Performance)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#customizing-for-a-new-species" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customizing for a New Species
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-spatial-movement-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Spatial Movement Algorithm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Spatial Movement Algorithm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#movement-decision-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement Decision Algorithm
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#movement-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inertia-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inertia Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predator-avoidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predator Avoidance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adjacency-matrix-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adjacency Matrix Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-trigger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Trigger
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adaptive-foraging-prey-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adaptive Foraging (Prey Selection)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#movement-profiles-for-different-species-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement Profiles for Different Species Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-size-structured-predation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Size-Structured Predation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Size-Structured Predation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tuning-selectivity_sd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tuning selectivity_sd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predation-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predation Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-reproduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Reproduction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Reproduction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reproduction-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproduction Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-practical-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Practical Tips
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="ibm-bioenergetics-spatial-movement-guide">IBM Bioenergetics &amp; Spatial Movement Guide<a class="headerlink" href="#ibm-bioenergetics-spatial-movement-guide" title="Permanent link">&para;</a></h1>
+<p>Practical guide for parameterizing Individual-Based Model (IBM) groups
+in PyPath, covering the Wisconsin bioenergetics model and the spatial
+movement algorithm used in Ecospace simulations.</p>
+<hr />
+<h2 id="1-wisconsin-bioenergetics-model">1. Wisconsin Bioenergetics Model<a class="headerlink" href="#1-wisconsin-bioenergetics-model" title="Permanent link">&para;</a></h2>
+<p>The IBM uses a classic <strong>Wisconsin bioenergetics</strong> framework
+(<code>pypath.ibm.bioenergetics</code>). Each super-individual's energy budget per
+timestep is:</p>
+<div class="highlight"><pre><span></span><code>net_energy = assimilated_consumption - metabolism - SDA - reproduction_cost
+</code></pre></div>
+<h3 id="the-energy-budget-pipeline">The Energy Budget Pipeline<a class="headerlink" href="#the-energy-budget-pipeline" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Consumption (C)
+  |
+  +---&gt; Unassimilated fraction ---&gt; lost (faeces + excretion)
+  |       C x unassimilated_fraction
+  |
+  +---&gt; Assimilated (A) = C x (1 - unassimilated_fraction)
+  |
+  +---&gt; SDA = C x sda_fraction  (cost of digestion)
+  |
+  +---&gt; Metabolism (M) = ra x weight^rb x Q10^((T-Tref)/10) x dt x 365
+  |
+  +---&gt; Net = A - M - SDA
+          |
+          +---&gt; If mature &amp; net &gt; 0: subtract reproduction_fraction x net
+          |
+          +---&gt; weight_change = remaining_net / energy_density
+</code></pre></div>
+<h3 id="parameter-reference">Parameter Reference<a class="headerlink" href="#parameter-reference" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Symbol</th>
+<th>Baltic Smelt</th>
+<th>Typical Range</th>
+<th>How to Find</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ra</code></td>
+<td>Metabolic intercept</td>
+<td>0.0033 g O2/g/d</td>
+<td>0.001--0.01</td>
+<td>FishBase metabolism table, or Hanson et al. (1997)</td>
+</tr>
+<tr>
+<td><code>rb</code></td>
+<td>Metabolic weight exponent</td>
+<td>-0.227</td>
+<td>-0.1 to -0.4</td>
+<td>Negative = larger fish have lower per-gram metabolism</td>
+</tr>
+<tr>
+<td><code>q10</code></td>
+<td>Temperature sensitivity</td>
+<td>2.1</td>
+<td>1.5--3.0</td>
+<td>2.0 is a safe default; cold-water fish tend toward 2.5+</td>
+</tr>
+<tr>
+<td><code>t_ref</code></td>
+<td>Reference temperature</td>
+<td>10.0 C</td>
+<td>Species-specific</td>
+<td>Temperature at which <code>ra</code> was measured</td>
+</tr>
+<tr>
+<td><code>sda_fraction</code></td>
+<td>Specific dynamic action</td>
+<td>0.172</td>
+<td>0.10--0.20</td>
+<td>~17% of consumption; higher for protein-rich prey</td>
+</tr>
+<tr>
+<td><code>unassimilated_fraction</code></td>
+<td>Faecal + excretion loss</td>
+<td>0.27</td>
+<td>0.20--0.35</td>
+<td>~27% lost; varies by prey quality</td>
+</tr>
+<tr>
+<td><code>a_length</code></td>
+<td>Length-weight coefficient</td>
+<td>0.55</td>
+<td>Species-specific</td>
+<td>From L = a x W^b; get from FishBase L-W table</td>
+</tr>
+<tr>
+<td><code>b_length</code></td>
+<td>Length-weight exponent</td>
+<td>0.333</td>
+<td>~1/3 (isometric)</td>
+<td>Cube root relationship for isometric growth</td>
+</tr>
+<tr>
+<td><code>energy_density</code></td>
+<td>Tissue energy content</td>
+<td>5.0 kJ/g</td>
+<td>3.0--7.0</td>
+<td>Higher for fatty species (herring ~6.5, lean whitefish ~4.0)</td>
+</tr>
+<tr>
+<td><code>reproduction_fraction</code></td>
+<td>Energy to gonads</td>
+<td>0.3</td>
+<td>0.15--0.50</td>
+<td>Higher for capital breeders, lower for income breeders</td>
+</tr>
+</tbody>
+</table>
+<h3 id="temperature-dependence-q10">Temperature Dependence (Q10)<a class="headerlink" href="#temperature-dependence-q10" title="Permanent link">&para;</a></h3>
+<p>The Q10 factor scales metabolic rate to the current water temperature:</p>
+<div class="highlight"><pre><span></span><code><span class="n">factor</span> <span class="o">=</span> <span class="n">q10</span> <span class="o">**</span> <span class="p">((</span><span class="n">temp</span> <span class="o">-</span> <span class="n">t_ref</span><span class="p">)</span> <span class="o">/</span> <span class="mf">10.0</span><span class="p">)</span>
+</code></pre></div>
+<p>This means:</p>
+<ul>
+<li>At <code>t_ref</code> (10 C for smelt): factor = 1.0 (no adjustment)</li>
+<li>At 20 C with Q10=2.1: factor = 2.1 (metabolism doubles)</li>
+<li>At 5 C with Q10=2.1: factor = 0.69 (metabolism drops 31%)</li>
+</ul>
+<p><strong>Practical tip</strong>: If your species lives in a narrow temperature range
+(e.g., deep-water fish), Q10 matters less. For species with wide thermal
+ranges (e.g., perch, pike), get Q10 from species-specific respirometry
+studies.</p>
+<h3 id="how-consumption-feeds-into-growth">How Consumption Feeds Into Growth<a class="headerlink" href="#how-consumption-feeds-into-growth" title="Permanent link">&para;</a></h3>
+<p>In <code>SmeltIBM.compute_step()</code>, each super-individual's timestep proceeds as:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 1. Maximum consumption (allometric scaling)</span>
+<span class="n">max_consumption</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="p">(</span><span class="n">weight</span> <span class="o">**</span> <span class="mf">0.7</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="mf">365.0</span>
+
+<span class="c1"># 2. Adaptive foraging allocates max_consumption across prey</span>
+<span class="n">allocation</span> <span class="o">=</span> <span class="n">adaptive_forage</span><span class="p">(</span><span class="n">prey_dict</span><span class="p">,</span> <span class="n">max_consumption</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">foraging_params</span><span class="p">)</span>
+
+<span class="c1"># 3. Total consumed feeds into growth_step</span>
+<span class="n">ind_consumption</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">allocation</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<span class="n">new_weight</span><span class="p">,</span> <span class="n">new_energy</span> <span class="o">=</span> <span class="n">growth_step</span><span class="p">(</span>
+    <span class="n">weight</span><span class="p">,</span> <span class="n">energy_reserve</span><span class="p">,</span> <span class="n">ind_consumption</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="n">is_mature</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">params</span>
+<span class="p">)</span>
+
+<span class="c1"># 4. Length updated from new weight</span>
+<span class="n">length</span> <span class="o">=</span> <span class="n">allometric_length</span><span class="p">(</span><span class="n">new_weight</span><span class="p">,</span> <span class="n">a_length</span><span class="p">,</span> <span class="n">b_length</span><span class="p">)</span>
+</code></pre></div>
+<p>The 0.7 exponent in <code>max_consumption</code> is a standard allometric scaling --
+smaller fish eat more per gram than larger fish.</p>
+<h3 id="batch-processing-performance">Batch Processing (Performance)<a class="headerlink" href="#batch-processing-performance" title="Permanent link">&para;</a></h3>
+<p>For populations with hundreds of super-individuals, the vectorized
+<code>growth_step_batch</code> processes all individuals at once using NumPy arrays
+instead of a per-individual Python loop:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.ibm.bioenergetics</span><span class="w"> </span><span class="kn">import</span> <span class="n">growth_step_batch</span>
+
+<span class="n">new_weights</span><span class="p">,</span> <span class="n">new_energies</span> <span class="o">=</span> <span class="n">growth_step_batch</span><span class="p">(</span>
+    <span class="n">weights</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">]),</span>
+    <span class="n">energy_reserves</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">]),</span>
+    <span class="n">consumptions</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">temperature</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span>
+    <span class="n">is_mature</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]),</span>
+    <span class="n">dt</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">12.0</span><span class="p">,</span>
+    <span class="n">params</span><span class="o">=</span><span class="n">bioenerg_params</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>SmeltIBM.compute_step()</code> uses this automatically in Phase 1 (forage + grow).</p>
+<h3 id="customizing-for-a-new-species">Customizing for a New Species<a class="headerlink" href="#customizing-for-a-new-species" title="Permanent link">&para;</a></h3>
+<p>To parameterize for, say, <strong>pike-perch (Sander lucioperca)</strong>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.ibm.bioenergetics</span><span class="w"> </span><span class="kn">import</span> <span class="n">BioenergParams</span>
+
+<span class="n">pikeperch_bioenerg</span> <span class="o">=</span> <span class="n">BioenergParams</span><span class="p">(</span>
+    <span class="n">ra</span><span class="o">=</span><span class="mf">0.0028</span><span class="p">,</span>                    <span class="c1"># Lower basal metabolism than smelt</span>
+    <span class="n">rb</span><span class="o">=-</span><span class="mf">0.20</span><span class="p">,</span>                     <span class="c1"># Similar weight scaling</span>
+    <span class="n">q10</span><span class="o">=</span><span class="mf">2.3</span><span class="p">,</span>                      <span class="c1"># Slightly higher temperature sensitivity</span>
+    <span class="n">t_ref</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span>                   <span class="c1"># Warmer preference species</span>
+    <span class="n">sda_fraction</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span>            <span class="c1"># Lower SDA (piscivore, efficient digestion)</span>
+    <span class="n">unassimilated_fraction</span><span class="o">=</span><span class="mf">0.20</span><span class="p">,</span>  <span class="c1"># Fish prey = high assimilation</span>
+    <span class="n">a_length</span><span class="o">=</span><span class="mf">0.50</span><span class="p">,</span>                <span class="c1"># From FishBase L-W for pike-perch</span>
+    <span class="n">b_length</span><span class="o">=</span><span class="mf">0.333</span><span class="p">,</span>               <span class="c1"># Isometric</span>
+    <span class="n">energy_density</span><span class="o">=</span><span class="mf">5.5</span><span class="p">,</span>           <span class="c1"># Slightly higher than smelt</span>
+    <span class="n">reproduction_fraction</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>   <span class="c1"># Moderate spawner</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong>Where to find parameters:</strong></p>
+<ol>
+<li><strong>FishBase</strong> -- Search species -- Metabolism tab -- ra, rb values</li>
+<li><strong>Hanson et al. (1997)</strong> Wisconsin bioenergetics manual -- Q10, SDA</li>
+<li><strong>Published bioenergetics models</strong> -- Search "[species name]
+   bioenergetics model" on Google Scholar</li>
+<li><strong>If no data</strong>: Use a closely related species and adjust body size
+   parameters</li>
+</ol>
+<hr />
+<h2 id="2-spatial-movement-algorithm">2. Spatial Movement Algorithm<a class="headerlink" href="#2-spatial-movement-algorithm" title="Permanent link">&para;</a></h2>
+<p>The movement system (<code>pypath.ibm.behavior</code>) uses a <strong>score-based
+stochastic patch selection</strong> over a sparse adjacency graph.</p>
+<h3 id="movement-decision-algorithm">Movement Decision Algorithm<a class="headerlink" href="#movement-decision-algorithm" title="Permanent link">&para;</a></h3>
+<p>For each super-individual each timestep:</p>
+<div class="highlight"><pre><span></span><code>1. Get reachable patches = {current_patch} U neighbors(current_patch)
+2. For each reachable patch p:
+     score(p) = habitat_weight x habitat_quality[p]
+              + food_weight x food_density[p]
+              + predator_weight x 1/(1 + predator_density[p])
+3. Apply inertia bonus to current patch:
+     score(current) *= (1 + (1 - base_speed))
+4. Normalize scores to probabilities
+5. Stochastically select destination patch
+</code></pre></div>
+<h3 id="movement-parameters">Movement Parameters<a class="headerlink" href="#movement-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Baltic Smelt</th>
+<th>Effect</th>
+<th>Tuning Guidance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>base_speed</code></td>
+<td>0.3</td>
+<td>Low = sedentary, high = mobile</td>
+<td>0.1 for benthic species, 0.5+ for pelagic</td>
+</tr>
+<tr>
+<td><code>habitat_weight</code></td>
+<td>0.4</td>
+<td>Importance of habitat quality</td>
+<td>Higher for species with strong habitat preferences</td>
+</tr>
+<tr>
+<td><code>food_weight</code></td>
+<td>0.4</td>
+<td>Importance of food availability</td>
+<td>Higher for actively foraging species</td>
+</tr>
+<tr>
+<td><code>predator_weight</code></td>
+<td>0.2</td>
+<td>Importance of predator avoidance</td>
+<td>Higher for prey species, lower for apex predators</td>
+</tr>
+<tr>
+<td><code>migration_temp_threshold</code></td>
+<td>4.0 C</td>
+<td>Temperature trigger for migration</td>
+<td>Species-specific spawning temperature</td>
+</tr>
+<tr>
+<td><code>migration_months</code></td>
+<td>(3,4,5)</td>
+<td>Months when migration is allowed</td>
+<td>Match spawning season</td>
+</tr>
+</tbody>
+</table>
+<h3 id="inertia-mechanism">Inertia Mechanism<a class="headerlink" href="#inertia-mechanism" title="Permanent link">&para;</a></h3>
+<p>The key behavioral feature is the <strong>inertia bonus</strong>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="n">p</span> <span class="o">==</span> <span class="n">current_patch</span><span class="p">:</span>
+    <span class="n">score</span> <span class="o">+=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">base_speed</span><span class="p">)</span> <span class="o">*</span> <span class="n">score</span>
+</code></pre></div>
+<p>With <code>base_speed = 0.3</code>, the current patch gets a 70% bonus. This means:</p>
+<ul>
+<li>An individual in a patch with equal quality to its neighbors has ~63%
+  chance of staying</li>
+<li>Only significantly better neighboring patches will attract movement</li>
+<li>Higher <code>base_speed</code> leads to more exploratory movement</li>
+</ul>
+<h3 id="predator-avoidance">Predator Avoidance<a class="headerlink" href="#predator-avoidance" title="Permanent link">&para;</a></h3>
+<p>The sigmoid avoidance term <code>1/(1 + predator_density[p])</code>:</p>
+<ul>
+<li>When <code>predator_density = 0</code>: avoidance score = 1.0 (safe patch)</li>
+<li>When <code>predator_density = 1</code>: avoidance score = 0.5 (moderate risk)</li>
+<li>When <code>predator_density = 10</code>: avoidance score = 0.09 (high risk,
+  strongly avoided)</li>
+</ul>
+<h3 id="adjacency-matrix-structure">Adjacency Matrix Structure<a class="headerlink" href="#adjacency-matrix-structure" title="Permanent link">&para;</a></h3>
+<p>The adjacency matrix is a <strong>scipy sparse CSR matrix</strong> representing which
+patches are directly reachable:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+
+<span class="c1"># Example: 4-patch linear arrangement (0-1-2-3)</span>
+<span class="n">adjacency</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">([</span>
+    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>   <span class="c1"># patch 0 connects to 1</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>   <span class="c1"># patch 1 connects to 0, 2</span>
+    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>   <span class="c1"># patch 2 connects to 1, 3</span>
+    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>   <span class="c1"># patch 3 connects to 2</span>
+<span class="p">])</span>
+</code></pre></div>
+<p>Ecospace builds this automatically from grid cell adjacency. For custom
+grids, provide your own matrix.</p>
+<h3 id="migration-trigger">Migration Trigger<a class="headerlink" href="#migration-trigger" title="Permanent link">&para;</a></h3>
+<p>Seasonal migration is controlled by <code>should_migrate()</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">should_migrate</span><span class="p">(</span><span class="n">temperature</span><span class="p">,</span> <span class="n">month</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">temperature</span> <span class="o">&gt;</span> <span class="n">params</span><span class="o">.</span><span class="n">migration_temp_threshold</span>
+            <span class="ow">and</span> <span class="n">month</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">migration_months</span><span class="p">)</span>
+</code></pre></div>
+<p>This is a simple gate -- when true, the standard movement algorithm is
+enabled during spawning months.</p>
+<h3 id="adaptive-foraging-prey-selection">Adaptive Foraging (Prey Selection)<a class="headerlink" href="#adaptive-foraging-prey-selection" title="Permanent link">&para;</a></h3>
+<p>The foraging algorithm uses a <strong>profitability-based allocation</strong> with
+availability caps:</p>
+<div class="highlight"><pre><span></span><code>profitability(prey) = (energy_content / handling_time) x available_biomass
+</code></pre></div>
+<p>Consumption is allocated proportionally to profitability. If a prey group
+runs out (availability cap), surplus is redistributed to remaining prey
+in a second pass.</p>
+<p><strong>Practical example</strong> -- a pike-perch eating 3 prey groups:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.ibm.behavior</span><span class="w"> </span><span class="kn">import</span> <span class="n">ForagingParams</span>
+
+<span class="n">foraging_params</span> <span class="o">=</span> <span class="n">ForagingParams</span><span class="p">(</span>
+    <span class="n">energy_content</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">,</span> <span class="o">...</span><span class="p">]),</span>  <span class="c1"># kJ/g by group</span>
+    <span class="c1">#                                  ^gr3  ^gr4       ^gr6</span>
+    <span class="n">handling_time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="o">...</span><span class="p">]),</span>    <span class="c1"># time/g</span>
+    <span class="c1">#                                ^gr3  ^gr4       ^gr6</span>
+<span class="p">)</span>
+<span class="c1"># Profitability: gr3=3.5, gr4=3.33, gr6=3.0</span>
+<span class="c1"># Pike-perch preferentially consumes group 3, then 4, then 6</span>
+</code></pre></div>
+<h3 id="movement-profiles-for-different-species-types">Movement Profiles for Different Species Types<a class="headerlink" href="#movement-profiles-for-different-species-types" title="Permanent link">&para;</a></h3>
+<p><strong>Pelagic schooling fish</strong> (herring, sprat):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.ibm.behavior</span><span class="w"> </span><span class="kn">import</span> <span class="n">MovementParams</span>
+
+<span class="n">MovementParams</span><span class="p">(</span>
+    <span class="n">base_speed</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>          <span class="c1"># Highly mobile</span>
+    <span class="n">habitat_weight</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>      <span class="c1"># Less tied to bottom habitat</span>
+    <span class="n">food_weight</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>         <span class="c1"># Strongly follows plankton patches</span>
+    <span class="n">predator_weight</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>     <span class="c1"># School provides some protection</span>
+    <span class="n">migration_temp_threshold</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span>
+    <span class="n">migration_months</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>  <span class="c1"># Spring + autumn migrations</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong>Benthic/demersal fish</strong> (flounder, cod):</p>
+<div class="highlight"><pre><span></span><code><span class="n">MovementParams</span><span class="p">(</span>
+    <span class="n">base_speed</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span>         <span class="c1"># Sedentary</span>
+    <span class="n">habitat_weight</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>      <span class="c1"># Strong bottom-type preference</span>
+    <span class="n">food_weight</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>         <span class="c1"># Feeds locally</span>
+    <span class="n">predator_weight</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">migration_temp_threshold</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span>
+    <span class="n">migration_months</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>  <span class="c1"># Short spawning migration</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong>Apex predator</strong> (pike, perch):</p>
+<div class="highlight"><pre><span></span><code><span class="n">MovementParams</span><span class="p">(</span>
+    <span class="n">base_speed</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>         <span class="c1"># Moderate movement</span>
+    <span class="n">habitat_weight</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>      <span class="c1"># Territory/structure dependent</span>
+    <span class="n">food_weight</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span>         <span class="c1"># Follows prey concentrations</span>
+    <span class="n">predator_weight</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>     <span class="c1"># Low predation risk</span>
+    <span class="n">migration_temp_threshold</span><span class="o">=</span><span class="mf">12.0</span><span class="p">,</span>
+    <span class="n">migration_months</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+<span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="3-size-structured-predation">3. Size-Structured Predation<a class="headerlink" href="#3-size-structured-predation" title="Permanent link">&para;</a></h2>
+<p>Predation mortality is distributed across super-individuals using a
+<strong>log-normal size selectivity</strong> (<code>pypath.ibm.predation</code>):</p>
+<div class="highlight"><pre><span></span><code>selectivity(length) = exp(-0.5 x (ln(length / optimal_prey_length) / selectivity_sd)^2)
+</code></pre></div>
+<ul>
+<li>Fish at <code>optimal_prey_length</code> get selectivity = 1.0 (maximum
+  vulnerability)</li>
+<li>Smaller/larger fish are progressively less vulnerable</li>
+<li><code>selectivity_sd = 0.5</code> (Baltic smelt default) = moderately selective
+  predator</li>
+</ul>
+<h3 id="tuning-selectivity_sd">Tuning <code>selectivity_sd</code><a class="headerlink" href="#tuning-selectivity_sd" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Predator Type</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.2--0.3</td>
+<td>Very size-selective (gape-limited)</td>
+<td>Small-mouthed bass, zander juveniles</td>
+</tr>
+<tr>
+<td>0.4--0.6</td>
+<td>Moderate selectivity (default)</td>
+<td>Most fish predators</td>
+</tr>
+<tr>
+<td>0.8--1.0</td>
+<td>Generalist predator</td>
+<td>Seals, marine mammals, cormorants</td>
+</tr>
+</tbody>
+</table>
+<h3 id="predation-parameters">Predation Parameters<a class="headerlink" href="#predation-parameters" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.ibm.predation</span><span class="w"> </span><span class="kn">import</span> <span class="n">PredationParams</span>
+
+<span class="n">PredationParams</span><span class="p">(</span>
+    <span class="n">optimal_prey_length</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>  <span class="c1"># cm -- peak vulnerability length</span>
+    <span class="n">selectivity_sd</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>        <span class="c1"># log-normal width</span>
+<span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="4-reproduction">4. Reproduction<a class="headerlink" href="#4-reproduction" title="Permanent link">&para;</a></h2>
+<p>Reproduction (<code>pypath.ibm.reproduction</code>) uses a <strong>Cushing match/mismatch
+hypothesis</strong> for larval survival:</p>
+<div class="highlight"><pre><span></span><code>survival = base_survival x exp(-0.5 x (mismatch / match_window)^2)
+</code></pre></div>
+<p>where <code>mismatch = |spawn_day - zooplankton_peak_day|</code>.</p>
+<h3 id="reproduction-parameters">Reproduction Parameters<a class="headerlink" href="#reproduction-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Baltic Smelt</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fecundity_coefficient</code></td>
+<td>200.0</td>
+<td>Eggs per g^exponent</td>
+</tr>
+<tr>
+<td><code>fecundity_exponent</code></td>
+<td>1.2</td>
+<td>Weight-fecundity power law exponent</td>
+</tr>
+<tr>
+<td><code>larval_base_survival</code></td>
+<td>0.01</td>
+<td>1% survival at perfect match</td>
+</tr>
+<tr>
+<td><code>zooplankton_match_window</code></td>
+<td>15.0 days</td>
+<td>Gaussian width of match window</td>
+</tr>
+<tr>
+<td><code>maturity_energy_threshold</code></td>
+<td>0.5</td>
+<td>Minimum energy reserve to spawn</td>
+</tr>
+<tr>
+<td><code>spawning_temp_threshold</code></td>
+<td>4.0 C</td>
+<td>Minimum temperature for spawning</td>
+</tr>
+<tr>
+<td><code>larval_duration_days</code></td>
+<td>30</td>
+<td>Larval phase duration</td>
+</tr>
+<tr>
+<td><code>recruit_weight</code></td>
+<td>0.5 g</td>
+<td>Weight of newly recruited individual</td>
+</tr>
+<tr>
+<td><code>recruit_length</code></td>
+<td>3.0 cm</td>
+<td>Length of newly recruited individual</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-practical-tips">5. Practical Tips<a class="headerlink" href="#5-practical-tips" title="Permanent link">&para;</a></h2>
+<p><strong>Choosing <code>num_individuals</code></strong>: More super-individuals = smoother
+dynamics but slower. 200--500 is typical for a single species. Each
+super-individual represents many real fish via <code>n_represented</code>.</p>
+<p><strong>Prey group indices</strong>: Must match your Ecopath model numbering (1-based,
+0 is "Outside"). Check <code>rpath_params.Group</code> for the mapping.</p>
+<p><strong>Timestep coupling</strong>: IBM <code>compute_step()</code> is called at each ODE solver
+step. The IBM operates in the same <code>dt</code> as the Ecosim integration
+(typically monthly).</p>
+<p><strong>Debugging</strong>: Run with a simple 2-group model first (1 IBM group + 1
+prey) to verify biomass conservation before scaling up.</p>
+<p><strong>Visualization</strong>: The Shiny app's IBM page (<code>pages/ibm.py</code>) provides
+ready-made plots for biomass comparison, size distribution, age
+structure, energy reserves, and spatial distribution.</p>
+<hr />
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Hanson, P.C., Johnson, T.B., Schindler, D.E., Kitchell, J.F. (1997).
+  <em>Fish Bioenergetics 3.0</em>. University of Wisconsin Sea Grant Institute.</li>
+<li>Cushing, D.H. (1990). Plankton production and year-class strength in
+  fish populations: an update of the match/mismatch hypothesis.
+  <em>Advances in Marine Biology</em>, 26, 249--293.</li>
+<li>FishBase (https://www.fishbase.se) -- Species-specific metabolism,
+  length-weight, and growth parameters.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

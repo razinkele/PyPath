@@ -1,0 +1,1590 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python implementation of Ecopath with Ecosim (EwE) for food web modeling">
+      
+      
+      
+        <link rel="canonical" href="https://razinkele.github.io/PyPath/examples/ewe-database/">
+      
+      
+        <link rel="prev" href="../basic-model/">
+      
+      
+        <link rel="next" href="../spatial/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>EwE Database Loading - PyPath EwE Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#loading-native-ewe-databases" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PyPath EwE Documentation" class="md-header__button md-logo" aria-label="PyPath EwE Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PyPath EwE Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              EwE Database Loading
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/razinkele/PyPath" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    razinkele/PyPath
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PyPath EwE Documentation" class="md-nav__button md-logo" aria-label="PyPath EwE Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PyPath EwE Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/razinkele/PyPath" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    razinkele/PyPath
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core (Ecopath/Ecosim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spatial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatial (Ecospace)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ibm-parameterization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM Parameterization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/autofix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autofix & Crash Repair
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EwE Database Loading
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EwE Database Loading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start-one-line-scenario-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start: One-Line Scenario Loading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-by-step-ecopath-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step-by-Step: Ecopath Only
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exploring-database-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exploring Database Contents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exploring Database Contents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#list-available-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List Available Tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#read-any-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read Any Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-model-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get Model Metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-multiple-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Multiple Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnosing-and-fixing-unstable-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnosing and Fixing Unstable Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comparing-with-ewe-reference-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparing with EwE Reference Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-models-back-to-ewe-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exporting Models Back to EwE Format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exporting Models Back to EwE Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#round-trip-read-modify-write" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Round-Trip: Read, Modify, Write
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-to-csv-bundle-cross-platform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export to CSV Bundle (Cross-Platform)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-with-ecosim-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export with Ecosim Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-ewe-database-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common EwE Database Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spatial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatial Modeling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual-Based Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start-one-line-scenario-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start: One-Line Scenario Loading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-by-step-ecopath-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step-by-Step: Ecopath Only
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exploring-database-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exploring Database Contents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exploring Database Contents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#list-available-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List Available Tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#read-any-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read Any Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-model-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get Model Metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-multiple-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Multiple Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnosing-and-fixing-unstable-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnosing and Fixing Unstable Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comparing-with-ewe-reference-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparing with EwE Reference Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-models-back-to-ewe-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exporting Models Back to EwE Format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exporting Models Back to EwE Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#round-trip-read-modify-write" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Round-Trip: Read, Modify, Write
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-to-csv-bundle-cross-platform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export to CSV Bundle (Cross-Platform)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-with-ecosim-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export with Ecosim Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-ewe-database-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common EwE Database Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="loading-native-ewe-databases">Loading Native EwE Databases<a class="headerlink" href="#loading-native-ewe-databases" title="Permanent link">&para;</a></h1>
+<p>This guide shows how to load and run models from Ecopath with Ecosim's
+native <code>.eweaccdb</code> database format. This is the recommended workflow
+when working with existing EwE models.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Loading EwE databases requires a Microsoft Access ODBC driver:</p>
+<ul>
+<li><strong>Windows</strong>: Usually pre-installed (Microsoft Access Database Engine)</li>
+<li><strong>Linux/macOS</strong>: Install <code>mdbtools</code> (<code>apt install mdbtools</code> or <code>brew install mdbtools</code>)</li>
+</ul>
+<h2 id="quick-start-one-line-scenario-loading">Quick Start: One-Line Scenario Loading<a class="headerlink" href="#quick-start-one-line-scenario-loading" title="Permanent link">&para;</a></h2>
+<p>The fastest way to get a running Ecosim simulation from an EwE database:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">ecosim_scenario_from_ewemdb</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_run</span>
+
+<span class="c1"># Load scenario 16 (calibrated) with all EwE settings</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">ecosim_scenario_from_ewemdb</span><span class="p">(</span><span class="s2">"LT2022_model.eweaccdb"</span><span class="p">,</span> <span class="n">scenario</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"AB"</span><span class="p">)</span>
+
+<span class="c1"># Annual biomass: shape (n_years+1, n_groups+1)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">annual_Biomass</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</code></pre></div>
+<p><code>ecosim_scenario_from_ewemdb</code> reads from the database in a single call:</p>
+<ul>
+<li>Ecopath parameters (biomass, diet, stanzas)</li>
+<li>Ecopath mass-balance (calls <code>rpath()</code> internally)</li>
+<li>Ecosim scenario settings (time span, integration step)</li>
+<li>Vulnerability matrix overrides per predator-prey link</li>
+<li>Foraging time adjustments per group</li>
+<li>Forced biomass time series</li>
+<li>Fishing effort time series</li>
+<li>Environmental forcing functions</li>
+</ul>
+<h2 id="step-by-step-ecopath-only">Step-by-Step: Ecopath Only<a class="headerlink" href="#step-by-step-ecopath-only" title="Permanent link">&para;</a></h2>
+<p>If you only need Ecopath (no Ecosim):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_ewemdb</span><span class="p">,</span> <span class="n">rpath</span>
+
+<span class="c1"># Load just Ecopath parameters</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">read_ewemdb</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">)</span>
+
+<span class="c1"># Balance the model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">rpath</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Inspect results</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Groups: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">NUM_GROUPS</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Living: </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">NUM_LIVING</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">NUM_GROUPS</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">Group</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">20s</span><span class="si">}</span><span class="s2">  B=</span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">Biomass</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">  EE=</span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">EE</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="exploring-database-contents">Exploring Database Contents<a class="headerlink" href="#exploring-database-contents" title="Permanent link">&para;</a></h2>
+<h3 id="list-available-tables">List Available Tables<a class="headerlink" href="#list-available-tables" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">list_ewemdb_tables</span>
+
+<span class="n">tables</span> <span class="o">=</span> <span class="n">list_ewemdb_tables</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tables</span><span class="p">)</span><span class="si">}</span><span class="s2"> tables found"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">tables</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="read-any-table">Read Any Table<a class="headerlink" href="#read-any-table" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_ewemdb_table</span>
+
+<span class="c1"># List available Ecosim scenarios</span>
+<span class="n">scenarios</span> <span class="o">=</span> <span class="n">read_ewemdb_table</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="s2">"EcosimScenario"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">scenarios</span><span class="p">[[</span><span class="s2">"ScenarioID"</span><span class="p">,</span> <span class="s2">"ScenarioName"</span><span class="p">,</span> <span class="s2">"TotalTime"</span><span class="p">]])</span>
+
+<span class="c1"># Read the vulnerability matrix for scenario 16</span>
+<span class="n">vv</span> <span class="o">=</span> <span class="n">read_ewemdb_table</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="s2">"EcosimScenarioForcingMatrix"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">vv</span><span class="p">)</span><span class="si">}</span><span class="s2"> predator-prey vulnerability entries"</span><span class="p">)</span>
+
+<span class="c1"># Read time series data</span>
+<span class="n">ts</span> <span class="o">=</span> <span class="n">read_ewemdb_table</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="s2">"EcosimTimeSeries"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span><span class="si">}</span><span class="s2"> time series records"</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="get-model-metadata">Get Model Metadata<a class="headerlink" href="#get-model-metadata" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_ewemdb_metadata</span>
+
+<span class="n">meta</span> <span class="o">=</span> <span class="n">get_ewemdb_metadata</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Model: </span><span class="si">{</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'name'</span><span class="p">,</span><span class="w"> </span><span class="s1">'unknown'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Description: </span><span class="si">{</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'description'</span><span class="p">,</span><span class="w"> </span><span class="s1">''</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="running-multiple-scenarios">Running Multiple Scenarios<a class="headerlink" href="#running-multiple-scenarios" title="Permanent link">&para;</a></h2>
+<p>EwE databases often contain multiple Ecosim scenarios (e.g., uncalibrated
+baseline, calibrated fit, management projections):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">ecosim_scenario_from_ewemdb</span><span class="p">,</span> <span class="n">read_ewemdb_table</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_run</span>
+
+<span class="c1"># List scenarios</span>
+<span class="n">scenarios_df</span> <span class="o">=</span> <span class="n">read_ewemdb_table</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="s2">"EcosimScenario"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">scenarios_df</span><span class="p">[[</span><span class="s2">"ScenarioID"</span><span class="p">,</span> <span class="s2">"ScenarioName"</span><span class="p">]])</span>
+
+<span class="c1"># Run scenario 1 (baseline, uncalibrated)</span>
+<span class="n">scen1</span> <span class="o">=</span> <span class="n">ecosim_scenario_from_ewemdb</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="n">scenario</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">out1</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scen1</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"AB"</span><span class="p">)</span>
+
+<span class="c1"># Run scenario 16 (calibrated)</span>
+<span class="n">scen16</span> <span class="o">=</span> <span class="n">ecosim_scenario_from_ewemdb</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="n">scenario</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<span class="n">out16</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scen16</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"AB"</span><span class="p">)</span>
+
+<span class="c1"># Compare results</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Scenario 1  crashed groups: </span><span class="si">{</span><span class="n">out1</span><span class="o">.</span><span class="n">crashed_groups</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Scenario 16 crashed groups: </span><span class="si">{</span><span class="n">out16</span><span class="o">.</span><span class="n">crashed_groups</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="diagnosing-and-fixing-unstable-scenarios">Diagnosing and Fixing Unstable Scenarios<a class="headerlink" href="#diagnosing-and-fixing-unstable-scenarios" title="Permanent link">&para;</a></h2>
+<p>If a scenario produces crashes or explosive biomass, use the autofix module:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_ewemdb</span><span class="p">,</span> <span class="n">rpath</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.autofix</span><span class="w"> </span><span class="kn">import</span> <span class="n">diagnose_crash_causes</span><span class="p">,</span> <span class="n">autofix_parameters</span>
+
+<span class="c1"># Load and balance</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">read_ewemdb</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">rpath</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Build an Ecosim scenario</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_scenario</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">rsim_scenario</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">51</span><span class="p">))</span>
+
+<span class="c1"># Diagnose potential issues</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">diagnose_crash_causes</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">issue</span> <span class="ow">in</span> <span class="n">report</span><span class="p">[</span><span class="s2">"critical"</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CRITICAL: </span><span class="si">{</span><span class="n">issue</span><span class="p">[</span><span class="s1">'type'</span><span class="p">]</span><span class="si">}</span><span class="s2"> — group </span><span class="si">{</span><span class="n">issue</span><span class="p">[</span><span class="s1">'group'</span><span class="p">]</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">issue</span><span class="p">[</span><span class="s1">'message'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">issue</span> <span class="ow">in</span> <span class="n">report</span><span class="p">[</span><span class="s2">"warnings"</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"WARNING:  </span><span class="si">{</span><span class="n">issue</span><span class="p">[</span><span class="s1">'type'</span><span class="p">]</span><span class="si">}</span><span class="s2"> — </span><span class="si">{</span><span class="n">issue</span><span class="p">[</span><span class="s1">'message'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Automatically fix parameters</span>
+<span class="n">fixed_params</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="n">autofix_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Fixes applied: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">fixes_applied</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">fix</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">fixes_applied</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">fix</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Use the fixed parameters</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">fixed_params</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"AB"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="comparing-with-ewe-reference-output">Comparing with EwE Reference Output<a class="headerlink" href="#comparing-with-ewe-reference-output" title="Permanent link">&para;</a></h2>
+<p>To validate that PyPath reproduces EwE results, compare biomass
+trajectories against the EwE time series data stored in the database:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">ecosim_scenario_from_ewemdb</span><span class="p">,</span> <span class="n">read_ewemdb_table</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_run</span><span class="p">,</span> <span class="n">read_ewemdb</span><span class="p">,</span> <span class="n">rpath</span>
+
+<span class="c1"># Run simulation</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">ecosim_scenario_from_ewemdb</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="n">scenario</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"AB"</span><span class="p">)</span>
+
+<span class="c1"># Load observed time series from the database</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">rpath</span><span class="p">(</span><span class="n">read_ewemdb</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">))</span>
+<span class="n">ts</span> <span class="o">=</span> <span class="n">read_ewemdb_table</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="s2">"EcosimTimeSeries"</span><span class="p">)</span>
+
+<span class="c1"># Calculate sum of squares for relative biomass series</span>
+<span class="c1"># (DatType=0 means relative biomass)</span>
+<span class="n">biomass_ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">ts</span><span class="p">[</span><span class="s2">"DatType"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">total_ss</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">biomass_ts</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+    <span class="n">group_idx</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">"GroupID"</span><span class="p">]</span>  <span class="c1"># map to model group index</span>
+    <span class="n">observed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"TimeValues"</span><span class="p">])</span><span class="o">.</span><span class="n">split</span><span class="p">()])</span>
+    <span class="n">simulated</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">annual_Biomass</span><span class="p">[:,</span> <span class="n">group_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">model</span><span class="o">.</span><span class="n">Biomass</span><span class="p">[</span><span class="n">group_idx</span><span class="p">]</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">observed</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">simulated</span><span class="p">))</span>
+    <span class="n">total_ss</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">simulated</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span> <span class="o">-</span> <span class="n">observed</span><span class="p">[:</span><span class="n">n</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total SS: </span><span class="si">{</span><span class="n">total_ss</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="exporting-models-back-to-ewe-format">Exporting Models Back to EwE Format<a class="headerlink" href="#exporting-models-back-to-ewe-format" title="Permanent link">&para;</a></h2>
+<p>PyPath can write models back to native EwE 6.6+ format. The exported
+databases use the correct EwE 6.6+ schema and load directly in the EwE
+desktop application.</p>
+<h3 id="round-trip-read-modify-write">Round-Trip: Read, Modify, Write<a class="headerlink" href="#round-trip-read-modify-write" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_ewemdb</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewe_writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_ewemdb</span>
+
+<span class="c1"># Load existing model</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">read_ewemdb</span><span class="p">(</span><span class="s2">"original_model.eweaccdb"</span><span class="p">)</span>
+
+<span class="c1"># Modify parameters</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s2">"Biomass"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">12.5</span>  <span class="c1"># Adjust phytoplankton biomass</span>
+
+<span class="c1"># Write back to EwE format</span>
+<span class="n">write_ewemdb</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"modified_model.eweaccdb"</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="export-to-csv-bundle-cross-platform">Export to CSV Bundle (Cross-Platform)<a class="headerlink" href="#export-to-csv-bundle-cross-platform" title="Permanent link">&para;</a></h3>
+<p>If you don't have the Access ODBC driver (Linux/macOS), use the CSV
+bundle format:</p>
+<div class="highlight"><pre><span></span><code><span class="n">write_ewemdb</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"my_model.ewecsv.zip"</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">"csv"</span><span class="p">)</span>
+</code></pre></div>
+<p>The CSV bundle is a ZIP file containing one CSV per EwE table, which can
+be imported by EwE or read back by PyPath.</p>
+<h3 id="export-with-ecosim-scenarios">Export with Ecosim Scenarios<a class="headerlink" href="#export-with-ecosim-scenarios" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_scenario</span><span class="p">,</span> <span class="n">rpath</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">rpath</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">rsim_scenario</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">51</span><span class="p">))</span>
+
+<span class="n">write_ewemdb</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"with_ecosim.eweaccdb"</span><span class="p">,</span> <span class="n">scenarios</span><span class="o">=</span><span class="p">[</span><span class="n">scenario</span><span class="p">])</span>
+</code></pre></div>
+<h2 id="common-ewe-database-tables">Common EwE Database Tables<a class="headerlink" href="#common-ewe-database-tables" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EcopathGroup</code></td>
+<td>Group names, types, biomass, PB, QB, EE</td>
+</tr>
+<tr>
+<td><code>EcopathDietComp</code></td>
+<td>Diet composition matrix</td>
+</tr>
+<tr>
+<td><code>EcopathStanza</code> / <code>StanzaLifeStage</code></td>
+<td>Multi-stanza group definitions</td>
+</tr>
+<tr>
+<td><code>EcosimScenario</code></td>
+<td>Scenario names, time spans, settings</td>
+</tr>
+<tr>
+<td><code>EcosimScenarioForcingMatrix</code></td>
+<td>Vulnerability overrides per pred-prey link</td>
+</tr>
+<tr>
+<td><code>EcosimScenarioGroup</code></td>
+<td>Per-group Ecosim settings (FtimeAdjust, etc.)</td>
+</tr>
+<tr>
+<td><code>EcosimTimeSeries</code></td>
+<td>Observed time series for calibration</td>
+</tr>
+<tr>
+<td><code>EcosimTimeSeriesGroup</code></td>
+<td>Time series to group mapping</td>
+</tr>
+<tr>
+<td><code>EcosimShape</code> / <code>EcosimShapeTime</code></td>
+<td>Forcing function shapes</td>
+</tr>
+<tr>
+<td><code>EcosimShapeFishRate</code></td>
+<td>Fishing effort time series</td>
+</tr>
+</tbody>
+</table>
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../basic-model/">Basic Model Example</a> — Create a model from scratch</li>
+<li><a href="../spatial/">Spatial Modeling</a> — Extend to Ecospace</li>
+<li><a href="../ibm/">IBM Example</a> — Add individual-based groups</li>
+<li><a href="../../api/io/">API Reference: I/O</a> — Full ewemdb API docs</li>
+<li><a href="../../api/core/#autofix-stability-diagnostics">API Reference: Autofix</a> — Crash diagnostics</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

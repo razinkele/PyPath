@@ -13,17 +13,17 @@
         <link rel="canonical" href="https://razinkele.github.io/PyPath/examples/basic-model/">
       
       
-        <link rel="prev" href="../../api/analysis/">
+        <link rel="prev" href="../../guides/autofix/">
       
       
-        <link rel="next" href="../spatial/">
+        <link rel="next" href="../ewe-database/">
       
       
         
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -516,6 +516,123 @@
       
   
   
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ibm-parameterization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM Parameterization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/autofix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autofix & Crash Repair
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -534,10 +651,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -555,8 +672,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -644,10 +761,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#balancing-the-model" class="md-nav__link">
+  <a href="#setting-ecopath-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Balancing the Model
+        Setting Ecopath Parameters
       
     </span>
   </a>
@@ -655,10 +772,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running-ecosim" class="md-nav__link">
+  <a href="#setting-the-diet-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Running Ecosim
+        Setting the Diet Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balancing-the-model-ecopath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Balancing the Model (Ecopath)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-a-dynamic-simulation-ecosim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running a Dynamic Simulation (Ecosim)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#applying-fishing-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Applying Fishing Pressure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adjusting-vulnerability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adjusting Vulnerability
       
     </span>
   </a>
@@ -670,6 +831,50 @@
     <span class="md-ellipsis">
       
         Loading from EcoBase
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading-from-ewe-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loading from EwE Database
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnosing-unstable-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnosing Unstable Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading-from-csv-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loading from CSV Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plotting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plotting Results
       
     </span>
   </a>
@@ -692,6 +897,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../ewe-database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EwE Database Loading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../spatial/" class="md-nav__link">
         
   
@@ -700,6 +933,34 @@
     
   
     Spatial Modeling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual-Based Model
   
 
     
@@ -758,10 +1019,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#balancing-the-model" class="md-nav__link">
+  <a href="#setting-ecopath-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Balancing the Model
+        Setting Ecopath Parameters
       
     </span>
   </a>
@@ -769,10 +1030,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running-ecosim" class="md-nav__link">
+  <a href="#setting-the-diet-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Running Ecosim
+        Setting the Diet Matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#balancing-the-model-ecopath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Balancing the Model (Ecopath)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-a-dynamic-simulation-ecosim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running a Dynamic Simulation (Ecosim)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#applying-fishing-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Applying Fishing Pressure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adjusting-vulnerability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adjusting Vulnerability
       
     </span>
   </a>
@@ -784,6 +1089,50 @@
     <span class="md-ellipsis">
       
         Loading from EcoBase
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading-from-ewe-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loading from EwE Database
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnosing-unstable-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnosing Unstable Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading-from-csv-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loading from CSV Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plotting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plotting Results
       
     </span>
   </a>
@@ -811,64 +1160,168 @@
 
 
 <h1 id="basic-model-example">Basic Model Example<a class="headerlink" href="#basic-model-example" title="Permanent link">&para;</a></h1>
-<p>This guide shows how to create, balance, and simulate a simple Ecopath with Ecosim model.</p>
+<p>This guide walks through creating, balancing, and simulating a simple
+Ecopath with Ecosim model using the PyPath API.</p>
 <h2 id="creating-model-parameters">Creating Model Parameters<a class="headerlink" href="#creating-model-parameters" title="Permanent link">&para;</a></h2>
+<p>Use <code>create_rpath_params</code> to define your food web structure. Each group
+needs a name and a type code:</p>
+<ul>
+<li><code>0</code> = consumer (heterotroph)</li>
+<li><code>1</code> = producer (autotroph)</li>
+<li><code>2</code> = detritus</li>
+<li><code>3</code> = fleet (fishing gear)</li>
+</ul>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_rpath_params</span><span class="p">,</span> <span class="n">rpath</span><span class="p">,</span> <span class="n">rsim_scenario</span><span class="p">,</span> <span class="n">rsim_run</span>
 
 <span class="c1"># Define a simple 5-group food web</span>
 <span class="n">params</span> <span class="o">=</span> <span class="n">create_rpath_params</span><span class="p">(</span>
-    <span class="n">groups</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Phytoplankton&quot;</span><span class="p">,</span> <span class="s2">&quot;Zooplankton&quot;</span><span class="p">,</span> <span class="s2">&quot;Small Fish&quot;</span><span class="p">,</span> <span class="s2">&quot;Detritus&quot;</span><span class="p">,</span> <span class="s2">&quot;Fleet&quot;</span><span class="p">],</span>
-    <span class="n">types</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>  <span class="c1"># 1=producer, 0=consumer, 2=detritus, 3=fleet</span>
+    <span class="n">groups</span><span class="o">=</span><span class="p">[</span><span class="s2">"Phytoplankton"</span><span class="p">,</span> <span class="s2">"Zooplankton"</span><span class="p">,</span> <span class="s2">"Small Fish"</span><span class="p">,</span> <span class="s2">"Detritus"</span><span class="p">,</span> <span class="s2">"Fleet"</span><span class="p">],</span>
+    <span class="n">types</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
 <span class="p">)</span>
-
-<span class="c1"># Set biomass (t/km2)</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Biomass&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">10.0</span>  <span class="c1"># Phytoplankton</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Biomass&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">5.0</span>   <span class="c1"># Zooplankton</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Biomass&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2.0</span>   <span class="c1"># Small Fish</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;Biomass&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">100.0</span> <span class="c1"># Detritus</span>
-
-<span class="c1"># Set production/biomass ratios</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;PB&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">200.0</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;PB&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">50.0</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;PB&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
-
-<span class="c1"># Set consumption/biomass ratios (consumers only)</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;QB&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">150.0</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;QB&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">5.0</span>
-
-<span class="c1"># Set ecotrophic efficiency</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;EE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.8</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;EE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.9</span>
-<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;EE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span>
-
-<span class="c1"># Set diet matrix (who eats whom)</span>
-<span class="n">params</span><span class="o">.</span><span class="n">diet</span><span class="p">[</span><span class="s2">&quot;Zooplankton&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>   <span class="c1"># Eats phyto only</span>
-<span class="n">params</span><span class="o">.</span><span class="n">diet</span><span class="p">[</span><span class="s2">&quot;Small Fish&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>     <span class="c1"># Eats zoo only</span>
 </code></pre></div>
-<h2 id="balancing-the-model">Balancing the Model<a class="headerlink" href="#balancing-the-model" title="Permanent link">&para;</a></h2>
+<h2 id="setting-ecopath-parameters">Setting Ecopath Parameters<a class="headerlink" href="#setting-ecopath-parameters" title="Permanent link">&para;</a></h2>
+<p>Fill in the model table with biomass, production, consumption, and
+ecotrophic efficiency for each group. Indices follow the order defined
+in <code>groups</code> above.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Biomass (t/km2)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s2">"Biomass"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">10.0</span>   <span class="c1"># Phytoplankton</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"Biomass"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">5.0</span>    <span class="c1"># Zooplankton</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="s2">"Biomass"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2.0</span>    <span class="c1"># Small Fish</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="s2">"Biomass"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">100.0</span>  <span class="c1"># Detritus</span>
+
+<span class="c1"># Production/Biomass ratios (yr-1)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s2">"PB"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">200.0</span>  <span class="c1"># Phytoplankton: high turnover</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"PB"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">50.0</span>   <span class="c1"># Zooplankton</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="s2">"PB"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>    <span class="c1"># Small Fish: low turnover</span>
+
+<span class="c1"># Consumption/Biomass ratios (yr-1, consumers only)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"QB"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">150.0</span>  <span class="c1"># Zooplankton</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="s2">"QB"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">5.0</span>    <span class="c1"># Small Fish</span>
+
+<span class="c1"># Ecotrophic Efficiency (fraction of production consumed in the system)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s2">"EE"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"EE"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.9</span>
+<span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="s2">"EE"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span>
+</code></pre></div>
+<h2 id="setting-the-diet-matrix">Setting the Diet Matrix<a class="headerlink" href="#setting-the-diet-matrix" title="Permanent link">&para;</a></h2>
+<p>The diet matrix defines who eats whom. Each column is a predator, each
+row is a prey. Column values should sum to 1.0.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Zooplankton eats 100% phytoplankton</span>
+<span class="n">params</span><span class="o">.</span><span class="n">diet</span><span class="p">[</span><span class="s2">"Zooplankton"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+
+<span class="c1"># Small Fish eats 100% zooplankton</span>
+<span class="n">params</span><span class="o">.</span><span class="n">diet</span><span class="p">[</span><span class="s2">"Small Fish"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+</code></pre></div>
+<h2 id="balancing-the-model-ecopath">Balancing the Model (Ecopath)<a class="headerlink" href="#balancing-the-model-ecopath" title="Permanent link">&para;</a></h2>
+<p>The <code>rpath()</code> function solves the mass-balance equations, filling in
+any missing parameters and checking thermodynamic consistency.</p>
 <div class="highlight"><pre><span></span><code><span class="n">model</span> <span class="o">=</span> <span class="n">rpath</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>  <span class="c1"># Shows balanced model parameters</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>  <span class="c1"># Shows the balanced Rpath object</span>
 </code></pre></div>
-<h2 id="running-ecosim">Running Ecosim<a class="headerlink" href="#running-ecosim" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="c1"># Create a 50-year simulation scenario</span>
+<h2 id="running-a-dynamic-simulation-ecosim">Running a Dynamic Simulation (Ecosim)<a class="headerlink" href="#running-a-dynamic-simulation-ecosim" title="Permanent link">&para;</a></h2>
+<p>Create a scenario from the balanced model and run a 50-year simulation.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Create a 50-year Ecosim scenario</span>
 <span class="n">scenario</span> <span class="o">=</span> <span class="n">rsim_scenario</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">51</span><span class="p">))</span>
 
-<span class="c1"># Run the simulation</span>
-<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+<span class="c1"># Run with RK4 (default) or Adams-Bashforth 2-step (matches Rpath)</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"AB"</span><span class="p">)</span>
 
-<span class="c1"># Access biomass trajectories</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">biomass</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (months, groups)</span>
+<span class="c1"># Biomass trajectories: shape (n_months, n_groups+1)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">biomass</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</code></pre></div>
+<p>The <code>method="AB"</code> option uses Adams-Bashforth 2-step integration matching
+the Rpath C++ engine. This includes 1 month of RK4 warmup, Rpath-style
+biomass bounds, and dynamic fast equilibrium for NoIntegrate groups
+(detritus, fast-turnover species). Use <code>"AB"</code> when comparing results with
+EwE or Rpath, or when calibrating vulnerability parameters.</p>
+<h2 id="applying-fishing-pressure">Applying Fishing Pressure<a class="headerlink" href="#applying-fishing-pressure" title="Permanent link">&para;</a></h2>
+<p>Use <code>adjust_fishing</code> to modify fishing effort during the simulation.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">adjust_fishing</span>
+
+<span class="c1"># Double fishing effort on Small Fish from year 10 to 30</span>
+<span class="n">adjust_fishing</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="s2">"Small Fish"</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">31</span><span class="p">))</span>
+
+<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="adjusting-vulnerability">Adjusting Vulnerability<a class="headerlink" href="#adjusting-vulnerability" title="Permanent link">&para;</a></h2>
+<p>Vulnerability parameters control the functional response shape:</p>
+<ul>
+<li><code>v = 1.0</code>: pure donor-controlled (Type II)</li>
+<li><code>v = 2.0</code>: mixed (default)</li>
+<li><code>v &gt; 10</code>: approaching recipient-controlled (Type I)</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_vulnerability</span>
+
+<span class="c1"># Make Zooplankton highly vulnerable to Small Fish predation</span>
+<span class="n">set_vulnerability</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">prey</span><span class="o">=</span><span class="s2">"Zooplankton"</span><span class="p">,</span> <span class="n">pred</span><span class="o">=</span><span class="s2">"Small Fish"</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="loading-from-ecobase">Loading from EcoBase<a class="headerlink" href="#loading-from-ecobase" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_ecobase_model</span><span class="p">,</span> <span class="n">ecobase_to_rpath</span>
+<p>Download published models from the EcoBase online repository:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">search_ecobase_models</span><span class="p">,</span> <span class="n">get_ecobase_model</span><span class="p">,</span> <span class="n">ecobase_to_rpath</span>
 
-<span class="c1"># Search for models</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">search_ecobase_models</span>
-<span class="n">results</span> <span class="o">=</span> <span class="n">search_ecobase_models</span><span class="p">(</span><span class="s2">&quot;Baltic Sea&quot;</span><span class="p">)</span>
+<span class="c1"># Search for Baltic Sea models</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">search_ecobase_models</span><span class="p">(</span><span class="s2">"Baltic Sea"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
 
-<span class="c1"># Download and convert</span>
+<span class="c1"># Download and convert a specific model</span>
 <span class="n">model_data</span> <span class="o">=</span> <span class="n">get_ecobase_model</span><span class="p">(</span><span class="n">model_id</span><span class="o">=</span><span class="mi">123</span><span class="p">)</span>
 <span class="n">params</span> <span class="o">=</span> <span class="n">ecobase_to_rpath</span><span class="p">(</span><span class="n">model_data</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="loading-from-ewe-database">Loading from EwE Database<a class="headerlink" href="#loading-from-ewe-database" title="Permanent link">&para;</a></h2>
+<p>Read models from EwE's native Access database format. For the full guide,
+see <a href="../ewe-database/">EwE Database Loading</a>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_ewemdb</span><span class="p">,</span> <span class="n">rpath</span>
+
+<span class="c1"># Option A: Load just Ecopath parameters</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">read_ewemdb</span><span class="p">(</span><span class="s2">"path/to/model.eweaccdb"</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">rpath</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+</code></pre></div>
+<p>For Ecosim simulations, load a complete scenario with all EwE settings
+(vulnerability overrides, foraging time adjustments, time series, forcing):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">ecosim_scenario_from_ewemdb</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_run</span>
+
+<span class="c1"># Option B: Load a ready-to-run Ecosim scenario</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">ecosim_scenario_from_ewemdb</span><span class="p">(</span><span class="s2">"path/to/model.eweaccdb"</span><span class="p">,</span> <span class="n">scenario</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"AB"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="diagnosing-unstable-models">Diagnosing Unstable Models<a class="headerlink" href="#diagnosing-unstable-models" title="Permanent link">&para;</a></h2>
+<p>If groups crash or biomass explodes, use autofix:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.autofix</span><span class="w"> </span><span class="kn">import</span> <span class="n">autofix_parameters</span>
+
+<span class="n">fixed_params</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="n">autofix_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Fixes applied: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">fixes_applied</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">fixed_params</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</code></pre></div>
+<p>See the <a href="../../guides/autofix/">Autofix Guide</a> for details.</p>
+<h2 id="loading-from-csv-files">Loading from CSV Files<a class="headerlink" href="#loading-from-csv-files" title="Permanent link">&para;</a></h2>
+<p>Use <code>read_rpath_params</code> to load model parameters from CSV files
+(compatible with Rpath's CSV format):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_rpath_params</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">data_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"path/to/csv/files"</span><span class="p">)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">read_rpath_params</span><span class="p">(</span>
+    <span class="n">model_file</span><span class="o">=</span><span class="n">data_dir</span> <span class="o">/</span> <span class="s2">"model.csv"</span><span class="p">,</span>
+    <span class="n">diet_file</span><span class="o">=</span><span class="n">data_dir</span> <span class="o">/</span> <span class="s2">"diet.csv"</span><span class="p">,</span>
+    <span class="n">stanza_file</span><span class="o">=</span><span class="n">data_dir</span> <span class="o">/</span> <span class="s2">"stanzas.csv"</span><span class="p">,</span>       <span class="c1"># optional</span>
+    <span class="n">stanza_group_file</span><span class="o">=</span><span class="n">data_dir</span> <span class="o">/</span> <span class="s2">"stgroups.csv"</span><span class="p">,</span> <span class="c1"># optional</span>
+<span class="p">)</span>
+</code></pre></div>
+<h2 id="plotting-results">Plotting Results<a class="headerlink" href="#plotting-results" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="c1"># Plot biomass trajectories</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="s2">"Type"</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>  <span class="c1"># consumers + producers</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">biomass</span><span class="p">[:,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"Month"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"Biomass (t/km2)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Ecosim Biomass Trajectories"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
 
 
@@ -930,7 +1383,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

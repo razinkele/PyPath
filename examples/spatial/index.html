@@ -13,15 +13,17 @@
         <link rel="canonical" href="https://razinkele.github.io/PyPath/examples/spatial/">
       
       
-        <link rel="prev" href="../basic-model/">
+        <link rel="prev" href="../ewe-database/">
       
+      
+        <link rel="next" href="../ibm/">
       
       
         
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -514,6 +516,123 @@
       
   
   
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ibm-parameterization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM Parameterization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/autofix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autofix & Crash Repair
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -532,10 +651,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -553,8 +672,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -579,6 +698,34 @@
     
   
     Basic Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ewe-database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EwE Database Loading
   
 
     
@@ -670,10 +817,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#creating-a-spatial-grid" class="md-nav__link">
+  <a href="#step-1-create-a-balanced-ecopath-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Creating a Spatial Grid
+        Step 1: Create a Balanced Ecopath Model
       
     </span>
   </a>
@@ -681,10 +828,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#setting-up-ecospace-parameters" class="md-nav__link">
+  <a href="#step-2-create-a-spatial-grid" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Setting Up Ecospace Parameters
+        Step 2: Create a Spatial Grid
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 2: Create a Spatial Grid">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simple-1d-grid-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simple 1D Grid (Testing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hexagonal-grid-realistic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hexagonal Grid (Realistic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-a-shapefile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From a Shapefile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-set-up-ecospace-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Set Up Ecospace Parameters
       
     </span>
   </a>
@@ -692,10 +889,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running-the-simulation" class="md-nav__link">
+  <a href="#step-4-add-environmental-drivers-optional" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Running the Simulation
+        Step 4: Add Environmental Drivers (Optional)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 4: Add Environmental Drivers (Optional)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#loading-salinity-from-external-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loading Salinity from External Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connectivity-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connectivity Analysis
       
     </span>
   </a>
@@ -703,10 +928,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#hexagonal-grids" class="md-nav__link">
+  <a href="#step-5-run-the-simulation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Hexagonal Grids
+        Step 5: Run the Simulation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-analyze-spatial-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Analyze Spatial Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-ibm-groups-to-ecospace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding IBM Groups to Ecospace
       
     </span>
   </a>
@@ -717,6 +964,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual-Based Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -767,10 +1042,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#creating-a-spatial-grid" class="md-nav__link">
+  <a href="#step-1-create-a-balanced-ecopath-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Creating a Spatial Grid
+        Step 1: Create a Balanced Ecopath Model
       
     </span>
   </a>
@@ -778,10 +1053,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#setting-up-ecospace-parameters" class="md-nav__link">
+  <a href="#step-2-create-a-spatial-grid" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Setting Up Ecospace Parameters
+        Step 2: Create a Spatial Grid
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 2: Create a Spatial Grid">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simple-1d-grid-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simple 1D Grid (Testing)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hexagonal-grid-realistic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hexagonal Grid (Realistic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-a-shapefile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From a Shapefile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-set-up-ecospace-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Set Up Ecospace Parameters
       
     </span>
   </a>
@@ -789,10 +1114,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running-the-simulation" class="md-nav__link">
+  <a href="#step-4-add-environmental-drivers-optional" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Running the Simulation
+        Step 4: Add Environmental Drivers (Optional)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 4: Add Environmental Drivers (Optional)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#loading-salinity-from-external-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loading Salinity from External Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connectivity-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connectivity Analysis
       
     </span>
   </a>
@@ -800,10 +1153,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#hexagonal-grids" class="md-nav__link">
+  <a href="#step-5-run-the-simulation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Hexagonal Grids
+        Step 5: Run the Simulation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-analyze-spatial-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Analyze Spatial Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-ibm-groups-to-ecospace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding IBM Groups to Ecospace
       
     </span>
   </a>
@@ -831,49 +1206,173 @@
 
 
 <h1 id="spatial-modeling-ecospace">Spatial Modeling (Ecospace)<a class="headerlink" href="#spatial-modeling-ecospace" title="Permanent link">&para;</a></h1>
-<p>This guide shows how to set up and run a spatial Ecospace simulation.</p>
+<p>This guide shows how to set up and run a spatial Ecospace simulation,
+from grid creation through to spatially explicit results.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>pypath-ewe<span class="o">[</span>spatial<span class="o">]</span>
+<p>Ecospace requires the core <code>pypath-ewe</code> package and optionally <code>pyogrio</code>
+for shapefile-based grids:</p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>pypath-ewe
+pip<span class="w"> </span>install<span class="w"> </span>pyogrio<span class="w">  </span><span class="c1"># optional, for GIS grid creation</span>
 </code></pre></div>
-<h2 id="creating-a-spatial-grid">Creating a Spatial Grid<a class="headerlink" href="#creating-a-spatial-grid" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_1d_grid</span><span class="p">,</span> <span class="n">EcospaceParams</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<h2 id="step-1-create-a-balanced-ecopath-model">Step 1: Create a Balanced Ecopath Model<a class="headerlink" href="#step-1-create-a-balanced-ecopath-model" title="Permanent link">&para;</a></h2>
+<p>Start with a balanced model (see <a href="../basic-model/">Basic Model</a>):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_rpath_params</span><span class="p">,</span> <span class="n">rpath</span><span class="p">,</span> <span class="n">rsim_scenario</span>
 
-<span class="c1"># Create a 1D grid with 10 patches</span>
+<span class="c1"># Create and balance a model</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_rpath_params</span><span class="p">(</span>
+    <span class="n">groups</span><span class="o">=</span><span class="p">[</span><span class="s2">"Phytoplankton"</span><span class="p">,</span> <span class="s2">"Zooplankton"</span><span class="p">,</span> <span class="s2">"Fish"</span><span class="p">,</span> <span class="s2">"Detritus"</span><span class="p">],</span>
+    <span class="n">types</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="c1"># ... fill in model parameters and diet matrix ...</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">rpath</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">rsim_scenario</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">21</span><span class="p">))</span>
+</code></pre></div>
+<h2 id="step-2-create-a-spatial-grid">Step 2: Create a Spatial Grid<a class="headerlink" href="#step-2-create-a-spatial-grid" title="Permanent link">&para;</a></h2>
+<h3 id="simple-1d-grid-testing">Simple 1D Grid (Testing)<a class="headerlink" href="#simple-1d-grid-testing" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.gis_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_1d_grid</span>
+
+<span class="c1"># 10 patches in a line, 1 km spacing</span>
 <span class="n">grid</span> <span class="o">=</span> <span class="n">create_1d_grid</span><span class="p">(</span><span class="n">n_patches</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">spacing</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="setting-up-ecospace-parameters">Setting Up Ecospace Parameters<a class="headerlink" href="#setting-up-ecospace-parameters" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="c1"># After creating a balanced model and Ecosim scenario:</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pypath</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_rpath_params</span><span class="p">,</span> <span class="n">rpath</span><span class="p">,</span> <span class="n">rsim_scenario</span>
+<h3 id="hexagonal-grid-realistic">Hexagonal Grid (Realistic)<a class="headerlink" href="#hexagonal-grid-realistic" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.gis_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_hexagonal_grid</span>
 
-<span class="c1"># ... set up params, balance model, create scenario ...</span>
+<span class="c1"># Hexagonal grid covering a 100x100 km area</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">create_hexagonal_grid</span><span class="p">(</span>
+    <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span>  <span class="c1"># (xmin, ymin, xmax, ymax)</span>
+    <span class="n">resolution</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>           <span class="c1"># 10 km cell diameter</span>
+<span class="p">)</span>
+</code></pre></div>
+<h3 id="from-a-shapefile">From a Shapefile<a class="headerlink" href="#from-a-shapefile" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.gis_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">grid_from_shapefile</span>
 
-<span class="n">ng</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># +1 for &quot;Outside&quot; group</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">grid_from_shapefile</span><span class="p">(</span><span class="s2">"path/to/study_area.shp"</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="step-3-set-up-ecospace-parameters">Step 3: Set Up Ecospace Parameters<a class="headerlink" href="#step-3-set-up-ecospace-parameters" title="Permanent link">&para;</a></h2>
+<p>Define habitat preferences, dispersal rates, and environmental layers
+for each functional group across the grid.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.ecospace_params</span><span class="w"> </span><span class="kn">import</span> <span class="n">EcospaceParams</span>
+
+<span class="n">ng</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># +1 for "Outside" group (index 0)</span>
+<span class="n">n_patches</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">n_patches</span>
+
+<span class="c1"># Habitat preference: how suitable each patch is for each group (0-1)</span>
+<span class="n">habitat_preference</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">ng</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">))</span>
+
+<span class="c1"># Make Phytoplankton prefer shallow patches (first 5)</span>
+<span class="n">habitat_preference</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">:]</span> <span class="o">=</span> <span class="mf">0.3</span>  <span class="c1"># group 1 = Phytoplankton</span>
+
+<span class="c1"># Habitat capacity: maximum biomass multiplier per patch</span>
+<span class="n">habitat_capacity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">ng</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">))</span>
+
+<span class="c1"># Dispersal rate: km/year movement speed per group</span>
+<span class="n">dispersal_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">ng</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
+<span class="n">dispersal_rate</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span>  <span class="c1"># Phytoplankton disperses slowly</span>
 
 <span class="n">ecospace</span> <span class="o">=</span> <span class="n">EcospaceParams</span><span class="p">(</span>
     <span class="n">grid</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span>
-    <span class="n">habitat_preference</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">ng</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span>
-    <span class="n">habitat_capacity</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">ng</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span>
-    <span class="n">dispersal_rate</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">ng</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">),</span>
+    <span class="n">habitat_preference</span><span class="o">=</span><span class="n">habitat_preference</span><span class="p">,</span>
+    <span class="n">habitat_capacity</span><span class="o">=</span><span class="n">habitat_capacity</span><span class="p">,</span>
+    <span class="n">dispersal_rate</span><span class="o">=</span><span class="n">dispersal_rate</span><span class="p">,</span>
     <span class="n">advection_enabled</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ng</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span>
     <span class="n">gravity_strength</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ng</span><span class="p">),</span>
 <span class="p">)</span>
 </code></pre></div>
-<h2 id="running-the-simulation">Running the Simulation<a class="headerlink" href="#running-the-simulation" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.integration</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_ecospace</span>
+<h2 id="step-4-add-environmental-drivers-optional">Step 4: Add Environmental Drivers (Optional)<a class="headerlink" href="#step-4-add-environmental-drivers-optional" title="Permanent link">&para;</a></h2>
+<p>Spatially varying temperature or other drivers that affect metabolism
+and production:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.environmental</span><span class="w"> </span><span class="kn">import</span> <span class="n">EnvironmentalLayer</span>
 
-<span class="n">results</span> <span class="o">=</span> <span class="n">run_ecospace</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">ecospace</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">))</span>
-</code></pre></div>
-<h2 id="hexagonal-grids">Hexagonal Grids<a class="headerlink" href="#hexagonal-grids" title="Permanent link">&para;</a></h2>
-<p>For realistic spatial modeling, use hexagonal grids:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_hexagonal_grid</span>
+<span class="c1"># Temperature gradient: 8C in the north, 14C in the south</span>
+<span class="n">temperature</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">14.0</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">)</span>
 
-<span class="n">grid</span> <span class="o">=</span> <span class="n">create_hexagonal_grid</span><span class="p">(</span>
-    <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span>
-    <span class="n">resolution</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+<span class="n">env_layer</span> <span class="o">=</span> <span class="n">EnvironmentalLayer</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"temperature"</span><span class="p">,</span>
+    <span class="n">values</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span>
+    <span class="n">response_type</span><span class="o">=</span><span class="s2">"optimal"</span><span class="p">,</span>
+    <span class="n">optimal_value</span><span class="o">=</span><span class="mf">12.0</span><span class="p">,</span>
+    <span class="n">tolerance</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div>
-<p>See the <a href="../../api/spatial/">Spatial API Reference</a> for full details.</p>
+<h3 id="loading-salinity-from-external-data">Loading Salinity from External Data<a class="headerlink" href="#loading-salinity-from-external-data" title="Permanent link">&para;</a></h3>
+<p>Load salinity from CSV or NetCDF files using KDTree-based nearest-neighbor
+sampling (fast even for large grids):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.marine_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">SalinityLoader</span>
+
+<span class="n">loader</span> <span class="o">=</span> <span class="n">SalinityLoader</span><span class="p">()</span>
+
+<span class="c1"># From CSV with lon, lat, salinity columns</span>
+<span class="n">sal_layer</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">load_from_csv</span><span class="p">(</span><span class="s2">"salinity_obs.csv"</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+
+<span class="c1"># From NetCDF (e.g., CMEMS or ICES data)</span>
+<span class="n">sal_layer</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">load_from_netcdf</span><span class="p">(</span><span class="s2">"salinity.nc"</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="s2">"so"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="connectivity-analysis">Connectivity Analysis<a class="headerlink" href="#connectivity-analysis" title="Permanent link">&para;</a></h2>
+<p>Inspect the spatial connectivity of your grid before running simulations:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.connectivity</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">validate_adjacency_symmetry</span><span class="p">,</span>
+    <span class="n">get_connectivity_graph_stats</span><span class="p">,</span>
+    <span class="n">haversine_distance</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Validate adjacency matrix</span>
+<span class="k">assert</span> <span class="n">validate_adjacency_symmetry</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">adjacency</span><span class="p">),</span> <span class="s2">"Adjacency must be symmetric"</span>
+
+<span class="c1"># Get graph statistics</span>
+<span class="n">stats</span> <span class="o">=</span> <span class="n">get_connectivity_graph_stats</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">adjacency</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Patches: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'n_nodes'</span><span class="p">]</span><span class="si">}</span><span class="s2">, Edges: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'n_edges'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Degree: min=</span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'min_degree'</span><span class="p">]</span><span class="si">}</span><span class="s2">, mean=</span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'mean_degree'</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, max=</span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'max_degree'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s1">'isolated_patches'</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"WARNING: Isolated patches: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'isolated_patches'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Pairwise distances between patches</span>
+<span class="n">d</span> <span class="o">=</span> <span class="n">haversine_distance</span><span class="p">(</span><span class="mf">20.0</span><span class="p">,</span> <span class="mf">55.0</span><span class="p">,</span> <span class="mf">21.5</span><span class="p">,</span> <span class="mf">56.3</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Distance: </span><span class="si">{</span><span class="n">d</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> km"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="step-5-run-the-simulation">Step 5: Run the Simulation<a class="headerlink" href="#step-5-run-the-simulation" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.integration</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_ecospace</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">run_ecospace</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">ecospace</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">21</span><span class="p">))</span>
+</code></pre></div>
+<h2 id="step-6-analyze-spatial-results">Step 6: Analyze Spatial Results<a class="headerlink" href="#step-6-analyze-spatial-results" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="c1"># Biomass of Fish (group 3) across patches at final timestep</span>
+<span class="n">fish_biomass</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">spatial_biomass</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">:]</span>  <span class="c1"># (time, group, patch)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">n_patches</span><span class="p">),</span> <span class="n">fish_biomass</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"Patch"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"Biomass (t/km2)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Fish Biomass Distribution (Year 20)"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<h2 id="adding-ibm-groups-to-ecospace">Adding IBM Groups to Ecospace<a class="headerlink" href="#adding-ibm-groups-to-ecospace" title="Permanent link">&para;</a></h2>
+<p>Individual-Based Model groups can be embedded in the spatial simulation.
+See the <a href="../ibm/">IBM Example</a> and
+<a href="../../guides/ibm-parameterization/">IBM Parameterization Guide</a>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.ibm.smelt</span><span class="w"> </span><span class="kn">import</span> <span class="n">SmeltIBM</span><span class="p">,</span> <span class="n">SmeltParams</span>
+
+<span class="n">smelt</span> <span class="o">=</span> <span class="n">SmeltIBM</span><span class="p">(</span>
+    <span class="n">group_index</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>   <span class="c1"># which Ecopath group this IBM replaces</span>
+    <span class="n">n_groups</span><span class="o">=</span><span class="n">ng</span><span class="p">,</span>
+    <span class="n">params</span><span class="o">=</span><span class="n">SmeltParams</span><span class="o">.</span><span class="n">baltic_defaults</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">smelt</span><span class="o">.</span><span class="n">initialize_from_ecosim</span><span class="p">(</span>
+    <span class="n">biomass</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">BB</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+    <span class="n">params</span><span class="o">=</span><span class="p">{},</span>
+    <span class="n">n_super_individuals</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Register IBM group — Ecospace automatically builds SpatialContext</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">ibm_groups</span> <span class="o">=</span> <span class="p">{</span><span class="mi">3</span><span class="p">:</span> <span class="n">smelt</span><span class="p">}</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">run_ecospace</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">ecospace</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">21</span><span class="p">))</span>
+</code></pre></div>
+<p>See the <a href="../../api/spatial/">Spatial API Reference</a> for full details on
+all spatial modules.</p>
 
 
 
@@ -934,7 +1433,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
