@@ -296,6 +296,26 @@ class TestCheckEcopathBalance:
         assert result["diet_warnings"] == [1]
         assert any("partial diet allowed" in m for m in result["messages"])
 
+    def test_strict_partial_diet_marks_unbalanced(self):
+        """Strict mode treats incomplete diets as balance failures."""
+        rpath = _mock_rpath(
+            2,
+            0,
+            biomass=[10.0, 5.0],
+            pb=[1.0, 0.5],
+            qb=[0, 3.0],
+            ee=[0.9, 0.8],
+            tl=[1.0, 2.0],
+        )
+        rpath.DC[0, 1] = 0.7
+        rpath.Group = np.array(["Producer", "Consumer"])
+
+        result = check_ecopath_balance(rpath, allow_partial_diet=False)
+
+        assert result["is_balanced"] is False
+        assert result["diet_issues"] == [1]
+        assert result["diet_warnings"] == []
+
 
 class TestExportEcopathToDataframe:
     """Tests for export_ecopath_to_dataframe function."""

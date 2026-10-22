@@ -606,6 +606,7 @@ def check_ecopath_balance(
                     )
                 else:
                     results["diet_issues"].append(pred)
+                    results["is_balanced"] = False
                     results["messages"].append(
                         f"{_name(pred)}: Diet sum = {diet_sum:.4f} != 1"
                     )
