@@ -10,7 +10,26 @@ import plotly.graph_objects as go
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
+
 from pypath_shiny.config import PARAM_RANGES
+
+
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
 
 
 def optimization_demo_ui():
@@ -490,7 +509,7 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         n_initial = input.n_initial()
 
         if n_initial >= n_iterations:
-            ui.notification_show(
+            _notify_legacy(
                 f"Initial points ({n_initial}) must be fewer than total "
                 f"evaluations ({n_iterations}); no optimization steps would run.",
                 type="warning",

@@ -32,8 +32,23 @@ from pypath.spatial import (
 )
 from shiny import Inputs, Outputs, Session, reactive, render, req, ui
 
-# Import centralized configuration
 from pypath_shiny.config import PARAM_RANGES, SPATIAL
+
+# Import centralized configuration
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
+from pypath_shiny.services.tasks import (
+    TaskState,
+    TaskStatus,
+    apply_if_latest,
+    finish_task,
+    new_running_task,
+    update_task_progress,
+)
 
 try:
     import geopandas as gpd
@@ -46,6 +61,26 @@ except ImportError:
     Polygon = None
 
 logger = logging.getLogger(__name__)
+
+
+def spatial_task_alert(task_state: TaskState) -> tuple[str, str, str]:
+    """Map spatial run task state to Bootstrap alert class, icon, and message."""
+    if task_state.status is TaskStatus.RUNNING:
+        return (
+            "alert alert-info mt-2",
+            "bi bi-arrow-repeat me-2",
+            f"{task_state.message} ({task_state.progress:.0f}%)",
+        )
+    if task_state.status is TaskStatus.ERROR:
+        msg = task_state.error or task_state.message or "Spatial simulation failed."
+        return ("alert alert-danger mt-2", "bi bi-exclamation-triangle me-2", msg)
+    if task_state.status is TaskStatus.SUCCESS:
+        return (
+            "alert alert-success mt-2",
+            "bi bi-check-circle me-2",
+            task_state.message or "Spatial simulation completed.",
+        )
+    return ("", "", "")
 
 
 def parse_habitat_csv(path, n_patches):
@@ -380,6 +415,18 @@ def create_hexagon(center_x: float, center_y: float, radius: float) -> "Polygon"
     return Polygon(list(zip(x_coords, y_coords)))
 
 
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
+
+
 def ecospace_ui():
     """UI for ECOSPACE spatial modeling page."""
     return ui.page_fluid(
@@ -638,6 +685,7 @@ def ecospace_ui():
                     class_="btn btn-success w-100 mt-3",
                     disabled=True,
                 ),
+                ui.output_ui("spatial_run_status"),
                 width=350,
             ),
             # Main panel with tabs
@@ -731,6 +779,7 @@ def ecospace_server(
     boundary_polygon = reactive.Value(None)  # Store uploaded boundary for visualization
     _ecospace_params = reactive.Value(None)
     _spatial_results = reactive.Value(None)
+    spatial_task_state = reactive.Value(TaskState(run_id="spatial-idle"))
 
     @reactive.effect
     def _adopt_wizard_params():
@@ -745,7 +794,7 @@ def ecospace_server(
         if wizard_grid is not None:
             grid.set(wizard_grid)
             _spatial_results.set(None)
-            ui.notification_show(
+            _notify_legacy(
                 f"Loaded wizard configuration: {wizard_grid.n_patches} patches",
                 type="message",
                 duration=5,
@@ -814,7 +863,7 @@ def ecospace_server(
                 # Store boundary for visualization
                 boundary_polygon.set(boundary_gdf)
 
-                ui.notification_show(
+                _notify_legacy(
                     f"Boundary loaded: {len(boundary_gdf)} feature(s) from {file_name}",
                     type="message",
                     duration=3,
@@ -836,9 +885,7 @@ def ecospace_server(
             # missing geopandas. An uncaught exception here would close the
             # whole Shiny session.
             logger.debug("Boundary load failed: %s", e)
-            ui.notification_show(
-                f"Error loading boundary: {e!s}", type="warning", duration=5
-            )
+            _notify_legacy(f"Error loading boundary: {e!s}", type="warning", duration=5)
             boundary_polygon.set(None)
 
     # Create grid based on configuration
@@ -854,7 +901,7 @@ def ecospace_server(
                 ny = input.grid_ny()
                 # A cleared numeric input arrives as None
                 if not nx or not ny or nx < 1 or ny < 1:
-                    ui.notification_show(
+                    _notify_legacy(
                         "Enter positive grid dimensions (nx, ny) first",
                         type="warning",
                         duration=4,
@@ -868,7 +915,7 @@ def ecospace_server(
                 # Results from a previous grid no longer match this geometry
                 _spatial_results.set(None)
 
-                ui.notification_show(
+                _notify_legacy(
                     f"Created {nx}×{ny} regular grid ({new_grid.n_patches} patches)",
                     type="message",
                     duration=3,
@@ -877,7 +924,7 @@ def ecospace_server(
             elif grid_type == "1d_transect":
                 n_patches = input.grid_n_patches()
                 if not n_patches or n_patches < 1:
-                    ui.notification_show(
+                    _notify_legacy(
                         "Enter a positive number of patches first",
                         type="warning",
                         duration=4,
@@ -891,7 +938,7 @@ def ecospace_server(
                 # Results from a previous grid no longer match this geometry
                 _spatial_results.set(None)
 
-                ui.notification_show(
+                _notify_legacy(
                     f"Created 1D transect with {n_patches} patches",
                     type="message",
                     duration=3,
@@ -901,7 +948,7 @@ def ecospace_server(
                 # Handle custom spatial file upload
                 file_info = input.spatial_file_upload()
                 if file_info is None or len(file_info) == 0:
-                    ui.notification_show(
+                    _notify_legacy(
                         "Please upload a spatial file (shapefile, GeoJSON, or GeoPackage).",
                         type="warning",
                         duration=5,
@@ -967,7 +1014,7 @@ def ecospace_server(
                                 crs="EPSG:4326",  # WGS84
                             )
 
-                            ui.notification_show(
+                            _notify_legacy(
                                 f"Loaded irregular grid: {new_grid.n_patches} patches from {file_name}",
                                 type="message",
                                 duration=4,
@@ -991,20 +1038,20 @@ def ecospace_server(
 
                             # Warn if very large grid
                             if estimated_patches > SPATIAL.huge_grid_threshold:
-                                ui.notification_show(
+                                _notify_legacy(
                                     f"Warning: Estimated {estimated_patches:,} hexagons! This may take several minutes and cause browser slowdown. "
                                     f"Consider using a larger hexagon size (≥1 km).",
                                     type="warning",
                                     duration=10,
                                 )
                             elif estimated_patches > SPATIAL.large_grid_threshold:
-                                ui.notification_show(
+                                _notify_legacy(
                                     f"Large grid: Estimated ~{estimated_patches:,} hexagons. Generation may take 30-60 seconds.",
                                     type="warning",
                                     duration=7,
                                 )
 
-                            ui.notification_show(
+                            _notify_legacy(
                                 f"Generating hexagonal grid ({hexagon_size} km hexagons)...",
                                 type="message",
                                 duration=3,
@@ -1016,14 +1063,14 @@ def ecospace_server(
                             )
 
                             if new_grid.n_patches > SPATIAL.large_grid_threshold:
-                                ui.notification_show(
+                                _notify_legacy(
                                     f"Created large hexagonal grid: {new_grid.n_patches:,} hexagons. "
                                     f"Map rendering may be slow. Use zoom/pan to explore.",
                                     type="info",
                                     duration=6,
                                 )
                             else:
-                                ui.notification_show(
+                                _notify_legacy(
                                     f"Created hexagonal grid: {new_grid.n_patches} hexagons within {file_name} boundary",
                                     type="message",
                                     duration=4,
@@ -1046,7 +1093,7 @@ def ecospace_server(
                     zipfile.BadZipFile,
                 ) as e:
                     logger.debug("Spatial file processing failed: %s", e)
-                    ui.notification_show(
+                    _notify_legacy(
                         f"Error processing spatial file: {e!s}",
                         type="error",
                         duration=6,
@@ -1058,9 +1105,7 @@ def ecospace_server(
 
         except (ValueError, TypeError, OSError, RuntimeError, ImportError) as e:
             logger.debug("Grid creation failed: %s", e)
-            ui.notification_show(
-                f"Error creating grid: {e!s}", type="error", duration=5
-            )
+            _notify_legacy(f"Error creating grid: {e!s}", type="error", duration=5)
 
     def _compute_habitat_vector(g):
         """Compute habitat preference vector for all patches from current UI state.
@@ -1119,7 +1164,7 @@ def ecospace_server(
         """
         file_info = input.habitat_upload()
         if not file_info:
-            ui.notification_show(
+            _notify_legacy(
                 "Select 'Custom (upload CSV)' and upload a habitat file, "
                 "or choose another habitat pattern.",
                 type="warning",
@@ -1130,7 +1175,7 @@ def ecospace_server(
             values = parse_habitat_csv(file_info[0]["datapath"], n_patches)
         except (OSError, ValueError, pd.errors.ParserError) as e:
             logger.debug("Habitat CSV rejected: %s", e)
-            ui.notification_show(
+            _notify_legacy(
                 f"Habitat file not usable: {e!s}", type="warning", duration=6
             )
             return None
@@ -1217,7 +1262,7 @@ def ecospace_server(
             )
         except (ValueError, AttributeError) as e:
             logger.debug("Port patch list rejected: %s", e)
-            ui.notification_show(
+            _notify_legacy(
                 "Port patch indices must be a comma-separated list of whole "
                 "numbers; using uniform effort.",
                 type="warning",
@@ -1225,7 +1270,7 @@ def ecospace_server(
             )
             return None
         if len(ports) == 0 or (g is not None and (ports >= g.n_patches).any()):
-            ui.notification_show(
+            _notify_legacy(
                 f"Port patch indices must be between 0 and "
                 f"{(g.n_patches - 1) if g else 0}; using uniform effort.",
                 type="warning",
@@ -1244,25 +1289,63 @@ def ecospace_server(
 
         # Guard: need both scenario and grid
         if _sim_scenario is None or _sim_scenario() is None:
-            ui.notification_show(
-                "Please create an Ecosim scenario first (Ecosim Simulation tab).",
+            msg = "Please create an Ecosim scenario first (Ecosim Simulation tab)."
+            _notify_legacy(
+                msg,
                 type="warning",
                 duration=5,
+            )
+            spatial_task_state.set(
+                TaskState(
+                    run_id="spatial-idle",
+                    status=TaskStatus.ERROR,
+                    message="Cannot start spatial simulation",
+                    error=msg,
+                )
             )
             return
 
         current_grid = grid()
         if current_grid is None:
-            ui.notification_show(
-                "Please create a spatial grid first.",
+            msg = "Please create a spatial grid first."
+            _notify_legacy(
+                msg,
                 type="warning",
                 duration=5,
             )
+            spatial_task_state.set(
+                TaskState(
+                    run_id="spatial-idle",
+                    status=TaskStatus.ERROR,
+                    message="Cannot start spatial simulation",
+                    error=msg,
+                )
+            )
             return
+
+        run_id = f"spatial-run-{input.run_spatial_sim()}"
+        spatial_task_state.set(
+            new_running_task(run_id, "Preparing spatial configuration")
+        )
+
+        def _update_latest(updater):
+            spatial_task_state.set(
+                apply_if_latest(
+                    spatial_task_state.get(), run_id=run_id, updater=updater
+                )
+            )
 
         try:
             scenario = _sim_scenario()
             n_groups = scenario.params.NUM_GROUPS
+
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Building habitat and movement matrices",
+                    progress=25.0,
+                )
+            )
 
             # Build habitat preference matrix [n_groups+1, n_patches]
             habitat_vec = _compute_habitat_vector(current_grid)
@@ -1294,8 +1377,13 @@ def ecospace_server(
                 gravity_strength=gravity,
             )
 
-            ui.notification_show(
-                "Running spatial simulation...", type="message", duration=2
+            _notify_legacy("Running spatial simulation...", type="message", duration=2)
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Running spatial integration",
+                    progress=70.0,
+                )
             )
 
             spatial_fishing = _build_spatial_fishing()
@@ -1322,17 +1410,46 @@ def ecospace_server(
             n_timesteps = result.out_Biomass_spatial.shape[0] - 1
             ui.update_slider("animation_time", max=n_timesteps, value=0)
 
-            ui.notification_show(
-                "Spatial simulation complete!", type="message", duration=3
+            _notify_legacy("Spatial simulation complete!", type="message", duration=3)
+            _update_latest(
+                lambda s, n=n_timesteps: finish_task(
+                    s,
+                    success=True,
+                    message=f"Spatial simulation complete ({n + 1} time steps).",
+                )
             )
 
         except Exception as e:
             logger.error("Spatial simulation failed: %s", e, exc_info=True)
-            ui.notification_show(
-                f"Spatial simulation failed: {e!s}",
+            err = f"Spatial simulation failed: {e!s}"
+            _notify_legacy(
+                err,
                 type="error",
                 duration=8,
             )
+            _update_latest(
+                lambda s, msg=err: finish_task(
+                    s,
+                    success=False,
+                    message="Spatial simulation failed",
+                    error=msg,
+                )
+            )
+
+    @render.ui
+    def spatial_run_status():
+        """Display live status for spatial simulation runs."""
+        task_state = spatial_task_state.get()
+        alert_class, icon_class, message = spatial_task_alert(task_state)
+
+        if not message:
+            return ui.div()
+
+        return ui.div(
+            ui.tags.i(class_=icon_class),
+            message,
+            class_=alert_class,
+        )
 
     # Grid visualization
     @render.ui

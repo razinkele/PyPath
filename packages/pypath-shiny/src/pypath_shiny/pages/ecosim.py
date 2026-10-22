@@ -14,6 +14,20 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
 from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
+from pypath_shiny.services.tasks import (
+    TaskState,
+    TaskStatus,
+    apply_if_latest,
+    finish_task,
+    new_running_task,
+    update_task_progress,
+)
 
 
 # Helper to check model balance and show notification if not
@@ -22,9 +36,8 @@ def _require_balanced_model_or_notify(model) -> bool:
     from pypath_shiny.pages.utils import is_balanced_model
 
     if not is_balanced_model(model):
-        ui.notification_show(
+        notify_error(
             "Ecosim requires a balanced Ecopath model. Balance the model on the Ecopath page first.",
-            type="error",
             duration=6,
         )
         return False
@@ -32,6 +45,36 @@ def _require_balanced_model_or_notify(model) -> bool:
 
 
 logger = logging.getLogger(__name__)
+
+
+def build_task_status_alert(task_state: TaskState) -> tuple[str, str, str]:
+    """Map task state to bootstrap alert class, icon, and message."""
+    if task_state.status is TaskStatus.RUNNING:
+        return (
+            "alert alert-info",
+            "bi bi-arrow-repeat me-2",
+            f"{task_state.message} ({task_state.progress:.0f}%)",
+        )
+    if task_state.status is TaskStatus.ERROR:
+        msg = task_state.error or task_state.message or "Simulation failed."
+        return ("alert alert-danger", "bi bi-exclamation-triangle me-2", msg)
+    if task_state.status is TaskStatus.SUCCESS:
+        return (
+            "alert alert-success",
+            "bi bi-check-circle me-2",
+            task_state.message or "Simulation completed.",
+        )
+    if task_state.status is TaskStatus.CANCELLED:
+        return (
+            "alert alert-warning",
+            "bi bi-pause-circle me-2",
+            task_state.message or "Simulation cancelled.",
+        )
+    return (
+        "alert alert-secondary",
+        "bi bi-hourglass me-2",
+        "Simulation not yet run. Create scenario and click 'Run Simulation'.",
+    )
 
 
 def apply_prey_forcing(scen, group, multiplier):
@@ -464,6 +507,7 @@ def ecosim_server(
     # Reactive values for this page
     scenario = reactive.Value(None)
     sim_output = reactive.Value(None)
+    sim_task_state = reactive.Value(TaskState(run_id="ecosim-idle"))
     # Years the current scenario was actually built with (input.sim_years() may
     # have been changed since).
     scenario_years = reactive.Value(None)
@@ -1148,10 +1192,7 @@ def ecosim_server(
         model = model_data.get()
 
         if model is None:
-            ui.notification_show(
-                "No Ecopath model available. Please balance a model first.",
-                type="error",
-            )
+            notify_error("No Ecopath model available. Please balance a model first.")
             return
 
         # Require a balanced Rpath model for Ecosim
@@ -1215,9 +1256,8 @@ def ecosim_server(
                 # Show what was fixed
                 if report["fixes"]:
                     fix_count = len(report["fixes"])
-                    ui.notification_show(
+                    notify_info(
                         f"Applied {fix_count} stability fix{'es' if fix_count > 1 else ''}",
-                        type="info",
                         duration=5,
                     )
 
@@ -1242,11 +1282,11 @@ def ecosim_server(
             ui.update_select("forcing_group", choices=group_names)
 
             scenario_years.set(input.sim_years())
-            ui.notification_show("Scenario created successfully!", type="message")
+            notify_success("Scenario created successfully!")
 
         except Exception as e:
             logger.exception("Scenario creation failed")
-            ui.notification_show(f"Error creating scenario: {str(e)}", type="error")
+            notify_error(f"Error creating scenario: {str(e)}")
 
     def _apply_fishing_scenario(scen: RsimScenario, input: Inputs):
         """Apply fishing scenario settings to scenario."""
@@ -1365,10 +1405,9 @@ def ecosim_server(
     def _apply_biomass_forcing(scen):
         """Apply the Biomass Forcing card to the scenario's prey multiplier."""
         if apply_prey_forcing(scen, input.forcing_group(), input.forcing_multiplier()):
-            ui.notification_show(
+            notify_success(
                 f"Prey availability for {input.forcing_group()} forced to "
                 f"{input.forcing_multiplier():g}x",
-                type="message",
                 duration=4,
             )
 
@@ -1379,19 +1418,41 @@ def ecosim_server(
         scen = scenario.get()
 
         if scen is None:
-            ui.notification_show("Create a scenario first", type="warning")
+            notify_warning("Create a scenario first")
             return
 
+        run_id = f"ecosim-run-{input.btn_run_sim()}"
+        sim_task_state.set(new_running_task(run_id, "Preparing simulation"))
+
+        def _update_latest(updater):
+            sim_task_state.set(
+                apply_if_latest(sim_task_state.get(), run_id=run_id, updater=updater)
+            )
+
         try:
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Applying forcing and calibration settings",
+                    progress=20.0,
+                )
+            )
             _apply_biomass_forcing(scen)
 
             # Check if diet rewiring is enabled
             diet_rewiring_enabled = input.enable_diet_rewiring()
 
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Integrating Ecosim equations",
+                    progress=50.0,
+                )
+            )
+
             if diet_rewiring_enabled:
-                ui.notification_show(
+                notify_info(
                     "Running simulation with diet rewiring...",
-                    type="message",
                     duration=2,
                 )
 
@@ -1411,12 +1472,18 @@ def ecosim_server(
                     method=input.integration_method(),
                 )
             else:
-                ui.notification_show(
-                    "Running simulation...", type="message", duration=2
-                )
+                notify_info("Running simulation...", duration=2)
 
                 # Run standard simulation
                 output = rsim_run(scen, method=input.integration_method())
+
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Post-processing outputs",
+                    progress=85.0,
+                )
+            )
 
             sim_output.set(output)
             sim_results.set(output)
@@ -1459,16 +1526,35 @@ def ecosim_server(
                     msg += "Groups did not recover."
                     msg_type = "warning"
 
-                ui.notification_show(msg, type=msg_type, duration=10)
+                if msg_type == "warning":
+                    notify_warning(msg, duration=10)
+                else:
+                    notify_info(msg, duration=10)
             else:
                 success_msg = "Simulation completed successfully!"
                 if diet_rewiring_enabled:
                     success_msg += " Diet rewiring was applied."
-                ui.notification_show(success_msg, type="message")
+                notify_success(success_msg)
+
+            final_msg = (
+                f"Simulation complete ({output.params['years']} years)."
+                if output is not None
+                else "Simulation complete."
+            )
+            _update_latest(lambda s: finish_task(s, success=True, message=final_msg))
 
         except Exception as e:
             logger.exception("Simulation failed")
-            ui.notification_show(f"Simulation error: {str(e)}", type="error")
+            err_text = str(e)
+            notify_error(f"Simulation error: {err_text}")
+            _update_latest(
+                lambda s, err=err_text: finish_task(
+                    s,
+                    success=False,
+                    message="Simulation failed",
+                    error=err,
+                )
+            )
 
     @output
     @render.ui
@@ -1476,13 +1562,14 @@ def ecosim_server(
         """Display simulation status."""
         output = sim_output.get()
         scen = scenario.get()
+        task_state = sim_task_state.get()
 
-        if output is None:
-            return ui.div(
-                ui.tags.i(class_="bi bi-hourglass me-2"),
-                "Simulation not yet run. Create scenario and click 'Run Simulation'.",
-                class_="alert alert-secondary",
-            )
+        if output is None or task_state.status in {
+            TaskStatus.RUNNING,
+            TaskStatus.ERROR,
+        }:
+            alert_class, icon_class, msg = build_task_status_alert(task_state)
+            return ui.div(ui.tags.i(class_=icon_class), msg, class_=alert_class)
 
         if output.crash_year > 0:
             # Get crashed group names
@@ -1534,6 +1621,23 @@ def ecosim_server(
         """Display progress/completion info."""
         output = sim_output.get()
         scen = scenario.get()
+        task_state = sim_task_state.get()
+
+        if task_state.status is TaskStatus.RUNNING:
+            return ui.div(
+                ui.tags.h5("Simulation Progress"),
+                ui.div(
+                    ui.div(
+                        f"{task_state.progress:.0f}%",
+                        class_="progress-bar",
+                        role="progressbar",
+                        style=f"width: {task_state.progress:.0f}%",
+                    ),
+                    class_="progress",
+                ),
+                ui.p(task_state.message, class_="text-muted mt-2"),
+            )
+
         if output is None:
             return None
 

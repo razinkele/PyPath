@@ -9,9 +9,28 @@ from pypath.core.params import create_rpath_params
 from shiny import Inputs, Outputs, Session, reactive, ui
 
 # Import centralized configuration
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
+
 from pypath_shiny.config import DEFAULTS
 
 logger = logging.getLogger(__name__)
+
+
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
 
 
 def home_ui():
@@ -729,7 +748,7 @@ def home_server(
                 rpath(params)
             model_data.set(params)
 
-            ui.notification_show(
+            _notify_legacy(
                 "Example model loaded with multi-stanza groups (Roundfish) and sample remarks! Navigate to Ecopath tab or explore Advanced Features.",
                 type="message",
                 duration=7,
@@ -740,4 +759,4 @@ def home_server(
 
         except Exception as e:
             logger.exception("Loading the example model failed")
-            ui.notification_show(f"Error loading example model: {str(e)}", type="error")
+            _notify_legacy(f"Error loading example model: {str(e)}", type="error")

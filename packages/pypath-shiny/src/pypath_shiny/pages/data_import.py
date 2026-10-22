@@ -29,12 +29,60 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui  # noqa: E402
 
 # Configuration imports
 from pypath_shiny.config import PARAM_RANGES, UI  # noqa: E402
+from pypath_shiny.services.notifications import (  # noqa: E402
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
+from pypath_shiny.services.tasks import (  # noqa: E402
+    TaskState,
+    TaskStatus,
+    apply_if_latest,
+    finish_task,
+    new_running_task,
+    update_task_progress,
+)
 
 # Import shared utilities
 from .utils import (  # noqa: E402
     create_cell_styles,
     format_dataframe_for_display,
 )
+
+
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
+
+
+def _biodata_task_alert(
+    task_state: TaskState, success_message: str | None = None
+) -> tuple[str, str, str]:
+    """Map biodata task state to alert style, icon and message."""
+    if task_state.status is TaskStatus.RUNNING:
+        return (
+            "alert alert-info small",
+            "bi bi-arrow-repeat me-2",
+            f"{task_state.message} ({task_state.progress:.0f}%)",
+        )
+    if task_state.status is TaskStatus.ERROR:
+        msg = task_state.error or task_state.message or "Biodata operation failed."
+        return ("alert alert-danger small", "bi bi-exclamation-triangle-fill me-2", msg)
+    if task_state.status is TaskStatus.SUCCESS:
+        return (
+            "alert alert-success small",
+            "bi bi-check-circle-fill text-success me-2",
+            success_message or task_state.message or "Biodata operation completed.",
+        )
+    return ("", "", "")
 
 
 def import_ui():
@@ -280,15 +328,13 @@ def import_server(
     def _list_all_models():
         """List all models from EcoBase."""
         try:
-            ui.notification_show("Fetching models from EcoBase...", duration=3)
+            _notify_legacy("Fetching models from EcoBase...", duration=3)
             models_df = list_ecobase_models()
             ecobase_models.set(models_df)
             selected_model_id.set(None)
-            ui.notification_show(
-                f"Found {len(models_df)} public models", type="message"
-            )
+            _notify_legacy(f"Found {len(models_df)} public models", type="message")
         except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
+            _notify_legacy(f"Error: {str(e)}", type="error")
 
     @reactive.effect
     @reactive.event(input.btn_search_ecobase)
@@ -299,12 +345,12 @@ def import_server(
             ecosystem = input.ecobase_ecosystem()
 
             if not search_term and not ecosystem:
-                ui.notification_show(
+                _notify_legacy(
                     "Enter a search term or select ecosystem type", type="warning"
                 )
                 return
 
-            ui.notification_show("Searching EcoBase...", duration=3)
+            _notify_legacy("Searching EcoBase...", duration=3)
 
             # Get all models first, then filter
             all_models = list_ecobase_models()
@@ -327,11 +373,9 @@ def import_server(
 
             ecobase_models.set(results)
             selected_model_id.set(None)
-            ui.notification_show(
-                f"Found {len(results)} matching models", type="message"
-            )
+            _notify_legacy(f"Found {len(results)} matching models", type="message")
         except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
+            _notify_legacy(f"Error: {str(e)}", type="error")
 
     @output
     @render.data_frame
@@ -423,10 +467,10 @@ def import_server(
         try:
             model_id = selected_model_id.get()
             if not model_id:
-                ui.notification_show("Select a model first", type="warning")
+                _notify_legacy("Select a model first", type="warning")
                 return
 
-            ui.notification_show(f"Downloading model {model_id}...", duration=5)
+            _notify_legacy(f"Downloading model {model_id}...", duration=5)
 
             # Download model data
             model_data_dict = get_ecobase_model(int(model_id))
@@ -445,12 +489,12 @@ def import_server(
 
             imported_params.set(params)
 
-            ui.notification_show(
+            _notify_legacy(
                 f"Downloaded model: {len(params.model)} groups, {diet_count} diet entries",
                 type="message",
             )
         except Exception as e:
-            ui.notification_show(f"Download error: {str(e)}", type="error")
+            _notify_legacy(f"Download error: {str(e)}", type="error")
 
     # === EwE Database Functions ===
 
@@ -487,14 +531,14 @@ def import_server(
         """Import EwE database file."""
         file_info = input.ewemdb_upload()
         if not file_info:
-            ui.notification_show("Select a file first", type="warning")
+            _notify_legacy("Select a file first", type="warning")
             return
 
         try:
             filepath = file_info[0]["datapath"]
             scenario = input.ewemdb_scenario() or 1
 
-            ui.notification_show("Importing EwE database...", duration=5)
+            _notify_legacy("Importing EwE database...", duration=5)
 
             params = read_ewemdb(filepath, scenario=scenario)
             imported_params.set(params)
@@ -529,14 +573,14 @@ def import_server(
                     f", {n_stanza} stanza group(s) with {n_stages} life stages"
                 )
 
-            ui.notification_show(
+            _notify_legacy(
                 f"Imported model with {len(params.model)} groups{remarks_info}{stanza_info}",
                 type="message",
             )
         except EwEDatabaseError as e:
-            ui.notification_show(f"Database error: {str(e)}", type="error")
+            _notify_legacy(f"Database error: {str(e)}", type="error")
         except Exception as e:
-            ui.notification_show(f"Import error: {str(e)}", type="error")
+            _notify_legacy(f"Import error: {str(e)}", type="error")
 
     @output
     @render.ui
@@ -894,11 +938,11 @@ def import_server(
         """Transfer EcoBase imported model to main model data."""
         params = imported_params.get()
         if params is None:
-            ui.notification_show("No model to use", type="warning")
+            _notify_legacy("No model to use", type="warning")
             return
 
         model_data.set(params)
-        ui.notification_show(
+        _notify_legacy(
             "Model transferred! Go to 'Ecopath Model' tab to edit and balance.",
             type="message",
         )
@@ -909,11 +953,11 @@ def import_server(
         """Transfer EwE imported model to main model data."""
         params = imported_params.get()
         if params is None:
-            ui.notification_show("No model to use", type="warning")
+            _notify_legacy("No model to use", type="warning")
             return
 
         model_data.set(params)
-        ui.notification_show(
+        _notify_legacy(
             "Model transferred! Go to 'Ecopath Model' tab to edit and balance.",
             type="message",
         )
@@ -923,6 +967,7 @@ def import_server(
     # Reactive values for biodiversity data
     biodata_df = reactive.Value(None)
     biodata_model = reactive.Value(None)
+    biodata_task_state = reactive.Value(TaskState(run_id="biodata-idle"))
 
     @reactive.effect
     @reactive.event(input.btn_load_example_species)
@@ -934,7 +979,7 @@ European sprat
 Zooplankton
 Phytoplankton"""
         ui.update_text_area("biodata_species_list", value=example_species)
-        ui.notification_show("Example species loaded", type="message", duration=2)
+        _notify_legacy("Example species loaded", type="message", duration=2)
 
     @reactive.effect
     @reactive.event(input.btn_fetch_biodata)
@@ -942,20 +987,43 @@ Phytoplankton"""
         """Fetch species data from biodiversity databases."""
         species_text = input.biodata_species_list()
         if not species_text or not species_text.strip():
-            ui.notification_show("Please enter species names", type="warning")
+            _notify_legacy("Please enter species names", type="warning")
             return
 
         # Parse species list
         species_list = [s.strip() for s in species_text.split("\n") if s.strip()]
 
         if len(species_list) == 0:
-            ui.notification_show("No valid species names found", type="warning")
+            _notify_legacy("No valid species names found", type="warning")
             return
 
+        run_id = f"biodata-fetch-{input.btn_fetch_biodata()}"
+        biodata_task_state.set(
+            new_running_task(
+                run_id,
+                f"Fetching data for {len(species_list)} species from WoRMS, OBIS, and FishBase",
+            )
+        )
+
+        def _update_latest(updater):
+            biodata_task_state.set(
+                apply_if_latest(
+                    biodata_task_state.get(), run_id=run_id, updater=updater
+                )
+            )
+
         try:
-            ui.notification_show(
+            _notify_legacy(
                 f"Fetching data for {len(species_list)} species from WoRMS, OBIS, and FishBase...",
                 duration=5,
+            )
+
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Querying biodiversity APIs",
+                    progress=25.0,
+                )
             )
 
             # Fetch data using batch function
@@ -969,49 +1037,108 @@ Phytoplankton"""
             )
 
             if df is None or len(df) == 0:
-                ui.notification_show(
-                    "No species data retrieved. Check species names and try again.",
+                warning = (
+                    "No species data retrieved. Check species names and try again."
+                )
+                _notify_legacy(
+                    warning,
                     type="warning",
                     duration=5,
                 )
+                _update_latest(
+                    lambda s, msg=warning: finish_task(
+                        s,
+                        success=False,
+                        message="Fetch returned no data",
+                        error=msg,
+                    )
+                )
                 return
 
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Formatting species data",
+                    progress=85.0,
+                )
+            )
+
             biodata_df.set(df)
-            ui.notification_show(
-                f"Successfully fetched data for {len(df)}/{len(species_list)} species!",
+            success_msg = (
+                f"Successfully fetched data for {len(df)}/{len(species_list)} species!"
+            )
+            _notify_legacy(
+                success_msg,
                 type="message",
                 duration=3,
             )
+            _update_latest(
+                lambda s, msg=success_msg: finish_task(s, success=True, message=msg)
+            )
 
         except SpeciesNotFoundError as e:
-            ui.notification_show(
-                f"Species not found: {str(e)}", type="warning", duration=5
+            err = f"Species not found: {str(e)}"
+            _notify_legacy(err, type="warning", duration=5)
+            _update_latest(
+                lambda s, msg=err: finish_task(
+                    s,
+                    success=False,
+                    message="Species lookup failed",
+                    error=msg,
+                )
             )
         except APIConnectionError as e:
-            ui.notification_show(
-                f"API connection error: {str(e)}", type="error", duration=5
+            err = f"API connection error: {str(e)}"
+            _notify_legacy(err, type="error", duration=5)
+            _update_latest(
+                lambda s, msg=err: finish_task(
+                    s,
+                    success=False,
+                    message="API connection failed",
+                    error=msg,
+                )
             )
         except Exception as e:
-            ui.notification_show(
-                f"Error fetching data: {str(e)}", type="error", duration=5
+            err = f"Error fetching data: {str(e)}"
+            _notify_legacy(err, type="error", duration=5)
+            _update_latest(
+                lambda s, msg=err: finish_task(
+                    s,
+                    success=False,
+                    message="Unexpected fetch error",
+                    error=msg,
+                )
             )
 
     @output
     @render.ui
     def biodata_fetch_status():
         """Show fetch status."""
+        task_state = biodata_task_state.get()
         df = biodata_df.get()
-        if df is None:
+
+        success_message = None
+        if df is not None:
+            n_species = len(df)
+            n_with_tl = df["trophic_level"].notna().sum()
+            n_with_obis = df["occurrence_count"].notna().sum()
+            success_message = (
+                f"Retrieved: {n_species} species, {n_with_tl} with trophic level, "
+                f"{n_with_obis} with OBIS data"
+            )
+
+        alert_class, icon_class, message = _biodata_task_alert(
+            task_state,
+            success_message=success_message,
+        )
+
+        if not message:
             return ui.div()
 
-        n_species = len(df)
-        n_with_tl = df["trophic_level"].notna().sum()
-        n_with_obis = df["occurrence_count"].notna().sum()
-
         return ui.div(
-            ui.tags.i(class_="bi bi-check-circle-fill text-success me-2"),
-            f"Retrieved: {n_species} species, {n_with_tl} with trophic level, {n_with_obis} with OBIS data",
-            class_="alert alert-success small",
+            ui.tags.i(class_=icon_class),
+            message,
+            class_=alert_class,
         )
 
     @output
@@ -1111,7 +1238,7 @@ Phytoplankton"""
         """Create Ecopath model from biodiversity data."""
         df = biodata_df.get()
         if df is None:
-            ui.notification_show("No species data available", type="warning")
+            _notify_legacy("No species data available", type="warning")
             return
 
         try:
@@ -1139,14 +1266,14 @@ Phytoplankton"""
             # A cleared numeric input yields None
             area_km2 = input.biodata_area()
             if not area_km2 or area_km2 <= 0:
-                ui.notification_show(
+                _notify_legacy(
                     "Enter a positive study area (km²) first",
                     type="warning",
                     duration=4,
                 )
                 return
 
-            ui.notification_show("Creating Ecopath model...", duration=3)
+            _notify_legacy("Creating Ecopath model...", duration=3)
 
             # Create model using biodata_to_rpath
             params = biodata_to_rpath(
@@ -1158,16 +1285,14 @@ Phytoplankton"""
             biodata_model.set(params)
             imported_params.set(params)  # Also set imported_params for preview
 
-            ui.notification_show(
+            _notify_legacy(
                 f"Model created successfully with {len(params.model)} groups!",
                 type="message",
                 duration=3,
             )
 
         except Exception as e:
-            ui.notification_show(
-                f"Error creating model: {str(e)}", type="error", duration=5
-            )
+            _notify_legacy(f"Error creating model: {str(e)}", type="error", duration=5)
 
     @output
     @render.ui
@@ -1192,11 +1317,11 @@ Phytoplankton"""
         """Transfer biodata model to main model data."""
         params = biodata_model.get()
         if params is None:
-            ui.notification_show("No model to use", type="warning")
+            _notify_legacy("No model to use", type="warning")
             return
 
         model_data.set(params)
-        ui.notification_show(
+        _notify_legacy(
             "Model transferred! Go to 'Ecopath Model' tab to edit and balance.",
             type="message",
         )

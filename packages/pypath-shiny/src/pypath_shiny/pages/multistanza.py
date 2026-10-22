@@ -14,9 +14,27 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
 from pypath_shiny.config import PARAM_RANGES
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
 from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
 
 logger = logging.getLogger(__name__)
+
+
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
 
 
 def multistanza_ui():
@@ -229,14 +247,14 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         """
         df = stanza_data()
         if df is None:
-            ui.notification_show(
+            _notify_legacy(
                 "Calculate stanza properties first.", type="warning", duration=4
             )
             return
 
         params = shared_data.params()
         if not is_rpath_params(params):
-            ui.notification_show(
+            _notify_legacy(
                 "Load unbalanced model parameters before saving stanzas.",
                 type="warning",
                 duration=6,
@@ -247,7 +265,7 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         stindiv = getattr(stanzas, "stindiv", None) if stanzas is not None else None
         group = input.stanza_group()
         if stindiv is None or len(stindiv) == 0 or not group:
-            ui.notification_show(
+            _notify_legacy(
                 "This model has no multi-stanza groups to update.",
                 type="warning",
                 duration=6,
@@ -256,7 +274,7 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
 
         member = stindiv.index[stindiv["Group"].astype(str) == str(group)]
         if len(member) == 0:
-            ui.notification_show(
+            _notify_legacy(
                 f"'{group}' is not part of a multi-stanza group.",
                 type="warning",
                 duration=6,
@@ -266,7 +284,7 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         st_group_num = stindiv.loc[member[0], "StGroupNum"]
         rows = stindiv.index[stindiv["StGroupNum"] == st_group_num]
         if len(rows) != len(df):
-            ui.notification_show(
+            _notify_legacy(
                 f"This stanza group has {len(rows)} stanza(s) but {len(df)} were "
                 "calculated. Set 'Number of Stanzas' to match.",
                 type="warning",
@@ -281,7 +299,7 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         logger.info(
             "Saved %d stanza age ranges for stanza group of %s", len(rows), group
         )
-        ui.notification_show(
+        _notify_legacy(
             f"Saved {len(rows)} stanza age ranges to {group}.",
             type="message",
             duration=5,

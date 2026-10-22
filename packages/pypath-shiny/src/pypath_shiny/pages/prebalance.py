@@ -18,6 +18,12 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 logger = logging.getLogger(__name__)
 
 from pypath_shiny.config import PLOTS, UI  # noqa: E402
+from pypath_shiny.services.notifications import (  # noqa: E402
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
 from pypath_shiny.pages.utils import (  # noqa: E402
     is_rpath_params,
     load_rpath_diagnostics,
@@ -178,6 +184,18 @@ def run_verify_rpath(
         return {"returncode": -2, "output": "", "error": "timeout"}
     except Exception as e:
         return {"returncode": -3, "output": "", "error": str(e)}
+
+
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
 
 
 def prebalance_ui():
@@ -408,7 +426,7 @@ def prebalance_server(
             data = model_data()
 
             if data is None:
-                ui.notification_show(
+                _notify_legacy(
                     "No model data available. Please import a model first.",
                     type="warning",
                     duration=5,
@@ -417,7 +435,7 @@ def prebalance_server(
 
             # Check if model is unbalanced (RpathParams)
             if not is_rpath_params(data):
-                ui.notification_show(
+                _notify_legacy(
                     "Pre-balance diagnostics require an unbalanced model (RpathParams). "
                     "The current model appears to be already balanced.",
                     type="warning",
@@ -425,7 +443,7 @@ def prebalance_server(
                 )
                 return
 
-            ui.notification_show("Running diagnostics...", duration=3)
+            _notify_legacy("Running diagnostics...", duration=3)
 
             # Lazy import to avoid circular imports at module level
             from pypath.analysis.prebalance import generate_prebalance_report
@@ -437,13 +455,13 @@ def prebalance_server(
             # Show completion notification
             num_warnings = len(report["warnings"])
             if num_warnings == 0:
-                ui.notification_show(
+                _notify_legacy(
                     "Diagnostics complete! No major issues detected.",
                     type="message",
                     duration=5,
                 )
             else:
-                ui.notification_show(
+                _notify_legacy(
                     f"Diagnostics complete. Found {num_warnings} warning(s). Check the Warnings tab.",
                     type="warning",
                     duration=5,
@@ -451,7 +469,7 @@ def prebalance_server(
 
         except Exception as e:
             logger.error("Error running diagnostics: %s", e, exc_info=True)
-            ui.notification_show(
+            _notify_legacy(
                 f"Error running diagnostics: {str(e)}", type="error", duration=5
             )
 

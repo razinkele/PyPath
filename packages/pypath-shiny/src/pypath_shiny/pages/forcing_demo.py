@@ -18,7 +18,26 @@ from pypath.core.forcing import (
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
+
 from pypath_shiny.config import PARAM_RANGES
+
+
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
 
 
 def forcing_demo_ui():
@@ -389,14 +408,12 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
     def _run_demo():
         """Run the demo comparison for the current forcing."""
         if forcing_obj() is None:
-            ui.notification_show(
+            _notify_legacy(
                 "Generate a forcing pattern first.", type="warning", duration=4
             )
             return
         demo_run_count.set(demo_run_count() + 1)
-        ui.notification_show(
-            "Simulation comparison updated.", type="message", duration=3
-        )
+        _notify_legacy("Simulation comparison updated.", type="message", duration=3)
 
     time_series_data = reactive.Value(None)
 

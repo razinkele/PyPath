@@ -15,6 +15,31 @@ import logging
 
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
+from pypath_shiny.services.tasks import (
+    TaskState,
+    TaskStatus,
+    apply_if_latest,
+    finish_task,
+    new_running_task,
+    update_task_progress,
+)
+from pypath_shiny.services.ui_state import (
+    deserialize_wizard_draft,
+    serialize_wizard_draft,
+)
+from pypath_shiny.services.validation import (
+    ValidationIssue,
+    ValidationSeverity,
+    sort_issues,
+    summarize_issues,
+)
+
 logger = logging.getLogger(__name__)
 
 _STEPS = [
@@ -26,6 +51,137 @@ _STEPS = [
     "Set Dispersal",
     "Review & Launch",
 ]
+
+
+def serialize_wizard_draft_payload(
+    *,
+    step: int,
+    polygon: dict | None,
+    grid_type: str | None,
+    cell_size_km: float | None,
+    dispersal_default: float | None,
+    gravity_strength: float | None,
+) -> str:
+    """Build and serialize a wizard draft payload."""
+    return serialize_wizard_draft(
+        {
+            "step": step,
+            "polygon": polygon,
+            "grid_type": grid_type,
+            "cell_size_km": cell_size_km,
+            "dispersal_default": dispersal_default,
+            "gravity_strength": gravity_strength,
+        }
+    )
+
+
+def deserialize_wizard_draft_payload(data: str) -> dict:
+    """Deserialize a wizard draft payload and normalize expected fields."""
+    draft = deserialize_wizard_draft(data)
+    return {
+        "draft_version": draft.get("draft_version"),
+        "step": draft.get("step", 1),
+        "polygon": draft.get("polygon"),
+        "grid_type": draft.get("grid_type"),
+        "cell_size_km": draft.get("cell_size_km"),
+        "dispersal_default": draft.get("dispersal_default"),
+        "gravity_strength": draft.get("gravity_strength"),
+    }
+
+
+def collect_wizard_validation_issues(
+    *,
+    grid,
+    habitat_types,
+    preference_matrix,
+    group_names: list[str],
+    salinity_layer,
+) -> list[ValidationIssue]:
+    """Collect pre-launch validation issues for the wizard summary."""
+    issues: list[ValidationIssue] = []
+
+    if grid is None:
+        issues.append(
+            ValidationIssue(
+                field="grid",
+                message="Grid is not configured.",
+                severity=ValidationSeverity.ERROR,
+                section="Setup",
+            )
+        )
+
+    if habitat_types is None:
+        issues.append(
+            ValidationIssue(
+                field="habitats",
+                message="Habitat data is missing. Complete the data download step.",
+                severity=ValidationSeverity.ERROR,
+                section="Data",
+            )
+        )
+    elif grid is not None and len(habitat_types) != getattr(grid, "n_patches", -1):
+        issues.append(
+            ValidationIssue(
+                field="habitats",
+                message="Habitat-to-grid mapping does not match patch count.",
+                severity=ValidationSeverity.ERROR,
+                section="Data",
+            )
+        )
+
+    if preference_matrix is None:
+        issues.append(
+            ValidationIssue(
+                field="preferences",
+                message="Habitat preference matrix is missing.",
+                severity=ValidationSeverity.WARNING,
+                section="Configuration",
+            )
+        )
+    else:
+        n_groups = len(group_names)
+        if preference_matrix.shape[0] != n_groups:
+            issues.append(
+                ValidationIssue(
+                    field="preferences",
+                    message="Preference matrix rows do not match number of groups.",
+                    severity=ValidationSeverity.ERROR,
+                    section="Configuration",
+                )
+            )
+
+    if salinity_layer is None:
+        issues.append(
+            ValidationIssue(
+                field="salinity",
+                message="No salinity layer loaded (optional).",
+                severity=ValidationSeverity.INFO,
+                section="Environment",
+            )
+        )
+
+    return sort_issues(issues)
+
+
+def summarize_wizard_validation_issues(issues: list[ValidationIssue]) -> str:
+    """Summarize wizard validation issues for dashboard rendering."""
+    return summarize_issues(issues)
+
+
+def wizard_download_task_alert(task_state: TaskState) -> tuple[str, str, str]:
+    """Map wizard download task state to alert style, icon, and message."""
+    if task_state.status is TaskStatus.RUNNING:
+        return (
+            "text-info mt-2",
+            "bi bi-arrow-repeat me-2",
+            f"{task_state.message} ({task_state.progress:.0f}%)",
+        )
+    if task_state.status is TaskStatus.ERROR:
+        msg = task_state.error or task_state.message or "Download failed."
+        return ("text-danger mt-2", "bi bi-exclamation-triangle me-2", msg)
+    if task_state.status is TaskStatus.SUCCESS:
+        return ("text-success mt-2", "bi bi-check-circle me-2", task_state.message)
+    return ("", "", "")
 
 
 def _step_progress_ui():
@@ -42,6 +198,18 @@ def _step_progress_ui():
     return ui.div(*items, class_="mb-3")
 
 
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
+
+
 def ecospace_wizard_ui():
     """Wizard page UI."""
     return ui.page_fluid(
@@ -52,6 +220,34 @@ def ecospace_wizard_ui():
             ui.input_action_button("wizard_back", "Back", class_="btn-secondary me-2"),
             ui.input_action_button("wizard_next", "Next", class_="btn-primary"),
             class_="mt-3",
+        ),
+        ui.hr(),
+        ui.card(
+            ui.card_header("Draft State"),
+            ui.input_text_area(
+                "wizard_draft_json",
+                "Draft JSON",
+                rows=5,
+                placeholder="Paste draft JSON here or click Save Draft",
+            ),
+            ui.div(
+                ui.input_action_button(
+                    "wizard_save_draft",
+                    "Save Draft",
+                    class_="btn-outline-primary me-2",
+                ),
+                ui.input_action_button(
+                    "wizard_load_draft",
+                    "Load Draft",
+                    class_="btn-outline-secondary me-2",
+                ),
+                ui.input_action_button(
+                    "wizard_reset_draft",
+                    "Reset Draft",
+                    class_="btn-outline-danger",
+                ),
+                class_="mt-2",
+            ),
         ),
     )
 
@@ -89,7 +285,68 @@ def ecospace_wizard_server(
     salinity_layer = reactive.value(None)
     habitat_types_arr = reactive.value(None)
     download_status = reactive.value("")
+    download_task_state = reactive.value(TaskState(run_id="wizard-download-idle"))
     preference_matrix = reactive.value(None)
+
+    @reactive.effect
+    @reactive.event(input.wizard_save_draft)
+    def _save_draft():
+        try:
+            payload = serialize_wizard_draft_payload(
+                step=wizard_step.get(),
+                polygon=drawn_polygon.get(),
+                grid_type=input.wizard_grid_type(),
+                cell_size_km=input.wizard_cell_size(),
+                dispersal_default=input.wizard_dispersal_default(),
+                gravity_strength=input.wizard_gravity(),
+            )
+            ui.update_text_area("wizard_draft_json", value=payload)
+            _notify_legacy("Wizard draft saved.", type="message")
+        except Exception as exc:
+            logger.exception("Failed to save wizard draft")
+            _notify_legacy(f"Could not save draft: {exc!s}", type="error")
+
+    @reactive.effect
+    @reactive.event(input.wizard_load_draft)
+    def _load_draft():
+        raw = input.wizard_draft_json()
+        if not raw:
+            _notify_legacy("Paste a draft JSON payload first.", type="warning")
+            return
+        try:
+            draft = deserialize_wizard_draft_payload(raw)
+            step = int(draft.get("step", 1) or 1)
+            step = max(1, min(len(_STEPS), step))
+            wizard_step.set(step)
+            drawn_polygon.set(draft.get("polygon"))
+
+            if draft.get("grid_type") in {"regular", "hexagonal"}:
+                ui.update_select("wizard_grid_type", selected=draft["grid_type"])
+            if draft.get("cell_size_km") is not None:
+                ui.update_numeric(
+                    "wizard_cell_size", value=float(draft["cell_size_km"])
+                )
+            if draft.get("dispersal_default") is not None:
+                ui.update_slider(
+                    "wizard_dispersal_default", value=float(draft["dispersal_default"])
+                )
+            if draft.get("gravity_strength") is not None:
+                ui.update_slider(
+                    "wizard_gravity", value=float(draft["gravity_strength"])
+                )
+
+            _notify_legacy("Wizard draft loaded.", type="message")
+        except Exception as exc:
+            logger.exception("Failed to load wizard draft")
+            _notify_legacy(f"Could not load draft: {exc!s}", type="error")
+
+    @reactive.effect
+    @reactive.event(input.wizard_reset_draft)
+    def _reset_draft():
+        wizard_step.set(1)
+        drawn_polygon.set(None)
+        ui.update_text_area("wizard_draft_json", value="")
+        _notify_legacy("Wizard draft reset.", type="message")
 
     @reactive.effect
     @reactive.event(input.wizard_drawn_polygon, ignore_none=False)
@@ -186,8 +443,27 @@ def ecospace_wizard_server(
         grid = ecospace_grid.get()
         poly = drawn_polygon.get()
         if grid is None or poly is None:
-            download_status.set("Please draw a polygon and configure the grid first.")
+            msg = "Please draw a polygon and configure the grid first."
+            download_status.set(msg)
+            download_task_state.set(
+                TaskState(
+                    run_id="wizard-download-idle",
+                    status=TaskStatus.ERROR,
+                    message="Wizard setup incomplete",
+                    error=msg,
+                )
+            )
             return
+
+        run_id = f"wizard-download-{input.wizard_download()}"
+        download_task_state.set(new_running_task(run_id, "Preparing EMODnet requests"))
+
+        def _update_latest(updater):
+            download_task_state.set(
+                apply_if_latest(
+                    download_task_state.get(), run_id=run_id, updater=updater
+                )
+            )
 
         try:
             from pypath.io.marine_data import (
@@ -201,6 +477,13 @@ def ecospace_wizard_server(
             bbox = polygon.bounds  # (minx, miny, maxx, maxy)
 
             download_status.set("Downloading habitats...")
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Downloading habitats",
+                    progress=20.0,
+                )
+            )
             cache = MarineDataCache()
 
             # Fetch habitats
@@ -213,6 +496,13 @@ def ecospace_wizard_server(
             habitat_types_arr.set(hab_map)
 
             download_status.set("Downloading bathymetry...")
+            _update_latest(
+                lambda s: update_task_progress(
+                    s,
+                    message="Downloading bathymetry",
+                    progress=65.0,
+                )
+            )
 
             # Fetch depth
             bathy_client = EMODnetBathymetryClient(cache=cache)
@@ -220,9 +510,13 @@ def ecospace_wizard_server(
             depth = bathy_client.sample_to_grid(raster, transform, grid)
             depth_per_patch.set(depth)
 
-            download_status.set(
+            done = (
                 f"Done! {len(gdf)} habitat features, "
                 f"depth range: {depth.min():.0f}m to {depth.max():.0f}m"
+            )
+            download_status.set(done)
+            _update_latest(
+                lambda s, msg=done: finish_task(s, success=True, message=msg)
             )
             logger.info(
                 "Download complete: %d habitats, depth range %.0f-%.0f",
@@ -231,7 +525,16 @@ def ecospace_wizard_server(
                 depth.max(),
             )
         except Exception as e:
-            download_status.set(f"Download failed: {e}")
+            err = f"Download failed: {e}"
+            download_status.set(err)
+            _update_latest(
+                lambda s, msg=err: finish_task(
+                    s,
+                    success=False,
+                    message="Download failed",
+                    error=msg,
+                )
+            )
             logger.error("Download failed: %s", e)
 
     @reactive.effect
@@ -261,6 +564,12 @@ def ecospace_wizard_server(
     def wizard_download_status():
         """Display download progress/status."""
         status = download_status.get()
+        task_state = download_task_state.get()
+
+        alert_class, icon_class, task_message = wizard_download_task_alert(task_state)
+        if task_message:
+            return ui.p(ui.tags.i(class_=icon_class), task_message, class_=alert_class)
+
         if not status:
             return ui.p()
         if status.startswith("Done"):
@@ -427,7 +736,35 @@ def ecospace_wizard_server(
         sal = salinity_layer.get()
         prefs = preference_matrix.get()
 
+        group_names = shared_group_names(shared_data)
+        validation_issues = collect_wizard_validation_issues(
+            grid=grid,
+            habitat_types=hab,
+            preference_matrix=prefs,
+            group_names=group_names,
+            salinity_layer=sal,
+        )
+
         items = []
+
+        if validation_issues:
+            summary = summarize_wizard_validation_issues(validation_issues)
+            has_error = any(
+                i.severity is ValidationSeverity.ERROR for i in validation_issues
+            )
+            alert_class = "alert-danger" if has_error else "alert-warning"
+            issue_items = [
+                ui.tags.li(f"[{issue.section}] {issue.message}")
+                for issue in validation_issues
+            ]
+            items.append(
+                ui.div(
+                    ui.h5("Validation Summary"),
+                    ui.p(summary),
+                    ui.tags.ul(*issue_items),
+                    class_=f"alert {alert_class}",
+                )
+            )
 
         # Grid summary
         if grid is not None:
@@ -566,7 +903,7 @@ def ecospace_wizard_server(
                 n_groups,
                 len(habitat_types),
             )
-            ui.notification_show(
+            _notify_legacy(
                 f"Ecospace configuration ready: {grid.n_patches} patches, "
                 f"{n_groups} groups. Open the Ecospace page to run it.",
                 type="message",
@@ -574,7 +911,7 @@ def ecospace_wizard_server(
             )
         except Exception as e:
             logger.exception("Failed to create EcospaceParams")
-            ui.notification_show(
+            _notify_legacy(
                 f"Could not build the Ecospace configuration: {e!s}",
                 type="error",
                 duration=8,

@@ -48,3 +48,11 @@ def test_walk_up_finds_repo_when_in_monorepo():
     finally:
         if old is not None:
             os.environ["PYPATH_REPO_ROOT"] = old
+
+
+def test_prebalance_page_uses_notification_service_not_direct_ui_calls():
+    """Guardrail: migrate prebalance page notifications to service wrappers."""
+    from pypath_shiny.pages import prebalance
+
+    source = Path(prebalance.__file__).read_text(encoding="utf-8")
+    assert "ui.notification_show(" not in source

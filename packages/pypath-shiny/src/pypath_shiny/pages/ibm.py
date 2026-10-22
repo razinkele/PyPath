@@ -17,8 +17,26 @@ import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, req, ui
 
 from pypath_shiny.config import IBM
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
 
 
 def ibm_ui():
@@ -419,7 +437,7 @@ def ibm_server(
 
         model = _model_data()
         if model is None:
-            ui.notification_show(
+            _notify_legacy(
                 "Please load an Ecopath model first (Data Import tab).",
                 type="warning",
                 duration=5,
@@ -428,7 +446,7 @@ def ibm_server(
 
         scenario = _sim_scenario() if _sim_scenario is not None else None
         if scenario is None:
-            ui.notification_show(
+            _notify_legacy(
                 "Please create an Ecosim scenario first (Ecosim Simulation tab).",
                 type="warning",
                 duration=5,
@@ -437,7 +455,7 @@ def ibm_server(
 
         group_str = input.ibm_group_select()
         if not group_str:
-            ui.notification_show(
+            _notify_legacy(
                 "Please select a functional group.",
                 type="warning",
                 duration=5,
@@ -480,7 +498,7 @@ def ibm_server(
                 f"Group {row_idx}",
             )
 
-            ui.notification_show(
+            _notify_legacy(
                 f"IBM initialized for {group_name}: "
                 f"{len(ibm.individuals)} super-individuals, "
                 f"biomass = {ibm.get_aggregate_biomass():.4f} t",
@@ -490,7 +508,7 @@ def ibm_server(
 
         except Exception as e:
             logger.error("IBM initialization failed: %s", e, exc_info=True)
-            ui.notification_show(
+            _notify_legacy(
                 f"IBM initialization failed: {e!s}",
                 type="error",
                 duration=8,
@@ -507,7 +525,7 @@ def ibm_server(
 
         ibm = ibm_group_instance()
         if ibm is None:
-            ui.notification_show(
+            _notify_legacy(
                 "Please initialize the IBM first.",
                 type="warning",
                 duration=5,
@@ -516,7 +534,7 @@ def ibm_server(
 
         scenario = _sim_scenario() if _sim_scenario is not None else None
         if scenario is None:
-            ui.notification_show(
+            _notify_legacy(
                 "No Ecosim scenario available.",
                 type="warning",
                 duration=5,
@@ -524,18 +542,14 @@ def ibm_server(
             return
 
         try:
-            ui.notification_show(
-                "Running standard Ecosim...", type="message", duration=2
-            )
+            _notify_legacy("Running standard Ecosim...", type="message", duration=2)
 
             # Run standard Ecosim (on a deep copy)
             std_scenario = copy.deepcopy(scenario)
             std_result = rsim_run(std_scenario)
             standard_output.set(std_result)
 
-            ui.notification_show(
-                "Running IBM-enhanced Ecosim...", type="message", duration=2
-            )
+            _notify_legacy("Running IBM-enhanced Ecosim...", type="message", duration=2)
 
             # Run IBM-enhanced Ecosim
             ibm_scenario = copy.deepcopy(scenario)
@@ -562,11 +576,11 @@ def ibm_server(
             ibm_result = rsim_run(ibm_scenario)
             ibm_enhanced_output.set(ibm_result)
 
-            ui.notification_show("Comparison run complete!", type="message", duration=3)
+            _notify_legacy("Comparison run complete!", type="message", duration=3)
 
         except Exception as e:
             logger.error("IBM comparison run failed: %s", e, exc_info=True)
-            ui.notification_show(
+            _notify_legacy(
                 f"IBM run failed: {e!s}",
                 type="error",
                 duration=8,

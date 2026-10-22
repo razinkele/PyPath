@@ -6,6 +6,7 @@ config defaults matching SmeltParams.baltic_defaults(), and navbar presence.
 """
 
 import inspect
+from pathlib import Path
 
 import pytest
 
@@ -162,3 +163,11 @@ class TestIBMInNavbar:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_ibm_page_uses_notification_service_not_direct_ui_calls():
+    """Guardrail: migrate ibm page notifications to service wrappers."""
+    from pypath_shiny.pages import ibm
+
+    source = Path(ibm.__file__).read_text(encoding="utf-8")
+    assert "ui.notification_show(" not in source

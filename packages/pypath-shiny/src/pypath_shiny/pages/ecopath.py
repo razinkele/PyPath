@@ -13,6 +13,25 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
 from pypath_shiny.config import DEFAULTS, PLOTS, THRESHOLDS
+from pypath_shiny.services.notifications import (
+    notify_error,
+    notify_info,
+    notify_success,
+    notify_warning,
+)
+from pypath_shiny.services.tasks import (
+    TaskState,
+    TaskStatus,
+    finish_task,
+    new_running_task,
+    update_task_progress,
+)
+from pypath_shiny.services.validation import (
+    ValidationIssue,
+    ValidationSeverity,
+    sort_issues,
+    summarize_issues,
+)
 
 # Import shared utilities
 from .utils import (
@@ -78,6 +97,26 @@ def _get_groups_from_model(model: Union[Rpath, RpathParams]) -> List[str]:
 
 
 logger = logging.getLogger(__name__)
+
+
+def ecopath_balance_task_alert(task_state: TaskState) -> tuple[str, str, str]:
+    """Map Ecopath balancing task state to alert class, icon and message."""
+    if task_state.status is TaskStatus.RUNNING:
+        return (
+            "alert alert-info",
+            "bi bi-arrow-repeat me-2",
+            f"{task_state.message} ({task_state.progress:.0f}%)",
+        )
+    if task_state.status is TaskStatus.ERROR:
+        msg = task_state.error or task_state.message or "Model balancing failed."
+        return ("alert alert-danger", "bi bi-exclamation-triangle me-2", msg)
+    if task_state.status is TaskStatus.SUCCESS:
+        return (
+            "alert alert-success",
+            "bi bi-check-circle me-2",
+            task_state.message or "Model balanced successfully!",
+        )
+    return ("", "", "")
 
 
 def _recreate_params_from_model(model: Rpath) -> RpathParams:
@@ -222,6 +261,102 @@ def _convert_input_to_numeric(new_value):
     except (ValueError, TypeError):
         # Let caller handle exceptions for invalid numeric formats
         raise
+
+
+def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
+    """Compatibility wrapper while migrating this page to notification services."""
+    if type == "error":
+        notify_error(message, duration=duration)
+    elif type == "warning":
+        notify_warning(message, duration=duration)
+    elif type == "message":
+        notify_success(message, duration=duration)
+    else:
+        notify_info(message, duration=duration)
+
+
+def collect_ecopath_validation_issues(
+    params_obj: RpathParams | None,
+) -> list[ValidationIssue]:
+    """Collect pre-balance validation issues for the Ecopath parameter model."""
+    issues: list[ValidationIssue] = []
+
+    if params_obj is None or not hasattr(params_obj, "model"):
+        issues.append(
+            ValidationIssue(
+                field="model",
+                message="No parameter table loaded.",
+                severity=ValidationSeverity.ERROR,
+                section="Setup",
+            )
+        )
+        return issues
+
+    model_df = params_obj.model
+    if model_df is None or len(model_df) == 0:
+        issues.append(
+            ValidationIssue(
+                field="model",
+                message="Parameter table is empty.",
+                severity=ValidationSeverity.ERROR,
+                section="Setup",
+            )
+        )
+        return issues
+
+    ok, errors = validate_model_parameters(
+        model_df,
+        check_groups=True,
+        check_biomass=True,
+        check_pb=True,
+        check_ee=False,
+    )
+    if not ok:
+        for idx, message in enumerate(errors):
+            issues.append(
+                ValidationIssue(
+                    field=f"model_{idx}",
+                    message=message.splitlines()[0],
+                    severity=ValidationSeverity.ERROR,
+                    section="Model",
+                )
+            )
+
+    if hasattr(params_obj, "diet") and params_obj.diet is not None:
+        diet = params_obj.diet
+        if "Group" in diet.columns and len(diet.columns) > 1:
+            predator_cols = [c for c in diet.columns if c != "Group"]
+            sums = diet[predator_cols].fillna(0.0).sum(axis=0)
+            off = [c for c, s in sums.items() if abs(float(s) - 1.0) > 0.05]
+            if off:
+                issues.append(
+                    ValidationIssue(
+                        field="diet",
+                        message=(
+                            "Diet columns should sum near 1.0; check "
+                            + ", ".join(str(c) for c in off[:5])
+                        ),
+                        severity=ValidationSeverity.WARNING,
+                        section="Diet",
+                    )
+                )
+
+    if not issues:
+        issues.append(
+            ValidationIssue(
+                field="summary",
+                message="No validation issues detected.",
+                severity=ValidationSeverity.INFO,
+                section="Summary",
+            )
+        )
+
+    return sort_issues(issues)
+
+
+def summarize_ecopath_validation_issues(issues: list[ValidationIssue]) -> str:
+    """Summarize Ecopath validation issues."""
+    return summarize_issues(issues)
 
 
 def ecopath_ui():
@@ -379,6 +514,7 @@ def ecopath_ui():
                 ui.nav_panel(
                     "Model Results",
                     ui.h4("Balanced Model Results", class_="mt-3"),
+                    ui.output_ui("balance_validation_summary"),
                     ui.output_ui("balance_status"),
                     ui.output_data_frame("model_results_table"),
                 ),
@@ -419,6 +555,7 @@ def ecopath_server(
     # Reactive values for this page
     params = reactive.Value(None)
     balanced_model = reactive.Value(None)
+    balance_task_state = reactive.Value(TaskState(run_id="ecopath-balance-idle"))
 
     # Watch for changes in model_data (from imports or other sources)
     @reactive.effect
@@ -432,7 +569,7 @@ def ecopath_server(
                 params.set(imported)
                 n_groups = len(imported.model)
                 n_diet = imported.diet.iloc[:, 1:].notna().sum().sum()
-                ui.notification_show(
+                _notify_legacy(
                     f"Loaded model: {n_groups} groups, {n_diet} diet values",
                     type="message",
                 )
@@ -447,7 +584,7 @@ def ecopath_server(
                 # A balanced Rpath from elsewhere - recreate editable params
                 recreated_params = _recreate_params_from_model(imported)
                 params.set(recreated_params)
-                ui.notification_show(
+                _notify_legacy(
                     f"Loaded balanced model: {imported.NUM_GROUPS} groups",
                     type="message",
                 )
@@ -464,7 +601,7 @@ def ecopath_server(
             ]
 
             if len(names) != len(types_str):
-                ui.notification_show(
+                _notify_legacy(
                     f"Number of names ({len(names)}) must match number of types ({len(types_str)})",
                     type="error",
                 )
@@ -476,11 +613,11 @@ def ecopath_server(
             new_params = create_rpath_params(names, types)
             params.set(new_params)
 
-            ui.notification_show(
+            _notify_legacy(
                 f"Created parameter template with {len(names)} groups", type="message"
             )
         except Exception as e:
-            ui.notification_show(f"Error creating parameters: {str(e)}", type="error")
+            _notify_legacy(f"Error creating parameters: {str(e)}", type="error")
 
     def add_header_tooltips(columns: list) -> list:
         """Create column definitions with tooltips for DataGrid headers."""
@@ -852,7 +989,7 @@ def ecopath_server(
             return original
 
         if col_name in ("Group", "Type") or col_name not in p.model.columns:
-            ui.notification_show(
+            _notify_legacy(
                 f"Column '{col_name}' cannot be edited here",
                 type="warning",
                 duration=3,
@@ -869,7 +1006,7 @@ def ecopath_server(
         try:
             numeric_value = _convert_input_to_numeric(new_value)
         except (ValueError, TypeError):
-            ui.notification_show(
+            _notify_legacy(
                 f"Invalid numeric value for {col_name}: '{new_value}'",
                 type="error",
                 duration=4,
@@ -888,7 +1025,7 @@ def ecopath_server(
             is_valid, error_msg = validate_ee(numeric_value, group_name)
 
         if not is_valid:
-            ui.notification_show(
+            _notify_legacy(
                 f"Invalid value for {col_name}: {error_msg}",
                 type="warning",
                 duration=5,
@@ -896,7 +1033,7 @@ def ecopath_server(
             return original
 
         p.model.loc[row_idx, col_name] = numeric_value
-        ui.notification_show(
+        _notify_legacy(
             f"Updated {col_name} for {group_name}", type="message", duration=2
         )
         return "" if np.isnan(numeric_value) else round(float(numeric_value), 3)
@@ -914,7 +1051,7 @@ def ecopath_server(
             return original
 
         if col_name == "Group" or col_name not in p.diet.columns:
-            ui.notification_show(
+            _notify_legacy(
                 f"Column '{col_name}' cannot be edited here",
                 type="warning",
                 duration=3,
@@ -929,7 +1066,7 @@ def ecopath_server(
         try:
             numeric_value = float(new_value) if new_value not in (None, "") else 0.0
         except (ValueError, TypeError):
-            ui.notification_show(
+            _notify_legacy(
                 f"Invalid numeric value for diet: '{new_value}'",
                 type="error",
                 duration=4,
@@ -937,14 +1074,14 @@ def ecopath_server(
             return original
 
         if numeric_value < 0:
-            ui.notification_show(
+            _notify_legacy(
                 f"Diet proportion cannot be negative: {numeric_value:.3f}",
                 type="error",
                 duration=4,
             )
             return original
         if numeric_value > 1:
-            ui.notification_show(
+            _notify_legacy(
                 f"Diet proportion cannot exceed 1.0: {numeric_value:.3f}",
                 type="warning",
                 duration=4,
@@ -952,7 +1089,7 @@ def ecopath_server(
             return original
 
         p.diet.loc[row_idx, col_name] = numeric_value
-        ui.notification_show(
+        _notify_legacy(
             f"Updated diet: {prey_name} → {col_name}", type="message", duration=2
         )
         return round(numeric_value, 3)
@@ -979,7 +1116,7 @@ def ecopath_server(
             return original
 
         if target not in p.model.columns:
-            ui.notification_show(
+            _notify_legacy(
                 f"Column '{target}' is not part of this model",
                 type="warning",
                 duration=3,
@@ -994,13 +1131,13 @@ def ecopath_server(
         try:
             numeric_value = _convert_input_to_numeric(new_value)
         except (ValueError, TypeError):
-            ui.notification_show(
+            _notify_legacy(
                 f"Invalid numeric value: '{new_value}'", type="error", duration=4
             )
             return original
 
         if not np.isnan(numeric_value) and numeric_value < 0:
-            ui.notification_show(
+            _notify_legacy(
                 "Landings and discards cannot be negative",
                 type="error",
                 duration=4,
@@ -1008,7 +1145,7 @@ def ecopath_server(
             return original
 
         p.model.loc[row_idx, target] = numeric_value
-        ui.notification_show(
+        _notify_legacy(
             f"Updated {col_name} for {group_name}", type="message", duration=2
         )
         return "" if np.isnan(numeric_value) else round(float(numeric_value), 3)
@@ -1027,7 +1164,7 @@ def ecopath_server(
                 cols = set(pd.read_csv(f["datapath"], nrows=0).columns)
             except (OSError, ValueError, pd.errors.ParserError) as e:
                 logger.debug("Could not read %s: %s", f["name"], e)
-                ui.notification_show(
+                _notify_legacy(
                     f"Could not read {f['name']}: {e!s}", type="error", duration=6
                 )
                 return
@@ -1038,7 +1175,7 @@ def ecopath_server(
                 diet_file = f["datapath"]
 
         if model_file is None or diet_file is None:
-            ui.notification_show(
+            _notify_legacy(
                 "Upload both files together: a model CSV (with a Type column) "
                 "and a diet composition CSV.",
                 type="warning",
@@ -1050,14 +1187,14 @@ def ecopath_server(
             new_params = read_rpath_params(model_file, diet_file)
         except Exception as e:
             logger.exception("Reading uploaded parameter CSVs failed")
-            ui.notification_show(
+            _notify_legacy(
                 f"Could not build parameters: {e!s}", type="error", duration=8
             )
             return
 
         params.set(new_params)
         model_data.set(new_params)
-        ui.notification_show(
+        _notify_legacy(
             f"Loaded {len(new_params.model)} groups from uploaded CSVs",
             type="message",
             duration=5,
@@ -1069,8 +1206,11 @@ def ecopath_server(
         """Balance the Ecopath model."""
         p = params.get()
         if p is None:
-            ui.notification_show("Create parameters first", type="warning")
+            _notify_legacy("Create parameters first", type="warning")
             return
+
+        run_id = f"ecopath-balance-{input.btn_balance()}"
+        balance_task_state.set(new_running_task(run_id, "Validating model inputs"))
 
         try:
             # Set defaults for missing values
@@ -1116,6 +1256,14 @@ def ecopath_server(
                         else:
                             p.model.loc[idx, det] = np.nan
 
+            balance_task_state.set(
+                update_task_progress(
+                    balance_task_state.get(),
+                    message="Running pre-balance validation",
+                    progress=40.0,
+                )
+            )
+
             # Validate model parameters before balancing
             is_valid, validation_errors = validate_model_parameters(
                 p.model,
@@ -1132,26 +1280,104 @@ def ecopath_server(
                     if len(validation_errors) == 1
                     else f"{len(validation_errors)} validation errors found. First error:\n{validation_errors[0]}"
                 )
-                ui.notification_show(error_summary, type="error", duration=10)
+                _notify_legacy(error_summary, type="error", duration=10)
+                balance_task_state.set(
+                    finish_task(
+                        balance_task_state.get(),
+                        success=False,
+                        message="Input validation failed",
+                        error=error_summary,
+                    )
+                )
                 return
+
+            balance_task_state.set(
+                update_task_progress(
+                    balance_task_state.get(),
+                    message="Solving Ecopath mass balance",
+                    progress=80.0,
+                )
+            )
 
             # Balance the model
             model = rpath(p, eco_name=input.eco_name())
             balanced_model.set(model)
             model_data.set(model)
 
-            ui.notification_show("Model balanced successfully!", type="message")
+            _notify_legacy("Model balanced successfully!", type="message")
+            balance_task_state.set(
+                finish_task(
+                    balance_task_state.get(),
+                    success=True,
+                    message=f"Model '{model.eco_name or 'Ecopath'}' balanced successfully!",
+                )
+            )
 
         except Exception as e:
             logger.exception("Model balancing failed")
-            ui.notification_show(f"Error balancing model: {str(e)}", type="error")
+            err = f"Error balancing model: {str(e)}"
+            _notify_legacy(err, type="error")
+            balance_task_state.set(
+                finish_task(
+                    balance_task_state.get(),
+                    success=False,
+                    message="Model balancing failed",
+                    error=err,
+                )
+            )
+
+    @output
+    @render.ui
+    def balance_validation_summary():
+        """Show validation summary panel for current model parameters."""
+        issues = collect_ecopath_validation_issues(params.get())
+
+        if not issues:
+            return ui.div()
+
+        summary = summarize_ecopath_validation_issues(issues)
+        has_error = any(i.severity is ValidationSeverity.ERROR for i in issues)
+        has_warning = any(i.severity is ValidationSeverity.WARNING for i in issues)
+
+        if has_error:
+            alert_class = "alert alert-danger"
+            icon = "bi bi-exclamation-triangle me-2"
+        elif has_warning:
+            alert_class = "alert alert-warning"
+            icon = "bi bi-exclamation-circle me-2"
+        else:
+            alert_class = "alert alert-info"
+            icon = "bi bi-info-circle me-2"
+
+        details = [
+            ui.tags.li(f"[{issue.section}] {issue.message}")
+            for issue in issues
+            if issue.severity is not ValidationSeverity.INFO
+        ]
+
+        return ui.div(
+            ui.tags.i(class_=icon),
+            ui.tags.strong("Validation: "),
+            summary,
+            ui.tags.ul(*details) if details else ui.div(),
+            class_=alert_class,
+        )
 
     @output
     @render.ui
     def balance_status():
         """Show balance status."""
         model = balanced_model.get()
+        task_state = balance_task_state.get()
+
         if model is None:
+            alert_class, icon_class, message = ecopath_balance_task_alert(task_state)
+            if message:
+                return ui.div(
+                    ui.tags.i(class_=icon_class),
+                    message,
+                    class_=alert_class,
+                )
             return ui.div(
                 ui.tags.i(class_="bi bi-exclamation-circle me-2"),
                 "Model not yet balanced. Enter parameters and click 'Balance Model'.",

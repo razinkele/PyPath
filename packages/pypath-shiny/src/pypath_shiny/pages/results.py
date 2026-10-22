@@ -15,6 +15,24 @@ from .utils import get_model_info, is_balanced_model, is_rpath_params
 logger = logging.getLogger(__name__)
 
 
+def choose_default_results_groups(
+    groups: list[str],
+    previous_selected: tuple[str, ...] | list[str] | None,
+    max_default: int = 3,
+) -> list[str]:
+    """Keep valid prior selections, otherwise choose first groups."""
+    if not groups:
+        return []
+
+    previous = list(previous_selected or [])
+    kept = [g for g in previous if g in groups]
+    if kept:
+        return kept
+
+    limit = max(1, int(max_default))
+    return groups[:limit]
+
+
 def _apply_plot_style(plt, style):
     """Apply a named matplotlib style; unknown styles fall back to default.
 
@@ -518,12 +536,13 @@ def results_server(
         info = get_model_info(model)
 
         if info is not None:
-            n_bio = info["num_living"] + info["num_dead"]
-            groups = info["groups"][:n_bio]
+            n_living = info["num_living"]
+            groups = info["groups"][:n_living]
+            selected = choose_default_results_groups(groups, input.results_groups())
             ui.update_selectize(
                 "results_groups",
                 choices=groups,
-                selected=groups[:3] if len(groups) >= 3 else groups,
+                selected=selected,
             )
 
     @output
