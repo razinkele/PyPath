@@ -8,6 +8,8 @@ from pypath.core.ecopath import rpath
 from pypath.core.params import create_rpath_params
 from shiny import Inputs, Outputs, Session, reactive, ui
 
+from pypath_shiny.config import DEFAULTS
+
 # Import centralized configuration
 from pypath_shiny.services.notifications import (
     notify_error,
@@ -15,8 +17,6 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
-
-from pypath_shiny.config import DEFAULTS
 
 logger = logging.getLogger(__name__)
 
