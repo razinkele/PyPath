@@ -8,11 +8,45 @@
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/tests-1500%2B%20passing-brightgreen" alt="Tests Passing">
-  <img src="https://img.shields.io/badge/version-0.4.2-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.5.0-blue" alt="Version">
   <a href="https://anaconda.org/razinka/pypath-ewe"><img src="https://img.shields.io/badge/conda-razinka-orange" alt="Conda"></a>
 </p>
 
 **PyPath** is a Python implementation of the Ecopath with Ecosim (EwE) ecosystem modeling framework. It extends the R package [Rpath](https://github.com/NOAA-EDAB/Rpath) with significant new features — including the first complete lifecycle Individual-Based Model for European smelt — while maintaining full core compatibility.
+
+## Online Deployment
+
+- **PyPath Shiny app (live):** <https://laguna.ku.lt/pypath>
+
+## Package Architecture: pypath-core vs pypath-shiny
+
+PyPath is a monorepo with two distributable packages:
+
+| Layer | Package name | Import | Primary role |
+|---|---|---|---|
+| **pypath-core** | `pypath-ewe` | `import pypath` | Scientific engine (Ecopath/Ecosim/Ecospace/IBM, IO, calibration) |
+| **pypath UI** | `pypath-shiny` | `import pypath_shiny` | Interactive browser app for model setup, simulation, diagnostics, visualization, feedback |
+
+`pypath-shiny` depends on `pypath-ewe`; `pypath-ewe` does not depend on `pypath-shiny`.
+
+## Available Functionality
+
+### pypath-core (`pypath-ewe`)
+
+- Ecopath mass-balance model construction and solving
+- Ecosim time-dynamic simulation with forcing and scenario controls
+- Ecospace spatial simulation support
+- Native EwE database import/export workflows (`.eweaccdb`, `.ewecsv`)
+- Calibration, diagnostics, mediation, indicators, and uncertainty workflows
+- IBM (including smelt lifecycle implementation)
+
+### pypath-shiny (`pypath-shiny`)
+
+- Guided app workflow for data import -> Ecopath -> Ecosim -> Ecospace
+- Interactive parameter editing, validation, and diagnostics
+- Results plotting/tables/export for model and simulation outputs
+- Advanced pages (wizard, multistanza, forcing, optimization, IBM surfaces)
+- In-app **Feedback reporting + Feedback Dashboard**
 
 ## Installation
 
@@ -165,6 +199,15 @@ ibm.initialize_from_ecosim(biomass=1.0, params={})
 # Eggs develop, hatch, feed, grow, and recruit back into the food web
 ```
 
+## Ecopath, Ecosim, Ecospace, and Rpath — Functional Differences
+
+| Component | Purpose | In `pypath-ewe` | In `pypath-shiny` | In `Rpath` |
+|---|---|---|---|---|
+| **Ecopath** | Static mass-balance food-web model | Implemented in core solver APIs (`rpath`, params/model objects) | UI forms and tables for building/balancing models | Implemented |
+| **Ecosim** | Time-dynamic simulation over balanced models | Implemented in simulation APIs (`rsim_scenario`, `rsim_run`) | UI scenario controls, run orchestration, plots | Implemented |
+| **Ecospace** | Spatially explicit ecosystem dynamics | Implemented in spatial modules/integration | UI wizard + run/inspection pages | Not provided in baseline Rpath package |
+| **Rpath relation** | Reference R implementation for Ecopath/Ecosim | PyPath preserves Ecopath/Ecosim compatibility and extends beyond | Shiny layer exposes those extensions operationally | Reference implementation |
+
 ## Comparison with Rpath
 
 | Feature | Rpath | PyPath |
@@ -202,7 +245,7 @@ pytest packages/pypath-shiny/tests/ -q --ignore=packages/pypath-shiny/tests/ui
 
 ## Development Status
 
-### Current Version: 0.4.2
+### Current Version: 0.5.0
 
 All features production-ready. 1500+ tests passing, 0 failures.
 
@@ -255,3 +298,9 @@ MIT License - see [LICENSE](LICENSE).
   <strong>PyPath - Advanced Python Ecosystem Modeling</strong><br>
   Complete lifecycle IBM for European smelt | Ecopath with Ecosim in Python
 </p>
+
+## Changelog
+
+- Monorepo overview: [CHANGELOG.md](CHANGELOG.md)
+- Core package: [packages/pypath/CHANGELOG.md](packages/pypath/CHANGELOG.md)
+- Shiny package: [packages/pypath-shiny/CHANGELOG.md](packages/pypath-shiny/CHANGELOG.md)

@@ -147,4 +147,16 @@ jobs:
         with:
           tag_name: "pypath-ewe-v${{ needs.release-core.outputs.version }}"
           name: "PyPath v${{ needs.release-core.outputs.version }}"
+          body: |
+            ## Live deployment
+            - PyPath Shiny: https://laguna.ku.lt/pypath
+
+            ## Changelogs
+            - Monorepo: https://github.com/razinkele/PyPath/blob/main/CHANGELOG.md
+            - pypath-ewe: https://github.com/razinkele/PyPath/blob/main/packages/pypath/CHANGELOG.md
+            - pypath-shiny: https://github.com/razinkele/PyPath/blob/main/packages/pypath-shiny/CHANGELOG.md
+
+            ---
+            Auto-generated notes:
+          append_body: true
           generate_release_notes: true
