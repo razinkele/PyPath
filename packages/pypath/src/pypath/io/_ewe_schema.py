@@ -499,7 +499,7 @@ EWE_TABLES = {
             ("AppliedWeight", "DOUBLE"),
         ]
     ),
-    "EcosimScenarioshapeMedWeightsFleet": OrderedDict(
+    "EcosimScenarioShapeMedWeightsFleet": OrderedDict(
         [
             ("ScenarioID", "INTEGER"),
             ("ShapeID", "INTEGER"),
@@ -797,7 +797,7 @@ EWE_TABLES = {
             ("DBID", "INTEGER"),
         ]
     ),
-    "cProducerDefault": OrderedDict(
+    "cProducerUnitDefault": OrderedDict(
         [
             ("DBID", "INTEGER"),
             ("ObserverCost", "DOUBLE"),
@@ -806,29 +806,29 @@ EWE_TABLES = {
             ("EcopathFleetID", "INTEGER"),
         ]
     ),
-    "cProcessingDefault": OrderedDict(
+    "cProcessingUnitDefault": OrderedDict(
         [
             ("DBID", "INTEGER"),
             ("AgriculturalProducts", "TEXT"),
             ("AgriculturalInput", "TEXT"),
         ]
     ),
-    "cDistributionDefault": OrderedDict(
+    "cDistributionUnitDefault": OrderedDict(
         [
             ("DBID", "INTEGER"),
         ]
     ),
-    "cWholesalerDefault": OrderedDict(
+    "cWholesalerUnitDefault": OrderedDict(
         [
             ("DBID", "INTEGER"),
         ]
     ),
-    "cRetailerDefault": OrderedDict(
+    "cRetailerUnitDefault": OrderedDict(
         [
             ("DBID", "INTEGER"),
         ]
     ),
-    "cConsumerDefault": OrderedDict(
+    "cConsumerUnitDefault": OrderedDict(
         [
             ("DBID", "INTEGER"),
         ]

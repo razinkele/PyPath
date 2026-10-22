@@ -683,7 +683,7 @@ class CsvBundleWriter:
                     "AppliedWeight": link.weight,
                 }
             )
-        self._tables["EcosimScenarioshapeMedWeightsFleet"] = pd.DataFrame(fleet_rows)
+        self._tables["EcosimScenarioShapeMedWeightsFleet"] = pd.DataFrame(fleet_rows)
 
         # Write landings links
         landing_rows = []

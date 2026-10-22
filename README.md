@@ -135,7 +135,7 @@ ibm.initialize_from_ecosim(biomass=1.0, params={})
 
 ### EwE Feature Parity (audited 84-table scope)
 
-Baseline from automated parity audit (`packages/pypath/scripts/ewe_parity_audit.py`): **31 implemented**, **33 partial**, **20 missing** across the frozen 84-table target set.
+Baseline from automated parity audit (`packages/pypath/scripts/ewe_parity_audit.py`): **31 implemented**, **40 partial**, **13 missing** across the frozen 84-table target set.
 
 | Feature | Module | Status |
 |---------|--------|--------|

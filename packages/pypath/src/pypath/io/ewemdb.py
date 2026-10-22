@@ -151,12 +151,12 @@ _VALUE_CHAIN_TABLES = {
     "wholesalers": "cWholesalerUnit",
     "retailers": "cRetailerUnit",
     "consumers": "cConsumerUnit",
-    "producer_defaults": "cProducerDefault",
-    "processing_defaults": "cProcessingDefault",
-    "distribution_defaults": "cDistributionDefault",
-    "wholesaler_defaults": "cWholesalerDefault",
-    "retailer_defaults": "cRetailerDefault",
-    "consumer_defaults": "cConsumerDefault",
+    "producer_defaults": "cProducerUnitDefault",
+    "processing_defaults": "cProcessingUnitDefault",
+    "distribution_defaults": "cDistributionUnitDefault",
+    "wholesaler_defaults": "cWholesalerUnitDefault",
+    "retailer_defaults": "cRetailerUnitDefault",
+    "consumer_defaults": "cConsumerUnitDefault",
     "links": "cLink",
     "link_defaults": "cLinkDefault",
     "link_landings": "cLinkLandings",
@@ -164,6 +164,15 @@ _VALUE_CHAIN_TABLES = {
     "flow_positions": "cFlowPosition",
 }
 
+
+_VALUE_CHAIN_TABLE_ALIASES = {
+    "cProducerUnitDefault": "cProducerDefault",
+    "cProcessingUnitDefault": "cProcessingDefault",
+    "cDistributionUnitDefault": "cDistributionDefault",
+    "cWholesalerUnitDefault": "cWholesalerDefault",
+    "cRetailerUnitDefault": "cRetailerDefault",
+    "cConsumerUnitDefault": "cConsumerDefault",
+}
 
 # Try to import database drivers
 HAS_PYODBC = False
@@ -3506,9 +3515,15 @@ def read_mediation(db_path: str) -> "MediationCollection":
             )
 
     # Read fleet mediation links
-    if "EcosimScenarioshapeMedWeightsFleet" in tables:
+    fleet_table_name = None
+    if "EcosimScenarioShapeMedWeightsFleet" in tables:
+        fleet_table_name = "EcosimScenarioShapeMedWeightsFleet"
+    elif "EcosimScenarioshapeMedWeightsFleet" in tables:
+        fleet_table_name = "EcosimScenarioshapeMedWeightsFleet"
+
+    if fleet_table_name is not None:
         try:
-            fleet_df = read_ewemdb_table(db_path, "EcosimScenarioshapeMedWeightsFleet")
+            fleet_df = read_ewemdb_table(db_path, fleet_table_name)
         except Exception:
             fleet_df = pd.DataFrame()
 
@@ -4444,10 +4459,21 @@ def read_value_chain(db_path: str) -> ValueChainData | None:
 
     fields: dict[str, pd.DataFrame | None] = {}
     for attr_name, table_name in _VALUE_CHAIN_TABLES.items():
-        try:
-            df = read_ewemdb_table(db_path, table_name)
-            fields[attr_name] = df if df is not None and len(df) > 0 else None
-        except (EwEDatabaseError, Exception):
-            fields[attr_name] = None
+        candidates = [table_name]
+        legacy_name = _VALUE_CHAIN_TABLE_ALIASES.get(table_name)
+        if legacy_name is not None:
+            candidates.append(legacy_name)
+
+        value_df: pd.DataFrame | None = None
+        for candidate in candidates:
+            try:
+                df = read_ewemdb_table(db_path, candidate)
+                if df is not None and len(df) > 0:
+                    value_df = df
+                break
+            except (EwEDatabaseError, Exception):
+                continue
+
+        fields[attr_name] = value_df
 
     return ValueChainData(**fields)

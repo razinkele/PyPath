@@ -51,7 +51,7 @@ class TestReadMediation:
         table_map = {
             "EcosimShapeMediation": shape_df,
             "EcosimScenarioshapeMedWeightsGroup": group_df,
-            "EcosimScenarioshapeMedWeightsFleet": fleet_df,
+            "EcosimScenarioShapeMedWeightsFleet": fleet_df,
             "EcosimScenarioshapeMedWeightsLandings": landing_df,
         }
 
@@ -116,7 +116,7 @@ class TestReadMediation:
         table_map = {
             "EcosimShapeMediation": shape_df,
             "EcosimScenarioshapeMedWeightsGroup": group_df,
-            "EcosimScenarioshapeMedWeightsFleet": fleet_df,
+            "EcosimScenarioShapeMedWeightsFleet": fleet_df,
             "EcosimScenarioshapeMedWeightsLandings": landing_df,
         }
 
@@ -202,7 +202,7 @@ class TestReadMediation:
         table_map = {
             "EcosimShapeMediation": shape_df,
             "EcosimScenarioshapeMedWeightsGroup": group_df,
-            "EcosimScenarioshapeMedWeightsFleet": fleet_df,
+            "EcosimScenarioShapeMedWeightsFleet": fleet_df,
             "EcosimScenarioshapeMedWeightsLandings": landing_df,
         }
 
@@ -263,7 +263,7 @@ class TestReadMediation:
         table_map = {
             "EcosimShapeMediation": shape_df,
             "EcosimScenarioshapeMedWeightsGroup": group_df,
-            "EcosimScenarioshapeMedWeightsFleet": fleet_df,
+            "EcosimScenarioShapeMedWeightsFleet": fleet_df,
             "EcosimScenarioshapeMedWeightsLandings": landing_df,
         }
 
@@ -324,7 +324,7 @@ class TestReadMediation:
         table_map = {
             "EcosimShapeMediation": shape_df,
             "EcosimScenarioshapeMedWeightsGroup": group_df,
-            "EcosimScenarioshapeMedWeightsFleet": fleet_df,
+            "EcosimScenarioShapeMedWeightsFleet": fleet_df,
             "EcosimScenarioshapeMedWeightsLandings": landing_df,
         }
 
@@ -375,7 +375,7 @@ class TestMediationSchema:
     def test_fleet_weights_table(self):
         from pypath.io._ewe_schema import EWE_TABLES
 
-        tbl = EWE_TABLES["EcosimScenarioshapeMedWeightsFleet"]
+        tbl = EWE_TABLES["EcosimScenarioShapeMedWeightsFleet"]
         assert "FleetID" in tbl
 
     def test_landings_weights_table(self):
@@ -390,7 +390,7 @@ class TestMediationSchema:
         expected = [
             "EcosimShapeMediation",
             "EcosimScenarioshapeMedWeightsGroup",
-            "EcosimScenarioshapeMedWeightsFleet",
+            "EcosimScenarioShapeMedWeightsFleet",
             "EcosimScenarioshapeMedWeightsLandings",
         ]
         for tbl_name in expected:
