@@ -8,6 +8,8 @@ from pypath_shiny.pages.import_validation import (
     validate_diet_csv_structure,
     validate_csv_file_pair,
     get_import_error_suggestion,
+    validate_model_export_structure,
+    validate_diet_export_structure,
 )
 
 
@@ -323,3 +325,137 @@ class TestGetImportErrorSuggestion:
         msg = "Some completely unknown error message"
         suggestion = get_import_error_suggestion(msg)
         assert suggestion == ""
+
+
+
+class TestValidateModelExportStructure:
+    """Test export validation for model.csv files."""
+
+    def test_valid_export_model(self):
+        """Test valid model CSV for export."""
+        df = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Type": [0, 1],
+            "Biomass": [10.0, 5.0],
+            "PB": [0.8, 50.0],
+        })
+        is_valid, errors = validate_model_export_structure(df)
+        assert is_valid
+        assert len(errors) == 0
+
+    def test_export_model_empty(self):
+        """Test empty model DataFrame for export."""
+        df = pd.DataFrame()
+        is_valid, errors = validate_model_export_structure(df)
+        assert not is_valid
+        assert any("empty" in e.lower() for e in errors)
+
+    def test_export_model_missing_required_columns(self):
+        """Test model missing required columns for export."""
+        df = pd.DataFrame({
+            "Group": ["Fish"],
+            "Type": [0],
+            # Missing Biomass and PB
+        })
+        is_valid, errors = validate_model_export_structure(df)
+        assert not is_valid
+        assert any("required" in e.lower() for e in errors)
+
+    def test_export_model_null_values_in_required(self):
+        """Test model with null values in required columns."""
+        df = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Type": [0, 1],
+            "Biomass": [10.0, None],  # None value
+            "PB": [0.8, 50.0],
+        })
+        is_valid, errors = validate_model_export_structure(df)
+        assert not is_valid
+        assert any("missing" in e.lower() for e in errors)
+
+    def test_export_model_non_numeric_type(self):
+        """Test model with non-numeric Type values."""
+        df = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Type": ["zero", 1],  # Non-numeric
+            "Biomass": [10.0, 5.0],
+            "PB": [0.8, 50.0],
+        })
+        is_valid, errors = validate_model_export_structure(df)
+        assert not is_valid
+        assert any("non-numeric" in e.lower() for e in errors)
+
+    def test_export_model_non_numeric_biomass(self):
+        """Test model with non-numeric Biomass values."""
+        df = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Type": [0, 1],
+            "Biomass": ["ten", 5.0],  # Non-numeric
+            "PB": [0.8, 50.0],
+        })
+        is_valid, errors = validate_model_export_structure(df)
+        assert not is_valid
+        assert any("non-numeric" in e.lower() for e in errors)
+
+
+class TestValidateDietExportStructure:
+    """Test export validation for diet.csv files."""
+
+    def test_valid_export_diet(self):
+        """Test valid diet CSV for export."""
+        df = pd.DataFrame({
+            "Group": ["Phytoplankton", "Zooplankton"],
+            "Fish": [0.3, 0.7],
+            "Shark": [0.0, 1.0],
+        })
+        is_valid, errors = validate_diet_export_structure(df)
+        assert is_valid
+        assert len(errors) == 0
+
+    def test_export_diet_empty(self):
+        """Test empty diet DataFrame for export."""
+        df = pd.DataFrame()
+        is_valid, errors = validate_diet_export_structure(df)
+        assert not is_valid
+        assert any("empty" in e.lower() for e in errors)
+
+    def test_export_diet_missing_group_column(self):
+        """Test diet missing Group column for export."""
+        df = pd.DataFrame({
+            "Fish": [0.3],
+            "Shark": [0.0],
+        })
+        is_valid, errors = validate_diet_export_structure(df)
+        assert not is_valid
+        assert any("group" in e.lower() for e in errors)
+
+    def test_export_diet_no_predators(self):
+        """Test diet with only Group column (no predators)."""
+        df = pd.DataFrame({
+            "Group": ["Phytoplankton"],
+        })
+        is_valid, errors = validate_diet_export_structure(df)
+        assert not is_valid
+        assert any("predator" in e.lower() for e in errors)
+
+    def test_export_diet_with_nulls(self):
+        """Test diet with some null values (valid for export)."""
+        df = pd.DataFrame({
+            "Group": ["Phytoplankton", "Zooplankton"],
+            "Fish": [0.3, None],  # Sparse diet matrix is OK
+            "Shark": [None, 1.0],
+        })
+        is_valid, errors = validate_diet_export_structure(df)
+        assert is_valid
+        assert len(errors) == 0
+
+    def test_export_diet_non_numeric_values(self):
+        """Test diet with non-numeric diet fractions."""
+        df = pd.DataFrame({
+            "Group": ["Phytoplankton", "Zooplankton"],
+            "Fish": ["high", 0.7],  # Non-numeric
+            "Shark": [0.0, 1.0],
+        })
+        is_valid, errors = validate_diet_export_structure(df)
+        assert not is_valid
+        assert any("non-numeric" in e.lower() for e in errors)

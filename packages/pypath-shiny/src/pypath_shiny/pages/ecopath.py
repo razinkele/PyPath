@@ -43,6 +43,10 @@ from .utils import (
     is_balanced_model,
     is_rpath_params,
 )
+from .import_validation import (
+    validate_csv_file_pair,
+    get_import_error_suggestion,
+)
 from .validation import (
     validate_biomass,
     validate_ee,
@@ -1181,6 +1185,28 @@ def ecopath_server(
                 type="warning",
                 duration=8,
             )
+            return
+
+        # Pre-import validation
+        try:
+            model_df = pd.read_csv(model_file)
+            diet_df = pd.read_csv(diet_file)
+        except Exception as e:
+            logger.debug("Could not read CSV files: %s", e)
+            _notify_legacy(
+                f"Could not read uploaded files: {e!s}", type="error", duration=6
+            )
+            return
+
+        # Validate CSV structure and consistency
+        is_valid, validation_errors = validate_csv_file_pair(model_df, diet_df)
+        if not is_valid:
+            for error_msg in validation_errors:
+                suggestion = get_import_error_suggestion(error_msg)
+                full_msg = error_msg
+                if suggestion:
+                    full_msg = f"{error_msg}\n\n{suggestion}"
+                _notify_legacy(full_msg, type="error", duration=8)
             return
 
         try:
