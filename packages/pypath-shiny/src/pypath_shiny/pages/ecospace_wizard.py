@@ -579,6 +579,34 @@ def ecospace_wizard_server(
         return ui.p(status, class_="text-info mt-2")
 
     @render.ui
+    def btn_cancel_download_ui():
+        """Render cancel button only when download is running."""
+        task_state = download_task_state.get()
+        if task_state.status == TaskStatus.RUNNING and task_state.can_cancel:
+            return ui.input_action_button(
+                "wizard_cancel_download",
+                "Cancel Download",
+                class_="btn-sm btn-warning ms-2",
+            )
+        return None
+
+    @reactive.effect
+    @reactive.event(input.wizard_cancel_download)
+    def _cancel_download():
+        """Cancel the download operation."""
+        task_state = download_task_state.get()
+        if task_state.status == TaskStatus.RUNNING:
+            download_task_state.set(
+                finish_task(
+                    task_state,
+                    success=False,
+                    message="Download cancelled",
+                    error="User cancelled download",
+                )
+            )
+            notify_warning("Download cancelled")
+
+    @render.ui
     def wizard_habitat_map():
         """Display habitat type summary."""
         hab = habitat_types_arr.get()
@@ -1064,8 +1092,11 @@ def _step3_download_data_ui():
     return ui.card(
         ui.card_header("Step 3: Download Data"),
         ui.p("Download EMODnet seabed habitats and bathymetry for your study area."),
-        ui.input_action_button(
-            "wizard_download", "Download Data", class_="btn-primary"
+        ui.div(
+            ui.input_action_button(
+                "wizard_download", "Download Data", class_="btn-primary"
+            ),
+            ui.output_ui("btn_cancel_download_ui"),
         ),
         ui.output_ui("wizard_download_status"),
         ui.hr(),
