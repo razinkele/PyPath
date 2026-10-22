@@ -26,6 +26,7 @@ for _m in [
     "ibm",
     "validation",
     "ecospace_wizard",
+    "feedback",
     "tutorial",
 ]:
     try:
@@ -54,6 +55,7 @@ __all__ = [
     "ibm",
     "validation",
     "ecospace_wizard",
+    "feedback",
     "tutorial",
     "utils",
 ]

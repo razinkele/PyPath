@@ -54,6 +54,7 @@ from pypath_shiny.pages import (  # noqa: E402
     ecosim,
     ecospace,
     ecospace_wizard,
+    feedback,
     forcing_demo,
     home,
     ibm,
@@ -86,6 +87,11 @@ app_ui = ui.page_fluid(
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
         ),
         ui.tags.link(rel="stylesheet", href="custom.css"),
+        ui.tags.script(
+            "window.addEventListener('load', function(){"
+            "if(window.Shiny){Shiny.setInputValue('fb_browser_info', navigator.userAgent, {priority: 'event'});}"
+            "});"
+        ),
         ui.tags.style(f"""
             /* Make Group column wider in DataGrids */
             .shiny-data-grid td:first-child,
@@ -192,6 +198,11 @@ app_ui = ui.page_fluid(
         ui.nav_panel(
             _icon_label("bi-info-circle", "About"), about.about_ui(), value="About"
         ),
+        ui.nav_panel(
+            _icon_label("bi-chat-dots", "Feedback"),
+            feedback.feedback_ui(),
+            value="Feedback",
+        ),
         ui.nav_control(
             ui.tags.a(
                 ui.TagList(
@@ -205,6 +216,14 @@ app_ui = ui.page_fluid(
                 target="_blank",
                 class_="btn btn-link text-start w-100 p-2",
                 style="text-decoration: none;",
+            ),
+        ),
+        ui.nav_control(
+            ui.input_action_button(
+                "btn_feedback",
+                _icon_label("bi-chat-left-dots-fill", "Send Feedback"),
+                class_="btn btn-link text-start w-100 p-2",
+                onclick="Shiny.setInputValue('feedback_open', Math.random()); return false;",
             ),
         ),
         ui.nav_control(
@@ -414,6 +433,12 @@ def server(input: Inputs, output: Outputs, session: Session):
             ),
         ),
         ("About", lambda: about.about_server(input, output, session)),
+        (
+            "Feedback",
+            lambda: feedback.feedback_server(
+                input, output, session, current_page=lambda: input.main_nav()
+            ),
+        ),
         ("Tutorial", lambda: tutorial.tutorial_server(input, output, session)),
     ]
 

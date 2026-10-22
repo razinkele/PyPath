@@ -12,6 +12,8 @@ Ecopath with Ecosim (EwE) ecosystem models using the [pypath-ewe](https://pypi.o
 - Diet matrix visualization
 - Fishing scenario management
 - Species data lookup via WoRMS/OBIS/FishBase
+- Built-in feedback reporting modal (available from anywhere in the app)
+- Feedback Dashboard with trends, filtering, and in-app resolution workflow
 
 ## Installation
 
