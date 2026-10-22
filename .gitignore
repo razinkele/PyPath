@@ -102,6 +102,7 @@ Thumbs.db
 !tests/data/**/*.csv
 !packages/pypath/tests/data/**/*.csv
 !packages/pypath/example_model_data/*.csv
+!docs/parity/*.csv
 
 # Debug and temporary files
 debug_*.py

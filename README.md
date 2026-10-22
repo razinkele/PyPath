@@ -133,7 +133,9 @@ ibm.initialize_from_ecosim(biomass=1.0, params={})
 - **Ecological Indicators**: Ascendency, cycling index, system maturity
 - **Autofix**: Automatic crash diagnostics and parameter repair
 
-### EwE Feature Parity (86% table coverage)
+### EwE Feature Parity (audited 84-table scope)
+
+Baseline from automated parity audit (`packages/pypath/scripts/ewe_parity_audit.py`): **31 implemented**, **33 partial**, **20 missing** across the frozen 84-table target set.
 
 | Feature | Module | Status |
 |---------|--------|--------|
@@ -224,7 +226,7 @@ ibm.initialize_from_ecosim(biomass=1.0, params={})
 | Ecotracer | No | Yes |
 | Fleet dynamics / MSE | No | Yes |
 | Ecological indicators | No | Yes |
-| EwE database export | No | 86% coverage |
+| EwE database export | No | Audited matrix + CI gate (`docs/parity/ewe_parity_matrix.csv`) |
 | Comprehensive tests | Limited | 1500+ tests |
 
 ## Testing
@@ -254,7 +256,7 @@ All features production-ready. 1500+ tests passing, 0 failures.
 - [x] Ecospace spatial modeling (Dec 2025)
 - [x] Individual-Based Model (Feb 2026)
 - [x] EMODnet data integration (Mar 2026)
-- [x] EwE database 86% table coverage (Mar 2026)
+- [x] EwE parity audit matrix + CI/release gate (Oct 2026)
 - [x] Time series calibration, mediation, Monte Carlo, Ecotracer, fleet dynamics, indicators (Mar 2026)
 - [x] **Smelt IBM early life stages — complete lifecycle model (Mar 2026)**
 

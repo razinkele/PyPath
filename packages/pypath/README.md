@@ -14,7 +14,7 @@ Python implementation of Ecopath with Ecosim (EwE) for food web modeling.
 - **Fleet Dynamics** -- profit-driven effort allocation and quota management
 - **Ecological Indicators** -- ascendency, cycling index, transfer efficiency, system maturity
 - **Stanza groups** -- multi-stanza (age-structured) population modeling
-- **EwE I/O** -- read/write 72 of 84 EwE database tables (86% coverage)
+- **EwE I/O** -- parity-audited against a frozen 84-table target set (see `docs/parity/ewe_parity_matrix.csv`)
 - **EcoBase** -- import models from online databases
 - **Species Data** -- WoRMS, OBIS, FishBase integration
 

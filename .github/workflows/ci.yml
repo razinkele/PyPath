@@ -5,6 +5,30 @@ on:
   pull_request:
 
 jobs:
+  parity-audit:
+    name: EwE parity audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install pypath package
+        run: pip install -e packages/pypath
+
+      - name: Run parity audit
+        run: python packages/pypath/scripts/ewe_parity_audit.py
+
+      - name: Upload parity report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ewe-parity-report
+          path: docs/parity/ewe_parity_report.json
+
   build:
     name: Lint / Typecheck / Test (${{ matrix.os }} / ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}

@@ -34,6 +34,12 @@ jobs:
       - name: Install tools
         run: pip install python-semantic-release build
 
+      - name: Install pypath package
+        run: pip install -e .
+
+      - name: Run EwE parity audit gate
+        run: python scripts/ewe_parity_audit.py
+
       - name: Semantic Release (pypath-ewe)
         id: release
         env:
