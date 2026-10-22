@@ -159,8 +159,8 @@ jobs:
 
           # Install both packages (order matters: pypath-ewe first)
           echo "Installing packages..."
-          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install --ignore-installed -e '${TARGET}/packages/pypath'"
-          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install --ignore-installed -e '${TARGET}/packages/pypath-shiny'"
+          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath'"
+          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath-shiny'"
           # Log deployed version
           ssh "$REMOTE" "'${TARGET}/venv/bin/python' -c 'import pypath; print(f\"Deployed pypath-ewe v{pypath.__version__}\")'"
           ssh "$REMOTE" "'${TARGET}/venv/bin/python' -c 'import pypath_shiny; print(f\"Deployed pypath-shiny v{pypath_shiny.__version__}\")'"
