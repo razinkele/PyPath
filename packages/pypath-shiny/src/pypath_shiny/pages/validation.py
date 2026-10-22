@@ -307,3 +307,34 @@ def validate_model_parameters(
                     errors.append(error)
 
     return len(errors) == 0, errors
+
+
+def get_quick_fix_for_issue(issue_message: str) -> str:
+    """Generate a quick-fix suggestion based on validation error message.
+    
+    Parameters
+    ----------
+    issue_message : str
+        The validation error message
+        
+    Returns
+    -------
+    str
+        A quick-fix suggestion or empty string if no match
+    """
+    msg_lower = issue_message.lower()
+    
+    if "negative" in msg_lower and "biomass" in msg_lower:
+        return "Quick fix: Set negative biomass to a small positive value or 999999 to estimate"
+    elif "extremely high" in msg_lower and "biomass" in msg_lower:
+        return "Quick fix: Check units—biomass should be in t/km², not kg or tons"
+    elif "p/b" in msg_lower and ("negative" in msg_lower or "high" in msg_lower):
+        return "Quick fix: Verify P/B time units. If per day, multiply by 365 to convert to per year"
+    elif "ee" in msg_lower and "exceeds 1" in msg_lower:
+        return "Quick fix: Reduce predation, increase production (P/B), or increase biomass"
+    elif "invalid group types" in msg_lower:
+        return "Quick fix: Ensure Type column values are 0 (consumer), 1 (producer), 2 (detritus), or 3 (fleet)"
+    elif "diet" in msg_lower:
+        return "Quick fix: Diet fractions should sum to 1.0 for each predator. Check spreadsheet totals"
+    
+    return ""
