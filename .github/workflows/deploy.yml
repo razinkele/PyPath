@@ -148,11 +148,19 @@ jobs:
 
           __all__ = ["app"]
           APPENTRY
+          # Keep packaging tools current and clean stale editable artifacts from prior deploys.
+          # This avoids pip uninstall failures when old __editable__ links no longer exist.
+          ssh "$REMOTE" "set -e; \
+            '${TARGET}/venv/bin/pip' install --upgrade pip setuptools wheel; \
+            SITE=\$('${TARGET}/venv/bin/python' -c \"import site; print(site.getsitepackages()[0])\"); \
+            rm -f "\$SITE"/__editable__.pypath_ewe-*.pth "\$SITE"/__editable___pypath_ewe_*finder.py; \
+            rm -f "\$SITE"/__editable__.pypath_shiny-*.pth "\$SITE"/__editable___pypath_shiny_*finder.py; \
+            rm -rf "\$SITE"/pypath_ewe-*.dist-info "\$SITE"/pypath_shiny-*.dist-info"
 
           # Install both packages (order matters: pypath-ewe first)
           echo "Installing packages..."
-          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath'"
-          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath-shiny'"
+          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install --ignore-installed -e '${TARGET}/packages/pypath'"
+          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install --ignore-installed -e '${TARGET}/packages/pypath-shiny'"
           # Log deployed version
           ssh "$REMOTE" "'${TARGET}/venv/bin/python' -c 'import pypath; print(f\"Deployed pypath-ewe v{pypath.__version__}\")'"
           ssh "$REMOTE" "'${TARGET}/venv/bin/python' -c 'import pypath_shiny; print(f\"Deployed pypath-shiny v{pypath_shiny.__version__}\")'"
