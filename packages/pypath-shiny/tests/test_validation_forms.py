@@ -14,6 +14,8 @@ from pypath_shiny.pages.validation import (
     validate_pb,
     validate_ee,
     validate_model_parameters,
+    validate_diet_matrix,
+    validate_cross_field_relationships,
 )
 from pypath_shiny.services.validation import ValidationSeverity
 
@@ -269,3 +271,96 @@ class TestValidationUserExperience:
                 word in error.lower()
                 for word in ["invalid", "negative", "extremely high", "high"]
             )
+
+
+class TestCrossFieldValidationDetailed:
+    """Test cross-field validation functions."""
+
+    def test_diet_matrix_valid(self):
+        """Valid diet matrix should pass."""
+        diet = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Fish": [0.0, 1.0],  # Sum = 1.0
+            "Plankton": [1.0, 0.0],  # Sum = 1.0
+        })
+        is_valid, errors = validate_diet_matrix(diet)
+        assert is_valid
+        assert len(errors) == 0
+
+    def test_diet_matrix_predator_sum_low(self):
+        """Diet sum < 0.95 should fail."""
+        diet = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Fish": [0.0, 0.3],  # Sums to 0.3, too low
+            "Plankton": [1.0, 0.5],
+        })
+        is_valid, errors = validate_diet_matrix(diet)
+        assert not is_valid
+        assert len(errors) > 0
+        assert "does not sum to 1.0" in errors[0].lower() or "empty" in errors[0].lower()
+
+    def test_diet_matrix_predator_sum_high(self):
+        """Diet sum > 1.05 should fail."""
+        diet = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Fish": [0.0, 0.7],
+            "Plankton": [1.0, 0.4],  # Sums to 1.4, too high
+        })
+        is_valid, errors = validate_diet_matrix(diet)
+        assert not is_valid
+        assert len(errors) > 0
+
+    def test_diet_matrix_nearly_empty(self):
+        """Diet nearly empty should give specific error."""
+        diet = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Fish": [0.0, 0.0],  # Empty
+            "Plankton": [1.0, 0.5],
+        })
+        is_valid, errors = validate_diet_matrix(diet)
+        assert not is_valid
+        assert any("empty" in e.lower() for e in errors)
+
+    def test_cross_field_no_issues(self):
+        """Model with good parameter combinations should pass."""
+        df = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Type": [0, 1],
+            "Biomass": [10.0, 100.0],
+            "PB": [1.0, 50.0],
+            "EE": [0.8, 0.6],
+        })
+        is_valid, errors = validate_cross_field_relationships(df)
+        assert is_valid
+        assert len(errors) == 0
+
+    def test_cross_field_unrealistic_combination(self):
+        """Low biomass with very high P/B should flag warning."""
+        df = pd.DataFrame({
+            "Group": ["Fish"],
+            "Type": [0],
+            "Biomass": [0.05],  # Very low
+            "PB": [200.0],  # Very high
+            "EE": [0.8],
+        })
+        is_valid, errors = validate_cross_field_relationships(df)
+        assert not is_valid
+        assert any("biomass" in e.lower() or "combination" in e.lower() for e in errors)
+
+    def test_cross_field_with_diet(self):
+        """Cross-field validation should check diet too."""
+        model = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Type": [0, 1],
+            "Biomass": [10.0, 100.0],
+            "PB": [1.0, 50.0],
+            "EE": [0.8, 0.6],
+        })
+        diet = pd.DataFrame({
+            "Group": ["Fish", "Plankton"],
+            "Fish": [0.0, 0.3],  # Invalid - should sum to 1.0
+            "Plankton": [1.0, 0.5],
+        })
+        is_valid, errors = validate_cross_field_relationships(model, diet)
+        assert not is_valid
+        assert len(errors) > 0

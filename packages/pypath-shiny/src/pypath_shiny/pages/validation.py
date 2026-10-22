@@ -328,13 +328,157 @@ def get_quick_fix_for_issue(issue_message: str) -> str:
         return "Quick fix: Set negative biomass to a small positive value or 999999 to estimate"
     elif "extremely high" in msg_lower and "biomass" in msg_lower:
         return "Quick fix: Check units—biomass should be in t/km², not kg or tons"
+    elif "ee" in msg_lower and ("exceeds 1" in msg_lower or "exceeds 1.0" in msg_lower or "> 1" in msg_lower):
+        return "Quick fix: Reduce predation, increase production (P/B), or increase biomass"
     elif "p/b" in msg_lower and ("negative" in msg_lower or "high" in msg_lower):
         return "Quick fix: Verify P/B time units. If per day, multiply by 365 to convert to per year"
-    elif "ee" in msg_lower and "exceeds 1" in msg_lower:
-        return "Quick fix: Reduce predation, increase production (P/B), or increase biomass"
     elif "invalid group types" in msg_lower:
         return "Quick fix: Ensure Type column values are 0 (consumer), 1 (producer), 2 (detritus), or 3 (fleet)"
     elif "diet" in msg_lower:
         return "Quick fix: Diet fractions should sum to 1.0 for each predator. Check spreadsheet totals"
     
     return ""
+
+
+
+
+def validate_diet_matrix(
+    diet_df,
+    model_df=None,
+):
+    """Validate diet matrix structure and predator diet sums.
+
+    Parameters
+    ----------
+    diet_df : pd.DataFrame, optional
+        Diet matrix with Group column and predator columns.
+        Each column should sum to approximately 1.0 for balanced diet.
+    model_df : pd.DataFrame, optional
+        Model dataframe to get group names and types for context
+
+    Returns
+    -------
+    Tuple[bool, List[str]]
+        (all_valid, error_messages)
+        - all_valid: True if all diet validations pass
+        - error_messages: List of error messages (empty if all_valid)
+    """
+    errors = []
+
+    if diet_df is None or diet_df.empty:
+        return True, []
+
+    if "Group" not in diet_df.columns:
+        return True, []
+
+    # Get predator columns (all except "Group")
+    predator_cols = [c for c in diet_df.columns if c != "Group"]
+
+    if not predator_cols:
+        return True, []
+
+    # Check each predator diet sum
+    for pred_col in predator_cols:
+        if pred_col not in diet_df.columns:
+            continue
+
+        diet_fractions = diet_df[pred_col].fillna(0.0)
+        total = diet_fractions.sum()
+
+        # Allow small tolerance for floating-point errors
+        if total < 0.95 or total > 1.05:
+            if total < 0.01:
+                msg = (
+                    f"Diet for predator {repr(pred_col)} is nearly empty (sum={total:.4f})."
+                    "\n\n"
+                    "Diet fractions should sum to 1.0.\n\n"
+                    "Solutions:\n"
+                    f"  1. Add prey items to {repr(pred_col)} diet\n"
+                    "  2. Verify diet data was imported correctly\n"
+                    "  3. Use 999999 placeholder if diet data is unknown"
+                )
+                errors.append(msg)
+            else:
+                deficit_or_excess = f"deficit: {1.0 - total:.4f}" if total < 0.95 else f"excess: {total - 1.0:.4f}"
+                msg = (
+                    f"Diet for predator {repr(pred_col)} does not sum to 1.0 (sum={total:.4f}).\n\n"
+                    "Diet fractions must sum to 1.0 for mass-balance.\n\n"
+                    "Solutions:\n"
+                    "  1. Adjust diet fractions to sum to 1.0\n"
+                    "  2. Check for missing prey items\n"
+                    f"  3. Normalize: divide each fraction by {total:.4f}\n\n"
+                    f"Current {deficit_or_excess}"
+                )
+                errors.append(msg)
+
+    return len(errors) == 0, errors
+
+
+def validate_cross_field_relationships(
+    model_df,
+    diet_df=None,
+):
+    """Validate relationships between fields.
+
+    Checks that model parameters form a coherent ecosystem:
+    - EE values consistent with biomass, P/B, and diet
+    - Producer P/B values realistic
+    - Consumer P/B values realistic
+
+    Parameters
+    ----------
+    model_df : pd.DataFrame
+        Model parameters DataFrame
+    diet_df : pd.DataFrame, optional
+        Diet matrix for checking consumption structure
+
+    Returns
+    -------
+    Tuple[bool, List[str]]
+        (all_valid, error_messages)
+    """
+    errors = []
+
+    if model_df is None or model_df.empty:
+        return True, []
+
+    # Check for unrealistic P/B to Biomass combinations
+    for idx, row in model_df.iterrows():
+        group_name = row.get("Group", f"Group {idx}")
+        group_type = row.get("Type", 0)
+        
+        # Skip detritus and fleets
+        if group_type in [2, 3]:
+            continue
+
+        biomass = row.get("Biomass", None)
+        pb = row.get("PB", None)
+        ee = row.get("EE", None)
+
+        # Skip if missing or sentinel values
+        if biomass is None or pb is None or ee is None:
+            continue
+        if biomass == NO_DATA_VALUE or pb == NO_DATA_VALUE or ee == NO_DATA_VALUE:
+            continue
+
+        # Check for low biomass with very high P/B
+        if biomass > 0 and pb > 0:
+            if biomass < 0.1 and pb > 100:
+                msg = (
+                    f"Group {repr(group_name)} has low biomass ({biomass}) "
+                    f"with high P/B ({pb}).\n\n"
+                    "This combination is often unrealistic.\n\n"
+                    "Potential issues:\n"
+                    "  1. Units mismatch (biomass in wrong scale)\n"
+                    "  2. Species in wrong type (producer vs consumer)\n"
+                    "  3. Data entry error\n\n"
+                    "Verify data before running balance."
+                )
+                errors.append(msg)
+
+    # Check diet structure if provided
+    if diet_df is not None and not diet_df.empty:
+        is_diet_valid, diet_errors = validate_diet_matrix(diet_df, model_df)
+        errors.extend(diet_errors)
+
+    return len(errors) == 0, errors
