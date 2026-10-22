@@ -112,6 +112,16 @@ EWE_TABLES = {
             ("DiscardFate", "DOUBLE"),
         ]
     ),
+    "EcopathPSD": OrderedDict(
+        [
+            ("ModelID", "INTEGER"),
+            ("MortalityType", "INTEGER"),
+            ("FirstWeightClass", "DOUBLE"),
+            ("NumWeightClasses", "INTEGER"),
+            ("NumAgeSteps", "INTEGER"),
+            ("ClimateType", "INTEGER"),
+        ]
+    ),
     # -----------------------------------------------------------------------
     # Stanza tables
     # -----------------------------------------------------------------------
@@ -261,6 +271,104 @@ EWE_TABLES = {
             ("ScenarioID", "INTEGER"),
             ("Season", "INTEGER"),
             ("Value", "DOUBLE"),
+        ]
+    ),
+    "EcosimModel": OrderedDict(
+        [
+            ("ModelID", "INTEGER"),
+            ("ForcePoints", "INTEGER"),
+        ]
+    ),
+    "EcosimScenarioArena": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("PreyID", "INTEGER"),
+            ("PredID", "INTEGER"),
+            ("PredSharedID", "INTEGER"),
+            ("PeatArena", "DOUBLE"),
+            ("Sequence", "INTEGER"),
+        ]
+    ),
+    "EcosimScenarioFleetYear": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("TimeYear", "DOUBLE"),
+            ("CV", "DOUBLE"),
+        ]
+    ),
+    "EcosimScenarioGroupYear": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("TimeYear", "DOUBLE"),
+            ("CVBiom", "DOUBLE"),
+        ]
+    ),
+    "EcosimScenarioLandingsShape": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("ShapeID", "INTEGER"),
+            ("FunctionType", "INTEGER"),
+        ]
+    ),
+    "EcosimScenarioMSE": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("AssessMethod", "INTEGER"),
+            ("AssessPower", "DOUBLE"),
+            ("NTrials", "INTEGER"),
+            ("StartIndex", "INTEGER"),
+            ("MaxEffort", "DOUBLE"),
+        ]
+    ),
+    "EcosimScenarioPredPreyShape": OrderedDict(
+        [
+            ("ScenarioID", "INTEGER"),
+            ("PredID", "INTEGER"),
+            ("PreyID", "INTEGER"),
+            ("ShapeID", "INTEGER"),
+            ("FunctionType", "INTEGER"),
+        ]
+    ),
+    "EcosimShapeEggProd": OrderedDict(
+        [
+            ("ShapeID", "INTEGER"),
+            ("zScale", "DOUBLE"),
+            ("Title", "TEXT"),
+            ("zMaxScale", "DOUBLE"),
+            ("FunctionType", "INTEGER"),
+            ("FunctionParams", "TEXT"),
+        ]
+    ),
+    "EcosimShapeFishMort": OrderedDict(
+        [
+            ("ShapeID", "INTEGER"),
+            ("zScale", "DOUBLE"),
+            ("Title", "TEXT"),
+        ]
+    ),
+    "EcosimStanzaShape": OrderedDict(
+        [
+            ("StanzaID", "INTEGER"),
+            ("EggprodShapeID", "INTEGER"),
+            ("HatchCodeShapeID", "INTEGER"),
+        ]
+    ),
+    "EcosimTimeSeriesFleet": OrderedDict(
+        [
+            ("TimeSeriesID", "INTEGER"),
+            ("FleetID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+        ]
+    ),
+    "EcosimTimeSeriesGroup": OrderedDict(
+        [
+            ("TimeSeriesID", "INTEGER"),
+            ("GroupID", "INTEGER"),
+            ("VariableName", "TEXT"),
         ]
     ),
     # -----------------------------------------------------------------------
