@@ -1,0 +1,136 @@
+{
+  "summary": {
+    "biomass": {
+      "n": 24,
+      "mean_pct": 0.0,
+      "p95_pct": 0.0,
+      "max_pct": 0.0,
+      "over_0_1pct": 0,
+      "over_1pct": 0
+    },
+    "pb": {
+      "n": 23,
+      "mean_pct": 0.0,
+      "p95_pct": 0.0,
+      "max_pct": 0.0,
+      "over_0_1pct": 0,
+      "over_1pct": 0
+    },
+    "qb": {
+      "n": 22,
+      "mean_pct": 0.0,
+      "p95_pct": 0.0,
+      "max_pct": 0.0,
+      "over_0_1pct": 0,
+      "over_1pct": 0
+    },
+    "ee": {
+      "n": 0,
+      "mean_pct": null,
+      "p95_pct": null,
+      "max_pct": null,
+      "over_0_1pct": 0,
+      "over_1pct": 0
+    }
+  },
+  "worst": {
+    "biomass": [
+      {
+        "group": "Detritus",
+        "db_biomass": 1.7999999523162842,
+        "py_biomass": 1.7999999523162842,
+        "biomass_diff_pct": 0.0
+      },
+      {
+        "group": "Phytoplankton",
+        "db_biomass": 26.700000762939453,
+        "py_biomass": 26.700000762939453,
+        "biomass_diff_pct": 0.0
+      },
+      {
+        "group": "Zooplankton",
+        "db_biomass": 3.6760001182556152,
+        "py_biomass": 3.6760001182556152,
+        "biomass_diff_pct": 0.0
+      },
+      {
+        "group": "Herring",
+        "db_biomass": 6.130000114440918,
+        "py_biomass": 6.130000114440918,
+        "biomass_diff_pct": 0.0
+      },
+      {
+        "group": "Sprat",
+        "db_biomass": 1.2799630165100098,
+        "py_biomass": 1.2799630165100098,
+        "biomass_diff_pct": 0.0
+      }
+    ],
+    "pb": [
+      {
+        "group": "Phytoplankton",
+        "db_pb": 200.0,
+        "py_pb": 200.0,
+        "pb_diff_pct": 0.0
+      },
+      {
+        "group": "Zooplankton",
+        "db_pb": 25.0,
+        "py_pb": 25.0,
+        "pb_diff_pct": 0.0
+      },
+      {
+        "group": "Herring",
+        "db_pb": 0.7799999713897705,
+        "py_pb": 0.7799999713897705,
+        "pb_diff_pct": 0.0
+      },
+      {
+        "group": "Sprat",
+        "db_pb": 1.2400000095367432,
+        "py_pb": 1.2400000095367432,
+        "pb_diff_pct": 0.0
+      },
+      {
+        "group": "Sand-eels",
+        "db_pb": 0.8600000143051147,
+        "py_pb": 0.8600000143051147,
+        "pb_diff_pct": 0.0
+      }
+    ],
+    "qb": [
+      {
+        "group": "Zooplankton",
+        "db_qb": 83.0,
+        "py_qb": 83.0,
+        "qb_diff_pct": 0.0
+      },
+      {
+        "group": "Herring",
+        "db_qb": 3.0,
+        "py_qb": 3.0,
+        "qb_diff_pct": 0.0
+      },
+      {
+        "group": "Sprat",
+        "db_qb": 4.630000114440918,
+        "py_qb": 4.630000114440918,
+        "qb_diff_pct": 0.0
+      },
+      {
+        "group": "Sand-eels",
+        "db_qb": 4.0,
+        "py_qb": 4.0,
+        "qb_diff_pct": 0.0
+      },
+      {
+        "group": "Sand goby",
+        "db_qb": 4.0,
+        "py_qb": 4.0,
+        "qb_diff_pct": 0.0
+      }
+    ],
+    "ee": []
+  },
+  "matched_groups": 24
+}

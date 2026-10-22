@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@anthropic-ai/github-mcp-server"],
+    },
+    "playwright": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@anthropic-ai/playwright-mcp-server"]
+    }
+  }
+}

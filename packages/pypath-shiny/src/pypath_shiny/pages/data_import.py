@@ -261,6 +261,7 @@ def import_ui():
                         ),
                         # Progress and status
                         ui.output_ui("biodata_fetch_status"),
+                        ui.output_ui("btn_cancel_biodata_ui"),
                         ui.tags.hr(),
                         # Results preview
                         ui.h6("Fetched Species Data"),
@@ -1140,6 +1141,45 @@ Phytoplankton"""
             message,
             class_=alert_class,
         )
+
+
+    @output
+    @render.ui
+    def btn_cancel_biodata_ui():
+        """Render cancel button when biodata fetch is running."""
+        task_state = biodata_task_state.get()
+        
+        if task_state.status is not TaskStatus.RUNNING or not task_state.can_cancel:
+            return None
+        
+        return ui.div(
+            ui.input_action_button(
+                "btn_cancel_biodata",
+                ui.span(
+                    ui.tags.i(class_="bi bi-stop-circle me-2"),
+                    "Cancel Fetch",
+                ),
+                class_="btn btn-warning w-100 mt-2",
+            ),
+        )
+
+
+    @reactive.effect
+    @reactive.event(input.btn_cancel_biodata)
+    def _cancel_biodata_fetch():
+        """Handle biodata fetch cancel button."""
+        task_state = biodata_task_state.get()
+        
+        if task_state.status is TaskStatus.RUNNING:
+            biodata_task_state.set(
+                finish_task(
+                    task_state,
+                    success=False,
+                    message="Cancelled by user",
+                    error="Biodata fetch was cancelled",
+                )
+            )
+            notify_warning("Biodata fetch cancelled by user")
 
     @output
     @render.data_frame
