@@ -10,7 +10,7 @@ predator. The mocks below follow that layout.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -20,6 +20,7 @@ from pypath.core.analysis import (
     NetworkIndices,
     calculate_network_indices,
     check_ecopath_balance,
+    check_ecosim_stability,
     export_ecopath_to_dataframe,
     export_ecosim_to_dataframe,
     keystoneness_index,
@@ -197,15 +198,36 @@ class TestSummarizeEcosimOutput:
     def test_returns_ecosim_summary(self):
         """Should return EcosimSummary dataclass with summary statistics."""
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 5)
-        output.out_Biomass_annual[:, 0] = 0
-        output.out_Catch_annual = np.random.rand(10, 5)
-        output.out_Catch_annual[:, 0] = 0
+        output.annual_Biomass = np.random.rand(10, 5)
+        output.annual_Biomass[:, 0] = 0
+        output.annual_Catch = np.random.rand(10, 5)
+        output.annual_Catch[:, 0] = 0
 
         summary = summarize_ecosim_output(output)
 
         assert isinstance(summary, EcosimSummary)
         assert summary.years == 10
+
+
+class TestCheckEcosimStability:
+    """Tests for check_ecosim_stability function."""
+
+    def test_uses_current_annual_output_attributes(self):
+        """Should read annual_Biomass (not legacy out_Biomass_annual only)."""
+        scenario = MagicMock()
+        output = MagicMock()
+        output.annual_Biomass = np.array(
+            [
+                [0.0, 10.0, 5.0],
+                [0.0, 9.8, 5.1],
+            ]
+        )
+
+        with patch("pypath.core.ecosim.rsim_run", return_value=output):
+            result = check_ecosim_stability(scenario, burn_years=1)
+
+        assert result["is_stable"] is True
+        assert result["crashed_groups"] == []
 
 
 class TestCheckEcopathBalance:
@@ -287,8 +309,8 @@ class TestExportEcosimToDataframe:
     def test_returns_dict_of_dataframes(self):
         """Should return dictionary of DataFrames."""
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 5)
-        output.out_Catch_annual = np.random.rand(10, 5)
+        output.annual_Biomass = np.random.rand(10, 5)
+        output.annual_Catch = np.random.rand(10, 5)
         output.out_Biomass = None
 
         result = export_ecosim_to_dataframe(output)

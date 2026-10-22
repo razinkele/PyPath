@@ -41,6 +41,25 @@ except ImportError:
 from pypath.core.ecopath import Rpath
 from pypath.core.ecosim import RsimOutput
 
+
+def _annual_biomass(output: RsimOutput) -> np.ndarray:
+    """Return annual biomass array from output (new or legacy attribute names)."""
+    if hasattr(output, "annual_Biomass") and output.annual_Biomass is not None:
+        return output.annual_Biomass
+    if hasattr(output, "out_Biomass_annual") and output.out_Biomass_annual is not None:
+        return output.out_Biomass_annual
+    raise AttributeError("RsimOutput has no annual biomass array")
+
+
+def _annual_catch(output: RsimOutput) -> np.ndarray:
+    """Return annual catch array from output (new or legacy attribute names)."""
+    if hasattr(output, "annual_Catch") and output.annual_Catch is not None:
+        return output.annual_Catch
+    if hasattr(output, "out_Catch_annual") and output.out_Catch_annual is not None:
+        return output.out_Catch_annual
+    raise AttributeError("RsimOutput has no annual catch array")
+
+
 # =============================================================================
 # FOOD WEB PLOTTING
 # =============================================================================
@@ -275,7 +294,7 @@ def plot_biomass(
     -------
     matplotlib.Figure
     """
-    biomass = output.out_Biomass_annual
+    biomass = _annual_biomass(output)
     n_years, n_groups = biomass.shape
 
     if groups is None:
@@ -339,7 +358,7 @@ def plot_catch(
     -------
     matplotlib.Figure
     """
-    catch = output.out_Catch_annual
+    catch = _annual_catch(output)
     n_years, n_groups = catch.shape
 
     if groups is None:
@@ -406,7 +425,7 @@ def plot_biomass_grid(
     -------
     matplotlib.Figure
     """
-    biomass = output.out_Biomass_annual
+    biomass = _annual_biomass(output)
     n_years, n_groups = biomass.shape
 
     if groups is None:
@@ -630,7 +649,7 @@ def plot_biomass_interactive(
             "plotly is required for interactive plots. Install with: pip install plotly"
         )
 
-    biomass = output.out_Biomass_annual
+    biomass = _annual_biomass(output)
     n_years, n_groups = biomass.shape
 
     if groups is None:

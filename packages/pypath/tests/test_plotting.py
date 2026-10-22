@@ -39,8 +39,8 @@ class TestPlotBiomass:
     def test_returns_figure(self):
         """Should return matplotlib Figure."""
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 5)
-        output.out_Biomass_annual[:, 0] = 0  # Index 0 unused
+        output.annual_Biomass = np.random.rand(10, 5)
+        output.annual_Biomass[:, 0] = 0  # Index 0 unused
 
         fig = plot_biomass(output, groups=[1, 2])
 
@@ -50,9 +50,9 @@ class TestPlotBiomass:
     def test_relative_biomass(self):
         """Relative biomass should normalize to initial."""
         output = MagicMock()
-        output.out_Biomass_annual = np.ones((10, 4))
-        output.out_Biomass_annual[:, 1] = np.linspace(1, 2, 10)
-        output.out_Biomass_annual[:, 0] = 0
+        output.annual_Biomass = np.ones((10, 4))
+        output.annual_Biomass[:, 1] = np.linspace(1, 2, 10)
+        output.annual_Biomass[:, 0] = 0
 
         fig = plot_biomass(output, groups=[1], relative=True)
 
@@ -62,8 +62,8 @@ class TestPlotBiomass:
     def test_custom_figsize(self):
         """Should respect custom figure size."""
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 4)
-        output.out_Biomass_annual[:, 0] = 0
+        output.annual_Biomass = np.random.rand(10, 4)
+        output.annual_Biomass[:, 0] = 0
 
         fig = plot_biomass(output, groups=[1], figsize=(8, 4))
 
@@ -76,9 +76,9 @@ class TestPlotBiomass:
     def test_auto_select_groups(self):
         """Should auto-select groups with biomass."""
         output = MagicMock()
-        output.out_Biomass_annual = np.zeros((10, 5))
-        output.out_Biomass_annual[:, 1] = 1  # Only group 1 has biomass
-        output.out_Biomass_annual[:, 2] = 2
+        output.annual_Biomass = np.zeros((10, 5))
+        output.annual_Biomass[:, 1] = 1  # Only group 1 has biomass
+        output.annual_Biomass[:, 2] = 2
 
         fig = plot_biomass(output)  # No groups specified
 
@@ -92,8 +92,8 @@ class TestPlotCatch:
     def test_returns_figure(self):
         """Should return matplotlib Figure."""
         output = MagicMock()
-        output.out_Catch_annual = np.random.rand(10, 4)
-        output.out_Catch_annual[:, 0] = 0
+        output.annual_Catch = np.random.rand(10, 4)
+        output.annual_Catch[:, 0] = 0
 
         fig = plot_catch(output, groups=[1, 2])
 
@@ -103,8 +103,8 @@ class TestPlotCatch:
     def test_stacked_plot(self):
         """Should create stacked area plot when stacked=True."""
         output = MagicMock()
-        output.out_Catch_annual = np.random.rand(10, 4)
-        output.out_Catch_annual[:, 0] = 0
+        output.annual_Catch = np.random.rand(10, 4)
+        output.annual_Catch[:, 0] = 0
 
         fig = plot_catch(output, groups=[1, 2], stacked=True)
 
@@ -114,7 +114,7 @@ class TestPlotCatch:
     def test_no_catch_data(self):
         """Should handle case with no catch."""
         output = MagicMock()
-        output.out_Catch_annual = np.zeros((10, 4))
+        output.annual_Catch = np.zeros((10, 4))
 
         fig = plot_catch(output)
 
@@ -128,8 +128,8 @@ class TestPlotBiomassGrid:
     def test_returns_figure(self):
         """Should return matplotlib Figure."""
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 6)
-        output.out_Biomass_annual[:, 0] = 0
+        output.annual_Biomass = np.random.rand(10, 6)
+        output.annual_Biomass[:, 0] = 0
 
         fig = plot_biomass_grid(output, groups=[1, 2, 3, 4])
 
@@ -139,8 +139,8 @@ class TestPlotBiomassGrid:
     def test_grid_dimensions(self):
         """Should create correct grid dimensions."""
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 10)
-        output.out_Biomass_annual[:, 0] = 0
+        output.annual_Biomass = np.random.rand(10, 10)
+        output.annual_Biomass[:, 0] = 0
 
         # 6 groups with 4 columns = 2 rows
         fig = plot_biomass_grid(output, groups=[1, 2, 3, 4, 5, 6], n_cols=4)
@@ -326,10 +326,10 @@ class TestPlotEcosimSummary:
     def test_returns_figure(self):
         """Should return matplotlib Figure."""
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 5)
-        output.out_Biomass_annual[:, 0] = 0
-        output.out_Catch_annual = np.random.rand(10, 5)
-        output.out_Catch_annual[:, 0] = 0
+        output.annual_Biomass = np.random.rand(10, 5)
+        output.annual_Biomass[:, 0] = 0
+        output.annual_Catch = np.random.rand(10, 5)
+        output.annual_Catch[:, 0] = 0
 
         fig = plot_ecosim_summary(output, groups=[1, 2])
 
@@ -339,10 +339,10 @@ class TestPlotEcosimSummary:
     def test_creates_four_subplots(self):
         """Should create 2x2 subplot grid."""
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 4)
-        output.out_Biomass_annual[:, 0] = 0
-        output.out_Catch_annual = np.random.rand(10, 4)
-        output.out_Catch_annual[:, 0] = 0
+        output.annual_Biomass = np.random.rand(10, 4)
+        output.annual_Biomass[:, 0] = 0
+        output.annual_Catch = np.random.rand(10, 4)
+        output.annual_Catch[:, 0] = 0
 
         fig = plot_ecosim_summary(output, groups=[1, 2])
 
@@ -394,8 +394,8 @@ class TestInteractivePlots:
         from pypath.core.plotting import plot_biomass_interactive
 
         output = MagicMock()
-        output.out_Biomass_annual = np.random.rand(10, 5)
-        output.out_Biomass_annual[:, 0] = 0
+        output.annual_Biomass = np.random.rand(10, 5)
+        output.annual_Biomass[:, 0] = 0
 
         fig = plot_biomass_interactive(output, groups=[1, 2])
 

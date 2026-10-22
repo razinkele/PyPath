@@ -25,6 +25,25 @@ from pypath.core.ecosim import RsimOutput, RsimScenario
 
 logger = logging.getLogger(__name__)
 
+
+def _annual_biomass(output: RsimOutput) -> np.ndarray:
+    """Return annual biomass array from output (new or legacy attribute names)."""
+    if hasattr(output, "annual_Biomass") and output.annual_Biomass is not None:
+        return output.annual_Biomass
+    if hasattr(output, "out_Biomass_annual") and output.out_Biomass_annual is not None:
+        return output.out_Biomass_annual
+    raise AttributeError("RsimOutput has no annual biomass array")
+
+
+def _annual_catch(output: RsimOutput) -> np.ndarray:
+    """Return annual catch array from output (new or legacy attribute names)."""
+    if hasattr(output, "annual_Catch") and output.annual_Catch is not None:
+        return output.annual_Catch
+    if hasattr(output, "out_Catch_annual") and output.out_Catch_annual is not None:
+        return output.out_Catch_annual
+    raise AttributeError("RsimOutput has no annual catch array")
+
+
 # =============================================================================
 # MIXED TROPHIC IMPACTS (MTI)
 # =============================================================================
@@ -415,8 +434,8 @@ def summarize_ecosim_output(
     EcosimSummary
         Summary statistics
     """
-    biomass = output.out_Biomass_annual
-    catch = output.out_Catch_annual
+    biomass = _annual_biomass(output)
+    catch = _annual_catch(output)
 
     n_years, n_groups = biomass.shape
 
@@ -500,7 +519,7 @@ def compare_scenarios(
     if len(outputs) != len(names):
         raise ValueError("Number of outputs must match number of names")
 
-    n_groups = outputs[0].out_Biomass_annual.shape[1]
+    n_groups = _annual_biomass(outputs[0]).shape[1]
 
     if groups is None:
         groups = list(range(1, n_groups))
@@ -509,8 +528,9 @@ def compare_scenarios(
     data = {"Group": [f"Group_{g}" for g in groups]}
 
     for output, name in zip(outputs, names):
-        start = output.out_Biomass_annual[0, groups]
-        end = output.out_Biomass_annual[-1, groups]
+        annual = _annual_biomass(output)
+        start = annual[0, groups]
+        end = annual[-1, groups]
         change = np.where(start > 0, (end / start - 1) * 100, 0)
         data[f"{name}_pct_change"] = change
         data[f"{name}_final_bio"] = end
@@ -638,7 +658,7 @@ def check_ecosim_stability(
         "messages": [],
     }
 
-    biomass = output.out_Biomass_annual
+    biomass = _annual_biomass(output)
     n_groups = biomass.shape[1]
 
     for i in range(1, n_groups):
@@ -749,7 +769,9 @@ def export_ecosim_to_dataframe(
         - 'catch_annual': Annual catch
         - 'biomass_monthly': Monthly biomass (if available)
     """
-    n_years, n_groups = output.out_Biomass_annual.shape
+    annual_biomass = _annual_biomass(output)
+    annual_catch = _annual_catch(output)
+    n_years, n_groups = annual_biomass.shape
 
     # Get group names
     if scenario is not None:
@@ -759,13 +781,13 @@ def export_ecosim_to_dataframe(
 
     # Annual biomass
     biomass_df = pd.DataFrame(
-        output.out_Biomass_annual[:, 1:], columns=names, index=range(1, n_years + 1)
+        annual_biomass[:, 1:], columns=names, index=range(1, n_years + 1)
     )
     biomass_df.index.name = "Year"
 
     # Annual catch
     catch_df = pd.DataFrame(
-        output.out_Catch_annual[:, 1:], columns=names, index=range(1, n_years + 1)
+        annual_catch[:, 1:], columns=names, index=range(1, n_years + 1)
     )
     catch_df.index.name = "Year"
 
