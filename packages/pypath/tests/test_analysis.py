@@ -275,6 +275,27 @@ class TestCheckEcopathBalance:
         assert any(m.startswith("Producer: EE") for m in result["messages"])
         assert any(m.startswith("Consumer: Diet sum") for m in result["messages"])
 
+    def test_allows_partial_diet_when_enabled(self):
+        """Partial diet columns are warnings only when allow_partial_diet=True."""
+        rpath = _mock_rpath(
+            2,
+            0,
+            biomass=[10.0, 5.0],
+            pb=[1.0, 0.5],
+            qb=[0, 3.0],
+            ee=[0.9, 0.8],
+            tl=[1.0, 2.0],
+        )
+        rpath.DC[0, 1] = 0.7  # diet sums to 0.7
+        rpath.Group = np.array(["Producer", "Consumer"])
+
+        result = check_ecopath_balance(rpath, allow_partial_diet=True)
+
+        assert result["is_balanced"] is True
+        assert result["diet_issues"] == []
+        assert result["diet_warnings"] == [1]
+        assert any("partial diet allowed" in m for m in result["messages"])
+
 
 class TestExportEcopathToDataframe:
     """Tests for export_ecopath_to_dataframe function."""

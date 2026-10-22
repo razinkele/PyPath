@@ -543,7 +543,9 @@ def compare_scenarios(
 # =============================================================================
 
 
-def check_ecopath_balance(rpath: Rpath, tolerance: float = 0.01) -> Dict[str, Any]:
+def check_ecopath_balance(
+    rpath: Rpath, tolerance: float = 0.01, allow_partial_diet: bool = False
+) -> Dict[str, Any]:
     """Check Ecopath model balance.
 
     Verifies that the model satisfies mass-balance constraints:
@@ -557,6 +559,9 @@ def check_ecopath_balance(rpath: Rpath, tolerance: float = 0.01) -> Dict[str, An
         Balanced model to check
     tolerance : float
         Acceptable deviation from balance
+    allow_partial_diet : bool
+        If True, allow consumer diet columns to sum below 1.0 and treat
+        the remainder as unresolved/other food instead of a hard issue.
 
     Returns
     -------
@@ -571,6 +576,7 @@ def check_ecopath_balance(rpath: Rpath, tolerance: float = 0.01) -> Dict[str, An
         "is_balanced": True,
         "ee_issues": [],
         "diet_issues": [],
+        "diet_warnings": [],
         "balance_issues": [],
         "messages": [],
     }
@@ -593,10 +599,16 @@ def check_ecopath_balance(rpath: Rpath, tolerance: float = 0.01) -> Dict[str, An
         if rpath.QB[pred] > 0:  # Is a consumer
             diet_sum = np.sum(rpath.DC[:, pred])
             if abs(diet_sum - 1.0) > tolerance:
-                results["diet_issues"].append(pred)
-                results["messages"].append(
-                    f"{_name(pred)}: Diet sum = {diet_sum:.4f} != 1"
-                )
+                if allow_partial_diet and 0 <= diet_sum <= 1.0 + tolerance:
+                    results["diet_warnings"].append(pred)
+                    results["messages"].append(
+                        f"{_name(pred)}: Diet sum = {diet_sum:.4f} < 1 (partial diet allowed)"
+                    )
+                else:
+                    results["diet_issues"].append(pred)
+                    results["messages"].append(
+                        f"{_name(pred)}: Diet sum = {diet_sum:.4f} != 1"
+                    )
 
     # Check production/consumption balance
     for i in range(rpath.NUM_LIVING):
