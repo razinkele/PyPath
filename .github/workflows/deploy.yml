@@ -145,16 +145,6 @@ jobs:
           sys.path.insert(0, str(app_dir / "packages" / "pypath-shiny" / "src"))
           sys.path.insert(0, str(app_dir / "packages" / "pypath" / "src"))
 
-          # Persist runtime stderr + native crashes to a readable file for diagnosis.
-          import os
-          import faulthandler
-          try:
-              _errlog = open("/tmp/pypath_runtime.log", "a", buffering=1)
-              sys.stderr = _errlog
-              faulthandler.enable(_errlog)
-          except Exception:
-              pass
-
           try:
               from pypath_shiny.app import app
           except Exception:
@@ -226,37 +216,6 @@ jobs:
         run: |
           echo "Restarting Shiny Server on ${DEPLOY_HOST} (may require sudo)"
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "sudo systemctl restart shiny-server || sudo service shiny-server restart || true"
-
-      - name: Capture shiny-server app log (diagnostic)
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        run: |
-          set +e
-          REMOTE="${DEPLOY_USER}@${DEPLOY_HOST}"
-          TARGET="${{ steps.target.outputs.path }}"
-          echo "===== shiny-server processes (start times) ====="
-          ssh "$REMOTE" "ps -eo pid,user,lstart,cmd | grep -iE 'shiny|SockJS|pypath' | grep -v grep || true"
-          echo "===== shiny-server service status ====="
-          ssh "$REMOTE" "systemctl show shiny-server -p ActiveState,SubState,ActiveEnterTimestamp 2>&1 || true"
-          echo "===== deployed app.py lines 70-105 + grep ====="
-          ssh "$REMOTE" "sed -n '70,105p' '${TARGET}/packages/pypath-shiny/src/pypath_shiny/app.py' 2>&1; echo ---grep---; grep -n 'theme=' '${TARGET}/packages/pypath-shiny/src/pypath_shiny/app.py' 2>&1 || echo NO-theme=-FOUND"
-          echo "===== deployed app.py theme check (should show NO theme=) ====="
-          ssh "$REMOTE" "grep -n \"theme=\|bootswatch\|page_fluid\" '${TARGET}/packages/pypath-shiny/src/pypath_shiny/app.py' | head -20 || true"
-          echo "===== restart.txt + app.py mtimes ====="
-          ssh "$REMOTE" "ls -l --time-style=full-iso '${TARGET}/restart.txt' '${TARGET}/app.py' 2>&1 || true"
-          echo "===== pypath_runtime.log (stderr/faulthandler) ====="
-          ssh "$REMOTE" "tail -200 /tmp/pypath_runtime.log 2>&1 || echo no-runtime-log"
-          echo "===== shiny-server ENV (micromamba) versions ====="
-          ssh "$REMOTE" "/opt/micromamba/envs/shiny/bin/python -m pip list 2>/dev/null | grep -iE 'shiny|shinyswatch|htmltools' || echo cannot-list-shiny-env"
-          echo "===== server venv package versions ====="
-          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' list 2>/dev/null | grep -iE 'shiny|shinyswatch|libsass|htmltools|starlette|uvicorn' || true"
-          echo "===== shiny-server log dir listing ====="
-          ssh "$REMOTE" "ls -lt /var/log/shiny-server/ 2>&1 | head -30"
-          echo "===== latest pypath log (user-readable) ====="
-          ssh "$REMOTE" "LOG=\$(ls -t /var/log/shiny-server/*pypath*.log 2>/dev/null | head -1); echo \"LOG=\$LOG\"; tail -120 \"\$LOG\" 2>&1"
-          echo "===== latest pypath log (sudo fallback) ====="
-          ssh "$REMOTE" "sudo -n sh -c 'LOG=\$(ls -t /var/log/shiny-server/*pypath*.log 2>/dev/null | head -1); echo SUDO_LOG=\$LOG; tail -120 \"\$LOG\"' 2>&1" || echo "sudo log read unavailable"
 
       - name: Done
         run: echo "Deploy completed."
