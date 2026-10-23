@@ -10,6 +10,7 @@
   <img src="https://img.shields.io/badge/tests-1500%2B%20passing-brightgreen" alt="Tests Passing">
   <img src="https://img.shields.io/badge/version-0.5.0-blue" alt="Version">
   <a href="https://anaconda.org/razinka/pypath-ewe"><img src="https://img.shields.io/badge/conda-razinka-orange" alt="Conda"></a>
+  <a href="https://razinkele.github.io/PyPath/"><img src="https://img.shields.io/badge/docs-API%20Reference-teal" alt="API Reference"></a>
 </p>
 
 **PyPath** is a Python implementation of the Ecopath with Ecosim (EwE) ecosystem modeling framework. It extends the R package [Rpath](https://github.com/NOAA-EDAB/Rpath) with significant new features — including the first complete lifecycle Individual-Based Model for European smelt — while maintaining full core compatibility.
@@ -17,6 +18,16 @@
 ## Online Deployment
 
 - **PyPath Shiny app (live):** <https://laguna.ku.lt/pypath>
+
+## Documentation
+
+- **API Reference & Guides:** <https://razinkele.github.io/PyPath/>
+  - [Getting Started](https://razinkele.github.io/PyPath/getting-started/)
+  - [Core API (Ecopath/Ecosim)](https://razinkele.github.io/PyPath/api/core/)
+  - [IBM (Individual-Based Model)](https://razinkele.github.io/PyPath/api/ibm/)
+  - [Spatial (Ecospace)](https://razinkele.github.io/PyPath/api/spatial/)
+  - [I/O & Data Import](https://razinkele.github.io/PyPath/api/io/)
+  - [Examples & Guides](https://razinkele.github.io/PyPath/examples/basic-model/)
 
 ## Package Architecture: pypath-core vs pypath-shiny
 
