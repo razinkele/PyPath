@@ -42,6 +42,23 @@ PyPath is a monorepo with two distributable packages:
 
 ## Available Functionality
 
+### User Resources & Examples
+
+**New in 0.5.0:**
+- 📘 **[PyPath User Manual (PDF)](PyPath_User_Manual_v0.5.0.pdf)** — Comprehensive 9-page guide covering:
+  - Installation methods (Conda, Pip, source)
+  - Core concepts (Ecopath mass-balance, Ecosim dynamics)
+  - IBM implementation and Shiny app guide
+  - Practical examples and troubleshooting
+  
+- 🌊 **[Curonian Lagoon Ecosim Example](CURONIAN_ECOSIM_README.md)** — Production-ready example demonstrating:
+  - Loading Ecopath models from EwE databases
+  - Creating 4 management scenarios (baseline, reduction, closure, increase)
+  - Running 20-year Ecosim simulations
+  - Analyzing ecosystem responses across scenarios
+  - Complete data integration with real fishery data from the Baltic
+  - Ready-to-run Python script: curonian_lagoon_ecosim_demo.py
+
 ### pypath-core (`pypath-ewe`)
 
 - Ecopath mass-balance model construction and solving
