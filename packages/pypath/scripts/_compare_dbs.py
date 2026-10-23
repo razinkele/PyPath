@@ -1,6 +1,7 @@
 """Compare original and exported EwE database structure."""
 
 from pathlib import Path
+
 from pypath.io.ewemdb import list_ewemdb_tables, read_ewemdb_table
 
 orig = str(Path(__file__).parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb")

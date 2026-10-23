@@ -40,7 +40,7 @@ DB_PATH = str(PROJECT_ROOT / "Data" / "LT2022_0.5ST_final7.eweaccdb")
 
 # ── Step 1: Load and balance ───────────────────────────────────────────
 logger.info("Loading model from %s", DB_PATH)
-from pypath import read_ewemdb, read_ewemdb_table, rpath, rsim_scenario, rsim_run
+from pypath import read_ewemdb, read_ewemdb_table, rpath, rsim_run, rsim_scenario
 
 params = read_ewemdb(DB_PATH)
 model = rpath(params)
