@@ -86,6 +86,14 @@ app_ui = ui.page_fluid(
             rel="stylesheet",
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
         ),
+        # Flatly Bootswatch theme applied via a plain stylesheet link.
+        # Passing a shinyswatch ShinyswatchTheme object to page_fluid(theme=...)
+        # crashes under Shiny Server SockJSAdapter ("Invalid type for attribute"),
+        # so we load the theme CSS directly for cross-version robustness.
+        ui.tags.link(
+            rel="stylesheet",
+            href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/flatly/bootstrap.min.css",
+        ),
         ui.tags.link(rel="stylesheet", href="custom.css"),
         ui.tags.script(
             "window.addEventListener('load', function(){"
@@ -254,12 +262,6 @@ app_ui = ui.page_fluid(
             class_="text-center",
         ),
         class_="pypath-footer",
-    ),
-    theme=(
-        shinyswatch.theme.flatly
-        if getattr(shinyswatch, "theme", None) is not None
-        and getattr(shinyswatch.theme, "flatly", None) is not None
-        else None
     ),
 )
 
