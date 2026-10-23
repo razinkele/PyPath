@@ -210,6 +210,8 @@ jobs:
         run: |
           set +e
           REMOTE="${DEPLOY_USER}@${DEPLOY_HOST}"
+          echo "===== server venv package versions ====="
+          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' list 2>/dev/null | grep -iE 'shiny|shinyswatch|libsass|htmltools|starlette|uvicorn' || true"
           echo "===== shiny-server log dir listing ====="
           ssh "$REMOTE" "ls -lt /var/log/shiny-server/ 2>&1 | head -30"
           echo "===== latest pypath log (user-readable) ====="
