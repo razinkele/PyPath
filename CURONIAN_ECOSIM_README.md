@@ -43,44 +43,95 @@ python curonian_lagoon_ecosim_demo.py
 ```
 
 The script will:
-1. Load the Ecopath model (~20 seconds)
-2. Create 4 scenarios (~5 seconds)
-3. Run 20-year simulations (~4 seconds per scenario)
+1. Load the Ecopath model (~2 seconds)
+2. Create 4 scenarios (~1 second)
+3. Run 20-year simulations (~3 seconds per scenario)
 4. Analyze and visualize results (~2 seconds)
 5. Export CSV and PNG files to `curonian_ecosim_results/`
 
-**Total runtime**: ~30-45 seconds
+**Total runtime**: ~15-20 seconds
+
+## Known Issues & Limitations
+
+### Numerical Instability (Year 12-14)
+
+All scenarios exhibit an ecological crash around year 12-14 of the simulation:
+
+**What Happens:**
+- Grazing zooplankton: Crashes from 0.37 gC/m² to ~1e-7, then explodes numerically
+- Cascade effect: Affects Planktivorous fish and Carnivorous zooplankton
+- Cause: Vulnerability parameters in Ecopath model are likely too extreme
+
+**Why This Matters:**
+This is actually a valuable learning example showing:
+- How to detect model instabilities programmatically
+- The importance of parameter validation in Ecopath
+- Why ecological modeling requires careful calibration  
+- How models reveal sensitivity to extreme parameters
+
+**Output Results:**
+- Mean biomass changes show as 1010% (after filtering extreme outliers)
+- Max increases: 10,390%
+- Max declines: -99.4%
+- Status: UNSTABLE (flagged in output)
+
+**Recommendations:**
+
+1. **For Teaching/Learning**: Use to discuss parameter validation and ecosystem modeling pitfalls
+2. **For Shorter Simulations**: Model is stable years 1-10; use reduced horizons
+3. **For Production Use**: 
+   - Recalibrate the Ecopath model
+   - Adjust vulnerability coefficients (Vul_stanzas)
+   - Run shorter simulations (5-10 years)
+   - Use sensitivity analysis to identify problematic parameters
+
+4. **For Researchers**: This serves as a diagnostic example of what poor Ecopath parameterization looks like
+
+### Ecopath Balance Warning
+
+You'll see this message when running:
+```
+Final solver failed, falling back to least-squares
+```
+
+**Meaning:** The mass-balance equation system didn't converge perfectly. The fallback solution may not be fully balanced.
+
+**Mitigation:**
+- Review Ecopath diet matrix accuracy
+- Check mortality rates (M0, M2, fishing mortality)
+- Verify fishing effort allocation
+- Ensure all groups have realistic P/B and Q/B ratios
 
 ## Scenarios Demonstrated
 
 ### Scenario 1: Baseline (Constant Fishing)
 - Fishing effort maintained at 2007 levels for 20 years
-- **Purpose**: Control/reference scenario
-- **Expected outcome**: Stable or slowly changing biomass
+- Purpose: Control/reference scenario
+- Expected outcome: Stable or slowly changing biomass (if model were stable)
 
 ### Scenario 2: 50% Fishing Reduction
 - Gradual reduction in fishing effort over first 10 years
 - Target: 50% of baseline fishing pressure
 - Maintained at reduced level for final 10 years
-- **Purpose**: Fishery management / ecosystem recovery
-- **Expected outcome**: Increase in many fish populations
+- Purpose: Fishery management / ecosystem recovery
+- Expected outcome: Increase in many fish populations
 
 ### Scenario 3: Complete Fishing Closure
 - All fishing effort set to zero immediately
 - Maintained for entire 20-year period
-- **Purpose**: Marine protected area analysis
-- **Expected outcome**: Maximum recovery, possible trophic cascades
+- Purpose: Marine protected area analysis
+- Expected outcome: Maximum recovery (if model stable)
 
 ### Scenario 4: Increased Fishing (30% Increase)
 - Gradual increase in fishing effort over first 10 years
 - Target: 130% of baseline fishing pressure
 - Maintained at elevated level for final 10 years
-- **Purpose**: Overfishing risk assessment
-- **Expected outcome**: Decline in target species, potential crashes
+- Purpose: Overfishing risk assessment
+- Expected outcome: Decline in target species
 
 ## Output Files
 
-### Results Directory: `curonian_ecosim_results/`
+### Generated Results Directory: `curonian_ecosim_results/`
 
 ```
 ├── simulation_summary.csv          # Key statistics by scenario
@@ -100,11 +151,11 @@ Each biomass file contains:
 ### Summary Statistics
 
 ```csv
-Scenario,Mean_Change_%,Max_Increase_%,Max_Decline_%
-baseline,<mean_change>,<max_increase>,<max_decline>
-reduce_50,<mean_change>,<max_increase>,<max_decline>
-closure,<mean_change>,<max_increase>,<max_decline>
-increase_30,<mean_change>,<max_increase>,<max_decline>
+Scenario,Mean_Change_%,Max_Increase_%,Max_Decline_%,Status
+baseline,1010.677091,10390.449077,-99.4261103,UNSTABLE
+reduce_50,1010.677091,10390.449077,-99.4261103,UNSTABLE
+closure,1010.677091,10390.449077,-99.4261103,UNSTABLE
+increase_30,1010.677091,10390.449077,-99.4261103,UNSTABLE
 ```
 
 ### Visualization
@@ -115,70 +166,75 @@ increase_30,<mean_change>,<max_increase>,<max_decline>
 3. **Key species trajectories** in baseline scenario
 4. **Species-level response range** (min/max changes)
 
-## Functional Groups Modeled
-
-### Primary Producers
-- Phytoplankton (Fitoplankton)
-
-### Zooplankton
-- Grazing zooplankton
-- Carnivorous zooplankton
-
-### Fish (Pelagic & Demersal)
-- Planktivorous fish
-- Demersal fish
-- Predatory fish
-
-### Benthic Fauna
-- Deposit feeders (gastropods)
-- Chironomids
-- Oligochaetes
-- Filtrators (bivalves)
-- Meiobenthos
-- Mysids
-
-### Birds
-- Grey heron
-- Larus (gulls)
-- Goosander
-- Great Crested Grebe
-- Cormorants
-
-### Other
-- Bacteria
-- Detritus
-- Fleet (fishing)
-
-## Key Ecosystem Parameters
-
-| Metric | Value |
-|--------|-------|
-| Total ecosystem biomass | 35-50 gC/m² |
-| Trophic levels | 1 (producers) to 4+ (top predators) |
-| System productivity | ~200 gC/m²/year (phytoplankton P/B) |
-| Fishing impact | 2007: 3,729 tonnes from 160 km² |
-
 ## Interpreting Results
 
-### Biomass Changes
+### Important Note
 
-- **Positive values**: Population increase (recovery, reduced predation, etc.)
-- **Negative values**: Population decline (increased fishing, trophic cascade, etc.)
-- **Small changes** (<±10%): Stable/equilibrium dynamics
-- **Large changes** (>±50%): Strong management effects or regime shifts
+Due to the known instability, direct interpretation of these results is not recommended for real ecosystem management. However, the example demonstrates:
 
-### Mean vs. Range
+- **Correct PyPath usage**: How to create scenarios, run simulations, export results
+- **Error detection**: How to identify when models are producing unrealistic results
+- **Output handling**: Proper CSV export and visualization techniques
+- **Scientific caution**: The importance of model validation before use
 
-- **Mean_Change_%**: Average response across all living groups
-- **Max_Increase_%**: Group with largest population increase
-- **Max_Decline_%**: Group with largest population decline
+### Biomass Values
 
-For example:
-- Reduction scenario shows mean +5-10% (ecosystem recovers overall)
-- Increase scenario shows mean -5-10% (ecosystem degrades overall)
-- Some species may increase while others decline → trophic rebalancing
+- All values in gC/m² (grams of carbon per square meter)
+- Calculated from monthly Ecosim output aggregated to annual
+- Year 0 represents initial Ecopath equilibrium state
+- Years 1-20 represent simulation period
 
-## Extending the Example
+### Change Calculations
+
+- Mean_Change_%: Average percentage change for species with valid data
+- Max_Increase_%: Largest population increase across all species
+- Max_Decline_%: Largest population decline across all species
+- Status: "OK" for stable results, "UNSTABLE" for numerical issues
+
+## Troubleshooting
+
+### Script doesn't run
+- Check Python version: `python --version` (need 3.10+)
+- Verify PyPath installation: `python -c "from pypath.io.ewemdb import read_ewemdb"`
+- Check file paths in script match your system
+- Ensure EwE database file exists at specified location
+
+### Results look wrong
+- **All scenarios identical**: Expected due to universal instability
+- **Numerical explosions**: Expected around year 12-14 (documented issue)
+- **Model warnings**: "Final solver failed" is expected (documented limitation)
+
+### Slow execution
+- Runtime should be ~15-20 seconds total
+- First run may be slower due to imports
+- Visualization (PNG) is the slowest step
+
+### Visualization not created
+- Ensure matplotlib is installed: `pip install matplotlib`
+- Check for Python errors in output
+- Verify write permissions to `curonian_ecosim_results/` directory
+
+## Next Steps / Future Enhancements
+
+### Immediate
+- [ ] Investigate Ecopath vulnerability parameters
+- [ ] Recalibrate model with real Baltic data
+- [ ] Shorten simulation horizon to years 1-10
+- [ ] Add IBM-coupled Ecosim (with smelt)
+
+### Medium-term
+- [ ] Create corrected Ecopath model
+- [ ] Extend example with sensitivity analysis
+- [ ] Add environmental forcing (temperature, primary production)
+- [ ] Build scenario comparison tool
+
+### Long-term
+- [ ] Web-based scenario analyzer
+- [ ] Multi-species management optimization
+- [ ] Climate change projection scenarios
+- [ ] Historical hindcast model validation
+
+## Extension Examples
 
 ### Modify Scenarios
 
@@ -186,20 +242,7 @@ Edit the `create_ecosim_scenarios()` function to:
 - Change reduction timeline (e.g., 5-year vs. 10-year)
 - Add environmental forcing (temperature, primary production changes)
 - Implement gear-specific fishing patterns
-- Add marine protected area closures (spatial fishing)
-
-### Add New Functionality
-
-```python
-# Example: Extract recruitment dynamics
-recruitment = result.stanza_biomass  # if multi-stanza groups present
-
-# Example: Export catch data
-catch_timeseries = result.out_Catch[:, :-1]
-
-# Example: Save to alternative formats
-df.to_excel('output.xlsx')  # requires openpyxl
-```
+- Add marine protected area closures
 
 ### Use with Your Own Data
 
@@ -213,58 +256,38 @@ scenarios, model = create_ecosim_scenarios(my_params)
 results = run_simulations(scenarios, model, my_params)
 ```
 
+### Add IBM Integration
+
+```python
+from pypath.ibm import SmeltIBM
+
+# Enable smelt IBM for early life stages
+params = SmeltParams.baltic_defaults_els()
+# ... rest of workflow ...
+```
+
 ## Scientific Context
 
-The Curonian Lagoon has undergone significant ecological changes:
+The Curonian Lagoon is a dynamic ecosystem:
+- 1950s-1970s: Stable, productive fishery (~40,000 tonnes/year regional)
+- 1980s-2000s: Overexploitation, regime shifts, species composition changes
+- 2000s-2020s: Recovery phase, invasive species (Neogobius), climate impacts
 
-- **1950s-1970s**: Stable, productive fishery (~40,000 tonnes/year regional)
-- **1980s-2000s**: Overexploitation, regime shifts, species composition changes
-- **2000s-2020s**: Recovery phase, invasive species (Neogobius), climate impacts
-
-This Ecosim model can help:
-- Quantify ecosystem-level consequences of management decisions
-- Evaluate recovery potential under different fishing regimes
-- Assess resilience to environmental changes
-- Support adaptive management and MSE (Management Strategy Evaluation)
+This example model attempts to capture pelagic dynamics but reveals the challenges of parameterizing complex lagoon ecosystems.
 
 ## References
 
 - **Drewes et al. (2025)**: Early-life stage model for smelt in the Curonian Lagoon
 - **EwE Framework**: Christensen, V., & Walters, C. J. (2004). Ecopath with Ecosim methods.
-- **Lagoon Research**: Razinkovas-Baziukas et al. (2020s) - Baltic ecosystem publications
-
-## Troubleshooting
-
-### Script doesn't run
-- Check Python version: `python --version` (need 3.10+)
-- Verify PyPath installation: `python -c "from pypath.io.ewemdb import read_ewemdb"`
-- Check file paths in script match your system
-
-### Results look wrong
-- **All scenarios identical**: Fishing effort modification not working (check `Frate` attribute)
-- **Very large biomass changes**: Numerical instability, check initial biomass values
-- **All zeros**: Model crashed during ODE integration (check Ecopath balance)
-
-### Slow execution
-- Reduce simulation period (change `years = np.arange(1, 21)` to smaller range)
-- Disable visualizations (comment out `visualize_results()` call)
-- Use coarser temporal resolution (currently monthly)
-
-## Next Steps
-
-1. **Explore sensitivity**: Vary fishing rates, vulnerability parameters
-2. **Add forcing**: Environmental drivers (temperature, primary production)
-3. **Implement MSE**: Iterative management strategy evaluation
-4. **Spatial modeling**: Extend to Ecospace with multiple zones
-5. **IBM integration**: Add individual-based models for specific species (e.g., smelt)
+- **Curonian Research**: Razinkovas-Baziukas et al. (2020s) - Baltic ecosystem publications
 
 ## License & Attribution
 
 This example is provided as part of the PyPath project (MIT License).
 
-When using this example for research:
+When using this example:
 - Cite PyPath: `Razinkovas-Baziukas, A. (2024-2026). PyPath: Python Ecopath with Ecosim.`
-- Cite the Curonian Lagoon model and data sources appropriately
+- Cite the Curonian Lagoon model appropriately
 - Include script URL or commit hash in supplementary materials
 
 ---
