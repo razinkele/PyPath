@@ -492,5 +492,3 @@ def feedback_server(
 
         notify_success("Feedback updated.")
         dirty.set(dirty() + 1)
-
-

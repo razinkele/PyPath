@@ -1169,4 +1169,3 @@ def _step7_review_launch_ui():
             class_="btn-success btn-lg",
         ),
     )
-
