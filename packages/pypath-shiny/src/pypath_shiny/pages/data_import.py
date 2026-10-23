@@ -1142,16 +1142,15 @@ Phytoplankton"""
             class_=alert_class,
         )
 
-
     @output
     @render.ui
     def btn_cancel_biodata_ui():
         """Render cancel button when biodata fetch is running."""
         task_state = biodata_task_state.get()
-        
+
         if task_state.status is not TaskStatus.RUNNING or not task_state.can_cancel:
             return None
-        
+
         return ui.div(
             ui.input_action_button(
                 "btn_cancel_biodata",
@@ -1163,13 +1162,12 @@ Phytoplankton"""
             ),
         )
 
-
     @reactive.effect
     @reactive.event(input.btn_cancel_biodata)
     def _cancel_biodata_fetch():
         """Handle biodata fetch cancel button."""
         task_state = biodata_task_state.get()
-        
+
         if task_state.status is TaskStatus.RUNNING:
             biodata_task_state.set(
                 finish_task(
