@@ -32,9 +32,7 @@ def sort_issues(issues: list[ValidationIssue]) -> list[ValidationIssue]:
 def summarize_issues(issues: list[ValidationIssue]) -> str:
     """Build a short summary string by severity counts."""
     n_error = sum(1 for i in issues if i.severity is ValidationSeverity.ERROR)
-    n_warning = sum(
-        1 for i in issues if i.severity is ValidationSeverity.WARNING
-    )
+    n_warning = sum(1 for i in issues if i.severity is ValidationSeverity.WARNING)
     n_info = sum(1 for i in issues if i.severity is ValidationSeverity.INFO)
 
     parts = []
