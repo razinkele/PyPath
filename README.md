@@ -1,4 +1,4 @@
-﻿# PyPath - Python Ecopath with Ecosim
+# PyPath - Python Ecopath with Ecosim
 
 <p align="center">
   <img src="app/static/logo.svg" alt="PyPath Logo" width="300"/>
@@ -66,6 +66,14 @@ PyPath is a monorepo with two distributable packages:
   - Jacobian computation via finite differences
   - Full Curonian Lagoon calibration example
   - Ready-to-run script: scripts/pest_calibration_curonian_lagoon.py
+- 🐠 **[Multi-Stanza Age-Structured Models](MULTISTANZA_GUIDE.md)** — Realistic population dynamics with age structure:
+  - Von Bertalanffy growth curves for each stanza
+  - Age-dependent mortality and consumption rates
+  - Ontogenetic diet shifts and predation vulnerability
+  - Size-selective fishing impact analysis
+  - Improved Curonian Lagoon model with demersal & predatory fish
+  - [Quick comparison guide](MULTISTANZA_COMPARISON.md) — Single-stanza vs. multi-stanza trade-offs
+  - Ready-to-run script: scripts/curonian_multistanza_example.py
 
 ### pypath-core (`pypath-ewe`)
 
@@ -342,3 +350,4 @@ MIT License - see [LICENSE](LICENSE).
 - Monorepo overview: [CHANGELOG.md](CHANGELOG.md)
 - Core package: [packages/pypath/CHANGELOG.md](packages/pypath/CHANGELOG.md)
 - Shiny package: [packages/pypath-shiny/CHANGELOG.md](packages/pypath-shiny/CHANGELOG.md)
+
