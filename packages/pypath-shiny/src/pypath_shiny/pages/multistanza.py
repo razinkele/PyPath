@@ -14,13 +14,13 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
 from pypath_shiny.config import PARAM_RANGES
+from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
     notify_success,
     notify_warning,
 )
-from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
 
 logger = logging.getLogger(__name__)
 
@@ -526,4 +526,3 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             yield df.to_csv(index=False)
         else:
             yield ""
-

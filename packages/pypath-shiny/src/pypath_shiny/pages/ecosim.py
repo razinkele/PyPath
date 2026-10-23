@@ -1561,11 +1561,12 @@ def ecosim_server(
     def _cancel_simulation():
         """Handle simulation cancel button."""
         task_state = sim_task_state.get()
-        
+
         # Only allow cancellation if task is running
         if task_state.status is TaskStatus.RUNNING:
             # Mark as cancelled
             from pypath_shiny.services.tasks import finish_task
+
             sim_task_state.set(
                 finish_task(
                     task_state,
@@ -1663,7 +1664,9 @@ def ecosim_server(
                         "Cancel Simulation",
                     ),
                     class_="btn btn-warning w-100 mt-3",
-                ) if task_state.can_cancel else None,
+                )
+                if task_state.can_cancel
+                else None,
             )
 
         if output is None:
@@ -1959,4 +1962,3 @@ def ecosim_server(
 
         plt.tight_layout()
         return fig
-
