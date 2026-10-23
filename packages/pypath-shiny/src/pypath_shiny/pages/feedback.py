@@ -121,7 +121,7 @@ def build_feedback_modal(info_text: str) -> ui.Tag:
 
 def feedback_ui() -> ui.Tag:
     """Feedback dashboard UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.layout_columns(
             ui.h2("Feedback Dashboard", class_="mb-3"),
             ui.tags.button(
@@ -492,4 +492,5 @@ def feedback_server(
 
         notify_success("Feedback updated.")
         dirty.set(dirty() + 1)
+
 
