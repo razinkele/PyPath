@@ -1,0 +1,21 @@
+{
+  "strict": {
+    "is_balanced": true,
+    "diet_issues": [
+      0
+    ],
+    "diet_warnings": []
+  },
+  "allow_partial": {
+    "is_balanced": true,
+    "diet_issues": [],
+    "diet_warnings": [
+      0
+    ]
+  },
+  "ecosim": {
+    "steps": 133,
+    "stable": true,
+    "unstable_count": 0
+  }
+}

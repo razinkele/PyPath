@@ -43,6 +43,10 @@ from .utils import (
     is_balanced_model,
     is_rpath_params,
 )
+from .import_validation import (
+    validate_csv_file_pair,
+    get_import_error_suggestion,
+)
 from .validation import (
     validate_biomass,
     validate_ee,
@@ -1183,6 +1187,28 @@ def ecopath_server(
             )
             return
 
+        # Pre-import validation
+        try:
+            model_df = pd.read_csv(model_file)
+            diet_df = pd.read_csv(diet_file)
+        except Exception as e:
+            logger.debug("Could not read CSV files: %s", e)
+            _notify_legacy(
+                f"Could not read uploaded files: {e!s}", type="error", duration=6
+            )
+            return
+
+        # Validate CSV structure and consistency
+        is_valid, validation_errors = validate_csv_file_pair(model_df, diet_df)
+        if not is_valid:
+            for error_msg in validation_errors:
+                suggestion = get_import_error_suggestion(error_msg)
+                full_msg = error_msg
+                if suggestion:
+                    full_msg = f"{error_msg}\n\n{suggestion}"
+                _notify_legacy(full_msg, type="error", duration=8)
+            return
+
         try:
             new_params = read_rpath_params(model_file, diet_file)
         except Exception as e:
@@ -1326,13 +1352,44 @@ def ecopath_server(
                 )
             )
 
+
+    @output
+    @render.ui
+    def balance_button_ui():
+        """Render balance button with state based on validation errors."""
+        issues = collect_ecopath_validation_issues(params.get())
+        has_critical_errors = any(
+            i.severity is ValidationSeverity.ERROR for i in issues
+        )
+        
+        disabled = has_critical_errors
+        tooltip = (
+            "Fix validation errors before balancing"
+            if has_critical_errors
+            else "Balance the Ecopath model"
+        )
+        
+        return ui.div(
+            ui.input_action_button(
+                "btn_balance",
+                "Balance Model",
+                class_="btn-success w-100",
+                disabled=disabled,
+                title=tooltip,
+            ),
+            ui.tags.small(
+                "(" + tooltip + ")",
+                class_="text-muted d-block mt-1",
+            ) if has_critical_errors else ui.div(),
+        )
+
     @output
     @render.ui
     def balance_validation_summary():
-        """Show validation summary panel for current model parameters."""
+        """Show validation summary panel with inline errors and quick fixes."""
         issues = collect_ecopath_validation_issues(params.get())
 
-        if not issues:
+        if not issues or (len(issues) == 1 and issues[0].severity is ValidationSeverity.INFO):
             return ui.div()
 
         summary = summarize_ecopath_validation_issues(issues)
@@ -1342,18 +1399,34 @@ def ecopath_server(
         if has_error:
             alert_class = "alert alert-danger"
             icon = "bi bi-exclamation-triangle me-2"
+            title = "Validation Errors - Balance blocked"
         elif has_warning:
             alert_class = "alert alert-warning"
             icon = "bi bi-exclamation-circle me-2"
+            title = "Validation Warnings"
         else:
             alert_class = "alert alert-info"
             icon = "bi bi-info-circle me-2"
+            title = "Validation Info"
 
-        details = [
-            ui.tags.li(f"[{issue.section}] {issue.message}")
-            for issue in issues
-            if issue.severity is not ValidationSeverity.INFO
-        ]
+        details = []
+        for issue in issues:
+            if issue.severity is not ValidationSeverity.INFO:
+                from .validation import get_quick_fix_for_issue
+                quick_fix = get_quick_fix_for_issue(issue.message)
+                
+                detail_item = ui.tags.li(
+                    f"[{issue.section}] {issue.message}"
+                )
+                if quick_fix:
+                    detail_item = ui.div(
+                        detail_item,
+                        ui.tags.small(
+                            quick_fix,
+                            class_="d-block text-muted mt-1",
+                        ),
+                    )
+                details.append(detail_item)
 
         return ui.div(
             ui.tags.i(class_=icon),

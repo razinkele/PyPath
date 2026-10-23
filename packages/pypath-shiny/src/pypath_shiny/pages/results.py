@@ -11,6 +11,7 @@ from pypath_shiny.config import PLOTS, UI
 
 # Import shared utilities (pypath path setup handled by app/__init__.py)
 from .utils import get_model_info, is_balanced_model, is_rpath_params
+from .results_export import create_results_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -777,3 +778,4 @@ def results_server(
             yield df.to_csv(index=False)
             return
         yield ""
+

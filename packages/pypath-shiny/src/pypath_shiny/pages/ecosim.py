@@ -1556,6 +1556,26 @@ def ecosim_server(
                 )
             )
 
+    @reactive.effect
+    @reactive.event(input.btn_cancel_sim)
+    def _cancel_simulation():
+        """Handle simulation cancel button."""
+        task_state = sim_task_state.get()
+        
+        # Only allow cancellation if task is running
+        if task_state.status is TaskStatus.RUNNING:
+            # Mark as cancelled
+            from pypath_shiny.services.tasks import finish_task
+            sim_task_state.set(
+                finish_task(
+                    task_state,
+                    success=False,
+                    message="Cancelled by user",
+                    error="Simulation was cancelled",
+                )
+            )
+            notify_warning("Simulation cancelled by user")
+
     @output
     @render.ui
     def simulation_status():
@@ -1636,6 +1656,14 @@ def ecosim_server(
                     class_="progress",
                 ),
                 ui.p(task_state.message, class_="text-muted mt-2"),
+                ui.input_action_button(
+                    "btn_cancel_sim",
+                    ui.span(
+                        ui.tags.i(class_="bi bi-stop-circle me-2"),
+                        "Cancel Simulation",
+                    ),
+                    class_="btn btn-warning w-100 mt-3",
+                ) if task_state.can_cancel else None,
             )
 
         if output is None:
