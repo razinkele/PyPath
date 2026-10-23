@@ -365,7 +365,7 @@ def summarize_ecopath_validation_issues(issues: list[ValidationIssue]) -> str:
 
 def ecopath_ui():
     """Ecopath model page UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.h2("Ecopath Mass-Balance Model", class_="mb-4"),
         ui.layout_sidebar(
             # Sidebar for model setup
@@ -1700,3 +1700,4 @@ def ecopath_server(
             yield p.model.to_csv(index=False)
         else:
             yield ""
+

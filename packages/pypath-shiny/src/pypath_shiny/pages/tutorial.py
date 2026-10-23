@@ -47,7 +47,7 @@ def _step_card(
 
 def tutorial_ui():
     """Tutorial page UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.div(
             # Header
             ui.div(
@@ -790,3 +790,4 @@ def tutorial_server(input: Inputs, output: Outputs, session: Session):
     @reactive.event(input.btn_tut_ibm)
     def _goto_ibm():
         ui.update_navs("main_nav", selected="Individual-Based Model")
+

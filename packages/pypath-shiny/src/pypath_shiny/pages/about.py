@@ -20,7 +20,7 @@ def _get_version(package: str) -> str:
 
 def about_ui():
     """About page UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.div(
             ui.h2("About PyPath", class_="mb-4"),
             ui.card(
@@ -304,3 +304,4 @@ def about_ui():
 def about_server(input: Inputs, output: Outputs, session: Session):
     """About page server logic (minimal)."""
     pass
+

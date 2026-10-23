@@ -39,7 +39,7 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
 
 def multistanza_ui():
     """UI for multi-stanza groups page."""
-    return ui.page_fluid(
+    return ui.div(
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("Multi-Stanza Setup"),
@@ -526,3 +526,4 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             yield df.to_csv(index=False)
         else:
             yield ""
+

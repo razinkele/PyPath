@@ -34,7 +34,7 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
 
 def optimization_demo_ui():
     """UI for Bayesian optimization demonstration page."""
-    return ui.page_fluid(
+    return ui.div(
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("Optimization Setup"),
@@ -836,3 +836,4 @@ Objective Function: {cfg["objective"].upper()}
     def opt_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield _opt_code()
+

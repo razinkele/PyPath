@@ -35,7 +35,7 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
 
 def home_ui():
     """Home page UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.div(
             # Hero section — ocean gradient with caustic light effects
             ui.div(
@@ -760,3 +760,4 @@ def home_server(
         except Exception as e:
             logger.exception("Loading the example model failed")
             _notify_legacy(f"Error loading example model: {str(e)}", type="error")
+

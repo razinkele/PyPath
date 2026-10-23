@@ -105,7 +105,7 @@ def apply_prey_forcing(scen, group, multiplier):
 
 def ecosim_ui() -> ui.Tag:
     """Ecosim simulation page UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.h2("Ecosim Dynamic Simulation", class_="mb-4"),
         ui.layout_sidebar(
             # Sidebar for simulation settings
@@ -1959,3 +1959,4 @@ def ecosim_server(
 
         plt.tight_layout()
         return fig
+

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 def analysis_ui():
     """Analysis page UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.h2("Ecosystem Analysis", class_="mb-4"),
         ui.navset_card_tab(
             # Network Analysis
@@ -874,3 +874,4 @@ def analysis_server(
         except Exception as e:
             logger.exception("Exporting model data failed")
             yield f"Error exporting: {str(e)}"
+

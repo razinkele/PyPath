@@ -41,7 +41,7 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
 
 def ibm_ui():
     """UI for the Individual-Based Model page."""
-    return ui.page_fluid(
+    return ui.div(
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("IBM Configuration", class_="mb-3"),
@@ -964,3 +964,4 @@ def ibm_server(
 
         fig.tight_layout()
         return fig
+

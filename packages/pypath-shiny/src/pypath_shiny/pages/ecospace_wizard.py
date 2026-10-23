@@ -212,7 +212,7 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
 
 def ecospace_wizard_ui():
     """Wizard page UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.h3("Ecospace Data Wizard"),
         _step_progress_ui(),
         ui.output_ui("wizard_step_content"),
@@ -1169,3 +1169,4 @@ def _step7_review_launch_ui():
             class_="btn-success btn-lg",
         ),
     )
+

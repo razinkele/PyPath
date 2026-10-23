@@ -200,7 +200,7 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
 
 def prebalance_ui():
     """Pre-balance diagnostics UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("Pre-Balance Diagnostics"),
@@ -862,3 +862,4 @@ def prebalance_server(
             ax.axis("off")
             logger.error("Error generating diagnostic plot: %s", e, exc_info=True)
             return fig
+

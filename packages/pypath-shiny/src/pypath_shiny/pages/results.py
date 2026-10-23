@@ -50,7 +50,7 @@ def _apply_plot_style(plt, style):
 
 def results_ui():
     """Results page UI."""
-    return ui.page_fluid(
+    return ui.div(
         ui.h2("Results & Visualization", class_="mb-4"),
         ui.layout_sidebar(
             ui.sidebar(
@@ -778,4 +778,5 @@ def results_server(
             yield df.to_csv(index=False)
             return
         yield ""
+
 

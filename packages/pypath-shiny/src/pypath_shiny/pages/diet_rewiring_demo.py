@@ -18,7 +18,7 @@ from pypath_shiny.config import DEFAULTS
 
 def diet_rewiring_demo_ui():
     """UI for diet rewiring demonstration page."""
-    return ui.page_fluid(
+    return ui.div(
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("Diet Rewiring Configuration"),
@@ -683,3 +683,4 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
     def diet_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield _diet_code()
+

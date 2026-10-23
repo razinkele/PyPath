@@ -42,7 +42,7 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
 
 def forcing_demo_ui():
     """UI for forcing demonstration page."""
-    return ui.page_fluid(
+    return ui.div(
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("Forcing Configuration"),
@@ -683,3 +683,4 @@ Data Points: {len(df)}
     def forcing_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield build_forcing_code(**_forcing_code_inputs())
+

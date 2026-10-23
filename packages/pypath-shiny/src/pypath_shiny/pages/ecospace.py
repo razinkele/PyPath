@@ -429,7 +429,7 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
 
 def ecospace_ui():
     """UI for ECOSPACE spatial modeling page."""
-    return ui.page_fluid(
+    return ui.div(
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("ECOSPACE Configuration", class_="mb-3"),
@@ -2175,3 +2175,4 @@ def ecospace_server(
             values.append(str(timestep))
 
         return pd.DataFrame({"Metric": metrics, "Value": values})
+
