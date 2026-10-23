@@ -49,7 +49,13 @@ def resolve_db_path(db_path: str | Path | None = None) -> Path:
 
 def _connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     path = resolve_db_path(db_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        # Fall back to /tmp if the default location is not writable
+        # This handles deployment scenarios where app user cannot write to app directory
+        path = Path("/tmp") / "pypath-shiny-feedback" / "feedback.db"
+        path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=5.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

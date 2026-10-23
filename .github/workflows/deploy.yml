@@ -166,13 +166,16 @@ jobs:
           ssh "$REMOTE" "'${TARGET}/venv/bin/python' -c 'import pypath_shiny; print(f\"Deployed pypath-shiny v{pypath_shiny.__version__}\")'"
           echo "Packages installed successfully."
 
-      - name: Fix ownership
+      - name: Fix ownership and create writable directories
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           TARGET="${{ steps.target.outputs.path }}"
-          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "sudo chown -R shiny:shiny '$TARGET'" || echo "Warning: could not fix ownership (may need sudo)"
+          # Try to chown if user has sudo without password
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "sudo -n chown -R shiny:shiny '$TARGET' 2>/dev/null || true"
+          # Ensure app-writable directories exist with proper permissions
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '$TARGET/packages/pypath-shiny/src/pypath_shiny/logs' && chmod 775 '$TARGET/packages/pypath-shiny/src/pypath_shiny/logs'"
 
       - name: Optional restart of Shiny Server
         if: ${{ github.event.inputs.restart == 'true' }}
