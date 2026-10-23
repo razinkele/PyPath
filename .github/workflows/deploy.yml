@@ -145,6 +145,16 @@ jobs:
           sys.path.insert(0, str(app_dir / "packages" / "pypath-shiny" / "src"))
           sys.path.insert(0, str(app_dir / "packages" / "pypath" / "src"))
 
+          # Persist runtime stderr + native crashes to a readable file for diagnosis.
+          import os
+          import faulthandler
+          try:
+              _errlog = open(os.path.join(str(app_dir), "pypath_runtime.log"), "a", buffering=1)
+              sys.stderr = _errlog
+              faulthandler.enable(_errlog)
+          except Exception:
+              pass
+
           try:
               from pypath_shiny.app import app
           except Exception:
@@ -235,6 +245,8 @@ jobs:
           ssh "$REMOTE" "grep -n \"theme=\|bootswatch\|page_fluid\" '${TARGET}/packages/pypath-shiny/src/pypath_shiny/app.py' | head -20 || true"
           echo "===== restart.txt + app.py mtimes ====="
           ssh "$REMOTE" "ls -l --time-style=full-iso '${TARGET}/restart.txt' '${TARGET}/app.py' 2>&1 || true"
+          echo "===== pypath_runtime.log (stderr/faulthandler) ====="
+          ssh "$REMOTE" "tail -200 '${TARGET}/pypath_runtime.log' 2>&1 || echo no-runtime-log"
           echo "===== shiny-server ENV (micromamba) versions ====="
           ssh "$REMOTE" "/opt/micromamba/envs/shiny/bin/python -m pip list 2>/dev/null | grep -iE 'shiny|shinyswatch|htmltools' || echo cannot-list-shiny-env"
           echo "===== server venv package versions ====="
