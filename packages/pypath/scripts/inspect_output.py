@@ -3,7 +3,7 @@
 import warnings
 
 warnings.filterwarnings("ignore")
-from pypath import read_ewemdb, rpath, rsim_scenario, rsim_run
+from pypath import read_ewemdb, rpath, rsim_run, rsim_scenario
 
 p = read_ewemdb("Data/LT2022_0.5ST_final7.eweaccdb")
 m = rpath(p)

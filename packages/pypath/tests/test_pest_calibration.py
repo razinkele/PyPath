@@ -1,14 +1,13 @@
-﻿"""Unit tests for PEST calibration framework."""
+"""Unit tests for PEST calibration framework."""
 
 import numpy as np
-import pytest
 
 from pypath.core.ecopath import rpath
 from pypath.core.pest_calibration import (
-    PestParameter,
-    PestObservation,
-    PestCalibrator,
     PestCalibrationResult,
+    PestCalibrator,
+    PestObservation,
+    PestParameter,
 )
 
 
@@ -126,12 +125,14 @@ class TestPestCalibrator:
         rpath_model = rpath(params, debug=False)
         calibrator = PestCalibrator(rpath_model, params)
 
-        calibrator.add_parameter(PestParameter(
-            name="VV_0_1",
-            initial=1.0,
-            lower=0.1,
-            upper=10.0,
-        ))
+        calibrator.add_parameter(
+            PestParameter(
+                name="VV_0_1",
+                initial=1.0,
+                lower=0.1,
+                upper=10.0,
+            )
+        )
 
         # Test out-of-bounds parameter
         parmvec = np.array([50.0])  # > upper bound
@@ -149,7 +150,7 @@ class TestPestCalibrator:
             name="Test",
             value=1.0,
             group_index=999,  # Invalid group
-            time_year=50.0,   # Beyond simulation
+            time_year=50.0,  # Beyond simulation
         )
 
         pred = calibrator._extract_prediction(None, obs)
@@ -163,12 +164,14 @@ class TestPestCalibrator:
 
         # Add parameters so correlation matrix can be constructed
         for i in range(3):
-            calibrator.add_parameter(PestParameter(
-                name=f"param_{i}",
-                initial=1.0,
-                lower=0.5,
-                upper=2.0,
-            ))
+            calibrator.add_parameter(
+                PestParameter(
+                    name=f"param_{i}",
+                    initial=1.0,
+                    lower=0.5,
+                    upper=2.0,
+                )
+            )
 
         # Create dummy Jacobian
         n_obs, n_parms = 10, 3
@@ -220,22 +223,26 @@ class TestPestCalibrationIntegration:
 
         # Add parameters
         for i in range(3):
-            calibrator.add_parameter(PestParameter(
-                name=f"param_{i}",
-                initial=1.0,
-                lower=0.5,
-                upper=2.0,
-            ))
+            calibrator.add_parameter(
+                PestParameter(
+                    name=f"param_{i}",
+                    initial=1.0,
+                    lower=0.5,
+                    upper=2.0,
+                )
+            )
 
         # Add observations
         for i in range(5):
-            calibrator.add_observation(PestObservation(
-                name=f"obs_{i}",
-                value=float(i + 1),
-                weight=1.0,
-                group_index=0,
-                time_year=float(i + 1),
-            ))
+            calibrator.add_observation(
+                PestObservation(
+                    name=f"obs_{i}",
+                    value=float(i + 1),
+                    weight=1.0,
+                    group_index=0,
+                    time_year=float(i + 1),
+                )
+            )
 
         assert len(calibrator.pest_parameters) == 3
         assert len(calibrator.pest_observations) == 5

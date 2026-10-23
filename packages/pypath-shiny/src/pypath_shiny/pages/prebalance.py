@@ -18,15 +18,15 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 logger = logging.getLogger(__name__)
 
 from pypath_shiny.config import PLOTS, UI  # noqa: E402
+from pypath_shiny.pages.utils import (  # noqa: E402
+    is_rpath_params,
+    load_rpath_diagnostics,
+)
 from pypath_shiny.services.notifications import (  # noqa: E402
     notify_error,
     notify_info,
     notify_success,
     notify_warning,
-)
-from pypath_shiny.pages.utils import (  # noqa: E402
-    is_rpath_params,
-    load_rpath_diagnostics,
 )
 
 
@@ -862,4 +862,3 @@ def prebalance_server(
             ax.axis("off")
             logger.error("Error generating diagnostic plot: %s", e, exc_info=True)
             return fig
-
