@@ -1,4 +1,4 @@
-﻿"""PEST Calibration Framework for Ecosim Model.
+"""PEST Calibration Framework for Ecosim Model.
 
 Provides tools for Parameter ESTimation (PEST) calibration of Ecosim models
 using automated parameter adjustment to match observed time series data.
@@ -22,14 +22,12 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict
 
 import numpy as np
 import pandas as pd
 
-from pypath.core.ecopath import Rpath
 from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
-from pypath.core.params import RpathParams
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +151,15 @@ class PestCalibrator:
             )
             self.add_parameter(param)
 
-    def add_observations_from_dataframe(self, df, value_col="value", weight_col="weight", group_col="group_index", time_col="time_year", o_type="biomass"):
+    def add_observations_from_dataframe(
+        self,
+        df,
+        value_col="value",
+        weight_col="weight",
+        group_col="group_index",
+        time_col="time_year",
+        o_type="biomass",
+    ):
         """Add observations from a pandas DataFrame."""
         for _, row in df.iterrows():
             obs = PestObservation(
@@ -166,7 +172,15 @@ class PestCalibrator:
             )
             self.add_observation(obs)
 
-    def calibrate(self, scenario_factory, method="glm", max_iterations=20, tolerance=0.01, lambdas=None, verbose=True):
+    def calibrate(
+        self,
+        scenario_factory,
+        method="glm",
+        max_iterations=20,
+        tolerance=0.01,
+        lambdas=None,
+        verbose=True,
+    ):
         """Run PEST calibration."""
         if method == "glm":
             return self._calibrate_glm(
@@ -179,7 +193,14 @@ class PestCalibrator:
         else:
             raise ValueError(f"Unknown calibration method: {method}")
 
-    def _calibrate_glm(self, scenario_factory, max_iterations=20, tolerance=0.01, lambdas=None, verbose=True):
+    def _calibrate_glm(
+        self,
+        scenario_factory,
+        max_iterations=20,
+        tolerance=0.01,
+        lambdas=None,
+        verbose=True,
+    ):
         """Gauss-Levenberg-Marquardt calibration."""
         start_time = time.time()
 
@@ -188,7 +209,7 @@ class PestCalibrator:
         n_obs = len(self.pest_observations)
 
         if verbose:
-            self.logger.info(f"PEST Calibration (GLM)")
+            self.logger.info("PEST Calibration (GLM)")
             self.logger.info(f"  Parameters: {n_parms}")
             self.logger.info(f"  Observations: {n_obs}")
 
@@ -200,18 +221,26 @@ class PestCalibrator:
         ssr_history = []
 
         for iteration in range(max_iterations):
-            base_scenario = rsim_scenario(self.rpath_model, self.params, years=np.arange(1, 21))
-            ssr, residuals, jacobian = self._evaluate_residuals_and_jacobian(scenario_factory, base_scenario, parmvec)
+            base_scenario = rsim_scenario(
+                self.rpath_model, self.params, years=np.arange(1, 21)
+            )
+            ssr, residuals, jacobian = self._evaluate_residuals_and_jacobian(
+                scenario_factory, base_scenario, parmvec
+            )
             ssr_history.append(ssr)
 
             if verbose:
                 self.logger.info(f"  Iteration {iteration + 1}: SSR = {ssr:.6e}")
 
             if iteration > 0:
-                delta_ssr = abs(ssr_history[-2] - ssr_history[-1]) / (ssr_history[-2] + 1e-10)
+                delta_ssr = abs(ssr_history[-2] - ssr_history[-1]) / (
+                    ssr_history[-2] + 1e-10
+                )
                 if delta_ssr < tolerance:
                     if verbose:
-                        self.logger.info(f"  Converged after {iteration + 1} iterations")
+                        self.logger.info(
+                            f"  Converged after {iteration + 1} iterations"
+                        )
                     break
 
             lamb = lambdas[iteration]
@@ -225,10 +254,18 @@ class PestCalibrator:
                 self.logger.warning(f"  Singular matrix at iteration {iteration}: {e}")
                 break
 
-        base_scenario = rsim_scenario(self.rpath_model, self.params, years=np.arange(1, 21))
-        final_ssr, final_residuals, final_jacobian = self._evaluate_residuals_and_jacobian(scenario_factory, base_scenario, parmvec)
+        base_scenario = rsim_scenario(
+            self.rpath_model, self.params, years=np.arange(1, 21)
+        )
+        final_ssr, final_residuals, final_jacobian = (
+            self._evaluate_residuals_and_jacobian(
+                scenario_factory, base_scenario, parmvec
+            )
+        )
 
-        covariance, correlation, uncertainty = self._compute_uncertainty(final_jacobian, final_ssr, n_obs, n_parms)
+        covariance, correlation, uncertainty = self._compute_uncertainty(
+            final_jacobian, final_ssr, n_obs, n_parms
+        )
 
         best_params = {p.name: v for p, v in zip(self.pest_parameters, parmvec)}
         fitted_scenario = scenario_factory(base_scenario, parmvec)
@@ -236,7 +273,10 @@ class PestCalibrator:
         result = PestCalibrationResult(
             best_params=best_params,
             best_parmvec=parmvec,
-            residuals={self.pest_observations[i].name: final_residuals[i] for i in range(min(len(final_residuals), n_obs))},
+            residuals={
+                self.pest_observations[i].name: final_residuals[i]
+                for i in range(min(len(final_residuals), n_obs))
+            },
             sum_of_squared_residuals=final_ssr,
             n_iterations=iteration + 1,
             converged=(delta_ssr < tolerance) if iteration > 0 else False,
@@ -249,11 +289,15 @@ class PestCalibrator:
         )
 
         if verbose:
-            self.logger.info(f"Calibration Complete - Final SSR: {final_ssr:.6e}, Time: {result.calibration_time:.2f}s")
+            self.logger.info(
+                f"Calibration Complete - Final SSR: {final_ssr:.6e}, Time: {result.calibration_time:.2f}s"
+            )
 
         return result
 
-    def _evaluate_residuals_and_jacobian(self, scenario_factory, base_scenario, parmvec):
+    def _evaluate_residuals_and_jacobian(
+        self, scenario_factory, base_scenario, parmvec
+    ):
         """Evaluate residuals and Jacobian."""
         n_obs = len(self.pest_observations)
         n_parms = len(self.pest_parameters)
@@ -275,7 +319,9 @@ class PestCalibrator:
                 pred_plus = self._extract_prediction(output_plus, obs)
                 pred_minus = self._extract_prediction(output_minus, obs)
                 if pred_plus is not None and pred_minus is not None:
-                    jacobian[j_obs, i_param] = (pred_plus - pred_minus) / (parmvec_plus[i_param] - parmvec_minus[i_param])
+                    jacobian[j_obs, i_param] = (pred_plus - pred_minus) / (
+                        parmvec_plus[i_param] - parmvec_minus[i_param]
+                    )
 
         scenario_best = scenario_factory(base_scenario, parmvec)
         output_best = rsim_run(scenario_best, method="RK4")
@@ -316,9 +362,19 @@ class PestCalibrator:
             sigma_sq = ssr / dof
             cov = np.linalg.inv(hessian) * sigma_sq
             std_dev = np.sqrt(np.diag(cov))
-            uncertainty = {p.name: float(std_dev[i]) for i, p in enumerate(self.pest_parameters)}
+            uncertainty = {
+                p.name: float(std_dev[i]) for i, p in enumerate(self.pest_parameters)
+            }
             corr = cov / np.outer(std_dev, std_dev)
-            corr_df = pd.DataFrame(corr, index=[p.name for p in self.pest_parameters], columns=[p.name for p in self.pest_parameters]) if len(self.pest_parameters) > 0 else None
+            corr_df = (
+                pd.DataFrame(
+                    corr,
+                    index=[p.name for p in self.pest_parameters],
+                    columns=[p.name for p in self.pest_parameters],
+                )
+                if len(self.pest_parameters) > 0
+                else None
+            )
             return cov, corr_df, uncertainty
         except np.linalg.LinAlgError:
             return None, None, None
