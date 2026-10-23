@@ -87,7 +87,7 @@ def _biodata_task_alert(
 
 def import_ui():
     """Data import page UI."""
-    return ui.page_sidebar(
+    return ui.div(
         # Sidebar with import options (tabs)
         ui.sidebar(
             ui.navset_pill(
@@ -1365,3 +1365,4 @@ Phytoplankton"""
             "Model transferred! Go to 'Ecopath Model' tab to edit and balance.",
             type="message",
         )
+
