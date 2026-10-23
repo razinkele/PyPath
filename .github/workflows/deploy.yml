@@ -138,13 +138,30 @@ jobs:
           # (Shiny Server uses su --login which prevents .pth editable installs from working)
           ssh "$REMOTE" "cat > '${TARGET}/app.py'" << 'APPENTRY'
           import sys
+          import traceback
           from pathlib import Path
 
           app_dir = Path(__file__).parent
           sys.path.insert(0, str(app_dir / "packages" / "pypath-shiny" / "src"))
           sys.path.insert(0, str(app_dir / "packages" / "pypath" / "src"))
 
-          from pypath_shiny.app import app
+          try:
+              from pypath_shiny.app import app
+          except Exception:
+              _tb = traceback.format_exc()
+              sys.stderr.write(_tb)
+              sys.stderr.flush()
+              from shiny import App, ui
+
+              _app_ui = ui.page_fluid(
+                  ui.h3("PyPath failed to start"),
+                  ui.tags.pre(_tb),
+              )
+
+              def _server(input, output, session):
+                  pass
+
+              app = App(_app_ui, _server)
 
           __all__ = ["app"]
           APPENTRY
