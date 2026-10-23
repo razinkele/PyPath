@@ -1,4 +1,4 @@
-# PyPath - Python Ecopath with Ecosim
+﻿# PyPath - Python Ecopath with Ecosim
 
 <p align="center">
   <img src="app/static/logo.svg" alt="PyPath Logo" width="300"/>
@@ -58,6 +58,14 @@ PyPath is a monorepo with two distributable packages:
   - Analyzing ecosystem responses across scenarios
   - Complete data integration with real fishery data from the Baltic
   - Ready-to-run Python script: curonian_lagoon_ecosim_demo.py
+
+- ⚙️ **[PEST Calibration Framework](PEST_CALIBRATION_GUIDE.md)** — Automated parameter estimation for Ecosim:
+  - Gauss-Levenberg-Marquardt (GLM) gradient-based optimization
+  - Differential Evolution (DE) for multimodal problems
+  - Parameter bounds and uncertainty quantification
+  - Jacobian computation via finite differences
+  - Full Curonian Lagoon calibration example
+  - Ready-to-run script: scripts/pest_calibration_curonian_lagoon.py
 
 ### pypath-core (`pypath-ewe`)
 
