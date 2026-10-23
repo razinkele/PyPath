@@ -1,34 +1,38 @@
 """Tests for results_export.py - Results export and formatting utilities."""
 
-import pytest
-import pandas as pd
-import numpy as np
 import json
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
 
 from pypath_shiny.pages.results_export import (
-    format_model_summary,
-    create_results_metadata,
-    validate_export_data,
-    export_results_to_json,
-    prepare_csv_export_tables,
-    format_results_for_download,
     create_download_bundle,
+    create_results_metadata,
+    export_results_to_json,
+    format_model_summary,
+    format_results_for_download,
+    prepare_csv_export_tables,
+    validate_export_data,
 )
 
 
 class MockRpathParams:
     """Mock RpathParams for testing."""
+
     def __init__(self):
-        self.model = pd.DataFrame({
-            "Group": ["Fish", "Plankton"],
-            "Type": [0, 1],
-            "Biomass": [10.0, 5.0],
-            "PB": [0.8, 50.0],
-            "QB": [2.0, np.nan],
-            "EE": [0.9, 0.95],
-        })
+        self.model = pd.DataFrame(
+            {
+                "Group": ["Fish", "Plankton"],
+                "Type": [0, 1],
+                "Biomass": [10.0, 5.0],
+                "PB": [0.8, 50.0],
+                "QB": [2.0, np.nan],
+                "EE": [0.9, 0.95],
+            }
+        )
 
 
 class TestFormatModelSummary:
@@ -44,9 +48,10 @@ class TestFormatModelSummary:
 
     def test_missing_model_attribute(self):
         """Test error when model attribute missing."""
+
         class BadParams:
             pass
-        
+
         with pytest.raises(ValueError):
             format_model_summary(BadParams())
 
@@ -71,11 +76,13 @@ class TestCreateResultsMetadata:
 
     def test_metadata_with_model(self):
         """Test metadata with model info."""
-        model = pd.DataFrame({
-            "Group": ["Fish", "Plankton", "Detritus"],
-            "Type": [0, 1, 2],
-            "Biomass": [10.0, 5.0, 0.5],
-        })
+        model = pd.DataFrame(
+            {
+                "Group": ["Fish", "Plankton", "Detritus"],
+                "Type": [0, 1, 2],
+                "Biomass": [10.0, 5.0, 0.5],
+            }
+        )
         metadata = create_results_metadata(model_summary=model)
         assert metadata["model_info"]["num_groups"] == 3
         assert metadata["model_info"]["consumers"] == 1
@@ -104,10 +111,12 @@ class TestValidateExportData:
 
     def test_valid_model_only(self):
         """Test valid model-only export."""
-        model = pd.DataFrame({
-            "Group": ["Fish"],
-            "Type": [0],
-        })
+        model = pd.DataFrame(
+            {
+                "Group": ["Fish"],
+                "Type": [0],
+            }
+        )
         is_valid, errors = validate_export_data(model_summary=model)
         assert is_valid
         assert len(errors) == 0
@@ -144,10 +153,12 @@ class TestExportResultsToJson:
 
     def test_basic_json_export(self):
         """Test basic JSON export to string."""
-        model = pd.DataFrame({
-            "Group": ["Fish"],
-            "Type": [0],
-        })
+        model = pd.DataFrame(
+            {
+                "Group": ["Fish"],
+                "Type": [0],
+            }
+        )
         json_str = export_results_to_json(model_summary=model)
         data = json.loads(json_str)
         assert "model" in data
@@ -158,10 +169,7 @@ class TestExportResultsToJson:
         """Test JSON export with metadata."""
         model = pd.DataFrame({"Group": ["Fish"], "Type": [0]})
         metadata = {"test": "data"}
-        json_str = export_results_to_json(
-            model_summary=model,
-            metadata=metadata
-        )
+        json_str = export_results_to_json(model_summary=model, metadata=metadata)
         data = json.loads(json_str)
         assert data["metadata"]["test"] == "data"
 
@@ -179,8 +187,7 @@ class TestExportResultsToJson:
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "test.json"
             result = export_results_to_json(
-                model_summary=model,
-                output_path=str(output_path)
+                model_summary=model, output_path=str(output_path)
             )
             assert Path(result).exists()
             content = json.loads(Path(result).read_text())
@@ -192,10 +199,12 @@ class TestPrepareCsvExportTables:
 
     def test_model_only_export(self):
         """Test CSV export with model only."""
-        model = pd.DataFrame({
-            "Group": ["Fish", "Plankton"],
-            "Type": [0, 1],
-        })
+        model = pd.DataFrame(
+            {
+                "Group": ["Fish", "Plankton"],
+                "Type": [0, 1],
+            }
+        )
         tables = prepare_csv_export_tables(model_summary=model)
         assert "model" in tables
         assert len(tables["model"]) == 2
@@ -211,10 +220,7 @@ class TestPrepareCsvExportTables:
     def test_annual_summary_export(self):
         """Test CSV export with annual aggregation."""
         sim = {"monthly_biomass": np.ones((24, 1))}
-        tables = prepare_csv_export_tables(
-            simulation_output=sim,
-            annual_summary=True
-        )
+        tables = prepare_csv_export_tables(simulation_output=sim, annual_summary=True)
         assert "annual" in tables
         assert len(tables["annual"]) == 2  # 2 years
 
@@ -226,8 +232,7 @@ class TestFormatResultsForDownload:
         """Test CSV download format."""
         model = pd.DataFrame({"Group": ["Fish"], "Type": [0]})
         content, filename = format_results_for_download(
-            model_summary=model,
-            format_type="csv"
+            model_summary=model, format_type="csv"
         )
         assert "csv" in filename
         assert "# MODEL" in content
@@ -237,8 +242,7 @@ class TestFormatResultsForDownload:
         """Test JSON download format."""
         model = pd.DataFrame({"Group": ["Fish"], "Type": [0]})
         content, filename = format_results_for_download(
-            model_summary=model,
-            format_type="json"
+            model_summary=model, format_type="json"
         )
         assert "json" in filename
         data = json.loads(content)
@@ -248,8 +252,7 @@ class TestFormatResultsForDownload:
         """Test HTML download format."""
         model = pd.DataFrame({"Group": ["Fish"], "Type": [0]})
         content, filename = format_results_for_download(
-            model_summary=model,
-            format_type="html"
+            model_summary=model, format_type="html"
         )
         assert "html" in filename
         assert "<table" in content.lower()
@@ -258,10 +261,7 @@ class TestFormatResultsForDownload:
         """Test error on invalid format."""
         model = pd.DataFrame({"Group": ["Fish"], "Type": [0]})
         with pytest.raises(ValueError):
-            format_results_for_download(
-                model_summary=model,
-                format_type="invalid"
-            )
+            format_results_for_download(model_summary=model, format_type="invalid")
 
 
 class TestCreateDownloadBundle:
@@ -269,10 +269,12 @@ class TestCreateDownloadBundle:
 
     def test_basic_bundle(self):
         """Test basic bundle with model."""
-        model = pd.DataFrame({
-            "Group": ["Fish"],
-            "Type": [0],
-        })
+        model = pd.DataFrame(
+            {
+                "Group": ["Fish"],
+                "Type": [0],
+            }
+        )
         files, bundle_name = create_download_bundle(model_summary=model)
         assert "model.csv" in files
         assert "zip" in bundle_name
@@ -282,8 +284,7 @@ class TestCreateDownloadBundle:
         model = pd.DataFrame({"Group": ["Fish"], "Type": [0]})
         sim = {"monthly_biomass": np.ones((12, 1))}
         files, bundle_name = create_download_bundle(
-            model_summary=model,
-            simulation_output=sim
+            model_summary=model, simulation_output=sim
         )
         assert "timeseries.csv" in files
         assert "annual_summary.csv" in files
@@ -294,8 +295,7 @@ class TestCreateDownloadBundle:
         model = pd.DataFrame({"Group": ["Fish"], "Type": [0]})
         metadata = {"version": "1.0"}
         files, bundle_name = create_download_bundle(
-            model_summary=model,
-            metadata=metadata
+            model_summary=model, metadata=metadata
         )
         assert "metadata.json" in files
         meta_content = json.loads(files["metadata.json"])
