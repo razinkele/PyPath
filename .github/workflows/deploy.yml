@@ -203,5 +203,19 @@ jobs:
           echo "Restarting Shiny Server on ${DEPLOY_HOST} (may require sudo)"
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "sudo systemctl restart shiny-server || sudo service shiny-server restart || true"
 
+      - name: Capture shiny-server app log (diagnostic)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set +e
+          REMOTE="${DEPLOY_USER}@${DEPLOY_HOST}"
+          echo "===== shiny-server log dir listing ====="
+          ssh "$REMOTE" "ls -lt /var/log/shiny-server/ 2>&1 | head -30"
+          echo "===== latest pypath log (user-readable) ====="
+          ssh "$REMOTE" "LOG=\$(ls -t /var/log/shiny-server/*pypath*.log 2>/dev/null | head -1); echo \"LOG=\$LOG\"; tail -120 \"\$LOG\" 2>&1"
+          echo "===== latest pypath log (sudo fallback) ====="
+          ssh "$REMOTE" "sudo -n sh -c 'LOG=\$(ls -t /var/log/shiny-server/*pypath*.log 2>/dev/null | head -1); echo SUDO_LOG=\$LOG; tail -120 \"\$LOG\"' 2>&1" || echo "sudo log read unavailable"
+
       - name: Done
         run: echo "Deploy completed."
