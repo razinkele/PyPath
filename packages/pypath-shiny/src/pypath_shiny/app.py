@@ -455,6 +455,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 def main():
     """Launch the PyPath Shiny application."""
     import os
+
     import uvicorn
 
     from pypath_shiny.logger import configure_logging
@@ -477,5 +478,3 @@ def main():
 
 # Create the app with static assets
 app = App(app_ui, server, static_assets=APP_DIR / "static")
-
-
