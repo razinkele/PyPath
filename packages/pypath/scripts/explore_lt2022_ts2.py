@@ -1,7 +1,7 @@
 """Get the latest time series dataset details and forcing shapes."""
 
 from pathlib import Path
-import numpy as np
+
 from pypath import read_ewemdb_table
 
 DB = str(Path(__file__).resolve().parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb")
@@ -31,7 +31,7 @@ for _, r in ds34.iterrows():
 
 # Get the group mapping for DatType interpretation
 tsg = read_ewemdb_table(DB, "EcosimTimeSeriesGroup")
-print(f"\n=== Time Series -> Group Mapping (first 30) ===")
+print("\n=== Time Series -> Group Mapping (first 30) ===")
 groups = read_ewemdb_table(DB, "EcopathGroup")
 gmap = dict(zip(groups["GroupID"], groups["GroupName"]))
 for _, r in tsg.head(30).iterrows():
