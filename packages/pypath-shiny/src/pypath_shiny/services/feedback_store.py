@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import tempfile
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -47,20 +48,44 @@ def resolve_db_path(db_path: str | Path | None = None) -> Path:
     return Path(env) if env else _DEFAULT_DB
 
 
-def _connect(db_path: str | Path | None = None) -> sqlite3.Connection:
-    path = resolve_db_path(db_path)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-    except PermissionError:
-        # Fall back to /tmp if the default location is not writable
-        # This handles deployment scenarios where app user cannot write to app directory
-        path = Path("/tmp") / "pypath-shiny-feedback" / "feedback.db"
-        path.parent.mkdir(parents=True, exist_ok=True)
+def _open_db(path: Path) -> sqlite3.Connection:
+    """Open and initialize the SQLite feedback DB at *path*."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=5.0)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.OperationalError:
+        # WAL needs a writable directory and is unsupported on some network
+        # filesystems; fall back to the default rollback journal instead of
+        # failing. (Reads still work on a read-only database.)
+        pass
     conn.execute(_SCHEMA)
     return conn
+
+
+def _connect(db_path: str | Path | None = None) -> sqlite3.Connection:
+    """Connect to the feedback DB, degrading gracefully when it is not writable.
+
+    In locked-down deployments the app process may run as a user that cannot
+    write the application directory (e.g. Shiny Server running as ``shiny``).
+    Rather than letting a ``sqlite3.OperationalError`` ("attempt to write a
+    readonly database") propagate out of a reactive effect and crash the whole
+    session, fall back to a user-writable temp location, and finally to a
+    private in-memory database as a last resort.
+    """
+    path = resolve_db_path(db_path)
+    try:
+        return _open_db(path)
+    except (sqlite3.OperationalError, PermissionError, OSError):
+        fallback = Path(tempfile.gettempdir()) / "pypath-shiny-feedback" / "feedback.db"
+        try:
+            return _open_db(fallback)
+        except (sqlite3.OperationalError, PermissionError, OSError):
+            conn = sqlite3.connect(":memory:")
+            conn.row_factory = sqlite3.Row
+            conn.execute(_SCHEMA)
+            return conn
 
 
 def add_feedback(

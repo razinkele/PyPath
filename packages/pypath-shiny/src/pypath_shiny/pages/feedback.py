@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import time
 from typing import Callable
@@ -24,6 +25,8 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+
+logger = logging.getLogger(__name__)
 
 CATEGORIES = {
     "bug": "Bug report",
@@ -285,7 +288,12 @@ def feedback_server(
         status_key = str(input.fb_status_filter() or "open")
         status_values = STATUS_FILTERS.get(status_key, STATUS_FILTERS["open"])
         category = str(input.fb_type_filter() or "all")
-        return list_feedback(statuses=status_values, category=category)
+        try:
+            return list_feedback(statuses=status_values, category=category)
+        except Exception:
+            # Never let a feedback-storage failure crash the session.
+            logger.warning("Failed to load feedback entries", exc_info=True)
+            return []
 
     @output
     @render.ui
