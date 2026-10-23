@@ -149,7 +149,7 @@ jobs:
           import os
           import faulthandler
           try:
-              _errlog = open(os.path.join(str(app_dir), "pypath_runtime.log"), "a", buffering=1)
+              _errlog = open("/tmp/pypath_runtime.log", "a", buffering=1)
               sys.stderr = _errlog
               faulthandler.enable(_errlog)
           except Exception:
@@ -246,7 +246,7 @@ jobs:
           echo "===== restart.txt + app.py mtimes ====="
           ssh "$REMOTE" "ls -l --time-style=full-iso '${TARGET}/restart.txt' '${TARGET}/app.py' 2>&1 || true"
           echo "===== pypath_runtime.log (stderr/faulthandler) ====="
-          ssh "$REMOTE" "tail -200 '${TARGET}/pypath_runtime.log' 2>&1 || echo no-runtime-log"
+          ssh "$REMOTE" "tail -200 /tmp/pypath_runtime.log 2>&1 || echo no-runtime-log"
           echo "===== shiny-server ENV (micromamba) versions ====="
           ssh "$REMOTE" "/opt/micromamba/envs/shiny/bin/python -m pip list 2>/dev/null | grep -iE 'shiny|shinyswatch|htmltools' || echo cannot-list-shiny-env"
           echo "===== server venv package versions ====="
