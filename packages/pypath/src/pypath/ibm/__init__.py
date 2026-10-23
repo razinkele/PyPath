@@ -1,4 +1,4 @@
-"""
+﻿"""
 IBM (Individual-Based Model) module for PyPath.
 
 Provides individual-based modeling capabilities that can be coupled with
