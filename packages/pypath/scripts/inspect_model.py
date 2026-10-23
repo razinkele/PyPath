@@ -1,7 +1,8 @@
 """Quick inspection of balanced model and scenario attributes."""
 
-from pypath import read_ewemdb, rpath, rsim_scenario, rsim_run
 import warnings
+
+from pypath import read_ewemdb, rpath, rsim_run, rsim_scenario
 
 warnings.filterwarnings("ignore")
 

@@ -790,4 +790,3 @@ def tutorial_server(input: Inputs, output: Outputs, session: Session):
     @reactive.event(input.btn_tut_ibm)
     def _goto_ibm():
         ui.update_navs("main_nav", selected="Individual-Based Model")
-
