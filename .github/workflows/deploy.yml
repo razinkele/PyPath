@@ -194,6 +194,20 @@ jobs:
           # Ensure app-writable directories exist with proper permissions
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '$TARGET/packages/pypath-shiny/src/pypath_shiny/logs' && chmod 775 '$TARGET/packages/pypath-shiny/src/pypath_shiny/logs'"
 
+      - name: Reload app via restart.txt (no sudo required)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -e
+          TARGET="${{ steps.target.outputs.path }}"
+          # Shiny Server reloads a Python/R app on the next request whenever
+          # <app_dir>/restart.txt changes mtime. This forces a fresh worker
+          # process to pick up new code/venv without needing sudo to restart
+          # the whole shiny-server service.
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "touch '$TARGET/restart.txt'"
+          echo "Touched $TARGET/restart.txt to reload the app."
+
       - name: Optional restart of Shiny Server
         if: ${{ github.event.inputs.restart == 'true' }}
         env:
