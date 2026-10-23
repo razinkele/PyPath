@@ -454,14 +454,28 @@ def server(input: Inputs, output: Outputs, session: Session):
 
 def main():
     """Launch the PyPath Shiny application."""
+    import os
     import uvicorn
 
     from pypath_shiny.logger import configure_logging
 
     configure_logging()
 
-    uvicorn.run("pypath_shiny.app:app", host="0.0.0.0", port=8000, reload=True)
+    # Disable reload in production; enable only in development
+    # reload=True causes all active clients to disconnect on code changes
+    reload = os.getenv("PYPATH_DEV", "").lower() in ("1", "true", "yes")
+
+    uvicorn.run(
+        "pypath_shiny.app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=reload,
+        # Increase timeouts for long-running operations
+        timeout_keep_alive=65,  # WebSocket keep-alive (must be > client timeout)
+    )
 
 
 # Create the app with static assets
 app = App(app_ui, server, static_assets=APP_DIR / "static")
+
+
