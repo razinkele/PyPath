@@ -3,14 +3,15 @@
 import warnings
 
 warnings.filterwarnings("ignore")
-import sys, time
-import numpy as np
+import time
 from pathlib import Path
+
+import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DB_PATH = str(PROJECT_ROOT / "Data" / "LT2022_0.5ST_final7.eweaccdb")
 
-from pypath import read_ewemdb, read_ewemdb_table, rpath, rsim_scenario, rsim_run
+from pypath import read_ewemdb, read_ewemdb_table, rpath, rsim_run, rsim_scenario
 
 print("Loading model...")
 params = read_ewemdb(DB_PATH)
