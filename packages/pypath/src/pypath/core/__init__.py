@@ -48,6 +48,13 @@ from pypath.core.ecosim import (
     rsim_scenario,
     rsim_state,
 )
+from pypath.core.ramping import (
+    LinearRamp,
+    PolynomialRamp,
+    RampingFunction,
+    SplineRamp,
+    StepwiseRamp,
+)
 from pypath.core.ecosim_deriv import (
     deriv_vector,
     integrate_ab,
@@ -250,6 +257,12 @@ __all__ = [
     "rsim_fishing",
     "rsim_scenario",
     "rsim_run",
+    # Ramping
+    "RampingFunction",
+    "LinearRamp",
+    "PolynomialRamp",
+    "StepwiseRamp",
+    "SplineRamp",
     # Stanzas
     "StanzaGroup",
     "StanzaIndividual",
