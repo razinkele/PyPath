@@ -9,6 +9,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+from pypath_shiny.config import PARAM_RANGES
+
 # Configuration imports
 from pypath_shiny.services.notifications import (
     notify_error,
@@ -16,8 +18,6 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
-
-from pypath_shiny.config import PARAM_RANGES
 
 
 def _notify_legacy(message: str, type: str = "default", duration: int | None = None):

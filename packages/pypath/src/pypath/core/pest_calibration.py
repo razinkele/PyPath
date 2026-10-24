@@ -22,14 +22,12 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict
 
 import numpy as np
 import pandas as pd
 
-from pypath.core.ecopath import Rpath
 from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
-from pypath.core.params import RpathParams
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +186,7 @@ class PestCalibrator:
         n_obs = len(self.pest_observations)
 
         if verbose:
-            self.logger.info(f"PEST Calibration (GLM)")
+            self.logger.info("PEST Calibration (GLM)")
             self.logger.info(f"  Parameters: {n_parms}")
             self.logger.info(f"  Observations: {n_obs}")
 

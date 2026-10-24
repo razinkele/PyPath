@@ -1,3 +1,3 @@
 """PyPath Shiny - Web frontend for PyPath EwE food web modeling."""
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"

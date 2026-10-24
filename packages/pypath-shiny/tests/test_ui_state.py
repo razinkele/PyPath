@@ -1,4 +1,8 @@
-from pypath_shiny.services.ui_state import WIZARD_DRAFT_VERSION, deserialize_wizard_draft, serialize_wizard_draft
+from pypath_shiny.services.ui_state import (
+    WIZARD_DRAFT_VERSION,
+    deserialize_wizard_draft,
+    serialize_wizard_draft,
+)
 
 
 def test_wizard_draft_roundtrip():

@@ -206,19 +206,138 @@ based on the biomass of a mediating group.
       show_root_heading: true
       members_order: source
 
-## Pedigree & Monte Carlo
+## Pedigree System (Phase 1B.1)
 
-Pedigree-based parameter uncertainty and Monte Carlo sampling.
+Data quality tracking using EwE pedigree indices (0-4 scale mapping to
+HIGH/MEDIUM/LOW confidence). Integrates with Monte Carlo sampling for
+uncertainty quantification.
 
 ::: pypath.core.pedigree
     options:
       show_root_heading: true
       members_order: source
 
+**Key Classes:**
+- `PedigreeQuality` — Enum mapping EwE pedigree indices to quality levels
+- `EwePedigreeConfig` — Configuration for pedigree parameters (index, min, max)
+- `PedigreeContainer` — Multi-group pedigree management with validation
+
+## Monte Carlo Sampling
+
 ::: pypath.core.montecarlo
     options:
       show_root_heading: true
       members_order: source
+
+## Taxonomic Linkage System (Phase 1B.2)
+
+Hierarchical taxonomic linking for species identification across external
+databases (WoRMS, ITIS, FishBase). Supports multi-level taxonomy assignment,
+validation, and integration with biodiversity data systems.
+
+::: pypath.core.taxonomy
+    options:
+      show_root_heading: true
+      members_order: source
+
+**Key Classes:**
+- `TaxonLink` — Full taxonomic hierarchy (kingdom through species) with external IDs
+- `TaxonomyLinkage` — Multi-group taxonomy container with WoRMS integration stubs
+- `resolve_worms_link()` — Look up WoRMS taxon by name (stub function)
+- `batch_resolve_worms_taxonomy()` — Batch resolution for multiple groups
+
+**Integration with biodata.py:**
+- `integrate_taxonomy_with_biodata()` — Merge taxonomy with FishBase/WoRMS data
+- `resolve_worms_taxonomy()` — Fetch and store WoRMS records
+- `sync_taxonomy_with_rpath()` — Sync TaxonomyLinkage with RpathParams
+
+## Size Distribution System (Phase 1B.3)
+
+Population size structure and age-size conversions for age-structured
+modeling and Individual-Based Model (IBM) frameworks.
+
+::: pypath.core.size
+    options:
+      show_root_heading: true
+      members_order: source
+
+**Key Classes:**
+- `SizeClass` — Size interval definition with midpoint, width, and contains logic
+- `SizeDistribution` — Population size distribution (PSD) container with statistics
+- `SizeStructure` — Multi-group size distributions with aggregation
+
+**Von Bertalanffy Functions:**
+- `vb_length(age, Loo, K, t0)` — Age-to-length conversion
+- `vb_age(length, Loo, K, t0)` — Length-to-age conversion
+- `age_at_size_class()` — Estimate mean age from size interval
+- `estimate_psd_from_vb()` — Generate theoretical PSD from VBGF parameters
+
+## Fleet & Discard Dynamics (Phase 1B.4)
+
+Dynamic fishing fleet management with gear types, catchability, effort
+allocation, and discard routing to multiple fates. Highest complexity
+Phase 1B module with integration to Ecosim fishing mortality.
+
+::: pypath.core.fleet
+    options:
+      show_root_heading: true
+      members_order: source
+
+**Key Classes:**
+- `GearType` — Enum for 6 gear types (SEINE, NET, TRAP, TRAWL, HOOK, OTHER)
+- `FleetGroup` — Fleet definition with catchability matrix, fuel efficiency, base effort
+- `DiscardPath` — Discard routing with 4 fates (lost, predation, detritus, benthos)
+- `FleetDynamics` — Multi-fleet container with allocation and validation
+
+**Allocation Functions:**
+- `allocate_catch()` — Distribute catch among prey based on catchability
+- `allocate_discards()` — Route discards to specified fates
+- `estimate_catch_value()` — Economic value estimation (stub)
+- `estimate_fuel_cost()` — Fuel cost calculation (stub)
+
+## Nutrient Cycling System (Phase 1B.5)
+
+Ecosystem-level nutrient cycling (N, P, C) with excretion, uptake kinetics,
+and stoichiometric relationships. Implements Monod saturation for producer
+nutrient limitation.
+
+::: pypath.core.nutrients
+    options:
+      show_root_heading: true
+      members_order: source
+
+**Key Classes:**
+- `NutrientElement` — Enum for N, P, C with molecular weights
+- `NutrientContent` — Elemental composition (%) with validation
+- `NutrientExcretion` — Excretion rates with fecal/dissolved partitioning
+- `NutrientUptake` — Producer kinetics (half-saturation, max rate)
+- `NutrientCycle` — Ecosystem-level cycling with mass balance
+
+**Key Functions:**
+- `uptake_rate_monod()` — Monod saturation function for producer uptake
+- `validate_nutrient_cycle()` — Consistency checks across groups
+- `estimate_excretion_from_pb()` — Heuristic excretion estimation from P/B
+
+## Enhanced Landings System (Phase 1B.6)
+
+Catch and landings tracking with temporal (seasonal) distribution, landing
+types, and aggregation. Interfaces with dynamic Ecosim monthly dispatch.
+
+::: pypath.core.landings
+    options:
+      show_root_heading: true
+      members_order: source
+
+**Key Classes:**
+- `LandingType` — Enum for 5 catch categories (COMMERCIAL, SUBSISTENCE, RECREATIONAL, UNREPORTED, DISCARDS)
+- `LandingRecord` — Month-level catch tracking with optional value and fleet ID
+- `LandingSeasonality` — Monthly catch distribution patterns (12-element array)
+- `LandingsData` — Multi-record container with aggregation and validation
+
+**Key Functions:**
+- `estimate_seasonality_from_records()` — Infer monthly patterns from data
+- `aggregate_landings()` — Flexible aggregation (by group, year, type, season)
+- `dispatch_to_monthly_steps()` — Convert annual landings to monthly for Ecosim
 
 ## Sensitivity Analysis
 
@@ -257,3 +376,4 @@ Finn Cycling Index, transfer efficiency, and system maturity indices.
     options:
       show_root_heading: true
       members_order: source
+

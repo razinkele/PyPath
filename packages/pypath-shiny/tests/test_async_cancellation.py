@@ -298,7 +298,7 @@ class TestCancellationFromUserPerspective:
     def test_cancel_button_shows_during_long_operation(self):
         """User sees cancel button while operation is in progress."""
         task = new_running_task("download-1", "Downloading data...")
-        
+
         # Button should be visible
         should_show = (
             task.status == TaskStatus.RUNNING and task.can_cancel
@@ -318,7 +318,7 @@ class TestCancellationFromUserPerspective:
                 error="User clicked cancel button",
             ),
         )
-        
+
         assert task_after_click.status == TaskStatus.ERROR
         assert task_after_click.error == "User clicked cancel button"
         # Button now hidden because status changed

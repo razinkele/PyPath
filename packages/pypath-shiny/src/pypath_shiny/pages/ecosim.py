@@ -1561,7 +1561,7 @@ def ecosim_server(
     def _cancel_simulation():
         """Handle simulation cancel button."""
         task_state = sim_task_state.get()
-        
+
         # Only allow cancellation if task is running
         if task_state.status is TaskStatus.RUNNING:
             # Mark as cancelled

@@ -4,20 +4,17 @@ Tests validation display, quick-fix suggestions, button state management,
 and pre-flight error detection before expensive operations.
 """
 
-import pytest
 import pandas as pd
-import numpy as np
 
 from pypath_shiny.pages.validation import (
     get_quick_fix_for_issue,
     validate_biomass,
-    validate_pb,
+    validate_cross_field_relationships,
+    validate_diet_matrix,
     validate_ee,
     validate_model_parameters,
-    validate_diet_matrix,
-    validate_cross_field_relationships,
+    validate_pb,
 )
-from pypath_shiny.services.validation import ValidationSeverity
 
 
 class TestQuickFixSuggestions:
@@ -169,13 +166,13 @@ class TestPreFlightValidation:
             "PB": [50000],  # Invalid but not checked
             "EE": [0.9],
         })
-        
+
         # Check biomass only
         is_valid_bio, errors_bio = validate_model_parameters(
             df, check_pb=False
         )
         assert is_valid_bio  # Passes because P/B not checked
-        
+
         # Check all
         is_valid_all, errors_all = validate_model_parameters(df)
         assert not is_valid_all  # Fails because P/B is checked
@@ -193,7 +190,7 @@ class TestCrossFieldValidation:
         })
         # Set Group as index like real diet matrix
         diet = diet.set_index("Group")
-        
+
         # Diet validation would be done by the ecopath module
         predator_sums = diet.sum(axis=0)
         for pred, total in predator_sums.items():
@@ -228,11 +225,11 @@ class TestValidationUserExperience:
             "PB": [0.8],
             "EE": [0.9],
         })
-        
+
         # Validation should fail
         is_valid, errors = validate_model_parameters(df)
         assert not is_valid
-        
+
         # User sees quick-fix suggestion
         if errors:
             fix = get_quick_fix_for_issue(errors[0])
@@ -262,7 +259,7 @@ class TestValidationUserExperience:
         is_valid, errors = validate_model_parameters(df)
         assert not is_valid
         assert len(errors) > 0
-        
+
         # Each error should be concise
         for error in errors:
             # First line should be short summary

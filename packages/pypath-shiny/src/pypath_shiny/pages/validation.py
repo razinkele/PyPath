@@ -323,7 +323,7 @@ def get_quick_fix_for_issue(issue_message: str) -> str:
         A quick-fix suggestion or empty string if no match
     """
     msg_lower = issue_message.lower()
-    
+
     if "negative" in msg_lower and "biomass" in msg_lower:
         return "Quick fix: Set negative biomass to a small positive value or 999999 to estimate"
     elif "extremely high" in msg_lower and "biomass" in msg_lower:
@@ -336,7 +336,7 @@ def get_quick_fix_for_issue(issue_message: str) -> str:
         return "Quick fix: Ensure Type column values are 0 (consumer), 1 (producer), 2 (detritus), or 3 (fleet)"
     elif "diet" in msg_lower:
         return "Quick fix: Diet fractions should sum to 1.0 for each predator. Check spreadsheet totals"
-    
+
     return ""
 
 
@@ -446,7 +446,7 @@ def validate_cross_field_relationships(
     for idx, row in model_df.iterrows():
         group_name = row.get("Group", f"Group {idx}")
         group_type = row.get("Type", 0)
-        
+
         # Skip detritus and fleets
         if group_type in [2, 3]:
             continue

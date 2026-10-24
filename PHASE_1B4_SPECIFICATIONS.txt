@@ -1,0 +1,403 @@
+================================================================================
+                 PHASE 1B.4: FLEET & DISCARD SYSTEM
+                      COMPLETE SPECIFICATIONS
+================================================================================
+
+MODULE: packages/pypath/src/pypath/core/fleet.py
+LINES:  571
+SIZE:   19.8 KB
+DATE:   2026-10-24
+STATUS: COMPLETE & FUNCTIONAL
+
+================================================================================
+1. GEARTYPE ENUM
+================================================================================
+
+Location: Line 22-95 (74 lines)
+Type: Python Enum
+
+Variants:
+  SEINE  = "Seine"
+  NET    = "Net"
+  TRAP   = "Trap"
+  TRAWL  = "Trawl"
+  HOOK   = "Hook"
+  OTHER  = "Other"
+
+Methods:
+  selectivity() -> float
+    Returns: 0.35-0.95 (lower = less selective, more bycatch)
+    Maps:
+      SEINE  -> 0.65 (balanced)
+      NET    -> 0.60 (balanced-high)
+      TRAP   -> 0.85 (high)
+      TRAWL  -> 0.35 (low)
+      HOOK   -> 0.95 (very high)
+      OTHER  -> 0.50 (conservative default)
+
+  bycatch_rate() -> float
+    Returns: 0.02-0.60 (higher = more bycatch)
+    Maps:
+      SEINE  -> 0.15 (low-moderate)
+      NET    -> 0.25 (moderate)
+      TRAP   -> 0.05 (very low)
+      TRAWL  -> 0.60 (high)
+      HOOK   -> 0.02 (minimal)
+      OTHER  -> 0.30 (moderate-high, conservative)
+
+Use in ecosystem modeling:
+  - Filter catch by gear type selectivity
+  - Weight fishing pressure by bycatch rates
+  - Validate fleet composition realism
+
+================================================================================
+2. FLEETGROUP DATACLASS
+================================================================================
+
+Location: Line 98-213 (116 lines)
+Type: @dataclass
+
+Attributes (required unless noted):
+  name: str
+    Fleet identifier (e.g., "Small-scale pelagic")
+    Must be unique within FleetDynamics
+
+  fleet_id: int
+    Numeric fleet identifier, 0-based
+    Used for indexing and cross-references
+    Constraint: >= 0
+
+  gears: list[GearType]
+    List of gear types used by this fleet
+    May contain duplicates (multiple nets, etc.)
+
+  fuel_efficiency: float = 0.05
+    Fuel consumption (kg fuel per ton catch)
+    Default: 0.05 (reasonable for most commercial fleets)
+    Range: 0.01-0.20 (warns outside this range)
+
+  base_effort: float = 100.0
+    Annual effort (days or trips per year)
+    Baseline for fishing mortality calculation
+    Constraint: > 0
+
+  catchability: dict[str, float] = {}
+    Catchability coefficients (q values) by group name
+    Maps group_name -> q (0.0-1.0)
+    Example: {"Herring": 0.6, "Sprat": 0.4}
+    Constraint: All values in [0.0, 1.0]
+
+Validation (__post_init__):
+  1. fleet_id >= 0
+  2. base_effort > 0
+  3. fuel_efficiency in [0.01, 0.20] (with warning if outside)
+  4. All gears are valid GearType instances
+  5. All catchability values in [0.0, 1.0]
+
+Methods:
+  is_valid() -> bool
+    Checks: name exists, fleet_id >= 0, catchability not empty
+    Returns: True if valid, False otherwise
+
+  to_dict() -> dict
+    Serializes fleet to dictionary
+    Converts gears enum to string values
+    Keys: name, fleet_id, gears, fuel_efficiency, base_effort, catchability
+
+  from_dict(data: dict) -> FleetGroup @classmethod
+    Reconstructs fleet from dictionary
+    Converts gear strings back to GearType enums
+    Handles optional fields with defaults
+
+Example:
+  fleet = FleetGroup(
+      name="Small-scale pelagic",
+      fleet_id=0,
+      gears=[GearType.SEINE, GearType.NET],
+      fuel_efficiency=0.04,
+      base_effort=150,
+      catchability={"Herring": 0.8, "Sprat": 0.6}
+  )
+  assert fleet.is_valid()  # -> True
+
+================================================================================
+3. DISCARDPATH DATACLASS
+================================================================================
+
+Location: Line 216-333 (118 lines)
+Type: @dataclass
+
+Attributes:
+  source_group: str
+    Name of group being discarded (e.g., "Cod", "Juvenile herring")
+
+  target_group: str | None = None
+    Group that receives discards (for predation fate)
+    None for lost/detritus/benthos fates
+    Must be specified if fate='predation'
+
+  discard_rate: float = 0.0
+    Proportion of source_group catch that is discarded (0-1)
+    Example: 0.15 = 15% discarded, 85% landed
+    Constraint: 0.0 <= discard_rate <= 1.0
+
+  fate: str = "lost"
+    Where discards go after being removed from landed catch
+    Valid values: 'lost', 'predation', 'detritus', 'benthos'
+    
+    Fate meanings:
+      'lost'      - Total mortality, biomass removed from system
+      'predation' - Routed to target_group as available prey
+      'detritus'  - Enters detritus pool (organic matter)
+      'benthos'   - Enters benthic organic matter pool
+
+  depth_dependent: bool = False
+    If True, fate depends on depth/spatial location (Ecospace)
+    Used for spatially-explicit discard routing
+    False: uniform routing across all patches
+
+Validation (__post_init__):
+  1. discard_rate in [0.0, 1.0]
+  2. fate in ('lost', 'predation', 'detritus', 'benthos')
+  3. If fate='predation', target_group must not be None
+
+Methods:
+  is_valid() -> bool
+    Checks: source_group exists, discard_rate in [0,1], fate valid
+    If fate='predation', checks target_group exists
+    Returns: True if valid, False otherwise
+
+  apply_to_biomass(biomass: float) -> float
+    Calculates actual discard biomass from total catch
+    Formula: discard_biomass = biomass * discard_rate
+    Example: 100t * 0.15 = 15t discarded
+
+  to_dict() -> dict
+    Serializes path to dictionary
+    Keys: source_group, target_group, discard_rate, fate, depth_dependent
+
+  from_dict(data: dict) -> DiscardPath @classmethod
+    Reconstructs path from dictionary
+    Handles optional fields (target_group=None, etc.)
+
+Example:
+  # Herring: 10% discarded, lost at sea
+  discard_herring = DiscardPath(
+      source_group="Herring",
+      target_group=None,
+      discard_rate=0.10,
+      fate="lost"
+  )
+  
+  # Cod: 5% discarded, eaten by seabirds
+  discard_cod = DiscardPath(
+      source_group="Cod",
+      target_group="Seabirds",
+      discard_rate=0.05,
+      fate="predation"
+  )
+
+================================================================================
+4. FLEETDYNAMICS CONTAINER
+================================================================================
+
+Location: Line 336-433 (98 lines)
+Type: @dataclass
+
+Attributes:
+  fleets: dict[str, FleetGroup] = {}
+    Collection of active fleets, indexed by name
+    Supports multiple fleets targeting different species
+
+  discard_paths: dict[str, list[DiscardPath]] = {}
+    Discard routing rules, indexed by source_group
+    Multiple paths per group allowed (split routing)
+
+Methods:
+  add_fleet(fleet: FleetGroup) -> None
+    Adds or replaces a fleet
+    If duplicate name, replaces previous fleet
+    Logs warning if fleet.is_valid() returns False
+
+  add_discard_path(path: DiscardPath) -> None
+    Adds discard path
+    Multiple paths per source_group are allowed
+    Appends to existing list if source_group exists
+    Logs warning if path.is_valid() returns False
+
+  get_fleet(name: str) -> FleetGroup | None
+    Retrieves fleet by name
+    Returns None if not found
+
+  validate() -> tuple[bool, list[str]]
+    Comprehensive validation check
+    Validates:
+      - All fleets pass fleet.is_valid()
+      - All discard paths pass path.is_valid()
+    Returns: (is_valid: bool, errors: list[str])
+
+  to_dataframe() -> dict[str, pd.DataFrame]
+    Exports to DataFrames for I/O
+    Returns dict with keys:
+      'fleets' - DataFrame of FleetGroups
+      'discards' - DataFrame of DiscardPaths
+    Columns automatically inferred from to_dict() methods
+
+  from_dataframe(fleets_df, discards_df) -> FleetDynamics @classmethod
+    Reconstructs FleetDynamics from DataFrames
+    Reverses to_dataframe() serialization
+    Supports CSV round-trip:
+      fd.to_dataframe()['fleets'].to_csv('fleets.csv')
+      fleets_df = pd.read_csv('fleets.csv')
+      fd2 = FleetDynamics.from_dataframe(fleets_df, ...)
+
+Example:
+  fd = FleetDynamics()
+  fd.add_fleet(small_scale_fleet)
+  fd.add_fleet(industrial_fleet)
+  fd.add_discard_path(discard_herring)
+  fd.add_discard_path(discard_cod)
+  
+  valid, errors = fd.validate()
+  if valid:
+      dfs = fd.to_dataframe()
+      dfs['fleets'].to_csv('fleets.csv')
+
+================================================================================
+5. ALLOCATION FUNCTIONS
+================================================================================
+
+allocate_catch(total_catch: float, catchability: dict) -> dict[str, float]
+  Location: Line 436-479 (44 lines)
+  
+  Purpose: Distribute total catch proportionally across groups
+  
+  Parameters:
+    total_catch: float
+      Total biomass caught by fleet (tons)
+    catchability: dict[str, float]
+      q values: {group_name -> q (0-1)}
+  
+  Returns: dict[str, float]
+    {group_name -> catch_biomass}
+  
+  Logic:
+    1. Normalize q values: q_i / sum(q)
+    2. Allocate: catch_i = total_catch * (q_i / sum(q))
+  
+  Example:
+    >>> allocate_catch(100.0, {"Cod": 0.7, "Haddock": 0.3})
+    {"Cod": 70.0, "Haddock": 30.0}
+
+allocate_discards(discard_rate: float, source_group: str) -> dict[str, float]
+  Location: Line 511-536 (26 lines)
+  
+  Purpose: Split catch into landed and discarded portions
+  
+  Parameters:
+    discard_rate: float
+      Proportion discarded (0-1)
+    source_group: str
+      Group name (for logging)
+  
+  Returns: dict[str, float]
+    {"discarded": rate, "landed": 1-rate}
+  
+  Validation: discard_rate in [0, 1] (raises ValueError otherwise)
+  
+  Example:
+    >>> allocate_discards(0.15, "Herring")
+    {"discarded": 0.15, "landed": 0.85}
+
+validate_allocation(allocation: dict, tolerance: float = 0.01) -> bool
+  Location: Line 535-563 (29 lines)
+  
+  Purpose: Check allocation sums to 1.0 (within tolerance)
+  
+  Parameters:
+    allocation: dict[str, float]
+      Dictionary of allocations
+    tolerance: float = 0.01
+      Acceptable deviation from 1.0 (default 1%)
+  
+  Returns: bool
+    True if sum in [1-tolerance, 1+tolerance], False otherwise
+  
+  Logging: Warns if out of tolerance
+  
+  Example:
+    >>> validate_allocation({"Cod": 0.6, "Haddock": 0.4})
+    True
+
+================================================================================
+6. ECONOMIC FUNCTIONS (STUBS)
+================================================================================
+
+estimate_catch_value(catch: dict, prices: dict) -> float
+  Location: Line 549-563 (15 lines)
+  
+  Purpose: Calculate total economic value of catch
+  
+  Parameters:
+    catch: dict[str, float]
+      Catch biomass per group (tons)
+    prices: dict[str, float]
+      Price per unit ($/kg) by group
+  
+  Returns: float
+    Total value (sum of catch * price * 1000)
+  
+  Note: STUB - Calibrate prices externally
+  
+  Example:
+    >>> catch = {"Cod": 100, "Haddock": 50}
+    >>> prices = {"Cod": 2.5, "Haddock": 1.5}
+    >>> estimate_catch_value(catch, prices)
+    300000.0
+
+estimate_fuel_cost(effort: float, fuel_price: float) -> float
+  Location: Line 564-571 (8 lines)
+  
+  Purpose: Calculate fuel cost for fishing effort
+  
+  Parameters:
+    effort: float
+      Annual effort (days or trips)
+    fuel_price: float
+      Price per unit fuel ($/liter)
+  
+  Returns: float
+    Total fuel cost
+  
+  Assumptions:
+    - Default consumption: 100 kg/day
+    - Stub: Calibrate for real fleets
+  
+  Example:
+    >>> estimate_fuel_cost(150, fuel_price=1.50)
+    22500.0
+
+================================================================================
+INTEGRATION POINTS
+================================================================================
+
+With core.ecosim.py:
+  - FleetGroup.catchability -> fishing mortality calculation
+  - allocate_catch() -> partition fleet effort by group
+  - DiscardPath.fate -> ecosystem rerouting
+
+With core.ecosim_deriv.py:
+  - Fleet catch applied to derivative vector
+  - Discard routing affects predation/detritus flows
+
+With spatial/integration.py:
+  - DiscardPath.depth_dependent -> spatial fate routing
+  - Fleet effort can vary by patch
+
+With io.ewemdb.py:
+  - Import EwE fleet definitions
+  - Map to FleetGroup/DiscardPath objects
+
+================================================================================
+END OF SPECIFICATIONS
+================================================================================

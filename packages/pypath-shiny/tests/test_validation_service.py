@@ -1,4 +1,9 @@
-from pypath_shiny.services.validation import ValidationIssue, ValidationSeverity, sort_issues, summarize_issues
+from pypath_shiny.services.validation import (
+    ValidationIssue,
+    ValidationSeverity,
+    sort_issues,
+    summarize_issues,
+)
 
 
 def test_sort_issues_deterministic_order():

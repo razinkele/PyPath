@@ -1,0 +1,183 @@
+================================================================================
+PHASE 1B.4: FLEET & DISCARD SYSTEM - USAGE GUIDE
+================================================================================
+
+MODULE: packages/pypath/src/pypath/core/fleet.py
+IMPORTS: from pypath.core.fleet import [components]
+
+================================================================================
+QUICK START EXAMPLES
+================================================================================
+
+1. DEFINE GEAR TYPES AND SELECTIVITY
+   >>> from pypath.core.fleet import GearType
+   >>> 
+   >>> trawl = GearType.TRAWL
+   >>> trawl.selectivity()  # -> 0.35 (low selectivity)
+   >>> trawl.bycatch_rate()  # -> 0.60 (high bycatch)
+   >>>
+   >>> hook = GearType.HOOK
+   >>> hook.selectivity()  # -> 0.95 (very selective)
+   >>> hook.bycatch_rate()  # -> 0.02 (minimal bycatch)
+
+2. CREATE A FISHING FLEET
+   >>> from pypath.core.fleet import FleetGroup, GearType
+   >>>
+   >>> pelagic_fleet = FleetGroup(
+   ...     name="Small-scale pelagic",
+   ...     fleet_id=0,
+   ...     gears=[GearType.SEINE, GearType.NET],
+   ...     fuel_efficiency=0.04,
+   ...     base_effort=150,  # days per year
+   ...     catchability={"Herring": 0.6, "Sprat": 0.4}
+   ... )
+   >>> 
+   >>> pelagic_fleet.is_valid()  # -> True
+   >>> pelagic_fleet.to_dict()  # -> serialized dict
+
+3. DEFINE DISCARD ROUTING
+   >>> from pypath.core.fleet import DiscardPath
+   >>>
+   >>> # 10% of herring is discarded and lost
+   >>> discard_herring = DiscardPath(
+   ...     source_group="Herring",
+   ...     target_group=None,
+   ...     discard_rate=0.10,
+   ...     fate="lost"
+   ... )
+   >>> 
+   >>> # 5% of cod is discarded and eaten by seabirds
+   >>> discard_cod = DiscardPath(
+   ...     source_group="Cod",
+   ...     target_group="Seabirds",
+   ...     discard_rate=0.05,
+   ...     fate="predation"
+   ... )
+
+4. COLLECT FLEETS IN A CONTAINER
+   >>> from pypath.core.fleet import FleetDynamics
+   >>>
+   >>> fleet_dynamics = FleetDynamics()
+   >>> fleet_dynamics.add_fleet(pelagic_fleet)
+   >>> fleet_dynamics.add_discard_path(discard_herring)
+   >>> fleet_dynamics.add_discard_path(discard_cod)
+   >>>
+   >>> valid, errors = fleet_dynamics.validate()
+   >>> # valid=True if all fleets/discards are consistent
+
+5. ALLOCATE CATCH TO GROUPS
+   >>> from pypath.core.fleet import allocate_catch
+   >>>
+   >>> total_catch = 150.0  # tons
+   >>> allocation = allocate_catch(
+   ...     total_catch, 
+   ...     {"Herring": 0.6, "Sprat": 0.4}
+   ... )
+   >>> # allocation -> {"Herring": 90.0, "Sprat": 60.0}
+
+6. SPLIT LANDED vs DISCARDED
+   >>> from pypath.core.fleet import allocate_discards
+   >>>
+   >>> split = allocate_discards(0.15, "Herring")
+   >>> # split -> {"discarded": 0.15, "landed": 0.85}
+
+7. VALIDATE ALLOCATIONS
+   >>> from pypath.core.fleet import validate_allocation
+   >>>
+   >>> is_valid = validate_allocation(
+   ...     {"Cod": 0.4, "Haddock": 0.6},
+   ...     tolerance=0.01
+   ... )  # -> True (sums to 1.0)
+
+8. ECONOMIC CALCULATIONS (STUBS)
+   >>> from pypath.core.fleet import estimate_catch_value, estimate_fuel_cost
+   >>>
+   >>> catch = {"Cod": 100.0, "Haddock": 50.0}  # tons
+   >>> prices = {"Cod": 2.5, "Haddock": 1.5}  # $/kg
+   >>> value = estimate_catch_value(catch, prices)
+   >>>
+   >>> fuel_cost = estimate_fuel_cost(effort=200, fuel_price=1.50)
+
+9. SERIALIZATION AND DESERIALIZATION
+   >>> # Save to dict
+   >>> fleet_dict = pelagic_fleet.to_dict()
+   >>> discard_dict = discard_herring.to_dict()
+   >>>
+   >>> # Restore from dict
+   >>> restored_fleet = FleetGroup.from_dict(fleet_dict)
+   >>> restored_discard = DiscardPath.from_dict(discard_dict)
+
+10. DATAFRAME EXPORT/IMPORT
+    >>> # Export to DataFrames
+    >>> dfs = fleet_dynamics.to_dataframe()
+    >>> fleets_df = dfs['fleets']
+    >>> discards_df = dfs['discards']
+    >>>
+    >>> # Save to CSV
+    >>> fleets_df.to_csv('fleets.csv')
+    >>> discards_df.to_csv('discards.csv')
+    >>>
+    >>> # Restore from DataFrames
+    >>> new_fd = FleetDynamics.from_dataframe(fleets_df, discards_df)
+
+================================================================================
+GEARTYPE METADATA REFERENCE
+================================================================================
+
+Gear Type | Selectivity | Bycatch Rate | Use Case
+----------|-------------|--------------|----------------------------------
+SEINE     | 0.65        | 0.15         | Mid/bottom nets, moderate selectivity
+NET       | 0.60        | 0.25         | General nets, gill nets, cast nets
+TRAP      | 0.85        | 0.05         | Fish traps/pots, very selective
+TRAWL     | 0.35        | 0.60         | Bottom/pelagic trawls, non-selective
+HOOK      | 0.95        | 0.02         | Hook & line, highly selective
+OTHER     | 0.50        | 0.30         | Unknown/mixed gear, conservative
+
+================================================================================
+DISCARD FATE CATEGORIES
+================================================================================
+
+Fate Category | Meaning                              | Example
+--------------|--------------------------------------|----------------------------------
+'lost'        | Mortality - biomass removed         | Dead discard at sea
+'predation'   | Routed to target_group as food      | Seabird scavenging
+'detritus'    | Enters detritus pool                | Decomposition pathway
+'benthos'     | Enters benthic organic matter pool  | Seafloor deposit
+
+================================================================================
+VALIDATION RULES
+================================================================================
+
+FleetGroup requires:
+  - fleet_id >= 0
+  - base_effort > 0
+  - At least one catchability value
+  - All catchability values in [0.0, 1.0]
+
+DiscardPath requires:
+  - source_group is non-empty
+  - discard_rate in [0.0, 1.0]
+  - fate in ('lost', 'predation', 'detritus', 'benthos')
+  - If fate='predation', target_group must be specified
+
+FleetDynamics validates:
+  - All fleets pass is_valid()
+  - All discard paths pass is_valid()
+
+================================================================================
+INTEGRATION WITH ECOSIM
+================================================================================
+
+Fleet catch is applied in core/ecosim.py:
+  1. FleetGroup.catchability defines q values
+  2. Catch = q * biomass (proportional to available biomass)
+  3. DiscardPath.fate routes discards to consumption/mortality
+  4. allocate_catch() distributes fleet effort across species
+  5. allocate_discards() splits landed vs. discarded portions
+
+For Ecospace (spatial/integration.py):
+  - depth_dependent flag enables depth-based discard routing
+  - Fleet movement can reduce catchability in suboptimal areas
+  - Discard fate can depend on water column depth
+
+================================================================================

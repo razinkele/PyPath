@@ -1,14 +1,13 @@
 """Tests for ecosim_utils.py - Ecosim UI utilities and formatting."""
 
-import pytest
-import pandas as pd
 import numpy as np
+import pytest
 
 from pypath_shiny.pages.ecosim_utils import (
-    format_timeseries_for_export,
-    validate_ecosim_output,
-    get_timeseries_summary,
     detect_group_trends,
+    format_timeseries_for_export,
+    get_timeseries_summary,
+    validate_ecosim_output,
 )
 
 

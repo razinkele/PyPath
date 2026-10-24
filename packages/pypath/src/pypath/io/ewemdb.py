@@ -4523,9 +4523,9 @@ def read_ewe_samples(
     >>> print(container.n_replicates)
     """
     from pypath.core.sampling import (
-        EcopathGroupSample,
         EcopathDietCompSample,
         EcopathGroupCatchSample,
+        EcopathGroupSample,
         SampleContainer,
     )
 
@@ -4571,7 +4571,7 @@ def read_ewe_samples(
 
     for sid in sample_ids:
         logger.debug(f"Reading sample {sid}...")
-        
+
         # Get n_replicates from first group sample row count
         n_replicates = 0
         if "EcopathGroupSample" in tables:

@@ -457,6 +457,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 def main():
     """Launch the PyPath Shiny application."""
     import os
+
     import uvicorn
 
     from pypath_shiny.logger import configure_logging

@@ -1,20 +1,21 @@
 """Tests for results_export.py - Results export and formatting utilities."""
 
-import pytest
-import pandas as pd
-import numpy as np
 import json
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
 
 from pypath_shiny.pages.results_export import (
-    format_model_summary,
-    create_results_metadata,
-    validate_export_data,
-    export_results_to_json,
-    prepare_csv_export_tables,
-    format_results_for_download,
     create_download_bundle,
+    create_results_metadata,
+    export_results_to_json,
+    format_model_summary,
+    format_results_for_download,
+    prepare_csv_export_tables,
+    validate_export_data,
 )
 
 
@@ -46,7 +47,7 @@ class TestFormatModelSummary:
         """Test error when model attribute missing."""
         class BadParams:
             pass
-        
+
         with pytest.raises(ValueError):
             format_model_summary(BadParams())
 

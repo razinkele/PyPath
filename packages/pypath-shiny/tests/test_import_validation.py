@@ -1,15 +1,14 @@
 """Tests for import_validation.py - CSV import validation."""
 
-import pytest
 import pandas as pd
 
 from pypath_shiny.pages.import_validation import (
-    validate_model_csv_structure,
-    validate_diet_csv_structure,
-    validate_csv_file_pair,
     get_import_error_suggestion,
-    validate_model_export_structure,
+    validate_csv_file_pair,
+    validate_diet_csv_structure,
     validate_diet_export_structure,
+    validate_model_csv_structure,
+    validate_model_export_structure,
 )
 
 

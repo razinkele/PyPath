@@ -33,6 +33,11 @@ from pypath_shiny.services.validation import (
     summarize_issues,
 )
 
+from .import_validation import (
+    get_import_error_suggestion,
+    validate_csv_file_pair,
+)
+
 # Import shared utilities
 from .utils import (
     COLUMN_TOOLTIPS,
@@ -42,10 +47,6 @@ from .utils import (
     format_dataframe_for_display,
     is_balanced_model,
     is_rpath_params,
-)
-from .import_validation import (
-    validate_csv_file_pair,
-    get_import_error_suggestion,
 )
 from .validation import (
     validate_biomass,
@@ -1361,14 +1362,14 @@ def ecopath_server(
         has_critical_errors = any(
             i.severity is ValidationSeverity.ERROR for i in issues
         )
-        
+
         disabled = has_critical_errors
         tooltip = (
             "Fix validation errors before balancing"
             if has_critical_errors
             else "Balance the Ecopath model"
         )
-        
+
         return ui.div(
             ui.input_action_button(
                 "btn_balance",
@@ -1414,7 +1415,7 @@ def ecopath_server(
             if issue.severity is not ValidationSeverity.INFO:
                 from .validation import get_quick_fix_for_issue
                 quick_fix = get_quick_fix_for_issue(issue.message)
-                
+
                 detail_item = ui.tags.li(
                     f"[{issue.section}] {issue.message}"
                 )

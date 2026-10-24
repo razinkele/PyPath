@@ -9,7 +9,6 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-
 # Required columns for model.csv
 REQUIRED_MODEL_COLUMNS = {
     "Group",  # Group name
@@ -183,7 +182,7 @@ def validate_diet_csv_structure(
     if model_df is not None and "Group" in model_df.columns:
         model_groups = set(model_df["Group"])
         diet_groups = set(groups)
-        
+
         if not diet_groups.issubset(model_groups):
             extra_groups = diet_groups - model_groups
             errors.append(
@@ -253,18 +252,18 @@ def validate_csv_file_pair(
     if model_valid and diet_valid:
         model_groups = set(model_df["Group"])
         diet_groups = set(diet_df["Group"])
-        
+
         # Check that diet rows match model groups
         if model_groups != diet_groups:
             missing_in_diet = model_groups - diet_groups
             extra_in_diet = diet_groups - model_groups
-            
+
             if missing_in_diet:
                 errors.append(
                     f"Model has groups not in diet: {', '.join(missing_in_diet)}.\n\n"
                     f"Add rows to diet matrix for these groups."
                 )
-            
+
             if extra_in_diet:
                 errors.append(
                     f"Diet has groups not in model: {', '.join(extra_in_diet)}.\n\n"
@@ -288,7 +287,7 @@ def get_import_error_suggestion(error_message: str) -> str:
         A suggestion for fixing the error
     """
     msg_lower = error_message.lower()
-    
+
     if "missing" in msg_lower and "column" in msg_lower:
         return "Quick fix: Ensure your CSV file has all required columns: Group, Type, Biomass, PB"
     elif "non-numeric" in msg_lower and "type" in msg_lower:
@@ -303,7 +302,7 @@ def get_import_error_suggestion(error_message: str) -> str:
         return "Quick fix: Diet CSV must have 'Group' column and predator columns"
     elif "groups not in" in msg_lower or "missing.*group" in msg_lower:
         return "Quick fix: Ensure diet and model CSV have matching group names"
-    
+
     return ""
 
 
@@ -323,22 +322,22 @@ def validate_model_export_structure(df: pd.DataFrame) -> Tuple[bool, List[str]]:
         (is_valid, error_messages)
     """
     errors = []
-    
+
     if df is None or df.empty:
         return False, ["Cannot export empty model."]
-    
+
     # Check required columns
     missing_cols = REQUIRED_MODEL_COLUMNS - set(df.columns)
     if missing_cols:
         missing_str = ", ".join(sorted(missing_cols))
         errors.append(f"Model missing required columns for export: {missing_str}")
-    
+
     # Check for non-null values in required columns
     for col in REQUIRED_MODEL_COLUMNS & set(df.columns):
         null_count = df[col].isna().sum()
         if null_count > 0:
             errors.append(f"Column {col} has {null_count} missing values. All required columns must be complete.")
-    
+
     # Check data types
     if "Type" in df.columns:
         non_int_types = df[~df["Type"].isna()][
@@ -346,14 +345,14 @@ def validate_model_export_structure(df: pd.DataFrame) -> Tuple[bool, List[str]]:
         ]
         if len(non_int_types) > 0:
             errors.append("Type column contains non-numeric values.")
-    
+
     if "Biomass" in df.columns:
         non_numeric = df[~df["Biomass"].isna()][
             ~df["Biomass"].apply(lambda x: isinstance(x, (int, float, np.integer, np.floating)))
         ]
         if len(non_numeric) > 0:
             errors.append("Biomass column contains non-numeric values.")
-    
+
     return len(errors) == 0, errors
 
 
@@ -373,20 +372,20 @@ def validate_diet_export_structure(df: pd.DataFrame) -> Tuple[bool, List[str]]:
         (is_valid, error_messages)
     """
     errors = []
-    
+
     if df is None or df.empty:
         return False, ["Cannot export empty diet matrix."]
-    
+
     # Check for Group column
     if "Group" not in df.columns:
         errors.append("Diet CSV must have a Group column identifying prey species.")
         return False, errors
-    
+
     # Ensure at least one predator column (any column besides Group)
     predator_cols = [c for c in df.columns if c != "Group"]
     if not predator_cols:
         errors.append("Diet CSV must have at least one predator column (besides Group).")
-    
+
     # Validate diet fractions are numeric where present
     for pred_col in predator_cols:
         if pred_col in df.columns:
@@ -395,5 +394,5 @@ def validate_diet_export_structure(df: pd.DataFrame) -> Tuple[bool, List[str]]:
             ]
             if len(non_numeric) > 0:
                 errors.append(f"Diet column {pred_col} contains non-numeric values.")
-    
+
     return len(errors) == 0, errors

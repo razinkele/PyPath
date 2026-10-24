@@ -1,0 +1,1055 @@
+F841 Local variable `title` is assigned to but never used
+    --> packages\pypath-shiny\src\pypath_shiny\pages\ecopath.py:1411:13
+     |
+1409 |             alert_class = "alert alert-info"
+1410 |             icon = "bi bi-info-circle me-2"
+1411 |             title = "Validation Info"
+     |             ^^^^^
+1412 |
+1413 |         details = []
+     |
+help: Remove assignment to unused variable `title`
+
+W293 Blank line contains whitespace
+   --> packages\pypath-shiny\src\pypath_shiny\pages\import_validation.py:311:1
+    |
+309 | def validate_model_export_structure(df: pd.DataFrame) -> Tuple[bool, List[str]]:
+310 |     """Validate model.csv before export.
+311 |     
+    | ^^^^
+312 |     Ensures the exported model CSV will be valid for re-import.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath-shiny\src\pypath_shiny\pages\import_validation.py:313:1
+    |
+312 |     Ensures the exported model CSV will be valid for re-import.
+313 |     
+    | ^^^^
+314 |     Parameters
+315 |     ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath-shiny\src\pypath_shiny\pages\import_validation.py:318:1
+    |
+316 |     df : pd.DataFrame
+317 |         Model DataFrame to be exported
+318 |     
+    | ^^^^
+319 |     Returns
+320 |     -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath-shiny\src\pypath_shiny\pages\import_validation.py:361:1
+    |
+359 | def validate_diet_export_structure(df: pd.DataFrame) -> Tuple[bool, List[str]]:
+360 |     """Validate diet.csv before export.
+361 |     
+    | ^^^^
+362 |     Ensures the exported diet CSV will be valid for re-import.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath-shiny\src\pypath_shiny\pages\import_validation.py:363:1
+    |
+362 |     Ensures the exported diet CSV will be valid for re-import.
+363 |     
+    | ^^^^
+364 |     Parameters
+365 |     ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath-shiny\src\pypath_shiny\pages\import_validation.py:368:1
+    |
+366 |     df : pd.DataFrame
+367 |         Diet DataFrame to be exported
+368 |     
+    | ^^^^
+369 |     Returns
+370 |     -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath-shiny\src\pypath_shiny\pages\validation.py:314:1
+    |
+312 | def get_quick_fix_for_issue(issue_message: str) -> str:
+313 |     """Generate a quick-fix suggestion based on validation error message.
+314 |     
+    | ^^^^
+315 |     Parameters
+316 |     ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath-shiny\src\pypath_shiny\pages\validation.py:319:1
+    |
+317 |     issue_message : str
+318 |         The validation error message
+319 |         
+    | ^^^^^^^^
+320 |     Returns
+321 |     -------
+    |
+help: Remove whitespace from blank line
+
+F841 Local variable `df` is assigned to but never used
+   --> packages\pypath-shiny\tests\test_validation_forms.py:151:9
+    |
+149 |     def test_validation_catches_missing_data(self):
+150 |         """Validation should catch missing required fields."""
+151 |         df = pd.DataFrame({
+    |         ^^
+152 |             "Group": ["Fish"],
+153 |             "Type": [0],
+    |
+help: Remove assignment to unused variable `df`
+
+E402 Module level import not at top of file
+  --> packages\pypath\scripts\calibrate_lt2022.py:43:1
+   |
+41 | # ── Step 1: Load and balance ───────────────────────────────────────────
+42 | logger.info("Loading model from %s", DB_PATH)
+43 | from pypath import read_ewemdb, read_ewemdb_table, rpath, rsim_run, rsim_scenario
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+44 |
+45 | params = read_ewemdb(DB_PATH)
+   |
+
+E402 Module level import not at top of file
+   --> packages\pypath\scripts\calibrate_lt2022.py:313:1
+    |
+312 | # ── Step 5: Differential evolution ────────────────────────────────────
+313 | from scipy.optimize import differential_evolution
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+314 |
+315 | eval_count = [0]
+    |
+
+E402 Module level import not at top of file
+ --> packages\pypath\scripts\inspect_output.py:6:1
+  |
+5 | warnings.filterwarnings("ignore")
+6 | from pypath import read_ewemdb, rpath, rsim_run, rsim_scenario
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 |
+8 | p = read_ewemdb("Data/LT2022_0.5ST_final7.eweaccdb")
+  |
+
+E402 Module level import not at top of file
+ --> packages\pypath\scripts\test_enhanced_baseline.py:6:1
+  |
+5 | warnings.filterwarnings("ignore")
+6 | import time
+  | ^^^^^^^^^^^
+7 | from pathlib import Path
+  |
+
+E402 Module level import not at top of file
+ --> packages\pypath\scripts\test_enhanced_baseline.py:7:1
+  |
+5 | warnings.filterwarnings("ignore")
+6 | import time
+7 | from pathlib import Path
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
+8 |
+9 | import numpy as np
+  |
+
+E402 Module level import not at top of file
+  --> packages\pypath\scripts\test_enhanced_baseline.py:9:1
+   |
+ 7 | from pathlib import Path
+ 8 |
+ 9 | import numpy as np
+   | ^^^^^^^^^^^^^^^^^^
+10 |
+11 | PROJECT_ROOT = Path(__file__).resolve().parents[3]
+   |
+
+E402 Module level import not at top of file
+  --> packages\pypath\scripts\test_enhanced_baseline.py:14:1
+   |
+12 | DB_PATH = str(PROJECT_ROOT / "Data" / "LT2022_0.5ST_final7.eweaccdb")
+13 |
+14 | from pypath import read_ewemdb, read_ewemdb_table, rpath, rsim_run, rsim_scenario
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+15 |
+16 | print("Loading model...")
+   |
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\ensemble.py:541:1
+    |
+539 |     pd.DataFrame
+540 |         Long-format table with rows for each (Group, Parameter) pair:
+541 |         
+    | ^^^^^^^^
+542 |         Columns:
+543 |         - Group : Group name
+    |
+help: Remove whitespace from blank line
+
+W291 Trailing whitespace
+   --> packages\pypath\src\pypath\core\ensemble.py:555:8
+    |
+553 |     >>> print(ci_df)
+554 |     >>> ci_df.to_csv("ensemble_ci.csv", index=False)
+555 |     >>> 
+    |        ^
+556 |     >>> # Filter to specific parameter
+557 |     >>> biomass_ci = ci_df[ci_df["Parameter"] == "Biomass"]
+    |
+help: Remove trailing whitespace
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\ensemble.py:617:1
+    |
+615 |     dict[str, Any]
+616 |         Dictionary with keys:
+617 |         
+    | ^^^^^^^^
+618 |         - n_groups : Number of groups in model
+619 |         - n_replicates : Number of replicates
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\ensemble.py:640:1
+    |
+638 |     Trophic level is weighted by biomass in each replicate to give
+639 |     a single scalar value per replicate.
+640 |     
+    | ^^^^
+641 |     CV (Coefficient of Variation) = std / mean, dimensionless and useful
+642 |     for comparing uncertainty across systems of different scale.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\ensemble.py:704:1
+    |
+702 |     - Group's QB to sample_container.group_samples[Group].qb_samples[rep_idx]
+703 |     - Group's EE to sample_container.group_samples[Group].ee_samples[rep_idx]
+704 |     
+    | ^^^^
+705 |     Groups without samples are not modified.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> packages\pypath\src\pypath\core\sampling.py:41:1
+   |
+39 | class EcopathGroupSample:
+40 |     """Sample uncertainty data for a single functional group.
+41 |     
+   | ^^^^
+42 |     Holds bootstrap replicates of Ecopath parameters (biomass, P/B, Q/B, EE)
+43 |     for a single group, enabling uncertainty analysis across ensemble runs.
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> packages\pypath\src\pypath\core\sampling.py:44:1
+   |
+42 |     Holds bootstrap replicates of Ecopath parameters (biomass, P/B, Q/B, EE)
+43 |     for a single group, enabling uncertainty analysis across ensemble runs.
+44 |     
+   | ^^^^
+45 |     Used internally by SampleContainer to manage per-group uncertainty
+46 |     distributions. Users typically do not create these directly, but instead
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:124:1
+    |
+122 |     def __post_init__(self):
+123 |         """Validate sample shapes are consistent.
+124 |         
+    | ^^^^^^^^
+125 |         Called automatically after __init__ to ensure all sample arrays
+126 |         have the same length (number of replicates).
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:127:1
+    |
+125 |         Called automatically after __init__ to ensure all sample arrays
+126 |         have the same length (number of replicates).
+127 |         
+    | ^^^^^^^^
+128 |         Raises
+129 |         ------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:143:1
+    |
+141 |     def n_replicates(self) -> int:
+142 |         """Number of bootstrap replicates.
+143 |         
+    | ^^^^^^^^
+144 |         Returns
+145 |         -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:153:1
+    |
+151 |     def get_percentile(self, param: str, p: float) -> float:
+152 |         """Get percentile of parameter samples (0-100).
+153 |         
+    | ^^^^^^^^
+154 |         Computes a single percentile from the distribution of a parameter
+155 |         across all replicates.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:156:1
+    |
+154 |         Computes a single percentile from the distribution of a parameter
+155 |         across all replicates.
+156 |         
+    | ^^^^^^^^
+157 |         Parameters
+158 |         ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:163:1
+    |
+161 |         p : float
+162 |             Percentile value (0-100).
+163 |             
+    | ^^^^^^^^^^^^
+164 |         Returns
+165 |         -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:168:1
+    |
+166 |         float
+167 |             The p-th percentile value.
+168 |             
+    | ^^^^^^^^^^^^
+169 |         Raises
+170 |         ------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:181:1
+    |
+179 |     def confidence_interval(self, param: str, alpha: float = 0.05) -> Tuple[float, float]:
+180 |         """Get (lower, upper) confidence bounds for parameter.
+181 |         
+    | ^^^^^^^^
+182 |         Parameters
+183 |         ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:188:1
+    |
+186 |         alpha : float, optional
+187 |             Significance level (default: 0.05 for 95%% CI).
+188 |             
+    | ^^^^^^^^^^^^
+189 |         Returns
+190 |         -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:193:1
+    |
+191 |         tuple[float, float]
+192 |             (lower_bound, upper_bound) of confidence interval.
+193 |             
+    | ^^^^^^^^^^^^
+194 |         Examples
+195 |         --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:211:1
+    |
+209 | class EcopathDietCompSample:
+210 |     """Sample uncertainty data for diet composition link.
+211 |     
+    | ^^^^
+212 |     Represents the uncertainty in how much of one group (prey) appears
+213 |     in the diet of another group (predator), across bootstrap replicates.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:214:1
+    |
+212 |     Represents the uncertainty in how much of one group (prey) appears
+213 |     in the diet of another group (predator), across bootstrap replicates.
+214 |     
+    | ^^^^
+215 |     Used to propagate diet uncertainty through ensemble model runs.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:248:1
+    |
+246 |     def n_replicates(self) -> int:
+247 |         """Number of bootstrap replicates.
+248 |         
+    | ^^^^^^^^
+249 |         Returns
+250 |         -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:260:1
+    |
+258 | class EcopathGroupCatchSample:
+259 |     """Sample uncertainty data for catch/landings by fleet.
+260 |     
+    | ^^^^
+261 |     Represents uncertainty in landings/catch data, typically from
+262 |     fisheries statistics or scientific surveys, across replicates.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:294:1
+    |
+292 |     def n_replicates(self) -> int:
+293 |         """Number of bootstrap replicates.
+294 |         
+    | ^^^^^^^^
+295 |         Returns
+296 |         -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:306:1
+    |
+304 | class SampleContainer:
+305 |     """Container for all Ecopath sampling data.
+306 |     
+    | ^^^^
+307 |     Manages bootstrap replicates of Ecopath parameters, diet composition,
+308 |     and catch data across multiple groups, diets, and fleets. All samples
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:310:1
+    |
+308 |     and catch data across multiple groups, diets, and fleets. All samples
+309 |     must have consistent n_replicates to enable ensemble simulation.
+310 |     
+    | ^^^^
+311 |     This is the primary data structure passed to run_ensemble_rpath()
+312 |     and other ensemble functions.
+    |
+help: Remove whitespace from blank line
+
+W291 Trailing whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:344:8
+    |
+342 |     >>> from pypath.core.sampling import SampleContainer, EcopathGroupSample
+343 |     >>> import numpy as np
+344 |     >>> 
+    |        ^
+345 |     >>> container = SampleContainer(n_replicates=100)
+346 |     >>> 
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:346:8
+    |
+344 |     >>> 
+345 |     >>> container = SampleContainer(n_replicates=100)
+346 |     >>> 
+    |        ^
+347 |     >>> # Add samples for Cod
+348 |     >>> cod_sample = EcopathGroupSample(
+    |
+help: Remove trailing whitespace
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:382:1
+    |
+380 |     def add_group_sample(self, sample: EcopathGroupSample) -> None:
+381 |         """Add a group sample to the container.
+382 |         
+    | ^^^^^^^^
+383 |         Parameters
+384 |         ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:387:1
+    |
+385 |         sample : EcopathGroupSample
+386 |             Group sample to add. Must have n_replicates == self.n_replicates.
+387 |         
+    | ^^^^^^^^
+388 |         Raises
+389 |         ------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:392:1
+    |
+390 |         ValueError
+391 |             If sample.n_replicates != self.n_replicates.
+392 |             
+    | ^^^^^^^^^^^^
+393 |         Examples
+394 |         --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:408:1
+    |
+406 |     def add_diet_sample(self, sample: EcopathDietCompSample) -> None:
+407 |         """Add a diet composition sample to the container.
+408 |         
+    | ^^^^^^^^
+409 |         Parameters
+410 |         ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:413:1
+    |
+411 |         sample : EcopathDietCompSample
+412 |             Diet sample to add.
+413 |             
+    | ^^^^^^^^^^^^
+414 |         Raises
+415 |         ------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:429:1
+    |
+427 |     def add_catch_sample(self, sample: EcopathGroupCatchSample) -> None:
+428 |         """Add a catch sample to the container.
+429 |         
+    | ^^^^^^^^
+430 |         Parameters
+431 |         ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:434:1
+    |
+432 |         sample : EcopathGroupCatchSample
+433 |             Catch sample to add.
+434 |             
+    | ^^^^^^^^^^^^
+435 |         Raises
+436 |         ------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:450:1
+    |
+448 |     def uncertainty_dataframe(self, param_type: str = "group") -> pd.DataFrame:
+449 |         """Export uncertainty summary as DataFrame.
+450 |         
+    | ^^^^^^^^
+451 |         Creates a summary table of uncertainty metrics for easier viewing,
+452 |         export, or plotting.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:453:1
+    |
+451 |         Creates a summary table of uncertainty metrics for easier viewing,
+452 |         export, or plotting.
+453 |         
+    | ^^^^^^^^
+454 |         Parameters
+455 |         ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:459:1
+    |
+457 |             Type of data to export (default: "group").
+458 |             Options: "group" (parameters), "diet", or "catch".
+459 |         
+    | ^^^^^^^^
+460 |         Returns
+461 |         -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:469:1
+    |
+467 |             - Parameter_LCI_95 : Lower 95% CI
+468 |             - Parameter_UCI_95 : Upper 95% CI
+469 |             
+    | ^^^^^^^^^^^^
+470 |         Raises
+471 |         ------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:474:1
+    |
+472 |         ValueError
+473 |             If param_type is not recognized.
+474 |             
+    | ^^^^^^^^^^^^
+475 |         Examples
+476 |         --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:498:1
+    |
+496 |     def summary_stats(self) -> Dict[str, int]:
+497 |         """Get summary statistics of container contents.
+498 |         
+    | ^^^^^^^^
+499 |         Returns
+500 |         -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:507:1
+    |
+505 |             - n_diet_pairs : Number of diet links with samples
+506 |             - n_catch_pairs : Number of catch records with samples
+507 |             
+    | ^^^^^^^^^^^^
+508 |         Examples
+509 |         --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:525:1
+    |
+523 | def add_sampling_to_params(params: Any, sample_container: SampleContainer) -> None:
+524 |     """Attach sampling data to RpathParams.
+525 |     
+    | ^^^^
+526 |     Attaches a SampleContainer object to an RpathParams instance for
+527 |     later use or reference.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:528:1
+    |
+526 |     Attaches a SampleContainer object to an RpathParams instance for
+527 |     later use or reference.
+528 |     
+    | ^^^^
+529 |     Parameters
+530 |     ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:535:1
+    |
+533 |     sample_container : SampleContainer
+534 |         Container with all sampling data.
+535 |         
+    | ^^^^^^^^
+536 |     Notes
+537 |     -----
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:540:1
+    |
+538 |     This function adds a .samples attribute to params. Does not modify
+539 |     the actual parameter values; to apply samples, use run_ensemble_rpath().
+540 |     
+    | ^^^^
+541 |     Examples
+542 |     --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:550:1
+    |
+548 |     >>> print(hasattr(params, "samples"))
+549 |     True
+550 |     
+    | ^^^^
+551 |     See Also
+552 |     --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:566:1
+    |
+564 | ) -> Dict[str, Any]:
+565 |     """Apply a specific sample replicate to parameter dictionary.
+566 |     
+    | ^^^^
+567 |     Overwrites parameter values with samples from a specific replicate.
+568 |     Typically used in optimization or sensitivity analysis workflows.
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:569:1
+    |
+567 |     Overwrites parameter values with samples from a specific replicate.
+568 |     Typically used in optimization or sensitivity analysis workflows.
+569 |     
+    | ^^^^
+570 |     Parameters
+571 |     ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:579:1
+    |
+577 |         Parameter dictionary to modify. Groups should be keys; values
+578 |         should be dicts with 'biomass', 'pb', 'qb', 'ee' keys.
+579 |     
+    | ^^^^
+580 |     Returns
+581 |     -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:584:1
+    |
+582 |     dict[str, Any]
+583 |         Modified params dictionary with sample values applied.
+584 |     
+    | ^^^^
+585 |     Raises
+586 |     ------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:589:1
+    |
+587 |     ValueError
+588 |         If replicate_index >= sample_container.n_replicates.
+589 |     
+    | ^^^^
+590 |     Notes
+591 |     -----
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:594:1
+    |
+592 |     This is a lower-level utility. Most users should use
+593 |     run_ensemble_rpath() instead.
+594 |     
+    | ^^^^
+595 |     See Also
+596 |     --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:624:1
+    |
+622 | ) -> List[str]:
+623 |     """Validate sampling data against RpathParams.
+624 |     
+    | ^^^^
+625 |     Performs basic validation checks on sample data:
+626 |     - Replicate counts are consistent
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:630:1
+    |
+628 |     - EE values are in [0, 1]
+629 |     - Other constraints
+630 |     
+    | ^^^^
+631 |     Parameters
+632 |     ----------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:640:1
+    |
+638 |     tolerance : float, optional
+639 |         Tolerance for floating-point comparisons (default: 1e-6).
+640 |     
+    | ^^^^
+641 |     Returns
+642 |     -------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:652:1
+    |
+650 |         Not directly, but issues list documents validation failures that
+651 |         may cause problems in ensemble runs.
+652 |     
+    | ^^^^
+653 |     Examples
+654 |     --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\core\sampling.py:662:1
+    |
+660 |     >>> else:
+661 |     ...     print("All validation checks passed")
+662 |     
+    | ^^^^
+663 |     See Also
+664 |     --------
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> packages\pypath\src\pypath\io\ewe_writer.py:27:1
+   |
+25 | def _datetime_to_excel_serial(dt: datetime.datetime | None = None) -> float | None:
+26 |     """Convert datetime to Excel serial date format.
+27 |     
+   | ^^^^
+28 |     Excel stores dates as floats: number of days since 1900-01-01.
+29 |     Access REAL columns for dates expect this format.
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> packages\pypath\src\pypath\io\ewe_writer.py:30:1
+   |
+28 |     Excel stores dates as floats: number of days since 1900-01-01.
+29 |     Access REAL columns for dates expect this format.
+30 |     
+   | ^^^^
+31 |     Parameters
+32 |     ----------
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> packages\pypath\src\pypath\io\ewe_writer.py:35:1
+   |
+33 |     dt : datetime.datetime, optional
+34 |         Datetime to convert. If None, returns None.
+35 |     
+   | ^^^^
+36 |     Returns
+37 |     -------
+   |
+help: Remove whitespace from blank line
+
+F821 Undefined name `SampleContainer`
+   --> packages\pypath\src\pypath\io\ewe_writer.py:287:24
+    |
+286 | def write_ewe_samples(
+287 |     sample_container: "SampleContainer",
+    |                        ^^^^^^^^^^^^^^^
+288 |     db_path: str | Path,
+289 |     model_id: int = 1,
+    |
+
+W293 Blank line contains whitespace
+   --> packages\pypath\src\pypath\io\ewe_writer.py:321:1
+    |
+319 |     ValueError
+320 |         If sample_container is empty or has inconsistent replicate counts.
+321 |     
+    | ^^^^
+322 |     Notes
+323 |     -----
+    |
+help: Remove whitespace from blank line
+
+F821 Undefined name `SampleContainer`
+    --> packages\pypath\src\pypath\io\ewemdb.py:4486:12
+     |
+4484 |     filepath: Union[str, Path],
+4485 |     sample_id: Optional[int] = None,
+4486 | ) -> Union[SampleContainer, Dict[int, SampleContainer]]:
+     |            ^^^^^^^^^^^^^^^
+4487 |     """Read Monte Carlo sample sets from an EwE database.
+     |
+
+F821 Undefined name `SampleContainer`
+    --> packages\pypath\src\pypath\io\ewemdb.py:4486:39
+     |
+4484 |     filepath: Union[str, Path],
+4485 |     sample_id: Optional[int] = None,
+4486 | ) -> Union[SampleContainer, Dict[int, SampleContainer]]:
+     |                                       ^^^^^^^^^^^^^^^
+4487 |     """Read Monte Carlo sample sets from an EwE database.
+     |
+
+F841 Local variable `ages` is assigned to but never used
+  --> packages\pypath\tests\test_curonian_multistanza.py:65:9
+   |
+63 |         import numpy as np
+64 |         original = 1.777
+65 |         ages = np.array([12, 36])
+   |         ^^^^
+66 |         weights = np.array([0.1, 0.5])
+   |
+help: Remove assignment to unused variable `ages`
+
+E712 Avoid equality comparisons to `True`; use `demersal_juv.leading:` for truth checks
+   --> packages\pypath\tests\test_curonian_multistanza.py:121:16
+    |
+119 |         assert demersal_juv.last == 24
+120 |         assert demersal_juv.z == 1.2
+121 |         assert demersal_juv.leading == True
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+122 |
+123 |         # Check second individual (demersal adult)
+    |
+help: Replace with `demersal_juv.leading`
+
+E712 Avoid equality comparisons to `False`; use `not demersal_ad.leading:` for false checks
+   --> packages\pypath\tests\test_curonian_multistanza.py:128:16
+    |
+126 |         assert demersal_ad.last == 48
+127 |         assert demersal_ad.z == 0.6
+128 |         assert demersal_ad.leading == False
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+129 |
+130 |     def test_predatory_three_stanzas(self, ecopath_params):
+    |
+help: Replace with `not demersal_ad.leading`
+
+F841 Local variable `ee_val` is assigned to but never used
+   --> packages\pypath\tests\test_ensemble.py:565:9
+    |
+563 |         pb_val = simple_rpath_params.model.loc[i, "PB"]
+564 |         qb_val = simple_rpath_params.model.loc[i, "QB"]
+565 |         ee_val = simple_rpath_params.model.loc[i, "EE"]
+    |         ^^^^^^
+566 |
+567 |         sample = EcopathGroupSample(
+    |
+help: Remove assignment to unused variable `ee_val`
+
+F841 Local variable `ee_val` is assigned to but never used
+   --> packages\pypath\tests\test_ensemble.py:591:9
+    |
+589 |         pb_val = simple_rpath_params.model.loc[i, "PB"]
+590 |         qb_val = simple_rpath_params.model.loc[i, "QB"]
+591 |         ee_val = simple_rpath_params.model.loc[i, "EE"]
+    |         ^^^^^^
+592 |
+593 |         sample = EcopathGroupSample(
+    |
+help: Remove assignment to unused variable `ee_val`
+
+F841 Local variable `ee_val` is assigned to but never used
+   --> packages\pypath\tests\test_ensemble.py:617:9
+    |
+615 |         pb_val = simple_rpath_params.model.loc[i, "PB"]
+616 |         qb_val = simple_rpath_params.model.loc[i, "QB"]
+617 |         ee_val = simple_rpath_params.model.loc[i, "EE"]
+    |         ^^^^^^
+618 |
+619 |         sample = EcopathGroupSample(
+    |
+help: Remove assignment to unused variable `ee_val`
+
+F841 Local variable `all_same` is assigned to but never used
+   --> packages\pypath\tests\test_ensemble.py:820:17
+    |
+818 |         for m1, m2 in zip(result1.replicate_models[1:], result2.replicate_models[1:]):
+819 |             if not np.allclose(m1.Biomass, m2.Biomass):
+820 |                 all_same = False
+    |                 ^^^^^^^^
+821 |                 break
+    |
+help: Remove assignment to unused variable `all_same`
+
+W291 Trailing whitespace
+ --> packages\pypath\tests\test_sampling.py:7:58
+  |
+5 | Tests are organized by component:
+6 | - TestEcopathGroupSample: Group-level uncertainty
+7 | - TestEcopathDietCompSample: Diet composition uncertainty  
+  |                                                          ^^
+8 | - TestEcopathGroupCatchSample: Catch/landing uncertainty
+9 | - TestSampleContainer: Central container functionality
+  |
+help: Remove trailing whitespace
+
+F841 Local variable `diet` is assigned to but never used
+   --> packages\pypath\tests\test_sampling.py:136:9
+    |
+134 |         """Test that out-of-range diet fractions generate warning."""
+135 |         # Diet fractions > 1.0 should trigger warning
+136 |         diet = EcopathDietCompSample(
+    |         ^^^^
+137 |             predator_name="Fish",
+138 |             prey_name="Zooplankton",
+    |
+help: Remove assignment to unused variable `diet`
+
+F841 Local variable `issues` is assigned to but never used
+   --> packages\pypath\tests\test_sampling_extended.py:361:9
+    |
+360 |         # Validate should warn about NaN
+361 |         issues = validate_samples(container, None)
+    |         ^^^^^^
+362 |         # (Note: validation may not check for NaN depending on implementation)
+    |
+help: Remove assignment to unused variable `issues`
+
+Found 90 errors.
+No fixes available (80 hidden fixes can be enabled with the `--unsafe-fixes` option).
