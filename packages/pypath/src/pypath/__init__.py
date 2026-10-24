@@ -1,4 +1,4 @@
-﻿"""
+"""
 PyPath - Python Ecopath with Ecosim
 
 A Python implementation of the Rpath ecosystem modeling package.
