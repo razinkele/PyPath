@@ -4477,3 +4477,215 @@ def read_value_chain(db_path: str) -> ValueChainData | None:
         fields[attr_name] = value_df
 
     return ValueChainData(**fields)
+
+
+
+def read_ewe_samples(
+    filepath: Union[str, Path],
+    sample_id: Optional[int] = None,
+) -> Union[SampleContainer, Dict[int, SampleContainer]]:
+    """Read Monte Carlo sample sets from an EwE database.
+
+    Reads EcopathSample tables and assembles them into SampleContainer
+    objects with EcopathGroupSample, EcopathDietCompSample, and
+    EcopathGroupCatchSample dataclasses.
+
+    Parameters
+    ----------
+    filepath : str or Path
+        Path to the EwE database file (.eweaccdb or .ewemdb).
+    sample_id : int, optional
+        Specific sample set ID to read. If None, reads all sample sets.
+
+    Returns
+    -------
+    SampleContainer or Dict[int, SampleContainer]
+        If sample_id is specified, returns a single SampleContainer.
+        If sample_id is None, returns a dict mapping SampleID → SampleContainer.
+
+    Raises
+    ------
+    EwEDatabaseError
+        If database cannot be accessed or sample tables are missing.
+    ValueError
+        If sample_id does not exist or data is malformed.
+
+    Examples
+    --------
+    >>> # Read all sample sets from a model
+    >>> samples_dict = read_ewe_samples("model.eweaccdb")
+    >>> for sid, container in samples_dict.items():
+    ...     print(f"Sample {sid}: {len(container.group_samples)} groups")
+
+    >>> # Read a specific sample set
+    >>> sample_id = 1
+    >>> container = read_ewe_samples("model.eweaccdb", sample_id=sample_id)
+    >>> print(container.n_replicates)
+    """
+    from pypath.core.sampling import (
+        EcopathGroupSample,
+        EcopathDietCompSample,
+        EcopathGroupCatchSample,
+        SampleContainer,
+    )
+
+    db_path = str(Path(filepath).resolve())
+    tables = list_ewemdb_tables(db_path)
+
+    # Check for sample tables
+    sample_tables = [t for t in tables if "Sample" in t]
+    if not sample_tables:
+        raise EwEDatabaseError(f"No sample tables found in {db_path}")
+
+    # Read EcopathSample (container metadata)
+    if "EcopathSample" not in tables:
+        raise EwEDatabaseError("EcopathSample table not found")
+
+    sample_meta_df = read_ewemdb_table(db_path, "EcopathSample")
+    if sample_meta_df is None or len(sample_meta_df) == 0:
+        raise EwEDatabaseError("EcopathSample table is empty")
+
+    # Filter by sample_id if specified
+    if sample_id is not None:
+        if sample_id not in sample_meta_df["SampleID"].values:
+            raise ValueError(f"Sample ID {sample_id} not found in database")
+        sample_ids = [sample_id]
+    else:
+        sample_ids = sorted(sample_meta_df["SampleID"].unique().tolist())
+
+    result_containers = {}
+
+    # Read group name mapping
+    group_df = read_ewemdb_table(db_path, "EcopathGroup") if "EcopathGroup" in tables else None
+    group_names = {}
+    if group_df is not None:
+        for _, row in group_df.iterrows():
+            group_names[int(row["GroupID"])] = str(row["GroupName"])
+
+    # Read fleet name mapping
+    fleet_df = read_ewemdb_table(db_path, "EcopathFleet") if "EcopathFleet" in tables else None
+    fleet_names = {}
+    if fleet_df is not None:
+        for _, row in fleet_df.iterrows():
+            fleet_names[int(row["FleetID"])] = str(row["FleetName"])
+
+    for sid in sample_ids:
+        logger.debug(f"Reading sample {sid}...")
+        
+        # Get n_replicates from first group sample row count
+        n_replicates = 0
+        if "EcopathGroupSample" in tables:
+            group_sample_df = read_ewemdb_table(db_path, "EcopathGroupSample")
+            group_sample_df = group_sample_df[group_sample_df["SampleID"] == sid]
+            if len(group_sample_df) > 0:
+                # Get first group's replicate count
+                first_group = group_sample_df["GroupID"].iloc[0]
+                n_replicates = len(group_sample_df[group_sample_df["GroupID"] == first_group])
+
+        if n_replicates == 0:
+            logger.warning(f"No replicates found for sample {sid}, skipping")
+            continue
+
+        # Create container
+        container = SampleContainer(n_replicates=n_replicates)
+
+        # Read EcopathGroupSample
+        if "EcopathGroupSample" in tables:
+            try:
+                group_sample_df = read_ewemdb_table(db_path, "EcopathGroupSample")
+                group_sample_df = group_sample_df[group_sample_df["SampleID"] == sid]
+
+                # Group by GroupID and create EcopathGroupSample objects
+                for group_id, group_data in group_sample_df.groupby("GroupID"):
+                    group_id = int(group_id)
+                    group_name = group_names.get(group_id, f"Group_{group_id}")
+
+                    # Extract replicates as numpy arrays
+                    biomass = group_data["Biomass"].values.astype(float)
+                    pb = group_data["ProdBiom"].values.astype(float)
+                    qb = group_data["ConsBiom"].values.astype(float)
+                    ee = group_data["EcoEfficiency"].values.astype(float)
+
+                    sample_obj = EcopathGroupSample(
+                        group_name=group_name,
+                        biomass_samples=biomass,
+                        pb_samples=pb,
+                        qb_samples=qb,
+                        ee_samples=ee,
+                    )
+                    container.add_group_sample(sample_obj)
+
+            except Exception as e:
+                logger.warning(f"Failed to read EcopathGroupSample for sample {sid}: {e}")
+
+        # Read EcopathDietCompSample
+        if "EcopathDietCompSample" in tables:
+            try:
+                diet_sample_df = read_ewemdb_table(db_path, "EcopathDietCompSample")
+                diet_sample_df = diet_sample_df[diet_sample_df["SampleID"] == sid]
+
+                # Group by (PredID, PreyID) and create objects
+                for (pred_id, prey_id), diet_data in diet_sample_df.groupby(
+                    ["PredID", "PreyID"]
+                ):
+                    pred_id = int(pred_id)
+                    prey_id = int(prey_id)
+                    pred_name = group_names.get(pred_id, f"Group_{pred_id}")
+                    prey_name = group_names.get(prey_id, f"Group_{prey_id}")
+
+                    diet_fractions = diet_data["Diet"].values.astype(float)
+
+                    sample_obj = EcopathDietCompSample(
+                        predator_name=pred_name,
+                        prey_name=prey_name,
+                        diet_fraction_samples=diet_fractions,
+                    )
+                    container.add_diet_sample(sample_obj)
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to read EcopathDietCompSample for sample {sid}: {e}"
+                )
+
+        # Read EcopathGroupCatchSample
+        if "EcopathGroupCatchSample" in tables:
+            try:
+                catch_sample_df = read_ewemdb_table(db_path, "EcopathGroupCatchSample")
+                catch_sample_df = catch_sample_df[catch_sample_df["SampleID"] == sid]
+
+                # Group by (GroupID, FleetID) and create objects
+                for (group_id, fleet_id), catch_data in catch_sample_df.groupby(
+                    ["GroupID", "FleetID"]
+                ):
+                    group_id = int(group_id)
+                    fleet_id = int(fleet_id)
+                    group_name = group_names.get(group_id, f"Group_{group_id}")
+                    fleet_name = fleet_names.get(fleet_id, f"Fleet_{fleet_id}")
+
+                    catch_rates = catch_data["Landing"].values.astype(float)
+
+                    sample_obj = EcopathGroupCatchSample(
+                        group_name=group_name,
+                        fleet_name=fleet_name,
+                        catch_samples=catch_rates,
+                    )
+                    container.add_catch_sample(sample_obj)
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to read EcopathGroupCatchSample for sample {sid}: {e}"
+                )
+
+        result_containers[sid] = container
+
+        logger.info(
+            f"Loaded sample {sid}: {len(container.group_samples)} groups, "
+            f"{len(container.diet_samples)} diet links, "
+            f"{len(container.catch_samples)} catch records"
+        )
+
+    # Return single container or dict
+    if sample_id is not None:
+        return result_containers[sample_id]
+    else:
+        return result_containers
