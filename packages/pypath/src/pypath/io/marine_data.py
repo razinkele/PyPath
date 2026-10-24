@@ -129,12 +129,16 @@ class EMODnetHabitatsClient:
                 break
             except requests.exceptions.RequestException as e:
                 if attempt < max_retries - 1:
-                    wait_time = 2 ** attempt  # Exponential: 1s, 2s, 4s
+                    wait_time = 2**attempt  # Exponential: 1s, 2s, 4s
                     logger.warning(
                         "EMODnet failed (attempt %d/%d), retry in %ds: %s",
-                        attempt + 1, max_retries, wait_time, e
+                        attempt + 1,
+                        max_retries,
+                        wait_time,
+                        e,
                     )
                     import time
+
                     time.sleep(wait_time)
                 else:
                     logger.error("EMODnet failed after %d attempts", max_retries)
@@ -560,5 +564,3 @@ class HabitatPreferenceBuilder:
                 matrix[:, p] = prefs_by_type[:, type_to_idx[htype]]
 
         return matrix
-
-

@@ -8,15 +8,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from pypath.core.params import create_rpath_params
 from pypath.core.sampling import (
     EcopathDietCompSample,
-    EcopathGroupCatchSample,
     EcopathGroupSample,
     SampleContainer,
 )
-from pypath.io.ewemdb import read_ewemdb_table, read_ewe_samples
 from pypath.io.ewe_writer import write_ewe_samples, write_ewemdb
-from pypath.core.params import create_rpath_params
+from pypath.io.ewemdb import read_ewe_samples, read_ewemdb_table
 
 
 class TestWriteSamplesBasics:
@@ -36,8 +35,7 @@ class TestWriteSamplesBasics:
         )
 
         params = create_rpath_params(
-            groups=["Fish", "Phyto", "Detritus"],
-            types=[0, 1, 2]
+            groups=["Fish", "Phyto", "Detritus"], types=[0, 1, 2]
         )
         params.model.loc[params.model["Group"] == "Fish", "Biomass"] = 100.0
 
@@ -84,8 +82,7 @@ class TestWriteSamplesBasics:
         )
 
         params = create_rpath_params(
-            groups=["Fish", "Phyto", "Detritus"],
-            types=[0, 1, 2]
+            groups=["Fish", "Phyto", "Detritus"], types=[0, 1, 2]
         )
         params.model.loc[params.model["Group"] == "Fish", "Biomass"] = 100.0
 
@@ -119,8 +116,7 @@ class TestWriteSamplesBasics:
         container = SampleContainer(n_replicates=10)
 
         params = create_rpath_params(
-            groups=["Fish", "Phyto", "Detritus"],
-            types=[0, 1, 2]
+            groups=["Fish", "Phyto", "Detritus"], types=[0, 1, 2]
         )
 
         with tempfile.NamedTemporaryFile(suffix=".eweaccdb", delete=False) as f:
@@ -172,8 +168,7 @@ class TestWriteSamplesRoundTrip:
         )
 
         params = create_rpath_params(
-            groups=["Fish", "Phyto", "Detritus"],
-            types=[0, 1, 2]
+            groups=["Fish", "Phyto", "Detritus"], types=[0, 1, 2]
         )
         params.model.loc[params.model["Group"] == "Fish", "Biomass"] = 100.0
 
@@ -187,12 +182,12 @@ class TestWriteSamplesRoundTrip:
                 pytest.skip("Access ODBC driver not available")
 
             starting_sample_id = write_ewe_samples(container, temp_db)
-            
+
             # Read all samples written (read_ewe_samples reads one SampleID at a time)
             # We wrote 4 replicates starting at starting_sample_id
             sample_ids = list(range(starting_sample_id, starting_sample_id + 4))
             biomass_values = []
-            
+
             for sid in sample_ids:
                 read_container = read_ewe_samples(temp_db, sample_id=sid)
                 assert "Fish" in read_container.group_samples
@@ -200,15 +195,10 @@ class TestWriteSamplesRoundTrip:
                 # Each SampleID has 1 row per group (n_replicates=1)
                 assert read_group.n_replicates == 1
                 biomass_values.append(read_group.biomass_samples[0])
-            
+
             # Verify all biomass values match the original samples
             expected = container.group_samples["Fish"].biomass_samples
-            np.testing.assert_array_almost_equal(
-                np.array(biomass_values),
-                expected
-            )
+            np.testing.assert_array_almost_equal(np.array(biomass_values), expected)
 
         finally:
             Path(temp_db).unlink(missing_ok=True)
-
-
