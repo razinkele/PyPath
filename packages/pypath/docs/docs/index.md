@@ -45,6 +45,10 @@ scenario = rsim_scenario(model, params, years=range(1, 51))
 output = rsim_run(scenario, method="AB")
 ```
 
+## Phase 1B Features (v0.5.3)
+
+This release introduces Phase 1B enhancements including improved integration workflows, enhanced system capabilities, and expanded documentation. See the [Phase 1B Release](phase1b_readme.md) section for details.
+
 ### Loading EwE Database Models
 
 ```python
@@ -108,3 +112,8 @@ Install the Shiny dashboard for a graphical interface:
 pip install pypath-shiny
 pypath-shiny  # Launches at http://localhost:8000
 ```
+
+
+
+
+

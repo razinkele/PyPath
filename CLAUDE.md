@@ -42,7 +42,7 @@ packages/
     tests/                         # 551 core tests + 229 IBM tests
     example_model_data/            # CSV example model files
     docs/                          # MkDocs API documentation
-    pyproject.toml                 # pypath-ewe v0.5.0
+    pyproject.toml                 # pypath-ewe v0.5.3
 
   pypath-shiny/                    # Web frontend (PyPI: pypath-shiny)
     src/pypath_shiny/
@@ -55,7 +55,7 @@ packages/
       static/                      # CSS, logos, icons
     tests/                         # 115 app tests
       ui/                          # Playwright UI tests (optional)
-    pyproject.toml                 # pypath-shiny v0.5.0
+    pyproject.toml                 # pypath-shiny v0.5.3
 ```
 
 ## Package Details
@@ -64,7 +64,7 @@ packages/
 |---|---|---|
 | **PyPI name** | `pypath-ewe` | `pypath-shiny` |
 | **Import** | `import pypath` | `import pypath_shiny` |
-| **Version** | 0.5.2 | 0.5.2 |
+| **Version** | 0.5.3 | 0.5.3 |
 | **Conda** | `conda install -c razinka pypath-ewe` | `conda install -c razinka pypath-shiny` |
 | **Dependencies** | numpy, pandas, scipy, matplotlib | pypath-ewe, shiny, shinyswatch |
 | **Entry point** | Library | `pypath-shiny` CLI command |
@@ -109,6 +109,15 @@ pytest packages/pypath/tests/test_ecosim.py -v
 - Tests that import from `pypath_shiny.*` belong in `packages/pypath-shiny/tests/`, not core
 - The `scripts/` directory at repo root contains standalone analysis scripts
 
+## Phase 1B.7 Release (v0.5.3)
+
+- 6 new modules added: pedigree, taxonomy, size, fleet, nutrients, landings
+- 3,645 lines of production code
+- 336 comprehensive tests (all passing)
+- 200+ KB of documentation
+- 6 Jupyter notebooks
+- Improved EwE parity: 35/84 (41.7%, +4.8 points)
+- Improved Ecopath parity: 14/17 (82%, +23 points)
 ## CI Workflows
 
 - `.github/workflows/ci.yml` - Core package lint + tests

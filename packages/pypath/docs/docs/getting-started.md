@@ -1,11 +1,14 @@
-# Getting Started
+# Getting Started with PyPath v0.5.3
 
 ## Prerequisites
 
 - Python 3.10 or higher
 - pip package manager
+- (Phase 1B) Enhanced integration with EwE native databases and extended I/O support
 
 ## Installation
+
+PyPath v0.5.3 introduces Phase 1B enhancements for better integration workflows and system capabilities.
 
 ```bash
 pip install pypath-ewe
@@ -243,7 +246,7 @@ output = rsim_run(scenario)
 
 See the [Autofix Guide](guides/autofix.md) for details.
 
-## What's New in v0.3.3
+## What's New in v0.5.3
 
 PyPath now covers 86% of all EwE database tables (72 of 84) with full
 read/write support. Key additions:
@@ -270,3 +273,4 @@ See the [API Reference](api/core.md) for full documentation of all new modules.
 - [Time Series & Calibration](api/core.md#time-series-calibration) — Fitting to observed data
 - [Mediation Functions](api/core.md#mediation-functions) — Trophic mediation
 - [Monte Carlo & Sensitivity](api/core.md#pedigree-monte-carlo) — Uncertainty analysis
+
