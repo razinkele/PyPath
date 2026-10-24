@@ -57,6 +57,16 @@ from pypath.core.ramping import (
     SplineRamp,
     StepwiseRamp,
 )
+# Environmental forcing classes
+from pypath.core.environmental_forcing import (
+    EnvironmentalForcing,
+    HabitatProductivity,
+    OceanographicForcing,
+    ClimateForcing,
+    validate_time_series,
+    interpolate_timeseries,
+    normalize_forcing_factor,
+)
 from pypath.core.ecosim_deriv import (
     deriv_vector,
     integrate_ab,
@@ -265,6 +275,14 @@ __all__ = [
     "PolynomialRamp",
     "StepwiseRamp",
     "SplineRamp",
+    # Environmental Forcing
+    "EnvironmentalForcing",
+    "HabitatProductivity",
+    "OceanographicForcing",
+    "ClimateForcing",
+    "validate_time_series",
+    "interpolate_timeseries",
+    "normalize_forcing_factor",
     # Stanzas
     "StanzaGroup",
     "StanzaIndividual",
@@ -398,3 +416,4 @@ __all__ = [
     "ecosystem_indicators_timeseries",
     "system_maturity",
 ]
+
