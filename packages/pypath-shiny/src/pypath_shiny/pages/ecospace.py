@@ -2175,4 +2175,3 @@ def ecospace_server(
             values.append(str(timestep))
 
         return pd.DataFrame({"Metric": metrics, "Value": values})
-

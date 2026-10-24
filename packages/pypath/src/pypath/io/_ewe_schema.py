@@ -996,4 +996,3 @@ RPATH_TO_EWE_COLUMNS = {
     "BioAcc": "BiomAcc",
     "DetInput": "DtImports",
 }
-
