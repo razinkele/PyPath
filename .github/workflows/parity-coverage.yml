@@ -1,0 +1,78 @@
+name: EwE Table Coverage Report
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"  # Weekly on Sunday
+  workflow_dispatch:
+
+jobs:
+  coverage-report:
+    name: Generate Table Coverage Report
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -e "packages/pypath[dev]"
+
+      - name: Generate coverage matrix
+        run: |
+          cd packages/pypath
+          python -c "
+          import pandas as pd
+          from pypath.io._ewe_parity import TARGET_EWE_TABLES, derive_table_support
+          
+          # Generate table coverage matrix
+          coverage_data = []
+          for table in TARGET_EWE_TABLES:
+              flags = derive_table_support(table)
+              coverage_data.append({
+                  'Table': table,
+                  'Schema': 'Yes' if flags[0] else 'No',
+                  'Reader': 'Yes' if flags[1] else 'No',
+                  'Writer': 'Yes' if flags[2] else 'No',
+                  'Validated': 'Yes' if flags[3] else 'No',
+                  'Status': 'Implemented' if all(flags) else 'Partial' if any(flags) else 'Missing'
+              })
+          
+          df = pd.DataFrame(coverage_data)
+          
+          # Save as CSV
+          df.to_csv('/tmp/parity_coverage.csv', index=False)
+          
+          # Print summary
+          print('\\n=== EwE Table Coverage Summary ===')
+          print(df['Status'].value_counts())
+          print(f'\\nTotal Tables: {len(df)}')
+          print(f'Implemented: {len(df[df[\"Status\"] == \"Implemented\"])}')
+          print(f'Partial: {len(df[df[\"Status\"] == \"Partial\"])}')
+          print(f'Missing: {len(df[df[\"Status\"] == \"Missing\"])}')
+          " 2>&1 | tee /tmp/coverage_report.txt
+
+      - name: Upload coverage matrix
+        uses: actions/upload-artifact@v3
+        with:
+          name: parity-coverage-matrix
+          path: /tmp/parity_coverage.csv
+          retention-days: 90
+
+      - name: Create issue if regressions detected
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: "Parity Audit: Coverage regression detected",
+              body: "Automated parity audit detected a regression in EwE table coverage. See workflow artifacts for details.",
+              labels: ["parity", "regression", "automated"]
+            });
