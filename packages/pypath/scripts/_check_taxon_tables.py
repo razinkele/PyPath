@@ -1,6 +1,6 @@
 """Quick script to check taxonomy tables in real EwE database."""
 
-from pypath.io.ewemdb import read_ewemdb_table, list_ewemdb_tables
+from pypath.io.ewemdb import list_ewemdb_tables, read_ewemdb_table
 
 db = "Data/LT2022_0.5ST_final7.eweaccdb"
 tables = list_ewemdb_tables(db)

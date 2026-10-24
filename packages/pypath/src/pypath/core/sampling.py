@@ -38,7 +38,7 @@ __all__ = [
 @dataclass
 class EcopathGroupSample:
     """Sample uncertainty data for a single group.
-    
+
     Holds bootstrap replicates of Ecopath parameters (biomass, PB, QB, EE)
     for uncertainty analysis.
 
@@ -78,8 +78,7 @@ class EcopathGroupSample:
         """Validate sample shapes are consistent."""
         n = len(self.biomass_samples)
         if not all(
-            len(s) == n
-            for s in [self.pb_samples, self.qb_samples, self.ee_samples]
+            len(s) == n for s in [self.pb_samples, self.qb_samples, self.ee_samples]
         ):
             raise ValueError("All sample arrays must have same length")
 
@@ -95,7 +94,9 @@ class EcopathGroupSample:
             raise ValueError(f"Unknown parameter: {param}")
         return float(np.percentile(samples, p))
 
-    def confidence_interval(self, param: str, alpha: float = 0.05) -> Tuple[float, float]:
+    def confidence_interval(
+        self, param: str, alpha: float = 0.05
+    ) -> Tuple[float, float]:
         """Get (lower, upper) confidence bounds for parameter."""
         lower_p = (alpha / 2) * 100
         upper_p = (1 - alpha / 2) * 100
@@ -108,7 +109,7 @@ class EcopathGroupSample:
 @dataclass
 class EcopathDietCompSample:
     """Sample uncertainty data for diet composition.
-    
+
     Attributes
     ----------
     predator_name : str
@@ -135,7 +136,7 @@ class EcopathDietCompSample:
 @dataclass
 class EcopathGroupCatchSample:
     """Sample uncertainty data for catch/landings.
-    
+
     Attributes
     ----------
     group_name : str
@@ -162,7 +163,7 @@ class EcopathGroupCatchSample:
 @dataclass
 class SampleContainer:
     """Container for all Ecopath sampling data.
-    
+
     Manages sampling information across groups, diet composition, and catches.
     All samples must have consistent n_replicates.
 
@@ -192,7 +193,7 @@ class SampleContainer:
 
     def add_group_sample(self, sample: EcopathGroupSample) -> None:
         """Add a group sample to the container.
-        
+
         Raises ValueError if replicate counts don't match.
         """
         if sample.n_replicates != self.n_replicates:
@@ -224,12 +225,12 @@ class SampleContainer:
 
     def uncertainty_dataframe(self, param_type: str = "group") -> pd.DataFrame:
         """Export uncertainty summary as DataFrame.
-        
+
         Parameters
         ----------
         param_type : str
             "group", "diet", or "catch"
-        
+
         Returns
         -------
         pd.DataFrame
@@ -239,13 +240,15 @@ class SampleContainer:
             data = []
             for group_name, sample in self.group_samples.items():
                 lb, ub = sample.confidence_interval("biomass")
-                data.append({
-                    "Group": group_name,
-                    "Biomass_Mean": sample.biomass_samples.mean(),
-                    "Biomass_CV": sample.biomass_se,
-                    "Biomass_LCI_95": lb,
-                    "Biomass_UCI_95": ub,
-                })
+                data.append(
+                    {
+                        "Group": group_name,
+                        "Biomass_Mean": sample.biomass_samples.mean(),
+                        "Biomass_CV": sample.biomass_se,
+                        "Biomass_LCI_95": lb,
+                        "Biomass_UCI_95": ub,
+                    }
+                )
             return pd.DataFrame(data)
         else:
             raise ValueError(f"Unknown param_type: {param_type}")
@@ -276,7 +279,7 @@ def apply_samples_to_derivatives(
         raise ValueError(
             f"Replicate index {replicate_index} >= {sample_container.n_replicates}"
         )
-    
+
     for group_name, sample in sample_container.group_samples.items():
         if group_name not in params:
             logger.warning(f"Group {group_name} not in params")
@@ -288,13 +291,11 @@ def apply_samples_to_derivatives(
             params[group_name]["pb"] = float(sample.pb_samples[replicate_index])
             params[group_name]["qb"] = float(sample.qb_samples[replicate_index])
             params[group_name]["ee"] = float(sample.ee_samples[replicate_index])
-    
+
     return params
 
 
-def validate_samples(
-    sample_container: SampleContainer, params: Any
-) -> List[str]:
+def validate_samples(sample_container: SampleContainer, params: Any) -> List[str]:
     """Validate sampling data against RpathParams."""
     issues = []
 

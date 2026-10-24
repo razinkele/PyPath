@@ -9,19 +9,15 @@ import pytest
 
 from pypath.core.params import create_rpath_params
 from pypath.core.sampling import (
-    EcopathDietCompSample,
-    EcopathGroupCatchSample,
     EcopathGroupSample,
     SampleContainer,
 )
 from pypath.core.sampling_validation import (
-    validate_diet_consistency,
     validate_pedigree_weighting,
     validate_replicate_counts,
     validate_sample_ranges,
     validate_samples,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -126,10 +122,7 @@ class TestValidateSamples:
             ee_samples=np.random.uniform(0.1, 0.9, n_rep),
         )
 
-        params = create_rpath_params(
-            groups=["Fish", "Phyto", "Zoo"],
-            types=[0, 1, 0]
-        )
+        params = create_rpath_params(groups=["Fish", "Phyto", "Zoo"], types=[0, 1, 0])
 
         container = SampleContainer(n_replicates=n_rep)
         container.add_group_sample(group_sample)
