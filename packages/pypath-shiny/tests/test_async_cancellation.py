@@ -72,9 +72,7 @@ class TestStaleRunPrevention:
         stale_update = apply_if_latest(
             state,
             run_id="run-old",
-            updater=lambda s: finish_task(
-                s, success=False, message="Should not apply"
-            ),
+            updater=lambda s: finish_task(s, success=False, message="Should not apply"),
         )
         assert stale_update is state
         assert stale_update.status is TaskStatus.RUNNING
@@ -87,9 +85,7 @@ class TestStaleRunPrevention:
         updated = apply_if_latest(
             state,
             run_id="run-456",
-            updater=lambda s: finish_task(
-                s, success=False, message="User cancelled"
-            ),
+            updater=lambda s: finish_task(s, success=False, message="User cancelled"),
         )
         assert updated.status == TaskStatus.ERROR
         assert updated.message == "User cancelled"
@@ -246,9 +242,7 @@ class TestCancellationErrorHandling:
         # apply_if_latest would prevent this with stale run_id check, but
         # if run_id matches, the transition would fail
         def attempt_cancel(s):
-            return finish_task(
-                s, success=False, message="Should not apply"
-            )
+            return finish_task(s, success=False, message="Should not apply")
 
         # This will fail with ValueError because SUCCESS -> ERROR is not allowed
         with pytest.raises(ValueError, match="Invalid task transition"):
@@ -275,9 +269,7 @@ class TestCancellationErrorHandling:
         first_cancel = apply_if_latest(
             state,
             run_id="run-123",
-            updater=lambda s: finish_task(
-                s, success=False, message="Cancel 1"
-            ),
+            updater=lambda s: finish_task(s, success=False, message="Cancel 1"),
         )
         assert first_cancel.status == TaskStatus.ERROR
 
@@ -286,9 +278,7 @@ class TestCancellationErrorHandling:
             apply_if_latest(
                 first_cancel,
                 run_id="run-123",
-                updater=lambda s: finish_task(
-                    s, success=False, message="Cancel 2"
-                ),
+                updater=lambda s: finish_task(s, success=False, message="Cancel 2"),
             )
 
 
@@ -298,11 +288,9 @@ class TestCancellationFromUserPerspective:
     def test_cancel_button_shows_during_long_operation(self):
         """User sees cancel button while operation is in progress."""
         task = new_running_task("download-1", "Downloading data...")
-        
+
         # Button should be visible
-        should_show = (
-            task.status == TaskStatus.RUNNING and task.can_cancel
-        )
+        should_show = task.status == TaskStatus.RUNNING and task.can_cancel
         assert should_show is True
 
     def test_user_clicks_cancel_operation_stops(self):
@@ -318,12 +306,13 @@ class TestCancellationFromUserPerspective:
                 error="User clicked cancel button",
             ),
         )
-        
+
         assert task_after_click.status == TaskStatus.ERROR
         assert task_after_click.error == "User clicked cancel button"
         # Button now hidden because status changed
         should_show = (
-            task_after_click.status == TaskStatus.RUNNING and task_after_click.can_cancel
+            task_after_click.status == TaskStatus.RUNNING
+            and task_after_click.can_cancel
         )
         assert should_show is False
 
