@@ -1,19 +1,30 @@
-"""Tests for pypath.core.pedigree module."""
+"""Comprehensive test suite for pypath.core.pedigree module.
+
+Tests cover:
+- Phase 1A pedigree distributions (ScalarDistribution, DietDistribution)
+- Phase 1B.1 EwE pedigree quality system (EwePedigreeConfig, PedigreeContainer)
+- Validation, serialization, and round-trip conversions
+"""
+
+import logging
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from pypath.core.params import create_rpath_params
 from pypath.core.pedigree import (
     DietDistribution,
+    EwePedigreeConfig,
     PedigreeConfig,
+    PedigreeContainer,
+    PedigreeQuality,
     ScalarDistribution,
     apply_sample,
     build_distributions,
     sample_parameters,
+    validate_ewe_pedigree,
 )
-
-
 class TestScalarDistribution:
     def test_construction(self):
         d = ScalarDistribution(
@@ -259,3 +270,302 @@ class TestApplySample:
             new_params.diet["Consumer"].values,
             new_diet,
         )
+
+
+# ============================================================================
+# Phase 1B.1: EwE Pedigree Quality System Tests
+# ============================================================================
+
+
+class TestEwePedigreeConfig:
+    """Test EwePedigreeConfig creation, validation, and quality mapping."""
+
+    def test_creation_valid_index_0(self):
+        """Create config with pedigree_index=0 (HIGH quality)."""
+        cfg = EwePedigreeConfig(pedigree_index=0)
+        assert cfg.pedigree_index == 0
+        assert cfg.quality_flag == PedigreeQuality.HIGH
+        assert cfg.comment == ""
+
+    def test_creation_valid_index_2(self):
+        """Create config with pedigree_index=2 (MEDIUM quality)."""
+        cfg = EwePedigreeConfig(pedigree_index=2, comment="Literature value")
+        assert cfg.pedigree_index == 2
+        assert cfg.quality_flag == PedigreeQuality.MEDIUM
+        assert cfg.comment == "Literature value"
+
+    def test_creation_valid_index_4(self):
+        """Create config with pedigree_index=4 (LOW quality)."""
+        cfg = EwePedigreeConfig(pedigree_index=4)
+        assert cfg.pedigree_index == 4
+        assert cfg.quality_flag == PedigreeQuality.LOW
+
+    def test_index_validation_negative(self):
+        """Invalid index -1 should raise ValueError."""
+        with pytest.raises(ValueError, match="pedigree_index must be in"):
+            EwePedigreeConfig(pedigree_index=-1)
+
+    def test_index_validation_too_high(self):
+        """Invalid index 5 should raise ValueError."""
+        with pytest.raises(ValueError, match="pedigree_index must be in"):
+            EwePedigreeConfig(pedigree_index=5)
+
+    def test_quality_flag_mapping_high(self):
+        """Verify HIGH quality for indices 0-1."""
+        for idx in [0, 1]:
+            cfg = EwePedigreeConfig(pedigree_index=idx)
+            assert cfg.quality_flag == PedigreeQuality.HIGH
+
+    def test_quality_flag_mapping_medium(self):
+        """Verify MEDIUM quality for index 2."""
+        cfg = EwePedigreeConfig(pedigree_index=2)
+        assert cfg.quality_flag == PedigreeQuality.MEDIUM
+
+    def test_quality_flag_mapping_low(self):
+        """Verify LOW quality for indices 3-4."""
+        for idx in [3, 4]:
+            cfg = EwePedigreeConfig(pedigree_index=idx)
+            assert cfg.quality_flag == PedigreeQuality.LOW
+
+    def test_from_ewe_format(self):
+        """Create config via from_ewe_format() class method."""
+        cfg = EwePedigreeConfig.from_ewe_format(
+            index=2, comment="Expert assessment"
+        )
+        assert cfg.pedigree_index == 2
+        assert cfg.comment == "Expert assessment"
+        assert cfg.quality_flag == PedigreeQuality.MEDIUM
+
+    def test_to_ewe_format_roundtrip(self):
+        """Convert to/from EwE format -> verify reversible."""
+        original_index = 3
+        cfg = EwePedigreeConfig(pedigree_index=original_index)
+        exported = cfg.to_ewe_format()
+        assert exported == original_index
+
+        cfg2 = EwePedigreeConfig.from_ewe_format(exported)
+        assert cfg2.pedigree_index == original_index
+        assert cfg2.quality_flag == cfg.quality_flag
+
+
+class TestValidatePedigree:
+    """Test pedigree validation and issue detection."""
+
+    def test_validate_valid_pedigree(self):
+        """Valid pedigree dict -> empty issues list."""
+        pedigree = {
+            "Cod": EwePedigreeConfig(pedigree_index=0, comment="Published"),
+            "Herring": EwePedigreeConfig(pedigree_index=2),
+            "Sprat": EwePedigreeConfig(pedigree_index=4),
+        }
+        issues = validate_ewe_pedigree(pedigree)
+        assert len(issues) == 0
+        assert isinstance(issues, list)
+
+    def test_validate_empty_dict(self):
+        """Empty dict -> empty issues (returns without errors)."""
+        issues = validate_ewe_pedigree({})
+        assert len(issues) == 0
+
+    def test_validate_invalid_index_in_dict(self):
+        """Dict with invalid index -> issue detected."""
+        pedigree = {
+            "BadGroup": EwePedigreeConfig(pedigree_index=0),
+        }
+        # Manually corrupt it (bypass constructor validation)
+        pedigree["BadGroup"].pedigree_index = 6
+        issues = validate_ewe_pedigree(pedigree)
+        assert len(issues) > 0
+        assert "BadGroup" in issues[0]
+        assert "not in [0, 4]" in issues[0]
+
+    def test_validate_mismatched_quality(self):
+        """Inconsistent quality_flag/index -> issue logged."""
+        cfg = EwePedigreeConfig(pedigree_index=0)
+        cfg.quality_flag = PedigreeQuality.LOW
+        pedigree = {"Cod": cfg}
+        issues = validate_ewe_pedigree(pedigree)
+        assert len(issues) > 0
+        assert "Cod" in issues[0]
+        assert "quality_flag" in issues[0]
+
+
+class TestPedigreeContainer:
+    """Test PedigreeContainer for managing pedigree data across groups."""
+
+    def test_initialization_empty(self):
+        """New container is empty."""
+        container = PedigreeContainer()
+        assert len(container.group_pedigree) == 0
+        assert isinstance(container.metadata, dict)
+
+    def test_add_pedigree(self):
+        """Add group configs -> verify retrieval."""
+        container = PedigreeContainer()
+        cfg1 = EwePedigreeConfig(pedigree_index=0, comment="Peer-reviewed")
+        cfg2 = EwePedigreeConfig(pedigree_index=2)
+        container.add_pedigree("Cod", cfg1)
+        container.add_pedigree("Herring", cfg2)
+        assert len(container.group_pedigree) == 2
+        assert container.group_pedigree["Cod"] is cfg1
+
+    def test_get_pedigree_existing(self):
+        """Get existing group -> correct config returned."""
+        container = PedigreeContainer()
+        cfg = EwePedigreeConfig(pedigree_index=1)
+        container.add_pedigree("Cod", cfg)
+        retrieved = container.get_pedigree("Cod")
+        assert retrieved is cfg
+        assert retrieved.pedigree_index == 1
+
+    def test_get_pedigree_nonexisting(self):
+        """Get non-existing group -> None returned."""
+        container = PedigreeContainer()
+        result = container.get_pedigree("NonExistent")
+        assert result is None
+
+    def test_validate_container_valid(self):
+        """Valid container -> validate() returns empty list."""
+        container = PedigreeContainer()
+        container.add_pedigree("Cod", EwePedigreeConfig(0))
+        container.add_pedigree("Herring", EwePedigreeConfig(2))
+        issues = container.validate()
+        assert len(issues) == 0
+
+    def test_validate_container_empty(self):
+        """Empty container -> validate() returns empty list."""
+        container = PedigreeContainer()
+        issues = container.validate()
+        assert len(issues) == 0
+
+    def test_validate_container_invalid(self):
+        """Invalid container -> validate() returns issues."""
+        container = PedigreeContainer()
+        cfg = EwePedigreeConfig(pedigree_index=0)
+        cfg.quality_flag = PedigreeQuality.LOW
+        container.add_pedigree("Cod", cfg)
+        issues = container.validate()
+        assert len(issues) > 0
+
+    def test_to_dataframe_empty(self):
+        """Empty container -> DataFrame with correct columns."""
+        container = PedigreeContainer()
+        df = container.to_dataframe()
+        assert len(df) == 0
+        assert list(df.columns) == ["group", "pedigree_index", "quality_flag", "comment"]
+
+    def test_to_dataframe_populated(self):
+        """Populated container -> DataFrame with correct shape/columns."""
+        container = PedigreeContainer()
+        container.add_pedigree("Cod", EwePedigreeConfig(0, comment="Published"))
+        container.add_pedigree("Herring", EwePedigreeConfig(2))
+        container.add_pedigree("Sprat", EwePedigreeConfig(4, comment="Guess"))
+        df = container.to_dataframe()
+        assert len(df) == 3
+        assert list(df.columns) == ["group", "pedigree_index", "quality_flag", "comment"]
+        assert "Cod" in df["group"].values
+        assert df.loc[df["group"] == "Cod", "pedigree_index"].values[0] == 0
+        assert df.loc[df["group"] == "Cod", "quality_flag"].values[0] == "high"
+
+    def test_from_dataframe_valid(self):
+        """Create container from valid DataFrame."""
+        df = pd.DataFrame({
+            "group": ["Cod", "Herring"],
+            "pedigree_index": [0, 2],
+            "quality_flag": ["high", "medium"],
+            "comment": ["Published", ""],
+        })
+        container = PedigreeContainer.from_dataframe(df)
+        assert len(container.group_pedigree) == 2
+        assert container.get_pedigree("Cod").pedigree_index == 0
+        assert container.get_pedigree("Herring").pedigree_index == 2
+
+    def test_from_dataframe_missing_columns(self):
+        """Missing required columns -> raise ValueError."""
+        df = pd.DataFrame({
+            "group": ["Cod"],
+            "quality_flag": ["high"],
+        })
+        with pytest.raises(ValueError, match="pedigree_index"):
+            PedigreeContainer.from_dataframe(df)
+
+    def test_from_dataframe_roundtrip(self):
+        """to_dataframe() -> from_dataframe() -> verify reversible."""
+        container1 = PedigreeContainer()
+        container1.add_pedigree("Cod", EwePedigreeConfig(0, comment="Test"))
+        container1.add_pedigree("Herring", EwePedigreeConfig(3))
+        df = container1.to_dataframe()
+        container2 = PedigreeContainer.from_dataframe(df)
+        assert len(container2.group_pedigree) == 2
+        assert container2.get_pedigree("Cod").pedigree_index == 0
+        assert container2.get_pedigree("Cod").comment == "Test"
+        assert container2.get_pedigree("Herring").pedigree_index == 3
+
+
+class TestEdgeCases:
+    """Test edge cases and boundary conditions."""
+
+    def test_empty_pedigree_container(self):
+        """Empty pedigree container -> validate passes."""
+        container = PedigreeContainer()
+        issues = container.validate()
+        assert issues == []
+        df = container.to_dataframe()
+        assert len(df) == 0
+
+    def test_boundary_indices_all_valid(self):
+        """Test all indices 0-4 -> all create successfully."""
+        for idx in range(5):
+            cfg = EwePedigreeConfig(pedigree_index=idx)
+            assert cfg.pedigree_index == idx
+            assert cfg.quality_flag in [
+                PedigreeQuality.HIGH,
+                PedigreeQuality.MEDIUM,
+                PedigreeQuality.LOW,
+            ]
+
+    def test_container_large_dataset(self):
+        """Large container (100+ groups) -> operations succeed."""
+        container = PedigreeContainer()
+        for i in range(100):
+            group_name = f"Group_{i}"
+            idx = i % 5
+            cfg = EwePedigreeConfig(pedigree_index=idx)
+            container.add_pedigree(group_name, cfg)
+        assert len(container.group_pedigree) == 100
+        df = container.to_dataframe()
+        assert len(df) == 100
+        issues = container.validate()
+        assert len(issues) == 0
+
+    def test_pedigree_config_special_characters_in_comment(self):
+        """Comment with special characters -> handled correctly."""
+        cfg = EwePedigreeConfig(
+            pedigree_index=2,
+            comment="Field survey (2023): ~15% uncertainty, 'reliable'",
+        )
+        assert "~" in cfg.comment
+        assert "'" in cfg.comment
+
+    def test_container_metadata(self):
+        """Container metadata dict -> operations work."""
+        container = PedigreeContainer()
+        container.metadata["source"] = "EwE_6.5"
+        container.metadata["timestamp"] = "2023-01-01T00:00:00"
+        container.add_pedigree("Cod", EwePedigreeConfig(0))
+        assert container.metadata["source"] == "EwE_6.5"
+        issues = container.validate()
+        assert len(issues) == 0
+
+    def test_from_dataframe_with_nan_comment(self):
+        """DataFrame with NaN comments -> handled correctly."""
+        df = pd.DataFrame({
+            "group": ["Cod", "Herring"],
+            "pedigree_index": [0, 2],
+            "comment": [np.nan, ""],
+        })
+        container = PedigreeContainer.from_dataframe(df)
+        assert len(container.group_pedigree) == 2
+        cod_cfg = container.get_pedigree("Cod")
+        assert cod_cfg.comment == ""
+

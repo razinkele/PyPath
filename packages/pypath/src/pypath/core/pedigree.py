@@ -12,9 +12,11 @@ import logging
 import math
 import warnings
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Union
+from enum import Enum
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
+import pandas as pd
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -310,3 +312,292 @@ def apply_sample(params: "RpathParams", sample: dict) -> "RpathParams":
         remarks=params.remarks,
         ecosim=params.ecosim,
     )
+
+
+
+# ============================================================================
+# Phase 1B.1: Pedigree Quality System (EwE standard pedigree indices 0-4)
+# ============================================================================
+
+
+
+
+class PedigreeQuality(Enum):
+    """Pedigree quality classification (EwE standard).
+
+    Maps pedigree_index values (0-4) to quality levels.
+    """
+
+    HIGH = "high"      # pedigree_index 0-1
+    MEDIUM = "medium"  # pedigree_index 2
+    LOW = "low"        # pedigree_index 3-4
+
+
+@dataclass
+class EwePedigreeConfig:
+    """Pedigree configuration for EwE quality tracking (Phase 1B.1).
+
+    Represents the quality and reliability of input data or derived values
+    following the EwE pedigree index standard (0-4).
+
+    Parameters
+    ----------
+    pedigree_index : int
+        Pedigree index in range [0, 4].
+        - 0-1: HIGH quality (well-documented, peer-reviewed)
+        - 2: MEDIUM quality (literature values)
+        - 3-4: LOW quality (expert guess, uncertain)
+    quality_flag : PedigreeQuality
+        Auto-set from pedigree_index; do not set manually.
+    comment : str, optional
+        Human-readable description of data source or uncertainty.
+
+    Raises
+    ------
+    ValueError
+        If pedigree_index is not in [0, 4].
+
+    Examples
+    --------
+    >>> cfg = EwePedigreeConfig(pedigree_index=0, comment="Published literature")
+    >>> cfg.quality_flag
+    <PedigreeQuality.HIGH: 'high'>
+    >>> cfg.to_ewe_format()
+    0
+    """
+
+    pedigree_index: int
+    quality_flag: PedigreeQuality = field(init=False)
+    comment: str = ""
+
+    def __post_init__(self) -> None:
+        """Validate pedigree_index and auto-set quality_flag.
+
+        Raises
+        ------
+        ValueError
+            If pedigree_index not in [0, 4].
+        """
+        if not (0 <= self.pedigree_index <= 4):
+            msg = f"pedigree_index must be in [0, 4], got {self.pedigree_index}"
+            raise ValueError(msg)
+
+        # Auto-set quality_flag based on index
+        if self.pedigree_index <= 1:
+            self.quality_flag = PedigreeQuality.HIGH
+        elif self.pedigree_index == 2:
+            self.quality_flag = PedigreeQuality.MEDIUM
+        else:  # 3-4
+            self.quality_flag = PedigreeQuality.LOW
+
+    @classmethod
+    def from_ewe_format(cls, index: int, comment: str = "") -> "EwePedigreeConfig":
+        """Parse EwE pedigree index format.
+
+        Parameters
+        ----------
+        index : int
+            Pedigree index in range [0, 4].
+        comment : str, optional
+            Optional comment text.
+
+        Returns
+        -------
+        EwePedigreeConfig
+            Initialized config object.
+
+        Raises
+        ------
+        ValueError
+            If index not in [0, 4].
+        """
+        return cls(pedigree_index=index, comment=comment)
+
+    def to_ewe_format(self) -> int:
+        """Export to EwE format (pedigree index 0-4).
+
+        Returns
+        -------
+        int
+            Pedigree index value.
+        """
+        return self.pedigree_index
+
+
+def validate_ewe_pedigree(
+    pedigree_dict: dict[str, EwePedigreeConfig],
+) -> list[str]:
+    """Validate EwE pedigree configuration dictionary.
+
+    Checks that all pedigree entries conform to EwE standards and internal
+    consistency. Returns a list of validation issues; empty list means valid.
+
+    Parameters
+    ----------
+    pedigree_dict : dict[str, EwePedigreeConfig]
+        Mapping of group name to EwePedigreeConfig.
+
+    Returns
+    -------
+    list[str]
+        List of validation warning/error messages. Empty if all valid.
+
+    Examples
+    --------
+    >>> pedigree = {
+    ...     "Cod": EwePedigreeConfig(0, comment="Published"),
+    ...     "Herring": EwePedigreeConfig(2),
+    ... }
+    >>> issues = validate_ewe_pedigree(pedigree)
+    >>> len(issues)
+    0
+    """
+    issues: list[str] = []
+
+    if not pedigree_dict:
+        logger.warning("Pedigree dictionary is empty")
+        return issues
+
+    for group_name, config in pedigree_dict.items():
+        # Check pedigree_index range
+        if not (0 <= config.pedigree_index <= 4):
+            issues.append(
+                f"{group_name}: pedigree_index {config.pedigree_index} "
+                "not in [0, 4]"
+            )
+
+        # Check quality_flag matches index
+        expected_quality = None
+        if config.pedigree_index <= 1:
+            expected_quality = PedigreeQuality.HIGH
+        elif config.pedigree_index == 2:
+            expected_quality = PedigreeQuality.MEDIUM
+        else:  # 3-4
+            expected_quality = PedigreeQuality.LOW
+
+        if config.quality_flag != expected_quality:
+            issues.append(
+                f"{group_name}: quality_flag {config.quality_flag.value} "
+                f"does not match index {config.pedigree_index}"
+            )
+
+    return issues
+
+
+class PedigreeContainer:
+    """Container for managing EwE pedigree data across groups (Phase 1B.1).
+
+    Holds pedigree configurations for each group/parameter and provides
+    serialization, validation, and query methods.
+
+    Attributes
+    ----------
+    group_pedigree : dict[str, EwePedigreeConfig]
+        Mapping of group name to its pedigree configuration.
+    metadata : dict
+        Metadata (source, timestamp, notes, etc.).
+    """
+
+    def __init__(self) -> None:
+        """Initialize empty pedigree container."""
+        self.group_pedigree: dict[str, EwePedigreeConfig] = {}
+        self.metadata: dict = {}
+
+    def get_pedigree(self, group_name: str) -> Optional[EwePedigreeConfig]:
+        """Get pedigree configuration for a group.
+
+        Parameters
+        ----------
+        group_name : str
+            Name of the group.
+
+        Returns
+        -------
+        EwePedigreeConfig or None
+            Pedigree config if found, None otherwise.
+        """
+        return self.group_pedigree.get(group_name)
+
+    def add_pedigree(self, group_name: str, config: EwePedigreeConfig) -> None:
+        """Add or update pedigree configuration for a group.
+
+        Parameters
+        ----------
+        group_name : str
+            Name of the group.
+        config : EwePedigreeConfig
+            Pedigree configuration to add.
+        """
+        self.group_pedigree[group_name] = config
+        logger.debug(
+            f"Added pedigree for {group_name}: index={config.pedigree_index}, "
+            f"quality={config.quality_flag.value}"
+        )
+
+    def validate(self) -> list[str]:
+        """Validate all pedigree entries.
+
+        Returns
+        -------
+        list[str]
+            List of validation issues (empty if valid).
+        """
+        return validate_ewe_pedigree(self.group_pedigree)
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Export pedigree data as DataFrame.
+
+        Returns
+        -------
+        pd.DataFrame
+            Table with columns: group, pedigree_index, quality_flag, comment.
+        """
+        if not self.group_pedigree:
+            return pd.DataFrame(
+                columns=["group", "pedigree_index", "quality_flag", "comment"]
+            )
+
+        data = [
+            {
+                "group": group_name,
+                "pedigree_index": config.pedigree_index,
+                "quality_flag": config.quality_flag.value,
+                "comment": config.comment,
+            }
+            for group_name, config in self.group_pedigree.items()
+        ]
+        return pd.DataFrame(data)
+
+    @classmethod
+    def from_dataframe(cls, df: pd.DataFrame) -> "PedigreeContainer":
+        """Create PedigreeContainer from DataFrame.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame with columns: group, pedigree_index, quality_flag (optional).
+
+        Returns
+        -------
+        PedigreeContainer
+            Initialized container.
+
+        Raises
+        ------
+        ValueError
+            If required columns are missing.
+        """
+        if "group" not in df.columns or "pedigree_index" not in df.columns:
+            msg = "DataFrame must have 'group' and 'pedigree_index' columns"
+            raise ValueError(msg)
+
+        container = cls()
+        for _, row in df.iterrows():
+            comment = row.get("comment", "")
+            config = EwePedigreeConfig(
+                pedigree_index=int(row["pedigree_index"]),
+                comment=str(comment) if pd.notna(comment) else "",
+            )
+            container.add_pedigree(str(row["group"]), config)
+
+        return container
