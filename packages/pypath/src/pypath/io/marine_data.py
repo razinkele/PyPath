@@ -119,8 +119,26 @@ class EMODnetHabitatsClient:
             "srsName": "EPSG:4326",
         }
         logger.info("Fetching EMODnet habitats for bbox %s", bbox)
-        resp = requests.get(_EMODNET_HABITATS_WFS, params=params, timeout=120)
-        resp.raise_for_status()
+
+        # Retry logic for unreliable external API
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                resp = requests.get(_EMODNET_HABITATS_WFS, params=params, timeout=120)
+                resp.raise_for_status()
+                break
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # Exponential: 1s, 2s, 4s
+                    logger.warning(
+                        "EMODnet failed (attempt %d/%d), retry in %ds: %s",
+                        attempt + 1, max_retries, wait_time, e
+                    )
+                    import time
+                    time.sleep(wait_time)
+                else:
+                    logger.error("EMODnet failed after %d attempts", max_retries)
+                    raise
 
         self._cache.put(cache_key, resp.content)
         gdf = gpd.read_file(_io.BytesIO(resp.content))
@@ -542,3 +560,5 @@ class HabitatPreferenceBuilder:
                 matrix[:, p] = prefs_by_type[:, type_to_idx[htype]]
 
         return matrix
+
+
