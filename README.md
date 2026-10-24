@@ -8,13 +8,13 @@
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/tests-1500%2B%20passing-brightgreen" alt="Tests Passing">
-  <img src="https://img.shields.io/badge/version-0.5.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.5.2-blue" alt="Version">
   <a href="https://anaconda.org/razinka/pypath-ewe"><img src="https://img.shields.io/badge/conda-razinka-orange" alt="Conda"></a>
   <a href="https://razinkele.github.io/PyPath/"><img src="https://img.shields.io/badge/docs-API%20Reference-teal" alt="API Reference"></a>
 </p>
 
 
-### Current Version: 0.5.1
+### Current Version: 0.5.2
 
 **PyPath** is a Python implementation of the Ecopath with Ecosim (EwE) ecosystem modeling framework. It extends the R package [Rpath](https://github.com/NOAA-EDAB/Rpath) with significant new features — including the first complete lifecycle Individual-Based Model for European smelt — while maintaining full core compatibility.
 
@@ -294,7 +294,7 @@ pytest packages/pypath-shiny/tests/ -q --ignore=packages/pypath-shiny/tests/ui
 
 ## Development Status
 
-### Current Version: 0.5.0
+### Current Version: 0.5.2
 
 All features production-ready. 1500+ tests passing, 0 failures.
 

@@ -15,9 +15,9 @@ import numpy as np
 import pytest
 
 from pypath.core.sampling import (
-    EcopathGroupSample,
     EcopathDietCompSample,
     EcopathGroupCatchSample,
+    EcopathGroupSample,
     SampleContainer,
     add_sampling_to_params,
     apply_samples_to_derivatives,
@@ -66,11 +66,11 @@ class TestEcopathGroupSample:
             qb_samples=np.random.normal(1.2, 0.1, 1000),
             ee_samples=np.random.uniform(0.5, 0.9, 1000),
         )
-        
+
         lower, upper = samples.confidence_interval("biomass", alpha=0.05)
         assert lower < 2.0 < upper
         assert lower < upper
-        
+
         # 95% CI should contain ~95% of samples
         assert lower == pytest.approx(np.percentile(biomass, 2.5), rel=1e-2)
         assert upper == pytest.approx(np.percentile(biomass, 97.5), rel=1e-2)
@@ -95,11 +95,11 @@ class TestEcopathGroupSample:
             qb_samples=np.array([1.0, 1.1, 1.2, 1.3, 1.4]),
             ee_samples=np.array([0.5, 0.6, 0.7, 0.8, 0.9]),
         )
-        
+
         # Check 50th percentile (median)
         assert samples.get_percentile("biomass", 50) == 3.0
         assert samples.get_percentile("pb", 50) == 0.6
-        
+
         # Test invalid parameter
         with pytest.raises(ValueError):
             samples.get_percentile("invalid_param", 50)
@@ -217,7 +217,7 @@ class TestSampleContainer:
     def test_sample_replicate_mismatch(self):
         """Test that mismatched replicate counts raise error."""
         container = SampleContainer(n_replicates=5)
-        
+
         # Try to add sample with different replicate count
         sample = EcopathGroupSample(
             group_name="Fish",
@@ -226,7 +226,7 @@ class TestSampleContainer:
             qb_samples=np.array([1.2, 1.25, 1.15, 1.3, 1.1, 1.2]),
             ee_samples=np.array([0.7, 0.72, 0.68, 0.75, 0.65, 0.70]),
         )
-        
+
         with pytest.raises(ValueError):
             container.add_group_sample(sample)
 
@@ -242,7 +242,7 @@ class TestSampleContainer:
             biomass_se=0.1,
         )
         container.add_group_sample(sample)
-        
+
         df = container.uncertainty_dataframe("group")
         assert len(df) == 1
         assert "Fish" in df["Group"].values
@@ -253,7 +253,7 @@ class TestSampleContainer:
     def test_summary_stats(self):
         """Test summary statistics generation."""
         container = SampleContainer(n_replicates=5)
-        
+
         # Add one of each type
         group = EcopathGroupSample(
             group_name="Fish",
@@ -263,7 +263,7 @@ class TestSampleContainer:
             ee_samples=np.array([0.7, 0.72, 0.68, 0.75, 0.65]),
         )
         container.add_group_sample(group)
-        
+
         stats = container.summary_stats()
         assert stats["n_replicates"] == 5
         assert stats["n_groups"] == 1
@@ -279,10 +279,10 @@ class TestSamplingIntegration:
         # Create a mock params object
         class MockParams:
             pass
-        
+
         params = MockParams()
         container = SampleContainer(n_replicates=5)
-        
+
         add_sampling_to_params(params, container)
         assert hasattr(params, "samples")
         assert params.samples == container
@@ -298,16 +298,16 @@ class TestSamplingIntegration:
             ee_samples=np.array([0.7, 0.8, 0.9]),
         )
         container.add_group_sample(group)
-        
+
         params = {"Fish": {"biomass": 0.0, "pb": 0.0, "qb": 0.0, "ee": 0.0}}
-        
+
         # Apply first replicate
         apply_samples_to_derivatives(0, container, params)
         assert params["Fish"]["biomass"] == 1.0
         assert params["Fish"]["pb"] == 0.5
         assert params["Fish"]["qb"] == 1.0
         assert params["Fish"]["ee"] == 0.7
-        
+
         # Apply second replicate
         params2 = {"Fish": {"biomass": 0.0, "pb": 0.0, "qb": 0.0, "ee": 0.0}}
         apply_samples_to_derivatives(1, container, params2)
@@ -317,7 +317,7 @@ class TestSamplingIntegration:
         """Test that invalid replicate index raises error."""
         container = SampleContainer(n_replicates=5)
         params = {"Fish": {"biomass": 0.0, "pb": 0.0, "qb": 0.0, "ee": 0.0}}
-        
+
         with pytest.raises(ValueError):
             apply_samples_to_derivatives(10, container, params)  # 10 >= 5
 
@@ -334,7 +334,7 @@ class TestValidateSamples:
     def test_validate_samples_range_errors(self):
         """Test that out-of-range values are detected."""
         container = SampleContainer(n_replicates=3)
-        
+
         # Create sample with negative biomass
         sample = EcopathGroupSample(
             group_name="Fish",
@@ -344,14 +344,14 @@ class TestValidateSamples:
             ee_samples=np.array([0.7, 0.8, 0.9]),
         )
         container.add_group_sample(sample)
-        
+
         issues = validate_samples(container, None)
         assert any("biomass < 0" in issue for issue in issues)
 
     def test_validate_samples_ee_range(self):
         """Test that EE outside [0, 1] is detected."""
         container = SampleContainer(n_replicates=3)
-        
+
         sample = EcopathGroupSample(
             group_name="Fish",
             biomass_samples=np.array([1.0, 2.0, 3.0]),
@@ -360,6 +360,6 @@ class TestValidateSamples:
             ee_samples=np.array([0.7, 1.5, 0.9]),  # 1.5 is invalid!
         )
         container.add_group_sample(sample)
-        
+
         issues = validate_samples(container, None)
         assert any("EE outside [0, 1]" in issue for issue in issues)

@@ -19,20 +19,17 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from pypath.core.ecopath import rpath
 from pypath.core.ensemble import (
     EnsembleResult,
-    ensemble_statistics,
-    get_ensemble_confidence_intervals,
     run_ensemble_rpath,
 )
-from pypath.core.params import RpathParams, create_rpath_params, read_rpath_params
+from pypath.core.params import RpathParams, read_rpath_params
 from pypath.core.sampling import (
     EcopathGroupSample,
     SampleContainer,
@@ -404,7 +401,7 @@ class TestReproducibilityWithSeed:
         samples1 = _create_sample_container(
             example_model_params, n_replicates=10, groups_to_sample=[0, 1]
         )
-        
+
         np.random.seed(222)
         samples2 = _create_sample_container(
             example_model_params, n_replicates=10, groups_to_sample=[0, 1]
@@ -420,7 +417,7 @@ class TestReproducibilityWithSeed:
         # Sample values should differ (extremely unlikely to be identical)
         phyto_samples1 = samples1.group_samples["Phytoplankton"].biomass_samples
         phyto_samples2 = samples2.group_samples["Phytoplankton"].biomass_samples
-        
+
         samples_identical = np.allclose(phyto_samples1, phyto_samples2)
         assert (
             not samples_identical

@@ -9,7 +9,6 @@ replicates with sampled parameters and computing confidence intervals.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -670,8 +669,8 @@ class TestRunEnsembleRpath:
             result2.replicate_models[1].Biomass,
         )
 
-    def test_ensemble_run_different_sizes(self, simple_rpath_params, 
-                                          simple_samples, medium_samples, 
+    def test_ensemble_run_different_sizes(self, simple_rpath_params,
+                                          simple_samples, medium_samples,
                                           large_samples):
         """Test ensemble with different replicate sizes."""
         result_5 = run_ensemble_rpath(simple_rpath_params, simple_samples)

@@ -601,7 +601,7 @@ def apply_samples_to_derivatives(
         raise ValueError(
             f"Replicate index {replicate_index} >= {sample_container.n_replicates}"
         )
-    
+
     for group_name, sample in sample_container.group_samples.items():
         if group_name not in params:
             logger.warning(f"Group {group_name} not in params")
@@ -613,7 +613,7 @@ def apply_samples_to_derivatives(
             params[group_name]["pb"] = float(sample.pb_samples[replicate_index])
             params[group_name]["qb"] = float(sample.qb_samples[replicate_index])
             params[group_name]["ee"] = float(sample.ee_samples[replicate_index])
-    
+
     return params
 
 

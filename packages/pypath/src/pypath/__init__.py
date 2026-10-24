@@ -1,10 +1,10 @@
-﻿"""
+"""
 PyPath - Python Ecopath with Ecosim
 
 A Python implementation of the Rpath ecosystem modeling package.
 """
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 __author__ = "PyPath Development Team"
 
 import logging

@@ -12,26 +12,18 @@ for the sampling framework. Tests cover:
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from pypath.core.ecopath import rpath
 from pypath.core.ensemble import (
     EnsembleResult,
-    ensemble_statistics,
     run_ensemble_rpath,
 )
-from pypath.core.params import create_rpath_params, RpathParams
 from pypath.core.sampling import (
-    EcopathDietCompSample,
-    EcopathGroupCatchSample,
     EcopathGroupSample,
     SampleContainer,
-    add_sampling_to_params,
-    apply_samples_to_derivatives,
     validate_samples,
 )
 
@@ -429,7 +421,7 @@ def simple_rpath_params():
             groups=["Phyto", "Zoo", "Fish", "SmallFish", "Det"],
             types=[1, 0, 0, 0, 2],
         )
-        
+
         # Primary producer
         params.model.loc[0, "Biomass"] = 10.0
         params.model.loc[0, "PB"] = 200.0

@@ -1,14 +1,13 @@
 ﻿"""Unit tests for PEST calibration framework."""
 
 import numpy as np
-import pytest
 
 from pypath.core.ecopath import rpath
 from pypath.core.pest_calibration import (
-    PestParameter,
-    PestObservation,
-    PestCalibrator,
     PestCalibrationResult,
+    PestCalibrator,
+    PestObservation,
+    PestParameter,
 )
 
 

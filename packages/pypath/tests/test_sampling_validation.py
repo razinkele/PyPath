@@ -9,19 +9,15 @@ import pytest
 
 from pypath.core.params import create_rpath_params
 from pypath.core.sampling import (
-    EcopathDietCompSample,
-    EcopathGroupCatchSample,
     EcopathGroupSample,
     SampleContainer,
 )
 from pypath.core.sampling_validation import (
-    validate_diet_consistency,
     validate_pedigree_weighting,
     validate_replicate_counts,
     validate_sample_ranges,
     validate_samples,
 )
-
 
 logger = logging.getLogger(__name__)
 
