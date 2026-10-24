@@ -64,7 +64,7 @@ packages/
 |---|---|---|
 | **PyPI name** | `pypath-ewe` | `pypath-shiny` |
 | **Import** | `import pypath` | `import pypath_shiny` |
-| **Version** | 0.5.0 | 0.5.0 |
+| **Version** | 0.5.1 | 0.5.1 |
 | **Conda** | `conda install -c razinka pypath-ewe` | `conda install -c razinka pypath-shiny` |
 | **Dependencies** | numpy, pandas, scipy, matplotlib | pypath-ewe, shiny, shinyswatch |
 | **Entry point** | Library | `pypath-shiny` CLI command |
