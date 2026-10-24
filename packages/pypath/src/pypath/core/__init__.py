@@ -48,6 +48,21 @@ from pypath.core.ecosim import (
     rsim_scenario,
     rsim_state,
 )
+from pypath.core.ensemble import (
+    EnsembleResult,
+    ensemble_statistics,
+    get_ensemble_confidence_intervals,
+    run_ensemble_rpath,
+)
+from pypath.core.sampling import (
+    EcopathDietCompSample,
+    EcopathGroupCatchSample,
+    EcopathGroupSample,
+    SampleContainer,
+    add_sampling_to_params,
+    apply_samples_to_derivatives,
+    validate_samples,
+)
 from pypath.core.ecosim_deriv import (
     deriv_vector,
     integrate_ab,
@@ -208,6 +223,19 @@ __all__ = [
     "write_rpath_params",
     "check_rpath_params",
     "Rpath",
+    # Ensemble
+    "EnsembleResult",
+    "run_ensemble_rpath",
+    "get_ensemble_confidence_intervals",
+    "ensemble_statistics",
+    # Sampling
+    "SampleContainer",
+    "EcopathGroupSample",
+    "EcopathDietCompSample",
+    "EcopathGroupCatchSample",
+    "add_sampling_to_params",
+    "apply_samples_to_derivatives",
+    "validate_samples",
     "rpath",
     # Ecosim
     "RsimParams",
