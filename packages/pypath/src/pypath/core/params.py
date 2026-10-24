@@ -471,3 +471,4 @@ def check_rpath_params(params: RpathParams) -> bool:
             "Rpath parameter file needs attention! (%d warnings)", n_warnings
         )
         return False
+
