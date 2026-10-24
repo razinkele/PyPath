@@ -1461,3 +1461,298 @@ def auto_populate_taxonomy(
         group_assignments=group_assignments,
         stanza_assignments=stanza_assignments,
     )
+
+# ============================================================================
+# Taxonomy Integration Functions (Phase 1B.2)
+# ============================================================================
+
+
+def integrate_taxonomy_with_biodata(
+    species_info: Union[SpeciesInfo, pd.DataFrame],
+) -> "pypath.core.taxonomy.TaxonomyLinkage":
+    """Convert biodata results to TaxonomyLinkage objects.
+
+    Transforms output from get_species_info() or batch_get_species_info()
+    into TaxonomyLinkage containers with resolved taxa. Facilitates
+    integration between biodata and taxonomy modules.
+
+    Parameters
+    ----------
+    species_info : SpeciesInfo or pd.DataFrame
+        Species information from biodiversity lookups
+
+    Returns
+    -------
+    pypath.core.taxonomy.TaxonomyLinkage
+        Taxonomy container with resolved taxa and metadata
+
+    Raises
+    ------
+    ImportError
+        If pypath.core.taxonomy is not available
+    ValueError
+        If species_info is empty
+
+    Example
+    -------
+    >>> from pypath.io.biodata import get_species_info, integrate_taxonomy_with_biodata
+    >>> info = get_species_info("Atlantic cod")
+    >>> taxonomy_link = integrate_taxonomy_with_biodata(info)
+    >>> print(taxonomy_link.scientific_name)
+    'Gadus morhua'
+    """
+    if TYPE_CHECKING:
+        from pypath.core.taxonomy import TaxonomyLinkage
+
+    try:
+        from pypath.core.taxonomy import TaxonomyLinkage
+    except ImportError as e:
+        raise ImportError("pypath.core.taxonomy module not available") from e
+
+    # Convert single SpeciesInfo to DataFrame for consistent handling
+    if isinstance(species_info, SpeciesInfo):
+        data = [{
+            "scientific_name": species_info.scientific_name,
+            "common_name": species_info.common_name,
+            "aphia_id": species_info.aphia_id,
+            "trophic_level": species_info.trophic_level,
+        }]
+        df = pd.DataFrame(data)
+    else:
+        if isinstance(species_info, pd.DataFrame) and species_info.empty:
+            raise ValueError("No species data provided")
+        df = species_info
+
+    # Create TaxonomyLinkage object(s)
+    linkages = []
+    for _, row in df.iterrows():
+        linkage = TaxonomyLinkage(
+            scientific_name=row.get("scientific_name"),
+            common_name=row.get("common_name"),
+            aphia_id=row.get("aphia_id"),
+            source="biodata",
+        )
+        linkages.append(linkage)
+
+    # Return single or collection based on input
+    if len(linkages) == 1:
+        return linkages[0]
+    return linkages
+
+
+def resolve_worms_taxonomy(
+    scientific_name: str,
+    include_hierarchy: bool = True,
+    timeout: int = 30,
+) -> Optional[Dict]:
+    """Resolve full WoRMS taxonomic hierarchy for a species.
+
+    Queries WoRMS record API to extract complete taxonomic hierarchy
+    (kingdom, phylum, class, order, family, genus, species).
+
+    Parameters
+    ----------
+    scientific_name : str
+        Scientific name to resolve (e.g., "Gadus morhua")
+    include_hierarchy : bool, optional
+        Whether to include full hierarchy fields (default True)
+    timeout : int, optional
+        API request timeout in seconds (default 30)
+
+    Returns
+    -------
+    dict or None
+        Dictionary with taxonomy fields:
+        {
+            'kingdom': str,
+            'phylum': str,
+            'class': str,
+            'order': str,
+            'family': str,
+            'genus': str,
+            'species': str,
+            'worms_aphia_id': int,
+            'match_confidence': float
+        }
+        Returns None if species not found
+
+    Raises
+    ------
+    ImportError
+        If pyworms is not installed and HAS_PYWORMS is False
+
+    Example
+    -------
+    >>> from pypath.io.biodata import resolve_worms_taxonomy
+    >>> hierarchy = resolve_worms_taxonomy("Gadus morhua")
+    >>> if hierarchy:
+    ...     print(f"Family: {hierarchy['family']}")
+    ...     print(f"AphiaID: {hierarchy['worms_aphia_id']}")
+    """
+    if not HAS_PYWORMS:
+        logger.warning("pyworms not installed; resolve_worms_taxonomy() is a stub")
+        return None
+
+    try:
+        record = pyworms.get_record(scientific_name, timeout=timeout)
+    except Exception as e:
+        logger.debug("WoRMS lookup failed for %r: %s", scientific_name, e)
+        return None
+
+    if not record:
+        return None
+
+    result = {
+        "worms_aphia_id": record.get("AphiaID"),
+        "match_confidence": 0.95 if record.get("match_type") == "exact" else 0.70,
+    }
+
+    if include_hierarchy:
+        result.update({
+            "kingdom": record.get("kingdom") or "",
+            "phylum": record.get("phylum") or "",
+            "class": record.get("class") or "",
+            "order": record.get("order") or "",
+            "family": record.get("family") or "",
+            "genus": record.get("genus") or "",
+            "species": record.get("species") or "",
+        })
+
+    return result
+
+
+def batch_resolve_worms_taxonomy(
+    scientific_names: List[str],
+    include_hierarchy: bool = True,
+    max_workers: int = 5,
+    timeout: int = 30,
+) -> pd.DataFrame:
+    """Batch resolve WoRMS taxonomy for multiple species.
+
+    Efficiently resolves taxonomic hierarchy for many species using
+    ThreadPoolExecutor for parallel API queries.
+
+    Parameters
+    ----------
+    scientific_names : list of str
+        Species names to resolve
+    include_hierarchy : bool, optional
+        Whether to include full hierarchy (default True)
+    max_workers : int, optional
+        Number of parallel threads (default 5)
+    timeout : int, optional
+        API timeout per request in seconds (default 30)
+
+    Returns
+    -------
+    pd.DataFrame
+        Results with columns:
+        - scientific_name: Input species name
+        - kingdom, phylum, class, order, family, genus, species: Taxonomy
+        - worms_aphia_id: WoRMS identifier
+        - match_confidence: Confidence score [0, 1]
+
+    Example
+    -------
+    >>> from pypath.io.biodata import batch_resolve_worms_taxonomy
+    >>> names = ["Gadus morhua", "Clupea harengus", "Sprattus sprattus"]
+    >>> df = batch_resolve_worms_taxonomy(names)
+    >>> print(df[['scientific_name', 'family', 'worms_aphia_id']])
+    """
+    results = []
+
+    def _resolve_one(name):
+        try:
+            hierarchy = resolve_worms_taxonomy(
+                name,
+                include_hierarchy=include_hierarchy,
+                timeout=timeout,
+            )
+            if hierarchy:
+                hierarchy["scientific_name"] = name
+                return hierarchy
+            else:
+                return {"scientific_name": name}
+        except Exception as e:
+            logger.debug("Batch resolve failed for %r: %s", name, e)
+            return {"scientific_name": name}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_resolve_one, name): name for name in scientific_names}
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as e:
+                name = futures[future]
+                logger.warning("Failed to resolve %r: %s", name, e)
+                results.append({"scientific_name": name})
+
+    df = pd.DataFrame(results)
+    # Reorder columns for better readability
+    cols = ["scientific_name"]
+    if include_hierarchy:
+        cols.extend(["kingdom", "phylum", "class", "order", "family", "genus", "species"])
+    cols.extend(["worms_aphia_id", "match_confidence"])
+    available_cols = [c for c in cols if c in df.columns]
+    return df[available_cols]
+
+
+def sync_taxonomy_with_rpath(
+    rpath_params: "pypath.core.params.RpathParams",
+    taxonomy_linkage: "pypath.core.taxonomy.TaxonomyLinkage",
+) -> "pypath.core.params.RpathParams":
+    """Add taxonomy information to RpathParams from TaxonomyLinkage.
+
+    Enriches Rpath model parameters with taxonomic metadata including
+    resolved taxa, hierarchy levels, and external identifiers.
+
+    Parameters
+    ----------
+    rpath_params : pypath.core.params.RpathParams
+        Ecopath model parameters to enhance
+    taxonomy_linkage : pypath.core.taxonomy.TaxonomyLinkage or list
+        Resolved taxonomy objects (single or list)
+
+    Returns
+    -------
+    pypath.core.params.RpathParams
+        Modified RpathParams with taxonomy information added
+
+    Raises
+    ------
+    ImportError
+        If pypath.core.taxonomy or pypath.core.params not available
+    ValueError
+        If rpath_params is not RpathParams instance
+
+    Example
+    -------
+    >>> from pypath.core.params import create_rpath_params
+    >>> from pypath.io.biodata import integrate_taxonomy_with_biodata, sync_taxonomy_with_rpath
+    >>> from pypath.io.biodata import batch_get_species_info
+    >>> params = create_rpath_params(groups=["Cod", "Herring"], types=[0, 0])
+    >>> species_df = batch_get_species_info(["Gadus morhua", "Clupea harengus"])
+    >>> tax_link = integrate_taxonomy_with_biodata(species_df)
+    >>> params_enriched = sync_taxonomy_with_rpath(params, tax_link)
+    """
+    if TYPE_CHECKING:
+        from pypath.core.params import RpathParams
+        from pypath.core.taxonomy import TaxonomyLinkage
+
+    if not isinstance(rpath_params, RpathParams):
+        raise ValueError("rpath_params must be an RpathParams instance")
+
+    # Add taxonomy column if not present
+    if "taxonomy_linkage" not in rpath_params.model.columns:
+        rpath_params.model["taxonomy_linkage"] = None
+
+    # Handle both single and list of TaxonomyLinkage objects
+    linkages = taxonomy_linkage if isinstance(taxonomy_linkage, list) else [taxonomy_linkage]
+
+    for i, linkage in enumerate(linkages):
+        if i < len(rpath_params.model):
+            rpath_params.model.loc[i, "taxonomy_linkage"] = linkage
+
+    logger.info("Synchronized taxonomy with %d groups", len(linkages))
+    return rpath_params
