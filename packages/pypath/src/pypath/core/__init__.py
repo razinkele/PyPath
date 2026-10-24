@@ -50,6 +50,8 @@ from pypath.core.ecosim import (
 )
 # Auto-patch RsimScenario with ramping support
 from pypath.core import ecosim_ramping as _ecosim_ramping_
+# Auto-patch RsimScenario with environmental forcing support
+from pypath.core import ecosim_environmental_forcing as _ecosim_env_forcing_
 from pypath.core.ramping import (
     LinearRamp,
     PolynomialRamp,
@@ -416,4 +418,5 @@ __all__ = [
     "ecosystem_indicators_timeseries",
     "system_maturity",
 ]
+
 
