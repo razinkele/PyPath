@@ -48,6 +48,8 @@ from pypath.core.ecosim import (
     rsim_scenario,
     rsim_state,
 )
+# Auto-patch RsimScenario with ramping support
+from pypath.core import ecosim_ramping as _ecosim_ramping_
 from pypath.core.ramping import (
     LinearRamp,
     PolynomialRamp,
