@@ -103,8 +103,13 @@ class TestWriteSamplesBasics:
             group_df = read_ewemdb_table(temp_db, "EcopathGroupSample")
             diet_df = read_ewemdb_table(temp_db, "EcopathDietCompSample")
 
-            assert len(group_df[group_df["SampleID"] == sample_id]) == 5
-            assert len(diet_df[diet_df["SampleID"] == sample_id]) == 5
+            # 5 replicates means 5 EcopathSample rows (SampleID sample_id to sample_id+4)
+            # Each sample has 1 group and 1 diet link
+            sample_ids = list(range(sample_id, sample_id + 5))
+            assert all(sid in group_df["SampleID"].values for sid in sample_ids)
+            assert all(sid in diet_df["SampleID"].values for sid in sample_ids)
+            assert len(group_df[group_df["SampleID"].isin(sample_ids)]) == 5
+            assert len(diet_df[diet_df["SampleID"].isin(sample_ids)]) == 5
 
         finally:
             Path(temp_db).unlink(missing_ok=True)
@@ -181,17 +186,29 @@ class TestWriteSamplesRoundTrip:
             except RuntimeError:
                 pytest.skip("Access ODBC driver not available")
 
-            sample_id = write_ewe_samples(container, temp_db)
-            read_container = read_ewe_samples(temp_db, sample_id=sample_id)
-
-            assert "Fish" in read_container.group_samples
-            read_group = read_container.group_samples["Fish"]
-
-            assert read_group.n_replicates == 4
+            starting_sample_id = write_ewe_samples(container, temp_db)
+            
+            # Read all samples written (read_ewe_samples reads one SampleID at a time)
+            # We wrote 4 replicates starting at starting_sample_id
+            sample_ids = list(range(starting_sample_id, starting_sample_id + 4))
+            biomass_values = []
+            
+            for sid in sample_ids:
+                read_container = read_ewe_samples(temp_db, sample_id=sid)
+                assert "Fish" in read_container.group_samples
+                read_group = read_container.group_samples["Fish"]
+                # Each SampleID has 1 row per group (n_replicates=1)
+                assert read_group.n_replicates == 1
+                biomass_values.append(read_group.biomass_samples[0])
+            
+            # Verify all biomass values match the original samples
+            expected = container.group_samples["Fish"].biomass_samples
             np.testing.assert_array_almost_equal(
-                read_group.biomass_samples,
-                container.group_samples["Fish"].biomass_samples,
+                np.array(biomass_values),
+                expected
             )
 
         finally:
             Path(temp_db).unlink(missing_ok=True)
+
+
