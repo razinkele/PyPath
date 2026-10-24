@@ -6,6 +6,105 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v0.5.3 (2026-10-24) [DRAFT]
+
+### Added
+
+**Phase 1B: Ecopath Enhancement — Data Quality & Structure (v0.5.3)**
+
+Six modular systems for enhanced Ecopath parameter management, covering uncertainty (pedigree), species taxonomy, population structure (size distribution), fishing operations (fleet dynamics), nutrient cycling, and temporal catch patterns.
+
+**Pedigree System (TG3.1)**
+- `EwePedigreeConfig` dataclass — Validate pedigree indices (0-4, EwE standard)
+- `PedigreeQuality` enum (HIGH/MEDIUM/LOW) with automatic mapping from indices
+- `PedigreeContainer` class — Manage group-wise pedigree tracking
+- `validate_ewe_pedigree()` — Range & consistency validation
+- 54 tests covering dataclass creation, validation, serialization
+
+**Taxonomic Linkage System (TG3.2)**
+- `TaxonLink` dataclass — Full taxonomic hierarchy (kingdom-species) with external IDs
+- `TaxonomyLinkage` container — Multi-group taxonomy assignment & validation
+- `resolve_worms_link()` and `batch_resolve_worms()` — WoRMS stub functions
+- biodata.py extensions: `integrate_taxonomy_with_biodata()`, `resolve_worms_taxonomy()`, `sync_taxonomy_with_rpath()`
+- 52 tests covering taxonomy operations, validation, DataFrame I/O
+
+**Size Distribution System (TG3.3)**
+- `SizeClass` dataclass — Define size intervals with midpoint, width, contains methods
+- `SizeDistribution` class — PSD container with statistics (mean_size, total_count)
+- `SizeStructure` container — Multi-group distributions with validation
+- Von Bertalanffy functions: `vb_length()`, `vb_age()`, `age_at_size_class()`
+- `estimate_psd_from_vb()` — Generate theoretical PSD from VBGF parameters
+- 53 tests covering size classes, distributions, VBGF calculations, edge cases
+
+**Fleet & Discard Dynamics (TG3.4)**
+- `GearType` enum — 6 fishing gear types (SEINE, NET, TRAP, TRAWL, HOOK, OTHER)
+- `FleetGroup` dataclass — Fleet with catchability matrix, fuel efficiency, base effort
+- `DiscardPath` dataclass — Discard routing with 4 fate categories (lost, predation, detritus, benthos)
+- `FleetDynamics` container — Multi-fleet management with allocation & validation
+- `allocate_catch()`, `allocate_discards()` — Flexible allocation functions
+- `estimate_catch_value()`, `estimate_fuel_cost()` — Economic module stubs
+- 67 tests covering fleet operations, discard routing, economic calculations
+
+**Nutrient Cycling System (TG3.5)**
+- `NutrientElement` enum — N, P, C with molecular weights
+- `NutrientContent` dataclass — Elemental composition (%), validation, serialization
+- `NutrientExcretion` dataclass — Excretion rates with fecal partitioning
+- `NutrientUptake` dataclass — Producer kinetics using Monod saturation
+- `NutrientCycle` container — Ecosystem-level cycling with mass balance
+- `validate_nutrient_cycle()` — Check consistency across groups
+- `estimate_excretion_from_pb()` — Heuristic excretion estimation
+- 50 tests covering nutrient composition, excretion, Monod kinetics, cycles
+
+**Enhanced Landings System (TG3.6)**
+- `LandingType` enum — 5 catch categories (COMMERCIAL, SUBSISTENCE, RECREATIONAL, UNREPORTED, DISCARDS)
+- `LandingRecord` dataclass — Month-level catch tracking with optional value & fleet ID
+- `LandingSeasonality` dataclass — Monthly catch distribution patterns (12-element array)
+- `LandingsData` container — Multi-record management with aggregation
+- `estimate_seasonality_from_records()` — Infer monthly patterns from data
+- `aggregate_landings()` — Flexible aggregation (by group, year, type)
+- 60 tests covering records, seasonality, aggregation, edge cases
+
+### Metrics
+
+- **Total Code**: 3,645 lines (6 new modules)
+- **Total Tests**: 336 (100% passing)
+- **Test Code**: 3,976 lines (6 test modules)
+- **Modules**: 6 core (`pedigree`, `taxonomy`, `size`, `fleet`, `nutrients`, `landings`)
+- **Commits**: 7 (TG3.1 version sync + TG3.1–3.6 implementation)
+- **Duration**: ~5.5 hours
+
+### Parity Progress
+
+- **Before**: 31/84 EwE tables (36.9%), Ecopath 10/17 (59%)
+- **After**: 35/84 EwE tables (41.7%), Ecopath 14/17 (82%)
+- **Gain**: +4 tables, +23% Ecopath coverage
+
+### Quality Assurance
+
+- ✅ Ruff linting: All E, F, W, I rules pass
+- ✅ MyPy type checking: 100% compliant (no Any types)
+- ✅ NumPy docstrings: 100% coverage (all public APIs)
+- ✅ Validation: __post_init__() checks on all dataclasses
+- ✅ DataFrame I/O: Lossless round-trip conversion (to/from_dataframe)
+- ✅ Integration: Tested with biodata, pedigree, sampling modules
+
+### Deprecations
+
+None.
+
+### Bug Fixes
+
+None.
+
+### Known Issues
+
+- WoRMS/ITIS API calls stubbed (placeholder implementations ready for network integration)
+- Nutrient excretion estimation uses simple heuristic (P/B-based); field-validation recommended
+- Fleet economic functions are minimal stubs (profit maximization not implemented)
+
+---
+
+
 ## v0.5.2 (2026-10-24)
 
 ### Added
@@ -370,4 +469,3 @@ Based on Drewes et al. (2025) *Ecological Modelling* 510:111313 and Keller et al
 ## v0.2.2 (2025-12-19)
 
 - Initial release (see commit history)
-
