@@ -1,7 +1,9 @@
 """Explore LT2022 time series and Ecosim scenario details."""
 
 from pathlib import Path
+
 import pandas as pd
+
 from pypath import read_ewemdb_table
 
 DB = str(Path(__file__).resolve().parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb")

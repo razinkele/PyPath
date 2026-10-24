@@ -1,7 +1,8 @@
 """Explore the LT2022 model structure and attempt calibration."""
 
 from pathlib import Path
-from pypath import read_ewemdb, read_ewemdb_table, rpath
+
+from pypath import read_ewemdb_table
 
 DB = str(Path(__file__).resolve().parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb")
 

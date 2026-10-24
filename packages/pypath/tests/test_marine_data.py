@@ -297,7 +297,7 @@ class TestHabitatPreferenceBuilder:
 
 @pytest.mark.integration
 @pytest.mark.slow
-@pytest.mark.xfail(reason='EMODnet WFS API is flaky and may return 400 Client Error')
+@pytest.mark.xfail(reason="EMODnet WFS API is flaky and may return 400 Client Error")
 def test_fetch_euseamap_real_api():
     """Integration test: fetch real data from EMODnet WFS."""
     import shutil
@@ -312,6 +312,3 @@ def test_fetch_euseamap_real_api():
     assert len(gdf) > 0
     assert "EUNIScomb" in gdf.columns
     shutil.rmtree(cache_dir, ignore_errors=True)
-
-
-
