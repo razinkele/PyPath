@@ -1,0 +1,30 @@
+COMPREHENSIVE TECHNICAL & ECOLOGICAL REVIEW
+Curonian Lagoon Ecopath with Ecosim Case Study Model
+35-Group Multistanza Model (PEST-Calibrated)
+Review Date: 2026-10-23
+
+================================================================================
+EXECUTIVE SUMMARY
+================================================================================
+
+The Curonian Lagoon 35-group multistanza Ecopath/Ecosim model represents a 
+technically competent application of the PyPath framework but exhibits CRITICAL 
+ECOLOGICAL CONCERNS that warrant archival from public release.
+
+OVERALL ASSESSMENT: PRELIMINARY - NOT READY FOR PUBLIC USE
+
+Key Concerns (Ranked by Severity):
+1. [CRITICAL] Perfect convergence (SS=0.000000) suggests overfitting to limited 
+   fishery data; ecological implausibility of zero residual error
+2. [HIGH] Inadequate ecosystem-wide validation; calibration uses only landing 
+   statistics, ignoring benthic biomass, zooplankton composition, predation 
+   patterns
+3. [HIGH] Questionable inclusion of Acartia (stenohaline marine) in freshwater/
+   brackish system; zooplankton composition unvalidated
+4. [MEDIUM] Water transparency, habitat zoning, food web connections not 
+   empirically verified
+5. [MEDIUM] Unrealistic stability across fishing pressure suggests under-
+   parameterized predator-prey dynamics
+
+RECOMMENDATION: Keep archived until field validation completed.
+

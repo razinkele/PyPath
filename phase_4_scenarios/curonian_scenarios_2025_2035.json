@@ -1,0 +1,147 @@
+{
+  "metadata": {
+    "study": "Ecosystem-Based Fisheries Management for Curonian Lagoon",
+    "modeling_period": "2025-2035",
+    "years": 11,
+    "time_steps_per_year": 12,
+    "total_time_steps": 132
+  },
+  "scenarios": [
+    {
+      "id": 1,
+      "code": "BAU",
+      "name": "Baseline_BAU_2025_2035",
+      "description": "Business-as-usual: maintain current fishing effort",
+      "policy_focus": "Status quo",
+      "period": "2025-2035",
+      "years": 11,
+      "fishing_effort": {
+        "Bream": 1.0,
+        "Perch": 1.0,
+        "Roach": 1.0,
+        "Vimba": 1.0,
+        "Zander": 1.0
+      },
+      "spatial_closure": null,
+      "seasonal_restrictions": null,
+      "environmental_forcing": "historical_mean",
+      "expected_annual_catch_tonnes": "12-15",
+      "expected_mean_biomass_tonnes": "2100-2400",
+      "expected_trophic_level": "2.6-2.8",
+      "expected_economic_value_eur": "65000-95000",
+      "output_file": "results_BAU_2025_2035.csv",
+      "rationale": "Reference scenario: maintain 2015-2018 average fishing effort"
+    },
+    {
+      "id": 2,
+      "code": "RED50",
+      "name": "Fishing_Reduction_50pct",
+      "description": "Reduce fishing pressure by 50% to rebuild stocks",
+      "policy_focus": "Conservation",
+      "period": "2025-2035",
+      "years": 11,
+      "fishing_effort": {
+        "Bream": 0.5,
+        "Perch": 0.5,
+        "Roach": 0.5,
+        "Vimba": 0.5,
+        "Zander": 0.5
+      },
+      "spatial_closure": null,
+      "seasonal_restrictions": null,
+      "environmental_forcing": "historical_mean",
+      "expected_annual_catch_tonnes": "6-8",
+      "expected_mean_biomass_tonnes": "2900-3200",
+      "expected_trophic_level": "2.9-3.1",
+      "expected_economic_value_eur": "35000-55000",
+      "output_file": "results_RED50_2025_2035.csv",
+      "rationale": "Ecosystem-based management: allow stock recovery and improve stability"
+    },
+    {
+      "id": 3,
+      "code": "INC30",
+      "name": "Fishing_Increase_30pct",
+      "description": "Increase fishing pressure by 30% to maximize yields",
+      "policy_focus": "Productivity",
+      "period": "2025-2035",
+      "years": 11,
+      "fishing_effort": {
+        "Bream": 1.3,
+        "Perch": 1.3,
+        "Roach": 1.3,
+        "Vimba": 1.3,
+        "Zander": 1.3
+      },
+      "spatial_closure": null,
+      "seasonal_restrictions": null,
+      "environmental_forcing": "historical_mean",
+      "expected_annual_catch_tonnes": "16-20",
+      "expected_mean_biomass_tonnes": "1600-1900",
+      "expected_trophic_level": "2.4-2.6",
+      "expected_economic_value_eur": "95000-140000",
+      "output_file": "results_INC30_2025_2035.csv",
+      "rationale": "Productivity focus: maximize annual catch revenue and economic return"
+    },
+    {
+      "id": 4,
+      "code": "MPA25",
+      "name": "Spatial_Closure_25pct",
+      "description": "25% of lagoon closed to fishing (marine protected area)",
+      "policy_focus": "Protection",
+      "period": "2025-2035",
+      "years": 11,
+      "fishing_effort": {
+        "Bream": 0.75,
+        "Perch": 0.75,
+        "Roach": 0.75,
+        "Vimba": 0.75,
+        "Zander": 0.75
+      },
+      "spatial_closure": {
+        "area_percent": 0.25,
+        "location": "north_lagoon_sanctuary",
+        "area_km2": 212,
+        "fishing_area_km2": 637
+      },
+      "seasonal_restrictions": null,
+      "environmental_forcing": "historical_mean",
+      "expected_annual_catch_tonnes": "10-13",
+      "expected_mean_biomass_tonnes": "2300-2600",
+      "expected_trophic_level": "2.7-2.9",
+      "expected_economic_value_eur": "60000-85000",
+      "output_file": "results_MPA25_2025_2035.csv",
+      "rationale": "Marine spatial planning: ecosystem protection plus spillover effects"
+    },
+    {
+      "id": 5,
+      "code": "SEL",
+      "name": "Selective_Species_Fishing",
+      "description": "Target high-value species with restrictions on low-value forage",
+      "policy_focus": "Economics",
+      "period": "2025-2035",
+      "years": 11,
+      "fishing_effort": {
+        "Bream": 1.2,
+        "Perch": 0.7,
+        "Roach": 0.6,
+        "Vimba": 0.8,
+        "Zander": 1.3
+      },
+      "spatial_closure": null,
+      "seasonal_restrictions": {
+        "Zander": {
+          "months": "March-April",
+          "multiplier": 1.0,
+          "reason": "Spawning protection"
+        }
+      },
+      "environmental_forcing": "historical_mean",
+      "expected_annual_catch_tonnes": "10-13",
+      "expected_mean_biomass_tonnes": "2200-2500",
+      "expected_trophic_level": "2.8-3.0",
+      "expected_economic_value_eur": "90000-140000",
+      "output_file": "results_SEL_2025_2035.csv",
+      "rationale": "Economic optimization: maximize value per tonne through selective harvesting"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ Export PyPath models back to native EwE format.
 
 Functions:
 - write_ewemdb(params, path, ...): Write an EwE database file from RpathParams
+- export_model_to_ewe(model, path, ...): High-level export for Rpath/RpathParams
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from pypath.core.ecopath import Rpath
     from pypath.core.params import RpathParams
     from pypath.io._access_writer import AccessWriter
     from pypath.io._csv_bundle_writer import CsvBundleWriter
@@ -28,6 +30,121 @@ def _odbc_available() -> bool:
         return True
     except (ImportError, RuntimeError):
         return False
+
+
+def _rpath_to_params(model: "Rpath") -> "RpathParams":
+    """Reconstruct a best-effort RpathParams from a balanced Rpath model.
+
+    Notes
+    -----
+    This reconstruction is inherently lossy because balanced Rpath outputs
+    do not retain every original input assumption. Prefer passing original
+    RpathParams when available.
+    """
+    from pypath.core.params import create_rpath_params
+
+    groups = [str(g) for g in model.Group.tolist()]
+    types = [int(t) for t in model.type.tolist()]
+
+    params = create_rpath_params(groups=groups, types=types)
+
+    n = len(groups)
+    params.model["Biomass"] = model.Biomass[:n]
+    params.model["PB"] = model.PB[:n]
+    params.model["QB"] = model.QB[:n]
+    params.model["EE"] = model.EE[:n]
+    params.model["ProdCons"] = model.GE[:n]
+    params.model["BioAcc"] = model.BA[:n]
+    params.model["Unassim"] = model.Unassim[:n]
+
+    # Best-effort diet transfer for living predators/prey where dimensions align.
+    # If dimensions differ, keep default shell matrix from create_rpath_params.
+    try:
+        prey_rows = [g for g, t in zip(groups, types) if t < 3]
+        pred_cols = [g for g, t in zip(groups, types) if t < 2]
+        if model.DC.shape == (len(prey_rows), len(pred_cols)):
+            for i, prey in enumerate(prey_rows):
+                for j, pred in enumerate(pred_cols):
+                    params.diet.loc[params.diet["Group"] == prey, pred] = model.DC[i, j]
+    except Exception:
+        logger.debug("Could not transfer DC matrix during Rpath->RpathParams reconstruction")
+
+    return params
+
+
+def export_model_to_ewe(
+    model: "Rpath | RpathParams",
+    path: str,
+    *,
+    params: "RpathParams | None" = None,
+    scenarios: list[Any] | None = None,
+    ecospace: Any | None = None,
+    mpa_config: Any | None = None,
+    timeseries: Any | None = None,
+    mediation: Any | None = None,
+    taxonomy: Any | None = None,
+    value_chain: Any | None = None,
+    backend: str = "access",
+    scenario_id: int = 1,
+    source_db: str | None = None,
+) -> None:
+    """Export a PyPath model to EwE format.
+
+    Parameters
+    ----------
+    model : Rpath or RpathParams
+        Model to export. If ``Rpath`` is provided and ``params`` is omitted,
+        a best-effort reconstruction of ``RpathParams`` is used.
+    path : str
+        Output file path.
+    params : RpathParams, optional
+        Original parameter object for faithful export when ``model`` is Rpath.
+    backend : str
+        "access" (native .eweaccdb), "auto", or "csv".
+    """
+    from pypath.core.ecopath import Rpath
+    from pypath.core.params import RpathParams
+
+    if isinstance(model, RpathParams):
+        resolved_params = model
+    elif isinstance(model, Rpath):
+        if params is not None:
+            resolved_params = params
+        else:
+            logger.warning(
+                "Reconstructing RpathParams from balanced Rpath model; "
+                "this may be lossy. Pass original params for faithful export."
+            )
+            resolved_params = _rpath_to_params(model)
+    else:
+        raise TypeError("model must be an Rpath or RpathParams instance")
+
+    out_path = str(Path(path).resolve())
+    if backend == "access" and not out_path.lower().endswith(".eweaccdb"):
+        raise ValueError(
+            "Native Access export requires an output path ending with '.eweaccdb'."
+        )
+
+    if backend == "access" and not _odbc_available():
+        raise RuntimeError(
+            "Native EwE export requires a Microsoft Access ODBC driver. "
+            "Install the Access Database Engine, or use backend='csv'."
+        )
+
+    write_ewemdb(
+        resolved_params,
+        out_path,
+        scenarios=scenarios,
+        ecospace=ecospace,
+        mpa_config=mpa_config,
+        timeseries=timeseries,
+        mediation=mediation,
+        taxonomy=taxonomy,
+        value_chain=value_chain,
+        backend=backend,
+        scenario_id=scenario_id,
+        source_db=source_db,
+    )
 
 
 def write_ewemdb(

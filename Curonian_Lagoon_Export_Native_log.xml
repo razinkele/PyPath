@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<doc>
+  <Platform>Microsoft Windows NT 10.0.28120.0</Platform>
+  <Is64BitOS>True</Is64BitOS>
+  <ModelName>Curonian_Lagoon_Export_Native</ModelName>
+  <Created>9:31:48 PM Friday, October 23, 2026</Created>
+<Session_Started
+  Date="9:31:48 PM Friday, October 23, 2026">
+  <Model>Curonian_Lagoon_Export_Native</Model>
+  <LogFile>C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Curonian_Lagoon_Export_Native_log.xml</LogFile>
+  <Is64BitExe>True</Is64BitExe>
+  <CultureOS>English (United States)</CultureOS>
+  <CultureUI>English (United States)</CultureUI>
+  <DecimalSeparator>.</DecimalSeparator>
+</Session_Started>
+<Information_Message
+  Date="9:31:48 PM Friday, October 23, 2026">
+  <Message>Ecopath model 'C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Curonian_Lagoon_Export_Native.eweaccdb' loaded.</Message>
+  <Message_Type>DataAddedOrRemoved</Message_Type>
+  <Message_Source>Ecopath</Message_Source>
+  <Message_DataType>NotSet</Message_DataType>
+</Information_Message>
+<Log_Message
+  Date="9:32:10 PM Friday, October 23, 2026">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:32:10 PM Friday, October 23, 2026">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:32:10 PM Friday, October 23, 2026">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:32:10 PM Friday, October 23, 2026">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:32:10 PM Friday, October 23, 2026">
+  <Message>Ecosim scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:32:10 PM Friday, October 23, 2026">
+  <Message>Model closed</Message>
+</Log_Message>
+<Session_Started
+  Date="9:41:31 PM Friday, October 23, 2026">
+  <Model>Curonian_Lagoon_Export_Native</Model>
+  <LogFile>C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Curonian_Lagoon_Export_Native_log.xml</LogFile>
+  <Is64BitExe>True</Is64BitExe>
+  <CultureOS>English (United States)</CultureOS>
+  <CultureUI>English (United States)</CultureUI>
+  <DecimalSeparator>.</DecimalSeparator>
+</Session_Started>
+<Information_Message
+  Date="9:41:31 PM Friday, October 23, 2026">
+  <Message>Ecopath model 'C:\Users\DELL\OneDrive - ku.lt\HORIZON_EUROPE\PyPath\Curonian_Lagoon_Export_Native.eweaccdb' loaded.</Message>
+  <Message_Type>DataAddedOrRemoved</Message_Type>
+  <Message_Source>Ecopath</Message_Source>
+  <Message_DataType>NotSet</Message_DataType>
+</Information_Message>
+<Log_Message
+  Date="9:41:49 PM Friday, October 23, 2026">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:41:49 PM Friday, October 23, 2026">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:41:49 PM Friday, October 23, 2026">
+  <Message>Ecospace scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:41:49 PM Friday, October 23, 2026">
+  <Message>Ecotracer scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:41:49 PM Friday, October 23, 2026">
+  <Message>Ecosim scenario closed</Message>
+</Log_Message>
+<Log_Message
+  Date="9:41:49 PM Friday, October 23, 2026">
+  <Message>Model closed</Message>
+</Log_Message>
+</doc>

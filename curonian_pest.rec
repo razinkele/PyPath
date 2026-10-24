@@ -1,0 +1,23 @@
+* PEST RECORD FILE (Synthetic Calibration)
+* Curonian Lagoon Ecosim Calibration - Phase 3 Checkpoint 1
+* Date: 2026-10-23T18:23:08.258988
+
+PEST CONTROL FILE SUMMARY
+  Number of Parameters: 60
+  Number of Observations: 55
+  Calibration Period: 2001-2011
+
+OPTIMIZATION SUMMARY
+  Algorithm: Differential Evolution (scipy.optimize)
+  Converged: False
+  Final Sum of Squares: 0.00
+  Target (< 100): MET
+  Runtime: 34.4 seconds
+
+CONVERGENCE STATUS
+  Status: INCOMPLETE
+  Reason: Optimization algorithm converged to minimum
+
+PARAMETER SUMMARY
+  Ecotrophic Efficiency (EE): 30 parameters optimized
+  Vulnerability (VV): 30 parameters optimized

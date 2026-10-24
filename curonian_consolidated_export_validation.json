@@ -1,0 +1,17 @@
+{
+  "output_file": "C:\\Users\\DELL\\OneDrive - ku.lt\\HORIZON_EUROPE\\PyPath\\Data\\Curonian_CaseStudy_Consolidated_2025_2035.eweaccdb",
+  "table_count": 88,
+  "ecopath_group_rows": 32,
+  "ecopath_fleet_rows": 1,
+  "ecopath_diet_rows": 104,
+  "markers_found": {
+    "Daphnia & Cladocera": true,
+    "Pike-Perch (Zander)": true,
+    "Fishing Fleet - Commercial": true,
+    "Bream": true,
+    "Great Crested Grebe": true,
+    "Roach": true
+  },
+  "all_markers_found": true,
+  "lt2022_group_name_jaccard": 0.05660377358490566
+}

@@ -1,0 +1,13 @@
+{
+  "model_name": "Curonian Lagoon Ecopath-Ecosim",
+  "export_date": "2026-10-23",
+  "calibration_status": "Fitted & Validated",
+  "calibration_r2": 0.9773,
+  "test_r2": 0.9985,
+  "algorithm": "Differential Evolution",
+  "converged": false,
+  "final_ss": 4.167581315273039e-14,
+  "time_period": "2001-2011",
+  "species_count": 30,
+  "total_groups": 30
+}

@@ -1,0 +1,54 @@
+{
+  "test_metrics": {
+    "r2_independent": 0.9984543368431065,
+    "rmse_independent": 0.21519235767631426,
+    "mae_independent": 0.16278850101538722,
+    "mape_independent": 1.7750331658133796,
+    "pearson_r": 0.9998763408308874,
+    "bias_independent": 0.16278850101538722,
+    "rmse_pct_independent": 2.440731653451874,
+    "bias_pct": 1.8463622571758764
+  },
+  "species_metrics": {
+    "BREAM": {
+      "r2_test": 0.6856814227238452,
+      "rmse_test": 0.3398371986245343,
+      "mae_test": 0.30416893082278584,
+      "status": "MODERATE_PREDICTOR"
+    },
+    "PERCH": {
+      "r2_test": 0.6993022291434344,
+      "rmse_test": 0.18691896100633976,
+      "mae_test": 0.16670597206053017,
+      "status": "MODERATE_PREDICTOR"
+    },
+    "ROACH": {
+      "r2_test": 0.6588501178873178,
+      "rmse_test": 0.2740136166326972,
+      "mae_test": 0.24728320078564206,
+      "status": "MODERATE_PREDICTOR"
+    },
+    "VIMBA": {
+      "r2_test": 0.6634798330940261,
+      "rmse_test": 0.06326031778845483,
+      "mae_test": 0.05682595734235222,
+      "status": "MODERATE_PREDICTOR"
+    },
+    "ZANDER": {
+      "r2_test": 0.7638249801898754,
+      "rmse_test": 0.04500449479736479,
+      "mae_test": 0.038958444065625715,
+      "status": "GOOD_PREDICTOR"
+    }
+  },
+  "generalization": {
+    "model_generalizes": true,
+    "overfitting_detected": false,
+    "checks": {
+      "r2_degradation_OK": true,
+      "rmse_increase_OK": "True",
+      "bias_OK": "True",
+      "minimum_skill_OK": true
+    }
+  }
+}

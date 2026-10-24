@@ -1,0 +1,38 @@
+{
+  "source": "C:\\Users\\DELL\\OneDrive - ku.lt\\HORIZON_EUROPE\\PyPath\\Data\\LT2022_0.5ST_final7.eweaccdb",
+  "export": "C:\\Users\\DELL\\OneDrive - ku.lt\\HORIZON_EUROPE\\PyPath\\Curonian_CaseStudy_LT2022_0.5ST_final7_export.eweaccdb",
+  "table_count_src": 88,
+  "table_count_out": 88,
+  "missing_in_out": [],
+  "extra_in_out": [],
+  "row_count_mismatches": {},
+  "critical_equal": {
+    "EcopathModel": true,
+    "EcopathGroup": true,
+    "EcopathFleet": true,
+    "EcopathDietComp": true,
+    "EcopathCatch": true,
+    "EcosimScenario": true,
+    "EcosimScenarioGroup": true,
+    "EcosimScenarioForcingMatrix": true
+  },
+  "ecopath_parity": {
+    "num_groups_equal": true,
+    "num_living_equal": true,
+    "ee_equal": true,
+    "biomass_equal": true
+  },
+  "ecosim_parity": {
+    "shape_equal": true,
+    "biomass_equal": true,
+    "catch_equal": true
+  },
+  "binary": {
+    "src_size": 4820992,
+    "out_size": 4820992,
+    "src_sha256": "d923ef284bfe162e47d87879861248472511aa185f49ad41cb2bd4c8891143bd",
+    "out_sha256": "d923ef284bfe162e47d87879861248472511aa185f49ad41cb2bd4c8891143bd",
+    "byte_identical": true
+  },
+  "success": true
+}

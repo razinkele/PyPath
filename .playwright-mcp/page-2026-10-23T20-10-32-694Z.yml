@@ -1,0 +1,279 @@
+- generic [ref=f4e2]:
+  - generic [ref=f4e3]: PyPath
+  - generic [ref=f4e6]:
+    - tablist [ref=f4e8]:
+      - tab " Home" [selected] [ref=f4e9] [cursor=pointer]:
+        - generic [ref=f4e10]: 
+        - text: Home
+      - tab " Tutorial" [ref=f4e11] [cursor=pointer]:
+        - generic [ref=f4e12]: 
+        - text: Tutorial
+      - tab " Data Import" [ref=f4e13] [cursor=pointer]:
+        - generic [ref=f4e14]: 
+        - text: Data Import
+      - tab " Ecopath Model" [ref=f4e15] [cursor=pointer]:
+        - generic [ref=f4e16]: 
+        - text: Ecopath Model
+      - tab " Pre-Balance" [ref=f4e17] [cursor=pointer]:
+        - generic [ref=f4e18]: 
+        - text: Pre-Balance
+      - tab " Ecosim" [ref=f4e19] [cursor=pointer]:
+        - generic [ref=f4e20]: 
+        - text: Ecosim
+      - button " Advanced" [ref=f4e21] [cursor=pointer]:
+        - generic [ref=f4e22]: 
+        - text: Advanced
+      - text:       
+      - tab " Analysis" [ref=f4e23] [cursor=pointer]:
+        - generic [ref=f4e24]: 
+        - text: Analysis
+      - tab " Results" [ref=f4e25] [cursor=pointer]:
+        - generic [ref=f4e26]: 
+        - text: Results
+      - tab " About" [ref=f4e27] [cursor=pointer]:
+        - generic [ref=f4e28]: 
+        - text: About
+      - tab " Feedback" [ref=f4e29] [cursor=pointer]:
+        - generic [ref=f4e30]: 
+        - text: Feedback
+      - listitem [ref=f4e31]:
+        - link " API Documentation" [ref=f4e32] [cursor=pointer]:
+          - /url: https://razinkele.github.io/PyPath/
+          - generic [ref=f4e33]: 
+          - text: API Documentation
+      - listitem [ref=f4e34]:
+        - button " Send Feedback" [ref=f4e35] [cursor=pointer]:
+          - generic [ref=f4e36]:
+            - generic [ref=f4e37]: 
+            - text: Send Feedback
+      - listitem [ref=f4e38]:
+        - button " Settings" [ref=f4e39] [cursor=pointer]:
+          - generic [ref=f4e40]:
+            - generic [ref=f4e41]: 
+            - text: Settings
+    - generic [ref=f4e43]:
+      - tabpanel [ref=f4e44]:
+        - generic [ref=f4e46]:
+          - generic [ref=f4e47]:
+            - paragraph [ref=f4e48]: Ecosystem Modeling Framework
+            - heading "Ecopath with Ecosim in Python" [level=1] [ref=f4e49]
+            - paragraph [ref=f4e50]: Build mass-balance food web models, run dynamic ecosystem simulations, and explore spatial dynamics with irregular grids — all from your browser.
+            - generic [ref=f4e51]:
+              - button " Start Modeling" [ref=f4e52] [cursor=pointer]:
+                - generic [ref=f4e53]:
+                  - generic [ref=f4e54]: 
+                  - text: Start Modeling
+              - button " Load Example" [ref=f4e55] [cursor=pointer]:
+                - generic [ref=f4e56]:
+                  - generic [ref=f4e57]: 
+                  - text: Load Example
+          - generic [ref=f4e58]:
+            - heading " What's New in PyPath" [level=2] [ref=f4e59]:
+              - generic [ref=f4e60]: 
+              - text: What's New in PyPath
+            - generic [ref=f4e63]:
+              - generic [ref=f4e65]:
+                - heading " Irregular Grid Support" [level=5] [ref=f4e66]:
+                  - generic [ref=f4e67]: 
+                  - text: Irregular Grid Support
+                - paragraph [ref=f4e68]: Upload custom polygon geometries for realistic spatial modeling! ECOSPACE now supports shapefiles, GeoJSON, and GeoPackage formats.
+                - paragraph [ref=f4e69]:
+                  - strong [ref=f4e70]: "Try it:"
+                  - text: Navigate to the Ecospace page and upload
+                  - code [ref=f4e71]: examples/coastal_grid_example.geojson
+              - generic [ref=f4e73]:
+                - heading " Diet Rewiring" [level=5] [ref=f4e74]:
+                  - generic [ref=f4e75]: 
+                  - text: Diet Rewiring
+                - paragraph [ref=f4e76]: Advanced prey switching behavior! Predators now adapt their diet based on prey availability with configurable switching power.
+                - paragraph [ref=f4e77]:
+                  - strong [ref=f4e78]: "Explore:"
+                  - text: Check out the Diet Rewiring Demo page for interactive examples.
+              - generic [ref=f4e80]:
+                - heading " Enhanced Ecosim" [level=5] [ref=f4e81]:
+                  - generic [ref=f4e82]: 
+                  - text: Enhanced Ecosim
+                - paragraph [ref=f4e83]: Environmental forcing, optimization tools, and improved multi-stanza support for age-structured populations.
+                - paragraph [ref=f4e84]:
+                  - strong [ref=f4e85]: "Learn more:"
+                  - text: See the Advanced Features demos for detailed examples.
+              - generic [ref=f4e87]:
+                - heading " Individual-Based Modeling" [level=5] [ref=f4e88]:
+                  - generic [ref=f4e89]: 
+                  - text: Individual-Based Modeling
+                - paragraph [ref=f4e90]: New IBM module with bioenergetics, predation, reproduction, and spatial movement for super-individual tracking.
+                - paragraph [ref=f4e91]:
+                  - strong [ref=f4e92]: "Try it:"
+                  - text: Navigate to the IBM page to configure super-individual groups.
+          - heading "Features" [level=2] [ref=f4e93]
+          - generic [ref=f4e94]:
+            - generic [ref=f4e96]:
+              - generic [ref=f4e97]:
+                - generic [ref=f4e98]: 
+                - text: Data Import
+              - generic [ref=f4e99]:
+                - list [ref=f4e100]:
+                  - listitem [ref=f4e101]: Connect to EcoBase database (350+ models)
+                  - listitem [ref=f4e102]: Search and download published models
+                  - listitem [ref=f4e103]: Import EwE database files (.ewemdb, .eweaccdb)
+                  - listitem [ref=f4e104]: Automatic format conversion
+                  - listitem [ref=f4e105]: Pre-configured ecosystem models
+                - button "Import Model" [ref=f4e106] [cursor=pointer]
+            - generic [ref=f4e108]:
+              - generic [ref=f4e109]:
+                - generic [ref=f4e110]: 
+                - text: Ecopath Mass Balance
+              - generic [ref=f4e111]:
+                - list [ref=f4e112]:
+                  - listitem [ref=f4e113]: Define functional groups and food web
+                  - listitem [ref=f4e114]: Set biomass, P/B, Q/B ratios
+                  - listitem [ref=f4e115]: Automatic mass-balance calculations
+                  - listitem [ref=f4e116]: Trophic level computation
+                  - listitem [ref=f4e117]: Multi-stanza age structure
+                - button "Create Ecopath Model" [ref=f4e118] [cursor=pointer]
+            - generic [ref=f4e120]:
+              - generic [ref=f4e121]:
+                - generic [ref=f4e122]: 
+                - text: Ecosim Simulation
+              - generic [ref=f4e123]:
+                - list [ref=f4e124]:
+                  - listitem [ref=f4e125]: Dynamic ecosystem simulations
+                  - listitem [ref=f4e126]: Foraging arena functional response
+                  - listitem [ref=f4e127]: Fishing scenarios and forcing
+                  - listitem [ref=f4e128]: Environmental forcing effects
+                  - listitem [ref=f4e129]: Multiple integration methods
+                - button "Run Simulation" [ref=f4e130] [cursor=pointer]
+          - generic [ref=f4e131]:
+            - generic [ref=f4e133]:
+              - generic [ref=f4e134]:
+                - generic [ref=f4e135]: 
+                - text: ECOSPACE Spatial Modeling
+                - generic [ref=f4e136]: NEW
+              - generic [ref=f4e137]:
+                - list [ref=f4e138]:
+                  - listitem [ref=f4e139]: Irregular grid support (GeoJSON, Shapefile)
+                  - listitem [ref=f4e140]: Realistic spatial geometries
+                  - listitem [ref=f4e141]: Habitat preference mapping
+                  - listitem [ref=f4e142]: Dispersal and movement dynamics
+                  - listitem [ref=f4e143]: Spatial fishing effort allocation
+                - button "Explore Spatial" [ref=f4e144] [cursor=pointer]
+            - generic [ref=f4e146]:
+              - generic [ref=f4e147]:
+                - generic [ref=f4e148]: 
+                - text: Individual-Based Model
+                - generic [ref=f4e149]: NEW
+              - generic [ref=f4e150]:
+                - list [ref=f4e151]:
+                  - listitem [ref=f4e152]: Super-individual tracking
+                  - listitem [ref=f4e153]: Wisconsin bioenergetics model
+                  - listitem [ref=f4e154]: Size-structured predation
+                  - listitem [ref=f4e155]: Stochastic reproduction
+                  - listitem [ref=f4e156]: Spatial movement & foraging
+                - button "Explore IBM" [ref=f4e157] [cursor=pointer]
+            - generic [ref=f4e159]:
+              - generic [ref=f4e160]:
+                - generic [ref=f4e161]: 
+                - text: Network Analysis
+              - generic [ref=f4e162]:
+                - list [ref=f4e163]:
+                  - listitem [ref=f4e164]: Food web topology metrics
+                  - listitem [ref=f4e165]: Ecosystem health indicators
+                  - listitem [ref=f4e166]: Trophic impact analysis (MTI)
+                  - listitem [ref=f4e167]: Keystone species identification
+                  - listitem [ref=f4e168]: Lindeman spine diagrams
+                - button "Run Analysis" [ref=f4e169] [cursor=pointer]
+            - generic [ref=f4e171]:
+              - generic [ref=f4e172]:
+                - generic [ref=f4e173]: 
+                - text: Results & Visualization
+              - generic [ref=f4e174]:
+                - list [ref=f4e175]:
+                  - listitem [ref=f4e176]: Interactive time series plots
+                  - listitem [ref=f4e177]: Food web diagrams
+                  - listitem [ref=f4e178]: Biomass and catch trajectories
+                  - listitem [ref=f4e179]: Export results to CSV/Excel
+                  - listitem [ref=f4e180]: Comparative scenario analysis
+                - button "View Results" [ref=f4e181] [cursor=pointer]
+          - generic [ref=f4e182]:
+            - generic [ref=f4e184]:
+              - generic [ref=f4e185]:
+                - generic [ref=f4e186]: 
+                - text: Advanced Features
+              - generic [ref=f4e187]:
+                - list [ref=f4e188]:
+                  - listitem [ref=f4e189]: Diet rewiring (prey switching)
+                  - listitem [ref=f4e190]: Environmental forcing functions
+                  - listitem [ref=f4e191]: Multi-stanza age structure
+                  - listitem [ref=f4e192]: Optimization and sensitivity analysis
+                  - listitem [ref=f4e193]: Custom fishing scenarios
+                - paragraph [ref=f4e194]: Access advanced features via dedicated demo pages.
+            - generic [ref=f4e196]:
+              - generic [ref=f4e197]:
+                - generic [ref=f4e198]: 
+                - text: About PyPath
+              - generic [ref=f4e199]:
+                - list [ref=f4e200]:
+                  - listitem [ref=f4e201]: Python port of R Rpath package
+                  - listitem [ref=f4e202]: NOAA/EwE ecosystem modeling
+                  - listitem [ref=f4e203]: Open source (MIT License)
+                  - listitem [ref=f4e204]: GitHub repository
+                  - listitem [ref=f4e205]: Active development
+                - button "Learn More" [ref=f4e206] [cursor=pointer]
+            - generic [ref=f4e208]:
+              - generic [ref=f4e209]:
+                - generic [ref=f4e210]: 
+                - text: Documentation
+              - generic [ref=f4e211]:
+                - list [ref=f4e212]:
+                  - listitem [ref=f4e213]: User guides and tutorials
+                  - listitem [ref=f4e214]: API reference documentation
+                  - listitem [ref=f4e215]: Example models and scripts
+                  - listitem [ref=f4e216]: Irregular grid guide (NEW)
+                  - listitem [ref=f4e217]: Video tutorials (coming soon)
+                - paragraph [ref=f4e218]: See the 'examples/' folder for guides and sample data.
+          - heading "Quick Start" [level=2] [ref=f4e219]
+          - generic [ref=f4e220]:
+            - generic [ref=f4e222]:
+              - generic [ref=f4e223]: "Step 1: Define Groups"
+              - generic [ref=f4e224]:
+                - paragraph [ref=f4e225]: Start by defining your ecosystem's functional groups - producers, consumers, detritus, and fishing fleets.
+                - code [ref=f4e226]: create_rpath_params(groups, types)
+            - generic [ref=f4e228]:
+              - generic [ref=f4e229]: "Step 2: Set Parameters"
+              - generic [ref=f4e230]:
+                - paragraph [ref=f4e231]: Enter biomass, P/B, Q/B ratios, diet composition, and fishery catches for each group.
+                - code [ref=f4e232]: params.model['Biomass'] = ...
+            - generic [ref=f4e234]:
+              - generic [ref=f4e235]: "Step 3: Balance Model"
+              - generic [ref=f4e236]:
+                - paragraph [ref=f4e237]: Run the mass-balance calculations to solve for missing parameters and validate the model.
+                - code [ref=f4e238]: model = rpath(params)
+            - generic [ref=f4e240]:
+              - generic [ref=f4e241]: "Step 4: Run Simulation"
+              - generic [ref=f4e242]:
+                - paragraph [ref=f4e243]: Create a scenario and run dynamic Ecosim simulations to explore ecosystem dynamics.
+                - code [ref=f4e244]: rsim_run(scenario)
+            - generic [ref=f4e246]:
+              - generic [ref=f4e247]:
+                - text: "Step 5: Add Spatial Dynamics"
+                - generic [ref=f4e248]: Optional
+              - generic [ref=f4e249]:
+                - paragraph [ref=f4e250]: Upload spatial grids and run Ecospace simulations with habitat preferences and dispersal.
+                - code [ref=f4e251]: rsim_run_spatial(ecospace)
+            - generic [ref=f4e253]:
+              - generic [ref=f4e254]:
+                - text: "Step 6: Individual-Based Modeling"
+                - generic [ref=f4e255]: Optional
+              - generic [ref=f4e256]:
+                - paragraph [ref=f4e257]: Configure super-individual groups with bioenergetics, predation, and spatial movement parameters.
+                - code [ref=f4e258]: SmeltIBM.compute_step(state)
+      - text:                                                                           
+  - generic [ref=f4e259]:
+    - separator [ref=f4e260]
+    - paragraph [ref=f4e261]:
+      - text: PyPath © 2026 |
+      - link "Documentation" [ref=f4e262] [cursor=pointer]:
+        - /url: https://github.com/razinkele/PyPath
+      - text: "|"
+      - link "Report Issue" [ref=f4e263] [cursor=pointer]:
+        - /url: https://github.com/razinkele/PyPath/issues

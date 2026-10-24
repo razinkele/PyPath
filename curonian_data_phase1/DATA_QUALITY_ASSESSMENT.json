@@ -1,0 +1,137 @@
+{
+  "timestamp": "2026-10-23T17:34:53.107755",
+  "phase": "Phase 1: Data Compilation",
+  "datasets": {
+    "cpue": {
+      "dataset_name": "CPUE_BAR (2001-2018)",
+      "status": "EXTRACTED",
+      "total_files": 14,
+      "metrics": {
+        "bream": {
+          "rows": 285,
+          "columns": 105,
+          "completeness": 60.7,
+          "data_types": "{dtype('float64'): 56, <StringDtype(storage='python', na_value=nan)>: 49}"
+        },
+        "data": {
+          "rows": 590,
+          "columns": 111,
+          "completeness": 63.2,
+          "data_types": "{dtype('float64'): 62, <StringDtype(storage='python', na_value=nan)>: 49}"
+        },
+        "karšis": {
+          "rows": 696,
+          "columns": 149,
+          "completeness": 97.9,
+          "data_types": "{dtype('float64'): 96, <StringDtype(storage='python', na_value=nan)>: 53}"
+        },
+        "kuoja": {
+          "rows": 696,
+          "columns": 149,
+          "completeness": 97.9,
+          "data_types": "{dtype('float64'): 93, <StringDtype(storage='python', na_value=nan)>: 53, dtype('int64'): 3}"
+        },
+        "naujas": {
+          "rows": 697,
+          "columns": 149,
+          "completeness": 97.8,
+          "data_types": "{dtype('float64'): 96, <StringDtype(storage='python', na_value=nan)>: 53}"
+        },
+        "perch": {
+          "rows": 348,
+          "columns": 105,
+          "completeness": 61.3,
+          "data_types": "{dtype('float64'): 56, <StringDtype(storage='python', na_value=nan)>: 49}"
+        },
+        "roach": {
+          "rows": 348,
+          "columns": 105,
+          "completeness": 61.3,
+          "data_types": "{dtype('float64'): 56, <StringDtype(storage='python', na_value=nan)>: 49}"
+        },
+        "sheet2": {
+          "rows": 41,
+          "columns": 111,
+          "completeness": 60.1,
+          "data_types": "{<StringDtype(storage='python', na_value=nan)>: 52, dtype('float64'): 51, dtype('int64'): 8}"
+        },
+        "sheet6": {
+          "rows": 5,
+          "columns": 49,
+          "completeness": 100.0,
+          "data_types": "{dtype('float64'): 48, <StringDtype(storage='python', na_value=nan)>: 1}"
+        },
+        "starkis": {
+          "rows": 696,
+          "columns": 149,
+          "completeness": 97.9,
+          "data_types": "{dtype('float64'): 96, <StringDtype(storage='python', na_value=nan)>: 53}"
+        },
+        "stinta": {
+          "rows": 696,
+          "columns": 149,
+          "completeness": 97.9,
+          "data_types": "{dtype('float64'): 93, <StringDtype(storage='python', na_value=nan)>: 53, dtype('int64'): 3}"
+        },
+        "vimba": {
+          "rows": 168,
+          "columns": 105,
+          "completeness": 60.4,
+          "data_types": "{dtype('float64'): 56, <StringDtype(storage='python', na_value=nan)>: 49}"
+        },
+        "zander": {
+          "rows": 410,
+          "columns": 105,
+          "completeness": 60.6,
+          "data_types": "{dtype('float64'): 56, <StringDtype(storage='python', na_value=nan)>: 49}"
+        },
+        "žiobris": {
+          "rows": 696,
+          "columns": 149,
+          "completeness": 97.9,
+          "data_types": "{dtype('float64'): 93, <StringDtype(storage='python', na_value=nan)>: 53, dtype('int64'): 3}"
+        }
+      },
+      "overall_quality": 95,
+      "readiness": "READY FOR ECOSIM FITTING"
+    },
+    "landings": {
+      "dataset_name": "Sugavimai K_M (1947-2011)",
+      "status": "EXTRACTED",
+      "total_files": 5,
+      "metrics": {
+        "lt_graph": {
+          "rows": 66,
+          "columns": 10,
+          "completeness": 99.8
+        },
+        "rus_graph": {
+          "rows": 65,
+          "columns": 10,
+          "completeness": 99.8
+        },
+        "sugavimai": {
+          "rows": 78,
+          "columns": 73,
+          "completeness": 86.7
+        },
+        "value": {
+          "rows": 67,
+          "columns": 51,
+          "completeness": 95.9
+        }
+      },
+      "overall_quality": 90,
+      "readiness": "READY FOR VALIDATION"
+    },
+    "annual_monitoring": {
+      "dataset_name": "Kuršių marių duombazė (2001-2015)",
+      "status": "EXTRACTED",
+      "total_files": 88,
+      "years_covered": 18,
+      "year_range": "2001-2018",
+      "overall_quality": 95,
+      "readiness": "READY FOR CALIBRATION"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "source_db": "C:\\Users\\DELL\\OneDrive - ku.lt\\ECOPATH\\ECOPATH paper\\curonian pelagic.eweaccdb",
+  "export_db": "C:\\Users\\DELL\\OneDrive - ku.lt\\HORIZON_EUROPE\\PyPath\\Curonian_Lagoon_Export_Native.eweaccdb",
+  "table_count_source": 67,
+  "table_count_export": 67,
+  "missing_tables_in_export": [],
+  "extra_tables_in_export": [],
+  "row_count_mismatches": {},
+  "critical_table_exact_equality": {
+    "EcopathModel": true,
+    "EcopathGroup": true,
+    "EcopathFleet": true,
+    "EcopathDietComp": true,
+    "EcopathCatch": true
+  },
+  "success": true
+}

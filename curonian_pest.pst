@@ -1,0 +1,148 @@
+* PEST Control File: Curonian Lagoon Ecosim Calibration
+* Phase 2 Checkpoint 4 - Parameter Estimation
+* Objective: Minimize weighted sum of squared residuals
+* Calibration period: 2001-2011 (11 years)
+* Target species: Bream, Perch, Roach, Vimba, Zander
+
+* control data
+restart estimation
+
+   60    55   1   1   1   0   1   1   1
+0.01  2.0  0.001  10  2  1.0e-02
+0.1  0.5  1.0  1.0  1.0
+
+* parameter groups
+pargp_EE             relative  0.001  0.0  switch  2.0  parabolic
+pargp_VV             relative  0.001  0.0  switch  2.0  parabolic
+
+* parameter data
+ EE_Roach             pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Roach             pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Bream             pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Bream             pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Pike_Perch_(Zande pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Pike_Perch_(Zande pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Perch             pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Perch             pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Ruffe             pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Ruffe             pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Silver_Bream      pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Silver_Bream      pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Vimba             pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Vimba             pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Planktivorous_fis pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Planktivorous_fis pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Demersal_fish     pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Demersal_fish     pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Eel               pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Eel               pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Grey_Heron        pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Grey_Heron        pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Larus_gull        pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Larus_gull        pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Goosander         pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Goosander         pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Great_Crested_Gre pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Great_Crested_Gre pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Cormorant         pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Cormorant         pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Daphnia_&_Cladoce pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Daphnia_&_Cladoce pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Bosmina           pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Bosmina           pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Grazing_zooplankt pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Grazing_zooplankt pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Carnivorous_zoopl pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Carnivorous_zoopl pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Rotifers          pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Rotifers          pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Copepod_nauplii   pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Copepod_nauplii   pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Chironomids       pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Chironomids       pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Oligochaetes      pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Oligochaetes      pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Dreissena_(mussel pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Dreissena_(mussel pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Nematodes         pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Nematodes         pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Mysids            pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Mysids            pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Deposit_feeder_ga pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Deposit_feeder_ga pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Filtrator_bivalve pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Filtrator_bivalve pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Meiobenthos       pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Meiobenthos       pargp_VV             1.0    0.5000   10.0000  1  0
+ EE_Bacteria          pargp_EE             1.0    0.5000    1.0000  1  0
+ VV_Bacteria          pargp_VV             1.0    0.5000   10.0000  1  0
+
+* observation groups
+obsgrp_landings
+
+* observation data
+ obs_BREAM_2001                 obsgrp_landings     15.27   1.00
+ obs_PERCH_2001                 obsgrp_landings      8.28   1.00
+ obs_ROACH_2001                 obsgrp_landings     12.22   0.90
+ obs_VIMBA_2001                 obsgrp_landings      3.34   0.70
+ obs_ZANDER_2001                obsgrp_landings      2.09   0.90
+ obs_BREAM_2002                 obsgrp_landings     15.16   1.00
+ obs_PERCH_2002                 obsgrp_landings      8.49   1.00
+ obs_ROACH_2002                 obsgrp_landings     12.24   0.90
+ obs_VIMBA_2002                 obsgrp_landings      3.16   0.70
+ obs_ZANDER_2002                obsgrp_landings      2.13   0.90
+ obs_BREAM_2003                 obsgrp_landings     15.13   1.00
+ obs_PERCH_2003                 obsgrp_landings      8.24   1.00
+ obs_ROACH_2003                 obsgrp_landings     12.14   0.90
+ obs_VIMBA_2003                 obsgrp_landings      3.03   0.70
+ obs_ZANDER_2003                obsgrp_landings      2.00   0.90
+ obs_BREAM_2004                 obsgrp_landings     15.12   1.00
+ obs_PERCH_2004                 obsgrp_landings      8.18   1.00
+ obs_ROACH_2004                 obsgrp_landings     12.16   0.90
+ obs_VIMBA_2004                 obsgrp_landings      3.12   0.70
+ obs_ZANDER_2004                obsgrp_landings      2.02   0.90
+ obs_BREAM_2005                 obsgrp_landings     15.42   1.00
+ obs_PERCH_2005                 obsgrp_landings      8.27   1.00
+ obs_ROACH_2005                 obsgrp_landings     12.11   0.90
+ obs_VIMBA_2005                 obsgrp_landings      3.07   0.70
+ obs_ZANDER_2005                obsgrp_landings      2.07   0.90
+ obs_BREAM_2006                 obsgrp_landings     15.22   1.00
+ obs_PERCH_2006                 obsgrp_landings      8.16   1.00
+ obs_ROACH_2006                 obsgrp_landings     12.17   0.90
+ obs_VIMBA_2006                 obsgrp_landings      3.15   0.70
+ obs_ZANDER_2006                obsgrp_landings      2.08   0.90
+ obs_BREAM_2007                 obsgrp_landings     15.11   1.00
+ obs_PERCH_2007                 obsgrp_landings      8.52   1.00
+ obs_ROACH_2007                 obsgrp_landings     12.10   0.90
+ obs_VIMBA_2007                 obsgrp_landings      3.10   0.70
+ obs_ZANDER_2007                obsgrp_landings      2.15   0.90
+ obs_BREAM_2008                 obsgrp_landings     15.02   1.00
+ obs_PERCH_2008                 obsgrp_landings      8.33   1.00
+ obs_ROACH_2008                 obsgrp_landings     11.75   0.90
+ obs_VIMBA_2008                 obsgrp_landings      3.08   0.70
+ obs_ZANDER_2008                obsgrp_landings      2.11   0.90
+ obs_BREAM_2009                 obsgrp_landings     15.31   1.00
+ obs_PERCH_2009                 obsgrp_landings      8.32   1.00
+ obs_ROACH_2009                 obsgrp_landings     12.08   0.90
+ obs_VIMBA_2009                 obsgrp_landings      3.17   0.70
+ obs_ZANDER_2009                obsgrp_landings      2.01   0.90
+ obs_BREAM_2010                 obsgrp_landings     15.09   1.00
+ obs_PERCH_2010                 obsgrp_landings      8.24   1.00
+ obs_ROACH_2010                 obsgrp_landings     12.29   0.90
+ obs_VIMBA_2010                 obsgrp_landings      3.23   0.70
+ obs_ZANDER_2010                obsgrp_landings      1.99   0.90
+ obs_BREAM_2011                 obsgrp_landings     15.25   1.00
+ obs_PERCH_2011                 obsgrp_landings      8.25   1.00
+ obs_ROACH_2011                 obsgrp_landings     11.98   0.90
+ obs_VIMBA_2011                 obsgrp_landings      3.26   0.70
+ obs_ZANDER_2011                obsgrp_landings      2.16   0.90
+
+* model command line
+python pest_runner.py
+
+* model input/output
+curonian_model_template.tpl  curonian_model_input.txt
+curonian_landings_predictions.ins  curonian_landings_predictions.txt
+
+* control variables
+50  20  0.01  2.0  2  1.0  0.01  1  1  0  0

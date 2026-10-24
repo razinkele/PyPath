@@ -452,3 +452,53 @@ class TestWriteEwemdb:
         params = _make_simple_model()
         with pytest.raises(ValueError, match="Unknown backend"):
             write_ewemdb(params, str(tmp_path / "x"), backend="sqlite")
+
+
+class TestExportModelToEwe:
+    """Test high-level export helper that accepts balanced models."""
+
+    def test_export_model_to_ewe_rpath_csv(self, tmp_path):
+        from pypath.core.ecopath import rpath
+        from pypath.io.ewe_writer import export_model_to_ewe
+
+        params = _make_simple_model()
+        model = rpath(params)
+        outpath = tmp_path / "model.ewecsv.zip"
+
+        export_model_to_ewe(model, str(outpath), backend="csv")
+
+        assert outpath.exists()
+        assert zipfile.is_zipfile(outpath)
+
+    def test_export_model_to_ewe_access_requires_eweaccdb_extension(self, tmp_path):
+        from pypath.io.ewe_writer import export_model_to_ewe
+
+        params = _make_simple_model()
+
+        with pytest.raises(ValueError, match=r"\.eweaccdb"):
+            export_model_to_ewe(params, str(tmp_path / "model.accdb"), backend="access")
+
+    def test_export_model_to_ewe_access_odbc_error_is_actionable(self, tmp_path, monkeypatch):
+        from pypath.io.ewe_writer import export_model_to_ewe
+
+        params = _make_simple_model()
+        monkeypatch.setattr("pypath.io.ewe_writer._odbc_available", lambda: False)
+
+        with pytest.raises(RuntimeError, match="Access ODBC driver"):
+            export_model_to_ewe(
+                params,
+                str(tmp_path / "model.eweaccdb"),
+                backend="access",
+            )
+
+    def test_export_model_to_ewe_rpath_logs_lossy_warning(self, tmp_path, caplog):
+        from pypath.core.ecopath import rpath
+        from pypath.io.ewe_writer import export_model_to_ewe
+
+        params = _make_simple_model()
+        model = rpath(params)
+        outpath = tmp_path / "warn.ewecsv.zip"
+
+        export_model_to_ewe(model, str(outpath), backend="csv")
+
+        assert "lossy" in caplog.text.lower()

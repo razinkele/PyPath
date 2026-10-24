@@ -1,0 +1,1106 @@
+{
+  "timestamp": "2026-10-23T17:32:36.159242",
+  "datasets": {
+    "cpue_bar_data.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Data",
+      "rows": 590,
+      "columns": 111,
+      "column_names": [
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras",
+        "Įrankis"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_sheet2.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Sheet2",
+      "rows": 41,
+      "columns": 111,
+      "column_names": [
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras",
+        "Įrankis"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_bream.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Bream",
+      "rows": 285,
+      "columns": 105,
+      "column_names": [
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras",
+        "Įrankis"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_zander.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Zander",
+      "rows": 410,
+      "columns": 105,
+      "column_names": [
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras",
+        "Įrankis"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_roach.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Roach",
+      "rows": 348,
+      "columns": 105,
+      "column_names": [
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras",
+        "Įrankis"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_vimba.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Vimba",
+      "rows": 168,
+      "columns": 105,
+      "column_names": [
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras",
+        "Įrankis"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_perch.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Perch",
+      "rows": 348,
+      "columns": 105,
+      "column_names": [
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras",
+        "Įrankis"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_naujas.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Naujas",
+      "rows": 697,
+      "columns": 149,
+      "column_names": [
+        "Data",
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_karšis.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Karšis",
+      "rows": 696,
+      "columns": 149,
+      "column_names": [
+        "Data",
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_starkis.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Starkis",
+      "rows": 696,
+      "columns": 149,
+      "column_names": [
+        "Data",
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_žiobris.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Žiobris",
+      "rows": 696,
+      "columns": 149,
+      "column_names": [
+        "Data",
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_kuoja.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Kuoja",
+      "rows": 696,
+      "columns": 149,
+      "column_names": [
+        "Data",
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_stinta.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Stinta",
+      "rows": 696,
+      "columns": 149,
+      "column_names": [
+        "Data",
+        "Metai",
+        "Mėnuo",
+        "Išt_naudotojas",
+        "Baras"
+      ],
+      "status": "extracted"
+    },
+    "cpue_bar_sheet6.csv": {
+      "source": "CPUE_BAR.xlsx",
+      "sheet": "Sheet6",
+      "rows": 5,
+      "columns": 49,
+      "column_names": [
+        "Unnamed: 0",
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "extracted"
+    },
+    "landings_1947_2011_sugavimai.csv": {
+      "source": "Sugavimai K_M 1947-2011.xls",
+      "sheet": "Sugavimai",
+      "rows": 78,
+      "columns": 73,
+      "column_names": [
+        "Unnamed: 0",
+        "Unnamed: 1",
+        "Unnamed: 2",
+        "Unnamed: 3",
+        "Unnamed: 4",
+        "Unnamed: 5",
+        "Unnamed: 6",
+        "Unnamed: 7",
+        "Unnamed: 8",
+        "Unnamed: 9",
+        "Unnamed: 10",
+        "Unnamed: 11",
+        "Unnamed: 12",
+        "Unnamed: 13",
+        "Unnamed: 14",
+        "Unnamed: 15",
+        "Unnamed: 16",
+        "Unnamed: 17",
+        "Unnamed: 18",
+        "Unnamed: 19",
+        "Unnamed: 20",
+        "Unnamed: 21",
+        "Unnamed: 22",
+        "Unnamed: 23",
+        "Unnamed: 24",
+        "Unnamed: 25",
+        "Unnamed: 26",
+        "Unnamed: 27",
+        "Unnamed: 28",
+        "Unnamed: 29",
+        "Unnamed: 30",
+        "Unnamed: 31",
+        "Unnamed: 32",
+        "Unnamed: 33",
+        "Unnamed: 34",
+        "Unnamed: 35",
+        "Unnamed: 36",
+        "Unnamed: 37",
+        "Unnamed: 38",
+        "Unnamed: 39",
+        "Unnamed: 40",
+        "Unnamed: 41",
+        "Unnamed: 42",
+        "Unnamed: 43",
+        "Unnamed: 44",
+        "Unnamed: 45",
+        "Unnamed: 46",
+        "Unnamed: 47",
+        "Unnamed: 48",
+        "Unnamed: 49",
+        "Unnamed: 50",
+        "Unnamed: 51",
+        "Unnamed: 52",
+        "Unnamed: 53",
+        "Unnamed: 54",
+        "Unnamed: 55",
+        "Unnamed: 56",
+        "Unnamed: 57",
+        "Unnamed: 58",
+        "Unnamed: 59",
+        "Unnamed: 60",
+        "Unnamed: 61",
+        "Unnamed: 62",
+        "Unnamed: 63",
+        "Unnamed: 64",
+        "Unnamed: 65",
+        "Unnamed: 66",
+        "Unnamed: 67",
+        "Unnamed: 68",
+        "Unnamed: 69",
+        "Unnamed: 70",
+        "Unnamed: 71",
+        "Unnamed: 72"
+      ],
+      "status": "extracted"
+    },
+    "landings_1947_2011_sheet1.csv": {
+      "source": "Sugavimai K_M 1947-2011.xls",
+      "sheet": "Sheet1",
+      "rows": 0,
+      "columns": 0,
+      "column_names": [],
+      "status": "extracted"
+    },
+    "landings_1947_2011_value.csv": {
+      "source": "Sugavimai K_M 1947-2011.xls",
+      "sheet": "Value",
+      "rows": 67,
+      "columns": 51,
+      "column_names": [
+        "Unnamed: 0",
+        "Unnamed: 1",
+        "Unnamed: 2",
+        "Unnamed: 3",
+        "Unnamed: 4",
+        "Unnamed: 5",
+        "Unnamed: 6",
+        "Unnamed: 7",
+        "Unnamed: 8",
+        "Unnamed: 9",
+        "Unnamed: 10",
+        "Unnamed: 11",
+        "Unnamed: 12",
+        "Unnamed: 13",
+        "Unnamed: 14",
+        "Unnamed: 15",
+        "Unnamed: 16",
+        "Unnamed: 17",
+        "Unnamed: 18",
+        "Unnamed: 19",
+        "Unnamed: 20",
+        "Unnamed: 21",
+        "Unnamed: 22",
+        "Unnamed: 23",
+        "Unnamed: 24",
+        "Unnamed: 25",
+        "Unnamed: 26",
+        "Unnamed: 27",
+        "Unnamed: 28",
+        "Unnamed: 29",
+        "Unnamed: 30",
+        "Unnamed: 31",
+        "Unnamed: 32",
+        "Unnamed: 33",
+        "Unnamed: 34",
+        "Unnamed: 35",
+        "Unnamed: 36",
+        "Unnamed: 37",
+        "Unnamed: 38",
+        "Unnamed: 39",
+        "Unnamed: 40",
+        "Unnamed: 41",
+        "Unnamed: 42",
+        "Unnamed: 43",
+        "Unnamed: 44",
+        "Unnamed: 45",
+        "Unnamed: 46",
+        "Unnamed: 47",
+        "Unnamed: 48",
+        "Unnamed: 49",
+        "Unnamed: 50"
+      ],
+      "status": "extracted"
+    },
+    "landings_1947_2011_lt_graph.csv": {
+      "source": "Sugavimai K_M 1947-2011.xls",
+      "sheet": "LT Graph",
+      "rows": 66,
+      "columns": 10,
+      "column_names": [
+        "LT",
+        "Unnamed: 1",
+        "Unnamed: 2",
+        "Unnamed: 3",
+        "Unnamed: 4",
+        "Unnamed: 5",
+        "Unnamed: 6",
+        "Unnamed: 7",
+        "Unnamed: 8",
+        "Unnamed: 9"
+      ],
+      "status": "extracted"
+    },
+    "landings_1947_2011_rus_graph.csv": {
+      "source": "Sugavimai K_M 1947-2011.xls",
+      "sheet": "RUS Graph",
+      "rows": 65,
+      "columns": 10,
+      "column_names": [
+        "RUS",
+        "Unnamed: 1",
+        "Unnamed: 2",
+        "Unnamed: 3",
+        "Unnamed: 4",
+        "Unnamed: 5",
+        "Unnamed: 6",
+        "Unnamed: 7",
+        "Unnamed: 8",
+        "Unnamed: 9"
+      ],
+      "status": "extracted"
+    },
+    "discharge_1888_2011_dischrges.csv": {
+      "source": "Nemunas monthly discharges 1888-2011.xlsx",
+      "sheet": "Dischrges",
+      "rows": 1932,
+      "columns": 3,
+      "column_names": [
+        "Year",
+        "Month",
+        "Discharge"
+      ],
+      "status": "extracted"
+    },
+    "annual_db_2001_service.csv": {
+      "source": "duomenys2001.xlsx",
+      "sheet": "service",
+      "year": "2001",
+      "rows": 55,
+      "columns": 8,
+      "status": "extracted"
+    },
+    "annual_db_2001_data.csv": {
+      "source": "duomenys2001.xlsx",
+      "sheet": "data",
+      "year": "2001",
+      "rows": 1288,
+      "columns": 40,
+      "status": "extracted"
+    },
+    "annual_db_2002_service.csv": {
+      "source": "duomenys2002.xlsx",
+      "sheet": "service",
+      "year": "2002",
+      "rows": 93,
+      "columns": 8,
+      "status": "extracted"
+    },
+    "annual_db_2002_sheet1.csv": {
+      "source": "duomenys2002.xlsx",
+      "sheet": "Sheet1",
+      "year": "2002",
+      "rows": 20,
+      "columns": 11,
+      "status": "extracted"
+    },
+    "annual_db_2002_data.csv": {
+      "source": "duomenys2002.xlsx",
+      "sheet": "data",
+      "year": "2002",
+      "rows": 1259,
+      "columns": 40,
+      "status": "extracted"
+    },
+    "annual_db_2002_men_irank.csv": {
+      "source": "duomenys2002.xlsx",
+      "sheet": "men_irank",
+      "year": "2002",
+      "rows": 41,
+      "columns": 24,
+      "status": "extracted"
+    },
+    "annual_db_2002_irank_men.csv": {
+      "source": "duomenys2002.xlsx",
+      "sheet": "irank_men",
+      "year": "2002",
+      "rows": 49,
+      "columns": 23,
+      "status": "extracted"
+    },
+    "annual_db_2003_sheet1.csv": {
+      "source": "duomenys2003.xlsx",
+      "sheet": "Sheet1",
+      "year": "2003",
+      "rows": 6269,
+      "columns": 40,
+      "status": "extracted"
+    },
+    "annual_db_2004_sheet1.csv": {
+      "source": "duomenys2004.xlsx",
+      "sheet": "Sheet1",
+      "year": "2004",
+      "rows": 1299,
+      "columns": 41,
+      "status": "extracted"
+    },
+    "annual_db_2005_sheet1.csv": {
+      "source": "duomenys2005.xlsx",
+      "sheet": "Sheet1",
+      "year": "2005",
+      "rows": 1042,
+      "columns": 44,
+      "status": "extracted"
+    },
+    "annual_db_2006_sheet1.csv": {
+      "source": "duomenys2006.xlsx",
+      "sheet": "Sheet1",
+      "year": "2006",
+      "rows": 1078,
+      "columns": 44,
+      "status": "extracted"
+    },
+    "annual_db_2007_sheet1.csv": {
+      "source": "duomenys2007.xlsx",
+      "sheet": "Sheet1",
+      "year": "2007",
+      "rows": 1383,
+      "columns": 44,
+      "status": "extracted"
+    },
+    "annual_db_2008_service.csv": {
+      "source": "duomenys2008.xlsx",
+      "sheet": "service",
+      "year": "2008",
+      "rows": 115,
+      "columns": 8,
+      "status": "extracted"
+    },
+    "annual_db_2008_data.csv": {
+      "source": "duomenys2008.xlsx",
+      "sheet": "data",
+      "year": "2008",
+      "rows": 1402,
+      "columns": 42,
+      "status": "extracted"
+    },
+    "annual_db_2009_sheet1.csv": {
+      "source": "duomenys2009.xlsx",
+      "sheet": "Sheet1",
+      "year": "2009",
+      "rows": 1198,
+      "columns": 42,
+      "status": "extracted"
+    },
+    "annual_db_2010_sheet1.csv": {
+      "source": "duomenys2010.xlsx",
+      "sheet": "Sheet1",
+      "year": "2010",
+      "rows": 1002,
+      "columns": 45,
+      "status": "extracted"
+    },
+    "annual_db_2011_sheet1.csv": {
+      "source": "duomenys2011.xlsx",
+      "sheet": "Sheet1",
+      "year": "2011",
+      "rows": 954,
+      "columns": 42,
+      "status": "extracted"
+    },
+    "annual_db_2012_sheet1.csv": {
+      "source": "duomenys2012.xlsx",
+      "sheet": "Sheet1",
+      "year": "2012",
+      "rows": 1013,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_2013_all.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "2013_All",
+      "year": "2013",
+      "rows": 902,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_2013_cl.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "2013_CL",
+      "year": "2013",
+      "rows": 837,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_2013_pold.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "2013_Pold",
+      "year": "2013",
+      "rows": 65,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_sausis.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Sausis",
+      "year": "2013",
+      "rows": 58,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_vasaris.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Vasaris",
+      "year": "2013",
+      "rows": 70,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_kovas.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Kovas",
+      "year": "2013",
+      "rows": 68,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_balandis.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Balandis",
+      "year": "2013",
+      "rows": 50,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_gegužė.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Gegužė",
+      "year": "2013",
+      "rows": 28,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_birželis.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Birželis",
+      "year": "2013",
+      "rows": 34,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_liepa.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Liepa",
+      "year": "2013",
+      "rows": 67,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_rugpjūtis.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Rugpjūtis",
+      "year": "2013",
+      "rows": 68,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_rugsėjis.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Rugsėjis",
+      "year": "2013",
+      "rows": 105,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_spalis.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Spalis",
+      "year": "2013",
+      "rows": 112,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_lapkritis.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Lapkritis",
+      "year": "2013",
+      "rows": 101,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_gruodis.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "Gruodis",
+      "year": "2013",
+      "rows": 88,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2013_by_months.csv": {
+      "source": "duomenys2013.xlsx",
+      "sheet": "By_months",
+      "year": "2013",
+      "rows": 43,
+      "columns": 39,
+      "status": "extracted"
+    },
+    "annual_db_2014_bendra_2014.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Bendra 2014",
+      "year": "2014",
+      "rows": 881,
+      "columns": 47,
+      "status": "extracted"
+    },
+    "annual_db_2014_sausis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Sausis",
+      "year": "2014",
+      "rows": 78,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2014_vasaris.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Vasaris",
+      "year": "2014",
+      "rows": 60,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2014_kovas.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Kovas",
+      "year": "2014",
+      "rows": 111,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2014_balandis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Balandis",
+      "year": "2014",
+      "rows": 101,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2014_gegužis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Gegužis",
+      "year": "2014",
+      "rows": 23,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2014_birželis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Birželis",
+      "year": "2014",
+      "rows": 27,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2014_liepa.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Liepa",
+      "year": "2014",
+      "rows": 69,
+      "columns": 47,
+      "status": "extracted"
+    },
+    "annual_db_2014_rugpjūtis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Rugpjūtis",
+      "year": "2014",
+      "rows": 66,
+      "columns": 47,
+      "status": "extracted"
+    },
+    "annual_db_2014_rugsėjis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Rugsėjis",
+      "year": "2014",
+      "rows": 92,
+      "columns": 47,
+      "status": "extracted"
+    },
+    "annual_db_2014_spalis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Spalis",
+      "year": "2014",
+      "rows": 107,
+      "columns": 47,
+      "status": "extracted"
+    },
+    "annual_db_2014_lapkritis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Lapkritis",
+      "year": "2014",
+      "rows": 97,
+      "columns": 47,
+      "status": "extracted"
+    },
+    "annual_db_2014_gruodis.csv": {
+      "source": "duomenys2014.xlsx",
+      "sheet": "Gruodis",
+      "year": "2014",
+      "rows": 50,
+      "columns": 47,
+      "status": "extracted"
+    },
+    "annual_db_2015_sheet1.csv": {
+      "source": "duomenys2015.xlsx",
+      "sheet": "Sheet1",
+      "year": "2015",
+      "rows": 840,
+      "columns": 44,
+      "status": "extracted"
+    },
+    "annual_db_2016_all_data.csv": {
+      "source": "duomenys2016.xlsx",
+      "sheet": "All_data",
+      "year": "2016",
+      "rows": 923,
+      "columns": 46,
+      "status": "extracted"
+    },
+    "annual_db_2016_cl_data.csv": {
+      "source": "duomenys2016.xlsx",
+      "sheet": "CL_data",
+      "year": "2016",
+      "rows": 872,
+      "columns": 96,
+      "status": "extracted"
+    },
+    "annual_db_2016_service.csv": {
+      "source": "duomenys2016.xlsx",
+      "sheet": "service",
+      "year": "2016",
+      "rows": 142,
+      "columns": 9,
+      "status": "extracted"
+    },
+    "annual_db_2016_irankiai.csv": {
+      "source": "duomenys2016.xlsx",
+      "sheet": "irankiai",
+      "year": "2016",
+      "rows": 33,
+      "columns": 11,
+      "status": "extracted"
+    },
+    "annual_db_2017_service.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Service",
+      "year": "2017",
+      "rows": 38,
+      "columns": 5,
+      "status": "extracted"
+    },
+    "annual_db_2017_2017_all.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "2017_All",
+      "year": "2017",
+      "rows": 845,
+      "columns": 49,
+      "status": "extracted"
+    },
+    "annual_db_2017_2017_polders.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "2017_Polders",
+      "year": "2017",
+      "rows": 11,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_2017_rivers.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "2017_Rivers",
+      "year": "2017",
+      "rows": 26,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_2017_cl.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "2017_CL",
+      "year": "2017",
+      "rows": 810,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_sausis.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Sausis",
+      "year": "2017",
+      "rows": 55,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_vasaris.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Vasaris",
+      "year": "2017",
+      "rows": 36,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_kovas.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Kovas",
+      "year": "2017",
+      "rows": 89,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_balandis.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Balandis",
+      "year": "2017",
+      "rows": 106,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_gegužė.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Gegužė",
+      "year": "2017",
+      "rows": 28,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_birželis.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Birželis",
+      "year": "2017",
+      "rows": 27,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_liepa.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Liepa",
+      "year": "2017",
+      "rows": 59,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_rugpjūtis.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Rugpjūtis",
+      "year": "2017",
+      "rows": 64,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_rugsėjis.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Rugsėjis",
+      "year": "2017",
+      "rows": 54,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_spalis.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Spalis",
+      "year": "2017",
+      "rows": 100,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_lapkritis.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Lapkritis",
+      "year": "2017",
+      "rows": 97,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_gruodis.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Gruodis",
+      "year": "2017",
+      "rows": 106,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2017_control.csv": {
+      "source": "duomenys2017.xlsx",
+      "sheet": "Control",
+      "year": "2017",
+      "rows": 18,
+      "columns": 40,
+      "status": "extracted"
+    },
+    "annual_db_2018_service.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Service",
+      "year": "2018",
+      "rows": 38,
+      "columns": 5,
+      "status": "extracted"
+    },
+    "annual_db_2018_2018_all.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "2018_All",
+      "year": "2018",
+      "rows": 761,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_2018_polders.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "2018_Polders",
+      "year": "2018",
+      "rows": 38,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_2018_rivers.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "2018_Rivers",
+      "year": "2018",
+      "rows": 31,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_2018_cl.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "2018_CL",
+      "year": "2018",
+      "rows": 694,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_sausis.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Sausis",
+      "year": "2018",
+      "rows": 95,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_vasaris.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Vasaris",
+      "year": "2018",
+      "rows": 21,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_kovas.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Kovas",
+      "year": "2018",
+      "rows": 25,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_balandis.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Balandis",
+      "year": "2018",
+      "rows": 93,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_gegužė.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Gegužė",
+      "year": "2018",
+      "rows": 31,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_birželis.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Birželis",
+      "year": "2018",
+      "rows": 25,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_liepa.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Liepa",
+      "year": "2018",
+      "rows": 51,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_rugpjūtis.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Rugpjūtis",
+      "year": "2018",
+      "rows": 56,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_rugsėjis.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Rugsėjis",
+      "year": "2018",
+      "rows": 103,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_spalis.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Spalis",
+      "year": "2018",
+      "rows": 97,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_lapkritis.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Lapkritis",
+      "year": "2018",
+      "rows": 87,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_gruodis.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Gruodis",
+      "year": "2018",
+      "rows": 21,
+      "columns": 48,
+      "status": "extracted"
+    },
+    "annual_db_2018_control.csv": {
+      "source": "duomenys2018.xlsx",
+      "sheet": "Control",
+      "year": "2018",
+      "rows": 18,
+      "columns": 40,
+      "status": "extracted"
+    }
+  },
+  "errors": []
+}
