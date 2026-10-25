@@ -4,10 +4,18 @@ import asyncio
 import json
 
 from pypath import __version__
+
 from pypath_shiny.app import app
 
 
-async def _request(path: str, method: str = "GET") -> tuple[int, dict[str, str], bytes]:
+async def _request(
+    path: str,
+    method: str = "GET",
+    *,
+    root_path: str = "",
+    raw_path: bytes | None = None,
+    headers: list[tuple[bytes, bytes]] | None = None,
+) -> tuple[int, dict[str, str], bytes]:
     scope = {
         "type": "http",
         "asgi": {"version": "3.0"},
@@ -15,9 +23,10 @@ async def _request(path: str, method: str = "GET") -> tuple[int, dict[str, str],
         "method": method,
         "scheme": "http",
         "path": path,
-        "raw_path": path.encode("ascii"),
+        "root_path": root_path,
+        "raw_path": raw_path if raw_path is not None else path.encode("ascii"),
         "query_string": b"",
-        "headers": [],
+        "headers": headers or [],
         "client": ("127.0.0.1", 12345),
         "server": ("testserver", 80),
     }
@@ -56,4 +65,21 @@ def test_health_endpoint_returns_ok_json():
 
 def test_health_endpoint_works_with_deployment_prefix():
     status, _headers, _body = asyncio.run(_request("/pypath/api/health"))
+    assert status == 200
+
+
+def test_health_endpoint_works_with_root_path_rewrite():
+    status, _headers, _body = asyncio.run(
+        _request("/api/health", root_path="/pypath")
+    )
+    assert status == 200
+
+
+def test_health_endpoint_works_with_proxy_original_uri_header():
+    status, _headers, _body = asyncio.run(
+        _request(
+            "/",
+            headers=[(b"x-original-uri", b"/pypath/api/health")],
+        )
+    )
     assert status == 200

@@ -44,6 +44,7 @@ APP_DIR = Path(__file__).parent
 
 # Configuration imports
 from pypath import get_health_status  # noqa: E402
+
 from pypath_shiny import __version__  # noqa: E402
 from pypath_shiny.config import UI  # noqa: E402
 
@@ -521,12 +522,74 @@ HEALTH_PATHS = {
 }
 
 
+def _normalized_path(value: str) -> str:
+    """Normalize URL path shapes for proxy-safe matching."""
+    path = (value or "").split("?", 1)[0].strip()
+    if not path:
+        return ""
+    if not path.startswith("/"):
+        path = f"/{path}"
+    while "//" in path:
+        path = path.replace("//", "/")
+    return path
+
+
+def _request_path_candidates(scope: dict) -> set[str]:
+    """Collect path candidates from ASGI scope and common proxy headers."""
+    candidates: set[str] = set()
+
+    path = _normalized_path(scope.get("path", ""))
+    if path:
+        candidates.add(path)
+
+    raw_path = scope.get("raw_path")
+    if isinstance(raw_path, (bytes, bytearray)):
+        decoded_raw = _normalized_path(raw_path.decode("latin1", errors="ignore"))
+        if decoded_raw:
+            candidates.add(decoded_raw)
+
+    root_path = _normalized_path(scope.get("root_path", ""))
+    if root_path and path:
+        joined = _normalized_path(f"{root_path.rstrip('/')}/{path.lstrip('/')}")
+        if joined:
+            candidates.add(joined)
+
+    header_paths = {
+        "x-original-uri",
+        "x-forwarded-uri",
+        "x-rewrite-url",
+        "x-request-uri",
+        "x-path-info",
+        "x-script-name",
+        "x-forwarded-prefix",
+    }
+    for header_name, header_value in scope.get("headers", []):
+        key = header_name.decode("latin1", errors="ignore").lower()
+        if key in header_paths:
+            candidate = _normalized_path(header_value.decode("latin1", errors="ignore"))
+            if candidate:
+                candidates.add(candidate)
+
+    return candidates
+
+
+def _is_health_request(path_candidates: set[str]) -> bool:
+    """Return True when any candidate path resolves to the health endpoint."""
+    for candidate in path_candidates:
+        if candidate in HEALTH_PATHS:
+            return True
+        stripped = candidate.rstrip("/")
+        if stripped.endswith("/api/health"):
+            return True
+    return False
+
+
 async def app(scope, receive, send):
     """ASGI app wrapper with a lightweight health-check endpoint."""
     if scope.get("type") == "http":
         method = (scope.get("method") or "GET").upper()
-        path = scope.get("path") or ""
-        if method in {"GET", "HEAD"} and path in HEALTH_PATHS:
+        path_candidates = _request_path_candidates(scope)
+        if method in {"GET", "HEAD"} and _is_health_request(path_candidates):
             payload_obj = get_health_status()
             payload = json.dumps(payload_obj, separators=(",", ":")).encode("utf-8")
             body = b"" if method == "HEAD" else payload
