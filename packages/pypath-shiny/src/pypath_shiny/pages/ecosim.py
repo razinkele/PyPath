@@ -14,6 +14,15 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Import centralized configuration
 from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
+from pypath_shiny.services.ecosim_controls import (
+    apply_fishing_management_control,
+    apply_metabolism_control,
+    apply_recruitment_control,
+    build_control_metadata,
+    validate_fishing_management_control,
+    validate_metabolism_control,
+    validate_recruitment_control,
+)
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -247,6 +256,126 @@ def ecosim_ui() -> ui.Tag:
                     selected="baseline",
                 ),
                 ui.output_ui("fishing_params_ui"),
+                ui.tags.hr(),
+                # Recruitment controls
+                ui.h5("Recruitment Dynamics"),
+                ui.input_checkbox(
+                    "enable_recruitment_control",
+                    "Enable stock-recruitment model",
+                    value=False,
+                ),
+                ui.panel_conditional(
+                    "input.enable_recruitment_control",
+                    ui.input_select(
+                        "recruitment_group",
+                        "Target Group",
+                        choices=["(Create scenario first)"],
+                    ),
+                    ui.input_select(
+                        "recruitment_model",
+                        "Model Type",
+                        choices={
+                            "ricker": "Ricker",
+                            "bevertonholt": "Beverton-Holt",
+                            "myers": "Myers",
+                        },
+                        selected="ricker",
+                    ),
+                    ui.output_ui("recruitment_params_ui"),
+                    ui.input_numeric(
+                        "recruitment_env_multiplier",
+                        "Environmental Multiplier",
+                        value=1.0,
+                        min=PARAM_RANGES.recruitment_env_multiplier_min,
+                        max=PARAM_RANGES.recruitment_env_multiplier_max,
+                        step=0.1,
+                    ),
+                ),
+                ui.tags.hr(),
+                # Metabolism controls
+                ui.h5("Metabolism Scaling"),
+                ui.input_checkbox(
+                    "enable_metabolism_control",
+                    "Enable temperature/size scaling",
+                    value=False,
+                ),
+                ui.panel_conditional(
+                    "input.enable_metabolism_control",
+                    ui.input_slider(
+                        "metabolism_temperature_delta",
+                        "Temperature Delta (°C)",
+                        min=PARAM_RANGES.metabolism_temp_delta_min,
+                        max=PARAM_RANGES.metabolism_temp_delta_max,
+                        value=PARAM_RANGES.metabolism_temp_delta_default,
+                        step=0.5,
+                    ),
+                    ui.input_slider(
+                        "metabolism_q10",
+                        "Q10 Coefficient",
+                        min=PARAM_RANGES.metabolism_q10_min,
+                        max=PARAM_RANGES.metabolism_q10_max,
+                        value=PARAM_RANGES.metabolism_q10_default,
+                        step=0.1,
+                    ),
+                    ui.input_numeric(
+                        "metabolism_mass_exponent",
+                        "Mass Exponent",
+                        value=PARAM_RANGES.metabolism_mass_exponent_default,
+                        min=PARAM_RANGES.metabolism_mass_exponent_min,
+                        max=PARAM_RANGES.metabolism_mass_exponent_max,
+                        step=0.05,
+                    ),
+                    ui.input_numeric(
+                        "metabolism_reference_mass",
+                        "Reference Mass",
+                        value=PARAM_RANGES.metabolism_reference_mass_default,
+                        min=PARAM_RANGES.metabolism_reference_mass_min,
+                        step=0.1,
+                    ),
+                    ui.input_numeric(
+                        "metabolism_activity_budget",
+                        "Activity Budget",
+                        value=PARAM_RANGES.metabolism_activity_budget_default,
+                        min=PARAM_RANGES.metabolism_activity_budget_min,
+                        max=PARAM_RANGES.metabolism_activity_budget_max,
+                        step=0.1,
+                    ),
+                    ui.layout_columns(
+                        ui.input_checkbox(
+                            "metabolism_apply_consumers",
+                            "Apply to consumers",
+                            value=True,
+                        ),
+                        ui.input_checkbox(
+                            "metabolism_apply_producers",
+                            "Apply to producers",
+                            value=True,
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                ),
+                ui.tags.hr(),
+                # Adaptive fishing management controls
+                ui.h5("Adaptive Fishing Management"),
+                ui.input_checkbox(
+                    "enable_fishing_management_control",
+                    "Enable fleet management strategy",
+                    value=False,
+                ),
+                ui.panel_conditional(
+                    "input.enable_fishing_management_control",
+                    ui.input_select(
+                        "fishing_management_strategy",
+                        "Management Strategy",
+                        choices={
+                            "sustainability": "Sustainability reduction",
+                            "revenue": "Revenue-focused allocation",
+                            "bycatch": "Bycatch minimization",
+                        },
+                        selected="sustainability",
+                    ),
+                    ui.output_ui("fishing_management_params_ui"),
+                ),
                 ui.tags.hr(),
                 # Stability settings
                 ui.h5(
@@ -511,11 +640,21 @@ def ecosim_server(
     # Years the current scenario was actually built with (input.sim_years() may
     # have been changed since).
     scenario_years = reactive.Value(None)
+    scenario_controls_metadata = reactive.Value({})
     show_help_scenario = reactive.Value(False)
     show_help_progress = reactive.Value(False)
     show_help_timeseries = reactive.Value(False)
     show_help_catch = reactive.Value(False)
     show_help_summary = reactive.Value(False)
+
+    def _input_or_default(name: str, default):
+        """Read a UI input value with fallback for conditional controls."""
+        try:
+            getter = getattr(input, name)
+            value = getter()
+            return default if value is None else value
+        except (AttributeError, KeyError, TypeError):
+            return default
 
     @reactive.effect
     @reactive.event(input.btn_help_scenario)
@@ -1185,6 +1324,85 @@ def ecosim_server(
 
         return ui.p("", class_="text-muted")
 
+    @output
+    @render.ui
+    def recruitment_params_ui():
+        """Dynamic UI for recruitment model parameters."""
+        model_type = input.recruitment_model()
+
+        if model_type in {"ricker", "bevertonholt"}:
+            return ui.div(
+                ui.input_numeric(
+                    "recruitment_alpha", "Alpha", value=1.2, min=0.001, step=0.05
+                ),
+                ui.input_numeric(
+                    "recruitment_beta", "Beta", value=0.1, min=0.001, step=0.01
+                ),
+                ui.input_numeric(
+                    "recruitment_rmax", "Rmax", value=1.5, min=0.1, step=0.1
+                ),
+            )
+
+        if model_type == "myers":
+            return ui.div(
+                ui.input_numeric(
+                    "recruitment_rmax", "Rmax", value=1.5, min=0.1, step=0.1
+                ),
+                ui.input_numeric("recruitment_k", "K", value=1.0, min=0.001, step=0.05),
+                ui.input_numeric(
+                    "recruitment_power", "Power", value=1.0, min=0.1, max=4.0, step=0.1
+                ),
+            )
+
+        return ui.p("", class_="text-muted")
+
+    @output
+    @render.ui
+    def fishing_management_params_ui():
+        """Dynamic UI for adaptive fishing-management parameters."""
+        strategy = input.fishing_management_strategy()
+
+        if strategy == "sustainability":
+            return ui.div(
+                ui.input_slider(
+                    "sustainability_reduction",
+                    "Effort Retention",
+                    min=PARAM_RANGES.sustainability_reduction_min,
+                    max=PARAM_RANGES.sustainability_reduction_max,
+                    value=PARAM_RANGES.sustainability_reduction_default,
+                    step=0.05,
+                ),
+                ui.input_slider(
+                    "sustainability_floor",
+                    "Minimum Effort Floor",
+                    min=PARAM_RANGES.sustainability_floor_min,
+                    max=PARAM_RANGES.sustainability_floor_max,
+                    value=PARAM_RANGES.sustainability_floor_default,
+                    step=0.05,
+                ),
+            )
+
+        if strategy == "revenue":
+            return ui.input_numeric(
+                "fishing_effort_budget",
+                "Effort Budget",
+                value=PARAM_RANGES.fishing_effort_budget_default,
+                min=PARAM_RANGES.fishing_effort_budget_min,
+                step=0.1,
+            )
+
+        if strategy == "bycatch":
+            return ui.input_slider(
+                "bycatch_reduction",
+                "Bycatch Reduction Fraction",
+                min=PARAM_RANGES.bycatch_reduction_min,
+                max=PARAM_RANGES.bycatch_reduction_max,
+                value=PARAM_RANGES.bycatch_reduction_default,
+                step=0.05,
+            )
+
+        return ui.p("", class_="text-muted")
+
     @reactive.effect
     @reactive.event(input.btn_create_scenario)
     def _create_scenario():
@@ -1247,6 +1465,69 @@ def ecosim_server(
             # Apply fishing scenario
             _apply_fishing_scenario(new_scenario, input)
 
+            # Apply advanced control adapters
+            recruitment_summary = apply_recruitment_control(
+                new_scenario,
+                validate_recruitment_control(
+                    enabled=input.enable_recruitment_control(),
+                    group_name=input.recruitment_group(),
+                    model_type=input.recruitment_model(),
+                    alpha=input.recruitment_alpha()
+                    if hasattr(input, "recruitment_alpha")
+                    else 1.2,
+                    beta=input.recruitment_beta()
+                    if hasattr(input, "recruitment_beta")
+                    else 0.1,
+                    rmax=input.recruitment_rmax()
+                    if hasattr(input, "recruitment_rmax")
+                    else 1.5,
+                    k=_input_or_default("recruitment_k", 1.0),
+                    power=input.recruitment_power()
+                    if hasattr(input, "recruitment_power")
+                    else 1.0,
+                    environment_multiplier=input.recruitment_env_multiplier(),
+                ),
+            )
+            metabolism_summary = apply_metabolism_control(
+                new_scenario,
+                validate_metabolism_control(
+                    enabled=input.enable_metabolism_control(),
+                    temperature_delta=input.metabolism_temperature_delta(),
+                    q10=input.metabolism_q10(),
+                    mass_exponent=input.metabolism_mass_exponent(),
+                    reference_mass=input.metabolism_reference_mass(),
+                    activity_budget=input.metabolism_activity_budget(),
+                    apply_to_consumers=input.metabolism_apply_consumers(),
+                    apply_to_producers=input.metabolism_apply_producers(),
+                ),
+            )
+            fishing_mgmt_summary = apply_fishing_management_control(
+                new_scenario,
+                validate_fishing_management_control(
+                    enabled=input.enable_fishing_management_control(),
+                    strategy=input.fishing_management_strategy(),
+                    sustainability_reduction=input.sustainability_reduction()
+                    if hasattr(input, "sustainability_reduction")
+                    else PARAM_RANGES.sustainability_reduction_default,
+                    sustainability_floor=input.sustainability_floor()
+                    if hasattr(input, "sustainability_floor")
+                    else PARAM_RANGES.sustainability_floor_default,
+                    effort_budget=input.fishing_effort_budget()
+                    if hasattr(input, "fishing_effort_budget")
+                    else PARAM_RANGES.fishing_effort_budget_default,
+                    bycatch_reduction=input.bycatch_reduction()
+                    if hasattr(input, "bycatch_reduction")
+                    else PARAM_RANGES.bycatch_reduction_default,
+                ),
+            )
+            controls_metadata = build_control_metadata(
+                recruitment=recruitment_summary,
+                metabolism=metabolism_summary,
+                fishing_management=fishing_mgmt_summary,
+            )
+            scenario_controls_metadata.set(controls_metadata)
+            setattr(new_scenario, "applied_controls_metadata", controls_metadata)
+
             # Apply autofix if enabled
             if input.enable_autofix():
                 new_scenario, report = validate_and_fix_scenario(
@@ -1280,6 +1561,7 @@ def ecosim_server(
                 "plot_groups", choices=group_names, selected=group_names[:3]
             )
             ui.update_select("forcing_group", choices=group_names)
+            ui.update_select("recruitment_group", choices=group_names)
 
             scenario_years.set(input.sim_years())
             notify_success("Scenario created successfully!")
@@ -1347,10 +1629,20 @@ def ecosim_server(
                 class_="alert alert-info",
             )
 
+        metadata = scenario_controls_metadata.get() or {}
+        enabled_controls = [
+            name.replace("_", " ")
+            for name, value in metadata.items()
+            if isinstance(value, dict) and value.get("enabled")
+        ]
+        controls_note = (
+            f" Controls: {', '.join(enabled_controls)}." if enabled_controls else ""
+        )
+
         return ui.div(
             ui.tags.i(class_="bi bi-check-circle me-2"),
             f"Scenario ready: {scen.params.NUM_GROUPS} groups, "
-            f"{scenario_years.get()} years",
+            f"{scenario_years.get()} years.{controls_note}",
             class_="alert alert-success",
         )
 
@@ -1485,6 +1777,11 @@ def ecosim_server(
                 )
             )
 
+            controls_metadata = scenario_controls_metadata.get() or {}
+            if isinstance(output.params, dict):
+                output.params["applied_controls"] = controls_metadata
+            setattr(output, "applied_controls_metadata", controls_metadata)
+
             sim_output.set(output)
             sim_results.set(output)
 
@@ -1566,6 +1863,7 @@ def ecosim_server(
         if task_state.status is TaskStatus.RUNNING:
             # Mark as cancelled
             from pypath_shiny.services.tasks import finish_task
+
             sim_task_state.set(
                 finish_task(
                     task_state,
@@ -1663,7 +1961,9 @@ def ecosim_server(
                         "Cancel Simulation",
                     ),
                     class_="btn btn-warning w-100 mt-3",
-                ) if task_state.can_cancel else None,
+                )
+                if task_state.can_cancel
+                else None,
             )
 
         if output is None:
@@ -1959,4 +2259,3 @@ def ecosim_server(
 
         plt.tight_layout()
         return fig
-

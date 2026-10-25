@@ -252,6 +252,28 @@ write_ewemdb(params, "with_ecosim.eweaccdb", scenarios=[scenario])
 | `EcosimShape` / `EcosimShapeTime` | Forcing function shapes |
 | `EcosimShapeFishRate` | Fishing effort time series |
 
+## Curonian Lagoon End-to-End Example
+
+A runnable Curonian workflow example is included at:
+
+- `examples/curonian_model_workflow_example.py`
+
+It auto-selects an available Curonian/LT2022 database, picks a likely
+Ecosim scenario, and reports PASS/WARN/FAIL diagnostics for:
+
+- Ecopath balance (with partial-diet aware checks)
+- EwE parity for PB/QB/EE/Trophic Level
+- Ecosim stability run
+- Calibration smoke test (when time series exist)
+
+```bash
+python examples/curonian_model_workflow_example.py
+python examples/curonian_model_workflow_example.py --scenario 16 --verbose
+```
+
+Use `--strict-biomass` if you want biomass parity mismatches treated as
+hard failures instead of warnings.
+
 ## Next Steps
 
 - [Basic Model Example](basic-model.md) — Create a model from scratch
