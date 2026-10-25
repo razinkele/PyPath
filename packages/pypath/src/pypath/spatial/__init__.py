@@ -34,6 +34,8 @@ Example
 
 # Core data structures
 # Connectivity
+
+# Coupled Ecosim-Ecospace state-vector framework
 from pypath.spatial.connectivity import (
     build_adjacency_from_gdf,
     build_distance_matrix,
@@ -42,6 +44,11 @@ from pypath.spatial.connectivity import (
     get_connectivity_graph_stats,
     haversine_distance,
     validate_adjacency_symmetry,
+)
+from pypath.spatial.coupling import (
+    CoupledStateVector,
+    build_initial_state_vector,
+    run_coupled_simulation,
 )
 
 # Dispersal
@@ -53,6 +60,14 @@ from pypath.spatial.dispersal import (
     gravity_model_flux,
     habitat_advection,
     validate_flux_conservation,
+)
+
+# Ecological interactions
+from pypath.spatial.ecological_interactions import (
+    EdgeEffectParams,
+    apply_edge_effects,
+    metapopulation_occupancy_step,
+    spatial_predation_rate,
 )
 from pypath.spatial.ecospace_params import (
     EcospaceGrid,
@@ -82,14 +97,25 @@ from pypath.spatial.external_flux import (
 
 # Spatial fishing
 from pypath.spatial.fishing import (
+    FleetDeployment,
     SpatialFishing,
     allocate_gravity,
     allocate_habitat_based,
     allocate_port_based,
     allocate_uniform,
     create_spatial_fishing,
+    distribute_effort_with_fleet,
     effort_multipliers,
+    mpa_spillover_potential,
     validate_effort_allocation,
+)
+
+# Spatial forcing
+from pypath.spatial.forcing import (
+    SpatialForcingField,
+    coastal_upwelling_index,
+    oxygen_minimum_zone_mask,
+    temperature_gradient_field,
 )
 
 # GIS utilities
@@ -101,6 +127,9 @@ from pypath.spatial.gis_utils import (
 
 # Habitat suitability
 from pypath.spatial.habitat import (
+    HabitatMap,
+    HabitatQuality,
+    SubstrateType,
     apply_habitat_preference_and_suitability,
     calculate_habitat_suitability,
     create_gaussian_response,
@@ -112,11 +141,29 @@ from pypath.spatial.habitat import (
 # Spatial integration
 from pypath.spatial.integration import deriv_vector_spatial, rsim_run_spatial
 
+# Advanced movement and larval dispersal
+from pypath.spatial.larval_dispersal import (
+    LarvalDispersalParams,
+    advect_larvae,
+    larval_connectivity_matrix,
+    settle_larvae,
+)
+from pypath.spatial.movement import (
+    MovementKernel,
+    aggregation_index,
+    behavioral_migration,
+    ontogenetic_movement,
+    predator_avoidance_movement,
+)
+
 # MPA support
 from pypath.spatial.mpa import (
+    MarineProtectedArea,
     MPAConfig,
     MPAZone,
+    ReserveNetwork,
     create_mpa_config,
+    mpa_spillover_index,
 )
 
 __all__ = [
@@ -125,10 +172,13 @@ __all__ = [
     "EcospaceParams",
     "SpatialState",
     "ExternalFluxTimeseries",
+    "CoupledStateVector",
     # Grid creation
     "load_spatial_grid",
     "create_regular_grid",
     "create_1d_grid",
+    "build_initial_state_vector",
+    "run_coupled_simulation",
     # Connectivity
     "build_adjacency_from_gdf",
     "calculate_patch_distances",
@@ -181,6 +231,38 @@ __all__ = [
     "create_spatial_fishing",
     "effort_multipliers",
     "validate_effort_allocation",
+    # Advanced movement
+    "MovementKernel",
+    "behavioral_migration",
+    "ontogenetic_movement",
+    "predator_avoidance_movement",
+    "aggregation_index",
+    # Larval dispersal
+    "LarvalDispersalParams",
+    "advect_larvae",
+    "settle_larvae",
+    "larval_connectivity_matrix",
+    # Spatial forcing
+    "SpatialForcingField",
+    "coastal_upwelling_index",
+    "temperature_gradient_field",
+    "oxygen_minimum_zone_mask",
+    # Ecological interactions
+    "EdgeEffectParams",
+    "spatial_predation_rate",
+    "apply_edge_effects",
+    "metapopulation_occupancy_step",
+    # Habitat mapping
+    "SubstrateType",
+    "HabitatQuality",
+    "HabitatMap",
+    # Fleet deployment / MPA dynamics
+    "FleetDeployment",
+    "distribute_effort_with_fleet",
+    "mpa_spillover_potential",
+    "MarineProtectedArea",
+    "ReserveNetwork",
+    "mpa_spillover_index",
 ]
 
 # Version info

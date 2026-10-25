@@ -102,3 +102,58 @@ class MPAConfig:
 def create_mpa_config(zones: list[MPAZone] | None = None) -> MPAConfig:
     """Create MPAConfig, defaulting to empty zones list."""
     return MPAConfig(zones=zones if zones is not None else [])
+
+
+# Phase 1C.2f reserve network extensions
+
+@dataclass
+class MarineProtectedArea:
+    """Simplified MPA descriptor for network-level analysis."""
+
+    name: str
+    patch_indices: list[int]
+    protection_level: float = 1.0
+
+
+@dataclass
+class ReserveNetwork:
+    """Collection of MPAs with simple network metrics."""
+
+    reserves: list[MarineProtectedArea] = field(default_factory=list)
+
+    def coverage_fraction(self, n_patches: int) -> float:
+        """Compute fraction of patches under protection."""
+        if n_patches <= 0:
+            return 0.0
+        protected = {p for r in self.reserves for p in r.patch_indices}
+        return len(protected) / n_patches
+
+    def average_protection_level(self) -> float:
+        """Mean protection level across reserves."""
+        if not self.reserves:
+            return 0.0
+        return float(np.mean([r.protection_level for r in self.reserves]))
+
+    def connectivity_score(self, adjacency: np.ndarray) -> float:
+        """Score connectedness of protected patches."""
+        if not self.reserves:
+            return 0.0
+        protected = sorted({p for r in self.reserves for p in r.patch_indices})
+        if not protected:
+            return 0.0
+        adj = np.asarray(adjacency, dtype=float)
+        sub = adj[np.ix_(protected, protected)]
+        if sub.size == 0:
+            return 0.0
+        return float(sub.sum() / max(len(protected), 1))
+
+
+def mpa_spillover_index(
+    inside_biomass: np.ndarray,
+    outside_biomass: np.ndarray,
+    exchange_rate: float,
+) -> float:
+    """Compute biomass spillover index from protected to fished area."""
+    inside = float(np.mean(np.asarray(inside_biomass, dtype=float)))
+    outside = float(np.mean(np.asarray(outside_biomass, dtype=float)))
+    return max(inside - outside, 0.0) * max(exchange_rate, 0.0)

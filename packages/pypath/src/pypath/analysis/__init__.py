@@ -13,6 +13,13 @@ from .prebalance import (
     plot_vital_rate_vs_trophic_level,
     print_prebalance_summary,
 )
+from .scenario_optimizer import (
+    ObjectiveSpec,
+    ScenarioCandidate,
+    ScenarioOptimizer,
+    ScenarioScore,
+    make_spatial_management_evaluator,
+)
 
 __all__ = [
     "calculate_biomass_slope",
@@ -23,4 +30,9 @@ __all__ = [
     "plot_vital_rate_vs_trophic_level",
     "generate_prebalance_report",
     "print_prebalance_summary",
+    "ObjectiveSpec",
+    "ScenarioCandidate",
+    "ScenarioOptimizer",
+    "ScenarioScore",
+    "make_spatial_management_evaluator",
 ]

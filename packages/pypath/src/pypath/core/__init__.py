@@ -49,9 +49,11 @@ from pypath.core.ecosim import (
     rsim_state,
 )
 # Auto-patch RsimScenario with ramping support
-from pypath.core import ecosim_ramping as _ecosim_ramping_
+from pypath.core import ecosim_ramping as _ecosim_ramping_  # noqa: F401
 # Auto-patch RsimScenario with environmental forcing support
-from pypath.core import ecosim_environmental_forcing as _ecosim_env_forcing_
+from pypath.core import ecosim_environmental_forcing as _ecosim_env_forcing_  # noqa: F401
+# Auto-patch RsimScenario with recruitment support
+from pypath.core import ecosim_recruitment as _ecosim_recruitment_  # noqa: F401
 from pypath.core.ramping import (
     LinearRamp,
     PolynomialRamp,
@@ -61,13 +63,40 @@ from pypath.core.ramping import (
 )
 # Environmental forcing classes
 from pypath.core.environmental_forcing import (
+    ClimateForcing,
     EnvironmentalForcing,
     HabitatProductivity,
     OceanographicForcing,
-    ClimateForcing,
-    validate_time_series,
     interpolate_timeseries,
     normalize_forcing_factor,
+    validate_time_series,
+)
+from pypath.core.recruitment import (
+    BevertonHoltRecruitment,
+    LarvalConnectivity,
+    MyersRecruitment,
+    RecruitmentModel,
+    RickerRecruitment,
+    normalize_ssb_effect,
+    validate_recruitment_params,
+)
+from pypath.core.metabolism import (
+    MetabolicModel,
+    TemperatureDependence,
+    apply_size_dependent_rates,
+    compute_temperature_adjusted_metabolism,
+)
+from pypath.core.fishing_management import (
+    DynamicLogisticSelectivity,
+    FishingOptimization,
+    SelectivityPattern,
+    SpatialSelectivity,
+    TimeVaryingSelectivity,
+)
+from pypath.core.sensitivity_analysis import (
+    RiskAssessment,
+    SensitivityAnalyzer,
+    UncertaintyPropagation,
 )
 from pypath.core.ecosim_deriv import (
     deriv_vector,
@@ -285,6 +314,29 @@ __all__ = [
     "validate_time_series",
     "interpolate_timeseries",
     "normalize_forcing_factor",
+    # Recruitment
+    "RecruitmentModel",
+    "LarvalConnectivity",
+    "RickerRecruitment",
+    "BevertonHoltRecruitment",
+    "MyersRecruitment",
+    "validate_recruitment_params",
+    "normalize_ssb_effect",
+    # Metabolism
+    "MetabolicModel",
+    "TemperatureDependence",
+    "apply_size_dependent_rates",
+    "compute_temperature_adjusted_metabolism",
+    # Fishing management
+    "SelectivityPattern",
+    "DynamicLogisticSelectivity",
+    "TimeVaryingSelectivity",
+    "SpatialSelectivity",
+    "FishingOptimization",
+    # Sensitivity & uncertainty analysis
+    "SensitivityAnalyzer",
+    "UncertaintyPropagation",
+    "RiskAssessment",
     # Stanzas
     "StanzaGroup",
     "StanzaIndividual",

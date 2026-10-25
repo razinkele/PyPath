@@ -66,6 +66,7 @@ nav:
   - Guides:
       - IBM Parameterization: guides/ibm-parameterization.md
       - Autofix & Crash Repair: guides/autofix.md
+      - Performance Benchmarks: guides/performance-benchmarks.md
   - Examples:
       - Basic Model: examples/basic-model.md
       - EwE Database Loading: examples/ewe-database.md

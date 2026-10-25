@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "pypath-ewe[interactive,spatial]>=0.5.2",
+    "pypath-ewe[interactive,spatial]>=0.5.3",
     "shiny>=1.8.0",
     "shinyswatch>=0.7.0",
     "httpx>=0.24",

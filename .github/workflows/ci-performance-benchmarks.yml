@@ -1,0 +1,67 @@
+name: Performance Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - "packages/pypath/src/**"
+      - "packages/pypath/tests/**"
+      - "packages/pypath/pyproject.toml"
+      - ".github/workflows/ci-performance-benchmarks.yml"
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  spatial-benchmarks:
+    name: Spatial benchmark gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYPATH_BENCHMARK_OUTPUT: benchmark-results.json
+      PYPATH_BENCH_THRESHOLD_SCALE: "1.0"
+      PYPATH_BENCH_REGRESSION_MAX_RATIO: "1.5"
+      PYPATH_BENCH_DIFFUSION_MAX_SECONDS: "0.005"
+      PYPATH_BENCH_COMBINED_FLUX_MAX_SECONDS: "0.05"
+      PYPATH_BENCH_SIMULATION_5Y_10X10_MAX_SECONDS: "30"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install core dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "packages/pypath[dev]"
+
+      - name: Run deterministic spatial benchmarks
+        id: benchmark
+        continue-on-error: true
+        run: |
+          python -m pytest packages/pypath/tests/benchmarks/test_spatial_benchmarks.py -q -m "benchmark" --tb=short
+
+      - name: Render benchmark summary
+        id: summary
+        if: always()
+        continue-on-error: true
+        run: |
+          python packages/pypath/scripts/benchmark_report.py \
+            --results benchmark-results.json \
+            --baseline packages/pypath/tests/benchmarks/spatial_benchmark_baseline.json \
+            --summary-file benchmark-summary.md
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spatial-benchmark-results
+          path: |
+            benchmark-results.json
+            benchmark-summary.md
+
+      - name: Fail job on benchmark regression
+        if: steps.benchmark.outcome != 'success' || steps.summary.outcome != 'success'
+        run: exit 1

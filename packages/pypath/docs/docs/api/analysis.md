@@ -20,3 +20,14 @@ index, mean trophic level, and system throughput.
 
 See also [Core API: Analysis & Network Indices](core.md#analysis-network-indices)
 for `mixed_trophic_impact()` and `summarize_ecosim_output()`.
+
+
+## Scenario Optimization
+
+Risk-aware multi-objective scenario ranking helpers for coupled
+Ecosim-Ecospace management experiments.
+
+::: pypath.analysis.scenario_optimizer
+    options:
+      show_root_heading: true
+      members_order: source

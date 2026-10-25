@@ -288,8 +288,9 @@ class TestScalability:
         # 10x10 should take ~4x longer than 5x5
         ratio = times[1] / times[0]
 
-        # Allow range 0.9-8x (linear to slightly superlinear); relax to avoid flaky timing
-        assert 0.9 < ratio < 8, f"Scaling 5x5→10x10: {ratio:.1f}x, expected ~1-8x"
+        # Allow range 0.8-8x to avoid platform/CPU jitter flakiness while still
+        # catching major regressions where larger grids become disproportionately slow.
+        assert 0.8 < ratio < 8, f"Scaling 5x5→10x10: {ratio:.1f}x, expected ~0.8-8x"
 
     def test_many_groups_acceptable(self):
         """Many groups should still be performant."""

@@ -622,3 +622,48 @@ def validate_effort_allocation(
     difference = np.abs(spatial_total - forced_effort)
 
     return np.all(difference < tolerance)
+
+
+# Phase 1C.2e fleet deployment extensions
+
+@dataclass
+class FleetDeployment:
+    """Spatial fleet deployment plan."""
+
+    fleet_name: str
+    home_ports: np.ndarray
+    max_range_km: float
+    capacity: float
+
+    def accessibility_weights(self, distance_to_port_km: np.ndarray) -> np.ndarray:
+        """Compute accessibility weights by distance to nearest port."""
+        dist = np.asarray(distance_to_port_km, dtype=float)
+        weights = np.exp(-dist / max(self.max_range_km, 1e-9))
+        weights[dist > self.max_range_km] = 0.0
+        return weights
+
+
+def distribute_effort_with_fleet(
+    base_effort: np.ndarray,
+    deployment: FleetDeployment,
+    distance_to_port_km: np.ndarray,
+) -> np.ndarray:
+    """Distribute effort according to fleet deployment constraints."""
+    effort = np.asarray(base_effort, dtype=float)
+    weights = deployment.accessibility_weights(distance_to_port_km)
+    weighted = effort * weights
+    total = weighted.sum()
+    if total <= 1e-12:
+        return np.zeros_like(effort)
+    return weighted * (deployment.capacity / total)
+
+
+def mpa_spillover_potential(
+    biomass_inside_mpa: float,
+    biomass_outside_mpa: float,
+    boundary_length_km: float,
+    mobility_rate: float,
+) -> float:
+    """Estimate fishery spillover potential from MPA boundaries."""
+    gradient = max(biomass_inside_mpa - biomass_outside_mpa, 0.0)
+    return gradient * max(boundary_length_km, 0.0) * max(mobility_rate, 0.0)

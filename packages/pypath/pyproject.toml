@@ -96,6 +96,7 @@ python_files = ["test_*.py"]
 markers = [
     "integration: marks tests that require internet connection and real API calls",
     "slow: marks tests as slow",
+    "benchmark: marks deterministic performance benchmark tests used for CI gating",
     "worms: marks tests that use WoRMS API",
     "obis: marks tests that use OBIS API",
     "fishbase: marks tests that use FishBase API",

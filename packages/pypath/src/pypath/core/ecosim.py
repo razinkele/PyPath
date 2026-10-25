@@ -1100,6 +1100,9 @@ def rsim_run(
         "FishTo": getattr(params, "FishTo", np.array([])),
         "FishQ": getattr(params, "FishQ", np.array([])),
         "fleet_idx": getattr(params, "fleet_idx", None),
+        "MetabolismModel": getattr(params, "MetabolismModel", None),
+        "MetabolicTemperature": getattr(params, "MetabolicTemperature", None),
+        "MetabolicBodyMass": getattr(params, "MetabolicBodyMass", None),
     }
 
     # Pre-compute sparse link arrays for the consumption kernel so that
@@ -1989,6 +1992,8 @@ def rsim_run(
                 forcing.ForcedBio[month - 1] > 0, forcing.ForcedBio[month - 1], 0
             ),
             "ForcedMigrate": forcing.ForcedMigrate[month - 1],
+            "ForcedRecs": forcing.ForcedRecs[month - 1],
+            "ForcedActresp": forcing.ForcedActresp[month - 1],
             "ForcedPrey": _forced_prey,
             "PP_forcing": _forced_prey,
             "ForcedEffort": (

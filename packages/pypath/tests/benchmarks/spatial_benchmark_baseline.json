@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "Baseline medians captured for deterministic Ecospace benchmarks; tune on CI hardware as needed.",
+  "benchmarks": {
+    "diffusion_10x10": {
+      "baseline_median_seconds": 0.001,
+      "notes": "Median per-call time for diffusion_flux on 10x10 grid"
+    },
+    "combined_flux_10x10_10groups": {
+      "baseline_median_seconds": 0.005,
+      "notes": "Median per-call time for calculate_spatial_flux (10 groups, 100 patches)"
+    },
+    "spatial_simulation_5year_10x10": {
+      "baseline_median_seconds": 10.0,
+      "notes": "Median wall time for a 5-year rsim_run_spatial simulation on 10x10 grid"
+    }
+  }
+}

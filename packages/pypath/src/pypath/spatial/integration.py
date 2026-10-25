@@ -304,6 +304,8 @@ def rsim_run_spatial(
     *,
     mpa: Optional["MPAConfig"] = None,
     spatial_fishing: Optional["SpatialFishing"] = None,
+    initial_state_vector: Optional[np.ndarray] = None,
+    store_state_vectors: bool = False,
 ) -> RsimOutput:
     """Run spatial Ecosim simulation.
 
@@ -331,6 +333,13 @@ def rsim_run_spatial(
         How fleet effort is distributed across patches. Effort is redistributed
         relative to the grid mean, so total fleet effort is unchanged and
         "uniform" reproduces a run with no spatial fishing.
+    initial_state_vector : np.ndarray, optional
+        Flattened initial coupled state vector with shape
+        ``[(n_groups+1) * n_patches]``. If omitted, start biomass is
+        distributed uniformly across patches.
+    store_state_vectors : bool
+        If True, stores per-timestep flattened state vectors as
+        ``output.out_StateVector`` for coupled workflow diagnostics.
 
     Returns
     -------
@@ -382,15 +391,24 @@ def rsim_run_spatial(
     n_patches = ecospace.grid.n_patches
     n_groups = scenario.params.NUM_GROUPS
 
-    # Initialize spatial state
-    # Expand initial state to spatial
+    # Initialize spatial state from either a provided coupled state-vector
+    # or uniform expansion of the scenario start biomass.
     initial_biomass = scenario.start_state.Biomass  # [n_groups+1]
 
-    # Create spatial initial state
-    # Start with uniform distribution across patches
-    state_spatial = SpatialState(
-        Biomass=np.tile(initial_biomass[:, np.newaxis], (1, n_patches)) / n_patches
-    )
+    if initial_state_vector is None:
+        biomass_spatial0 = np.tile(initial_biomass[:, np.newaxis], (1, n_patches)) / n_patches
+    else:
+        state_vec = np.asarray(initial_state_vector, dtype=float).reshape(-1)
+        expected_size = (n_groups + 1) * n_patches
+        if state_vec.size != expected_size:
+            raise ValueError(
+                f"initial_state_vector length {state_vec.size} does not match expected {expected_size}"
+            )
+        if np.any(state_vec < 0):
+            raise ValueError("initial_state_vector must be non-negative")
+        biomass_spatial0 = state_vec.reshape(n_groups + 1, n_patches)
+
+    state_spatial = SpatialState(Biomass=biomass_spatial0.copy())
 
     # Convert scenario to dictionary format for deriv function
     # Must match the key names that deriv_vector expects (same as rsim_run in ecosim.py)
@@ -452,10 +470,17 @@ def rsim_run_spatial(
     n_rows = n_months + 1
     out_Biomass_spatial = np.zeros((n_rows, n_groups + 1, n_patches), dtype=float)
     out_Biomass = np.zeros((n_rows, n_groups + 1), dtype=float)
+    out_StateVector = (
+        np.zeros((n_rows, (n_groups + 1) * n_patches), dtype=float)
+        if store_state_vectors
+        else None
+    )
 
     # Initial conditions
     out_Biomass_spatial[0] = state_spatial.Biomass
     out_Biomass[0] = state_spatial.collapse_to_total()
+    if out_StateVector is not None:
+        out_StateVector[0] = state_spatial.Biomass.reshape(-1)
 
     # Time integration (RK4)
     current_biomass = state_spatial.Biomass.copy()
@@ -573,6 +598,8 @@ def rsim_run_spatial(
         # Store results
         out_Biomass_spatial[month_idx] = current_biomass
         out_Biomass[month_idx] = current_biomass.sum(axis=1)  # Sum over patches
+        if out_StateVector is not None:
+            out_StateVector[month_idx] = current_biomass.reshape(-1)
 
     # Create output (simplified for now - full output would include catch, etc.)
     from pypath.core.ecosim import RsimOutput, RsimState
@@ -610,5 +637,8 @@ def rsim_run_spatial(
 
     # Add spatial output as new attribute
     output.out_Biomass_spatial = out_Biomass_spatial
+    output.state_vector_final = current_biomass.reshape(-1).copy()
+    if out_StateVector is not None:
+        output.out_StateVector = out_StateVector
 
     return output

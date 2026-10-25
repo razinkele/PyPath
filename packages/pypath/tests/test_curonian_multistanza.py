@@ -5,6 +5,7 @@ Validates that the multi-stanza configuration is correctly set up
 and can integrate with Ecosim.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -12,14 +13,37 @@ import pytest
 
 from pypath.io.ewemdb import read_ewemdb
 
-# Add scripts to path for importing
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+# Add repo-root scripts directory to path for importing
+_TEST_FILE = Path(__file__).resolve()
+_REPO_ROOT = _TEST_FILE.parents[3]
+_SCRIPTS_DIR = _REPO_ROOT / "scripts"
+if _SCRIPTS_DIR.exists():
+    sys.path.insert(0, str(_SCRIPTS_DIR))
 
-from curonian_multistanza_example import (
+from curonian_multistanza_example import (  # noqa: E402
     create_stanza_definitions,
     distribute_biomass_across_stanzas,
     setup_multistanza_groups,
 )
+
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
+
+def _get_curonian_model_path() -> Path:
+    env_path = os.environ.get("CURONIAN_EWE_PATH")
+    default_path = Path(
+        r"C:\\Users\\DELL\\OneDrive - ku.lt\\ECOPATH\\ECOPATH paper\\curonian pelagic.eweaccdb"
+    )
+    return Path(env_path) if env_path else default_path
+
+
+def _load_curonian_model_or_skip():
+    model_path = _get_curonian_model_path()
+    if not model_path.exists():
+        pytest.skip(
+            f"Curonian model file not found at {model_path}. Set CURONIAN_EWE_PATH to run these integration tests."
+        )
+    return read_ewemdb(str(model_path))
 
 
 class TestStanzaDefinitions:
@@ -62,7 +86,6 @@ class TestBiomassDistribution:
         """Total biomass across stanzas should equal original."""
         import numpy as np
         original = 1.777
-        ages = np.array([12, 36])
         weights = np.array([0.1, 0.5])
 
         stanza_biomass = distribute_biomass_across_stanzas(original, 2, weights)
@@ -88,8 +111,7 @@ class TestMultistanzaSetup:
     @pytest.fixture
     def ecopath_params(self):
         """Load Curonian Ecopath model."""
-        model_path = r"C:\Users\DELL\OneDrive - ku.lt\ECOPATH\ECOPATH paper\curonian pelagic.eweaccdb"
-        return read_ewemdb(model_path)
+        return _load_curonian_model_or_skip()
 
     def test_stanza_setup_creates_groups(self, ecopath_params):
         """Test that stanza setup creates correct number of stanza individuals."""
@@ -118,14 +140,14 @@ class TestMultistanzaSetup:
         assert demersal_juv.first == 0
         assert demersal_juv.last == 24
         assert demersal_juv.z == 1.2
-        assert demersal_juv.leading == True
+        assert demersal_juv.leading
 
         # Check second individual (demersal adult)
         demersal_ad = stanzas.stanza_individuals[1]
         assert demersal_ad.first == 24
         assert demersal_ad.last == 48
         assert demersal_ad.z == 0.6
-        assert demersal_ad.leading == False
+        assert not demersal_ad.leading
 
     def test_predatory_three_stanzas(self, ecopath_params):
         """Test predatory fish has 3 stanzas."""
@@ -149,8 +171,7 @@ class TestModelIntegration:
     @pytest.fixture
     def ecopath_params(self):
         """Load Curonian Ecopath model."""
-        model_path = r"C:\Users\DELL\OneDrive - ku.lt\ECOPATH\ECOPATH paper\curonian pelagic.eweaccdb"
-        return read_ewemdb(model_path)
+        return _load_curonian_model_or_skip()
 
     def test_can_create_ecopath_model(self, ecopath_params):
         """Test that model can be balanced with Ecopath."""

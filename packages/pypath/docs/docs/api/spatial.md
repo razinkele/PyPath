@@ -92,3 +92,48 @@ dispersal, habitat effects, and optional IBM groups across the grid.
 ::: pypath.spatial.integration
     options:
       show_root_heading: true
+
+
+## Advanced Movement
+
+Higher-level movement utilities for behavioral migration, ontogenetic shifts,
+and predator-avoidance flows.
+
+::: pypath.spatial.movement
+    options:
+      show_root_heading: true
+
+## Larval Dispersal
+
+Larval advection, settlement, and source-sink connectivity helpers.
+
+::: pypath.spatial.larval_dispersal
+    options:
+      show_root_heading: true
+
+## Spatial Forcing
+
+Patch-resolved forcing fields for upwelling, latitudinal temperature gradients,
+and oxygen-minimum zone masks.
+
+::: pypath.spatial.forcing
+    options:
+      show_root_heading: true
+
+## Ecological Interactions
+
+Spatial predator-prey and metapopulation interaction helpers.
+
+::: pypath.spatial.ecological_interactions
+    options:
+      show_root_heading: true
+
+
+## Coupled Ecosim-Ecospace State Vector
+
+Unified state-vector helpers for coupled simulations, including vector
+roundtrip conversions and runtime wrappers.
+
+::: pypath.spatial.coupling
+    options:
+      show_root_heading: true

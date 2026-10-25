@@ -346,7 +346,7 @@ _compute_consumption_sparse = _compute_consumption_sparse_python
 # =============================================================================
 
 
-def _compute_living_derivs_python(
+def _compute_living_derivs_kernel_python(
     deriv,
     QQ,
     BB,
@@ -355,12 +355,13 @@ def _compute_living_derivs_python(
     FishMort,
     pp_rates,
     GE_arr,
+    RecruitmentMult,
     PP_type,
     PB,
     QB,
     ibm_mask,
     NUM_LIVING,
-    NUM_GROUPS,
+    NUM_GROUPS=None,
 ):
     """Compute derivatives for living groups in-place.
 
@@ -375,6 +376,7 @@ def _compute_living_derivs_python(
         production       = pp_rates[i]              if PP_type[i] > 0
                          = GE_arr[i] * consumption  if QB[i] > 0
                          = PB[i] * BB[i]            otherwise
+        production *= RecruitmentMult[i]
         deriv[i] = production - predation_loss
                    - FishMort[i]*BB[i] - M0_arr[i]*BB[i]
                    + ForcedMigrate[i]
@@ -397,6 +399,8 @@ def _compute_living_derivs_python(
         Primary production rates per group.
     GE_arr : np.ndarray
         Gross efficiency (PB/QB) per group; 0 for non-consumers.
+    RecruitmentMult : np.ndarray
+        Recruitment multipliers per group.
     PP_type : np.ndarray
         Producer type per group (int).
     PB : np.ndarray
@@ -432,6 +436,8 @@ def _compute_living_derivs_python(
         else:
             production = PB[i] * BB[i]
 
+        production *= RecruitmentMult[i]
+
         deriv[i] = (
             production
             - predation_loss
@@ -441,10 +447,158 @@ def _compute_living_derivs_python(
         )
 
 
+def _parse_living_derivs_tail(QQ, tail):
+    """Parse legacy/new tail arguments for living-derivative kernels.
+
+    Legacy tail (without recruitment multiplier):
+        PP_type, PB, QB, ibm_mask, NUM_LIVING[, NUM_GROUPS]
+
+    Current tail:
+        RecruitmentMult, PP_type, PB, QB, ibm_mask, NUM_LIVING[, NUM_GROUPS]
+    """
+    if len(tail) not in {5, 6, 7}:
+        raise TypeError(
+            "_compute_living_derivs* expected 5-7 trailing arguments after GE_arr"
+        )
+
+    # Legacy signatures always have scalar NUM_LIVING at position 4.
+    if len(tail) in {5, 6} and np.isscalar(tail[4]):
+        RecruitmentMult = np.ones(QQ.shape[0], dtype=float)
+        PP_type, PB, QB, ibm_mask, NUM_LIVING = tail[:5]
+        NUM_GROUPS = tail[5] if len(tail) == 6 else None
+        return (
+            RecruitmentMult,
+            PP_type,
+            PB,
+            QB,
+            ibm_mask,
+            int(NUM_LIVING),
+            NUM_GROUPS,
+        )
+
+    # Current signatures
+    RecruitmentMult, PP_type, PB, QB, ibm_mask, NUM_LIVING = tail[:6]
+    NUM_GROUPS = tail[6] if len(tail) == 7 else None
+    return (
+        np.asarray(RecruitmentMult, dtype=float),
+        PP_type,
+        PB,
+        QB,
+        ibm_mask,
+        int(NUM_LIVING),
+        NUM_GROUPS,
+    )
+
+
+
+def _compute_living_derivs_python(
+    deriv,
+    QQ,
+    BB,
+    M0_arr,
+    ForcedMigrate,
+    FishMort,
+    pp_rates,
+    GE_arr,
+    *tail,
+):
+    """Backward-compatible wrapper for living-group derivative kernel."""
+    (
+        RecruitmentMult,
+        PP_type,
+        PB,
+        QB,
+        ibm_mask,
+        NUM_LIVING,
+        NUM_GROUPS,
+    ) = _parse_living_derivs_tail(QQ, tail)
+
+    if NUM_GROUPS is None:
+        NUM_GROUPS = QQ.shape[0] - 1
+
+    return _compute_living_derivs_kernel_python(
+        deriv,
+        QQ,
+        BB,
+        M0_arr,
+        ForcedMigrate,
+        FishMort,
+        pp_rates,
+        GE_arr,
+        RecruitmentMult,
+        PP_type,
+        PB,
+        QB,
+        ibm_mask,
+        NUM_LIVING,
+        int(NUM_GROUPS),
+    )
+
+
 if HAS_NUMBA:
-    _compute_living_derivs_numba = numba.njit(cache=True)(_compute_living_derivs_python)
+    _compute_living_derivs_numba_kernel = numba.njit(cache=True)(
+        _compute_living_derivs_kernel_python
+    )
 else:
-    _compute_living_derivs_numba = None
+    _compute_living_derivs_numba_kernel = None
+
+
+def _compute_living_derivs_numba(
+    deriv,
+    QQ,
+    BB,
+    M0_arr,
+    ForcedMigrate,
+    FishMort,
+    pp_rates,
+    GE_arr,
+    *tail,
+):
+    """Backward-compatible wrapper around numba living-kernel."""
+    if _compute_living_derivs_numba_kernel is None:
+        return _compute_living_derivs_python(
+            deriv,
+            QQ,
+            BB,
+            M0_arr,
+            ForcedMigrate,
+            FishMort,
+            pp_rates,
+            GE_arr,
+            *tail,
+        )
+
+    (
+        RecruitmentMult,
+        PP_type,
+        PB,
+        QB,
+        ibm_mask,
+        NUM_LIVING,
+        NUM_GROUPS,
+    ) = _parse_living_derivs_tail(QQ, tail)
+
+    if NUM_GROUPS is None:
+        NUM_GROUPS = QQ.shape[0] - 1
+
+    return _compute_living_derivs_numba_kernel(
+        deriv,
+        QQ,
+        BB,
+        M0_arr,
+        ForcedMigrate,
+        FishMort,
+        pp_rates,
+        GE_arr,
+        RecruitmentMult,
+        PP_type,
+        PB,
+        QB,
+        ibm_mask,
+        NUM_LIVING,
+        int(NUM_GROUPS),
+    )
+
 
 
 def _compute_living_derivs(
@@ -456,15 +610,23 @@ def _compute_living_derivs(
     FishMort,
     pp_rates,
     GE_arr,
-    PP_type,
-    PB,
-    QB,
-    ibm_mask,
-    NUM_LIVING,
-    NUM_GROUPS,
+    *tail,
 ):
     """Dispatch to numba-compiled or pure-Python living-group derivative kernel."""
-    if _compute_living_derivs_numba is not None:
+    (
+        RecruitmentMult,
+        PP_type,
+        PB,
+        QB,
+        ibm_mask,
+        NUM_LIVING,
+        NUM_GROUPS,
+    ) = _parse_living_derivs_tail(QQ, tail)
+
+    if NUM_GROUPS is None:
+        NUM_GROUPS = QQ.shape[0] - 1
+
+    if _compute_living_derivs_numba_kernel is not None:
         _compute_living_derivs_numba(
             deriv,
             QQ,
@@ -474,15 +636,16 @@ def _compute_living_derivs(
             FishMort,
             pp_rates,
             GE_arr,
+            RecruitmentMult,
             PP_type,
             PB,
             QB,
             ibm_mask,
             NUM_LIVING,
-            NUM_GROUPS,
+            int(NUM_GROUPS),
         )
     else:
-        _compute_living_derivs_python(
+        _compute_living_derivs_kernel_python(
             deriv,
             QQ,
             BB,
@@ -491,12 +654,13 @@ def _compute_living_derivs(
             FishMort,
             pp_rates,
             GE_arr,
+            RecruitmentMult,
             PP_type,
             PB,
             QB,
             ibm_mask,
             NUM_LIVING,
-            NUM_GROUPS,
+            int(NUM_GROUPS),
         )
 
 
@@ -1107,6 +1271,9 @@ def deriv_vector(
     PP_forcing = forcing.get("PP_forcing", np.ones(NUM_GROUPS + 1))
     ForcedPrey = forcing.get("ForcedPrey", np.ones(NUM_GROUPS + 1))
     ForcedMigrate = forcing.get("ForcedMigrate", np.zeros(NUM_GROUPS + 1))
+    ForcedActresp = forcing.get("ForcedActresp", np.ones(NUM_GROUPS + 1))
+    ForcedRecs = forcing.get("ForcedRecs", np.ones(NUM_GROUPS + 1))
+    RecruitmentAdj = forcing.get("RecruitmentAdj", np.ones(NUM_GROUPS + 1))
 
     # Calculate relative biomass arrays (vectorized)
     # preyYY = Ftime * B / Bbase * prey_forcing (where Bbase > 0)
@@ -1353,15 +1520,72 @@ def deriv_vector(
             _ibm_mask[_ibm_i] = 1
     _PP_type_int = np.asarray(PP_type, dtype=np.int64)
 
+    _forced_recs_arr = np.asarray(ForcedRecs, dtype=float).reshape(-1)
+    if _forced_recs_arr.size != NUM_GROUPS + 1:
+        _forced_recs_arr = np.ones(NUM_GROUPS + 1)
+
+    _recruitment_adj_arr = np.asarray(RecruitmentAdj, dtype=float).reshape(-1)
+    if _recruitment_adj_arr.size != NUM_GROUPS + 1:
+        _recruitment_adj_arr = np.ones(NUM_GROUPS + 1)
+
+    _RecruitmentMult = _forced_recs_arr * _recruitment_adj_arr
+    _RecruitmentMult = np.where(
+        np.isfinite(_RecruitmentMult) & (_RecruitmentMult > 0.0),
+        _RecruitmentMult,
+        1.0,
+    )
+
+    _forced_actresp_arr = np.asarray(ForcedActresp, dtype=float).reshape(-1)
+    if _forced_actresp_arr.size != NUM_GROUPS + 1:
+        _forced_actresp_arr = np.ones(NUM_GROUPS + 1)
+    _forced_actresp_arr = np.where(
+        np.isfinite(_forced_actresp_arr) & (_forced_actresp_arr > 0.0),
+        _forced_actresp_arr,
+        1.0,
+    )
+
+    _MetabolicMult = _forced_actresp_arr.copy()
+
+    # Optional model-based temperature + size metabolic scaling
+    _met_model = params.get("MetabolismModel", None)
+    _met_temp = params.get("MetabolicTemperature", None)
+    _met_mass = params.get("MetabolicBodyMass", None)
+    if _met_model is not None and _met_temp is not None and _met_mass is not None:
+        try:
+            temp_arr = np.asarray(_met_temp, dtype=float).reshape(-1)
+            mass_arr = np.asarray(_met_mass, dtype=float).reshape(-1)
+            if temp_arr.size == NUM_GROUPS + 1 and mass_arr.size == NUM_GROUPS + 1:
+                ref_temp = _met_model.temperature_dependence.reference_temperature
+                base_temp = np.full(NUM_GROUPS + 1, ref_temp, dtype=float)
+                rates = _met_model.compute_metabolic_rate_batch(
+                    body_mass=mass_arr,
+                    temperature=temp_arr,
+                    activity_multiplier=_forced_actresp_arr,
+                )
+                baseline = _met_model.compute_metabolic_rate_batch(
+                    body_mass=mass_arr,
+                    temperature=base_temp,
+                    activity_multiplier=np.ones(NUM_GROUPS + 1, dtype=float),
+                )
+                _model_mult = np.where(baseline > 0.0, rates / baseline, 1.0)
+                _MetabolicMult *= np.where(
+                    np.isfinite(_model_mult) & (_model_mult > 0.0), _model_mult, 1.0
+                )
+        except Exception as _met_err:
+            logger.debug("Metabolic model scaling skipped: %s", _met_err)
+
+    _M0_effective = _M0_safe * _MetabolicMult
+
     _compute_living_derivs(
         deriv,
         QQ,
         BB,
-        _M0_safe,
+        _M0_effective,
         ForcedMigrate,
         FishMort,
         pp_rates,
         _GE_arr,
+        _RecruitmentMult,
         _PP_type_int,
         PB,
         QB,
@@ -1382,13 +1606,15 @@ def deriv_vector(
             # Recompute per-group terms for logging (cheap scalar ops)
             consumption = float(np.sum(QQ[1:, i]))
             predation_loss = float(np.sum(QQ[i, 1 : NUM_LIVING + 1]))
-            m0 = float(_M0_safe[i])
+            m0 = float(_M0_effective[i])
             if PP_type[i] > 0:
                 production = float(pp_rates[i])
             elif QB[i] > 0:
                 production = float(_GE_arr[i] * consumption)
             else:
                 production = float(PB[i] * BB[i])
+
+            production *= float(_RecruitmentMult[i])
 
             # Debug trace for specific groups if requested
             try:

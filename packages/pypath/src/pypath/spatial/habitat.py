@@ -12,6 +12,9 @@ Implements functions that map environmental conditions to habitat suitability:
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
 from typing import Callable, List, Optional
 
 import numpy as np
@@ -443,4 +446,163 @@ def apply_habitat_preference_and_suitability(
         raise ValueError(
             f"Unknown combine_method '{combine_method}'. "
             f"Must be one of: multiplicative, minimum, average"
+        )
+
+
+# Phase 1C.2a habitat mapping extensions
+
+class SubstrateType(str, Enum):
+    """Canonical substrate categories for habitat maps."""
+
+    MUD = "mud"
+    SAND = "sand"
+    GRAVEL = "gravel"
+    ROCK = "rock"
+    VEGETATION = "vegetation"
+    MIXED = "mixed"
+
+
+@dataclass
+class HabitatQuality:
+    """Patch-level habitat quality components."""
+
+    substrate_quality: float
+    structural_complexity: float = 1.0
+    environmental_suitability: float = 1.0
+
+    def overall(self) -> float:
+        """Compute bounded overall habitat quality in [0, 1]."""
+        quality = (
+            self.substrate_quality
+            * self.structural_complexity
+            * self.environmental_suitability
+        )
+        return float(np.clip(quality, 0.0, 1.0))
+
+
+@dataclass
+class HabitatMap:
+    """Spatial habitat map with substrate and quality layers."""
+
+    substrate: np.ndarray
+    quality: np.ndarray | None = None
+    cell_area_km2: float = 1.0
+    metadata: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self):
+        self.substrate = np.asarray(self.substrate)
+        if self.substrate.ndim != 2:
+            raise ValueError(
+                f"substrate must be 2D [rows, cols], got {self.substrate.ndim}D"
+            )
+        if self.quality is None:
+            self.quality = np.ones(self.substrate.shape, dtype=float)
+        else:
+            self.quality = np.asarray(self.quality, dtype=float)
+            if self.quality.shape != self.substrate.shape:
+                raise ValueError(
+                    f"quality shape {self.quality.shape} must match substrate shape "
+                    f"{self.substrate.shape}"
+                )
+        if self.cell_area_km2 <= 0:
+            raise ValueError(f"cell_area_km2 must be > 0, got {self.cell_area_km2}")
+        if not np.isfinite(self.quality).all():
+            raise ValueError("quality contains non-finite values")
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Grid shape as (rows, cols)."""
+        return self.substrate.shape
+
+    @property
+    def n_cells(self) -> int:
+        """Number of cells in the map."""
+        return int(self.substrate.size)
+
+    def flatten_quality(self) -> np.ndarray:
+        """Return habitat quality as flattened 1D vector."""
+        return self.quality.reshape(-1).copy()
+
+    def flatten_substrate(self) -> np.ndarray:
+        """Return substrate as flattened 1D vector."""
+        return self.substrate.reshape(-1).copy()
+
+    def get_substrate_mask(self, substrate_type: SubstrateType | str) -> np.ndarray:
+        """Boolean mask for all cells of a given substrate."""
+        value = (
+            substrate_type.value
+            if isinstance(substrate_type, SubstrateType)
+            else str(substrate_type)
+        )
+        return self.substrate == value
+
+    def compute_species_quality(
+        self, substrate_preferences: dict[str | SubstrateType, float]
+    ) -> np.ndarray:
+        """Compute species-specific quality from substrate preferences."""
+        result = np.zeros(self.shape, dtype=float)
+        for key, score in substrate_preferences.items():
+            mask = self.get_substrate_mask(key)
+            result[mask] = float(np.clip(score, 0.0, 1.0))
+        return np.clip(result * self.quality, 0.0, 1.0)
+
+    @classmethod
+    def from_array(
+        cls,
+        substrate: np.ndarray,
+        quality: np.ndarray | None = None,
+        cell_area_km2: float = 1.0,
+    ) -> "HabitatMap":
+        """Create habitat map from in-memory arrays."""
+        return cls(substrate=substrate, quality=quality, cell_area_km2=cell_area_km2)
+
+    @classmethod
+    def from_csv(
+        cls,
+        substrate_path: str | Path,
+        quality_path: str | Path | None = None,
+        delimiter: str = ",",
+        cell_area_km2: float = 1.0,
+    ) -> "HabitatMap":
+        """Load habitat map from CSV rasters."""
+        substrate = np.loadtxt(substrate_path, dtype=str, delimiter=delimiter)
+        quality = (
+            np.loadtxt(quality_path, dtype=float, delimiter=delimiter)
+            if quality_path is not None
+            else None
+        )
+        return cls(
+            substrate=substrate,
+            quality=quality,
+            cell_area_km2=cell_area_km2,
+            metadata={"source": "csv"},
+        )
+
+    @classmethod
+    def from_netcdf(
+        cls,
+        path: str | Path,
+        substrate_var: str,
+        quality_var: str | None = None,
+        cell_area_km2: float = 1.0,
+    ) -> "HabitatMap":
+        """Load habitat map from NetCDF."""
+        try:
+            import xarray as xr
+        except ImportError as exc:
+            raise ImportError(
+                "xarray is required to load habitat maps from NetCDF"
+            ) from exc
+
+        ds = xr.open_dataset(path)
+        try:
+            substrate = ds[substrate_var].values
+            quality = ds[quality_var].values if quality_var is not None else None
+        finally:
+            ds.close()
+        return cls(
+            substrate=substrate,
+            quality=quality,
+            cell_area_km2=cell_area_km2,
+            metadata={"source": "netcdf"},
         )
