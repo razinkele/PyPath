@@ -15,6 +15,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 # Configuration imports
 from pypath_shiny.config import PARAM_RANGES
 from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
+from pypath_shiny.services.gt_formatters import format_params_table
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -455,15 +456,18 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="growth_plot_fig"))
 
     @output
-    @render.data_frame
+    @render.ui
     def stanza_table():
         """Render stanza properties table."""
         df = stanza_data()
         if df is None:
-            return pd.DataFrame(
-                {"Message": ['Click "Calculate Stanza Properties" to generate table']}
+            return format_params_table(
+                pd.DataFrame(
+                    {"Message": ['Click "Calculate Stanza Properties" to generate table']}
+                ),
+                title="Stanza Properties",
             )
-        return render.DataGrid(df, width="100%", height="400px")
+        return format_params_table(df, title="Stanza Properties")
 
     @output
     @render.ui

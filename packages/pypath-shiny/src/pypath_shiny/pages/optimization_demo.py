@@ -12,6 +12,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 from pypath_shiny.config import PARAM_RANGES
 
 # Configuration imports
+from pypath_shiny.services.gt_formatters import format_dataframe
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -789,14 +790,17 @@ Objective Function: {cfg["objective"].upper()}
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
     @output
-    @render.data_frame
+    @render.ui
     def results_table():
         """Display results comparison table."""
         results = optimization_results()
         data = synthetic_data()
 
         if results is None or data is None:
-            return pd.DataFrame({"Message": ["Run optimization first"]})
+            return format_dataframe(
+                pd.DataFrame({"Message": ["Run optimization first"]}),
+                title="Results Comparison",
+            )
 
         best_param = results["best_x"]
         years = np.arange(len(data))
@@ -816,7 +820,7 @@ Objective Function: {cfg["objective"].upper()}
             }
         )
 
-        return render.DataGrid(df, width="100%", height="400px")
+        return format_dataframe(df, title="Results Comparison")
 
     def _opt_code():
         return build_optimization_code(

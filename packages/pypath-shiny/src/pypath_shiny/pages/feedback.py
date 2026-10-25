@@ -20,6 +20,7 @@ from pypath_shiny.services.feedback_store import (
     resolve_feedback,
     weekly_feedback_counts,
 )
+from pypath_shiny.services.gt_formatters import format_dataframe
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_success,
@@ -344,11 +345,11 @@ def feedback_server(
         return fig
 
     @output
-    @render.data_frame
+    @render.ui
     def feedback_grid():
         entries = _entries()
         if not entries:
-            return render.DataGrid(
+            return format_dataframe(
                 pd.DataFrame(
                     [
                         {
@@ -359,7 +360,7 @@ def feedback_server(
                         }
                     ]
                 ),
-                width="100%",
+                title="Feedback Entries",
             )
 
         df = pd.DataFrame(
@@ -376,7 +377,7 @@ def feedback_server(
                 for e in entries
             ]
         )
-        return render.DataGrid(df, width="100%", filters=True)
+        return format_dataframe(df, title="Feedback Entries")
 
     @reactive.effect
     def _sync_selected_feedback() -> None:
