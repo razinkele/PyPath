@@ -11,7 +11,7 @@ def test_topbar_contains_about_and_changelog_controls():
     assert "btn_topbar_about" in ui_str
     assert "Changelog" in ui_str
     assert f"v{__version__}" in ui_str
-    assert "packages/pypath-shiny/CHANGELOG.md" in ui_str
+    assert "blob/main/CHANGELOG.md" in ui_str
 
 
 def test_topbar_about_button_routes_to_about_nav():

@@ -66,7 +66,7 @@ from pypath_shiny.pages import (  # noqa: E402
     tutorial,
 )
 
-CHANGELOG_URL = "https://github.com/razinkele/PyPath/blob/main/packages/pypath-shiny/CHANGELOG.md"
+CHANGELOG_URL = "https://github.com/razinkele/PyPath/blob/main/CHANGELOG.md"
 
 
 def _icon_label(icon_class: str, text: str) -> ui.TagList:
@@ -508,7 +508,36 @@ def main():
     )
 
 
-# Create the app with static assets
-app = App(app_ui, server, static_assets=APP_DIR / "static")
+# Create the base Shiny ASGI app
+shiny_app = App(app_ui, server, static_assets=APP_DIR / "static")
+
+HEALTH_PATHS = {
+    "/api/health",
+    "/api/health/",
+    "/pypath/api/health",
+    "/pypath/api/health/",
+}
 
 
+async def app(scope, receive, send):
+    """ASGI app wrapper with a lightweight health-check endpoint."""
+    if scope.get("type") == "http":
+        method = (scope.get("method") or "GET").upper()
+        path = scope.get("path") or ""
+        if method in {"GET", "HEAD"} and path in HEALTH_PATHS:
+            payload = (
+                f'{{"status":"ok","service":"pypath-shiny","version":"{__version__}"}}'
+            ).encode("utf-8")
+            body = b"" if method == "HEAD" else payload
+            headers = [
+                (b"content-type", b"application/json; charset=utf-8"),
+                (b"cache-control", b"no-store"),
+                (b"content-length", str(len(body)).encode("ascii")),
+            ]
+            await send(
+                {"type": "http.response.start", "status": 200, "headers": headers}
+            )
+            await send({"type": "http.response.body", "body": body, "more_body": False})
+            return
+
+    await shiny_app(scope, receive, send)
