@@ -4479,7 +4479,6 @@ def read_value_chain(db_path: str) -> ValueChainData | None:
     return ValueChainData(**fields)
 
 
-
 def read_ewe_samples(
     filepath: Union[str, Path],
     sample_id: Optional[int] = None,
@@ -4556,14 +4555,18 @@ def read_ewe_samples(
     result_containers = {}
 
     # Read group name mapping
-    group_df = read_ewemdb_table(db_path, "EcopathGroup") if "EcopathGroup" in tables else None
+    group_df = (
+        read_ewemdb_table(db_path, "EcopathGroup") if "EcopathGroup" in tables else None
+    )
     group_names = {}
     if group_df is not None:
         for _, row in group_df.iterrows():
             group_names[int(row["GroupID"])] = str(row["GroupName"])
 
     # Read fleet name mapping
-    fleet_df = read_ewemdb_table(db_path, "EcopathFleet") if "EcopathFleet" in tables else None
+    fleet_df = (
+        read_ewemdb_table(db_path, "EcopathFleet") if "EcopathFleet" in tables else None
+    )
     fleet_names = {}
     if fleet_df is not None:
         for _, row in fleet_df.iterrows():
@@ -4580,7 +4583,9 @@ def read_ewe_samples(
             if len(group_sample_df) > 0:
                 # Get first group's replicate count
                 first_group = group_sample_df["GroupID"].iloc[0]
-                n_replicates = len(group_sample_df[group_sample_df["GroupID"] == first_group])
+                n_replicates = len(
+                    group_sample_df[group_sample_df["GroupID"] == first_group]
+                )
 
         if n_replicates == 0:
             logger.warning(f"No replicates found for sample {sid}, skipping")
@@ -4616,7 +4621,9 @@ def read_ewe_samples(
                     container.add_group_sample(sample_obj)
 
             except Exception as e:
-                logger.warning(f"Failed to read EcopathGroupSample for sample {sid}: {e}")
+                logger.warning(
+                    f"Failed to read EcopathGroupSample for sample {sid}: {e}"
+                )
 
         # Read EcopathDietCompSample
         if "EcopathDietCompSample" in tables:

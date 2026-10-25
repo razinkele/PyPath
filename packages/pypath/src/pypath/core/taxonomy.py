@@ -106,9 +106,7 @@ class TaxonLink:
 
         # At least kingdom should be filled
         if not self.kingdom or not self.kingdom.strip():
-            logger.warning(
-                f"TaxonLink {self.scientific_name}: kingdom is empty"
-            )
+            logger.warning(f"TaxonLink {self.scientific_name}: kingdom is empty")
             return False
 
         return True
@@ -227,8 +225,7 @@ class TaxonomyLinkage:
         """
         if scientific_name not in self.taxa:
             msg = (
-                f"Scientific name '{scientific_name}' not in taxonomy. "
-                f"Add taxon first."
+                f"Scientific name '{scientific_name}' not in taxonomy. Add taxon first."
             )
             raise KeyError(msg)
 
@@ -260,21 +257,16 @@ class TaxonomyLinkage:
         for group_name, sci_name in self.group_assignments.items():
             if sci_name not in self.taxa:
                 errors.append(
-                    f"Group '{group_name}' assigned to non-existent taxon "
-                    f"'{sci_name}'"
+                    f"Group '{group_name}' assigned to non-existent taxon '{sci_name}'"
                 )
 
         # Check for duplicate group assignments (groups should map 1:1 to taxa)
         assigned_taxa = list(self.group_assignments.values())
         if len(assigned_taxa) != len(set(assigned_taxa)):
-            duplicates = [
-                t for t in set(assigned_taxa)
-                if assigned_taxa.count(t) > 1
-            ]
+            duplicates = [t for t in set(assigned_taxa) if assigned_taxa.count(t) > 1]
             for dup_taxon in duplicates:
                 groups = [
-                    g for g, t in self.group_assignments.items()
-                    if t == dup_taxon
+                    g for g, t in self.group_assignments.items() if t == dup_taxon
                 ]
                 errors.append(
                     f"Taxon '{dup_taxon}' assigned to multiple groups: {groups}"
@@ -364,13 +356,9 @@ class TaxonomyLinkage:
                     else None
                 ),
                 "itis_tsn": (
-                    str(row["itis_tsn"])
-                    if pd.notna(row.get("itis_tsn"))
-                    else None
+                    str(row["itis_tsn"]) if pd.notna(row.get("itis_tsn")) else None
                 ),
-                "match_confidence": float(
-                    row.get("match_confidence", 1.0)
-                ),
+                "match_confidence": float(row.get("match_confidence", 1.0)),
             }
 
             taxon = TaxonLink.from_dict(taxon_data)
@@ -424,10 +412,7 @@ def resolve_worms_link(
     TaxonLink or None
         Resolved taxon with WoRMS data, or None if not found.
     """
-    logger.debug(
-        f"WoRMS lookup stub for: {scientific_name} "
-        "(API integration pending)"
-    )
+    logger.debug(f"WoRMS lookup stub for: {scientific_name} (API integration pending)")
     # TODO: Implement WoRMS REST API query
     # Expected workflow:
     # 1. Call WoRMS API: https://www.marinespecies.org/rest/AphiaNameByName
@@ -468,4 +453,3 @@ def batch_resolve_worms(
     # 4. Return mapping
     result = {name: None for name in scientific_names}
     return result
-

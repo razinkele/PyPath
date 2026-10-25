@@ -68,7 +68,9 @@ class TestMetabolismWiring:
         out_baseline = rsim_run(baseline, method="RK4")
 
         scenario = rsim_scenario(model, params, years=range(1, 5))
-        temp_model = TemperatureDependence(q10_coefficient=2.0, reference_temperature=10.0)
+        temp_model = TemperatureDependence(
+            q10_coefficient=2.0, reference_temperature=10.0
+        )
         met_model = MetabolicModel(
             base_metabolism=0.2,
             mass_exponent=0.75,

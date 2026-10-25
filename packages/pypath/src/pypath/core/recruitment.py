@@ -158,7 +158,9 @@ class RickerRecruitment(RecruitmentModel):
         time_array: np.ndarray,
         env_factors: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        ssb, _times, env = self._validate_array_lengths(ssb_array, time_array, env_factors)
+        ssb, _times, env = self._validate_array_lengths(
+            ssb_array, time_array, env_factors
+        )
         base = self.alpha * ssb * np.exp(-self.beta * ssb)
         scaled = np.minimum(self.rmax, base) * env
         return np.maximum(0.01, scaled)
@@ -198,7 +200,9 @@ class BevertonHoltRecruitment(RecruitmentModel):
         time_array: np.ndarray,
         env_factors: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        ssb, _times, env = self._validate_array_lengths(ssb_array, time_array, env_factors)
+        ssb, _times, env = self._validate_array_lengths(
+            ssb_array, time_array, env_factors
+        )
         base = (self.alpha * ssb) / (1.0 + self.beta * ssb)
         scaled = np.minimum(self.rmax, base) * env
         return np.maximum(0.01, scaled)
@@ -240,13 +244,14 @@ class MyersRecruitment(RecruitmentModel):
         time_array: np.ndarray,
         env_factors: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        ssb, _times, env = self._validate_array_lengths(ssb_array, time_array, env_factors)
+        ssb, _times, env = self._validate_array_lengths(
+            ssb_array, time_array, env_factors
+        )
         ssb_pow = ssb**self.power
         k_pow = self.k**self.power
         base = self.rmax * ssb_pow / (k_pow + ssb_pow)
         scaled = base * env
         return np.maximum(0.01, scaled)
-
 
 
 class LarvalConnectivity:
@@ -345,6 +350,7 @@ class LarvalConnectivity:
             f"sources={len(self.source_groups)}, targets={len(self.target_groups)}, "
             f"survival_rate={self.survival_rate})"
         )
+
 
 def validate_recruitment_params(model_type: str, **kwargs) -> dict[str, float | str]:
     """Validate model parameters for recruitment model construction."""
