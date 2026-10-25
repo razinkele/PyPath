@@ -129,10 +129,16 @@ def _corrcoef_safe(*args, **kwargs):
 _np.corrcoef = _corrcoef_safe
 
 
+def get_health_status() -> dict[str, str]:
+    """Return a lightweight health payload for pypath-ewe API checks."""
+    return {"status": "ok", "service": "pypath-ewe", "version": __version__}
+
+
 __all__ = [
     # Version
     "__version__",
     "__author__",
+    "get_health_status",
     # Ecopath
     "RpathParams",
     "create_rpath_params",

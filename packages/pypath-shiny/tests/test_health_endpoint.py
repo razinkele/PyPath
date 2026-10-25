@@ -3,7 +3,7 @@
 import asyncio
 import json
 
-from pypath_shiny import __version__
+from pypath import __version__
 from pypath_shiny.app import app
 
 
@@ -49,7 +49,7 @@ def test_health_endpoint_returns_ok_json():
     payload = json.loads(body.decode("utf-8"))
     assert payload == {
         "status": "ok",
-        "service": "pypath-shiny",
+        "service": "pypath-ewe",
         "version": __version__,
     }
 

@@ -5,6 +5,7 @@ A web-based frontend for the PyPath ecosystem modeling package,
 implementing Ecopath mass-balance and Ecosim dynamic simulation.
 """
 
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -42,6 +43,7 @@ logger = logging.getLogger("pypath_app")
 APP_DIR = Path(__file__).parent
 
 # Configuration imports
+from pypath import get_health_status  # noqa: E402
 from pypath_shiny import __version__  # noqa: E402
 from pypath_shiny.config import UI  # noqa: E402
 
@@ -525,9 +527,8 @@ async def app(scope, receive, send):
         method = (scope.get("method") or "GET").upper()
         path = scope.get("path") or ""
         if method in {"GET", "HEAD"} and path in HEALTH_PATHS:
-            payload = (
-                f'{{"status":"ok","service":"pypath-shiny","version":"{__version__}"}}'
-            ).encode("utf-8")
+            payload_obj = get_health_status()
+            payload = json.dumps(payload_obj, separators=(",", ":")).encode("utf-8")
             body = b"" if method == "HEAD" else payload
             headers = [
                 (b"content-type", b"application/json; charset=utf-8"),
