@@ -28,6 +28,10 @@ from pypath_shiny.services.notifications import (  # noqa: E402
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.gt_formatters import (  # noqa: E402
+    format_dataframe,
+    format_diagnostics_table,
+)
 
 
 def _resolve_repo_root() -> Path | None:
@@ -736,7 +740,7 @@ def prebalance_server(
         # Sort by ratio descending
         df = df.sort_values("Ratio", ascending=False, key=lambda x: x.astype(float))
 
-        return render.DataGrid(df, width="100%", height=UI.datagrid_height_tall_px)
+        return format_diagnostics_table(df, "Predator-Prey Ratios")
 
     @output
     @render.data_frame
@@ -754,7 +758,7 @@ def prebalance_server(
         df["Predator_Rate"] = df["Predator_Rate"].apply(lambda x: f"{x:.3f}")
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
-        return render.DataGrid(df, width="100%", height="300px")
+        return format_diagnostics_table(df, "Production/Biomass Ratios")
 
     @output
     @render.data_frame
@@ -772,7 +776,7 @@ def prebalance_server(
         df["Predator_Rate"] = df["Predator_Rate"].apply(lambda x: f"{x:.3f}")
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
-        return render.DataGrid(df, width="100%", height="300px")
+        return format_diagnostics_table(df, "Consumption/Biomass Ratios")
 
     @output
     @render.plot
