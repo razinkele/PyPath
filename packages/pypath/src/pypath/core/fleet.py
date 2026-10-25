@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -147,9 +146,7 @@ class FleetGroup:
         if self.fleet_id < 0:
             raise ValueError(f"fleet_id must be >= 0, got {self.fleet_id}")
         if self.base_effort <= 0:
-            raise ValueError(
-                f"base_effort must be > 0, got {self.base_effort}"
-            )
+            raise ValueError(f"base_effort must be > 0, got {self.base_effort}")
         if self.fuel_efficiency < 0.01 or self.fuel_efficiency > 0.20:
             logger.warning(
                 f"Fleet {self.name}: fuel_efficiency {self.fuel_efficiency} "
@@ -159,9 +156,7 @@ class FleetGroup:
             logger.warning(f"Fleet {self.name}: no gears specified")
         for group, q in self.catchability.items():
             if not (0.0 <= q <= 1.0):
-                raise ValueError(
-                    f"Catchability for {group} must be in [0, 1], got {q}"
-                )
+                raise ValueError(f"Catchability for {group} must be in [0, 1], got {q}")
 
     def is_valid(self) -> bool:
         """Validate fleet definition for completeness.
@@ -275,18 +270,12 @@ class DiscardPath:
     def __post_init__(self) -> None:
         """Validate discard path parameters after initialization."""
         if not (0.0 <= self.discard_rate <= 1.0):
-            raise ValueError(
-                f"discard_rate must be in [0, 1], got {self.discard_rate}"
-            )
+            raise ValueError(f"discard_rate must be in [0, 1], got {self.discard_rate}")
         valid_fates = ("lost", "predation", "detritus", "benthos")
         if self.fate not in valid_fates:
-            raise ValueError(
-                f"fate must be one of {valid_fates}, got {self.fate}"
-            )
+            raise ValueError(f"fate must be one of {valid_fates}, got {self.fate}")
         if self.fate == "predation" and not self.target_group:
-            raise ValueError(
-                "fate='predation' requires target_group to be specified"
-            )
+            raise ValueError("fate='predation' requires target_group to be specified")
 
     def is_valid(self) -> bool:
         """Validate discard path for consistency.
@@ -407,9 +396,7 @@ class FleetDynamics:
             Discard path to add.
         """
         if not path.is_valid():
-            logger.warning(
-                f"Discard path for {path.source_group} is not valid"
-            )
+            logger.warning(f"Discard path for {path.source_group} is not valid")
         if path.source_group not in self.discard_paths:
             self.discard_paths[path.source_group] = []
         self.discard_paths[path.source_group].append(path)
@@ -454,8 +441,7 @@ class FleetDynamics:
             for path in paths:
                 if not path.is_valid():
                     errors.append(
-                        f"Discard path {source} -> {path.target_group} "
-                        "is not valid"
+                        f"Discard path {source} -> {path.target_group} is not valid"
                     )
         return len(errors) == 0, errors
 
@@ -477,9 +463,7 @@ class FleetDynamics:
         discards_data = []
         for paths in self.discard_paths.values():
             discards_data.extend([p.to_dict() for p in paths])
-        discards_df = (
-            pd.DataFrame(discards_data) if discards_data else pd.DataFrame()
-        )
+        discards_df = pd.DataFrame(discards_data) if discards_data else pd.DataFrame()
 
         return {"fleets": fleets_df, "discards": discards_df}
 
@@ -548,9 +532,7 @@ def allocate_catch(
     return {g: total_catch * (q / total_q) for g, q in catchability.items()}
 
 
-def allocate_discards(
-    discard_rate: float, source_group: str
-) -> dict[str, float]:
+def allocate_discards(discard_rate: float, source_group: str) -> dict[str, float]:
     """Allocate discard biomass from a source group.
 
     Computes discard proportion and residual landed proportion from a
@@ -574,9 +556,7 @@ def allocate_discards(
         If discard_rate not in [0, 1].
     """
     if not (0.0 <= discard_rate <= 1.0):
-        raise ValueError(
-            f"discard_rate must be in [0, 1], got {discard_rate}"
-        )
+        raise ValueError(f"discard_rate must be in [0, 1], got {discard_rate}")
     return {
         "discarded": discard_rate,
         "landed": 1.0 - discard_rate,
@@ -613,9 +593,7 @@ def validate_allocation(
     return is_valid
 
 
-def estimate_catch_value(
-    catch: dict[str, float], prices: dict[str, float]
-) -> float:
+def estimate_catch_value(catch: dict[str, float], prices: dict[str, float]) -> float:
     """Estimate total economic value of catch.
 
     Multiplies catch biomass by price per unit (e.g., $/kg) for each group
