@@ -38,7 +38,10 @@ jobs:
         run: pip install -e .
 
       - name: Run EwE parity audit gate
-        run: python scripts/ewe_parity_audit.py
+        run: |
+          python scripts/ewe_parity_audit.py \
+            --matrix ../../docs/parity/ewe_parity_matrix.csv \
+            --output ../../docs/parity/ewe_parity_report.json
 
       - name: Semantic Release (pypath-ewe)
         id: release
