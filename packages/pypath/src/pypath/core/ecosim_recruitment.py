@@ -58,7 +58,9 @@ def add_recruitment_support() -> None:
         from pypath.core.recruitment import LarvalConnectivity
 
         _init_recruitment(self)
-        if connectivity is not None and not isinstance(connectivity, LarvalConnectivity):
+        if connectivity is not None and not isinstance(
+            connectivity, LarvalConnectivity
+        ):
             raise TypeError(
                 "connectivity must be LarvalConnectivity or None, "
                 f"got {type(connectivity).__name__}"
@@ -82,14 +84,15 @@ def add_recruitment_support() -> None:
             model = self._recruitment_models[group]
             ssb = float(ssb_by_group.get(group, 0.0))
             env = 1.0 if env_factors is None else float(env_factors.get(group, 1.0))
-            outputs[group] = float(model.get_recruitment(ssb=ssb, time=time_val, env_factor=env))
+            outputs[group] = float(
+                model.get_recruitment(ssb=ssb, time=time_val, env_factor=env)
+            )
 
         if self._larval_connectivity is not None:
             dispersed = self._larval_connectivity.disperse(outputs)
             outputs.update(dispersed)
 
         return outputs
-
 
     def build_recruitment_vector(
         self: RsimScenario,
@@ -115,7 +118,10 @@ def add_recruitment_support() -> None:
     ) -> None:
         """Write recruitment multipliers into scenario.forcing.ForcedRecs."""
         _init_recruitment(self)
-        if not hasattr(self, "forcing") or getattr(self.forcing, "ForcedRecs", None) is None:
+        if (
+            not hasattr(self, "forcing")
+            or getattr(self.forcing, "ForcedRecs", None) is None
+        ):
             raise ValueError("Scenario forcing.ForcedRecs is not available")
         if month_index < 0 or month_index >= self.forcing.ForcedRecs.shape[0]:
             raise ValueError(f"month_index out of bounds: {month_index}")
@@ -137,7 +143,9 @@ def add_recruitment_support() -> None:
         model = self._recruitment_models.get(group_name)
         if model is None:
             raise ValueError(f"No recruitment model registered for group: {group_name}")
-        return model.get_recruitment_trajectory(ssb_timeline=ssb_timeline, times=np.asarray(times))
+        return model.get_recruitment_trajectory(
+            ssb_timeline=ssb_timeline, times=np.asarray(times)
+        )
 
     def batch_recruitment_evaluation(
         self: RsimScenario,

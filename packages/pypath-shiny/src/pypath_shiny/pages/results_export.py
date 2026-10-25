@@ -46,7 +46,9 @@ def create_results_metadata(
             metadata["model_info"]["detritus"] = int((type_col == 2).sum())
             metadata["model_info"]["fleets"] = int((type_col == 3).sum())
         if "Biomass" in model_summary.columns:
-            metadata["model_info"]["total_biomass"] = float(model_summary["Biomass"].sum())
+            metadata["model_info"]["total_biomass"] = float(
+                model_summary["Biomass"].sum()
+            )
 
     if simulation_output is not None:
         if "monthly_biomass" in simulation_output:
@@ -56,7 +58,10 @@ def create_results_metadata(
             metadata["simulation_info"]["num_groups"] = (
                 biomass_arr.shape[1] if len(biomass_arr.shape) > 1 else 1
             )
-        if "monthly_catch" in simulation_output and simulation_output["monthly_catch"] is not None:
+        if (
+            "monthly_catch" in simulation_output
+            and simulation_output["monthly_catch"] is not None
+        ):
             catch = simulation_output["monthly_catch"]
             catch_arr = np.asarray(catch)
             metadata["simulation_info"]["num_fleets"] = (
@@ -145,11 +150,15 @@ def prepare_csv_export_tables(
 
     if simulation_output is not None:
         try:
-            timeseries = format_timeseries_for_export(simulation_output, annual_summary=False)
+            timeseries = format_timeseries_for_export(
+                simulation_output, annual_summary=False
+            )
             tables["timeseries"] = timeseries
 
             if annual_summary:
-                annual = format_timeseries_for_export(simulation_output, annual_summary=True)
+                annual = format_timeseries_for_export(
+                    simulation_output, annual_summary=True
+                )
                 tables["annual"] = annual
 
             summary = get_timeseries_summary(simulation_output)
