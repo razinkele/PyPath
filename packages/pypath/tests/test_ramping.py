@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
 import numpy as np
+import pytest
+
 from pypath.core.ramping import (
-    RampingFunction,
     LinearRamp,
-    StepwiseRamp,
     PolynomialRamp,
+    RampingFunction,
     SplineRamp,
+    StepwiseRamp,
 )
 
 
@@ -23,11 +24,14 @@ class TestRampingFunctionABC:
 
     def test_rampingfunction_subclass_must_implement_evaluate(self):
         """Subclass without evaluate() fails."""
+
         class BadRamp(RampingFunction):
             def derivative(self, time):
                 return 0
+
             def __repr__(self):
                 return "BadRamp"
+
         with pytest.raises(TypeError):
             BadRamp()
 
@@ -270,7 +274,7 @@ class TestRampingIntegration:
         """Multiple ramps on different parameters."""
         ramp_M2 = LinearRamp(0, 0.1, 20, 0.3)
         ramp_K = PolynomialRamp(0, 0.5, 20, 1.0)
-        
+
         for t in [0, 5, 10, 20]:
             M2 = ramp_M2.evaluate(t)
             K = ramp_K.evaluate(t)
@@ -281,8 +285,8 @@ class TestRampingIntegration:
         """Single vs batch evaluation consistent."""
         ramp = LinearRamp(0, 0.1, 10, 0.5)
         times = np.linspace(0, 10, 21)
-        
+
         batch = ramp.get_trajectory(times)
         individual = np.array([ramp.evaluate(t) for t in times])
-        
+
         np.testing.assert_array_almost_equal(batch, individual)
