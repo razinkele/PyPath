@@ -451,6 +451,7 @@ def apply_habitat_preference_and_suitability(
 
 # Phase 1C.2a habitat mapping extensions
 
+
 class SubstrateType(str, Enum):
     """Canonical substrate categories for habitat maps."""
 

@@ -111,17 +111,15 @@ def _assert_ci_ordered(ci_df: pd.DataFrame) -> None:
                 mean_vals = ci_df[col].values
                 uci_vals = ci_df[uci_col].values
 
-                assert np.all(
-                    lci_vals <= mean_vals + 1e-10
-                ), f"{lci_col} > {col} for some rows"
-                assert np.all(
-                    mean_vals <= uci_vals + 1e-10
-                ), f"{col} > {uci_col} for some rows"
+                assert np.all(lci_vals <= mean_vals + 1e-10), (
+                    f"{lci_col} > {col} for some rows"
+                )
+                assert np.all(mean_vals <= uci_vals + 1e-10), (
+                    f"{col} > {uci_col} for some rows"
+                )
 
 
-def _log_performance(
-    test_name: str, elapsed_time: float, n_replicates: int
-) -> None:
+def _log_performance(test_name: str, elapsed_time: float, n_replicates: int) -> None:
     """Log performance metrics for ensemble run.
 
     Parameters
@@ -197,9 +195,7 @@ def _create_sample_container(
         # X ~ LogNormal means ln(X) ~ Normal
         biomass_ln_sigma = uncertainty_cv
         biomass_samples = np.exp(
-            np.random.normal(
-                np.log(biomass_base), biomass_ln_sigma, size=n_replicates
-            )
+            np.random.normal(np.log(biomass_base), biomass_ln_sigma, size=n_replicates)
         )
 
         pb_ln_sigma = uncertainty_cv
@@ -289,7 +285,9 @@ class TestRealModelSmallEnsemble:
         _assert_all_balanced(result.replicate_models)
 
         # Verify performance
-        assert elapsed < 5.0, f"50-replicate ensemble took {elapsed:.2f}s (expected < 5s)"
+        assert elapsed < 5.0, (
+            f"50-replicate ensemble took {elapsed:.2f}s (expected < 5s)"
+        )
         _log_performance("test_load_and_run_50", elapsed, 50)
 
     @pytest.mark.integration
@@ -419,9 +417,9 @@ class TestReproducibilityWithSeed:
         phyto_samples2 = samples2.group_samples["Phytoplankton"].biomass_samples
 
         samples_identical = np.allclose(phyto_samples1, phyto_samples2)
-        assert (
-            not samples_identical
-        ), "Different random seeds produced identical samples (extremely unlikely)"
+        assert not samples_identical, (
+            "Different random seeds produced identical samples (extremely unlikely)"
+        )
 
 
 # ============================================================================
@@ -466,7 +464,9 @@ class TestMediumScaleEnsemble:
         _assert_all_balanced(result.replicate_models)
 
         # Verify performance
-        assert elapsed < 30.0, f"100-replicate ensemble took {elapsed:.2f}s (expected < 30s)"
+        assert elapsed < 30.0, (
+            f"100-replicate ensemble took {elapsed:.2f}s (expected < 30s)"
+        )
         _log_performance("test_100_replicate_ensemble", elapsed, 100)
 
     @pytest.mark.integration
@@ -492,9 +492,7 @@ class TestMediumScaleEnsemble:
                 n_replicates=n_rep,
                 groups_to_sample=[0, 1],
             )
-            result = run_ensemble_rpath(
-                example_model_params, samples, random_seed=42
-            )
+            result = run_ensemble_rpath(example_model_params, samples, random_seed=42)
 
             summary = result.summary_table()
             phyto_row = summary[summary["Group"] == "Phytoplankton"].iloc[0]
@@ -588,7 +586,9 @@ class TestLargeScaleEnsemble:
         """
         n_replicates = 500
         samples = _create_sample_container(
-            example_model_params, n_replicates=n_replicates, groups_to_sample=[0, 1, 5, 6]
+            example_model_params,
+            n_replicates=n_replicates,
+            groups_to_sample=[0, 1, 5, 6],
         )
 
         start_time = time.time()
@@ -599,8 +599,10 @@ class TestLargeScaleEnsemble:
 
         time_per_replicate = elapsed / n_replicates
 
-        logger.info(f"Performance baseline: {elapsed:.2f}s for {n_replicates} replicates")
-        logger.info(f"Time per replicate: {time_per_replicate*1000:.2f}ms")
+        logger.info(
+            f"Performance baseline: {elapsed:.2f}s for {n_replicates} replicates"
+        )
+        logger.info(f"Time per replicate: {time_per_replicate * 1000:.2f}ms")
 
         # Verify all completed successfully
         assert len(result.replicate_models) == n_replicates + 1
@@ -678,9 +680,9 @@ class TestEwERoundtrip:
             assert np.all(sample.pb_samples > 0), f"{group_name}: PB contains <= 0"
             # QB can be 0 for producers, otherwise should be positive
             assert np.all(sample.qb_samples >= 0), f"{group_name}: QB contains < 0"
-            assert np.all(
-                (sample.ee_samples >= 0) & (sample.ee_samples <= 1)
-            ), f"{group_name}: EE outside [0, 1]"
+            assert np.all((sample.ee_samples >= 0) & (sample.ee_samples <= 1)), (
+                f"{group_name}: EE outside [0, 1]"
+            )
 
             # Check for NaN
             assert not np.any(np.isnan(sample.biomass_samples)), (
@@ -719,11 +721,15 @@ class TestCuorianModelIntegration:
         Parameters
         ----------
         """
-        curonian_dir = Path(
-            __file__
-        ).parent.parent.parent.parent / "Curonian_Lagoon_Fitted_Model_Export"
+        curonian_dir = (
+            Path(__file__).parent.parent.parent.parent
+            / "Curonian_Lagoon_Fitted_Model_Export"
+        )
 
-        if not (curonian_dir / "model.csv").exists() or not (curonian_dir / "diet.csv").exists():
+        if (
+            not (curonian_dir / "model.csv").exists()
+            or not (curonian_dir / "diet.csv").exists()
+        ):
             pytest.skip("Curonian model data not fully available")
 
         params = read_rpath_params(
@@ -733,7 +739,9 @@ class TestCuorianModelIntegration:
 
         # Create small sample container
         samples = _create_sample_container(
-            params, n_replicates=20, groups_to_sample=list(range(min(5, len(params.model))))
+            params,
+            n_replicates=20,
+            groups_to_sample=list(range(min(5, len(params.model)))),
         )
 
         # Run ensemble
@@ -758,11 +766,15 @@ class TestCuorianModelIntegration:
         Similar to test_curonian_model_ensemble_if_available but focuses
         on verifying sample container structure and validity.
         """
-        curonian_dir = Path(
-            __file__
-        ).parent.parent.parent.parent / "Curonian_Lagoon_Fitted_Model_Export"
+        curonian_dir = (
+            Path(__file__).parent.parent.parent.parent
+            / "Curonian_Lagoon_Fitted_Model_Export"
+        )
 
-        if not (curonian_dir / "model.csv").exists() or not (curonian_dir / "diet.csv").exists():
+        if (
+            not (curonian_dir / "model.csv").exists()
+            or not (curonian_dir / "diet.csv").exists()
+        ):
             pytest.skip("Curonian model data not fully available")
 
         params = read_rpath_params(
@@ -833,9 +845,3 @@ def curonian_model_available() -> bool:
         True if Curonian model CSV files are found.
     """
     return _curonian_model_available()
-
-
-
-
-
-

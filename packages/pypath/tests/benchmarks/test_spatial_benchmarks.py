@@ -96,7 +96,9 @@ def _assert_threshold(
     threshold_scale = _read_float_env("PYPATH_BENCH_THRESHOLD_SCALE", 1.0)
     max_regression_ratio = _read_float_env("PYPATH_BENCH_REGRESSION_MAX_RATIO", 1.5)
 
-    absolute_threshold = _read_float_env(absolute_env, absolute_default) * threshold_scale
+    absolute_threshold = (
+        _read_float_env(absolute_env, absolute_default) * threshold_scale
+    )
     baseline_median = float(baseline[baseline_key]["baseline_median_seconds"])
     regression_threshold = baseline_median * max_regression_ratio
 
