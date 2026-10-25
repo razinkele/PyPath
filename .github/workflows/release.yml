@@ -65,6 +65,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packages/pypath/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
       - name: Commit version bump & tag
         if: steps.release.outputs.released == 'true'
@@ -126,6 +127,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packages/pypath-shiny/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
       - name: Commit version bump & tag
         if: steps.release.outputs.released == 'true'
