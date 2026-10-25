@@ -51,10 +51,8 @@ class SizeClass:
                 f"size_min ({self.size_min}) must be less than "
                 f"size_max ({self.size_max})"
             )
-        if self.size_unit not in ('cm', 'mm'):
-            raise ValueError(
-                f"size_unit must be 'cm' or 'mm', got {self.size_unit}"
-            )
+        if self.size_unit not in ("cm", "mm"):
+            raise ValueError(f"size_unit must be 'cm' or 'mm', got {self.size_unit}")
 
     def midpoint(self) -> float:
         """Return the midpoint of the size interval.
@@ -160,16 +158,12 @@ class SizeDistribution:
 
         for i, sc in enumerate(self.size_classes):
             if sc.size_min >= sc.size_max:
-                logger.error(
-                    f"{self.group_name} class {i}: size_min >= size_max"
-                )
+                logger.error(f"{self.group_name} class {i}: size_min >= size_max")
                 return False
 
         for i in range(len(self.size_classes) - 1):
             if self.size_classes[i].size_max > self.size_classes[i + 1].size_min:
-                logger.error(
-                    f"{self.group_name}: overlapping size classes at {i}"
-                )
+                logger.error(f"{self.group_name}: overlapping size classes at {i}")
                 return False
 
         return True
@@ -597,6 +591,3 @@ def estimate_psd_from_vb(
         size_classes=size_classes,
         counts=counts,
     )
-
-
-

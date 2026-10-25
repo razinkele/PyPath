@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Dict, List, Tuple
 
-import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
@@ -97,8 +96,7 @@ class NutrientContent:
             )
         if not (0 <= self.ash_percent <= 20):
             raise ValueError(
-                f"{self.group_name}: ash_percent must be 0-20%, "
-                f"got {self.ash_percent}"
+                f"{self.group_name}: ash_percent must be 0-20%, got {self.ash_percent}"
             )
 
     def is_valid(self) -> bool:
@@ -202,9 +200,7 @@ class NutrientExcretion:
                 f"got {self.fecal_p_fraction}"
             )
 
-    def calculate_excretion(
-        self, consumption: float, element: str
-    ) -> float:
+    def calculate_excretion(self, consumption: float, element: str) -> float:
         """Calculate excretion of a nutrient element.
 
         Parameters
@@ -230,8 +226,7 @@ class NutrientExcretion:
             return consumption * (self.p_excretion_rate / 100.0)
         else:
             raise ValueError(
-                f"Unknown element: {element}. "
-                f"Must be 'nitrogen' or 'phosphorus'."
+                f"Unknown element: {element}. Must be 'nitrogen' or 'phosphorus'."
             )
 
     def to_dict(self) -> Dict[str, float]:
@@ -298,9 +293,7 @@ class NutrientUptake:
                 f"got {self.half_saturation_p}"
             )
 
-    def calculate_uptake(
-        self, nutrient_level: float, rate: float
-    ) -> float:
+    def calculate_uptake(self, nutrient_level: float, rate: float) -> float:
         """Calculate uptake using Monod (Michaelis-Menten) kinetics.
 
         Parameters
@@ -321,9 +314,7 @@ class NutrientUptake:
         where Km is the appropriate half-saturation constant.
         """
         if nutrient_level < 0:
-            raise ValueError(
-                f"nutrient_level must be >= 0, got {nutrient_level}"
-            )
+            raise ValueError(f"nutrient_level must be >= 0, got {nutrient_level}")
         if rate < 0:
             raise ValueError(f"rate must be >= 0, got {rate}")
 
@@ -419,9 +410,7 @@ class NutrientCycle:
 
         for name, excretion in self.excretions.items():
             if name not in self.contents:
-                messages.append(
-                    f"Excretion defined for {name} but no content"
-                )
+                messages.append(f"Excretion defined for {name} but no content")
 
         for name, uptake in self.uptakes.items():
             if name not in self.contents:
@@ -430,9 +419,7 @@ class NutrientCycle:
         is_valid = len(messages) == 0
         return is_valid, messages
 
-    def calculate_mass_balance(
-        self, rpath_params: RpathParams
-    ) -> Dict[str, float]:
+    def calculate_mass_balance(self, rpath_params: RpathParams) -> Dict[str, float]:
         """Calculate nutrient mass balance across groups.
 
         Parameters
@@ -460,14 +447,14 @@ class NutrientCycle:
 
                 if group in self.contents and biomass > 0:
                     content = self.contents[group]
-                    balance["total_n_biomass"] += (
-                        biomass * (content.nitrogen_percent / 100.0)
+                    balance["total_n_biomass"] += biomass * (
+                        content.nitrogen_percent / 100.0
                     )
-                    balance["total_p_biomass"] += (
-                        biomass * (content.phosphorus_percent / 100.0)
+                    balance["total_p_biomass"] += biomass * (
+                        content.phosphorus_percent / 100.0
                     )
-                    balance["total_c_biomass"] += (
-                        biomass * (content.carbon_percent / 100.0)
+                    balance["total_c_biomass"] += biomass * (
+                        content.carbon_percent / 100.0
                     )
                     balance["groups_with_content"] += 1
 
@@ -486,8 +473,10 @@ class NutrientCycle:
             content, excretion, and uptake parameters.
         """
         rows = []
-        all_groups = set(self.contents.keys()) | set(self.excretions.keys()) | set(
-            self.uptakes.keys()
+        all_groups = (
+            set(self.contents.keys())
+            | set(self.excretions.keys())
+            | set(self.uptakes.keys())
         )
 
         for group_name in sorted(all_groups):
@@ -582,9 +571,7 @@ class NutrientCycle:
                     )
                     cycle.add_excretion(excretion)
                 except (ValueError, KeyError) as e:
-                    logger.warning(
-                        f"Could not create excretion for {group_name}: {e}"
-                    )
+                    logger.warning(f"Could not create excretion for {group_name}: {e}")
 
             uptake_cols = ["N_uptake_rate", "P_uptake_rate", "Ks_N", "Ks_P"]
             if all(col in df.columns for col in uptake_cols):
