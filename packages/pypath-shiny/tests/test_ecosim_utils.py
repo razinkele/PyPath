@@ -17,11 +17,13 @@ class TestFormatTimeseriesForExport:
     def test_valid_timeseries_monthly(self):
         """Test formatting valid monthly time-series."""
         output = {
-            "monthly_biomass": np.array([
-                [10.0, 20.0],
-                [10.5, 19.8],
-                [11.0, 19.5],
-            ]),
+            "monthly_biomass": np.array(
+                [
+                    [10.0, 20.0],
+                    [10.5, 19.8],
+                    [11.0, 19.5],
+                ]
+            ),
         }
         df = format_timeseries_for_export(output)
         assert len(df) == 3
@@ -124,11 +126,13 @@ class TestGetTimeseriesSummary:
     def test_basic_summary(self):
         """Test basic summary statistics."""
         output = {
-            "monthly_biomass": np.array([
-                [10.0, 20.0],
-                [11.0, 19.0],
-                [12.0, 18.0],
-            ]),
+            "monthly_biomass": np.array(
+                [
+                    [10.0, 20.0],
+                    [11.0, 19.0],
+                    [12.0, 18.0],
+                ]
+            ),
         }
         summary = get_timeseries_summary(output)
         assert len(summary) == 2
@@ -201,11 +205,13 @@ class TestDetectGroupTrends:
 
     def test_multiple_groups_trends(self):
         """Test trends for multiple groups."""
-        biomass = np.array([
-            [10, 20],
-            [11, 19],
-            [12, 18],
-        ])
+        biomass = np.array(
+            [
+                [10, 20],
+                [11, 19],
+                [12, 18],
+            ]
+        )
         output = {"monthly_biomass": biomass}
         trends = detect_group_trends(output)
         assert len(trends) == 2

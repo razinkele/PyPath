@@ -68,7 +68,9 @@ class TestRecruitmentWiring:
         sc_low.forcing.ForcedRecs[:, 2] = 0.75
         out_low = rsim_run(sc_low, method="RK4")
 
-        assert abs(_mean_zoo_annual(out_low) - _mean_zoo_annual(out_base)) > 0.01 * _mean_zoo_annual(out_base)
+        assert abs(
+            _mean_zoo_annual(out_low) - _mean_zoo_annual(out_base)
+        ) > 0.01 * _mean_zoo_annual(out_base)
 
     def test_recruitment_adj_in_forcing_dict_is_handled(self):
         model, params = _simple_model()
@@ -103,7 +105,9 @@ class TestRecruitmentWiring:
 class TestRecruitmentModelToForcingBridge:
     def test_build_recruitment_vector(self, spatial_scenario):
         scenario, _ = spatial_scenario
-        scenario.set_recruitment_model("Fish", RickerRecruitment(alpha=0.5, beta=0.01, rmax=2.0))
+        scenario.set_recruitment_model(
+            "Fish", RickerRecruitment(alpha=0.5, beta=0.01, rmax=2.0)
+        )
         vec = scenario.build_recruitment_vector(
             time=1.0,
             ssb_by_group={"Fish": 30.0},
@@ -114,7 +118,9 @@ class TestRecruitmentModelToForcingBridge:
 
     def test_apply_recruitment_to_forcing_writes_row(self, spatial_scenario):
         scenario, _ = spatial_scenario
-        scenario.set_recruitment_model("Fish", BevertonHoltRecruitment(alpha=3.0, beta=0.1, rmax=2.0))
+        scenario.set_recruitment_model(
+            "Fish", BevertonHoltRecruitment(alpha=3.0, beta=0.1, rmax=2.0)
+        )
         row_before = scenario.forcing.ForcedRecs[0, :].copy()
         scenario.apply_recruitment_to_forcing(
             month_index=0,
@@ -135,8 +141,12 @@ class TestRecruitmentModelToForcingBridge:
 
     def test_model_bridge_with_larval_connectivity(self, spatial_scenario):
         scenario, _ = spatial_scenario
-        scenario.set_recruitment_model("Fish", RickerRecruitment(alpha=0.5, beta=0.01, rmax=2.0))
-        scenario.set_recruitment_model("Zoo", BevertonHoltRecruitment(alpha=2.0, beta=0.1, rmax=1.5))
+        scenario.set_recruitment_model(
+            "Fish", RickerRecruitment(alpha=0.5, beta=0.01, rmax=2.0)
+        )
+        scenario.set_recruitment_model(
+            "Zoo", BevertonHoltRecruitment(alpha=2.0, beta=0.1, rmax=1.5)
+        )
         lc = LarvalConnectivity(
             connectivity_matrix=np.array([[0.8, 0.2], [0.2, 0.8]]),
             source_groups=["Fish", "Zoo"],
@@ -157,7 +167,9 @@ class TestRecruitmentModelToForcingBridge:
 
     def test_recruitment_bridge_can_drive_run(self, spatial_scenario):
         scenario, _ = spatial_scenario
-        scenario.set_recruitment_model("Fish", BevertonHoltRecruitment(alpha=3.0, beta=0.1, rmax=2.0))
+        scenario.set_recruitment_model(
+            "Fish", BevertonHoltRecruitment(alpha=3.0, beta=0.1, rmax=2.0)
+        )
 
         # Apply model-derived recruitment on every month of first year
         n_months = scenario.forcing.ForcedRecs.shape[0]

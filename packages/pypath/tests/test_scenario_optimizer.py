@@ -64,10 +64,15 @@ def test_optimize_grid_enumerates_all_combinations():
 
     optimizer = ScenarioOptimizer(
         objectives,
-        evaluator=lambda c: {"score": c.controls["x"] - c.controls["y"], "collapse_risk": 0.0},
+        evaluator=lambda c: {
+            "score": c.controls["x"] - c.controls["y"],
+            "collapse_risk": 0.0,
+        },
     )
 
-    ranked = optimizer.optimize_grid({"x": [1.0, 2.0], "y": [0.0, 1.0]}, name_prefix="grid")
+    ranked = optimizer.optimize_grid(
+        {"x": [1.0, 2.0], "y": [0.0, 1.0]}, name_prefix="grid"
+    )
     assert len(ranked) == 4
     assert ranked[0].controls == {"x": 2.0, "y": 0.0}
 
@@ -80,7 +85,9 @@ def test_spatial_management_evaluator_runs(spatial_scenario, single_patch_ecospa
         years=range(1, 3),
     )
 
-    metrics = evaluator(ScenarioCandidate(name="baseline", controls={"effort_scale": 1.0}))
+    metrics = evaluator(
+        ScenarioCandidate(name="baseline", controls={"effort_scale": 1.0})
+    )
 
     assert set(metrics.keys()) == {
         "final_biomass",
