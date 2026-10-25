@@ -45,10 +45,12 @@ from pypath_shiny.services.tasks import (  # noqa: E402
 )
 
 # Import shared utilities
-from .utils import (  # noqa: E402
+from .utils import (
+    # noqa: E402
     create_cell_styles,
     format_dataframe_for_display,
 )
+from pypath_shiny.services.gt_formatters import format_dataframe  # noqa: E402
 
 
 def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
@@ -384,10 +386,11 @@ def import_server(
         """Render EcoBase models as data frame."""
         models = ecobase_models.get()
         if models is None or len(models) == 0:
-            return render.DataGrid(
+            return format_dataframe(
                 pd.DataFrame(
                     {"Message": ["Click 'All Models' or search to load models"]}
-                )
+                ),
+                title="EcoBase Models"
             )
 
         display_cols = [
@@ -398,10 +401,9 @@ def import_server(
             "num_groups",
         ]
         display_cols = [c for c in display_cols if c in models.columns]
-        return render.DataGrid(
+        return format_dataframe(
             models[display_cols].head(100),
-            selection_mode="row",
-            height=UI.datagrid_height_default_px,
+            title="EcoBase Models"
         )
 
     @reactive.effect
@@ -703,7 +705,7 @@ def import_server(
         )
         styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
 
-        return render.DataGrid(formatted_df, styles=styles)
+        return format_dataframe(formatted_df, title="Imported Groups")
 
     @output
     @render.data_frame
@@ -719,7 +721,7 @@ def import_server(
         )
         styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
 
-        return render.DataGrid(formatted_df, styles=styles)
+        return format_dataframe(formatted_df, title="Diet Matrix")
 
     @output
     @render.ui
@@ -769,8 +771,9 @@ def import_server(
         )
 
         if not has_stanzas:
-            return render.DataGrid(
-                pd.DataFrame({"Message": ["No multi-stanza groups"]})
+            return format_dataframe(
+                pd.DataFrame({"Message": ["No multi-stanza groups"]}),
+                title="Stanza Groups"
             )
 
         df = params.stanzas.stgroups.copy()
@@ -779,7 +782,7 @@ def import_server(
         )
         styles = create_cell_styles(formatted_df, no_data_mask, None)
 
-        return render.DataGrid(formatted_df, styles=styles)
+        return format_dataframe(formatted_df, title="Stanza Groups")
 
     @output
     @render.data_frame
@@ -797,8 +800,9 @@ def import_server(
         )
 
         if not has_stanzas:
-            return render.DataGrid(
-                pd.DataFrame({"Message": ["No multi-stanza life stages"]})
+            return format_dataframe(
+                pd.DataFrame({"Message": ["No multi-stanza life stages"]}),
+                title="Stanza Life Stages"
             )
 
         df = params.stanzas.stindiv.copy()
@@ -822,7 +826,7 @@ def import_server(
         )
         styles = create_cell_styles(formatted_df, no_data_mask, None)
 
-        return render.DataGrid(formatted_df, styles=styles)
+        return format_dataframe(formatted_df, title="Stanza Life Stages")
 
     @output
     @render.ui
@@ -1187,12 +1191,15 @@ Phytoplankton"""
         """Show fetched species data."""
         df = biodata_df.get()
         if df is None:
-            return pd.DataFrame(
-                {
-                    "Message": [
-                        "Click 'Fetch Species Data' to retrieve biodiversity data"
-                    ]
-                }
+            return format_dataframe(
+                pd.DataFrame(
+                    {
+                        "Message": [
+                            "Click 'Fetch Species Data' to retrieve biodiversity data"
+                        ]
+                    }
+                ),
+                title="Biodiversity Data Results"
             )
 
         # Select key columns for display
@@ -1217,7 +1224,7 @@ Phytoplankton"""
             }
         )
 
-        return render.DataGrid(display_df, height=UI.datagrid_height_default_px)
+        return format_dataframe(display_df, title="Biodiversity Data Results")
 
     @output
     @render.ui
