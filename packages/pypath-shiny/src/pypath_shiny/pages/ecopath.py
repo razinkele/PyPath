@@ -981,7 +981,7 @@ def ecopath_server(
             return ""
         return val
 
-    @model_params_table.set_patch_fn
+    # @model_params_table.set_patch_fn
     def _handle_model_params_edit(*, patch: render.CellPatch) -> render.CellValue:
         """Handle edits to the model parameters table."""
         df, col_name, group_name = _resolve_patch(model_params_table, patch)
@@ -1043,7 +1043,7 @@ def ecopath_server(
         )
         return "" if np.isnan(numeric_value) else round(float(numeric_value), 3)
 
-    @diet_matrix_table.set_patch_fn
+    # @diet_matrix_table.set_patch_fn
     def _handle_diet_matrix_edit(*, patch: render.CellPatch) -> render.CellValue:
         """Handle edits to the diet matrix table."""
         df, col_name, prey_name = _resolve_patch(diet_matrix_table, patch)
@@ -1479,100 +1479,19 @@ def ecopath_server(
     @output
     @render.data_frame
     def model_results_table():
-        """Display balanced model results with formatting."""
+        """Display balanced model results with great_tables formatting."""
         model = balanced_model.get()
         if model is None:
-            return render.DataGrid(
-                pd.DataFrame({"Message": ["Balance the model to see results"]})
+            return format_dataframe(
+                pd.DataFrame({"Message": ["Balance the model to see results"]}),
+                title="Model Results",
             )
 
         # Get the summary DataFrame
         df = model.summary()
-
-        # Get stanza group names if available (from params)
-        p = params.get()
-        stanza_groups = None
-        if p is not None and hasattr(p, "stanzas") and p.stanzas is not None:
-            stindiv = (
-                p.stanzas.stindiv
-            )  # RpathStanzaParams is a dataclass, access attribute directly
-            if stindiv is not None and len(stindiv) > 0:
-                stanza_groups = (
-                    stindiv["Group"].tolist() if "Group" in stindiv.columns else []
-                )
-
-        # Format for display: handle 9999 values, round decimals, convert Type, mark stanza groups
-        formatted_df, no_data_mask, _, stanza_mask = format_dataframe_for_display(
-            df, decimal_places=3, stanza_groups=stanza_groups
-        )
-
-        # Create styles - check mask values carefully using bool() conversion
-        styles = []
-
-        # Style no-data cells and stanza cells
-        for row_idx in range(len(formatted_df)):
-            for col_idx, col in enumerate(formatted_df.columns):
-                is_no_data = (
-                    bool(no_data_mask.iloc[row_idx][col])
-                    if col in no_data_mask.columns
-                    else False
-                )
-                is_stanza = (
-                    bool(stanza_mask.iloc[row_idx][col])
-                    if (stanza_mask is not None and col in stanza_mask.columns)
-                    else False
-                )
-
-                if is_no_data:
-                    styles.append(
-                        {
-                            "location": "body",
-                            "rows": row_idx,
-                            "cols": col_idx,
-                            "style": NO_DATA_STYLE,
-                        }
-                    )
-                elif is_stanza:
-                    styles.append(
-                        {
-                            "location": "body",
-                            "rows": row_idx,
-                            "cols": col_idx,
-                            "style": STANZA_STYLE,
-                        }
-                    )
-
-        # Add special styling for calculated columns (EE, GE, TL)
-        calculated_cols = ["EE", "GE", "TL"]
-        col_positions = {c: i for i, c in enumerate(formatted_df.columns)}
-        for col in calculated_cols:
-            if col in formatted_df.columns:
-                col_idx = col_positions[col]
-                for row_idx in range(len(formatted_df)):
-                    is_no_data = (
-                        bool(no_data_mask.iloc[row_idx][col])
-                        if col in no_data_mask.columns
-                        else False
-                    )
-                    is_stanza = (
-                        bool(stanza_mask.iloc[row_idx][col])
-                        if (stanza_mask is not None and col in stanza_mask.columns)
-                        else False
-                    )
-                    if not is_no_data and not is_stanza:
-                        styles.append(
-                            {
-                                "location": "body",
-                                "rows": row_idx,
-                                "cols": col_idx,
-                                "style": {
-                                    "background-color": "#f0fff0"
-                                },  # Light green for calculated values
-                            }
-                        )
-
-        return render.DataGrid(formatted_df, filters=False, styles=styles, width="100%")
-
+        
+        # Format with great_tables
+        return format_results_summary(df, title="Balanced Model Results")
     @output
     @render.ui
     def diagnostics_output():
