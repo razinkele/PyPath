@@ -490,7 +490,6 @@ def _parse_living_derivs_tail(QQ, tail):
     )
 
 
-
 def _compute_living_derivs_python(
     deriv,
     QQ,
@@ -598,7 +597,6 @@ def _compute_living_derivs_numba(
         NUM_LIVING,
         int(NUM_GROUPS),
     )
-
 
 
 def _compute_living_derivs(

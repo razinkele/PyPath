@@ -103,11 +103,13 @@ class TestMetabolicModel:
         temps = np.array([10.0, 10.0, 20.0])
         out = model.compute_metabolic_rate_batch(masses, temps)
         assert out.shape == masses.shape
-        expected = np.array([
-            0.2 * (1.0**0.75) * 1.0,
-            0.2 * (2.0**0.75) * 1.0,
-            0.2 * (4.0**0.75) * 2.0,
-        ])
+        expected = np.array(
+            [
+                0.2 * (1.0**0.75) * 1.0,
+                0.2 * (2.0**0.75) * 1.0,
+                0.2 * (4.0**0.75) * 2.0,
+            ]
+        )
         np.testing.assert_allclose(out, expected)
 
     def test_batch_length_mismatch_raises(self, model):
@@ -142,12 +144,16 @@ class TestMetabolicHelpers:
             )
 
     def test_compute_temperature_adjusted_metabolism_scalar(self):
-        temp_model = TemperatureDependence(q10_coefficient=2.0, reference_temperature=10.0)
+        temp_model = TemperatureDependence(
+            q10_coefficient=2.0, reference_temperature=10.0
+        )
         out = compute_temperature_adjusted_metabolism(0.5, 20.0, temp_model)
         assert out == pytest.approx(1.0)
 
     def test_compute_temperature_adjusted_metabolism_array(self):
-        temp_model = TemperatureDependence(q10_coefficient=2.0, reference_temperature=10.0)
+        temp_model = TemperatureDependence(
+            q10_coefficient=2.0, reference_temperature=10.0
+        )
         out = compute_temperature_adjusted_metabolism(
             np.array([0.5, 0.5, 0.5]),
             np.array([0.0, 10.0, 20.0]),
