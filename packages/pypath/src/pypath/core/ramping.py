@@ -167,9 +167,7 @@ class LinearRamp(RampingFunction):
             return 0.0
 
     def __repr__(self) -> str:
-        return (
-            f"LinearRamp(t0={self.t0}, v0={self.v0}, t1={self.t1}, v1={self.v1})"
-        )
+        return f"LinearRamp(t0={self.t0}, v0={self.v0}, t1={self.t1}, v1={self.v1})"
 
 
 class StepwiseRamp(RampingFunction):
@@ -287,9 +285,7 @@ class PolynomialRamp(RampingFunction):
     0.5
     """
 
-    def __init__(
-        self, t0: float, v0: float, t1: float, v1: float, degree: int = 2
-    ):
+    def __init__(self, t0: float, v0: float, t1: float, v1: float, degree: int = 2):
         """Initialize polynomial ramp."""
         if degree < 2:
             raise ValueError(f"Polynomial degree must be >= 2, got {degree}")

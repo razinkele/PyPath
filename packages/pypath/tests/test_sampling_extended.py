@@ -289,7 +289,9 @@ class TestFullSamplingWorkflow:
             biomass_val = simple_rpath_params.model.loc[i, "Biomass"]
             sample = EcopathGroupSample(
                 group_name=group_name,
-                biomass_samples=np.random.normal(biomass_val, 0.1 * biomass_val, n_replicates),
+                biomass_samples=np.random.normal(
+                    biomass_val, 0.1 * biomass_val, n_replicates
+                ),
                 pb_samples=np.random.normal(0.5, 0.05, n_replicates),
                 qb_samples=np.random.normal(2.0, 0.2, n_replicates),
                 ee_samples=np.random.uniform(0.5, 0.9, n_replicates),
@@ -417,6 +419,7 @@ def simple_rpath_params():
     """Create simple 5-group Rpath parameters."""
     try:
         from pypath.core.params import create_rpath_params
+
         params = create_rpath_params(
             groups=["Phyto", "Zoo", "Fish", "SmallFish", "Det"],
             types=[1, 0, 0, 0, 2],

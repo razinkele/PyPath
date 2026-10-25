@@ -106,6 +106,7 @@ def create_mpa_config(zones: list[MPAZone] | None = None) -> MPAConfig:
 
 # Phase 1C.2f reserve network extensions
 
+
 @dataclass
 class MarineProtectedArea:
     """Simplified MPA descriptor for network-level analysis."""
