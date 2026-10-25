@@ -123,7 +123,7 @@ jobs:
         run: python -m build
 
       - name: Publish to PyPI
-        if: steps.release.outputs.released == 'true'
+        if: steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packages/pypath-shiny/dist/
