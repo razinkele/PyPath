@@ -47,8 +47,7 @@ def format_params_table(
     # Style and interactivity
     gt = gt.tab_style(style=style.fill(color="#1b3a5c"), locations=loc.header())
     gt = gt.opt_interactive()
-    gt = gt.opt_table_layout(layout="auto")
-    
+        
     return gt
 
 
@@ -66,8 +65,7 @@ def format_results_summary(
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
     
     gt = gt.opt_interactive()
-    gt = gt.opt_table_layout(layout="auto")
-    
+        
     return gt
 
 
@@ -123,6 +121,6 @@ def format_dataframe(
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
     
     gt = gt.opt_interactive()
-    gt = gt.opt_table_layout(layout="auto")
-    
+        
     return gt
+
