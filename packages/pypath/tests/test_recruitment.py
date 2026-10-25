@@ -24,7 +24,9 @@ class TestRecruitmentModelABC:
 
     def test_subclass_missing_batch_fails(self):
         class _Bad(RecruitmentModel):
-            def get_recruitment(self, ssb: float, time: float = 0.0, env_factor: float = 1.0) -> float:
+            def get_recruitment(
+                self, ssb: float, time: float = 0.0, env_factor: float = 1.0
+            ) -> float:
                 return 1.0
 
         with pytest.raises(TypeError):
@@ -52,7 +54,9 @@ class TestRickerRecruitment:
 
     def test_invalid_env_factor_falls_back_to_one(self, model):
         baseline = model.get_recruitment(ssb=25.0, env_factor=1.0)
-        assert model.get_recruitment(ssb=25.0, env_factor=-1.0) == pytest.approx(baseline)
+        assert model.get_recruitment(ssb=25.0, env_factor=-1.0) == pytest.approx(
+            baseline
+        )
 
     def test_batch_output_shape(self, model):
         ssb = np.array([0.0, 10.0, 20.0])
@@ -170,7 +174,9 @@ class TestHelpers:
         assert params == {"alpha": 0.4, "beta": 0.02}
 
     def test_validate_params_beverton_holt_alias(self):
-        params = validate_recruitment_params("beverton_holt", alpha=2.0, beta=0.1, name="bh")
+        params = validate_recruitment_params(
+            "beverton_holt", alpha=2.0, beta=0.1, name="bh"
+        )
         assert params["alpha"] == 2.0
         assert params["beta"] == 0.1
         assert params["name"] == "bh"

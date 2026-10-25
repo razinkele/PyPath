@@ -1462,6 +1462,7 @@ def auto_populate_taxonomy(
         stanza_assignments=stanza_assignments,
     )
 
+
 # ============================================================================
 # Taxonomy Integration Functions (Phase 1B.2)
 # ============================================================================
@@ -1511,12 +1512,14 @@ def integrate_taxonomy_with_biodata(
 
     # Convert single SpeciesInfo to DataFrame for consistent handling
     if isinstance(species_info, SpeciesInfo):
-        data = [{
-            "scientific_name": species_info.scientific_name,
-            "common_name": species_info.common_name,
-            "aphia_id": species_info.aphia_id,
-            "trophic_level": species_info.trophic_level,
-        }]
+        data = [
+            {
+                "scientific_name": species_info.scientific_name,
+                "common_name": species_info.common_name,
+                "aphia_id": species_info.aphia_id,
+                "trophic_level": species_info.trophic_level,
+            }
+        ]
         df = pd.DataFrame(data)
     else:
         if isinstance(species_info, pd.DataFrame) and species_info.empty:
@@ -1608,15 +1611,17 @@ def resolve_worms_taxonomy(
     }
 
     if include_hierarchy:
-        result.update({
-            "kingdom": record.get("kingdom") or "",
-            "phylum": record.get("phylum") or "",
-            "class": record.get("class") or "",
-            "order": record.get("order") or "",
-            "family": record.get("family") or "",
-            "genus": record.get("genus") or "",
-            "species": record.get("species") or "",
-        })
+        result.update(
+            {
+                "kingdom": record.get("kingdom") or "",
+                "phylum": record.get("phylum") or "",
+                "class": record.get("class") or "",
+                "order": record.get("order") or "",
+                "family": record.get("family") or "",
+                "genus": record.get("genus") or "",
+                "species": record.get("species") or "",
+            }
+        )
 
     return result
 
@@ -1678,7 +1683,9 @@ def batch_resolve_worms_taxonomy(
             return {"scientific_name": name}
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(_resolve_one, name): name for name in scientific_names}
+        futures = {
+            executor.submit(_resolve_one, name): name for name in scientific_names
+        }
         for future in as_completed(futures):
             try:
                 result = future.result()
@@ -1692,7 +1699,9 @@ def batch_resolve_worms_taxonomy(
     # Reorder columns for better readability
     cols = ["scientific_name"]
     if include_hierarchy:
-        cols.extend(["kingdom", "phylum", "class", "order", "family", "genus", "species"])
+        cols.extend(
+            ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
+        )
     cols.extend(["worms_aphia_id", "match_confidence"])
     available_cols = [c for c in cols if c in df.columns]
     return df[available_cols]
@@ -1738,7 +1747,6 @@ def sync_taxonomy_with_rpath(
     """
     if TYPE_CHECKING:
         from pypath.core.params import RpathParams
-        from pypath.core.taxonomy import TaxonomyLinkage
 
     if not isinstance(rpath_params, RpathParams):
         raise ValueError("rpath_params must be an RpathParams instance")
@@ -1748,7 +1756,9 @@ def sync_taxonomy_with_rpath(
         rpath_params.model["taxonomy_linkage"] = None
 
     # Handle both single and list of TaxonomyLinkage objects
-    linkages = taxonomy_linkage if isinstance(taxonomy_linkage, list) else [taxonomy_linkage]
+    linkages = (
+        taxonomy_linkage if isinstance(taxonomy_linkage, list) else [taxonomy_linkage]
+    )
 
     for i, linkage in enumerate(linkages):
         if i < len(rpath_params.model):

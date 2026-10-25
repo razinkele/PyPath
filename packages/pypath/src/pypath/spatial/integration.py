@@ -396,7 +396,9 @@ def rsim_run_spatial(
     initial_biomass = scenario.start_state.Biomass  # [n_groups+1]
 
     if initial_state_vector is None:
-        biomass_spatial0 = np.tile(initial_biomass[:, np.newaxis], (1, n_patches)) / n_patches
+        biomass_spatial0 = (
+            np.tile(initial_biomass[:, np.newaxis], (1, n_patches)) / n_patches
+        )
     else:
         state_vec = np.asarray(initial_state_vector, dtype=float).reshape(-1)
         expected_size = (n_groups + 1) * n_patches

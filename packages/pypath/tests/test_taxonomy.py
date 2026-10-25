@@ -21,9 +21,9 @@ import pytest
 from pypath.core.taxonomy import (
     TaxonLink,
     TaxonomyLinkage,
-    validate_taxonomy_links,
-    resolve_worms_link,
     batch_resolve_worms,
+    resolve_worms_link,
+    validate_taxonomy_links,
 )
 
 logger = logging.getLogger(__name__)
@@ -334,18 +334,12 @@ class TestTaxonomyLinkage:
         sample_taxonomy_linkage.assign_group("Cod", "Gadus morhua")
         assert sample_taxonomy_linkage.group_assignments["Cod"] == "Gadus morhua"
 
-    def test_assign_group_nonexistent_taxon_raises_error(
-        self, sample_taxonomy_linkage
-    ):
+    def test_assign_group_nonexistent_taxon_raises_error(self, sample_taxonomy_linkage):
         """Test that assigning to non-existent taxon raises KeyError."""
         with pytest.raises(KeyError, match="not in taxonomy"):
-            sample_taxonomy_linkage.assign_group(
-                "UnknownGroup", "Nonexistent species"
-            )
+            sample_taxonomy_linkage.assign_group("UnknownGroup", "Nonexistent species")
 
-    def test_assign_group_duplicate_scientific_name(
-        self, sample_taxonomy_linkage
-    ):
+    def test_assign_group_duplicate_scientific_name(self, sample_taxonomy_linkage):
         """Test that multiple groups cannot be assigned to the same taxon."""
         sample_taxonomy_linkage.assign_group("Cod", "Gadus morhua")
         sample_taxonomy_linkage.assign_group("CodAdult", "Gadus morhua")
@@ -362,7 +356,9 @@ class TestTaxonomyLinkage:
         assert is_valid is True
         assert len(errors) == 0
 
-    def test_validate_valid_state(self, sample_taxonomy_linkage, sample_group_assignments):
+    def test_validate_valid_state(
+        self, sample_taxonomy_linkage, sample_group_assignments
+    ):
         """Test validating a properly configured taxonomy."""
         # Assign all groups
         for group, sci_name in sample_group_assignments.items():
@@ -431,22 +427,16 @@ class TestTaxonomyLinkage:
 
         # Check structure is preserved
         assert len(reimported.taxa) == len(sample_taxonomy_linkage.taxa)
-        assert (
-            len(reimported.group_assignments)
-            == len(sample_taxonomy_linkage.group_assignments)
+        assert len(reimported.group_assignments) == len(
+            sample_taxonomy_linkage.group_assignments
         )
 
         # Check specific taxa
         for sci_name in sample_taxonomy_linkage.taxa:
             original_taxon = sample_taxonomy_linkage.taxa[sci_name]
             reimported_taxon = reimported.taxa[sci_name]
-            assert (
-                original_taxon.scientific_name
-                == reimported_taxon.scientific_name
-            )
-            assert (
-                original_taxon.kingdom == reimported_taxon.kingdom
-            )
+            assert original_taxon.scientific_name == reimported_taxon.scientific_name
+            assert original_taxon.kingdom == reimported_taxon.kingdom
 
 
 # ============================================================================
@@ -647,13 +637,15 @@ class TestEdgeCases:
 
     def test_dataframe_with_missing_optional_fields(self):
         """Test from_dataframe() with missing optional columns."""
-        df = pd.DataFrame({
-            "group": ["Cod", "Herring"],
-            "scientific_name": ["Gadus morhua", "Clupea harengus"],
-            "kingdom": ["Animalia", "Animalia"],
-            "worms_aphia_id": [125732, 126417],
-            # Missing: common_name, class_, order, etc.
-        })
+        df = pd.DataFrame(
+            {
+                "group": ["Cod", "Herring"],
+                "scientific_name": ["Gadus morhua", "Clupea harengus"],
+                "kingdom": ["Animalia", "Animalia"],
+                "worms_aphia_id": [125732, 126417],
+                # Missing: common_name, class_, order, etc.
+            }
+        )
 
         taxonomy = TaxonomyLinkage.from_dataframe(df)
         assert len(taxonomy.taxa) == 2
@@ -667,11 +659,13 @@ class TestEdgeCases:
 
     def test_dataframe_missing_required_columns(self):
         """Test from_dataframe() fails with missing required columns."""
-        df = pd.DataFrame({
-            "group": ["Cod"],
-            "scientific_name": ["Gadus morhua"],
-            # Missing: kingdom
-        })
+        df = pd.DataFrame(
+            {
+                "group": ["Cod"],
+                "scientific_name": ["Gadus morhua"],
+                # Missing: kingdom
+            }
+        )
 
         with pytest.raises(ValueError, match="must have columns"):
             TaxonomyLinkage.from_dataframe(df)
@@ -755,4 +749,3 @@ class TestParametrized:
             kingdom="Animalia",
         )
         assert taxon.is_valid() is should_be_valid
-

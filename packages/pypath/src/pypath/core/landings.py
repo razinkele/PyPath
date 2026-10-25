@@ -356,9 +356,7 @@ class LandingsData:
                 total += record.catch_tons
         return total
 
-    def get_monthly_catch(
-        self, group_name: str, year: int, month: int
-    ) -> float:
+    def get_monthly_catch(self, group_name: str, year: int, month: int) -> float:
         """Get catch for a specific month.
 
         First checks for exact monthly records; if not found and seasonality
@@ -555,5 +553,3 @@ def aggregate_landings(
             continue
         total += record.catch_tons
     return total
-
-

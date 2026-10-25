@@ -311,12 +311,12 @@ def validate_model_parameters(
 
 def get_quick_fix_for_issue(issue_message: str) -> str:
     """Generate a quick-fix suggestion based on validation error message.
-    
+
     Parameters
     ----------
     issue_message : str
         The validation error message
-        
+
     Returns
     -------
     str
@@ -328,7 +328,9 @@ def get_quick_fix_for_issue(issue_message: str) -> str:
         return "Quick fix: Set negative biomass to a small positive value or 999999 to estimate"
     elif "extremely high" in msg_lower and "biomass" in msg_lower:
         return "Quick fix: Check units—biomass should be in t/km², not kg or tons"
-    elif "ee" in msg_lower and ("exceeds 1" in msg_lower or "exceeds 1.0" in msg_lower or "> 1" in msg_lower):
+    elif "ee" in msg_lower and (
+        "exceeds 1" in msg_lower or "exceeds 1.0" in msg_lower or "> 1" in msg_lower
+    ):
         return "Quick fix: Reduce predation, increase production (P/B), or increase biomass"
     elif "p/b" in msg_lower and ("negative" in msg_lower or "high" in msg_lower):
         return "Quick fix: Verify P/B time units. If per day, multiply by 365 to convert to per year"
@@ -338,8 +340,6 @@ def get_quick_fix_for_issue(issue_message: str) -> str:
         return "Quick fix: Diet fractions should sum to 1.0 for each predator. Check spreadsheet totals"
 
     return ""
-
-
 
 
 def validate_diet_matrix(
@@ -399,7 +399,11 @@ def validate_diet_matrix(
                 )
                 errors.append(msg)
             else:
-                deficit_or_excess = f"deficit: {1.0 - total:.4f}" if total < 0.95 else f"excess: {total - 1.0:.4f}"
+                deficit_or_excess = (
+                    f"deficit: {1.0 - total:.4f}"
+                    if total < 0.95
+                    else f"excess: {total - 1.0:.4f}"
+                )
                 msg = (
                     f"Diet for predator {repr(pred_col)} does not sum to 1.0 (sum={total:.4f}).\n\n"
                     "Diet fractions must sum to 1.0 for mass-balance.\n\n"
