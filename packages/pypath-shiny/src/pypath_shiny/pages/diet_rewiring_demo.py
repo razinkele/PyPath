@@ -683,4 +683,3 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
     def diet_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield _diet_code()
-

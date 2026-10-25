@@ -836,4 +836,3 @@ Objective Function: {cfg["objective"].upper()}
     def opt_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield _opt_code()
-

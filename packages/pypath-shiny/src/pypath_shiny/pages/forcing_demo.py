@@ -683,4 +683,3 @@ Data Points: {len(df)}
     def forcing_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield build_forcing_code(**_forcing_code_inputs())
-

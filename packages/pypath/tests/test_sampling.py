@@ -4,7 +4,7 @@ Phase 1A Test Suite: EcopathSample I/O and uncertainty propagation
 
 Tests are organized by component:
 - TestEcopathGroupSample: Group-level uncertainty
-- TestEcopathDietCompSample: Diet composition uncertainty  
+- TestEcopathDietCompSample: Diet composition uncertainty
 - TestEcopathGroupCatchSample: Catch/landing uncertainty
 - TestSampleContainer: Central container functionality
 - TestSamplingIntegration: Integration with RpathParams and rpath()
@@ -276,6 +276,7 @@ class TestSamplingIntegration:
 
     def test_add_sampling_to_params(self):
         """Test attaching samples to mock RpathParams."""
+
         # Create a mock params object
         class MockParams:
             pass
