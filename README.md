@@ -1,7 +1,7 @@
 # PyPath - Python Ecopath with Ecosim
 
 <p align="center">
-  <img src="app/static/logo.svg" alt="PyPath Logo" width="300"/>
+  <img src="packages/pypath-shiny/src/pypath_shiny/static/pypath_logo.svg" alt="PyPath Logo" width="300"/>
 </p>
 
 <p align="center">
