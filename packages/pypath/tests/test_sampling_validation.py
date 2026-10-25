@@ -122,10 +122,7 @@ class TestValidateSamples:
             ee_samples=np.random.uniform(0.1, 0.9, n_rep),
         )
 
-        params = create_rpath_params(
-            groups=["Fish", "Phyto", "Zoo"],
-            types=[0, 1, 0]
-        )
+        params = create_rpath_params(groups=["Fish", "Phyto", "Zoo"], types=[0, 1, 0])
 
         container = SampleContainer(n_replicates=n_rep)
         container.add_group_sample(group_sample)

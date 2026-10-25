@@ -103,9 +103,7 @@ def validate_samples(
     # 3. Validate diet samples
     if sample_container.diet_samples:
         issues.extend(
-            validate_diet_consistency(
-                sample_container, params, raise_on_error
-            )
+            validate_diet_consistency(sample_container, params, raise_on_error)
         )
 
     # 4. Validate catch samples
@@ -116,9 +114,10 @@ def validate_samples(
             try:
                 # Assuming there's a way to get fleets from params
                 # For now, we just validate group names
-                for (group_name, fleet_name), _ in (
-                    sample_container.catch_samples.items()
-                ):
+                for (
+                    group_name,
+                    fleet_name,
+                ), _ in sample_container.catch_samples.items():
                     if group_name not in valid_groups:
                         msg = f"Group '{group_name}' in catch samples not in params"
                         issues.append(msg)
@@ -159,9 +158,7 @@ def validate_replicate_counts(sample_container: SampleContainer) -> list[str]:
             issues.append(msg)
 
     # Check diet samples
-    for (pred_name, prey_name), diet_sample in (
-        sample_container.diet_samples.items()
-    ):
+    for (pred_name, prey_name), diet_sample in sample_container.diet_samples.items():
         if diet_sample.n_replicates != n_replicates:
             msg = (
                 f"Diet pair '{pred_name}' → '{prey_name}': replicate count mismatch "
@@ -170,9 +167,10 @@ def validate_replicate_counts(sample_container: SampleContainer) -> list[str]:
             issues.append(msg)
 
     # Check catch samples
-    for (group_name, fleet_name), catch_sample in (
-        sample_container.catch_samples.items()
-    ):
+    for (
+        group_name,
+        fleet_name,
+    ), catch_sample in sample_container.catch_samples.items():
         if catch_sample.n_replicates != n_replicates:
             msg = (
                 f"Catch '{group_name}' by '{fleet_name}': replicate count mismatch "
@@ -220,23 +218,16 @@ def validate_sample_ranges(
         )
 
     # Check diet samples
-    for (pred_name, prey_name), diet_sample in (
-        sample_container.diet_samples.items()
-    ):
-        issues.extend(
-            _validate_diet_sample_ranges(
-                pred_name, prey_name, diet_sample
-            )
-        )
+    for (pred_name, prey_name), diet_sample in sample_container.diet_samples.items():
+        issues.extend(_validate_diet_sample_ranges(pred_name, prey_name, diet_sample))
 
     # Check catch samples
-    for (group_name, fleet_name), catch_sample in (
-        sample_container.catch_samples.items()
-    ):
+    for (
+        group_name,
+        fleet_name,
+    ), catch_sample in sample_container.catch_samples.items():
         issues.extend(
-            _validate_catch_sample_ranges(
-                group_name, fleet_name, catch_sample
-            )
+            _validate_catch_sample_ranges(group_name, fleet_name, catch_sample)
         )
 
     return issues
@@ -279,14 +270,10 @@ def validate_diet_consistency(
 
     # Group samples by predator
     predator_diets = {}
-    for (pred_name, prey_name), diet_sample in (
-        sample_container.diet_samples.items()
-    ):
+    for (pred_name, prey_name), diet_sample in sample_container.diet_samples.items():
         if pred_name not in predator_diets:
             predator_diets[pred_name] = []
-        predator_diets[pred_name].append(
-            (prey_name, diet_sample.diet_fraction_samples)
-        )
+        predator_diets[pred_name].append((prey_name, diet_sample.diet_fraction_samples))
 
     # Check diet sums per predator
     tolerance = 0.01  # Allow ±1% deviation
@@ -300,9 +287,7 @@ def validate_diet_consistency(
         diet_sums = diet_matrix.sum(axis=1)
 
         # Check if sums are valid (should be ~1.0)
-        invalid_mask = (diet_sums < 1.0 - tolerance) | (
-            diet_sums > 1.0 + tolerance
-        )
+        invalid_mask = (diet_sums < 1.0 - tolerance) | (diet_sums > 1.0 + tolerance)
         if invalid_mask.any():
             n_invalid = invalid_mask.sum()
             mean_sum = diet_sums.mean()
@@ -401,12 +386,9 @@ def _validate_group_sample_ranges(
             if raise_on_error:
                 raise ValueError(msg)
         if np.any(np.isnan(biomass)) or np.any(np.isinf(biomass)):
-            n_invalid = np.sum(np.isnan(biomass)) + np.sum(
-                np.isinf(biomass)
-            )
+            n_invalid = np.sum(np.isnan(biomass)) + np.sum(np.isinf(biomass))
             msg = (
-                f"Group '{group_name}': {n_invalid} biomass samples "
-                "contain NaN or inf"
+                f"Group '{group_name}': {n_invalid} biomass samples contain NaN or inf"
             )
             issues.append(msg)
             if raise_on_error:
@@ -481,9 +463,7 @@ def _validate_diet_sample_ranges(
 
     # Check for NaN/inf
     if np.any(np.isnan(diet_fractions)) or np.any(np.isinf(diet_fractions)):
-        n_invalid = np.sum(np.isnan(diet_fractions)) + np.sum(
-            np.isinf(diet_fractions)
-        )
+        n_invalid = np.sum(np.isnan(diet_fractions)) + np.sum(np.isinf(diet_fractions))
         msg = (
             f"Diet '{pred_name}' → '{prey_name}': {n_invalid} fractions "
             "contain NaN or inf"

@@ -526,4 +526,3 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             yield df.to_csv(index=False)
         else:
             yield ""
-
