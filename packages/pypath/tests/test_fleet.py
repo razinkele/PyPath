@@ -17,22 +17,20 @@ Total: ~50 tests, ~900 lines
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-import numpy as np
 import pandas as pd
 import pytest
 
 from pypath.core.fleet import (
-    GearType,
-    FleetGroup,
     DiscardPath,
     FleetDynamics,
+    FleetGroup,
+    GearType,
     allocate_catch,
     allocate_discards,
-    validate_allocation,
     estimate_catch_value,
     estimate_fuel_cost,
+    validate_allocation,
 )
 
 logger = logging.getLogger(__name__)
@@ -224,11 +222,13 @@ class TestFleetGroup:
         assert fleet_dict["gears"] == ["Seine", "Net"]
         assert fleet_dict["fuel_efficiency"] == 0.08
         assert fleet_dict["base_effort"] == 150.0
-        assert fleet_dict["catchability"] == {"Cod": 0.5, "Herring": 0.3, "Capelin": 0.2}
+        assert fleet_dict["catchability"] == {
+            "Cod": 0.5,
+            "Herring": 0.3,
+            "Capelin": 0.2,
+        }
 
-    def test_from_dict_deserialization(
-        self, sample_fleet_group: FleetGroup
-    ) -> None:
+    def test_from_dict_deserialization(self, sample_fleet_group: FleetGroup) -> None:
         """Test FleetGroup.from_dict() deserialization."""
         fleet_dict = sample_fleet_group.to_dict()
         reconstructed = FleetGroup.from_dict(fleet_dict)
@@ -237,9 +237,7 @@ class TestFleetGroup:
         assert reconstructed.gears == sample_fleet_group.gears
         assert reconstructed.catchability == sample_fleet_group.catchability
 
-    def test_round_trip_serialization(
-        self, sample_fleet_group: FleetGroup
-    ) -> None:
+    def test_round_trip_serialization(self, sample_fleet_group: FleetGroup) -> None:
         """Test round-trip serialization preserves all data."""
         original_dict = sample_fleet_group.to_dict()
         reconstructed = FleetGroup.from_dict(original_dict)
@@ -390,9 +388,7 @@ class TestDiscardPath:
         assert path_dict["fate"] == "lost"
         assert path_dict["depth_dependent"] is False
 
-    def test_round_trip_serialization(
-        self, sample_discard_path: DiscardPath
-    ) -> None:
+    def test_round_trip_serialization(self, sample_discard_path: DiscardPath) -> None:
         """Test round-trip serialization preserves all data."""
         original_dict = sample_discard_path.to_dict()
         reconstructed = DiscardPath.from_dict(original_dict)
@@ -439,9 +435,7 @@ class TestFleetDynamics:
         is_valid, errors = fd.validate()
         assert is_valid
 
-    def test_validate_valid_state(
-        self, sample_fleet_dynamics: FleetDynamics
-    ) -> None:
+    def test_validate_valid_state(self, sample_fleet_dynamics: FleetDynamics) -> None:
         """Test validate() returns True for valid fleet dynamics."""
         is_valid, errors = sample_fleet_dynamics.validate()
         assert is_valid
@@ -485,9 +479,7 @@ class TestFleetDynamics:
     def test_from_dataframe(self, sample_fleet_dynamics: FleetDynamics) -> None:
         """Test from_dataframe() reconstructs FleetDynamics."""
         dfs = sample_fleet_dynamics.to_dataframe()
-        reconstructed = FleetDynamics.from_dataframe(
-            dfs["fleets"], dfs["discards"]
-        )
+        reconstructed = FleetDynamics.from_dataframe(dfs["fleets"], dfs["discards"])
         assert len(reconstructed.fleets) == 2
         assert len(reconstructed.discard_paths) == 3
 
@@ -678,34 +670,42 @@ class TestEdgeCases:
     def test_multiple_discard_fates_same_group(self) -> None:
         """Test multiple discard paths for same source group."""
         fd = FleetDynamics()
-        fd.add_discard_path(DiscardPath(
-            source_group="Bycatch",
-            discard_rate=0.5,
-            fate="lost",
-        ))
-        fd.add_discard_path(DiscardPath(
-            source_group="Bycatch",
-            target_group="Seabirds",
-            discard_rate=0.3,
-            fate="predation",
-        ))
+        fd.add_discard_path(
+            DiscardPath(
+                source_group="Bycatch",
+                discard_rate=0.5,
+                fate="lost",
+            )
+        )
+        fd.add_discard_path(
+            DiscardPath(
+                source_group="Bycatch",
+                target_group="Seabirds",
+                discard_rate=0.3,
+                fate="predation",
+            )
+        )
         assert len(fd.discard_paths["Bycatch"]) == 2
 
     def test_circular_discard_paths(self) -> None:
         """Test complex discard path routing (not circular detection)."""
         fd = FleetDynamics()
-        fd.add_discard_path(DiscardPath(
-            source_group="Group A",
-            target_group="Group B",
-            discard_rate=0.2,
-            fate="predation",
-        ))
-        fd.add_discard_path(DiscardPath(
-            source_group="Group B",
-            target_group="Group C",
-            discard_rate=0.1,
-            fate="predation",
-        ))
+        fd.add_discard_path(
+            DiscardPath(
+                source_group="Group A",
+                target_group="Group B",
+                discard_rate=0.2,
+                fate="predation",
+            )
+        )
+        fd.add_discard_path(
+            DiscardPath(
+                source_group="Group B",
+                target_group="Group C",
+                discard_rate=0.1,
+                fate="predation",
+            )
+        )
         assert len(fd.discard_paths) == 2
 
     def test_fleet_with_many_gears(self) -> None:
@@ -746,9 +746,7 @@ class TestEdgeCases:
 class TestIntegration:
     """Integration tests combining multiple fleet components."""
 
-    def test_full_fleet_scenario(
-        self, sample_fleet_dynamics: FleetDynamics
-    ) -> None:
+    def test_full_fleet_scenario(self, sample_fleet_dynamics: FleetDynamics) -> None:
         """Test complete fleet scenario with multiple fleets and discard paths."""
         is_valid, errors = sample_fleet_dynamics.validate()
         assert is_valid
@@ -766,15 +764,11 @@ class TestIntegration:
         discard_rate_herring = 0.10
 
         discard_alloc_cod = allocate_discards(discard_rate_cod, "Cod")
-        discard_alloc_herring = allocate_discards(
-            discard_rate_herring, "Herring"
-        )
+        discard_alloc_herring = allocate_discards(discard_rate_herring, "Herring")
 
         # Calculate discarded biomass
         discarded_cod = catch_alloc["Cod"] * discard_alloc_cod["discarded"]
-        discarded_herring = (
-            catch_alloc["Herring"] * discard_alloc_herring["discarded"]
-        )
+        discarded_herring = catch_alloc["Herring"] * discard_alloc_herring["discarded"]
 
         assert discarded_cod == pytest.approx(9.0)
         assert discarded_herring == pytest.approx(4.0)
@@ -836,18 +830,22 @@ class TestIntegration:
         fd.add_fleet(fleet2)
 
         # Add depth-dependent discard paths for spatial routing
-        fd.add_discard_path(DiscardPath(
-            source_group="Pelagic Juvenile",
-            discard_rate=0.2,
-            fate="lost",
-            depth_dependent=True,
-        ))
-        fd.add_discard_path(DiscardPath(
-            source_group="Demersal Juvenile",
-            discard_rate=0.15,
-            fate="lost",
-            depth_dependent=True,
-        ))
+        fd.add_discard_path(
+            DiscardPath(
+                source_group="Pelagic Juvenile",
+                discard_rate=0.2,
+                fate="lost",
+                depth_dependent=True,
+            )
+        )
+        fd.add_discard_path(
+            DiscardPath(
+                source_group="Demersal Juvenile",
+                discard_rate=0.15,
+                fate="lost",
+                depth_dependent=True,
+            )
+        )
 
         # Convert to DataFrames for spatial engine
         dfs = fd.to_dataframe()
@@ -867,4 +865,3 @@ class TestIntegration:
         assert all(0.0 <= q <= 1.0 for q in fleet.catchability.values())
         assert len(fleet.catchability) > 0
         assert fleet.is_valid()
-

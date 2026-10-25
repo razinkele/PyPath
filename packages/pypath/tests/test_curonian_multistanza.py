@@ -85,6 +85,7 @@ class TestBiomassDistribution:
     def test_biomass_conservation(self):
         """Total biomass across stanzas should equal original."""
         import numpy as np
+
         original = 1.777
         weights = np.array([0.1, 0.5])
 
@@ -96,6 +97,7 @@ class TestBiomassDistribution:
     def test_biomass_distribution_proportional(self):
         """Biomass distribution should be proportional to weights."""
         import numpy as np
+
         original = 1.0
         weights = np.array([0.3, 0.7])  # 30-70 split
 
@@ -155,7 +157,9 @@ class TestMultistanzaSetup:
         stanzas = setup_multistanza_groups(ecopath_params, stanza_defs)
 
         # Predatory stanzas are indices 2, 3, 4
-        pred_stanzas = [si for si in stanzas.stanza_individuals if si.stanza_group_num == 2]
+        pred_stanzas = [
+            si for si in stanzas.stanza_individuals if si.stanza_group_num == 2
+        ]
 
         assert len(pred_stanzas) == 3
 
@@ -193,14 +197,19 @@ class TestModelIntegration:
         orig_predatory = ecopath_params.model.iloc[14]["Biomass"]
 
         # Sum stanza biomasses
-        demersal_stanzas = [si for si in stanzas.stanza_individuals if si.stanza_group_num == 1]
-        predatory_stanzas = [si for si in stanzas.stanza_individuals if si.stanza_group_num == 2]
+        demersal_stanzas = [
+            si for si in stanzas.stanza_individuals if si.stanza_group_num == 1
+        ]
+        predatory_stanzas = [
+            si for si in stanzas.stanza_individuals if si.stanza_group_num == 2
+        ]
 
         stanza_demersal = sum(si.biomass for si in demersal_stanzas)
         stanza_predatory = sum(si.biomass for si in predatory_stanzas)
 
         # Should be approximately equal (within rounding)
         import numpy as np
+
         np.testing.assert_almost_equal(stanza_demersal, orig_demersal, decimal=2)
         np.testing.assert_almost_equal(stanza_predatory, orig_predatory, decimal=2)
 

@@ -1,4 +1,5 @@
 """Ecosim utilities for UI enhancements and result formatting."""
+
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -48,7 +49,11 @@ def format_timeseries_for_export(
                 group_biomass = biomass[:, g] if len(biomass.shape) > 1 else biomass
                 data[f"Biomass_Group{g}"] = group_biomass
 
-    if include_catch and "monthly_catch" in output and output["monthly_catch"] is not None:
+    if (
+        include_catch
+        and "monthly_catch" in output
+        and output["monthly_catch"] is not None
+    ):
         catch = np.asarray(output["monthly_catch"])
         if len(catch.shape) > 1:
             n_fleets = catch.shape[1]
