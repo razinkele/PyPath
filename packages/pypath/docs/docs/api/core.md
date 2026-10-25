@@ -3,6 +3,32 @@
 The core module implements the Ecopath mass-balance solver, Ecosim dynamic
 simulation, and supporting subsystems (stanzas, forcing, optimization).
 
+## Functional Development Workflows
+
+This reference now covers functional developments added around the baseline
+Ecopath/Ecosim pipeline.
+
+| Workflow | Primary API Entry Points | Typical Outcome |
+|----------|--------------------------|-----------------|
+| **Balanced baseline modeling** | `create_rpath_params()`, `rpath()`, `rsim_scenario()`, `rsim_run()` | Mass-balanced static model and dynamic biomass trajectories |
+| **Recruitment-aware dynamics** | `RickerRecruitment`, `BevertonHoltRecruitment`, `MyersRecruitment`, `RsimScenario.set_recruitment_model()`, `RsimScenario.apply_recruitment_to_forcing()` | Group-specific recruitment multipliers injected into monthly forcing |
+| **Metabolism scaling** | `TemperatureDependence`, `MetabolicModel`, `compute_temperature_adjusted_metabolism()` | Temperature/body-size adjusted metabolic rates |
+| **Fishing strategy prototyping** | `DynamicLogisticSelectivity`, `TimeVaryingSelectivity`, `SpatialSelectivity`, `FishingOptimization` | Selectivity and effort-allocation experiments before full scenario runs |
+| **Uncertainty and risk** | `SensitivityAnalyzer`, `UncertaintyPropagation`, `RiskAssessment` | Local/global sensitivity, ensemble uncertainty, collapse/extinction risk metrics |
+
+### Recruitment-enabled scenario pattern
+
+```python
+from pypath import rsim_scenario
+from pypath.core.recruitment import RickerRecruitment
+
+scenario = rsim_scenario(model, params, years=range(1, 51))
+scenario.set_recruitment_model("Cod", RickerRecruitment(alpha=0.8, beta=0.02, rmax=1.5))
+
+ssb = {"Cod": 1200.0}
+scenario.apply_recruitment_to_forcing(month_index=0, time=0.0, ssb_by_group=ssb)
+```
+
 ## Ecopath (Mass-Balance)
 
 ::: pypath.core.ecopath
@@ -117,7 +143,55 @@ State-variable forcing and dynamic diet rewiring extensions for Ecosim.
     options:
       show_root_heading: true
 
+## Recruitment Models
+
+Stock-recruitment relationships and larval connectivity helpers for
+advanced population replenishment dynamics.
+
+::: pypath.core.recruitment
+    options:
+      show_root_heading: true
+
+## Ecosim Recruitment Wiring
+
+Runtime wiring that patches recruitment processes into `RsimScenario`
+and Ecosim time stepping.
+
+::: pypath.core.ecosim_recruitment
+    options:
+      show_root_heading: true
+
+## Metabolism
+
+Temperature- and size-dependent metabolic scaling utilities.
+
+::: pypath.core.metabolism
+    options:
+      show_root_heading: true
+
+## Fishing Management
+
+Selectivity and management strategy helpers for dynamic fishing controls.
+
+::: pypath.core.fishing_management
+    options:
+      show_root_heading: true
+
+## Sensitivity & Uncertainty Analysis
+
+Screening, uncertainty propagation, and risk-assessment helpers
+for scenario robustness analysis.
+
+::: pypath.core.sensitivity_analysis
+    options:
+      show_root_heading: true
+
 ## Optimization
+
+Parameter-fitting and search utilities for core Ecosim calibration.
+
+Scenario-level management optimization is documented in
+[Analysis API: Scenario Optimization](analysis.md#scenario-optimization).
 
 ::: pypath.core.optimization
     options:

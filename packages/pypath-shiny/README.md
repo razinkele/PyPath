@@ -13,6 +13,7 @@ Ecopath with Ecosim (EwE) ecosystem models using the [pypath-ewe](https://pypi.o
 - Fishing scenario management
 - Species data lookup via WoRMS/OBIS/FishBase
 - Built-in feedback reporting modal (available from anywhere in the app)
+- Topbar quick links for About and Changelog with visible app version
 - Feedback Dashboard with trends, filtering, and in-app resolution workflow
 
 ## Installation

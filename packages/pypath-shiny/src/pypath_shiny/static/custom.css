@@ -214,6 +214,38 @@ a:hover {
   letter-spacing: -0.03em;
 }
 
+
+.pypath-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0 1.25rem;
+}
+
+.pypath-topbar .pypath-brand {
+  margin-bottom: 0;
+  padding: 1rem 0 0.75rem;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.topbar-version {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.82rem;
+  color: var(--pp-text-secondary);
+  margin-right: 0.25rem;
+}
+
+.topbar-btn {
+  white-space: nowrap;
+}
+
 /* =========================================================
    HERO SECTION (Home page)
    ========================================================= */

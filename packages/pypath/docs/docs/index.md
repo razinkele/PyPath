@@ -45,9 +45,16 @@ scenario = rsim_scenario(model, params, years=range(1, 51))
 output = rsim_run(scenario, method="AB")
 ```
 
-## Phase 1B Features (v0.5.3)
+## Phase 1C / v1.0.0 Highlights
 
-This release introduces Phase 1B enhancements including improved integration workflows, enhanced system capabilities, and expanded documentation. See the [Phase 1B Release](phase1b_readme.md) section for details.
+Recent development milestones now available in PyPath include:
+
+- **Coupled Ecosim-Ecospace runtime** with unified state-vector helpers (`pypath.spatial.coupling`) and spatial integration state I/O.
+- **Scenario optimization API** for risk-aware, multi-objective management ranking (`pypath.analysis.scenario_optimizer`).
+- **Expanded Ecosim extensions** including recruitment models, metabolism scaling, fishing-management utilities, and sensitivity/uncertainty helpers.
+- **Deterministic performance benchmark gating** with configurable CI thresholds and benchmark regression reporting.
+
+See [Getting Started](getting-started.md) and [API Reference](api/core.md) for usage details.
 
 ### Loading EwE Database Models
 

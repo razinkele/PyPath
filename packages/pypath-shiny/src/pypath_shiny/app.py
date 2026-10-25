@@ -42,6 +42,7 @@ logger = logging.getLogger("pypath_app")
 APP_DIR = Path(__file__).parent
 
 # Configuration imports
+from pypath_shiny import __version__  # noqa: E402
 from pypath_shiny.config import UI  # noqa: E402
 
 # Import page modules - organized by category
@@ -64,6 +65,8 @@ from pypath_shiny.pages import (  # noqa: E402
     results,
     tutorial,
 )
+
+CHANGELOG_URL = "https://github.com/razinkele/PyPath/blob/main/packages/pypath-shiny/CHANGELOG.md"
 
 
 def _icon_label(icon_class: str, text: str) -> ui.TagList:
@@ -114,15 +117,37 @@ app_ui = ui.page_fluid(
             }}
         """),
     ),
-    # Branding header
+    # Top bar: branding + quick links
     ui.div(
-        ui.tags.img(
-            src="icon.svg",
-            height=UI.icon_height_px,
-            style="margin-right: 10px; vertical-align: middle;",
+        ui.div(
+            ui.tags.img(
+                src="icon.svg",
+                height=UI.icon_height_px,
+                style="margin-right: 10px; vertical-align: middle;",
+            ),
+            ui.tags.span("PyPath", class_="brand-name"),
+            class_="pypath-brand",
         ),
-        ui.tags.span("PyPath", class_="brand-name"),
-        class_="pypath-brand mb-2",
+        ui.div(
+            ui.tags.span(f"v{__version__}", class_="topbar-version"),
+            ui.input_action_button(
+                "btn_topbar_about",
+                ui.TagList(ui.tags.i(class_="bi bi-info-circle me-1"), "About"),
+                class_="btn btn-outline-primary btn-sm topbar-btn",
+            ),
+            ui.tags.a(
+                ui.TagList(
+                    ui.tags.i(class_="bi bi-journal-text me-1"),
+                    "Changelog",
+                ),
+                href=CHANGELOG_URL,
+                target="_blank",
+                rel="noopener noreferrer",
+                class_="btn btn-outline-secondary btn-sm topbar-btn",
+            ),
+            class_="topbar-actions",
+        ),
+        class_="pypath-topbar mb-2",
     ),
     # Main navigation — left sidebar pill list
     ui.navset_pill_list(
@@ -320,6 +345,11 @@ def server(input: Inputs, output: Outputs, session: Session):
             size="m",
         )
         ui.modal_show(m)
+
+    @reactive.effect
+    @reactive.event(input.btn_topbar_about)
+    def goto_about_from_topbar():
+        ui.update_navs("main_nav", selected="About")
 
     # Primary reactive state (shared across all pages)
     model_data = reactive.Value(None)  # RpathParams: Ecopath model parameters
