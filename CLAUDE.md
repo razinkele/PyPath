@@ -42,7 +42,7 @@ packages/
     tests/                         # 551 core tests + 229 IBM tests
     example_model_data/            # CSV example model files
     docs/                          # MkDocs API documentation
-    pyproject.toml                 # pypath-ewe v0.5.3
+    pyproject.toml                 # pypath-ewe v1.0.0
 
   pypath-shiny/                    # Web frontend (PyPI: pypath-shiny)
     src/pypath_shiny/
@@ -55,7 +55,7 @@ packages/
       static/                      # CSS, logos, icons
     tests/                         # 115 app tests
       ui/                          # Playwright UI tests (optional)
-    pyproject.toml                 # pypath-shiny v0.5.3
+    pyproject.toml                 # pypath-shiny v1.0.0
 ```
 
 ## Package Details
@@ -64,7 +64,7 @@ packages/
 |---|---|---|
 | **PyPI name** | `pypath-ewe` | `pypath-shiny` |
 | **Import** | `import pypath` | `import pypath_shiny` |
-| **Version** | 0.5.3 | 0.5.3 |
+| **Version** | 1.0.0 | 1.0.0 |
 | **Conda** | `conda install -c razinka pypath-ewe` | `conda install -c razinka pypath-shiny` |
 | **Dependencies** | numpy, pandas, scipy, matplotlib | pypath-ewe, shiny, shinyswatch |
 | **Entry point** | Library | `pypath-shiny` CLI command |
