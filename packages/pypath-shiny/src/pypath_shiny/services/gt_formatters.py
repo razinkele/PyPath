@@ -102,6 +102,31 @@ def format_diet_matrix(
     return gt
 
 
+def format_time_series_summary(
+    df: pd.DataFrame,
+    title: str = "Time Series Data",
+    subtitle: Optional[str] = None,
+    decimals: int = 4,
+) -> GT:
+    """Format time series summary data with professional styling."""
+    gt = GT(df)
+    
+    if subtitle:
+        gt = gt.tab_header(title=title, subtitle=subtitle)
+    else:
+        gt = gt.tab_header(title=title)
+    
+    numeric_cols = df.select_dtypes(include=["float64", "float32", "int64", "int32"]).columns.tolist()
+    # Skip time-related columns like Year, Month
+    numeric_cols = [c for c in numeric_cols if c not in ["Year", "Month"]]
+    if numeric_cols:
+        gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
+    
+    gt = gt.opt_interactive()
+    
+    return gt
+
+
 def format_dataframe(
     df: pd.DataFrame,
     title: str = "Data Table",

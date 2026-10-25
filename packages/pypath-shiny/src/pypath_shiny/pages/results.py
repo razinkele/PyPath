@@ -12,6 +12,13 @@ from pypath_shiny.config import PLOTS, UI
 # Import shared utilities (pypath path setup handled by app/__init__.py)
 from .utils import get_model_info, is_balanced_model, is_rpath_params
 
+# Import great_tables formatters
+from ..services.gt_formatters import (
+    format_params_table,
+    format_diet_matrix,
+    format_time_series_summary,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -653,11 +660,18 @@ def results_server(
         info = get_model_info(model)
         if info is None:
             return pd.DataFrame()
+        
+        df = None
         if is_balanced_model(model) and hasattr(model, "summary"):
-            return model.summary()
-        if is_rpath_params(info["params"]):
-            return info["params"].model
-        return pd.DataFrame()
+            df = model.summary()
+        elif is_rpath_params(info["params"]):
+            df = info["params"].model
+        else:
+            df = pd.DataFrame()
+        
+        if df.empty:
+            return df
+        return format_params_table(df, title="Model Parameters")
 
     @output
     @render.data_frame
@@ -672,19 +686,22 @@ def results_server(
             # Return diet from params
             params = info["params"]
             if hasattr(params, "diet"):
-                return params.diet
-            return pd.DataFrame({"Message": ["Balance model to see diet matrix"]})
+                df = params.diet
+            else:
+                df = pd.DataFrame({"Message": ["Balance model to see diet matrix"]})
+        else:
+            n_living = info["num_living"]
+            n_bio = info["num_living"] + info["num_dead"]
+            groups = info["groups"]
 
-        n_living = info["num_living"]
-        n_bio = info["num_living"] + info["num_dead"]
-        groups = info["groups"]
+            df = pd.DataFrame(
+                model.DC[:n_bio, :n_living], index=groups[:n_bio], columns=groups[:n_living]
+            ).round(4)
+            df.insert(0, "Prey", df.index)
 
-        diet_df = pd.DataFrame(
-            model.DC[:n_bio, :n_living], index=groups[:n_bio], columns=groups[:n_living]
-        ).round(4)
-        diet_df.insert(0, "Prey", diet_df.index)
-
-        return diet_df
+        if df.empty:
+            return df
+        return format_diet_matrix(df, title="Diet Composition Matrix")
 
     @output
     @render.data_frame
@@ -707,7 +724,11 @@ def results_server(
         df.insert(1, "Year", df["Month"] / 12)
 
         # Show every 12 months
-        return df[df["Month"] % 12 == 0]
+        df = df[df["Month"] % 12 == 0]
+        
+        if df.empty:
+            return df
+        return format_time_series_summary(df, title="Monthly Biomass", decimals=4)
 
     @output
     @render.data_frame
@@ -728,7 +749,9 @@ def results_server(
         ).round(4)
         df.insert(0, "Year", range(1, len(df) + 1))
 
-        return df
+        if df.empty:
+            return df
+        return format_time_series_summary(df, title="Annual Catch", decimals=4)
 
     @render.download(filename="pypath_model.csv")
     def download_model_csv():
