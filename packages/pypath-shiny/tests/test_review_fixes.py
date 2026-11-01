@@ -75,17 +75,26 @@ class TestResultsPlotChoices:
         for name in palettes:
             assert name in plt.colormaps, name
 
-    def test_apply_plot_style_ignores_unknown_style(self):
-        with plt.rc_context():
-            results._apply_plot_style(plt, "no-such-style")  # must not raise
-            results._apply_plot_style(plt, "default")
+    # The Results charts are Plotly now; "Plot Style" picks a Plotly template.
+    def test_every_plot_style_maps_to_a_real_plotly_template(self):
+        import plotly.io as pio
 
-    def test_plot_style_does_not_leak_out_of_rc_context(self):
-        before = dict(plt.rcParams)
-        with plt.rc_context():
-            results._apply_plot_style(plt, "dark_background")
-            assert plt.rcParams["figure.facecolor"] != before["figure.facecolor"]
-        assert plt.rcParams["figure.facecolor"] == before["figure.facecolor"]
+        from pypath_shiny.services.plotly_viz import plotly_template_for
+
+        html = str(results.results_ui())
+        for style in self._choices(html, "plot_style"):
+            assert plotly_template_for(style) in pio.templates, style
+
+    def test_unknown_plot_style_falls_back_and_style_changes_figure(self):
+        from pypath_shiny.services.plotly_viz import (
+            build_tl_bar_figure,
+            plotly_template_for,
+        )
+
+        assert plotly_template_for("no-such-style") == "plotly_white"
+        fig = build_tl_bar_figure(["A"], [2.0])
+        fig.update_layout(template=plotly_template_for("dark_background"))
+        assert fig.layout.template.layout.paper_bgcolor != "white"
 
 
 class TestAnalysisPageCoreApiUsage:

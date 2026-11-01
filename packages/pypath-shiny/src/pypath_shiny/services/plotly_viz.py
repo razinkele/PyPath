@@ -7,22 +7,48 @@ from collections.abc import Sequence
 import numpy as np
 import plotly.graph_objects as go
 
+_TAB10 = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#7f7f7f",
+    "#bcbd22",
+    "#17becf",
+]
+
+
+def _matplotlib_palette(name: str, n: int) -> list[str] | None:
+    """Colors from a matplotlib colormap (tab10, Paired, viridis, ...).
+
+    Qualitative maps (few listed colors) are used in order; continuous maps
+    are sampled evenly. Returns None if matplotlib has no such map.
+    """
+    try:
+        from matplotlib import colormaps
+        from matplotlib.colors import ListedColormap, to_hex
+    except ImportError:  # pragma: no cover
+        return None
+    if name not in colormaps:
+        return None
+    cmap = colormaps[name]
+    if isinstance(cmap, ListedColormap) and cmap.N <= 20:
+        return [to_hex(c) for c in cmap.colors]
+    return [to_hex(cmap(x)) for x in np.linspace(0, 1, max(n, 1))]
+
 
 def _safe_palette(name: str | None, n: int) -> list[str]:
-    """Return a palette of color values for Plotly traces."""
+    """``n`` colors for Plotly traces from a Plotly or matplotlib palette name.
+
+    The Results page offers matplotlib names (tab10, Set2, Paired, viridis);
+    they used to fall back to Plotly's default colors. Short palettes cycle.
+    """
+    colors: list[str] | None = None
     if name in {None, "", "default"}:
-        colors = [
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728",
-            "#9467bd",
-            "#8c564b",
-            "#e377c2",
-            "#7f7f7f",
-            "#bcbd22",
-            "#17becf",
-        ]
+        colors = list(_TAB10)
     else:
         try:
             import plotly.express as px
@@ -30,24 +56,26 @@ def _safe_palette(name: str | None, n: int) -> list[str]:
             options = getattr(px.colors.qualitative, name, None)
             if options is not None:
                 colors = list(options)
-            else:
-                colors = px.colors.qualitative.Plotly
-        except Exception:
-            colors = [
-                "#1f77b4",
-                "#ff7f0e",
-                "#2ca02c",
-                "#d62728",
-                "#9467bd",
-                "#8c564b",
-            ]
+        except ImportError:  # pragma: no cover
+            pass
+        if colors is None:
+            colors = _matplotlib_palette(name, n)
+    if not colors:
+        colors = list(_TAB10)
+    return [colors[i % len(colors)] for i in range(n)]
 
-    if not isinstance(colors, Sequence):
-        colors = list(colors)
 
-    if len(colors) < n:
-        colors = list(colors) + [f"#{i:06x}" for i in range(len(colors), n)]
-    return list(colors[:n])
+_PLOTLY_TEMPLATES = {
+    "default": "plotly_white",
+    "seaborn-v0_8": "seaborn",
+    "ggplot": "ggplot2",
+    "dark_background": "plotly_dark",
+}
+
+
+def plotly_template_for(style: str | None) -> str:
+    """Plotly template for a Results-page "Plot Style" (matplotlib) name."""
+    return _PLOTLY_TEMPLATES.get(style or "default", "plotly_white")
 
 
 def _hex_to_rgba(hex_color: str, alpha: float = 0.2) -> str:
@@ -475,5 +503,173 @@ def build_effort_figure(
         legend_title="Fleet",
         hovermode="x unified",
         margin={"l": 60, "r": 20, "t": 50, "b": 50},
+    )
+    return fig
+
+
+# --- Results: trophic structure and food web ---------------------------------
+
+
+def build_tl_bar_figure(
+    groups: Sequence[str],
+    trophic_levels,
+    palette: str | None = "tab10",
+    title: str = "Trophic Levels",
+) -> go.Figure:
+    """Horizontal trophic-level bars, highest TL on top, dashed line at TL 1."""
+    tl = np.asarray(trophic_levels, dtype=float)
+    if len(groups) == 0 or tl.size == 0:
+        return _empty_figure(title, "Balance model first to see trophic levels")
+    order = np.argsort(tl)[::-1]
+    names = [str(groups[i]) for i in order]
+    values = tl[order]
+    fig = go.Figure(
+        go.Bar(
+            x=list(values),
+            y=names,
+            orientation="h",
+            marker={"color": _safe_palette(palette, len(names))},
+            hovertemplate="%{y}<br>TL %{x:.2f}<extra></extra>",
+        )
+    )
+    fig.add_vline(x=1, line={"dash": "dash", "color": "gray", "width": 1})
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Trophic Level",
+        yaxis={"autorange": "reversed"},
+        margin={"l": 140, "r": 20, "t": 50, "b": 50},
+    )
+    return fig
+
+
+_TL_BINS = [(1, 2, "TL 1-2"), (2, 3, "TL 2-3"), (3, 4, "TL 3-4"), (4, 5, "TL 4-5")]
+
+
+def build_trophic_pyramid_figure(
+    trophic_levels, production, title: str = "Trophic Pyramid (Production)"
+) -> go.Figure:
+    """Production summed by trophic-level band, TL 1-2 at the bottom.
+
+    The last band is open-ended ("TL 5+"), so apex groups above TL 6 count.
+    """
+    tl = np.asarray(trophic_levels, dtype=float)
+    prod = np.asarray(production, dtype=float)
+    if tl.size == 0:
+        return _empty_figure(title, "Balance model first to see trophic flows")
+    totals = [float(np.nansum(prod[(tl >= lo) & (tl < hi)])) for lo, hi, _ in _TL_BINS]
+    totals.append(float(np.nansum(prod[tl >= 5])))
+    labels = [label for _, _, label in _TL_BINS] + ["TL 5+"]
+    greens = ["#c7e9c0", "#a1d99b", "#74c476", "#31a354", "#006d2c"]
+    fig = go.Figure(
+        go.Bar(
+            x=totals,
+            y=labels,
+            orientation="h",
+            marker={"color": greens},
+            hovertemplate="%{y}<br>Production %{x:.4g}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Production",
+        margin={"l": 80, "r": 20, "t": 50, "b": 50},
+    )
+    return fig
+
+
+def build_foodweb_figure(
+    groups: Sequence[str],
+    trophic_levels,
+    biomass,
+    diet_matrix,
+    n_living: int,
+    min_flow: float = 0.0,
+    size_by_biomass: bool = True,
+    width_by_flow: bool = True,
+    title: str = "Food Web Structure",
+) -> go.Figure:
+    """Food web: groups at their trophic level, links prey -> predator.
+
+    ``diet_matrix`` is Rpath's ``DC`` (prey rows x living-predator columns).
+    Groups in the same whole-number TL band are spread across the x axis;
+    y is the actual trophic level. Node sizes scale with sqrt(biomass) into
+    12-45 px; links weaker than ``min_flow`` (diet share) are hidden.
+    """
+    names = [str(g) for g in groups]
+    tl = np.asarray(trophic_levels, dtype=float)[: len(names)]
+    bio = np.asarray(biomass, dtype=float)[: len(names)]
+    dc = np.asarray(diet_matrix, dtype=float)
+    if not names:
+        return _empty_figure(title, "Balance model first to see food web")
+
+    # x: spread within each whole-number TL band (as before), y: real TL
+    x = np.zeros(len(names))
+    bands: dict[int, list[int]] = {}
+    for i, level in enumerate(tl):
+        bands.setdefault(int(level) if np.isfinite(level) else 0, []).append(i)
+    for members in bands.values():
+        for k, i in enumerate(members):
+            x[i] = (k + 1) / (len(members) + 1)
+
+    links = []
+    for pred in range(min(n_living, dc.shape[1] if dc.ndim == 2 else 0)):
+        for prey in range(min(len(names), dc.shape[0])):
+            share = dc[prey, pred]
+            if np.isfinite(share) and share > min_flow and prey != pred:
+                links.append((prey, pred, float(share)))
+    if not links:
+        return _empty_figure(title, "No diet connections found. Check diet matrix.")
+
+    fig = go.Figure()
+    for prey, pred, share in links:
+        fig.add_trace(
+            go.Scatter(
+                x=[x[prey], x[pred]],
+                y=[tl[prey], tl[pred]],
+                mode="lines",
+                line={
+                    "width": 1 + 5 * share if width_by_flow else 1.5,
+                    "color": "rgba(120,120,120,0.45)",
+                },
+                hoverinfo="text",
+                text=f"{names[prey]} → {names[pred]}: {share:.0%} of diet",
+                showlegend=False,
+            )
+        )
+
+    if size_by_biomass:
+        root = np.sqrt(np.clip(np.nan_to_num(bio), 0, None))
+        span = root.max() - root.min()
+        sizes = 12 + 33 * ((root - root.min()) / span if span > 0 else 0 * root)
+    else:
+        sizes = np.full(len(names), 20.0)
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=tl,
+            mode="markers+text",
+            text=names,
+            textposition="top center",
+            marker={
+                "size": list(sizes),
+                "color": tl,
+                "colorscale": "YlGnBu",
+                "line": {"width": 1, "color": "#333"},
+                "showscale": False,
+            },
+            customdata=np.stack([bio], axis=-1),
+            hovertemplate="%{text}<br>TL %{y:.2f}<br>Biomass %{customdata[0]:.4g}"
+            "<extra></extra>",
+            showlegend=False,
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis={"visible": False, "range": [-0.05, 1.05]},
+        yaxis_title="Trophic Level",
+        margin={"l": 60, "r": 20, "t": 50, "b": 30},
     )
     return fig

@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover
 
 # Import centralized configuration
 from pypath_shiny.components import empty_state
-from pypath_shiny.config import PLOTS, UI
+from pypath_shiny.config import UI
 
 # Import great_tables formatters
 from ..services.gt_formatters import (
@@ -27,7 +27,14 @@ from ..services.gt_formatters import (
     format_params_table,
     format_time_series_summary,
 )
-from ..services.plotly_viz import build_biomass_figure, build_catch_figure
+from ..services.plotly_viz import (
+    build_biomass_figure,
+    build_catch_figure,
+    build_foodweb_figure,
+    build_tl_bar_figure,
+    build_trophic_pyramid_figure,
+    plotly_template_for,
+)
 
 # Import shared utilities (pypath path setup handled by app/__init__.py)
 from .utils import get_model_info, is_balanced_model, is_rpath_params
@@ -51,20 +58,6 @@ def choose_default_results_groups(
 
     limit = max(1, int(max_default))
     return groups[:limit]
-
-
-def _apply_plot_style(plt, style):
-    """Apply a named matplotlib style; unknown styles fall back to default.
-
-    Call this inside ``plt.rc_context()`` so the change does not leak into
-    other renders or user sessions (matplotlib rcParams are process-global).
-    """
-    if not style or style == "default":
-        return
-    try:
-        plt.style.use(style)
-    except (OSError, KeyError, ValueError) as e:
-        logger.warning("Plot style '%s' not available: %s. Using default.", style, e)
 
 
 def results_ui():
@@ -126,8 +119,8 @@ def results_ui():
                     ui.tags.hr(),
                     ui.h5("Trophic Structure"),
                     ui.layout_columns(
-                        ui.output_plot("tl_bar_plot"),
-                        ui.output_plot("tl_flow_plot"),
+                        output_widget("tl_bar_plot"),
+                        output_widget("tl_flow_plot"),
                         col_widths=[UI.col_width_medium, UI.col_width_medium],
                     ),
                 ),
@@ -155,7 +148,7 @@ def results_ui():
                         ),
                         col_widths=[12],
                     ),
-                    ui.output_plot("foodweb_plot", height=UI.plot_height_large_px),
+                    output_widget("foodweb_plot", height=UI.plot_height_large_px),
                 ),
                 ui.nav_panel(
                     "Simulation Results",
@@ -278,268 +271,63 @@ def results_server(
                 ].head(20)
         return pd.DataFrame()
 
+    def _styled(fig):
+        """Apply the sidebar "Plot Style" to a Plotly figure."""
+        fig.update_layout(template=plotly_template_for(input.plot_style()))
+        return fig
+
     @output
-    @render.plot
+    @render_widget
     def tl_bar_plot():
-        """Trophic level bar plot."""
-        import matplotlib.pyplot as plt
-
-        with plt.rc_context():
-            _apply_plot_style(plt, input.plot_style())
-            return _tl_bar_plot_impl(plt)
-
-    def _tl_bar_plot_impl(plt):
-        model = model_data.get()
-        info = get_model_info(model)
-
-        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
-
-        if info is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No model data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        if not info["is_balanced"] or info["trophic_level"] is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Balance model first to see trophic levels",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
+        """Interactive trophic-level bars (Plotly)."""
+        info = get_model_info(model_data.get())
+        if info is None or not info["is_balanced"] or info["trophic_level"] is None:
+            return _styled(build_tl_bar_figure([], []))
         n_bio = info["num_living"] + info["num_dead"]
-        groups = info["groups"][:n_bio]
-        tl = info["trophic_level"][:n_bio]
-
-        # Sort by TL
-        sorted_idx = np.argsort(tl)[::-1]
-        groups = [groups[i] for i in sorted_idx]
-        tl = tl[sorted_idx]
-
-        colors = plt.colormaps[input.color_palette()](np.linspace(0, 1, len(groups)))
-
-        ax.barh(groups, tl, color=colors)
-        ax.set_xlabel("Trophic Level")
-        ax.set_title("Trophic Levels")
-        ax.axvline(x=1, color="gray", linestyle="--", alpha=0.5)
-
-        plt.tight_layout()
-        return fig
+        return _styled(
+            build_tl_bar_figure(
+                info["groups"][:n_bio],
+                info["trophic_level"][:n_bio],
+                palette=input.color_palette(),
+            )
+        )
 
     @output
-    @render.plot
+    @render_widget
     def tl_flow_plot():
-        """Trophic flow pyramid."""
-        import matplotlib.pyplot as plt
-
+        """Interactive trophic pyramid of production (Plotly)."""
         model = model_data.get()
         info = get_model_info(model)
-
-        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
-
-        if info is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No model data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        if not info["is_balanced"] or info["trophic_level"] is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Balance model first to see trophic flows",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
+        if info is None or not info["is_balanced"] or info["trophic_level"] is None:
+            return _styled(build_trophic_pyramid_figure([], []))
         n_living = info["num_living"]
-
-        # Group by trophic level bins
-        tl = info["trophic_level"][:n_living]
-        biomass = model.Biomass[:n_living]
-        production = biomass * model.PB[:n_living]
-
-        # Create TL bins
-        tl_bins = [1, 2, 3, 4, 5, 6]
-        tl_labels = ["TL 1-2", "TL 2-3", "TL 3-4", "TL 4-5", "TL 5+"]
-
-        prod_by_tl = []
-        for i in range(len(tl_bins) - 1):
-            mask = (tl >= tl_bins[i]) & (tl < tl_bins[i + 1])
-            prod_by_tl.append(np.sum(production[mask]))
-
-        # Pyramid plot (horizontal bars, smallest at top)
-        y_pos = np.arange(len(tl_labels))
-
-        colors = plt.colormaps["YlGn"](np.linspace(0.3, 0.9, len(tl_labels)))
-
-        ax.barh(y_pos, prod_by_tl, color=colors, height=0.7)
-        ax.set_yticks(y_pos)
-        ax.set_yticklabels(tl_labels)
-        ax.set_xlabel("Production")
-        ax.set_title("Trophic Pyramid (Production)")
-        ax.invert_yaxis()
-
-        plt.tight_layout()
-        return fig
+        biomass = np.asarray(model.Biomass[:n_living], dtype=float)
+        production = biomass * np.asarray(model.PB[:n_living], dtype=float)
+        return _styled(
+            build_trophic_pyramid_figure(info["trophic_level"][:n_living], production)
+        )
 
     @output
-    @render.plot
+    @render_widget
     def foodweb_plot():
-        """Food web diagram."""
-        import matplotlib.pyplot as plt
-
+        """Interactive food web (Plotly): groups at their trophic level."""
         model = model_data.get()
         info = get_model_info(model)
-
-        fig, ax = plt.subplots(figsize=(12, 10))
-
-        if info is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No model data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.set_xlim(0, 1)
-            ax.set_ylim(0, 1)
-            return fig
-
-        if not info["is_balanced"]:
-            ax.text(
-                0.5,
-                0.5,
-                "Balance model first to see food web",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.set_xlim(0, 1)
-            ax.set_ylim(0, 1)
-            return fig
-
-        try:
-            import networkx as nx
-        except ImportError:
-            ax.text(
-                0.5,
-                0.5,
-                "NetworkX not installed.\nInstall with: pip install networkx",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
+        if info is None or not info["is_balanced"]:
+            return _styled(build_foodweb_figure([], [], [], [], 0))
         n_bio = info["num_living"] + info["num_dead"]
-        n_living = info["num_living"]
-        groups = info["groups"]
-
-        # Create graph
-        G = nx.DiGraph()
-
-        # Add nodes
-        for i in range(n_bio):
-            G.add_node(groups[i], tl=model.TL[i], biomass=model.Biomass[i])
-
-        # Add edges from diet matrix
-        min_flow = input.foodweb_min_flow()
-
-        for pred_idx in range(n_living):
-            pred = groups[pred_idx]
-            for prey_idx in range(n_bio):
-                if prey_idx < model.DC.shape[0] and pred_idx < model.DC.shape[1]:
-                    flow = model.DC[prey_idx, pred_idx]
-                    if flow > min_flow:
-                        prey = groups[prey_idx]
-                        G.add_edge(prey, pred, weight=flow)
-
-        if len(G.edges()) == 0:
-            ax.text(
-                0.5,
-                0.5,
-                "No diet connections found.\nCheck diet matrix.",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
+        return _styled(
+            build_foodweb_figure(
+                info["groups"][:n_bio],
+                model.TL[:n_bio],
+                model.Biomass[:n_bio],
+                model.DC,
+                n_living=info["num_living"],
+                min_flow=input.foodweb_min_flow(),
+                size_by_biomass=input.show_biomass_size(),
+                width_by_flow=input.show_flow_width(),
             )
-            return fig
-
-        # Layout based on trophic level
-        pos = {}
-        tl_groups = {}
-        for node in G.nodes():
-            tl = int(G.nodes[node]["tl"])
-            if tl not in tl_groups:
-                tl_groups[tl] = []
-            tl_groups[tl].append(node)
-
-        for tl, nodes in tl_groups.items():
-            n = len(nodes)
-            for i, node in enumerate(nodes):
-                x = (i + 1) / (n + 1)
-                pos[node] = (x, tl)
-
-        # Node sizes based on biomass
-        if input.show_biomass_size():
-            node_sizes = [300 + G.nodes[n]["biomass"] * 50 for n in G.nodes()]
-        else:
-            node_sizes = [500] * len(G.nodes())
-
-        # Edge widths based on flow
-        if input.show_flow_width():
-            edge_widths = [G.edges[e]["weight"] * 3 for e in G.edges()]
-        else:
-            edge_widths = [1] * len(G.edges())
-
-        # Colors by trophic level
-        node_colors = [G.nodes[n]["tl"] for n in G.nodes()]
-
-        # Draw
-        nx.draw_networkx_nodes(
-            G,
-            pos,
-            ax=ax,
-            node_size=node_sizes,
-            node_color=node_colors,
-            cmap="YlGnBu",
-            alpha=0.8,
         )
-        nx.draw_networkx_edges(
-            G,
-            pos,
-            ax=ax,
-            width=edge_widths,
-            alpha=0.5,
-            arrows=True,
-            connectionstyle="arc3,rad=0.1",
-        )
-        nx.draw_networkx_labels(G, pos, ax=ax, font_size=9)
-
-        ax.set_title("Food Web Structure")
-        ax.set_ylabel("Trophic Level")
-        ax.set_xlim(-0.1, 1.1)
-
-        plt.tight_layout()
-        return fig
 
     @output
     @render.ui
@@ -595,14 +383,16 @@ def results_server(
             selected,
             log_scale=input.log_scale(),
             palette=input.color_palette(),
-        )
+        ).update_layout(template=plotly_template_for(input.plot_style()))
 
     @output
     @render_widget
     def results_catch_plot():
         """Simulation catch results plot."""
         sim = sim_results.get()
-        return build_catch_figure(sim, palette=input.color_palette())
+        return build_catch_figure(sim, palette=input.color_palette()).update_layout(
+            template=plotly_template_for(input.plot_style())
+        )
 
     @output
     @render.ui
