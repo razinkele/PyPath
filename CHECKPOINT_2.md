@@ -15,7 +15,7 @@
 |---|---|
 | 1A Dependencies / 1B Architecture | Done |
 | 2 great_tables | **Done and browser-checked.** 15 read-only tables are static GT (`@render.ui`); editable tables and row pickers stay DataGrid. **Decision (user, 2026-11-01): keep static GT** - losing sort/filter/highlight on read-only tables is accepted. |
-| 3 Plotly + shinywidgets | **In progress.** Results page and Ecosim page (Biomass, Catch) use `services/plotly_viz.py` via `render_widget`. Home redesign, `components.py`. Not yet: Analysis page plots, Ecosim Summary plots, effort preview. |
+| 3 Plotly + shinywidgets | **In progress.** Plotly via `render_widget` on: Results (biomass, catch), Ecosim (Time Series, Catch), Analysis (MTI heatmap, keystoneness, EE bars). Home redesign, `components.py`. Not yet: Ecosim Summary tab plots (final biomass, biomass change), effort preview; Analysis food web / trophic spectrum (matplotlib from `pypath.core.plotting`). |
 | 4-8 | Not started |
 
 ## Browser check (2026-11-01, local app, Chrome)
@@ -43,14 +43,14 @@ Each has a contract test in `tests/test_render_contracts.py`,
 
 - Branch is up to date with main as of #31 (merge `36d8537`), plus later commits.
   After #32 merges, merge `origin/main` in again.
-- Shiny suite: 657+ passed. `ruff check packages/` and `ruff format --check packages/` clean.
+- Shiny suite: 687 passed. `ruff check packages/` and `ruff format --check packages/` clean.
 - CI (`ci-shiny-smoke.yml`) now runs the full Shiny unit suite (commit `4c51264`).
 
 ## Next steps
 
 1. Merge `origin/main` after #32 lands.
-2. Phase 3: Plotly on the Analysis page and the Ecosim Summary tab (same `plotly_viz` +
-   `render_widget` pattern; add builders + tests first).
+2. Phase 3: Plotly on the Ecosim Summary tab and effort preview (same `plotly_viz` +
+   `render_widget` pattern; add builders + tests first). Analysis page done (`56b827e`).
 3. Cosmetic: the Model Results GT table formats the Type column as `0.000`.
 4. Before opening the UI PR: full Shiny suite, a browser pass over every page, and
    remember `main` auto-deploys to laguna.
