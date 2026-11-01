@@ -11,8 +11,19 @@ from pypath.core.ecopath import Rpath, rpath
 from pypath.core.params import RpathParams, create_rpath_params, read_rpath_params
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+try:
+    from shinywidgets import output_widget, render_widget
+except ImportError:  # pragma: no cover
+
+    def output_widget(*args, **kwargs):
+        return ui.output_plot(*args, **kwargs)
+
+    def render_widget(func):
+        return render.plot(func)
+
+
 # Configuration imports
-from pypath_shiny.config import DEFAULTS, PLOTS, THRESHOLDS
+from pypath_shiny.config import DEFAULTS, THRESHOLDS
 from pypath_shiny.services.gt_formatters import (
     format_dataframe,
     format_results_summary,
@@ -22,6 +33,10 @@ from pypath_shiny.services.notifications import (
     notify_info,
     notify_success,
     notify_warning,
+)
+from pypath_shiny.services.plotly_viz import (  # noqa: E402
+    build_ee_figure,
+    build_tl_bar_figure,
 )
 from pypath_shiny.services.tasks import (
     TaskState,
@@ -564,8 +579,8 @@ def ecopath_ui():
                     ui.h4("Model Diagnostics", class_="mt-3"),
                     ui.output_ui("diagnostics_output"),
                     ui.layout_columns(
-                        ui.output_plot("trophic_level_plot"),
-                        ui.output_plot("ee_plot"),
+                        output_widget("trophic_level_plot"),
+                        output_widget("ee_plot"),
                         col_widths=[6, 6],
                     ),
                 ),
@@ -1541,85 +1556,40 @@ def ecopath_server(
             ),
         )
 
+    def _living_and_dead(model):
+        """(group names, slice length) for living + detritus groups."""
+        all_groups = _get_groups_from_model(model)
+        n = (
+            model.NUM_LIVING + model.NUM_DEAD
+            if is_balanced_model(model)
+            else len(all_groups)
+        )
+        return all_groups[:n], n
+
     @output
-    @render.plot
+    @render_widget
     def trophic_level_plot():
-        """Plot trophic levels."""
-        import matplotlib.pyplot as plt
-
+        """Interactive trophic levels, coloured by role (Plotly)."""
         model = balanced_model.get()
         if model is None:
-            fig, ax = plt.subplots()
-            ax.text(0.5, 0.5, "No model data", ha="center", va="center")
-            return fig
-
-        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
-
-        # Get group names safely
-        all_groups = _get_groups_from_model(model)
-        num_living_dead = (
-            model.NUM_LIVING + model.NUM_DEAD
-            if is_balanced_model(model)
-            else len(all_groups)
+            return build_tl_bar_figure([], [], title="Trophic Levels by Group")
+        groups, n = _living_and_dead(model)
+        return build_tl_bar_figure(
+            groups,
+            model.TL[:n],
+            title="Trophic Levels by Group",
+            top_predator_tl=THRESHOLDS.type_threshold_consumer_toppred,
         )
-        groups = all_groups[:num_living_dead]
-        tl = model.TL[:num_living_dead]
-
-        colors = [
-            (
-                "#2ecc71"
-                if t == 1
-                else (
-                    "#3498db"
-                    if t < THRESHOLDS.type_threshold_consumer_toppred
-                    else "#e74c3c"
-                )
-            )
-            for t in tl
-        ]
-
-        ax.barh(groups, tl, color=colors)
-        ax.set_xlabel("Trophic Level")
-        ax.set_title("Trophic Levels by Group")
-        ax.axvline(x=1, color="gray", linestyle="--", alpha=0.5)
-
-        plt.tight_layout()
-        return fig
 
     @output
-    @render.plot
+    @render_widget
     def ee_plot():
-        """Plot ecotrophic efficiency."""
-        import matplotlib.pyplot as plt
-
+        """Interactive ecotrophic efficiency (Plotly)."""
         model = balanced_model.get()
         if model is None:
-            fig, ax = plt.subplots()
-            ax.text(0.5, 0.5, "No model data", ha="center", va="center")
-            return fig
-
-        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
-
-        # Get group names safely
-        all_groups = _get_groups_from_model(model)
-        num_living_dead = (
-            model.NUM_LIVING + model.NUM_DEAD
-            if is_balanced_model(model)
-            else len(all_groups)
-        )
-        groups = all_groups[:num_living_dead]
-        ee = model.EE[:num_living_dead]
-
-        colors = ["#2ecc71" if 0 <= e <= 1 else "#e74c3c" for e in ee]
-
-        ax.barh(groups, ee, color=colors)
-        ax.set_xlabel("Ecotrophic Efficiency")
-        ax.set_title("Ecotrophic Efficiency by Group")
-        ax.axvline(x=1, color="red", linestyle="--", alpha=0.5, label="EE=1")
-        ax.set_xlim(0, max(1.1, max(ee) * 1.1))
-
-        plt.tight_layout()
-        return fig
+            return build_ee_figure([], np.array([]))
+        groups, n = _living_and_dead(model)
+        return build_ee_figure(groups, np.asarray(model.EE[:n], dtype=float))
 
     @render.download(filename="pypath_params.csv")
     def download_params():

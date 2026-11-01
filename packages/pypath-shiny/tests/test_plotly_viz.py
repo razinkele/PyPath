@@ -296,3 +296,25 @@ def test_plot_style_maps_to_plotly_template():
     assert plotly_template_for("dark_background") == "plotly_dark"
     assert plotly_template_for("unknown") == "plotly_white"
     assert plotly_template_for(None) == "plotly_white"
+
+
+# --- Ecopath page reuse --------------------------------------------------------
+
+
+def test_ee_bars_mark_negative_values_too():
+    import numpy as np
+
+    from pypath_shiny.services.plotly_viz import build_ee_figure
+
+    fig = build_ee_figure(["A", "B"], np.array([-0.2, 0.5]))
+    assert list(fig.data[0].marker.color) == ["#d62728", "#2ca02c"]
+
+
+def test_tl_bars_coloured_by_role():
+    from pypath_shiny.services.plotly_viz import build_tl_bar_figure
+
+    fig = build_tl_bar_figure(
+        ["Phyto", "Zoo", "Shark"], [1.0, 2.2, 4.4], top_predator_tl=4.0
+    )
+    by_group = dict(zip(fig.data[0].y, fig.data[0].marker.color))
+    assert by_group == {"Shark": "#d62728", "Zoo": "#1f77b4", "Phyto": "#2ca02c"}

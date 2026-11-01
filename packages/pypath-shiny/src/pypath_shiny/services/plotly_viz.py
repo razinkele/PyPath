@@ -345,7 +345,7 @@ def build_keystoneness_figure(
 def build_ee_figure(
     groups: Sequence[str], ee, title: str = "Ecotrophic Efficiency by Group"
 ) -> go.Figure:
-    """Horizontal EE bars, red above 1, with a dashed line at EE = 1.
+    """Horizontal EE bars, red above 1 or below 0, dashed line at EE = 1.
 
     Groups without an EE (detritus, fleets) are left out.
     """
@@ -361,7 +361,7 @@ def build_ee_figure(
             x=values,
             y=names,
             orientation="h",
-            marker={"color": [_BAD if v > 1 else _GOOD for v in values]},
+            marker={"color": [_BAD if v > 1 or v < 0 else _GOOD for v in values]},
             hovertemplate="%{y}<br>EE %{x:.3f}<extra></extra>",
         )
     )
@@ -515,20 +515,32 @@ def build_tl_bar_figure(
     trophic_levels,
     palette: str | None = "tab10",
     title: str = "Trophic Levels",
+    top_predator_tl: float | None = None,
 ) -> go.Figure:
-    """Horizontal trophic-level bars, highest TL on top, dashed line at TL 1."""
+    """Horizontal trophic-level bars, highest TL on top, dashed line at TL 1.
+
+    With ``top_predator_tl`` bars are coloured by role instead of palette:
+    producers (TL 1) green, consumers blue, TL >= threshold red.
+    """
     tl = np.asarray(trophic_levels, dtype=float)
     if len(groups) == 0 or tl.size == 0:
         return _empty_figure(title, "Balance model first to see trophic levels")
     order = np.argsort(tl)[::-1]
     names = [str(groups[i]) for i in order]
     values = tl[order]
+    if top_predator_tl is None:
+        colors = _safe_palette(palette, len(names))
+    else:
+        colors = [
+            _GOOD if v == 1 else (_BAD if v >= top_predator_tl else "#1f77b4")
+            for v in values
+        ]
     fig = go.Figure(
         go.Bar(
             x=list(values),
             y=names,
             orientation="h",
-            marker={"color": _safe_palette(palette, len(names))},
+            marker={"color": colors},
             hovertemplate="%{y}<br>TL %{x:.2f}<extra></extra>",
         )
     )
