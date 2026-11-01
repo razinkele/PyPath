@@ -11,6 +11,7 @@ from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
 from pypath.core.ecosim_advanced import rsim_run_advanced
 from pypath.core.forcing import DietRewiring
 from shiny import Inputs, Outputs, Session, reactive, render, ui
+from shiny.types import SilentException
 
 try:
     from shinywidgets import output_widget, render_widget
@@ -448,6 +449,7 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_scenario_setup"),
                     ui.output_ui("scenario_status"),
@@ -510,6 +512,7 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_progress"),
                     ui.output_ui("simulation_status"),
@@ -531,6 +534,7 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_timeseries"),
                     ui.layout_columns(
@@ -560,6 +564,7 @@ def ecosim_ui() -> ui.Tag:
                             value=False,
                         ),
                         col_widths=[9, 3],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     output_widget(
                         "biomass_timeseries", height=UI.plot_height_medium_px
@@ -581,6 +586,7 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_catch"),
                     output_widget("catch_timeseries", height=UI.plot_height_small_px),
@@ -602,6 +608,7 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_summary"),
                     ui.output_ui("summary_cards"),
@@ -614,6 +621,21 @@ def ecosim_ui() -> ui.Tag:
             ),
         ),
     )
+
+
+def read_optional_input(input, name: str, default):
+    """Read an input that may not exist in the browser.
+
+    Inputs created by an ``output_ui`` inside a hidden conditional panel are
+    never rendered, and reading one raises ``SilentException``.
+    ``hasattr(input, name)`` is always True for Shiny's Inputs, so it is no
+    guard. Returns ``default`` when the input is missing or None.
+    """
+    try:
+        value = getattr(input, name)()
+    except (SilentException, AttributeError, KeyError, TypeError):
+        return default
+    return default if value is None else value
 
 
 def ecosim_server(
@@ -664,12 +686,7 @@ def ecosim_server(
 
     def _input_or_default(name: str, default):
         """Read a UI input value with fallback for conditional controls."""
-        try:
-            getter = getattr(input, name)
-            value = getter()
-            return default if value is None else value
-        except (AttributeError, KeyError, TypeError):
-            return default
+        return read_optional_input(input, name, default)
 
     @reactive.effect
     @reactive.event(input.btn_help_scenario)
@@ -1487,19 +1504,11 @@ def ecosim_server(
                     enabled=input.enable_recruitment_control(),
                     group_name=input.recruitment_group(),
                     model_type=input.recruitment_model(),
-                    alpha=input.recruitment_alpha()
-                    if hasattr(input, "recruitment_alpha")
-                    else 1.2,
-                    beta=input.recruitment_beta()
-                    if hasattr(input, "recruitment_beta")
-                    else 0.1,
-                    rmax=input.recruitment_rmax()
-                    if hasattr(input, "recruitment_rmax")
-                    else 1.5,
+                    alpha=read_optional_input(input, "recruitment_alpha", 1.2),
+                    beta=read_optional_input(input, "recruitment_beta", 0.1),
+                    rmax=read_optional_input(input, "recruitment_rmax", 1.5),
                     k=_input_or_default("recruitment_k", 1.0),
-                    power=input.recruitment_power()
-                    if hasattr(input, "recruitment_power")
-                    else 1.0,
+                    power=read_optional_input(input, "recruitment_power", 1.0),
                     environment_multiplier=input.recruitment_env_multiplier(),
                 ),
             )
@@ -1521,18 +1530,26 @@ def ecosim_server(
                 validate_fishing_management_control(
                     enabled=input.enable_fishing_management_control(),
                     strategy=input.fishing_management_strategy(),
-                    sustainability_reduction=input.sustainability_reduction()
-                    if hasattr(input, "sustainability_reduction")
-                    else PARAM_RANGES.sustainability_reduction_default,
-                    sustainability_floor=input.sustainability_floor()
-                    if hasattr(input, "sustainability_floor")
-                    else PARAM_RANGES.sustainability_floor_default,
-                    effort_budget=input.fishing_effort_budget()
-                    if hasattr(input, "fishing_effort_budget")
-                    else PARAM_RANGES.fishing_effort_budget_default,
-                    bycatch_reduction=input.bycatch_reduction()
-                    if hasattr(input, "bycatch_reduction")
-                    else PARAM_RANGES.bycatch_reduction_default,
+                    sustainability_reduction=read_optional_input(
+                        input,
+                        "sustainability_reduction",
+                        PARAM_RANGES.sustainability_reduction_default,
+                    ),
+                    sustainability_floor=read_optional_input(
+                        input,
+                        "sustainability_floor",
+                        PARAM_RANGES.sustainability_floor_default,
+                    ),
+                    effort_budget=read_optional_input(
+                        input,
+                        "fishing_effort_budget",
+                        PARAM_RANGES.fishing_effort_budget_default,
+                    ),
+                    bycatch_reduction=read_optional_input(
+                        input,
+                        "bycatch_reduction",
+                        PARAM_RANGES.bycatch_reduction_default,
+                    ),
                 ),
             )
             controls_metadata = build_control_metadata(

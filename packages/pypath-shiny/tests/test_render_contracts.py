@@ -226,3 +226,42 @@ def test_render_ui_never_returns_empty_dataframe(page):
         for line in _returns_empty_dataframe(func)
     ]
     assert not offenders, f"{page.name}: @render.ui returns pd.DataFrame(): {offenders}"
+
+
+def _help_header_rows_without_fill_false(tree: ast.Module) -> list[int]:
+    """layout_columns rows that hold a btn_help_* button but keep fill=True."""
+    bad = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "layout_columns"
+        ):
+            continue
+        has_help = any(
+            isinstance(n, ast.Constant)
+            and isinstance(n.value, str)
+            and n.value.startswith("btn_help")
+            for n in ast.walk(node)
+        )
+        fill_false = any(
+            k.arg == "fill"
+            and isinstance(k.value, ast.Constant)
+            and k.value.value is False
+            for k in node.keywords
+        )
+        if has_help and not fill_false:
+            bad.append(node.lineno)
+    return bad
+
+
+@pytest.mark.parametrize("page", PAGE_FILES, ids=lambda p: p.name)
+def test_help_header_rows_do_not_fill(page):
+    """A title + Help-button row must not stretch to fill the tab.
+
+    In a fillable nav panel, layout_columns(fill=True) grows to share the
+    panel height: on the Ecosim Time Series tab the header rows took ~700 px
+    each and pushed the chart below the window.
+    """
+    bad = _help_header_rows_without_fill_false(_parse(page))
+    assert not bad, f"{page.name}: header layout_columns without fill=False at {bad}"
