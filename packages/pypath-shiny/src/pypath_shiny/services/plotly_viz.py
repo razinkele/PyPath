@@ -68,8 +68,16 @@ def build_biomass_figure(
     log_scale: bool = False,
     palette: str | None = "tab10",
     title: str = "Biomass Time Series",
+    relative: bool = False,
+    empty_message: str = "No simulation data available",
 ) -> go.Figure:
-    """Build a Plotly biomass timeseries figure for selected groups."""
+    """Build a Plotly biomass timeseries figure for selected groups.
+
+    ``relative=True`` divides each series by its first value (all zeros if
+    that is 0) and draws a dashed reference line at 1. ``sim.out_Biomass``
+    may carry a leading "Outside" column (Ecosim output); it is skipped when
+    the matrix has one more column than ``groups``.
+    """
     fig = go.Figure()
 
     if sim is None or not groups or not selected:
@@ -77,7 +85,7 @@ def build_biomass_figure(
             title=title,
             annotations=[
                 {
-                    "text": "No simulation data available",
+                    "text": empty_message,
                     "x": 0.5,
                     "y": 0.5,
                     "xref": "paper",
@@ -100,6 +108,9 @@ def build_biomass_figure(
         if biomass_matrix.shape[1] > len(groups):
             idx += 1
         biomass = np.asarray(biomass_matrix[:, idx], dtype=float)
+        if relative:
+            start = biomass[0] if biomass.size else 0.0
+            biomass = biomass / start if start > 0 else np.zeros_like(biomass)
         if log_scale:
             biomass = np.log10(np.maximum(biomass, 1e-10))
 
@@ -131,11 +142,21 @@ def build_biomass_figure(
         )
         return fig
 
+    if relative:
+        y_title = "Log10(Relative Biomass)" if log_scale else "Relative Biomass"
+        fig.add_hline(
+            y=0.0 if log_scale else 1.0,
+            line={"dash": "dash", "color": "gray", "width": 1},
+            opacity=0.6,
+        )
+    else:
+        y_title = "Log10(Biomass)" if log_scale else "Biomass"
+
     fig.update_layout(
         template="plotly_white",
         title=title,
         xaxis_title="Year",
-        yaxis_title="Log10(Biomass)" if log_scale else "Biomass",
+        yaxis_title=y_title,
         legend_title="Group",
         hovermode="x unified",
         margin={"l": 60, "r": 130, "t": 50, "b": 50},

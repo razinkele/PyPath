@@ -12,6 +12,17 @@ from pypath.core.ecosim_advanced import rsim_run_advanced
 from pypath.core.forcing import DietRewiring
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+try:
+    from shinywidgets import output_widget, render_widget
+except ImportError:  # pragma: no cover
+
+    def output_widget(*args, **kwargs):
+        return ui.output_plot(*args, **kwargs)
+
+    def render_widget(func):
+        return render.plot(func)
+
+
 # Import centralized configuration
 from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
 from pypath_shiny.services.ecosim_controls import (
@@ -28,6 +39,10 @@ from pypath_shiny.services.notifications import (
     notify_info,
     notify_success,
     notify_warning,
+)
+from pypath_shiny.services.plotly_viz import (
+    build_biomass_figure,
+    build_catch_figure,
 )
 from pypath_shiny.services.tasks import (
     TaskState,
@@ -546,7 +561,7 @@ def ecosim_ui() -> ui.Tag:
                         ),
                         col_widths=[9, 3],
                     ),
-                    ui.output_plot(
+                    output_widget(
                         "biomass_timeseries", height=UI.plot_height_medium_px
                     ),
                 ),
@@ -568,7 +583,7 @@ def ecosim_ui() -> ui.Tag:
                         col_widths=[10, 2],
                     ),
                     ui.output_ui("help_catch"),
-                    ui.output_plot("catch_timeseries", height=UI.plot_height_small_px),
+                    output_widget("catch_timeseries", height=UI.plot_height_small_px),
                     ui.output_table("annual_catch_table"),
                 ),
                 ui.nav_panel(
@@ -2006,108 +2021,36 @@ def ecosim_server(
         )
 
     @output
-    @render.plot
+    @render_widget
     def biomass_timeseries():
-        """Plot biomass time series."""
-        import matplotlib.pyplot as plt
-
+        """Interactive biomass time series (Plotly)."""
         output = sim_output.get()
         scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(12, 6))
-
         if output is None or scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Run simulation to see results",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
+            return build_biomass_figure(
+                None,
+                [],
+                [],
+                title="Biomass Trajectories",
+                empty_message="Run simulation to see results",
             )
-            return fig
-
-        selected_groups = input.plot_groups()
-        if not selected_groups:
-            ax.text(
-                0.5,
-                0.5,
-                "Select groups to plot",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        # Get time and biomass data
-        n_months = output.out_Biomass.shape[0]
-        time = np.arange(n_months) / 12
-
-        # Get group indices
-        group_names = scen.params.spname[1:]  # Skip "Outside"
-
-        for group in selected_groups:
-            if group in group_names:
-                idx = group_names.index(group) + 1  # +1 for Outside offset
-
-                biomass = output.out_Biomass[:, idx]
-
-                if input.relative_biomass():
-                    if biomass[0] > 0:
-                        biomass = biomass / biomass[0]
-                    else:
-                        biomass = np.zeros_like(biomass)
-
-                ax.plot(time, biomass, label=group, linewidth=2)
-
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Relative Biomass" if input.relative_biomass() else "Biomass")
-        ax.set_title("Biomass Trajectories")
-        ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
-        ax.set_xlim(0, max(time))
-
-        if input.relative_biomass():
-            ax.axhline(y=1, color="gray", linestyle="--", alpha=0.5)
-
-        plt.tight_layout()
-        return fig
+        return build_biomass_figure(
+            output,
+            list(scen.params.spname[1:]),  # skip "Outside"
+            list(input.plot_groups() or []),
+            relative=bool(input.relative_biomass()),
+            title="Biomass Trajectories",
+            empty_message="Select groups to plot",
+        )
 
     @output
-    @render.plot
+    @render_widget
     def catch_timeseries():
-        """Plot catch time series."""
-        import matplotlib.pyplot as plt
-
+        """Interactive total annual catch (Plotly)."""
         output = sim_output.get()
-        scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(12, 5))
-
-        if output is None or scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Run simulation to see catch data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        # Annual catch data
-        years = np.arange(output.annual_Catch.shape[0]) + 1
-        total_catch = np.sum(output.annual_Catch[:, 1:], axis=1)
-
-        ax.fill_between(years, total_catch, alpha=0.3)
-        ax.plot(years, total_catch, "b-", linewidth=2, label="Total Catch")
-
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Catch")
-        ax.set_title("Total Annual Catch")
-        ax.set_xlim(1, len(years))
-
-        plt.tight_layout()
-        return fig
+        if scenario.get() is None:
+            output = None
+        return build_catch_figure(output, title="Total Annual Catch")
 
     @output
     @render.table

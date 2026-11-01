@@ -35,3 +35,38 @@ def test_build_biomass_figure_handles_missing_selection():
     fig = build_biomass_figure(sim, ["A", "B"], [], log_scale=True)
     assert fig is not None
     assert fig.layout.annotations[0].text == "No simulation data available"
+
+
+def test_relative_biomass_starts_at_one_with_reference_line():
+    """relative=True divides each series by its first value, line at y=1."""
+    import pytest
+
+    sim = DummySim()  # column B: 1, 2, 3 -> 1, 2, 3 ; column C: 2, 3, 4
+    fig = build_biomass_figure(sim, ["A", "B", "C"], ["B", "C"], relative=True)
+    assert list(fig.data[0].y) == pytest.approx([1.0, 2.0, 3.0])
+    assert list(fig.data[1].y) == pytest.approx([1.0, 1.5, 2.0])
+    assert fig.layout.yaxis.title.text == "Relative Biomass"
+    assert any(s.y0 == 1 and s.y1 == 1 for s in fig.layout.shapes)
+
+
+def test_relative_biomass_zero_start_gives_zeros():
+    sim = DummySim()  # column A starts at 0
+    fig = build_biomass_figure(sim, ["A", "B", "C"], ["A"], relative=True)
+    assert list(fig.data[0].y) == [0.0, 0.0, 0.0]
+
+
+def test_empty_message_is_configurable():
+    fig = build_biomass_figure(
+        None, [], [], empty_message="Run simulation to see results"
+    )
+    assert fig.layout.annotations[0].text == "Run simulation to see results"
+
+
+def test_ecosim_output_offset_skips_outside_column():
+    """Ecosim out_Biomass has a leading 'Outside' column."""
+
+    class EcosimLike:
+        out_Biomass = [[9.0, 1.0, 5.0], [9.0, 2.0, 6.0]]  # Outside, A, B
+
+    fig = build_biomass_figure(EcosimLike(), ["A", "B"], ["B"])
+    assert list(fig.data[0].y) == [5.0, 6.0]
