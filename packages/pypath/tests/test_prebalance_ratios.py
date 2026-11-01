@@ -73,3 +73,13 @@ def test_report_has_ratio_tables(params):
     assert len(report["pb_ratios"]) == 2
     assert len(report["qb_ratios"]) == 1
     assert isinstance(report["warnings"], list)
+
+
+def test_report_warns_when_predator_outweighs_prey(params):
+    params.model.loc[params.model["Group"] == "Fish", "Biomass"] = 20.0  # 20/15
+    report = generate_prebalance_report(params)
+    assert (
+        "Fish: predator/prey ratio = 1.33 (>1, may be unsustainable)"
+        in report["warnings"]
+    )
+    assert not any(w.startswith("Zoo:") for w in report["warnings"])
