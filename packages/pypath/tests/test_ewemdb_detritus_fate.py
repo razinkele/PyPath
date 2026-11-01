@@ -110,6 +110,23 @@ def test_discard_fate_and_discards_read():
     assert _cell(p, "Fish", "Trawlers.disc") == pytest.approx(0.1)
 
 
+@pytest.mark.parametrize(
+    "mortality, expected",
+    [(0.4, 0.04), (1.0, 0.1), (0.0, 0.0), (np.nan, 0.1), (1.7, 0.1), (-0.5, 0.0)],
+)
+def test_discard_mortality_keeps_only_dead_discards(mortality, expected):
+    """EwE DiscardMortality = share of discards that die; survivors are released.
+
+    Rpath treats every discard as dead, so only the dead share is stored.
+    Missing values mean 1.0; out-of-range values are clipped to [0, 1].
+    """
+    tables = dict(FULL)
+    tables["EcopathCatch"] = CATCH.assign(DiscardMortality=[mortality])
+    p = _read(tables)
+    assert _cell(p, "Fish", "Trawlers.disc") == pytest.approx(expected)
+    assert _cell(p, "Fish", "Trawlers") == pytest.approx(0.5)
+
+
 def test_missing_fate_column_defaults_to_first_detritus():
     tables = dict(FULL)
     tables["EcopathDietComp"] = DIET.drop(columns="DetritusFate")

@@ -478,6 +478,27 @@ def read_ewemdb_table(
     raise EwEDatabaseError("No database driver available. Install pyodbc or mdb-tools.")
 
 
+def _discard_mortality(value: Any, group: Any, fleet: Any) -> float:
+    """Return EwE's DiscardMortality as a fraction in [0, 1].
+
+    EwE's DiscardMortality is the share of discards that die; the rest are
+    released alive. Rpath treats every discard as dead, so the reader keeps
+    only ``Discards * DiscardMortality``. Missing values mean 1.0.
+    """
+    if value is None or pd.isna(value):
+        return 1.0
+    mort = float(value)
+    if not 0.0 <= mort <= 1.0:
+        logger.warning(
+            "DiscardMortality %s for %s / %s is outside [0, 1]; clipping",
+            mort,
+            group,
+            fleet,
+        )
+        mort = min(max(mort, 0.0), 1.0)
+    return mort
+
+
 def _apply_detritus_fate(
     params: RpathParams,
     diet_df: Optional[pd.DataFrame],
@@ -599,7 +620,8 @@ def read_ewemdb(
     - EcopathGroup: Group parameters (biomass, P/B, Q/B, etc.)
     - EcopathDietComp: Diet composition matrix and detritus fate (DetritusFate)
     - EcopathFleet: Fleet definitions
-    - EcopathCatch: Landings and discards by fleet and group
+    - EcopathCatch: Landings and discards by fleet and group (only the dead
+      share, Discards * DiscardMortality, is kept as discards)
     - EcopathDiscardFate: Where each fleet's discards go
     - Stanza: Multi-stanza group definitions
     - StanzaLifeStage: Life stage parameters
@@ -1068,6 +1090,14 @@ def read_ewemdb(
                 disc_col = next(
                     (c for c in ["Discard", "Discards"] if c in catch_df.columns), None
                 )
+                disc_mort_col = next(
+                    (
+                        c
+                        for c in ["DiscardMortality", "DiscardMort"]
+                        if c in catch_df.columns
+                    ),
+                    None,
+                )
 
                 if group_col and fleet_col and land_col:
                     for _, row in catch_df.iterrows():
@@ -1119,7 +1149,13 @@ def read_ewemdb(
                                 and disc is not None
                                 and pd.notna(disc)
                             ):
-                                params.model.loc[idx, disc_name] = float(disc)
+                                params.model.loc[idx, disc_name] = float(
+                                    disc
+                                ) * _discard_mortality(
+                                    row.get(disc_mort_col) if disc_mort_col else None,
+                                    group,
+                                    fleet,
+                                )
 
     _apply_detritus_fate(
         params,
