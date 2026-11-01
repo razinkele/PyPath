@@ -6,8 +6,6 @@ Tests cover:
 - Validation, serialization, and round-trip conversions
 """
 
-import logging
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -25,6 +23,8 @@ from pypath.core.pedigree import (
     sample_parameters,
     validate_ewe_pedigree,
 )
+
+
 class TestScalarDistribution:
     def test_construction(self):
         d = ScalarDistribution(
@@ -329,9 +329,7 @@ class TestEwePedigreeConfig:
 
     def test_from_ewe_format(self):
         """Create config via from_ewe_format() class method."""
-        cfg = EwePedigreeConfig.from_ewe_format(
-            index=2, comment="Expert assessment"
-        )
+        cfg = EwePedigreeConfig.from_ewe_format(index=2, comment="Expert assessment")
         assert cfg.pedigree_index == 2
         assert cfg.comment == "Expert assessment"
         assert cfg.quality_flag == PedigreeQuality.MEDIUM
@@ -452,7 +450,12 @@ class TestPedigreeContainer:
         container = PedigreeContainer()
         df = container.to_dataframe()
         assert len(df) == 0
-        assert list(df.columns) == ["group", "pedigree_index", "quality_flag", "comment"]
+        assert list(df.columns) == [
+            "group",
+            "pedigree_index",
+            "quality_flag",
+            "comment",
+        ]
 
     def test_to_dataframe_populated(self):
         """Populated container -> DataFrame with correct shape/columns."""
@@ -462,19 +465,26 @@ class TestPedigreeContainer:
         container.add_pedigree("Sprat", EwePedigreeConfig(4, comment="Guess"))
         df = container.to_dataframe()
         assert len(df) == 3
-        assert list(df.columns) == ["group", "pedigree_index", "quality_flag", "comment"]
+        assert list(df.columns) == [
+            "group",
+            "pedigree_index",
+            "quality_flag",
+            "comment",
+        ]
         assert "Cod" in df["group"].values
         assert df.loc[df["group"] == "Cod", "pedigree_index"].values[0] == 0
         assert df.loc[df["group"] == "Cod", "quality_flag"].values[0] == "high"
 
     def test_from_dataframe_valid(self):
         """Create container from valid DataFrame."""
-        df = pd.DataFrame({
-            "group": ["Cod", "Herring"],
-            "pedigree_index": [0, 2],
-            "quality_flag": ["high", "medium"],
-            "comment": ["Published", ""],
-        })
+        df = pd.DataFrame(
+            {
+                "group": ["Cod", "Herring"],
+                "pedigree_index": [0, 2],
+                "quality_flag": ["high", "medium"],
+                "comment": ["Published", ""],
+            }
+        )
         container = PedigreeContainer.from_dataframe(df)
         assert len(container.group_pedigree) == 2
         assert container.get_pedigree("Cod").pedigree_index == 0
@@ -482,10 +492,12 @@ class TestPedigreeContainer:
 
     def test_from_dataframe_missing_columns(self):
         """Missing required columns -> raise ValueError."""
-        df = pd.DataFrame({
-            "group": ["Cod"],
-            "quality_flag": ["high"],
-        })
+        df = pd.DataFrame(
+            {
+                "group": ["Cod"],
+                "quality_flag": ["high"],
+            }
+        )
         with pytest.raises(ValueError, match="pedigree_index"):
             PedigreeContainer.from_dataframe(df)
 
@@ -559,13 +571,14 @@ class TestEdgeCases:
 
     def test_from_dataframe_with_nan_comment(self):
         """DataFrame with NaN comments -> handled correctly."""
-        df = pd.DataFrame({
-            "group": ["Cod", "Herring"],
-            "pedigree_index": [0, 2],
-            "comment": [np.nan, ""],
-        })
+        df = pd.DataFrame(
+            {
+                "group": ["Cod", "Herring"],
+                "pedigree_index": [0, 2],
+                "comment": [np.nan, ""],
+            }
+        )
         container = PedigreeContainer.from_dataframe(df)
         assert len(container.group_pedigree) == 2
         cod_cfg = container.get_pedigree("Cod")
         assert cod_cfg.comment == ""
-

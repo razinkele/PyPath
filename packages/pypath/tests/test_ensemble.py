@@ -398,8 +398,12 @@ class TestGetEnsembleConfidenceIntervals:
 
         # For each row, LCI <= Mean <= UCI (with float tolerance)
         for _, row in ci_df.iterrows():
-            assert row["LCI"] <= row["Mean"] + 1e-10, f"LCI > Mean for {row['Parameter']}"
-            assert row["Mean"] <= row["UCI"] + 1e-10, f"Mean > UCI for {row['Parameter']}"
+            assert row["LCI"] <= row["Mean"] + 1e-10, (
+                f"LCI > Mean for {row['Parameter']}"
+            )
+            assert row["Mean"] <= row["UCI"] + 1e-10, (
+                f"Mean > UCI for {row['Parameter']}"
+            )
 
     def test_ci_dataframe_custom_alpha(self, simple_rpath_model):
         """Test CI calculation with custom alpha level."""
@@ -484,11 +488,14 @@ class TestEnsembleStatistics:
         stats = ensemble_statistics(result)
 
         # CV = std / mean
-        expected_cv = stats["total_system_biomass_std"] / stats["total_system_biomass_mean"]
+        expected_cv = (
+            stats["total_system_biomass_std"] / stats["total_system_biomass_mean"]
+        )
         assert np.isclose(stats["total_system_biomass_cv"], expected_cv)
 
 
 # Fixtures for integration tests
+
 
 @pytest.fixture
 def simple_rpath_params():
@@ -562,13 +569,10 @@ def simple_samples(simple_rpath_params):
         biomass_val = simple_rpath_params.model.loc[i, "Biomass"]
         pb_val = simple_rpath_params.model.loc[i, "PB"]
         qb_val = simple_rpath_params.model.loc[i, "QB"]
-        ee_val = simple_rpath_params.model.loc[i, "EE"]
 
         sample = EcopathGroupSample(
             group_name=group_name,
-            biomass_samples=np.random.normal(
-                biomass_val, 0.1 * biomass_val, 5
-            ),
+            biomass_samples=np.random.normal(biomass_val, 0.1 * biomass_val, 5),
             pb_samples=np.random.normal(pb_val, 0.05 * pb_val, 5),
             qb_samples=np.random.normal(qb_val, 0.05 * qb_val, 5),
             ee_samples=np.random.uniform(0.5, 0.9, 5),
@@ -588,13 +592,10 @@ def medium_samples(simple_rpath_params):
         biomass_val = simple_rpath_params.model.loc[i, "Biomass"]
         pb_val = simple_rpath_params.model.loc[i, "PB"]
         qb_val = simple_rpath_params.model.loc[i, "QB"]
-        ee_val = simple_rpath_params.model.loc[i, "EE"]
 
         sample = EcopathGroupSample(
             group_name=group_name,
-            biomass_samples=np.random.normal(
-                biomass_val, 0.1 * biomass_val, 10
-            ),
+            biomass_samples=np.random.normal(biomass_val, 0.1 * biomass_val, 10),
             pb_samples=np.random.normal(pb_val, 0.05 * pb_val, 10),
             qb_samples=np.random.normal(qb_val, 0.05 * qb_val, 10),
             ee_samples=np.random.uniform(0.5, 0.9, 10),
@@ -614,13 +615,10 @@ def large_samples(simple_rpath_params):
         biomass_val = simple_rpath_params.model.loc[i, "Biomass"]
         pb_val = simple_rpath_params.model.loc[i, "PB"]
         qb_val = simple_rpath_params.model.loc[i, "QB"]
-        ee_val = simple_rpath_params.model.loc[i, "EE"]
 
         sample = EcopathGroupSample(
             group_name=group_name,
-            biomass_samples=np.random.normal(
-                biomass_val, 0.1 * biomass_val, 50
-            ),
+            biomass_samples=np.random.normal(biomass_val, 0.1 * biomass_val, 50),
             pb_samples=np.random.normal(pb_val, 0.05 * pb_val, 50),
             qb_samples=np.random.normal(qb_val, 0.05 * qb_val, 50),
             ee_samples=np.random.uniform(0.5, 0.9, 50),
@@ -669,9 +667,9 @@ class TestRunEnsembleRpath:
             result2.replicate_models[1].Biomass,
         )
 
-    def test_ensemble_run_different_sizes(self, simple_rpath_params,
-                                          simple_samples, medium_samples,
-                                          large_samples):
+    def test_ensemble_run_different_sizes(
+        self, simple_rpath_params, simple_samples, medium_samples, large_samples
+    ):
         """Test ensemble with different replicate sizes."""
         result_5 = run_ensemble_rpath(simple_rpath_params, simple_samples)
         result_10 = run_ensemble_rpath(simple_rpath_params, medium_samples)
@@ -804,7 +802,9 @@ class TestEnsembleReproducibility:
         for m1, m2 in zip(result1.replicate_models, result2.replicate_models):
             np.testing.assert_array_almost_equal(m1.Biomass, m2.Biomass)
 
-    def test_different_seeds_different_results(self, simple_rpath_params, simple_samples):
+    def test_different_seeds_different_results(
+        self, simple_rpath_params, simple_samples
+    ):
         """Test that different seeds produce different ensembles."""
         result1 = run_ensemble_rpath(
             simple_rpath_params, simple_samples, random_seed=111
@@ -813,15 +813,7 @@ class TestEnsembleReproducibility:
             simple_rpath_params, simple_samples, random_seed=222
         )
 
-        # At least some replicates should differ
-        all_same = True
-        for m1, m2 in zip(result1.replicate_models[1:], result2.replicate_models[1:]):
-            if not np.allclose(m1.Biomass, m2.Biomass):
-                all_same = False
-                break
-
         # With very high probability, different seeds give different results
         # But we can't guarantee it, so we check the ensemble seed is stored
         assert result1.random_seed == 111
         assert result2.random_seed == 222
-

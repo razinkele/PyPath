@@ -6,21 +6,19 @@ excretion, uptake, and ecosystem-wide calculations.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import pytest
 
 from pypath.core.nutrients import (
-    NutrientElement,
     NutrientContent,
+    NutrientCycle,
+    NutrientElement,
     NutrientExcretion,
     NutrientUptake,
-    NutrientCycle,
-    validate_nutrient_cycle,
     estimate_excretion_from_pb,
+    validate_nutrient_cycle,
 )
 from pypath.core.params import create_rpath_params
-
 
 # ==================== FIXTURES ====================
 

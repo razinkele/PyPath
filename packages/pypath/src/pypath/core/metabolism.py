@@ -35,9 +35,7 @@ class TemperatureDependence:
 
     def __post_init__(self) -> None:
         if self.q10_coefficient <= 0:
-            raise ValueError(
-                f"q10_coefficient must be > 0, got {self.q10_coefficient}"
-            )
+            raise ValueError(f"q10_coefficient must be > 0, got {self.q10_coefficient}")
         if self.min_factor <= 0:
             raise ValueError(f"min_factor must be > 0, got {self.min_factor}")
         if self.max_factor < self.min_factor:
@@ -83,15 +81,11 @@ class MetabolicModel:
 
     def __post_init__(self) -> None:
         if self.base_metabolism <= 0:
-            raise ValueError(
-                f"base_metabolism must be > 0, got {self.base_metabolism}"
-            )
+            raise ValueError(f"base_metabolism must be > 0, got {self.base_metabolism}")
         if self.reference_mass <= 0:
             raise ValueError(f"reference_mass must be > 0, got {self.reference_mass}")
         if self.activity_budget <= 0:
-            raise ValueError(
-                f"activity_budget must be > 0, got {self.activity_budget}"
-            )
+            raise ValueError(f"activity_budget must be > 0, got {self.activity_budget}")
         if self.temperature_dependence is None:
             object.__setattr__(
                 self,
@@ -196,7 +190,9 @@ def apply_size_dependent_rates(
         )
 
     masses = np.where(np.isfinite(masses), np.maximum(masses, 0.0), 0.0)
-    factors = np.power(np.where(masses > 0.0, masses / reference_mass, 0.0), mass_exponent)
+    factors = np.power(
+        np.where(masses > 0.0, masses / reference_mass, 0.0), mass_exponent
+    )
     return rates * factors
 
 

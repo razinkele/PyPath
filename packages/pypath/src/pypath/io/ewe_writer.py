@@ -18,21 +18,24 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pypath.core.ecopath import Rpath
     from pypath.core.params import RpathParams
+    from pypath.core.sampling import SampleContainer
     from pypath.io._access_writer import AccessWriter
     from pypath.io._csv_bundle_writer import CsvBundleWriter
 
 logger = logging.getLogger(__name__)
+
+
 def _datetime_to_excel_serial(dt: datetime.datetime | None = None) -> float | None:
     """Convert datetime to Excel serial date format.
-    
+
     Excel stores dates as floats: number of days since 1900-01-01.
     Access REAL columns for dates expect this format.
-    
+
     Parameters
     ----------
     dt : datetime.datetime, optional
         Datetime to convert. If None, returns None.
-    
+
     Returns
     -------
     float or None
@@ -101,7 +104,9 @@ def _rpath_to_params(model: "Rpath") -> "RpathParams":
                 for j, pred in enumerate(pred_cols):
                     params.diet.loc[params.diet["Group"] == prey, pred] = model.DC[i, j]
     except Exception:
-        logger.debug("Could not transfer DC matrix during Rpath->RpathParams reconstruction")
+        logger.debug(
+            "Could not transfer DC matrix during Rpath->RpathParams reconstruction"
+        )
 
     return params
 
@@ -282,7 +287,6 @@ def write_ewemdb(
         raise
 
 
-
 def write_ewe_samples(
     sample_container: "SampleContainer",
     db_path: str | Path,
@@ -318,7 +322,7 @@ def write_ewe_samples(
         If pyodbc or Access driver is unavailable.
     ValueError
         If sample_container is empty or has inconsistent replicate counts.
-    
+
     Notes
     -----
     Creates n_replicates rows in EcopathSample, with one row per group/diet/catch
@@ -327,15 +331,8 @@ def write_ewe_samples(
     """
     from pypath.io.ewemdb import list_ewemdb_tables, read_ewemdb_table
 
-    try:
-        import pyodbc
-    except ImportError:
-        raise RuntimeError(
-            "write_ewe_samples requires pyodbc. "
-            "Install pyodbc or use a different export backend."
-        )
-
-    # Validate container
+    # Validate inputs before touching the database driver, so bad input is
+    # reported the same way whether or not pyodbc is installed.
     if not sample_container.group_samples and not sample_container.diet_samples:
         raise ValueError("SampleContainer must have at least group or diet samples")
 
@@ -346,6 +343,14 @@ def write_ewe_samples(
     db_path = str(Path(db_path).resolve())
     if not Path(db_path).exists():
         raise FileNotFoundError(f"Database file not found: {db_path}")
+
+    try:
+        import pyodbc
+    except ImportError as e:
+        raise RuntimeError(
+            "write_ewe_samples requires pyodbc. "
+            "Install pyodbc or use a different export backend."
+        ) from e
 
     # Find Access driver
     try:
@@ -459,8 +464,7 @@ def write_ewe_samples(
 
             # Create metadata record for this replicate
             hash_val = hashlib.md5(
-                f"{current_sample_id}_{i}_{len(sample_container.group_samples)}"
-                .encode()
+                f"{current_sample_id}_{i}_{len(sample_container.group_samples)}".encode()
             ).hexdigest()
             generated = _datetime_to_excel_serial(datetime.datetime.now())
 
@@ -468,10 +472,15 @@ def write_ewe_samples(
             try:
                 cursor.execute(sql_sample, sample_row)
                 total_sample_rows += 1
-                logger.debug("Inserted EcopathSample record (SampleID=%d, replicate=%d)",
-                           current_sample_id, i)
+                logger.debug(
+                    "Inserted EcopathSample record (SampleID=%d, replicate=%d)",
+                    current_sample_id,
+                    i,
+                )
             except pyodbc.Error as e:
-                logger.error("Failed to insert EcopathSample for replicate %d: %s", i, e)
+                logger.error(
+                    "Failed to insert EcopathSample for replicate %d: %s", i, e
+                )
                 raise
 
             # Insert group samples for this replicate
@@ -506,12 +515,17 @@ def write_ewe_samples(
                 except pyodbc.Error as e:
                     logger.error(
                         "Failed to insert EcopathGroupSample (SampleID=%d, GroupID=%d): %s",
-                        current_sample_id, group_id, e
+                        current_sample_id,
+                        group_id,
+                        e,
                     )
                     raise
 
             # Insert diet samples for this replicate
-            for (pred_name, prey_name), diet_sample in sample_container.diet_samples.items():
+            for (
+                pred_name,
+                prey_name,
+            ), diet_sample in sample_container.diet_samples.items():
                 pred_id = group_name_to_id.get(pred_name)
                 prey_id = group_name_to_id.get(prey_name)
                 if pred_id is None:
@@ -533,12 +547,18 @@ def write_ewe_samples(
                 except pyodbc.Error as e:
                     logger.error(
                         "Failed to insert EcopathDietCompSample (SampleID=%d, PredID=%d, PreyID=%d): %s",
-                        current_sample_id, pred_id, prey_id, e
+                        current_sample_id,
+                        pred_id,
+                        prey_id,
+                        e,
                     )
                     raise
 
             # Insert catch samples for this replicate
-            for (group_name, fleet_name), catch_sample in sample_container.catch_samples.items():
+            for (
+                group_name,
+                fleet_name,
+            ), catch_sample in sample_container.catch_samples.items():
                 group_id = group_name_to_id.get(group_name)
                 fleet_id = fleet_name_to_id.get(fleet_name)
                 if group_id is None:
@@ -561,13 +581,20 @@ def write_ewe_samples(
                 except pyodbc.Error as e:
                     logger.error(
                         "Failed to insert EcopathGroupCatchSample (SampleID=%d, GroupID=%d, FleetID=%d): %s",
-                        current_sample_id, group_id, fleet_id, e
+                        current_sample_id,
+                        group_id,
+                        fleet_id,
+                        e,
                     )
                     raise
 
         logger.info(
             "Wrote %d samples: %d EcopathSample + %d group + %d diet + %d catch rows",
-            n_replicates, total_sample_rows, total_group_rows, total_diet_rows, total_catch_rows
+            n_replicates,
+            total_sample_rows,
+            total_group_rows,
+            total_diet_rows,
+            total_catch_rows,
         )
         return starting_sample_id
 
@@ -577,5 +604,3 @@ def write_ewe_samples(
                 conn.close()
             except Exception:
                 pass
-
-

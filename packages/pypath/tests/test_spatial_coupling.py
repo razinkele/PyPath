@@ -44,7 +44,9 @@ def test_rsim_run_spatial_with_state_vector_io(spatial_scenario, simple_ecospace
     ng = scenario.params.NUM_GROUPS + 1
     n_patches = simple_ecospace.grid.n_patches
 
-    initial = np.tile(scenario.start_state.Biomass[:, np.newaxis], (1, n_patches)) / n_patches
+    initial = (
+        np.tile(scenario.start_state.Biomass[:, np.newaxis], (1, n_patches)) / n_patches
+    )
     initial_vec = initial.reshape(-1)
 
     result = run_coupled_simulation(

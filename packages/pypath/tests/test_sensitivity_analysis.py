@@ -91,13 +91,17 @@ class TestUncertaintyPropagation:
 class TestRiskAssessment:
     def test_extinction_risk(self):
         ra = RiskAssessment()
-        risk = ra.compute_extinction_risk(np.array([0.1, 0.5, 0.01, 0.8]), threshold=0.2)
+        risk = ra.compute_extinction_risk(
+            np.array([0.1, 0.5, 0.01, 0.8]), threshold=0.2
+        )
         assert risk == pytest.approx(0.5)
 
     def test_collapse_risk(self):
         ra = RiskAssessment()
         risk = ra.compute_collapse_risk(
-            np.array([20.0, 15.0, 5.0, 30.0]), baseline_biomass=50.0, collapse_fraction=0.2
+            np.array([20.0, 15.0, 5.0, 30.0]),
+            baseline_biomass=50.0,
+            collapse_fraction=0.2,
         )
         assert risk == pytest.approx(0.25)
 
@@ -116,6 +120,8 @@ class TestRiskAssessment:
         with pytest.raises(ValueError):
             ra.compute_collapse_risk(np.array([1.0]), baseline_biomass=0.0)
         with pytest.raises(ValueError):
-            ra.compute_collapse_risk(np.array([1.0]), baseline_biomass=1.0, collapse_fraction=1.0)
+            ra.compute_collapse_risk(
+                np.array([1.0]), baseline_biomass=1.0, collapse_fraction=1.0
+            )
         with pytest.raises(ValueError):
             ra.worst_case_analysis(np.array([]))

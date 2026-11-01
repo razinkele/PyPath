@@ -478,7 +478,9 @@ class TestExportModelToEwe:
         with pytest.raises(ValueError, match=r"\.eweaccdb"):
             export_model_to_ewe(params, str(tmp_path / "model.accdb"), backend="access")
 
-    def test_export_model_to_ewe_access_odbc_error_is_actionable(self, tmp_path, monkeypatch):
+    def test_export_model_to_ewe_access_odbc_error_is_actionable(
+        self, tmp_path, monkeypatch
+    ):
         from pypath.io.ewe_writer import export_model_to_ewe
 
         params = _make_simple_model()

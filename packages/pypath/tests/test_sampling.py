@@ -4,7 +4,7 @@ Phase 1A Test Suite: EcopathSample I/O and uncertainty propagation
 
 Tests are organized by component:
 - TestEcopathGroupSample: Group-level uncertainty
-- TestEcopathDietCompSample: Diet composition uncertainty  
+- TestEcopathDietCompSample: Diet composition uncertainty
 - TestEcopathGroupCatchSample: Catch/landing uncertainty
 - TestSampleContainer: Central container functionality
 - TestSamplingIntegration: Integration with RpathParams and rpath()
@@ -133,7 +133,7 @@ class TestEcopathDietCompSample:
     def test_diet_sample_validation_warning(self, caplog):
         """Test that out-of-range diet fractions generate warning."""
         # Diet fractions > 1.0 should trigger warning
-        diet = EcopathDietCompSample(
+        EcopathDietCompSample(
             predator_name="Fish",
             prey_name="Zooplankton",
             diet_fraction_samples=np.array([0.5, 1.2, 0.6]),  # 1.2 is invalid
@@ -276,6 +276,7 @@ class TestSamplingIntegration:
 
     def test_add_sampling_to_params(self):
         """Test attaching samples to mock RpathParams."""
+
         # Create a mock params object
         class MockParams:
             pass

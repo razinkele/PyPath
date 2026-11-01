@@ -167,8 +167,11 @@ class TestPreFlightValidation:
                 "EE": [0.9],
             }
         )
-        # This tests that validation gracefully handles missing columns
-        # In real app, would be caught earlier during import
+        # Validation must handle missing columns without raising
+        # (in the real app they are caught earlier, during import)
+        is_valid, errors = validate_model_parameters(df, check_biomass=True)
+        assert isinstance(is_valid, bool)
+        assert isinstance(errors, list)
 
     def test_selective_validation_flags(self):
         """Validation should respect selective checking flags."""

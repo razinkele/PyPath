@@ -242,14 +242,31 @@ def _recreate_params_from_model(model: Rpath) -> RpathParams:
             if f"{fleet}.disc" in params.model.columns:
                 params.model.loc[non_fleet, f"{fleet}.disc"] = discards[type_arr < 3, k]
 
+    # Detritus fate for every row: fleet rows carry where their discards go
     det_names = [str(g) for g in np.asarray(model.Group)[type_arr == 2]]
     det_fate = getattr(model, "DetFate", None)
     for k, det in enumerate(det_names):
         if det_fate is not None and det_fate.ndim == 2 and det_fate.shape[1] > k:
-            if det in params.model.columns:
-                params.model.loc[non_fleet, det] = det_fate[type_arr < 3, k]
+            if det in params.model.columns and det_fate.shape[0] == len(params.model):
+                params.model[det] = det_fate[:, k]
 
     return params
+
+
+def _fill_default_detritus_fate(model_df: pd.DataFrame) -> None:
+    """Fill missing detritus-fate cells in place before balancing.
+
+    Only empty (NaN) cells get the default, split evenly over the detritus
+    groups; values that are present, including fleet rows' discard fates
+    from the EwE database, are kept.
+    """
+    det_groups = model_df.loc[model_df["Type"] == 2, "Group"].tolist()
+    if not det_groups:
+        return
+    for det in det_groups:
+        if det not in model_df.columns:
+            model_df[det] = np.nan
+        model_df[det] = model_df[det].fillna(1.0 / len(det_groups))
 
 
 # Public helper to convert DataGrid edits to numeric values
@@ -1270,23 +1287,7 @@ def ecopath_server(
                 DEFAULTS.unassim_consumers
             )
 
-            # Set detritus fate columns if missing
-            det_groups = p.model[p.model["Type"] == 2]["Group"].tolist()
-            if det_groups:
-                for det in det_groups:
-                    if det not in p.model.columns:
-                        # Add the detritus fate column
-                        p.model[det] = np.nan
-
-                    # Set default detritus fate for living/detritus groups
-                    n_det = len(det_groups)
-                    for idx in p.model.index:
-                        gtype = p.model.loc[idx, "Type"]
-                        if gtype < 3:  # Not a fleet
-                            if pd.isna(p.model.loc[idx, det]):
-                                p.model.loc[idx, det] = 1.0 / n_det
-                        else:
-                            p.model.loc[idx, det] = np.nan
+            _fill_default_detritus_fate(p.model)
 
             balance_task_state.set(
                 update_task_progress(
@@ -1438,7 +1439,7 @@ def ecopath_server(
 
         return ui.div(
             ui.tags.i(class_=icon),
-            ui.tags.strong("Validation: "),
+            ui.tags.strong(f"{title}: "),
             summary,
             ui.tags.ul(*details) if details else ui.div(),
             class_=alert_class,

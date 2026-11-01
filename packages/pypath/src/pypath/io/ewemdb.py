@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from pypath.core.ecotracer import EcotracerParams
     from pypath.core.fleet_dynamics import FleetEconParams
     from pypath.core.mediation import MediationCollection
+    from pypath.core.sampling import SampleContainer
     from pypath.core.timeseries import EweTimeSeriesCollection
     from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
     from pypath.spatial.mpa import MPAConfig
@@ -53,6 +54,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _SAFE_SQL_IDENT = re.compile(r"^[a-zA-Z0-9_ ]+$")
+
+# File extensions of EwE / MS Access databases (defined once in core.constants)
+from pypath.core.constants import EWE_DB_SUFFIXES  # noqa: E402
 
 # Shared month abbreviation → number map (English + common non-English).
 _MONTH_NAME_MAP = {
@@ -336,7 +340,7 @@ def _list_mdb_tables(filepath: str) -> List[str]:
         raise EwEDatabaseError(f"Database file not found: {filepath}")
     if not filepath_obj.is_file():
         raise EwEDatabaseError(f"Path is not a file: {filepath}")
-    if filepath_obj.suffix.lower() not in [".ewemdb", ".mdb", ".accdb"]:
+    if filepath_obj.suffix.lower() not in EWE_DB_SUFFIXES:
         raise EwEDatabaseError(
             f"Invalid database file extension: {filepath_obj.suffix}"
         )
@@ -475,6 +479,124 @@ def read_ewemdb_table(
     raise EwEDatabaseError("No database driver available. Install pyodbc or mdb-tools.")
 
 
+def _discard_mortality(value: Any, group: Any, fleet: Any) -> float:
+    """Return EwE's DiscardMortality as a fraction in [0, 1].
+
+    EwE's DiscardMortality is the share of discards that die; the rest are
+    released alive. Rpath treats every discard as dead, so the reader keeps
+    only ``Discards * DiscardMortality``. Missing values mean 1.0.
+    """
+    if value is None or pd.isna(value):
+        return 1.0
+    mort = float(value)
+    if not 0.0 <= mort <= 1.0:
+        logger.warning(
+            "DiscardMortality %s for %s / %s is outside [0, 1]; clipping",
+            mort,
+            group,
+            fleet,
+        )
+        mort = min(max(mort, 0.0), 1.0)
+    return mort
+
+
+def _apply_detritus_fate(
+    params: RpathParams,
+    diet_df: Optional[pd.DataFrame],
+    discard_fate_df: Optional[pd.DataFrame],
+    groups_df: pd.DataFrame,
+    name_col: str,
+    fleet_df: Optional[pd.DataFrame],
+    scenario: int,
+) -> None:
+    """Fill the detritus-fate columns of ``params.model`` in place.
+
+    EwE keeps detritus fate in ``EcopathDietComp.DetritusFate`` (PredID = the
+    source group, PreyID = the receiving detritus group) and fleet discard fate
+    in ``EcopathDiscardFate`` (GroupID = detritus group, FleetID = fleet).
+    Cells without data become 0 (the remainder of a row is exported). Explicit
+    zero fates are kept. Only when a database holds no fate cells at all do
+    living groups (or fleets) send everything to the first detritus group,
+    which is EwE's default.
+    """
+    model = params.model
+    det_groups = model.loc[model["Type"] == 2, "Group"].tolist()
+    if not det_groups:
+        return
+    is_fleet = model["Type"] == 3
+    model.loc[:, det_groups] = 0.0
+
+    id_col = next(
+        (c for c in ["GroupID", "ID", "Sequence"] if c in groups_df.columns), None
+    )
+    group_by_id = dict(zip(groups_df[id_col], groups_df[name_col])) if id_col else {}
+    row_of = {g: i for i, g in zip(model.index, model["Group"])}
+
+    def _set(source, det, value) -> bool:
+        """Store one fate cell; True if it was a valid cell (even if 0)."""
+        if source in row_of and det in det_groups and pd.notna(value):
+            model.loc[row_of[source], det] = float(value)
+            return True
+        return False
+
+    # Living and detritus groups
+    bio_found = False
+    if diet_df is not None and "DetritusFate" in getattr(diet_df, "columns", []):
+        df = diet_df
+        if "ScenarioID" in df.columns:
+            df = df[df["ScenarioID"] == scenario]
+        src_col = next(
+            (c for c in ["PredID", "PredGroupID", "GroupID"] if c in df.columns), None
+        )
+        det_col = next((c for c in ["PreyID", "PreyGroupID"] if c in df.columns), None)
+        if src_col and det_col:
+            for src, det, val in zip(df[src_col], df[det_col], df["DetritusFate"]):
+                if pd.isna(src) or pd.isna(det):
+                    continue
+                if _set(group_by_id.get(int(src)), group_by_id.get(int(det)), val):
+                    bio_found = True
+    if not bio_found:
+        logger.warning(
+            "No detritus fate in database; sending all detritus to %s",
+            det_groups[0],
+        )
+        model.loc[model["Type"] < 2, det_groups[0]] = 1.0
+
+    # Fleets (discards)
+    if not is_fleet.any():
+        return
+    fleet_found = False
+    if (
+        discard_fate_df is not None
+        and fleet_df is not None
+        and {"GroupID", "FleetID", "DiscardFate"} <= set(discard_fate_df.columns)
+    ):
+        fname_col = next(
+            (c for c in ["FleetName", "Name", "Fleet"] if c in fleet_df.columns), None
+        )
+        # Same ID columns the catch loop accepts (legacy Fleet tables use ID)
+        fid_col = next(
+            (c for c in ["FleetID", "ID", "Sequence"] if c in fleet_df.columns), None
+        )
+        fleet_by_id = (
+            dict(zip(fleet_df[fid_col], fleet_df[fname_col]))
+            if fname_col and fid_col
+            else {}
+        )
+        if not fleet_by_id:
+            logger.warning("Fleet table has no ID/name columns; discard fates not read")
+        df = discard_fate_df
+        if "ScenarioID" in df.columns:
+            df = df[df["ScenarioID"] == scenario]
+        for det, fleet, val in zip(df["GroupID"], df["FleetID"], df["DiscardFate"]):
+            if pd.isna(det) or pd.isna(fleet):
+                continue
+            if _set(fleet_by_id.get(int(fleet)), group_by_id.get(int(det)), val):
+                fleet_found = True
+    if not fleet_found:
+        model.loc[is_fleet, det_groups[0]] = 1.0
+
+
 def read_ewemdb(
     filepath: str, scenario: int = 1, include_ecosim: bool = False
 ) -> RpathParams:
@@ -505,9 +627,11 @@ def read_ewemdb(
     The ewemdb format uses Microsoft Access database structure.
     Key tables include:
     - EcopathGroup: Group parameters (biomass, P/B, Q/B, etc.)
-    - EcopathDietComp: Diet composition matrix
+    - EcopathDietComp: Diet composition matrix and detritus fate (DetritusFate)
     - EcopathFleet: Fleet definitions
-    - EcopathCatch: Catch data by fleet and group
+    - EcopathCatch: Landings and discards by fleet and group (only the dead
+      share, Discards * DiscardMortality, is kept as discards)
+    - EcopathDiscardFate: Where each fleet's discards go
     - Stanza: Multi-stanza group definitions
     - StanzaLifeStage: Life stage parameters
     """
@@ -518,7 +642,7 @@ def read_ewemdb(
 
     # Check file extension
     suffix = Path(filepath).suffix.lower()
-    if suffix not in [".ewemdb", ".eweaccdb", ".ewe", ".mdb", ".accdb"]:
+    if suffix not in EWE_DB_SUFFIXES:
         warnings.warn(f"Unexpected file extension: {suffix}")
 
     # Read main tables
@@ -557,6 +681,12 @@ def read_ewemdb(
         except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError):
             catch_df = None
             logger.debug("Could not read catch data: %s", e)
+
+    try:
+        discard_fate_df = read_ewemdb_table(filepath, "EcopathDiscardFate")
+    except (EwEDatabaseError, FileNotFoundError, ValueError, KeyError) as e:
+        discard_fate_df = None
+        logger.debug("Could not read discard fate data: %s", e)
 
     # Try to read Auxillary table (contains cell-level remarks in EwE 6.6+)
     auxillary_df = None
@@ -814,6 +944,9 @@ def read_ewemdb(
     else:
         logger.debug("No remarks found in EwE database file")
 
+    # Keep the unpivoted diet table: it also carries the DetritusFate column
+    raw_diet_df = diet_df
+
     # Read diet composition
     if diet_df is not None and len(diet_df) > 0:
         # Diet table structure varies:
@@ -963,8 +1096,16 @@ def read_ewemdb(
                     ),
                     None,
                 )
-                _disc_col = next(
+                disc_col = next(
                     (c for c in ["Discard", "Discards"] if c in catch_df.columns), None
+                )
+                disc_mort_col = next(
+                    (
+                        c
+                        for c in ["DiscardMortality", "DiscardMort"]
+                        if c in catch_df.columns
+                    ),
+                    None,
                 )
 
                 if group_col and fleet_col and land_col:
@@ -1010,6 +1151,30 @@ def read_ewemdb(
                         ):
                             idx = params.model[params.model["Group"] == group].index[0]
                             params.model.loc[idx, fleet] = landing
+                            disc = row.get(disc_col) if disc_col else None
+                            disc_name = f"{fleet}.disc"
+                            if (
+                                disc_name in params.model.columns
+                                and disc is not None
+                                and pd.notna(disc)
+                            ):
+                                params.model.loc[idx, disc_name] = float(
+                                    disc
+                                ) * _discard_mortality(
+                                    row.get(disc_mort_col) if disc_mort_col else None,
+                                    group,
+                                    fleet,
+                                )
+
+    _apply_detritus_fate(
+        params,
+        raw_diet_df,
+        discard_fate_df,
+        groups_df,
+        name_col,
+        fleet_df,
+        scenario,
+    )
 
     # Read multi-stanza data
     try:
@@ -4479,7 +4644,6 @@ def read_value_chain(db_path: str) -> ValueChainData | None:
     return ValueChainData(**fields)
 
 
-
 def read_ewe_samples(
     filepath: Union[str, Path],
     sample_id: Optional[int] = None,
@@ -4556,14 +4720,18 @@ def read_ewe_samples(
     result_containers = {}
 
     # Read group name mapping
-    group_df = read_ewemdb_table(db_path, "EcopathGroup") if "EcopathGroup" in tables else None
+    group_df = (
+        read_ewemdb_table(db_path, "EcopathGroup") if "EcopathGroup" in tables else None
+    )
     group_names = {}
     if group_df is not None:
         for _, row in group_df.iterrows():
             group_names[int(row["GroupID"])] = str(row["GroupName"])
 
     # Read fleet name mapping
-    fleet_df = read_ewemdb_table(db_path, "EcopathFleet") if "EcopathFleet" in tables else None
+    fleet_df = (
+        read_ewemdb_table(db_path, "EcopathFleet") if "EcopathFleet" in tables else None
+    )
     fleet_names = {}
     if fleet_df is not None:
         for _, row in fleet_df.iterrows():
@@ -4580,7 +4748,9 @@ def read_ewe_samples(
             if len(group_sample_df) > 0:
                 # Get first group's replicate count
                 first_group = group_sample_df["GroupID"].iloc[0]
-                n_replicates = len(group_sample_df[group_sample_df["GroupID"] == first_group])
+                n_replicates = len(
+                    group_sample_df[group_sample_df["GroupID"] == first_group]
+                )
 
         if n_replicates == 0:
             logger.warning(f"No replicates found for sample {sid}, skipping")
@@ -4616,7 +4786,9 @@ def read_ewe_samples(
                     container.add_group_sample(sample_obj)
 
             except Exception as e:
-                logger.warning(f"Failed to read EcopathGroupSample for sample {sid}: {e}")
+                logger.warning(
+                    f"Failed to read EcopathGroupSample for sample {sid}: {e}"
+                )
 
         # Read EcopathDietCompSample
         if "EcopathDietCompSample" in tables:

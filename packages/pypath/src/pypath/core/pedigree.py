@@ -314,12 +314,9 @@ def apply_sample(params: "RpathParams", sample: dict) -> "RpathParams":
     )
 
 
-
 # ============================================================================
 # Phase 1B.1: Pedigree Quality System (EwE standard pedigree indices 0-4)
 # ============================================================================
-
-
 
 
 class PedigreeQuality(Enum):
@@ -328,9 +325,9 @@ class PedigreeQuality(Enum):
     Maps pedigree_index values (0-4) to quality levels.
     """
 
-    HIGH = "high"      # pedigree_index 0-1
+    HIGH = "high"  # pedigree_index 0-1
     MEDIUM = "medium"  # pedigree_index 2
-    LOW = "low"        # pedigree_index 3-4
+    LOW = "low"  # pedigree_index 3-4
 
 
 @dataclass
@@ -462,8 +459,7 @@ def validate_ewe_pedigree(
         # Check pedigree_index range
         if not (0 <= config.pedigree_index <= 4):
             issues.append(
-                f"{group_name}: pedigree_index {config.pedigree_index} "
-                "not in [0, 4]"
+                f"{group_name}: pedigree_index {config.pedigree_index} not in [0, 4]"
             )
 
         # Check quality_flag matches index

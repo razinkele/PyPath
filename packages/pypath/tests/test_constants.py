@@ -76,3 +76,13 @@ class TestFileConstants:
     def test_valid_db_extensions(self):
         assert ".ewemdb" in constants.VALID_DB_EXTENSIONS
         assert ".accdb" in constants.VALID_DB_EXTENSIONS
+
+
+def test_db_extension_lists_agree():
+    """One list of EwE database suffixes; .eweaccdb (EwE 6.6+) included."""
+    from pypath.core import constants
+    from pypath.io import ewemdb
+
+    assert ewemdb.EWE_DB_SUFFIXES is constants.EWE_DB_SUFFIXES
+    assert list(constants.EWE_DB_SUFFIXES) == constants.VALID_DB_EXTENSIONS
+    assert ".eweaccdb" in constants.VALID_DB_EXTENSIONS

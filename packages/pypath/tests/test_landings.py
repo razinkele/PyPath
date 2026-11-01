@@ -8,17 +8,15 @@ Tests cover:
 """
 
 import logging
-from typing import List
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from pypath.core.landings import (
     LandingRecord,
+    LandingsData,
     LandingSeasonality,
     LandingType,
-    LandingsData,
     aggregate_landings,
     estimate_seasonality_from_records,
     validate_landings,
@@ -30,6 +28,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 def sample_landing_record() -> LandingRecord:
@@ -61,10 +60,22 @@ def sample_landing_record_annual() -> LandingRecord:
 @pytest.fixture
 def sample_landing_seasonality() -> LandingSeasonality:
     """Create a sample seasonality pattern."""
-    proportions = np.array([
-        0.05, 0.05, 0.08, 0.10, 0.12, 0.15,
-        0.18, 0.15, 0.12, 0.10, 0.05, 0.05,
-    ])
+    proportions = np.array(
+        [
+            0.05,
+            0.05,
+            0.08,
+            0.10,
+            0.12,
+            0.15,
+            0.18,
+            0.15,
+            0.12,
+            0.10,
+            0.05,
+            0.05,
+        ]
+    )
     proportions = proportions / np.sum(proportions)
     return LandingSeasonality(
         group_name="Cod",
@@ -76,48 +87,67 @@ def sample_landing_seasonality() -> LandingSeasonality:
 def sample_landings_data() -> LandingsData:
     """Create a sample LandingsData container."""
     landings = LandingsData()
-    
+
     # Add commercial records
-    landings.add_record(LandingRecord(
-        group_name="Cod",
-        year=2020,
-        month=3,
-        landing_type=LandingType.COMMERCIAL,
-        catch_tons=150.0,
-    ))
-    landings.add_record(LandingRecord(
-        group_name="Cod",
-        year=2020,
-        month=6,
-        landing_type=LandingType.COMMERCIAL,
-        catch_tons=200.0,
-    ))
-    landings.add_record(LandingRecord(
-        group_name="Herring",
-        year=2020,
-        month=None,
-        landing_type=LandingType.COMMERCIAL,
-        catch_tons=1000.0,
-    ))
-    
+    landings.add_record(
+        LandingRecord(
+            group_name="Cod",
+            year=2020,
+            month=3,
+            landing_type=LandingType.COMMERCIAL,
+            catch_tons=150.0,
+        )
+    )
+    landings.add_record(
+        LandingRecord(
+            group_name="Cod",
+            year=2020,
+            month=6,
+            landing_type=LandingType.COMMERCIAL,
+            catch_tons=200.0,
+        )
+    )
+    landings.add_record(
+        LandingRecord(
+            group_name="Herring",
+            year=2020,
+            month=None,
+            landing_type=LandingType.COMMERCIAL,
+            catch_tons=1000.0,
+        )
+    )
+
     # Add seasonality
-    cod_proportions = np.array([
-            0.05, 0.05, 0.08, 0.10, 0.12, 0.15,
-            0.18, 0.15, 0.12, 0.10, 0.05, 0.05,
-        ])
+    cod_proportions = np.array(
+        [
+            0.05,
+            0.05,
+            0.08,
+            0.10,
+            0.12,
+            0.15,
+            0.18,
+            0.15,
+            0.12,
+            0.10,
+            0.05,
+            0.05,
+        ]
+    )
     cod_proportions = cod_proportions / np.sum(cod_proportions)
     cod_seasonality = LandingSeasonality(
         group_name="Cod",
         monthly_proportions=cod_proportions,
     )
     landings.add_seasonality(cod_seasonality)
-    
+
     return landings
 
 
 # ============================================================================
 # TEST CLASSES
 # ============================================================================
+
 
 class TestLandingType:
     """Test LandingType enumeration."""
@@ -146,9 +176,7 @@ class TestLandingType:
 class TestLandingRecord:
     """Test LandingRecord dataclass."""
 
-    def test_create_valid_record(
-        self, sample_landing_record: LandingRecord
-    ) -> None:
+    def test_create_valid_record(self, sample_landing_record: LandingRecord) -> None:
         """Create a fully specified valid record."""
         assert sample_landing_record.group_name == "Cod"
         assert sample_landing_record.year == 2020
@@ -258,7 +286,9 @@ class TestLandingSeasonality:
         """Create a valid seasonality pattern."""
         assert sample_landing_seasonality.group_name == "Cod"
         assert len(sample_landing_seasonality.monthly_proportions) == 12
-        assert np.sum(sample_landing_seasonality.monthly_proportions) == pytest.approx(1.0)
+        assert np.sum(sample_landing_seasonality.monthly_proportions) == pytest.approx(
+            1.0
+        )
 
     def test_is_valid_proper_sum(self) -> None:
         """Test is_valid() for proportions summing to 1.0."""
@@ -280,10 +310,22 @@ class TestLandingSeasonality:
 
     def test_is_valid_negative_proportions(self) -> None:
         """Test is_valid() rejects negative proportions."""
-        proportions = np.array([
-            0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
-            -0.05, 0.2, 0.1, 0.1, 0.1, 0.05,
-        ])
+        proportions = np.array(
+            [
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                -0.05,
+                0.2,
+                0.1,
+                0.1,
+                0.1,
+                0.05,
+            ]
+        )
         with pytest.raises(ValueError):
             LandingSeasonality(
                 group_name="Cod",
@@ -375,7 +417,9 @@ class TestLandingsData:
         annual = sample_landings_data.get_annual_catch("Cod", 2020)
         assert annual == pytest.approx(150.0 + 200.0)  # Sum of monthly records
 
-    def test_get_annual_catch_not_found(self, sample_landings_data: LandingsData) -> None:
+    def test_get_annual_catch_not_found(
+        self, sample_landings_data: LandingsData
+    ) -> None:
         """Test getting annual catch for non-existent group/year."""
         annual = sample_landings_data.get_annual_catch("NonExistent", 2020)
         assert annual == pytest.approx(0.0)
@@ -458,7 +502,7 @@ class TestValidation:
         invalid_record.value_usd = None
         invalid_record.fleet_id = None
         landings.records.append(invalid_record)
-        
+
         is_valid, errors = validate_landings(landings)
         assert is_valid is False
         assert len(errors) > 0
@@ -466,20 +510,22 @@ class TestValidation:
     def test_validate_invalid_seasonality(self) -> None:
         """Test validation with invalid seasonality."""
         landings = LandingsData()
-        landings.records.append(LandingRecord(
-            group_name="Cod",
-            year=2020,
-            month=1,
-            landing_type=LandingType.COMMERCIAL,
-            catch_tons=100.0,
-        ))
-        
+        landings.records.append(
+            LandingRecord(
+                group_name="Cod",
+                year=2020,
+                month=1,
+                landing_type=LandingType.COMMERCIAL,
+                catch_tons=100.0,
+            )
+        )
+
         # Manually inject invalid seasonality
         invalid_season = LandingSeasonality.__new__(LandingSeasonality)
         invalid_season.group_name = "Cod"
         invalid_season.monthly_proportions = np.ones(12) / 10.0  # Sums to 1.2
         landings.seasonality["Cod"] = invalid_season
-        
+
         is_valid, errors = validate_landings(landings)
         assert is_valid is False
 
@@ -537,10 +583,22 @@ class TestSeasonalityEstimation:
 
     def test_estimate_seasonality_seasonal_pattern(self) -> None:
         """Test seasonality estimation with seasonal pattern."""
-        proportions = np.array([
-            0.05, 0.05, 0.08, 0.10, 0.12, 0.15,
-            0.18, 0.15, 0.12, 0.10, 0.05, 0.05,
-        ])
+        proportions = np.array(
+            [
+                0.05,
+                0.05,
+                0.08,
+                0.10,
+                0.12,
+                0.15,
+                0.18,
+                0.15,
+                0.12,
+                0.10,
+                0.05,
+                0.05,
+            ]
+        )
         proportions = proportions / np.sum(proportions)
         records = [
             LandingRecord(
@@ -604,7 +662,9 @@ class TestAggregation:
         )
         assert year_2020 == pytest.approx(1350.0)
 
-    def test_aggregate_by_landing_type(self, sample_landings_data: LandingsData) -> None:
+    def test_aggregate_by_landing_type(
+        self, sample_landings_data: LandingsData
+    ) -> None:
         """Test aggregating by landing type."""
         commercial = aggregate_landings(
             sample_landings_data.records,
@@ -735,9 +795,3 @@ class TestEdgeCases:
             catch_tons=100.0,
         )
         assert record.is_valid() is True
-
-
-
-
-
-
