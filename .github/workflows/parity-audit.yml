@@ -9,6 +9,8 @@ on:
       - "packages/pypath/src/pypath/io/**"
       - "packages/pypath/src/pypath/core/**"
       - "docs/parity/**"
+      - "packages/pypath/scripts/ewe_parity_audit.py"
+      - "packages/pypath/tests/test_ewe_parity_matrix.py"
       - ".github/workflows/parity-audit.yml"
   pull_request:
     branches:
@@ -18,6 +20,8 @@ on:
       - "packages/pypath/src/pypath/io/**"
       - "packages/pypath/src/pypath/core/**"
       - "docs/parity/**"
+      - "packages/pypath/scripts/ewe_parity_audit.py"
+      - "packages/pypath/tests/test_ewe_parity_matrix.py"
       - ".github/workflows/parity-audit.yml"
 
 jobs:
