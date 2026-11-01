@@ -426,3 +426,54 @@ def build_biomass_change_figure(
         margin={"l": 140, "r": 20, "t": 50, "b": 50},
     )
     return fig
+
+
+# --- Ecosim effort preview ---------------------------------------------------
+
+
+def build_effort_figure(
+    forced_effort,
+    fleet_names: Sequence[str],
+    palette: str | None = "tab10",
+    title: str = "Fishing Effort Trajectory",
+) -> go.Figure:
+    """One line per fleet of the monthly effort multiplier.
+
+    ``forced_effort`` is Ecosim's ``scenario.fishing.ForcedEffort``: one row
+    per month, column 0 is the "Outside" slot and columns 1.. are the fleets.
+    """
+    if forced_effort is None:
+        return _empty_figure(title, "Create scenario to preview effort")
+    effort = np.asarray(forced_effort, dtype=float)
+    n_fleets = effort.shape[1] - 1 if effort.ndim == 2 else 0
+    if n_fleets <= 0:
+        return _empty_figure(title, "No fishing fleets in model")
+    names = [str(n) for n in fleet_names][:n_fleets]
+    names += [f"Fleet {i + 1}" for i in range(len(names), n_fleets)]
+    years = np.arange(effort.shape[0]) / 12
+    colors = _safe_palette(palette, n_fleets)
+    fig = go.Figure()
+    for i, name in enumerate(names):
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=effort[:, i + 1],
+                mode="lines",
+                name=name,
+                line={"width": 2, "color": colors[i]},
+                hovertemplate="%{x:.2f} years<br>effort ×%{y:.2f}<extra>"
+                "%{fullData.name}</extra>",
+            )
+        )
+    fig.add_hline(y=1, line={"dash": "dash", "color": "gray", "width": 1})
+    top = max(1.5, float(np.nanmax(effort[:, 1:])) * 1.1)
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Year",
+        yaxis={"title": "Effort Multiplier", "range": [0, top]},
+        legend_title="Fleet",
+        hovermode="x unified",
+        margin={"l": 60, "r": 20, "t": 50, "b": 50},
+    )
+    return fig

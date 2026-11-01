@@ -176,3 +176,37 @@ def test_summary_builders_empty():
         build_biomass_change_figure([], [], []),
     ):
         assert fig.layout.annotations[0].text == "Run simulation first"
+
+
+# --- Ecosim effort preview ----------------------------------------------------
+
+
+def test_effort_figure_one_line_per_fleet():
+    import numpy as np
+    import pytest
+
+    from pypath_shiny.services.plotly_viz import build_effort_figure
+
+    effort = np.ones((24, 3))  # column 0 = Outside, then two fleets
+    effort[12:, 2] = 0.5
+    fig = build_effort_figure(effort, ["Trawl", "Gillnet"])
+    assert [t.name for t in fig.data] == ["Trawl", "Gillnet"]
+    assert list(fig.data[1].y[-1:]) == [0.5]
+    assert list(fig.data[0].x[:2]) == pytest.approx([0.0, 1 / 12])
+    assert any(s.y0 == 1 and s.y1 == 1 for s in fig.layout.shapes)
+    assert fig.layout.yaxis.range[0] == 0 and fig.layout.yaxis.range[1] >= 1.5
+
+
+def test_effort_figure_without_fleets_or_scenario():
+    import numpy as np
+
+    from pypath_shiny.services.plotly_viz import build_effort_figure
+
+    assert (
+        build_effort_figure(None, []).layout.annotations[0].text
+        == "Create scenario to preview effort"
+    )
+    assert (
+        build_effort_figure(np.ones((12, 1)), []).layout.annotations[0].text
+        == "No fishing fleets in model"
+    )

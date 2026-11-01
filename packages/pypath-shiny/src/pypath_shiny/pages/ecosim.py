@@ -45,6 +45,7 @@ from pypath_shiny.services.plotly_viz import (
     build_biomass_change_figure,
     build_biomass_figure,
     build_catch_figure,
+    build_effort_figure,
     build_initial_final_figure,
 )
 from pypath_shiny.services.tasks import (
@@ -458,7 +459,7 @@ def ecosim_ui() -> ui.Tag:
                     ui.layout_columns(
                         ui.card(
                             ui.card_header("Effort Forcing"),
-                            ui.output_plot("effort_preview_plot"),
+                            output_widget("effort_preview_plot"),
                         ),
                         ui.card(
                             ui.card_header("Biomass Forcing"),
@@ -1681,52 +1682,16 @@ def ecosim_server(
         )
 
     @output
-    @render.plot
+    @render_widget
     def effort_preview_plot():
-        """Preview effort forcing trajectory."""
-        import matplotlib.pyplot as plt
-
+        """Interactive effort forcing preview, one line per fleet (Plotly)."""
         scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(8, 4))
-
         if scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Create scenario to preview effort",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        # Check if there are any gears
-        n_gears = scen.fishing.ForcedEffort.shape[1] - 1
-        if n_gears <= 0:
-            ax.text(
-                0.5,
-                0.5,
-                "No fishing fleets in model",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        effort = scen.fishing.ForcedEffort[:, 1]  # First fleet
-        months = np.arange(len(effort)) / 12
-
-        ax.plot(months, effort, "b-", linewidth=2)
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Effort Multiplier")
-        ax.set_title("Fishing Effort Trajectory")
-        ax.axhline(y=1, color="gray", linestyle="--", alpha=0.5)
-        ax.set_xlim(0, len(effort) / 12)
-        ax.set_ylim(0, max(1.5, max(effort) * 1.1))
-
-        plt.tight_layout()
-        return fig
+            return build_effort_figure(None, [])
+        p = scen.params
+        first_fleet = 1 + p.NUM_LIVING + p.NUM_DEAD  # spname[0] is "Outside"
+        fleets = list(p.spname[first_fleet : first_fleet + p.NUM_GEARS])
+        return build_effort_figure(scen.fishing.ForcedEffort, fleets)
 
     def _apply_biomass_forcing(scen):
         """Apply the Biomass Forcing card to the scenario's prey multiplier."""
