@@ -88,7 +88,9 @@ def _biodata_task_alert(
 
 def import_ui():
     """Data import page UI."""
-    return ui.div(
+    # The sidebar must be a direct child of layout_sidebar: inside a plain
+    # div bslib never initialises it and the import panel stays hidden.
+    return ui.layout_sidebar(
         # Sidebar with import options (tabs)
         ui.sidebar(
             ui.navset_pill(
@@ -321,7 +323,6 @@ def import_ui():
                 ui.output_ui("imported_summary"),
             ),
         ),
-        title="Import Ecopath Models",
         fillable=True,
     )
 
