@@ -16,18 +16,30 @@ DB_PATH = DATA_DIR / "LT2022_0.5ST_final7.eweaccdb"
 
 pytestmark = pytest.mark.integration
 
-# EE from EwE-F Ecopath_Results.dat
+# EE from EwE-F Ecopath_Results.dat: all 21 living groups and Detritus
 EWEF_EE = {
-    "Detritus": 0.14918,
-    "Phytoplankton": 0.15622,
-    "Zooplankton": 0.78241,
-    "Meiobenthos": 0.58495,
-    "Worms": 0.51271,
-    "Sprat": 0.59795,
-    "Smelt": 0.77984,
-    "Round goby": 0.38043,
-    "Blue mussel (ad.)": 0.01728,
     "Piscivorous birds": 0.15331,
+    "Scoters": 0.46937,
+    "Long-tailed duck": 0.69241,
+    "Turbot": 0.50528,
+    "Flounder": 0.37121,
+    "Sprat": 0.59795,
+    "Sand-eels": 0.50780,
+    "Sand goby": 0.76597,
+    "Smelt": 0.77984,
+    "Perciformes": 0.44494,
+    "Cypriniformes": 0.51152,
+    "Round goby": 0.38043,
+    "Mobile crustaceans": 0.52915,
+    "Saduria entomon": 0.32298,
+    "Blue mussel (juv.)": 0.01002,
+    "Blue mussel (ad.)": 0.01728,
+    "Sand bivalves": 0.18315,
+    "Worms": 0.51271,
+    "Meiobenthos": 0.58495,
+    "Zooplankton": 0.78241,
+    "Phytoplankton": 0.15622,
+    "Detritus": 0.14918,
 }
 
 
@@ -48,4 +60,5 @@ def balanced():
 @pytest.mark.parametrize("group, expected", sorted(EWEF_EE.items()))
 def test_ee_matches_ewef(balanced, group, expected):
     i = list(balanced.Group).index(group)
-    assert balanced.EE[i] == pytest.approx(expected, rel=1e-4)
+    # Reference values are rounded to 5 decimals, hence abs=1e-5 for small EE
+    assert balanced.EE[i] == pytest.approx(expected, rel=1e-4, abs=1e-5)
