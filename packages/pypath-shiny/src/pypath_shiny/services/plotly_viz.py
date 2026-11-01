@@ -347,3 +347,82 @@ def build_ee_figure(
         margin={"l": 140, "r": 20, "t": 50, "b": 50},
     )
     return fig
+
+
+# --- Ecosim Summary tab ------------------------------------------------------
+
+
+def build_initial_final_figure(
+    groups: Sequence[str],
+    initial,
+    final,
+    title: str = "Initial vs Final Biomass",
+) -> go.Figure:
+    """Grouped bars of biomass at the start and end of a simulation."""
+    if len(groups) == 0:
+        return _empty_figure(title, "Run simulation first")
+    names = [str(g) for g in groups]
+    fig = go.Figure(
+        [
+            go.Bar(
+                x=names,
+                y=list(np.asarray(initial, dtype=float)),
+                name="Initial",
+                marker_color="#1f77b4",
+            ),
+            go.Bar(
+                x=names,
+                y=list(np.asarray(final, dtype=float)),
+                name="Final",
+                marker_color=_GOOD,
+            ),
+        ]
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        barmode="group",
+        xaxis={"title": "Group", "tickangle": -45},
+        yaxis_title="Biomass",
+        hovermode="x unified",
+        margin={"l": 60, "r": 20, "t": 50, "b": 100},
+    )
+    return fig
+
+
+def build_biomass_change_figure(
+    groups: Sequence[str],
+    initial,
+    final,
+    title: str = "Biomass Change by Group",
+) -> go.Figure:
+    """Horizontal bars of percent biomass change, green up / red down.
+
+    Groups that start at zero biomass show 0 % (no division warning).
+    """
+    if len(groups) == 0:
+        return _empty_figure(title, "Run simulation first")
+    start = np.asarray(initial, dtype=float)
+    end = np.asarray(final, dtype=float)
+    pct = np.zeros_like(start)
+    ok = start > 0
+    pct[ok] = (end[ok] - start[ok]) / start[ok] * 100.0
+    names = [str(g) for g in groups]
+    fig = go.Figure(
+        go.Bar(
+            x=list(pct),
+            y=names,
+            orientation="h",
+            marker={"color": [_GOOD if v >= 0 else _BAD for v in pct]},
+            hovertemplate="%{y}<br>%{x:+.1f} %<extra></extra>",
+        )
+    )
+    fig.add_vline(x=0, line={"color": "gray", "width": 1})
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Percent Change (%)",
+        yaxis={"autorange": "reversed"},
+        margin={"l": 140, "r": 20, "t": 50, "b": 50},
+    )
+    return fig

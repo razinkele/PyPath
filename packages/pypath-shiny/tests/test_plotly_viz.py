@@ -133,3 +133,46 @@ def test_analysis_builders_handle_empty_input():
         build_ee_figure([], np.array([])),
     ):
         assert fig.layout.annotations, "empty figures should explain themselves"
+
+
+# --- Ecosim Summary builders --------------------------------------------------
+
+
+def test_initial_vs_final_biomass_grouped_bars():
+    from pypath_shiny.services.plotly_viz import build_initial_final_figure
+
+    fig = build_initial_final_figure(["A", "B"], [1.0, 2.0], [1.5, 1.0])
+    assert [t.name for t in fig.data] == ["Initial", "Final"]
+    assert list(fig.data[1].y) == [1.5, 1.0]
+    assert fig.layout.barmode == "group"
+
+
+def test_biomass_change_percent_and_colours():
+    import warnings
+
+    import pytest
+
+    from pypath_shiny.services.plotly_viz import build_biomass_change_figure
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # no divide-by-zero warning
+        fig = build_biomass_change_figure(
+            ["A", "B", "Z"], [2.0, 4.0, 0.0], [3.0, 1.0, 5.0]
+        )
+    bars = fig.data[0]
+    assert list(bars.x) == pytest.approx([50.0, -75.0, 0.0])
+    assert list(bars.marker.color) == ["#2ca02c", "#d62728", "#2ca02c"]
+    assert any(s.x0 == 0 and s.x1 == 0 for s in fig.layout.shapes)
+
+
+def test_summary_builders_empty():
+    from pypath_shiny.services.plotly_viz import (
+        build_biomass_change_figure,
+        build_initial_final_figure,
+    )
+
+    for fig in (
+        build_initial_final_figure([], [], []),
+        build_biomass_change_figure([], [], []),
+    ):
+        assert fig.layout.annotations[0].text == "Run simulation first"

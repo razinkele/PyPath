@@ -42,8 +42,10 @@ from pypath_shiny.services.notifications import (
     notify_warning,
 )
 from pypath_shiny.services.plotly_viz import (
+    build_biomass_change_figure,
     build_biomass_figure,
     build_catch_figure,
+    build_initial_final_figure,
 )
 from pypath_shiny.services.tasks import (
     TaskState,
@@ -613,8 +615,8 @@ def ecosim_ui() -> ui.Tag:
                     ui.output_ui("help_summary"),
                     ui.output_ui("summary_cards"),
                     ui.layout_columns(
-                        ui.output_plot("final_biomass_plot"),
-                        ui.output_plot("biomass_change_plot"),
+                        output_widget("final_biomass_plot"),
+                        output_widget("biomass_change_plot"),
                         col_widths=[6, 6],
                     ),
                 ),
@@ -2136,86 +2138,33 @@ def ecosim_server(
             col_widths=[3, 3, 3, 3],
         )
 
+    def _start_end_living_biomass():
+        """(group names, initial, final) for living groups, or None."""
+        output = sim_output.get()
+        scen = scenario.get()
+        if output is None or scen is None:
+            return None
+        n_living = scen.params.NUM_LIVING
+        return (
+            list(scen.params.spname[1 : n_living + 1]),
+            output.out_Biomass[0, 1 : n_living + 1],
+            output.out_Biomass[-1, 1 : n_living + 1],
+        )
+
     @output
-    @render.plot
+    @render_widget
     def final_biomass_plot():
-        """Plot final vs initial biomass."""
-        import matplotlib.pyplot as plt
-
-        output = sim_output.get()
-        scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-
-        if output is None or scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Run simulation first",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        n_living = scen.params.NUM_LIVING
-        group_names = scen.params.spname[1 : n_living + 1]
-
-        initial = output.out_Biomass[0, 1 : n_living + 1]
-        final = output.out_Biomass[-1, 1 : n_living + 1]
-
-        x = np.arange(len(group_names))
-        width = 0.35
-
-        ax.bar(x - width / 2, initial, width, label="Initial", color="#3498db")
-        ax.bar(x + width / 2, final, width, label="Final", color="#2ecc71")
-
-        ax.set_xlabel("Group")
-        ax.set_ylabel("Biomass")
-        ax.set_title("Initial vs Final Biomass")
-        ax.set_xticks(x)
-        ax.set_xticklabels(group_names, rotation=45, ha="right")
-        ax.legend()
-
-        plt.tight_layout()
-        return fig
+        """Interactive initial vs final biomass (Plotly)."""
+        data = _start_end_living_biomass()
+        if data is None:
+            return build_initial_final_figure([], [], [])
+        return build_initial_final_figure(*data)
 
     @output
-    @render.plot
+    @render_widget
     def biomass_change_plot():
-        """Plot percent biomass change."""
-        import matplotlib.pyplot as plt
-
-        output = sim_output.get()
-        scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-
-        if output is None or scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Run simulation first",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        n_living = scen.params.NUM_LIVING
-        group_names = scen.params.spname[1 : n_living + 1]
-
-        initial = output.out_Biomass[0, 1 : n_living + 1]
-        final = output.out_Biomass[-1, 1 : n_living + 1]
-
-        pct_change = np.where(initial > 0, (final - initial) / initial * 100, 0)
-
-        colors = ["#2ecc71" if c >= 0 else "#e74c3c" for c in pct_change]
-
-        ax.barh(group_names, pct_change, color=colors)
-        ax.axvline(x=0, color="gray", linestyle="-")
-        ax.set_xlabel("Percent Change (%)")
-        ax.set_title("Biomass Change by Group")
-
-        plt.tight_layout()
-        return fig
+        """Interactive percent biomass change (Plotly)."""
+        data = _start_end_living_biomass()
+        if data is None:
+            return build_biomass_change_figure([], [], [])
+        return build_biomass_change_figure(*data)
