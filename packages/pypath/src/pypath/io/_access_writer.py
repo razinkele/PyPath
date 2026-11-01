@@ -127,7 +127,14 @@ class AccessWriter:
     def __init__(
         self, params, path: str, scenario_id: int = 1, source_db: str | None = None
     ):
-        import pyodbc
+        try:
+            import pyodbc  # noqa: F401
+        except ImportError as e:
+            # Same error type as _check_odbc / _find_access_driver
+            raise RuntimeError(
+                "The Access backend requires pyodbc. Install pyodbc or use "
+                "backend='csv'."
+            ) from e
 
         self._params = params
         self._path = os.path.abspath(path)
