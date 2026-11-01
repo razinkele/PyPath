@@ -54,6 +54,9 @@ logger = logging.getLogger(__name__)
 
 _SAFE_SQL_IDENT = re.compile(r"^[a-zA-Z0-9_ ]+$")
 
+# File extensions of EwE / MS Access databases. EwE 6.6+ saves .eweaccdb.
+EWE_DB_SUFFIXES = (".ewemdb", ".eweaccdb", ".ewe", ".mdb", ".accdb")
+
 # Shared month abbreviation → number map (English + common non-English).
 _MONTH_NAME_MAP = {
     "jan": 1,
@@ -336,7 +339,7 @@ def _list_mdb_tables(filepath: str) -> List[str]:
         raise EwEDatabaseError(f"Database file not found: {filepath}")
     if not filepath_obj.is_file():
         raise EwEDatabaseError(f"Path is not a file: {filepath}")
-    if filepath_obj.suffix.lower() not in [".ewemdb", ".mdb", ".accdb"]:
+    if filepath_obj.suffix.lower() not in EWE_DB_SUFFIXES:
         raise EwEDatabaseError(
             f"Invalid database file extension: {filepath_obj.suffix}"
         )
@@ -518,7 +521,7 @@ def read_ewemdb(
 
     # Check file extension
     suffix = Path(filepath).suffix.lower()
-    if suffix not in [".ewemdb", ".eweaccdb", ".ewe", ".mdb", ".accdb"]:
+    if suffix not in EWE_DB_SUFFIXES:
         warnings.warn(f"Unexpected file extension: {suffix}")
 
     # Read main tables

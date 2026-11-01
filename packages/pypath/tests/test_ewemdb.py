@@ -11,8 +11,10 @@ import pandas as pd
 import pytest
 
 from pypath.io.ewemdb import (
+    EWE_DB_SUFFIXES,
     EwEDatabaseError,
     _get_connection_string,
+    _list_mdb_tables,
     check_ewemdb_support,
     ecosim_scenario_from_ewemdb,
     get_ewemdb_metadata,
@@ -69,6 +71,44 @@ class TestFileNotFound:
         """Test read_ewemdb with non-existent file."""
         with pytest.raises(FileNotFoundError):
             read_ewemdb("nonexistent_file.ewemdb")
+
+
+class TestListTablesExtensions:
+    """_list_mdb_tables accepts every EwE database extension read_ewemdb accepts."""
+
+    @pytest.mark.parametrize("suffix", EWE_DB_SUFFIXES)
+    def test_ewe_extensions_are_listed(self, tmp_path, suffix):
+        db = tmp_path / f"model{suffix}"
+        db.write_bytes(b"")
+        fake = type(
+            "R",
+            (),
+            {
+                "returncode": 0,
+                "stdout": "EcopathGroup\nEcopathDietComp\n",
+                "stderr": "",
+            },
+        )
+        with patch("pypath.io.ewemdb.subprocess.run", return_value=fake()) as run:
+            assert _list_mdb_tables(str(db)) == ["EcopathGroup", "EcopathDietComp"]
+        assert run.call_args[0][0][:2] == ["mdb-tables", "-1"]
+
+    def test_eweaccdb_is_accepted(self, tmp_path):
+        """Regression: .eweaccdb (EwE 6.6+) used to be rejected here."""
+        assert ".eweaccdb" in EWE_DB_SUFFIXES
+        db = tmp_path / "model.eweaccdb"
+        db.write_bytes(b"")
+        fake = type(
+            "R", (), {"returncode": 0, "stdout": "EcopathGroup\n", "stderr": ""}
+        )
+        with patch("pypath.io.ewemdb.subprocess.run", return_value=fake()):
+            assert _list_mdb_tables(str(db)) == ["EcopathGroup"]
+
+    def test_other_extensions_are_rejected(self, tmp_path):
+        db = tmp_path / "model.txt"
+        db.write_bytes(b"")
+        with pytest.raises(EwEDatabaseError, match="Invalid database file extension"):
+            _list_mdb_tables(str(db))
 
 
 class TestMockedDatabase:
