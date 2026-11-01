@@ -626,6 +626,7 @@ def validate_effort_allocation(
 
 # Phase 1C.2e fleet deployment extensions
 
+
 @dataclass
 class FleetDeployment:
     """Spatial fleet deployment plan."""

@@ -964,4 +964,3 @@ def ibm_server(
 
         fig.tight_layout()
         return fig
-

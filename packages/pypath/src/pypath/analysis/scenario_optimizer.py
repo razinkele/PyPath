@@ -114,7 +114,9 @@ class ScenarioOptimizer:
     def rank(self, candidates: Iterable[ScenarioCandidate]) -> list[ScenarioScore]:
         """Evaluate and rank candidates by aggregate score, then risk."""
         scores = [self.evaluate(c) for c in candidates]
-        return sorted(scores, key=lambda s: (s.aggregate_score, -s.risk_score), reverse=True)
+        return sorted(
+            scores, key=lambda s: (s.aggregate_score, -s.risk_score), reverse=True
+        )
 
     def optimize_grid(
         self,
@@ -135,7 +137,9 @@ class ScenarioOptimizer:
         candidates = []
         for idx, combo in enumerate(itertools.product(*value_lists), start=1):
             controls = {k: float(v) for k, v in zip(keys, combo)}
-            candidates.append(ScenarioCandidate(name=f"{name_prefix}_{idx}", controls=controls))
+            candidates.append(
+                ScenarioCandidate(name=f"{name_prefix}_{idx}", controls=controls)
+            )
 
         return self.rank(candidates)
 

@@ -56,7 +56,9 @@ class CoupledStateVector:
         if arr.ndim != 2:
             raise ValueError("biomass_spatial must be 2D [n_groups+1, n_patches]")
         n_groups_plus_one, n_patches = arr.shape
-        return cls(values=arr.reshape(-1), n_groups=n_groups_plus_one - 1, n_patches=n_patches)
+        return cls(
+            values=arr.reshape(-1), n_groups=n_groups_plus_one - 1, n_patches=n_patches
+        )
 
 
 def build_initial_state_vector(

@@ -8,6 +8,9 @@ on:
     paths:
       - "packages/pypath/src/pypath/io/**"
       - "packages/pypath/src/pypath/core/**"
+      - "docs/parity/**"
+      - "packages/pypath/scripts/ewe_parity_audit.py"
+      - "packages/pypath/tests/test_ewe_parity_matrix.py"
       - ".github/workflows/parity-audit.yml"
   pull_request:
     branches:
@@ -16,6 +19,10 @@ on:
     paths:
       - "packages/pypath/src/pypath/io/**"
       - "packages/pypath/src/pypath/core/**"
+      - "docs/parity/**"
+      - "packages/pypath/scripts/ewe_parity_audit.py"
+      - "packages/pypath/tests/test_ewe_parity_matrix.py"
+      - ".github/workflows/parity-audit.yml"
 
 jobs:
   parity-audit:
@@ -29,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -38,92 +45,37 @@ jobs:
         run: |
           pip install -e "packages/pypath[dev]"
 
+      # Compares docs/parity/ewe_parity_matrix.csv with what the code supports
+      # and writes docs/parity/ewe_parity_report.json.
       - name: Run parity audit
+        shell: bash
         run: |
-          cd packages/pypath
-          python -m pypath.io._ewe_parity
+          set -o pipefail
+          python packages/pypath/scripts/ewe_parity_audit.py | tee /tmp/parity_report.txt
 
-      - name: Validate parity matrix
+      - name: Validate parity matrix against code
         run: |
           cd packages/pypath
           pytest tests/test_ewe_parity_matrix.py -v
 
-      - name: Check parity regressions
-        run: |
-          cd packages/pypath
-          pytest tests/test_ewe_parity_matrix.py::test_parity_matrix_matches_code_derived_support_flags -v
-
-      - name: Generate parity report
+      - name: Write job summary
         if: always()
+        shell: bash
         run: |
-          cd packages/pypath
-          python -m pypath.io._ewe_parity > /tmp/parity_report.txt 2>&1
-          cat /tmp/parity_report.txt
+          {
+            echo "## EwE parity audit (Python ${{ matrix.python-version }})"
+            echo '```'
+            cat /tmp/parity_report.txt 2>/dev/null || echo "audit did not run"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Archive parity report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: parity-report-py${{ matrix.python-version }}
-          path: /tmp/parity_report.txt
+          path: |
+            /tmp/parity_report.txt
+            docs/parity/ewe_parity_report.json
           retention-days: 30
-
-      - name: Comment PR with parity status
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('/tmp/parity_report.txt', 'utf8');
-            const lines = report.split('\n').slice(0, 20); // First 20 lines
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## EwE Parity Audit (Python ${{ matrix.python-version }})\n\n\`\`\`\n${lines.join('\n')}\n\`\`\``
-            });
-
-  parity-trends:
-    name: Track Parity Trends
-    runs-on: ubuntu-latest
-    needs: parity-audit
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          pip install -e "packages/pypath[dev]"
-
-      - name: Generate trend data
-        run: |
-          cd packages/pypath
-          python -c "
-          import json
-          from pypath.io._ewe_parity import run_parity_audit
-          
-          result = run_parity_audit()
-          
-          # Store as JSON for trending
-          with open('/tmp/parity_metrics.json', 'w') as f:
-              json.dump({
-                  'timestamp': '$(date -Iseconds)',
-                  'overall_parity': result['overall_parity'],
-                  'implemented': result['implemented_count'],
-                  'partial': result['partial_count'],
-                  'missing': result['missing_count'],
-                  'by_domain': result['by_domain']
-              }, f, indent=2)
-          "
-
-      - name: Upload metrics
-        uses: actions/upload-artifact@v3
-        with:
-          name: parity-metrics-${{ github.run_id }}
-          path: /tmp/parity_metrics.json
+          if-no-files-found: warn

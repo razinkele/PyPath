@@ -29,7 +29,9 @@ class TestLarvalConnectivity:
 
     def test_init_negative_values_rejected(self):
         with pytest.raises(ValueError, match="negative"):
-            LarvalConnectivity(np.array([[0.5, -0.1], [0.5, 1.1]]), ["A", "B"], ["A", "B"])
+            LarvalConnectivity(
+                np.array([[0.5, -0.1], [0.5, 1.1]]), ["A", "B"], ["A", "B"]
+            )
 
     def test_set_survival_rate(self):
         lc = LarvalConnectivity(np.eye(2), ["A", "B"], ["A", "B"], survival_rate=0.8)
@@ -56,7 +58,9 @@ class TestLarvalConnectivity:
 
     def test_apply_to_array(self):
         matrix = np.array([[0.8, 0.2], [0.2, 0.8]])
-        lc = LarvalConnectivity(matrix, ["A", "B"], ["A", "B"], survival_rate=0.5, normalize_columns=False)
+        lc = LarvalConnectivity(
+            matrix, ["A", "B"], ["A", "B"], survival_rate=0.5, normalize_columns=False
+        )
         out = lc.apply_to_array(np.array([10.0, 20.0]))
         np.testing.assert_allclose(out, np.array([6.0, 9.0]))
 

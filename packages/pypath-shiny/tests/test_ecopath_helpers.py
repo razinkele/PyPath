@@ -173,3 +173,75 @@ def test_summarize_ecopath_validation_issues_counts_errors():
     issues = collect_ecopath_validation_issues(None)
     summary = summarize_ecopath_validation_issues(issues)
     assert "error" in summary
+
+
+def _model_with_discards():
+    """Fish caught by Trawl; Trawl discards go to a separate 'Discards' pool."""
+    import numpy as np
+    from pypath.core.ecopath import rpath
+    from pypath.core.params import create_rpath_params
+
+    p = create_rpath_params(
+        ["Fish", "Plankton", "Detritus", "Discards", "Trawl"], [0, 1, 2, 2, 3]
+    )
+    m = p.model
+    m["Biomass"] = [10.0, 50.0, 100.0, 1.0, np.nan]
+    m["PB"] = [1.0, 50.0, np.nan, np.nan, np.nan]
+    m["QB"] = [5.0, np.nan, np.nan, np.nan, np.nan]
+    m["EE"] = [np.nan, np.nan, np.nan, np.nan, np.nan]
+    m["Unassim"] = [0.2, 0.0, 0.0, 0.0, np.nan]
+    m["BioAcc"] = [0.0, 0.0, 0.0, 0.0, np.nan]
+    m["DetInput"] = [np.nan, np.nan, 0.0, 0.0, np.nan]
+    m["Detritus"] = [1.0, 1.0, 0.0, 1.0, 0.0]
+    m["Discards"] = [0.0, 0.0, 0.0, 0.0, 1.0]
+    m.loc[0, "Trawl"] = 1.0
+    m.loc[0, "Trawl.disc"] = 0.5
+    d = p.diet.set_index("Group")
+    d.loc["Plankton", "Fish"] = 1.0
+    p.diet = d.reset_index()
+    return p, rpath(p)
+
+
+class TestFleetDetritusFate:
+    """Fleet discard fates must survive Shiny's model handling (review of #29)."""
+
+    def test_recreate_keeps_fleet_fate(self):
+        _, balanced = _model_with_discards()
+        recreated = _recreate_params_from_model(balanced)
+        m = recreated.model.set_index("Group")
+        assert m.loc["Trawl", "Discards"] == pytest.approx(1.0)
+        assert m.loc["Trawl", "Detritus"] == pytest.approx(0.0)
+
+    def test_default_fate_keeps_fleet_values(self):
+        from pypath_shiny.pages.ecopath import _fill_default_detritus_fate
+
+        params, _ = _model_with_discards()
+        _fill_default_detritus_fate(params.model)
+        m = params.model.set_index("Group")
+        assert m.loc["Trawl", "Discards"] == pytest.approx(1.0)
+        assert m.loc["Trawl", "Detritus"] == pytest.approx(0.0)
+        assert m.loc["Fish", "Detritus"] == pytest.approx(1.0)
+
+    def test_default_fate_fills_only_missing_cells(self):
+        import numpy as np
+
+        from pypath_shiny.pages.ecopath import _fill_default_detritus_fate
+
+        params, _ = _model_with_discards()
+        params.model[["Detritus", "Discards"]] = np.nan
+        _fill_default_detritus_fate(params.model)
+        m = params.model.set_index("Group")
+        for g in ["Fish", "Plankton", "Trawl"]:
+            assert m.loc[g, "Detritus"] == pytest.approx(0.5)
+            assert m.loc[g, "Discards"] == pytest.approx(0.5)
+
+    def test_discards_reach_detritus_after_default_fill(self):
+        from pypath.core.ecopath import rpath
+
+        from pypath_shiny.pages.ecopath import _fill_default_detritus_fate
+
+        params, _ = _model_with_discards()
+        _fill_default_detritus_fate(params.model)
+        balanced = rpath(params)
+        k = list(balanced.Group).index("Trawl")
+        assert balanced.DetFate[k].sum() == pytest.approx(1.0)

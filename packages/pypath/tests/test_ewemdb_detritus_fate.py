@@ -159,3 +159,12 @@ def test_explicit_zero_fate_is_kept():
     for g in ["Phyto", "Zoo", "Fish", "Discards", "Trawlers"]:
         assert _cell(p, g, "Detritus") == 0.0
         assert _cell(p, g, "Discards") == 0.0
+
+
+def test_discard_fate_with_legacy_fleet_id_column():
+    """A Fleet table keyed by ``ID`` (not FleetID) still maps discard fates."""
+    tables = dict(FULL)
+    tables["EcopathFleet"] = FLEET.rename(columns={"FleetID": "ID"})
+    p = _read(tables)
+    assert _cell(p, "Trawlers", "Discards") == pytest.approx(1.0)
+    assert _cell(p, "Trawlers", "Detritus") == 0.0

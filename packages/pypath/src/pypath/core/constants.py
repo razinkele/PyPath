@@ -138,4 +138,7 @@ DEFAULT_SWITCHING_POWER_REWIRING = 2.0  # Switching power for rewiring
 # ============================================================================
 
 # Database file extensions
-VALID_DB_EXTENSIONS = [".ewemdb", ".mdb", ".accdb"]
+# EwE model databases: .eweaccdb is what EwE 6.6+ saves; .ewemdb is older.
+# Single source of truth; pypath.io.ewemdb imports EWE_DB_SUFFIXES from here.
+EWE_DB_SUFFIXES = (".ewemdb", ".eweaccdb", ".ewe", ".mdb", ".accdb")
+VALID_DB_EXTENSIONS = list(EWE_DB_SUFFIXES)

@@ -777,5 +777,3 @@ def results_server(
             yield df.to_csv(index=False)
             return
         yield ""
-
-

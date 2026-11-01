@@ -862,4 +862,3 @@ def prebalance_server(
             ax.axis("off")
             logger.error("Error generating diagnostic plot: %s", e, exc_info=True)
             return fig
-

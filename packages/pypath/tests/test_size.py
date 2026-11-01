@@ -112,10 +112,13 @@ class TestSizeClass:
         assert not sample_size_class.contains(10)  # exclusive upper bound
         assert not sample_size_class.contains(100)
 
-    @pytest.mark.parametrize("unit,min_val,max_val", [
-        ("cm", 0, 10),
-        ("mm", 0, 100),
-    ])
+    @pytest.mark.parametrize(
+        "unit,min_val,max_val",
+        [
+            ("cm", 0, 10),
+            ("mm", 0, 100),
+        ],
+    )
     def test_size_units(self, unit, min_val, max_val):
         """Test SizeClass with different size units."""
         sc = SizeClass(size_min=min_val, size_max=max_val, size_unit=unit)
@@ -185,12 +188,14 @@ class TestSizeDistribution:
 
     def test_from_dataframe(self):
         """Test from_dataframe() reconstructs distribution from DataFrame."""
-        df = pd.DataFrame({
-            "size_min": [0, 2, 4, 6, 8],
-            "size_max": [2, 4, 6, 8, 10],
-            "size_unit": ["cm"] * 5,
-            "count": [100, 150, 200, 120, 80],
-        })
+        df = pd.DataFrame(
+            {
+                "size_min": [0, 2, 4, 6, 8],
+                "size_max": [2, 4, 6, 8, 10],
+                "size_unit": ["cm"] * 5,
+                "count": [100, 150, 200, 120, 80],
+            }
+        )
         dist = SizeDistribution.from_dataframe(df, group_name="FromDF")
         assert dist.group_name == "FromDF"
         assert len(dist.size_classes) == 5
@@ -201,7 +206,9 @@ class TestSizeDistribution:
         df = sample_size_distribution.to_dataframe()
         reconstructed = SizeDistribution.from_dataframe(df, group_name="RoundTrip")
         assert reconstructed.total_count() == sample_size_distribution.total_count()
-        assert len(reconstructed.size_classes) == len(sample_size_distribution.size_classes)
+        assert len(reconstructed.size_classes) == len(
+            sample_size_distribution.size_classes
+        )
         np.testing.assert_array_almost_equal(
             reconstructed.counts,
             sample_size_distribution.counts,
@@ -295,13 +302,15 @@ class TestSizeStructure:
 
     def test_from_dataframe(self):
         """Test from_dataframe() reconstructs structure from grouped DataFrame."""
-        df = pd.DataFrame({
-            "group_name": ["GroupX", "GroupX", "GroupY", "GroupY"],
-            "size_min": [0, 5, 10, 20],
-            "size_max": [5, 10, 20, 30],
-            "size_unit": ["cm"] * 4,
-            "count": [100, 150, 200, 300],
-        })
+        df = pd.DataFrame(
+            {
+                "group_name": ["GroupX", "GroupX", "GroupY", "GroupY"],
+                "size_min": [0, 5, 10, 20],
+                "size_max": [5, 10, 20, 30],
+                "size_unit": ["cm"] * 4,
+                "count": [100, 150, 200, 300],
+            }
+        )
         struct = SizeStructure.from_dataframe(df)
         assert len(struct.distributions) == 2
         assert struct.get_distribution("GroupX") is not None
@@ -389,11 +398,14 @@ class TestVonBertalanffy:
         assert np.isclose(vb_length(age_min, loo, k, t0), 10, atol=1)
         assert np.isclose(vb_length(age_max, loo, k, t0), 20, atol=1)
 
-    @pytest.mark.parametrize("loo,k,t0", [
-        (50, 0.1, 0),
-        (100, 0.05, -0.1),
-        (25, 0.2, 0.5),
-    ])
+    @pytest.mark.parametrize(
+        "loo,k,t0",
+        [
+            (50, 0.1, 0),
+            (100, 0.05, -0.1),
+            (25, 0.2, 0.5),
+        ],
+    )
     def test_vb_parameter_combinations(self, loo, k, t0):
         """Test vb_length() with various parameters."""
         length = vb_length(5, loo, k, t0)
@@ -620,4 +632,3 @@ class TestEdgeCases:
 # 5. Multi-group structure operations
 #
 # ============================================================================
-
