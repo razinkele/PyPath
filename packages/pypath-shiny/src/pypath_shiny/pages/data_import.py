@@ -47,7 +47,6 @@ from pypath_shiny.services.tasks import (  # noqa: E402
 # Import shared utilities
 from .utils import (
     # noqa: E402
-    create_cell_styles,
     format_dataframe_for_display,
 )
 from pypath_shiny.services.gt_formatters import format_dataframe  # noqa: E402
@@ -267,7 +266,7 @@ def import_ui():
                         ui.tags.hr(),
                         # Results preview
                         ui.h6("Fetched Species Data"),
-                        ui.output_data_frame("biodata_results_table"),
+                        ui.output_ui("biodata_results_table", style="max-height: 300px; overflow: auto;"),
                         ui.tags.hr(),
                         # Biomass estimates section
                         ui.output_ui("biodata_biomass_section"),
@@ -290,19 +289,19 @@ def import_ui():
         ui.navset_card_tab(
             ui.nav_panel(
                 "Groups",
-                ui.output_data_frame("imported_groups_table"),
+                ui.output_ui("imported_groups_table", style="max-height: 500px; overflow: auto;"),
             ),
             ui.nav_panel(
                 "Diet Matrix",
-                ui.output_data_frame("imported_diet_table"),
+                ui.output_ui("imported_diet_table", style="max-height: 500px; overflow: auto;"),
             ),
             ui.nav_panel(
                 "Multi-Stanza",
                 ui.output_ui("imported_stanza_status"),
                 ui.h6("Stanza Groups", class_="mt-3"),
-                ui.output_data_frame("imported_stanza_groups_table"),
+                ui.output_ui("imported_stanza_groups_table", style="max-height: 500px; overflow: auto;"),
                 ui.h6("Life Stages", class_="mt-3"),
-                ui.output_data_frame("imported_stanza_indiv_table"),
+                ui.output_ui("imported_stanza_indiv_table", style="max-height: 500px; overflow: auto;"),
             ),
             ui.nav_panel(
                 "Summary",
@@ -386,11 +385,10 @@ def import_server(
         """Render EcoBase models as data frame."""
         models = ecobase_models.get()
         if models is None or len(models) == 0:
-            return format_dataframe(
+            return render.DataGrid(
                 pd.DataFrame(
                     {"Message": ["Click 'All Models' or search to load models"]}
-                ),
-                title="EcoBase Models"
+                )
             )
 
         display_cols = [
@@ -401,9 +399,10 @@ def import_server(
             "num_groups",
         ]
         display_cols = [c for c in display_cols if c in models.columns]
-        return format_dataframe(
+        return render.DataGrid(
             models[display_cols].head(100),
-            title="EcoBase Models"
+            selection_mode="row",
+            height=UI.datagrid_height_default_px,
         )
 
     @reactive.effect
@@ -679,7 +678,7 @@ def import_server(
         )
 
     @output
-    @render.data_frame
+    @render.ui
     def imported_groups_table():
         """Show imported groups."""
         params = imported_params.get()
@@ -703,12 +702,11 @@ def import_server(
         formatted_df, no_data_mask, remarks_mask, _ = format_dataframe_for_display(
             df, decimal_places=3, remarks_df=remarks_df
         )
-        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
 
         return format_dataframe(formatted_df, title="Imported Groups")
 
     @output
-    @render.data_frame
+    @render.ui
     def imported_diet_table():
         """Show imported diet matrix."""
         params = imported_params.get()
@@ -719,7 +717,6 @@ def import_server(
         formatted_df, no_data_mask, remarks_mask, _ = format_dataframe_for_display(
             params.diet.copy(), decimal_places=3
         )
-        styles = create_cell_styles(formatted_df, no_data_mask, remarks_mask)
 
         return format_dataframe(formatted_df, title="Diet Matrix")
 
@@ -756,7 +753,7 @@ def import_server(
         )
 
     @output
-    @render.data_frame
+    @render.ui
     def imported_stanza_groups_table():
         """Show imported stanza groups."""
         params = imported_params.get()
@@ -780,12 +777,11 @@ def import_server(
         formatted_df, no_data_mask, _, _ = format_dataframe_for_display(
             df, decimal_places=3
         )
-        styles = create_cell_styles(formatted_df, no_data_mask, None)
 
         return format_dataframe(formatted_df, title="Stanza Groups")
 
     @output
-    @render.data_frame
+    @render.ui
     def imported_stanza_indiv_table():
         """Show imported stanza life stages."""
         params = imported_params.get()
@@ -824,7 +820,6 @@ def import_server(
         formatted_df, no_data_mask, _, _ = format_dataframe_for_display(
             df, decimal_places=3
         )
-        styles = create_cell_styles(formatted_df, no_data_mask, None)
 
         return format_dataframe(formatted_df, title="Stanza Life Stages")
 
@@ -1186,7 +1181,7 @@ Phytoplankton"""
             notify_warning("Biodata fetch cancelled by user")
 
     @output
-    @render.data_frame
+    @render.ui
     def biodata_results_table():
         """Show fetched species data."""
         df = biodata_df.get()

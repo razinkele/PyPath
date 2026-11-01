@@ -181,19 +181,19 @@ def results_ui():
                     ui.navset_card_pill(
                         ui.nav_panel(
                             "Parameters",
-                            ui.output_data_frame("params_data_table"),
+                            ui.output_ui("params_data_table", style="max-height: 500px; overflow: auto;"),
                         ),
                         ui.nav_panel(
                             "Diet Matrix",
-                            ui.output_data_frame("diet_data_table"),
+                            ui.output_ui("diet_data_table", style="max-height: 500px; overflow: auto;"),
                         ),
                         ui.nav_panel(
                             "Biomass (Monthly)",
-                            ui.output_data_frame("biomass_data_table"),
+                            ui.output_ui("biomass_data_table", style="max-height: 500px; overflow: auto;"),
                         ),
                         ui.nav_panel(
                             "Catch (Annual)",
-                            ui.output_data_frame("catch_data_table"),
+                            ui.output_ui("catch_data_table", style="max-height: 500px; overflow: auto;"),
                         ),
                     ),
                 ),
@@ -653,7 +653,7 @@ def results_server(
         return fig
 
     @output
-    @render.data_frame
+    @render.ui
     def params_data_table():
         """Model parameters data table."""
         model = model_data.get()
@@ -674,7 +674,7 @@ def results_server(
         return format_params_table(df, title="Model Parameters")
 
     @output
-    @render.data_frame
+    @render.ui
     def diet_data_table():
         """Diet matrix data table."""
         model = model_data.get()
@@ -704,7 +704,7 @@ def results_server(
         return format_diet_matrix(df, title="Diet Composition Matrix")
 
     @output
-    @render.data_frame
+    @render.ui
     def biomass_data_table():
         """Monthly biomass data table."""
         sim = sim_results.get()
@@ -731,7 +731,7 @@ def results_server(
         return format_time_series_summary(df, title="Monthly Biomass", decimals=4)
 
     @output
-    @render.data_frame
+    @render.ui
     def catch_data_table():
         """Annual catch data table."""
         sim = sim_results.get()

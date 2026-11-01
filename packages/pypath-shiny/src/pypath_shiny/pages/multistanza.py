@@ -129,7 +129,7 @@ def multistanza_ui():
                     "Stanza Properties",
                     ui.card(
                         ui.card_header("Calculated Stanza Parameters"),
-                        ui.output_data_frame("stanza_table"),
+                        ui.output_ui("stanza_table", style="max-height: 400px; overflow: auto;"),
                         ui.download_button(
                             "download_stanzas", "Download CSV", class_="mt-2"
                         ),

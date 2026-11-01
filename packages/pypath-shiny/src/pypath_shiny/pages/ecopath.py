@@ -13,6 +13,10 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Configuration imports
 from pypath_shiny.config import DEFAULTS, PLOTS, THRESHOLDS
+from pypath_shiny.services.gt_formatters import (
+    format_dataframe,
+    format_results_summary,
+)
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -41,8 +45,6 @@ from .import_validation import (
 # Import shared utilities
 from .utils import (
     COLUMN_TOOLTIPS,
-    NO_DATA_STYLE,
-    STANZA_STYLE,
     create_cell_styles,
     format_dataframe_for_display,
     is_balanced_model,
@@ -521,7 +523,10 @@ def ecopath_ui():
                     ui.h4("Balanced Model Results", class_="mt-3"),
                     ui.output_ui("balance_validation_summary"),
                     ui.output_ui("balance_status"),
-                    ui.output_data_frame("model_results_table"),
+                    ui.output_ui(
+                        "model_results_table",
+                        style="max-height: 500px; overflow: auto;",
+                    ),
                 ),
                 ui.nav_panel(
                     "Multi-Stanza",
@@ -981,7 +986,7 @@ def ecopath_server(
             return ""
         return val
 
-    # @model_params_table.set_patch_fn
+    @model_params_table.set_patch_fn
     def _handle_model_params_edit(*, patch: render.CellPatch) -> render.CellValue:
         """Handle edits to the model parameters table."""
         df, col_name, group_name = _resolve_patch(model_params_table, patch)
@@ -1043,7 +1048,7 @@ def ecopath_server(
         )
         return "" if np.isnan(numeric_value) else round(float(numeric_value), 3)
 
-    # @diet_matrix_table.set_patch_fn
+    @diet_matrix_table.set_patch_fn
     def _handle_diet_matrix_edit(*, patch: render.CellPatch) -> render.CellValue:
         """Handle edits to the diet matrix table."""
         df, col_name, prey_name = _resolve_patch(diet_matrix_table, patch)
@@ -1477,7 +1482,7 @@ def ecopath_server(
         )
 
     @output
-    @render.data_frame
+    @render.ui
     def model_results_table():
         """Display balanced model results with great_tables formatting."""
         model = balanced_model.get()
@@ -1489,9 +1494,10 @@ def ecopath_server(
 
         # Get the summary DataFrame
         df = model.summary()
-        
+
         # Format with great_tables
         return format_results_summary(df, title="Balanced Model Results")
+
     @output
     @render.ui
     def diagnostics_output():

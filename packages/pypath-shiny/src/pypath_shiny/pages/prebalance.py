@@ -28,10 +28,7 @@ from pypath_shiny.services.notifications import (  # noqa: E402
     notify_success,
     notify_warning,
 )
-from pypath_shiny.services.gt_formatters import (  # noqa: E402
-    format_dataframe,
-    format_diagnostics_table,
-)
+from pypath_shiny.services.gt_formatters import format_diagnostics_table  # noqa: E402
 
 
 def _resolve_repo_root() -> Path | None:
@@ -298,16 +295,16 @@ def prebalance_ui():
                 ),
                 ui.nav_panel(
                     "Predator-Prey Ratios",
-                    ui.output_data_frame("table_predator_prey"),
+                    ui.output_ui("table_predator_prey", style="max-height: 500px; overflow: auto;"),
                 ),
                 ui.nav_panel(
                     "Vital Rate Ratios",
                     ui.tags.div(
                         ui.h5("P/B Ratios"),
-                        ui.output_data_frame("table_pb_ratios"),
+                        ui.output_ui("table_pb_ratios", style="max-height: 300px; overflow: auto;"),
                         ui.hr(),
                         ui.h5("Q/B Ratios"),
-                        ui.output_data_frame("table_qb_ratios"),
+                        ui.output_ui("table_qb_ratios", style="max-height: 300px; overflow: auto;"),
                     ),
                 ),
                 ui.nav_panel(
@@ -722,7 +719,7 @@ def prebalance_server(
         )
 
     @output
-    @render.data_frame
+    @render.ui
     def table_predator_prey():
         """Render predator-prey ratios table."""
         report = diagnostic_report()
@@ -743,7 +740,7 @@ def prebalance_server(
         return format_diagnostics_table(df, "Predator-Prey Ratios")
 
     @output
-    @render.data_frame
+    @render.ui
     def table_pb_ratios():
         """Render P/B ratios table."""
         report = diagnostic_report()
@@ -761,7 +758,7 @@ def prebalance_server(
         return format_diagnostics_table(df, "Production/Biomass Ratios")
 
     @output
-    @render.data_frame
+    @render.ui
     def table_qb_ratios():
         """Render Q/B ratios table."""
         report = diagnostic_report()

@@ -2,6 +2,12 @@
 
 Provides reusable great_tables (GT) formatters for displaying PyPath
 model parameters, simulation results, and diagnostic data.
+
+The returned GT objects are static HTML tables, rendered with ``@render.ui``
+and ``ui.output_ui``. Shiny's ``@render.data_frame`` rejects GT objects, and
+``opt_interactive()`` is avoided: its import map is ignored when the table is
+inserted after page load. Tables needing row selection, cell editing or
+filters stay as ``render.DataGrid``.
 """
 
 from typing import Optional
@@ -44,9 +50,8 @@ def format_params_table(
     if other_cols:
         gt = gt.fmt_number(columns=other_cols, decimals=2)
     
-    # Style and interactivity
+    # Header styling
     gt = gt.tab_style(style=style.fill(color="#1b3a5c"), locations=loc.header())
-    gt = gt.opt_interactive()
         
     return gt
 
@@ -64,7 +69,6 @@ def format_results_summary(
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
     
-    gt = gt.opt_interactive()
         
     return gt
 
@@ -82,7 +86,6 @@ def format_diagnostics_table(
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=3)
     
-    gt = gt.opt_interactive()
     return gt
 
 
@@ -98,7 +101,6 @@ def format_diet_matrix(
     if numeric_cols:
         gt = gt.fmt_percent(columns=numeric_cols, decimals=1)
     
-    gt = gt.opt_interactive()
     return gt
 
 
@@ -122,7 +124,6 @@ def format_time_series_summary(
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
     
-    gt = gt.opt_interactive()
     
     return gt
 
@@ -145,7 +146,6 @@ def format_dataframe(
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
     
-    gt = gt.opt_interactive()
         
     return gt
 
