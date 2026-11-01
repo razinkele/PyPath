@@ -15,7 +15,7 @@
 |---|---|
 | 1A Dependencies / 1B Architecture | Done |
 | 2 great_tables | **Done and browser-checked.** 15 read-only tables are static GT (`@render.ui`); editable tables and row pickers stay DataGrid. **Decision (user, 2026-11-01): keep static GT** - losing sort/filter/highlight on read-only tables is accepted. |
-| 3 Plotly + shinywidgets | **In progress.** Plotly via `render_widget` on: Results (simulation biomass, catch), Ecosim (all charts: Time Series, Catch, Summary, effort preview per fleet), Analysis (MTI heatmap, keystoneness, EE bars). Home redesign, `components.py`. Remaining matplotlib (18): Results trophic-level bar/flow + food web (3), Ecopath (2), Pre-Balance (1), Analysis food web / trophic spectrum (2, from `pypath.core.plotting`), Ecospace (3), IBM (6), Feedback (1). Ecosim Summary charts not yet seen in a browser (window was minimised). |
+| 3 Plotly + shinywidgets | **Core workflow done.** Plotly via `render_widget` on Results (all charts incl. food web, trophic levels, pyramid; Plot Style -> Plotly templates, matplotlib palette names honoured), Ecosim (all charts), Analysis (MTI, keystoneness, EE), Ecopath (trophic levels by role, EE). Remaining matplotlib: drawn by the core package (Analysis food web + trophic spectrum, Pre-Balance diagnostic plot - converting needs a pypath-ewe API decision), and the specialised pages Ecospace (3), IBM (6), Feedback (1). Ecosim Summary + Results/Ecopath charts not yet seen in a browser. |
 | 4-8 | Not started |
 
 ## Browser check (2026-11-01, local app, Chrome)
@@ -43,16 +43,17 @@ Each has a contract test in `tests/test_render_contracts.py`,
 
 - Branch is up to date with main as of #31 (merge `36d8537`), plus later commits.
   After #32 merges, merge `origin/main` in again.
-- Shiny suite: 715 passed. `ruff check packages/` and `ruff format --check packages/` clean.
+- Shiny suite: 723 passed. `ruff check packages/` and `ruff format --check packages/` clean.
 - CI (`ci-shiny-smoke.yml`) now runs the full Shiny unit suite (commit `4c51264`).
 
 ## Next steps
 
 1. (done) #32 merged and deployed; `main` merged into the branch.
-2. Phase 3: remaining matplotlib charts, core workflow first (Results trophic charts, Ecopath,
-   Pre-Balance); same `plotly_viz` + `render_widget` pattern, builders + tests first.
-   Browser-check the Ecosim Summary tab.
+2. Browser pass over Results, Ecopath, Ecosim Summary (charts converted without a visual check).
+   Then decide: core-package plots (pypath.core.plotting / analysis.prebalance) and Ecospace/IBM/Feedback.
 3. Cosmetic: the Model Results GT table formats the Type column as `0.000`.
+   Data: `example_model_data/diet.csv` looks transposed/shifted (Phytoplankton row all zeros,
+   Phytoplankton column sums to 1) - producers get TL ~3.7 in the bundled example. Core issue, not UI.
 4. Before opening the UI PR: full Shiny suite, a browser pass over every page, and
    remember `main` auto-deploys to laguna.
 
