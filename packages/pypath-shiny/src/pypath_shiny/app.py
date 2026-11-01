@@ -46,6 +46,7 @@ APP_DIR = Path(__file__).parent
 from pypath import get_health_status  # noqa: E402
 
 from pypath_shiny import __version__  # noqa: E402
+from pypath_shiny.components import nav_label, theme_toggle_button  # noqa: E402
 from pypath_shiny.config import UI  # noqa: E402
 
 # Import page modules - organized by category
@@ -74,16 +75,14 @@ CHANGELOG_URL = "https://github.com/razinkele/PyPath/blob/main/CHANGELOG.md"
 
 def _icon_label(icon_class: str, text: str) -> ui.TagList:
     """Create a nav label with a Bootstrap Icon and text."""
-    return ui.TagList(
-        ui.tags.i(class_=f"bi {icon_class}", style="margin-right: 8px;"),
-        text,
-    )
+    return nav_label(icon_class, text)
 
 
 # App UI with left sidebar pill list navigation
 app_ui = ui.page_fluid(
     # Typography, icons, and custom styles
     ui.head_content(
+        ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1, viewport-fit=cover"),
         ui.tags.link(
             rel="stylesheet",
             href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap",
@@ -91,6 +90,41 @@ app_ui = ui.page_fluid(
         ui.tags.link(
             rel="stylesheet",
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
+        ),
+        ui.tags.script(
+            """
+            (function() {
+              const storageKey = 'pypath-theme';
+              const applyTheme = function(darkMode) {
+                const root = document.documentElement;
+                const label = document.getElementById('theme_toggle_label');
+                const button = document.getElementById('theme_toggle_button');
+                root.setAttribute('data-bs-theme', darkMode ? 'dark' : 'light');
+                const nextLabel = darkMode ? 'Light mode' : 'Dark mode';
+                const nextIcon = darkMode ? 'bi-sun-fill' : 'bi-moon-fill';
+                if (label) {
+                  label.textContent = nextLabel;
+                }
+                if (button) {
+                  button.setAttribute('aria-pressed', String(darkMode));
+                  const icon = button.querySelector('.bi');
+                  if (icon) {
+                    icon.className = 'bi ' + nextIcon;
+                  }
+                }
+                localStorage.setItem(storageKey, darkMode ? 'dark' : 'light');
+              };
+              const savedTheme = localStorage.getItem(storageKey);
+              const preferredDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+              applyTheme(savedTheme ? savedTheme === 'dark' : preferredDark);
+              document.addEventListener('click', function(event) {
+                const button = event.target.closest('[data-theme-toggle="true"]');
+                if (!button) return;
+                const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'dark';
+                applyTheme(isDark);
+              });
+            })();
+            """
         ),
         # Flatly Bootswatch theme applied via a plain stylesheet link.
         # Passing a shinyswatch ShinyswatchTheme object to page_fluid(theme=...)
@@ -133,10 +167,12 @@ app_ui = ui.page_fluid(
         ),
         ui.div(
             ui.tags.span(f"v{__version__}", class_="topbar-version"),
+            theme_toggle_button(),
             ui.input_action_button(
                 "btn_topbar_about",
                 ui.TagList(ui.tags.i(class_="bi bi-info-circle me-1"), "About"),
                 class_="btn btn-outline-primary btn-sm topbar-btn",
+                aria_label="Open PyPath information panel",
             ),
             ui.tags.a(
                 ui.TagList(
@@ -252,12 +288,14 @@ app_ui = ui.page_fluid(
                 target="_blank",
                 class_="btn btn-link text-start w-100 p-2",
                 style="text-decoration: none;",
+                aria_label="Open API documentation in a new tab",
             ),
         ),
         ui.nav_control(
             ui.input_action_button(
                 "btn_feedback",
                 _icon_label("bi-chat-left-dots-fill", "Send Feedback"),
+                aria_label="Send feedback about the PyPath app",
                 class_="btn btn-link text-start w-100 p-2",
                 onclick="Shiny.setInputValue('feedback_open', Math.random()); return false;",
             ),

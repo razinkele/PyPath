@@ -6,6 +6,15 @@ import numpy as np
 import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+try:
+    from shinywidgets import output_widget, render_widget
+except ImportError:  # pragma: no cover
+    def output_widget(*args, **kwargs):
+        return ui.output_plot(*args, **kwargs)
+
+    def render_widget(func):
+        return render.plot(func)
+
 # Import centralized configuration
 from pypath_shiny.config import PLOTS, UI
 
@@ -18,6 +27,7 @@ from ..services.gt_formatters import (
     format_diet_matrix,
     format_time_series_summary,
 )
+from ..services.plotly_viz import build_biomass_figure, build_catch_figure
 
 logger = logging.getLogger(__name__)
 
@@ -162,10 +172,10 @@ def results_ui():
                         ),
                         col_widths=[6, 3, 3],
                     ),
-                    ui.output_plot("results_biomass_plot", height="450px"),
+                    output_widget("results_biomass_plot", height="450px"),
                     ui.tags.hr(),
                     ui.h5("Catch Time Series"),
-                    ui.output_plot("results_catch_plot", height="350px"),
+                    output_widget("results_catch_plot", height="350px"),
                 ),
                 ui.nav_panel(
                     "Comparison",
@@ -553,104 +563,31 @@ def results_server(
             )
 
     @output
-    @render.plot
+    @render_widget
     def results_biomass_plot():
         """Simulation biomass results plot."""
-        import matplotlib.pyplot as plt
-
-        with plt.rc_context():
-            _apply_plot_style(plt, input.plot_style())
-            return _results_biomass_plot_impl(plt)
-
-    def _results_biomass_plot_impl(plt):
         sim = sim_results.get()
         model = model_data.get()
         info = get_model_info(model)
 
-        fig, ax = plt.subplots(figsize=(12, 6))
+        if info is None:
+            return build_biomass_figure(sim, [], [], log_scale=input.log_scale())
 
-        if sim is None or info is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No simulation data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        selected = input.results_groups()
-        if not selected:
-            ax.text(
-                0.5,
-                0.5,
-                "Select groups to display",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        n_months = sim.out_Biomass.shape[0]
-        time = np.arange(n_months) / 12
-
-        group_list = info["groups"]
-        colors = plt.colormaps[input.color_palette()](np.linspace(0, 1, len(selected)))
-
-        for i, group in enumerate(selected):
-            if group in group_list:
-                idx = group_list.index(group) + 1
-                biomass = sim.out_Biomass[:, idx]
-
-                if input.log_scale():
-                    biomass = np.log10(np.maximum(biomass, 1e-10))
-
-                ax.plot(time, biomass, label=group, color=colors[i], linewidth=2)
-
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Log10(Biomass)" if input.log_scale() else "Biomass")
-        ax.set_title("Biomass Time Series")
-        ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
-        ax.set_xlim(0, max(time))
-
-        plt.tight_layout()
-        return fig
+        selected = input.results_groups() or []
+        return build_biomass_figure(
+            sim,
+            info["groups"],
+            selected,
+            log_scale=input.log_scale(),
+            palette=input.color_palette(),
+        )
 
     @output
-    @render.plot
+    @render_widget
     def results_catch_plot():
         """Simulation catch results plot."""
-        import matplotlib.pyplot as plt
-
         sim = sim_results.get()
-
-        fig, ax = plt.subplots(figsize=(12, 5))
-
-        if sim is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No simulation data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        years = np.arange(sim.annual_Catch.shape[0]) + 1
-        total_catch = np.sum(sim.annual_Catch[:, 1:], axis=1)
-
-        ax.fill_between(years, total_catch, alpha=0.3, color="steelblue")
-        ax.plot(years, total_catch, "b-", linewidth=2)
-
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Total Catch")
-        ax.set_title("Annual Catch")
-        ax.set_xlim(1, len(years))
-
-        plt.tight_layout()
-        return fig
+        return build_catch_figure(sim, palette=input.color_palette())
 
     @output
     @render.ui
