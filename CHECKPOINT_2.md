@@ -1,49 +1,59 @@
-# Checkpoint 2: Phase 2 (Great Tables) - Fixed, Pending Commit and Browser Check
+# Checkpoint 2: UI modernization - Phase 2 done, Phase 3 in progress
 
-**Branch:** feat/ui-stack-modernization
-**Last updated:** 2026-10-29
+**Branch:** feat/ui-stack-modernization (not pushed)
+**Last updated:** 2026-11-01
 **Objective:** ui-stack-modernization (8 phases)
 
-> **Correction note.** The 2026-10-25 version of this checkpoint said Phase 2 was "100% complete,
-> 540/540, no breaking changes". That was wrong: the committed Phase 2 broke all 19 converted
-> tables and turned off Ecopath parameter and diet editing. The fix is in the working tree;
-> see `PHASE_2_COMPLETION_REPORT.md` for the full breakdown.
+> Earlier versions of this file (2026-10-25, 2026-10-29) are superseded. The 2026-10-25
+> "Phase 2 100% complete" claim was wrong; see `PHASE_2_COMPLETION_REPORT.md`.
 
 ---
 
-## Phase status (verified)
+## Phase status
 
 | Phase | Status |
 |---|---|
-| 1A Dependencies | Done (`great_tables` had to be installed into the `shiny` env on 2026-10-29) |
-| 1B Architecture | Done (decision: optimise, don't redesign; see `MODERNIZATION_PHASE_1B_DECISION.md`) |
-| 2 GT integration | **Fixed, uncommitted.** 15 tables use static GT, 2 reverted to DataGrid, edit handlers restored, 78 regression tests. Needs a manual browser check. |
-| 3 Plotly + shinywidgets | **Started, uncommitted.** `services/plotly_viz.py` (biomass and catch figures), `components.py` (cards, nav labels, theme toggle), results page now uses `render_widget`, home page redesign, CSS. Its tests pass. |
+| 1A Dependencies / 1B Architecture | Done |
+| 2 great_tables | **Done and browser-checked.** 15 read-only tables are static GT (`@render.ui`); editable tables and row pickers stay DataGrid. **Decision (user, 2026-11-01): keep static GT** - losing sort/filter/highlight on read-only tables is accepted. |
+| 3 Plotly + shinywidgets | **In progress.** Results page and Ecosim page (Biomass, Catch) use `services/plotly_viz.py` via `render_widget`. Home redesign, `components.py`. Not yet: Analysis page plots, Ecosim Summary plots, effort preview. |
 | 4-8 | Not started |
 
-Tests: **625 passed** (`pytest packages/pypath-shiny/tests -q --ignore=packages/pypath-shiny/tests/ui`, about 70 s).
+## Browser check (2026-11-01, local app, Chrome)
 
-## Working tree (nothing committed since `7e30c14`)
+All passed after fixes: Model Results table renders after balancing; a parameter edit
+(Seals EE 0.1 -> 0.12) persists and is used by the balance; pre-balance diagnostics
+render; EcoBase picker loads (about 50 s, EcoBase is slow) and selects a row; Ecosim
+scenario + run + interactive Plotly biomass/catch charts.
 
-- **Phase 2 fix only:** `services/gt_formatters.py`, `pages/ecopath.py`, `pages/data_import.py`,
-  `pages/feedback.py`, `pages/prebalance.py`, `pages/multistanza.py`, `pages/optimization_demo.py`,
-  `tests/test_render_contracts.py` (new), plus these two .md files.
-- **Phase 3 work in progress only:** `app.py`, `pages/home.py`, `static/custom.css`, `services/__init__.py`,
-  `components.py`, `services/plotly_viz.py`, `tests/test_components.py`, `tests/test_plotly_viz.py` (all new or modified).
-- **Both:** `pages/results.py` (render.ui switch from the Phase 2 fix, plus Phase 3 Plotly widgets). Use `git add -p` to split it.
+Bugs the check found and fixed:
+
+- **On this branch:** empty `<table>` from `@render.ui` returning `pd.DataFrame()` (11 outputs ->
+  `components.empty_state()`); Ecosim "Create Scenario" failed (SilentException from
+  inputs inside a hidden `output_ui`, guarded by always-true `hasattr(input, ...)` ->
+  `read_optional_input()`); Ecosim header rows stretched ~700 px and pushed charts off
+  screen (`fill=False`); format_params_table header was dark text on navy.
+- **On main / production (separate PRs):** #31 pre-balance ratio tables always empty
+  (merged); #32 Data Import panel invisible because `ui.sidebar` sat in a plain `div`
+  (open, ready to merge).
+
+Each has a contract test in `tests/test_render_contracts.py`,
+`tests/test_layout_contracts.py` (on main after #32) or `tests/test_ecosim_optional_inputs.py`.
+
+## State
+
+- Branch is up to date with main as of #31 (merge `36d8537`), plus later commits.
+  After #32 merges, merge `origin/main` in again.
+- Shiny suite: 657+ passed. `ruff check packages/` and `ruff format --check packages/` clean.
+- CI (`ci-shiny-smoke.yml`) now runs the full Shiny unit suite (commit `4c51264`).
 
 ## Next steps
 
-1. **Manual browser check** (automation unavailable on this machine): start the app, balance an
-   example model, and confirm:
-   - the Model Results table renders;
-   - a parameter or diet edit persists;
-   - the EcoBase picker still selects a model;
-   - prebalance diagnostics render.
-2. Commit the Phase 2 fix separately from the Phase 3 work in progress.
-3. Decide on the trade-offs: sorting, filtering and cell highlighting lost on the static GT tables, and a probable unreadable header in `format_params_table` (navy fill, dark text).
-4. Continue Phase 3: `plotly_viz` on ecosim and analysis pages, following the same service-layer pattern.
-5. Before any PR, consider one test that renders a table through a real Shiny session.
+1. Merge `origin/main` after #32 lands.
+2. Phase 3: Plotly on the Analysis page and the Ecosim Summary tab (same `plotly_viz` +
+   `render_widget` pattern; add builders + tests first).
+3. Cosmetic: the Model Results GT table formats the Type column as `0.000`.
+4. Before opening the UI PR: full Shiny suite, a browser pass over every page, and
+   remember `main` auto-deploys to laguna.
 
 ## How to run here
 
@@ -55,9 +65,6 @@ $PY -m pytest packages/pypath-shiny/tests -q --ignore=packages/pypath-shiny/test
 $PY -c "import uvicorn; from pypath_shiny.app import app; uvicorn.run(app, host='127.0.0.1', port=8765)"
 ```
 
-## User feedback (laguna.ku.lt, checked 2026-10-29)
-
-Both feedback DBs (`/srv/shiny-server/pypath/.../logs/feedback.db` and the fallback at
-`/tmp/pypath-shiny-feedback/feedback.db`) have 0 rows and have never had a row inserted. The fallback
-existing means the main path was unwritable at least once, and `feedback_store._connect` can fall back
-to `:memory:` and lose submissions without warning. Worth one test submission on the live app.
+Memory is tight on this laptop (about 1.5 GB free with OneDrive and Chrome open); stop the
+app when not checking in the browser. Put git worktrees outside OneDrive (e.g.
+`C:\Users\arturas.baziukas\wt\...`): OneDrive's folder permissions block deleting them.
