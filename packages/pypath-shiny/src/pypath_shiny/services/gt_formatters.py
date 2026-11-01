@@ -10,11 +10,11 @@ inserted after page load. Tables needing row selection, cell editing or
 filters stay as ``render.DataGrid``.
 """
 
-from typing import Optional
 import logging
+from typing import Optional
 
 import pandas as pd
-from great_tables import GT, style, loc
+from great_tables import GT, loc, style
 
 logger = logging.getLogger(__name__)
 
@@ -26,33 +26,33 @@ def format_params_table(
 ) -> GT:
     """Format Ecopath model parameters table with professional styling."""
     gt = GT(df)
-    
+
     if subtitle:
         gt = gt.tab_header(title=title, subtitle=subtitle)
     else:
         gt = gt.tab_header(title=title)
-    
+
     # Format numeric columns
     numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
-    
+
     # Biomass/Abundance: 4 decimals
     biomass_cols = [c for c in numeric_cols if "Biomass" in c or "Abundance" in c]
     if biomass_cols:
         gt = gt.fmt_number(columns=biomass_cols, decimals=4)
-    
+
     # Ratios: 3 decimals
     ratio_cols = [c for c in numeric_cols if "/" in c or "Ratio" in c]
     if ratio_cols:
         gt = gt.fmt_number(columns=ratio_cols, decimals=3)
-    
+
     # Other: 2 decimals
     other_cols = [c for c in numeric_cols if c not in biomass_cols + ratio_cols]
     if other_cols:
         gt = gt.fmt_number(columns=other_cols, decimals=2)
-    
+
     # Header styling
     gt = gt.tab_style(style=style.fill(color="#1b3a5c"), locations=loc.header())
-        
+
     return gt
 
 
@@ -64,12 +64,11 @@ def format_results_summary(
     """Format Ecosim results summary table."""
     gt = GT(df)
     gt = gt.tab_header(title=title)
-    
+
     numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
-    
-        
+
     return gt
 
 
@@ -81,11 +80,11 @@ def format_diagnostics_table(
     """Format diagnostic results with visual indicators."""
     gt = GT(df)
     gt = gt.tab_header(title=title)
-    
+
     numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=3)
-    
+
     return gt
 
 
@@ -96,11 +95,11 @@ def format_diet_matrix(
     """Format diet composition matrix with color gradient."""
     gt = GT(df)
     gt = gt.tab_header(title=title)
-    
+
     numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
     if numeric_cols:
         gt = gt.fmt_percent(columns=numeric_cols, decimals=1)
-    
+
     return gt
 
 
@@ -112,19 +111,20 @@ def format_time_series_summary(
 ) -> GT:
     """Format time series summary data with professional styling."""
     gt = GT(df)
-    
+
     if subtitle:
         gt = gt.tab_header(title=title, subtitle=subtitle)
     else:
         gt = gt.tab_header(title=title)
-    
-    numeric_cols = df.select_dtypes(include=["float64", "float32", "int64", "int32"]).columns.tolist()
+
+    numeric_cols = df.select_dtypes(
+        include=["float64", "float32", "int64", "int32"]
+    ).columns.tolist()
     # Skip time-related columns like Year, Month
     numeric_cols = [c for c in numeric_cols if c not in ["Year", "Month"]]
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
-    
-    
+
     return gt
 
 
@@ -136,16 +136,14 @@ def format_dataframe(
 ) -> GT:
     """Format any DataFrame as a professional GT table."""
     gt = GT(df)
-    
+
     if subtitle:
         gt = gt.tab_header(title=title, subtitle=subtitle)
     else:
         gt = gt.tab_header(title=title)
-    
+
     numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
-    
-        
-    return gt
 
+    return gt

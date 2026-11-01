@@ -22,13 +22,13 @@ from pypath_shiny.pages.utils import (  # noqa: E402
     is_rpath_params,
     load_rpath_diagnostics,
 )
+from pypath_shiny.services.gt_formatters import format_diagnostics_table  # noqa: E402
 from pypath_shiny.services.notifications import (  # noqa: E402
     notify_error,
     notify_info,
     notify_success,
     notify_warning,
 )
-from pypath_shiny.services.gt_formatters import format_diagnostics_table  # noqa: E402
 
 
 def _resolve_repo_root() -> Path | None:
@@ -295,16 +295,25 @@ def prebalance_ui():
                 ),
                 ui.nav_panel(
                     "Predator-Prey Ratios",
-                    ui.output_ui("table_predator_prey", style="max-height: 500px; overflow: auto;"),
+                    ui.output_ui(
+                        "table_predator_prey",
+                        style="max-height: 500px; overflow: auto;",
+                    ),
                 ),
                 ui.nav_panel(
                     "Vital Rate Ratios",
                     ui.tags.div(
                         ui.h5("P/B Ratios"),
-                        ui.output_ui("table_pb_ratios", style="max-height: 300px; overflow: auto;"),
+                        ui.output_ui(
+                            "table_pb_ratios",
+                            style="max-height: 300px; overflow: auto;",
+                        ),
                         ui.hr(),
                         ui.h5("Q/B Ratios"),
-                        ui.output_ui("table_qb_ratios", style="max-height: 300px; overflow: auto;"),
+                        ui.output_ui(
+                            "table_qb_ratios",
+                            style="max-height: 300px; overflow: auto;",
+                        ),
                     ),
                 ),
                 ui.nav_panel(
@@ -863,4 +872,3 @@ def prebalance_server(
             ax.axis("off")
             logger.error("Error generating diagnostic plot: %s", e, exc_info=True)
             return fig
-

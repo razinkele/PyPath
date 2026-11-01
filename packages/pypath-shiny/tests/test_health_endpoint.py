@@ -69,9 +69,7 @@ def test_health_endpoint_works_with_deployment_prefix():
 
 
 def test_health_endpoint_works_with_root_path_rewrite():
-    status, _headers, _body = asyncio.run(
-        _request("/api/health", root_path="/pypath")
-    )
+    status, _headers, _body = asyncio.run(_request("/api/health", root_path="/pypath"))
     assert status == 200
 
 

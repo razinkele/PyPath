@@ -9,25 +9,27 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 try:
     from shinywidgets import output_widget, render_widget
 except ImportError:  # pragma: no cover
+
     def output_widget(*args, **kwargs):
         return ui.output_plot(*args, **kwargs)
 
     def render_widget(func):
         return render.plot(func)
 
+
 # Import centralized configuration
 from pypath_shiny.config import PLOTS, UI
 
-# Import shared utilities (pypath path setup handled by app/__init__.py)
-from .utils import get_model_info, is_balanced_model, is_rpath_params
-
 # Import great_tables formatters
 from ..services.gt_formatters import (
-    format_params_table,
     format_diet_matrix,
+    format_params_table,
     format_time_series_summary,
 )
 from ..services.plotly_viz import build_biomass_figure, build_catch_figure
+
+# Import shared utilities (pypath path setup handled by app/__init__.py)
+from .utils import get_model_info, is_balanced_model, is_rpath_params
 
 logger = logging.getLogger(__name__)
 
@@ -191,19 +193,31 @@ def results_ui():
                     ui.navset_card_pill(
                         ui.nav_panel(
                             "Parameters",
-                            ui.output_ui("params_data_table", style="max-height: 500px; overflow: auto;"),
+                            ui.output_ui(
+                                "params_data_table",
+                                style="max-height: 500px; overflow: auto;",
+                            ),
                         ),
                         ui.nav_panel(
                             "Diet Matrix",
-                            ui.output_ui("diet_data_table", style="max-height: 500px; overflow: auto;"),
+                            ui.output_ui(
+                                "diet_data_table",
+                                style="max-height: 500px; overflow: auto;",
+                            ),
                         ),
                         ui.nav_panel(
                             "Biomass (Monthly)",
-                            ui.output_ui("biomass_data_table", style="max-height: 500px; overflow: auto;"),
+                            ui.output_ui(
+                                "biomass_data_table",
+                                style="max-height: 500px; overflow: auto;",
+                            ),
                         ),
                         ui.nav_panel(
                             "Catch (Annual)",
-                            ui.output_ui("catch_data_table", style="max-height: 500px; overflow: auto;"),
+                            ui.output_ui(
+                                "catch_data_table",
+                                style="max-height: 500px; overflow: auto;",
+                            ),
                         ),
                     ),
                 ),
@@ -597,7 +611,7 @@ def results_server(
         info = get_model_info(model)
         if info is None:
             return pd.DataFrame()
-        
+
         df = None
         if is_balanced_model(model) and hasattr(model, "summary"):
             df = model.summary()
@@ -605,7 +619,7 @@ def results_server(
             df = info["params"].model
         else:
             df = pd.DataFrame()
-        
+
         if df.empty:
             return df
         return format_params_table(df, title="Model Parameters")
@@ -632,7 +646,9 @@ def results_server(
             groups = info["groups"]
 
             df = pd.DataFrame(
-                model.DC[:n_bio, :n_living], index=groups[:n_bio], columns=groups[:n_living]
+                model.DC[:n_bio, :n_living],
+                index=groups[:n_bio],
+                columns=groups[:n_living],
             ).round(4)
             df.insert(0, "Prey", df.index)
 
@@ -662,7 +678,7 @@ def results_server(
 
         # Show every 12 months
         df = df[df["Month"] % 12 == 0]
-        
+
         if df.empty:
             return df
         return format_time_series_summary(df, title="Monthly Biomass", decimals=4)
@@ -737,5 +753,3 @@ def results_server(
             yield df.to_csv(index=False)
             return
         yield ""
-
-

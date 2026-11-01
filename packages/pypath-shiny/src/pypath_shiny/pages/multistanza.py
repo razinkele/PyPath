@@ -129,7 +129,9 @@ def multistanza_ui():
                     "Stanza Properties",
                     ui.card(
                         ui.card_header("Calculated Stanza Parameters"),
-                        ui.output_ui("stanza_table", style="max-height: 400px; overflow: auto;"),
+                        ui.output_ui(
+                            "stanza_table", style="max-height: 400px; overflow: auto;"
+                        ),
                         ui.download_button(
                             "download_stanzas", "Download CSV", class_="mt-2"
                         ),
@@ -463,7 +465,11 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         if df is None:
             return format_params_table(
                 pd.DataFrame(
-                    {"Message": ['Click "Calculate Stanza Properties" to generate table']}
+                    {
+                        "Message": [
+                            'Click "Calculate Stanza Properties" to generate table'
+                        ]
+                    }
                 ),
                 title="Stanza Properties",
             )
@@ -530,4 +536,3 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             yield df.to_csv(index=False)
         else:
             yield ""
-

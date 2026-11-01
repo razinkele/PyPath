@@ -1,7 +1,5 @@
 """Tests for Plotly visualization helpers."""
 
-import types
-
 from pypath_shiny.services.plotly_viz import build_biomass_figure, build_catch_figure
 
 

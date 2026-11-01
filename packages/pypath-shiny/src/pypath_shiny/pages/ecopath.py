@@ -1358,7 +1358,6 @@ def ecopath_server(
                 )
             )
 
-
     @output
     @render.ui
     def balance_button_ui():
@@ -1386,7 +1385,9 @@ def ecopath_server(
             ui.tags.small(
                 "(" + tooltip + ")",
                 class_="text-muted d-block mt-1",
-            ) if has_critical_errors else ui.div(),
+            )
+            if has_critical_errors
+            else ui.div(),
         )
 
     @output
@@ -1395,7 +1396,9 @@ def ecopath_server(
         """Show validation summary panel with inline errors and quick fixes."""
         issues = collect_ecopath_validation_issues(params.get())
 
-        if not issues or (len(issues) == 1 and issues[0].severity is ValidationSeverity.INFO):
+        if not issues or (
+            len(issues) == 1 and issues[0].severity is ValidationSeverity.INFO
+        ):
             return ui.div()
 
         summary = summarize_ecopath_validation_issues(issues)
@@ -1419,11 +1422,10 @@ def ecopath_server(
         for issue in issues:
             if issue.severity is not ValidationSeverity.INFO:
                 from .validation import get_quick_fix_for_issue
+
                 quick_fix = get_quick_fix_for_issue(issue.message)
 
-                detail_item = ui.tags.li(
-                    f"[{issue.section}] {issue.message}"
-                )
+                detail_item = ui.tags.li(f"[{issue.section}] {issue.message}")
                 if quick_fix:
                     detail_item = ui.div(
                         detail_item,
@@ -1626,4 +1628,3 @@ def ecopath_server(
             yield p.model.to_csv(index=False)
         else:
             yield ""
-

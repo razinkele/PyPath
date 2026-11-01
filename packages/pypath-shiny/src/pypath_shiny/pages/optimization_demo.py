@@ -129,7 +129,9 @@ def optimization_demo_ui():
                     ui.card(
                         ui.card_header("Optimized vs Observed"),
                         ui.output_ui("opt_comparison_plot"),
-                        ui.output_ui("results_table", style="max-height: 400px; overflow: auto;"),
+                        ui.output_ui(
+                            "results_table", style="max-height: 400px; overflow: auto;"
+                        ),
                     ),
                 ),
                 ui.nav_panel(
@@ -840,4 +842,3 @@ Objective Function: {cfg["objective"].upper()}
     def opt_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield _opt_code()
-

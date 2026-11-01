@@ -1,6 +1,11 @@
 """Tests for reusable PyPath Shiny UI components."""
 
-from pypath_shiny.components import metric_card, nav_label, section_header, theme_toggle_button
+from pypath_shiny.components import (
+    metric_card,
+    nav_label,
+    section_header,
+    theme_toggle_button,
+)
 
 
 def test_nav_label_contains_icon_and_text():
@@ -11,7 +16,9 @@ def test_nav_label_contains_icon_and_text():
 
 def test_section_header_creates_styled_block():
     """Section headings should preserve title and optional subtitle."""
-    header = section_header("Model summary", subtitle="Ecosystem metrics", icon_class="bi-bar-chart")
+    header = section_header(
+        "Model summary", subtitle="Ecosystem metrics", icon_class="bi-bar-chart"
+    )
     assert header is not None
 
 

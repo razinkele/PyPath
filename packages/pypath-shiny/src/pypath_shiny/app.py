@@ -82,7 +82,10 @@ def _icon_label(icon_class: str, text: str) -> ui.TagList:
 app_ui = ui.page_fluid(
     # Typography, icons, and custom styles
     ui.head_content(
-        ui.tags.meta(name="viewport", content="width=device-width, initial-scale=1, viewport-fit=cover"),
+        ui.tags.meta(
+            name="viewport",
+            content="width=device-width, initial-scale=1, viewport-fit=cover",
+        ),
         ui.tags.link(
             rel="stylesheet",
             href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap",
