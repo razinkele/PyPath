@@ -217,3 +217,133 @@ def build_catch_figure(
         margin={"l": 60, "r": 20, "t": 50, "b": 50},
     )
     return fig
+
+
+# --- Analysis page -----------------------------------------------------------
+
+_GOOD = "#2ca02c"
+_BAD = "#d62728"
+
+
+def _empty_figure(title: str, message: str) -> go.Figure:
+    """A blank figure whose centre text explains why there is nothing to show."""
+    fig = go.Figure()
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis={"visible": False},
+        yaxis={"visible": False},
+        annotations=[
+            {
+                "text": message,
+                "x": 0.5,
+                "y": 0.5,
+                "xref": "paper",
+                "yref": "paper",
+                "showarrow": False,
+                "font": {"size": 16},
+            }
+        ],
+    )
+    return fig
+
+
+def build_mti_heatmap(
+    mti, group_names: Sequence[str], title: str = "Mixed Trophic Impacts"
+) -> go.Figure:
+    """Heatmap of the MTI matrix (rows impact columns), centred on zero."""
+    if mti is None or len(group_names) == 0:
+        return _empty_figure(title, "Balance a model to see mixed trophic impacts")
+    z = np.asarray(mti, dtype=float)
+    names = [str(g) for g in group_names][: z.shape[0]]
+    fig = go.Figure(
+        go.Heatmap(
+            z=z[: len(names), : len(names)],
+            x=names,
+            y=names,
+            zmid=0,
+            colorscale="RdBu",
+            colorbar={"title": "Impact"},
+            hovertemplate="%{y} → %{x}<br>Impact %{z:.3f}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis={"title": "Impacted group", "tickangle": -45},
+        yaxis={"title": "Impacting group", "autorange": "reversed"},
+        margin={"l": 120, "r": 20, "t": 50, "b": 120},
+    )
+    return fig
+
+
+def build_keystoneness_figure(
+    groups: Sequence[str],
+    biomass,
+    keystoneness,
+    title: str = "Keystoneness vs Biomass",
+) -> go.Figure:
+    """Keystoneness against log10 biomass; hover shows the group name."""
+    b = np.asarray(biomass, dtype=float)
+    k = np.asarray(keystoneness, dtype=float)
+    n = min(len(groups), b.size, k.size)
+    valid = np.zeros(n, dtype=bool)
+    if n:
+        valid = (b[:n] > 0) & np.isfinite(k[:n])
+    if not valid.any():
+        return _empty_figure(title, "No keystoneness values to plot")
+    names = np.asarray([str(g) for g in groups[:n]])[valid]
+    fig = go.Figure(
+        go.Scatter(
+            x=np.log10(b[:n][valid]),
+            y=k[:n][valid],
+            text=list(names),
+            mode="markers",
+            marker={"size": 12, "color": "#1f77b4", "opacity": 0.75},
+            hovertemplate="%{text}<br>log10 B %{x:.2f}<br>Keystoneness %{y:.3f}"
+            "<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Log10(Biomass)",
+        yaxis_title="Keystoneness Index",
+        margin={"l": 60, "r": 20, "t": 50, "b": 50},
+    )
+    return fig
+
+
+def build_ee_figure(
+    groups: Sequence[str], ee, title: str = "Ecotrophic Efficiency by Group"
+) -> go.Figure:
+    """Horizontal EE bars, red above 1, with a dashed line at EE = 1.
+
+    Groups without an EE (detritus, fleets) are left out.
+    """
+    e = np.asarray(ee, dtype=float)
+    n = min(len(groups), e.size)
+    keep = np.isfinite(e[:n]) if n else np.zeros(0, dtype=bool)
+    if not keep.any():
+        return _empty_figure(title, "No EE values to plot")
+    names = [str(g) for g, ok in zip(groups[:n], keep) if ok]
+    values = e[:n][keep]
+    fig = go.Figure(
+        go.Bar(
+            x=values,
+            y=names,
+            orientation="h",
+            marker={"color": [_BAD if v > 1 else _GOOD for v in values]},
+            hovertemplate="%{y}<br>EE %{x:.3f}<extra></extra>",
+        )
+    )
+    fig.add_vline(x=1, line={"dash": "dash", "color": _BAD, "width": 2})
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Ecotrophic Efficiency (EE)",
+        yaxis={"autorange": "reversed"},
+        height=max(350, 22 * len(names) + 120),
+        margin={"l": 140, "r": 20, "t": 50, "b": 50},
+    )
+    return fig

@@ -7,6 +7,17 @@ import numpy as np
 import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+try:
+    from shinywidgets import output_widget, render_widget
+except ImportError:  # pragma: no cover
+
+    def output_widget(*args, **kwargs):
+        return ui.output_plot(*args, **kwargs)
+
+    def render_widget(func):
+        return render.plot(func)
+
+
 # Set non-interactive backend before importing pyplot.
 # This must happen before any matplotlib.pyplot import.
 matplotlib.use("Agg")
@@ -25,12 +36,16 @@ from pypath.core.analysis import (
 )
 from pypath.core.plotting import (
     plot_foodweb,
-    plot_mti_heatmap,
     plot_trophic_spectrum,
 )
 
-from pypath_shiny.config import THRESHOLDS, UI
+from pypath_shiny.config import UI
 from pypath_shiny.pages.utils import is_balanced_model
+from pypath_shiny.services.plotly_viz import (
+    build_ee_figure,
+    build_keystoneness_figure,
+    build_mti_heatmap,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +123,7 @@ def analysis_ui():
                     "on all other groups. Positive values indicate positive impacts."
                 ),
                 ui.output_ui("mti_status"),
-                ui.output_plot("mti_heatmap_plot", height=UI.plot_height_large_px),
+                output_widget("mti_heatmap_plot", height=UI.plot_height_large_px),
                 ui.tags.hr(),
                 ui.h5("MTI Details"),
                 ui.layout_columns(
@@ -146,7 +161,7 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("Keystoneness vs Biomass"),
                         ui.card_body(
-                            ui.output_plot(
+                            output_widget(
                                 "keystoneness_plot", height=UI.plot_height_small_px
                             ),
                         ),
@@ -170,9 +185,8 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("EE Values"),
                         ui.card_body(
-                            ui.output_plot(
-                                "analysis_ee_plot", height=UI.plot_height_small_px
-                            ),
+                            # height grows with the number of groups (set by the figure)
+                            output_widget("analysis_ee_plot"),
                         ),
                     ),
                     col_widths=[5, 7],
@@ -499,30 +513,15 @@ def analysis_server(
         return None
 
     @output
-    @render.plot
+    @render_widget
     def mti_heatmap_plot():
-        """Plot MTI heatmap."""
+        """Interactive MTI heatmap (Plotly)."""
         mti = get_mti_matrix()
         model = get_balanced_model()
         if mti is None or model is None:
-            return None
-
-        try:
-            n = mti.shape[0]
-            fig = plot_mti_heatmap(mti, group_names=[str(g) for g in model.Group[:n]])
-            return fig
-        except Exception as e:
-            fig, ax = plt.subplots()
-            ax.text(
-                0.5,
-                0.5,
-                f"Could not plot MTI:\n{str(e)[:50]}",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.axis("off")
-            return fig
+            return build_mti_heatmap(None, [])
+        n = mti.shape[0]
+        return build_mti_heatmap(mti, [str(g) for g in model.Group[:n]])
 
     @output
     @render.table
@@ -610,65 +609,17 @@ def analysis_server(
             return pd.DataFrame({"Message": ["Could not extract keystoneness"]})
 
     @output
-    @render.plot
+    @render_widget
     def keystoneness_plot():
-        """Plot keystoneness vs biomass."""
+        """Interactive keystoneness vs biomass (Plotly)."""
         model = get_balanced_model()
         ks = get_keystoneness()
         if model is None or ks is None:
-            return None
-
-        try:
-            n = len(ks)
-            groups = np.asarray(model.Group[:n])
-            biomass = np.asarray(model.Biomass[:n], dtype=float)
-
-            fig, ax = plt.subplots(figsize=(8, 6))
-
-            # Filter valid points
-            valid = (biomass > 0) & (~np.isnan(ks))
-
-            _scatter = ax.scatter(
-                np.log10(biomass[valid] + THRESHOLDS.log_offset_small),
-                ks[valid],
-                s=100,
-                alpha=0.7,
-                c="steelblue",
-            )
-
-            # Annotate top species
-            for i, (g, b, k) in enumerate(
-                zip(groups[valid], biomass[valid], ks[valid])
-            ):
-                if k > np.percentile(ks[~np.isnan(ks)], 75):
-                    ax.annotate(
-                        g,
-                        (np.log10(b + THRESHOLDS.log_offset_small), k),
-                        fontsize=8,
-                        ha="left",
-                    )
-
-            ax.set_xlabel("Log10(Biomass)")
-            ax.set_ylabel("Keystoneness Index")
-            ax.set_title("Keystoneness vs Biomass")
-            ax.grid(True, alpha=0.3)
-
-            plt.tight_layout()
-            return fig
-        except Exception as e:
-            fig, ax = plt.subplots()
-            ax.text(
-                0.5,
-                0.5,
-                f"Could not plot:\n{str(e)[:50]}",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.axis("off")
-            return fig
-
-    # === Balance Check ===
+            return build_keystoneness_figure([], np.array([]), np.array([]))
+        n = len(ks)
+        return build_keystoneness_figure(
+            list(model.Group[:n]), np.asarray(model.Biomass[:n], dtype=float), ks
+        )
 
     @output
     @render.ui
@@ -719,46 +670,18 @@ def analysis_server(
         return ui.div(*items)
 
     @output
-    @render.plot
+    @render_widget
     def analysis_ee_plot():
-        """Plot ecotrophic efficiency values."""
+        """Interactive ecotrophic efficiency bars (Plotly)."""
         model = get_balanced_model()
         if model is None:
-            return None
-
-        try:
-            groups = model.Group
-            ee = model.EE
-
-            fig, ax = plt.subplots(figsize=(10, 6))
-
-            # Color by EE value
-            colors = ["green" if e <= 1 else "red" for e in ee]
-
-            y_pos = range(len(groups))
-            ax.barh(y_pos, ee, color=colors, alpha=0.7)
-            ax.set_yticks(y_pos)
-            ax.set_yticklabels(groups, fontsize=8)
-            ax.axvline(1, color="red", linestyle="--", linewidth=2, label="EE = 1")
-            ax.set_xlabel("Ecotrophic Efficiency (EE)")
-            ax.set_title("Ecotrophic Efficiency by Group")
-            ax.legend()
-            ax.grid(True, alpha=0.3, axis="x")
-
-            plt.tight_layout()
-            return fig
-        except Exception as e:
-            fig, ax = plt.subplots()
-            ax.text(
-                0.5,
-                0.5,
-                f"Could not plot EE:\n{str(e)[:50]}",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.axis("off")
-            return fig
+            return build_ee_figure([], np.array([]))
+        # Fleets (type 3) have no ecotrophic efficiency; leave them out
+        not_fleet = np.asarray(model.type) < 3
+        return build_ee_figure(
+            list(np.asarray(model.Group)[not_fleet]),
+            np.asarray(model.EE, dtype=float)[not_fleet],
+        )
 
     @output
     @render.table

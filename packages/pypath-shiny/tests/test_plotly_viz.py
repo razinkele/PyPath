@@ -70,3 +70,66 @@ def test_ecosim_output_offset_skips_outside_column():
 
     fig = build_biomass_figure(EcosimLike(), ["A", "B"], ["B"])
     assert list(fig.data[0].y) == [5.0, 6.0]
+
+
+# --- Analysis page builders -------------------------------------------------
+
+
+def test_mti_heatmap_is_centred_on_zero():
+    import numpy as np
+
+    from pypath_shiny.services.plotly_viz import build_mti_heatmap
+
+    mti = np.array([[0.0, 0.5], [-0.25, 0.1]])
+    fig = build_mti_heatmap(mti, ["Fish", "Zoo"])
+    hm = fig.data[0]
+    assert hm.type == "heatmap"
+    assert list(hm.x) == ["Fish", "Zoo"] and list(hm.y) == ["Fish", "Zoo"]
+    assert hm.zmid == 0
+    assert fig.layout.yaxis.autorange == "reversed"  # impacting group on top
+
+
+def test_keystoneness_scatter_skips_invalid_points():
+    import numpy as np
+    import pytest
+
+    from pypath_shiny.services.plotly_viz import build_keystoneness_figure
+
+    fig = build_keystoneness_figure(
+        ["A", "B", "C", "D"],
+        np.array([10.0, 0.0, 1.0, 5.0]),  # B has no biomass
+        np.array([0.5, 0.9, np.nan, -0.2]),  # C has no keystoneness
+    )
+    pts = fig.data[0]
+    assert list(pts.text) == ["A", "D"]
+    assert list(pts.x) == pytest.approx([1.0, np.log10(5.0)], abs=1e-3)
+    assert fig.layout.xaxis.title.text == "Log10(Biomass)"
+
+
+def test_ee_bars_mark_values_above_one():
+    import numpy as np
+
+    from pypath_shiny.services.plotly_viz import build_ee_figure
+
+    fig = build_ee_figure(["A", "B", "Det"], np.array([0.4, 1.3, np.nan]))
+    bars = fig.data[0]
+    assert list(bars.y) == ["A", "B"]  # NaN EE (detritus) left out
+    assert list(bars.marker.color) == ["#2ca02c", "#d62728"]
+    assert any(s.x0 == 1 and s.x1 == 1 for s in fig.layout.shapes)
+
+
+def test_analysis_builders_handle_empty_input():
+    import numpy as np
+
+    from pypath_shiny.services.plotly_viz import (
+        build_ee_figure,
+        build_keystoneness_figure,
+        build_mti_heatmap,
+    )
+
+    for fig in (
+        build_mti_heatmap(None, []),
+        build_keystoneness_figure([], np.array([]), np.array([])),
+        build_ee_figure([], np.array([])),
+    ):
+        assert fig.layout.annotations, "empty figures should explain themselves"
