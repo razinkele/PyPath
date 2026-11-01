@@ -597,9 +597,10 @@ def read_ewemdb(
     The ewemdb format uses Microsoft Access database structure.
     Key tables include:
     - EcopathGroup: Group parameters (biomass, P/B, Q/B, etc.)
-    - EcopathDietComp: Diet composition matrix
+    - EcopathDietComp: Diet composition matrix and detritus fate (DetritusFate)
     - EcopathFleet: Fleet definitions
-    - EcopathCatch: Catch data by fleet and group
+    - EcopathCatch: Landings and discards by fleet and group
+    - EcopathDiscardFate: Where each fleet's discards go
     - Stanza: Multi-stanza group definitions
     - StanzaLifeStage: Life stage parameters
     """
