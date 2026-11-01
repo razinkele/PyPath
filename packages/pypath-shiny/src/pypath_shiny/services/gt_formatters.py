@@ -50,8 +50,11 @@ def format_params_table(
     if other_cols:
         gt = gt.fmt_number(columns=other_cols, decimals=2)
 
-    # Header styling
-    gt = gt.tab_style(style=style.fill(color="#1b3a5c"), locations=loc.header())
+    # Header styling: navy fill needs light text (the default text is dark)
+    gt = gt.tab_style(
+        style=[style.fill(color="#1b3a5c"), style.text(color="#ffffff")],
+        locations=loc.header(),
+    )
 
     return gt
 

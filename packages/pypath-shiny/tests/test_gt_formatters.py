@@ -101,3 +101,24 @@ class TestGTFormatters:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_params_table_header_text_is_readable_on_navy():
+    """The navy header fill needs light text; dark default text is unreadable."""
+    import re
+
+    import pandas as pd
+
+    from pypath_shiny.services.gt_formatters import format_params_table
+
+    html = format_params_table(
+        pd.DataFrame({"Group": ["Fish"], "Biomass": [1.0]}), subtitle="sub"
+    ).as_raw_html()
+    header_styles = re.findall(
+        r'<td[^>]*class="gt_heading[^"]*"[^>]*style="([^"]*)"', html
+    )
+    assert header_styles, "header cells carry no inline style"
+    for css in header_styles:
+        assert "#1b3a5c" in css.lower()
+        # (?<![-\w]) so that "background-color: #fff" does not count as text
+        assert re.search(r"(?<![-\w])color:\s*(#fff(fff)?|white)", css.lower()), css
