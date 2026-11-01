@@ -11,12 +11,12 @@ import logging
 import os
 from pathlib import Path
 
-import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Get logger
 logger = logging.getLogger(__name__)
 
+from pypath_shiny.components import empty_state  # noqa: E402
 from pypath_shiny.config import PLOTS, UI  # noqa: E402
 from pypath_shiny.pages.utils import (  # noqa: E402
     is_rpath_params,
@@ -734,7 +734,11 @@ def prebalance_server(
         report = diagnostic_report()
 
         if report is None or len(report["predator_prey_ratios"]) == 0:
-            return pd.DataFrame()
+            return empty_state(
+                "Run diagnostics to see predator-prey ratios."
+                if report is None
+                else "No predator-prey ratios for this model."
+            )
 
         df = report["predator_prey_ratios"].copy()
 
@@ -755,7 +759,11 @@ def prebalance_server(
         report = diagnostic_report()
 
         if report is None or len(report.get("pb_ratios", [])) == 0:
-            return pd.DataFrame()
+            return empty_state(
+                "Run diagnostics to see P/B ratios."
+                if report is None
+                else "No P/B ratios for this model."
+            )
 
         df = report["pb_ratios"].copy()
 
@@ -773,7 +781,11 @@ def prebalance_server(
         report = diagnostic_report()
 
         if report is None or len(report.get("qb_ratios", [])) == 0:
-            return pd.DataFrame()
+            return empty_state(
+                "Run diagnostics to see Q/B ratios."
+                if report is None
+                else "No Q/B ratios for this model."
+            )
 
         df = report["qb_ratios"].copy()
 

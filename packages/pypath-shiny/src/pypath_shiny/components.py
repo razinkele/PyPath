@@ -138,3 +138,16 @@ def theme_toggle_button(
             "aria-pressed": "false",
         },
     )
+
+
+def empty_state(message: str) -> ui.Tag:
+    """Muted placeholder for a table output that has nothing to show yet.
+
+    Use it from ``@render.ui`` table renderers instead of an empty DataFrame,
+    which would render as a bare, empty ``<table>``.
+    """
+    return ui.p(
+        ui.tags.i(class_="bi bi-info-circle me-2"),
+        message,
+        class_="text-muted fst-italic my-3",
+    )

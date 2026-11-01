@@ -32,3 +32,12 @@ def test_theme_toggle_button_has_accessible_attributes():
     """Theme toggle must expose label and a11y metadata."""
     button = theme_toggle_button()
     assert button is not None
+
+
+def test_empty_state_shows_message_without_a_table():
+    from pypath_shiny.components import empty_state
+
+    html = str(empty_state("Run diagnostics to see ratios."))
+    assert "Run diagnostics to see ratios." in html
+    assert "text-muted" in html
+    assert "<table" not in html

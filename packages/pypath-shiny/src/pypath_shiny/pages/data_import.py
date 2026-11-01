@@ -28,6 +28,7 @@ from pypath.io.ewemdb import (  # noqa: E402
 from shiny import Inputs, Outputs, Session, reactive, render, ui  # noqa: E402
 
 # Configuration imports
+from pypath_shiny.components import empty_state  # noqa: E402
 from pypath_shiny.config import PARAM_RANGES, UI  # noqa: E402
 from pypath_shiny.services.gt_formatters import format_dataframe  # noqa: E402
 from pypath_shiny.services.notifications import (  # noqa: E402
@@ -695,7 +696,7 @@ def import_server(
         """Show imported groups."""
         params = imported_params.get()
         if params is None:
-            return pd.DataFrame()
+            return empty_state("Import a model to see its groups.")
 
         # Select key columns
         cols = ["Group", "Type", "Biomass", "PB", "QB", "EE", "ProdCons"]
@@ -723,7 +724,7 @@ def import_server(
         """Show imported diet matrix."""
         params = imported_params.get()
         if params is None:
-            return pd.DataFrame()
+            return empty_state("Import a model to see its diet matrix.")
 
         # Format for display: handle 9999 values and round to 3 decimals
         formatted_df, no_data_mask, remarks_mask, _ = format_dataframe_for_display(
@@ -770,7 +771,7 @@ def import_server(
         """Show imported stanza groups."""
         params = imported_params.get()
         if params is None:
-            return pd.DataFrame()
+            return empty_state("Import a model to see its stanza groups.")
 
         has_stanzas = (
             hasattr(params, "stanzas")
@@ -798,7 +799,7 @@ def import_server(
         """Show imported stanza life stages."""
         params = imported_params.get()
         if params is None:
-            return pd.DataFrame()
+            return empty_state("Import a model to see its stanza life stages.")
 
         has_stanzas = (
             hasattr(params, "stanzas")

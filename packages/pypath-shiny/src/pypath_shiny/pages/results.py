@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover
 
 
 # Import centralized configuration
+from pypath_shiny.components import empty_state
 from pypath_shiny.config import PLOTS, UI
 
 # Import great_tables formatters
@@ -610,7 +611,7 @@ def results_server(
         model = model_data.get()
         info = get_model_info(model)
         if info is None:
-            return pd.DataFrame()
+            return empty_state("Balance a model to see its parameters.")
 
         df = None
         if is_balanced_model(model) and hasattr(model, "summary"):
@@ -631,7 +632,7 @@ def results_server(
         model = model_data.get()
         info = get_model_info(model)
         if info is None:
-            return pd.DataFrame()
+            return empty_state("Balance a model to see its diet matrix.")
 
         if not info["is_balanced"]:
             # Return diet from params
@@ -665,7 +666,7 @@ def results_server(
         info = get_model_info(model)
 
         if sim is None or info is None:
-            return pd.DataFrame()
+            return empty_state("Run an Ecosim simulation to see biomass.")
 
         n_bio = info["num_living"] + info["num_dead"]
         groups = info["groups"]
@@ -692,7 +693,7 @@ def results_server(
         info = get_model_info(model)
 
         if sim is None or info is None:
-            return pd.DataFrame()
+            return empty_state("Run an Ecosim simulation to see catch.")
 
         n_living = info["num_living"]
         groups = info["groups"]

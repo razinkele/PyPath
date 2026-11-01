@@ -195,3 +195,34 @@ def test_interactive_tables_stay_datagrid(page, function, keyword, value):
         if isinstance(kw.value, ast.Constant)
     }
     assert kwargs.get(keyword) == value
+
+
+def _returns_empty_dataframe(func: ast.FunctionDef) -> list[int]:
+    """Line numbers of ``return pd.DataFrame()`` (no arguments) in a function."""
+    lines = []
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Return)
+            and isinstance(node.value, ast.Call)
+            and ast.unparse(node.value.func) in ("pd.DataFrame", "DataFrame")
+            and not node.value.args
+            and not node.value.keywords
+        ):
+            lines.append(node.lineno)
+    return lines
+
+
+@pytest.mark.parametrize("page", PAGE_FILES, ids=lambda p: p.name)
+def test_render_ui_never_returns_empty_dataframe(page):
+    """Under @render.ui an empty DataFrame renders as a bare, empty <table>.
+
+    That was a leftover from the @render.data_frame era: the diagnostics tabs
+    showed a stray empty table instead of a "nothing to show" message.
+    """
+    offenders = [
+        f"{name}:{line}"
+        for name, (dec, func) in _renderer_functions(_parse(page)).items()
+        if dec.startswith("render.ui")
+        for line in _returns_empty_dataframe(func)
+    ]
+    assert not offenders, f"{page.name}: @render.ui returns pd.DataFrame(): {offenders}"
