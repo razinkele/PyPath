@@ -153,6 +153,19 @@ def calculate_biomass_range(model: RpathParams) -> float:
     return float(np.log10(biomass.max() / biomass.min()))
 
 
+def _diet_by_prey(model: RpathParams) -> pd.DataFrame:
+    """Diet matrix indexed by prey name.
+
+    ``RpathParams.diet`` keeps prey names in a ``Group`` column with a plain
+    0..n index; looking up prey by ``diet[pred][diet[pred] > 0].index`` on it
+    yields integers that never match a group name.
+    """
+    diet = model.diet
+    if "Group" in diet.columns:
+        diet = diet.set_index("Group")
+    return diet
+
+
 def calculate_predator_prey_ratios(model: RpathParams) -> pd.DataFrame:
     """Calculate biomass ratios between predators and their prey.
 
@@ -173,6 +186,7 @@ def calculate_predator_prey_ratios(model: RpathParams) -> pd.DataFrame:
 
     # Get living groups (exclude detritus and fleets)
     living = model.model[model.model["Type"].isin([0, 1])].copy()
+    diet_by_prey = _diet_by_prey(model)
 
     for pred_idx, pred_row in living.iterrows():
         predator = pred_row["Group"]
@@ -182,8 +196,8 @@ def calculate_predator_prey_ratios(model: RpathParams) -> pd.DataFrame:
             continue
 
         # Get diet for this predator
-        if predator in model.diet.columns:
-            diet = model.diet[predator]
+        if predator in diet_by_prey.columns:
+            diet = diet_by_prey[predator]
             prey_with_diet = diet[diet > 0]
 
             if len(prey_with_diet) == 0:
@@ -236,6 +250,7 @@ def calculate_vital_rate_ratios(
     results = []
 
     living = model.model[model.model["Type"].isin([0, 1])].copy()
+    diet_by_prey = _diet_by_prey(model)
 
     # Check if rate column exists
     if rate_name not in living.columns:
@@ -251,8 +266,8 @@ def calculate_vital_rate_ratios(
             continue
 
         # Get prey rates
-        if predator in model.diet.columns:
-            diet = model.diet[predator]
+        if predator in diet_by_prey.columns:
+            diet = diet_by_prey[predator]
             prey_with_diet = diet[diet > 0]
 
             if len(prey_with_diet) == 0:
