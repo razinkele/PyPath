@@ -1747,9 +1747,8 @@ def sync_taxonomy_with_rpath(
     >>> tax_link = integrate_taxonomy_with_biodata(species_df)
     >>> params_enriched = sync_taxonomy_with_rpath(params, tax_link)
     """
-    if TYPE_CHECKING:
-        from pypath.core.params import RpathParams
-
+    # RpathParams is imported at module level. A function-local import under
+    # TYPE_CHECKING would make the name local and raise UnboundLocalError here.
     if not isinstance(rpath_params, RpathParams):
         raise ValueError("rpath_params must be an RpathParams instance")
 

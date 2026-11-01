@@ -55,8 +55,8 @@ logger = logging.getLogger(__name__)
 
 _SAFE_SQL_IDENT = re.compile(r"^[a-zA-Z0-9_ ]+$")
 
-# File extensions of EwE / MS Access databases. EwE 6.6+ saves .eweaccdb.
-EWE_DB_SUFFIXES = (".ewemdb", ".eweaccdb", ".ewe", ".mdb", ".accdb")
+# File extensions of EwE / MS Access databases (defined once in core.constants)
+from pypath.core.constants import EWE_DB_SUFFIXES  # noqa: E402
 
 # Shared month abbreviation → number map (English + common non-English).
 _MONTH_NAME_MAP = {
@@ -574,11 +574,17 @@ def _apply_detritus_fate(
         fname_col = next(
             (c for c in ["FleetName", "Name", "Fleet"] if c in fleet_df.columns), None
         )
+        # Same ID columns the catch loop accepts (legacy Fleet tables use ID)
+        fid_col = next(
+            (c for c in ["FleetID", "ID", "Sequence"] if c in fleet_df.columns), None
+        )
         fleet_by_id = (
-            dict(zip(fleet_df["FleetID"], fleet_df[fname_col]))
-            if fname_col and "FleetID" in fleet_df.columns
+            dict(zip(fleet_df[fid_col], fleet_df[fname_col]))
+            if fname_col and fid_col
             else {}
         )
+        if not fleet_by_id:
+            logger.warning("Fleet table has no ID/name columns; discard fates not read")
         df = discard_fate_df
         if "ScenarioID" in df.columns:
             df = df[df["ScenarioID"] == scenario]
