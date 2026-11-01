@@ -293,12 +293,8 @@ class EnsembleResult:
             biomasses = np.array(
                 [model.Biomass[group_idx] for model in self.replicate_models]
             )
-            pbs = np.array(
-                [model.PB[group_idx] for model in self.replicate_models]
-            )
-            tls = np.array(
-                [model.TL[group_idx] for model in self.replicate_models]
-            )
+            pbs = np.array([model.PB[group_idx] for model in self.replicate_models])
+            tls = np.array([model.TL[group_idx] for model in self.replicate_models])
 
             bio_ci = (
                 float(np.percentile(biomasses, 2.5)),
@@ -313,21 +309,23 @@ class EnsembleResult:
                 float(np.percentile(tls, 97.5)),
             )
 
-            records.append({
-                "Group": group_name,
-                "Biomass_Mean": float(biomasses.mean()),
-                "Biomass_Std": float(biomasses.std()),
-                "Biomass_LCI_95": bio_ci[0],
-                "Biomass_UCI_95": bio_ci[1],
-                "PB_Mean": float(pbs.mean()),
-                "PB_Std": float(pbs.std()),
-                "PB_LCI_95": pb_ci[0],
-                "PB_UCI_95": pb_ci[1],
-                "TL_Mean": float(tls.mean()),
-                "TL_Std": float(tls.std()),
-                "TL_LCI_95": tl_ci[0],
-                "TL_UCI_95": tl_ci[1],
-            })
+            records.append(
+                {
+                    "Group": group_name,
+                    "Biomass_Mean": float(biomasses.mean()),
+                    "Biomass_Std": float(biomasses.std()),
+                    "Biomass_LCI_95": bio_ci[0],
+                    "Biomass_UCI_95": bio_ci[1],
+                    "PB_Mean": float(pbs.mean()),
+                    "PB_Std": float(pbs.std()),
+                    "PB_LCI_95": pb_ci[0],
+                    "PB_UCI_95": pb_ci[1],
+                    "TL_Mean": float(tls.mean()),
+                    "TL_Std": float(tls.std()),
+                    "TL_LCI_95": tl_ci[0],
+                    "TL_UCI_95": tl_ci[1],
+                }
+            )
 
         return pd.DataFrame(records)
 
@@ -472,9 +470,7 @@ def run_ensemble_rpath(
     replicate_params_list.append(base_params)
 
     if verbose:
-        logger.info(
-            f"Running ensemble with {sample_container.n_replicates} replicates"
-        )
+        logger.info(f"Running ensemble with {sample_container.n_replicates} replicates")
 
     # Run each replicate by applying samples
     for rep_idx in range(sample_container.n_replicates):
@@ -538,7 +534,7 @@ def get_ensemble_confidence_intervals(
     -------
     pd.DataFrame
         Long-format table with rows for each (Group, Parameter) pair:
-        
+
         Columns:
         - Group : Group name
         - Parameter : "Biomass", "PB", or "TL"
@@ -552,7 +548,7 @@ def get_ensemble_confidence_intervals(
     >>> ci_df = get_ensemble_confidence_intervals(result, alpha=0.05)
     >>> print(ci_df)
     >>> ci_df.to_csv("ensemble_ci.csv", index=False)
-    >>> 
+    >>>
     >>> # Filter to specific parameter
     >>> biomass_ci = ci_df[ci_df["Parameter"] == "Biomass"]
 
@@ -587,13 +583,15 @@ def get_ensemble_confidence_intervals(
             ("PB", pbs),
             ("TL", tls),
         ]:
-            records.append({
-                "Group": group_name,
-                "Parameter": param,
-                "LCI": float(np.percentile(values, lower_p)),
-                "Mean": float(values.mean()),
-                "UCI": float(np.percentile(values, upper_p)),
-            })
+            records.append(
+                {
+                    "Group": group_name,
+                    "Parameter": param,
+                    "LCI": float(np.percentile(values, lower_p)),
+                    "Mean": float(values.mean()),
+                    "UCI": float(np.percentile(values, upper_p)),
+                }
+            )
 
     return pd.DataFrame(records)
 
@@ -614,7 +612,7 @@ def ensemble_statistics(ensemble_result: EnsembleResult) -> Dict[str, Any]:
     -------
     dict[str, Any]
         Dictionary with keys:
-        
+
         - n_groups : Number of groups in model
         - n_replicates : Number of replicates
         - groups : List of group names
@@ -637,7 +635,7 @@ def ensemble_statistics(ensemble_result: EnsembleResult) -> Dict[str, Any]:
     -----
     Trophic level is weighted by biomass in each replicate to give
     a single scalar value per replicate.
-    
+
     CV (Coefficient of Variation) = std / mean, dimensionless and useful
     for comparing uncertainty across systems of different scale.
 
@@ -701,7 +699,7 @@ def _apply_replicate_to_params(
     - Group's PB to sample_container.group_samples[Group].pb_samples[rep_idx]
     - Group's QB to sample_container.group_samples[Group].qb_samples[rep_idx]
     - Group's EE to sample_container.group_samples[Group].ee_samples[rep_idx]
-    
+
     Groups without samples are not modified.
 
     Warning

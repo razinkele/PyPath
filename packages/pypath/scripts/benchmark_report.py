@@ -15,8 +15,12 @@ def _read_float_env(name: str, default: float) -> float:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render benchmark comparison report")
-    parser.add_argument("--results", required=True, help="Path to benchmark results JSON")
-    parser.add_argument("--baseline", required=True, help="Path to benchmark baseline JSON")
+    parser.add_argument(
+        "--results", required=True, help="Path to benchmark results JSON"
+    )
+    parser.add_argument(
+        "--baseline", required=True, help="Path to benchmark baseline JSON"
+    )
     parser.add_argument("--summary-file", help="Optional markdown output file")
     args = parser.parse_args()
 
@@ -26,7 +30,8 @@ def main() -> int:
     scale = _read_float_env("PYPATH_BENCH_THRESHOLD_SCALE", 1.0)
     ratio_limit = _read_float_env("PYPATH_BENCH_REGRESSION_MAX_RATIO", 1.5)
     abs_limits = {
-        "diffusion_10x10": _read_float_env("PYPATH_BENCH_DIFFUSION_MAX_SECONDS", 0.005) * scale,
+        "diffusion_10x10": _read_float_env("PYPATH_BENCH_DIFFUSION_MAX_SECONDS", 0.005)
+        * scale,
         "combined_flux_10x10_10groups": _read_float_env(
             "PYPATH_BENCH_COMBINED_FLUX_MAX_SECONDS", 0.05
         )

@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from pypath.core.ecotracer import EcotracerParams
     from pypath.core.fleet_dynamics import FleetEconParams
     from pypath.core.mediation import MediationCollection
+    from pypath.core.sampling import SampleContainer
     from pypath.core.timeseries import EweTimeSeriesCollection
     from pypath.spatial.ecospace_params import EcospaceGrid, EcospaceParams
     from pypath.spatial.mpa import MPAConfig

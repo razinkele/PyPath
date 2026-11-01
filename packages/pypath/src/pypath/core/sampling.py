@@ -38,10 +38,10 @@ __all__ = [
 @dataclass
 class EcopathGroupSample:
     """Sample uncertainty data for a single functional group.
-    
+
     Holds bootstrap replicates of Ecopath parameters (biomass, P/B, Q/B, EE)
     for a single group, enabling uncertainty analysis across ensemble runs.
-    
+
     Used internally by SampleContainer to manage per-group uncertainty
     distributions. Users typically do not create these directly, but instead
     work with read_ewe_samples() or create_parameter_samples().
@@ -121,10 +121,10 @@ class EcopathGroupSample:
 
     def __post_init__(self):
         """Validate sample shapes are consistent.
-        
+
         Called automatically after __init__ to ensure all sample arrays
         have the same length (number of replicates).
-        
+
         Raises
         ------
         ValueError
@@ -132,15 +132,14 @@ class EcopathGroupSample:
         """
         n = len(self.biomass_samples)
         if not all(
-            len(s) == n
-            for s in [self.pb_samples, self.qb_samples, self.ee_samples]
+            len(s) == n for s in [self.pb_samples, self.qb_samples, self.ee_samples]
         ):
             raise ValueError("All sample arrays must have same length")
 
     @property
     def n_replicates(self) -> int:
         """Number of bootstrap replicates.
-        
+
         Returns
         -------
         int
@@ -150,22 +149,22 @@ class EcopathGroupSample:
 
     def get_percentile(self, param: str, p: float) -> float:
         """Get percentile of parameter samples (0-100).
-        
+
         Computes a single percentile from the distribution of a parameter
         across all replicates.
-        
+
         Parameters
         ----------
         param : str
             Parameter name: 'biomass', 'pb', 'qb', or 'ee'.
         p : float
             Percentile value (0-100).
-            
+
         Returns
         -------
         float
             The p-th percentile value.
-            
+
         Raises
         ------
         ValueError
@@ -176,21 +175,23 @@ class EcopathGroupSample:
             raise ValueError(f"Unknown parameter: {param}")
         return float(np.percentile(samples, p))
 
-    def confidence_interval(self, param: str, alpha: float = 0.05) -> Tuple[float, float]:
+    def confidence_interval(
+        self, param: str, alpha: float = 0.05
+    ) -> Tuple[float, float]:
         """Get (lower, upper) confidence bounds for parameter.
-        
+
         Parameters
         ----------
         param : str
             Parameter name: 'biomass', 'pb', 'qb', or 'ee'.
         alpha : float, optional
             Significance level (default: 0.05 for 95%% CI).
-            
+
         Returns
         -------
         tuple[float, float]
             (lower_bound, upper_bound) of confidence interval.
-            
+
         Examples
         --------
         >>> sample = EcopathGroupSample(...)
@@ -208,10 +209,10 @@ class EcopathGroupSample:
 @dataclass
 class EcopathDietCompSample:
     """Sample uncertainty data for diet composition link.
-    
+
     Represents the uncertainty in how much of one group (prey) appears
     in the diet of another group (predator), across bootstrap replicates.
-    
+
     Used to propagate diet uncertainty through ensemble model runs.
 
     Attributes
@@ -245,7 +246,7 @@ class EcopathDietCompSample:
     @property
     def n_replicates(self) -> int:
         """Number of bootstrap replicates.
-        
+
         Returns
         -------
         int
@@ -257,7 +258,7 @@ class EcopathDietCompSample:
 @dataclass
 class EcopathGroupCatchSample:
     """Sample uncertainty data for catch/landings by fleet.
-    
+
     Represents uncertainty in landings/catch data, typically from
     fisheries statistics or scientific surveys, across replicates.
 
@@ -291,7 +292,7 @@ class EcopathGroupCatchSample:
     @property
     def n_replicates(self) -> int:
         """Number of bootstrap replicates.
-        
+
         Returns
         -------
         int
@@ -303,11 +304,11 @@ class EcopathGroupCatchSample:
 @dataclass
 class SampleContainer:
     """Container for all Ecopath sampling data.
-    
+
     Manages bootstrap replicates of Ecopath parameters, diet composition,
     and catch data across multiple groups, diets, and fleets. All samples
     must have consistent n_replicates to enable ensemble simulation.
-    
+
     This is the primary data structure passed to run_ensemble_rpath()
     and other ensemble functions.
 
@@ -341,9 +342,9 @@ class SampleContainer:
     --------
     >>> from pypath.core.sampling import SampleContainer, EcopathGroupSample
     >>> import numpy as np
-    >>> 
+    >>>
     >>> container = SampleContainer(n_replicates=100)
-    >>> 
+    >>>
     >>> # Add samples for Cod
     >>> cod_sample = EcopathGroupSample(
     ...     group_name="Cod",
@@ -379,17 +380,17 @@ class SampleContainer:
 
     def add_group_sample(self, sample: EcopathGroupSample) -> None:
         """Add a group sample to the container.
-        
+
         Parameters
         ----------
         sample : EcopathGroupSample
             Group sample to add. Must have n_replicates == self.n_replicates.
-        
+
         Raises
         ------
         ValueError
             If sample.n_replicates != self.n_replicates.
-            
+
         Examples
         --------
         >>> container = SampleContainer(n_replicates=100)
@@ -405,12 +406,12 @@ class SampleContainer:
 
     def add_diet_sample(self, sample: EcopathDietCompSample) -> None:
         """Add a diet composition sample to the container.
-        
+
         Parameters
         ----------
         sample : EcopathDietCompSample
             Diet sample to add.
-            
+
         Raises
         ------
         ValueError
@@ -426,12 +427,12 @@ class SampleContainer:
 
     def add_catch_sample(self, sample: EcopathGroupCatchSample) -> None:
         """Add a catch sample to the container.
-        
+
         Parameters
         ----------
         sample : EcopathGroupCatchSample
             Catch sample to add.
-            
+
         Raises
         ------
         ValueError
@@ -447,16 +448,16 @@ class SampleContainer:
 
     def uncertainty_dataframe(self, param_type: str = "group") -> pd.DataFrame:
         """Export uncertainty summary as DataFrame.
-        
+
         Creates a summary table of uncertainty metrics for easier viewing,
         export, or plotting.
-        
+
         Parameters
         ----------
         param_type : str, optional
             Type of data to export (default: "group").
             Options: "group" (parameters), "diet", or "catch".
-        
+
         Returns
         -------
         pd.DataFrame
@@ -466,12 +467,12 @@ class SampleContainer:
             - Parameter_CV : Coefficient of variation
             - Parameter_LCI_95 : Lower 95% CI
             - Parameter_UCI_95 : Upper 95% CI
-            
+
         Raises
         ------
         ValueError
             If param_type is not recognized.
-            
+
         Examples
         --------
         >>> container = SampleContainer(...)
@@ -482,20 +483,22 @@ class SampleContainer:
             data = []
             for group_name, sample in self.group_samples.items():
                 lb, ub = sample.confidence_interval("biomass")
-                data.append({
-                    "Group": group_name,
-                    "Biomass_Mean": sample.biomass_samples.mean(),
-                    "Biomass_CV": sample.biomass_se,
-                    "Biomass_LCI_95": lb,
-                    "Biomass_UCI_95": ub,
-                })
+                data.append(
+                    {
+                        "Group": group_name,
+                        "Biomass_Mean": sample.biomass_samples.mean(),
+                        "Biomass_CV": sample.biomass_se,
+                        "Biomass_LCI_95": lb,
+                        "Biomass_UCI_95": ub,
+                    }
+                )
             return pd.DataFrame(data)
         else:
             raise ValueError(f"Unknown param_type: {param_type}")
 
     def summary_stats(self) -> Dict[str, int]:
         """Get summary statistics of container contents.
-        
+
         Returns
         -------
         dict[str, int]
@@ -504,7 +507,7 @@ class SampleContainer:
             - n_groups : Number of groups with samples
             - n_diet_pairs : Number of diet links with samples
             - n_catch_pairs : Number of catch records with samples
-            
+
         Examples
         --------
         >>> container = SampleContainer(...)
@@ -522,22 +525,22 @@ class SampleContainer:
 
 def add_sampling_to_params(params: Any, sample_container: SampleContainer) -> None:
     """Attach sampling data to RpathParams.
-    
+
     Attaches a SampleContainer object to an RpathParams instance for
     later use or reference.
-    
+
     Parameters
     ----------
     params : RpathParams
         Parameter object to attach sampling to.
     sample_container : SampleContainer
         Container with all sampling data.
-        
+
     Notes
     -----
     This function adds a .samples attribute to params. Does not modify
     the actual parameter values; to apply samples, use run_ensemble_rpath().
-    
+
     Examples
     --------
     >>> from pypath.core.params import create_rpath_params
@@ -547,7 +550,7 @@ def add_sampling_to_params(params: Any, sample_container: SampleContainer) -> No
     >>> add_sampling_to_params(params, samples)
     >>> print(hasattr(params, "samples"))
     True
-    
+
     See Also
     --------
     run_ensemble_rpath : Apply samples in ensemble run
@@ -563,10 +566,10 @@ def apply_samples_to_derivatives(
     params: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Apply a specific sample replicate to parameter dictionary.
-    
+
     Overwrites parameter values with samples from a specific replicate.
     Typically used in optimization or sensitivity analysis workflows.
-    
+
     Parameters
     ----------
     replicate_index : int
@@ -576,22 +579,22 @@ def apply_samples_to_derivatives(
     params : dict[str, Any]
         Parameter dictionary to modify. Groups should be keys; values
         should be dicts with 'biomass', 'pb', 'qb', 'ee' keys.
-    
+
     Returns
     -------
     dict[str, Any]
         Modified params dictionary with sample values applied.
-    
+
     Raises
     ------
     ValueError
         If replicate_index >= sample_container.n_replicates.
-    
+
     Notes
     -----
     This is a lower-level utility. Most users should use
     run_ensemble_rpath() instead.
-    
+
     See Also
     --------
     run_ensemble_rpath : Main ensemble function
@@ -621,13 +624,13 @@ def validate_samples(
     sample_container: SampleContainer, params: Any, tolerance: float = 1e-6
 ) -> List[str]:
     """Validate sampling data against RpathParams.
-    
+
     Performs basic validation checks on sample data:
     - Replicate counts are consistent
     - Biomass values are non-negative
     - EE values are in [0, 1]
     - Other constraints
-    
+
     Parameters
     ----------
     sample_container : SampleContainer
@@ -637,7 +640,7 @@ def validate_samples(
         with model structure).
     tolerance : float, optional
         Tolerance for floating-point comparisons (default: 1e-6).
-    
+
     Returns
     -------
     list[str]
@@ -649,7 +652,7 @@ def validate_samples(
     ValueError
         Not directly, but issues list documents validation failures that
         may cause problems in ensemble runs.
-    
+
     Examples
     --------
     >>> container = SampleContainer(...)
@@ -659,7 +662,7 @@ def validate_samples(
     ...         print(f"Warning: {issue}")
     >>> else:
     ...     print("All validation checks passed")
-    
+
     See Also
     --------
     run_ensemble_rpath : Runs validation before ensemble

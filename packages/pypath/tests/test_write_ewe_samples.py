@@ -35,8 +35,7 @@ class TestWriteSamplesBasics:
         )
 
         params = create_rpath_params(
-            groups=["Fish", "Phyto", "Detritus"],
-            types=[0, 1, 2]
+            groups=["Fish", "Phyto", "Detritus"], types=[0, 1, 2]
         )
         params.model.loc[params.model["Group"] == "Fish", "Biomass"] = 100.0
 
@@ -83,8 +82,7 @@ class TestWriteSamplesBasics:
         )
 
         params = create_rpath_params(
-            groups=["Fish", "Phyto", "Detritus"],
-            types=[0, 1, 2]
+            groups=["Fish", "Phyto", "Detritus"], types=[0, 1, 2]
         )
         params.model.loc[params.model["Group"] == "Fish", "Biomass"] = 100.0
 
@@ -118,8 +116,7 @@ class TestWriteSamplesBasics:
         container = SampleContainer(n_replicates=10)
 
         params = create_rpath_params(
-            groups=["Fish", "Phyto", "Detritus"],
-            types=[0, 1, 2]
+            groups=["Fish", "Phyto", "Detritus"], types=[0, 1, 2]
         )
 
         with tempfile.NamedTemporaryFile(suffix=".eweaccdb", delete=False) as f:
@@ -171,8 +168,7 @@ class TestWriteSamplesRoundTrip:
         )
 
         params = create_rpath_params(
-            groups=["Fish", "Phyto", "Detritus"],
-            types=[0, 1, 2]
+            groups=["Fish", "Phyto", "Detritus"], types=[0, 1, 2]
         )
         params.model.loc[params.model["Group"] == "Fish", "Biomass"] = 100.0
 
@@ -202,12 +198,7 @@ class TestWriteSamplesRoundTrip:
 
             # Verify all biomass values match the original samples
             expected = container.group_samples["Fish"].biomass_samples
-            np.testing.assert_array_almost_equal(
-                np.array(biomass_values),
-                expected
-            )
+            np.testing.assert_array_almost_equal(np.array(biomass_values), expected)
 
         finally:
             Path(temp_db).unlink(missing_ok=True)
-
-

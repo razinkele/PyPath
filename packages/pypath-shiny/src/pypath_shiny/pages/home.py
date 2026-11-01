@@ -760,4 +760,3 @@ def home_server(
         except Exception as e:
             logger.exception("Loading the example model failed")
             _notify_legacy(f"Error loading example model: {str(e)}", type="error")
-

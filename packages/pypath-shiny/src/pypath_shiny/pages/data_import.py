@@ -1142,7 +1142,6 @@ Phytoplankton"""
             class_=alert_class,
         )
 
-
     @output
     @render.ui
     def btn_cancel_biodata_ui():
@@ -1162,7 +1161,6 @@ Phytoplankton"""
                 class_="btn btn-warning w-100 mt-2",
             ),
         )
-
 
     @reactive.effect
     @reactive.event(input.btn_cancel_biodata)
@@ -1365,4 +1363,3 @@ Phytoplankton"""
             "Model transferred! Go to 'Ecopath Model' tab to edit and balance.",
             type="message",
         )
-

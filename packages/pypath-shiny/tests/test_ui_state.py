@@ -6,7 +6,11 @@ from pypath_shiny.services.ui_state import (
 
 
 def test_wizard_draft_roundtrip():
-    payload = {"step": 3, "polygon": {"type": "Polygon", "coords": [1, 2]}, "grid_type": "hex"}
+    payload = {
+        "step": 3,
+        "polygon": {"type": "Polygon", "coords": [1, 2]},
+        "grid_type": "hex",
+    }
     serialized = serialize_wizard_draft(payload)
     restored = deserialize_wizard_draft(serialized)
 

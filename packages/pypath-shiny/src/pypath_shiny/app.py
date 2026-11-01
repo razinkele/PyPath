@@ -480,5 +480,3 @@ def main():
 
 # Create the app with static assets
 app = App(app_ui, server, static_assets=APP_DIR / "static")
-
-
