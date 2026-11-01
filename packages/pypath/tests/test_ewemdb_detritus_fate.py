@@ -148,3 +148,14 @@ def test_rpath_detritus_receives_flow():
     i = list(m.Group).index("Detritus")
     assert m.DetFate[:i, 0].sum() > 0
     assert m.EE[i] > 0
+
+
+def test_explicit_zero_fate_is_kept():
+    """Explicit 0 fate means 'export everything': no first-detritus fallback."""
+    tables = dict(FULL)
+    tables["EcopathDietComp"] = DIET.assign(DetritusFate=0.0)
+    tables["EcopathDiscardFate"] = DISCARD_FATE.assign(DiscardFate=0.0)
+    p = _read(tables)
+    for g in ["Phyto", "Zoo", "Fish", "Discards", "Trawlers"]:
+        assert _cell(p, g, "Detritus") == 0.0
+        assert _cell(p, g, "Discards") == 0.0

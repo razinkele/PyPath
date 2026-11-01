@@ -513,9 +513,10 @@ def _apply_detritus_fate(
     EwE keeps detritus fate in ``EcopathDietComp.DetritusFate`` (PredID = the
     source group, PreyID = the receiving detritus group) and fleet discard fate
     in ``EcopathDiscardFate`` (GroupID = detritus group, FleetID = fleet).
-    Cells without data become 0 (the remainder of a row is exported). When a
-    database holds no fate data at all, living groups and fleets send
-    everything to the first detritus group, which is EwE's default.
+    Cells without data become 0 (the remainder of a row is exported). Explicit
+    zero fates are kept. Only when a database holds no fate cells at all do
+    living groups (or fleets) send everything to the first detritus group,
+    which is EwE's default.
     """
     model = params.model
     det_groups = model.loc[model["Type"] == 2, "Group"].tolist()
@@ -531,9 +532,10 @@ def _apply_detritus_fate(
     row_of = {g: i for i, g in zip(model.index, model["Group"])}
 
     def _set(source, det, value) -> bool:
+        """Store one fate cell; True if it was a valid cell (even if 0)."""
         if source in row_of and det in det_groups and pd.notna(value):
             model.loc[row_of[source], det] = float(value)
-            return float(value) > 0
+            return True
         return False
 
     # Living and detritus groups
