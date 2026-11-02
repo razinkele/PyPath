@@ -1,8 +1,24 @@
 name: Release & Publish
 
+# Releases are cut on demand (Actions -> Release & Publish -> Run workflow),
+# not on every push to main. Pick a bump per package:
+#   none  - do not release this package
+#   auto  - let semantic-release decide from the conventional commits
+#           (feat -> minor, fix/perf -> patch)
+#   patch / minor / major - force that bump
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ewe_bump:
+        description: "pypath-ewe bump"
+        type: choice
+        options: [none, auto, patch, minor, major]
+        default: none
+      shiny_bump:
+        description: "pypath-shiny bump"
+        type: choice
+        options: [none, auto, patch, minor, major]
+        default: none
 
 permissions:
   contents: write
@@ -15,6 +31,7 @@ concurrency:
 jobs:
   release-core:
     name: Release pypath-ewe
+    if: inputs.ewe_bump != 'none'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,6 +41,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
@@ -43,12 +61,18 @@ jobs:
             --matrix ../../docs/parity/ewe_parity_matrix.csv \
             --output ../../docs/parity/ewe_parity_report.json
 
+      # --no-tag: the "Commit version bump & tag" step creates the tag. Letting
+      # semantic-release tag as well made that step fail with "tag already
+      # exists", so no release since 1.0.0 was ever pushed.
       - name: Semantic Release (pypath-ewe)
         id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUMP: ${{ inputs.ewe_bump }}
         run: |
-          semantic-release version --no-push --no-commit 2>&1 | tee /tmp/sr-output.txt
+          force=""
+          if [ "$BUMP" != "auto" ]; then force="--$BUMP"; fi
+          semantic-release version $force --no-push --no-commit --no-tag 2>&1 | tee /tmp/sr-output.txt
           if grep -q "No release will be made" /tmp/sr-output.txt; then
             echo "released=false" >> $GITHUB_OUTPUT
           else
@@ -73,7 +97,10 @@ jobs:
           cd ../..
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packages/pypath/pyproject.toml packages/pypath/src/pypath/__init__.py packages/pypath/CHANGELOG.md
+          # README badge, CLAUDE.md table, pypath-shiny's pypath-ewe floor
+          # (test_release_discipline.py requires them to match)
+          python scripts/sync_release_versions.py .
+          git add packages/pypath/pyproject.toml packages/pypath/src/pypath/__init__.py packages/pypath/CHANGELOG.md             packages/pypath-shiny/pyproject.toml README.md CLAUDE.md
           git commit -m "chore(release): pypath-ewe v${{ steps.release.outputs.version }}"
           git tag "pypath-ewe-v${{ steps.release.outputs.version }}"
           git push origin main --tags
@@ -85,6 +112,8 @@ jobs:
   release-shiny:
     name: Release pypath-shiny
     needs: release-core
+    # Runs after the core job, also when that job was skipped
+    if: ${{ !cancelled() && inputs.shiny_bump != 'none' && needs.release-core.result != 'failure' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -109,8 +138,11 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUMP: ${{ inputs.shiny_bump }}
         run: |
-          semantic-release version --no-push --no-commit 2>&1 | tee /tmp/sr-output.txt
+          force=""
+          if [ "$BUMP" != "auto" ]; then force="--$BUMP"; fi
+          semantic-release version $force --no-push --no-commit --no-tag 2>&1 | tee /tmp/sr-output.txt
           if grep -q "No release will be made" /tmp/sr-output.txt; then
             echo "released=false" >> $GITHUB_OUTPUT
           else
@@ -119,7 +151,7 @@ jobs:
           fi
 
       - name: Build package
-        if: steps.release.outputs.released == 'true'
+        if: steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true'
         run: python -m build
 
       - name: Publish to PyPI
@@ -135,7 +167,8 @@ jobs:
           cd ../..
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packages/pypath-shiny/pyproject.toml packages/pypath-shiny/src/pypath_shiny/__init__.py packages/pypath-shiny/CHANGELOG.md
+          python scripts/sync_release_versions.py .  # CLAUDE.md version table
+          git add packages/pypath-shiny/pyproject.toml packages/pypath-shiny/src/pypath_shiny/__init__.py packages/pypath-shiny/CHANGELOG.md             README.md CLAUDE.md
           git commit -m "chore(release): pypath-shiny v${{ steps.release.outputs.version }}"
           git tag "pypath-shiny-v${{ steps.release.outputs.version }}"
           git push origin main --tags
@@ -143,7 +176,8 @@ jobs:
   create-github-release:
     name: Create GitHub Release
     needs: [release-core, release-shiny]
-    if: needs.release-core.outputs.released == 'true'
+    # !cancelled(): still run when release-shiny was skipped
+    if: ${{ !cancelled() && needs.release-core.outputs.released == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
