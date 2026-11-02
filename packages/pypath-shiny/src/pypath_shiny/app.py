@@ -5,6 +5,7 @@ A web-based frontend for the PyPath ecosystem modeling package,
 implementing Ecopath mass-balance and Ecosim dynamic simulation.
 """
 
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -42,6 +43,10 @@ logger = logging.getLogger("pypath_app")
 APP_DIR = Path(__file__).parent
 
 # Configuration imports
+from pypath import get_health_status  # noqa: E402
+
+from pypath_shiny import __version__  # noqa: E402
+from pypath_shiny.components import nav_label, theme_toggle_button  # noqa: E402
 from pypath_shiny.config import UI  # noqa: E402
 
 # Import page modules - organized by category
@@ -65,19 +70,22 @@ from pypath_shiny.pages import (  # noqa: E402
     tutorial,
 )
 
+CHANGELOG_URL = "https://github.com/razinkele/PyPath/blob/main/CHANGELOG.md"
+
 
 def _icon_label(icon_class: str, text: str) -> ui.TagList:
     """Create a nav label with a Bootstrap Icon and text."""
-    return ui.TagList(
-        ui.tags.i(class_=f"bi {icon_class}", style="margin-right: 8px;"),
-        text,
-    )
+    return nav_label(icon_class, text)
 
 
 # App UI with left sidebar pill list navigation
 app_ui = ui.page_fluid(
     # Typography, icons, and custom styles
     ui.head_content(
+        ui.tags.meta(
+            name="viewport",
+            content="width=device-width, initial-scale=1, viewport-fit=cover",
+        ),
         ui.tags.link(
             rel="stylesheet",
             href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap",
@@ -85,6 +93,41 @@ app_ui = ui.page_fluid(
         ui.tags.link(
             rel="stylesheet",
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
+        ),
+        ui.tags.script(
+            """
+            (function() {
+              const storageKey = 'pypath-theme';
+              const applyTheme = function(darkMode) {
+                const root = document.documentElement;
+                const label = document.getElementById('theme_toggle_label');
+                const button = document.getElementById('theme_toggle_button');
+                root.setAttribute('data-bs-theme', darkMode ? 'dark' : 'light');
+                const nextLabel = darkMode ? 'Light mode' : 'Dark mode';
+                const nextIcon = darkMode ? 'bi-sun-fill' : 'bi-moon-fill';
+                if (label) {
+                  label.textContent = nextLabel;
+                }
+                if (button) {
+                  button.setAttribute('aria-pressed', String(darkMode));
+                  const icon = button.querySelector('.bi');
+                  if (icon) {
+                    icon.className = 'bi ' + nextIcon;
+                  }
+                }
+                localStorage.setItem(storageKey, darkMode ? 'dark' : 'light');
+              };
+              const savedTheme = localStorage.getItem(storageKey);
+              const preferredDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+              applyTheme(savedTheme ? savedTheme === 'dark' : preferredDark);
+              document.addEventListener('click', function(event) {
+                const button = event.target.closest('[data-theme-toggle="true"]');
+                if (!button) return;
+                const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'dark';
+                applyTheme(isDark);
+              });
+            })();
+            """
         ),
         # Flatly Bootswatch theme applied via a plain stylesheet link.
         # Passing a shinyswatch ShinyswatchTheme object to page_fluid(theme=...)
@@ -114,15 +157,39 @@ app_ui = ui.page_fluid(
             }}
         """),
     ),
-    # Branding header
+    # Top bar: branding + quick links
     ui.div(
-        ui.tags.img(
-            src="icon.svg",
-            height=UI.icon_height_px,
-            style="margin-right: 10px; vertical-align: middle;",
+        ui.div(
+            ui.tags.img(
+                src="icon.svg",
+                height=UI.icon_height_px,
+                style="margin-right: 10px; vertical-align: middle;",
+            ),
+            ui.tags.span("PyPath", class_="brand-name"),
+            class_="pypath-brand",
         ),
-        ui.tags.span("PyPath", class_="brand-name"),
-        class_="pypath-brand mb-2",
+        ui.div(
+            ui.tags.span(f"v{__version__}", class_="topbar-version"),
+            theme_toggle_button(),
+            ui.input_action_button(
+                "btn_topbar_about",
+                ui.TagList(ui.tags.i(class_="bi bi-info-circle me-1"), "About"),
+                class_="btn btn-outline-primary btn-sm topbar-btn",
+                aria_label="Open PyPath information panel",
+            ),
+            ui.tags.a(
+                ui.TagList(
+                    ui.tags.i(class_="bi bi-journal-text me-1"),
+                    "Changelog",
+                ),
+                href=CHANGELOG_URL,
+                target="_blank",
+                rel="noopener noreferrer",
+                class_="btn btn-outline-secondary btn-sm topbar-btn",
+            ),
+            class_="topbar-actions",
+        ),
+        class_="pypath-topbar mb-2",
     ),
     # Main navigation — left sidebar pill list
     ui.navset_pill_list(
@@ -224,12 +291,14 @@ app_ui = ui.page_fluid(
                 target="_blank",
                 class_="btn btn-link text-start w-100 p-2",
                 style="text-decoration: none;",
+                aria_label="Open API documentation in a new tab",
             ),
         ),
         ui.nav_control(
             ui.input_action_button(
                 "btn_feedback",
                 _icon_label("bi-chat-left-dots-fill", "Send Feedback"),
+                aria_label="Send feedback about the PyPath app",
                 class_="btn btn-link text-start w-100 p-2",
                 onclick="Shiny.setInputValue('feedback_open', Math.random()); return false;",
             ),
@@ -320,6 +389,11 @@ def server(input: Inputs, output: Outputs, session: Session):
             size="m",
         )
         ui.modal_show(m)
+
+    @reactive.effect
+    @reactive.event(input.btn_topbar_about)
+    def goto_about_from_topbar():
+        ui.update_navs("main_nav", selected="About")
 
     # Primary reactive state (shared across all pages)
     model_data = reactive.Value(None)  # RpathParams: Ecopath model parameters
@@ -478,5 +552,97 @@ def main():
     )
 
 
-# Create the app with static assets
-app = App(app_ui, server, static_assets=APP_DIR / "static")
+# Create the base Shiny ASGI app
+shiny_app = App(app_ui, server, static_assets=APP_DIR / "static")
+
+HEALTH_PATHS = {
+    "/api/health",
+    "/api/health/",
+    "/pypath/api/health",
+    "/pypath/api/health/",
+}
+
+
+def _normalized_path(value: str) -> str:
+    """Normalize URL path shapes for proxy-safe matching."""
+    path = (value or "").split("?", 1)[0].strip()
+    if not path:
+        return ""
+    if not path.startswith("/"):
+        path = f"/{path}"
+    while "//" in path:
+        path = path.replace("//", "/")
+    return path
+
+
+def _request_path_candidates(scope: dict) -> set[str]:
+    """Collect path candidates from ASGI scope and common proxy headers."""
+    candidates: set[str] = set()
+
+    path = _normalized_path(scope.get("path", ""))
+    if path:
+        candidates.add(path)
+
+    raw_path = scope.get("raw_path")
+    if isinstance(raw_path, (bytes, bytearray)):
+        decoded_raw = _normalized_path(raw_path.decode("latin1", errors="ignore"))
+        if decoded_raw:
+            candidates.add(decoded_raw)
+
+    root_path = _normalized_path(scope.get("root_path", ""))
+    if root_path and path:
+        joined = _normalized_path(f"{root_path.rstrip('/')}/{path.lstrip('/')}")
+        if joined:
+            candidates.add(joined)
+
+    header_paths = {
+        "x-original-uri",
+        "x-forwarded-uri",
+        "x-rewrite-url",
+        "x-request-uri",
+        "x-path-info",
+        "x-script-name",
+        "x-forwarded-prefix",
+    }
+    for header_name, header_value in scope.get("headers", []):
+        key = header_name.decode("latin1", errors="ignore").lower()
+        if key in header_paths:
+            candidate = _normalized_path(header_value.decode("latin1", errors="ignore"))
+            if candidate:
+                candidates.add(candidate)
+
+    return candidates
+
+
+def _is_health_request(path_candidates: set[str]) -> bool:
+    """Return True when any candidate path resolves to the health endpoint."""
+    for candidate in path_candidates:
+        if candidate in HEALTH_PATHS:
+            return True
+        stripped = candidate.rstrip("/")
+        if stripped.endswith("/api/health"):
+            return True
+    return False
+
+
+async def app(scope, receive, send):
+    """ASGI app wrapper with a lightweight health-check endpoint."""
+    if scope.get("type") == "http":
+        method = (scope.get("method") or "GET").upper()
+        path_candidates = _request_path_candidates(scope)
+        if method in {"GET", "HEAD"} and _is_health_request(path_candidates):
+            payload_obj = get_health_status()
+            payload = json.dumps(payload_obj, separators=(",", ":")).encode("utf-8")
+            body = b"" if method == "HEAD" else payload
+            headers = [
+                (b"content-type", b"application/json; charset=utf-8"),
+                (b"cache-control", b"no-store"),
+                (b"content-length", str(len(body)).encode("ascii")),
+            ]
+            await send(
+                {"type": "http.response.start", "status": 200, "headers": headers}
+            )
+            await send({"type": "http.response.body", "body": body, "more_body": False})
+            return
+
+    await shiny_app(scope, receive, send)

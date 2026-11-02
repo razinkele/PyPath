@@ -6,8 +6,35 @@ import numpy as np
 import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+try:
+    from shinywidgets import output_widget, render_widget
+except ImportError:  # pragma: no cover
+
+    def output_widget(*args, **kwargs):
+        return ui.output_plot(*args, **kwargs)
+
+    def render_widget(func):
+        return render.plot(func)
+
+
 # Import centralized configuration
-from pypath_shiny.config import PLOTS, UI
+from pypath_shiny.components import empty_state
+from pypath_shiny.config import UI
+
+# Import great_tables formatters
+from ..services.gt_formatters import (
+    format_diet_matrix,
+    format_params_table,
+    format_time_series_summary,
+)
+from ..services.plotly_viz import (
+    build_biomass_figure,
+    build_catch_figure,
+    build_foodweb_figure,
+    build_tl_bar_figure,
+    build_trophic_pyramid_figure,
+    plotly_template_for,
+)
 
 # Import shared utilities (pypath path setup handled by app/__init__.py)
 from .utils import get_model_info, is_balanced_model, is_rpath_params
@@ -31,20 +58,6 @@ def choose_default_results_groups(
 
     limit = max(1, int(max_default))
     return groups[:limit]
-
-
-def _apply_plot_style(plt, style):
-    """Apply a named matplotlib style; unknown styles fall back to default.
-
-    Call this inside ``plt.rc_context()`` so the change does not leak into
-    other renders or user sessions (matplotlib rcParams are process-global).
-    """
-    if not style or style == "default":
-        return
-    try:
-        plt.style.use(style)
-    except (OSError, KeyError, ValueError) as e:
-        logger.warning("Plot style '%s' not available: %s. Using default.", style, e)
 
 
 def results_ui():
@@ -106,8 +119,8 @@ def results_ui():
                     ui.tags.hr(),
                     ui.h5("Trophic Structure"),
                     ui.layout_columns(
-                        ui.output_plot("tl_bar_plot"),
-                        ui.output_plot("tl_flow_plot"),
+                        output_widget("tl_bar_plot", height=UI.plot_height_small_px),
+                        output_widget("tl_flow_plot", height=UI.plot_height_small_px),
                         col_widths=[UI.col_width_medium, UI.col_width_medium],
                     ),
                 ),
@@ -135,7 +148,7 @@ def results_ui():
                         ),
                         col_widths=[12],
                     ),
-                    ui.output_plot("foodweb_plot", height=UI.plot_height_large_px),
+                    output_widget("foodweb_plot", height=UI.plot_height_large_px),
                 ),
                 ui.nav_panel(
                     "Simulation Results",
@@ -155,10 +168,10 @@ def results_ui():
                         ),
                         col_widths=[6, 3, 3],
                     ),
-                    ui.output_plot("results_biomass_plot", height="450px"),
+                    output_widget("results_biomass_plot", height="450px"),
                     ui.tags.hr(),
                     ui.h5("Catch Time Series"),
-                    ui.output_plot("results_catch_plot", height="350px"),
+                    output_widget("results_catch_plot", height="350px"),
                 ),
                 ui.nav_panel(
                     "Comparison",
@@ -174,19 +187,31 @@ def results_ui():
                     ui.navset_card_pill(
                         ui.nav_panel(
                             "Parameters",
-                            ui.output_data_frame("params_data_table"),
+                            ui.output_ui(
+                                "params_data_table",
+                                style="max-height: 500px; overflow: auto;",
+                            ),
                         ),
                         ui.nav_panel(
                             "Diet Matrix",
-                            ui.output_data_frame("diet_data_table"),
+                            ui.output_ui(
+                                "diet_data_table",
+                                style="max-height: 500px; overflow: auto;",
+                            ),
                         ),
                         ui.nav_panel(
                             "Biomass (Monthly)",
-                            ui.output_data_frame("biomass_data_table"),
+                            ui.output_ui(
+                                "biomass_data_table",
+                                style="max-height: 500px; overflow: auto;",
+                            ),
                         ),
                         ui.nav_panel(
                             "Catch (Annual)",
-                            ui.output_data_frame("catch_data_table"),
+                            ui.output_ui(
+                                "catch_data_table",
+                                style="max-height: 500px; overflow: auto;",
+                            ),
                         ),
                     ),
                 ),
@@ -246,268 +271,63 @@ def results_server(
                 ].head(20)
         return pd.DataFrame()
 
+    def _styled(fig):
+        """Apply the sidebar "Plot Style" to a Plotly figure."""
+        fig.update_layout(template=plotly_template_for(input.plot_style()))
+        return fig
+
     @output
-    @render.plot
+    @render_widget
     def tl_bar_plot():
-        """Trophic level bar plot."""
-        import matplotlib.pyplot as plt
-
-        with plt.rc_context():
-            _apply_plot_style(plt, input.plot_style())
-            return _tl_bar_plot_impl(plt)
-
-    def _tl_bar_plot_impl(plt):
-        model = model_data.get()
-        info = get_model_info(model)
-
-        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
-
-        if info is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No model data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        if not info["is_balanced"] or info["trophic_level"] is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Balance model first to see trophic levels",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
+        """Interactive trophic-level bars (Plotly)."""
+        info = get_model_info(model_data.get())
+        if info is None or not info["is_balanced"] or info["trophic_level"] is None:
+            return _styled(build_tl_bar_figure([], []))
         n_bio = info["num_living"] + info["num_dead"]
-        groups = info["groups"][:n_bio]
-        tl = info["trophic_level"][:n_bio]
-
-        # Sort by TL
-        sorted_idx = np.argsort(tl)[::-1]
-        groups = [groups[i] for i in sorted_idx]
-        tl = tl[sorted_idx]
-
-        colors = plt.colormaps[input.color_palette()](np.linspace(0, 1, len(groups)))
-
-        ax.barh(groups, tl, color=colors)
-        ax.set_xlabel("Trophic Level")
-        ax.set_title("Trophic Levels")
-        ax.axvline(x=1, color="gray", linestyle="--", alpha=0.5)
-
-        plt.tight_layout()
-        return fig
+        return _styled(
+            build_tl_bar_figure(
+                info["groups"][:n_bio],
+                info["trophic_level"][:n_bio],
+                palette=input.color_palette(),
+            )
+        )
 
     @output
-    @render.plot
+    @render_widget
     def tl_flow_plot():
-        """Trophic flow pyramid."""
-        import matplotlib.pyplot as plt
-
+        """Interactive trophic pyramid of production (Plotly)."""
         model = model_data.get()
         info = get_model_info(model)
-
-        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
-
-        if info is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No model data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        if not info["is_balanced"] or info["trophic_level"] is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Balance model first to see trophic flows",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
+        if info is None or not info["is_balanced"] or info["trophic_level"] is None:
+            return _styled(build_trophic_pyramid_figure([], []))
         n_living = info["num_living"]
-
-        # Group by trophic level bins
-        tl = info["trophic_level"][:n_living]
-        biomass = model.Biomass[:n_living]
-        production = biomass * model.PB[:n_living]
-
-        # Create TL bins
-        tl_bins = [1, 2, 3, 4, 5, 6]
-        tl_labels = ["TL 1-2", "TL 2-3", "TL 3-4", "TL 4-5", "TL 5+"]
-
-        prod_by_tl = []
-        for i in range(len(tl_bins) - 1):
-            mask = (tl >= tl_bins[i]) & (tl < tl_bins[i + 1])
-            prod_by_tl.append(np.sum(production[mask]))
-
-        # Pyramid plot (horizontal bars, smallest at top)
-        y_pos = np.arange(len(tl_labels))
-
-        colors = plt.colormaps["YlGn"](np.linspace(0.3, 0.9, len(tl_labels)))
-
-        ax.barh(y_pos, prod_by_tl, color=colors, height=0.7)
-        ax.set_yticks(y_pos)
-        ax.set_yticklabels(tl_labels)
-        ax.set_xlabel("Production")
-        ax.set_title("Trophic Pyramid (Production)")
-        ax.invert_yaxis()
-
-        plt.tight_layout()
-        return fig
+        biomass = np.asarray(model.Biomass[:n_living], dtype=float)
+        production = biomass * np.asarray(model.PB[:n_living], dtype=float)
+        return _styled(
+            build_trophic_pyramid_figure(info["trophic_level"][:n_living], production)
+        )
 
     @output
-    @render.plot
+    @render_widget
     def foodweb_plot():
-        """Food web diagram."""
-        import matplotlib.pyplot as plt
-
+        """Interactive food web (Plotly): groups at their trophic level."""
         model = model_data.get()
         info = get_model_info(model)
-
-        fig, ax = plt.subplots(figsize=(12, 10))
-
-        if info is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No model data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.set_xlim(0, 1)
-            ax.set_ylim(0, 1)
-            return fig
-
-        if not info["is_balanced"]:
-            ax.text(
-                0.5,
-                0.5,
-                "Balance model first to see food web",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.set_xlim(0, 1)
-            ax.set_ylim(0, 1)
-            return fig
-
-        try:
-            import networkx as nx
-        except ImportError:
-            ax.text(
-                0.5,
-                0.5,
-                "NetworkX not installed.\nInstall with: pip install networkx",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
+        if info is None or not info["is_balanced"]:
+            return _styled(build_foodweb_figure([], [], [], [], 0))
         n_bio = info["num_living"] + info["num_dead"]
-        n_living = info["num_living"]
-        groups = info["groups"]
-
-        # Create graph
-        G = nx.DiGraph()
-
-        # Add nodes
-        for i in range(n_bio):
-            G.add_node(groups[i], tl=model.TL[i], biomass=model.Biomass[i])
-
-        # Add edges from diet matrix
-        min_flow = input.foodweb_min_flow()
-
-        for pred_idx in range(n_living):
-            pred = groups[pred_idx]
-            for prey_idx in range(n_bio):
-                if prey_idx < model.DC.shape[0] and pred_idx < model.DC.shape[1]:
-                    flow = model.DC[prey_idx, pred_idx]
-                    if flow > min_flow:
-                        prey = groups[prey_idx]
-                        G.add_edge(prey, pred, weight=flow)
-
-        if len(G.edges()) == 0:
-            ax.text(
-                0.5,
-                0.5,
-                "No diet connections found.\nCheck diet matrix.",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
+        return _styled(
+            build_foodweb_figure(
+                info["groups"][:n_bio],
+                model.TL[:n_bio],
+                model.Biomass[:n_bio],
+                model.DC,
+                n_living=info["num_living"],
+                min_flow=input.foodweb_min_flow(),
+                size_by_biomass=input.show_biomass_size(),
+                width_by_flow=input.show_flow_width(),
             )
-            return fig
-
-        # Layout based on trophic level
-        pos = {}
-        tl_groups = {}
-        for node in G.nodes():
-            tl = int(G.nodes[node]["tl"])
-            if tl not in tl_groups:
-                tl_groups[tl] = []
-            tl_groups[tl].append(node)
-
-        for tl, nodes in tl_groups.items():
-            n = len(nodes)
-            for i, node in enumerate(nodes):
-                x = (i + 1) / (n + 1)
-                pos[node] = (x, tl)
-
-        # Node sizes based on biomass
-        if input.show_biomass_size():
-            node_sizes = [300 + G.nodes[n]["biomass"] * 50 for n in G.nodes()]
-        else:
-            node_sizes = [500] * len(G.nodes())
-
-        # Edge widths based on flow
-        if input.show_flow_width():
-            edge_widths = [G.edges[e]["weight"] * 3 for e in G.edges()]
-        else:
-            edge_widths = [1] * len(G.edges())
-
-        # Colors by trophic level
-        node_colors = [G.nodes[n]["tl"] for n in G.nodes()]
-
-        # Draw
-        nx.draw_networkx_nodes(
-            G,
-            pos,
-            ax=ax,
-            node_size=node_sizes,
-            node_color=node_colors,
-            cmap="YlGnBu",
-            alpha=0.8,
         )
-        nx.draw_networkx_edges(
-            G,
-            pos,
-            ax=ax,
-            width=edge_widths,
-            alpha=0.5,
-            arrows=True,
-            connectionstyle="arc3,rad=0.1",
-        )
-        nx.draw_networkx_labels(G, pos, ax=ax, font_size=9)
-
-        ax.set_title("Food Web Structure")
-        ax.set_ylabel("Trophic Level")
-        ax.set_xlim(-0.1, 1.1)
-
-        plt.tight_layout()
-        return fig
 
     @output
     @render.ui
@@ -546,148 +366,89 @@ def results_server(
             )
 
     @output
-    @render.plot
+    @render_widget
     def results_biomass_plot():
         """Simulation biomass results plot."""
-        import matplotlib.pyplot as plt
-
-        with plt.rc_context():
-            _apply_plot_style(plt, input.plot_style())
-            return _results_biomass_plot_impl(plt)
-
-    def _results_biomass_plot_impl(plt):
         sim = sim_results.get()
         model = model_data.get()
         info = get_model_info(model)
 
-        fig, ax = plt.subplots(figsize=(12, 6))
+        if info is None:
+            return build_biomass_figure(sim, [], [], log_scale=input.log_scale())
 
-        if sim is None or info is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No simulation data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        selected = input.results_groups()
-        if not selected:
-            ax.text(
-                0.5,
-                0.5,
-                "Select groups to display",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        n_months = sim.out_Biomass.shape[0]
-        time = np.arange(n_months) / 12
-
-        group_list = info["groups"]
-        colors = plt.colormaps[input.color_palette()](np.linspace(0, 1, len(selected)))
-
-        for i, group in enumerate(selected):
-            if group in group_list:
-                idx = group_list.index(group) + 1
-                biomass = sim.out_Biomass[:, idx]
-
-                if input.log_scale():
-                    biomass = np.log10(np.maximum(biomass, 1e-10))
-
-                ax.plot(time, biomass, label=group, color=colors[i], linewidth=2)
-
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Log10(Biomass)" if input.log_scale() else "Biomass")
-        ax.set_title("Biomass Time Series")
-        ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
-        ax.set_xlim(0, max(time))
-
-        plt.tight_layout()
-        return fig
+        selected = input.results_groups() or []
+        return build_biomass_figure(
+            sim,
+            info["groups"],
+            selected,
+            log_scale=input.log_scale(),
+            palette=input.color_palette(),
+        ).update_layout(template=plotly_template_for(input.plot_style()))
 
     @output
-    @render.plot
+    @render_widget
     def results_catch_plot():
         """Simulation catch results plot."""
-        import matplotlib.pyplot as plt
-
         sim = sim_results.get()
-
-        fig, ax = plt.subplots(figsize=(12, 5))
-
-        if sim is None:
-            ax.text(
-                0.5,
-                0.5,
-                "No simulation data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        years = np.arange(sim.annual_Catch.shape[0]) + 1
-        total_catch = np.sum(sim.annual_Catch[:, 1:], axis=1)
-
-        ax.fill_between(years, total_catch, alpha=0.3, color="steelblue")
-        ax.plot(years, total_catch, "b-", linewidth=2)
-
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Total Catch")
-        ax.set_title("Annual Catch")
-        ax.set_xlim(1, len(years))
-
-        plt.tight_layout()
-        return fig
+        return build_catch_figure(sim, palette=input.color_palette()).update_layout(
+            template=plotly_template_for(input.plot_style())
+        )
 
     @output
-    @render.data_frame
+    @render.ui
     def params_data_table():
         """Model parameters data table."""
         model = model_data.get()
         info = get_model_info(model)
         if info is None:
-            return pd.DataFrame()
+            return empty_state("Balance a model to see its parameters.")
+
+        df = None
         if is_balanced_model(model) and hasattr(model, "summary"):
-            return model.summary()
-        if is_rpath_params(info["params"]):
-            return info["params"].model
-        return pd.DataFrame()
+            df = model.summary()
+        elif is_rpath_params(info["params"]):
+            df = info["params"].model
+        else:
+            df = pd.DataFrame()
+
+        if df.empty:
+            return df
+        return format_params_table(df, title="Model Parameters")
 
     @output
-    @render.data_frame
+    @render.ui
     def diet_data_table():
         """Diet matrix data table."""
         model = model_data.get()
         info = get_model_info(model)
         if info is None:
-            return pd.DataFrame()
+            return empty_state("Balance a model to see its diet matrix.")
 
         if not info["is_balanced"]:
             # Return diet from params
             params = info["params"]
             if hasattr(params, "diet"):
-                return params.diet
-            return pd.DataFrame({"Message": ["Balance model to see diet matrix"]})
+                df = params.diet
+            else:
+                df = pd.DataFrame({"Message": ["Balance model to see diet matrix"]})
+        else:
+            n_living = info["num_living"]
+            n_bio = info["num_living"] + info["num_dead"]
+            groups = info["groups"]
 
-        n_living = info["num_living"]
-        n_bio = info["num_living"] + info["num_dead"]
-        groups = info["groups"]
+            df = pd.DataFrame(
+                model.DC[:n_bio, :n_living],
+                index=groups[:n_bio],
+                columns=groups[:n_living],
+            ).round(4)
+            df.insert(0, "Prey", df.index)
 
-        diet_df = pd.DataFrame(
-            model.DC[:n_bio, :n_living], index=groups[:n_bio], columns=groups[:n_living]
-        ).round(4)
-        diet_df.insert(0, "Prey", diet_df.index)
-
-        return diet_df
+        if df.empty:
+            return df
+        return format_diet_matrix(df, title="Diet Composition Matrix")
 
     @output
-    @render.data_frame
+    @render.ui
     def biomass_data_table():
         """Monthly biomass data table."""
         sim = sim_results.get()
@@ -695,7 +456,7 @@ def results_server(
         info = get_model_info(model)
 
         if sim is None or info is None:
-            return pd.DataFrame()
+            return empty_state("Run an Ecosim simulation to see biomass.")
 
         n_bio = info["num_living"] + info["num_dead"]
         groups = info["groups"]
@@ -707,10 +468,14 @@ def results_server(
         df.insert(1, "Year", df["Month"] / 12)
 
         # Show every 12 months
-        return df[df["Month"] % 12 == 0]
+        df = df[df["Month"] % 12 == 0]
+
+        if df.empty:
+            return df
+        return format_time_series_summary(df, title="Monthly Biomass", decimals=4)
 
     @output
-    @render.data_frame
+    @render.ui
     def catch_data_table():
         """Annual catch data table."""
         sim = sim_results.get()
@@ -718,7 +483,7 @@ def results_server(
         info = get_model_info(model)
 
         if sim is None or info is None:
-            return pd.DataFrame()
+            return empty_state("Run an Ecosim simulation to see catch.")
 
         n_living = info["num_living"]
         groups = info["groups"]
@@ -728,7 +493,9 @@ def results_server(
         ).round(4)
         df.insert(0, "Year", range(1, len(df) + 1))
 
-        return df
+        if df.empty:
+            return df
+        return format_time_series_summary(df, title="Annual Catch", decimals=4)
 
     @render.download(filename="pypath_model.csv")
     def download_model_csv():

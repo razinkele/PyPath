@@ -1,4 +1,4 @@
-# Getting Started with PyPath v0.5.3
+# Getting Started with PyPath v1.0.0
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@
 
 ## Installation
 
-PyPath v0.5.3 introduces Phase 1B enhancements for better integration workflows and system capabilities.
+PyPath v1.0.0 includes Phase 1C coupled spatial-dynamic enhancements, scenario optimization, and performance-gated workflows.
 
 ```bash
 pip install pypath-ewe
@@ -246,21 +246,17 @@ output = rsim_run(scenario)
 
 See the [Autofix Guide](guides/autofix.md) for details.
 
-## What's New in v0.5.3
+## What's New in v1.0.0
 
-PyPath now covers 86% of all EwE database tables (72 of 84) with full
-read/write support. Key additions:
+The v1.0.0 release line introduces Phase 1C integration and optimization capabilities on top of the existing Ecopath/Ecosim/Ecospace stack:
 
-- **Time series calibration** — `fit_to_timeseries()` for SS fitting
-- **Mediation functions** — `MediationShape`, applied in Ecosim consumption kernel
-- **Monte Carlo** — `run_montecarlo()` with pedigree-based sampling
-- **Sensitivity analysis** — Morris OAT and Sobol via `run_sensitivity()`
-- **Ecotracer** — Contaminant tracking with `ecotracer_step()`
-- **Fleet dynamics** — `fleet_dynamics_step()` for profit-driven effort
-- **Ecological indicators** — `flow_analysis()`, `ecosystem_indicators()`, `system_maturity()`
-- **Value chain I/O** — `read_value_chain()` / `write_ewemdb(value_chain=...)`
+- **Coupled Ecosim-Ecospace state vectors** — initialize, roundtrip, and persist coupled runtime vectors with `pypath.spatial.coupling` and `rsim_run_spatial(..., initial_state_vector=..., store_state_vectors=True)`.
+- **Scenario optimization workflows** — rank management candidates with weighted objectives and risk-aware scoring in `pypath.analysis.scenario_optimizer`.
+- **Advanced Ecosim dynamics surfaces** — dedicated modules for recruitment, metabolism, fishing management, and sensitivity/uncertainty analysis.
+- **Performance benchmark gating** — deterministic benchmark tests plus CI regression checks with configurable thresholds (see [Performance Benchmarks](guides/performance-benchmarks.md)).
+- **Shiny UX enhancements** — topbar quick links now expose **About** and **Changelog** controls with visible app versioning.
 
-See the [API Reference](api/core.md) for full documentation of all new modules.
+See the [API Reference](api/core.md), [Spatial API](api/spatial.md), and [Analysis API](api/analysis.md) for details.
 
 ## Next Steps
 

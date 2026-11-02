@@ -97,3 +97,12 @@ def test_build_task_status_alert_for_error_state_uses_error_message():
 
     assert alert_class == "alert alert-danger"
     assert "Numerical instability" in message
+
+
+def test_ecosim_ui_includes_advanced_control_inputs():
+    from pypath_shiny.pages import ecosim
+
+    source = Path(ecosim.__file__).read_text(encoding="utf-8")
+    assert '"enable_recruitment_control"' in source
+    assert '"enable_metabolism_control"' in source
+    assert '"enable_fishing_management_control"' in source

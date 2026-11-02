@@ -8,6 +8,7 @@ from pypath.core.ecopath import rpath
 from pypath.core.params import create_rpath_params
 from shiny import Inputs, Outputs, Session, reactive, ui
 
+from pypath_shiny.components import feature_card, quick_start_step
 from pypath_shiny.config import DEFAULTS
 
 # Import centralized configuration
@@ -160,214 +161,147 @@ def home_ui():
             # Feature cards - Row 1
             ui.h2("Features", class_="mb-4"),
             ui.layout_columns(
-                # Data Import card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-cloud-download me-2"), "Data Import"
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Connect to EcoBase database (350+ models)"),
-                            ui.tags.li("Search and download published models"),
-                            ui.tags.li(
-                                "Import EwE database files (.ewemdb, .eweaccdb)"
-                            ),
-                            ui.tags.li("Automatic format conversion"),
-                            ui.tags.li("Pre-configured ecosystem models"),
-                        ),
-                        ui.input_action_button(
-                            "btn_goto_import", "Import Model", class_="btn-success mt-3"
-                        ),
-                    ),
+                feature_card(
+                    "Data Import",
+                    [
+                        "Connect to EcoBase database (350+ models)",
+                        "Search and download published models",
+                        "Import EwE database files (.ewemdb, .eweaccdb)",
+                        "Automatic format conversion",
+                        "Pre-configured ecosystem models",
+                    ],
+                    icon_class="bi-cloud-download",
+                    button_label="Import Model",
+                    button_id="btn_goto_import",
+                    button_class="btn-success",
                 ),
-                # Ecopath card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-diagram-3 me-2"), "Ecopath Mass Balance"
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Define functional groups and food web"),
-                            ui.tags.li("Set biomass, P/B, Q/B ratios"),
-                            ui.tags.li("Automatic mass-balance calculations"),
-                            ui.tags.li("Trophic level computation"),
-                            ui.tags.li("Multi-stanza age structure"),
-                        ),
-                        ui.input_action_button(
-                            "btn_goto_ecopath",
-                            "Create Ecopath Model",
-                            class_="btn-primary mt-3",
-                        ),
-                    ),
+                feature_card(
+                    "Ecopath Mass Balance",
+                    [
+                        "Define functional groups and food web",
+                        "Set biomass, P/B, Q/B ratios",
+                        "Automatic mass-balance calculations",
+                        "Trophic level computation",
+                        "Multi-stanza age structure",
+                    ],
+                    icon_class="bi-diagram-3",
+                    button_label="Create Ecopath Model",
+                    button_id="btn_goto_ecopath",
                 ),
-                # Ecosim card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-graph-up me-2"), "Ecosim Simulation"
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Dynamic ecosystem simulations"),
-                            ui.tags.li("Foraging arena functional response"),
-                            ui.tags.li("Fishing scenarios and forcing"),
-                            ui.tags.li("Environmental forcing effects"),
-                            ui.tags.li("Multiple integration methods"),
-                        ),
-                        ui.input_action_button(
-                            "btn_goto_ecosim",
-                            "Run Simulation",
-                            class_="btn-primary mt-3",
-                        ),
-                    ),
+                feature_card(
+                    "Ecosim Simulation",
+                    [
+                        "Dynamic ecosystem simulations",
+                        "Foraging arena functional response",
+                        "Fishing scenarios and forcing",
+                        "Environmental forcing effects",
+                        "Multiple integration methods",
+                    ],
+                    icon_class="bi-graph-up",
+                    button_label="Run Simulation",
+                    button_id="btn_goto_ecosim",
                 ),
                 col_widths=[4, 4, 4],
             ),
             # Feature cards - Row 2
             ui.layout_columns(
-                # ECOSPACE card (NEW!)
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-geo-alt me-2"),
-                        "ECOSPACE Spatial Modeling",
-                        ui.tags.span("NEW", class_="badge bg-success ms-2"),
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Irregular grid support (GeoJSON, Shapefile)"),
-                            ui.tags.li("Realistic spatial geometries"),
-                            ui.tags.li("Habitat preference mapping"),
-                            ui.tags.li("Dispersal and movement dynamics"),
-                            ui.tags.li("Spatial fishing effort allocation"),
-                        ),
-                        ui.input_action_button(
-                            "btn_goto_ecospace",
-                            "Explore Spatial",
-                            class_="btn-success mt-3",
-                        ),
-                    ),
+                feature_card(
+                    "ECOSPACE Spatial Modeling",
+                    [
+                        "Irregular grid support (GeoJSON, Shapefile)",
+                        "Realistic spatial geometries",
+                        "Habitat preference mapping",
+                        "Dispersal and movement dynamics",
+                        "Spatial fishing effort allocation",
+                    ],
+                    icon_class="bi-geo-alt",
+                    button_label="Explore Spatial",
+                    button_id="btn_goto_ecospace",
+                    button_class="btn-success",
+                    badge="NEW",
                 ),
-                # IBM card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-cpu me-2"),
-                        "Individual-Based Model",
-                        ui.tags.span("NEW", class_="badge bg-info ms-2"),
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Super-individual tracking"),
-                            ui.tags.li("Wisconsin bioenergetics model"),
-                            ui.tags.li("Size-structured predation"),
-                            ui.tags.li("Stochastic reproduction"),
-                            ui.tags.li("Spatial movement & foraging"),
-                        ),
-                        ui.input_action_button(
-                            "btn_goto_ibm",
-                            "Explore IBM",
-                            class_="btn-info mt-3",
-                        ),
-                    ),
+                feature_card(
+                    "Individual-Based Model",
+                    [
+                        "Super-individual tracking",
+                        "Wisconsin bioenergetics model",
+                        "Size-structured predation",
+                        "Stochastic reproduction",
+                        "Spatial movement & foraging",
+                    ],
+                    icon_class="bi-cpu",
+                    button_label="Explore IBM",
+                    button_id="btn_goto_ibm",
+                    button_class="btn-info",
+                    badge="NEW",
                 ),
-                # Analysis card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-diagram-2 me-2"), "Network Analysis"
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Food web topology metrics"),
-                            ui.tags.li("Ecosystem health indicators"),
-                            ui.tags.li("Trophic impact analysis (MTI)"),
-                            ui.tags.li("Keystone species identification"),
-                            ui.tags.li("Lindeman spine diagrams"),
-                        ),
-                        ui.input_action_button(
-                            "btn_goto_analysis", "Run Analysis", class_="btn-info mt-3"
-                        ),
-                    ),
+                feature_card(
+                    "Network Analysis",
+                    [
+                        "Food web topology metrics",
+                        "Ecosystem health indicators",
+                        "Trophic impact analysis (MTI)",
+                        "Keystone species identification",
+                        "Lindeman spine diagrams",
+                    ],
+                    icon_class="bi-diagram-2",
+                    button_label="Run Analysis",
+                    button_id="btn_goto_analysis",
+                    button_class="btn-info",
                 ),
-                # Results card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-bar-chart me-2"),
-                        "Results & Visualization",
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Interactive time series plots"),
-                            ui.tags.li("Food web diagrams"),
-                            ui.tags.li("Biomass and catch trajectories"),
-                            ui.tags.li("Export results to CSV/Excel"),
-                            ui.tags.li("Comparative scenario analysis"),
-                        ),
-                        ui.input_action_button(
-                            "btn_goto_results",
-                            "View Results",
-                            class_="btn-primary mt-3",
-                        ),
-                    ),
+                feature_card(
+                    "Results & Visualization",
+                    [
+                        "Interactive time series plots",
+                        "Food web diagrams",
+                        "Biomass and catch trajectories",
+                        "Export results to CSV/Excel",
+                        "Comparative scenario analysis",
+                    ],
+                    icon_class="bi-bar-chart",
+                    button_label="View Results",
+                    button_id="btn_goto_results",
                 ),
                 col_widths=[3, 3, 3, 3],
                 class_="mt-4",
             ),
             # Feature cards - Row 3
             ui.layout_columns(
-                # Advanced Features card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-gear-wide-connected me-2"),
-                        "Advanced Features",
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Diet rewiring (prey switching)"),
-                            ui.tags.li("Environmental forcing functions"),
-                            ui.tags.li("Multi-stanza age structure"),
-                            ui.tags.li("Optimization and sensitivity analysis"),
-                            ui.tags.li("Custom fishing scenarios"),
-                        ),
-                        ui.p(
-                            "Access advanced features via dedicated demo pages.",
-                            class_="text-muted small mt-2",
-                        ),
-                    ),
+                feature_card(
+                    "Advanced Features",
+                    [
+                        "Diet rewiring (prey switching)",
+                        "Environmental forcing functions",
+                        "Multi-stanza age structure",
+                        "Optimization and sensitivity analysis",
+                        "Custom fishing scenarios",
+                    ],
+                    icon_class="bi-gear-wide-connected",
                 ),
-                # About card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-info-circle me-2"), "About PyPath"
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("Python port of R Rpath package"),
-                            ui.tags.li("NOAA/EwE ecosystem modeling"),
-                            ui.tags.li("Open source (MIT License)"),
-                            ui.tags.li("GitHub repository"),
-                            ui.tags.li("Active development"),
-                        ),
-                        ui.input_action_button(
-                            "btn_goto_about", "Learn More", class_="btn-secondary mt-3"
-                        ),
-                    ),
+                feature_card(
+                    "About PyPath",
+                    [
+                        "Python port of R Rpath package",
+                        "NOAA/EwE ecosystem modeling",
+                        "Open source (MIT License)",
+                        "GitHub repository",
+                        "Active development",
+                    ],
+                    icon_class="bi-info-circle",
+                    button_label="Learn More",
+                    button_id="btn_goto_about",
+                    button_class="btn-secondary",
                 ),
-                # Documentation card
-                ui.card(
-                    ui.card_header(
-                        ui.tags.i(class_="bi bi-file-text me-2"), "Documentation"
-                    ),
-                    ui.card_body(
-                        ui.tags.ul(
-                            ui.tags.li("User guides and tutorials"),
-                            ui.tags.li("API reference documentation"),
-                            ui.tags.li("Example models and scripts"),
-                            ui.tags.li("Irregular grid guide (NEW)"),
-                            ui.tags.li("Video tutorials (coming soon)"),
-                        ),
-                        ui.p(
-                            "See the 'examples/' folder for guides and sample data.",
-                            class_="text-muted small mt-2",
-                        ),
-                    ),
+                feature_card(
+                    "Documentation",
+                    [
+                        "User guides and tutorials",
+                        "API reference documentation",
+                        "Example models and scripts",
+                        "Irregular grid guide (NEW)",
+                        "Video tutorials (coming soon)",
+                    ],
+                    icon_class="bi-file-text",
                 ),
                 col_widths=[4, 4, 4],
                 class_="mt-4",
@@ -375,79 +309,37 @@ def home_ui():
             # Quick start section
             ui.h2("Quick Start", class_="mt-5 mb-4"),
             ui.layout_columns(
-                ui.card(
-                    ui.card_header("Step 1: Define Groups"),
-                    ui.card_body(
-                        ui.p(
-                            "Start by defining your ecosystem's functional groups - "
-                            "producers, consumers, detritus, and fishing fleets."
-                        ),
-                        ui.tags.code("create_rpath_params(groups, types)"),
-                    ),
+                quick_start_step(
+                    "Step 1: Define Groups",
+                    "Start by defining your ecosystem's functional groups - producers, consumers, detritus, and fishing fleets.",
+                    "create_rpath_params(groups, types)",
                 ),
-                ui.card(
-                    ui.card_header("Step 2: Set Parameters"),
-                    ui.card_body(
-                        ui.p(
-                            "Enter biomass, P/B, Q/B ratios, diet composition, "
-                            "and fishery catches for each group."
-                        ),
-                        ui.tags.code("params.model['Biomass'] = ..."),
-                    ),
+                quick_start_step(
+                    "Step 2: Set Parameters",
+                    "Enter biomass, P/B, Q/B ratios, diet composition, and fishery catches for each group.",
+                    "params.model['Biomass'] = ...",
                 ),
-                ui.card(
-                    ui.card_header("Step 3: Balance Model"),
-                    ui.card_body(
-                        ui.p(
-                            "Run the mass-balance calculations to solve for "
-                            "missing parameters and validate the model."
-                        ),
-                        ui.tags.code("model = rpath(params)"),
-                    ),
+                quick_start_step(
+                    "Step 3: Balance Model",
+                    "Run the mass-balance calculations to solve for missing parameters and validate the model.",
+                    "model = rpath(params)",
                 ),
-                ui.card(
-                    ui.card_header("Step 4: Run Simulation"),
-                    ui.card_body(
-                        ui.p(
-                            "Create a scenario and run dynamic Ecosim simulations "
-                            "to explore ecosystem dynamics."
-                        ),
-                        ui.tags.code("rsim_run(scenario)"),
-                    ),
+                quick_start_step(
+                    "Step 4: Run Simulation",
+                    "Create a scenario and run dynamic Ecosim simulations to explore ecosystem dynamics.",
+                    "rsim_run(scenario)",
                 ),
-                ui.card(
-                    ui.card_header(
-                        "Step 5: Add Spatial Dynamics",
-                        ui.tags.span(
-                            "Optional",
-                            class_="badge bg-info ms-2",
-                            style="font-size: 0.7em;",
-                        ),
-                    ),
-                    ui.card_body(
-                        ui.p(
-                            "Upload spatial grids and run Ecospace simulations "
-                            "with habitat preferences and dispersal."
-                        ),
-                        ui.tags.code("rsim_run_spatial(ecospace)"),
-                    ),
+                quick_start_step(
+                    "Step 5: Add Spatial Dynamics",
+                    "Upload spatial grids and run Ecospace simulations with habitat preferences and dispersal.",
+                    "rsim_run_spatial(ecospace)",
+                    badge="Optional",
                 ),
-                ui.card(
-                    ui.card_header(
-                        "Step 6: Individual-Based Modeling",
-                        ui.tags.span(
-                            "Optional",
-                            class_="badge bg-info ms-2",
-                            style="font-size: 0.7em;",
-                        ),
-                    ),
-                    ui.card_body(
-                        ui.p(
-                            "Configure super-individual groups with bioenergetics, "
-                            "predation, and spatial movement parameters."
-                        ),
-                        ui.tags.code("SmeltIBM.compute_step(state)"),
-                    ),
+                quick_start_step(
+                    "Step 6: Individual-Based Modeling",
+                    "Configure super-individual groups with bioenergetics, predation, and spatial movement parameters.",
+                    "SmeltIBM.compute_step(state)",
+                    badge="Optional",
                 ),
                 col_widths=[2, 2, 2, 2, 2, 2],
             ),

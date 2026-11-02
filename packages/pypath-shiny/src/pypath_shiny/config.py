@@ -250,6 +250,39 @@ class ParameterRangesConfig:
     effort_change_max: int = 50
     effort_change_default: int = 5
 
+    # Recruitment controls
+    recruitment_env_multiplier_min: float = 0.1
+    recruitment_env_multiplier_max: float = 5.0
+
+    # Metabolism controls
+    metabolism_temp_delta_min: float = -5.0
+    metabolism_temp_delta_max: float = 10.0
+    metabolism_temp_delta_default: float = 0.0
+    metabolism_q10_min: float = 1.0
+    metabolism_q10_max: float = 4.0
+    metabolism_q10_default: float = 2.0
+    metabolism_mass_exponent_min: float = 0.3
+    metabolism_mass_exponent_max: float = 1.2
+    metabolism_mass_exponent_default: float = 0.75
+    metabolism_reference_mass_min: float = 0.1
+    metabolism_reference_mass_default: float = 1.0
+    metabolism_activity_budget_min: float = 0.1
+    metabolism_activity_budget_max: float = 5.0
+    metabolism_activity_budget_default: float = 1.0
+
+    # Adaptive fishing management controls
+    sustainability_reduction_min: float = 0.05
+    sustainability_reduction_max: float = 1.0
+    sustainability_reduction_default: float = 0.85
+    sustainability_floor_min: float = 0.0
+    sustainability_floor_max: float = 1.0
+    sustainability_floor_default: float = 0.05
+    fishing_effort_budget_min: float = 0.0
+    fishing_effort_budget_default: float = 1.0
+    bycatch_reduction_min: float = 0.0
+    bycatch_reduction_max: float = 1.0
+    bycatch_reduction_default: float = 0.25
+
     # Optimization parameters
     optimization_iterations_min: int = 10
     optimization_iterations_max: int = 100

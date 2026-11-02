@@ -11,13 +11,32 @@ from pypath.core.ecopath import Rpath, rpath
 from pypath.core.params import RpathParams, create_rpath_params, read_rpath_params
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+try:
+    from shinywidgets import output_widget, render_widget
+except ImportError:  # pragma: no cover
+
+    def output_widget(*args, **kwargs):
+        return ui.output_plot(*args, **kwargs)
+
+    def render_widget(func):
+        return render.plot(func)
+
+
 # Configuration imports
-from pypath_shiny.config import DEFAULTS, PLOTS, THRESHOLDS
+from pypath_shiny.config import DEFAULTS, THRESHOLDS, UI
+from pypath_shiny.services.gt_formatters import (
+    format_dataframe,
+    format_results_summary,
+)
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
     notify_success,
     notify_warning,
+)
+from pypath_shiny.services.plotly_viz import (  # noqa: E402
+    build_ee_figure,
+    build_tl_bar_figure,
 )
 from pypath_shiny.services.tasks import (
     TaskState,
@@ -41,8 +60,6 @@ from .import_validation import (
 # Import shared utilities
 from .utils import (
     COLUMN_TOOLTIPS,
-    NO_DATA_STYLE,
-    STANZA_STYLE,
     create_cell_styles,
     format_dataframe_for_display,
     is_balanced_model,
@@ -538,7 +555,10 @@ def ecopath_ui():
                     ui.h4("Balanced Model Results", class_="mt-3"),
                     ui.output_ui("balance_validation_summary"),
                     ui.output_ui("balance_status"),
-                    ui.output_data_frame("model_results_table"),
+                    ui.output_ui(
+                        "model_results_table",
+                        style="max-height: 500px; overflow: auto;",
+                    ),
                 ),
                 ui.nav_panel(
                     "Multi-Stanza",
@@ -559,8 +579,10 @@ def ecopath_ui():
                     ui.h4("Model Diagnostics", class_="mt-3"),
                     ui.output_ui("diagnostics_output"),
                     ui.layout_columns(
-                        ui.output_plot("trophic_level_plot"),
-                        ui.output_plot("ee_plot"),
+                        output_widget(
+                            "trophic_level_plot", height=UI.plot_height_small_px
+                        ),
+                        output_widget("ee_plot", height=UI.plot_height_small_px),
                         col_widths=[6, 6],
                     ),
                 ),
@@ -1480,101 +1502,21 @@ def ecopath_server(
         )
 
     @output
-    @render.data_frame
+    @render.ui
     def model_results_table():
-        """Display balanced model results with formatting."""
+        """Display balanced model results with great_tables formatting."""
         model = balanced_model.get()
         if model is None:
-            return render.DataGrid(
-                pd.DataFrame({"Message": ["Balance the model to see results"]})
+            return format_dataframe(
+                pd.DataFrame({"Message": ["Balance the model to see results"]}),
+                title="Model Results",
             )
 
         # Get the summary DataFrame
         df = model.summary()
 
-        # Get stanza group names if available (from params)
-        p = params.get()
-        stanza_groups = None
-        if p is not None and hasattr(p, "stanzas") and p.stanzas is not None:
-            stindiv = (
-                p.stanzas.stindiv
-            )  # RpathStanzaParams is a dataclass, access attribute directly
-            if stindiv is not None and len(stindiv) > 0:
-                stanza_groups = (
-                    stindiv["Group"].tolist() if "Group" in stindiv.columns else []
-                )
-
-        # Format for display: handle 9999 values, round decimals, convert Type, mark stanza groups
-        formatted_df, no_data_mask, _, stanza_mask = format_dataframe_for_display(
-            df, decimal_places=3, stanza_groups=stanza_groups
-        )
-
-        # Create styles - check mask values carefully using bool() conversion
-        styles = []
-
-        # Style no-data cells and stanza cells
-        for row_idx in range(len(formatted_df)):
-            for col_idx, col in enumerate(formatted_df.columns):
-                is_no_data = (
-                    bool(no_data_mask.iloc[row_idx][col])
-                    if col in no_data_mask.columns
-                    else False
-                )
-                is_stanza = (
-                    bool(stanza_mask.iloc[row_idx][col])
-                    if (stanza_mask is not None and col in stanza_mask.columns)
-                    else False
-                )
-
-                if is_no_data:
-                    styles.append(
-                        {
-                            "location": "body",
-                            "rows": row_idx,
-                            "cols": col_idx,
-                            "style": NO_DATA_STYLE,
-                        }
-                    )
-                elif is_stanza:
-                    styles.append(
-                        {
-                            "location": "body",
-                            "rows": row_idx,
-                            "cols": col_idx,
-                            "style": STANZA_STYLE,
-                        }
-                    )
-
-        # Add special styling for calculated columns (EE, GE, TL)
-        calculated_cols = ["EE", "GE", "TL"]
-        col_positions = {c: i for i, c in enumerate(formatted_df.columns)}
-        for col in calculated_cols:
-            if col in formatted_df.columns:
-                col_idx = col_positions[col]
-                for row_idx in range(len(formatted_df)):
-                    is_no_data = (
-                        bool(no_data_mask.iloc[row_idx][col])
-                        if col in no_data_mask.columns
-                        else False
-                    )
-                    is_stanza = (
-                        bool(stanza_mask.iloc[row_idx][col])
-                        if (stanza_mask is not None and col in stanza_mask.columns)
-                        else False
-                    )
-                    if not is_no_data and not is_stanza:
-                        styles.append(
-                            {
-                                "location": "body",
-                                "rows": row_idx,
-                                "cols": col_idx,
-                                "style": {
-                                    "background-color": "#f0fff0"
-                                },  # Light green for calculated values
-                            }
-                        )
-
-        return render.DataGrid(formatted_df, filters=False, styles=styles, width="100%")
+        # Format with great_tables
+        return format_results_summary(df, title="Balanced Model Results")
 
     @output
     @render.ui
@@ -1616,85 +1558,40 @@ def ecopath_server(
             ),
         )
 
+    def _living_and_dead(model):
+        """(group names, slice length) for living + detritus groups."""
+        all_groups = _get_groups_from_model(model)
+        n = (
+            model.NUM_LIVING + model.NUM_DEAD
+            if is_balanced_model(model)
+            else len(all_groups)
+        )
+        return all_groups[:n], n
+
     @output
-    @render.plot
+    @render_widget
     def trophic_level_plot():
-        """Plot trophic levels."""
-        import matplotlib.pyplot as plt
-
+        """Interactive trophic levels, coloured by role (Plotly)."""
         model = balanced_model.get()
         if model is None:
-            fig, ax = plt.subplots()
-            ax.text(0.5, 0.5, "No model data", ha="center", va="center")
-            return fig
-
-        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
-
-        # Get group names safely
-        all_groups = _get_groups_from_model(model)
-        num_living_dead = (
-            model.NUM_LIVING + model.NUM_DEAD
-            if is_balanced_model(model)
-            else len(all_groups)
+            return build_tl_bar_figure([], [], title="Trophic Levels by Group")
+        groups, n = _living_and_dead(model)
+        return build_tl_bar_figure(
+            groups,
+            model.TL[:n],
+            title="Trophic Levels by Group",
+            top_predator_tl=THRESHOLDS.type_threshold_consumer_toppred,
         )
-        groups = all_groups[:num_living_dead]
-        tl = model.TL[:num_living_dead]
-
-        colors = [
-            (
-                "#2ecc71"
-                if t == 1
-                else (
-                    "#3498db"
-                    if t < THRESHOLDS.type_threshold_consumer_toppred
-                    else "#e74c3c"
-                )
-            )
-            for t in tl
-        ]
-
-        ax.barh(groups, tl, color=colors)
-        ax.set_xlabel("Trophic Level")
-        ax.set_title("Trophic Levels by Group")
-        ax.axvline(x=1, color="gray", linestyle="--", alpha=0.5)
-
-        plt.tight_layout()
-        return fig
 
     @output
-    @render.plot
+    @render_widget
     def ee_plot():
-        """Plot ecotrophic efficiency."""
-        import matplotlib.pyplot as plt
-
+        """Interactive ecotrophic efficiency (Plotly)."""
         model = balanced_model.get()
         if model is None:
-            fig, ax = plt.subplots()
-            ax.text(0.5, 0.5, "No model data", ha="center", va="center")
-            return fig
-
-        fig, ax = plt.subplots(figsize=(PLOTS.default_width, PLOTS.default_height))
-
-        # Get group names safely
-        all_groups = _get_groups_from_model(model)
-        num_living_dead = (
-            model.NUM_LIVING + model.NUM_DEAD
-            if is_balanced_model(model)
-            else len(all_groups)
-        )
-        groups = all_groups[:num_living_dead]
-        ee = model.EE[:num_living_dead]
-
-        colors = ["#2ecc71" if 0 <= e <= 1 else "#e74c3c" for e in ee]
-
-        ax.barh(groups, ee, color=colors)
-        ax.set_xlabel("Ecotrophic Efficiency")
-        ax.set_title("Ecotrophic Efficiency by Group")
-        ax.axvline(x=1, color="red", linestyle="--", alpha=0.5, label="EE=1")
-        ax.set_xlim(0, max(1.1, max(ee) * 1.1))
-
-        plt.tight_layout()
-        return fig
+            return build_ee_figure([], np.array([]))
+        groups, n = _living_and_dead(model)
+        return build_ee_figure(groups, np.asarray(model.EE[:n], dtype=float))
 
     @render.download(filename="pypath_params.csv")
     def download_params():

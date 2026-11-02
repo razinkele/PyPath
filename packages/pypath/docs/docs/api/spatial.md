@@ -5,6 +5,40 @@ dynamics across a grid of interconnected patches. Each patch runs its own
 Ecosim-like derivative computation while species disperse, advect, and
 respond to spatially varying habitat and environmental conditions.
 
+## Functional Development Workflows
+
+| Workflow | Primary API Entry Points | Typical Outcome |
+|----------|--------------------------|-----------------|
+| **Coupled state-vector initialization** | `build_initial_state_vector()` | Convert total-biomass vectors into patch-resolved coupled vectors |
+| **End-to-end coupled run** | `run_coupled_simulation()`, `rsim_run_spatial()` | Spatially explicit Ecosim-Ecospace simulation with optional vector roundtrip |
+| **Patch-level custom derivatives** | `deriv_vector_spatial()` | Direct access to local+movement derivative calculations for custom integrators |
+| **Spatial policy controls** | `rsim_run_spatial(..., mpa=..., spatial_fishing=..., environmental_drivers=...)` | Marine protected area closures, fleet redistribution, and habitat/environment forcing |
+
+### Coupled run pattern
+
+```python
+from pypath.spatial import build_initial_state_vector
+from pypath.spatial.integration import rsim_run_spatial
+
+initial = build_initial_state_vector(
+    total_biomass=scenario.start_state.Biomass,
+    n_patches=ecospace.grid.n_patches,
+    habitat_capacity=ecospace.habitat_capacity,
+)
+
+result = rsim_run_spatial(
+    scenario,
+    ecospace=ecospace,
+    initial_state_vector=initial.values,
+    store_state_vectors=True,
+)
+
+# New coupled outputs
+spatial_biomass = result.out_Biomass_spatial
+state_history = result.out_StateVector
+state_final = result.state_vector_final
+```
+
 ## Core Data Structures
 
 Parameters defining the spatial grid, habitat maps, dispersal rates, and

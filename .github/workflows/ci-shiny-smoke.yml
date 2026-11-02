@@ -45,6 +45,12 @@ jobs:
         run: |
           python -m pytest -q packages/pypath-shiny/tests/test_shinyswatch_integration.py -q
 
+      # The full Shiny unit suite (render contracts, page helpers, GT/Plotly
+      # services). main auto-deploys the app, so these must gate merges.
+      - name: Run Shiny unit tests
+        run: |
+          python -m pytest -q packages/pypath-shiny/tests --ignore=packages/pypath-shiny/tests/ui --disable-warnings
+
       - name: Start Shiny server
         run: |
           nohup python -m shiny run packages/pypath-shiny/src/pypath_shiny/app.py --port 8000 > server.log 2>&1 &

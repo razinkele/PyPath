@@ -54,7 +54,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - Phase 1B Release (v0.5.3):
+  - Release Guides (legacy v0.5.3):
       - Overview: phase1b_readme.md
       - Integration Workflows: phase1b_integration.md
   - API Reference:

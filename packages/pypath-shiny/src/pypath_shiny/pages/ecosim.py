@@ -11,14 +11,42 @@ from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
 from pypath.core.ecosim_advanced import rsim_run_advanced
 from pypath.core.forcing import DietRewiring
 from shiny import Inputs, Outputs, Session, reactive, render, ui
+from shiny.types import SilentException
+
+try:
+    from shinywidgets import output_widget, render_widget
+except ImportError:  # pragma: no cover
+
+    def output_widget(*args, **kwargs):
+        return ui.output_plot(*args, **kwargs)
+
+    def render_widget(func):
+        return render.plot(func)
+
 
 # Import centralized configuration
 from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
+from pypath_shiny.services.ecosim_controls import (
+    apply_fishing_management_control,
+    apply_metabolism_control,
+    apply_recruitment_control,
+    build_control_metadata,
+    validate_fishing_management_control,
+    validate_metabolism_control,
+    validate_recruitment_control,
+)
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
     notify_success,
     notify_warning,
+)
+from pypath_shiny.services.plotly_viz import (
+    build_biomass_change_figure,
+    build_biomass_figure,
+    build_catch_figure,
+    build_effort_figure,
+    build_initial_final_figure,
 )
 from pypath_shiny.services.tasks import (
     TaskState,
@@ -248,6 +276,126 @@ def ecosim_ui() -> ui.Tag:
                 ),
                 ui.output_ui("fishing_params_ui"),
                 ui.tags.hr(),
+                # Recruitment controls
+                ui.h5("Recruitment Dynamics"),
+                ui.input_checkbox(
+                    "enable_recruitment_control",
+                    "Enable stock-recruitment model",
+                    value=False,
+                ),
+                ui.panel_conditional(
+                    "input.enable_recruitment_control",
+                    ui.input_select(
+                        "recruitment_group",
+                        "Target Group",
+                        choices=["(Create scenario first)"],
+                    ),
+                    ui.input_select(
+                        "recruitment_model",
+                        "Model Type",
+                        choices={
+                            "ricker": "Ricker",
+                            "bevertonholt": "Beverton-Holt",
+                            "myers": "Myers",
+                        },
+                        selected="ricker",
+                    ),
+                    ui.output_ui("recruitment_params_ui"),
+                    ui.input_numeric(
+                        "recruitment_env_multiplier",
+                        "Environmental Multiplier",
+                        value=1.0,
+                        min=PARAM_RANGES.recruitment_env_multiplier_min,
+                        max=PARAM_RANGES.recruitment_env_multiplier_max,
+                        step=0.1,
+                    ),
+                ),
+                ui.tags.hr(),
+                # Metabolism controls
+                ui.h5("Metabolism Scaling"),
+                ui.input_checkbox(
+                    "enable_metabolism_control",
+                    "Enable temperature/size scaling",
+                    value=False,
+                ),
+                ui.panel_conditional(
+                    "input.enable_metabolism_control",
+                    ui.input_slider(
+                        "metabolism_temperature_delta",
+                        "Temperature Delta (°C)",
+                        min=PARAM_RANGES.metabolism_temp_delta_min,
+                        max=PARAM_RANGES.metabolism_temp_delta_max,
+                        value=PARAM_RANGES.metabolism_temp_delta_default,
+                        step=0.5,
+                    ),
+                    ui.input_slider(
+                        "metabolism_q10",
+                        "Q10 Coefficient",
+                        min=PARAM_RANGES.metabolism_q10_min,
+                        max=PARAM_RANGES.metabolism_q10_max,
+                        value=PARAM_RANGES.metabolism_q10_default,
+                        step=0.1,
+                    ),
+                    ui.input_numeric(
+                        "metabolism_mass_exponent",
+                        "Mass Exponent",
+                        value=PARAM_RANGES.metabolism_mass_exponent_default,
+                        min=PARAM_RANGES.metabolism_mass_exponent_min,
+                        max=PARAM_RANGES.metabolism_mass_exponent_max,
+                        step=0.05,
+                    ),
+                    ui.input_numeric(
+                        "metabolism_reference_mass",
+                        "Reference Mass",
+                        value=PARAM_RANGES.metabolism_reference_mass_default,
+                        min=PARAM_RANGES.metabolism_reference_mass_min,
+                        step=0.1,
+                    ),
+                    ui.input_numeric(
+                        "metabolism_activity_budget",
+                        "Activity Budget",
+                        value=PARAM_RANGES.metabolism_activity_budget_default,
+                        min=PARAM_RANGES.metabolism_activity_budget_min,
+                        max=PARAM_RANGES.metabolism_activity_budget_max,
+                        step=0.1,
+                    ),
+                    ui.layout_columns(
+                        ui.input_checkbox(
+                            "metabolism_apply_consumers",
+                            "Apply to consumers",
+                            value=True,
+                        ),
+                        ui.input_checkbox(
+                            "metabolism_apply_producers",
+                            "Apply to producers",
+                            value=True,
+                        ),
+                        col_widths=[6, 6],
+                    ),
+                ),
+                ui.tags.hr(),
+                # Adaptive fishing management controls
+                ui.h5("Adaptive Fishing Management"),
+                ui.input_checkbox(
+                    "enable_fishing_management_control",
+                    "Enable fleet management strategy",
+                    value=False,
+                ),
+                ui.panel_conditional(
+                    "input.enable_fishing_management_control",
+                    ui.input_select(
+                        "fishing_management_strategy",
+                        "Management Strategy",
+                        choices={
+                            "sustainability": "Sustainability reduction",
+                            "revenue": "Revenue-focused allocation",
+                            "bycatch": "Bycatch minimization",
+                        },
+                        selected="sustainability",
+                    ),
+                    ui.output_ui("fishing_management_params_ui"),
+                ),
+                ui.tags.hr(),
                 # Stability settings
                 ui.h5(
                     ui.span(
@@ -304,13 +452,16 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_scenario_setup"),
                     ui.output_ui("scenario_status"),
                     ui.layout_columns(
                         ui.card(
                             ui.card_header("Effort Forcing"),
-                            ui.output_plot("effort_preview_plot"),
+                            output_widget(
+                                "effort_preview_plot", height=UI.plot_height_small_px
+                            ),
                         ),
                         ui.card(
                             ui.card_header("Biomass Forcing"),
@@ -366,6 +517,7 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_progress"),
                     ui.output_ui("simulation_status"),
@@ -387,6 +539,7 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_timeseries"),
                     ui.layout_columns(
@@ -416,8 +569,9 @@ def ecosim_ui() -> ui.Tag:
                             value=False,
                         ),
                         col_widths=[9, 3],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
-                    ui.output_plot(
+                    output_widget(
                         "biomass_timeseries", height=UI.plot_height_medium_px
                     ),
                 ),
@@ -437,9 +591,10 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_catch"),
-                    ui.output_plot("catch_timeseries", height=UI.plot_height_small_px),
+                    output_widget("catch_timeseries", height=UI.plot_height_small_px),
                     ui.output_table("annual_catch_table"),
                 ),
                 ui.nav_panel(
@@ -458,18 +613,39 @@ def ecosim_ui() -> ui.Tag:
                             style="text-align: right;",
                         ),
                         col_widths=[10, 2],
+                        fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_summary"),
                     ui.output_ui("summary_cards"),
                     ui.layout_columns(
-                        ui.output_plot("final_biomass_plot"),
-                        ui.output_plot("biomass_change_plot"),
+                        output_widget(
+                            "final_biomass_plot", height=UI.plot_height_medium_px
+                        ),
+                        output_widget(
+                            "biomass_change_plot", height=UI.plot_height_medium_px
+                        ),
                         col_widths=[6, 6],
+                        fill=False,  # do not stretch to the tab height
                     ),
                 ),
             ),
         ),
     )
+
+
+def read_optional_input(input, name: str, default):
+    """Read an input that may not exist in the browser.
+
+    Inputs created by an ``output_ui`` inside a hidden conditional panel are
+    never rendered, and reading one raises ``SilentException``.
+    ``hasattr(input, name)`` is always True for Shiny's Inputs, so it is no
+    guard. Returns ``default`` when the input is missing or None.
+    """
+    try:
+        value = getattr(input, name)()
+    except (SilentException, AttributeError, KeyError, TypeError):
+        return default
+    return default if value is None else value
 
 
 def ecosim_server(
@@ -511,11 +687,16 @@ def ecosim_server(
     # Years the current scenario was actually built with (input.sim_years() may
     # have been changed since).
     scenario_years = reactive.Value(None)
+    scenario_controls_metadata = reactive.Value({})
     show_help_scenario = reactive.Value(False)
     show_help_progress = reactive.Value(False)
     show_help_timeseries = reactive.Value(False)
     show_help_catch = reactive.Value(False)
     show_help_summary = reactive.Value(False)
+
+    def _input_or_default(name: str, default):
+        """Read a UI input value with fallback for conditional controls."""
+        return read_optional_input(input, name, default)
 
     @reactive.effect
     @reactive.event(input.btn_help_scenario)
@@ -1185,6 +1366,85 @@ def ecosim_server(
 
         return ui.p("", class_="text-muted")
 
+    @output
+    @render.ui
+    def recruitment_params_ui():
+        """Dynamic UI for recruitment model parameters."""
+        model_type = input.recruitment_model()
+
+        if model_type in {"ricker", "bevertonholt"}:
+            return ui.div(
+                ui.input_numeric(
+                    "recruitment_alpha", "Alpha", value=1.2, min=0.001, step=0.05
+                ),
+                ui.input_numeric(
+                    "recruitment_beta", "Beta", value=0.1, min=0.001, step=0.01
+                ),
+                ui.input_numeric(
+                    "recruitment_rmax", "Rmax", value=1.5, min=0.1, step=0.1
+                ),
+            )
+
+        if model_type == "myers":
+            return ui.div(
+                ui.input_numeric(
+                    "recruitment_rmax", "Rmax", value=1.5, min=0.1, step=0.1
+                ),
+                ui.input_numeric("recruitment_k", "K", value=1.0, min=0.001, step=0.05),
+                ui.input_numeric(
+                    "recruitment_power", "Power", value=1.0, min=0.1, max=4.0, step=0.1
+                ),
+            )
+
+        return ui.p("", class_="text-muted")
+
+    @output
+    @render.ui
+    def fishing_management_params_ui():
+        """Dynamic UI for adaptive fishing-management parameters."""
+        strategy = input.fishing_management_strategy()
+
+        if strategy == "sustainability":
+            return ui.div(
+                ui.input_slider(
+                    "sustainability_reduction",
+                    "Effort Retention",
+                    min=PARAM_RANGES.sustainability_reduction_min,
+                    max=PARAM_RANGES.sustainability_reduction_max,
+                    value=PARAM_RANGES.sustainability_reduction_default,
+                    step=0.05,
+                ),
+                ui.input_slider(
+                    "sustainability_floor",
+                    "Minimum Effort Floor",
+                    min=PARAM_RANGES.sustainability_floor_min,
+                    max=PARAM_RANGES.sustainability_floor_max,
+                    value=PARAM_RANGES.sustainability_floor_default,
+                    step=0.05,
+                ),
+            )
+
+        if strategy == "revenue":
+            return ui.input_numeric(
+                "fishing_effort_budget",
+                "Effort Budget",
+                value=PARAM_RANGES.fishing_effort_budget_default,
+                min=PARAM_RANGES.fishing_effort_budget_min,
+                step=0.1,
+            )
+
+        if strategy == "bycatch":
+            return ui.input_slider(
+                "bycatch_reduction",
+                "Bycatch Reduction Fraction",
+                min=PARAM_RANGES.bycatch_reduction_min,
+                max=PARAM_RANGES.bycatch_reduction_max,
+                value=PARAM_RANGES.bycatch_reduction_default,
+                step=0.05,
+            )
+
+        return ui.p("", class_="text-muted")
+
     @reactive.effect
     @reactive.event(input.btn_create_scenario)
     def _create_scenario():
@@ -1247,6 +1507,69 @@ def ecosim_server(
             # Apply fishing scenario
             _apply_fishing_scenario(new_scenario, input)
 
+            # Apply advanced control adapters
+            recruitment_summary = apply_recruitment_control(
+                new_scenario,
+                validate_recruitment_control(
+                    enabled=input.enable_recruitment_control(),
+                    group_name=input.recruitment_group(),
+                    model_type=input.recruitment_model(),
+                    alpha=read_optional_input(input, "recruitment_alpha", 1.2),
+                    beta=read_optional_input(input, "recruitment_beta", 0.1),
+                    rmax=read_optional_input(input, "recruitment_rmax", 1.5),
+                    k=_input_or_default("recruitment_k", 1.0),
+                    power=read_optional_input(input, "recruitment_power", 1.0),
+                    environment_multiplier=input.recruitment_env_multiplier(),
+                ),
+            )
+            metabolism_summary = apply_metabolism_control(
+                new_scenario,
+                validate_metabolism_control(
+                    enabled=input.enable_metabolism_control(),
+                    temperature_delta=input.metabolism_temperature_delta(),
+                    q10=input.metabolism_q10(),
+                    mass_exponent=input.metabolism_mass_exponent(),
+                    reference_mass=input.metabolism_reference_mass(),
+                    activity_budget=input.metabolism_activity_budget(),
+                    apply_to_consumers=input.metabolism_apply_consumers(),
+                    apply_to_producers=input.metabolism_apply_producers(),
+                ),
+            )
+            fishing_mgmt_summary = apply_fishing_management_control(
+                new_scenario,
+                validate_fishing_management_control(
+                    enabled=input.enable_fishing_management_control(),
+                    strategy=input.fishing_management_strategy(),
+                    sustainability_reduction=read_optional_input(
+                        input,
+                        "sustainability_reduction",
+                        PARAM_RANGES.sustainability_reduction_default,
+                    ),
+                    sustainability_floor=read_optional_input(
+                        input,
+                        "sustainability_floor",
+                        PARAM_RANGES.sustainability_floor_default,
+                    ),
+                    effort_budget=read_optional_input(
+                        input,
+                        "fishing_effort_budget",
+                        PARAM_RANGES.fishing_effort_budget_default,
+                    ),
+                    bycatch_reduction=read_optional_input(
+                        input,
+                        "bycatch_reduction",
+                        PARAM_RANGES.bycatch_reduction_default,
+                    ),
+                ),
+            )
+            controls_metadata = build_control_metadata(
+                recruitment=recruitment_summary,
+                metabolism=metabolism_summary,
+                fishing_management=fishing_mgmt_summary,
+            )
+            scenario_controls_metadata.set(controls_metadata)
+            setattr(new_scenario, "applied_controls_metadata", controls_metadata)
+
             # Apply autofix if enabled
             if input.enable_autofix():
                 new_scenario, report = validate_and_fix_scenario(
@@ -1280,6 +1603,7 @@ def ecosim_server(
                 "plot_groups", choices=group_names, selected=group_names[:3]
             )
             ui.update_select("forcing_group", choices=group_names)
+            ui.update_select("recruitment_group", choices=group_names)
 
             scenario_years.set(input.sim_years())
             notify_success("Scenario created successfully!")
@@ -1347,60 +1671,34 @@ def ecosim_server(
                 class_="alert alert-info",
             )
 
+        metadata = scenario_controls_metadata.get() or {}
+        enabled_controls = [
+            name.replace("_", " ")
+            for name, value in metadata.items()
+            if isinstance(value, dict) and value.get("enabled")
+        ]
+        controls_note = (
+            f" Controls: {', '.join(enabled_controls)}." if enabled_controls else ""
+        )
+
         return ui.div(
             ui.tags.i(class_="bi bi-check-circle me-2"),
             f"Scenario ready: {scen.params.NUM_GROUPS} groups, "
-            f"{scenario_years.get()} years",
+            f"{scenario_years.get()} years.{controls_note}",
             class_="alert alert-success",
         )
 
     @output
-    @render.plot
+    @render_widget
     def effort_preview_plot():
-        """Preview effort forcing trajectory."""
-        import matplotlib.pyplot as plt
-
+        """Interactive effort forcing preview, one line per fleet (Plotly)."""
         scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(8, 4))
-
         if scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Create scenario to preview effort",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        # Check if there are any gears
-        n_gears = scen.fishing.ForcedEffort.shape[1] - 1
-        if n_gears <= 0:
-            ax.text(
-                0.5,
-                0.5,
-                "No fishing fleets in model",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        effort = scen.fishing.ForcedEffort[:, 1]  # First fleet
-        months = np.arange(len(effort)) / 12
-
-        ax.plot(months, effort, "b-", linewidth=2)
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Effort Multiplier")
-        ax.set_title("Fishing Effort Trajectory")
-        ax.axhline(y=1, color="gray", linestyle="--", alpha=0.5)
-        ax.set_xlim(0, len(effort) / 12)
-        ax.set_ylim(0, max(1.5, max(effort) * 1.1))
-
-        plt.tight_layout()
-        return fig
+            return build_effort_figure(None, [])
+        p = scen.params
+        first_fleet = 1 + p.NUM_LIVING + p.NUM_DEAD  # spname[0] is "Outside"
+        fleets = list(p.spname[first_fleet : first_fleet + p.NUM_GEARS])
+        return build_effort_figure(scen.fishing.ForcedEffort, fleets)
 
     def _apply_biomass_forcing(scen):
         """Apply the Biomass Forcing card to the scenario's prey multiplier."""
@@ -1484,6 +1782,11 @@ def ecosim_server(
                     progress=85.0,
                 )
             )
+
+            controls_metadata = scenario_controls_metadata.get() or {}
+            if isinstance(output.params, dict):
+                output.params["applied_controls"] = controls_metadata
+            setattr(output, "applied_controls_metadata", controls_metadata)
 
             sim_output.set(output)
             sim_results.set(output)
@@ -1709,108 +2012,36 @@ def ecosim_server(
         )
 
     @output
-    @render.plot
+    @render_widget
     def biomass_timeseries():
-        """Plot biomass time series."""
-        import matplotlib.pyplot as plt
-
+        """Interactive biomass time series (Plotly)."""
         output = sim_output.get()
         scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(12, 6))
-
         if output is None or scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Run simulation to see results",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
+            return build_biomass_figure(
+                None,
+                [],
+                [],
+                title="Biomass Trajectories",
+                empty_message="Run simulation to see results",
             )
-            return fig
-
-        selected_groups = input.plot_groups()
-        if not selected_groups:
-            ax.text(
-                0.5,
-                0.5,
-                "Select groups to plot",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        # Get time and biomass data
-        n_months = output.out_Biomass.shape[0]
-        time = np.arange(n_months) / 12
-
-        # Get group indices
-        group_names = scen.params.spname[1:]  # Skip "Outside"
-
-        for group in selected_groups:
-            if group in group_names:
-                idx = group_names.index(group) + 1  # +1 for Outside offset
-
-                biomass = output.out_Biomass[:, idx]
-
-                if input.relative_biomass():
-                    if biomass[0] > 0:
-                        biomass = biomass / biomass[0]
-                    else:
-                        biomass = np.zeros_like(biomass)
-
-                ax.plot(time, biomass, label=group, linewidth=2)
-
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Relative Biomass" if input.relative_biomass() else "Biomass")
-        ax.set_title("Biomass Trajectories")
-        ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
-        ax.set_xlim(0, max(time))
-
-        if input.relative_biomass():
-            ax.axhline(y=1, color="gray", linestyle="--", alpha=0.5)
-
-        plt.tight_layout()
-        return fig
+        return build_biomass_figure(
+            output,
+            list(scen.params.spname[1:]),  # skip "Outside"
+            list(input.plot_groups() or []),
+            relative=bool(input.relative_biomass()),
+            title="Biomass Trajectories",
+            empty_message="Select groups to plot",
+        )
 
     @output
-    @render.plot
+    @render_widget
     def catch_timeseries():
-        """Plot catch time series."""
-        import matplotlib.pyplot as plt
-
+        """Interactive total annual catch (Plotly)."""
         output = sim_output.get()
-        scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(12, 5))
-
-        if output is None or scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Run simulation to see catch data",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        # Annual catch data
-        years = np.arange(output.annual_Catch.shape[0]) + 1
-        total_catch = np.sum(output.annual_Catch[:, 1:], axis=1)
-
-        ax.fill_between(years, total_catch, alpha=0.3)
-        ax.plot(years, total_catch, "b-", linewidth=2, label="Total Catch")
-
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Catch")
-        ax.set_title("Total Annual Catch")
-        ax.set_xlim(1, len(years))
-
-        plt.tight_layout()
-        return fig
+        if scenario.get() is None:
+            output = None
+        return build_catch_figure(output, title="Total Annual Catch")
 
     @output
     @render.table
@@ -1879,86 +2110,33 @@ def ecosim_server(
             col_widths=[3, 3, 3, 3],
         )
 
+    def _start_end_living_biomass():
+        """(group names, initial, final) for living groups, or None."""
+        output = sim_output.get()
+        scen = scenario.get()
+        if output is None or scen is None:
+            return None
+        n_living = scen.params.NUM_LIVING
+        return (
+            list(scen.params.spname[1 : n_living + 1]),
+            output.out_Biomass[0, 1 : n_living + 1],
+            output.out_Biomass[-1, 1 : n_living + 1],
+        )
+
     @output
-    @render.plot
+    @render_widget
     def final_biomass_plot():
-        """Plot final vs initial biomass."""
-        import matplotlib.pyplot as plt
-
-        output = sim_output.get()
-        scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-
-        if output is None or scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Run simulation first",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        n_living = scen.params.NUM_LIVING
-        group_names = scen.params.spname[1 : n_living + 1]
-
-        initial = output.out_Biomass[0, 1 : n_living + 1]
-        final = output.out_Biomass[-1, 1 : n_living + 1]
-
-        x = np.arange(len(group_names))
-        width = 0.35
-
-        ax.bar(x - width / 2, initial, width, label="Initial", color="#3498db")
-        ax.bar(x + width / 2, final, width, label="Final", color="#2ecc71")
-
-        ax.set_xlabel("Group")
-        ax.set_ylabel("Biomass")
-        ax.set_title("Initial vs Final Biomass")
-        ax.set_xticks(x)
-        ax.set_xticklabels(group_names, rotation=45, ha="right")
-        ax.legend()
-
-        plt.tight_layout()
-        return fig
+        """Interactive initial vs final biomass (Plotly)."""
+        data = _start_end_living_biomass()
+        if data is None:
+            return build_initial_final_figure([], [], [])
+        return build_initial_final_figure(*data)
 
     @output
-    @render.plot
+    @render_widget
     def biomass_change_plot():
-        """Plot percent biomass change."""
-        import matplotlib.pyplot as plt
-
-        output = sim_output.get()
-        scen = scenario.get()
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-
-        if output is None or scen is None:
-            ax.text(
-                0.5,
-                0.5,
-                "Run simulation first",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            return fig
-
-        n_living = scen.params.NUM_LIVING
-        group_names = scen.params.spname[1 : n_living + 1]
-
-        initial = output.out_Biomass[0, 1 : n_living + 1]
-        final = output.out_Biomass[-1, 1 : n_living + 1]
-
-        pct_change = np.where(initial > 0, (final - initial) / initial * 100, 0)
-
-        colors = ["#2ecc71" if c >= 0 else "#e74c3c" for c in pct_change]
-
-        ax.barh(group_names, pct_change, color=colors)
-        ax.axvline(x=0, color="gray", linestyle="-")
-        ax.set_xlabel("Percent Change (%)")
-        ax.set_title("Biomass Change by Group")
-
-        plt.tight_layout()
-        return fig
+        """Interactive percent biomass change (Plotly)."""
+        data = _start_end_living_biomass()
+        if data is None:
+            return build_biomass_change_figure([], [], [])
+        return build_biomass_change_figure(*data)

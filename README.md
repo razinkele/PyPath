@@ -31,6 +31,7 @@
   - [Spatial (Ecospace)](https://razinkele.github.io/PyPath/api/spatial/)
   - [I/O & Data Import](https://razinkele.github.io/PyPath/api/io/)
   - [Examples & Guides](https://razinkele.github.io/PyPath/examples/basic-model/)
+- Historical checkpoint/process artifacts archive: [`docs/archive/root-artifacts/`](docs/archive/root-artifacts/README.md)
 
 ## Package Architecture: pypath-core vs pypath-shiny
 
@@ -45,73 +46,34 @@ PyPath is a monorepo with two distributable packages:
 
 ## Available Functionality
 
+### Latest Developments (v1.0.0 line)
+
+- **Coupled Ecosim-Ecospace workflows** with explicit state-vector utilities:
+  - `pypath.spatial.build_initial_state_vector()`
+  - `pypath.spatial.run_coupled_simulation()`
+  - `pypath.spatial.integration.rsim_run_spatial(..., initial_state_vector=..., store_state_vectors=True)`
+  - Coupled outputs include `out_Biomass_spatial`, `out_StateVector`, and `state_vector_final`
+- **Scenario optimization API** for management experiments:
+  - `pypath.analysis.scenario_optimizer` (`ObjectiveSpec`, `ScenarioOptimizer`, `make_spatial_management_evaluator`)
+- **Expanded Ecosim functional modules**:
+  - Recruitment (`pypath.core.recruitment`, `pypath.core.ecosim_recruitment`)
+  - Metabolism scaling (`pypath.core.metabolism`)
+  - Fishing strategy utilities (`pypath.core.fishing_management`)
+  - Sensitivity/uncertainty/risk workflows (`pypath.core.sensitivity_analysis`)
+- **Deterministic performance benchmark CI**:
+  - Benchmark suite + regression gates + configurable thresholds
+  - Guide: `packages/pypath/docs/docs/guides/performance-benchmarks.md`
+- **Shiny app UX updates**:
+  - Topbar version display with About and Changelog quick links
+  - Feedback reporting + feedback dashboard workflow
+
 ### User Resources & Examples
 
-**New in 0.5.0:**
-- 📘 **[PyPath User Manual (PDF)](PyPath_User_Manual_v0.5.0.pdf)** — Comprehensive 9-page guide covering:
-  - Installation methods (Conda, Pip, source)
-  - Core concepts (Ecopath mass-balance, Ecosim dynamics)
-  - IBM implementation and Shiny app guide
-  - Practical examples and troubleshooting
-  
-- 🌊 **[Curonian Lagoon Ecosim Example](CURONIAN_ECOSIM_README.md)** — Production-ready example demonstrating:
-  - Loading Ecopath models from EwE databases
-  - Creating 4 management scenarios (baseline, reduction, closure, increase)
-  - Running 20-year Ecosim simulations
-  - Analyzing ecosystem responses across scenarios
-  - Complete data integration with real fishery data from the Baltic
-  - Ready-to-run Python script: curonian_lagoon_ecosim_demo.py
+- 📘 **[PyPath User Manual (PDF)](PyPath_User_Manual_v0.5.0.pdf)**
+- 🌊 **[Curonian Lagoon Ecosim Example](CURONIAN_ECOSIM_README.md)**
+- ⚙️ **[PEST Calibration Framework](PEST_CALIBRATION_GUIDE.md)**
+- 🐠 **[Multi-Stanza Age-Structured Models](MULTISTANZA_GUIDE.md)**
 
-- ⚙️ **[PEST Calibration Framework](PEST_CALIBRATION_GUIDE.md)** — Automated parameter estimation for Ecosim:
-  - Gauss-Levenberg-Marquardt (GLM) gradient-based optimization
-  - Differential Evolution (DE) for multimodal problems
-  - Parameter bounds and uncertainty quantification
-  - Jacobian computation via finite differences
-  - Full Curonian Lagoon calibration example
-  - Ready-to-run script: scripts/pest_calibration_curonian_lagoon.py
-- 🐠 **[Multi-Stanza Age-Structured Models](MULTISTANZA_GUIDE.md)** — Realistic population dynamics with age structure:
-  - Von Bertalanffy growth curves for each stanza
-  - Age-dependent mortality and consumption rates
-  - Ontogenetic diet shifts and predation vulnerability
-  - Size-selective fishing impact analysis
-  - Improved Curonian Lagoon model with demersal & predatory fish
-  - [Quick comparison guide](MULTISTANZA_COMPARISON.md) — Single-stanza vs. multi-stanza trade-offs
-  - Ready-to-run script: scripts/curonian_multistanza_example.py
-
-
-**New in 0.5.3:**
-- 📊 **Phase 1B.7 Release** — Six new modular systems:
-  - **Pedigree Module** — Data quality metadata and weighted uncertainty analysis
-  - **Taxonomy Module** — Hierarchical species grouping and functional classification
-  - **Size Module** — Length/weight conversions and biomass-at-size distributions
-  - **Fleet Module** — Multi-fleet fishing effort, selectivity, and economic analysis
-  - **Nutrients Module** — Nutrient cycling (N, P, Si) and biogeochemical coupling
-  - **Landings Module** — Fishery catch data integration and validation workflows
-  
-- 📓 **6 Jupyter Notebooks** — Ready-to-run examples covering:
-  - Pedigree workflow and uncertainty quantification
-  - Taxonomy construction and functional grouping
-  - Size-structured fleet dynamics and selectivity
-  - Nutrient cycling and biogeochemical feedback
-  - Landings data import and time-series calibration
-  - Integration guide combining all six modules
-  
-- 📚 **2 Comprehensive Guides**:
-  - [Integration Guide](docs/INTEGRATION_GUIDE.md) — Step-by-step workflow combining pedigree, taxonomy, size, fleet, nutrients, and landings modules
-  - [Quick Start Guide](docs/QUICK_START_GUIDE.md) — Fast-track setup for common modeling scenarios
-  
-- ✅ **EwE Feature Parity** — Significant improvements across 84-table audit:
-  - **Overall Parity: 35/84 (42%)** — 31 complete, 35 significantly improved, 18 partial
-  - **Ecopath Parity: 14/17 (82%)** — All mass-balance and structure tables fully supported
-  - New support for: advanced fleet economics, spatial species distribution, nutrient biogeochemistry
-  
-- 🧪 **Core Test Suite: 336 Tests Passing** — Comprehensive coverage:
-  - 40 new tests for pedigree module uncertainty workflows
-  - 38 new tests for taxonomy construction and validation
-  - 32 new tests for size-structured population dynamics
-  - 44 new tests for multi-fleet effort allocation and economics
-  - 31 new tests for nutrient cycling and biogeochemical coupling
-  - 36 new tests for landings integration and time-series calibration
 ### pypath-core (`pypath-ewe`)
 
 - Ecopath mass-balance model construction and solving
@@ -282,33 +244,33 @@ ibm.initialize_from_ecosim(biomass=1.0, params={})
 # Eggs develop, hatch, feed, grow, and recruit back into the food web
 ```
 
-## Ecopath, Ecosim, Ecospace, and Rpath — Functional Differences
+## Detailed Platform Comparison: PyPath vs Rpath vs Original EwE
 
-| Component | Purpose | In `pypath-ewe` | In `pypath-shiny` | In `Rpath` |
-|---|---|---|---|---|
-| **Ecopath** | Static mass-balance food-web model | Implemented in core solver APIs (`rpath`, params/model objects) | UI forms and tables for building/balancing models | Implemented |
-| **Ecosim** | Time-dynamic simulation over balanced models | Implemented in simulation APIs (`rsim_scenario`, `rsim_run`) | UI scenario controls, run orchestration, plots | Implemented |
-| **Ecospace** | Spatially explicit ecosystem dynamics | Implemented in spatial modules/integration | UI wizard + run/inspection pages | Not provided in baseline Rpath package |
-| **Rpath relation** | Reference R implementation for Ecopath/Ecosim | PyPath preserves Ecopath/Ecosim compatibility and extends beyond | Shiny layer exposes those extensions operationally | Reference implementation |
+| Dimension | **PyPath (this repository)** | **Rpath (NOAA-EDAB/Rpath)** | **Original EwE** |
+|---|---|---|---|
+| Primary implementation language | Python | R | C#/VB desktop stack |
+| Primary interface | Python API + optional Shiny web UI (`pypath-shiny`) | R functions/workflows | Desktop GUI (Ecopath with Ecosim software) |
+| Ecopath mass-balance | Implemented (`rpath`) | Implemented | Implemented |
+| Ecosim dynamic simulation | Implemented (`rsim_scenario`, `rsim_run`) | Implemented | Implemented |
+| Ecospace spatial simulation | Implemented (`pypath.spatial.*`, `rsim_run_spatial`) | Not part of baseline Rpath package | Implemented (native Ecospace module) |
+| EwE native database handling (`.eweaccdb`) | Import/export workflows in `pypath.io.ewemdb` | Not the primary baseline workflow in Rpath | Native source format |
+| Coupled state-vector workflows | Implemented (`CoupledStateVector`, `build_initial_state_vector`, `run_coupled_simulation`) | Not available as this workflow surface | Native runtime internals, not exposed as Python/R API |
+| Individual-Based Model (IBM) integration | Implemented (`pypath.ibm.*`) with Ecosim derivative coupling | Not provided as built-in module | Not provided as built-in module in standard EwE distribution |
+| Smelt full lifecycle IBM (egg to adult) | Implemented (`SmeltIBM`, development submodules) | Not available | Not available |
+| Recruitment model API | Implemented (`RickerRecruitment`, `BevertonHoltRecruitment`, `MyersRecruitment`) + scenario patching | No equivalent modular API surface in package scope | Recruitment features available in native EwE workflows |
+| Metabolism scaling API | Implemented (`MetabolicModel`, `TemperatureDependence`) | No equivalent modular API surface in package scope | Metabolism/consumption behavior available within EwE model logic |
+| Fishing-management helper API | Implemented (`DynamicLogisticSelectivity`, `FishingOptimization`) | No equivalent modular API surface in package scope | Fishing controls available through EwE interface/settings |
+| Sensitivity/uncertainty/risk API | Implemented (`SensitivityAnalyzer`, `UncertaintyPropagation`, `RiskAssessment`) | Typically external/add-on analysis in R workflows | Built-in EwE analysis tools plus plugin ecosystem |
+| Time-series calibration API | Implemented (`fit_to_timeseries`) | Available in Rpath workflows (different API design) | Native EwE calibration workflow |
+| Mediation functions | Implemented (`pypath.core.mediation`) | Not a dedicated baseline module | Native EwE capability |
+| Ecotracer-like contaminant module | Implemented (`pypath.core.ecotracer`) | Not available in baseline package | Native EwE Ecotracer module |
+| Fleet dynamics / MSE extensions | Implemented (`pypath.core.fleet_dynamics`) | Not available in baseline package | Management workflows available in EwE ecosystem |
+| Automated parity governance | CI parity audit + release gate in this repository | Not part of baseline Rpath package | N/A (reference platform) |
+| Web application layer | `pypath-shiny` package (Python Shiny) | No built-in web app in baseline package | Desktop-first application |
+| Packaging and deployment | PyPI/Conda-style Python packaging + GitHub Actions deploys | R package distribution workflows | Desktop installer/distribution |
+| Extensibility style | Python modules, dataclasses, test-driven CI | R ecosystem extensions/scripts | EwE plugins + desktop ecosystem |
 
-## Comparison with Rpath
-
-| Feature | Rpath | PyPath |
-|---------|-------|--------|
-| Core Ecopath/Ecosim | Yes | Yes |
-| Multi-stanza groups | Yes | Yes |
-| .eweaccdb import | Yes | Yes (full scenario loading) |
-| Ecospace (spatial) | No | Yes |
-| Individual-Based Model | No | Yes (complete lifecycle) |
-| IBM early life stages | No | Yes (egg→adult, 6 packages) |
-| Time series calibration | Limited | SS fitting |
-| Mediation functions | No | Yes |
-| Monte Carlo / Pedigree | No | Yes |
-| Ecotracer | No | Yes |
-| Fleet dynamics / MSE | No | Yes |
-| Ecological indicators | No | Yes |
-| EwE database export | No | Audited matrix + CI gate (`docs/parity/ewe_parity_matrix.csv`) |
-| Comprehensive tests | Limited | 1500+ tests |
+**Interpretation note:** this table compares **PyPath repository scope** against the baseline public package surfaces of Rpath and EwE. Rows marked as "not available" refer to missing first-class module/workflow surfaces in the compared baseline package, not to every possible third-party extension.
 
 ## Testing
 

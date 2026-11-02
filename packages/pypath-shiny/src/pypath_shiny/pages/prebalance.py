@@ -11,17 +11,18 @@ import logging
 import os
 from pathlib import Path
 
-import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 # Get logger
 logger = logging.getLogger(__name__)
 
+from pypath_shiny.components import empty_state  # noqa: E402
 from pypath_shiny.config import PLOTS, UI  # noqa: E402
 from pypath_shiny.pages.utils import (  # noqa: E402
     is_rpath_params,
     load_rpath_diagnostics,
 )
+from pypath_shiny.services.gt_formatters import format_diagnostics_table  # noqa: E402
 from pypath_shiny.services.notifications import (  # noqa: E402
     notify_error,
     notify_info,
@@ -294,16 +295,25 @@ def prebalance_ui():
                 ),
                 ui.nav_panel(
                     "Predator-Prey Ratios",
-                    ui.output_data_frame("table_predator_prey"),
+                    ui.output_ui(
+                        "table_predator_prey",
+                        style="max-height: 500px; overflow: auto;",
+                    ),
                 ),
                 ui.nav_panel(
                     "Vital Rate Ratios",
                     ui.tags.div(
                         ui.h5("P/B Ratios"),
-                        ui.output_data_frame("table_pb_ratios"),
+                        ui.output_ui(
+                            "table_pb_ratios",
+                            style="max-height: 300px; overflow: auto;",
+                        ),
                         ui.hr(),
                         ui.h5("Q/B Ratios"),
-                        ui.output_data_frame("table_qb_ratios"),
+                        ui.output_ui(
+                            "table_qb_ratios",
+                            style="max-height: 300px; overflow: auto;",
+                        ),
                     ),
                 ),
                 ui.nav_panel(
@@ -718,13 +728,17 @@ def prebalance_server(
         )
 
     @output
-    @render.data_frame
+    @render.ui
     def table_predator_prey():
         """Render predator-prey ratios table."""
         report = diagnostic_report()
 
         if report is None or len(report["predator_prey_ratios"]) == 0:
-            return pd.DataFrame()
+            return empty_state(
+                "Run diagnostics to see predator-prey ratios."
+                if report is None
+                else "No predator-prey ratios for this model."
+            )
 
         df = report["predator_prey_ratios"].copy()
 
@@ -736,16 +750,20 @@ def prebalance_server(
         # Sort by ratio descending
         df = df.sort_values("Ratio", ascending=False, key=lambda x: x.astype(float))
 
-        return render.DataGrid(df, width="100%", height=UI.datagrid_height_tall_px)
+        return format_diagnostics_table(df, "Predator-Prey Ratios")
 
     @output
-    @render.data_frame
+    @render.ui
     def table_pb_ratios():
         """Render P/B ratios table."""
         report = diagnostic_report()
 
         if report is None or len(report.get("pb_ratios", [])) == 0:
-            return pd.DataFrame()
+            return empty_state(
+                "Run diagnostics to see P/B ratios."
+                if report is None
+                else "No P/B ratios for this model."
+            )
 
         df = report["pb_ratios"].copy()
 
@@ -754,16 +772,20 @@ def prebalance_server(
         df["Predator_Rate"] = df["Predator_Rate"].apply(lambda x: f"{x:.3f}")
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
-        return render.DataGrid(df, width="100%", height="300px")
+        return format_diagnostics_table(df, "Production/Biomass Ratios")
 
     @output
-    @render.data_frame
+    @render.ui
     def table_qb_ratios():
         """Render Q/B ratios table."""
         report = diagnostic_report()
 
         if report is None or len(report.get("qb_ratios", [])) == 0:
-            return pd.DataFrame()
+            return empty_state(
+                "Run diagnostics to see Q/B ratios."
+                if report is None
+                else "No Q/B ratios for this model."
+            )
 
         df = report["qb_ratios"].copy()
 
@@ -772,7 +794,7 @@ def prebalance_server(
         df["Predator_Rate"] = df["Predator_Rate"].apply(lambda x: f"{x:.3f}")
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
-        return render.DataGrid(df, width="100%", height="300px")
+        return format_diagnostics_table(df, "Consumption/Biomass Ratios")
 
     @output
     @render.plot
