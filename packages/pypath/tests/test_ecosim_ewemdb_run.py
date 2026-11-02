@@ -18,6 +18,14 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 
 pytestmark = pytest.mark.integration
 
+# Regression pin, not a target: no EwE 6 reference SS for this calibrated
+# scenario is available. History: ~725 was quoted as an "old broken baseline";
+# the limit was relaxed to 1100 on 2026-10-24 (message left at 800); SS was
+# 1084.9 before the detritus/discard fate reading fix (#29) and is 1101.2 after
+# it -- that fix is correct EwE behaviour (LT2022 EE matches EwE-F incl.
+# detritus), so the pin follows it. A change beyond 2 % needs a reason.
+LT2022_SS16 = 1101.2
+
 
 def _db_available():
     return Path(DB_PATH).exists()
@@ -234,7 +242,7 @@ class TestEcosimRunScenario16:
         assert len(sim_output.crashed_groups) <= 2
 
     def test_ss_reasonable(self, sim_output, ecosim_scenario_16):
-        """Sum of squares should be within reasonable bounds."""
+        """Fit to the scenario's time series stays at the pinned SS (LT2022_SS16)."""
         from pypath.core.ecopath import rpath
         from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
 
@@ -273,8 +281,8 @@ class TestEcosimRunScenario16:
                 total_ss += np.sum((sim[:n] - vals[:n]) ** 2)
                 n_series += 1
 
-        assert total_ss < 1100, (
-            f"SS={total_ss:.1f} should be < 800 (n_series={n_series})"
+        assert abs(total_ss - LT2022_SS16) <= 0.02 * LT2022_SS16, (
+            f"SS={total_ss:.1f} (n_series={n_series}), pinned at {LT2022_SS16} (+/- 2 %)"
         )
 
 
