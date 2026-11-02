@@ -122,3 +122,30 @@ def test_params_table_header_text_is_readable_on_navy():
         assert "#1b3a5c" in css.lower()
         # (?<![-\w]) so that "background-color: #fff" does not count as text
         assert re.search(r"(?<![-\w])color:\s*(#fff(fff)?|white)", css.lower()), css
+
+
+def test_untrusted_text_is_html_escaped_by_every_formatter():
+    """Group names come from uploaded EwE files, EcoBase and biodata lookups.
+
+    The GT tables are inserted with @render.ui, so the formatters must keep
+    great_tables' HTML escaping for cells, column labels, titles and
+    subtitles (security review on #34).
+    """
+    import pandas as pd
+
+    from pypath_shiny.services import gt_formatters as g
+
+    evil = "<img src=x onerror=alert(1)>"
+    df = pd.DataFrame({"Group": [evil], evil: [1.5], "Biomass": [2.0]})
+    builders = [
+        lambda: g.format_dataframe(df, title=evil, subtitle=evil),
+        lambda: g.format_params_table(df, title=evil, subtitle=evil),
+        lambda: g.format_diagnostics_table(df, title=evil),
+        lambda: g.format_results_summary(df, title=evil),
+        lambda: g.format_diet_matrix(df, title=evil),
+        lambda: g.format_time_series_summary(df, title=evil, subtitle=evil),
+    ]
+    for build in builders:
+        html = build().as_raw_html()
+        assert "<img src=x" not in html
+        assert "&lt;img src=x" in html
