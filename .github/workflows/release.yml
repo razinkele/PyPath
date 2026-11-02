@@ -97,7 +97,10 @@ jobs:
           cd ../..
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packages/pypath/pyproject.toml packages/pypath/src/pypath/__init__.py packages/pypath/CHANGELOG.md
+          # README badge, CLAUDE.md table, pypath-shiny's pypath-ewe floor
+          # (test_release_discipline.py requires them to match)
+          python scripts/sync_release_versions.py .
+          git add packages/pypath/pyproject.toml packages/pypath/src/pypath/__init__.py packages/pypath/CHANGELOG.md             packages/pypath-shiny/pyproject.toml README.md CLAUDE.md
           git commit -m "chore(release): pypath-ewe v${{ steps.release.outputs.version }}"
           git tag "pypath-ewe-v${{ steps.release.outputs.version }}"
           git push origin main --tags
@@ -164,7 +167,8 @@ jobs:
           cd ../..
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packages/pypath-shiny/pyproject.toml packages/pypath-shiny/src/pypath_shiny/__init__.py packages/pypath-shiny/CHANGELOG.md
+          python scripts/sync_release_versions.py .  # CLAUDE.md version table
+          git add packages/pypath-shiny/pyproject.toml packages/pypath-shiny/src/pypath_shiny/__init__.py packages/pypath-shiny/CHANGELOG.md             README.md CLAUDE.md
           git commit -m "chore(release): pypath-shiny v${{ steps.release.outputs.version }}"
           git tag "pypath-shiny-v${{ steps.release.outputs.version }}"
           git push origin main --tags
