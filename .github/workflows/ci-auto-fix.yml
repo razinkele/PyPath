@@ -1,87 +1,73 @@
 name: CI Auto-Fix
 
+# Report-only: when CI fails, check whether the failure is something
+# `ruff check --fix` / `ruff format` would fix, and say so in the run's job
+# summary with the exact command to run. No branches, commits or PRs.
+#
+# The previous version pushed an auto/ci-fix/* branch on every CI failure
+# and then failed to open a PR (gh had no GH_TOKEN), leaving 125 orphaned
+# branches. It also checked out main rather than the commit that failed.
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
 
+permissions:
+  contents: read
+
 jobs:
-  auto_fix:
+  report:
     if: github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
-      - name: Check out repository
+      - name: Check out the commit that failed
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
-      - name: Install dev deps
-        run: python -m pip install -e 'packages/pypath[dev]'
+      - name: Install ruff (pinned like packages/pypath[dev])
+        run: python -m pip install "ruff>=0.15.4,<0.16"
 
-      - name: Run ruff auto-fixes
-        run: |
-          set -e
-          python -m ruff check --fix packages/ || true
-          python -m ruff format --quiet packages/ || true
-
-      - name: Check for formatting changes
-        id: git-check
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          if [ -n "$(git status --porcelain)" ]; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
-
-      - name: Create branch and PR for formatting fixes
-        if: steps.git-check.outputs.changed == 'true'
+      - name: Report auto-fixable lint/format issues
         env:
-          BRANCH_NAME: auto/ci-fix/format-${{ github.run_id }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
         run: |
-          git checkout -b "$BRANCH_NAME"
-          git add -A
-          git commit -m "style: apply ruff/black fixes from CI auto-fix"
-          git push origin "$BRANCH_NAME"
-          # Ensure auto-fix label exists then create PR and enable auto-merge so formatting fixes are merged automatically when checks pass
-          gh label create "auto-fix" --color ffcc00 --description "Automated formatting fixes from CI" || true
-          gh pr create --title "style: apply ruff/black fixes (auto)" --body "Automated formatting fixes (ruff/black) applied by CI Auto-Fix workflow. This PR will be auto-merged when checks pass." --base main --head "$BRANCH_NAME" --label "auto-fix" --auto || true
-
-      - name: Run tests to check if fixes pass
-        run: python -m pytest packages/pypath/tests -q || true
-
-      - name: Create PR on other failures (diagnostic)
-        if: steps.git-check.outputs.changed == 'false'
-        run: |
-          echo "Opening PR for CI failure diagnostics"
-          BRANCH=auto/ci-fix/failure-${{ github.run_id }}
-          git checkout -b "$BRANCH"
-          # Add a short diagnostic file for human triage
-          echo "CI failure triggered by workflow_run id: ${{ github.event.workflow_run.id }}" > CI_FAILURE.md
-          git add CI_FAILURE.md
-          git commit -m "ci: record CI failure for diagnostics"
-          git push origin "$BRANCH"
-          # Ensure ci-fail label exists and create a non-draft PR for triage
-          gh label create "ci-fail" --color ee0000 --description "CI failure requires human triage" || true
-          gh pr create --title "ci: investigate failing CI run #${{ github.event.workflow_run.id }}" --body "PR created automatically to investigate CI failure (workflow_run id: ${{ github.event.workflow_run.id }}). Please see workflow run logs for details." --base main --head "$BRANCH" --label "ci-fail" --web || true
-
-      - name: Comment on related PRs (if any)
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const runId = context.payload.workflow_run.id
-            const prs = context.payload.workflow_run.pull_requests || []
-            const owner = context.repo.owner
-            const repo = context.repo.repo
-            const body = `CI Auto-Fix ran for workflow run ${runId}: formatting fixes applied or diagnostic PR created.`
-            for (const pr of prs) {
-              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body })
-            }
-            // If there are no associated PRs, do not attempt to comment on the workflow run (API not available)
-
+          set +e
+          ruff check packages/ --output-format concise > /tmp/check.txt 2>&1
+          check_rc=$?
+          ruff format --check packages/ > /tmp/format.txt 2>&1
+          format_rc=$?
+          {
+            echo "## CI failure on \`${HEAD_BRANCH}\` (${HEAD_SHA:0:7})"
+            echo "Failed run: ${RUN_URL}"
+            echo
+            if [ $check_rc -eq 0 ] && [ $format_rc -eq 0 ]; then
+              echo "Lint and format are clean, so the failure is elsewhere (tests?). See the failed run."
+            else
+              echo "### Lint / format issues found"
+              echo "Fix locally on \`${HEAD_BRANCH}\` and push:"
+              echo '```bash'
+              echo 'ruff check --fix packages/ && ruff format packages/'
+              echo '```'
+              echo '<details><summary>ruff check</summary>'
+              echo
+              echo '```'
+              head -100 /tmp/check.txt
+              echo '```'
+              echo '</details>'
+              echo '<details><summary>ruff format --check</summary>'
+              echo
+              echo '```'
+              head -100 /tmp/format.txt
+              echo '```'
+              echo '</details>'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
