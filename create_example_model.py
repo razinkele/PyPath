@@ -177,8 +177,8 @@ def create_coastal_ecosystem_model():
     # ==========================================
     print("\n3. Defining predator-prey relationships")
 
-    # Diet matrix: rows = predators, columns = prey
-    # Columns: Outside, Phyto, Macro, Zoo, Meio, Bent, SmallJuv, SmallAdult, Demersal, LargePel, Birds, Det, Disc
+    # diet_data maps each PREY to the share of every predator's diet it makes
+    # up; list position i is the predator groups[i]. "Outside" is import.
 
     diet_data = {
         "Outside": [0.0] * 12,
@@ -352,19 +352,23 @@ def create_coastal_ecosystem_model():
         ],
     }
 
-    # Convert diet_data to proper format with 'Group' column
-    # diet_data has predators as keys, need to transpose to have prey as rows
-    diet_df_dict = {"Group": groups}
-    for predator, prey_list in diet_data.items():
-        diet_df_dict[predator] = prey_list
+    # Rpath diet: rows = prey (plus "Import"), columns = predators.
+    # Fill the template from create_rpath_params: diet[prey, pred] =
+    # diet_data[prey][index of pred]. (This used to store each prey key as a
+    # predator column, which gave producers a diet and TL ~3.7.)
+    diet = params.diet.set_index("Group").astype(float).fillna(0.0)
+    for prey, shares in diet_data.items():
+        row = "Import" if prey == "Outside" else prey
+        for j, predator in enumerate(groups):
+            if predator in diet.columns and row in diet.index:
+                diet.loc[row, predator] = shares[j]
 
-    params.diet = pd.DataFrame(diet_df_dict)
-
-    # Normalize diet to sum to 1 for each predator (skip 'Group' column)
-    for col in params.diet.columns[1:]:  # Skip 'Group' column
-        col_sum = params.diet[col].sum()
-        if col_sum > 0:
-            params.diet[col] = params.diet[col] / col_sum
+    # Normalize each predator's diet to sum to 1
+    for predator in diet.columns:
+        total = diet[predator].sum()
+        if total > 0:
+            diet[predator] = diet[predator] / total
+    params.diet = diet.reset_index()
 
     # Count trophic links (exclude 'Group' column)
     diet_numeric = params.diet.iloc[:, 1:].values  # Skip 'Group' column
@@ -568,9 +572,8 @@ def create_coastal_ecosystem_model():
         20.0  # Phytoplankton biomass maintained by nutrients from outside
     )
 
-    # Add import to diet (nutrient input for phytoplankton)
-    # Phytoplankton gets nutrients from "Outside" (upwelling, rivers, etc.)
-    params.diet.loc["Phytoplankton", "Outside"] = 0.0  # Handled implicitly by P/B
+    # Nutrient input for phytoplankton is handled implicitly by P/B; no diet
+    # import row is needed. (A .loc[...] here used to append a stray row.)
 
     print("   Nutrient import supports primary production")
     print(f"   Organic export: {export_rate * 100:.1f}% of detritus")
@@ -591,7 +594,7 @@ def save_model(params, filename="example_coastal_model.csv"):
     print("   Saved: model.csv")
 
     # Save diet
-    params.diet.to_csv(output_dir / "diet.csv")
+    params.diet.to_csv(output_dir / "diet.csv", index=False)
     print("   Saved: diet.csv")
 
     # Save fisheries
