@@ -86,6 +86,26 @@ jobs:
           TARGET="${{ steps.target.outputs.path }}"
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '$TARGET'"
 
+      # Import the app with the interpreter Shiny Server uses, from a staging
+      # copy, BEFORE touching the live directory. A missing dependency
+      # (e.g. great_tables on 2026-11-02, which took the app down) then fails
+      # the deploy and leaves the running version in place. The repo variable
+      # DEPLOY_PYTHON overrides the interpreter (see shiny-server.conf).
+      - name: Pre-deploy import check (staging copy)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PYTHON: ${{ vars.DEPLOY_PYTHON || '/opt/micromamba/envs/shiny/bin/python3' }}
+        run: |
+          set -e
+          REMOTE="${DEPLOY_USER}@${DEPLOY_HOST}"
+          STAGE=$(ssh "$REMOTE" "mktemp -d /tmp/pypath-predeploy.XXXXXX")
+          trap 'ssh "$REMOTE" "rm -rf \"$STAGE\""' EXIT
+          rsync -az --exclude-from=.github/deploy-excludes.txt ./ "$REMOTE:$STAGE/"
+          # PYTHONNOUSERSITE: ignore the deploy user's ~/.local packages, which
+          # the shiny user running the app does not have.
+          ssh "$REMOTE" "cd '$STAGE' && PYTHONNOUSERSITE=1             PYTHONPATH='$STAGE/packages/pypath/src:$STAGE/packages/pypath-shiny/src'             '$DEPLOY_PYTHON' -W ignore -c 'import pypath_shiny.app; print(\"pre-deploy import OK\")'"
+
       - name: Rsync deploy
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -94,33 +114,7 @@ jobs:
           set -e
           TARGET="${{ steps.target.outputs.path }}"
           echo "Rsync to $TARGET"
-          rsync -avz --delete \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude '.claude' \
-            --exclude '.vscode' \
-            --exclude 'tests' \
-            --exclude 'docs' \
-            --exclude 'scripts' \
-            --exclude 'logs' \
-            --exclude 'examples' \
-            --exclude 'venv' \
-            --exclude 'env' \
-            --exclude '__pycache__' \
-            --exclude '.pytest_cache' \
-            --exclude '.ruff_cache' \
-            --exclude '.mypy_cache' \
-            --exclude '.benchmarks' \
-            --exclude '.venv_smoke' \
-            --exclude '.playwright-mcp' \
-            --exclude 'build' \
-            --exclude 'dist' \
-            --exclude '*.egg-info' \
-            --exclude 'example_model_data' \
-            --exclude '/pages' \
-            --exclude '/src' \
-            --exclude '/Data' \
-            ./ "${DEPLOY_USER}@${DEPLOY_HOST}:$TARGET"
+          rsync -avz --delete --exclude-from=.github/deploy-excludes.txt             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:$TARGET"
 
       - name: Install packages on remote
         env:

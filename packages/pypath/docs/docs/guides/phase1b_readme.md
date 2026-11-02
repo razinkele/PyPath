@@ -108,12 +108,12 @@ Phase 1B consists of **six interdependent modules**, each addressing a specific 
 
 | TG # | Module | Classes | Key Use Case | Tests | Docs |
 |------|--------|---------|--------------|-------|------|
-| **3.1** | **Pedigree System** (`core/pedigree.py`) | `PedigreeQuality`, `PedigreeContainer`, `EwePedigreeConfig` | Track data quality & uncertainty for all Ecopath inputs | 54 | [TG3.1 Guide](phase1b_pedigree.md) |
-| **3.2** | **Taxonomic Linkage** (`core/taxonomy.py`) | `TaxonLink`, `TaxonomyLinkage`, `TaxonComparator` | Link groups to WoRMS/OBIS; verify species composition | 52 | [TG3.2 Guide](phase1b_taxonomy.md) |
-| **3.3** | **Size Distribution** (`core/size.py`) | `SizeClass`, `SizeDistribution`, `VBGFParams` | Model age/size structure; von Bertalanffy growth | 53 | [TG3.3 Guide](phase1b_size.md) |
-| **3.4** | **Fleet & Discards** (`core/fleet.py`) | `GearType`, `FleetGroup`, `DiscardPath`, `FleetDynamics` | Define fishing pressure; track bycatch & discards | 67 | [TG3.4 Guide](phase1b_fleet.md) |
-| **3.5** | **Nutrient Cycling** (`core/nutrients.py`) | `NutrientElement`, `Excretion`, `Uptake`, `NutrientContent` | Model N, P, Si cycles; producer regeneration | 50 | [TG3.5 Guide](phase1b_nutrients.md) |
-| **3.6** | **Enhanced Landings** (`core/landings.py`) | `LandingType`, `LandingRecord`, `LandingSeasonality` | Temporal landings dynamics; seasonal catch patterns | 60 | [TG3.6 Guide](phase1b_landings.md) |
+| **3.1** | **Pedigree System** (`core/pedigree.py`) | `PedigreeQuality`, `PedigreeContainer`, `EwePedigreeConfig` | Track data quality & uncertainty for all Ecopath inputs | 54 | TG3.1 Guide |
+| **3.2** | **Taxonomic Linkage** (`core/taxonomy.py`) | `TaxonLink`, `TaxonomyLinkage`, `TaxonComparator` | Link groups to WoRMS/OBIS; verify species composition | 52 | TG3.2 Guide |
+| **3.3** | **Size Distribution** (`core/size.py`) | `SizeClass`, `SizeDistribution`, `VBGFParams` | Model age/size structure; von Bertalanffy growth | 53 | TG3.3 Guide |
+| **3.4** | **Fleet & Discards** (`core/fleet.py`) | `GearType`, `FleetGroup`, `DiscardPath`, `FleetDynamics` | Define fishing pressure; track bycatch & discards | 67 | TG3.4 Guide |
+| **3.5** | **Nutrient Cycling** (`core/nutrients.py`) | `NutrientElement`, `Excretion`, `Uptake`, `NutrientContent` | Model N, P, Si cycles; producer regeneration | 50 | TG3.5 Guide |
+| **3.6** | **Enhanced Landings** (`core/landings.py`) | `LandingType`, `LandingRecord`, `LandingSeasonality` | Temporal landings dynamics; seasonal catch patterns | 60 | TG3.6 Guide |
 
 **Total**: 336 tests | 3,645 lines of code | 100% passing
 
@@ -229,43 +229,43 @@ RpathParams (baseline)
 | Guide | Focus | Read Time |
 |-------|-------|-----------|
 | [Phase 1B Integration Guide](phase1b_integration.md) | Wiring all 6 modules together; data flow patterns | 20 min |
-| [Pedigree & Uncertainty](phase1b_pedigree.md) | Data quality tracking; confidence intervals; expert elicitation | 15 min |
-| [Taxonomic Linking](phase1b_taxonomy.md) | WoRMS integration; species matching; trophic level inference | 15 min |
-| [Population Structure & Growth](phase1b_size.md) | Von Bertalanffy fitting; size classes; age cohorts | 15 min |
-| [Fishing Operations & Bycatch](phase1b_fleet.md) | Gear selectivity; discard pathways; effort dynamics | 20 min |
-| [Nutrient Cycling & Primary Producers](phase1b_nutrients.md) | N/P/Si loops; Monod kinetics; regeneration rates | 15 min |
-| [Temporal Landings Dynamics](phase1b_landings.md) | Seasonal patterns; catch variability; export tracking | 15 min |
+| Pedigree & Uncertainty | Data quality tracking; confidence intervals; expert elicitation | 15 min |
+| Taxonomic Linking | WoRMS integration; species matching; trophic level inference | 15 min |
+| Population Structure & Growth | Von Bertalanffy fitting; size classes; age cohorts | 15 min |
+| Fishing Operations & Bycatch | Gear selectivity; discard pathways; effort dynamics | 20 min |
+| Nutrient Cycling & Primary Producers | N/P/Si loops; Monod kinetics; regeneration rates | 15 min |
+| Temporal Landings Dynamics | Seasonal patterns; catch variability; export tracking | 15 min |
 
 ### Example Notebooks
 
 Example Jupyter notebooks are located in `packages/pypath/examples/phase1b/`:
 
-1. **[01_pedigree_system.ipynb](../../examples/phase1b/01_pedigree_system.ipynb)**
+1. **01_pedigree_system.ipynb**
    - Build a 5-group model from scratch
    - Add pedigree quality scores
    - Generate uncertainty bounds
 
-2. **[02_taxonomy_linkage.ipynb](../../examples/phase1b/02_taxonomy_linkage.ipynb)**
+2. **02_taxonomy_linkage.ipynb**
    - Link groups to WoRMS database
    - Resolve species ambiguity
    - Enrich with FishBase data
 
-3. **[03_size_distribution.ipynb](../../examples/phase1b/03_size_distribution.ipynb)**
+3. **03_size_distribution.ipynb**
    - Fit von Bertalanffy curves
    - Create age-structured size classes
    - Validate length-frequency data
 
-4. **[04_fleet_discard.ipynb](../../examples/phase1b/04_fleet_discard.ipynb)**
+4. **04_fleet_discard.ipynb**
    - Define fishing gears
    - Model discard pathways
    - Simulate effort scenarios
 
-5. **[05_nutrient_cycling.ipynb](../../examples/phase1b/05_nutrient_cycling.ipynb)**
+5. **05_nutrient_cycling.ipynb**
    - Configure N/P cycles
    - Calculate excretion rates
    - Model producer uptake
 
-6. **[06_landings_system.ipynb](../../examples/phase1b/06_landings_system.ipynb)**
+6. **06_landings_system.ipynb**
    - Load temporal catch time series
    - Fit seasonal patterns
    - Forecast landing variability
@@ -992,7 +992,7 @@ Planned work for Phase 1C (December 2026):
 - **[PyPath Documentation](https://razinkele.github.io/PyPath/)** — Full API reference and tutorials
 - **[EwE Official Website](https://www.ecopath.org/)** — Reference ecosystem modeling software
 - **[EwE Technical Documentation](https://www.ecopath.org/downloads/)** — Theoretical background and database schema
-- **[PyPath Contributing Guide](../../CONTRIBUTING.md)** — How to contribute to PyPath
+- **[PyPath Contributing Guide](https://github.com/razinkele/PyPath/blob/main/CONTRIBUTING.md)** — How to contribute to PyPath
 
 ### Scientific Literature
 
@@ -1021,9 +1021,9 @@ Key papers on Phase 1B methods:
 
 ### Example Data & Models
 
-- **[Baltic Sea Example Model](../../example_model_data/Baltic_baseline.csv)** — 23-group ecosystem model
-- **[North Atlantic Model](../../example_model_data/NA_shelf.csv)** — 45-group fisheries model
-- **[Simple 5-Group Test Model](../../example_model_data/simple_5group.csv)** — Quick-start example
+- **Baltic Sea Example Model** — 23-group ecosystem model
+- **North Atlantic Model** — 45-group fisheries model
+- **Simple 5-Group Test Model** — Quick-start example
 
 ---
 

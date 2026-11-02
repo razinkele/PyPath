@@ -344,10 +344,13 @@ class EwePedigreeConfig:
         - 0-1: HIGH quality (well-documented, peer-reviewed)
         - 2: MEDIUM quality (literature values)
         - 3-4: LOW quality (expert guess, uncertain)
-    quality_flag : PedigreeQuality
-        Auto-set from pedigree_index; do not set manually.
     comment : str, optional
         Human-readable description of data source or uncertainty.
+
+    Attributes
+    ----------
+    quality_flag : PedigreeQuality
+        Auto-set from pedigree_index; not a constructor argument.
 
     Raises
     ------
