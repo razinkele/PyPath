@@ -142,3 +142,6 @@ DEFAULT_SWITCHING_POWER_REWIRING = 2.0  # Switching power for rewiring
 # Single source of truth; pypath.io.ewemdb imports EWE_DB_SUFFIXES from here.
 EWE_DB_SUFFIXES = (".ewemdb", ".eweaccdb", ".ewe", ".mdb", ".accdb")
 VALID_DB_EXTENSIONS = list(EWE_DB_SUFFIXES)
+
+# EwE's value for "not entered / to be estimated" in database fields
+EWE_MISSING = -9999
