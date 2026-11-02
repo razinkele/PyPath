@@ -6,6 +6,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.1.0 (2026-11-02)
+
+### Fixed
+
+- **EwE database reader (`read_ewemdb`)**
+  - Reads **detritus fate** from `EcopathDietComp.DetritusFate`; before, every
+    group's fate was 0, so no flow reached detritus and detritus EE was wrong
+    (#29). Explicit zero fates are kept; the first-detritus default applies
+    only when a database has no fate data at all.
+  - Reads **fleet discard fate** (`EcopathDiscardFate`) and **discards**
+    (`EcopathCatch.Discards`), which were dropped; only the dead share
+    (`Discards × DiscardMortality`) is kept, as Rpath treats every discard as
+    dead (#29). Fleet IDs are matched by `FleetID`, `ID` or `Sequence` (#30).
+  - `list_ewemdb_tables` accepts `.eweaccdb` databases (EwE 6.6+), and the
+    accepted suffixes are defined once (`core.constants.EWE_DB_SUFFIXES`;
+    `VALID_DB_EXTENSIONS` now includes `.eweaccdb` and `.ewe`) (#30).
+  - Verified against EwE-F (the Fortran EwE): on the LT2022 model all 21
+    living groups and detritus agree to ~1e-7.
+- **Pre-balance diagnostics**: the predator/prey, P/B and Q/B ratio tables
+  were always empty (prey were looked up on the wrong index), so their
+  "ratio > 1" warnings never fired (#31). Expect new pre-balance warnings.
+- **Example model** (`example_model_data/diet.csv`): the diet matrix was built
+  the wrong way round, giving producers a diet and TL ~3.7; regenerated, with
+  `create_example_model.py` fixed (#33).
+- `sync_taxonomy_with_rpath` raised `UnboundLocalError` on every call (#30).
+- Access writer: a missing `pyodbc` now raises `RuntimeError` (as the driver
+  checks already did), and `write_ewe_samples` validates its inputs before
+  loading the driver (#30).
+
 ## v0.5.3 (2026-10-24) [DRAFT]
 
 ### Added
