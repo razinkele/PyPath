@@ -86,7 +86,7 @@ Phase 1B modules integrate as follows:
 
 Complete model creation with data quality tracking:
 
-\\\python
+```python
 from pypath.core.params import create_rpath_params
 from pypath.core.pedigree import PedigreeContainer
 from pypath.io.biodata import GroupTaxonomy
@@ -121,13 +121,13 @@ model = rpath(params)
 assert model.biomass_check > 0.99
 print(f"Mass balance check: {model.biomass_check:.4f}")
 print(f"Pedigree records: {params.pedigree.shape[0]}")
-\\\
+```
 
 ### Workflow 2: Fleet and Landings Management
 
 Realistic fishing dynamics with seasonal catch:
 
-\\\python
+```python
 from pypath.core.fleet import FleetGroup, GearType, DiscardPath
 from pypath.core.landings import LandingRecord, LandingSeasonality, LandingsData
 
@@ -161,13 +161,13 @@ for year in range(2015, 2020):
 # Monthly dispatch
 monthly_catch = landings.aggregate_by_month("Planktivorous Fish")
 print(f"Mean monthly catch: {monthly_catch.mean():.1f} tons")
-\\\
+```
 
 ### Workflow 3: Nutrient Cycling and Mass Balance
 
 Close nutrient cycles with producer limitation:
 
-\\\python
+```python
 from pypath.core.nutrients import NutrientContent, NutrientExcretion, NutrientUptake
 from pypath.core.nutrients import NutrientElement
 
@@ -210,13 +210,13 @@ uptake = NutrientUptake(
 # Validate cycle closure
 total_n = sum(nutrients[g].nitrogen_percent * params.model[params.model["Name"]==g]["Biomass"].values[0] for g in nutrients)
 print(f"Total N in model: {total_n:.2f} tons")
-\\\
+```
 
 ### Workflow 4: Monte Carlo Ensemble and Uncertainty
 
 Run parameter ensembles based on pedigree uncertainty:
 
-\\\python
+```python
 from pypath.core.pedigree import build_distributions, ScalarDistribution
 from pypath.core.ecopath import rpath
 import numpy as np
@@ -258,13 +258,13 @@ biomass_cov = biomass_std / biomass_mean
 print("Ensemble CoV (Coefficient of Variation) by group:")
 for i, group in enumerate(params.model["Name"]):
     print(f"  {group}: {biomass_cov[i]:.3f}")
-\\\
+```
 
 ### Workflow 5: Multi-Stanza Population Structure with IBM
 
 Age-structured populations using Individual-Based Model:
 
-\\\python
+```python
 from pypath.core.stanzas import RpathStanzaParams, VBGrowth
 from pypath.ibm.smelt import SmeltIBM
 from pypath.core.ecosim import rsim_scenario, rsim_run
@@ -305,7 +305,7 @@ final_state = results.ibm_state["Planktivorous Fish"]
 print(f"Final abundance: {final_state.n_individuals:.0e} individuals")
 print(f"Mean length: {final_state.mean_length:.2f} cm")
 print(f"Mean weight: {final_state.mean_weight:.4f} kg")
-\\\
+```
 
 ## Data Quality and Validation
 
@@ -313,7 +313,7 @@ print(f"Mean weight: {final_state.mean_weight:.4f} kg")
 
 Verify pedigree indices are consistent (0-4 scale):
 
-\\\python
+```python
 # Check pedigree coverage and consistency
 assert (params.pedigree["PedigreeIndex"] >= 0).all() or params.pedigree["PedigreeIndex"].isna().any()
 assert (params.pedigree["PedigreeIndex"] <= 4).all() or params.pedigree["PedigreeIndex"].isna().any()
@@ -322,13 +322,13 @@ assert (params.pedigree["PedigreeIndex"] <= 4).all() or params.pedigree["Pedigre
 cv_by_index = params.pedigree.groupby("PedigreeIndex")["CV"].agg(["mean", "std"])
 print("Average CV by pedigree index:")
 print(cv_by_index)
-\\\
+```
 
 ### Taxonomy Validation
 
 Ensure external IDs are present and valid:
 
-\\\python
+```python
 from pypath.io.biodata import GroupTaxonomy
 
 tax = GroupTaxonomy()
@@ -337,13 +337,13 @@ for group in params.model["Name"]:
         external_ids = tax.get_external_ids(group)
         assert "WoRMS" in external_ids or "FishBase" in external_ids
         print(f"{group}: {external_ids}")
-\\\
+```
 
 ### Size Distribution Validation
 
 Check length/weight relationships are biologically realistic:
 
-\\\python
+```python
 # Length-weight parameter ranges (Froese et al.)
 for group, dist in size_dist.items():
     assert dist.length_weight_b >= 2.5 and dist.length_weight_b <= 3.5
@@ -353,38 +353,38 @@ for group, dist in size_dist.items():
     # Compute realistic max weight
     max_weight = dist.length_weight_a * (dist.vb_growth.Linf ** dist.length_weight_b)
     print(f"{group}: max weight = {max_weight:.2f} kg")
-\\\
+```
 
 ### Fleet Validation
 
 Verify catchability matrix is consistent:
 
-\\\python
+```python
 # Check catchability matrix is normalized
 for fleet_obj in fleets.values():
     catch_matrix = fleet_obj.catchability_matrix
     # Sum by column (prey) should be <= 1 if multiple fleets target same prey
     assert (catch_matrix.sum(axis=0) <= 1.0).all()
     print(f"Fleet {fleet_obj.name}: valid catchability matrix")
-\\\
+```
 
 ### Nutrient Balance Checks
 
 Verify nutrient composition sums correctly:
 
-\\\python
+```python
 for group, comp in nutrient_content.items():
     total = (comp.nitrogen_percent + comp.phosphorus_percent + 
              comp.carbon_percent + comp.ash_percent)
     assert 80 < total <= 100  # Account for water content
     print(f"{group}: {total:.1f}% dry matter composition")
-\\\
+```
 
 ### Landings Consistency
 
 Verify landings aggregation matches input records:
 
-\\\python
+```python
 # Validate landings data
 from pypath.core.landings import validate_landings
 
@@ -396,7 +396,7 @@ print(f"Landings validation: {report.n_records} records, {report.n_years} years"
 annual_total = landings.aggregate_by_year("Planktivorous Fish").sum()
 monthly_total = landings.aggregate_by_month("Planktivorous Fish").sum()
 assert abs(annual_total - monthly_total) < 1e-6
-\\\
+```
 
 ## Performance Considerations
 
@@ -422,20 +422,20 @@ assert abs(annual_total - monthly_total) < 1e-6
 
 **Issue**: EwE 0-4 scale vs. CV (coefficient of variation)
 
-\\\python
+```python
 # WRONG: Assuming pedigree index is directly the CV
 params.pedigree["CV"] = params.pedigree["PedigreeIndex"] * 0.1  # Incorrect!
 
 # CORRECT: Map quality levels to CV ranges
 quality_to_cv = {0: 0.10, 1: 0.20, 2: 0.35, 3: 0.50, 4: 0.80}
 params.pedigree["CV"] = params.pedigree["PedigreeIndex"].map(quality_to_cv)
-\\\
+```
 
 ### Taxonomy Incomplete
 
 **Issue**: Missing external IDs for species
 
-\\\python
+```python
 # Check for missing IDs
 missing = [g for g in params.model["Name"] if not tax.has_external_id(g, "WoRMS")]
 if missing:
@@ -445,13 +445,13 @@ if missing:
     for group in missing:
         sci_name = tax.get_scientific_name(group)
         matched_id = match_species_fuzzy(sci_name)
-\\\
+```
 
 ### Size Overlaps
 
 **Issue**: Age class size ranges overlap, creating ambiguity
 
-\\\python
+```python
 # Verify non-overlapping length ranges
 for group in size_dist:
     dist = size_dist[group]
@@ -459,25 +459,25 @@ for group in size_dist:
     # Check monotonic increase
     for i in range(len(age_lengths) - 1):
         assert age_lengths[i] < age_lengths[i+1]
-\\\
+```
 
 ### Fleet Catchability Issues
 
 **Issue**: Gear selectivity not realistic
 
-\\\python
+```python
 # Validate selectivity by gear type
 for fleet_name, fleet in fleets.items():
     selectivity = fleet.gear_type.selectivity()
     assert 0.2 <= selectivity <= 1.0
     print(f"{fleet_name}: selectivity = {selectivity:.2f}")
-\\\
+```
 
 ### Nutrient Cycle Closure Failure
 
 **Issue**: Model crashes due to nutrient imbalance
 
-\\\python
+```python
 # Run pre-check before Ecosim
 from pypath.core.nutrients import validate_nutrient_cycle
 
@@ -487,13 +487,13 @@ if not valid:
     for issue in report.issues:
         print(f"  - {issue}")
     # Adjust excretion rates or composition
-\\\
+```
 
 ### Landings Dispatch Mismatch
 
 **Issue**: Monthly dispatch doesn't match annual total
 
-\\\python
+```python
 # Fix: Ensure normalization
 annual = landings.aggregate_by_year("Planktivorous Fish")
 monthly = landings.aggregate_by_month("Planktivorous Fish")
@@ -502,7 +502,7 @@ monthly = landings.aggregate_by_month("Planktivorous Fish")
 scaling_factor = annual.sum() / monthly.sum()
 monthly_adjusted = monthly * scaling_factor
 assert abs(monthly_adjusted.sum() - annual.sum()) < 1e-10
-\\\
+```
 
 ## Integration with EwE Export
 
@@ -510,7 +510,7 @@ PyPath supports round-trip parity with EwE 6 model databases (.eweaccdb files).
 
 ### Parity Workflow
 
-\\\python
+```python
 from pypath.io.ewemdb import read_ewe_samples, write_ewe_samples
 
 # Import from EwE
@@ -526,7 +526,7 @@ pedigree_cont = PedigreeContainer(ewe_params)
 
 # Export back to EwE format
 write_ewe_samples(ewe_params, "model_enhanced.eweaccdb")
-\\\
+```
 
 ### Known Limitations
 
@@ -539,7 +539,7 @@ write_ewe_samples(ewe_params, "model_enhanced.eweaccdb")
 
 ### Pedigree Module
 
-\\\python
+```python
 from pypath.core.pedigree import (
     PedigreeContainer,      # Main container
     build_distributions,    # CV -> distributions
@@ -555,11 +555,11 @@ ped.set_parameter_quality(group, param, index)
 
 # Get distributions for sampling
 dists = build_distributions(params)
-\\\
+```
 
 ### Taxonomy Module
 
-\\\python
+```python
 from pypath.io.biodata import (
     GroupTaxonomy,              # Taxonomy container
     get_worms_metadata,         # WoRMS API lookup
@@ -569,11 +569,11 @@ from pypath.io.biodata import (
 tax = GroupTaxonomy()
 tax.add_entry(group_name, scientific_name=name)
 metadata = get_worms_metadata(name)
-\\\
+```
 
 ### Fleet Module
 
-\\\python
+```python
 from pypath.core.fleet import (
     FleetGroup,         # Fleet definition
     GearType,           # Gear types enum
@@ -581,11 +581,11 @@ from pypath.core.fleet import (
 )
 
 fleet = FleetGroup(fleet_id, name, gear_type, catchability_matrix)
-\\\
+```
 
 ### Nutrients Module
 
-\\\python
+```python
 from pypath.core.nutrients import (
     NutrientContent,        # Elemental composition
     NutrientExcretion,      # Metabolic release
@@ -594,11 +594,11 @@ from pypath.core.nutrients import (
 )
 
 nutr = NutrientContent(group, N%, P%, C%, ash%)
-\\\
+```
 
 ### Landings Module
 
-\\\python
+```python
 from pypath.core.landings import (
     LandingRecord,          # Single catch record
     LandingSeasonality,     # Monthly distribution
@@ -609,7 +609,7 @@ from pypath.core.landings import (
 landings = LandingsData()
 landings.add_record(LandingRecord(...))
 monthly = landings.aggregate_by_month(group)
-\\\
+```
 
 ## Related Documentation
 
@@ -620,7 +620,7 @@ monthly = landings.aggregate_by_month(group)
 - **[Nutrient Cycling](../api/core.md#nutrients)**: N, P, C tracking
 - **[Landings Data](../api/core.md#landings)**: Catch records and dispatch
 - **[IBM Parameterization](./ibm-parameterization.md)**: Individual-Based Model setup
-- **[EwE Export README](../../EWE_EXPORT_README.md)**: Round-trip parity procedures
+- **EwE Export README**: Round-trip parity procedures
 - **[Autofix Guide](./autofix.md)**: Diagnosing simulation crashes
 
 ---
