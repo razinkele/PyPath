@@ -6,6 +6,10 @@ name: Release & Publish
 #   auto  - let semantic-release decide from the conventional commits
 #           (feat -> minor, fix/perf -> patch)
 #   patch / minor / major - force that bump
+# dry_run: compute the version and changelog and print the diff, but commit,
+# tag, publish and release nothing.
+# After a real release, CI and the laguna deploy are dispatched explicitly:
+# pushes made with GITHUB_TOKEN do not trigger other workflows.
 on:
   workflow_dispatch:
     inputs:
@@ -19,6 +23,10 @@ on:
         type: choice
         options: [none, auto, patch, minor, major]
         default: none
+      dry_run:
+        description: "Dry run (show the version and changelog diff only)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -80,19 +88,27 @@ jobs:
             echo "version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')" >> $GITHUB_OUTPUT
           fi
 
+      - name: Show release diff (dry run)
+        if: inputs.dry_run && steps.release.outputs.released == 'true'
+        run: |
+          cd ../..
+          python scripts/sync_release_versions.py .
+          git --no-pager diff --stat
+          git --no-pager diff
+
       - name: Build package
-        if: steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true'
+        if: ${{ !inputs.dry_run && steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true' }}
         run: python -m build
 
       - name: Publish to PyPI
-        if: steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true'
+        if: ${{ !inputs.dry_run && steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packages/pypath/dist/
           password: ${{ secrets.PYPI_API_TOKEN }}
 
       - name: Commit version bump & tag
-        if: steps.release.outputs.released == 'true'
+        if: ${{ !inputs.dry_run && steps.release.outputs.released == 'true' }}
         run: |
           cd ../..
           git config user.name "github-actions[bot]"
@@ -150,19 +166,27 @@ jobs:
             echo "version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')" >> $GITHUB_OUTPUT
           fi
 
+      - name: Show release diff (dry run)
+        if: inputs.dry_run && steps.release.outputs.released == 'true'
+        run: |
+          cd ../..
+          python scripts/sync_release_versions.py .
+          git --no-pager diff --stat
+          git --no-pager diff
+
       - name: Build package
-        if: steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true'
+        if: ${{ !inputs.dry_run && steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true' }}
         run: python -m build
 
       - name: Publish to PyPI
-        if: steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true'
+        if: ${{ !inputs.dry_run && steps.release.outputs.released == 'true' && vars.PUBLISH_TO_PYPI == 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packages/pypath-shiny/dist/
           password: ${{ secrets.PYPI_API_TOKEN }}
 
       - name: Commit version bump & tag
-        if: steps.release.outputs.released == 'true'
+        if: ${{ !inputs.dry_run && steps.release.outputs.released == 'true' }}
         run: |
           cd ../..
           git config user.name "github-actions[bot]"
@@ -173,11 +197,15 @@ jobs:
           git tag "pypath-shiny-v${{ steps.release.outputs.version }}"
           git push origin main --tags
 
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      version: ${{ steps.release.outputs.version }}
+
   create-github-release:
     name: Create GitHub Release
     needs: [release-core, release-shiny]
     # !cancelled(): still run when release-shiny was skipped
-    if: ${{ !cancelled() && needs.release-core.outputs.released == 'true' }}
+    if: ${{ !cancelled() && !inputs.dry_run && needs.release-core.outputs.released == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -205,3 +233,22 @@ jobs:
             Auto-generated notes:
           append_body: true
           generate_release_notes: true
+
+  post-release:
+    name: Run CI and deploy on the release commit
+    needs: [release-core, release-shiny]
+    if: >-
+      ${{ !cancelled() && !inputs.dry_run &&
+          (needs.release-core.outputs.released == 'true' ||
+           needs.release-shiny.outputs.released == 'true') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch CI and deploy on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow run ci.yml --ref main
+          gh workflow run deploy.yml --ref main

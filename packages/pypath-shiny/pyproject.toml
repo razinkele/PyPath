@@ -83,8 +83,22 @@ version_variables = ["src/pypath_shiny/__init__.py:__version__"]
 branch = "main"
 commit_message = "chore(release): pypath-shiny v{version}"
 tag_format = "pypath-shiny-v{version}"
-changelog_file = "CHANGELOG.md"
 build_command = "python -m build"
+
+[tool.semantic_release.changelog]
+# Insert new versions at the existing marker (semantic-release v10 defaults
+# to "<!-- version list -->", so the old top-level changelog_file setting
+# wrote nothing for 1.1.0).
+mode = "update"
+insertion_flag = "<!--next-version-placeholder-->"
+exclude_commit_patterns = [
+    '''(?:chore|ci|style|test|build|docs)(?:\([^)]*?\))?!?: .+''',
+    '''Merge .*''',
+    '''\w+\((?:io|analysis|data|core)\)!?: .+''',  # pypath-ewe changes
+]
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
 
 [tool.semantic_release.commit_parser_options]
 allowed_tags = ["feat", "fix", "perf", "refactor", "style", "docs", "test", "ci", "chore", "build"]

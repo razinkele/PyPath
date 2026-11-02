@@ -3,6 +3,8 @@ name: CI
 on:
   push:
   pull_request:
+  # Dispatched by Release & Publish after a release commit
+  workflow_dispatch:
 
 jobs:
   parity-audit:
