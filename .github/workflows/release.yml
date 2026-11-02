@@ -54,6 +54,12 @@ jobs:
           ref: ${{ inputs.dry_run && github.ref_name || 'main' }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # semantic-release only releases from main. A dry run started from
+      # another branch renames that checkout to main (local to this runner).
+      - name: Treat the checked-out branch as main (dry run)
+        if: inputs.dry_run
+        run: git checkout -B main
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -147,6 +153,12 @@ jobs:
           # changes can be checked before merging; real releases always use main.
           ref: ${{ inputs.dry_run && github.ref_name || 'main' }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # semantic-release only releases from main. A dry run started from
+      # another branch renames that checkout to main (local to this runner).
+      - name: Treat the checked-out branch as main (dry run)
+        if: inputs.dry_run
+        run: git checkout -B main
 
       - name: Setup Python
         uses: actions/setup-python@v5
