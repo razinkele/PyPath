@@ -1,0 +1,4000 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python implementation of Ecopath with Ecosim (EwE) for food web modeling">
+      
+      
+      
+        <link rel="canonical" href="https://razinkele.github.io/PyPath/guides/phase1b_readme/">
+      
+      
+        <link rel="prev" href="../../getting-started/">
+      
+      
+        <link rel="next" href="../phase1b_integration/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Overview - PyPath EwE Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#phase-1b-ecopath-enhancement" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PyPath EwE Documentation" class="md-header__button md-logo" aria-label="PyPath EwE Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PyPath EwE Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Overview
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/razinkele/PyPath" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    razinkele/PyPath
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PyPath EwE Documentation" class="md-nav__button md-logo" aria-label="PyPath EwE Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PyPath EwE Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/razinkele/PyPath" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    razinkele/PyPath
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Guides (legacy v0.5.3)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release Guides (legacy v0.5.3)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-included" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What''s Included
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-achievements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Achievements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#who-should-read-this-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who Should Read This Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installation-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation &amp; Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-minute-example-build-a-model-with-pedigree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5-Minute Example: Build a Model with Pedigree
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Diagram
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Diagram">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#integration-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration Points
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-flow-typical-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow: Typical Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation Index
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documentation Index">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#user-guides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User Guides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Notebooks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Workflows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Workflows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#decision-tree-choosing-your-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision Tree: Choosing Your Modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uncertainty-quantification-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uncertainty Quantification Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#species-identification-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Species Identification Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#age-structured-modeling-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Age-Structured Modeling Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fishing-impact-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fishing Impact Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nutrient-cycle-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nutrient Cycle Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#temporal-landings-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temporal Landings Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration &amp; Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration &amp; Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-requirements-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Requirements Checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Guidelines
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Considerations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-import-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export &amp; Import Workflows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-pitfalls-solutions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Pitfalls &amp; Solutions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ewe-compatibility-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EwE Compatibility &amp; Parity
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="EwE Compatibility &amp; Parity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overall-parity-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overall Parity Status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ecopath-parity-breakdown-phase-1b-focus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ecopath Parity Breakdown (Phase 1B Focus)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#round-trip-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Round-Trip Testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing &amp; Extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contributing &amp; Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extending-phase-1b-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extending Phase 1B Modules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Extending Phase 1B Modules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-new-nutrient-element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a New Nutrient Element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#activating-worms-api-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Activating WoRMS API Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementing-the-economics-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementing the Economics Module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-new-discard-fates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding New Discard Fates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-patterns-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Patterns &amp; Conventions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pull-request-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pull Request Guidelines
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#faq" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FAQ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FAQ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#module-selection-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Selection &amp; Design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-modeling-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data &amp; Modeling Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-notes-v053" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release Notes: v0.5.3
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Release Notes: v0.5.3">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-new-in-phase-1b" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's New in Phase 1B
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What&#39;s New in Phase 1B">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pedigree-system-tg31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pedigree System (TG3.1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#taxonomic-linkage-tg32" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Taxonomic Linkage (TG3.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#size-distribution-tg33" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Size Distribution (TG3.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fleet-discard-dynamics-tg34" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fleet &amp; Discard Dynamics (TG3.4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nutrient-cycling-tg35" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nutrient Cycling (TG3.5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enhanced-landings-tg36" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enhanced Landings (TG3.6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-coverage-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Coverage &amp; Quality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Breaking Changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#roadmap-phase-1c-ecosim-enhancement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap: Phase 1C (Ecosim Enhancement)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Resources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Related Resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#documentation-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation &amp; Code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scientific-literature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scientific Literature
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#community-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Community &amp; Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-data-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Data &amp; Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quicklinks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quicklinks
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../phase1b_integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core (Ecopath/Ecosim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spatial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatial (Ecospace)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ibm-parameterization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM Parameterization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../autofix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autofix & Crash Repair
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/basic-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/ewe-database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EwE Database Loading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/spatial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatial Modeling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual-Based Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-included" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What''s Included
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-achievements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Achievements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#who-should-read-this-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who Should Read This Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installation-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation &amp; Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-minute-example-build-a-model-with-pedigree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5-Minute Example: Build a Model with Pedigree
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Diagram
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Diagram">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#integration-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration Points
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-flow-typical-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow: Typical Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation Index
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documentation Index">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#user-guides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User Guides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Notebooks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Workflows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Workflows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#decision-tree-choosing-your-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision Tree: Choosing Your Modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#uncertainty-quantification-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uncertainty Quantification Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#species-identification-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Species Identification Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#age-structured-modeling-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Age-Structured Modeling Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fishing-impact-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fishing Impact Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nutrient-cycle-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nutrient Cycle Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#temporal-landings-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temporal Landings Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration &amp; Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration &amp; Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-requirements-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Requirements Checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Guidelines
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Considerations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-import-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export &amp; Import Workflows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-pitfalls-solutions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Pitfalls &amp; Solutions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ewe-compatibility-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EwE Compatibility &amp; Parity
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="EwE Compatibility &amp; Parity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overall-parity-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overall Parity Status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ecopath-parity-breakdown-phase-1b-focus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ecopath Parity Breakdown (Phase 1B Focus)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#round-trip-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Round-Trip Testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing &amp; Extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contributing &amp; Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extending-phase-1b-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extending Phase 1B Modules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Extending Phase 1B Modules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-new-nutrient-element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a New Nutrient Element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#activating-worms-api-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Activating WoRMS API Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementing-the-economics-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementing the Economics Module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-new-discard-fates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding New Discard Fates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-patterns-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Patterns &amp; Conventions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pull-request-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pull Request Guidelines
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#faq" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FAQ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FAQ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#module-selection-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Selection &amp; Design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-modeling-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data &amp; Modeling Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-notes-v053" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release Notes: v0.5.3
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Release Notes: v0.5.3">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-new-in-phase-1b" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's New in Phase 1B
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What&#39;s New in Phase 1B">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pedigree-system-tg31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pedigree System (TG3.1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#taxonomic-linkage-tg32" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Taxonomic Linkage (TG3.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#size-distribution-tg33" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Size Distribution (TG3.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fleet-discard-dynamics-tg34" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fleet &amp; Discard Dynamics (TG3.4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nutrient-cycling-tg35" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nutrient Cycling (TG3.5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enhanced-landings-tg36" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enhanced Landings (TG3.6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-coverage-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Coverage &amp; Quality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Breaking Changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#roadmap-phase-1c-ecosim-enhancement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap: Phase 1C (Ecosim Enhancement)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Resources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Related Resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#documentation-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation &amp; Code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scientific-literature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scientific Literature
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#community-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Community &amp; Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-data-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Data &amp; Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quicklinks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quicklinks
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="phase-1b-ecopath-enhancement">Phase 1B: Ecopath Enhancement<a class="headerlink" href="#phase-1b-ecopath-enhancement" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Entry point for Phase 1B documentation — six integrated modules for improving EwE parity and data quality.</strong></p>
+</blockquote>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Phase 1B represents a major enhancement to PyPath''s Ecopath implementation, introducing six complementary modules that expand EwE parity from 36.9% to <strong>41.7% (35/84 tables)</strong>. This release focuses on <strong>data quality</strong>, <strong>taxonomic rigor</strong>, <strong>population structure</strong>, <strong>fishing impact</strong>, <strong>nutrient cycling</strong>, and <strong>temporal landings dynamics</strong>.</p>
+<h3 id="whats-included">What''s Included<a class="headerlink" href="#whats-included" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>6 modules</strong> (3,645 lines of production code)</li>
+<li><strong>336 comprehensive tests</strong> (100% passing)</li>
+<li><strong>Ecopath parity improvement</strong>: 14/17 tables (82% coverage for static model initialization)</li>
+<li><strong>Full type hints</strong>, NumPy-style docstrings, and validation throughout</li>
+<li><strong>Round-trip EwE export/import</strong> compatibility testing</li>
+<li><strong>Zero breaking changes</strong> to the Phase 1A API</li>
+</ul>
+<h3 id="key-achievements">Key Achievements<a class="headerlink" href="#key-achievements" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Code coverage</td>
+<td>100% (all modules)</td>
+</tr>
+<tr>
+<td>Test pass rate</td>
+<td>336/336 (100%)</td>
+</tr>
+<tr>
+<td>Ecopath table parity</td>
+<td>14/17 tables (82%)</td>
+</tr>
+<tr>
+<td>Overall EwE parity</td>
+<td>35/84 tables (41.7%)</td>
+</tr>
+<tr>
+<td>Docstring coverage</td>
+<td>100% public APIs</td>
+</tr>
+<tr>
+<td>Type hint coverage</td>
+<td>100% function signatures</td>
+</tr>
+</tbody>
+</table>
+<h3 id="who-should-read-this-documentation">Who Should Read This Documentation<a class="headerlink" href="#who-should-read-this-documentation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Data modelers</strong>: Need to improve data quality and uncertainty tracking</li>
+<li><strong>Researchers</strong>: Developing age-structured, spatially-explicit models</li>
+<li><strong>Ecosystem managers</strong>: Quantifying fishing impacts and nutrient cycles</li>
+<li><strong>EwE users</strong>: Migrating models to Python or seeking automated analysis</li>
+<li><strong>Contributors</strong>: Extending PyPath beyond Phase 1B</li>
+</ul>
+<hr />
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<h3 id="installation-setup">Installation &amp; Setup<a class="headerlink" href="#installation-setup" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Core package with Phase 1B modules</span>
+pip<span class="w"> </span>install<span class="w"> </span>pypath-ewe&gt;<span class="o">=</span><span class="m">0</span>.5.2
+
+<span class="c1"># Or development mode</span>
+<span class="nb">cd</span><span class="w"> </span>packages/pypath
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span>
+
+<span class="c1"># Run tests to verify</span>
+pytest<span class="w"> </span>tests/<span class="w"> </span>-q<span class="w"> </span>-m<span class="w"> </span><span class="s2">"not integration"</span>
+</code></pre></div>
+<h3 id="5-minute-example-build-a-model-with-pedigree">5-Minute Example: Build a Model with Pedigree<a class="headerlink" href="#5-minute-example-build-a-model-with-pedigree" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.pedigree</span><span class="w"> </span><span class="kn">import</span> <span class="n">PedigreeQuality</span><span class="p">,</span> <span class="n">PedigreeContainer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.taxonomy</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaxonomyLinkage</span><span class="p">,</span> <span class="n">TaxonLink</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_rpath_params</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="c1"># Step 1: Create baseline parameters</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_rpath_params</span><span class="p">(</span><span class="n">num_groups</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">biomas_vector</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+
+<span class="c1"># Step 2: Add pedigree (data quality) to each group</span>
+<span class="n">pedigree</span> <span class="o">=</span> <span class="n">PedigreeContainer</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+    <span class="n">pedigree</span><span class="o">.</span><span class="n">add_record</span><span class="p">(</span>
+        <span class="n">group_id</span><span class="o">=</span><span class="n">i</span><span class="p">,</span>
+        <span class="n">biomass_quality</span><span class="o">=</span><span class="n">PedigreeQuality</span><span class="o">.</span><span class="n">MEDIUM</span><span class="p">,</span>  <span class="c1"># From survey data</span>
+        <span class="n">consumption_quality</span><span class="o">=</span><span class="n">PedigreeQuality</span><span class="o">.</span><span class="n">HIGH</span><span class="p">,</span>  <span class="c1"># Stomach contents</span>
+        <span class="n">ee_quality</span><span class="o">=</span><span class="n">PedigreeQuality</span><span class="o">.</span><span class="n">LOW</span><span class="p">,</span>  <span class="c1"># Estimated from fisheries</span>
+    <span class="p">)</span>
+
+<span class="c1"># Step 3: Link to taxonomy for species identification</span>
+<span class="n">taxonomy</span> <span class="o">=</span> <span class="n">TaxonomyLinkage</span><span class="p">()</span>
+<span class="n">taxonomy_data</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">0</span><span class="p">:</span> <span class="n">TaxonLink</span><span class="p">(</span>
+        <span class="n">group_name</span><span class="o">=</span><span class="s2">"Small pelagics"</span><span class="p">,</span>
+        <span class="n">worms_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># Can auto-link via biodata module</span>
+        <span class="n">trophic_level</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="c1"># Add remaining groups...</span>
+<span class="p">}</span>
+
+<span class="c1"># Step 4: Verify and extract</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Model: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="si">}</span><span class="s2"> groups, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pedigree</span><span class="p">)</span><span class="si">}</span><span class="s2"> records with quality"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Taxonomy coverage: </span><span class="si">{</span><span class="n">taxonomy</span><span class="o">.</span><span class="n">coverage</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Export for downstream Ecosim or Ecospace</span>
+<span class="n">model_data</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<span class="n">pedigree_data</span> <span class="o">=</span> <span class="n">pedigree</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><a href="../../api/core/">Full API Reference</a></strong> — all Phase 1B classes and functions</li>
+<li><strong><a href="../phase1b_integration/">Integration Guide</a></strong> — wiring modules together</li>
+<li><strong><a href="#example-notebooks">Example Notebooks</a></strong> — step-by-step workflows</li>
+<li><strong><a href="#documentation-index">Module Documentation</a></strong> — deep dives per module</li>
+</ul>
+<hr />
+<h2 id="module-overview">Module Overview<a class="headerlink" href="#module-overview" title="Permanent link">&para;</a></h2>
+<p>Phase 1B consists of <strong>six interdependent modules</strong>, each addressing a specific aspect of Ecopath enhancement. All follow a consistent architecture: dataclass-based parameter containers, DataFrame serialization, validation logic, and comprehensive tests.</p>
+<table>
+<thead>
+<tr>
+<th>TG #</th>
+<th>Module</th>
+<th>Classes</th>
+<th>Key Use Case</th>
+<th>Tests</th>
+<th>Docs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>3.1</strong></td>
+<td><strong>Pedigree System</strong> (<code>core/pedigree.py</code>)</td>
+<td><code>PedigreeQuality</code>, <code>PedigreeContainer</code>, <code>EwePedigreeConfig</code></td>
+<td>Track data quality &amp; uncertainty for all Ecopath inputs</td>
+<td>54</td>
+<td>TG3.1 Guide</td>
+</tr>
+<tr>
+<td><strong>3.2</strong></td>
+<td><strong>Taxonomic Linkage</strong> (<code>core/taxonomy.py</code>)</td>
+<td><code>TaxonLink</code>, <code>TaxonomyLinkage</code>, <code>TaxonComparator</code></td>
+<td>Link groups to WoRMS/OBIS; verify species composition</td>
+<td>52</td>
+<td>TG3.2 Guide</td>
+</tr>
+<tr>
+<td><strong>3.3</strong></td>
+<td><strong>Size Distribution</strong> (<code>core/size.py</code>)</td>
+<td><code>SizeClass</code>, <code>SizeDistribution</code>, <code>VBGFParams</code></td>
+<td>Model age/size structure; von Bertalanffy growth</td>
+<td>53</td>
+<td>TG3.3 Guide</td>
+</tr>
+<tr>
+<td><strong>3.4</strong></td>
+<td><strong>Fleet &amp; Discards</strong> (<code>core/fleet.py</code>)</td>
+<td><code>GearType</code>, <code>FleetGroup</code>, <code>DiscardPath</code>, <code>FleetDynamics</code></td>
+<td>Define fishing pressure; track bycatch &amp; discards</td>
+<td>67</td>
+<td>TG3.4 Guide</td>
+</tr>
+<tr>
+<td><strong>3.5</strong></td>
+<td><strong>Nutrient Cycling</strong> (<code>core/nutrients.py</code>)</td>
+<td><code>NutrientElement</code>, <code>Excretion</code>, <code>Uptake</code>, <code>NutrientContent</code></td>
+<td>Model N, P, Si cycles; producer regeneration</td>
+<td>50</td>
+<td>TG3.5 Guide</td>
+</tr>
+<tr>
+<td><strong>3.6</strong></td>
+<td><strong>Enhanced Landings</strong> (<code>core/landings.py</code>)</td>
+<td><code>LandingType</code>, <code>LandingRecord</code>, <code>LandingSeasonality</code></td>
+<td>Temporal landings dynamics; seasonal catch patterns</td>
+<td>60</td>
+<td>TG3.6 Guide</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total</strong>: 336 tests | 3,645 lines of code | 100% passing</p>
+<hr />
+<h2 id="architecture-diagram">Architecture Diagram<a class="headerlink" href="#architecture-diagram" title="Permanent link">&para;</a></h2>
+<p>Phase 1B modules form an integrated pipeline with distinct responsibilities:</p>
+<div class="highlight"><pre><span></span><code>                            ECOPATH BASELINE
+                                   |
+                    create_rpath_params(num_groups, ...)
+                                   |
+                    ┌──────────────┴──────────────┐
+                    |                             |
+                    v                             v
+            ┌──────────────────┐       ┌──────────────────┐
+            | PEDIGREE (TG3.1) |       | TAXONOMY (TG3.2) |
+            ├──────────────────┤       ├──────────────────┤
+            | Quality tracking | &lt;-----&gt;| Species ID + WoRMS|
+            | Uncertainty coeff.| links  | Trophic level    |
+            | Data confidence  | -----&gt; | Biodata enrichment
+            └──────────────────┘       └──────────────────┘
+                    |                             |
+                    | uncertainty bounds          | taxonomic constraints
+                    |                             |
+            ┌──────────────────┐       ┌──────────────────┐
+            | SIZE DIST. (TG3.3)|       | FLEET (TG3.4)    |
+            ├──────────────────┤       ├──────────────────┤
+            | Age-size structure| &lt;-----&gt;| Fishing selectivity
+            | von Bertalanffy   | links  | Gear-based catch  |
+            | Length frequency  | -----&gt; | Discard pathways  |
+            └──────────────────┘       └──────────────────┘
+                    |                             |
+                    | population dynamics         | catch pressure
+                    |                             |
+            ┌──────────────────────────────────────────────┐
+            | NUTRIENTS (TG3.5) + LANDINGS (TG3.6)         |
+            ├──────────────────────────────────────────────┤
+            | Nutrient excretion by group/size             |
+            | Seasonal landings dynamics                   |
+            | Producer uptake (Monod kinetics)             |
+            | Temporal catch variability                   |
+            └──────────────────────────────────────────────┘
+                    |
+                    | Feeds into Ecosim derivatives
+                    v
+            RSIM_SCENARIO (Phase 1C)
+            ECOSIM DYNAMICS (Phase 1C)
+            ECOSPACE SPATIAL (Phase 2)
+</code></pre></div>
+<h3 id="integration-points">Integration Points<a class="headerlink" href="#integration-points" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Pedigree ↔ Taxonomy</strong>: Pedigree quality scores linked to species-level taxonomy nodes</li>
+<li><strong>Taxonomy ↔ Size Distribution</strong>: Taxonomic constraints on von Bertalanffy parameters</li>
+<li><strong>Size Distribution ↔ Fleet</strong>: Gear selectivity curves interact with size-class structure</li>
+<li><strong>Fleet ↔ Landings</strong>: Temporal discard/landing patterns stored in LandingSeasonality</li>
+<li><strong>Nutrients ↔ Landings</strong>: Nutrient export via landings, input via group excretion</li>
+<li><strong>All ↔ Ecosim</strong>: Derivatives reader pulls feeding rates, pedigree confidence, fleet pressure</li>
+</ol>
+<h3 id="data-flow-typical-workflow">Data Flow: Typical Workflow<a class="headerlink" href="#data-flow-typical-workflow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>CSV/EwE Import
+      |
+      v
+RpathParams (baseline)
+      |
+      +---&gt; Pedigree.from_csv("pedigree.csv")
+      |     ^ Add quality scores
+      |
+      +---&gt; TaxonomyLinkage.from_dict(taxonomy_dict)
+      |     ^ Link to WoRMS
+      |
+      +---&gt; SizeDistribution.from_dataframe(size_data)
+      |     ^ Fit von Bertalanffy
+      |
+      +---&gt; FleetDynamics.from_dataframe(fleet_data)
+      |     ^ Define gears &amp; selectivity
+      |
+      +---&gt; NutrientCycle.from_elements(["N", "P"])
+      |     ^ Configure nutrient loops
+      |
+      +---&gt; LandingSeasonality.from_timeseries(landings_ts)
+      |     ^ Estimate seasonal pattern
+      |
+      +---&gt; Bundle all into scenario object
+      |
+      v
+    rsim_scenario(rpath_result, scenario_config)
+    [Ecosim time-stepping begins]
+</code></pre></div>
+<hr />
+<h2 id="documentation-index">Documentation Index<a class="headerlink" href="#documentation-index" title="Permanent link">&para;</a></h2>
+<h3 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><a href="../../api/core/">Core Module (<code>core.md</code>)</a></strong> — Complete reference for all Phase 1B classes</li>
+<li><code>pypath.core.pedigree.*</code></li>
+<li><code>pypath.core.taxonomy.*</code></li>
+<li><code>pypath.core.size.*</code></li>
+<li><code>pypath.core.fleet.*</code></li>
+<li><code>pypath.core.nutrients.*</code></li>
+<li><code>pypath.core.landings.*</code></li>
+</ul>
+<h3 id="user-guides">User Guides<a class="headerlink" href="#user-guides" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Guide</th>
+<th>Focus</th>
+<th>Read Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../phase1b_integration/">Phase 1B Integration Guide</a></td>
+<td>Wiring all 6 modules together; data flow patterns</td>
+<td>20 min</td>
+</tr>
+<tr>
+<td>Pedigree &amp; Uncertainty</td>
+<td>Data quality tracking; confidence intervals; expert elicitation</td>
+<td>15 min</td>
+</tr>
+<tr>
+<td>Taxonomic Linking</td>
+<td>WoRMS integration; species matching; trophic level inference</td>
+<td>15 min</td>
+</tr>
+<tr>
+<td>Population Structure &amp; Growth</td>
+<td>Von Bertalanffy fitting; size classes; age cohorts</td>
+<td>15 min</td>
+</tr>
+<tr>
+<td>Fishing Operations &amp; Bycatch</td>
+<td>Gear selectivity; discard pathways; effort dynamics</td>
+<td>20 min</td>
+</tr>
+<tr>
+<td>Nutrient Cycling &amp; Primary Producers</td>
+<td>N/P/Si loops; Monod kinetics; regeneration rates</td>
+<td>15 min</td>
+</tr>
+<tr>
+<td>Temporal Landings Dynamics</td>
+<td>Seasonal patterns; catch variability; export tracking</td>
+<td>15 min</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-notebooks">Example Notebooks<a class="headerlink" href="#example-notebooks" title="Permanent link">&para;</a></h3>
+<p>Example Jupyter notebooks are located in <code>packages/pypath/examples/phase1b/</code>:</p>
+<ol>
+<li><strong>01_pedigree_system.ipynb</strong></li>
+<li>Build a 5-group model from scratch</li>
+<li>Add pedigree quality scores</li>
+<li>
+<p>Generate uncertainty bounds</p>
+</li>
+<li>
+<p><strong>02_taxonomy_linkage.ipynb</strong></p>
+</li>
+<li>Link groups to WoRMS database</li>
+<li>Resolve species ambiguity</li>
+<li>
+<p>Enrich with FishBase data</p>
+</li>
+<li>
+<p><strong>03_size_distribution.ipynb</strong></p>
+</li>
+<li>Fit von Bertalanffy curves</li>
+<li>Create age-structured size classes</li>
+<li>
+<p>Validate length-frequency data</p>
+</li>
+<li>
+<p><strong>04_fleet_discard.ipynb</strong></p>
+</li>
+<li>Define fishing gears</li>
+<li>Model discard pathways</li>
+<li>
+<p>Simulate effort scenarios</p>
+</li>
+<li>
+<p><strong>05_nutrient_cycling.ipynb</strong></p>
+</li>
+<li>Configure N/P cycles</li>
+<li>Calculate excretion rates</li>
+<li>
+<p>Model producer uptake</p>
+</li>
+<li>
+<p><strong>06_landings_system.ipynb</strong></p>
+</li>
+<li>Load temporal catch time series</li>
+<li>Fit seasonal patterns</li>
+<li>Forecast landing variability</li>
+</ol>
+<h3 id="test-documentation">Test Documentation<a class="headerlink" href="#test-documentation" title="Permanent link">&para;</a></h3>
+<p>All Phase 1B tests are organized by module under <code>packages/pypath/tests/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Test File</th>
+<th>Purpose</th>
+<th>Tests</th>
+<th>Markers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test_pedigree.py</code></td>
+<td>Pedigree container, quality enums, serialization</td>
+<td>54</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>test_taxonomy.py</code></td>
+<td>Taxon linking, WoRMS stubs, species matching</td>
+<td>52</td>
+<td><code>integration</code></td>
+</tr>
+<tr>
+<td><code>test_size.py</code></td>
+<td>Von Bertalanffy fitting, size class creation</td>
+<td>53</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>test_fleet.py</code></td>
+<td>Gear definition, selectivity, discard routing</td>
+<td>67</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>test_nutrients.py</code></td>
+<td>Monod kinetics, excretion, uptake cycles</td>
+<td>50</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>test_landings.py</code></td>
+<td>Seasonality fitting, temporal dynamics</td>
+<td>60</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Integration tests</strong> (marked <code>@pytest.mark.integration</code>):
+- Round-trip EwE export/import validation (<code>test_ewe_export.py</code>)
+- Parity checks against EwE reference database</p>
+<p><strong>Performance benchmarks</strong> are included in test output:
+<div class="highlight"><pre><span></span><code>pytest<span class="w"> </span>packages/pypath/tests/<span class="w"> </span>-v<span class="w"> </span>--tb<span class="o">=</span>short<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"parity\|export\|benchmark"</span>
+</code></pre></div></p>
+<hr />
+<h2 id="common-workflows">Common Workflows<a class="headerlink" href="#common-workflows" title="Permanent link">&para;</a></h2>
+<h3 id="decision-tree-choosing-your-modules">Decision Tree: Choosing Your Modules<a class="headerlink" href="#decision-tree-choosing-your-modules" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Start: Building an Ecopath model in PyPath
+  |
+  +-- Need to quantify data quality?
+  |   Yes --&gt; Use Pedigree (TG3.1)
+  |   No  --&gt; Skip
+  |
+  +-- Need species identification / WoRMS linking?
+  |   Yes --&gt; Use Taxonomy (TG3.2) + Biodata
+  |   No  --&gt; Skip
+  |
+  +-- Need age/size structure for groups?
+  |   Yes --&gt; Use Size Distribution (TG3.3)
+  |   No  --&gt; Skip (treat all groups as lumped biomass)
+  |
+  +-- Need to model fishing fleets?
+  |   Yes --&gt; Use Fleet (TG3.4) + integrate with Ecosim gears
+  |   No  --&gt; Skip (no fishing pressure)
+  |
+  +-- Need to track nutrient cycles (N, P, Si)?
+  |   Yes --&gt; Use Nutrients (TG3.5)
+  |   No  --&gt; Skip (ecosystem carbon only)
+  |
+  +-- Need temporal/seasonal landings patterns?
+  |   Yes --&gt; Use Landings (TG3.6)
+  |   No  --&gt; Use static landings in Ecosim
+  |
+  End: Integrated scenario ready for rsim_run()
+</code></pre></div>
+<h3 id="uncertainty-quantification-workflow">Uncertainty Quantification Workflow<a class="headerlink" href="#uncertainty-quantification-workflow" title="Permanent link">&para;</a></h3>
+<p><strong>Goal</strong>: Propagate data quality into parameter uncertainty</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.pedigree</span><span class="w"> </span><span class="kn">import</span> <span class="n">PedigreeContainer</span><span class="p">,</span> <span class="n">PedigreeQuality</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_rpath_params</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># 1. Create baseline model</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_rpath_params</span><span class="p">(</span><span class="n">num_groups</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="c1"># 2. Add pedigree quality scores</span>
+<span class="n">pedigree</span> <span class="o">=</span> <span class="n">PedigreeContainer</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+    <span class="n">pedigree</span><span class="o">.</span><span class="n">add_record</span><span class="p">(</span>
+        <span class="n">group_id</span><span class="o">=</span><span class="n">i</span><span class="p">,</span>
+        <span class="n">biomass_quality</span><span class="o">=</span><span class="n">PedigreeQuality</span><span class="o">.</span><span class="n">MEDIUM</span><span class="p">,</span>
+        <span class="n">consumption_quality</span><span class="o">=</span><span class="n">PedigreeQuality</span><span class="o">.</span><span class="n">HIGH</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<span class="c1"># 3. Get uncertainty coefficients</span>
+<span class="n">cv</span> <span class="o">=</span> <span class="n">pedigree</span><span class="o">.</span><span class="n">uncertainty_coefficient</span><span class="p">(</span><span class="s2">"biomass"</span><span class="p">)</span>  <span class="c1"># 0.15 for MEDIUM</span>
+<span class="n">confidence</span> <span class="o">=</span> <span class="n">pedigree</span><span class="o">.</span><span class="n">confidence_interval</span><span class="p">(</span><span class="s2">"consumption"</span><span class="p">,</span> <span class="mi">95</span><span class="p">)</span>  <span class="c1"># 95% CI bounds</span>
+
+<span class="c1"># 4. Monte Carlo sampling</span>
+<span class="n">num_samples</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">uncertainty</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">cv</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_samples</span><span class="p">)</span>
+<span class="n">sampled_biomass</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="p">[</span><span class="s2">"Biomass"</span><span class="p">]</span> <span class="o">*</span> <span class="n">uncertainty</span>
+
+<span class="c1"># 5. Feed into calibration or sensitivity analysis</span>
+</code></pre></div>
+<h3 id="species-identification-workflow">Species Identification Workflow<a class="headerlink" href="#species-identification-workflow" title="Permanent link">&para;</a></h3>
+<p><strong>Goal</strong>: Link each group to WoRMS and enrich with biodata</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.taxonomy</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaxonomyLinkage</span><span class="p">,</span> <span class="n">TaxonLink</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.biodata</span><span class="w"> </span><span class="kn">import</span> <span class="n">resolve_species_worms</span><span class="p">,</span> <span class="n">get_fishbase_growth</span>
+
+<span class="c1"># 1. Define initial taxonomy</span>
+<span class="n">taxonomy</span> <span class="o">=</span> <span class="n">TaxonomyLinkage</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">group_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="s2">"Cod"</span><span class="p">,</span> <span class="s2">"Herring"</span><span class="p">,</span> <span class="s2">"Detritus"</span><span class="p">]):</span>
+    <span class="n">tl</span> <span class="o">=</span> <span class="n">TaxonLink</span><span class="p">(</span><span class="n">group_name</span><span class="o">=</span><span class="n">group_name</span><span class="p">,</span> <span class="n">worms_id</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">taxonomy</span><span class="o">.</span><span class="n">add_taxon</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">tl</span><span class="p">)</span>
+
+<span class="c1"># 2. Auto-resolve WoRMS IDs (if available API token)</span>
+<span class="k">for</span> <span class="n">group_id</span><span class="p">,</span> <span class="n">taxon</span> <span class="ow">in</span> <span class="n">taxonomy</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">taxon</span><span class="o">.</span><span class="n">group_name</span> <span class="o">!=</span> <span class="s2">"Detritus"</span><span class="p">:</span>
+        <span class="n">worms_id</span> <span class="o">=</span> <span class="n">resolve_species_worms</span><span class="p">(</span><span class="n">taxon</span><span class="o">.</span><span class="n">group_name</span><span class="p">)</span>
+        <span class="n">taxon</span><span class="o">.</span><span class="n">worms_id</span> <span class="o">=</span> <span class="n">worms_id</span>
+
+<span class="c1"># 3. Enrich with FishBase parameters</span>
+<span class="k">for</span> <span class="n">group_id</span><span class="p">,</span> <span class="n">taxon</span> <span class="ow">in</span> <span class="n">taxonomy</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">taxon</span><span class="o">.</span><span class="n">worms_id</span><span class="p">:</span>
+        <span class="n">vbgf</span> <span class="o">=</span> <span class="n">get_fishbase_growth</span><span class="p">(</span><span class="n">taxon</span><span class="o">.</span><span class="n">worms_id</span><span class="p">)</span>
+        <span class="c1"># Use vbgf.k, vbgf.linf in size distribution module</span>
+</code></pre></div>
+<h3 id="age-structured-modeling-workflow">Age-Structured Modeling Workflow<a class="headerlink" href="#age-structured-modeling-workflow" title="Permanent link">&para;</a></h3>
+<p><strong>Goal</strong>: Decompose groups into age/size classes for IBM or detailed demographics</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.size</span><span class="w"> </span><span class="kn">import</span> <span class="n">SizeDistribution</span><span class="p">,</span> <span class="n">VBGFParams</span>
+
+<span class="c1"># 1. Define von Bertalanffy growth parameters</span>
+<span class="n">vbgf</span> <span class="o">=</span> <span class="n">VBGFParams</span><span class="p">(</span><span class="n">linf</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">t0</span><span class="o">=-</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Cod in Baltic"</span><span class="p">)</span>
+
+<span class="c1"># 2. Create size classes (e.g., 5-age cohorts)</span>
+<span class="n">size_dist</span> <span class="o">=</span> <span class="n">SizeDistribution</span><span class="p">(</span>
+    <span class="n">group_name</span><span class="o">=</span><span class="s2">"Cod"</span><span class="p">,</span>
+    <span class="n">num_classes</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">vbgf_params</span><span class="o">=</span><span class="n">vbgf</span><span class="p">,</span>
+    <span class="n">min_length</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+    <span class="n">max_length</span><span class="o">=</span><span class="mf">120.0</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 3. Get class boundaries and proportions</span>
+<span class="n">class_info</span> <span class="o">=</span> <span class="n">size_dist</span><span class="o">.</span><span class="n">class_properties</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Classes: </span><span class="si">{</span><span class="n">class_info</span><span class="p">[</span><span class="s1">'length_bins'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Proportions: </span><span class="si">{</span><span class="n">class_info</span><span class="p">[</span><span class="s1">'class_proportions'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># 4. Use in Ecosim stanzas or IBM</span>
+<span class="c1"># (Phase 1C integration point)</span>
+</code></pre></div>
+<h3 id="fishing-impact-workflow">Fishing Impact Workflow<a class="headerlink" href="#fishing-impact-workflow" title="Permanent link">&para;</a></h3>
+<p><strong>Goal</strong>: Define realistic fleet operations and bycatch</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.fleet</span><span class="w"> </span><span class="kn">import</span> <span class="n">FleetDynamics</span><span class="p">,</span> <span class="n">FleetGroup</span><span class="p">,</span> <span class="n">GearType</span><span class="p">,</span> <span class="n">DiscardPath</span>
+
+<span class="c1"># 1. Define fleets</span>
+<span class="n">fleet_dynamics</span> <span class="o">=</span> <span class="n">FleetDynamics</span><span class="p">()</span>
+
+<span class="c1"># 2. Add gear for each fleet</span>
+<span class="n">trawl_fleet</span> <span class="o">=</span> <span class="n">FleetGroup</span><span class="p">(</span>
+    <span class="n">fleet_name</span><span class="o">=</span><span class="s2">"Bottom Trawl"</span><span class="p">,</span>
+    <span class="n">gear_type</span><span class="o">=</span><span class="n">GearType</span><span class="o">.</span><span class="n">TRAWL</span><span class="p">,</span>
+    <span class="n">target_group</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>  <span class="c1"># Cod</span>
+    <span class="n">selectivity_curve</span><span class="o">=</span><span class="s2">"logistic"</span><span class="p">,</span>
+    <span class="n">selectivity_params</span><span class="o">=</span><span class="p">{</span><span class="s2">"l50"</span><span class="p">:</span> <span class="mi">35</span><span class="p">,</span> <span class="s2">"sr"</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>  <span class="c1"># size-based selectivity</span>
+    <span class="n">catchability</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">fleet_dynamics</span><span class="o">.</span><span class="n">add_fleet</span><span class="p">(</span><span class="n">trawl_fleet</span><span class="p">)</span>
+
+<span class="c1"># 3. Define discard pathways</span>
+<span class="n">trawl_fleet</span><span class="o">.</span><span class="n">add_discard</span><span class="p">(</span>
+    <span class="n">bycatch_group</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># Herring</span>
+    <span class="n">discard_path</span><span class="o">=</span><span class="n">DiscardPath</span><span class="o">.</span><span class="n">RETURNED_ALIVE</span><span class="p">,</span>
+    <span class="n">survival_rate</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 4. Simulate fishing effort scenarios</span>
+<span class="n">effort_ts</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"2020"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">"2021"</span><span class="p">:</span> <span class="mi">95</span><span class="p">,</span> <span class="s2">"2022"</span><span class="p">:</span> <span class="mi">110</span><span class="p">}</span>
+<span class="n">pressure</span> <span class="o">=</span> <span class="n">fleet_dynamics</span><span class="o">.</span><span class="n">fishing_pressure</span><span class="p">(</span><span class="n">effort_ts</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="nutrient-cycle-workflow">Nutrient Cycle Workflow<a class="headerlink" href="#nutrient-cycle-workflow" title="Permanent link">&para;</a></h3>
+<p><strong>Goal</strong>: Track N and P cycling through ecosystem</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.nutrients</span><span class="w"> </span><span class="kn">import</span> <span class="n">NutrientCycle</span><span class="p">,</span> <span class="n">NutrientElement</span><span class="p">,</span> <span class="n">Excretion</span>
+
+<span class="c1"># 1. Create nutrient cycle</span>
+<span class="n">nutrient</span> <span class="o">=</span> <span class="n">NutrientCycle</span><span class="p">()</span>
+
+<span class="c1"># 2. Define elements (N, P, Si)</span>
+<span class="n">nutrient</span><span class="o">.</span><span class="n">add_element</span><span class="p">(</span><span class="n">NutrientElement</span><span class="o">.</span><span class="n">NITROGEN</span><span class="p">)</span>
+<span class="n">nutrient</span><span class="o">.</span><span class="n">add_element</span><span class="p">(</span><span class="n">NutrientElement</span><span class="o">.</span><span class="n">PHOSPHORUS</span><span class="p">)</span>
+
+<span class="c1"># 3. Set excretion rates by group</span>
+<span class="k">for</span> <span class="n">group_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_groups</span><span class="p">):</span>
+    <span class="n">excretion_n</span> <span class="o">=</span> <span class="n">Excretion</span><span class="p">(</span>
+        <span class="n">group_id</span><span class="o">=</span><span class="n">group_id</span><span class="p">,</span>
+        <span class="n">element</span><span class="o">=</span><span class="n">NutrientElement</span><span class="o">.</span><span class="n">NITROGEN</span><span class="p">,</span>
+        <span class="n">rate_per_consumption</span><span class="o">=</span><span class="mf">0.12</span><span class="p">,</span>  <span class="c1"># 12% of C flux</span>
+        <span class="n">regeneration_fraction</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>  <span class="c1"># 80% regenerated vs sedimented</span>
+    <span class="p">)</span>
+    <span class="n">nutrient</span><span class="o">.</span><span class="n">add_excretion</span><span class="p">(</span><span class="n">excretion_n</span><span class="p">)</span>
+
+<span class="c1"># 4. Calculate producer demand (Monod kinetics)</span>
+<span class="n">producer_uptake</span> <span class="o">=</span> <span class="n">nutrient</span><span class="o">.</span><span class="n">monod_uptake</span><span class="p">(</span>
+    <span class="n">nutrient_conc</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span>  <span class="c1"># µM</span>
+    <span class="n">km_half_sat</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>  <span class="c1"># µM at half-saturation</span>
+<span class="p">)</span>
+</code></pre></div>
+<h3 id="temporal-landings-workflow">Temporal Landings Workflow<a class="headerlink" href="#temporal-landings-workflow" title="Permanent link">&para;</a></h3>
+<p><strong>Goal</strong>: Capture seasonal catch patterns and forecast dynamics</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.landings</span><span class="w"> </span><span class="kn">import</span> <span class="n">LandingSeasonality</span><span class="p">,</span> <span class="n">LandingRecord</span><span class="p">,</span> <span class="n">LandingType</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="c1"># 1. Load historical landings</span>
+<span class="n">landings_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"date"</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">"2010-01-01"</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">"M"</span><span class="p">),</span>
+    <span class="s2">"catch"</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">105</span><span class="p">,</span> <span class="mi">110</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>  <span class="c1"># monthly catch</span>
+    <span class="s2">"group"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">})</span>
+
+<span class="c1"># 2. Fit seasonality</span>
+<span class="n">seasonality</span> <span class="o">=</span> <span class="n">LandingSeasonality</span><span class="o">.</span><span class="n">from_timeseries</span><span class="p">(</span><span class="n">landings_ts</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Seasonal phase: </span><span class="si">{</span><span class="n">seasonality</span><span class="o">.</span><span class="n">seasonal_phase</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Amplitude: </span><span class="si">{</span><span class="n">seasonality</span><span class="o">.</span><span class="n">seasonal_amplitude</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># 3. Forecast future patterns</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">seasonality</span><span class="o">.</span><span class="n">forecast</span><span class="p">(</span><span class="n">months</span><span class="o">=</span><span class="mi">24</span><span class="p">)</span>
+
+<span class="c1"># 4. Feed into Ecosim with time-varying catch</span>
+</code></pre></div>
+<hr />
+<h2 id="configuration-best-practices">Configuration &amp; Best Practices<a class="headerlink" href="#configuration-best-practices" title="Permanent link">&para;</a></h2>
+<h3 id="data-requirements-checklist">Data Requirements Checklist<a class="headerlink" href="#data-requirements-checklist" title="Permanent link">&para;</a></h3>
+<p>For each module, ensure you have:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Required</th>
+<th>Optional</th>
+<th>Format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Pedigree</strong></td>
+<td>Biomass, P, Q values</td>
+<td>Expert elicitation notes</td>
+<td>CSV, Excel</td>
+</tr>
+<tr>
+<td><strong>Taxonomy</strong></td>
+<td>Group names</td>
+<td>WoRMS IDs, Trophic level</td>
+<td>CSV or dict</td>
+</tr>
+<tr>
+<td><strong>Size</strong></td>
+<td>Length/age data</td>
+<td>VBGF parameters</td>
+<td>CSV, pandas.DataFrame</td>
+</tr>
+<tr>
+<td><strong>Fleet</strong></td>
+<td>Target species, effort</td>
+<td>Selectivity curves, effort TS</td>
+<td>CSV, JSON</td>
+</tr>
+<tr>
+<td><strong>Nutrients</strong></td>
+<td>Excretion rates (optional)</td>
+<td>Element list, Monod params</td>
+<td>Enum, dict</td>
+</tr>
+<tr>
+<td><strong>Landings</strong></td>
+<td>Catch time series</td>
+<td>Monthly/seasonal breakdown</td>
+<td>CSV, DataFrame</td>
+</tr>
+</tbody>
+</table>
+<h3 id="validation-guidelines">Validation Guidelines<a class="headerlink" href="#validation-guidelines" title="Permanent link">&para;</a></h3>
+<p>Always validate before Ecosim integration:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 1. Pedigree completeness</span>
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">pedigree</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="p">),</span> <span class="s2">"Pedigree must cover all groups"</span>
+
+<span class="c1"># 2. Taxonomy species match</span>
+<span class="k">assert</span> <span class="n">taxonomy</span><span class="o">.</span><span class="n">coverage</span><span class="p">()</span> <span class="o">==</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">"All groups must have taxonomy"</span>
+
+<span class="c1"># 3. Size class proportions sum to 1</span>
+<span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">size_dist</span><span class="o">.</span><span class="n">class_proportions</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="mf">1.0</span><span class="p">)</span>
+
+<span class="c1"># 4. Fleet selectivity curves are monotonic</span>
+<span class="k">for</span> <span class="n">fleet</span> <span class="ow">in</span> <span class="n">fleet_dynamics</span><span class="o">.</span><span class="n">fleets</span><span class="p">:</span>
+    <span class="n">sel</span> <span class="o">=</span> <span class="n">fleet</span><span class="o">.</span><span class="n">selectivity_curve</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sel</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(),</span> <span class="s2">"Selectivity must be monotonic"</span>
+
+<span class="c1"># 5. Nutrient budgets close</span>
+<span class="n">budget</span> <span class="o">=</span> <span class="n">nutrient</span><span class="o">.</span><span class="n">nutrient_balance</span><span class="p">()</span>
+<span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">budget</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Nutrient budget imbalanced: </span><span class="si">{</span><span class="n">budget</span><span class="si">}</span><span class="s2">"</span>
+
+<span class="c1"># 6. Landings are positive</span>
+<span class="k">assert</span> <span class="p">(</span><span class="n">landings_ts</span><span class="p">[</span><span class="s2">"catch"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="performance-considerations">Performance Considerations<a class="headerlink" href="#performance-considerations" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Large models (&gt;100 groups)</strong>: Use vectorized operations in nutrient and size calculations</li>
+<li><strong>Long time series (&gt;50 years)</strong>: Pre-aggregate monthly landings to quarters for speed</li>
+<li><strong>WoRMS/OBIS lookups</strong>: Cache results (currently stubbed); only resolve on-demand</li>
+<li><strong>Monod kinetics</strong>: Pre-compute saturation ratios for stability</li>
+</ul>
+<h3 id="export-import-workflows">Export &amp; Import Workflows<a class="headerlink" href="#export-import-workflows" title="Permanent link">&para;</a></h3>
+<p>Round-trip your model for validation:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Export to EwE (if EwE .dll installed)</span>
+pypath<span class="w"> </span><span class="nb">export</span><span class="w"> </span>my_model.ewe<span class="w"> </span>packages/pypath/example_data/model.eweaccdb
+
+<span class="c1"># Import from EwE</span>
+pypath<span class="w"> </span>import<span class="w"> </span>model.eweaccdb<span class="w"> </span>--output<span class="w"> </span>model_imported.py
+
+<span class="c1"># Validate parity</span>
+pytest<span class="w"> </span>packages/pypath/tests/test_ewe_export.py<span class="w"> </span>-v
+</code></pre></div>
+<h3 id="common-pitfalls-solutions">Common Pitfalls &amp; Solutions<a class="headerlink" href="#common-pitfalls-solutions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Pitfall</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PedigreeQuality value not in enum</code></td>
+<td>Typo in quality string</td>
+<td>Use <code>PedigreeQuality.HIGH</code>, not <code>"high"</code></td>
+</tr>
+<tr>
+<td><code>NaN in size distribution probabilities</code></td>
+<td>Incomplete VBGF parameters</td>
+<td>Ensure <code>linf &gt; t0</code>, <code>k &gt; 0</code></td>
+</tr>
+<tr>
+<td><code>Selectivity curve not monotonic</code></td>
+<td>Logistic parameters swapped</td>
+<td>Verify <code>l50 &lt; l75</code></td>
+</tr>
+<tr>
+<td><code>Nutrient budget imbalanced</code></td>
+<td>Missing excretion rates</td>
+<td>Add excretion for all consumer groups</td>
+</tr>
+<tr>
+<td><code>Landings seasonality singularity</code></td>
+<td>Too few data points</td>
+<td>Need ≥24 monthly observations</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ewe-compatibility-parity">EwE Compatibility &amp; Parity<a class="headerlink" href="#ewe-compatibility-parity" title="Permanent link">&para;</a></h2>
+<h3 id="overall-parity-status">Overall Parity Status<a class="headerlink" href="#overall-parity-status" title="Permanent link">&para;</a></h3>
+<p>PyPath now supports <strong>35 out of 84 EwE database tables (41.7%)</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Tables</th>
+<th>Coverage</th>
+<th>Main Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Phase 1A</strong></td>
+<td>21/84</td>
+<td>25%</td>
+<td>Core Ecopath mass balance</td>
+</tr>
+<tr>
+<td><strong>Phase 1B</strong></td>
+<td>+14/84</td>
+<td>+16.7%</td>
+<td><strong>Data quality, taxonomy, structure, fishing, nutrients, landings</strong></td>
+</tr>
+<tr>
+<td><strong>Phase 1C</strong></td>
+<td>TBD</td>
+<td>TBD</td>
+<td>Ecosim dynamics (stable rates, forcing)</td>
+</tr>
+<tr>
+<td><strong>Phase 2</strong></td>
+<td>TBD</td>
+<td>TBD</td>
+<td>Ecospace (spatial dispersal, habitat)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ecopath-parity-breakdown-phase-1b-focus">Ecopath Parity Breakdown (Phase 1B Focus)<a class="headerlink" href="#ecopath-parity-breakdown-phase-1b-focus" title="Permanent link">&para;</a></h3>
+<p>The 14 Phase 1B tables improve <strong>Ecopath table coverage to 82%</strong> (14/17):</p>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Phase</th>
+<th>Status</th>
+<th>Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Ecopath Groups</code></td>
+<td>1A</td>
+<td>✓ Complete</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Diet</code></td>
+<td>1A</td>
+<td>✓ Complete</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Juveniles</code></td>
+<td>1B</td>
+<td>✓ New (Size)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Size Spectrum</code></td>
+<td>1B</td>
+<td>✓ New (Size)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Taxonomy</code></td>
+<td>1B</td>
+<td>✓ New (Taxonomy)</td>
+<td>80% (WoRMS stub)</td>
+</tr>
+<tr>
+<td><code>Ecopath Pedigree Quality</code></td>
+<td>1B</td>
+<td>✓ New (Pedigree)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Pedigree Uncertainty</code></td>
+<td>1B</td>
+<td>✓ New (Pedigree)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Nutrient Content</code></td>
+<td>1B</td>
+<td>✓ New (Nutrients)</td>
+<td>90%</td>
+</tr>
+<tr>
+<td><code>Ecopath Nutrient Excretion</code></td>
+<td>1B</td>
+<td>✓ New (Nutrients)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Producer Uptake</code></td>
+<td>1B</td>
+<td>✓ New (Nutrients)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Fleet Definition</code></td>
+<td>1B</td>
+<td>✓ New (Fleet)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Fleet Selectivity</code></td>
+<td>1B</td>
+<td>✓ New (Fleet)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Discard Allocation</code></td>
+<td>1B</td>
+<td>✓ New (Fleet)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Landing Events</code></td>
+<td>1B</td>
+<td>✓ New (Landings)</td>
+<td>100%</td>
+</tr>
+<tr>
+<td><code>Ecopath Landing Seasonality</code></td>
+<td>1B</td>
+<td>✓ New (Landings)</td>
+<td>100%</td>
+</tr>
+</tbody>
+</table>
+<h3 id="round-trip-testing">Round-Trip Testing<a class="headerlink" href="#round-trip-testing" title="Permanent link">&para;</a></h3>
+<p>All Phase 1B modules support round-trip validation (export → EwE → import):</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Test that exported models can be re-imported without data loss</span>
+pytest<span class="w"> </span>packages/pypath/tests/test_ewe_export.py::test_roundtrip_parity<span class="w"> </span>-v
+
+<span class="c1"># Check which tables have perfect parity</span>
+pytest<span class="w"> </span>packages/pypath/tests/<span class="w"> </span>-k<span class="w"> </span><span class="s2">"parity"</span><span class="w"> </span>-v<span class="w"> </span>--tb<span class="o">=</span>short
+</code></pre></div>
+<h3 id="known-limitations">Known Limitations<a class="headerlink" href="#known-limitations" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Taxonomy WoRMS linkage</strong> is currently stubbed (API integration in Phase 1B.2 marked for implementation)</li>
+<li><strong>Nutrient uptake heuristics</strong> for primary producers are simplified (Phase 1C will refine with Ecosim coupling)</li>
+<li><strong>Fishing selectivity</strong> curves use logistic function; EwE supports more complex shapes (future expansion)</li>
+<li><strong>Discard survival rates</strong> are fixed per pathway; EwE allows dynamic survival (Phase 2 consideration)</li>
+</ul>
+<hr />
+<h2 id="contributing-extensions">Contributing &amp; Extensions<a class="headerlink" href="#contributing-extensions" title="Permanent link">&para;</a></h2>
+<h3 id="extending-phase-1b-modules">Extending Phase 1B Modules<a class="headerlink" href="#extending-phase-1b-modules" title="Permanent link">&para;</a></h3>
+<p>Phase 1B is designed for extension. Here are common patterns:</p>
+<h4 id="adding-a-new-nutrient-element">Adding a New Nutrient Element<a class="headerlink" href="#adding-a-new-nutrient-element" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.nutrients</span><span class="w"> </span><span class="kn">import</span> <span class="n">NutrientElement</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">auto</span>
+
+<span class="c1"># 1. Add to NutrientElement enum</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">NutrientElement</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">NITROGEN</span> <span class="o">=</span> <span class="s2">"N"</span>
+    <span class="n">PHOSPHORUS</span> <span class="o">=</span> <span class="s2">"P"</span>
+    <span class="n">SILICON</span> <span class="o">=</span> <span class="s2">"Si"</span>
+    <span class="n">IRON</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>  <span class="c1"># New element</span>
+
+<span class="c1"># 2. Extend Monod kinetics for the new element</span>
+<span class="c1"># (in NutrientCycle class)</span>
+
+<span class="c1"># 3. Add tests in test_nutrients.py</span>
+</code></pre></div>
+<h4 id="activating-worms-api-integration">Activating WoRMS API Integration<a class="headerlink" href="#activating-worms-api-integration" title="Permanent link">&para;</a></h4>
+<p>Currently, WoRMS lookups are stubbed. To activate:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># In pypath/io/biodata.py</span>
+
+<span class="c1"># Before:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">resolve_species_worms</span><span class="p">(</span><span class="n">species_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Stub: returns None."""</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+<span class="c1"># After (uncomment when WoRMS API token available):</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyworms</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">resolve_species_worms</span><span class="p">(</span><span class="n">species_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Query WoRMS database for species ID."""</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">pyworms</span><span class="o">.</span><span class="n">aphiaNameSearch</span><span class="p">(</span><span class="n">species_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">results</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"AphiaID"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="kc">None</span>
+</code></pre></div>
+<p>Set <code>WORMS_TOKEN</code> environment variable and run:
+<div class="highlight"><pre><span></span><code>pytest<span class="w"> </span>packages/pypath/tests/test_taxonomy.py<span class="w"> </span>-m<span class="w"> </span>integration
+</code></pre></div></p>
+<h4 id="implementing-the-economics-module">Implementing the Economics Module<a class="headerlink" href="#implementing-the-economics-module" title="Permanent link">&para;</a></h4>
+<p>Phase 1B currently does not include fishery economics. To add:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Create packages/pypath/src/pypath/core/economics.py</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.fleet</span><span class="w"> </span><span class="kn">import</span> <span class="n">FleetGroup</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FisheryEconomics</span><span class="p">:</span>
+    <span class="n">fleet</span><span class="p">:</span> <span class="n">FleetGroup</span>
+    <span class="n">fuel_cost_per_hour</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">crew_cost_per_day</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">gear_maintenance</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">revenue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">landing_value</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Calculate net revenue from landings."""</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">profitability_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return NPV or annual profit margin."""</span>
+        <span class="k">pass</span>
+</code></pre></div>
+<p>Then add tests and integrate with Ecosim for policy scenarios.</p>
+<h4 id="adding-new-discard-fates">Adding New Discard Fates<a class="headerlink" href="#adding-new-discard-fates" title="Permanent link">&para;</a></h4>
+<p>EwE supports multiple discard pathways. To expand beyond the current set:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.fleet</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiscardPath</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">DiscardPath</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="c1"># Existing paths</span>
+    <span class="n">RETURNED_ALIVE</span> <span class="o">=</span> <span class="s2">"returned_alive"</span>
+    <span class="n">RETURNED_DEAD</span> <span class="o">=</span> <span class="s2">"returned_dead"</span>
+    <span class="n">SOLD</span> <span class="o">=</span> <span class="s2">"sold_onship"</span>
+    <span class="n">BAIT</span> <span class="o">=</span> <span class="s2">"bait_used"</span>
+    <span class="n">DISCARD_LOST</span> <span class="o">=</span> <span class="s2">"discard_lost"</span>
+
+    <span class="c1"># New paths</span>
+    <span class="n">PROCESSED_BIOMEAL</span> <span class="o">=</span> <span class="s2">"processed_biomeal"</span>  <span class="c1"># Rendered to fishmeal</span>
+    <span class="n">SCIENTIFIC_RESEARCH</span> <span class="o">=</span> <span class="s2">"scientific_study"</span>
+    <span class="n">OBSERVER_DISCARD</span> <span class="o">=</span> <span class="s2">"observer_only"</span>  <span class="c1"># Not landed but observed</span>
+</code></pre></div>
+<h3 id="testing-patterns-conventions">Testing Patterns &amp; Conventions<a class="headerlink" href="#testing-patterns-conventions" title="Permanent link">&para;</a></h3>
+<p>All Phase 1B tests follow a consistent structure:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.pedigree</span><span class="w"> </span><span class="kn">import</span> <span class="n">PedigreeContainer</span><span class="p">,</span> <span class="n">PedigreeQuality</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TestPedigreeContainer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Test suite for PedigreeContainer class."""</span>
+
+    <span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">empty_pedigree</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Fixture: empty container."""</span>
+        <span class="k">return</span> <span class="n">PedigreeContainer</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_add_record_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">empty_pedigree</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Test adding a valid pedigree record."""</span>
+        <span class="n">empty_pedigree</span><span class="o">.</span><span class="n">add_record</span><span class="p">(</span>
+            <span class="n">group_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">biomass_quality</span><span class="o">=</span><span class="n">PedigreeQuality</span><span class="o">.</span><span class="n">HIGH</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">empty_pedigree</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_roundtrip_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">empty_pedigree</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Test DataFrame serialization round-trip."""</span>
+        <span class="n">empty_pedigree</span><span class="o">.</span><span class="n">add_record</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">PedigreeQuality</span><span class="o">.</span><span class="n">HIGH</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">empty_pedigree</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+        <span class="n">restored</span> <span class="o">=</span> <span class="n">PedigreeContainer</span><span class="o">.</span><span class="n">from_dataframe</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">restored</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">empty_pedigree</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="pull-request-guidelines">Pull Request Guidelines<a class="headerlink" href="#pull-request-guidelines" title="Permanent link">&para;</a></h3>
+<p>Before opening a PR to extend Phase 1B:</p>
+<ol>
+<li><strong>Add tests first</strong> (TDD): Write test cases covering your feature</li>
+<li><strong>Ensure 100% coverage</strong>: Use <code>pytest --cov</code> to verify</li>
+<li><strong>Add docstrings</strong>: Use NumPy-style (see Phase 1A examples)</li>
+<li><strong>Validate parity</strong>: Check round-trip export/import if adding EwE table support</li>
+<li><strong>Update CHANGELOG.md</strong>: Note new feature or bug fix in v0.5.3 section</li>
+<li><strong>Link related issues</strong>: Reference any open issues your PR resolves</li>
+</ol>
+<hr />
+<h2 id="faq">FAQ<a class="headerlink" href="#faq" title="Permanent link">&para;</a></h2>
+<h3 id="module-selection-design">Module Selection &amp; Design<a class="headerlink" href="#module-selection-design" title="Permanent link">&para;</a></h3>
+<p><strong>Q1: What's the difference between TG3.1–3.6? Can I use them independently?</strong></p>
+<p>A: Each TG (Task Group) addresses a specific aspect:
+- <strong>TG3.1 (Pedigree)</strong>: Track data quality independently (no dependencies)
+- <strong>TG3.2 (Taxonomy)</strong>: Use for species ID; optional but recommended with TG3.3
+- <strong>TG3.3 (Size)</strong>: Use for age-structured models; pairs well with TG3.4 (fleet selectivity)
+- <strong>TG3.4 (Fleet)</strong>: Use for fishing pressure; integrates with Ecosim effort input
+- <strong>TG3.5 (Nutrients)</strong>: Use for biogeochemical tracking; independent of others
+- <strong>TG3.6 (Landings)</strong>: Use for temporal catch dynamics; optional if using Ecosim forcing</p>
+<p>You can use any subset; they don't force adoption of others.</p>
+<p><strong>Q2: When should I use Pedigree vs just using nominal values?</strong></p>
+<p>A: Use Pedigree when:
+- Data come from multiple sources (surveys, expert opinion, literature)
+- You need uncertainty bounds for parameter calibration
+- You're publishing a peer-reviewed model (show data quality provenance)
+- You want to weight observations by confidence in sensitivity analysis</p>
+<p>Skip Pedigree if you have a single, highly confident data source and don't need uncertainty.</p>
+<p><strong>Q3: How do I integrate Phase 1B with my own biodata system?</strong></p>
+<p>A: Three options:</p>
+<ol>
+<li><strong>Use the Biodata module as-is</strong>: Call functions like <code>get_fishbase_growth()</code></li>
+<li><strong>Extend Biodata</strong>: Add new functions to <code>io/biodata.py</code> that query your DB</li>
+<li><strong>Bypass Biodata</strong>: Create Pedigree/Taxonomy objects manually; skip <code>io/biodata.py</code> entirely</li>
+</ol>
+<p>Example (Option 3):
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.taxonomy</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaxonLink</span><span class="p">,</span> <span class="n">TaxonomyLinkage</span>
+<span class="n">taxonomy</span> <span class="o">=</span> <span class="n">TaxonomyLinkage</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">group_id</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">my_trophic_level</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">my_groups</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+    <span class="n">taxonomy</span><span class="o">.</span><span class="n">add_taxon</span><span class="p">(</span><span class="n">group_id</span><span class="p">,</span> <span class="n">TaxonLink</span><span class="p">(</span>
+        <span class="n">group_name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">worms_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># Skip WoRMS</span>
+        <span class="n">trophic_level</span><span class="o">=</span><span class="n">my_trophic_level</span><span class="p">,</span>
+    <span class="p">))</span>
+</code></pre></div></p>
+<h3 id="data-modeling-questions">Data &amp; Modeling Questions<a class="headerlink" href="#data-modeling-questions" title="Permanent link">&para;</a></h3>
+<p><strong>Q4: Can I use Phase 1B modules without Ecosim?</strong></p>
+<p>A: Yes! Phase 1B is fully independent of Phase 1C (Ecosim). You can:
+- Use Pedigree + Taxonomy for Ecopath-only models
+- Export to EwE and run in the original software
+- Use Phase 1B for data curation and export to other tools
+- Integrate with Ecosim later when Phase 1C is ready</p>
+<p><strong>Q5: What happens if I don't provide Taxonomy for a group?</strong></p>
+<p>A: Taxonomy is optional. If omitted:
+- Group will have generic <code>TaxonLink(group_name="Group_X")</code>
+- Trophic level cannot be inferred (use nominal values)
+- No WoRMS/OBIS enrichment
+- Model remains valid for Ecopath</p>
+<p><strong>Q6: How are size distributions validated?</strong></p>
+<p>A: Validation checks:
+- Von Bertalanffy parameters: <code>linf &gt; 0</code>, <code>k &gt; 0</code>, <code>t0 &lt; 0</code>
+- Class length bins: monotonically increasing
+- Class probabilities: sum to 1.0, all in [0, 1]
+- Length-frequency data (if provided): mode within expected range</p>
+<p>Run validation manually:
+<div class="highlight"><pre><span></span><code><span class="n">size_dist</span> <span class="o">=</span> <span class="n">SizeDistribution</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">size_dist</span><span class="o">.</span><span class="n">is_valid</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">size_dist</span><span class="o">.</span><span class="n">validation_errors</span><span class="p">)</span>
+</code></pre></div></p>
+<p><strong>Q7: What discard fates does EwE support?</strong></p>
+<p>A: Currently supported by Phase 1B:
+- <strong>Returned Alive</strong>: Discarded fish survive
+- <strong>Returned Dead</strong>: Discarded fish do not survive
+- <strong>Sold/Kept</strong>: Landed and sold (not discard)
+- <strong>Bait</strong>: Used as bait (external demand)
+- <strong>Lost at Sea</strong>: Unobserved discards</p>
+<p>More complex fates (rendered to fishmeal, scientific study) can be added (see Contributing).</p>
+<p><strong>Q8: Can I have multiple nutrient cycles (e.g., N and P simultaneously)?</strong></p>
+<p>A: Yes. Create a <code>NutrientCycle</code> with multiple <code>NutrientElement</code> values:</p>
+<div class="highlight"><pre><span></span><code><span class="n">nutrient</span> <span class="o">=</span> <span class="n">NutrientCycle</span><span class="p">()</span>
+<span class="n">nutrient</span><span class="o">.</span><span class="n">add_element</span><span class="p">(</span><span class="n">NutrientElement</span><span class="o">.</span><span class="n">NITROGEN</span><span class="p">)</span>
+<span class="n">nutrient</span><span class="o">.</span><span class="n">add_element</span><span class="p">(</span><span class="n">NutrientElement</span><span class="o">.</span><span class="n">PHOSPHORUS</span><span class="p">)</span>
+<span class="c1"># Both cycles run in parallel with independent excretion/uptake rates</span>
+</code></pre></div>
+<p><strong>Q9: How is landing seasonality estimated?</strong></p>
+<p>A: <code>LandingSeasonality</code> fits a cosine function to time series data:</p>
+<div class="highlight"><pre><span></span><code>Landing(month) = mean + amplitude × cos(2π × (month - phase) / 12)
+</code></pre></div>
+<p>Requires ≥24 monthly observations. For shorter series:
+- Use external seasonal indices (e.g., from fisheries reports)
+- Use fixed proportions: <code>[0.08, 0.09, 0.10, ...]</code> for each month
+- Use <code>stationary=True</code> (no seasonal variation)</p>
+<hr />
+<h2 id="release-notes-v053">Release Notes: v0.5.3<a class="headerlink" href="#release-notes-v053" title="Permanent link">&para;</a></h2>
+<p><strong>Release Date</strong>: 2026-10-24</p>
+<h3 id="whats-new-in-phase-1b">What's New in Phase 1B<a class="headerlink" href="#whats-new-in-phase-1b" title="Permanent link">&para;</a></h3>
+<h4 id="pedigree-system-tg31">Pedigree System (TG3.1)<a class="headerlink" href="#pedigree-system-tg31" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>PedigreeContainer</code>: Data quality tracking for all Ecopath inputs</li>
+<li><code>PedigreeQuality</code> enum: HIGH, MEDIUM, LOW with uncertainty coefficients</li>
+<li><code>EwePedigreeConfig</code>: Dataclass for mapping EwE pedigree indices</li>
+<li>54 comprehensive tests</li>
+</ul>
+<h4 id="taxonomic-linkage-tg32">Taxonomic Linkage (TG3.2)<a class="headerlink" href="#taxonomic-linkage-tg32" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>TaxonomyLinkage</code>: Map groups to WoRMS database entries</li>
+<li><code>TaxonLink</code>: Species-level metadata (trophic level, common names, etc.)</li>
+<li><code>TaxonComparator</code>: Resolve species ambiguity across data sources</li>
+<li>52 tests (including WoRMS integration tests)</li>
+</ul>
+<h4 id="size-distribution-tg33">Size Distribution (TG3.3)<a class="headerlink" href="#size-distribution-tg33" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>SizeDistribution</code>: Age/size-class structure with von Bertalanffy growth</li>
+<li><code>VBGFParams</code>: Parameterization of length-at-age model</li>
+<li>Length-frequency fitting and validation</li>
+<li>53 tests</li>
+</ul>
+<h4 id="fleet-discard-dynamics-tg34">Fleet &amp; Discard Dynamics (TG3.4)<a class="headerlink" href="#fleet-discard-dynamics-tg34" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>FleetDynamics</code> &amp; <code>FleetGroup</code>: Fishing fleet operations and selectivity</li>
+<li><code>GearType</code> enum: Trawl, Hook-and-line, Net, Seine, Dredge</li>
+<li><code>DiscardPath</code>: Multiple discard fates (returned alive/dead, sold, bait, lost)</li>
+<li>Size-based and species-based selectivity curves</li>
+<li>67 tests (most complex module)</li>
+</ul>
+<h4 id="nutrient-cycling-tg35">Nutrient Cycling (TG3.5)<a class="headerlink" href="#nutrient-cycling-tg35" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>NutrientCycle</code>: Multi-element nutrient loops (N, P, Si)</li>
+<li><code>NutrientElement</code> enum and <code>NutrientContent</code> dataclass</li>
+<li><code>Excretion</code> &amp; <code>Uptake</code>: Group-level nutrient flows</li>
+<li>Monod kinetics for primary producer uptake</li>
+<li>50 tests</li>
+</ul>
+<h4 id="enhanced-landings-tg36">Enhanced Landings (TG3.6)<a class="headerlink" href="#enhanced-landings-tg36" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>LandingRecord</code> &amp; <code>LandingType</code>: Temporal catch data structures</li>
+<li><code>LandingSeasonality</code>: Fit and forecast seasonal patterns</li>
+<li>Time-series integration with Ecosim forcing</li>
+<li>60 tests</li>
+</ul>
+<h3 id="test-coverage-quality">Test Coverage &amp; Quality<a class="headerlink" href="#test-coverage-quality" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>336 total Phase 1B tests</strong>, all passing (100%)</li>
+<li><strong>3,645 lines of production code</strong></li>
+<li><strong>Full type hints</strong> on all public APIs</li>
+<li><strong>NumPy-style docstrings</strong> for all classes and functions</li>
+<li><strong>100% ruff lint compliance</strong></li>
+<li><strong>100% mypy type check compliance</strong></li>
+<li><strong>Round-trip EwE export/import validation</strong></li>
+</ul>
+<h3 id="breaking-changes">Breaking Changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
+<p><strong>None.</strong> Phase 1B is fully backward-compatible with Phase 1A.</p>
+<h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
+<p><strong>None</strong> in v0.5.3.</p>
+<h3 id="known-issues">Known Issues<a class="headerlink" href="#known-issues" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>WoRMS API integration stubbed</strong>: <code>resolve_species_worms()</code> returns <code>None</code> until API token configured</li>
+<li><strong>Nutrient uptake heuristics simplified</strong>: Monod kinetics assumes constant max uptake rate (Phase 1C will refine with Ecosim coupling)</li>
+<li><strong>Fishing selectivity limited to logistic curves</strong>: EwE supports more complex selectivity shapes (future expansion)</li>
+<li><strong>Discard survival rates are fixed</strong>: EwE allows dynamic survival rates (Phase 2 consideration)</li>
+</ol>
+<h3 id="roadmap-phase-1c-ecosim-enhancement">Roadmap: Phase 1C (Ecosim Enhancement)<a class="headerlink" href="#roadmap-phase-1c-ecosim-enhancement" title="Permanent link">&para;</a></h3>
+<p>Planned work for Phase 1C (December 2026):
+- Stable rates and forcing time series integration
+- Ecospace dispersal and habitat coupling
+- Calibration framework (fit_to_timeseries improvements)
+- Performance optimization for large models (&gt;100 groups)</p>
+<hr />
+<h2 id="related-resources">Related Resources<a class="headerlink" href="#related-resources" title="Permanent link">&para;</a></h2>
+<h3 id="documentation-code">Documentation &amp; Code<a class="headerlink" href="#documentation-code" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><a href="https://github.com/razinkele/PyPath">PyPath GitHub Repository</a></strong> — Source code, issues, discussions</li>
+<li><strong><a href="https://razinkele.github.io/PyPath/">PyPath Documentation</a></strong> — Full API reference and tutorials</li>
+<li><strong><a href="https://www.ecopath.org/">EwE Official Website</a></strong> — Reference ecosystem modeling software</li>
+<li><strong><a href="https://www.ecopath.org/downloads/">EwE Technical Documentation</a></strong> — Theoretical background and database schema</li>
+<li><strong><a href="https://github.com/razinkele/PyPath/blob/main/CONTRIBUTING.md">PyPath Contributing Guide</a></strong> — How to contribute to PyPath</li>
+</ul>
+<h3 id="scientific-literature">Scientific Literature<a class="headerlink" href="#scientific-literature" title="Permanent link">&para;</a></h3>
+<p>Key papers on Phase 1B methods:</p>
+<ol>
+<li><strong>Pedigree &amp; Uncertainty Quantification</strong></li>
+<li>
+<p>Kaplan &amp; Leonard (2012). "Inferences about the causes of stock depletion and prospects for recovery of Atlantic halibut." <em>Canadian Journal of Fisheries and Aquatic Sciences</em>, 69(5), 806-819.</p>
+</li>
+<li>
+<p><strong>Size-Based Population Dynamics</strong></p>
+</li>
+<li>
+<p>von Bertalanffy (1934). "Untersuchungen über die Gesetzlichkeiten des Wachstums." <em>Wilhelm Roux' Archiv für Entwicklungsmechanik der Organismen</em>, 131, 613-653.</p>
+</li>
+<li>
+<p><strong>Fishing Selectivity &amp; Gears</strong></p>
+</li>
+<li>
+<p>Kell et al. (2005). "Evaluation of multiple management models for North Atlantic sailfish (Istiophorus albicans)." <em>ICES Journal of Marine Science</em>, 62(8), 1593-1603.</p>
+</li>
+<li>
+<p><strong>Nutrient Cycling in Ecosystems</strong></p>
+</li>
+<li>
+<p>Monod (1949). "The growth of bacterial cultures." <em>Annual Reviews in Microbiology</em>, 3, 371-394.</p>
+</li>
+<li>
+<p><strong>Ecopath with Ecosim Framework</strong></p>
+</li>
+<li>Christensen &amp; Walters (2004). "Ecopath with Ecosim: methods, capabilities and limitations." <em>Ecological Modelling</em>, 172(2-4), 109-139.</li>
+</ol>
+<h3 id="community-support">Community &amp; Support<a class="headerlink" href="#community-support" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><a href="https://github.com/razinkele/PyPath/discussions">PyPath Discussions</a></strong> — Ask questions and share knowledge</li>
+<li><strong><a href="https://www.ices.dk/">ICES Ecosystem Modelling Specialist Group</a></strong> — International ecosystem modeling community</li>
+<li><strong><a href="https://www.ecopath.org/forums/">EwE User Forum</a></strong> — Community support for Ecopath/Ecosim</li>
+</ul>
+<h3 id="example-data-models">Example Data &amp; Models<a class="headerlink" href="#example-data-models" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Baltic Sea Example Model</strong> — 23-group ecosystem model</li>
+<li><strong>North Atlantic Model</strong> — 45-group fisheries model</li>
+<li><strong>Simple 5-Group Test Model</strong> — Quick-start example</li>
+</ul>
+<hr />
+<h2 id="quicklinks">Quicklinks<a class="headerlink" href="#quicklinks" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Quick 5-minute start</strong></td>
+<td><a href="#quick-start">Quick Start (above)</a></td>
+</tr>
+<tr>
+<td><strong>Module deep-dive</strong></td>
+<td><a href="#module-overview">Module Overview Table</a></td>
+</tr>
+<tr>
+<td><strong>API reference</strong></td>
+<td><a href="../../api/core/">Core Module Docs</a></td>
+</tr>
+<tr>
+<td><strong>How modules connect</strong></td>
+<td><a href="#architecture-diagram">Architecture Diagram</a></td>
+</tr>
+<tr>
+<td><strong>Step-by-step examples</strong></td>
+<td><a href="#example-notebooks">Example Notebooks</a></td>
+</tr>
+<tr>
+<td><strong>Which modules to use</strong></td>
+<td><a href="#decision-tree-choosing-your-modules">Workflows Decision Tree</a></td>
+</tr>
+<tr>
+<td><strong>Troubleshooting</strong></td>
+<td><a href="#common-pitfalls--solutions">Common Pitfalls &amp; Solutions</a></td>
+</tr>
+<tr>
+<td><strong>Found a bug?</strong></td>
+<td><a href="https://github.com/razinkele/PyPath/issues">GitHub Issues</a></td>
+</tr>
+<tr>
+<td><strong>Want to contribute?</strong></td>
+<td><a href="#contributing--extensions">Contributing Guide</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><strong>Last Updated</strong>: 2026-10-24
+<strong>Phase 1B Status</strong>: ✓ Complete (TG3.1–3.6, v0.5.3 release candidate)
+<strong>Next Phase</strong>: Phase 1C (Ecosim Enhancement) — scheduled for Q4 2026</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>
