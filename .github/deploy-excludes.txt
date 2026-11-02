@@ -1,0 +1,27 @@
+# rsync exclude patterns for deploy.yml (live deploy and pre-deploy check).
+# One pattern per line; see `man rsync` (--exclude-from).
+.git
+.github
+.claude
+.vscode
+tests
+docs
+scripts
+logs
+examples
+venv
+env
+__pycache__
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.benchmarks
+.venv_smoke
+.playwright-mcp
+build
+dist
+*.egg-info
+example_model_data
+/pages
+/src
+/Data

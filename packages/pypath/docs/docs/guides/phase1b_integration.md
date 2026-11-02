@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Phase 1B enhances PyPath's Ecopath with Ecosim framework through six integrated modules addressing data quality and ecosystem realism. These enhancements (TG3.1–TG3.6) transform PyPath from a basic simulator into a comprehensive modeling platform with explicit uncertainty quantification, realistic population structures, and validated fishery dynamics.
+Phase 1B enhances PyPath's Ecopath with Ecosim framework through six integrated modules addressing data quality and ecosystem realism. These enhancements (TG3.1â€“TG3.6) transform PyPath from a basic simulator into a comprehensive modeling platform with explicit uncertainty quantification, realistic population structures, and validated fishery dynamics.
 
 ### Key Modules
 

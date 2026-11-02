@@ -7,6 +7,12 @@ on:
       - "packages/pypath/docs/**"
       - "packages/pypath/src/**"
       - ".github/workflows/docs.yml"
+  # Build (strict) on PRs too, so a broken docs build is caught before main
+  pull_request:
+    paths:
+      - "packages/pypath/docs/**"
+      - "packages/pypath/src/**"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
@@ -35,6 +41,7 @@ jobs:
         run: mkdocs build --strict
 
       - name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
