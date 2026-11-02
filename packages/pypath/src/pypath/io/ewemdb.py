@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 _SAFE_SQL_IDENT = re.compile(r"^[a-zA-Z0-9_ ]+$")
 
 # File extensions of EwE / MS Access databases (defined once in core.constants)
-from pypath.core.constants import EWE_DB_SUFFIXES  # noqa: E402
+from pypath.core.constants import EWE_DB_SUFFIXES, EWE_MISSING  # noqa: E402
 
 # Shared month abbreviation → number map (English + common non-English).
 _MONTH_NAME_MAP = {
@@ -784,7 +784,14 @@ def read_ewemdb(
         "Biomass": ["Biomass", "B", "biomass", "BiomassAreaInput"],
         "PB": ["PB", "PoverB", "ProductionBiomass", "ProdBiom"],
         "QB": ["QB", "QoverB", "ConsumptionBiomass", "ConsBiom"],
-        "EE": ["EE", "EcotrophicEfficiency", "Ecotrophic", "EcotrophEff"],
+        # EwE 6 databases name it EcoEfficiency (EcopathGroup table)
+        "EE": [
+            "EE",
+            "EcotrophicEfficiency",
+            "Ecotrophic",
+            "EcotrophEff",
+            "EcoEfficiency",
+        ],
         "ProdCons": ["GE", "ProdCons", "GrossEfficiency", "PoverQ"],
         "Unassim": ["GS", "Unassim", "UnassimilatedConsumption"],
         "BioAcc": ["BA", "BioAcc", "BiomassAccumulation", "BiomassAccum"],
@@ -818,7 +825,12 @@ def read_ewemdb(
     for param_name, possible_cols in column_mapping.items():
         for col in possible_cols:
             if col in groups_df.columns:
-                values = groups_df[col].fillna(np.nan).tolist()
+                # EwE writes -9999 for every input left for Ecopath to estimate
+                values = (
+                    pd.to_numeric(groups_df[col], errors="coerce")
+                    .replace(EWE_MISSING, np.nan)
+                    .tolist()
+                )
                 # Pad with NaN for fleet rows
                 if len(fleet_names) > 0:
                     values = values + [np.nan] * len(fleet_names)
