@@ -119,8 +119,8 @@ def results_ui():
                     ui.tags.hr(),
                     ui.h5("Trophic Structure"),
                     ui.layout_columns(
-                        output_widget("tl_bar_plot"),
-                        output_widget("tl_flow_plot"),
+                        output_widget("tl_bar_plot", height=UI.plot_height_small_px),
+                        output_widget("tl_flow_plot", height=UI.plot_height_small_px),
                         col_widths=[UI.col_width_medium, UI.col_width_medium],
                     ),
                 ),

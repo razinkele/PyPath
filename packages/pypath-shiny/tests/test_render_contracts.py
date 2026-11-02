@@ -265,3 +265,28 @@ def test_help_header_rows_do_not_fill(page):
     """
     bad = _help_header_rows_without_fill_false(_parse(page))
     assert not bad, f"{page.name}: header layout_columns without fill=False at {bad}"
+
+
+# Widgets whose figure sets its own height (it grows with the number of groups)
+_WIDGETS_WITH_FIGURE_HEIGHT = {"analysis_ee_plot"}
+
+
+@pytest.mark.parametrize("page", PAGE_FILES, ids=lambda p: p.name)
+def test_plotly_widgets_have_an_explicit_height(page):
+    """output_widget() without height= stretches to fill its tab.
+
+    On the Ecosim Summary tab the two charts grew to ~1600 px tall.
+    """
+    bad = []
+    for node in ast.walk(_parse(page)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "output_widget"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and node.args[0].value not in _WIDGETS_WITH_FIGURE_HEIGHT
+            and not any(k.arg == "height" for k in node.keywords)
+        ):
+            bad.append(f"{node.args[0].value} (line {node.lineno})")
+    assert not bad, f"{page.name}: output_widget without height: {bad}"

@@ -459,7 +459,9 @@ def ecosim_ui() -> ui.Tag:
                     ui.layout_columns(
                         ui.card(
                             ui.card_header("Effort Forcing"),
-                            output_widget("effort_preview_plot"),
+                            output_widget(
+                                "effort_preview_plot", height=UI.plot_height_small_px
+                            ),
                         ),
                         ui.card(
                             ui.card_header("Biomass Forcing"),
@@ -616,9 +618,14 @@ def ecosim_ui() -> ui.Tag:
                     ui.output_ui("help_summary"),
                     ui.output_ui("summary_cards"),
                     ui.layout_columns(
-                        output_widget("final_biomass_plot"),
-                        output_widget("biomass_change_plot"),
+                        output_widget(
+                            "final_biomass_plot", height=UI.plot_height_medium_px
+                        ),
+                        output_widget(
+                            "biomass_change_plot", height=UI.plot_height_medium_px
+                        ),
                         col_widths=[6, 6],
+                        fill=False,  # do not stretch to the tab height
                     ),
                 ),
             ),

@@ -23,7 +23,7 @@ except ImportError:  # pragma: no cover
 
 
 # Configuration imports
-from pypath_shiny.config import DEFAULTS, THRESHOLDS
+from pypath_shiny.config import DEFAULTS, THRESHOLDS, UI
 from pypath_shiny.services.gt_formatters import (
     format_dataframe,
     format_results_summary,
@@ -579,8 +579,10 @@ def ecopath_ui():
                     ui.h4("Model Diagnostics", class_="mt-3"),
                     ui.output_ui("diagnostics_output"),
                     ui.layout_columns(
-                        output_widget("trophic_level_plot"),
-                        output_widget("ee_plot"),
+                        output_widget(
+                            "trophic_level_plot", height=UI.plot_height_small_px
+                        ),
+                        output_widget("ee_plot", height=UI.plot_height_small_px),
                         col_widths=[6, 6],
                     ),
                 ),
