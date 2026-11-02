@@ -20,15 +20,27 @@ requirements:
     - pip
   run:
     - python >=3.10
-    - pypath-ewe >=1.0.0
+    - pypath-ewe >=1.1.0
+    # pypath-ewe[interactive,spatial] (conda has no extras)
+    - plotly >=5.17.0
+    - networkx >=3.0
+    - geopandas >=0.12
+    - folium >=0.14
+    - shapely >=2.0
     - shiny >=1.8.0
+    - shinywidgets >=0.8.2
+    - great_tables >=0.1.0
     - shinyswatch >=0.7.0
     - httpx >=0.24
     - uvicorn >=0.23
+    - pandas >=2.0
 
 test:
   imports:
     - pypath_shiny
+    # Imports every page, so a missing runtime dependency fails the build
+    # (production went down once for a missing great_tables).
+    - pypath_shiny.app
   requires:
     - python
 
