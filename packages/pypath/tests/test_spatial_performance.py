@@ -273,24 +273,30 @@ class TestScalability:
             grid = create_regular_grid(bounds=(0, 0, nx, nx), nx=nx, ny=nx)
             biomass = np.random.rand(nx * nx) * 100
 
-            start = time.perf_counter()
-            for _ in range(10):
-                diffusion_flux(
-                    biomass_vector=biomass,
-                    dispersal_rate=5.0,
-                    grid=grid,
-                    adjacency=grid.adjacency_matrix,
-                )
-            elapsed = time.perf_counter() - start
-            times.append(elapsed)
+            def run():
+                for _ in range(10):
+                    diffusion_flux(
+                        biomass_vector=biomass,
+                        dispersal_rate=5.0,
+                        grid=grid,
+                        adjacency=grid.adjacency_matrix,
+                    )
 
-        # Time should increase roughly linearly with n_patches (or edges)
-        # 10x10 should take ~4x longer than 5x5
+            run()  # warm-up (imports, caches) so it is not timed
+            best = float("inf")
+            for _ in range(5):  # best of 5: robust to scheduler noise
+                start = time.perf_counter()
+                run()
+                best = min(best, time.perf_counter() - start)
+            times.append(best)
+
+        # Time should grow roughly linearly with n_patches (10x10 ~4x 5x5).
+        # Only the upper bound is meaningful: a larger grid running as fast or
+        # faster is timing noise at these millisecond durations (a Windows CI
+        # runner measured 0.78x and failed a former 0.8x lower bound), while a
+        # disproportionate slowdown is the regression this guards against.
         ratio = times[1] / times[0]
-
-        # Allow range 0.8-8x to avoid platform/CPU jitter flakiness while still
-        # catching major regressions where larger grids become disproportionately slow.
-        assert 0.8 < ratio < 8, f"Scaling 5x5→10x10: {ratio:.1f}x, expected ~0.8-8x"
+        assert ratio < 8, f"Scaling 5x5→10x10: {ratio:.1f}x, expected < 8x"
 
     def test_many_groups_acceptable(self):
         """Many groups should still be performant."""
