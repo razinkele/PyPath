@@ -141,8 +141,9 @@ def build_effort_map_figure(
     centroids = np.asarray(centroids, dtype=float)
     peak = float(effort.max()) if effort.size else 0.0
     # sizemode="area" keeps marker *area* proportional to effort, as matplotlib's
-    # scatter(s=...) did; sizeref makes the busiest patch about 30 px across.
-    sizeref = 2.0 * peak / (30.0**2) if peak > 0 else 1.0
+    # scatter(s=...) did; sizeref makes the busiest patch about 18 px across,
+    # small enough that neighbouring cells of a dense grid do not overlap.
+    sizeref = 2.0 * peak / (18.0**2) if peak > 0 else 1.0
     fig = go.Figure(
         go.Scatter(
             x=centroids[:, 0],
@@ -151,7 +152,10 @@ def build_effort_map_figure(
             marker={
                 "color": effort,
                 "colorscale": "Reds",
+                # Both ends fixed: with only cmin, Plotly still autoscales,
+                # and a uniform allocation showed a 3.5-4.5 bar.
                 "cmin": 0,
+                "cmax": peak if peak > 0 else 1.0,
                 "size": effort,
                 "sizemode": "area",
                 "sizeref": sizeref,

@@ -83,3 +83,10 @@ def test_effort_marker_area_is_proportional_to_effort():
 def test_effort_map_with_no_effort_does_not_divide_by_zero():
     fig = build_effort_map_figure([0.0, 0.0], CENTROIDS, "uniform")
     assert fig.data[0].marker.sizeref == 1.0
+
+
+def test_effort_colour_range_starts_at_zero_even_when_effort_is_uniform():
+    """Only cmin left Plotly autoscaling: uniform effort showed a 3.5-4.5 bar."""
+    marker = build_effort_map_figure([4.0, 4.0], CENTROIDS, "uniform").data[0].marker
+    assert marker.cmin == 0
+    assert marker.cmax == 4.0
