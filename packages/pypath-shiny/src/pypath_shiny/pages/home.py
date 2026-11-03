@@ -34,6 +34,227 @@ def _notify_legacy(message: str, type: str = "default", duration: int | None = N
         notify_info(message, duration=duration)
 
 
+def build_example_params():
+    """The Home page example model (10 groups, Roundfish multi-stanza).
+
+    Each living group gets *either* Biomass *or* EE (never both), so Ecopath
+    solves the other and the model is mass-balanced: Ecosim then starts at
+    equilibrium. With both given for every group, Ecopath echoed the EEs
+    unchecked (Foragefish1 was really eaten at EE ~2.4) and Ecosim crashed
+    Foragefish1, then Seals.
+    """
+    # Create example marine ecosystem model
+    groups = [
+        "Seals",  # Top predator
+        "JuvRoundfish1",  # Juvenile fish
+        "AduRoundfish1",  # Adult fish
+        "OtherGroundfish",  # Groundfish
+        "Foragefish1",  # Forage fish
+        "Megabenthos",  # Large benthos
+        "Zooplankton",  # Zooplankton
+        "Phytoplankton",  # Primary producer
+        "Detritus",  # Detritus
+        "Trawlers",  # Fishing fleet
+    ]
+
+    types = [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        2,
+        3,
+    ]  # consumer, producer, detritus, fleet
+
+    # Define stanza groups - make JuvRoundfish1 and AduRoundfish1 into multi-stanza group
+    stgroups_list = [
+        None,
+        "Roundfish",
+        "Roundfish",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]
+
+    params = create_rpath_params(groups, types, stgroups=stgroups_list)
+
+    # Initialize remarks DataFrame (same structure as model)
+    remarks_cols = ["Group"] + [col for col in params.model.columns if col != "Group"]
+    params.remarks = pd.DataFrame({col: [""] * len(groups) for col in remarks_cols})
+
+    # Populate multi-stanza parameters for the Roundfish stanza group
+    if params.stanzas.n_stanza_groups > 0:
+        # Set stanza group parameters (von Bertalanffy growth, maturity weight, etc.)
+        params.stanzas.stgroups.loc[0, "VBGF_Ksp"] = 0.4  # von Bertalanffy growth rate
+        params.stanzas.stgroups.loc[0, "VBGF_d"] = 0.66667  # VBGF allometric parameter
+        params.stanzas.stgroups.loc[0, "Wmat"] = 50.0  # Maturity weight (g)
+        params.stanzas.stgroups.loc[0, "BAB"] = 0.0  # Biomass accumulation rate
+        params.stanzas.stgroups.loc[0, "RecPower"] = 1.0  # Recruitment power
+
+        # Set individual stanza parameters (age ranges and mortality)
+        # Juvenile: 0-24 months, Z=0.8
+        juv_idx = params.stanzas.stindiv[
+            params.stanzas.stindiv["Group"] == "JuvRoundfish1"
+        ].index[0]
+        params.stanzas.stindiv.loc[juv_idx, "StanzaNum"] = 1
+        params.stanzas.stindiv.loc[juv_idx, "First"] = 0  # Start at birth
+        params.stanzas.stindiv.loc[juv_idx, "Last"] = 24  # End at 24 months
+        params.stanzas.stindiv.loc[juv_idx, "Z"] = 0.8  # Total mortality
+        params.stanzas.stindiv.loc[juv_idx, "Leading"] = 0  # Not leading stanza
+
+        # Adult: 24+ months, Z=0.35, leading stanza
+        adu_idx = params.stanzas.stindiv[
+            params.stanzas.stindiv["Group"] == "AduRoundfish1"
+        ].index[0]
+        params.stanzas.stindiv.loc[adu_idx, "StanzaNum"] = 2
+        params.stanzas.stindiv.loc[adu_idx, "First"] = 24  # Start at 24 months
+        params.stanzas.stindiv.loc[adu_idx, "Last"] = (
+            DEFAULTS.default_months
+        )  # End at default months (10 years)
+        params.stanzas.stindiv.loc[adu_idx, "Z"] = 0.35  # Total mortality
+        params.stanzas.stindiv.loc[adu_idx, "Leading"] = (
+            1  # Leading stanza (plus group)
+        )
+
+        # Add StanzaGroup column to stindiv for clarity
+        params.stanzas.stindiv["StanzaGroup"] = "Roundfish"
+
+    # Add helpful remarks/tooltips for key parameters
+    # Find group indices
+    seal_idx = groups.index("Seals")
+    juv_idx = groups.index("JuvRoundfish1")
+    adu_idx = groups.index("AduRoundfish1")
+    phyto_idx = groups.index("Phytoplankton")
+    det_idx = groups.index("Detritus")
+
+    params.remarks.loc[seal_idx, "Biomass"] = "Low biomass typical for top predator"
+    params.remarks.loc[seal_idx, "EE"] = (
+        "Left blank: Ecopath computes it (top predator, mostly catch)"
+    )
+    params.remarks.loc[juv_idx, "Biomass"] = "Part of Roundfish multi-stanza group"
+    params.remarks.loc[juv_idx, "EE"] = (
+        "Left blank: Ecopath computes it from the given Biomass"
+    )
+    params.remarks.loc[adu_idx, "Biomass"] = "Leading stanza of Roundfish group"
+    params.remarks.loc[adu_idx, "PB"] = "Lower P/B for adult stage"
+    params.remarks.loc[phyto_idx, "Type"] = "Primary producer (Type=1)"
+    params.remarks.loc[phyto_idx, "Biomass"] = "Autotroph - no QB value needed"
+    params.remarks.loc[det_idx, "Type"] = "Detritus pool (Type=2)"
+    params.remarks.loc[det_idx, "DetInput"] = "Import of detritus from outside system"
+
+    # Set model parameters
+    # Biomass for the top predator and the stanza groups; Ecopath solves
+    # their EE. The other living groups get an EE and Ecopath solves Biomass.
+    biomass_data = {
+        "Seals": 0.025,
+        "JuvRoundfish1": 0.1304,
+        "AduRoundfish1": 1.39,
+        "Detritus": 500.0,
+    }
+    pb_data = {
+        "Seals": 0.15,
+        "JuvRoundfish1": 1.5,
+        "AduRoundfish1": 0.35,
+        "OtherGroundfish": 0.4,
+        "Foragefish1": 0.7,
+        "Megabenthos": 0.2,
+        "Zooplankton": 30.0,
+        "Phytoplankton": 200.0,
+    }
+    qb_data = {
+        "Seals": 25.0,
+        "JuvRoundfish1": 10.0,
+        "AduRoundfish1": 3.5,
+        "OtherGroundfish": 2.0,
+        "Foragefish1": 5.0,
+        "Megabenthos": 1.5,
+        "Zooplankton": 100.0,
+    }
+    ee_data = {
+        "OtherGroundfish": 0.8,
+        "Foragefish1": 0.9,
+        "Megabenthos": 0.6,
+        "Zooplankton": 0.9,
+        "Phytoplankton": 0.8,
+    }
+
+    for i, group in enumerate(groups):
+        if group in biomass_data:
+            params.model.loc[i, "Biomass"] = biomass_data[group]
+        if group in pb_data:
+            params.model.loc[i, "PB"] = pb_data[group]
+        if group in qb_data:
+            params.model.loc[i, "QB"] = qb_data[group]
+        if group in ee_data:
+            params.model.loc[i, "EE"] = ee_data[group]
+
+    # Set defaults - consumers get config value, producers/detritus get 0.0
+    params.model["BioAcc"] = 0.0
+    params.model.loc[params.model["Type"] == 0, "Unassim"] = (
+        DEFAULTS.unassim_consumers
+    )  # Consumers
+    params.model.loc[params.model["Type"] == 1, "Unassim"] = (
+        DEFAULTS.unassim_producers
+    )  # Producers
+    params.model.loc[params.model["Type"] == 2, "Unassim"] = (
+        DEFAULTS.unassim_producers
+    )  # Detritus
+    params.model.loc[params.model["Type"] == 3, "BioAcc"] = float("nan")
+    params.model.loc[params.model["Type"] == 3, "Unassim"] = float("nan")
+    params.model["Detritus"] = 1.0
+    params.model.loc[params.model["Type"] == 3, "Detritus"] = float("nan")
+
+    # Set diet matrix
+    prey_names = list(params.diet["Group"])
+    n_prey = len(prey_names)
+
+    def make_diet(diet_dict):
+        diet = [0.0] * n_prey
+        for prey, prop in diet_dict.items():
+            if prey in prey_names:
+                diet[prey_names.index(prey)] = prop
+        return diet
+
+    params.diet["Seals"] = make_diet(
+        {"Foragefish1": 0.4, "AduRoundfish1": 0.3, "OtherGroundfish": 0.3}
+    )
+    params.diet["JuvRoundfish1"] = make_diet({"Zooplankton": 0.9, "Megabenthos": 0.1})
+    params.diet["AduRoundfish1"] = make_diet(
+        {"Foragefish1": 0.5, "Zooplankton": 0.3, "Megabenthos": 0.2}
+    )
+    params.diet["OtherGroundfish"] = make_diet(
+        {"Foragefish1": 0.4, "Megabenthos": 0.3, "Zooplankton": 0.3}
+    )
+    params.diet["Foragefish1"] = make_diet({"Zooplankton": 1.0})
+    params.diet["Megabenthos"] = make_diet({"Phytoplankton": 0.3, "Detritus": 0.7})
+    params.diet["Zooplankton"] = make_diet({"Phytoplankton": 0.9, "Detritus": 0.1})
+    params.diet["Phytoplankton"] = [0.0] * n_prey
+
+    # Set fishing catches
+    catches = {
+        "AduRoundfish1": 0.145,
+        "OtherGroundfish": 0.38,
+        "Megabenthos": 0.19,
+        "Seals": 0.002,
+        "JuvRoundfish1": 0.003,
+        "Foragefish1": 0.1,
+    }
+    for group, catch in catches.items():
+        if group in groups:
+            idx = groups.index(group)
+            params.model.loc[idx, "Trawlers"] = catch
+
+    return params
+
+
 def home_ui():
     """Home page UI."""
     return ui.div(
@@ -398,240 +619,7 @@ def home_server(
     def _load_example_model():
         """Load an example marine ecosystem model."""
         try:
-            # Create example marine ecosystem model
-            groups = [
-                "Seals",  # Top predator
-                "JuvRoundfish1",  # Juvenile fish
-                "AduRoundfish1",  # Adult fish
-                "OtherGroundfish",  # Groundfish
-                "Foragefish1",  # Forage fish
-                "Megabenthos",  # Large benthos
-                "Zooplankton",  # Zooplankton
-                "Phytoplankton",  # Primary producer
-                "Detritus",  # Detritus
-                "Trawlers",  # Fishing fleet
-            ]
-
-            types = [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                1,
-                2,
-                3,
-            ]  # consumer, producer, detritus, fleet
-
-            # Define stanza groups - make JuvRoundfish1 and AduRoundfish1 into multi-stanza group
-            stgroups_list = [
-                None,
-                "Roundfish",
-                "Roundfish",
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-            ]
-
-            params = create_rpath_params(groups, types, stgroups=stgroups_list)
-
-            # Initialize remarks DataFrame (same structure as model)
-            remarks_cols = ["Group"] + [
-                col for col in params.model.columns if col != "Group"
-            ]
-            params.remarks = pd.DataFrame(
-                {col: [""] * len(groups) for col in remarks_cols}
-            )
-
-            # Populate multi-stanza parameters for the Roundfish stanza group
-            if params.stanzas.n_stanza_groups > 0:
-                # Set stanza group parameters (von Bertalanffy growth, maturity weight, etc.)
-                params.stanzas.stgroups.loc[0, "VBGF_Ksp"] = (
-                    0.4  # von Bertalanffy growth rate
-                )
-                params.stanzas.stgroups.loc[0, "VBGF_d"] = (
-                    0.66667  # VBGF allometric parameter
-                )
-                params.stanzas.stgroups.loc[0, "Wmat"] = 50.0  # Maturity weight (g)
-                params.stanzas.stgroups.loc[0, "BAB"] = 0.0  # Biomass accumulation rate
-                params.stanzas.stgroups.loc[0, "RecPower"] = 1.0  # Recruitment power
-
-                # Set individual stanza parameters (age ranges and mortality)
-                # Juvenile: 0-24 months, Z=0.8
-                juv_idx = params.stanzas.stindiv[
-                    params.stanzas.stindiv["Group"] == "JuvRoundfish1"
-                ].index[0]
-                params.stanzas.stindiv.loc[juv_idx, "StanzaNum"] = 1
-                params.stanzas.stindiv.loc[juv_idx, "First"] = 0  # Start at birth
-                params.stanzas.stindiv.loc[juv_idx, "Last"] = 24  # End at 24 months
-                params.stanzas.stindiv.loc[juv_idx, "Z"] = 0.8  # Total mortality
-                params.stanzas.stindiv.loc[juv_idx, "Leading"] = 0  # Not leading stanza
-
-                # Adult: 24+ months, Z=0.35, leading stanza
-                adu_idx = params.stanzas.stindiv[
-                    params.stanzas.stindiv["Group"] == "AduRoundfish1"
-                ].index[0]
-                params.stanzas.stindiv.loc[adu_idx, "StanzaNum"] = 2
-                params.stanzas.stindiv.loc[adu_idx, "First"] = 24  # Start at 24 months
-                params.stanzas.stindiv.loc[adu_idx, "Last"] = (
-                    DEFAULTS.default_months
-                )  # End at default months (10 years)
-                params.stanzas.stindiv.loc[adu_idx, "Z"] = 0.35  # Total mortality
-                params.stanzas.stindiv.loc[adu_idx, "Leading"] = (
-                    1  # Leading stanza (plus group)
-                )
-
-                # Add StanzaGroup column to stindiv for clarity
-                params.stanzas.stindiv["StanzaGroup"] = "Roundfish"
-
-            # Add helpful remarks/tooltips for key parameters
-            # Find group indices
-            seal_idx = groups.index("Seals")
-            juv_idx = groups.index("JuvRoundfish1")
-            adu_idx = groups.index("AduRoundfish1")
-            phyto_idx = groups.index("Phytoplankton")
-            det_idx = groups.index("Detritus")
-
-            params.remarks.loc[seal_idx, "Biomass"] = (
-                "Low biomass typical for top predator"
-            )
-            params.remarks.loc[seal_idx, "EE"] = (
-                "Low EE - top predator, little predation"
-            )
-            params.remarks.loc[juv_idx, "Biomass"] = (
-                "Part of Roundfish multi-stanza group"
-            )
-            params.remarks.loc[juv_idx, "EE"] = (
-                "High EE due to predation and growth to adult stage"
-            )
-            params.remarks.loc[adu_idx, "Biomass"] = "Leading stanza of Roundfish group"
-            params.remarks.loc[adu_idx, "PB"] = "Lower P/B for adult stage"
-            params.remarks.loc[phyto_idx, "Type"] = "Primary producer (Type=1)"
-            params.remarks.loc[phyto_idx, "Biomass"] = "Autotroph - no QB value needed"
-            params.remarks.loc[det_idx, "Type"] = "Detritus pool (Type=2)"
-            params.remarks.loc[det_idx, "DetInput"] = (
-                "Import of detritus from outside system"
-            )
-
-            # Set model parameters
-            biomass_data = {
-                "Seals": 0.025,
-                "JuvRoundfish1": 0.1304,
-                "AduRoundfish1": 1.39,
-                "OtherGroundfish": 7.4,
-                "Foragefish1": 5.1,
-                "Megabenthos": 19.765,
-                "Zooplankton": 23.0,
-                "Phytoplankton": 10.0,
-                "Detritus": 500.0,
-            }
-            pb_data = {
-                "Seals": 0.15,
-                "JuvRoundfish1": 1.5,
-                "AduRoundfish1": 0.35,
-                "OtherGroundfish": 0.4,
-                "Foragefish1": 0.7,
-                "Megabenthos": 0.2,
-                "Zooplankton": 30.0,
-                "Phytoplankton": 200.0,
-            }
-            qb_data = {
-                "Seals": 25.0,
-                "JuvRoundfish1": 10.0,
-                "AduRoundfish1": 3.5,
-                "OtherGroundfish": 2.0,
-                "Foragefish1": 5.0,
-                "Megabenthos": 1.5,
-                "Zooplankton": 100.0,
-            }
-            ee_data = {
-                "Seals": 0.1,
-                "JuvRoundfish1": 0.9,
-                "AduRoundfish1": 0.8,
-                "OtherGroundfish": 0.8,
-                "Foragefish1": 0.9,
-                "Megabenthos": 0.6,
-                "Zooplankton": 0.9,
-                "Phytoplankton": 0.8,
-            }
-
-            for i, group in enumerate(groups):
-                if group in biomass_data:
-                    params.model.loc[i, "Biomass"] = biomass_data[group]
-                if group in pb_data:
-                    params.model.loc[i, "PB"] = pb_data[group]
-                if group in qb_data:
-                    params.model.loc[i, "QB"] = qb_data[group]
-                if group in ee_data:
-                    params.model.loc[i, "EE"] = ee_data[group]
-
-            # Set defaults - consumers get config value, producers/detritus get 0.0
-            params.model["BioAcc"] = 0.0
-            params.model.loc[params.model["Type"] == 0, "Unassim"] = (
-                DEFAULTS.unassim_consumers
-            )  # Consumers
-            params.model.loc[params.model["Type"] == 1, "Unassim"] = (
-                DEFAULTS.unassim_producers
-            )  # Producers
-            params.model.loc[params.model["Type"] == 2, "Unassim"] = (
-                DEFAULTS.unassim_producers
-            )  # Detritus
-            params.model.loc[params.model["Type"] == 3, "BioAcc"] = float("nan")
-            params.model.loc[params.model["Type"] == 3, "Unassim"] = float("nan")
-            params.model["Detritus"] = 1.0
-            params.model.loc[params.model["Type"] == 3, "Detritus"] = float("nan")
-
-            # Set diet matrix
-            prey_names = list(params.diet["Group"])
-            n_prey = len(prey_names)
-
-            def make_diet(diet_dict):
-                diet = [0.0] * n_prey
-                for prey, prop in diet_dict.items():
-                    if prey in prey_names:
-                        diet[prey_names.index(prey)] = prop
-                return diet
-
-            params.diet["Seals"] = make_diet(
-                {"Foragefish1": 0.4, "AduRoundfish1": 0.3, "OtherGroundfish": 0.3}
-            )
-            params.diet["JuvRoundfish1"] = make_diet(
-                {"Zooplankton": 0.9, "Megabenthos": 0.1}
-            )
-            params.diet["AduRoundfish1"] = make_diet(
-                {"Foragefish1": 0.5, "Zooplankton": 0.3, "Megabenthos": 0.2}
-            )
-            params.diet["OtherGroundfish"] = make_diet(
-                {"Foragefish1": 0.4, "Megabenthos": 0.3, "Zooplankton": 0.3}
-            )
-            params.diet["Foragefish1"] = make_diet({"Zooplankton": 1.0})
-            params.diet["Megabenthos"] = make_diet(
-                {"Phytoplankton": 0.3, "Detritus": 0.7}
-            )
-            params.diet["Zooplankton"] = make_diet(
-                {"Phytoplankton": 0.9, "Detritus": 0.1}
-            )
-            params.diet["Phytoplankton"] = [0.0] * n_prey
-
-            # Set fishing catches
-            catches = {
-                "AduRoundfish1": 0.145,
-                "OtherGroundfish": 0.38,
-                "Megabenthos": 0.19,
-                "Seals": 0.002,
-                "JuvRoundfish1": 0.003,
-                "Foragefish1": 0.1,
-            }
-            for group, catch in catches.items():
-                if group in groups:
-                    idx = groups.index(group)
-                    params.model.loc[idx, "Trawlers"] = catch
+            params = build_example_params()
 
             # Validate the example model can balance (result intentionally discarded;
             # the ecopath page needs editable params, not the balanced model).

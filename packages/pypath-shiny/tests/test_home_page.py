@@ -21,3 +21,42 @@ def test_home_page_uses_notification_service_not_direct_ui_calls():
 
     source = Path(home.__file__).read_text(encoding="utf-8")
     assert "ui.notification_show(" not in source
+
+
+def test_example_model_gives_biomass_or_ee_never_both():
+    """With B, PB, QB and EE all set, Ecopath echoed the EEs unchecked; the
+    example was not mass-balanced and Ecosim crashed Foragefish1, then Seals."""
+    import numpy as np
+
+    from pypath_shiny.pages.home import build_example_params
+
+    m = build_example_params().model
+    living = m[m["Type"] < 2]
+    both = living["Group"][living["Biomass"].notna() & living["EE"].notna()]
+    assert both.empty, f"over-specified groups: {list(both)}"
+    assert np.all(living["Biomass"].notna() | living["EE"].notna())
+
+
+def test_example_model_starts_ecosim_at_equilibrium():
+    import warnings
+
+    import numpy as np
+    from pypath.core.ecopath import rpath
+    from pypath.core.ecosim import rsim_run, rsim_scenario
+
+    from pypath_shiny.pages.home import build_example_params
+
+    params = build_example_params()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = rpath(params)
+        out = rsim_run(
+            rsim_scenario(model, params, years=range(1, 3)),
+            method="RK4",
+            years=range(1, 3),
+        )
+    living = model.NUM_LIVING
+    assert np.all(model.EE[:living] <= 1.0)
+    b = out.out_Biomass[:, 1 : living + 1]
+    drift = np.abs(b[-1] / b[0] - 1.0)
+    assert drift.max() < 1e-3, dict(zip(model.Group[:living], drift.round(4)))
