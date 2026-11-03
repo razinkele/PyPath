@@ -43,7 +43,7 @@ Each has a contract test in `tests/test_render_contracts.py`,
 
 - Branch is up to date with main as of #31 (merge `36d8537`), plus later commits.
   After #32 merges, merge `origin/main` in again.
-- Shiny suite: 813 passed (2026-11-03, branch feat/ui-phase3-remaining-plotly). `ruff check packages/` and `ruff format --check packages/` clean.
+- Shiny suite: 818 passed (2026-11-03, branch feat/ui-phase3-remaining-plotly). `ruff check packages/` and `ruff format --check packages/` clean.
 - CI (`ci-shiny-smoke.yml`) now runs the full Shiny unit suite (commit `4c51264`).
 
 ## Next steps
@@ -65,8 +65,17 @@ Each has a contract test in `tests/test_render_contracts.py`,
    map + time slider (fixed colour range, redraws per step) and all six IBM charts.
    Fixed on the way: IBM comparison chart named the wrong group (4115a3c); every Plotly
    chart drew at ~360 px whatever its output_widget height, because height= turns off
-   fillable (b8afbd9, `fillable=True` on all 21 calls + contract test). Shiny suite 813
-   passed. Cosmetic, open: the bottom row of points sits under the legend/attribution.
+   fillable (b8afbd9, `fillable=True` on all 21 calls + contract test).
+   Follow-ups, all re-checked on laguna: map fit padding keeps the legend off the grid
+   and fb_browser_info is sent on `shiny:sessioninitialized` (b2f3a8a; on
+   `shiny:connected` it caused a ProtocolError that ended the session); Home example
+   model was not mass-balanced - B, PB, QB and EE all set, Foragefish1 really at EE ~2.4,
+   so Ecosim crashed it and Seals - now B or EE per group, flat over 50 years (912e022);
+   Ecosim auto-fix off by default (user, 2026-11-03): capping derived QQ/DD moved balanced
+   models off equilibrium (c091611). Shiny suite 818 passed (one subprocess test,
+   test_prebalance_rpath_verify, failed once under load and passes alone).
+   Core bug seen, not fixed: `pypath.core.stanzas.rpath_stanzas` raises AttributeError
+   (`stanza_params.stanza_groups` does not exist); the app does not call it.
    Deploy: pypath-shiny needs shiny-deckgl >= 1.14.0 (razinka only; PyPI has 1.12).
    `ci-shiny-smoke.yml` builds its env with micromamba from razinka; `conda-build.yml`
    adds `-c razinka`; `deploy.yml` pip-installs the GitHub `v1.14.0` tag into the venv.
@@ -75,8 +84,7 @@ Each has a contract test in `tests/test_render_contracts.py`,
    is not writable by razinka). Replaced a root pip 1.9.2; other apps in that env
    (seagarden-dst, ewef viewer, HexSimPy, inSTREAMPY, osmose, sfincs) get 1.14 on restart.
    Found on the way, not fixed: uploading `example_model_data/model.csv` + `diet.csv` on the
-   Ecopath page is rejected ("Diet CSV has groups not in model: Import"); the inline
-   `Shiny.setInputValue` call in app.py (fb_browser_info) throws before Shiny is ready.
+   Ecopath page is rejected ("Diet CSV has groups not in model: Import").
 4. Before opening the UI PR: full Shiny suite, a browser pass over every page, and
    remember `main` auto-deploys to laguna.
 
