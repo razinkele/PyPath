@@ -825,13 +825,15 @@ def build_ibm_biomass_comparison_figure(
 
 
 def build_ibm_growth_figure(
-    max_age: float,
-    linf: float,
-    k: float,
-    ages: Sequence[float],
-    lengths: Sequence[float],
+    max_age: float | None,
+    linf: float = 0.0,
+    k: float = 0.0,
+    ages: Sequence[float] = (),
+    lengths: Sequence[float] = (),
 ) -> go.Figure:
     """Von Bertalanffy curve with each super-individual's age and length."""
+    if max_age is None:
+        return _empty_figure("Von Bertalanffy Growth", _IBM_EMPTY)
     ages_theory = np.linspace(0, max_age, 200)
     lengths_theory = linf * (1 - np.exp(-k * ages_theory))
     fig = go.Figure()
@@ -875,8 +877,10 @@ def ibm_energy_fractions(
     }
 
 
-def build_ibm_energy_figure(fractions: dict[str, float]) -> go.Figure:
+def build_ibm_energy_figure(fractions: dict[str, float] | None) -> go.Figure:
     """Horizontal bars of the energy budget, labelled with percentages."""
+    if not fractions:
+        return _empty_figure("Energy Budget Allocation", _IBM_EMPTY)
     colors = ["#2ecc71", "#e74c3c", "#95a5a6", "#f39c12"]
     names = list(fractions)
     values = [fractions[n] for n in names]

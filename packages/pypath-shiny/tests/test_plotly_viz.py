@@ -351,6 +351,8 @@ def test_ibm_builders_explain_why_they_are_empty():
         pv.build_ibm_age_figure([], []),
         pv.build_ibm_biomass_comparison_figure(None, None, ""),
         pv.build_ibm_dynamics_figure(None),
+        pv.build_ibm_growth_figure(None),
+        pv.build_ibm_energy_figure(None),
     ):
         assert fig.layout.annotations, fig.layout.title.text
         assert "IBM" in fig.layout.annotations[0].text

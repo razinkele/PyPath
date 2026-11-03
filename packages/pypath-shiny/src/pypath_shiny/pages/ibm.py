@@ -14,7 +14,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from shiny import Inputs, Outputs, Session, reactive, render, req, ui
+from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shinywidgets import output_widget, render_widget
 
 from pypath_shiny.config import IBM
@@ -771,7 +771,8 @@ def ibm_server(
         """Von Bertalanffy growth curve with the IBM population."""
         ibm = ibm_group_instance()
         params_val = ibm_params()
-        req(ibm is not None and params_val is not None)
+        if ibm is None or params_val is None:
+            return build_ibm_growth_figure(None)
         return build_ibm_growth_figure(
             params_val.max_age,
             params_val.vbgf_linf_mean,
@@ -784,7 +785,8 @@ def ibm_server(
     def ibm_energy_budget():
         """Energy budget components from the bioenergetics parameters."""
         params_val = ibm_params()
-        req(params_val is not None)
+        if params_val is None:
+            return build_ibm_energy_figure(None)
         bp = params_val.bioenerg
         return build_ibm_energy_figure(
             ibm_energy_fractions(
