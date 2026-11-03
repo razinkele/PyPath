@@ -338,6 +338,14 @@ def ibm_server(
     _sim_results: reactive.Value,
     _sim_scenario: reactive.Value = None,
 ) -> None:
+def _ibm_group_name(model, row_idx: int) -> str:
+    """Name of the model row ``row_idx`` (0-based; Ecosim column is ``row_idx + 1``)."""
+    return next(
+        (n for i, n, _ in _model_group_table(model) if i == row_idx),
+        f"Group {row_idx}",
+    )
+
+
     """Server logic for the IBM page."""
 
     # Reactive values for IBM state
@@ -503,10 +511,7 @@ def ibm_server(
             ibm_group_instance.set(ibm)
 
             # Get group name for notification
-            group_name = next(
-                (n for i, n, _ in _model_group_table(model) if i == row_idx),
-                f"Group {row_idx}",
-            )
+            group_name = _ibm_group_name(model, row_idx)
 
             _notify_legacy(
                 f"IBM initialized for {group_name}: "
@@ -749,19 +754,11 @@ def ibm_server(
         # group_index is already the 1-based Ecosim column
         col = ibm.group_index
 
-        model = _model_data()
-        group_name = f"Group {ibm.group_index}"
-        if model is not None and hasattr(model, "model"):
-            try:
-                group_name = model.model.iloc[ibm.group_index].get(
-                    "Group",
-                    model.model.iloc[ibm.group_index].get("group", group_name),
-                )
-            except (IndexError, AttributeError) as e:
-                logger.debug("Could not resolve IBM group name: %s", e)
+        # Model rows are 0-based: row = Ecosim column - 1
+        group_name = _ibm_group_name(_model_data(), col - 1)
 
         return build_ibm_biomass_comparison_figure(
-            std.out_Biomass[:, col], ibm_out.out_Biomass[:, col], str(group_name)
+            std.out_Biomass[:, col], ibm_out.out_Biomass[:, col], group_name
         )
 
     # -- Energy & Growth tab --

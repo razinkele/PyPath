@@ -199,6 +199,18 @@ class TestIbmGroupTable:
 
         assert _model_group_table(None) == []
 
+    def test_group_name_uses_the_zero_based_row(
+        self, rpath_params, balanced_rpath_model
+    ):
+        """The IBM biomass chart titled the group "Group 1" (balanced model) or
+        the next group (params): it indexed rows with the 1-based Ecosim column."""
+        from pypath_shiny.pages.ibm import _ibm_group_name
+
+        for model in (rpath_params, balanced_rpath_model):
+            assert _ibm_group_name(model, 0) == "Fish"
+            assert _ibm_group_name(model, 1) == "Plankton"
+        assert _ibm_group_name(None, 0) == "Group 0"
+
 
 class TestWizardSharedGroupNames:
     def _shared(self, value):
