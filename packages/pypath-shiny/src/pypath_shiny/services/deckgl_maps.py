@@ -46,6 +46,10 @@ EFFORT_PALETTE = PALETTE_REDS
 
 # Tooltip template shared by the maps; fields missing from a feature render
 # empty, so one template fits cells, points and the boundary.
+# {label} and {detail} can carry group names from uploaded EwE files. They are
+# safe here because shiny-deckgl's interpolateTemplate() HTML-escapes every
+# interpolated value (and the legend sets title/labels with textContent). Do
+# not pre-escape them in Python: that would show "&amp;" in the tooltip.
 MAP_TOOLTIP = {
     "html": "<b>{label}</b><br/>{detail}",
     "style": {"backgroundColor": "white", "color": "black", "fontSize": "12px"},
