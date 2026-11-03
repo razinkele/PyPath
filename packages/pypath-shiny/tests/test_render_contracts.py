@@ -387,3 +387,22 @@ def test_app_page_loads_deckgl_in_its_static_head():
         and n.func.id == "head_includes"
     ]
     assert calls, "app.py does not call head_includes()"
+
+
+def test_ecosim_autofix_starts_off():
+    """Auto-fix caps QQ at 3 and cuts DD from 1000 to 2. Ecosim derives those
+    from the balanced model, so with auto-fix on a balanced model left its
+    equilibrium (example Seals 0.025 -> 0.0106 in 10 years). Opt-in only."""
+    calls = [
+        node
+        for node in ast.walk(_parse(PAGES_DIR / "ecosim.py"))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "input_checkbox"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and node.args[0].value == "enable_autofix"
+    ]
+    assert len(calls) == 1
+    value = next(k.value for k in calls[0].keywords if k.arg == "value")
+    assert isinstance(value, ast.Constant) and value.value is False
