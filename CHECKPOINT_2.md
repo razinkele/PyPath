@@ -1,7 +1,7 @@
 # Checkpoint 2: UI modernization - Phase 2 done, Phase 3 in progress
 
-**Branch:** feat/ui-stack-modernization (not pushed)
-**Last updated:** 2026-11-01
+**Branch:** feat/ui-phase3-remaining-plotly (Phase 1-3 core merged in #34)
+**Last updated:** 2026-11-03
 **Objective:** ui-stack-modernization (8 phases)
 
 > Earlier versions of this file (2026-10-25, 2026-10-29) are superseded. The 2026-10-25
@@ -15,7 +15,7 @@
 |---|---|
 | 1A Dependencies / 1B Architecture | Done |
 | 2 great_tables | **Done and browser-checked.** 15 read-only tables are static GT (`@render.ui`); editable tables and row pickers stay DataGrid. **Decision (user, 2026-11-01): keep static GT** - losing sort/filter/highlight on read-only tables is accepted. |
-| 3 Plotly + shinywidgets | **Core workflow done.** Plotly via `render_widget` on Results (all charts incl. food web, trophic levels, pyramid; Plot Style -> Plotly templates, matplotlib palette names honoured), Ecosim (all charts), Analysis (MTI, keystoneness, EE), Ecopath (trophic levels by role, EE). Remaining matplotlib: drawn by the core package (Analysis food web + trophic spectrum, Pre-Balance diagnostic plot - converting needs a pypath-ewe API decision), and the specialised pages Ecospace (3), IBM (6), Feedback (1). All converted charts browser-checked 2026-11-02 (`1877eac` fixed widget heights). |
+| 3 Plotly + shinywidgets | **App pages done.** Merged in #34: Results, Ecosim, Analysis (MTI, keystoneness, EE), Ecopath. Branch `feat/ui-phase3-remaining-plotly` (2026-11-03): Feedback trend, IBM (6 charts), Ecospace habitat / effort / biomass maps (`services/plotly_spatial.py`). Only matplotlib left: plots drawn by the core package (Analysis food web + trophic spectrum, Pre-Balance diagnostic) - needs a pypath-ewe API decision. |
 | 4-8 | Not started |
 
 ## Browser check (2026-11-01, local app, Chrome)
@@ -52,8 +52,16 @@ Each has a contract test in `tests/test_render_contracts.py`,
 2. (done 2026-11-02) Browser pass of all converted charts.
    Open decision: core-package plots (pypath.core.plotting / analysis.prebalance) and
    Ecospace / IBM / Feedback charts.
-3. Cosmetic: the Model Results GT table formats the Type column as `0.000`.
-   (done) Example diet data fixed in #33.
+3. (done 2026-11-03) Type column shows whole numbers in GT tables. Example diet data fixed in #33.
+5. Branch `feat/ui-phase3-remaining-plotly`, browser pass 2026-11-03 (Playwright, 1044 px wide):
+   Feedback trend (empty state) and Ecospace habitat + effort maps checked; the effort map's
+   colour range and marker size were fixed after it. **Not browser-checked:** the IBM charts
+   and the Ecospace biomass map, which both need a loaded model. The biomass map is inserted
+   with `output_widget` inside `@render.ui`, so check it renders, and whether the time slider
+   lags (one trace per polygon is re-sent on every tick).
+   Found on the way, not fixed: uploading `example_model_data/model.csv` + `diet.csv` on the
+   Ecopath page is rejected ("Diet CSV has groups not in model: Import"); the inline
+   `Shiny.setInputValue` call in app.py (fb_browser_info) throws before Shiny is ready.
 4. Before opening the UI PR: full Shiny suite, a browser pass over every page, and
    remember `main` auto-deploys to laguna.
 
