@@ -35,6 +35,7 @@ except Exception:
     shinyswatch = _NoShinyswatch()
 
 from shiny import App, Inputs, Outputs, Session, reactive, ui
+from shiny_deckgl import head_includes
 
 # Get logger
 logger = logging.getLogger("pypath_app")
@@ -80,6 +81,9 @@ def _icon_label(icon_class: str, text: str) -> ui.TagList:
 
 # App UI with left sidebar pill list navigation
 app_ui = ui.page_fluid(
+    # deck.gl + MapLibre for the Ecospace maps; must sit in the static page
+    # so the scripts are in <head> before any map is bound.
+    head_includes(),
     # Typography, icons, and custom styles
     ui.head_content(
         ui.tags.meta(

@@ -91,13 +91,14 @@ jobs:
 
       # pypath-shiny depends on pypath-ewe >= the version just built, which is
       # not on the channel yet, so the local output folder is added as a channel
-      # for the dependency solve during its test phase.
+      # for the dependency solve during its test phase. shiny-deckgl is only on
+      # the razinka channel (PyPI lags behind).
       - name: Build pypath-shiny
         if: inputs.packages == 'both' || inputs.packages == 'pypath-shiny'
         run: |
           EXTRA=""
           if [ -d dist-conda ]; then EXTRA="-c ./dist-conda"; fi
-          conda build conda-recipes/pypath-shiny $EXTRA \
+          conda build conda-recipes/pypath-shiny $EXTRA -c razinka \
             --no-anaconda-upload --output-folder dist-conda
 
       - name: List what was built

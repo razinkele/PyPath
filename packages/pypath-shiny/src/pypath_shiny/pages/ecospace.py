@@ -30,21 +30,28 @@ from pypath.spatial import (
     create_regular_grid,
     load_spatial_grid,
 )
-from shiny import Inputs, Outputs, Session, reactive, render, req, ui
-from shinywidgets import output_widget, render_widget
+from shiny import Inputs, Outputs, Session, reactive, render, ui
+from shiny_deckgl import MapWidget
 
-from pypath_shiny.config import PARAM_RANGES, SPATIAL
+from pypath_shiny.config import SPATIAL
+
+# Import centralized configuration
+from pypath_shiny.services.deckgl_maps import (
+    BIOMASS_PALETTE,
+    EFFORT_PALETTE,
+    HABITAT_PALETTE,
+    MAP_TOOLTIP,
+    effort_layers,
+    gradient_legend,
+    grid_bounds,
+    grid_overview_layers,
+    patch_value_layers,
+)
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
     notify_success,
     notify_warning,
-)
-
-# Import centralized configuration
-from pypath_shiny.services.plotly_spatial import (
-    build_effort_map_figure,
-    build_patch_map_figure,
 )
 from pypath_shiny.services.tasks import (
     TaskState,
@@ -66,6 +73,14 @@ except ImportError:
     Polygon = None
 
 logger = logging.getLogger(__name__)
+
+# deck.gl maps (shiny-deckgl). Module-level like the rest of the page UI;
+# shiny-deckgl keeps per-session state, so sessions do not share layers.
+GRID_MAP = MapWidget("ecospace_grid_map", tooltip=MAP_TOOLTIP)
+HABITAT_MAP = MapWidget("ecospace_habitat_map", tooltip=MAP_TOOLTIP)
+EFFORT_MAP = MapWidget("ecospace_effort_map", tooltip=MAP_TOOLTIP)
+BIOMASS_MAP = MapWidget("ecospace_biomass_map", tooltip=MAP_TOOLTIP)
+_MAPS = (GRID_MAP, HABITAT_MAP, EFFORT_MAP, BIOMASS_MAP)
 
 
 def spatial_task_alert(task_state: TaskState) -> tuple[str, str, str]:
@@ -135,18 +150,6 @@ def _iter_polygons(geom):
         yield geom
     elif geom.geom_type == "MultiPolygon":
         yield from geom.geoms
-
-
-def _patch_rings(g):
-    """Exterior rings of each patch, as (xs, ys) lists, or None for a regular grid."""
-    if g.geometry is None:
-        return None
-    rings = [[] for _ in range(len(g.geometry))]
-    for pos, (_, row) in enumerate(g.geometry.iterrows()):
-        for geom in _iter_polygons(row.geometry):
-            xs, ys = geom.exterior.xy
-            rings[pos].append((list(xs), list(ys)))
-    return rings
 
 
 def create_hexagonal_grid_in_boundary(
@@ -709,16 +712,17 @@ def ecospace_ui():
             ui.navset_card_tab(
                 ui.nav_panel(
                     "Grid Visualization",
-                    ui.output_ui("grid_plot"),
+                    ui.output_ui("grid_plot_note"),
+                    GRID_MAP.ui(height="500px"),
                     ui.div(ui.output_text("grid_info"), class_="alert alert-info mt-3"),
                 ),
                 ui.nav_panel(
                     "Habitat Map",
-                    output_widget("habitat_plot", height="500px"),
+                    HABITAT_MAP.ui(height="500px"),
                 ),
                 ui.nav_panel(
                     "Fishing Effort",
-                    output_widget("fishing_effort_plot", height="500px"),
+                    EFFORT_MAP.ui(height="500px"),
                     ui.p(
                         "Spatial distribution of fishing effort based on selected allocation method.",
                         class_="text-muted small mt-2",
@@ -733,6 +737,7 @@ def ecospace_ui():
                 ui.nav_panel(
                     "Biomass Animation",
                     ui.output_ui("biomass_animation_ui"),
+                    BIOMASS_MAP.ui(height="500px"),
                     ui.div(
                         ui.input_slider(
                             "animation_time",
@@ -1468,334 +1473,36 @@ def ecospace_server(
             class_=alert_class,
         )
 
-    # Grid visualization
+    # Grid visualization (deck.gl)
     @render.ui
-    def grid_plot():
-        """Plot the spatial grid and boundary polygon with interactive Leaflet map."""
-        from shiny import ui
-
-        # Check if we have grid or boundary to display
-        has_grid = grid() is not None
-        has_boundary = boundary_polygon() is not None
-
-        if not has_grid and not has_boundary:
-            # Nothing to display
-            return ui.div(
-                ui.p(
-                    "No grid or boundary loaded. Upload a file or create a grid.",
-                    class_="text-muted text-center mt-5",
-                ),
-                style="height: 500px;",
+    def grid_plot_note():
+        """A hint above the grid map while there is nothing to draw."""
+        if grid() is None and boundary_polygon() is None:
+            return ui.p(
+                "No grid or boundary loaded. Upload a file or create a grid.",
+                class_="text-muted",
             )
+        return None
 
-        try:
-            import folium
-            from folium import plugins
-        except ImportError:
-            return ui.div(
-                ui.p(
-                    "Folium is required for interactive maps. Install with: pip install folium",
-                    class_="text-danger text-center mt-5",
-                ),
-                style="height: 500px;",
-            )
+    def _boundary_geojson():
+        b = boundary_polygon()
+        return b.__geo_interface__ if b is not None else None
 
-        # Calculate map center and bounds
-        if has_boundary:
-            boundary_gdf = boundary_polygon()
-            bounds = boundary_gdf.total_bounds  # minx, miny, maxx, maxy
-            center_lat = (bounds[1] + bounds[3]) / 2
-            center_lon = (bounds[0] + bounds[2]) / 2
-        elif has_grid:
-            g = grid()
-            centroids = g.patch_centroids
-            center_lat = np.mean(centroids[:, 1])
-            center_lon = np.mean(centroids[:, 0])
-        else:
-            center_lat, center_lon = (
-                PARAM_RANGES.default_center_lat,
-                PARAM_RANGES.default_center_lon,
-            )
-
-        # Create folium map with OpenStreetMap tiles
-        m = folium.Map(
-            location=[center_lat, center_lon],
-            zoom_start=10,
-            tiles="OpenStreetMap",
-            control_scale=True,
+    @reactive.effect
+    async def _push_grid_map():
+        await GRID_MAP.update(
+            _session, grid_overview_layers(grid(), _boundary_geojson())
         )
 
-        # Add additional tile layers
-        folium.TileLayer("CartoDB positron", name="Light Map").add_to(m)
-        folium.TileLayer("CartoDB dark_matter", name="Dark Map").add_to(m)
-
-        # Add satellite imagery option
-        folium.TileLayer(
-            tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            attr="Esri",
-            name="Satellite",
-            overlay=False,
-            control=True,
-        ).add_to(m)
-
-        # Plot boundary polygon if available
-        if has_boundary:
-            boundary_gdf = boundary_polygon()
-
-            # Convert to GeoJSON for folium
-            boundary_geojson = boundary_gdf.__geo_interface__
-
-            folium.GeoJson(
-                boundary_geojson,
-                name="Boundary",
-                style_function=lambda _x: {
-                    "fillColor": "red",
-                    "color": "red",
-                    "weight": 2.5,
-                    "fillOpacity": 0.05,
-                    "dashArray": "5, 5",
-                },
-                tooltip=folium.Tooltip("Study Area Boundary"),
-            ).add_to(m)
-
-        # Plot grid if available
-        if has_grid:
-            g = grid()
-
-            # Check if we have polygon geometries (irregular grid)
-            if g.geometry is not None:
-                is_large_grid = g.n_patches > SPATIAL.large_grid_threshold
-
-                # For large grids, use optimized rendering
-                if is_large_grid:
-                    # Create a single GeoJSON with all features (much faster)
-                    features = []
-                    for idx, row in g.geometry.iterrows():
-                        for part in _iter_polygons(row.geometry):
-                            features.append(
-                                {
-                                    "type": "Feature",
-                                    "geometry": part.__geo_interface__,
-                                    "properties": {
-                                        "patch_id": idx,
-                                        "area_km2": float(g.patch_areas[idx]),
-                                    },
-                                }
-                            )
-
-                    geojson_data = {"type": "FeatureCollection", "features": features}
-
-                    # Add all polygons in one layer
-                    folium.GeoJson(
-                        geojson_data,
-                        name="Grid Patches",
-                        style_function=lambda _x: {
-                            "fillColor": "lightblue",
-                            "color": "steelblue",
-                            "weight": 0.5,  # Thinner lines for large grids
-                            "fillOpacity": 0.4,
-                        },
-                        tooltip=folium.GeoJsonTooltip(
-                            fields=["patch_id", "area_km2"],
-                            aliases=["Patch:", "Area (km²):"],
-                            localize=True,
-                        ),
-                    ).add_to(m)
-                    # No labels for large grids (too cluttered)
-
-                else:
-                    # Small grid: render individually with labels
-                    for idx, row in g.geometry.iterrows():
-                        for geom in _iter_polygons(row.geometry):
-                            # Create GeoJSON for this polygon
-                            geojson_data = {
-                                "type": "Feature",
-                                "geometry": geom.__geo_interface__,
-                                "properties": {
-                                    "patch_id": idx,
-                                    "area_km2": g.patch_areas[idx],
-                                },
-                            }
-
-                            # Add polygon to map
-                            folium.GeoJson(
-                                geojson_data,
-                                style_function=lambda _x: {
-                                    "fillColor": "lightblue",
-                                    "color": "steelblue",
-                                    "weight": 1.5,
-                                    "fillOpacity": 0.6,
-                                },
-                                tooltip=folium.Tooltip(
-                                    f"<b>Patch {idx}</b><br>Area: {g.patch_areas[idx]:.2f} km²"
-                                ),
-                                popup=folium.Popup(
-                                    f"<b>Patch {idx}</b><br>"
-                                    f"Area: {g.patch_areas[idx]:.2f} km²<br>"
-                                    f"Center: ({g.patch_centroids[idx][0]:.4f}, {g.patch_centroids[idx][1]:.4f})"
-                                ),
-                            ).add_to(m)
-
-                            # Add patch ID label at centroid
-                            centroid = g.patch_centroids[idx]
-                            folium.Marker(
-                                location=[centroid[1], centroid[0]],  # lat, lon
-                                icon=folium.DivIcon(
-                                    html=f"""
-                                    <div style="
-                                        font-size: 10px;
-                                        color: darkblue;
-                                        font-weight: bold;
-                                        text-align: center;
-                                        text-shadow: 1px 1px 2px white, -1px -1px 2px white;
-                                    ">{idx}</div>
-                                """
-                                ),
-                            ).add_to(m)
-
-                # Add info panel
-                title_text = f"Irregular Grid: {g.n_patches:,} Patches"
-                if has_boundary:
-                    title_text += " (within boundary)"
-                if is_large_grid:
-                    title_text += " - Zoom in for details"
-
-            else:
-                # Regular grid - plot centroids and edges
-                # Create feature group for edges
-                edges_layer = folium.FeatureGroup(name="Connections")
-
-                # Plot edges
-                rows, cols = g.adjacency_matrix.nonzero()
-                for idx in range(len(rows)):
-                    i, j = rows[idx], cols[idx]
-                    if i < j:  # Only plot each edge once
-                        p1 = g.patch_centroids[i]
-                        p2 = g.patch_centroids[j]
-                        folium.PolyLine(
-                            locations=[[p1[1], p1[0]], [p2[1], p2[0]]],
-                            color="gray",
-                            weight=1,
-                            opacity=0.3,
-                        ).add_to(edges_layer)
-
-                edges_layer.add_to(m)
-
-                # Plot patches as circle markers
-                for i in range(g.n_patches):
-                    centroid = g.patch_centroids[i]
-                    folium.CircleMarker(
-                        location=[centroid[1], centroid[0]],
-                        radius=8,
-                        color="steelblue",
-                        fill=True,
-                        fillColor="steelblue",
-                        fillOpacity=0.8,
-                        tooltip=folium.Tooltip(
-                            f"<b>Patch {i}</b><br>Area: {g.patch_areas[i]:.2f} km²"
-                        ),
-                        popup=folium.Popup(
-                            f"<b>Patch {i}</b><br>"
-                            f"Area: {g.patch_areas[i]:.2f} km²<br>"
-                            f"Location: ({centroid[0]:.4f}, {centroid[1]:.4f})"
-                        ),
-                    ).add_to(m)
-
-                    # Add label
-                    folium.Marker(
-                        location=[centroid[1], centroid[0]],
-                        icon=folium.DivIcon(
-                            html=f"""
-                            <div style="
-                                font-size: 8px;
-                                color: white;
-                                font-weight: bold;
-                                text-align: center;
-                            ">{i}</div>
-                        """
-                        ),
-                    ).add_to(m)
-
-                title_text = f"Spatial Grid: {g.n_patches} Patches"
-
-            # Add statistics overlay
-            n_edges = g.adjacency_matrix.nnz // 2
-            avg_neighbors = n_edges * 2 / g.n_patches if g.n_patches > 0 else 0
-
-            # Add custom HTML overlay with stats
-            stats_html = f"""
-            <div style="
-                position: fixed;
-                top: 80px;
-                left: 10px;
-                width: 200px;
-                background-color: rgba(245, 222, 179, 0.9);
-                border: 2px solid black;
-                border-radius: 5px;
-                padding: 10px;
-                font-size: 11px;
-                z-index: 1000;
-            ">
-                <b>{title_text}</b><br>
-                Patches: {g.n_patches}<br>
-                Connections: {n_edges}<br>
-                Avg neighbors: {avg_neighbors:.1f}
-            </div>
-            """
-            m.get_root().html.add_child(folium.Element(stats_html))
-        else:
-            # Only boundary, no grid yet
-            title_html = """
-            <div style="
-                position: fixed;
-                top: 80px;
-                left: 10px;
-                width: 250px;
-                background-color: rgba(255, 255, 255, 0.9);
-                border: 2px solid red;
-                border-radius: 5px;
-                padding: 10px;
-                font-size: 12px;
-                font-weight: bold;
-                z-index: 1000;
-            ">
-                Boundary Polygon<br>
-                <span style="font-size: 10px; font-weight: normal;">Ready for Grid Generation</span>
-            </div>
-            """
-            m.get_root().html.add_child(folium.Element(title_html))
-
-        # Add layer control
-        folium.LayerControl().add_to(m)
-
-        # Add fullscreen button
-        plugins.Fullscreen().add_to(m)
-
-        # Add mouse position
-        plugins.MousePosition().add_to(m)
-
-        # Add measure control
-        plugins.MeasureControl(
-            primary_length_unit="kilometers",
-            secondary_length_unit="meters",
-            primary_area_unit="sqkilometers",
-        ).add_to(m)
-
-        # Fit bounds to show all features
-        if has_boundary or has_grid:
-            if has_boundary:
-                bounds = boundary_polygon().total_bounds
-            elif has_grid:
-                g = grid()
-                lons = g.patch_centroids[:, 0]
-                lats = g.patch_centroids[:, 1]
-                bounds = [lons.min(), lats.min(), lons.max(), lats.max()]
-
-            # Fit map to bounds with padding
-            m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
-
-        # Return Leaflet map as HTML
-        return ui.HTML(m._repr_html_())
+    @reactive.effect
+    async def _fit_maps_to_grid():
+        """Zoom every map to a new grid or boundary (not on every redraw)."""
+        b = boundary_polygon()
+        bounds = grid_bounds(grid(), b.total_bounds if b is not None else None)
+        if bounds is None:
+            return
+        for widget in _MAPS:
+            await widget.fit_bounds(_session, bounds, padding=30, max_zoom=12)
 
     # Grid info text
     @render.text
@@ -1847,35 +1554,48 @@ def ecospace_server(
 
         return "\n".join(info_lines)
 
-    # Habitat visualization
-    @render_widget
-    def habitat_plot():
-        """Habitat preference map."""
-        req(grid())
+    # Habitat visualization (deck.gl)
+    @reactive.effect
+    async def _push_habitat_map():
         g = grid()
+        if g is None:
+            await HABITAT_MAP.update(_session, [], widgets=[])
+            return
         habitat = _compute_habitat_vector(g)
-        pattern = input.habitat_pattern().replace("_", " ").title()
-        return build_patch_map_figure(
-            habitat,
-            g.patch_centroids,
-            _patch_rings(g),
-            title=f"Habitat Preference Map - {pattern}",
-            colorbar_title="Habitat Quality (0-1)",
-            colorscale="YlGn",
-            vmin=0.0,
-            vmax=1.0,
-            outline_color="darkgreen",
-            label_values=g.geometry is not None,
-            value_format=".2f",
+        pattern = input.habitat_pattern().replace("_", " ")
+        await HABITAT_MAP.update(
+            _session,
+            patch_value_layers(
+                "habitat",
+                g,
+                habitat,
+                palette=HABITAT_PALETTE,
+                vmin=0.0,
+                vmax=1.0,
+                value_name="Habitat quality",
+                value_format=".2f",
+                labels=g.geometry is not None,
+                outline=[0, 100, 0, 220],
+            ),
+            widgets=[
+                gradient_legend(
+                    f"Habitat quality ({pattern})",
+                    HABITAT_PALETTE,
+                    0.0,
+                    1.0,
+                    "habitat",
+                )
+            ],
         )
 
-    # Fishing effort visualization
-    @render_widget
-    def fishing_effort_plot():
-        """Plot spatial fishing effort allocation."""
-        req(grid())
-
+    # Fishing effort visualization (deck.gl)
+    @reactive.effect
+    async def _push_effort_map():
+        """Preview the spatial fishing effort allocation."""
         g = grid()
+        if g is None:
+            await EFFORT_MAP.update(_session, [], widgets=[])
+            return
         n_patches = g.n_patches
 
         allocation_method = input.fishing_allocation()
@@ -1909,7 +1629,21 @@ def ecospace_server(
         else:
             effort = allocate_uniform(n_patches, total_effort)
 
-        return build_effort_map_figure(effort, g.patch_centroids, allocation_method)
+        effort = np.asarray(effort, dtype=float)
+        peak = float(effort.max()) if effort.size else 0.0
+        await EFFORT_MAP.update(
+            _session,
+            effort_layers("effort", g, effort),
+            widgets=[
+                gradient_legend(
+                    f"Fishing effort ({allocation_method})",
+                    EFFORT_PALETTE,
+                    0.0,
+                    peak,
+                    "effort",
+                )
+            ],
+        )
 
     def _preview_biomass(n_patches):
         """Per-patch biomass for the effort preview [n_groups + 1, n_patches]."""
@@ -1929,32 +1663,32 @@ def ecospace_server(
         tiled = np.tile(per_patch[:, None], (1, n_patches))
         return np.vstack([np.zeros((1, n_patches)), tiled])
 
-    # Biomass animation visualization
+    # Biomass animation visualization (deck.gl)
     @render.ui
     def biomass_animation_ui():
-        """Render biomass animation: placeholder or spatial heatmap."""
+        """A hint above the biomass map until there is a spatial run."""
         results = _spatial_results()
         if results is None or not hasattr(results, "out_Biomass_spatial"):
             return ui.div(
-                ui.div(
-                    ui.tags.i(class_="bi bi-info-circle me-2"),
-                    "Run a spatial simulation to view biomass dynamics over time.",
-                    class_="alert alert-info",
-                    style="margin-top: 20px;",
-                )
+                ui.tags.i(class_="bi bi-info-circle me-2"),
+                "Run a spatial simulation to view biomass dynamics over time.",
+                class_="alert alert-info",
             )
+        return None
 
-        # Render the heatmap as an embedded plot
-        return output_widget("biomass_animation_plot", height="500px")
-
-    @render_widget
-    def biomass_animation_plot():
-        """Spatial biomass map for the selected group and timestep."""
+    @reactive.effect
+    async def _push_biomass_map():
+        """Per-patch biomass of the selected group at the selected time step."""
         results = _spatial_results()
-        req(results is not None and hasattr(results, "out_Biomass_spatial"))
-
         g = grid()
-        req(g is not None)
+        if (
+            results is None
+            or not hasattr(results, "out_Biomass_spatial")
+            or g is None
+            or results.out_Biomass_spatial.shape[-1] != g.n_patches
+        ):
+            await BIOMASS_MAP.update(_session, [], widgets=[])
+            return
 
         # [n_months, n_groups+1, n_patches]
         biomass_spatial = results.out_Biomass_spatial
@@ -1965,7 +1699,7 @@ def ecospace_server(
         timestep = int(input.animation_time())
         timestep = min(timestep, biomass_spatial.shape[0] - 1)
 
-        # Fixed colour range over the whole run, so frames are comparable
+        # Fixed colour range over the whole run, so time steps compare
         vmax = max(float(biomass_spatial[:, group_idx, :].max()), 1e-10)
 
         scenario = _sim_scenario() if _sim_scenario is not None else None
@@ -1974,15 +1708,22 @@ def ecospace_server(
         else:
             group_name = f"Group {group_idx}"
 
-        return build_patch_map_figure(
-            biomass_spatial[timestep, group_idx, :],
-            g.patch_centroids,
-            _patch_rings(g),
-            title=f"Biomass: {group_name} (t={timestep})",
-            colorbar_title="Biomass",
-            colorscale="YlOrRd",
-            vmin=0.0,
-            vmax=vmax,
+        await BIOMASS_MAP.update(
+            _session,
+            patch_value_layers(
+                "biomass",
+                g,
+                biomass_spatial[timestep, group_idx, :],
+                palette=BIOMASS_PALETTE,
+                vmin=0.0,
+                vmax=vmax,
+                value_name=f"{group_name} biomass (t={timestep})",
+            ),
+            widgets=[
+                gradient_legend(
+                    f"{group_name} biomass", BIOMASS_PALETTE, 0.0, vmax, "biomass"
+                )
+            ],
         )
 
     # Spatial metrics table

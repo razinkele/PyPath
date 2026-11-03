@@ -290,3 +290,40 @@ def test_plotly_widgets_have_an_explicit_height(page):
         ):
             bad.append(f"{node.args[0].value} (line {node.lineno})")
     assert not bad, f"{page.name}: output_widget without height: {bad}"
+
+
+@pytest.mark.parametrize("page", PAGE_FILES, ids=lambda p: p.name)
+def test_deckgl_maps_have_an_explicit_height(page):
+    """A MapWidget's .ui() defaults to 400 px; the Ecospace maps set theirs.
+
+    Pinning it keeps a map from silently changing size, as output_widget()
+    without a height once stretched the Ecosim charts to ~1600 px.
+    """
+    bad = []
+    for node in ast.walk(_parse(page)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "ui"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id.endswith("_MAP")
+            and not any(k.arg == "height" for k in node.keywords)
+        ):
+            bad.append(f"{node.func.value.id}.ui (line {node.lineno})")
+    assert not bad, f"{page.name}: map without height: {bad}"
+
+
+def test_app_page_loads_deckgl_in_its_static_head():
+    """head_includes() must be in the static page, or every map stays blank."""
+    import pypath_shiny.app as app_module
+
+    src = Path(app_module.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "head_includes"
+    ]
+    assert calls, "app.py does not call head_includes()"
