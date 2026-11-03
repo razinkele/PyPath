@@ -7,6 +7,8 @@ also require, for the core version X.Y.Z and Shiny version A.B.C:
 - packages/pypath-shiny/pyproject.toml: ``pypath-ewe[...]>=X.Y.Z``
 - README.md: ``badge/version-X.Y.Z-blue`` and ``### Current Version: X.Y.Z``
 - CLAUDE.md: ``| **Version** | X.Y.Z | A.B.C |``
+- conda-recipes/*/meta.yaml: ``set version`` and pypath-shiny's
+  ``pypath-ewe >=X.Y.Z`` (the conda-build workflow checks the versions)
 
 The Release & Publish workflow runs this after semantic-release so the
 release commit keeps main's tests green. Idempotent; prints changed files.
@@ -66,6 +68,13 @@ def sync(root: Path) -> list[str]:
                 rf"\| \*\*Version\*\* \| {SEMVER} \| {SEMVER} \|",
                 f"| **Version** | {core} | {shiny} |",
             ),
+        ],
+        "conda-recipes/pypath-ewe/meta.yaml": [
+            (rf'set version = "{SEMVER}"', f'set version = "{core}"'),
+        ],
+        "conda-recipes/pypath-shiny/meta.yaml": [
+            (rf'set version = "{SEMVER}"', f'set version = "{shiny}"'),
+            (rf"(- pypath-ewe >=){SEMVER}", rf"\g<1>{core}"),
         ],
     }
     changed = []

@@ -49,8 +49,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
+          # Dry runs use the branch they were started from, so release config
+          # changes can be checked before merging; real releases always use main.
+          ref: ${{ inputs.dry_run && github.ref_name || 'main' }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # semantic-release only releases from main. A dry run started from
+      # another branch renames that checkout to main (local to this runner).
+      - name: Treat the checked-out branch as main (dry run)
+        if: inputs.dry_run
+        run: git checkout -B main
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -118,7 +126,7 @@ jobs:
           # README badge, CLAUDE.md table, pypath-shiny's pypath-ewe floor
           # (test_release_discipline.py requires them to match)
           python scripts/sync_release_versions.py .
-          git add packages/pypath/pyproject.toml packages/pypath/src/pypath/__init__.py packages/pypath/CHANGELOG.md             packages/pypath-shiny/pyproject.toml README.md CLAUDE.md
+          git add packages/pypath/pyproject.toml packages/pypath/src/pypath/__init__.py packages/pypath/CHANGELOG.md             packages/pypath-shiny/pyproject.toml README.md CLAUDE.md conda-recipes/pypath-ewe/meta.yaml conda-recipes/pypath-shiny/meta.yaml
           git commit -m "chore(release): pypath-ewe v${{ steps.release.outputs.version }}"
           git tag "pypath-ewe-v${{ steps.release.outputs.version }}"
           git push origin main --tags
@@ -141,8 +149,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
+          # Dry runs use the branch they were started from, so release config
+          # changes can be checked before merging; real releases always use main.
+          ref: ${{ inputs.dry_run && github.ref_name || 'main' }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # semantic-release only releases from main. A dry run started from
+      # another branch renames that checkout to main (local to this runner).
+      - name: Treat the checked-out branch as main (dry run)
+        if: inputs.dry_run
+        run: git checkout -B main
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -196,7 +212,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           python scripts/sync_release_versions.py .  # CLAUDE.md version table
-          git add packages/pypath-shiny/pyproject.toml packages/pypath-shiny/src/pypath_shiny/__init__.py packages/pypath-shiny/CHANGELOG.md             README.md CLAUDE.md
+          git add packages/pypath-shiny/pyproject.toml packages/pypath-shiny/src/pypath_shiny/__init__.py packages/pypath-shiny/CHANGELOG.md             README.md CLAUDE.md conda-recipes/pypath-ewe/meta.yaml conda-recipes/pypath-shiny/meta.yaml
           git commit -m "chore(release): pypath-shiny v${{ steps.release.outputs.version }}"
           git tag "pypath-shiny-v${{ steps.release.outputs.version }}"
           git push origin main --tags
@@ -217,7 +233,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          # Dry runs use the branch they were started from, so release config
+          # changes can be checked before merging; real releases always use main.
+          ref: ${{ inputs.dry_run && github.ref_name || 'main' }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
