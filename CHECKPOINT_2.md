@@ -65,9 +65,10 @@ Each has a contract test in `tests/test_render_contracts.py`,
    Deploy: pypath-shiny needs shiny-deckgl >= 1.14.0 (razinka only; PyPI has 1.12).
    `ci-shiny-smoke.yml` builds its env with micromamba from razinka; `conda-build.yml`
    adds `-c razinka`; `deploy.yml` pip-installs the GitHub `v1.14.0` tag into the venv.
-   **laguna's `/opt/micromamba/envs/shiny` (the pre-deploy import check and the app's
-   interpreter) needs `micromamba install -n shiny -c razinka -c conda-forge
-   "shiny-deckgl>=1.14"`**, or deploys stop at the import check.
+   laguna's `/opt/micromamba/envs/shiny` (the pre-deploy import check and the app's
+   interpreter): **shiny-deckgl 1.14.0 installed 2026-11-03** (conda, via sudo; the env
+   is not writable by razinka). Replaced a root pip 1.9.2; other apps in that env
+   (seagarden-dst, ewef viewer, HexSimPy, inSTREAMPY, osmose, sfincs) get 1.14 on restart.
    Found on the way, not fixed: uploading `example_model_data/model.csv` + `diet.csv` on the
    Ecopath page is rejected ("Diet CSV has groups not in model: Import"); the inline
    `Shiny.setInputValue` call in app.py (fb_browser_info) throws before Shiny is ready.
