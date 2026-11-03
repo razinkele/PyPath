@@ -318,3 +318,83 @@ def test_tl_bars_coloured_by_role():
     )
     by_group = dict(zip(fig.data[0].y, fig.data[0].marker.color))
     assert by_group == {"Shark": "#d62728", "Zoo": "#1f77b4", "Phyto": "#2ca02c"}
+
+
+# --- Feedback and IBM builders -------------------------------------------------
+
+
+def test_feedback_trend_bars_and_empty_state():
+    from pypath_shiny.services.plotly_viz import build_feedback_trend_figure
+
+    fig = build_feedback_trend_figure([("2026-W43", 2), ("2026-W44", 5)])
+    assert list(fig.data[0].y) == [2, 5]
+    assert fig.layout.xaxis.type == "category"
+    empty = build_feedback_trend_figure([])
+    assert empty.layout.annotations[0].text == "No feedback yet"
+
+
+def test_ibm_size_figure_puts_length_on_a_right_axis():
+    from pypath_shiny.services.plotly_viz import build_ibm_size_figure
+
+    fig = build_ibm_size_figure([10.0, 12.0], [100, 200])
+    assert fig.data[0].type == "bar"
+    assert fig.data[1].yaxis == "y2"
+    assert fig.layout.yaxis2.overlaying == "y"
+    assert fig.layout.yaxis2.side == "right"
+
+
+def test_ibm_builders_explain_why_they_are_empty():
+    from pypath_shiny.services import plotly_viz as pv
+
+    for fig in (
+        pv.build_ibm_size_figure([], []),
+        pv.build_ibm_age_figure([], []),
+        pv.build_ibm_biomass_comparison_figure(None, None, ""),
+        pv.build_ibm_dynamics_figure(None),
+    ):
+        assert fig.layout.annotations, fig.layout.title.text
+        assert "IBM" in fig.layout.annotations[0].text
+
+
+def test_ibm_biomass_comparison_has_both_runs():
+    from pypath_shiny.services.plotly_viz import build_ibm_biomass_comparison_figure
+
+    fig = build_ibm_biomass_comparison_figure([1, 2, 3], [1, 2], "Smelt")
+    assert [t.name for t in fig.data] == ["Standard Ecosim", "IBM-enhanced"]
+    assert len(fig.data[1].y) == 2
+    assert "Smelt" in fig.layout.title.text
+
+
+def test_ibm_growth_curve_reaches_toward_linf():
+    from pypath_shiny.services.plotly_viz import build_ibm_growth_figure
+
+    fig = build_ibm_growth_figure(10, 30.0, 0.5, [1.0], [12.0])
+    curve = fig.data[0]
+    assert curve.y[0] == 0.0
+    assert 29.0 < curve.y[-1] < 30.0
+    assert fig.data[1].mode == "markers"
+
+
+def test_ibm_energy_fractions_sum_to_one():
+    from pypath_shiny.services.plotly_viz import (
+        build_ibm_energy_figure,
+        ibm_energy_fractions,
+    )
+
+    f = ibm_energy_fractions(unassimilated=0.2, sda=0.1, reproduction=0.25)
+    assert abs(sum(f.values()) - 1.0) < 1e-12
+    assert abs(f["SDA"] - 0.08) < 1e-12
+    fig = build_ibm_energy_figure(f)
+    assert fig.data[0].orientation == "h"
+    assert list(fig.data[0].text) == ["54.0%", "8.0%", "20.0%", "18.0%"]
+
+
+def test_ibm_dynamics_splits_change_into_gain_and_loss():
+    from pypath_shiny.services.plotly_viz import build_ibm_dynamics_figure
+
+    fig = build_ibm_dynamics_figure([1.0, 3.0, 2.0])
+    line, gain, loss = fig.data
+    assert list(gain.y) == [2.0, 0.0]
+    assert list(loss.y) == [0.0, -1.0]
+    # Bottom panel shares the time axis with the top one
+    assert gain.xaxis == "x2" and fig.layout.xaxis.matches == "x2"

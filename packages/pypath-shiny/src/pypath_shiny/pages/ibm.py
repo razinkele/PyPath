@@ -15,6 +15,7 @@ import logging
 import numpy as np
 import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, req, ui
+from shinywidgets import output_widget, render_widget
 
 from pypath_shiny.config import IBM
 from pypath_shiny.services.notifications import (
@@ -22,6 +23,15 @@ from pypath_shiny.services.notifications import (
     notify_info,
     notify_success,
     notify_warning,
+)
+from pypath_shiny.services.plotly_viz import (
+    build_ibm_age_figure,
+    build_ibm_biomass_comparison_figure,
+    build_ibm_dynamics_figure,
+    build_ibm_energy_figure,
+    build_ibm_growth_figure,
+    build_ibm_size_figure,
+    ibm_energy_fractions,
 )
 
 logger = logging.getLogger(__name__)
@@ -254,13 +264,13 @@ def ibm_ui():
                 ),
                 ui.nav_panel(
                     "Population Structure",
-                    ui.output_plot("ibm_size_distribution", height="400px"),
-                    ui.output_plot("ibm_age_distribution", height="400px"),
+                    output_widget("ibm_size_distribution", height="400px"),
+                    output_widget("ibm_age_distribution", height="400px"),
                     ui.output_table("ibm_population_stats"),
                 ),
                 ui.nav_panel(
                     "Biomass Comparison",
-                    ui.output_plot("ibm_biomass_comparison", height="500px"),
+                    output_widget("ibm_biomass_comparison", height="500px"),
                     ui.p(
                         "Compares standard Ecosim trajectory with IBM-enhanced "
                         "simulation for the selected group.",
@@ -269,12 +279,12 @@ def ibm_ui():
                 ),
                 ui.nav_panel(
                     "Energy & Growth",
-                    ui.output_plot("ibm_growth_curves", height="450px"),
-                    ui.output_plot("ibm_energy_budget", height="450px"),
+                    output_widget("ibm_growth_curves", height="450px"),
+                    output_widget("ibm_energy_budget", height="450px"),
                 ),
                 ui.nav_panel(
                     "Reproduction & Mortality",
-                    ui.output_plot("ibm_recruitment_mortality", height="500px"),
+                    output_widget("ibm_recruitment_mortality", height="500px"),
                 ),
                 id="ibm_tabs",
             ),
@@ -679,72 +689,23 @@ def ibm_server(
 
     # -- Population Structure tab --
 
-    @render.plot
+    @render_widget
     def ibm_size_distribution():
-        """Plot size (length) distribution of super-individuals."""
-        import matplotlib.pyplot as plt
-
+        """Size (length) structure of the super-individuals."""
         ibm = ibm_group_instance()
-        req(ibm is not None and len(ibm.individuals) > 0)
-
-        lengths = [ind.length for ind in ibm.individuals]
-        n_represented = [ind.n_represented for ind in ibm.individuals]
-
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.bar(
-            range(len(lengths)),
-            n_represented,
-            color="steelblue",
-            alpha=0.7,
-            edgecolor="white",
-            linewidth=0.3,
+        inds = ibm.individuals if ibm is not None else []
+        return build_ibm_size_figure(
+            [ind.length for ind in inds], [ind.n_represented for ind in inds]
         )
-        # Add a twin axis for length
-        ax2 = ax.twinx()
-        ax2.plot(
-            range(len(lengths)),
-            lengths,
-            color="darkorange",
-            marker=".",
-            markersize=3,
-            linewidth=1,
-            label="Length (cm)",
-        )
-        ax2.set_ylabel("Length (cm)", color="darkorange")
 
-        ax.set_xlabel("Super-individual index")
-        ax.set_ylabel("N represented", color="steelblue")
-        ax.set_title("Population Size Structure")
-        ax2.legend(loc="upper right")
-        fig.tight_layout()
-        return fig
-
-    @render.plot
+    @render_widget
     def ibm_age_distribution():
-        """Plot age distribution of super-individuals."""
-        import matplotlib.pyplot as plt
-
+        """Age structure of the super-individuals."""
         ibm = ibm_group_instance()
-        req(ibm is not None and len(ibm.individuals) > 0)
-
-        ages = [ind.age for ind in ibm.individuals]
-        n_represented = [ind.n_represented for ind in ibm.individuals]
-
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.bar(
-            ages,
-            n_represented,
-            width=0.15,
-            color="teal",
-            alpha=0.7,
-            edgecolor="white",
-            linewidth=0.3,
+        inds = ibm.individuals if ibm is not None else []
+        return build_ibm_age_figure(
+            [ind.age for ind in inds], [ind.n_represented for ind in inds]
         )
-        ax.set_xlabel("Age (years)")
-        ax.set_ylabel("N represented")
-        ax.set_title("Age Distribution")
-        fig.tight_layout()
-        return fig
 
     @render.table
     def ibm_population_stats():
@@ -776,46 +737,18 @@ def ibm_server(
 
     # -- Biomass Comparison tab --
 
-    @render.plot
+    @render_widget
     def ibm_biomass_comparison():
         """Overlay standard vs. IBM-enhanced biomass trajectories."""
-        import matplotlib.pyplot as plt
-
         std = standard_output()
         ibm_out = ibm_enhanced_output()
-        req(std is not None and ibm_out is not None)
-
         ibm = ibm_group_instance()
-        req(ibm is not None)
+        if std is None or ibm_out is None or ibm is None:
+            return build_ibm_biomass_comparison_figure(None, None, "")
 
         # group_index is already the 1-based Ecosim column
         col = ibm.group_index
 
-        fig, ax = plt.subplots(figsize=(10, 5))
-
-        # Standard Ecosim
-        std_biomass = std.out_Biomass[:, col]
-        time_months = np.arange(len(std_biomass))
-        ax.plot(
-            time_months,
-            std_biomass,
-            label="Standard Ecosim",
-            color="steelblue",
-            linewidth=2,
-        )
-
-        # IBM-enhanced
-        ibm_biomass = ibm_out.out_Biomass[:, col]
-        ax.plot(
-            time_months[: len(ibm_biomass)],
-            ibm_biomass,
-            label="IBM-enhanced",
-            color="darkorange",
-            linewidth=2,
-            linestyle="--",
-        )
-
-        # Get group name
         model = _model_data()
         group_name = f"Group {ibm.group_index}"
         if model is not None and hasattr(model, "model"):
@@ -827,140 +760,45 @@ def ibm_server(
             except (IndexError, AttributeError) as e:
                 logger.debug("Could not resolve IBM group name: %s", e)
 
-        ax.set_xlabel("Time (months)")
-        ax.set_ylabel("Biomass (t/km²)")
-        ax.set_title(f"Biomass Comparison — {group_name}")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        fig.tight_layout()
-        return fig
+        return build_ibm_biomass_comparison_figure(
+            std.out_Biomass[:, col], ibm_out.out_Biomass[:, col], str(group_name)
+        )
 
     # -- Energy & Growth tab --
 
-    @render.plot
+    @render_widget
     def ibm_growth_curves():
-        """Plot Von Bertalanffy growth curves for the IBM population."""
-        import matplotlib.pyplot as plt
-
+        """Von Bertalanffy growth curve with the IBM population."""
         ibm = ibm_group_instance()
         params_val = ibm_params()
         req(ibm is not None and params_val is not None)
-
-        fig, ax = plt.subplots(figsize=(8, 4.5))
-
-        # Theoretical VBGF curve
-        ages_theory = np.linspace(0, params_val.max_age, 200)
-        lengths_theory = params_val.vbgf_linf_mean * (
-            1 - np.exp(-params_val.vbgf_k_mean * ages_theory)
-        )
-        ax.plot(
-            ages_theory,
-            lengths_theory,
-            color="black",
-            linewidth=2,
-            label=f"VBGF (K={params_val.vbgf_k_mean:.2f}, "
-            f"Linf={params_val.vbgf_linf_mean:.0f})",
+        return build_ibm_growth_figure(
+            params_val.max_age,
+            params_val.vbgf_linf_mean,
+            params_val.vbgf_k_mean,
+            [ind.age for ind in ibm.individuals],
+            [ind.length for ind in ibm.individuals],
         )
 
-        # Individual data points
-        ages = [ind.age for ind in ibm.individuals]
-        lengths = [ind.length for ind in ibm.individuals]
-        ax.scatter(
-            ages,
-            lengths,
-            c="darkorange",
-            s=20,
-            alpha=0.6,
-            label="Super-individuals",
-            zorder=5,
-        )
-
-        ax.set_xlabel("Age (years)")
-        ax.set_ylabel("Length (cm)")
-        ax.set_title("Von Bertalanffy Growth")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        fig.tight_layout()
-        return fig
-
-    @render.plot
+    @render_widget
     def ibm_energy_budget():
-        """Visualize energy budget components from bioenergetics parameters."""
-        import matplotlib.pyplot as plt
-
+        """Energy budget components from the bioenergetics parameters."""
         params_val = ibm_params()
         req(params_val is not None)
-
         bp = params_val.bioenerg
-        categories = ["Assimilated", "SDA", "Unassimilated", "Reproduction"]
-        assimilated = 1.0 - bp.unassimilated_fraction
-        values = [
-            assimilated * (1 - bp.sda_fraction) * (1 - bp.reproduction_fraction),
-            assimilated * bp.sda_fraction,
-            bp.unassimilated_fraction,
-            assimilated * (1 - bp.sda_fraction) * bp.reproduction_fraction,
-        ]
-        colors = ["#2ecc71", "#e74c3c", "#95a5a6", "#f39c12"]
-
-        fig, ax = plt.subplots(figsize=(8, 4.5))
-        ax.barh(categories, values, color=colors, edgecolor="white", height=0.5)
-        ax.set_xlabel("Fraction of consumption")
-        ax.set_title("Energy Budget Allocation")
-        ax.set_xlim(0, 1)
-        for i, v in enumerate(values):
-            ax.text(v + 0.01, i, f"{v:.1%}", va="center", fontsize=9)
-        fig.tight_layout()
-        return fig
+        return build_ibm_energy_figure(
+            ibm_energy_fractions(
+                bp.unassimilated_fraction, bp.sda_fraction, bp.reproduction_fraction
+            )
+        )
 
     # -- Reproduction & Mortality tab --
 
-    @render.plot
+    @render_widget
     def ibm_recruitment_mortality():
-        """Plot recruitment and mortality from IBM-enhanced run."""
-        import matplotlib.pyplot as plt
-
+        """Biomass and its monthly gain/loss from the IBM-enhanced run."""
         ibm_out = ibm_enhanced_output()
-        req(ibm_out is not None)
-
         ibm = ibm_group_instance()
-        req(ibm is not None)
-
-        col = ibm.group_index
-
-        fig, axes = plt.subplots(2, 1, figsize=(10, 5), sharex=True)
-
-        # Biomass trajectory (top)
-        biomass = ibm_out.out_Biomass[:, col]
-        time = np.arange(len(biomass))
-        axes[0].plot(time, biomass, color="steelblue", linewidth=1.5)
-        axes[0].set_ylabel("Biomass (t/km²)")
-        axes[0].set_title("IBM-Enhanced Biomass & Dynamics")
-        axes[0].grid(True, alpha=0.3)
-
-        # Biomass change as proxy for recruitment/mortality (bottom)
-        delta = np.diff(biomass)
-        positive = np.where(delta > 0, delta, 0)
-        negative = np.where(delta < 0, delta, 0)
-        axes[1].bar(
-            time[1:],
-            positive,
-            color="green",
-            alpha=0.6,
-            label="Net growth",
-            width=1.0,
-        )
-        axes[1].bar(
-            time[1:],
-            negative,
-            color="red",
-            alpha=0.6,
-            label="Net decline",
-            width=1.0,
-        )
-        axes[1].set_xlabel("Time (months)")
-        axes[1].set_ylabel("ΔBiomass (t/km²)")
-        axes[1].legend(fontsize=8)
-        axes[1].grid(True, alpha=0.3)
-
-        fig.tight_layout()
-        return fig
+        if ibm_out is None or ibm is None:
+            return build_ibm_dynamics_figure(None)
+        return build_ibm_dynamics_figure(ibm_out.out_Biomass[:, ibm.group_index])

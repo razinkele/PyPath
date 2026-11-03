@@ -7,9 +7,9 @@ import sqlite3
 import time
 from typing import Callable
 
-import matplotlib.pyplot as plt
 import pandas as pd
 from shiny import Inputs, Outputs, Session, reactive, render, ui
+from shinywidgets import output_widget, render_widget
 
 from pypath_shiny import __version__
 from pypath_shiny.services.feedback_store import (
@@ -25,6 +25,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.plotly_viz import build_feedback_trend_figure
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ def feedback_ui() -> ui.Tag:
         ),
         ui.card(
             ui.card_header("Weekly trend"),
-            ui.output_plot("feedback_trend", height="280px"),
+            output_widget("feedback_trend", height="280px"),
             class_="mb-3",
         ),
         ui.layout_columns(
@@ -322,26 +323,10 @@ def feedback_server(
             col_widths=[3, 3, 3, 3],
         )
 
-    @output
-    @render.plot
+    @render_widget
     def feedback_trend():
         dirty()
-        points = weekly_feedback_counts(weeks=10)
-        fig, ax = plt.subplots(figsize=(8, 3))
-        if not points:
-            ax.text(0.5, 0.5, "No feedback yet", ha="center", va="center")
-            ax.set_axis_off()
-            return fig
-
-        labels = [p[0] for p in points]
-        values = [p[1] for p in points]
-        ax.bar(labels, values, color="#2d7ff9")
-        ax.set_ylabel("Entries")
-        ax.set_xlabel("ISO week")
-        ax.set_title("Feedback entries per week")
-        ax.tick_params(axis="x", labelrotation=45)
-        fig.tight_layout()
-        return fig
+        return build_feedback_trend_figure(weekly_feedback_counts(weeks=10))
 
     @output
     @render.data_frame
