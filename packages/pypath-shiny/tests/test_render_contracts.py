@@ -293,6 +293,33 @@ def test_plotly_widgets_have_an_explicit_height(page):
 
 
 @pytest.mark.parametrize("page", PAGE_FILES, ids=lambda p: p.name)
+def test_plotly_widgets_with_a_height_are_fillable(page):
+    """output_widget(height=...) is not a fill container unless fillable=True.
+
+    Without it the Plotly figure ignores the box and draws at ~360 px: an empty
+    band under the IBM charts (450-500 px boxes), and the Feedback chart
+    overflowing its 280 px box (checked in Chrome on laguna, 2026-11-03).
+    """
+    bad = []
+    for node in ast.walk(_parse(page)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "output_widget"
+            and any(k.arg == "height" for k in node.keywords)
+            and not any(
+                k.arg == "fillable"
+                and isinstance(k.value, ast.Constant)
+                and k.value.value is True
+                for k in node.keywords
+            )
+        ):
+            name = node.args[0].value if node.args else "?"
+            bad.append(f"{name} (line {node.lineno})")
+    assert not bad, f"{page.name}: output_widget(height=) without fillable=True: {bad}"
+
+
+@pytest.mark.parametrize("page", PAGE_FILES, ids=lambda p: p.name)
 def test_deckgl_maps_have_an_explicit_height(page):
     """A MapWidget's .ui() defaults to 400 px; the Ecospace maps set theirs.
 

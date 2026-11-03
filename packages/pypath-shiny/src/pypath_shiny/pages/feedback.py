@@ -143,7 +143,7 @@ def feedback_ui() -> ui.Tag:
         ),
         ui.card(
             ui.card_header("Weekly trend"),
-            output_widget("feedback_trend", height="280px"),
+            output_widget("feedback_trend", height="280px", fillable=True),
             class_="mb-3",
         ),
         ui.layout_columns(

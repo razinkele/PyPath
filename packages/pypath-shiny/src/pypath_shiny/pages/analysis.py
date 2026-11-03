@@ -12,6 +12,7 @@ try:
 except ImportError:  # pragma: no cover
 
     def output_widget(*args, **kwargs):
+        kwargs.pop("fillable", None)  # output_plot has no fillable
         return ui.output_plot(*args, **kwargs)
 
     def render_widget(func):
@@ -123,7 +124,9 @@ def analysis_ui():
                     "on all other groups. Positive values indicate positive impacts."
                 ),
                 ui.output_ui("mti_status"),
-                output_widget("mti_heatmap_plot", height=UI.plot_height_large_px),
+                output_widget(
+                    "mti_heatmap_plot", height=UI.plot_height_large_px, fillable=True
+                ),
                 ui.tags.hr(),
                 ui.h5("MTI Details"),
                 ui.layout_columns(
@@ -162,7 +165,9 @@ def analysis_ui():
                         ui.card_header("Keystoneness vs Biomass"),
                         ui.card_body(
                             output_widget(
-                                "keystoneness_plot", height=UI.plot_height_small_px
+                                "keystoneness_plot",
+                                height=UI.plot_height_small_px,
+                                fillable=True,
                             ),
                         ),
                     ),

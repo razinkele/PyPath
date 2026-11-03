@@ -18,6 +18,7 @@ try:
 except ImportError:  # pragma: no cover
 
     def output_widget(*args, **kwargs):
+        kwargs.pop("fillable", None)  # output_plot has no fillable
         return ui.output_plot(*args, **kwargs)
 
     def render_widget(func):
@@ -460,7 +461,9 @@ def ecosim_ui() -> ui.Tag:
                         ui.card(
                             ui.card_header("Effort Forcing"),
                             output_widget(
-                                "effort_preview_plot", height=UI.plot_height_small_px
+                                "effort_preview_plot",
+                                height=UI.plot_height_small_px,
+                                fillable=True,
                             ),
                         ),
                         ui.card(
@@ -572,7 +575,9 @@ def ecosim_ui() -> ui.Tag:
                         fill=False,  # header row: do not stretch to the tab height
                     ),
                     output_widget(
-                        "biomass_timeseries", height=UI.plot_height_medium_px
+                        "biomass_timeseries",
+                        height=UI.plot_height_medium_px,
+                        fillable=True,
                     ),
                 ),
                 ui.nav_panel(
@@ -594,7 +599,11 @@ def ecosim_ui() -> ui.Tag:
                         fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_catch"),
-                    output_widget("catch_timeseries", height=UI.plot_height_small_px),
+                    output_widget(
+                        "catch_timeseries",
+                        height=UI.plot_height_small_px,
+                        fillable=True,
+                    ),
                     ui.output_table("annual_catch_table"),
                 ),
                 ui.nav_panel(
@@ -619,10 +628,14 @@ def ecosim_ui() -> ui.Tag:
                     ui.output_ui("summary_cards"),
                     ui.layout_columns(
                         output_widget(
-                            "final_biomass_plot", height=UI.plot_height_medium_px
+                            "final_biomass_plot",
+                            height=UI.plot_height_medium_px,
+                            fillable=True,
                         ),
                         output_widget(
-                            "biomass_change_plot", height=UI.plot_height_medium_px
+                            "biomass_change_plot",
+                            height=UI.plot_height_medium_px,
+                            fillable=True,
                         ),
                         col_widths=[6, 6],
                         fill=False,  # do not stretch to the tab height

@@ -16,6 +16,7 @@ try:
 except ImportError:  # pragma: no cover
 
     def output_widget(*args, **kwargs):
+        kwargs.pop("fillable", None)  # output_plot has no fillable
         return ui.output_plot(*args, **kwargs)
 
     def render_widget(func):
@@ -580,9 +581,13 @@ def ecopath_ui():
                     ui.output_ui("diagnostics_output"),
                     ui.layout_columns(
                         output_widget(
-                            "trophic_level_plot", height=UI.plot_height_small_px
+                            "trophic_level_plot",
+                            height=UI.plot_height_small_px,
+                            fillable=True,
                         ),
-                        output_widget("ee_plot", height=UI.plot_height_small_px),
+                        output_widget(
+                            "ee_plot", height=UI.plot_height_small_px, fillable=True
+                        ),
                         col_widths=[6, 6],
                     ),
                 ),

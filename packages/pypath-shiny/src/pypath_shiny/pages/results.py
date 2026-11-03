@@ -11,6 +11,7 @@ try:
 except ImportError:  # pragma: no cover
 
     def output_widget(*args, **kwargs):
+        kwargs.pop("fillable", None)  # output_plot has no fillable
         return ui.output_plot(*args, **kwargs)
 
     def render_widget(func):
@@ -119,8 +120,14 @@ def results_ui():
                     ui.tags.hr(),
                     ui.h5("Trophic Structure"),
                     ui.layout_columns(
-                        output_widget("tl_bar_plot", height=UI.plot_height_small_px),
-                        output_widget("tl_flow_plot", height=UI.plot_height_small_px),
+                        output_widget(
+                            "tl_bar_plot", height=UI.plot_height_small_px, fillable=True
+                        ),
+                        output_widget(
+                            "tl_flow_plot",
+                            height=UI.plot_height_small_px,
+                            fillable=True,
+                        ),
                         col_widths=[UI.col_width_medium, UI.col_width_medium],
                     ),
                 ),
@@ -148,7 +155,9 @@ def results_ui():
                         ),
                         col_widths=[12],
                     ),
-                    output_widget("foodweb_plot", height=UI.plot_height_large_px),
+                    output_widget(
+                        "foodweb_plot", height=UI.plot_height_large_px, fillable=True
+                    ),
                 ),
                 ui.nav_panel(
                     "Simulation Results",
@@ -168,10 +177,12 @@ def results_ui():
                         ),
                         col_widths=[6, 3, 3],
                     ),
-                    output_widget("results_biomass_plot", height="450px"),
+                    output_widget(
+                        "results_biomass_plot", height="450px", fillable=True
+                    ),
                     ui.tags.hr(),
                     ui.h5("Catch Time Series"),
-                    output_widget("results_catch_plot", height="350px"),
+                    output_widget("results_catch_plot", height="350px", fillable=True),
                 ),
                 ui.nav_panel(
                     "Comparison",

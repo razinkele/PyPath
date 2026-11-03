@@ -264,13 +264,19 @@ def ibm_ui():
                 ),
                 ui.nav_panel(
                     "Population Structure",
-                    output_widget("ibm_size_distribution", height="400px"),
-                    output_widget("ibm_age_distribution", height="400px"),
+                    output_widget(
+                        "ibm_size_distribution", height="400px", fillable=True
+                    ),
+                    output_widget(
+                        "ibm_age_distribution", height="400px", fillable=True
+                    ),
                     ui.output_table("ibm_population_stats"),
                 ),
                 ui.nav_panel(
                     "Biomass Comparison",
-                    output_widget("ibm_biomass_comparison", height="500px"),
+                    output_widget(
+                        "ibm_biomass_comparison", height="500px", fillable=True
+                    ),
                     ui.p(
                         "Compares standard Ecosim trajectory with IBM-enhanced "
                         "simulation for the selected group.",
@@ -279,12 +285,14 @@ def ibm_ui():
                 ),
                 ui.nav_panel(
                     "Energy & Growth",
-                    output_widget("ibm_growth_curves", height="450px"),
-                    output_widget("ibm_energy_budget", height="450px"),
+                    output_widget("ibm_growth_curves", height="450px", fillable=True),
+                    output_widget("ibm_energy_budget", height="450px", fillable=True),
                 ),
                 ui.nav_panel(
                     "Reproduction & Mortality",
-                    output_widget("ibm_recruitment_mortality", height="500px"),
+                    output_widget(
+                        "ibm_recruitment_mortality", height="500px", fillable=True
+                    ),
                 ),
                 id="ibm_tabs",
             ),
@@ -330,14 +338,6 @@ def _model_group_table(model):
     return []
 
 
-def ibm_server(
-    input: Inputs,
-    _output: Outputs,
-    _session: Session,
-    _model_data: reactive.Value,
-    _sim_results: reactive.Value,
-    _sim_scenario: reactive.Value = None,
-) -> None:
 def _ibm_group_name(model, row_idx: int) -> str:
     """Name of the model row ``row_idx`` (0-based; Ecosim column is ``row_idx + 1``)."""
     return next(
@@ -346,6 +346,14 @@ def _ibm_group_name(model, row_idx: int) -> str:
     )
 
 
+def ibm_server(
+    input: Inputs,
+    _output: Outputs,
+    _session: Session,
+    _model_data: reactive.Value,
+    _sim_results: reactive.Value,
+    _sim_scenario: reactive.Value = None,
+) -> None:
     """Server logic for the IBM page."""
 
     # Reactive values for IBM state
