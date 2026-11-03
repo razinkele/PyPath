@@ -15,7 +15,7 @@
 |---|---|
 | 1A Dependencies / 1B Architecture | Done |
 | 2 great_tables | **Done and browser-checked.** 15 read-only tables are static GT (`@render.ui`); editable tables and row pickers stay DataGrid. **Decision (user, 2026-11-01): keep static GT** - losing sort/filter/highlight on read-only tables is accepted. |
-| 3 Plotly + shinywidgets | **App pages done.** Merged in #34: Results, Ecosim, Analysis (MTI, keystoneness, EE), Ecopath. Branch `feat/ui-phase3-remaining-plotly` (2026-11-03): Feedback trend, IBM (6 charts), Ecospace habitat / effort / biomass maps (`services/plotly_spatial.py`). Only matplotlib left: plots drawn by the core package (Analysis food web + trophic spectrum, Pre-Balance diagnostic) - needs a pypath-ewe API decision. |
+| 3 Plotly + shinywidgets | **App pages done.** Merged in #34: Results, Ecosim, Analysis (MTI, keystoneness, EE), Ecopath. Branch `feat/ui-phase3-remaining-plotly` (2026-11-03): Feedback trend, IBM (6 charts) on Plotly. **Ecospace maps on deck.gl, not Plotly (user, 2026-11-03):** grid view (was folium), habitat, effort and biomass maps use shiny-deckgl >= 1.14.0 `MapWidget`s; builders in `services/deckgl_maps.py`. Only matplotlib left: plots drawn by the core package (Analysis food web + trophic spectrum, Pre-Balance diagnostic) - needs a pypath-ewe API decision. |
 | 4-8 | Not started |
 
 ## Browser check (2026-11-01, local app, Chrome)
@@ -43,7 +43,7 @@ Each has a contract test in `tests/test_render_contracts.py`,
 
 - Branch is up to date with main as of #31 (merge `36d8537`), plus later commits.
   After #32 merges, merge `origin/main` in again.
-- Shiny suite: 745 passed. `ruff check packages/` and `ruff format --check packages/` clean.
+- Shiny suite: 789 passed (2026-11-03, branch feat/ui-phase3-remaining-plotly). `ruff check packages/` and `ruff format --check packages/` clean.
 - CI (`ci-shiny-smoke.yml`) now runs the full Shiny unit suite (commit `4c51264`).
 
 ## Next steps
@@ -53,15 +53,21 @@ Each has a contract test in `tests/test_render_contracts.py`,
    Open decision: core-package plots (pypath.core.plotting / analysis.prebalance) and
    Ecospace / IBM / Feedback charts.
 3. (done 2026-11-03) Type column shows whole numbers in GT tables. Example diet data fixed in #33.
-5. Branch `feat/ui-phase3-remaining-plotly`, browser pass 2026-11-03 (Playwright, 1044 px wide):
-   Feedback trend (empty state) and, in the app, the Ecospace habitat + effort maps on a
-   *regular* grid (the centroid-marker branch); the effort map's colour range and marker size
-   were fixed after it. The polygon branch (shapefile / hex grids: filled cells, MultiPolygon
-   parts, colour-bar trace, labels) was checked as a standalone page from
-   `build_patch_map_figure`, not through a shapefile upload. **Not browser-checked:** the IBM charts
-   and the Ecospace biomass map, which both need a loaded model. The biomass map is inserted
-   with `output_widget` inside `@render.ui`, so check it renders, and whether the time slider
-   lags (one trace per polygon is re-sent on every tick).
+5. Branch `feat/ui-phase3-remaining-plotly` (local, not pushed), 2026-11-03.
+   Browser-checked (Playwright): Feedback trend (empty state). The Plotly Ecospace maps
+   checked that day were then replaced by deck.gl, so those checks no longer apply.
+   **deck.gl maps: NOT browser-checked.** Headless Chromium (Playwright MCP) hung while
+   loading the app page with the four maps, three times; it may be headless WebGL
+   (SwiftShader) on this laptop or a real page hang - check in a real Chrome first:
+   Ecospace -> Create Grid -> Grid, Habitat Map, Fishing Effort tabs; then a shapefile /
+   GeoJSON grid; then the biomass map + time slider after a spatial run. Also not
+   browser-checked: the IBM charts (need a loaded model).
+   Deploy: pypath-shiny needs shiny-deckgl >= 1.14.0 (razinka only; PyPI has 1.12).
+   `ci-shiny-smoke.yml` builds its env with micromamba from razinka; `conda-build.yml`
+   adds `-c razinka`; `deploy.yml` pip-installs the GitHub `v1.14.0` tag into the venv.
+   **laguna's `/opt/micromamba/envs/shiny` (the pre-deploy import check and the app's
+   interpreter) needs `micromamba install -n shiny -c razinka -c conda-forge
+   "shiny-deckgl>=1.14"`**, or deploys stop at the import check.
    Found on the way, not fixed: uploading `example_model_data/model.csv` + `diet.csv` on the
    Ecopath page is rejected ("Diet CSV has groups not in model: Import"); the inline
    `Shiny.setInputValue` call in app.py (fb_browser_info) throws before Shiny is ready.
