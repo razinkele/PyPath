@@ -142,9 +142,14 @@ app_ui = ui.page_fluid(
             href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/flatly/bootstrap.min.css",
         ),
         ui.tags.link(rel="stylesheet", href="custom.css"),
+        # Browser info for feedback reports. Send it on 'shiny:sessioninitialized':
+        # at window 'load' Shiny.setInputValue may not exist yet (it threw
+        # "Shiny.setInputValue is not a function" on a cold page load), and on
+        # shiny:connected the server rejects it before the session starts
+        # (ProtocolError, which ends the session).
         ui.tags.script(
-            "window.addEventListener('load', function(){"
-            "if(window.Shiny){Shiny.setInputValue('fb_browser_info', navigator.userAgent, {priority: 'event'});}"
+            "jQuery(document).on('shiny:sessioninitialized', function(){"
+            "Shiny.setInputValue('fb_browser_info', navigator.userAgent, {priority: 'event'});"
             "});"
         ),
         ui.tags.style(f"""

@@ -40,6 +40,7 @@ from pypath_shiny.services.deckgl_maps import (
     BIOMASS_PALETTE,
     EFFORT_PALETTE,
     HABITAT_PALETTE,
+    MAP_FIT_PADDING,
     MAP_TOOLTIP,
     effort_layers,
     gradient_legend,
@@ -1502,7 +1503,9 @@ def ecospace_server(
         if bounds is None:
             return
         for widget in _MAPS:
-            await widget.fit_bounds(_session, bounds, padding=30, max_zoom=12)
+            await widget.fit_bounds(
+                _session, bounds, padding=MAP_FIT_PADDING, max_zoom=12
+            )
 
     # Grid info text
     @render.text

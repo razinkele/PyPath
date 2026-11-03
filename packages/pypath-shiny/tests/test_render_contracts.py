@@ -340,6 +340,39 @@ def test_deckgl_maps_have_an_explicit_height(page):
     assert not bad, f"{page.name}: map without height: {bad}"
 
 
+def test_maps_fit_with_room_for_the_legend():
+    """The legend (bottom-left) and attribution (bottom-right) covered the bottom
+    row of patches with a uniform 30 px fit padding (seen on laguna)."""
+    from pypath_shiny.services.deckgl_maps import MAP_FIT_PADDING
+
+    assert MAP_FIT_PADDING["bottom"] >= 100 > MAP_FIT_PADDING["top"]
+    page = PAGES_DIR / "ecospace.py"
+    calls = [
+        node
+        for node in ast.walk(_parse(page))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "fit_bounds"
+    ]
+    assert calls
+    for call in calls:
+        padding = next(k.value for k in call.keywords if k.arg == "padding")
+        assert isinstance(padding, ast.Name) and padding.id == "MAP_FIT_PADDING"
+
+
+def test_browser_info_is_sent_after_shiny_connects():
+    """Shiny.setInputValue does not exist yet at window 'load' on a cold page, so
+    the inline script threw "Shiny.setInputValue is not a function"."""
+    import pypath_shiny.app as app_module
+
+    src = Path(app_module.__file__).read_text(encoding="utf-8")
+    assert "fb_browser_info" in src
+    # not 'shiny:connected': input sent before the session starts ends it
+    assert "shiny:sessioninitialized" in src
+    assert "addEventListener('load'" not in src
+    assert "'shiny:connected'" not in src
+
+
 def test_app_page_loads_deckgl_in_its_static_head():
     """head_includes() must be in the static page, or every map stays blank."""
     import pypath_shiny.app as app_module

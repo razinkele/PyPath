@@ -38,6 +38,7 @@ __all__ = [
     "gradient_legend",
     "grid_bounds",
     "MAP_TOOLTIP",
+    "MAP_FIT_PADDING",
 ]
 
 HABITAT_PALETTE = PALETTE_GREENS
@@ -54,6 +55,10 @@ MAP_TOOLTIP = {
     "html": "<b>{label}</b><br/>{detail}",
     "style": {"backgroundColor": "white", "color": "black", "fontSize": "12px"},
 }
+
+# fit_bounds padding (px): the legend sits bottom-left (~75 px tall) and the
+# basemap attribution bottom-right, so keep the grid clear of the bottom edge.
+MAP_FIT_PADDING = {"top": 40, "bottom": 110, "left": 40, "right": 60}
 
 _LIGHT_BLUE = [173, 216, 230, 110]
 _STEEL_BLUE = [70, 130, 180, 255]
