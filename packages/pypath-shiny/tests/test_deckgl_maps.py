@@ -74,8 +74,41 @@ def test_polygon_grid_is_a_geojson_layer_with_one_feature_per_part():
     # Both parts of patch 1 share its colour; patch 0 differs
     assert features[1]["properties"]["fill"] == features[2]["properties"]["fill"]
     assert features[0]["properties"]["fill"] != features[1]["properties"]["fill"]
-    assert layers[0]["getFillColor"] == "@@d.properties.fill"
+    assert layers[0]["getFillColor"] == "@@=d.properties.fill"
     assert "Habitat quality: 1" in features[1]["properties"]["detail"]
+
+
+def _accessor_strings(obj):
+    if isinstance(obj, dict):
+        for v in obj.values():
+            yield from _accessor_strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _accessor_strings(v)
+    elif isinstance(obj, str) and obj.startswith("@@"):
+        yield obj
+
+
+def test_nested_accessors_use_the_expression_form():
+    """shiny-deckgl's ``@@d.x`` shorthand reads one key: ``@@d.a.b`` is
+    ``d["a.b"]`` (undefined, so polygons drew black). Paths need ``@@=d.a.b``."""
+    g = _polygon_grid()
+    layers = d.patch_value_layers(
+        "habitat",
+        g,
+        [0.0, 1.0],
+        palette=d.HABITAT_PALETTE,
+        vmin=0,
+        vmax=1,
+        value_name="Habitat quality",
+        labels=True,
+    )
+    layers += d.grid_overview_layers(g) + d.grid_overview_layers(_regular_grid())
+    layers += d.effort_layers("effort", _regular_grid(), np.ones(6))
+    for layer in layers:
+        for acc in _accessor_strings({k: v for k, v in layer.items() if k != "data"}):
+            if acc.startswith("@@d."):
+                assert "." not in acc[len("@@d.") :], (layer["id"], acc)
 
 
 def test_regular_grid_values_are_centroid_points():

@@ -172,7 +172,10 @@ def patch_value_layers(
             geojson_layer(
                 layer_id,
                 _cell_features(grid, props),
-                getFillColor="@@d.properties.fill",
+                # "@@=" expression form: the "@@d.x" shorthand reads a single
+                # key, so "@@d.properties.fill" would be d["properties.fill"]
+                # (undefined -> deck.gl draws the cells black).
+                getFillColor="@@=d.properties.fill",
                 getLineColor=outline or [90, 90, 90, 200],
                 lineWidthMinPixels=1,
                 stroked=True,
