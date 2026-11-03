@@ -6,6 +6,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.1.1 (2026-11-03)
+
+### Bug Fixes
+
+- **ci**: Docs build was failing; pre-deploy import check against Shiny's interpreter
+  ([`4c23d87`](https://github.com/razinkele/PyPath/commit/4c23d87f73c3226ef652606a7bfa26f0440753f0))
+
+- **io**: Read_ewemdb reads EE from EcoEfficiency and treats -9999 as missing
+  ([`317ada8`](https://github.com/razinkele/PyPath/commit/317ada8fb2856b55d0619cc38def7fc1c772f318))
+
+- **shiny**: Source health endpoint from pypath-ewe
+  ([`5c960f0`](https://github.com/razinkele/PyPath/commit/5c960f0dd7bf1037254eb51f98c0c8d83bc819a0))
+
+### Features
+
+- **shiny**: Add GT formatters service for professional tables
+  ([`d24a729`](https://github.com/razinkele/PyPath/commit/d24a729494e4b2e082e589ac896b16b3eb3b4b0d))
+
+
 ## v1.1.0 (2026-11-02)
 
 ### Fixed
