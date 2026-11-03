@@ -1,5 +1,7 @@
 """Tests for import_validation.py - CSV import validation."""
 
+from pathlib import Path
+
 import pandas as pd
 
 from pypath_shiny.pages.import_validation import (
@@ -355,7 +357,7 @@ class TestGetImportErrorSuggestion:
         msg = "Biomass column contains non-numeric values"
         suggestion = get_import_error_suggestion(msg)
         assert suggestion != ""
-        assert "999999" in suggestion or "numeric" in suggestion.lower()
+        assert "number" in suggestion.lower() or "numeric" in suggestion.lower()
 
     def test_non_numeric_pb_suggestion(self):
         """Should suggest P/B format."""
@@ -529,3 +531,94 @@ class TestValidateDietExportStructure:
         is_valid, errors = validate_diet_export_structure(df)
         assert not is_valid
         assert any("non-numeric" in e.lower() for e in errors)
+
+
+class TestDietRowsFollowRpath:
+    """Diet rows are the prey: every non-fleet group, plus Rpath's Import row.
+
+    Uploading example_model_data/model.csv + diet.csv was rejected with
+    "Diet CSV has groups not in model: Import".
+    """
+
+    MODEL = pd.DataFrame(
+        {
+            "Group": ["Fish", "Plankton", "Detritus", "Trawl"],
+            "Type": [0, 1, 2, 3],
+            "Biomass": [10.0, 100.0, 50.0, 0.0],
+            "PB": [0.8, 50.0, 0.0, 0.0],
+        }
+    )
+    DIET = pd.DataFrame(
+        {
+            "Group": ["Fish", "Plankton", "Detritus", "Import"],
+            "Fish": [0.0, 0.9, 0.1, 0.0],
+        }
+    )
+
+    def test_import_row_and_no_fleet_row_pass(self):
+        assert validate_diet_csv_structure(self.DIET, self.MODEL) == (True, [])
+        assert validate_csv_file_pair(self.MODEL, self.DIET) == (True, [])
+
+    def test_lowercase_import_row_passes(self):
+        diet = self.DIET.assign(Group=["Fish", "Plankton", "Detritus", "import"])
+        assert validate_csv_file_pair(self.MODEL, diet) == (True, [])
+
+    def test_a_missing_prey_row_still_fails(self):
+        diet = self.DIET[self.DIET["Group"] != "Detritus"]
+        is_valid, errors = validate_csv_file_pair(self.MODEL, diet)
+        assert not is_valid
+        assert any("Detritus" in e for e in errors)
+
+    def test_a_fleet_row_in_the_diet_is_tolerated(self):
+        diet = pd.concat(
+            [self.DIET, pd.DataFrame({"Group": ["Trawl"], "Fish": [0.0]})],
+            ignore_index=True,
+        )
+        assert validate_csv_file_pair(self.MODEL, diet) == (True, [])
+
+    def test_shipped_example_files_pass_and_load(self):
+        from pathlib import Path
+
+        from pypath.core.params import read_rpath_params
+
+        data = Path(__file__).resolve().parents[2] / "pypath" / "example_model_data"
+        model = pd.read_csv(data / "model.csv")
+        diet = pd.read_csv(data / "diet.csv")
+        assert validate_csv_file_pair(model, diet) == (True, [])
+        # ...and the app's next step builds parameters from them
+        params = read_rpath_params(data / "model.csv", data / "diet.csv")
+        assert list(params.model["Group"]) == list(model["Group"])
+
+
+class TestBlankModelCellsAreUnknowns:
+    """A blank Biomass/PB cell is how Ecopath input marks a value to solve
+    (the Home example leaves B blank where EE is given). Only text that is
+    not a number is an error, and no hint may suggest a 999999 'sentinel':
+    nothing reads it as unknown, so it would load as 999999 t/km²."""
+
+    def _model(self, **cols):
+        base = {
+            "Group": ["Fish", "Plankton", "Detritus"],
+            "Type": [0, 1, 2],
+            "Biomass": [10.0, None, 50.0],
+            "PB": [0.8, 50.0, None],
+        }
+        base.update(cols)
+        return pd.DataFrame(base)
+
+    def test_blank_biomass_and_pb_pass(self):
+        assert validate_model_csv_structure(self._model()) == (True, [])
+
+    def test_text_in_biomass_fails(self):
+        ok, errors = validate_model_csv_structure(
+            self._model(Biomass=[10.0, "abc", 50.0])
+        )
+        assert not ok
+        assert any("1 non-numeric" in e for e in errors)
+
+    def test_no_hint_suggests_999999(self):
+        from pypath_shiny.pages import import_validation, validation
+
+        for mod in (import_validation, validation):
+            src = Path(mod.__file__).read_text(encoding="utf-8")
+            assert "999999" not in src, mod.__name__
