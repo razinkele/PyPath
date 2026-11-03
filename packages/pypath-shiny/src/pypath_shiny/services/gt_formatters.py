@@ -18,6 +18,29 @@ from great_tables import GT, loc, style
 
 logger = logging.getLogger(__name__)
 
+# Numeric columns that hold category codes, not measurements: the Ecopath group
+# type (0 consumer, 1 producer, 2 detritus, 3 fleet) is stored as a float, but
+# "1.000" in a table reads as a quantity.
+_CODE_COLUMNS = ("Type",)
+
+
+def _numeric_cols(df: pd.DataFrame, include=("float64", "float32")) -> list:
+    """Numeric columns to format as decimals (category-code columns excluded)."""
+    cols = df.select_dtypes(include=list(include)).columns.tolist()
+    return [c for c in cols if c not in _CODE_COLUMNS]
+
+
+def _fmt_codes(gt: GT, df: pd.DataFrame) -> GT:
+    """Show numeric category-code columns as whole numbers."""
+    codes = [
+        c
+        for c in _CODE_COLUMNS
+        if c in df.columns and pd.api.types.is_numeric_dtype(df[c])
+    ]
+    if codes:
+        gt = gt.fmt_integer(columns=codes)
+    return gt
+
 
 def format_params_table(
     df: pd.DataFrame,
@@ -25,7 +48,7 @@ def format_params_table(
     subtitle: Optional[str] = None,
 ) -> GT:
     """Format Ecopath model parameters table with professional styling."""
-    gt = GT(df)
+    gt = _fmt_codes(GT(df), df)
 
     if subtitle:
         gt = gt.tab_header(title=title, subtitle=subtitle)
@@ -33,7 +56,7 @@ def format_params_table(
         gt = gt.tab_header(title=title)
 
     # Format numeric columns
-    numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
+    numeric_cols = _numeric_cols(df)
 
     # Biomass/Abundance: 4 decimals
     biomass_cols = [c for c in numeric_cols if "Biomass" in c or "Abundance" in c]
@@ -65,10 +88,10 @@ def format_results_summary(
     decimals: int = 3,
 ) -> GT:
     """Format Ecosim results summary table."""
-    gt = GT(df)
+    gt = _fmt_codes(GT(df), df)
     gt = gt.tab_header(title=title)
 
-    numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
+    numeric_cols = _numeric_cols(df)
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
 
@@ -81,10 +104,10 @@ def format_diagnostics_table(
     highlight_problems: bool = True,
 ) -> GT:
     """Format diagnostic results with visual indicators."""
-    gt = GT(df)
+    gt = _fmt_codes(GT(df), df)
     gt = gt.tab_header(title=title)
 
-    numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
+    numeric_cols = _numeric_cols(df)
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=3)
 
@@ -96,10 +119,10 @@ def format_diet_matrix(
     title: str = "Diet Composition Matrix",
 ) -> GT:
     """Format diet composition matrix with color gradient."""
-    gt = GT(df)
+    gt = _fmt_codes(GT(df), df)
     gt = gt.tab_header(title=title)
 
-    numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
+    numeric_cols = _numeric_cols(df)
     if numeric_cols:
         gt = gt.fmt_percent(columns=numeric_cols, decimals=1)
 
@@ -113,16 +136,14 @@ def format_time_series_summary(
     decimals: int = 4,
 ) -> GT:
     """Format time series summary data with professional styling."""
-    gt = GT(df)
+    gt = _fmt_codes(GT(df), df)
 
     if subtitle:
         gt = gt.tab_header(title=title, subtitle=subtitle)
     else:
         gt = gt.tab_header(title=title)
 
-    numeric_cols = df.select_dtypes(
-        include=["float64", "float32", "int64", "int32"]
-    ).columns.tolist()
+    numeric_cols = _numeric_cols(df, ("float64", "float32", "int64", "int32"))
     # Skip time-related columns like Year, Month
     numeric_cols = [c for c in numeric_cols if c not in ["Year", "Month"]]
     if numeric_cols:
@@ -138,14 +159,14 @@ def format_dataframe(
     decimals: int = 3,
 ) -> GT:
     """Format any DataFrame as a professional GT table."""
-    gt = GT(df)
+    gt = _fmt_codes(GT(df), df)
 
     if subtitle:
         gt = gt.tab_header(title=title, subtitle=subtitle)
     else:
         gt = gt.tab_header(title=title)
 
-    numeric_cols = df.select_dtypes(include=["float64", "float32"]).columns.tolist()
+    numeric_cols = _numeric_cols(df)
     if numeric_cols:
         gt = gt.fmt_number(columns=numeric_cols, decimals=decimals)
 
