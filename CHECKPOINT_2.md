@@ -54,8 +54,11 @@ Each has a contract test in `tests/test_render_contracts.py`,
    Ecospace / IBM / Feedback charts.
 3. (done 2026-11-03) Type column shows whole numbers in GT tables. Example diet data fixed in #33.
 5. Branch `feat/ui-phase3-remaining-plotly`, browser pass 2026-11-03 (Playwright, 1044 px wide):
-   Feedback trend (empty state) and Ecospace habitat + effort maps checked; the effort map's
-   colour range and marker size were fixed after it. **Not browser-checked:** the IBM charts
+   Feedback trend (empty state) and, in the app, the Ecospace habitat + effort maps on a
+   *regular* grid (the centroid-marker branch); the effort map's colour range and marker size
+   were fixed after it. The polygon branch (shapefile / hex grids: filled cells, MultiPolygon
+   parts, colour-bar trace, labels) was checked as a standalone page from
+   `build_patch_map_figure`, not through a shapefile upload. **Not browser-checked:** the IBM charts
    and the Ecospace biomass map, which both need a loaded model. The biomass map is inserted
    with `output_widget` inside `@render.ui`, so check it renders, and whether the time slider
    lags (one trace per polygon is re-sent on every tick).
