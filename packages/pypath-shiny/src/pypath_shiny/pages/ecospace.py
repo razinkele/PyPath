@@ -31,15 +31,20 @@ from pypath.spatial import (
     load_spatial_grid,
 )
 from shiny import Inputs, Outputs, Session, reactive, render, req, ui
+from shinywidgets import output_widget, render_widget
 
 from pypath_shiny.config import PARAM_RANGES, SPATIAL
-
-# Import centralized configuration
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
     notify_success,
     notify_warning,
+)
+
+# Import centralized configuration
+from pypath_shiny.services.plotly_spatial import (
+    build_effort_map_figure,
+    build_patch_map_figure,
 )
 from pypath_shiny.services.tasks import (
     TaskState,
@@ -130,6 +135,18 @@ def _iter_polygons(geom):
         yield geom
     elif geom.geom_type == "MultiPolygon":
         yield from geom.geoms
+
+
+def _patch_rings(g):
+    """Exterior rings of each patch, as (xs, ys) lists, or None for a regular grid."""
+    if g.geometry is None:
+        return None
+    rings = [[] for _ in range(len(g.geometry))]
+    for pos, (_, row) in enumerate(g.geometry.iterrows()):
+        for geom in _iter_polygons(row.geometry):
+            xs, ys = geom.exterior.xy
+            rings[pos].append((list(xs), list(ys)))
+    return rings
 
 
 def create_hexagonal_grid_in_boundary(
@@ -697,11 +714,11 @@ def ecospace_ui():
                 ),
                 ui.nav_panel(
                     "Habitat Map",
-                    ui.output_plot("habitat_plot", height="500px"),
+                    output_widget("habitat_plot", height="500px"),
                 ),
                 ui.nav_panel(
                     "Fishing Effort",
-                    ui.output_plot("fishing_effort_plot", height="500px"),
+                    output_widget("fishing_effort_plot", height="500px"),
                     ui.p(
                         "Spatial distribution of fishing effort based on selected allocation method.",
                         class_="text-muted small mt-2",
@@ -1831,97 +1848,32 @@ def ecospace_server(
         return "\n".join(info_lines)
 
     # Habitat visualization
-    @render.plot
+    @render_widget
     def habitat_plot():
-        """Plot habitat preference map."""
+        """Habitat preference map."""
         req(grid())
-
-        import matplotlib.pyplot as plt
-
         g = grid()
-
-        # Use shared helper for habitat computation
         habitat = _compute_habitat_vector(g)
-
-        # Plot
-        fig, ax = plt.subplots(figsize=(10, 8))
-        from matplotlib.cm import ScalarMappable
-        from matplotlib.colors import Normalize
-        from matplotlib.patches import Polygon as MplPolygon
-
-        # Normalize habitat values for colormap
-        norm = Normalize(vmin=0, vmax=1)
-        cmap = plt.colormaps["YlGn"]
-
-        # Check if we have polygon geometries (irregular grid)
-        if g.geometry is not None:
-            # Plot actual polygon shapes with habitat colors
-            for idx, row in g.geometry.iterrows():
-                for geom in _iter_polygons(row.geometry):
-                    x, y = geom.exterior.xy
-                    color = cmap(norm(habitat[idx]))
-                    polygon = MplPolygon(
-                        list(zip(x, y, strict=True)),
-                        facecolor=color,
-                        edgecolor="darkgreen",
-                        linewidth=1.2,
-                        alpha=0.8,
-                        zorder=1,
-                    )
-                    ax.add_patch(polygon)
-
-                    # Add habitat value label
-                    centroid = g.patch_centroids[idx]
-                    ax.text(
-                        centroid[0],
-                        centroid[1],
-                        f"{habitat[idx]:.2f}",
-                        ha="center",
-                        va="center",
-                        fontsize=8,
-                        color="black",
-                        weight="bold",
-                        zorder=3,
-                    )
-
-        else:
-            # Regular grid - use scatter plot
-            _scatter = ax.scatter(
-                g.patch_centroids[:, 0],
-                g.patch_centroids[:, 1],
-                c=habitat,
-                s=200,
-                cmap="YlGn",
-                vmin=0,
-                vmax=1,
-                edgecolors="black",
-                linewidths=0.5,
-            )
-
-        # Add colorbar
-        sm = ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])
-        plt.colorbar(sm, ax=ax, label="Habitat Quality (0-1)")
-
-        ax.set_xlabel("Longitude (degrees)", fontsize=10)
-        ax.set_ylabel("Latitude (degrees)", fontsize=10)
-        ax.set_title(
-            f"Habitat Preference Map - {input.habitat_pattern().replace('_', ' ').title()}",
-            fontsize=12,
-            weight="bold",
+        pattern = input.habitat_pattern().replace("_", " ").title()
+        return build_patch_map_figure(
+            habitat,
+            g.patch_centroids,
+            _patch_rings(g),
+            title=f"Habitat Preference Map - {pattern}",
+            colorbar_title="Habitat Quality (0-1)",
+            colorscale="YlGn",
+            vmin=0.0,
+            vmax=1.0,
+            outline_color="darkgreen",
+            label_values=g.geometry is not None,
+            value_format=".2f",
         )
-        ax.grid(True, alpha=0.3, linestyle="--")
-        ax.set_aspect("equal")
-
-        return fig
 
     # Fishing effort visualization
-    @render.plot
+    @render_widget
     def fishing_effort_plot():
         """Plot spatial fishing effort allocation."""
         req(grid())
-
-        import matplotlib.pyplot as plt
 
         g = grid()
         n_patches = g.n_patches
@@ -1957,29 +1909,7 @@ def ecospace_server(
         else:
             effort = allocate_uniform(n_patches, total_effort)
 
-        # Plot
-        fig, ax = plt.subplots(figsize=(8, 6))
-
-        scatter = ax.scatter(
-            g.patch_centroids[:, 0],
-            g.patch_centroids[:, 1],
-            c=effort,
-            s=effort * 10,  # Size proportional to effort
-            cmap="Reds",
-            edgecolors="black",
-            linewidths=0.5,
-            alpha=0.7,
-        )
-
-        plt.colorbar(scatter, ax=ax, label="Fishing Effort")
-
-        ax.set_xlabel("X (degrees longitude)")
-        ax.set_ylabel("Y (degrees latitude)")
-        ax.set_title(f"Spatial Fishing Effort ({allocation_method})")
-        ax.grid(True, alpha=0.3)
-        ax.set_aspect("equal")
-
-        return fig
+        return build_effort_map_figure(effort, g.patch_centroids, allocation_method)
 
     def _preview_biomass(n_patches):
         """Per-patch biomass for the effort preview [n_groups + 1, n_patches]."""
@@ -2015,93 +1945,45 @@ def ecospace_server(
             )
 
         # Render the heatmap as an embedded plot
-        return ui.output_plot("biomass_animation_plot", height="500px")
+        return output_widget("biomass_animation_plot", height="500px")
 
-    @render.plot
+    @render_widget
     def biomass_animation_plot():
-        """Plot spatial biomass heatmap for selected group and timestep."""
-        import matplotlib.pyplot as plt
-
+        """Spatial biomass map for the selected group and timestep."""
         results = _spatial_results()
         req(results is not None and hasattr(results, "out_Biomass_spatial"))
 
         g = grid()
         req(g is not None)
 
-        biomass_spatial = (
-            results.out_Biomass_spatial
-        )  # [n_months, n_groups+1, n_patches]
+        # [n_months, n_groups+1, n_patches]
+        biomass_spatial = results.out_Biomass_spatial
 
-        # Get selected group index
         group_str = input.biomass_view_group()
         group_idx = int(group_str) if group_str else 1
 
-        # Get selected timestep
         timestep = int(input.animation_time())
         timestep = min(timestep, biomass_spatial.shape[0] - 1)
 
-        # Extract per-patch biomass for this group/timestep
-        patch_biomass = biomass_spatial[timestep, group_idx, :]
+        # Fixed colour range over the whole run, so frames are comparable
+        vmax = max(float(biomass_spatial[:, group_idx, :].max()), 1e-10)
 
-        from matplotlib.cm import ScalarMappable
-        from matplotlib.colors import Normalize
-        from matplotlib.patches import Polygon as MplPolygon
-
-        fig, ax = plt.subplots(figsize=(10, 8))
-
-        vmax = max(biomass_spatial[:, group_idx, :].max(), 1e-10)
-        norm = Normalize(vmin=0, vmax=vmax)
-        cmap = plt.colormaps["YlOrRd"]
-
-        if g.geometry is not None:
-            for idx, row in g.geometry.iterrows():
-                for geom in _iter_polygons(row.geometry):
-                    x, y = geom.exterior.xy
-                    color = cmap(norm(patch_biomass[idx]))
-                    polygon = MplPolygon(
-                        list(zip(x, y, strict=True)),
-                        facecolor=color,
-                        edgecolor="gray",
-                        linewidth=0.8,
-                        alpha=0.9,
-                    )
-                    ax.add_patch(polygon)
-            ax.autoscale_view()
-        else:
-            ax.scatter(
-                g.patch_centroids[:, 0],
-                g.patch_centroids[:, 1],
-                c=patch_biomass,
-                s=200,
-                cmap="YlOrRd",
-                vmin=0,
-                vmax=vmax,
-                edgecolors="black",
-                linewidths=0.5,
-            )
-
-        sm = ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])
-        plt.colorbar(sm, ax=ax, label="Biomass")
-
-        # Get group name for title
         scenario = _sim_scenario() if _sim_scenario is not None else None
         if scenario and hasattr(scenario.params, "spname"):
             group_name = scenario.params.spname[group_idx]
         else:
             group_name = f"Group {group_idx}"
 
-        ax.set_xlabel("Longitude (degrees)", fontsize=10)
-        ax.set_ylabel("Latitude (degrees)", fontsize=10)
-        ax.set_title(
-            f"Biomass: {group_name} (t={timestep})",
-            fontsize=12,
-            weight="bold",
+        return build_patch_map_figure(
+            biomass_spatial[timestep, group_idx, :],
+            g.patch_centroids,
+            _patch_rings(g),
+            title=f"Biomass: {group_name} (t={timestep})",
+            colorbar_title="Biomass",
+            colorscale="YlOrRd",
+            vmin=0.0,
+            vmax=vmax,
         )
-        ax.grid(True, alpha=0.3, linestyle="--")
-        ax.set_aspect("equal")
-
-        return fig
 
     # Spatial metrics table
     @render.table
