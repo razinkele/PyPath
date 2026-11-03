@@ -43,7 +43,7 @@ Each has a contract test in `tests/test_render_contracts.py`,
 
 - Branch is up to date with main as of #31 (merge `36d8537`), plus later commits.
   After #32 merges, merge `origin/main` in again.
-- Shiny suite: 789 passed (2026-11-03, branch feat/ui-phase3-remaining-plotly). `ruff check packages/` and `ruff format --check packages/` clean.
+- Shiny suite: 813 passed (2026-11-03, branch feat/ui-phase3-remaining-plotly). `ruff check packages/` and `ruff format --check packages/` clean.
 - CI (`ci-shiny-smoke.yml`) now runs the full Shiny unit suite (commit `4c51264`).
 
 ## Next steps
@@ -61,8 +61,12 @@ Each has a contract test in `tests/test_render_contracts.py`,
    hang was local only). Grid, Habitat, Effort OK for the default regular grid and an
    uploaded GeoJSON polygon grid, with the CARTO basemap. Fixed on the way: polygon cells
    drew black (`@@d.properties.fill` -> `@@=d.properties.fill`, commit 290f657).
-   Still not checked: biomass map + time slider after a spatial run; IBM charts (need a
-   loaded model). Cosmetic: the bottom row of points sits under the legend/attribution.
+   Also checked there (example model -> balance -> scenario -> spatial run -> IBM): biomass
+   map + time slider (fixed colour range, redraws per step) and all six IBM charts.
+   Fixed on the way: IBM comparison chart named the wrong group (4115a3c); every Plotly
+   chart drew at ~360 px whatever its output_widget height, because height= turns off
+   fillable (b8afbd9, `fillable=True` on all 21 calls + contract test). Shiny suite 813
+   passed. Cosmetic, open: the bottom row of points sits under the legend/attribution.
    Deploy: pypath-shiny needs shiny-deckgl >= 1.14.0 (razinka only; PyPI has 1.12).
    `ci-shiny-smoke.yml` builds its env with micromamba from razinka; `conda-build.yml`
    adds `-c razinka`; `deploy.yml` pip-installs the GitHub `v1.14.0` tag into the venv.
