@@ -56,12 +56,13 @@ Each has a contract test in `tests/test_render_contracts.py`,
 5. Branch `feat/ui-phase3-remaining-plotly` (local, not pushed), 2026-11-03.
    Browser-checked (Playwright): Feedback trend (empty state). The Plotly Ecospace maps
    checked that day were then replaced by deck.gl, so those checks no longer apply.
-   **deck.gl maps: NOT browser-checked.** Headless Chromium (Playwright MCP) hung while
-   loading the app page with the four maps, three times; it may be headless WebGL
-   (SwiftShader) on this laptop or a real page hang - check in a real Chrome first:
-   Ecospace -> Create Grid -> Grid, Habitat Map, Fishing Effort tabs; then a shapefile /
-   GeoJSON grid; then the biomass map + time slider after a spatial run. Also not
-   browser-checked: the IBM charts (need a loaded model).
+   **deck.gl maps browser-checked 2026-11-03 on laguna** (headless Chrome + Playwright in
+   laguna's shiny env, branch code in a /tmp dir on a private port; the laptop's headless
+   hang was local only). Grid, Habitat, Effort OK for the default regular grid and an
+   uploaded GeoJSON polygon grid, with the CARTO basemap. Fixed on the way: polygon cells
+   drew black (`@@d.properties.fill` -> `@@=d.properties.fill`, commit 290f657).
+   Still not checked: biomass map + time slider after a spatial run; IBM charts (need a
+   loaded model). Cosmetic: the bottom row of points sits under the legend/attribution.
    Deploy: pypath-shiny needs shiny-deckgl >= 1.14.0 (razinka only; PyPI has 1.12).
    `ci-shiny-smoke.yml` builds its env with micromamba from razinka; `conda-build.yml`
    adds `-c razinka`; `deploy.yml` pip-installs the GitHub `v1.14.0` tag into the venv.
