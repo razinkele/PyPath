@@ -85,6 +85,13 @@ Each has a contract test in `tests/test_render_contracts.py`,
    juvenile Last 24 -> 23, juvenile Z = its P/B, juvenile B/QB = what rpath_stanzas
    derives from the adult (0.219007 / 8.253302), so the inputs are consistent for when
    #47 lands.
+   Deploy: pypath-shiny needs shiny-deckgl >= 1.14.0 (razinka only; PyPI has 1.12).
+   `ci-shiny-smoke.yml` builds its env with micromamba from razinka; `conda-build.yml`
+   adds `-c razinka`; `deploy.yml` pip-installs the GitHub `v1.14.0` tag into the venv.
+   laguna's `/opt/micromamba/envs/shiny` (the pre-deploy import check and the app's
+   interpreter): **shiny-deckgl 1.14.0 installed 2026-11-03** (conda, via sudo; the env
+   is not writable by razinka). Replaced a root pip 1.9.2; other apps in that env
+   (seagarden-dst, ewef viewer, HexSimPy, inSTREAMPY, osmose, sfincs) get 1.14 on restart.
    CSV upload of `example_model_data/model.csv` + `diet.csv` (was rejected over Rpath's
    `Import` row): fixed in e1ec499 - Import row and fleet columns accepted, blank B/PB
    cells mean "Ecopath estimates", 999999 hints removed; browser-checked on laguna.
