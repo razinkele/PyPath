@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.2.0 (2026-11-04)
+
+### Features
+
+- **shiny**: Phase 3 - Plotly charts, deck.gl Ecospace maps, browser-check fixes
+  ([#46](https://github.com/razinkele/PyPath/pull/46),
+  [`032a56a`](https://github.com/razinkele/PyPath/commit/032a56abc99c52d7f5161d8f83f87114c5d24dce))
+
+
 ## v1.1.0 (2026-11-03)
 
 ### Bug Fixes
