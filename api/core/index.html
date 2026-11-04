@@ -1272,6 +1272,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pypath.core.stanzas.ecosim_stanza_params" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ecosim_stanza_params
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.stanzas.has_stanza_tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has_stanza_tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pypath.core.stanzas.rpath_stanzas" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6866,6 +6888,28 @@
     <span class="md-ellipsis">
       
         create_stanza_params
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.stanzas.ecosim_stanza_params" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ecosim_stanza_params
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.stanzas.has_stanza_tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has_stanza_tables
       
     </span>
   </a>
@@ -14872,7 +14916,13 @@ Groups with the same stanza group name will be linked (e.g., juvenile/adult).</p
 <span class="normal">365</span>
 <span class="normal">366</span>
 <span class="normal">367</span>
-<span class="normal">368</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">write_rpath_params</span><span class="p">(</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">write_rpath_params</span><span class="p">(</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span> <span class="n">eco_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="s2">""</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Write Rpath parameters to CSV files.</span>
@@ -14894,11 +14944,17 @@ Groups with the same stanza group name will be linked (e.g., juvenile/adult).</p
     <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">pedigree</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">params</span><span class="o">.</span><span class="n">pedigree</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">eco_name</span><span class="si">}</span><span class="s2">_pedigree.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">stanzas</span><span class="o">.</span><span class="n">n_stanza_groups</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">params</span><span class="o">.</span><span class="n">stanzas</span><span class="o">.</span><span class="n">stgroups</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
-            <span class="n">path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">eco_name</span><span class="si">}</span><span class="s2">_stanza_groups.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span>
-        <span class="p">)</span>
-        <span class="n">params</span><span class="o">.</span><span class="n">stanzas</span><span class="o">.</span><span class="n">stindiv</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">eco_name</span><span class="si">}</span><span class="s2">_stanzas.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="c1"># Save the tables whenever they are present: rsim_scenario uses them even</span>
+    <span class="c1"># when n_stanza_groups was left at 0.</span>
+    <span class="n">st</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">stanzas</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">st</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">stgroups</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">stindiv</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">stgroups</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">stindiv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">stgroups</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">eco_name</span><span class="si">}</span><span class="s2">_stanza_groups.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">stindiv</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">eco_name</span><span class="si">}</span><span class="s2">_stanzas.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -15007,13 +15063,7 @@ is in the expected locations.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">371</span>
-<span class="normal">372</span>
-<span class="normal">373</span>
-<span class="normal">374</span>
-<span class="normal">375</span>
-<span class="normal">376</span>
-<span class="normal">377</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">377</span>
 <span class="normal">378</span>
 <span class="normal">379</span>
 <span class="normal">380</span>
@@ -15109,7 +15159,13 @@ is in the expected locations.</p>
 <span class="normal">470</span>
 <span class="normal">471</span>
 <span class="normal">472</span>
-<span class="normal">473</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_rpath_params</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_rpath_params</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Check Rpath parameter files for consistency.</span>
 
 <span class="sd">    Validates that parameter files are filled out correctly and data</span>
@@ -15567,9 +15623,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 50</span>
-<span class="normal"> 51</span>
-<span class="normal"> 52</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 52</span>
 <span class="normal"> 53</span>
 <span class="normal"> 54</span>
 <span class="normal"> 55</span>
@@ -15709,7 +15763,9 @@ NumDetLinks : int
 <span class="normal">189</span>
 <span class="normal">190</span>
 <span class="normal">191</span>
-<span class="normal">192</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Dynamic simulation parameters.</span>
 
@@ -15953,9 +16009,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">195</span>
-<span class="normal">196</span>
-<span class="normal">197</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">197</span>
 <span class="normal">198</span>
 <span class="normal">199</span>
 <span class="normal">200</span>
@@ -15975,7 +16029,9 @@ NumDetLinks : int
 <span class="normal">214</span>
 <span class="normal">215</span>
 <span class="normal">216</span>
-<span class="normal">217</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""State variables for Ecosim simulation.</span>
 
@@ -16144,9 +16200,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">222</span>
 <span class="normal">223</span>
 <span class="normal">224</span>
 <span class="normal">225</span>
@@ -16175,7 +16229,9 @@ NumDetLinks : int
 <span class="normal">248</span>
 <span class="normal">249</span>
 <span class="normal">250</span>
-<span class="normal">251</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Forcing matrices for environmental and biological effects.</span>
 
@@ -16308,9 +16364,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">254</span>
-<span class="normal">255</span>
-<span class="normal">256</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">256</span>
 <span class="normal">257</span>
 <span class="normal">258</span>
 <span class="normal">259</span>
@@ -16324,7 +16378,9 @@ NumDetLinks : int
 <span class="normal">267</span>
 <span class="normal">268</span>
 <span class="normal">269</span>
-<span class="normal">270</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Fishing forcing matrices.</span>
 
@@ -16533,9 +16589,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">273</span>
-<span class="normal">274</span>
-<span class="normal">275</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">275</span>
 <span class="normal">276</span>
 <span class="normal">277</span>
 <span class="normal">278</span>
@@ -16571,7 +16625,9 @@ NumDetLinks : int
 <span class="normal">308</span>
 <span class="normal">309</span>
 <span class="normal">310</span>
-<span class="normal">311</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimScenario</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Complete Ecosim simulation scenario.</span>
 
@@ -16853,9 +16909,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">316</span>
 <span class="normal">317</span>
 <span class="normal">318</span>
 <span class="normal">319</span>
@@ -16910,7 +16964,9 @@ NumDetLinks : int
 <span class="normal">368</span>
 <span class="normal">369</span>
 <span class="normal">370</span>
-<span class="normal">371</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Output from Ecosim simulation run.</span>
 
@@ -17187,9 +17243,7 @@ NumDetLinks : int
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">374</span>
-<span class="normal">375</span>
-<span class="normal">376</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">376</span>
 <span class="normal">377</span>
 <span class="normal">378</span>
 <span class="normal">379</span>
@@ -17584,7 +17638,9 @@ NumDetLinks : int
 <span class="normal">768</span>
 <span class="normal">769</span>
 <span class="normal">770</span>
-<span class="normal">771</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
     <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
@@ -18070,9 +18126,7 @@ NumDetLinks : int
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">774</span>
-<span class="normal">775</span>
-<span class="normal">776</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">776</span>
 <span class="normal">777</span>
 <span class="normal">778</span>
 <span class="normal">779</span>
@@ -18087,7 +18141,9 @@ NumDetLinks : int
 <span class="normal">788</span>
 <span class="normal">789</span>
 <span class="normal">790</span>
-<span class="normal">791</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
+<span class="normal">791</span>
+<span class="normal">792</span>
+<span class="normal">793</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create initial state vectors for simulation.</span>
 
 <span class="sd">    Parameters</span>
@@ -18209,9 +18265,7 @@ NumDetLinks : int
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">794</span>
-<span class="normal">795</span>
-<span class="normal">796</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">796</span>
 <span class="normal">797</span>
 <span class="normal">798</span>
 <span class="normal">799</span>
@@ -18240,7 +18294,9 @@ NumDetLinks : int
 <span class="normal">822</span>
 <span class="normal">823</span>
 <span class="normal">824</span>
-<span class="normal">825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create forcing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -18376,9 +18432,7 @@ NumDetLinks : int
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">828</span>
-<span class="normal">829</span>
-<span class="normal">830</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">830</span>
 <span class="normal">831</span>
 <span class="normal">832</span>
 <span class="normal">833</span>
@@ -18405,7 +18459,9 @@ NumDetLinks : int
 <span class="normal">854</span>
 <span class="normal">855</span>
 <span class="normal">856</span>
-<span class="normal">857</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
+<span class="normal">857</span>
+<span class="normal">858</span>
+<span class="normal">859</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create fishing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -18599,9 +18655,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">860</span>
-<span class="normal">861</span>
-<span class="normal">862</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">862</span>
 <span class="normal">863</span>
 <span class="normal">864</span>
 <span class="normal">865</span>
@@ -18703,7 +18757,22 @@ Controls predator-prey functional response:
 <span class="normal">961</span>
 <span class="normal">962</span>
 <span class="normal">963</span>
-<span class="normal">964</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
+<span class="normal">964</span>
+<span class="normal">965</span>
+<span class="normal">966</span>
+<span class="normal">967</span>
+<span class="normal">968</span>
+<span class="normal">969</span>
+<span class="normal">970</span>
+<span class="normal">971</span>
+<span class="normal">972</span>
+<span class="normal">973</span>
+<span class="normal">974</span>
+<span class="normal">975</span>
+<span class="normal">976</span>
+<span class="normal">977</span>
+<span class="normal">978</span>
+<span class="normal">979</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span>
@@ -18785,19 +18854,32 @@ Controls predator-prey functional response:
 
     <span class="c1"># Stanza handling: initialize if rpath_params contains stanza definitions</span>
     <span class="n">stanzas</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="nb">getattr</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">,</span> <span class="s2">"stanzas"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span><span class="o">.</span><span class="n">n_stanza_groups</span> <span class="o">&gt;</span> <span class="mi">0</span>
-        <span class="p">):</span>
-            <span class="c1"># Compute rpath stanza diagnostics (biomass/Q distribution)</span>
-            <span class="n">rpath_stanzas</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">)</span>
-            <span class="c1"># Initialize Rsim-compatible stanza parameters</span>
-            <span class="n">stanzas</span> <span class="o">=</span> <span class="n">rsim_stanzas</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="c1"># If stanza initialization fails, continue without stanzas but log via debug</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"stanza initialization failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">stanzas</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">has_stanza_tables</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">,</span> <span class="s2">"stanzas"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># RpathParams keeps the stanza tables as DataFrames; convert them</span>
+            <span class="c1"># once and hand the same object to both steps, because</span>
+            <span class="c1"># rpath_stanzas writes the age structure that rsim_stanzas reads.</span>
+            <span class="n">stanza_params</span> <span class="o">=</span> <span class="n">ecosim_stanza_params</span><span class="p">(</span>
+                <span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span><span class="p">,</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">model</span>
+            <span class="p">)</span>
+            <span class="c1"># rpath_stanzas writes stanza Biomass/QB into the model table.</span>
+            <span class="c1"># Work on a copy so building a scenario never edits the user's</span>
+            <span class="c1"># balanced inputs. To use Rpath's workflow, call</span>
+            <span class="c1"># rpath_stanzas(params) before rpath(params).</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">)</span>
+            <span class="n">work</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">rpath_stanzas</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">stanza_params</span><span class="o">=</span><span class="n">stanza_params</span><span class="p">)</span>
+            <span class="n">stanzas</span> <span class="o">=</span> <span class="n">rsim_stanzas</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">stanza_params</span><span class="o">=</span><span class="n">stanza_params</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Note: the stanza age structure is not yet coupled to group</span>
+            <span class="c1"># biomass in rsim_run (only out.stanza_biomass uses it).</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"Multi-stanza setup failed; Ecosim runs without the stanza "</span>
+                <span class="s2">"age structure: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">e</span><span class="p">,</span>
+                <span class="n">exc_info</span><span class="o">=</span><span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">stanzas</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">return</span> <span class="n">RsimScenario</span><span class="p">(</span>
         <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
@@ -18928,22 +19010,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 998</span>
-<span class="normal"> 999</span>
-<span class="normal">1000</span>
-<span class="normal">1001</span>
-<span class="normal">1002</span>
-<span class="normal">1003</span>
-<span class="normal">1004</span>
-<span class="normal">1005</span>
-<span class="normal">1006</span>
-<span class="normal">1007</span>
-<span class="normal">1008</span>
-<span class="normal">1009</span>
-<span class="normal">1010</span>
-<span class="normal">1011</span>
-<span class="normal">1012</span>
-<span class="normal">1013</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1013</span>
 <span class="normal">1014</span>
 <span class="normal">1015</span>
 <span class="normal">1016</span>
@@ -20489,7 +20556,22 @@ Controls predator-prey functional response:
 <span class="normal">2556</span>
 <span class="normal">2557</span>
 <span class="normal">2558</span>
-<span class="normal">2559</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
+<span class="normal">2559</span>
+<span class="normal">2560</span>
+<span class="normal">2561</span>
+<span class="normal">2562</span>
+<span class="normal">2563</span>
+<span class="normal">2564</span>
+<span class="normal">2565</span>
+<span class="normal">2566</span>
+<span class="normal">2567</span>
+<span class="normal">2568</span>
+<span class="normal">2569</span>
+<span class="normal">2570</span>
+<span class="normal">2571</span>
+<span class="normal">2572</span>
+<span class="normal">2573</span>
+<span class="normal">2574</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -28083,6 +28165,10 @@ available, falls back to Euler with no history.</p>
 <p>This module implements age-structured population dynamics using
 Von Bertalanffy growth and stage-based mortality rates.</p>
 <p>Based on Rpath's rpath.stanzas() and rsim.stanzas() functions.</p>
+<p>Limitation: rsim_run does not yet couple the age structure to group biomass
+the way Rpath's SplitUpdate / SplitSetPred do. split_update and
+split_set_pred keep the RsimStanzas arrays current, and those feed only the
+<code>stanza_biomass</code> output; <code>out_Biomass</code> is the same with or without stanzas.</p>
 
 
 
@@ -28138,21 +28224,21 @@ Von Bertalanffy growth and stage-based mortality rates.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">81</span>
-<span class="normal">82</span>
-<span class="normal">83</span>
-<span class="normal">84</span>
-<span class="normal">85</span>
-<span class="normal">86</span>
-<span class="normal">87</span>
-<span class="normal">88</span>
-<span class="normal">89</span>
-<span class="normal">90</span>
-<span class="normal">91</span>
-<span class="normal">92</span>
-<span class="normal">93</span>
-<span class="normal">94</span>
-<span class="normal">95</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EcosimStanzaParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Container for all multi-stanza parameters.</span>
 
@@ -28223,12 +28309,7 @@ the simulation engine.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 98</span>
-<span class="normal"> 99</span>
-<span class="normal">100</span>
-<span class="normal">101</span>
-<span class="normal">102</span>
-<span class="normal">103</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">103</span>
 <span class="normal">104</span>
 <span class="normal">105</span>
 <span class="normal">106</span>
@@ -28259,7 +28340,12 @@ the simulation engine.</p>
 <span class="normal">131</span>
 <span class="normal">132</span>
 <span class="normal">133</span>
-<span class="normal">134</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimStanzas</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Stanza parameters for Ecosim simulation.</span>
 
@@ -28360,12 +28446,7 @@ the simulation engine.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">25</span>
-<span class="normal">26</span>
-<span class="normal">27</span>
-<span class="normal">28</span>
-<span class="normal">29</span>
-<span class="normal">30</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">30</span>
 <span class="normal">31</span>
 <span class="normal">32</span>
 <span class="normal">33</span>
@@ -28384,7 +28465,12 @@ the simulation engine.</p>
 <span class="normal">46</span>
 <span class="normal">47</span>
 <span class="normal">48</span>
-<span class="normal">49</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">StanzaGroup</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Parameters for a single multi-stanza species group.</span>
 
@@ -28474,12 +28560,7 @@ the simulation engine.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
-<span class="normal">56</span>
-<span class="normal">57</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">57</span>
 <span class="normal">58</span>
 <span class="normal">59</span>
 <span class="normal">60</span>
@@ -28500,7 +28581,12 @@ the simulation engine.</p>
 <span class="normal">75</span>
 <span class="normal">76</span>
 <span class="normal">77</span>
-<span class="normal">78</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">78</span>
+<span class="normal">79</span>
+<span class="normal">80</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">StanzaIndividual</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Parameters for an individual stanza (age class) within a group.</span>
 
@@ -28640,12 +28726,7 @@ the simulation engine.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">188</span>
-<span class="normal">189</span>
-<span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">193</span>
 <span class="normal">194</span>
 <span class="normal">195</span>
 <span class="normal">196</span>
@@ -28659,7 +28740,12 @@ the simulation engine.</p>
 <span class="normal">204</span>
 <span class="normal">205</span>
 <span class="normal">206</span>
-<span class="normal">207</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_survival</span><span class="p">(</span><span class="n">z_by_month</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bab</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_survival</span><span class="p">(</span><span class="n">z_by_month</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bab</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Calculate cumulative survival to each age.</span>
 
 <span class="sd">    Parameters</span>
@@ -28799,36 +28885,7 @@ Optional keys: leading.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">714</span>
-<span class="normal">715</span>
-<span class="normal">716</span>
-<span class="normal">717</span>
-<span class="normal">718</span>
-<span class="normal">719</span>
-<span class="normal">720</span>
-<span class="normal">721</span>
-<span class="normal">722</span>
-<span class="normal">723</span>
-<span class="normal">724</span>
-<span class="normal">725</span>
-<span class="normal">726</span>
-<span class="normal">727</span>
-<span class="normal">728</span>
-<span class="normal">729</span>
-<span class="normal">730</span>
-<span class="normal">731</span>
-<span class="normal">732</span>
-<span class="normal">733</span>
-<span class="normal">734</span>
-<span class="normal">735</span>
-<span class="normal">736</span>
-<span class="normal">737</span>
-<span class="normal">738</span>
-<span class="normal">739</span>
-<span class="normal">740</span>
-<span class="normal">741</span>
-<span class="normal">742</span>
-<span class="normal">743</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">743</span>
 <span class="normal">744</span>
 <span class="normal">745</span>
 <span class="normal">746</span>
@@ -28868,7 +28925,36 @@ Optional keys: leading.</p>
 <span class="normal">780</span>
 <span class="normal">781</span>
 <span class="normal">782</span>
-<span class="normal">783</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_stanza_params</span><span class="p">(</span>
+<span class="normal">783</span>
+<span class="normal">784</span>
+<span class="normal">785</span>
+<span class="normal">786</span>
+<span class="normal">787</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span>
+<span class="normal">791</span>
+<span class="normal">792</span>
+<span class="normal">793</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span>
+<span class="normal">810</span>
+<span class="normal">811</span>
+<span class="normal">812</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_stanza_params</span><span class="p">(</span>
     <span class="n">groups</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">individuals</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcosimStanzaParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create EcosimStanzaParams from dictionaries.</span>
@@ -28947,12 +29033,503 @@ Optional keys: leading.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="pypath.core.stanzas.ecosim_stanza_params" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">ecosim_stanza_params</span>
+
+
+<a href="#pypath.core.stanzas.ecosim_stanza_params" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">ecosim_stanza_params</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcosimStanzaParams</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert <code>RpathParams.stanzas</code> to the form the stanza engine uses.</p>
+<p><code>RpathParams.stanzas</code> keeps the stanza tables as DataFrames
+(<code>stgroups</code> and <code>stindiv</code>, Rpath's layout), while <code>rpath_stanzas</code>
+and <code>rsim_stanzas</code> work on :class:<code>EcosimStanzaParams</code>. An
+<code>EcosimStanzaParams</code> passed in is returned as it is.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>stanzas</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>RpathStanzaParams</code> (DataFrame form) or <code>EcosimStanzaParams</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+                  <code><span title="pandas.DataFrame">DataFrame</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model table. Used to look up the group number of each stanza
+when <code>stindiv</code> has no group-number column.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a stanza lacks a value the dynamics need (Z, first month,
+leading flag, or the VBGF K of its group), or names a group that
+is not in the model.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 888</span>
+<span class="normal"> 889</span>
+<span class="normal"> 890</span>
+<span class="normal"> 891</span>
+<span class="normal"> 892</span>
+<span class="normal"> 893</span>
+<span class="normal"> 894</span>
+<span class="normal"> 895</span>
+<span class="normal"> 896</span>
+<span class="normal"> 897</span>
+<span class="normal"> 898</span>
+<span class="normal"> 899</span>
+<span class="normal"> 900</span>
+<span class="normal"> 901</span>
+<span class="normal"> 902</span>
+<span class="normal"> 903</span>
+<span class="normal"> 904</span>
+<span class="normal"> 905</span>
+<span class="normal"> 906</span>
+<span class="normal"> 907</span>
+<span class="normal"> 908</span>
+<span class="normal"> 909</span>
+<span class="normal"> 910</span>
+<span class="normal"> 911</span>
+<span class="normal"> 912</span>
+<span class="normal"> 913</span>
+<span class="normal"> 914</span>
+<span class="normal"> 915</span>
+<span class="normal"> 916</span>
+<span class="normal"> 917</span>
+<span class="normal"> 918</span>
+<span class="normal"> 919</span>
+<span class="normal"> 920</span>
+<span class="normal"> 921</span>
+<span class="normal"> 922</span>
+<span class="normal"> 923</span>
+<span class="normal"> 924</span>
+<span class="normal"> 925</span>
+<span class="normal"> 926</span>
+<span class="normal"> 927</span>
+<span class="normal"> 928</span>
+<span class="normal"> 929</span>
+<span class="normal"> 930</span>
+<span class="normal"> 931</span>
+<span class="normal"> 932</span>
+<span class="normal"> 933</span>
+<span class="normal"> 934</span>
+<span class="normal"> 935</span>
+<span class="normal"> 936</span>
+<span class="normal"> 937</span>
+<span class="normal"> 938</span>
+<span class="normal"> 939</span>
+<span class="normal"> 940</span>
+<span class="normal"> 941</span>
+<span class="normal"> 942</span>
+<span class="normal"> 943</span>
+<span class="normal"> 944</span>
+<span class="normal"> 945</span>
+<span class="normal"> 946</span>
+<span class="normal"> 947</span>
+<span class="normal"> 948</span>
+<span class="normal"> 949</span>
+<span class="normal"> 950</span>
+<span class="normal"> 951</span>
+<span class="normal"> 952</span>
+<span class="normal"> 953</span>
+<span class="normal"> 954</span>
+<span class="normal"> 955</span>
+<span class="normal"> 956</span>
+<span class="normal"> 957</span>
+<span class="normal"> 958</span>
+<span class="normal"> 959</span>
+<span class="normal"> 960</span>
+<span class="normal"> 961</span>
+<span class="normal"> 962</span>
+<span class="normal"> 963</span>
+<span class="normal"> 964</span>
+<span class="normal"> 965</span>
+<span class="normal"> 966</span>
+<span class="normal"> 967</span>
+<span class="normal"> 968</span>
+<span class="normal"> 969</span>
+<span class="normal"> 970</span>
+<span class="normal"> 971</span>
+<span class="normal"> 972</span>
+<span class="normal"> 973</span>
+<span class="normal"> 974</span>
+<span class="normal"> 975</span>
+<span class="normal"> 976</span>
+<span class="normal"> 977</span>
+<span class="normal"> 978</span>
+<span class="normal"> 979</span>
+<span class="normal"> 980</span>
+<span class="normal"> 981</span>
+<span class="normal"> 982</span>
+<span class="normal"> 983</span>
+<span class="normal"> 984</span>
+<span class="normal"> 985</span>
+<span class="normal"> 986</span>
+<span class="normal"> 987</span>
+<span class="normal"> 988</span>
+<span class="normal"> 989</span>
+<span class="normal"> 990</span>
+<span class="normal"> 991</span>
+<span class="normal"> 992</span>
+<span class="normal"> 993</span>
+<span class="normal"> 994</span>
+<span class="normal"> 995</span>
+<span class="normal"> 996</span>
+<span class="normal"> 997</span>
+<span class="normal"> 998</span>
+<span class="normal"> 999</span>
+<span class="normal">1000</span>
+<span class="normal">1001</span>
+<span class="normal">1002</span>
+<span class="normal">1003</span>
+<span class="normal">1004</span>
+<span class="normal">1005</span>
+<span class="normal">1006</span>
+<span class="normal">1007</span>
+<span class="normal">1008</span>
+<span class="normal">1009</span>
+<span class="normal">1010</span>
+<span class="normal">1011</span>
+<span class="normal">1012</span>
+<span class="normal">1013</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span>
+<span class="normal">1017</span>
+<span class="normal">1018</span>
+<span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span>
+<span class="normal">1022</span>
+<span class="normal">1023</span>
+<span class="normal">1024</span>
+<span class="normal">1025</span>
+<span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecosim_stanza_params</span><span class="p">(</span>
+    <span class="n">stanzas</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcosimStanzaParams</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Convert ``RpathParams.stanzas`` to the form the stanza engine uses.</span>
+
+<span class="sd">    ``RpathParams.stanzas`` keeps the stanza tables as DataFrames</span>
+<span class="sd">    (``stgroups`` and ``stindiv``, Rpath's layout), while ``rpath_stanzas``</span>
+<span class="sd">    and ``rsim_stanzas`` work on :class:`EcosimStanzaParams`. An</span>
+<span class="sd">    ``EcosimStanzaParams`` passed in is returned as it is.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stanzas</span>
+<span class="sd">        ``RpathStanzaParams`` (DataFrame form) or ``EcosimStanzaParams``.</span>
+<span class="sd">    model</span>
+<span class="sd">        The model table. Used to look up the group number of each stanza</span>
+<span class="sd">        when ``stindiv`` has no group-number column.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If a stanza lacks a value the dynamics need (Z, first month,</span>
+<span class="sd">        leading flag, or the VBGF K of its group), or names a group that</span>
+<span class="sd">        is not in the model.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stanzas</span><span class="p">,</span> <span class="n">EcosimStanzaParams</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">stanzas</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">has_stanza_tables</span><span class="p">(</span><span class="n">stanzas</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">EcosimStanzaParams</span><span class="p">()</span>
+
+    <span class="n">stgroups</span> <span class="o">=</span> <span class="n">stanzas</span><span class="o">.</span><span class="n">stgroups</span>
+    <span class="n">stindiv</span> <span class="o">=</span> <span class="n">stanzas</span><span class="o">.</span><span class="n">stindiv</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stgroups</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stindiv</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"stanza tables stgroups and stindiv must both be DataFrames"</span><span class="p">)</span>
+
+    <span class="n">model_groups</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">"Group"</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">model_groups</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">model</span><span class="p">[</span><span class="s2">"Group"</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+
+    <span class="c1"># ---- individual stanzas -------------------------------------------------</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">stindiv</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">rec</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">_pick</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">cols</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">cols</span> <span class="ow">in</span> <span class="n">_INDIV_COLUMNS</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"group_name"</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"z"</span><span class="p">,</span> <span class="s2">"Z"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"first"</span><span class="p">,</span> <span class="s2">"First"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"leading"</span><span class="p">,</span> <span class="s2">"Leading"</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">_is_missing</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="n">key</span><span class="p">]):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> is missing"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_is_missing</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"stanza_group_num"</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: stanza group number is missing"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">model_groups</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">model_groups</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: group is not in the model"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_is_missing</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"group_num"</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">model_groups</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: GroupNum is missing"</span><span class="p">)</span>
+            <span class="n">rec</span><span class="p">[</span><span class="s2">"group_num"</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_groups</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">model_groups</span><span class="p">:</span>
+            <span class="n">gn</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"group_num"</span><span class="p">])</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">gn</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_groups</span><span class="p">)</span> <span class="ow">or</span> <span class="n">model_groups</span><span class="p">[</span><span class="n">gn</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">name</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"stanza </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: GroupNum </span><span class="si">{</span><span class="n">gn</span><span class="si">}</span><span class="s2"> is not that group's row in the "</span>
+                    <span class="s2">"model (1-based)"</span>
+                <span class="p">)</span>
+        <span class="n">rec</span><span class="p">[</span><span class="s2">"leading"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_as_bool</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"leading"</span><span class="p">])</span>
+        <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span>
+
+    <span class="n">by_group</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+        <span class="n">by_group</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"stanza_group_num"</span><span class="p">]),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span>
+
+    <span class="n">individuals</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">StanzaIndividual</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">sg_num</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">by_group</span><span class="p">):</span>
+        <span class="n">members</span> <span class="o">=</span> <span class="n">by_group</span><span class="p">[</span><span class="n">sg_num</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">_is_missing</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">"stanza_num"</span><span class="p">])</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">"stanza_num"</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">members</span>
+        <span class="p">):</span>
+            <span class="c1"># Placeholder numbering: order the stanzas by their first month.</span>
+            <span class="n">members</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">"first"</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rec</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">members</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+                <span class="n">rec</span><span class="p">[</span><span class="s2">"stanza_num"</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">members</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">"stanza_num"</span><span class="p">]))</span>
+        <span class="n">firsts</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">"first"</span><span class="p">])</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">members</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">firsts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># The age tables are indexed by absolute month from 0.</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"stanza </span><span class="si">{</span><span class="n">members</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">'group_name'</span><span class="p">]</span><span class="si">}</span><span class="s2">: the youngest stanza must "</span>
+                <span class="sa">f</span><span class="s2">"start at month 0, not </span><span class="si">{</span><span class="n">firsts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">b</span> <span class="o">&lt;=</span> <span class="n">a</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">firsts</span><span class="p">,</span> <span class="n">firsts</span><span class="p">[</span><span class="mi">1</span><span class="p">:])):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"stanza group </span><span class="si">{</span><span class="n">sg_num</span><span class="si">}</span><span class="s2">: First must increase with StanzaNum, "</span>
+                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">firsts</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rec</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">members</span><span class="p">):</span>
+            <span class="n">last</span> <span class="o">=</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"last"</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">_is_missing</span><span class="p">(</span><span class="n">last</span><span class="p">):</span>
+                <span class="c1"># Up to the month before the next stanza starts. The oldest</span>
+                <span class="c1"># stanza's last month is computed by rpath_stanzas.</span>
+                <span class="n">last</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="nb">float</span><span class="p">(</span><span class="n">members</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="s2">"first"</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">members</span><span class="p">)</span>
+                    <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"first"</span><span class="p">])</span>
+                <span class="p">)</span>
+            <span class="n">individuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">StanzaIndividual</span><span class="p">(</span>
+                    <span class="n">stanza_group_num</span><span class="o">=</span><span class="n">sg_num</span><span class="p">,</span>
+                    <span class="n">stanza_num</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"stanza_num"</span><span class="p">]),</span>
+                    <span class="n">group_num</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"group_num"</span><span class="p">]),</span>
+                    <span class="n">group_name</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"group_name"</span><span class="p">]),</span>
+                    <span class="n">first</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"first"</span><span class="p">]),</span>
+                    <span class="n">last</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">last</span><span class="p">),</span>
+                    <span class="n">z</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"z"</span><span class="p">]),</span>
+                    <span class="n">leading</span><span class="o">=</span><span class="n">rec</span><span class="p">[</span><span class="s2">"leading"</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+    <span class="c1"># ---- stanza groups ------------------------------------------------------</span>
+    <span class="n">groups</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">StanzaGroup</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">stgroups</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">rec</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">_pick</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">cols</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">cols</span> <span class="ow">in</span> <span class="n">_GROUP_COLUMNS</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">if</span> <span class="n">_is_missing</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"stanza_group_num"</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"stanza group number is missing in stgroups"</span><span class="p">)</span>
+        <span class="n">sg_num</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"stanza_group_num"</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">sg_num</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza group number </span><span class="si">{</span><span class="n">sg_num</span><span class="si">}</span><span class="s2"> appears twice in stgroups"</span><span class="p">)</span>
+        <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">sg_num</span><span class="p">)</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_missing</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"name"</span><span class="p">])</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"group </span><span class="si">{</span><span class="n">sg_num</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">if</span> <span class="n">_is_missing</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"vbgf_ksp"</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza group </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: VBGF_Ksp is missing"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">float</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"vbgf_ksp"</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza group </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: VBGF_Ksp must be positive"</span><span class="p">)</span>
+        <span class="n">members</span> <span class="o">=</span> <span class="n">by_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sg_num</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">members</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza group </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: no stanzas in stindiv"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">members</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="s2">"leading"</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stanza group </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: needs exactly one leading stanza"</span><span class="p">)</span>
+        <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">StanzaGroup</span><span class="p">(</span>
+                <span class="n">stanza_group_num</span><span class="o">=</span><span class="n">sg_num</span><span class="p">,</span>
+                <span class="n">n_stanzas</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">members</span><span class="p">),</span>
+                <span class="n">vbgf_ksp</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"vbgf_ksp"</span><span class="p">]),</span>
+                <span class="n">vbgf_d</span><span class="o">=</span><span class="n">_number</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"vbgf_d"</span><span class="p">],</span> <span class="mf">0.66667</span><span class="p">),</span>
+                <span class="n">wmat</span><span class="o">=</span><span class="n">_number</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"wmat"</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="n">bab</span><span class="o">=</span><span class="n">_number</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"bab"</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="n">rec_power</span><span class="o">=</span><span class="n">_number</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"rec_power"</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="n">groups</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">g</span><span class="p">:</span> <span class="n">g</span><span class="o">.</span><span class="n">stanza_group_num</span><span class="p">)</span>
+
+    <span class="n">missing</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">by_group</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="n">g</span><span class="o">.</span><span class="n">stanza_group_num</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"stanzas refer to stanza groups </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2"> that are not in stgroups"</span>
+        <span class="p">)</span>
+    <span class="c1"># rpath_stanzas / rsim_stanzas index groups by position (isp + 1), while</span>
+    <span class="c1"># EwE databases number them by their own IDs. Renumber 1..N in ID order.</span>
+    <span class="n">renumber</span> <span class="o">=</span> <span class="p">{</span><span class="n">g</span><span class="o">.</span><span class="n">stanza_group_num</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">)}</span>
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">stanza_group_num</span> <span class="o">=</span> <span class="n">renumber</span><span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">stanza_group_num</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">individuals</span><span class="p">:</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">stanza_group_num</span> <span class="o">=</span> <span class="n">renumber</span><span class="p">[</span><span class="n">st</span><span class="o">.</span><span class="n">stanza_group_num</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">EcosimStanzaParams</span><span class="p">(</span>
+        <span class="n">n_stanza_groups</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">),</span>
+        <span class="n">stanza_groups</span><span class="o">=</span><span class="n">groups</span><span class="p">,</span>
+        <span class="n">stanza_individuals</span><span class="o">=</span><span class="n">individuals</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="pypath.core.stanzas.has_stanza_tables" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">has_stanza_tables</span>
+
+
+<a href="#pypath.core.stanzas.has_stanza_tables" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">has_stanza_tables</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>True if <code>stanzas</code> describes at least one stanza group.</p>
+<p>Looks at the tables rather than <code>n_stanza_groups</code> alone, because code
+that assigns <code>stgroups</code>/<code>stindiv</code> directly often leaves the count at 0.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">842</span>
+<span class="normal">843</span>
+<span class="normal">844</span>
+<span class="normal">845</span>
+<span class="normal">846</span>
+<span class="normal">847</span>
+<span class="normal">848</span>
+<span class="normal">849</span>
+<span class="normal">850</span>
+<span class="normal">851</span>
+<span class="normal">852</span>
+<span class="normal">853</span>
+<span class="normal">854</span>
+<span class="normal">855</span>
+<span class="normal">856</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">has_stanza_tables</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""True if ``stanzas`` describes at least one stanza group.</span>
+
+<span class="sd">    Looks at the tables rather than ``n_stanza_groups`` alone, because code</span>
+<span class="sd">    that assigns ``stgroups``/``stindiv`` directly often leaves the count at 0.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">stanzas</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stanzas</span><span class="p">,</span> <span class="n">EcosimStanzaParams</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">stanzas</span><span class="o">.</span><span class="n">n_stanza_groups</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"stgroups"</span><span class="p">,</span> <span class="s2">"stindiv"</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">stanzas</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">stanzas</span><span class="p">,</span> <span class="s2">"n_stanza_groups"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="pypath.core.stanzas.rpath_stanzas" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">rpath_stanzas</span>
 
 
 <a href="#pypath.core.stanzas.rpath_stanzas" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">rpath_stanzas</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RpathParams</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">rpath_stanzas</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span> <span class="n">stanza_params</span><span class="p">:</span> <span class="n">EcosimStanzaParams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RpathParams</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -28996,6 +29573,30 @@ across age classes based on the leading stanza's biomass.</p>
                 <em>required</em>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>stanza_params</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="EcosimStanzaParams
+
+
+  
+      dataclass
+   (pypath.core.stanzas.EcosimStanzaParams)" href="#pypath.core.stanzas.EcosimStanzaParams">EcosimStanzaParams</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Stanza parameters to work on. Defaults to <code>rpath_params.stanzas</code>
+converted with :func:<code>ecosim_stanza_params</code>. The computed age
+structure is written to this object, so pass the same object on to
+:func:<code>rsim_stanzas</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -29030,12 +29631,7 @@ across age classes based on the leading stanza's biomass.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">215</span>
 <span class="normal">216</span>
 <span class="normal">217</span>
 <span class="normal">218</span>
@@ -29205,7 +29801,28 @@ across age classes based on the leading stanza's biomass.</p>
 <span class="normal">382</span>
 <span class="normal">383</span>
 <span class="normal">384</span>
-<span class="normal">385</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rpath_stanzas</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RpathParams</span><span class="p">:</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span>
+<span class="normal">403</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rpath_stanzas</span><span class="p">(</span>
+    <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
+    <span class="n">stanza_params</span><span class="p">:</span> <span class="n">EcosimStanzaParams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RpathParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Calculate biomass and consumption for multi-stanza groups.</span>
 
 <span class="sd">    Uses the leading stanza to calculate biomass and consumption</span>
@@ -29218,17 +29835,21 @@ across age classes based on the leading stanza's biomass.</p>
 <span class="sd">    ----------</span>
 <span class="sd">    rpath_params : RpathParams</span>
 <span class="sd">        RpathParams object with stanza information</span>
+<span class="sd">    stanza_params : EcosimStanzaParams, optional</span>
+<span class="sd">        Stanza parameters to work on. Defaults to ``rpath_params.stanzas``</span>
+<span class="sd">        converted with :func:`ecosim_stanza_params`. The computed age</span>
+<span class="sd">        structure is written to this object, so pass the same object on to</span>
+<span class="sd">        :func:`rsim_stanzas`.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    RpathParams</span>
 <span class="sd">        Updated RpathParams with calculated stanza biomass and Q/B</span>
 <span class="sd">    """</span>
-    <span class="c1"># Check if stanzas exist</span>
-    <span class="k">if</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">rpath_params</span>
-
-    <span class="n">stanza_params</span> <span class="o">=</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span>
+    <span class="k">if</span> <span class="n">stanza_params</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">has_stanza_tables</span><span class="p">(</span><span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">rpath_params</span>
+        <span class="n">stanza_params</span> <span class="o">=</span> <span class="n">ecosim_stanza_params</span><span class="p">(</span><span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span><span class="p">,</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">stanza_params</span><span class="o">.</span><span class="n">n_stanza_groups</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">rpath_params</span>
 
@@ -29273,16 +29894,22 @@ across age classes based on the leading stanza's biomass.</p>
         <span class="n">nn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumprod</span><span class="p">(</span>
             <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">monthly_z</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ages</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))])</span>
         <span class="p">)</span>
-        <span class="n">bb</span> <span class="o">=</span> <span class="n">nn</span> <span class="o">*</span> <span class="n">von_bertalanffy_weight</span><span class="p">(</span><span class="n">ages</span><span class="p">,</span> <span class="n">k_monthly</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+        <span class="c1"># Rpath's rpath.stanzas() uses VBGF_Ksp as stored here, without the</span>
+        <span class="c1"># *3/12 conversion applied everywhere else. Kept for parity: it sets</span>
+        <span class="c1"># the length of the plus group (e.g. REco Roundfish1 ends at 371).</span>
+        <span class="n">bb</span> <span class="o">=</span> <span class="n">nn</span> <span class="o">*</span> <span class="n">von_bertalanffy_weight</span><span class="p">(</span><span class="n">ages</span><span class="p">,</span> <span class="n">stanza_group</span><span class="o">.</span><span class="n">vbgf_ksp</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
 
         <span class="c1"># Cumulative biomass fraction</span>
         <span class="n">bb_cum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">bb</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">bb</span><span class="p">)</span>
 
-        <span class="c1"># Find age at 99.999% cumulative biomass</span>
-        <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">bb_cum</span><span class="p">,</span> <span class="mf">0.99999</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s2">"left"</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ages</span><span class="p">):</span>
-            <span class="n">idx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ages</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-        <span class="n">last_month</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">ages</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">12.0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">12</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># First age where cumulative biomass exceeds 99.999%, rounded up to</span>
+        <span class="c1"># the end of that year: ceiling(AGE / 12) * 12 - 1, as in Rpath.</span>
+        <span class="n">above</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">bb_cum</span> <span class="o">&gt;</span> <span class="mf">0.99999</span><span class="p">)</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">above</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">above</span><span class="o">.</span><span class="n">size</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">ages</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">last_month</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">ages</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">/</span> <span class="mf">12.0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">12</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># A plus group starting on a whole year past the cutoff would round</span>
+        <span class="c1"># to the month before it starts.</span>
+        <span class="n">last_month</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">last_month</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">st_max</span><span class="o">.</span><span class="n">first</span><span class="p">))</span>
 
         <span class="n">stanza_group</span><span class="o">.</span><span class="n">last_month</span> <span class="o">=</span> <span class="n">last_month</span>
 
@@ -29395,7 +30022,7 @@ across age classes based on the leading stanza's biomass.</p>
 
 
 <a href="#pypath.core.stanzas.rsim_stanzas" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">rsim_stanzas</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimStanzas</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">rsim_stanzas</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">stanza_params</span><span class="p">:</span> <span class="n">EcosimStanzaParams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimStanzas</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -29468,6 +30095,29 @@ across age classes based on the leading stanza's biomass.</p>
                 <em>required</em>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>stanza_params</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="EcosimStanzaParams
+
+
+  
+      dataclass
+   (pypath.core.stanzas.EcosimStanzaParams)" href="#pypath.core.stanzas.EcosimStanzaParams">EcosimStanzaParams</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The object :func:<code>rpath_stanzas</code> filled in. If omitted,
+<code>rpath_params.stanzas</code> is converted and run through
+:func:<code>rpath_stanzas</code> here.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -29502,25 +30152,7 @@ across age classes based on the leading stanza's biomass.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">388</span>
-<span class="normal">389</span>
-<span class="normal">390</span>
-<span class="normal">391</span>
-<span class="normal">392</span>
-<span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span>
-<span class="normal">396</span>
-<span class="normal">397</span>
-<span class="normal">398</span>
-<span class="normal">399</span>
-<span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">406</span>
 <span class="normal">407</span>
 <span class="normal">408</span>
 <span class="normal">409</span>
@@ -29686,8 +30318,40 @@ across age classes based on the leading stanza's biomass.</p>
 <span class="normal">569</span>
 <span class="normal">570</span>
 <span class="normal">571</span>
-<span class="normal">572</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_stanzas</span><span class="p">(</span>
-    <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span>
+<span class="normal">572</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span>
+<span class="normal">579</span>
+<span class="normal">580</span>
+<span class="normal">581</span>
+<span class="normal">582</span>
+<span class="normal">583</span>
+<span class="normal">584</span>
+<span class="normal">585</span>
+<span class="normal">586</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span>
+<span class="normal">600</span>
+<span class="normal">601</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_stanzas</span><span class="p">(</span>
+    <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">stanza_params</span><span class="p">:</span> <span class="n">EcosimStanzaParams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimStanzas</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Initialize stanza parameters for Ecosim simulation.</span>
 
@@ -29701,6 +30365,10 @@ across age classes based on the leading stanza's biomass.</p>
 <span class="sd">        RsimState object with initial state</span>
 <span class="sd">    params : dict</span>
 <span class="sd">        RsimParams object with simulation parameters</span>
+<span class="sd">    stanza_params : EcosimStanzaParams, optional</span>
+<span class="sd">        The object :func:`rpath_stanzas` filled in. If omitted,</span>
+<span class="sd">        ``rpath_params.stanzas`` is converted and run through</span>
+<span class="sd">        :func:`rpath_stanzas` here.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -29709,8 +30377,12 @@ across age classes based on the leading stanza's biomass.</p>
 <span class="sd">    """</span>
     <span class="n">rstan</span> <span class="o">=</span> <span class="n">RsimStanzas</span><span class="p">()</span>
 
-    <span class="c1"># Check if stanzas exist</span>
-    <span class="k">if</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span><span class="o">.</span><span class="n">n_stanza_groups</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">stanza_params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">has_stanza_tables</span><span class="p">(</span><span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span><span class="p">):</span>
+        <span class="n">stanza_params</span> <span class="o">=</span> <span class="n">ecosim_stanza_params</span><span class="p">(</span><span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span><span class="p">,</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">stanza_params</span><span class="o">.</span><span class="n">st_groups</span><span class="p">:</span>
+            <span class="n">rpath_stanzas</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">,</span> <span class="n">stanza_params</span><span class="o">=</span><span class="n">stanza_params</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">stanza_params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">stanza_params</span><span class="o">.</span><span class="n">n_stanza_groups</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="c1"># Return empty stanza structure</span>
         <span class="n">rstan</span><span class="o">.</span><span class="n">n_split</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">rstan</span><span class="o">.</span><span class="n">n_stanzas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
@@ -29735,7 +30407,6 @@ across age classes based on the leading stanza's biomass.</p>
         <span class="n">rstan</span><span class="o">.</span><span class="n">base_stanza_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">rstan</span>
 
-    <span class="n">stanza_params</span> <span class="o">=</span> <span class="n">rpath_params</span><span class="o">.</span><span class="n">stanzas</span>
     <span class="n">n_split</span> <span class="o">=</span> <span class="n">stanza_params</span><span class="o">.</span><span class="n">n_stanza_groups</span>
 
     <span class="n">rstan</span><span class="o">.</span><span class="n">n_split</span> <span class="o">=</span> <span class="n">n_split</span>
@@ -29754,8 +30425,9 @@ across age classes based on the leading stanza's biomass.</p>
     <span class="n">rstan</span><span class="o">.</span><span class="n">base_qage_s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">max_months</span><span class="p">,</span> <span class="n">n_split</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
     <span class="n">rstan</span><span class="o">.</span><span class="n">split_alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">max_months</span><span class="p">,</span> <span class="n">n_split</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
 
-    <span class="c1"># Stanza pred accumulator (extra leading slot for 1-based indexing)</span>
-    <span class="n">s_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="c1"># Stanza pred accumulator, indexed like the Rsim arrays (0 = Outside);</span>
+    <span class="c1"># group_num is the 1-based model row, so it indexes directly.</span>
+    <span class="n">s_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># Process each stanza group</span>
     <span class="k">for</span> <span class="n">isp</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_split</span><span class="p">):</span>
@@ -29851,7 +30523,7 @@ across age classes based on the leading stanza's biomass.</p>
                     <span class="n">first</span> <span class="p">:</span> <span class="n">last</span> <span class="o">+</span> <span class="mi">1</span>
                 <span class="p">]</span>
 
-            <span class="n">s_pred</span><span class="p">[</span><span class="n">ieco</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span>
+            <span class="n">s_pred</span><span class="p">[</span><span class="n">ieco</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span>
 
         <span class="c1"># Carry over final split alpha to plus group</span>
         <span class="n">last_stanza</span> <span class="o">=</span> <span class="n">group_stanzas</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
@@ -29965,36 +30637,7 @@ groups based on current biomass.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">669</span>
-<span class="normal">670</span>
-<span class="normal">671</span>
-<span class="normal">672</span>
-<span class="normal">673</span>
-<span class="normal">674</span>
-<span class="normal">675</span>
-<span class="normal">676</span>
-<span class="normal">677</span>
-<span class="normal">678</span>
-<span class="normal">679</span>
-<span class="normal">680</span>
-<span class="normal">681</span>
-<span class="normal">682</span>
-<span class="normal">683</span>
-<span class="normal">684</span>
-<span class="normal">685</span>
-<span class="normal">686</span>
-<span class="normal">687</span>
-<span class="normal">688</span>
-<span class="normal">689</span>
-<span class="normal">690</span>
-<span class="normal">691</span>
-<span class="normal">692</span>
-<span class="normal">693</span>
-<span class="normal">694</span>
-<span class="normal">695</span>
-<span class="normal">696</span>
-<span class="normal">697</span>
-<span class="normal">698</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">698</span>
 <span class="normal">699</span>
 <span class="normal">700</span>
 <span class="normal">701</span>
@@ -30007,7 +30650,36 @@ groups based on current biomass.</p>
 <span class="normal">708</span>
 <span class="normal">709</span>
 <span class="normal">710</span>
-<span class="normal">711</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">split_set_pred</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">711</span>
+<span class="normal">712</span>
+<span class="normal">713</span>
+<span class="normal">714</span>
+<span class="normal">715</span>
+<span class="normal">716</span>
+<span class="normal">717</span>
+<span class="normal">718</span>
+<span class="normal">719</span>
+<span class="normal">720</span>
+<span class="normal">721</span>
+<span class="normal">722</span>
+<span class="normal">723</span>
+<span class="normal">724</span>
+<span class="normal">725</span>
+<span class="normal">726</span>
+<span class="normal">727</span>
+<span class="normal">728</span>
+<span class="normal">729</span>
+<span class="normal">730</span>
+<span class="normal">731</span>
+<span class="normal">732</span>
+<span class="normal">733</span>
+<span class="normal">734</span>
+<span class="normal">735</span>
+<span class="normal">736</span>
+<span class="normal">737</span>
+<span class="normal">738</span>
+<span class="normal">739</span>
+<span class="normal">740</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">split_set_pred</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Set predation rates for stanza groups.</span>
 
 <span class="sd">    Updates the consumption calculations for multi-stanza</span>
@@ -30025,7 +30697,7 @@ groups based on current biomass.</p>
     <span class="k">if</span> <span class="n">stanzas</span><span class="o">.</span><span class="n">n_split</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span>
 
-    <span class="n">s_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">s_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="n">isp</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">stanzas</span><span class="o">.</span><span class="n">n_split</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="n">n_stanzas</span> <span class="o">=</span> <span class="n">stanzas</span><span class="o">.</span><span class="n">n_stanzas</span><span class="p">[</span><span class="n">isp</span><span class="p">]</span>
@@ -30047,7 +30719,7 @@ groups based on current biomass.</p>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nage_s</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">qage_s</span><span class="p">):</span>
                     <span class="n">pred</span> <span class="o">+=</span> <span class="n">nage_s</span> <span class="o">*</span> <span class="n">qage_s</span>
 
-            <span class="n">s_pred</span><span class="p">[</span><span class="n">ieco</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span>
+            <span class="n">s_pred</span><span class="p">[</span><span class="n">ieco</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span>
 
     <span class="n">stanzas</span><span class="o">.</span><span class="n">base_stanza_pred</span> <span class="o">=</span> <span class="n">s_pred</span>
 </code></pre></div></td></tr></table></div>
@@ -30161,36 +30833,7 @@ recruitment for multi-stanza groups.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">575</span>
-<span class="normal">576</span>
-<span class="normal">577</span>
-<span class="normal">578</span>
-<span class="normal">579</span>
-<span class="normal">580</span>
-<span class="normal">581</span>
-<span class="normal">582</span>
-<span class="normal">583</span>
-<span class="normal">584</span>
-<span class="normal">585</span>
-<span class="normal">586</span>
-<span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span>
-<span class="normal">595</span>
-<span class="normal">596</span>
-<span class="normal">597</span>
-<span class="normal">598</span>
-<span class="normal">599</span>
-<span class="normal">600</span>
-<span class="normal">601</span>
-<span class="normal">602</span>
-<span class="normal">603</span>
-<span class="normal">604</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">604</span>
 <span class="normal">605</span>
 <span class="normal">606</span>
 <span class="normal">607</span>
@@ -30252,7 +30895,36 @@ recruitment for multi-stanza groups.</p>
 <span class="normal">663</span>
 <span class="normal">664</span>
 <span class="normal">665</span>
-<span class="normal">666</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">split_update</span><span class="p">(</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">split_update</span><span class="p">(</span>
     <span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">sim_month</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Update stanza age structure for a simulation month.</span>
@@ -30330,8 +31002,8 @@ recruitment for multi-stanza groups.</p>
             <span class="n">last</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">stanzas</span><span class="o">.</span><span class="n">age2</span><span class="p">[</span><span class="n">isp</span><span class="p">,</span> <span class="n">ist</span><span class="p">])</span>
 
             <span class="c1"># Get current mortality from state (guard against indexing issues)</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"MzeroMort"</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ieco</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">MzeroMort</span><span class="p">):</span>
-                <span class="n">m0</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">MzeroMort</span><span class="p">[</span><span class="n">ieco</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"MzeroMort"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">ieco</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">MzeroMort</span><span class="p">):</span>
+                <span class="n">m0</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">MzeroMort</span><span class="p">[</span><span class="n">ieco</span><span class="p">]</span>  <span class="c1"># arrays have Outside at 0</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">m0</span> <span class="o">=</span> <span class="mf">0.0</span>
 
@@ -30439,12 +31111,7 @@ recruitment for multi-stanza groups.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
-<span class="normal">173</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">173</span>
 <span class="normal">174</span>
 <span class="normal">175</span>
 <span class="normal">176</span>
@@ -30456,7 +31123,12 @@ recruitment for multi-stanza groups.</p>
 <span class="normal">182</span>
 <span class="normal">183</span>
 <span class="normal">184</span>
-<span class="normal">185</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">von_bertalanffy_consumption</span><span class="p">(</span><span class="n">wage_s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.66667</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">von_bertalanffy_consumption</span><span class="p">(</span><span class="n">wage_s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.66667</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Calculate consumption at age from weight.</span>
 
 <span class="sd">    Q(a) = W(a)^d</span>
@@ -30609,12 +31281,7 @@ recruitment for multi-stanza groups.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">142</span>
 <span class="normal">143</span>
 <span class="normal">144</span>
 <span class="normal">145</span>
@@ -30637,7 +31304,12 @@ recruitment for multi-stanza groups.</p>
 <span class="normal">162</span>
 <span class="normal">163</span>
 <span class="normal">164</span>
-<span class="normal">165</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">von_bertalanffy_weight</span><span class="p">(</span><span class="n">age</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.66667</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">von_bertalanffy_weight</span><span class="p">(</span><span class="n">age</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.66667</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Calculate weight at age using Von Bertalanffy growth model.</span>
 
 <span class="sd">    W(a) = (1 - exp(-K * (1-d) * a))^(1/(1-d))</span>
