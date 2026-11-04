@@ -88,7 +88,7 @@ def test_example_stanzas_follow_rpath_conventions():
     if not hasattr(stanzas, "ecosim_stanza_params"):
         pytest.skip("needs pypath-ewe with ecosim_stanza_params")
     # The juvenile Biomass and Q/B must be the ones the stanza age
-    # structure implies, or Ecosim starts away from the Ecopath balance.
+    # structure implies, so the stanza inputs agree with the Ecopath balance.
     esp = stanzas.ecosim_stanza_params(params.stanzas, params.model)
     stanzas.rpath_stanzas(params, stanza_params=esp)
     got = {s.group_name: s for s in esp.stanza_individuals}

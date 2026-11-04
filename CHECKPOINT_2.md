@@ -74,28 +74,17 @@ Each has a contract test in `tests/test_render_contracts.py`,
    Ecosim auto-fix off by default (user, 2026-11-03): capping derived QQ/DD moved balanced
    models off equilibrium (c091611). Shiny suite 818 passed (one subprocess test,
    test_prebalance_rpath_verify, failed once under load and passes alone).
-   Core stanza bug: fixed on branch `fix/stanza-params-bridge` (off main, worktree
-   `C:/Users/arturas.baziukas/worktrees/pypath-stanzas`, local, not pushed; ab5e76f,
-   d7a43b7). `rsim_scenario` failed on every DataFrame-form (real) multi-stanza model,
-   logged at debug level and ran Ecosim with stanzas off. Now converted by
-   `ecosim_stanza_params()`; plus-group last month matches Rpath (371 not 419); stanza
-   B/QB/recruits match Rpath's reference to 1e-6; test_rpath_reference (37) passes with
-   stanzas on (its fixture never ran them before). Not run there: full core suite (killed
-   by memory pressure), ewemdb run test (pyodbc hang). Open: Ecosim setup now rewrites
-   juvenile B/QB in the user's params after balance; Rpath runs rpath.stanzas before
-   rpath() - decide whether the app should too. Needs a pypath-ewe release before the
-   UI branch relies on it.
+   Core stanza bug: PR #45 (`fix/stanza-params-bridge`). `rsim_scenario` failed on every
+   DataFrame-form (real) multi-stanza model and logged it at debug level. Now converted by
+   `ecosim_stanza_params()`; `rpath_stanzas` matches Rpath's rpath.stanzas to 1e-6 (plus
+   group ends at 371, not 419); scenario setup no longer edits the user's params.
+   CORRECTION: PyPath Ecosim never couples the stanza age structure to group biomass;
+   `out_Biomass` is identical with or without stanzas, `stanza_biomass` is diagnostic
+   only. Real coupling (Rpath SplitUpdate/SplitSetPred) is issue #47.
    Home example stanzas (this branch, 2026-11-04): Wmat 50 -> 0.1 (fraction of Winf),
    juvenile Last 24 -> 23, juvenile Z = its P/B, juvenile B/QB = what rpath_stanzas
-   derives from the adult (0.219007 / 8.253302). With the fixed core: flat over 20 years
-   with stanza dynamics on.
-   Deploy: pypath-shiny needs shiny-deckgl >= 1.14.0 (razinka only; PyPI has 1.12).
-   `ci-shiny-smoke.yml` builds its env with micromamba from razinka; `conda-build.yml`
-   adds `-c razinka`; `deploy.yml` pip-installs the GitHub `v1.14.0` tag into the venv.
-   laguna's `/opt/micromamba/envs/shiny` (the pre-deploy import check and the app's
-   interpreter): **shiny-deckgl 1.14.0 installed 2026-11-03** (conda, via sudo; the env
-   is not writable by razinka). Replaced a root pip 1.9.2; other apps in that env
-   (seagarden-dst, ewef viewer, HexSimPy, inSTREAMPY, osmose, sfincs) get 1.14 on restart.
+   derives from the adult (0.219007 / 8.253302), so the inputs are consistent for when
+   #47 lands.
    CSV upload of `example_model_data/model.csv` + `diet.csv` (was rejected over Rpath's
    `Import` row): fixed in e1ec499 - Import row and fleet columns accepted, blank B/PB
    cells mean "Ecopath estimates", 999999 hints removed; browser-checked on laguna.
