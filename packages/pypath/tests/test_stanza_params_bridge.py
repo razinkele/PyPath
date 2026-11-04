@@ -260,9 +260,10 @@ class TestInputChecks:
     def test_first_must_increase_with_stanza_number(self):
         params = _reference_params()
         si = params.stanzas.stindiv
-        # Swap the numbers of the Roundfish1 juvenile and adult.
-        si.loc[0, "StanzaNum"], si.loc[1, "StanzaNum"] = 2, 1
-        with pytest.raises(ValueError):
+        # Both Roundfish1 stanzas start at month 0: passes the month-0 check,
+        # fails the ordering one.
+        si.loc[1, "First"] = 0
+        with pytest.raises(ValueError, match="First must increase"):
             ecosim_stanza_params(params.stanzas, params.model)
 
     def test_duplicate_stanza_group_ids_are_rejected(self):
