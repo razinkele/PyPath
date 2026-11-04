@@ -361,11 +361,17 @@ def write_rpath_params(
     if params.pedigree is not None:
         params.pedigree.to_csv(path / f"{eco_name}_pedigree.csv", index=False)
 
-    if params.stanzas.n_stanza_groups > 0:
-        params.stanzas.stgroups.to_csv(
-            path / f"{eco_name}_stanza_groups.csv", index=False
-        )
-        params.stanzas.stindiv.to_csv(path / f"{eco_name}_stanzas.csv", index=False)
+    # Save the tables whenever they are present: rsim_scenario uses them even
+    # when n_stanza_groups was left at 0.
+    st = params.stanzas
+    if (
+        st is not None
+        and isinstance(st.stgroups, pd.DataFrame)
+        and isinstance(st.stindiv, pd.DataFrame)
+        and (len(st.stgroups) > 0 or len(st.stindiv) > 0)
+    ):
+        st.stgroups.to_csv(path / f"{eco_name}_stanza_groups.csv", index=False)
+        st.stindiv.to_csv(path / f"{eco_name}_stanzas.csv", index=False)
 
 
 def check_rpath_params(params: RpathParams) -> bool:

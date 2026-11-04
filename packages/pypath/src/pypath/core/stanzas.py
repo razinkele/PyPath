@@ -5,6 +5,11 @@ This module implements age-structured population dynamics using
 Von Bertalanffy growth and stage-based mortality rates.
 
 Based on Rpath's rpath.stanzas() and rsim.stanzas() functions.
+
+Limitation: rsim_run does not yet couple the age structure to group biomass
+the way Rpath's SplitUpdate / SplitSetPred do. split_update and
+split_set_pred keep the RsimStanzas arrays current, and those feed only the
+``stanza_biomass`` output; ``out_Biomass`` is the same with or without stanzas.
 """
 
 from __future__ import annotations
@@ -295,6 +300,9 @@ def rpath_stanzas(
         above = np.flatnonzero(bb_cum > 0.99999)
         idx = int(above[0]) if above.size else len(ages) - 1
         last_month = int(np.ceil(ages[idx] / 12.0) * 12 - 1)
+        # A plus group starting on a whole year past the cutoff would round
+        # to the month before it starts.
+        last_month = max(last_month, int(st_max.first))
 
         stanza_group.last_month = last_month
 
@@ -473,8 +481,9 @@ def rsim_stanzas(
     rstan.base_qage_s = np.full((max_months, n_split + 1), np.nan)
     rstan.split_alpha = np.full((max_months, n_split + 1), np.nan)
 
-    # Stanza pred accumulator (extra leading slot for 1-based indexing)
-    s_pred = np.zeros(params.NUM_GROUPS + 2)
+    # Stanza pred accumulator, indexed like the Rsim arrays (0 = Outside);
+    # group_num is the 1-based model row, so it indexes directly.
+    s_pred = np.zeros(params.NUM_GROUPS + 1)
 
     # Process each stanza group
     for isp in range(n_split):
@@ -570,7 +579,7 @@ def rsim_stanzas(
                     first : last + 1
                 ]
 
-            s_pred[ieco + 1] = pred
+            s_pred[ieco] = pred
 
         # Carry over final split alpha to plus group
         last_stanza = group_stanzas[-1]
@@ -670,8 +679,8 @@ def split_update(
             last = int(stanzas.age2[isp, ist])
 
             # Get current mortality from state (guard against indexing issues)
-            if hasattr(params, "MzeroMort") and (ieco + 1) < len(params.MzeroMort):
-                m0 = params.MzeroMort[ieco + 1]
+            if hasattr(params, "MzeroMort") and ieco < len(params.MzeroMort):
+                m0 = params.MzeroMort[ieco]  # arrays have Outside at 0
             else:
                 m0 = 0.0
 
@@ -704,7 +713,7 @@ def split_set_pred(stanzas: RsimStanzas, state: np.ndarray, params: dict) -> Non
     if stanzas.n_split == 0:
         return
 
-    s_pred = np.zeros(params.NUM_GROUPS + 2)
+    s_pred = np.zeros(params.NUM_GROUPS + 1)
 
     for isp in range(1, stanzas.n_split + 1):
         n_stanzas = stanzas.n_stanzas[isp]
@@ -726,7 +735,7 @@ def split_set_pred(stanzas: RsimStanzas, state: np.ndarray, params: dict) -> Non
                 if not np.isnan(nage_s) and not np.isnan(qage_s):
                     pred += nage_s * qage_s
 
-            s_pred[ieco + 1] = pred
+            s_pred[ieco] = pred
 
     stanzas.base_stanza_pred = s_pred
 
@@ -840,9 +849,10 @@ def has_stanza_tables(stanzas: Any) -> bool:
         return False
     if isinstance(stanzas, EcosimStanzaParams):
         return stanzas.n_stanza_groups > 0
-    stindiv = getattr(stanzas, "stindiv", None)
-    if isinstance(stindiv, pd.DataFrame) and len(stindiv) > 0:
-        return True
+    for table in ("stgroups", "stindiv"):
+        df = getattr(stanzas, table, None)
+        if isinstance(df, pd.DataFrame) and len(df) > 0:
+            return True
     return getattr(stanzas, "n_stanza_groups", 0) > 0
 
 
@@ -924,10 +934,19 @@ def ecosim_stanza_params(
                 raise ValueError(f"stanza {name}: {label} is missing")
         if _is_missing(rec["stanza_group_num"]):
             raise ValueError(f"stanza {name}: stanza group number is missing")
+        if model_groups and name not in model_groups:
+            raise ValueError(f"stanza {name}: group is not in the model")
         if _is_missing(rec["group_num"]):
-            if name not in model_groups:
-                raise ValueError(f"stanza {name}: group is not in the model")
+            if not model_groups:
+                raise ValueError(f"stanza {name}: GroupNum is missing")
             rec["group_num"] = model_groups.index(name) + 1
+        elif model_groups:
+            gn = int(rec["group_num"])
+            if not 1 <= gn <= len(model_groups) or model_groups[gn - 1] != name:
+                raise ValueError(
+                    f"stanza {name}: GroupNum {gn} is not that group's row in the "
+                    "model (1-based)"
+                )
         rec["leading"] = _as_bool(rec["leading"])
         rows.append(rec)
 
@@ -947,6 +966,18 @@ def ecosim_stanza_params(
                 rec["stanza_num"] = i
         else:
             members.sort(key=lambda r: int(r["stanza_num"]))
+        firsts = [float(r["first"]) for r in members]
+        if firsts[0] != 0:
+            # The age tables are indexed by absolute month from 0.
+            raise ValueError(
+                f"stanza {members[0]['group_name']}: the youngest stanza must "
+                f"start at month 0, not {firsts[0]:g}"
+            )
+        if any(b <= a for a, b in zip(firsts, firsts[1:])):
+            raise ValueError(
+                f"stanza group {sg_num}: First must increase with StanzaNum, "
+                f"got {[int(f) for f in firsts]}"
+            )
         for i, rec in enumerate(members):
             last = rec["last"]
             if _is_missing(last):
@@ -972,14 +1003,20 @@ def ecosim_stanza_params(
 
     # ---- stanza groups ------------------------------------------------------
     groups: List[StanzaGroup] = []
+    seen: set = set()
     for _, row in stgroups.iterrows():
         rec = {key: _pick(row, cols) for key, cols in _GROUP_COLUMNS.items()}
         if _is_missing(rec["stanza_group_num"]):
             raise ValueError("stanza group number is missing in stgroups")
         sg_num = int(rec["stanza_group_num"])
+        if sg_num in seen:
+            raise ValueError(f"stanza group number {sg_num} appears twice in stgroups")
+        seen.add(sg_num)
         label = rec["name"] if not _is_missing(rec["name"]) else f"group {sg_num}"
         if _is_missing(rec["vbgf_ksp"]):
             raise ValueError(f"stanza group {label}: VBGF_Ksp is missing")
+        if float(rec["vbgf_ksp"]) <= 0:
+            raise ValueError(f"stanza group {label}: VBGF_Ksp must be positive")
         members = by_group.get(sg_num, [])
         if not members:
             raise ValueError(f"stanza group {label}: no stanzas in stindiv")

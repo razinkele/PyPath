@@ -4,8 +4,12 @@
 ``stindiv``), which is what ``create_rpath_params``, ``read_rpath_params`` and
 the EwE database reader build. ``rpath_stanzas`` / ``rsim_stanzas`` work on
 ``EcosimStanzaParams`` (lists of dataclasses). Without a bridge between the two,
-``rsim_scenario`` failed on every real multi-stanza model, logged it at debug
-level and ran Ecosim with stanza dynamics silently switched off.
+``rsim_scenario`` failed on every real multi-stanza model and logged it only
+at debug level.
+
+Note: rsim_run does not yet couple the stanza age structure to group biomass;
+it feeds only ``out.stanza_biomass``. ``out_Biomass`` is the same with or
+without stanzas.
 
 The reference values come from Rpath's ``rpath.stanzas()`` on the REco model
 (``tests/data/rpath_reference/ecopath``).
@@ -219,7 +223,7 @@ class TestEcosimRunsStanzas:
             assert np.isfinite(st.base_wage_s[0, isp])
 
     def test_baseline_stays_at_equilibrium(self, scenario):
-        """Rpath's REco baseline is flat; with stanzas on, ours must be too."""
+        """The baseline stays flat with the stanza age structure set up."""
         out = rsim_run(scenario, method="RK4", years=range(1, 11))
         assert out.stanza_biomass is not None
         bio = out.out_Biomass
@@ -244,3 +248,99 @@ def test_stanza_setup_failure_is_logged_as_warning(caplog):
         sc = rsim_scenario(model, params, years=range(1, 3))
     assert sc.stanzas is None
     assert any("stanza" in r.getMessage().lower() for r in caplog.records)
+
+
+class TestInputChecks:
+    def test_youngest_stanza_must_start_at_month_zero(self):
+        params = _reference_params()
+        params.stanzas.stindiv.loc[0, "First"] = 1
+        with pytest.raises(ValueError, match="month 0"):
+            ecosim_stanza_params(params.stanzas, params.model)
+
+    def test_first_must_increase_with_stanza_number(self):
+        params = _reference_params()
+        si = params.stanzas.stindiv
+        # Swap the numbers of the Roundfish1 juvenile and adult.
+        si.loc[0, "StanzaNum"], si.loc[1, "StanzaNum"] = 2, 1
+        with pytest.raises(ValueError):
+            ecosim_stanza_params(params.stanzas, params.model)
+
+    def test_duplicate_stanza_group_ids_are_rejected(self):
+        params = _reference_params()
+        params.stanzas.stgroups.loc[1, "StGroupNum"] = 1
+        with pytest.raises(ValueError, match="appears twice"):
+            ecosim_stanza_params(params.stanzas, params.model)
+
+    def test_non_positive_growth_rate_is_rejected(self):
+        params = _reference_params()
+        params.stanzas.stgroups.loc[0, "VBGF_Ksp"] = 0.0
+        with pytest.raises(ValueError, match="positive"):
+            ecosim_stanza_params(params.stanzas, params.model)
+
+    def test_group_num_must_match_the_named_group(self):
+        params = _reference_params()
+        params.stanzas.stindiv.loc[0, "GroupNum"] = 5  # AduRoundfish1's row
+        with pytest.raises(ValueError, match="GroupNum 5"):
+            ecosim_stanza_params(params.stanzas, params.model)
+
+    def test_stgroups_alone_counts_as_stanza_tables(self):
+        from pypath.core.stanzas import has_stanza_tables
+
+        stgroups, _ = _reference_stanza_tables()
+        st = RpathStanzaParams(stgroups=stgroups, stindiv=pd.DataFrame())
+        assert has_stanza_tables(st)
+        with pytest.raises(ValueError, match="no stanzas"):
+            ecosim_stanza_params(st, None)
+
+
+def test_last_month_never_precedes_the_plus_group_start():
+    """With very high adult Z the 99.999% cutoff falls at month 24, which the
+    year rounding turned into 23, before the adults start."""
+    params = _reference_params()
+    params.stanzas.stindiv.loc[1, "Z"] = 500.0
+    esp = ecosim_stanza_params(params.stanzas, params.model)
+    rpath_stanzas(params, stanza_params=esp)
+    assert esp.stanza_groups[0].last_month >= 24
+
+
+def test_scenario_does_not_edit_the_params_table():
+    params = _reference_params()
+    model = rpath(params)
+    before = params.model.copy()
+    sc = rsim_scenario(model, params, years=range(1, 3))
+    assert sc.stanzas is not None
+    pd.testing.assert_frame_equal(params.model, before)
+
+
+def test_stanza_update_uses_each_stanzas_own_group():
+    """group_num is the 1-based model row and the Rsim arrays have Outside
+    at 0, so a stanza's mortality is MzeroMort[group_num]."""
+    from pypath.core.stanzas import split_update
+
+    params = _reference_params()
+    sc = rsim_scenario(rpath(params), params, years=range(1, 3))
+    st, p = sc.stanzas, sc.params
+    juv_row = params.model.index[params.model["Group"] == "JuvRoundfish1"][0] + 1
+    p.MzeroMort = np.zeros_like(p.MzeroMort)
+    p.MzeroMort[juv_row] = 12.0  # monthly survival exp(-1), juveniles only
+    st.spawn_x[:] = 10000.0  # constant recruitment
+    before = st.base_nage_s[:, 1].copy()
+    split_update(st, None, p, 1)
+    after = st.base_nage_s[:, 1]
+    assert after[5] == pytest.approx(before[4] * np.exp(-1.0))  # juvenile age
+    assert after[30] == pytest.approx(before[29])  # adult age, no mortality
+
+
+def test_tables_are_saved_even_when_the_count_was_left_at_zero(tmp_path):
+    from pypath.core.params import read_rpath_params, write_rpath_params
+
+    params = _reference_params()
+    params.stanzas.n_stanza_groups = 0
+    write_rpath_params(params, "m", tmp_path)
+    back = read_rpath_params(
+        tmp_path / "m_model.csv",
+        tmp_path / "m_diet.csv",
+        stanza_group_file=tmp_path / "m_stanza_groups.csv",
+        stanza_file=tmp_path / "m_stanzas.csv",
+    )
+    assert len(back.stanzas.stindiv) == 8

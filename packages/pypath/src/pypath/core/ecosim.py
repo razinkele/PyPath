@@ -949,15 +949,20 @@ def rsim_scenario(
             stanza_params = ecosim_stanza_params(
                 rpath_params.stanzas, rpath_params.model
             )
-            rpath_stanzas(rpath_params, stanza_params=stanza_params)
-            stanzas = rsim_stanzas(
-                rpath_params, state, params, stanza_params=stanza_params
-            )
+            # rpath_stanzas writes stanza Biomass/QB into the model table.
+            # Work on a copy so building a scenario never edits the user's
+            # balanced inputs. To use Rpath's workflow, call
+            # rpath_stanzas(params) before rpath(params).
+            work = copy.copy(rpath_params)
+            work.model = rpath_params.model.copy()
+            rpath_stanzas(work, stanza_params=stanza_params)
+            stanzas = rsim_stanzas(work, state, params, stanza_params=stanza_params)
         except Exception as e:
-            # The run goes ahead without age structure, so say so loudly:
-            # juvenile and adult stanzas then behave as unlinked groups.
+            # Note: the stanza age structure is not yet coupled to group
+            # biomass in rsim_run (only out.stanza_biomass uses it).
             logger.warning(
-                "Multi-stanza setup failed, running Ecosim WITHOUT stanza dynamics: %s",
+                "Multi-stanza setup failed; Ecosim runs without the stanza "
+                "age structure: %s",
                 e,
                 exc_info=logger.isEnabledFor(logging.DEBUG),
             )
