@@ -207,7 +207,10 @@ def calculate_survival(z_by_month: np.ndarray, bab: float = 0.0) -> np.ndarray:
     return np.cumprod(monthly_survival)
 
 
-def rpath_stanzas(rpath_params: RpathParams) -> RpathParams:
+def rpath_stanzas(
+    rpath_params: RpathParams,
+    stanza_params: EcosimStanzaParams | None = None,
+) -> RpathParams:
     """Calculate biomass and consumption for multi-stanza groups.
 
     Uses the leading stanza to calculate biomass and consumption
@@ -220,17 +223,21 @@ def rpath_stanzas(rpath_params: RpathParams) -> RpathParams:
     ----------
     rpath_params : RpathParams
         RpathParams object with stanza information
+    stanza_params : EcosimStanzaParams, optional
+        Stanza parameters to work on. Defaults to ``rpath_params.stanzas``
+        converted with :func:`ecosim_stanza_params`. The computed age
+        structure is written to this object, so pass the same object on to
+        :func:`rsim_stanzas`.
 
     Returns
     -------
     RpathParams
         Updated RpathParams with calculated stanza biomass and Q/B
     """
-    # Check if stanzas exist
-    if rpath_params.stanzas is None:
-        return rpath_params
-
-    stanza_params = rpath_params.stanzas
+    if stanza_params is None:
+        if not has_stanza_tables(rpath_params.stanzas):
+            return rpath_params
+        stanza_params = ecosim_stanza_params(rpath_params.stanzas, rpath_params.model)
     if stanza_params.n_stanza_groups == 0:
         return rpath_params
 
@@ -275,16 +282,19 @@ def rpath_stanzas(rpath_params: RpathParams) -> RpathParams:
         nn = np.cumprod(
             np.concatenate([[1.0], np.exp(-monthly_z * np.ones(len(ages) - 1))])
         )
-        bb = nn * von_bertalanffy_weight(ages, k_monthly, d)
+        # Rpath's rpath.stanzas() uses VBGF_Ksp as stored here, without the
+        # *3/12 conversion applied everywhere else. Kept for parity: it sets
+        # the length of the plus group (e.g. REco Roundfish1 ends at 371).
+        bb = nn * von_bertalanffy_weight(ages, stanza_group.vbgf_ksp, d)
 
         # Cumulative biomass fraction
         bb_cum = np.cumsum(bb) / np.sum(bb)
 
-        # Find age at 99.999% cumulative biomass
-        idx = int(np.searchsorted(bb_cum, 0.99999, side="left"))
-        if idx >= len(ages):
-            idx = len(ages) - 1
-        last_month = int(np.ceil((ages[idx] + 1) / 12.0) * 12 - 1)
+        # First age where cumulative biomass exceeds 99.999%, rounded up to
+        # the end of that year: ceiling(AGE / 12) * 12 - 1, as in Rpath.
+        above = np.flatnonzero(bb_cum > 0.99999)
+        idx = int(above[0]) if above.size else len(ages) - 1
+        last_month = int(np.ceil(ages[idx] / 12.0) * 12 - 1)
 
         stanza_group.last_month = last_month
 
@@ -386,7 +396,10 @@ def rpath_stanzas(rpath_params: RpathParams) -> RpathParams:
 
 
 def rsim_stanzas(
-    rpath_params: RpathParams, state: np.ndarray, params: dict
+    rpath_params: RpathParams,
+    state: np.ndarray,
+    params: dict,
+    stanza_params: EcosimStanzaParams | None = None,
 ) -> RsimStanzas:
     """Initialize stanza parameters for Ecosim simulation.
 
@@ -400,6 +413,10 @@ def rsim_stanzas(
         RsimState object with initial state
     params : dict
         RsimParams object with simulation parameters
+    stanza_params : EcosimStanzaParams, optional
+        The object :func:`rpath_stanzas` filled in. If omitted,
+        ``rpath_params.stanzas`` is converted and run through
+        :func:`rpath_stanzas` here.
 
     Returns
     -------
@@ -408,8 +425,12 @@ def rsim_stanzas(
     """
     rstan = RsimStanzas()
 
-    # Check if stanzas exist
-    if rpath_params.stanzas is None or rpath_params.stanzas.n_stanza_groups == 0:
+    if stanza_params is None and has_stanza_tables(rpath_params.stanzas):
+        stanza_params = ecosim_stanza_params(rpath_params.stanzas, rpath_params.model)
+        if not stanza_params.st_groups:
+            rpath_stanzas(rpath_params, stanza_params=stanza_params)
+
+    if stanza_params is None or stanza_params.n_stanza_groups == 0:
         # Return empty stanza structure
         rstan.n_split = 0
         rstan.n_stanzas = np.array([0, 0])
@@ -434,7 +455,6 @@ def rsim_stanzas(
         rstan.base_stanza_pred = np.zeros(params.NUM_GROUPS + 1)
         return rstan
 
-    stanza_params = rpath_params.stanzas
     n_split = stanza_params.n_stanza_groups
 
     rstan.n_split = n_split
@@ -780,4 +800,219 @@ def create_stanza_params(
         n_stanza_groups=len(groups),
         stanza_groups=stanza_groups,
         stanza_individuals=stanza_individuals,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Bridge from the DataFrame form held by RpathParams.stanzas
+# ---------------------------------------------------------------------------
+
+# Rpath CamelCase headers (create_rpath_params, the EwE reader, Rpath CSVs) and
+# the snake_case headers of example_model_data both map to one internal name.
+_GROUP_COLUMNS = {
+    "stanza_group_num": ("StGroupNum", "stanza_group_num"),
+    "name": ("StanzaGroup", "stanza_group", "Name"),
+    "vbgf_ksp": ("VBGF_Ksp", "vbgf_ksp"),
+    "vbgf_d": ("VBGF_d", "vbgf_d"),
+    "wmat": ("Wmat", "wmat"),
+    "bab": ("BAB", "bab"),
+    "rec_power": ("RecPower", "rec_power"),
+}
+_INDIV_COLUMNS = {
+    "stanza_group_num": ("StGroupNum", "stanza_group_num"),
+    "stanza_num": ("StanzaNum", "stanza_num"),
+    "group_num": ("GroupNum", "group_num"),
+    "group_name": ("Group", "group_name"),
+    "first": ("First", "first"),
+    "last": ("Last", "last"),
+    "z": ("Z", "z"),
+    "leading": ("Leading", "leading"),
+}
+
+
+def has_stanza_tables(stanzas: Any) -> bool:
+    """True if ``stanzas`` describes at least one stanza group.
+
+    Looks at the tables rather than ``n_stanza_groups`` alone, because code
+    that assigns ``stgroups``/``stindiv`` directly often leaves the count at 0.
+    """
+    if stanzas is None:
+        return False
+    if isinstance(stanzas, EcosimStanzaParams):
+        return stanzas.n_stanza_groups > 0
+    stindiv = getattr(stanzas, "stindiv", None)
+    if isinstance(stindiv, pd.DataFrame) and len(stindiv) > 0:
+        return True
+    return getattr(stanzas, "n_stanza_groups", 0) > 0
+
+
+def _pick(row: pd.Series, names: tuple) -> Any:
+    for name in names:
+        if name in row.index:
+            return row[name]
+    return np.nan
+
+
+def _is_missing(value: Any) -> bool:
+    try:
+        return value is None or bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in ("true", "t", "yes", "1"):
+            return True
+        if text in ("false", "f", "no", "0", ""):
+            return False
+        raise ValueError(f"cannot read {value!r} as true/false")
+    return bool(value)
+
+
+def _number(value: Any, default: float) -> float:
+    return default if _is_missing(value) else float(value)
+
+
+def ecosim_stanza_params(
+    stanzas: Any, model: pd.DataFrame | None = None
+) -> EcosimStanzaParams:
+    """Convert ``RpathParams.stanzas`` to the form the stanza engine uses.
+
+    ``RpathParams.stanzas`` keeps the stanza tables as DataFrames
+    (``stgroups`` and ``stindiv``, Rpath's layout), while ``rpath_stanzas``
+    and ``rsim_stanzas`` work on :class:`EcosimStanzaParams`. An
+    ``EcosimStanzaParams`` passed in is returned as it is.
+
+    Parameters
+    ----------
+    stanzas
+        ``RpathStanzaParams`` (DataFrame form) or ``EcosimStanzaParams``.
+    model
+        The model table. Used to look up the group number of each stanza
+        when ``stindiv`` has no group-number column.
+
+    Raises
+    ------
+    ValueError
+        If a stanza lacks a value the dynamics need (Z, first month,
+        leading flag, or the VBGF K of its group), or names a group that
+        is not in the model.
+    """
+    if isinstance(stanzas, EcosimStanzaParams):
+        return stanzas
+    if not has_stanza_tables(stanzas):
+        return EcosimStanzaParams()
+
+    stgroups = stanzas.stgroups
+    stindiv = stanzas.stindiv
+    if not isinstance(stgroups, pd.DataFrame) or not isinstance(stindiv, pd.DataFrame):
+        raise ValueError("stanza tables stgroups and stindiv must both be DataFrames")
+
+    model_groups: List[str] = []
+    if model is not None and "Group" in model.columns:
+        model_groups = [str(g) for g in model["Group"].tolist()]
+
+    # ---- individual stanzas -------------------------------------------------
+    rows = []
+    for _, row in stindiv.iterrows():
+        rec = {key: _pick(row, cols) for key, cols in _INDIV_COLUMNS.items()}
+        name = str(rec["group_name"])
+        for key, label in (("z", "Z"), ("first", "First"), ("leading", "Leading")):
+            if _is_missing(rec[key]):
+                raise ValueError(f"stanza {name}: {label} is missing")
+        if _is_missing(rec["stanza_group_num"]):
+            raise ValueError(f"stanza {name}: stanza group number is missing")
+        if _is_missing(rec["group_num"]):
+            if name not in model_groups:
+                raise ValueError(f"stanza {name}: group is not in the model")
+            rec["group_num"] = model_groups.index(name) + 1
+        rec["leading"] = _as_bool(rec["leading"])
+        rows.append(rec)
+
+    by_group: Dict[int, List[dict]] = {}
+    for rec in rows:
+        by_group.setdefault(int(rec["stanza_group_num"]), []).append(rec)
+
+    individuals: List[StanzaIndividual] = []
+    for sg_num in sorted(by_group):
+        members = by_group[sg_num]
+        if any(
+            _is_missing(r["stanza_num"]) or int(r["stanza_num"]) <= 0 for r in members
+        ):
+            # Placeholder numbering: order the stanzas by their first month.
+            members.sort(key=lambda r: float(r["first"]))
+            for i, rec in enumerate(members, start=1):
+                rec["stanza_num"] = i
+        else:
+            members.sort(key=lambda r: int(r["stanza_num"]))
+        for i, rec in enumerate(members):
+            last = rec["last"]
+            if _is_missing(last):
+                # Up to the month before the next stanza starts. The oldest
+                # stanza's last month is computed by rpath_stanzas.
+                last = (
+                    float(members[i + 1]["first"]) - 1
+                    if i + 1 < len(members)
+                    else float(rec["first"])
+                )
+            individuals.append(
+                StanzaIndividual(
+                    stanza_group_num=sg_num,
+                    stanza_num=int(rec["stanza_num"]),
+                    group_num=int(rec["group_num"]),
+                    group_name=str(rec["group_name"]),
+                    first=int(rec["first"]),
+                    last=int(last),
+                    z=float(rec["z"]),
+                    leading=rec["leading"],
+                )
+            )
+
+    # ---- stanza groups ------------------------------------------------------
+    groups: List[StanzaGroup] = []
+    for _, row in stgroups.iterrows():
+        rec = {key: _pick(row, cols) for key, cols in _GROUP_COLUMNS.items()}
+        if _is_missing(rec["stanza_group_num"]):
+            raise ValueError("stanza group number is missing in stgroups")
+        sg_num = int(rec["stanza_group_num"])
+        label = rec["name"] if not _is_missing(rec["name"]) else f"group {sg_num}"
+        if _is_missing(rec["vbgf_ksp"]):
+            raise ValueError(f"stanza group {label}: VBGF_Ksp is missing")
+        members = by_group.get(sg_num, [])
+        if not members:
+            raise ValueError(f"stanza group {label}: no stanzas in stindiv")
+        if sum(1 for r in members if r["leading"]) != 1:
+            raise ValueError(f"stanza group {label}: needs exactly one leading stanza")
+        groups.append(
+            StanzaGroup(
+                stanza_group_num=sg_num,
+                n_stanzas=len(members),
+                vbgf_ksp=float(rec["vbgf_ksp"]),
+                vbgf_d=_number(rec["vbgf_d"], 0.66667),
+                wmat=_number(rec["wmat"], 0.0),
+                bab=_number(rec["bab"], 0.0),
+                rec_power=_number(rec["rec_power"], 1.0),
+            )
+        )
+    groups.sort(key=lambda g: g.stanza_group_num)
+
+    missing = set(by_group) - {g.stanza_group_num for g in groups}
+    if missing:
+        raise ValueError(
+            f"stanzas refer to stanza groups {sorted(missing)} that are not in stgroups"
+        )
+    # rpath_stanzas / rsim_stanzas index groups by position (isp + 1), while
+    # EwE databases number them by their own IDs. Renumber 1..N in ID order.
+    renumber = {g.stanza_group_num: i for i, g in enumerate(groups, start=1)}
+    for g in groups:
+        g.stanza_group_num = renumber[g.stanza_group_num]
+    for st in individuals:
+        st.stanza_group_num = renumber[st.stanza_group_num]
+
+    return EcosimStanzaParams(
+        n_stanza_groups=len(groups),
+        stanza_groups=groups,
+        stanza_individuals=individuals,
     )

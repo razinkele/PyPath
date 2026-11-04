@@ -1237,7 +1237,9 @@ def read_ewemdb(
                         "StanzaGroup": stanza_name,
                         "nstanzas": n_stanzas,
                         "VBGF_Ksp": vbk,
-                        "VBGF_d": row.get("WmatWinf", np.nan),
+                        # EwE fixes the VB weight exponent at 2/3;
+                        # WmatWinf is the maturity weight, not d.
+                        "VBGF_d": 0.66667,
                         "Wmat": row.get("WmatWinf", np.nan),
                         "RecPower": row.get("RecPower", np.nan),
                     }
