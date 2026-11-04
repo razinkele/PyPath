@@ -290,3 +290,119 @@ def test_plotly_widgets_have_an_explicit_height(page):
         ):
             bad.append(f"{node.args[0].value} (line {node.lineno})")
     assert not bad, f"{page.name}: output_widget without height: {bad}"
+
+
+@pytest.mark.parametrize("page", PAGE_FILES, ids=lambda p: p.name)
+def test_plotly_widgets_with_a_height_are_fillable(page):
+    """output_widget(height=...) is not a fill container unless fillable=True.
+
+    Without it the Plotly figure ignores the box and draws at ~360 px: an empty
+    band under the IBM charts (450-500 px boxes), and the Feedback chart
+    overflowing its 280 px box (checked in Chrome on laguna, 2026-11-03).
+    """
+    bad = []
+    for node in ast.walk(_parse(page)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "output_widget"
+            and any(k.arg == "height" for k in node.keywords)
+            and not any(
+                k.arg == "fillable"
+                and isinstance(k.value, ast.Constant)
+                and k.value.value is True
+                for k in node.keywords
+            )
+        ):
+            name = node.args[0].value if node.args else "?"
+            bad.append(f"{name} (line {node.lineno})")
+    assert not bad, f"{page.name}: output_widget(height=) without fillable=True: {bad}"
+
+
+@pytest.mark.parametrize("page", PAGE_FILES, ids=lambda p: p.name)
+def test_deckgl_maps_have_an_explicit_height(page):
+    """A MapWidget's .ui() defaults to 400 px; the Ecospace maps set theirs.
+
+    Pinning it keeps a map from silently changing size, as output_widget()
+    without a height once stretched the Ecosim charts to ~1600 px.
+    """
+    bad = []
+    for node in ast.walk(_parse(page)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "ui"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id.endswith("_MAP")
+            and not any(k.arg == "height" for k in node.keywords)
+        ):
+            bad.append(f"{node.func.value.id}.ui (line {node.lineno})")
+    assert not bad, f"{page.name}: map without height: {bad}"
+
+
+def test_maps_fit_with_room_for_the_legend():
+    """The legend (bottom-left) and attribution (bottom-right) covered the bottom
+    row of patches with a uniform 30 px fit padding (seen on laguna)."""
+    from pypath_shiny.services.deckgl_maps import MAP_FIT_PADDING
+
+    assert MAP_FIT_PADDING["bottom"] >= 100 > MAP_FIT_PADDING["top"]
+    page = PAGES_DIR / "ecospace.py"
+    calls = [
+        node
+        for node in ast.walk(_parse(page))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "fit_bounds"
+    ]
+    assert calls
+    for call in calls:
+        padding = next(k.value for k in call.keywords if k.arg == "padding")
+        assert isinstance(padding, ast.Name) and padding.id == "MAP_FIT_PADDING"
+
+
+def test_browser_info_is_sent_after_shiny_connects():
+    """Shiny.setInputValue does not exist yet at window 'load' on a cold page, so
+    the inline script threw "Shiny.setInputValue is not a function"."""
+    import pypath_shiny.app as app_module
+
+    src = Path(app_module.__file__).read_text(encoding="utf-8")
+    assert "fb_browser_info" in src
+    # not 'shiny:connected': input sent before the session starts ends it
+    assert "shiny:sessioninitialized" in src
+    assert "addEventListener('load'" not in src
+    assert "'shiny:connected'" not in src
+
+
+def test_app_page_loads_deckgl_in_its_static_head():
+    """head_includes() must be in the static page, or every map stays blank."""
+    import pypath_shiny.app as app_module
+
+    src = Path(app_module.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "head_includes"
+    ]
+    assert calls, "app.py does not call head_includes()"
+
+
+def test_ecosim_autofix_starts_off():
+    """Auto-fix caps QQ at 3 and cuts DD from 1000 to 2. Ecosim derives those
+    from the balanced model, so with auto-fix on a balanced model left its
+    equilibrium (example Seals 0.025 -> 0.0106 in 10 years). Opt-in only."""
+    calls = [
+        node
+        for node in ast.walk(_parse(PAGES_DIR / "ecosim.py"))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "input_checkbox"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and node.args[0].value == "enable_autofix"
+    ]
+    assert len(calls) == 1
+    value = next(k.value for k in calls[0].keywords if k.arg == "value")
+    assert isinstance(value, ast.Constant) and value.value is False

@@ -171,6 +171,10 @@ jobs:
           # Install both packages (order matters: pypath-ewe first)
           echo "Installing packages..."
           ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath'"
+          # shiny-deckgl >= 1.14 is not on PyPI (it stops at 1.12), so pip would
+          # fail to resolve it from pypath-shiny's requirements; install the
+          # release tag from GitHub first.
+          ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install 'shiny-deckgl @ git+https://github.com/razinkele/shiny_deckgl@v1.14.0'"
           ssh "$REMOTE" "'${TARGET}/venv/bin/pip' install -e '${TARGET}/packages/pypath-shiny'"
           # Log deployed version
           ssh "$REMOTE" "'${TARGET}/venv/bin/python' -c 'import pypath; print(f\"Deployed pypath-ewe v{pypath.__version__}\")'"

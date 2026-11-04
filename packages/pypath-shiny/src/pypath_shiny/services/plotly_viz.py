@@ -685,3 +685,272 @@ def build_foodweb_figure(
         margin={"l": 60, "r": 20, "t": 50, "b": 30},
     )
     return fig
+
+
+# --- Feedback page -----------------------------------------------------------
+
+
+def build_feedback_trend_figure(points: Sequence[tuple[str, int]]) -> go.Figure:
+    """Bar chart of feedback entries per ISO week."""
+    title = "Feedback entries per week"
+    if not points:
+        return _empty_figure(title, "No feedback yet")
+    fig = go.Figure(
+        go.Bar(
+            x=[p[0] for p in points],
+            y=[p[1] for p in points],
+            marker_color="#2d7ff9",
+            hovertemplate="%{x}: %{y} entries<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis={"title": "ISO week", "type": "category", "tickangle": -45},
+        yaxis_title="Entries",
+        margin={"l": 50, "r": 20, "t": 50, "b": 70},
+    )
+    return fig
+
+
+# --- IBM page ----------------------------------------------------------------
+
+_IBM_EMPTY = "Initialize the IBM first"
+_IBM_RUN_EMPTY = "Run the IBM comparison first"
+
+
+def build_ibm_size_figure(
+    lengths: Sequence[float], n_represented: Sequence[float]
+) -> go.Figure:
+    """N represented per super-individual (bars) and its length (line, right axis)."""
+    title = "Population Size Structure"
+    if len(lengths) == 0:
+        return _empty_figure(title, _IBM_EMPTY)
+    idx = list(range(len(lengths)))
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=idx,
+            y=list(n_represented),
+            name="N represented",
+            marker_color="steelblue",
+            opacity=0.7,
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=idx,
+            y=list(lengths),
+            name="Length (cm)",
+            mode="lines+markers",
+            marker={"size": 3},
+            line={"color": "darkorange", "width": 1},
+            yaxis="y2",
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Super-individual index",
+        yaxis={"title": "N represented"},
+        yaxis2={"title": "Length (cm)", "overlaying": "y", "side": "right"},
+        legend={"orientation": "h", "y": -0.2},
+        margin={"l": 60, "r": 60, "t": 50, "b": 60},
+    )
+    return fig
+
+
+def build_ibm_age_figure(
+    ages: Sequence[float], n_represented: Sequence[float]
+) -> go.Figure:
+    """N represented by the age of each super-individual."""
+    title = "Age Distribution"
+    if len(ages) == 0:
+        return _empty_figure(title, _IBM_EMPTY)
+    fig = go.Figure(
+        go.Bar(
+            x=list(ages),
+            y=list(n_represented),
+            width=0.15,
+            marker_color="teal",
+            opacity=0.7,
+            hovertemplate="Age %{x:.2f} yr: %{y:,.0f}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Age (years)",
+        yaxis_title="N represented",
+        margin={"l": 60, "r": 20, "t": 50, "b": 50},
+    )
+    return fig
+
+
+def build_ibm_biomass_comparison_figure(
+    standard: Sequence[float] | None,
+    ibm: Sequence[float] | None,
+    group_name: str,
+) -> go.Figure:
+    """Standard Ecosim vs IBM-enhanced biomass of one group, by month."""
+    title = f"Biomass Comparison — {group_name}"
+    if standard is None or ibm is None:
+        return _empty_figure(title, _IBM_RUN_EMPTY)
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(len(standard))),
+            y=list(standard),
+            name="Standard Ecosim",
+            line={"color": "steelblue", "width": 2},
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(len(ibm))),
+            y=list(ibm),
+            name="IBM-enhanced",
+            line={"color": "darkorange", "width": 2, "dash": "dash"},
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        xaxis_title="Time (months)",
+        yaxis_title="Biomass (t/km²)",
+        hovermode="x unified",
+        margin={"l": 60, "r": 20, "t": 50, "b": 50},
+    )
+    return fig
+
+
+def build_ibm_growth_figure(
+    max_age: float | None,
+    linf: float = 0.0,
+    k: float = 0.0,
+    ages: Sequence[float] = (),
+    lengths: Sequence[float] = (),
+) -> go.Figure:
+    """Von Bertalanffy curve with each super-individual's age and length."""
+    if max_age is None:
+        return _empty_figure("Von Bertalanffy Growth", _IBM_EMPTY)
+    ages_theory = np.linspace(0, max_age, 200)
+    lengths_theory = linf * (1 - np.exp(-k * ages_theory))
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=ages_theory,
+            y=lengths_theory,
+            name=f"VBGF (K={k:.2f}, Linf={linf:.0f})",
+            line={"color": "black", "width": 2},
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=list(ages),
+            y=list(lengths),
+            name="Super-individuals",
+            mode="markers",
+            marker={"color": "darkorange", "size": 6, "opacity": 0.6},
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title="Von Bertalanffy Growth",
+        xaxis_title="Age (years)",
+        yaxis_title="Length (cm)",
+        margin={"l": 60, "r": 20, "t": 50, "b": 50},
+    )
+    return fig
+
+
+def ibm_energy_fractions(
+    unassimilated: float, sda: float, reproduction: float
+) -> dict[str, float]:
+    """Split one unit of consumption into the four energy budget parts."""
+    assimilated = 1.0 - unassimilated
+    return {
+        "Assimilated": assimilated * (1 - sda) * (1 - reproduction),
+        "SDA": assimilated * sda,
+        "Unassimilated": unassimilated,
+        "Reproduction": assimilated * (1 - sda) * reproduction,
+    }
+
+
+def build_ibm_energy_figure(fractions: dict[str, float] | None) -> go.Figure:
+    """Horizontal bars of the energy budget, labelled with percentages."""
+    if not fractions:
+        return _empty_figure("Energy Budget Allocation", _IBM_EMPTY)
+    colors = ["#2ecc71", "#e74c3c", "#95a5a6", "#f39c12"]
+    names = list(fractions)
+    values = [fractions[n] for n in names]
+    fig = go.Figure(
+        go.Bar(
+            x=values,
+            y=names,
+            orientation="h",
+            marker_color=colors[: len(names)],
+            text=[f"{v:.1%}" for v in values],
+            textposition="outside",
+            hovertemplate="%{y}: %{x:.1%}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title="Energy Budget Allocation",
+        xaxis={"title": "Fraction of consumption", "range": [0, 1.1]},
+        yaxis={"autorange": "reversed"},
+        margin={"l": 100, "r": 20, "t": 50, "b": 50},
+    )
+    return fig
+
+
+def build_ibm_dynamics_figure(biomass: Sequence[float] | None) -> go.Figure:
+    """Biomass (top) and its month-to-month change as gain/loss bars (bottom)."""
+    title = "IBM-Enhanced Biomass & Dynamics"
+    if biomass is None or len(biomass) == 0:
+        return _empty_figure(title, _IBM_RUN_EMPTY)
+    from plotly.subplots import make_subplots
+
+    b = np.asarray(biomass, dtype=float)
+    t = np.arange(len(b))
+    delta = np.diff(b)
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)
+    fig.add_trace(
+        go.Scatter(x=t, y=b, name="Biomass", line={"color": "steelblue", "width": 1.5}),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Bar(
+            x=t[1:],
+            y=np.where(delta > 0, delta, 0),
+            name="Net growth",
+            marker_color="green",
+            opacity=0.6,
+        ),
+        row=2,
+        col=1,
+    )
+    fig.add_trace(
+        go.Bar(
+            x=t[1:],
+            y=np.where(delta < 0, delta, 0),
+            name="Net decline",
+            marker_color="red",
+            opacity=0.6,
+        ),
+        row=2,
+        col=1,
+    )
+    fig.update_layout(
+        template="plotly_white",
+        title=title,
+        barmode="relative",
+        bargap=0,
+        margin={"l": 70, "r": 20, "t": 50, "b": 50},
+    )
+    fig.update_yaxes(title_text="Biomass (t/km²)", row=1, col=1)
+    fig.update_yaxes(title_text="ΔBiomass (t/km²)", row=2, col=1)
+    fig.update_xaxes(title_text="Time (months)", row=2, col=1)
+    return fig

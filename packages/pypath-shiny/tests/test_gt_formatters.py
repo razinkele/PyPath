@@ -149,3 +149,23 @@ def test_untrusted_text_is_html_escaped_by_every_formatter():
         html = build().as_raw_html()
         assert "<img src=x" not in html
         assert "&lt;img src=x" in html
+
+
+def test_group_type_code_is_shown_as_a_whole_number():
+    """Ecopath stores Type as a float; "1.000" in a table reads as a quantity."""
+    import re
+
+    import pandas as pd
+
+    from pypath_shiny.services import gt_formatters as g
+
+    df = pd.DataFrame(
+        {"Group": ["Fish", "Phyto"], "Type": [0.0, 1.0], "Biomass": [1.23456, 2.0]}
+    )
+    for build in (g.format_results_summary, g.format_dataframe, g.format_params_table):
+        html = build(df).as_raw_html()
+        cells = re.findall(r'<td[^>]*class="gt_row[^"]*"[^>]*>([^<]*)</td>', html)
+        assert "1" in cells and "0" in cells, (build.__name__, cells)
+        assert "1.000" not in cells and "1.00" not in cells, (build.__name__, cells)
+        # Real measurements are still formatted to decimals
+        assert any(c.startswith("1.23") for c in cells), (build.__name__, cells)

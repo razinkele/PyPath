@@ -11,27 +11,29 @@ jobs:
     name: Shiny smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Login shell, so every step runs inside the micromamba environment
+    defaults:
+      run:
+        shell: bash -el {0}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      # shiny-deckgl is published to the razinka conda channel (PyPI lags
+      # behind), so the Python environment comes from conda; everything else
+      # is still installed with pip into it.
+      - name: Set up Python (micromamba, razinka + conda-forge)
+        uses: mamba-org/setup-micromamba@v2
         with:
-          python-version: '3.11'
-
-      - name: Get pip cache dir
-        id: pip-cache
-        shell: bash
-        run: echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-shiny-smoke-py3.11-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: pip-shiny-smoke-py3.11-
+          environment-name: shiny-smoke
+          create-args: >-
+            python=3.11
+            pip
+            shiny-deckgl>=1.14.0
+            -c razinka
+            -c conda-forge
+          cache-environment: true
 
       - name: Install dependencies
         run: |

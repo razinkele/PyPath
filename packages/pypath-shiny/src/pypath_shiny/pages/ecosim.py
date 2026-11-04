@@ -18,6 +18,7 @@ try:
 except ImportError:  # pragma: no cover
 
     def output_widget(*args, **kwargs):
+        kwargs.pop("fillable", None)  # output_plot has no fillable
         return ui.output_plot(*args, **kwargs)
 
     def render_widget(func):
@@ -413,11 +414,13 @@ def ecosim_ui() -> ui.Tag:
                         "Auto-fix parameters ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title=f"Automatically caps VV ≤ {THRESHOLDS.vv_cap}, QQ ≤ {THRESHOLDS.qq_cap}, ensures minimum biomass ≥ {THRESHOLDS.min_biomass}, and normalizes DD to 1-2. Prevents most crashes caused by extreme parameter values.",
+                            title=f"Automatically caps VV ≤ {THRESHOLDS.vv_cap}, QQ ≤ {THRESHOLDS.qq_cap}, ensures minimum biomass ≥ {THRESHOLDS.min_biomass}, and normalizes DD to 1-2. Can stop crashes caused by extreme parameter values, but QQ and DD are derived from the balanced model, so changing them moves the run off its starting equilibrium. Off by default.",
                             style="cursor: help;",
                         ),
                     ),
-                    value=True,
+                    # Off by default: capping the derived QQ/DD made balanced
+                    # models drift (example Seals 0.025 -> 0.0106 in 10 years).
+                    value=False,
                 ),
                 ui.input_action_button(
                     "btn_autofix_help",
@@ -460,7 +463,9 @@ def ecosim_ui() -> ui.Tag:
                         ui.card(
                             ui.card_header("Effort Forcing"),
                             output_widget(
-                                "effort_preview_plot", height=UI.plot_height_small_px
+                                "effort_preview_plot",
+                                height=UI.plot_height_small_px,
+                                fillable=True,
                             ),
                         ),
                         ui.card(
@@ -572,7 +577,9 @@ def ecosim_ui() -> ui.Tag:
                         fill=False,  # header row: do not stretch to the tab height
                     ),
                     output_widget(
-                        "biomass_timeseries", height=UI.plot_height_medium_px
+                        "biomass_timeseries",
+                        height=UI.plot_height_medium_px,
+                        fillable=True,
                     ),
                 ),
                 ui.nav_panel(
@@ -594,7 +601,11 @@ def ecosim_ui() -> ui.Tag:
                         fill=False,  # header row: do not stretch to the tab height
                     ),
                     ui.output_ui("help_catch"),
-                    output_widget("catch_timeseries", height=UI.plot_height_small_px),
+                    output_widget(
+                        "catch_timeseries",
+                        height=UI.plot_height_small_px,
+                        fillable=True,
+                    ),
                     ui.output_table("annual_catch_table"),
                 ),
                 ui.nav_panel(
@@ -619,10 +630,14 @@ def ecosim_ui() -> ui.Tag:
                     ui.output_ui("summary_cards"),
                     ui.layout_columns(
                         output_widget(
-                            "final_biomass_plot", height=UI.plot_height_medium_px
+                            "final_biomass_plot",
+                            height=UI.plot_height_medium_px,
+                            fillable=True,
                         ),
                         output_widget(
-                            "biomass_change_plot", height=UI.plot_height_medium_px
+                            "biomass_change_plot",
+                            height=UI.plot_height_medium_px,
+                            fillable=True,
                         ),
                         col_widths=[6, 6],
                         fill=False,  # do not stretch to the tab height

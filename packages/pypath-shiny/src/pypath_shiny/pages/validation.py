@@ -325,7 +325,7 @@ def get_quick_fix_for_issue(issue_message: str) -> str:
     msg_lower = issue_message.lower()
 
     if "negative" in msg_lower and "biomass" in msg_lower:
-        return "Quick fix: Set negative biomass to a small positive value or 999999 to estimate"
+        return "Quick fix: Set negative biomass to a small positive value, or leave it blank for Ecopath to estimate"
     elif "extremely high" in msg_lower and "biomass" in msg_lower:
         return "Quick fix: Check units—biomass should be in t/km², not kg or tons"
     elif "ee" in msg_lower and (
@@ -395,7 +395,7 @@ def validate_diet_matrix(
                     "Solutions:\n"
                     f"  1. Add prey items to {repr(pred_col)} diet\n"
                     "  2. Verify diet data was imported correctly\n"
-                    "  3. Use 999999 placeholder if diet data is unknown"
+                    "  3. Use 0 where a prey is not eaten"
                 )
                 errors.append(msg)
             else:

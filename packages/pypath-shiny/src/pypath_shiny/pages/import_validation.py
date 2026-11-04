@@ -109,31 +109,51 @@ def validate_model_csv_structure(
 
     if "Biomass" in df.columns:
         try:
-            biomass = pd.to_numeric(df["Biomass"], errors="coerce")
-            if biomass.isna().any():
-                invalid_count = biomass.isna().sum()
+            invalid_count = _count_non_numeric(df["Biomass"])
+            if invalid_count:
                 errors.append(
                     f"Biomass column contains {invalid_count} non-numeric values.\n\n"
                     f"Biomass must be numeric (t/km²).\n\n"
-                    f"Use 999999 for unknown/estimated values."
+                    f"Leave the cell blank for a value Ecopath should estimate."
                 )
         except Exception as e:
             errors.append(f"Could not validate Biomass column: {e}")
 
     if "PB" in df.columns:
         try:
-            pb = pd.to_numeric(df["PB"], errors="coerce")
-            if pb.isna().any():
-                invalid_count = pb.isna().sum()
+            invalid_count = _count_non_numeric(df["PB"])
+            if invalid_count:
                 errors.append(
                     f"PB column contains {invalid_count} non-numeric values.\n\n"
                     f"P/B must be numeric (per year).\n\n"
-                    f"Use 999999 for unknown/estimated values."
+                    f"Leave the cell blank for a value Ecopath should estimate."
                 )
         except Exception as e:
             errors.append(f"Could not validate PB column: {e}")
 
     return len(errors) == 0, errors
+
+
+def _count_non_numeric(col: pd.Series) -> int:
+    """Cells that hold something other than a number. Blank cells are fine:
+    in Ecopath input a blank marks a value to be estimated."""
+    blank = col.isna() | (col.astype(str).str.strip() == "")
+    return int((pd.to_numeric(col, errors="coerce").isna() & ~blank).sum())
+
+
+def _diet_row_groups(diet_df: pd.DataFrame) -> set:
+    """Diet rows (prey) without Rpath's Import row, which is not a model group."""
+    return {g for g in diet_df["Group"] if str(g).strip().lower() != "import"}
+
+
+def _model_prey_groups(model_df: pd.DataFrame) -> Tuple[set, set]:
+    """``(prey, fleets)``: every non-fleet group needs a diet row; fleets
+    (Type 3) never eat, so a fleet row is neither required nor an error."""
+    groups = model_df["Group"]
+    if "Type" in model_df.columns:
+        is_fleet = pd.to_numeric(model_df["Type"], errors="coerce") == 3
+        return set(groups[~is_fleet]), set(groups[is_fleet])
+    return set(groups), set()
 
 
 def validate_diet_csv_structure(
@@ -178,14 +198,14 @@ def validate_diet_csv_structure(
         )
         return False, errors
 
-    # Get group names and predator columns
-    groups = df["Group"].tolist()
+    # Predator columns
     predator_cols = [c for c in df.columns if c != "Group"]
 
     # Check that all groups in diet match model groups (if provided)
     if model_df is not None and "Group" in model_df.columns:
-        model_groups = set(model_df["Group"])
-        diet_groups = set(groups)
+        prey_groups, fleet_groups = _model_prey_groups(model_df)
+        model_groups = prey_groups | fleet_groups
+        diet_groups = _diet_row_groups(df)
 
         if not diet_groups.issubset(model_groups):
             extra_groups = diet_groups - model_groups
@@ -195,8 +215,8 @@ def validate_diet_csv_structure(
                 f"Remove extra groups from diet or add them to model."
             )
 
-        if not model_groups.issubset(diet_groups):
-            missing_groups = model_groups - diet_groups
+        if not prey_groups.issubset(diet_groups):
+            missing_groups = prey_groups - diet_groups
             errors.append(
                 f"Diet CSV is missing model groups: {', '.join(missing_groups)}.\n\n"
                 f"Diet matrix should have rows for all model groups."
@@ -256,14 +276,13 @@ def validate_csv_file_pair(
 
     # Cross-validate only if both files have basic structure
     if model_valid and diet_valid:
-        model_groups = set(model_df["Group"])
-        diet_groups = set(diet_df["Group"])
+        prey_groups, fleet_groups = _model_prey_groups(model_df)
+        diet_groups = _diet_row_groups(diet_df)
 
-        # Check that diet rows match model groups
-        if model_groups != diet_groups:
-            missing_in_diet = model_groups - diet_groups
-            extra_in_diet = diet_groups - model_groups
-
+        # Diet rows are the prey: every non-fleet group (plus Import, ignored)
+        missing_in_diet = prey_groups - diet_groups
+        extra_in_diet = diet_groups - prey_groups - fleet_groups
+        if missing_in_diet or extra_in_diet:
             if missing_in_diet:
                 errors.append(
                     f"Model has groups not in diet: {', '.join(missing_in_diet)}.\n\n"
@@ -299,11 +318,11 @@ def get_import_error_suggestion(error_message: str) -> str:
     elif "non-numeric" in msg_lower and "type" in msg_lower:
         return "Quick fix: Type must be 0 (consumer), 1 (producer), 2 (detritus), or 3 (fleet)"
     elif "non-numeric" in msg_lower and "biomass" in msg_lower:
-        return "Quick fix: Use 999999 for unknown biomass; numeric values required (e.g., 10.5)"
+        return "Quick fix: Biomass must be a number (e.g., 10.5); leave the cell blank for Ecopath to estimate it"
     elif "non-numeric" in msg_lower and "pb" in msg_lower:
         return "Quick fix: P/B must be per-year rate (e.g., 0.8 for fish, 50 for phytoplankton)"
     elif "non-numeric" in msg_lower and "diet" in msg_lower:
-        return "Quick fix: Diet fractions must be numeric (0.0 to 1.0), use 999999 for unknown"
+        return "Quick fix: Diet fractions must be numeric (0.0 to 1.0); use 0 where a prey is not eaten"
     elif "missing.*diet" in msg_lower:
         return "Quick fix: Diet CSV must have 'Group' column and predator columns"
     elif "groups not in" in msg_lower or "missing.*group" in msg_lower:

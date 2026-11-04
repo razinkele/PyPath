@@ -25,7 +25,7 @@ class TestQuickFixSuggestions:
         is_valid, error = validate_biomass(-5.0, "Fish")
         assert not is_valid
         fix = get_quick_fix_for_issue(error)
-        assert "positive value" in fix.lower() or "999999" in fix
+        assert "positive value" in fix.lower()
 
     def test_high_biomass_quick_fix(self):
         """Quick-fix should suggest checking units for extremely high biomass."""

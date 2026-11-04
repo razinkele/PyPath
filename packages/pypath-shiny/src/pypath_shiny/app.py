@@ -35,6 +35,7 @@ except Exception:
     shinyswatch = _NoShinyswatch()
 
 from shiny import App, Inputs, Outputs, Session, reactive, ui
+from shiny_deckgl import head_includes
 
 # Get logger
 logger = logging.getLogger("pypath_app")
@@ -80,6 +81,9 @@ def _icon_label(icon_class: str, text: str) -> ui.TagList:
 
 # App UI with left sidebar pill list navigation
 app_ui = ui.page_fluid(
+    # deck.gl + MapLibre for the Ecospace maps; must sit in the static page
+    # so the scripts are in <head> before any map is bound.
+    head_includes(),
     # Typography, icons, and custom styles
     ui.head_content(
         ui.tags.meta(
@@ -138,9 +142,14 @@ app_ui = ui.page_fluid(
             href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/flatly/bootstrap.min.css",
         ),
         ui.tags.link(rel="stylesheet", href="custom.css"),
+        # Browser info for feedback reports. Send it on 'shiny:sessioninitialized':
+        # at window 'load' Shiny.setInputValue may not exist yet (it threw
+        # "Shiny.setInputValue is not a function" on a cold page load), and on
+        # shiny:connected the server rejects it before the session starts
+        # (ProtocolError, which ends the session).
         ui.tags.script(
-            "window.addEventListener('load', function(){"
-            "if(window.Shiny){Shiny.setInputValue('fb_browser_info', navigator.userAgent, {priority: 'event'});}"
+            "jQuery(document).on('shiny:sessioninitialized', function(){"
+            "Shiny.setInputValue('fb_browser_info', navigator.userAgent, {priority: 'event'});"
             "});"
         ),
         ui.tags.style(f"""

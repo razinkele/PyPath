@@ -28,6 +28,7 @@ dependencies = [
     "shinywidgets>=0.8.2",
     "plotly>=5.17.0",
     "great-tables>=0.1.0",
+    "shiny-deckgl>=1.14.0",
     "shinyswatch>=0.7.0",
     "httpx>=0.24",
     "uvicorn>=0.23",
