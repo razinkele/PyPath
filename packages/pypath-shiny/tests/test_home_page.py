@@ -60,3 +60,41 @@ def test_example_model_starts_ecosim_at_equilibrium():
     b = out.out_Biomass[:, 1 : living + 1]
     drift = np.abs(b[-1] / b[0] - 1.0)
     assert drift.max() < 1e-3, dict(zip(model.Group[:living], drift.round(4)))
+
+
+def test_example_stanzas_follow_rpath_conventions():
+    """Wmat is a fraction of Winf, stanzas don't overlap, and Z equals P/B.
+
+    The example used Wmat=50 (nothing ever matured) and a juvenile Last of
+    24 overlapping the adults' First of 24.
+    """
+    import pytest
+
+    from pypath_shiny.pages.home import build_example_params
+
+    params = build_example_params()
+    sg = params.stanzas.stgroups.iloc[0]
+    assert 0 < sg["Wmat"] < 1
+
+    si = params.stanzas.stindiv.set_index("Group")
+    juv, adu = si.loc["JuvRoundfish1"], si.loc["AduRoundfish1"]
+    assert juv["Last"] + 1 == adu["First"]
+
+    model = params.model.set_index("Group")
+    for name, st in (("JuvRoundfish1", juv), ("AduRoundfish1", adu)):
+        assert st["Z"] == pytest.approx(model.loc[name, "PB"])
+
+    stanzas = pytest.importorskip("pypath.core.stanzas")
+    if not hasattr(stanzas, "ecosim_stanza_params"):
+        pytest.skip("needs pypath-ewe with ecosim_stanza_params")
+    # The juvenile Biomass and Q/B must be the ones the stanza age
+    # structure implies, or Ecosim starts away from the Ecopath balance.
+    esp = stanzas.ecosim_stanza_params(params.stanzas, params.model)
+    stanzas.rpath_stanzas(params, stanza_params=esp)
+    got = {s.group_name: s for s in esp.stanza_individuals}
+    assert got["JuvRoundfish1"].biomass == pytest.approx(
+        model.loc["JuvRoundfish1", "Biomass"], rel=1e-5
+    )
+    assert got["JuvRoundfish1"].qb == pytest.approx(
+        model.loc["JuvRoundfish1", "QB"], rel=1e-5
+    )

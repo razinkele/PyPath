@@ -95,19 +95,21 @@ def build_example_params():
         # Set stanza group parameters (von Bertalanffy growth, maturity weight, etc.)
         params.stanzas.stgroups.loc[0, "VBGF_Ksp"] = 0.4  # von Bertalanffy growth rate
         params.stanzas.stgroups.loc[0, "VBGF_d"] = 0.66667  # VBGF allometric parameter
-        params.stanzas.stgroups.loc[0, "Wmat"] = 50.0  # Maturity weight (g)
+        # Weight at maturity as a fraction of Winf (Rpath convention), not grams
+        params.stanzas.stgroups.loc[0, "Wmat"] = 0.1
         params.stanzas.stgroups.loc[0, "BAB"] = 0.0  # Biomass accumulation rate
         params.stanzas.stgroups.loc[0, "RecPower"] = 1.0  # Recruitment power
 
         # Set individual stanza parameters (age ranges and mortality)
-        # Juvenile: 0-24 months, Z=0.8
+        # Z of each stanza equals the P/B of its group (Rpath convention).
+        # Juvenile: months 0-23, Z=1.5
         juv_idx = params.stanzas.stindiv[
             params.stanzas.stindiv["Group"] == "JuvRoundfish1"
         ].index[0]
         params.stanzas.stindiv.loc[juv_idx, "StanzaNum"] = 1
         params.stanzas.stindiv.loc[juv_idx, "First"] = 0  # Start at birth
-        params.stanzas.stindiv.loc[juv_idx, "Last"] = 24  # End at 24 months
-        params.stanzas.stindiv.loc[juv_idx, "Z"] = 0.8  # Total mortality
+        params.stanzas.stindiv.loc[juv_idx, "Last"] = 23  # Adults start at 24
+        params.stanzas.stindiv.loc[juv_idx, "Z"] = 1.5  # Total mortality
         params.stanzas.stindiv.loc[juv_idx, "Leading"] = 0  # Not leading stanza
 
         # Adult: 24+ months, Z=0.35, leading stanza
@@ -139,7 +141,9 @@ def build_example_params():
     params.remarks.loc[seal_idx, "EE"] = (
         "Left blank: Ecopath computes it (top predator, mostly catch)"
     )
-    params.remarks.loc[juv_idx, "Biomass"] = "Part of Roundfish multi-stanza group"
+    params.remarks.loc[juv_idx, "Biomass"] = (
+        "Part of Roundfish multi-stanza group; derived from the adult stanza"
+    )
     params.remarks.loc[juv_idx, "EE"] = (
         "Left blank: Ecopath computes it from the given Biomass"
     )
@@ -155,7 +159,9 @@ def build_example_params():
     # their EE. The other living groups get an EE and Ecopath solves Biomass.
     biomass_data = {
         "Seals": 0.025,
-        "JuvRoundfish1": 0.1304,
+        # Juvenile Biomass and Q/B are what rpath_stanzas derives from the
+        # adult (leading) stanza, so Ecopath and the stanza age structure agree.
+        "JuvRoundfish1": 0.219007,
         "AduRoundfish1": 1.39,
         "Detritus": 500.0,
     }
@@ -171,7 +177,7 @@ def build_example_params():
     }
     qb_data = {
         "Seals": 25.0,
-        "JuvRoundfish1": 10.0,
+        "JuvRoundfish1": 8.253302,
         "AduRoundfish1": 3.5,
         "OtherGroundfish": 2.0,
         "Foragefish1": 5.0,
