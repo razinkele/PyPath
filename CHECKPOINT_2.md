@@ -43,7 +43,7 @@ Each has a contract test in `tests/test_render_contracts.py`,
 
 - Branch is up to date with main as of #31 (merge `36d8537`), plus later commits.
   After #32 merges, merge `origin/main` in again.
-- Shiny suite: 818 passed (2026-11-03, branch feat/ui-phase3-remaining-plotly). `ruff check packages/` and `ruff format --check packages/` clean.
+- Shiny suite: 826 passed (2026-11-03, branch feat/ui-phase3-remaining-plotly). `ruff check packages/` and `ruff format --check packages/` clean.
 - CI (`ci-shiny-smoke.yml`) now runs the full Shiny unit suite (commit `4c51264`).
 
 ## Next steps
@@ -74,8 +74,21 @@ Each has a contract test in `tests/test_render_contracts.py`,
    Ecosim auto-fix off by default (user, 2026-11-03): capping derived QQ/DD moved balanced
    models off equilibrium (c091611). Shiny suite 818 passed (one subprocess test,
    test_prebalance_rpath_verify, failed once under load and passes alone).
-   Core bug seen, not fixed: `pypath.core.stanzas.rpath_stanzas` raises AttributeError
-   (`stanza_params.stanza_groups` does not exist); the app does not call it.
+   Core stanza bug: fixed on branch `fix/stanza-params-bridge` (off main, worktree
+   `C:/Users/arturas.baziukas/worktrees/pypath-stanzas`, local, not pushed; ab5e76f,
+   d7a43b7). `rsim_scenario` failed on every DataFrame-form (real) multi-stanza model,
+   logged at debug level and ran Ecosim with stanzas off. Now converted by
+   `ecosim_stanza_params()`; plus-group last month matches Rpath (371 not 419); stanza
+   B/QB/recruits match Rpath's reference to 1e-6; test_rpath_reference (37) passes with
+   stanzas on (its fixture never ran them before). Not run there: full core suite (killed
+   by memory pressure), ewemdb run test (pyodbc hang). Open: Ecosim setup now rewrites
+   juvenile B/QB in the user's params after balance; Rpath runs rpath.stanzas before
+   rpath() - decide whether the app should too. Needs a pypath-ewe release before the
+   UI branch relies on it.
+   Home example stanzas (this branch, 2026-11-04): Wmat 50 -> 0.1 (fraction of Winf),
+   juvenile Last 24 -> 23, juvenile Z = its P/B, juvenile B/QB = what rpath_stanzas
+   derives from the adult (0.219007 / 8.253302). With the fixed core: flat over 20 years
+   with stanza dynamics on.
    Deploy: pypath-shiny needs shiny-deckgl >= 1.14.0 (razinka only; PyPI has 1.12).
    `ci-shiny-smoke.yml` builds its env with micromamba from razinka; `conda-build.yml`
    adds `-c razinka`; `deploy.yml` pip-installs the GitHub `v1.14.0` tag into the venv.
@@ -83,8 +96,9 @@ Each has a contract test in `tests/test_render_contracts.py`,
    interpreter): **shiny-deckgl 1.14.0 installed 2026-11-03** (conda, via sudo; the env
    is not writable by razinka). Replaced a root pip 1.9.2; other apps in that env
    (seagarden-dst, ewef viewer, HexSimPy, inSTREAMPY, osmose, sfincs) get 1.14 on restart.
-   Found on the way, not fixed: uploading `example_model_data/model.csv` + `diet.csv` on the
-   Ecopath page is rejected ("Diet CSV has groups not in model: Import").
+   CSV upload of `example_model_data/model.csv` + `diet.csv` (was rejected over Rpath's
+   `Import` row): fixed in e1ec499 - Import row and fleet columns accepted, blank B/PB
+   cells mean "Ecopath estimates", 999999 hints removed; browser-checked on laguna.
 4. Before opening the UI PR: full Shiny suite, a browser pass over every page, and
    remember `main` auto-deploys to laguna.
 
