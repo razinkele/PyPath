@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.1.2 (2026-11-04)
+
+### Bug Fixes
+
+- **core**: Multi-stanza setup failed silently; rpath_stanzas matches Rpath
+  ([#45](https://github.com/razinkele/PyPath/pull/45),
+  [`1159006`](https://github.com/razinkele/PyPath/commit/11590060da22d2585ad2d4cfbe2eec5806c2a516))
+
+
 ## v1.1.1 (2026-11-03)
 
 ### Bug Fixes
