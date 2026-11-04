@@ -37,7 +37,7 @@ This directory contains a complete Ecopath with Ecosim model created for testing
 Von Bertalanffy growth parameters:
 - K (growth rate): 0.5/year
 - d (allometric exponent): 0.66667
-- Weight at maturity: 15.0 g
+- Weight at maturity: 0.1 of Winf (a fraction of asymptotic weight, as in Rpath)
 
 ### Fishing Fleets (3 total)
 

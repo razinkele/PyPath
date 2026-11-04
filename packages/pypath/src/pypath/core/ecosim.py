@@ -34,6 +34,8 @@ from pypath.core.ecosim_deriv import deriv_vector  # noqa: E402
 from pypath.core.params import RpathParams  # noqa: E402
 from pypath.core.stanzas import (  # noqa: E402
     RsimStanzas,
+    ecosim_stanza_params,
+    has_stanza_tables,
     rpath_stanzas,
     rsim_stanzas,
     split_set_pred,
@@ -939,19 +941,32 @@ def rsim_scenario(
 
     # Stanza handling: initialize if rpath_params contains stanza definitions
     stanzas = None
-    try:
-        if (
-            getattr(rpath_params, "stanzas", None) is not None
-            and rpath_params.stanzas.n_stanza_groups > 0
-        ):
-            # Compute rpath stanza diagnostics (biomass/Q distribution)
-            rpath_stanzas(rpath_params)
-            # Initialize Rsim-compatible stanza parameters
-            stanzas = rsim_stanzas(rpath_params, state, params)
-    except Exception as e:
-        # If stanza initialization fails, continue without stanzas but log via debug
-        logger.debug("stanza initialization failed: %s", e, exc_info=True)
-        stanzas = None
+    if has_stanza_tables(getattr(rpath_params, "stanzas", None)):
+        try:
+            # RpathParams keeps the stanza tables as DataFrames; convert them
+            # once and hand the same object to both steps, because
+            # rpath_stanzas writes the age structure that rsim_stanzas reads.
+            stanza_params = ecosim_stanza_params(
+                rpath_params.stanzas, rpath_params.model
+            )
+            # rpath_stanzas writes stanza Biomass/QB into the model table.
+            # Work on a copy so building a scenario never edits the user's
+            # balanced inputs. To use Rpath's workflow, call
+            # rpath_stanzas(params) before rpath(params).
+            work = copy.copy(rpath_params)
+            work.model = rpath_params.model.copy()
+            rpath_stanzas(work, stanza_params=stanza_params)
+            stanzas = rsim_stanzas(work, state, params, stanza_params=stanza_params)
+        except Exception as e:
+            # Note: the stanza age structure is not yet coupled to group
+            # biomass in rsim_run (only out.stanza_biomass uses it).
+            logger.warning(
+                "Multi-stanza setup failed; Ecosim runs without the stanza "
+                "age structure: %s",
+                e,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+            stanzas = None
 
     return RsimScenario(
         params=params,
