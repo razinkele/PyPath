@@ -4,12 +4,14 @@ Multi-stanza (age-structured) groups for PyPath.
 This module implements age-structured population dynamics using
 Von Bertalanffy growth and stage-based mortality rates.
 
-Based on Rpath's rpath.stanzas() and rsim.stanzas() functions.
+Based on Rpath's rpath.stanzas() and rsim.stanzas() functions, and on the
+SplitUpdate / SplitSetPred routines of Rpath's ecosim.cpp.
 
-Limitation: rsim_run does not yet couple the age structure to group biomass
-the way Rpath's SplitUpdate / SplitSetPred do. split_update and
-split_set_pred keep the RsimStanzas arrays current, and those feed only the
-``stanza_biomass`` output; ``out_Biomass`` is the same with or without stanzas.
+In rsim_run the age structure is coupled to Ecosim as in Rpath: each month
+:func:`split_update` ages numbers and weights with the realised mortality and
+food intake of each stanza's group and adds recruits, and
+:func:`split_set_pred` sets the stanza groups' biomass to sum(N * W). The
+groups eat in proportion to sum(N * Q) relative to its base value.
 """
 
 from __future__ import annotations
@@ -601,143 +603,226 @@ def rsim_stanzas(
     return rstan
 
 
+@dataclass
+class RsimStanzaState:
+    """Live age structure of the multi-stanza groups during a run.
+
+    Rpath keeps these in the simulation state (``NageS``, ``WageS``,
+    ``QageS``, ``StanzaPred``, ``SpawnBio``, ``EggsStanza``) and leaves the
+    ``base*`` arrays of :class:`RsimStanzas` untouched. Keeping them apart
+    means a scenario can be run more than once from the same start.
+    """
+
+    nage_s: np.ndarray
+    wage_s: np.ndarray
+    qage_s: np.ndarray
+    stanza_pred: np.ndarray
+    n: np.ndarray
+    spawn_bio: np.ndarray
+    eggs_stanza: np.ndarray
+
+    @classmethod
+    def from_base(cls, stanzas: RsimStanzas, n_groups: int) -> "RsimStanzaState":
+        """Start state: copies of the base arrays (Rpath ``rsim.scenario``)."""
+        stanza_pred = np.zeros(n_groups + 1)
+        base_pred = np.asarray(stanzas.base_stanza_pred, dtype=float)
+        k = min(len(base_pred), n_groups + 1)
+        stanza_pred[:k] = base_pred[:k]
+        return cls(
+            nage_s=np.array(stanzas.base_nage_s, dtype=float, copy=True),
+            wage_s=np.array(stanzas.base_wage_s, dtype=float, copy=True),
+            qage_s=np.array(stanzas.base_qage_s, dtype=float, copy=True),
+            stanza_pred=stanza_pred,
+            n=np.zeros(n_groups + 1),
+            spawn_bio=np.array(stanzas.base_spawn_bio, dtype=float, copy=True),
+            eggs_stanza=np.array(stanzas.base_eggs_stanza, dtype=float, copy=True),
+        )
+
+
+def stanza_group_indices(stanzas: RsimStanzas) -> np.ndarray:
+    """Model group numbers (Rsim indexing, Outside = 0) of all stanza groups."""
+    out = []
+    for isp in range(1, int(stanzas.n_split) + 1):
+        for ist in range(1, int(stanzas.n_stanzas[isp]) + 1):
+            out.append(int(stanzas.ecopath_code[isp, ist]))
+    return np.asarray(out, dtype=int)
+
+
+def check_stanza_arrays(stanzas: RsimStanzas, n_groups: int) -> List[str]:
+    """Return the problems that stop the age structure from being simulated.
+
+    An empty list means :func:`split_update` / :func:`split_set_pred` can run.
+    """
+    problems: List[str] = []
+    n_split = int(stanzas.n_split)
+    if n_split <= 0:
+        return ["no stanza groups"]
+    if len(np.asarray(stanzas.base_stanza_pred)) < n_groups + 1:
+        problems.append("base_stanza_pred is shorter than the number of groups")
+    vectors = (
+        "vbm",
+        "vbgf_d",
+        "wmat",
+        "spawn_x",
+        "spawn_energy",
+        "base_eggs_stanza",
+        "base_spawn_bio",
+        "r_scale_split",
+        "r_zero_s",
+        "rec_power",
+    )
+    for name in vectors:
+        if len(np.asarray(getattr(stanzas, name))) < n_split + 1:
+            problems.append(f"{name} has fewer than n_split + 1 entries")
+    for isp in range(1, n_split + 1):
+        nst = int(stanzas.n_stanzas[isp])
+        if nst < 1:
+            problems.append(f"stanza group {isp} has no stanzas")
+            continue
+        last = int(stanzas.age2[isp, nst])
+        first = int(stanzas.age1[isp, 1])
+        if last - first < 1:
+            problems.append(f"stanza group {isp} spans fewer than two months")
+            continue
+        for name in ("base_nage_s", "base_wage_s", "base_qage_s", "split_alpha"):
+            arr = np.asarray(getattr(stanzas, name))
+            if arr.ndim != 2 or arr.shape[0] <= last or arr.shape[1] <= isp:
+                problems.append(
+                    f"{name} does not cover months {first}..{last} of group {isp}"
+                )
+                continue
+            if not np.all(np.isfinite(arr[first : last + 1, isp])):
+                problems.append(
+                    f"{name} has missing values in months {first}..{last} "
+                    f"of group {isp}"
+                )
+        for ist in range(1, nst + 1):
+            ieco = int(stanzas.ecopath_code[isp, ist])
+            if not 1 <= ieco <= n_groups:
+                problems.append(
+                    f"stanza group {isp} stanza {ist} points to group {ieco}"
+                )
+    return problems
+
+
 def split_update(
-    stanzas: RsimStanzas, state: np.ndarray, params: dict, sim_month: int
+    stanzas: RsimStanzas,
+    sstate: RsimStanzaState,
+    biomass: np.ndarray,
+    food_gain: np.ndarray,
+    loss_prop_to_b: np.ndarray,
+    forced_recs: np.ndarray | None = None,
 ) -> None:
-    """Update stanza age structure for a simulation month.
+    """Advance the stanza age structure by one month (Rpath ``SplitUpdate``).
 
-    This updates the numbers-at-age, weight-at-age, and
-    recruitment for multi-stanza groups.
-
-    Called monthly during Ecosim simulation.
+    For every stanza the numbers at age are reduced by the month's realised
+    mortality, ``exp(-LossPropToB / 12 / B)``, and weights grow by
+    ``WageS = vBM * WageS + (FoodGain / StanzaPred) * SplitAlpha``. Spawning
+    biomass (weight above ``Wmat``) sets the egg output, ages move up one
+    month (the oldest two months merge into the plus group), and recruits
+    enter at the first month as
+    ``RscaleSplit * RzeroS * (eggs / baseEggs) ** RecPower``.
 
     Parameters
     ----------
     stanzas : RsimStanzas
-        RsimStanzas object
-    state : np.ndarray
-        RsimState with current biomass
-    params : dict
-        RsimParams with model parameters
-    sim_month : int
-        Current simulation month
+        Stanza parameters; not modified.
+    sstate : RsimStanzaState
+        Live age structure; updated in place.
+    biomass : np.ndarray
+        Group biomass (Rsim indexing, Outside = 0) the rates were taken at.
+    food_gain, loss_prop_to_b : np.ndarray
+        Consumption by each group, and its losses proportional to biomass
+        (predation + M0 + fishing), per year, from the derivative.
+    forced_recs : np.ndarray, optional
+        Recruitment forcing by group for this month. Like Rpath, it is read
+        at the group of the last stanza.
     """
-    if stanzas.n_split == 0:
-        return
-
-    for isp in range(1, stanzas.n_split + 1):
-        n_stanzas = stanzas.n_stanzas[isp]
-
-        if n_stanzas == 0:
+    for isp in range(1, int(stanzas.n_split) + 1):
+        nst = int(stanzas.n_stanzas[isp])
+        if nst < 1:
             continue
-
-        # Get Von Bertalanffy parameters
-        _vbm = stanzas.vbm[isp]
-        _vbgf_d = stanzas.vbgf_d[isp]
-
-        # Get current spawning biomass
-        spawn_bio = 0.0
+        nage = sstate.nage_s
+        wage = sstate.wage_s
         wmat = stanzas.wmat[isp]
+        spawn = 0.0
+        ieco = 0
+        for ist in range(1, nst + 1):
+            ieco = int(stanzas.ecopath_code[isp, ist])
+            ages = slice(int(stanzas.age1[isp, ist]), int(stanzas.age2[isp, ist]) + 1)
+            b = biomass[ieco]
+            su = np.exp(-loss_prop_to_b[ieco] / 12.0 / b) if b > 0 else 0.0
+            pred = sstate.stanza_pred[ieco]
+            gf = food_gain[ieco] / pred if pred > 0 else 0.0
+            nage[ages, isp] *= su
+            wage[ages, isp] = (
+                stanzas.vbm[isp] * wage[ages, isp] + gf * stanzas.split_alpha[ages, isp]
+            )
+            w = wage[ages, isp]
+            mature = w > wmat
+            spawn += float(np.sum(nage[ages, isp][mature] * (w[mature] - wmat)))
+        sstate.spawn_bio[isp] = spawn
 
-        # Sum spawning biomass from mature age classes
-        for ist in range(1, n_stanzas + 1):
-            first = int(stanzas.age1[isp, ist])
-            last = int(stanzas.age2[isp, ist])
-
-            for age in range(first, last + 1):
-                wage_s = stanzas.base_wage_s[age, isp]
-                nage_s = stanzas.base_nage_s[age, isp]
-
-                if wage_s > wmat and not np.isnan(wage_s) and not np.isnan(nage_s):
-                    spawn_bio += nage_s * (wage_s - wmat)
-
-        stanzas.base_spawn_bio[isp] = spawn_bio
-
-        # Calculate recruitment using Beverton-Holt if spawn_x < 10000
         spawn_x = stanzas.spawn_x[isp]
-        r_zero = stanzas.r_zero_s[isp]
-        base_spawn = stanzas.base_eggs_stanza[isp]
-
-        if spawn_x < 9999 and base_spawn > 0:
-            # Beverton-Holt recruitment
-            rel_spawn = spawn_bio / base_spawn
-            recruits = (
-                r_zero * rel_spawn / (1.0 + (spawn_x - 1.0) * rel_spawn / spawn_x)
+        base_spawn = stanzas.base_spawn_bio[isp]
+        if base_spawn > 0:
+            eggs = (
+                spawn
+                * stanzas.spawn_energy[isp]
+                * spawn_x
+                / (spawn_x - 1.0 + spawn / base_spawn)
             )
         else:
-            recruits = stanzas.recruits[isp]
+            eggs = 0.0
+        if forced_recs is not None and ieco < len(forced_recs):
+            eggs *= forced_recs[ieco]
+        sstate.eggs_stanza[isp] = eggs
 
-        # Update numbers at age (aging process)
-        # Shift numbers forward by one month
-        new_nage = np.roll(stanzas.base_nage_s[:, isp], 1)
-        new_nage[0] = recruits  # New recruits enter at age 0
+        last = int(stanzas.age2[isp, nst])
+        first = int(stanzas.age1[isp, 1])
+        nt = nage[last, isp] + nage[last - 1, isp]
+        if nt == 0:
+            nt = 1e-30
+        wage[last, isp] = (
+            wage[last, isp] * nage[last, isp]
+            + wage[last - 1, isp] * nage[last - 1, isp]
+        ) / nt
+        nage[last, isp] = nt
+        # Age everyone by one month (copy first: the slices overlap)
+        nage[first + 1 : last, isp] = nage[first : last - 1, isp].copy()
+        wage[first + 1 : last, isp] = wage[first : last - 1, isp].copy()
 
-        # Apply mortality
-        for ist in range(1, n_stanzas + 1):
-            ieco = int(stanzas.ecopath_code[isp, ist])
-            first = int(stanzas.age1[isp, ist])
-            last = int(stanzas.age2[isp, ist])
-
-            # Get current mortality from state (guard against indexing issues)
-            if hasattr(params, "MzeroMort") and ieco < len(params.MzeroMort):
-                m0 = params.MzeroMort[ieco]  # arrays have Outside at 0
-            else:
-                m0 = 0.0
-
-            # Apply monthly mortality
-            monthly_z = m0 / 12.0
-            survival = np.exp(-monthly_z)
-
-            for age in range(first, last + 1):
-                if age < len(new_nage):
-                    new_nage[age] *= survival
-
-        stanzas.base_nage_s[:, isp] = new_nage
+        base_eggs = stanzas.base_eggs_stanza[isp]
+        if base_eggs > 0:
+            nage[first, isp] = (
+                stanzas.r_scale_split[isp]
+                * stanzas.r_zero_s[isp]
+                * (eggs / base_eggs) ** stanzas.rec_power[isp]
+            )
+        wage[first, isp] = 0.0
+        sstate.qage_s[: last + 1, isp] = wage[: last + 1, isp] ** stanzas.vbgf_d[isp]
 
 
-def split_set_pred(stanzas: RsimStanzas, state: np.ndarray, params: dict) -> None:
-    """Set predation rates for stanza groups.
+def split_set_pred(
+    stanzas: RsimStanzas, sstate: RsimStanzaState, biomass: np.ndarray
+) -> None:
+    """Sum the age structure into group totals (Rpath ``SplitSetPred``).
 
-    Updates the consumption calculations for multi-stanza
-    groups based on current biomass.
-
-    Parameters
-    ----------
-    stanzas : RsimStanzas
-        RsimStanzas object
-    state : np.ndarray
-        RsimState with current biomass
-    params : dict
-        RsimParams with model parameters
+    Sets each stanza group's biomass to sum(N * W) over its months, and its
+    numbers and ``StanzaPred`` (sum(N * Q), the consumption index used by the
+    functional response and :func:`split_update`). ``biomass`` is updated in
+    place: this is what couples the age structure to Ecosim.
     """
-    if stanzas.n_split == 0:
-        return
-
-    s_pred = np.zeros(params.NUM_GROUPS + 1)
-
-    for isp in range(1, stanzas.n_split + 1):
-        n_stanzas = stanzas.n_stanzas[isp]
-
-        if n_stanzas == 0:
-            continue
-
-        for ist in range(1, n_stanzas + 1):
+    for isp in range(1, int(stanzas.n_split) + 1):
+        for ist in range(1, int(stanzas.n_stanzas[isp]) + 1):
             ieco = int(stanzas.ecopath_code[isp, ist])
-            first = int(stanzas.age1[isp, ist])
-            last = int(stanzas.age2[isp, ist])
-
-            # Calculate total consumption for this stanza
-            pred = 0.0
-            for age in range(first, last + 1):
-                nage_s = stanzas.base_nage_s[age, isp]
-                qage_s = stanzas.base_qage_s[age, isp]
-
-                if not np.isnan(nage_s) and not np.isnan(qage_s):
-                    pred += nage_s * qage_s
-
-            s_pred[ieco] = pred
-
-    stanzas.base_stanza_pred = s_pred
+            ages = slice(int(stanzas.age1[isp, ist]), int(stanzas.age2[isp, ist]) + 1)
+            nage = sstate.nage_s[ages, isp]
+            biomass[ieco] = 1e-30 + float(np.sum(nage * sstate.wage_s[ages, isp]))
+            sstate.stanza_pred[ieco] = 1e-30 + float(
+                np.sum(nage * sstate.qage_s[ages, isp])
+            )
+            sstate.n[ieco] = 1e-30 + float(np.sum(nage))
 
 
 def create_stanza_params(

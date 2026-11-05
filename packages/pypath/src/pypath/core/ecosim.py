@@ -34,12 +34,15 @@ from pypath.core.ecosim_deriv import deriv_vector  # noqa: E402
 from pypath.core.params import RpathParams  # noqa: E402
 from pypath.core.stanzas import (  # noqa: E402
     RsimStanzas,
+    RsimStanzaState,
+    check_stanza_arrays,
     ecosim_stanza_params,
     has_stanza_tables,
     rpath_stanzas,
     rsim_stanzas,
     split_set_pred,
     split_update,
+    stanza_group_indices,
 )
 
 # Constants for simulation
@@ -334,7 +337,9 @@ class RsimOutput:
     annual_Qlink : np.ndarray
         Annual consumption by pred-prey pair
     stanza_biomass : np.ndarray or None
-        Optional monthly stanza-resolved biomass (n_months x n_groups+1)
+        Monthly sum(N * W) of each multi-stanza group (n_months+1 x
+        n_groups+1, zero for other groups); equals ``out_Biomass`` in those
+        columns. None without stanzas.
     end_state : RsimState
         Final state at end of simulation
     crash_year : int
@@ -958,8 +963,6 @@ def rsim_scenario(
             rpath_stanzas(work, stanza_params=stanza_params)
             stanzas = rsim_stanzas(work, state, params, stanza_params=stanza_params)
         except Exception as e:
-            # Note: the stanza age structure is not yet coupled to group
-            # biomass in rsim_run (only out.stanza_biomass uses it).
             logger.warning(
                 "Multi-stanza setup failed; Ecosim runs without the stanza "
                 "age structure: %s",
@@ -1066,32 +1069,43 @@ def rsim_run(
     out_catch = np.zeros((n_months + 1, n_groups))
     out_gear_catch = np.zeros((n_months + 1, params.NumFishingLinks + 1))
 
-    # Optional stanza biomass time series
-    stanza_biomass = (
-        np.zeros((n_months + 1, n_groups))
-        if scenario.stanzas is not None and scenario.stanzas.n_split > 0
-        else None
-    )
-
     # Initialize state
     state = scenario.start_state.Biomass.copy()
-    out_biomass[0] = state
 
-    # If stanzas present, compute initial stanza biomass snapshot
-    if stanza_biomass is not None:
-        for isp in range(1, scenario.stanzas.n_split + 1):
-            nst = scenario.stanzas.n_stanzas[isp]
-            for ist in range(1, nst + 1):
-                ieco = int(scenario.stanzas.ecopath_code[isp, ist])
-                first = int(scenario.stanzas.age1[isp, ist])
-                last = int(scenario.stanzas.age2[isp, ist])
-                # Sum biomass across ages for this stanza
-                bio = np.nansum(
-                    scenario.stanzas.base_nage_s[first : last + 1, isp]
-                    * scenario.stanzas.base_wage_s[first : last + 1, isp]
-                )
-                if ieco >= 0 and ieco < n_groups:
-                    stanza_biomass[0, ieco] += bio
+    # Multi-stanza groups (Rpath SplitUpdate / SplitSetPred): their biomass
+    # is the sum over the age structure, which is advanced monthly with the
+    # realised mortality and food intake of the stanza's group.
+    stanzas_obj = scenario.stanzas
+    stanza_state = None
+    stanza_idx = np.zeros(0, dtype=int)
+    stanza_biomass = None
+    if stanzas_obj is not None and stanzas_obj.n_split > 0:
+        problems = check_stanza_arrays(stanzas_obj, params.NUM_GROUPS)
+        if problems:
+            logger.warning(
+                "Multi-stanza arrays are incomplete; Ecosim runs without the "
+                "stanza age structure: %s",
+                "; ".join(problems),
+            )
+        else:
+            stanza_state = RsimStanzaState.from_base(stanzas_obj, params.NUM_GROUPS)
+            stanza_idx = stanza_group_indices(stanzas_obj)
+            # Rpath starts each run with SplitSetPred on the start state
+            split_set_pred(stanzas_obj, stanza_state, state)
+            stanza_biomass = np.zeros((n_months + 1, n_groups))
+            stanza_biomass[0, stanza_idx] = state[stanza_idx]
+    _stanza_set = set(int(i) for i in stanza_idx)
+
+    def _stanza_pred_ratio():
+        """StanzaPred / baseStanzaPred for stanza groups, NaN elsewhere."""
+        ratio = np.full(n_groups, np.nan)
+        base = stanzas_obj.base_stanza_pred
+        for i in stanza_idx:
+            if base[i] > 0:
+                ratio[i] = stanza_state.stanza_pred[i] / base[i]
+        return ratio
+
+    out_biomass[0] = state
 
     # Build params dict for derivative and matrix computations
     params_dict = {
@@ -1514,6 +1528,8 @@ def rsim_run(
             else np.ones(params.NUM_GEARS + 1)
         ),
     }
+    if stanza_state is not None:
+        forcing0["StanzaPredRatio"] = _stanza_pred_ratio()
     # Debugging: log forcing0 summary to compare with test precomputed forcing
     try:
         logger.debug(
@@ -1682,6 +1698,8 @@ def rsim_run(
             fishing_mort[grp] += fish_q[i]
 
         for grp in range(1, params.NUM_GROUPS + 1):
+            if grp in _stanza_set:
+                continue  # biomass comes from the age structure
             # Consider small initial residuals within ADJUST_DERIV_MAX
             if not (abs(init_deriv[grp]) < ADJUST_DERIV_MAX):
                 continue
@@ -1852,6 +1870,8 @@ def rsim_run(
         logger.debug("performing final M0 algebraic check")
         check_deriv = deriv_vector(state.copy(), params_dict, forcing0, fishing_dict)
         for grp in range(1, params.NUM_GROUPS + 1):
+            if grp in _stanza_set:
+                continue  # biomass comes from the age structure
             if not np.isfinite(check_deriv[grp]) or state[grp] <= 0:
                 continue
             # only consider small residuals within adjustment window
@@ -2017,6 +2037,9 @@ def rsim_run(
                 else np.ones(params.NUM_GEARS + 1)
             ),
         }
+        if stanza_state is not None:
+            forcing_dict["StanzaPredRatio"] = _stanza_pred_ratio()
+        month_start_state = state.copy()
 
         # Integration step
         if method.upper() == "RK4":
@@ -2128,6 +2151,8 @@ def rsim_run(
                     fishing_mort[grp] += fish_q[i]
 
                 for grp in range(1, params.NUM_GROUPS + 1):
+                    if grp in _stanza_set:
+                        continue  # biomass comes from the age structure
                     if not (abs(raw_init_deriv[grp]) < ADJUST_DERIV_MAX):
                         continue
                     B = state[grp]
@@ -2236,33 +2261,30 @@ def rsim_run(
         state = np.where(np.isfinite(state), state, EPSILON)
         state = np.maximum(state, EPSILON)
 
-        # Update stanza groups (age structure dynamics)
-        if scenario.stanzas is not None and scenario.stanzas.n_split > 0:
-            # Update state in a temporary state object
-            temp_state = RsimState(
-                Biomass=state.copy(),
-                N=np.zeros_like(state),
-                Ftime=forcing_dict["Ftime"],
+        # Multi-stanza update (Rpath SplitUpdate + SplitSetPred). The rates
+        # come from the derivative where Rpath takes them: after the month's
+        # integration for RK4, at the start of the month for AB.
+        if stanza_state is not None:
+            rate_state = month_start_state if method.upper() == "AB" else state
+            stanza_rates: dict = {}
+            deriv_vector(
+                rate_state.copy(),
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                rates=stanza_rates,
             )
-            # Call stanza update for this month
-            split_update(scenario.stanzas, temp_state, params, month)
-            # Update predation rates based on new stanza structure
-            split_set_pred(scenario.stanzas, temp_state, params)
-            # Note: Biomass redistribution among stanza groups handled in split_update
-
-            # Record stanza-resolved biomass for this month
-            for isp in range(1, scenario.stanzas.n_split + 1):
-                nst = scenario.stanzas.n_stanzas[isp]
-                for ist in range(1, nst + 1):
-                    ieco = int(scenario.stanzas.ecopath_code[isp, ist])
-                    first = int(scenario.stanzas.age1[isp, ist])
-                    last = int(scenario.stanzas.age2[isp, ist])
-                    bio = np.nansum(
-                        scenario.stanzas.base_nage_s[first : last + 1, isp]
-                        * scenario.stanzas.base_wage_s[first : last + 1, isp]
-                    )
-                    if ieco >= 0 and ieco < n_groups and stanza_biomass is not None:
-                        stanza_biomass[month, ieco] += bio
+            split_update(
+                stanzas_obj,
+                stanza_state,
+                rate_state,
+                stanza_rates["FoodGain"],
+                stanza_rates["LossPropToB"],
+                forced_recs=forcing_dict.get("ForcedRecs"),
+            )
+            # Overwrite the stanza groups' biomass with sum(N * W)
+            split_set_pred(stanzas_obj, stanza_state, state)
+            stanza_biomass[month, stanza_idx] = state[stanza_idx]
 
         # Check for crash (biomass < threshold)
         # Use more reasonable threshold to avoid false alarms from numerical noise
@@ -2692,6 +2714,11 @@ def _compute_Q_matrix(
     for i in range(1, NUM_LIVING + 1):
         if Bbase[i] > 0:
             predYY[i] = Ftime[i] * BB[i] / Bbase[i]
+    # Multi-stanza groups: same predator term as deriv_vector
+    stanza_ratio = forcing.get("StanzaPredRatio")
+    if stanza_ratio is not None:
+        has_ratio = np.isfinite(stanza_ratio)
+        predYY[has_ratio] = Ftime[has_ratio] * stanza_ratio[has_ratio]
 
     QQ = np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1))
 

@@ -372,15 +372,14 @@ class TestEcosimTrajectories:
             pypath_values = pypath_biomass[:, col_idx]
 
             # Check trajectory similarity
-            # Safe correlation: handle nearly-constant series (std ~= 0) by falling back to
-            # an equality check to avoid NaN results from np.corrcoef dividing by zero.
+            # The unperturbed baseline stays at equilibrium, so most series
+            # are flat to ~1e-5 and their correlation only measures rounding
+            # noise. Compare near-constant series by value instead.
             L = min(len(rpath_values), len(pypath_values))
             r_slice = rpath_values[:L]
             p_slice = pypath_values[:L]
-            if np.std(r_slice) < 1e-12 or np.std(p_slice) < 1e-12:
-                # For nearly-constant series, use relative tolerance to handle
-                # tiny numerical drifts (e.g. stanza groups held at baseline).
-                scale = max(np.max(np.abs(r_slice)), np.max(np.abs(p_slice)), 1e-30)
+            scale = max(np.max(np.abs(r_slice)), np.max(np.abs(p_slice)), 1e-30)
+            if np.ptp(r_slice) < 1e-3 * scale or np.ptp(p_slice) < 1e-3 * scale:
                 correlation = (
                     1.0 if np.allclose(r_slice, p_slice, atol=1e-3 * scale) else np.nan
                 )
