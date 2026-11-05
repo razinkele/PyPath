@@ -1574,7 +1574,7 @@ def deriv_vector(
             if temp_arr.size == NUM_GROUPS + 1 and mass_arr.size == NUM_GROUPS + 1:
                 ref_temp = _met_model.temperature_dependence.reference_temperature
                 base_temp = np.full(NUM_GROUPS + 1, ref_temp, dtype=float)
-                rates = _met_model.compute_metabolic_rate_batch(
+                met_rates = _met_model.compute_metabolic_rate_batch(
                     body_mass=mass_arr,
                     temperature=temp_arr,
                     activity_multiplier=_forced_actresp_arr,
@@ -1584,7 +1584,7 @@ def deriv_vector(
                     temperature=base_temp,
                     activity_multiplier=np.ones(NUM_GROUPS + 1, dtype=float),
                 )
-                _model_mult = np.where(baseline > 0.0, rates / baseline, 1.0)
+                _model_mult = np.where(baseline > 0.0, met_rates / baseline, 1.0)
                 _MetabolicMult *= np.where(
                     np.isfinite(_model_mult) & (_model_mult > 0.0), _model_mult, 1.0
                 )
