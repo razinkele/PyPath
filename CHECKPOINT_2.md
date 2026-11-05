@@ -78,9 +78,16 @@ Each has a contract test in `tests/test_render_contracts.py`,
    DataFrame-form (real) multi-stanza model and logged it at debug level. Now converted by
    `ecosim_stanza_params()`; `rpath_stanzas` matches Rpath's rpath.stanzas to 1e-6 (plus
    group ends at 371, not 419); scenario setup no longer edits the user's params.
-   CORRECTION: PyPath Ecosim never couples the stanza age structure to group biomass;
-   `out_Biomass` is identical with or without stanzas, `stanza_biomass` is diagnostic
-   only. Real coupling (Rpath SplitUpdate/SplitSetPred) is issue #47.
+   CORRECTION: until #47 PyPath Ecosim never coupled the stanza age structure to group
+   biomass (`out_Biomass` identical with or without stanzas).
+   #47 (`feat/stanza-coupling`, 2026-11-05): Rpath SplitUpdate/SplitSetPred ported;
+   stanza groups within 2% of Rpath 1.2.0 over 50 y at effort x2 / x0 (RK4 and AB).
+   The old x2 / x0 references were flat (`forcing$ForcedEffort` instead of
+   `fishing$ForcedEffort`) and are regenerated (`scripts/extract_rpath_fishing_scenarios.R`;
+   Rpath 1.2.0 built from GitHub into the user R library). Remaining non-stanza gaps:
+   RK4 holds NoIntegrate groups at baseline (Discards, hence Seabirds); AB moves
+   Zoo/Phyto/Detritus/Discards off baseline in month 1; rsim_run writes its adjusted M0
+   into `scenario.params`, so a second run of a scenario differs by ~1e-4.
    Home example stanzas (this branch, 2026-11-04): Wmat 50 -> 0.1 (fraction of Winf),
    juvenile Last 24 -> 23, juvenile Z = its P/B, juvenile B/QB = what rpath_stanzas
    derives from the adult (0.219007 / 8.253302), so the inputs are consistent for when
