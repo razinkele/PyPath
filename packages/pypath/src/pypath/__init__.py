@@ -65,6 +65,7 @@ from pypath.core.params import (  # noqa: E402
 from pypath.core.stanzas import (  # noqa: E402
     EcosimStanzaParams,
     RsimStanzas,
+    RsimStanzaState,
     StanzaGroup,
     StanzaIndividual,
     calculate_survival,
@@ -166,6 +167,7 @@ __all__ = [
     "RpathStanzaParams",
     "EcosimStanzaParams",
     "RsimStanzas",
+    "RsimStanzaState",
     "von_bertalanffy_weight",
     "von_bertalanffy_consumption",
     "calculate_survival",

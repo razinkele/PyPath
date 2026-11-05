@@ -181,7 +181,7 @@ cat("✓ Saved biomass_trajectory_ab.csv\n\n")
 # Forcing scenarios
 cat("Running doubled fishing scenario (50 years)...\n")
 REco.sim.2x <- REco.sim
-REco.sim.2x$forcing$ForcedEffort <- REco.sim$forcing$ForcedEffort * 2
+REco.sim.2x$fishing$ForcedEffort <- REco.sim$fishing$ForcedEffort * 2
 REco.run.2x <- rsim.run(REco.sim.2x, method = 'RK4', years = 1:50)
 
 biomass_2x <- as.data.frame(REco.run.2x$out_Biomass)
@@ -195,7 +195,7 @@ cat("✓ Saved biomass_doubled_fishing.csv\n")
 
 cat("\nRunning zero fishing scenario (50 years)...\n")
 REco.sim.0x <- REco.sim
-REco.sim.0x$forcing$ForcedEffort <- REco.sim$forcing$ForcedEffort * 0
+REco.sim.0x$fishing$ForcedEffort <- REco.sim$fishing$ForcedEffort * 0
 REco.run.0x <- rsim.run(REco.sim.0x, method = 'RK4', years = 1:50)
 
 biomass_0x <- as.data.frame(REco.run.0x$out_Biomass)

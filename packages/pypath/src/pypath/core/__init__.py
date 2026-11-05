@@ -139,6 +139,7 @@ from pypath.core.sensitivity_analysis import (
 from pypath.core.stanzas import (
     EcosimStanzaParams,
     RsimStanzas,
+    RsimStanzaState,
     StanzaGroup,
     StanzaIndividual,
     calculate_survival,
@@ -348,6 +349,7 @@ __all__ = [
     "RpathStanzaParams",
     "EcosimStanzaParams",
     "RsimStanzas",
+    "RsimStanzaState",
     "von_bertalanffy_weight",
     "von_bertalanffy_consumption",
     "calculate_survival",
