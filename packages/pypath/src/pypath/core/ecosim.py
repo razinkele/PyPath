@@ -1013,6 +1013,35 @@ def _normalize_fishing_input(fishing_obj, n_groups):
     return fishing_dict
 
 
+STANZA_START_MISMATCH_RTOL = 0.01
+
+
+def _warn_stanza_start_mismatch(stanza_idx, entered, derived, params) -> None:
+    """Warn when a stanza group's entered biomass is not its age structure.
+
+    Ecosim replaces each stanza group's start biomass with sum(N * W) of its
+    age structure (Rpath SplitSetPred). If the Ecopath biomass was typed by
+    hand instead of derived with ``rpath_stanzas``, the two disagree and the
+    run starts away from the Ecopath balance and drifts.
+    """
+    names = getattr(params, "spname", None)
+    bad = []
+    for i, b_in, b_age in zip(stanza_idx, entered, derived):
+        scale = max(abs(b_in), 1e-30)
+        if abs(b_age - b_in) / scale > STANZA_START_MISMATCH_RTOL:
+            name = names[i] if names is not None and i < len(names) else str(i)
+            bad.append("%s %.4g -> %.4g" % (name, b_in, b_age))
+    if bad:
+        logger.warning(
+            "Multi-stanza biomass differs from its age structure by more than "
+            "%.0f%%; Ecosim starts these groups at the age-structure biomass "
+            "(entered -> age structure): %s. Derive the stanza biomasses with "
+            "rpath_stanzas() before balancing to start at equilibrium.",
+            STANZA_START_MISMATCH_RTOL * 100,
+            "; ".join(bad),
+        )
+
+
 def rsim_run(
     scenario: RsimScenario,
     method: str = "RK4",
@@ -1091,7 +1120,11 @@ def rsim_run(
             stanza_state = RsimStanzaState.from_base(stanzas_obj, params.NUM_GROUPS)
             stanza_idx = stanza_group_indices(stanzas_obj)
             # Rpath starts each run with SplitSetPred on the start state
+            entered = state[stanza_idx].copy()
             split_set_pred(stanzas_obj, stanza_state, state)
+            _warn_stanza_start_mismatch(
+                stanza_idx, entered, state[stanza_idx], scenario.params
+            )
             stanza_biomass = np.zeros((n_months + 1, n_groups))
             stanza_biomass[0, stanza_idx] = state[stanza_idx]
     _stanza_set = set(int(i) for i in stanza_idx)
