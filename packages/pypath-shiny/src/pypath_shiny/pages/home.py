@@ -216,6 +216,10 @@ def build_example_params():
     params.model.loc[params.model["Type"] == 3, "BioAcc"] = float("nan")
     params.model.loc[params.model["Type"] == 3, "Unassim"] = float("nan")
     params.model["Detritus"] = 1.0
+    # Detritus does not flow to itself: its unused surplus leaves the system
+    # (as in Rpath's REco). With a self-fate of 1, Ecosim keeps that surplus
+    # in the pool and Detritus grows ~10%/yr from the Ecopath balance.
+    params.model.loc[params.model["Type"] == 2, "Detritus"] = 0.0
     params.model.loc[params.model["Type"] == 3, "Detritus"] = float("nan")
 
     # Set diet matrix

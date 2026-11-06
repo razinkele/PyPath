@@ -468,16 +468,11 @@ class TestForcingScenarios:
     }
     STANZA_TOLERANCE = 0.03
     OTHER_TOLERANCE = 0.10
-    # Known differences that are not about stanzas. Rpath's RK4 integrates
-    # every group, while rsim_run holds its fast-turnover (NoIntegrate) groups
-    # at baseline, so Discards does not follow the fishery and Seabirds, which
-    # eat discards, follow it. PyPath's AB moves Zooplankton, Phytoplankton,
-    # Detritus and Discards off their baseline in the first month even with
-    # unchanged fishing.
-    KNOWN_GAPS = {
-        "RK4": {"Seabirds", "Discards"},
-        "AB": {"Seabirds", "Discards", "Zooplankton", "Phytoplankton", "Detritus"},
-    }
+    # Every group is compared. (Until the RK4 fast-group fix, RK4 held the
+    # fast-turnover groups at baseline and AB's fast-equilibrium update left
+    # out production, respiration and detritus flows, so Seabirds, Discards,
+    # Zooplankton, Phytoplankton and Detritus were excluded here.)
+    KNOWN_GAPS: dict = {"RK4": set(), "AB": set()}
 
     @pytest.mark.parametrize(
         "effort, method, reference",

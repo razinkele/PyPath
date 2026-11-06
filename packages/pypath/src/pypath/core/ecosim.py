@@ -475,20 +475,9 @@ def rsim_params(
     # Previously this used 0/spnum which was inconsistent with downstream checks. Use 1 for NoIntegrate.
     no_integrate = np.where(mzero * b_baseref > 2 * steps_yr * steps_m, 1, 0)
 
-    # Ensure detritus (PP_type == 2) groups are treated as algebraic (NoIntegrate)
-    # Rpath commonly treats dead/detritus pools as fast equilibrium; marking them
-    # NoIntegrate here makes PyPath behavior match Rpath finite-difference outputs
-    try:
-        det_idx = np.where(pp_type == 2)[0]
-        if det_idx.size > 0:
-            no_integrate[det_idx] = 1
-    except Exception as e:
-        warnings.warn(
-            f"Failed to mark detritus groups as NoIntegrate: {e}. "
-            f"Detritus dynamics may be incorrect.",
-            UserWarning,
-            stacklevel=2,
-        )
+    # Rpath marks fast-equilibrium groups by this rule alone; a detritus pool
+    # with slow turnover (e.g. Discards) is integrated like any other group.
+    # (NoIntegrate only matters to Adams-Bashforth; RK4 integrates all.)
 
     # Predator-prey handling parameters
     handle_self = np.full(ngroups + 1, handleselfwt)
@@ -1162,6 +1151,13 @@ def rsim_run(
         "FishTo": getattr(params, "FishTo", np.array([])),
         "FishQ": getattr(params, "FishQ", np.array([])),
         "fleet_idx": getattr(params, "fleet_idx", None),
+        # Rpath detritus links (DetFrom -> DetTo with DetFrac): deriv_vector
+        # uses Rpath's link-based detritus budget when these are present.
+        "DetLinkFrom": getattr(params, "DetFrom", None),
+        "DetLinkTo": getattr(params, "DetTo", None),
+        "DetLinkFrac": getattr(params, "DetFrac", None),
+        # Producers gain through their link from group 0, as in Rpath
+        "RpathPrimaryProduction": True,
         "MetabolismModel": getattr(params, "MetabolismModel", None),
         "MetabolicTemperature": getattr(params, "MetabolicTemperature", None),
         "MetabolicBodyMass": getattr(params, "MetabolicBodyMass", None),
@@ -1955,6 +1951,8 @@ def rsim_run(
     derivs_history = []
 
     dt = 1.0 / 12.0  # Monthly timestep
+    # Rpath integrates each month in RK4_STEPS sub-steps
+    rk4_steps = int(getattr(params, "RK4_STEPS", 4) or 1)
     crash_year = -1
     crashed_groups = set()  # Track which groups have crashed
     crash_threshold = 1e-4  # More reasonable threshold (0.0001 vs 0.000001)
@@ -2077,14 +2075,9 @@ def rsim_run(
         # Integration step
         if method.upper() == "RK4":
             old_state = state.copy()
-            state = integrate_rk4(state, params_dict, forcing_dict, fishing_dict, dt)
-            # If small initial derivative mask exists, prevent first-step change for those groups
-            if month == 1 and np.any(init_mask):
-                state[init_mask] = old_state[init_mask]
-            # Prevent groups with small initial residuals from changing during warmup
-            WARMUP_MONTHS = 12
-            if month <= WARMUP_MONTHS and np.any(init_mask_loose):
-                state[init_mask_loose] = old_state[init_mask_loose]
+            state = integrate_rk4(
+                state, params_dict, forcing_dict, fishing_dict, dt, n_steps=rk4_steps
+            )
         elif method.upper() == "AB":
             # Warmup: use RK4 for the first month to populate derivative history
             # before switching to Adams-Bashforth 2-step (matching Rpath)
@@ -2100,12 +2093,6 @@ def rsim_run(
                 finally:
                     # Clean up the temporary context flag
                     params_dict.pop("_integration_parent_method", None)
-                if month == 1 and np.any(init_mask):
-                    state[init_mask] = old_state[init_mask]
-                # Prevent groups with small initial residuals from changing during warmup
-                WARMUP_MONTHS = 1
-                if month <= WARMUP_MONTHS and np.any(init_mask_loose):
-                    state[init_mask_loose] = old_state[init_mask_loose]
                 try:
                     new_deriv = deriv_vector(
                         state, params_dict, forcing_dict, fishing_dict
@@ -2133,17 +2120,30 @@ def rsim_run(
                 state, new_deriv = integrate_ab(
                     state, derivs_history, params_dict, forcing_dict, fishing_dict, dt
                 )
-                # Fast equilibrium for NoIntegrate groups (matches Rpath SORWT=0.5)
+                # Fast equilibrium for NoIntegrate groups (Rpath adams_run):
+                # B = (1 - SORWT) * biomeq + SORWT * B_old with
+                # biomeq = TotGain / (TotLoss / B_old), from the derivative
+                # at the start of the month; SORWT = 0.5.
                 if np.any(no_integrate_mask):
                     from pypath.core.ecosim_deriv import compute_biomeq
 
-                    QQ_ni = _compute_Q_matrix(params_dict, state, forcing_dict)
-                    for i in range(1, len(state)):
-                        if no_integrate_mask[i]:
-                            total_gain = float(np.nansum(QQ_ni[:, i]))
-                            total_loss = float(np.nansum(QQ_ni[i, :]))
-                            total_loss += params_dict["M0"][i] * state[i]
-                            state[i] = compute_biomeq(total_gain, total_loss, state[i])
+                    eq_rates: dict = {}
+                    deriv_vector(
+                        month_start_state.copy(),
+                        params_dict,
+                        forcing_dict,
+                        fishing_dict,
+                        rates=eq_rates,
+                    )
+                    if "TotGain" in eq_rates:
+                        for i in np.where(no_integrate_mask)[0]:
+                            if i == 0 or i > params.NUM_LIVING + params.NUM_DEAD:
+                                continue
+                            state[i] = compute_biomeq(
+                                float(eq_rates["TotGain"][i]),
+                                float(eq_rates["TotLoss"][i]),
+                                float(month_start_state[i]),
+                            )
                     new_deriv[no_integrate_mask] = 0.0
                 derivs_history.insert(0, new_deriv)
                 if len(derivs_history) > 1:
@@ -2151,9 +2151,9 @@ def rsim_run(
         else:
             # Unknown method: fallback to RK4 to be safe
             old_state = state.copy()
-            state = integrate_rk4(state, params_dict, forcing_dict, fishing_dict, dt)
-            if month == 1 and np.any(init_mask):
-                state[init_mask] = old_state[init_mask]
+            state = integrate_rk4(
+                state, params_dict, forcing_dict, fishing_dict, dt, n_steps=rk4_steps
+            )
 
         # Monthly M0 adjustment to enforce algebraic equilibrium for small residuals
         if not params_dict.get("MONTHLY_M0_ADJUST", False):
@@ -2279,16 +2279,6 @@ def rsim_run(
             except Exception as e:
                 logger.debug("monthly M0 adjustment failed: %s", e)
 
-        # NoIntegrate groups: for RK4, hold at baseline (no biomeq available);
-        # for AB, biomeq was already applied in the integration branch above.
-        if method.upper() != "AB":
-            try:
-                Bbase = params_dict.get("Bbase")
-                if Bbase is not None and np.any(no_integrate_mask):
-                    state[no_integrate_mask] = Bbase[no_integrate_mask]
-            except Exception as e:
-                logger.debug("NoIntegrate application failed: %s", e)
-
         # Replace invalid numeric values to prevent NaN/inf runaway and
         # ensure non-negative biomass
         state = np.where(np.isfinite(state), state, EPSILON)
@@ -2331,12 +2321,6 @@ def rsim_run(
                 # Track which groups crashed
                 for grp_idx in low_biomass_groups:
                     crashed_groups.add(grp_idx + 1)  # +1 because we sliced from index 1
-
-        # For non-AB methods, enforce NoIntegrate after stanza updates
-        if method.upper() != "AB" and np.any(no_integrate_mask):
-            Bbase = params_dict.get("Bbase")
-            if Bbase is not None:
-                state[no_integrate_mask] = Bbase[no_integrate_mask]
 
         # Store results
         out_biomass[month] = state
