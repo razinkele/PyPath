@@ -1137,7 +1137,10 @@ def rsim_run(
         "NUM_GEARS": params.NUM_GEARS,
         "PB": params.PBopt,
         "QB": params.FtimeQBOpt,
-        "M0": params.MzeroMort,
+        # A copy: the run adjusts M0 for small residuals, and those
+        # adjustments must not leak into scenario.params (a second run of the
+        # same scenario would otherwise start from different M0).
+        "M0": params.MzeroMort.copy(),
         "Unassim": params.UnassimRespFrac,
         "ActiveLink": _build_active_link_matrix(params),
         "VV": _build_link_matrix(params, params.VV),
@@ -1920,20 +1923,6 @@ def rsim_run(
         logger.debug("final M0 algebraic check failed: %s", e)
         pass
 
-    # Persist any M0 adjustments back to the params dataclass so diagnostics
-    # and downstream code that read scenario.params.MzeroMort see the same values
-    try:
-        if "M0" in params_dict:
-            # params is the RsimParams object (scenario.params)
-            params.MzeroMort = params_dict["M0"].copy()
-            # Debug sample to confirm persistence
-            try:
-                logger.debug("persisted adjusted M0 sample=%s", params.MzeroMort[:6])
-            except Exception as e:
-                logger.debug("M0 persistence debug failed: %s", e)
-    except Exception as e:
-        logger.debug("M0 persistence debug failed: %s", e)
-
     # Build fishing dict
     fishing_dict = {
         "FishFrom": params.FishFrom,
@@ -2607,6 +2596,8 @@ def rsim_run(
             "NUM_GROUPS": params.NUM_GROUPS,
             "NUM_LIVING": params.NUM_LIVING,
             "years": n_years,
+            # M0 as used by this run, including its small-residual adjustments
+            "M0": np.asarray(params_dict["M0"]).copy(),
         },
         ecotracer=_ecotracer_result,
         fleet_dynamics=_fleet_result,

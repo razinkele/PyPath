@@ -88,13 +88,39 @@ def test_m0_unchanged_when_fishing_correct():
         )
 
     # Run rsim_run (which includes M0 adjustment logic)
-    _ = rsim_run(scenario, method="RK4", years=range(1, 2))
+    out = rsim_run(scenario, method="RK4", years=range(1, 2))
 
-    # M0 should NOT have changed since equilibrium was already exact
-    m0_after = scenario.params.MzeroMort
+    # The run never writes its M0 back into the scenario
+    np.testing.assert_array_equal(scenario.params.MzeroMort, m0_before)
+
+    # ... and the M0 it used was not nudged, since equilibrium was exact
+    m0_after = out.params["M0"]
     np.testing.assert_allclose(
         m0_before,
         m0_after,
         atol=1e-10,
         err_msg="M0 was unexpectedly modified even though equilibrium was exact",
     )
+
+
+def test_running_a_scenario_twice_gives_the_same_result():
+    """rsim_run leaves scenario.params alone, so a rerun is identical.
+
+    It used to keep its small-residual M0 adjustments in
+    scenario.params.MzeroMort, so a second run of the same scenario started
+    from different M0 and differed by ~1e-4.
+    """
+    ECOPATH_DIR = Path(__file__).parent / "data" / "rpath_reference" / "ecopath"
+    model_df = pd.read_csv(ECOPATH_DIR / "model_params.csv")
+    params = create_rpath_params(model_df["Group"].tolist(), model_df["Type"].tolist())
+    params.model = model_df
+    params.diet = pd.read_csv(ECOPATH_DIR / "diet_matrix.csv")
+    scenario = rsim_scenario(rpath(params), params, years=range(1, 3))
+    scenario.fishing.ForcedEffort = scenario.fishing.ForcedEffort * 2.0
+    m0 = scenario.params.MzeroMort.copy()
+
+    first = rsim_run(scenario, method="RK4", years=range(1, 3))
+    second = rsim_run(scenario, method="RK4", years=range(1, 3))
+
+    np.testing.assert_array_equal(scenario.params.MzeroMort, m0)
+    np.testing.assert_array_equal(first.out_Biomass, second.out_Biomass)
