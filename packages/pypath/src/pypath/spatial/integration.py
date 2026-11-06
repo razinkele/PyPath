@@ -437,9 +437,10 @@ def rsim_run_spatial(
 
     if initial_state_vector is None:
         # Uniform density: each patch starts with its area share of every group
-        biomass_spatial0 = initial_biomass[:, np.newaxis] * _patch_area_fractions(
-            ecospace, n_patches
-        )[np.newaxis, :]
+        biomass_spatial0 = (
+            initial_biomass[:, np.newaxis]
+            * _patch_area_fractions(ecospace, n_patches)[np.newaxis, :]
+        )
     else:
         state_vec = np.asarray(initial_state_vector, dtype=float).reshape(-1)
         expected_size = (n_groups + 1) * n_patches
