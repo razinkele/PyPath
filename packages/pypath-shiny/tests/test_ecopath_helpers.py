@@ -245,3 +245,21 @@ class TestFleetDetritusFate:
         balanced = rpath(params)
         k = list(balanced.Group).index("Trawl")
         assert balanced.DetFate[k].sum() == pytest.approx(1.0)
+
+    def test_default_fate_of_detritus_rows_is_zero(self):
+        """An empty fate cell of a detritus pool defaults to 0, not 1/n.
+
+        With 1/n a single detritus pool flowed entirely to itself, which keeps
+        its Ecopath surplus in the pool and makes Ecosim grow it.
+        """
+        import numpy as np
+
+        from pypath_shiny.pages.ecopath import _fill_default_detritus_fate
+
+        params, _ = _model_with_discards()
+        params.model[["Detritus", "Discards"]] = np.nan
+        _fill_default_detritus_fate(params.model)
+        m = params.model.set_index("Group")
+        for g in ["Detritus", "Discards"]:
+            assert m.loc[g, "Detritus"] == 0.0
+            assert m.loc[g, "Discards"] == 0.0
