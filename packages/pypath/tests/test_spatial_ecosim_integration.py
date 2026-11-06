@@ -122,32 +122,21 @@ class TestSpatialIntegrationBasic:
             atol=1e-8,
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Each Ecospace patch uses the whole-model base biomass and base "
-            "flows while holding only its share of biomass, so N uniform "
-            "patches do not add up to Ecosim. Hidden until the RK4 "
-            "fast-group fix, because Phyto, Zoo and Detritus were frozen."
-        ),
-    )
     def test_mass_conservation_spatial(self, spatial_scenario, simple_ecospace):
-        """Test that total biomass is conserved in spatial simulation."""
+        """Uniform patches with dispersal add up to the non-spatial run.
+
+        Dispersal only moves biomass between patches, so the total over all
+        patches must follow Ecosim. (This model is far from equilibrium: its
+        detritus flows to itself, so totals grow a lot in both runs.)
+        """
+        from pypath.core.ecosim import rsim_run
+
         scenario, _ = spatial_scenario
+        expected = rsim_run(scenario, years=range(1, 3)).out_Biomass
         result = rsim_run_spatial(scenario, ecospace=simple_ecospace, years=range(1, 3))
 
-        initial_total = result.out_Biomass[0].sum()
-        final_total = result.out_Biomass[-1].sum()
-
-        # Allow up to 50% drift — Ecosim dynamics (production, mortality, fishing)
-        # naturally change total biomass.  What matters is no NaN/Inf/crash.
         assert np.all(np.isfinite(result.out_Biomass))
-        assert final_total > 0, "Total biomass collapsed to zero"
-        if initial_total > 0:
-            relative_change = abs(final_total - initial_total) / initial_total
-            assert relative_change < 0.5, (
-                f"Biomass changed by {relative_change * 100:.1f}% — suspicious"
-            )
+        np.testing.assert_allclose(result.out_Biomass, expected, rtol=1e-6, atol=1e-10)
 
     def test_spatial_flux_affects_distribution(self, spatial_scenario):
         """Test that spatial flux changes biomass distribution."""

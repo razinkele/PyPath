@@ -46,35 +46,22 @@ def _make_ecospace(n_groups, n_patches, dispersal=2.0, advection=False, gravity=
 class TestMassConservation:
     """Verify total biomass accounting in spatial simulations."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Each Ecospace patch uses the whole-model base biomass and base "
-            "flows while holding only its share of biomass, so N uniform "
-            "patches do not add up to Ecosim. Hidden until the RK4 "
-            "fast-group fix, because Phyto, Zoo and Detritus were frozen."
-        ),
-    )
     def test_total_biomass_no_fishing(self, base_scenario):
-        """Without fishing, biomass should not collapse or explode."""
+        """Without fishing, the patch totals follow the non-spatial run."""
+        from pypath.core.ecosim import rsim_run
+
         scenario, n_groups = base_scenario
         ecospace = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
 
         # Zero out fishing
         scenario.fishing.ForcedEffort[:] = 0.0
 
+        expected = rsim_run(scenario, years=range(1, 3)).out_Biomass
         result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
 
-        initial_total = result.out_Biomass[0, 1:].sum()
-        final_total = result.out_Biomass[-1, 1:].sum()
-
         assert np.all(np.isfinite(result.out_Biomass)), "NaN/Inf in biomass"
-        assert final_total > 0, "Total biomass collapsed to zero"
-        # Biomass should not change by more than 50% — Ecosim dynamics
-        # (production, mortality) cause natural drift but not collapse
-        if initial_total > 0:
-            change = abs(final_total - initial_total) / initial_total
-            assert change < 0.5, f"Biomass changed by {change:.0%}"
+        assert result.out_Biomass[-1, 1:].sum() > 0, "Total biomass collapsed"
+        np.testing.assert_allclose(result.out_Biomass, expected, rtol=1e-6, atol=1e-10)
 
     def test_biomass_with_fishing_decreases(self, base_scenario):
         """With fishing active, fished group biomass should be lower than without."""
@@ -103,24 +90,21 @@ class TestMassConservation:
         )
 
     def test_no_spontaneous_generation(self, base_scenario):
-        """No patch should gain more biomass than the entire system started with."""
+        """No patch holds more of a group than the whole non-spatial system."""
+        from pypath.core.ecosim import rsim_run
+
         scenario, n_groups = base_scenario
         ecospace = _make_ecospace(n_groups, n_patches=5, dispersal=2.0)
 
+        total = rsim_run(scenario, years=range(1, 3)).out_Biomass
         result = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
-
-        initial_total_per_group = result.out_Biomass[0, 1:]  # per-group totals
         spatial = result.out_Biomass_spatial  # [months, groups+1, patches]
 
-        # For each living group, no single patch should exceed the initial total
         for g in range(1, n_groups + 1):
-            initial_g = initial_total_per_group[g - 1]
-            if initial_g > 0:
-                max_patch = spatial[:, g, :].max()
-                assert max_patch <= initial_g * 1.5, (
-                    f"Group {g}: patch biomass {max_patch:.2f} exceeds "
-                    f"1.5x initial total {initial_g:.2f}"
-                )
+            max_patch = spatial[:, g, :].max(axis=1)
+            assert np.all(max_patch <= total[:, g] * (1 + 1e-6) + 1e-10), (
+                f"Group {g}: a patch holds more than the whole system"
+            )
 
     def test_production_increases_total(self, base_scenario):
         """Primary production should cause total system biomass to grow."""

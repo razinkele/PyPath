@@ -32,6 +32,23 @@ if TYPE_CHECKING:
     from pypath.spatial.mpa import MPAConfig
 
 
+def _patch_area_fractions(ecospace, n_patches: int) -> np.ndarray:
+    """Each patch's share of the total area (all equal if areas are unknown)."""
+    areas = getattr(getattr(ecospace, "grid", None), "patch_areas", None)
+    if areas is None or len(areas) != n_patches or not np.all(np.asarray(areas) > 0):
+        return np.full(n_patches, 1.0 / n_patches)
+    areas = np.asarray(areas, dtype=float)
+    return areas / areas.sum()
+
+
+def _local_deriv(state_patch, params, forcing, fishing, t, patch_share, patch_idx):
+    """Ecosim derivative of one patch, evaluated on densities when shares are given."""
+    if patch_share is None:
+        return deriv_vector(state_patch, params, forcing, fishing, t=t)
+    w = patch_share[patch_idx]
+    return w * deriv_vector(state_patch / w, params, forcing, fishing, t=t)
+
+
 def deriv_vector_spatial(
     state_spatial: np.ndarray,
     params: Dict,
@@ -96,6 +113,17 @@ def deriv_vector_spatial(
 
     # Initialize derivative
     deriv_spatial = np.zeros_like(state_spatial, dtype=float)
+
+    # Each patch holds its share of the biomass, so it also holds that share
+    # of the base biomass and base flows. The local dynamics are therefore
+    # evaluated on densities, as in EwE Ecospace: biomass divided by the
+    # patch's area fraction, with the whole-model Bbase/QQbase as the base
+    # densities. The derivative is scaled back by the area fraction (#51).
+    # IBM groups compute their own absolute rates, so they keep the old form.
+    patch_share = _patch_area_fractions(ecospace, n_patches)
+    if params.get("ibm_groups"):
+        logger.debug("IBM groups present: patch dynamics not density-scaled")
+        patch_share = None
 
     # Per-patch, per-fleet effort scaling. MPA closures and spatial effort
     # allocation both scale a fleet's effort in a patch, so they compose.
@@ -220,8 +248,8 @@ def deriv_vector_spatial(
             n_mask_fleets = patch_effort_mask.shape[1]
             patch_effort[1 : n_mask_fleets + 1] *= patch_effort_mask[patch_idx, :]
             patch_forcing["ForcedEffort"] = patch_effort
-        deriv_spatial[:, patch_idx] = deriv_vector(
-            state_patch, patch_params, patch_forcing, fishing, t=t
+        deriv_spatial[:, patch_idx] = _local_deriv(
+            state_patch, patch_params, patch_forcing, fishing, t, patch_share, patch_idx
         )
 
     try:
@@ -268,16 +296,28 @@ def deriv_vector_spatial(
                     params["B_BaseRef"] = modified
                     params["Bbase"] = modified
                     try:
-                        deriv_local = deriv_vector(
-                            state_patch, params, patch_forcing, fishing, t=t
+                        deriv_local = _local_deriv(
+                            state_patch,
+                            params,
+                            patch_forcing,
+                            fishing,
+                            t,
+                            patch_share,
+                            patch_idx,
                         )
                     finally:
                         params["B_BaseRef"] = b_base_ref_backup
                         if b_base_backup is not None:
                             params["Bbase"] = b_base_backup
                 else:
-                    deriv_local = deriv_vector(
-                        state_patch, params, patch_forcing, fishing, t=t
+                    deriv_local = _local_deriv(
+                        state_patch,
+                        params,
+                        patch_forcing,
+                        fishing,
+                        t,
+                        patch_share,
+                        patch_idx,
                     )
 
                 deriv_spatial[:, patch_idx] = deriv_local
@@ -336,7 +376,7 @@ def rsim_run_spatial(
     initial_state_vector : np.ndarray, optional
         Flattened initial coupled state vector with shape
         ``[(n_groups+1) * n_patches]``. If omitted, start biomass is
-        distributed uniformly across patches.
+        distributed by patch area, so every patch starts at the same density.
     store_state_vectors : bool
         If True, stores per-timestep flattened state vectors as
         ``output.out_StateVector`` for coupled workflow diagnostics.
@@ -396,9 +436,10 @@ def rsim_run_spatial(
     initial_biomass = scenario.start_state.Biomass  # [n_groups+1]
 
     if initial_state_vector is None:
-        biomass_spatial0 = (
-            np.tile(initial_biomass[:, np.newaxis], (1, n_patches)) / n_patches
-        )
+        # Uniform density: each patch starts with its area share of every group
+        biomass_spatial0 = initial_biomass[:, np.newaxis] * _patch_area_fractions(
+            ecospace, n_patches
+        )[np.newaxis, :]
     else:
         state_vec = np.asarray(initial_state_vector, dtype=float).reshape(-1)
         expected_size = (n_groups + 1) * n_patches
