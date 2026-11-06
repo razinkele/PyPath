@@ -371,7 +371,7 @@ def _compute_living_derivs_kernel_python(
     For each living group *i* (1 .. NUM_LIVING) that is NOT an IBM group
     (ibm_mask[i] == 0):
 
-        consumption      = sum(QQ[1:, i])          # total eaten BY pred i
+        consumption      = sum(QQ[:, i])           # total eaten BY pred i (row 0: import)
         predation_loss   = sum(QQ[i, 1:NL+1])      # total eaten OF prey i
         production       = pp_rates[i]              if PP_type[i] > 0
                          = GE_arr[i] * consumption  if QB[i] > 0
@@ -418,9 +418,10 @@ def _compute_living_derivs_kernel_python(
         if ibm_mask[i] != 0:
             continue
 
-        # Total consumption BY this predator
+        # Total consumption BY this predator, including its imported diet
+        # (QQ[0, i], set by deriv_vector in proportion to its own biomass)
         consumption = 0.0
-        for prey in range(1, NUM_GROUPS + 1):
+        for prey in range(0, NUM_GROUPS + 1):
             consumption += QQ[prey, i]
 
         # Total predation ON this prey (losses)
@@ -775,6 +776,7 @@ def _rpath_detritus_derivs(
     link_fish_rate,
     NUM_LIVING,
     NUM_DEAD,
+    import_q=None,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -782,6 +784,8 @@ def _rpath_detritus_derivs(
     unassimilated consumption)`` along each of its detritus links; a dead
     source loses that flow. Discards gain the catch of every fishing link
     whose ``FishTo`` is that pool. Detritivore consumption is the food loss.
+    ``import_q`` is each consumer's intake of imported diet, which is
+    unassimilated like any other food.
 
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
@@ -789,10 +793,11 @@ def _rpath_detritus_derivs(
     n_bio = NUM_LIVING + NUM_DEAD
     mzero_loss = np.zeros(n_bio + 1)
     mzero_loss[1:] = M0_arr[1 : n_bio + 1] * BB[1 : n_bio + 1]
+    consumption = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0)
+    if import_q is not None:
+        consumption = consumption + import_q[1 : NUM_LIVING + 1]
     unassim_loss = np.zeros(n_bio + 1)
-    unassim_loss[1 : NUM_LIVING + 1] = (
-        QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0) * Unassim[1 : NUM_LIVING + 1]
-    )
+    unassim_loss[1 : NUM_LIVING + 1] = consumption * Unassim[1 : NUM_LIVING + 1]
     det_gain = np.zeros(n_bio + 1)
     det_loss = np.zeros(n_bio + 1)
     for k in range(1, len(det_from)):
@@ -1640,6 +1645,18 @@ def deriv_vector(
 
     _M0_effective = _M0_safe * _MetabolicMult
 
+    # Imported diet (EwE-F derivs: qq = consumption + QBoutside * B). A
+    # consumer's intake from outside the model is QB * import * B: it grows
+    # with the consumer's own biomass and does not depend on local prey, so it
+    # bypasses the foraging arena. rsim_params stores the base intake in the
+    # link from group 0, so QBoutside = QQbase[0, i] / Bbase[i]. Producers'
+    # group-0 link is their primary production and is left alone.
+    import_q = np.zeros(NUM_GROUPS + 1)
+    for i in range(1, NUM_LIVING + 1):
+        if PP_type[i] <= 0 and Bbase[i] > 0 and QQbase[0, i] > 0:
+            import_q[i] = QQbase[0, i] / Bbase[i] * BB[i]
+            QQ[0, i] = import_q[i]
+
     _compute_living_derivs(
         deriv,
         QQ,
@@ -1661,7 +1678,7 @@ def deriv_vector(
     if rates is not None:
         food_gain = np.zeros(NUM_GROUPS + 1)
         food_loss = np.zeros(NUM_GROUPS + 1)
-        food_gain[1:] = QQ[1:, 1:].sum(axis=0)
+        food_gain[1:] = QQ[1:, 1:].sum(axis=0) + import_q[1:]
         food_loss[1:] = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=1)
         mzero_loss = _M0_effective * BB
         fishing_loss = FishMort * BB
@@ -1682,7 +1699,7 @@ def deriv_vector(
                 continue
 
             # Recompute per-group terms for logging (cheap scalar ops)
-            consumption = float(np.sum(QQ[1:, i]))
+            consumption = float(np.sum(QQ[1:, i])) + float(import_q[i])
             predation_loss = float(np.sum(QQ[i, 1 : NUM_LIVING + 1]))
             m0 = float(_M0_effective[i])
             if PP_type[i] > 0:
@@ -1772,6 +1789,7 @@ def deriv_vector(
             _link_fish_rate,
             NUM_LIVING,
             NUM_DEAD,
+            import_q=import_q,
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)
@@ -1783,7 +1801,9 @@ def deriv_vector(
             # Living gain is all consumption, including a producer's link
             # from group 0; every remaining term of the derivative is loss.
             tot_gain = np.zeros(NUM_GROUPS + 1)
-            tot_gain[1 : NUM_LIVING + 1] = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0)
+            tot_gain[1 : NUM_LIVING + 1] = (
+                QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0) + import_q[1 : NUM_LIVING + 1]
+            )
             producers = np.asarray(PP_type[: NUM_LIVING + 1]) > 0
             producers[0] = False
             tot_gain[: NUM_LIVING + 1][producers] = pp_rates[: NUM_LIVING + 1][
@@ -1929,7 +1949,9 @@ def deriv_vector(
     # Pre-compute total consumption by each predator once, avoiding redundant
     # np.sum(QQ[1:, pred]) calls inside the per-detritus-group loop.
     # Shape: (NUM_LIVING,) where index j corresponds to pred = j + 1.
-    total_consump_by_pred = np.sum(QQ[1:, 1 : NUM_LIVING + 1], axis=0)
+    total_consump_by_pred = (
+        np.sum(QQ[1:, 1 : NUM_LIVING + 1], axis=0) + import_q[1 : NUM_LIVING + 1]
+    )
 
     # Pre-fetch detritus decay rates outside the loop
     decay_rate = params.get("DetDecay", np.zeros(NUM_DEAD + 1))
