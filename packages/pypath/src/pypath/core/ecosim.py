@@ -378,6 +378,49 @@ class RsimOutput:
     fleet_dynamics: "FleetDynamicsResult | None" = None
 
 
+def detritus_self_fates(rpath, nliving: int, ndead: int) -> dict:
+    """Detritus groups whose detritus fate points to themselves.
+
+    Returns ``{group name: fraction}`` for every dead group with a fate
+    fraction > 0 to its own pool.
+    """
+    out = {}
+    det_fate = np.asarray(rpath.DetFate, dtype=float)
+    for k in range(ndead):
+        row = nliving + k
+        if row < det_fate.shape[0] and k < det_fate.shape[1]:
+            frac = det_fate[row, k]
+            if np.isfinite(frac) and frac > 0:
+                out[str(rpath.Group[row])] = float(frac)
+    return out
+
+
+def _warn_detritus_self_fate(rpath, nliving: int, ndead: int) -> None:
+    """Warn about detritus pools that flow to themselves.
+
+    Ecopath counts a pool's flow to itself as input (fraction f of its
+    unused surplus), but in Ecosim the pool sends f of its whole decay
+    (M0 * B) back to itself, so it grows by f^2 * surplus per year from the
+    Ecopath balance. Rpath does the same; its REco example, like EwE models,
+    gives a detritus pool no fate to itself, so the surplus leaves the system.
+    """
+    try:
+        self_fates = detritus_self_fates(rpath, nliving, ndead)
+    except Exception as e:  # diagnostics must never break a run
+        logger.debug("detritus self-fate check failed: %s", e)
+        return
+    if self_fates:
+        listed = ", ".join("%s (%g)" % (g, f) for g, f in self_fates.items())
+        warnings.warn(
+            "Detritus fate of a detritus group to itself: %s. Ecosim keeps that "
+            "share of the pool's surplus in the pool, so it grows away from the "
+            "Ecopath balance. Set the group's fate to itself to 0 (its surplus "
+            "then leaves the system, as in Rpath and EwE)." % listed,
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def rsim_params(
     rpath: Rpath,
     mscramble: float = 2.0,
@@ -725,6 +768,8 @@ def rsim_params(
         logger.debug("Unique DetTo values: %s", np.unique(det_to))
     except Exception as e:
         logger.debug("DetFate diagnostic logging failed: %s", e)
+
+    _warn_detritus_self_fate(rpath, nliving, ndead)
 
     return RsimParams(
         NUM_GROUPS=ngroups,
@@ -1137,7 +1182,10 @@ def rsim_run(
         "NUM_GEARS": params.NUM_GEARS,
         "PB": params.PBopt,
         "QB": params.FtimeQBOpt,
-        "M0": params.MzeroMort,
+        # A copy: the run adjusts M0 for small residuals, and those
+        # adjustments must not leak into scenario.params (a second run of the
+        # same scenario would otherwise start from different M0).
+        "M0": params.MzeroMort.copy(),
         "Unassim": params.UnassimRespFrac,
         "ActiveLink": _build_active_link_matrix(params),
         "VV": _build_link_matrix(params, params.VV),
@@ -1920,20 +1968,6 @@ def rsim_run(
         logger.debug("final M0 algebraic check failed: %s", e)
         pass
 
-    # Persist any M0 adjustments back to the params dataclass so diagnostics
-    # and downstream code that read scenario.params.MzeroMort see the same values
-    try:
-        if "M0" in params_dict:
-            # params is the RsimParams object (scenario.params)
-            params.MzeroMort = params_dict["M0"].copy()
-            # Debug sample to confirm persistence
-            try:
-                logger.debug("persisted adjusted M0 sample=%s", params.MzeroMort[:6])
-            except Exception as e:
-                logger.debug("M0 persistence debug failed: %s", e)
-    except Exception as e:
-        logger.debug("M0 persistence debug failed: %s", e)
-
     # Build fishing dict
     fishing_dict = {
         "FishFrom": params.FishFrom,
@@ -2607,6 +2641,8 @@ def rsim_run(
             "NUM_GROUPS": params.NUM_GROUPS,
             "NUM_LIVING": params.NUM_LIVING,
             "years": n_years,
+            # M0 as used by this run, including its small-residual adjustments
+            "M0": np.asarray(params_dict["M0"]).copy(),
         },
         ecotracer=_ecotracer_result,
         fleet_dynamics=_fleet_result,

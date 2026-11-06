@@ -76,6 +76,32 @@ def _require_balanced_model_or_notify(model) -> bool:
 logger = logging.getLogger(__name__)
 
 
+def detritus_self_fate_message(model) -> str | None:
+    """User-facing warning for detritus pools that flow to themselves."""
+    from pypath.core.ecosim import detritus_self_fates
+
+    try:
+        self_fates = detritus_self_fates(model, model.NUM_LIVING, model.NUM_DEAD)
+    except Exception as e:
+        logger.debug("detritus self-fate check failed: %s", e)
+        return None
+    if not self_fates:
+        return None
+    names = ", ".join(self_fates)
+    return (
+        f"Detritus fate to itself is above 0 for {names}. Ecosim keeps that "
+        "share of the pool's surplus in the pool, so it grows away from the "
+        "Ecopath balance. On the Ecopath page, set the group's fate to itself "
+        "to 0."
+    )
+
+
+def _notify_detritus_self_fate(model) -> None:
+    msg = detritus_self_fate_message(model)
+    if msg:
+        notify_warning(msg, duration=12)
+
+
 def build_task_status_alert(task_state: TaskState) -> tuple[str, str, str]:
     """Map task state to bootstrap alert class, icon, and message."""
     if task_state.status is TaskStatus.RUNNING:
@@ -1518,6 +1544,7 @@ def ecosim_server(
             new_scenario = rsim_scenario(
                 model, orig_params, years=years, vulnerability=input.vulnerability()
             )
+            _notify_detritus_self_fate(model)
 
             # Apply fishing scenario
             _apply_fishing_scenario(new_scenario, input)
