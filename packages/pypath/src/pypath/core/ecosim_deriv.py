@@ -761,6 +761,63 @@ else:
     _compute_detritus_derivs_numba = None
 
 
+def _rpath_detritus_derivs(
+    deriv,
+    QQ,
+    BB,
+    M0_arr,
+    Unassim,
+    det_from,
+    det_to,
+    det_frac,
+    fish_from,
+    fish_to,
+    link_fish_rate,
+    NUM_LIVING,
+    NUM_DEAD,
+):
+    """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
+
+    Every source group (living or dead) sends ``DetFrac * (M0*B +
+    unassimilated consumption)`` along each of its detritus links; a dead
+    source loses that flow. Discards gain the catch of every fishing link
+    whose ``FishTo`` is that pool. Detritivore consumption is the food loss.
+
+    Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
+    can build Rpath's TotGain / TotLoss for the dead groups.
+    """
+    n_bio = NUM_LIVING + NUM_DEAD
+    mzero_loss = np.zeros(n_bio + 1)
+    mzero_loss[1:] = M0_arr[1 : n_bio + 1] * BB[1 : n_bio + 1]
+    unassim_loss = np.zeros(n_bio + 1)
+    unassim_loss[1 : NUM_LIVING + 1] = (
+        QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0) * Unassim[1 : NUM_LIVING + 1]
+    )
+    det_gain = np.zeros(n_bio + 1)
+    det_loss = np.zeros(n_bio + 1)
+    for k in range(1, len(det_from)):
+        src = int(det_from[k])
+        dest = int(det_to[k])
+        if src < 1 or src > n_bio:
+            continue  # gear rows carry no M0 / unassimilated flow
+        flow = float(det_frac[k]) * (mzero_loss[src] + unassim_loss[src])
+        if 0 < dest <= n_bio:
+            det_gain[dest] += flow
+        if src > NUM_LIVING:
+            det_loss[src] += flow
+    fish_gain = np.zeros(n_bio + 1)
+    for k in range(1, min(len(fish_from), len(fish_to), len(link_fish_rate))):
+        dest = int(fish_to[k])
+        if NUM_LIVING < dest <= n_bio:
+            fish_gain[dest] += link_fish_rate[k] * BB[int(fish_from[k])]
+    gain = det_gain + fish_gain
+    loss = det_loss.copy()
+    for d in range(NUM_LIVING + 1, n_bio + 1):
+        loss[d] += QQ[d, 1 : NUM_LIVING + 1].sum()
+        deriv[d] = gain[d] - loss[d]
+    return gain, loss
+
+
 def _compute_detritus_derivs(
     deriv,
     QQ,
@@ -1224,34 +1281,10 @@ def deriv_vector(
     # default-argument allocations ([None]*N, np.zeros) inside inner loops.
     spname_list = params.get("spname", None)
     M0_arr = params.get("M0", None)
-    _NoIntegrate_raw = params.get("NoIntegrate", None)
     _TRACE_DEBUG_GROUPS = params.get("TRACE_DEBUG_GROUPS", None)
 
     # Current biomass (state variable)
     BB = state.copy()
-
-    # Enforce NoIntegrate algebraic groups in stage evaluations
-    # Some groups are marked 'NoIntegrate' to represent algebraic equilibria
-    # (fast turnover). Ensure derivative evaluations always see these at
-    # their baseline Bbase value so intermediate RK4 stages don't pollute
-    # predation/functional response calculations.
-    try:
-        no_integrate_mask = (
-            np.asarray(
-                _NoIntegrate_raw
-                if _NoIntegrate_raw is not None
-                else np.zeros(NUM_GROUPS + 1)
-            )
-            != 0
-        )
-        if np.any(no_integrate_mask):
-            Bbase_arr = params.get("Bbase", None)
-            if Bbase_arr is not None:
-                # apply baseline values for NoIntegrate groups to the local BB
-                # (BB is already a copy from state.copy() above)
-                BB[no_integrate_mask] = Bbase_arr[no_integrate_mask]
-    except (TypeError, ValueError, IndexError):
-        pass
 
     instrument_set = _resolve_instrument_groups(params, spname_list, NUM_GROUPS)
 
@@ -1295,6 +1328,9 @@ def deriv_vector(
         Ftime[1:] * BB[1:] / safe_bbase[1:] * ForcedPrey[1:],
         0.0,
     )
+    if params.get("RpathPrimaryProduction", False) and Bbase[0] > 0:
+        # Group 0 ("the sun") is the prey of the producers' links
+        preyYY[0] = Ftime[0] * BB[0] / safe_bbase[0] * ForcedPrey[0]
 
     # predYY = Ftime * B / Bbase (where Bbase > 0, living groups only)
     predYY = np.zeros(NUM_GROUPS + 1)
@@ -1458,6 +1494,9 @@ def deriv_vector(
 
     # Calculate fishing mortality with effort scaling per gear
     # FishThrough contains 1-based GROUP indices of fleets.
+    # _link_fish_rate[i] is the per-biomass catch rate of fishing link i
+    # (Rpath: caught = FishQ * Effort * B), used for discards to FishTo.
+    _link_fish_rate = np.zeros(len(FishFrom))
     for i in range(1, len(FishFrom)):
         grp = int(FishFrom[i])
         gear_group_idx = int(FishThrough[i])
@@ -1473,6 +1512,7 @@ def deriv_vector(
         if _fleet_med is not None:
             effort_mult *= _fleet_med[gear_idx]
         FishMort[grp] += FishQ[i] * effort_mult
+        _link_fish_rate[i] = FishQ[i] * effort_mult
 
     for i in range(1, NUM_LIVING + 1):
         Catch[i] = FishMort[i] * BB[i]
@@ -1501,6 +1541,13 @@ def deriv_vector(
     pp_rates = primary_production_forcing(
         BB, Bbase, PB, PP_forcing, PP_type, NUM_LIVING
     )
+    # Rpath: a producer's gain is its consumption from group 0 ("the sun"),
+    # through the same functional response as any link (saturating in the
+    # producer's own biomass via VV). rsim_run opts in to this.
+    if params.get("RpathPrimaryProduction", False):
+        for i in range(1, NUM_LIVING + 1):
+            if PP_type[i] > 0 and QQbase[0, i] > 0:
+                pp_rates[i] = QQ[0, i] * PP_forcing[i]
 
     # IBM integration: check if any groups are replaced by IBMs
     ibm_groups = params.get("ibm_groups", {})
@@ -1708,6 +1755,46 @@ def deriv_vector(
     # =========================================================================
     # STEP 5: Calculate derivatives for detritus groups
     # =========================================================================
+    # rsim_run passes Rpath's detritus links; use Rpath's budget then.
+    _det_link_from = params.get("DetLinkFrom", None)
+    if _det_link_from is not None:
+        det_gain, det_loss = _rpath_detritus_derivs(
+            deriv,
+            QQ,
+            BB,
+            _M0_effective,
+            Unassim,
+            _det_link_from,
+            params["DetLinkTo"],
+            params["DetLinkFrac"],
+            FishFrom,
+            params.get("FishTo", np.zeros(len(FishFrom))),
+            _link_fish_rate,
+            NUM_LIVING,
+            NUM_DEAD,
+        )
+        if rates is not None:
+            dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)
+            rates["DetGain"] = np.zeros(NUM_GROUPS + 1)
+            rates["DetLoss"] = np.zeros(NUM_GROUPS + 1)
+            rates["DetGain"][dead] = det_gain[dead]
+            rates["DetLoss"][dead] = det_loss[dead]
+            # Rpath TotGain / TotLoss (biomeq = TotGain / (TotLoss / B)).
+            # Living gain is all consumption, including a producer's link
+            # from group 0; every remaining term of the derivative is loss.
+            tot_gain = np.zeros(NUM_GROUPS + 1)
+            tot_gain[1 : NUM_LIVING + 1] = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0)
+            producers = np.asarray(PP_type[: NUM_LIVING + 1]) > 0
+            producers[0] = False
+            tot_gain[: NUM_LIVING + 1][producers] = pp_rates[: NUM_LIVING + 1][
+                producers
+            ]
+            tot_gain[dead] = det_gain[dead]
+            rates["TotGain"] = tot_gain
+            rates["TotLoss"] = tot_gain - deriv
+            rates["TotLoss"][0] = 0.0
+        return deriv
+
     DetFrac_raw = params.get("DetFrac", np.zeros((NUM_GROUPS + 1, NUM_DEAD + 1)))
     # RsimParams may store detritus fractions in two formats:
     # 1) a full 2D array shaped (NUM_GROUPS+1, NUM_DEAD+1), or
@@ -1963,28 +2050,16 @@ def deriv_vector(
         except Exception as e:
             logger.debug("Detritus instrumentation error: %s", e)
 
-    # Zero derivatives for NoIntegrate (fast-turnover) groups to enforce algebraic equilibrium
-    try:
-        # NoIntegrate: Rpath encodes fast-turnover groups as 0. Treat 0 as True for NoIntegrate
-        # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-        no_integrate = (
-            np.asarray(
-                _NoIntegrate_raw
-                if _NoIntegrate_raw is not None
-                else np.zeros(NUM_GROUPS + 1)
-            )
-            != 0
-        )
-        if np.any(no_integrate):
-            deriv[no_integrate] = 0.0
-    except (TypeError, ValueError, IndexError):
-        pass
-
     return deriv
 
 
 def integrate_rk4(
-    state: np.ndarray, params: dict, forcing: dict, fishing: dict, dt: float
+    state: np.ndarray,
+    params: dict,
+    forcing: dict,
+    fishing: dict,
+    dt: float,
+    n_steps: int = 1,
 ) -> np.ndarray:
     """
     Runge-Kutta 4th order integration step.
@@ -2001,34 +2076,28 @@ def integrate_rk4(
         Fishing parameters
     dt : float
         Time step
+    n_steps : int, optional
+        Number of RK4 sub-steps of ``dt / n_steps`` (Rpath ``RK4_STEPS``).
 
     Returns
     -------
     np.ndarray
         Updated state vector
     """
-    k1 = deriv_vector(state, params, forcing, fishing)
-    k2 = deriv_vector(state + 0.5 * dt * k1, params, forcing, fishing)
-    k3 = deriv_vector(state + 0.5 * dt * k2, params, forcing, fishing)
-    k4 = deriv_vector(state + dt * k3, params, forcing, fishing)
-
-    new_state = state + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
-
-    # Ensure non-negative biomass
-    new_state = np.maximum(new_state, 0.0)
-
-    # Enforce NoIntegrate groups stay at baseline (if provided in params)
-    try:
-        # NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)
-        no_integrate = (
-            np.asarray(params.get("NoIntegrate", np.zeros(len(new_state)))) != 0
-        )
-        if np.any(no_integrate):
-            Bbase = params.get("Bbase")
-            if Bbase is not None:
-                new_state[no_integrate] = Bbase[no_integrate]
-    except (TypeError, ValueError, IndexError):
-        pass
+    # Rpath rk4_run: n_steps sub-steps of dt/n_steps, every group integrated
+    # (NoIntegrate only matters to Adams-Bashforth), biomass clamped per step.
+    n_steps = max(1, int(n_steps))
+    hh = dt / n_steps
+    new_state = np.asarray(state, dtype=float)
+    for _ in range(n_steps):
+        y0 = new_state
+        k1 = deriv_vector(y0, params, forcing, fishing)
+        k2 = deriv_vector(y0 + 0.5 * hh * k1, params, forcing, fishing)
+        k3 = deriv_vector(y0 + 0.5 * hh * k2, params, forcing, fishing)
+        k4 = deriv_vector(y0 + hh * k3, params, forcing, fishing)
+        new_state = np.maximum(y0 + (hh / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4), 0.0)
+    dt = hh  # instrumentation below reports the last sub-step
+    state = y0
 
     # Instrumentation: allow callers to obtain compact RK4 stage diagnostics via
     # params.instrument_callback (similar to AB instrumentation). Compute per-stage
