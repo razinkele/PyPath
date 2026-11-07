@@ -2067,6 +2067,44 @@ def deriv_vector(
     return deriv
 
 
+def _rk4_fast_mask(params, n: int) -> np.ndarray:
+    """Groups solved at equilibrium inside RK4 (EwE6), none under Rpath rules."""
+    mask = np.zeros(n, dtype=bool)
+    if not isinstance(params, dict) or not params.get("RK4_FAST_EQUILIBRIUM", True):
+        return mask
+    flags = params.get("NoIntegrate")
+    if flags is None:
+        return mask
+    flags = np.asarray(flags)
+    if flags.shape[0] != n:
+        return mask
+    n_bio = int(params.get("NUM_LIVING", 0)) + int(params.get("NUM_DEAD", 0))
+    mask[1 : n_bio + 1] = flags[1 : n_bio + 1] > 0
+    return mask
+
+
+def _rk4_fast_equilibrium(rates, y_eval, y_base, mask, sorwt):
+    """EwE6: (1 - SorWt) * biomeq + SorWt * B for the masked groups.
+
+    ``biomeq = gain / (loss / B)`` uses the gains and losses of the derivative
+    evaluated at ``y_eval``; the blend is with the biomass at the start of the
+    sub-step, ``y_base`` (EwE6 rk4: B(i), not the stage value). Groups whose
+    loss or biomass is not positive keep their start value.
+    """
+    out = y_base[mask].astype(float)
+    if not rates or "TotGain" not in rates or "TotLoss" not in rates:
+        return out
+    gain = np.asarray(rates["TotGain"], dtype=float)[mask]
+    loss = np.asarray(rates["TotLoss"], dtype=float)[mask]
+    b_eval = np.asarray(y_eval, dtype=float)[mask]
+    ok = (loss > 0) & (b_eval > 0) & np.isfinite(gain) & np.isfinite(loss)
+    biomeq = np.where(
+        ok, gain / np.where(ok, loss / np.where(ok, b_eval, 1.0), 1.0), 0.0
+    )
+    out[ok] = (1.0 - sorwt) * biomeq[ok] + sorwt * out[ok]
+    return out
+
+
 def integrate_rk4(
     state: np.ndarray,
     params: dict,
@@ -2098,18 +2136,46 @@ def integrate_rk4(
     np.ndarray
         Updated state vector
     """
-    # Rpath rk4_run: n_steps sub-steps of dt/n_steps, every group integrated
-    # (NoIntegrate only matters to Adams-Bashforth), biomass clamped per step.
+    # n_steps sub-steps of dt/n_steps (Rpath RK4_STEPS), biomass clamped per
+    # step. Fast-equilibrium groups (NoIntegrate = 1) follow EwE6's rk4: at
+    # every stage, and after the step, their value is
+    # (1 - SorWt) * biomeq + SorWt * B with biomeq = gain / (loss / B) from
+    # the derivative just evaluated, so a P/B of 200 or a detritus pool that
+    # turns over thousands of times a year never meets an explicit sub-step.
+    # Rpath's rk4_run integrates every group (RK4_FAST_EQUILIBRIUM False).
     n_steps = max(1, int(n_steps))
     hh = dt / n_steps
     new_state = np.asarray(state, dtype=float)
+    fast_mask = _rk4_fast_mask(params, len(new_state))
+    use_fast = bool(np.any(fast_mask))
+    sorwt = float(params.get("SorWt", 0.5)) if isinstance(params, dict) else 0.5
+
+    def _stage(y_base, y_eval, k, factor, rates):
+        """Stage state y_base + factor * k, fast groups at their equilibrium."""
+        yt = y_base + factor * k
+        if use_fast:
+            yt[fast_mask] = _rk4_fast_equilibrium(
+                rates, y_eval, y_base, fast_mask, sorwt
+            )
+        return yt
+
     for _ in range(n_steps):
         y0 = new_state
-        k1 = deriv_vector(y0, params, forcing, fishing)
-        k2 = deriv_vector(y0 + 0.5 * hh * k1, params, forcing, fishing)
-        k3 = deriv_vector(y0 + 0.5 * hh * k2, params, forcing, fishing)
-        k4 = deriv_vector(y0 + hh * k3, params, forcing, fishing)
-        new_state = np.maximum(y0 + (hh / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4), 0.0)
+        r1 = {} if use_fast else None
+        k1 = deriv_vector(y0, params, forcing, fishing, rates=r1)
+        y1 = _stage(y0, y0, k1, 0.5 * hh, r1)
+        r2 = {} if use_fast else None
+        k2 = deriv_vector(y1, params, forcing, fishing, rates=r2)
+        y2 = _stage(y0, y1, k2, 0.5 * hh, r2)
+        r3 = {} if use_fast else None
+        k3 = deriv_vector(y2, params, forcing, fishing, rates=r3)
+        y3 = _stage(y0, y2, k3, hh, r3)
+        r4 = {} if use_fast else None
+        k4 = deriv_vector(y3, params, forcing, fishing, rates=r4)
+        new_state = y0 + (hh / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+        if use_fast:
+            new_state[fast_mask] = _rk4_fast_equilibrium(r4, y3, y0, fast_mask, sorwt)
+        new_state = np.maximum(new_state, 0.0)
     dt = hh  # instrumentation below reports the last sub-step
     state = y0
 

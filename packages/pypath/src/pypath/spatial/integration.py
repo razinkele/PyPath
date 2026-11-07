@@ -18,7 +18,12 @@ from typing import TYPE_CHECKING, Dict, Optional
 import numpy as np
 
 # Import ecosim_deriv at module level - no circular dependency exists
-from pypath.core.ecosim_deriv import HAS_NUMBA, deriv_vector
+from pypath.core.ecosim_deriv import (
+    HAS_NUMBA,
+    _rk4_fast_equilibrium,
+    _rk4_fast_mask,
+    deriv_vector,
+)
 from pypath.core.stanzas import (
     RsimStanzaState,
     check_stanza_arrays,
@@ -599,6 +604,7 @@ def rsim_run_spatial(
         "B_BaseRef": params.B_BaseRef,
         "PP_type": params.PP_type,
         "NoIntegrate": params.NoIntegrate,
+        "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
         "FishFrom": getattr(params, "FishFrom", np.array([])),
         "FishTo": getattr(params, "FishTo", np.array([])),
         "FishQ": getattr(params, "FishQ", np.array([])),
@@ -659,6 +665,9 @@ def rsim_run_spatial(
     current_biomass = state_spatial.Biomass.copy()
 
     rk4_steps = int(getattr(params, "RK4_STEPS", 4) or 1)
+    fast_mask = _rk4_fast_mask(params_dict, n_groups + 1)
+    use_fast = bool(np.any(fast_mask))
+    SORWT = 0.5
 
     # Ftime is static — snapshot once before the loop
     _ftime_snapshot = scenario.start_state.Ftime.copy()
@@ -740,17 +749,49 @@ def rsim_run_spatial(
                 **_month_kwargs,
             )
 
-        # RK4 in RK4_STEPS sub-steps per month, as rsim_run and Rpath do
+        # RK4 in RK4_STEPS sub-steps per month, as rsim_run and Rpath do.
+        # Fast-equilibrium groups follow EwE6's rk4 in every stage, patch by
+        # patch (as integrate_rk4): their stage value is (1 - SorWt) * biomeq
+        # + SorWt * B with biomeq from the stage's own gains and losses. In
+        # the density form gains, losses and biomass all carry the patch
+        # share, so the equilibrium per unit area is unchanged.
         hh = DELTA_T / rk4_steps
+
+        def _stage_rates():
+            if not use_fast:
+                return None
+            return {
+                key: np.zeros((n_groups + 1, n_patches))
+                for key in ("TotGain", "TotLoss")
+            }
+
         for sub in range(rk4_steps):
             t_sub = t + sub * hh
-            k1 = _f(current_biomass, t_sub, hh)
-            k2 = _f(current_biomass + k1 * hh / 2, t_sub + hh / 2, hh)
-            k3 = _f(current_biomass + k2 * hh / 2, t_sub + hh / 2, hh)
-            k4 = _f(current_biomass + k3 * hh, t_sub + hh, hh)
+            y0 = current_biomass
+            r1 = _stage_rates()
+            k1 = _f(y0, t_sub, hh, rates_out=r1)
+            y1 = y0 + k1 * hh / 2
+            if use_fast:
+                y1[fast_mask] = _rk4_fast_equilibrium(r1, y0, y0, fast_mask, SORWT)
+            r2 = _stage_rates()
+            k2 = _f(y1, t_sub + hh / 2, hh, rates_out=r2)
+            y2 = y0 + k2 * hh / 2
+            if use_fast:
+                y2[fast_mask] = _rk4_fast_equilibrium(r2, y1, y0, fast_mask, SORWT)
+            r3 = _stage_rates()
+            k3 = _f(y2, t_sub + hh / 2, hh, rates_out=r3)
+            y3 = y0 + k3 * hh
+            if use_fast:
+                y3[fast_mask] = _rk4_fast_equilibrium(r3, y2, y0, fast_mask, SORWT)
+            r4 = _stage_rates()
+            k4 = _f(y3, t_sub + hh, hh, rates_out=r4)
 
             # Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
-            current_biomass = current_biomass + hh / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+            current_biomass = y0 + hh / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+            if use_fast:
+                current_biomass[fast_mask] = _rk4_fast_equilibrium(
+                    r4, y3, y0, fast_mask, SORWT
+                )
 
             current_biomass = np.maximum(current_biomass, 0.0)
 

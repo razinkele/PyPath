@@ -1,7 +1,7 @@
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
-from pypath.core.stanzas import create_stanza_params
+from pypath.core.stanzas import create_stanza_params, rpath_stanzas
 
 
 def make_simple_rpath_with_stanzas():
@@ -55,6 +55,10 @@ def make_simple_rpath_with_stanzas():
 
 def test_rsim_handles_stanzas():
     rparams = make_simple_rpath_with_stanzas()
+    # Rpath workflow: derive the juvenile biomass and Q/B from the leading
+    # stanza's age structure before balancing, so Ecosim can couple the
+    # stanzas (a hand-typed juvenile biomass runs uncoupled, with a warning).
+    rpath_stanzas(rparams)
     r = rpath(rparams, eco_name="Test")
 
     years = range(1, 3)

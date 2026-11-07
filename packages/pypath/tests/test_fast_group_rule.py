@@ -5,9 +5,8 @@ solution when its total loss *rate* at the start, |loss|/B, exceeds 24 per
 year: predation + other mortality + fishing for living groups, the whole
 inflow (minus biomass accumulation) for detritus. Rpath compares the other
 mortality *flow* M0*B with 24, which flags large slow pools and misses fast
-groups whose losses are mostly predation. PyPath also used to treat every
-detritus group as fast. The EwE rule is the default; the Rpath rule stays
-available for parity with Rpath outputs.
+groups whose losses are mostly predation. The EwE rule is the default; the Rpath rule stays available for
+parity with Rpath outputs.
 """
 
 import warnings
@@ -61,6 +60,8 @@ def test_ewe_rule_flags_fast_turnover_not_large_flows():
 
 
 def test_rpath_rule_is_available_for_parity():
+    """Rpath's flow rule: Benthos (M0*B = 100) and the detritus pool (its
+    export rate times a huge biomass) are flagged, Zoo (M0*B = 20) is not."""
     model, _ = _stiff_model()
     sim = rsim_params(model, fast_group_rule="rpath")
     assert _flags(sim) == [0, 0, 1, 1, 1]

@@ -15,10 +15,13 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # it. Every value up to there was computed with the scenario's vulnerabilities
 # and FtimeAdjust on the wrong groups, the wrong forcing shape applied as prey
 # availability, and a flat stanza (importer defects fixed 2026-11-07); with
-# the settings EwE6 actually uses, SS is 881.2 (Adams-Bashforth, fast groups
-# as on main). The real reference is EwE6's own scenario-16 trajectory.
+# the settings EwE6 actually uses, SS was 881.2 on main's dynamics and is
+# 642.0 with the stanza coupling, the closed detritus budget, EwE's fast-group
+# rule (Zooplankton, Phytoplankton and Detritus at equilibrium, under RK4 as
+# under AB) and donor control at v = 1. The real reference is EwE6's own
+# scenario-16 trajectory.
 # A change beyond 2 % needs a reason.
-LT2022_SS16 = 881.2
+LT2022_SS16 = 642.0
 
 
 @pytest.mark.integration

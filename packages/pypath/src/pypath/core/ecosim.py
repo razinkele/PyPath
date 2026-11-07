@@ -195,6 +195,9 @@ class RsimParams:
     SENSE_LIMIT: Tuple[float, float] = (1e-4, 1e4)
     # Control whether monthly M0 algebraic adjustments are performed during the run
     MONTHLY_M0_ADJUST: bool = True
+    # EwE6 solves NoIntegrate groups at equilibrium in every RK4 stage;
+    # Rpath's rk4_run integrates them (fast_group_rule='rpath').
+    RK4_FAST_EQUILIBRIUM: bool = True
 
 
 @dataclass
@@ -458,8 +461,7 @@ def rsim_params(
         total loss rate at the start, |loss|/B, exceeds 24 per year
         (predation + other mortality + fishing; for detritus the inflow minus
         biomass accumulation). ``"rpath"`` follows Rpath: other-mortality
-        flow M0*B above 24, plus every detritus group (PyPath's former
-        behaviour; use it to compare with Rpath outputs).
+        flow M0*B above 24 (use it to compare with Rpath outputs).
 
     Returns
     -------
@@ -812,6 +814,7 @@ def rsim_params(
         FtimeQBOpt=ftime_qbopt,
         PBopt=pbopt,
         NoIntegrate=no_integrate,
+        RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
         HandleSelf=handle_self,
         ScrambleSelf=scramble_self,
         PreyFrom=prey_from,
@@ -952,14 +955,13 @@ def _fast_group_flags(
     detritus fate, plus discards. Evaluated at the Ecopath base, which is
     where EwE evaluates its first derivative.
 
-    ``"rpath"``: Rpath's rule, other-mortality flow M0*B above the threshold,
-    plus every detritus group (PyPath's former behaviour).
+    ``"rpath"``: Rpath's rule, other-mortality flow M0*B above the threshold
+    (a detritus pool with slow turnover is integrated like any other group).
     """
     n = len(b_baseref)
     nbio = nliving + ndead
     if rule == "rpath":
         flags = np.where(np.nan_to_num(mzero) * b_baseref > threshold, 1, 0)
-        flags[np.where(np.asarray(pp_type) == 2)[0]] = 1
         flags[0] = 0
         return flags
 
@@ -1333,6 +1335,7 @@ def rsim_run(
         "MetabolismModel": getattr(params, "MetabolismModel", None),
         "MetabolicTemperature": getattr(params, "MetabolicTemperature", None),
         "MetabolicBodyMass": getattr(params, "MetabolicBodyMass", None),
+        "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
     }
 
     # Pre-compute sparse link arrays for the consumption kernel so that
