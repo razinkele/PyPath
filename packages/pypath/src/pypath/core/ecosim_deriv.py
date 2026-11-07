@@ -1636,6 +1636,40 @@ def deriv_vector(
             logger.debug("Metabolic model scaling skipped: %s", _met_err)
 
     _M0_effective = _M0_safe * _MetabolicMult
+    # EwE6 (Derivt): other mortality follows feeding time,
+    # M0 * (1 - MoPred + MoPred * Ftime). The scaled rate also feeds the
+    # detritus flows, which keeps the budget closed (EwE6 itself sends the
+    # unscaled mo * B to detritus).
+    _mo_pred = params.get("MoPred", None)
+    if _mo_pred is not None:
+        _mo_pred = np.asarray(_mo_pred, dtype=float)
+        if _mo_pred.shape[0] == NUM_GROUPS + 1 and np.any(_mo_pred != 0.0):
+            _M0_effective = _M0_effective * (
+                1.0 - _mo_pred + _mo_pred * np.asarray(Ftime, dtype=float)
+            )
+    # EwE6 UseVarPQ: gross efficiency follows the total loss rate Z,
+    # GE = AssimEff * Z / (Z + 3 K); AssimEff is set so GE = GE0 at Z = PB.
+    if params.get("UseVarPQ", False):
+        _vbk = params.get("VbK", None)
+        _aeff = params.get("AssimEff", None)
+        if _vbk is not None and _aeff is not None:
+            _vbk = np.asarray(_vbk, dtype=float)
+            _aeff = np.asarray(_aeff, dtype=float)
+            for _gi in range(1, NUM_LIVING + 1):
+                if (
+                    _vbk[_gi] > 0.0
+                    and _aeff[_gi] > 0.0
+                    and QB[_gi] > 0.0
+                    and BB[_gi] > 0.0
+                ):
+                    _pred_loss = float(np.sum(QQ[_gi, 1 : NUM_LIVING + 1]))
+                    _z = (
+                        _pred_loss / BB[_gi]
+                        + float(FishMort[_gi])
+                        + float(_M0_effective[_gi])
+                    )
+                    if _z > 0.0:
+                        _GE_arr[_gi] = _aeff[_gi] * _z / (_z + 3.0 * _vbk[_gi])
 
     # Imported diet (EwE-F derivs: qq = consumption + QBoutside * B). A
     # consumer's intake from outside the model is QB * import * B: it grows
@@ -1961,7 +1995,7 @@ def deriv_vector(
             total_consump_by_pred,
             Unassim,
             _DetFrac,
-            _M0_safe,
+            _M0_effective,
             _decay_rate,
             NUM_LIVING,
             NUM_DEAD,

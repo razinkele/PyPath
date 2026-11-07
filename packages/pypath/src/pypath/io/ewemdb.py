@@ -1449,6 +1449,7 @@ def read_ewemdb(
             group_id_to_name = _ecopath_group_id_to_name(
                 groups_df, groups_df[name_col].tolist()
             )
+            group_vbk = _ecopath_group_vbk(groups_df)
 
             for _, row in ecosim_df.iterrows():
                 sid = row.get("ScenarioID", row.get("ID", None))
@@ -1474,6 +1475,12 @@ def read_ewemdb(
                     or 1,
                     "description": row.get("Description", ""),
                     "group_id_to_name": group_id_to_name,
+                    "group_vbk": group_vbk,
+                    # scenario-level Ecosim options (EcosimScenario columns)
+                    "ecosim_settings": {
+                        "UseVarPQ": row.get("UseVarPQ"),
+                        "ForagingTimeLowerLimit": row.get("ForagingTimeLowerLimit"),
+                    },
                 }
 
                 # Parse scenario group settings (FtimeAdjust, VV overrides)
@@ -3090,6 +3097,36 @@ def _build_scenario_overrides(
     if ftime_adjust:
         overrides["ftime_adjust"] = ftime_adjust
 
+    # Other per-group Ecosim settings EwE6 applies (EcosimScenarioGroup).
+    for column, key in (("MoPred", "mo_pred"), ("FtimeMax", "ftime_max")):
+        if column not in sg_df.columns:
+            continue
+        values: Dict[int, float] = {}
+        for _, row in sg_df.iterrows():
+            egid = _int_or_none(row.get("EcopathGroupID"))
+            val = row.get(column)
+            if egid in egid_to_idx and val is not None and not pd.isna(val):
+                values[egid_to_idx[egid]] = float(val)
+        if values:
+            overrides[key] = values
+
+    # Von Bertalanffy K per group (EcopathGroup.vbK), with EwE6's default for
+    # consumers that have none (SetDefaultParameters).
+    group_vbk = scenario_meta.get("group_vbk") or {}
+    if group_vbk:
+        vbk = _ewe_group_vbk(params, egid_to_idx, group_vbk)
+        if vbk:
+            overrides["vbk"] = vbk
+
+    # Scenario-level options (EcosimScenario).
+    settings = scenario_meta.get("ecosim_settings") or {}
+    use_var_pq = settings.get("UseVarPQ")
+    if use_var_pq is not None and not pd.isna(use_var_pq):
+        overrides["use_var_pq"] = bool(use_var_pq)
+    lower = settings.get("ForagingTimeLowerLimit")
+    if lower is not None and not pd.isna(lower) and float(lower) >= 0:
+        overrides["foraging_time_lower_limit"] = float(lower)
+
     # Vulnerabilities (EcosimScenarioForcingMatrix) use the Ecosim GroupID.
     fm_df = scenario_meta.get("forcing_matrix_df")
     if fm_df is not None and len(fm_df) > 0:
@@ -3120,6 +3157,71 @@ def _int_or_none(value: Any) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _ecopath_group_vbk(groups_df: pd.DataFrame) -> dict:
+    """Map ``EcopathGroup.GroupID`` to the group's ``vbK`` (None when missing)."""
+    id_col = next(
+        (
+            c
+            for c in ["GroupID", "ID", "Sequence", "GroupSeq"]
+            if c in groups_df.columns
+        ),
+        None,
+    )
+    if id_col is None or "vbK" not in groups_df.columns:
+        return {}
+    out = {}
+    for gid, value in zip(groups_df[id_col].tolist(), groups_df["vbK"].tolist()):
+        gid = _int_or_none(gid)
+        if gid is None:
+            continue
+        value = pd.to_numeric(value, errors="coerce")
+        out[gid] = None if pd.isna(value) else float(value)
+    return out
+
+
+def _ewe_group_vbk(params: "RpathParams", egid_to_idx: dict, group_vbk: dict) -> dict:
+    """Per-group K the way EwE6 Ecosim uses it (0-based model index -> K).
+
+    EwE6 keeps the stored ``vbK`` except for consumers whose value is unset
+    (<= 0, or exactly 0.3, the placeholder the database writes) and that are
+    not life stages of a multi-stanza group; for those it uses
+    ``K* = PB / 3 * (0.6 / GE - 1)`` (cEcoSimModel.SetDefaultParameters).
+    A K that comes out non-positive leaves the gross efficiency fixed.
+    """
+    model = params.model
+    try:
+        pb = pd.to_numeric(model["PB"], errors="coerce").tolist()
+        qb = pd.to_numeric(model["QB"], errors="coerce").tolist()
+        types = (
+            pd.to_numeric(model["Type"], errors="coerce").fillna(0).astype(int).tolist()
+        )
+    except (KeyError, AttributeError):
+        return {}
+    stanza_groups = set()
+    stindiv = getattr(getattr(params, "stanzas", None), "stindiv", None)
+    if stindiv is not None and "Group" in getattr(stindiv, "columns", []):
+        stanza_groups = {str(g).strip() for g in stindiv["Group"].tolist()}
+    names = [str(g).strip() for g in model["Group"].tolist()]
+    out = {}
+    for egid, idx in egid_to_idx.items():
+        if idx >= len(names):
+            continue
+        value = group_vbk.get(egid)
+        is_consumer = types[idx] == 0
+        unset = value is None or value <= 0 or np.isclose(value, 0.3)
+        if unset and is_consumer and names[idx] not in stanza_groups:
+            pb_i, qb_i = pb[idx], qb[idx]
+            if pb_i is not None and qb_i and pb_i > 0 and qb_i > 0:
+                ge = pb_i / qb_i
+                value = pb_i / 3.0 * (0.6 / ge - 1.0) if ge > 0 else 0.0
+            else:
+                value = 0.0
+        if value is None or not np.isfinite(value):
+            continue
+        out[idx] = float(max(value, 0.0))
+    return out
 
 
 def _ecopath_group_id_to_name(groups_df: pd.DataFrame, group_names: list) -> dict:
@@ -3434,6 +3536,7 @@ def ecosim_scenario_from_ewemdb(
     scenario: Optional[Union[int, str]] = 1,
     balance: bool = True,
     years: Optional[range] = None,
+    timeseries_dataset: Optional[int] = None,
 ) -> "RsimScenario":
     """Convenience: create a full RsimScenario from an EwE database scenario.
 
@@ -3555,6 +3658,18 @@ def ecosim_scenario_from_ewemdb(
 
     # Load environmental forcing shapes (EcosimShapeTime, EcosimScenarioGroup)
     _apply_forcing_shapes(filepath, selected, rsim, params)
+
+    # The time-series dataset loaded in Ecosim drives the run (forced biomass,
+    # effort, fishing mortality), as in EwE6. The scenario tables do not name
+    # the dataset, so the caller does.
+    if timeseries_dataset is not None:
+        from pypath.core.timeseries import apply_timeseries_drivers
+
+        collection = read_timeseries(
+            filepath, dataset=int(timeseries_dataset), group_names=group_names
+        )
+        apply_timeseries_drivers(rsim, collection)
+        rsim._timeseries = collection
 
     # Try to construct and attach EcospaceParams if ecospace tables exist
     try:
@@ -3719,77 +3834,170 @@ def check_ewemdb_support() -> Dict[str, bool]:
     }
 
 
-def read_timeseries(filepath: str, scenario: int = 1) -> "EweTimeSeriesCollection":
-    """Read time series data from an EwE database.
+def read_timeseries(
+    filepath: str,
+    scenario: int = 1,
+    dataset: Optional[int] = None,
+    group_names: Optional[List[str]] = None,
+) -> "EweTimeSeriesCollection":
+    """Read an EwE time-series dataset.
 
-    Reads the EcosimTimeSeries and EcosimTimeSeriesValues tables and
-    constructs an EweTimeSeriesCollection. If tables are missing,
-    returns an empty collection.
+    Two layouts exist. Older exports keep one row per value in
+    ``EcosimTimeSeriesValues``; EwE6 databases keep the values of a series
+    in ``EcosimTimeSeries.TimeValues`` (space-separated, one per data year)
+    and link series to groups and fleets through ``EcosimTimeSeriesGroup``
+    and ``EcosimTimeSeriesFleet``. Groups are resolved to the model order
+    (``EcopathGroup.Sequence``) by name, never by ID order.
 
     Parameters
     ----------
     filepath : str
         Path to the EwE database file (.eweaccdb, .ewemdb, or .accdb).
     scenario : int
-        Scenario ID to filter by (default 1).
+        Scenario ID to filter by when the tables carry one (older layout).
+    dataset : int, optional
+        ``DatasetID`` of the dataset to read (``EcosimTimeSeriesDataset``);
+        None reads every series.
+    group_names : list of str, optional
+        Model group names in model order; read from the database if omitted.
 
     Returns
     -------
     EweTimeSeriesCollection
-        Collection of all time series in the database.
     """
     from pypath.core.timeseries import EweTimeSeries, EweTimeSeriesCollection
 
     try:
         tables = list_ewemdb_tables(filepath)
-    except Exception:
+    except Exception as e:
+        logger.debug("read_timeseries: cannot list tables: %s", e)
         return EweTimeSeriesCollection([])
-
-    if "EcosimTimeSeries" not in tables or "EcosimTimeSeriesValues" not in tables:
+    if "EcosimTimeSeries" not in tables:
         return EweTimeSeriesCollection([])
-
     try:
         meta_df = read_ewemdb_table(filepath, "EcosimTimeSeries")
-        values_df = read_ewemdb_table(filepath, "EcosimTimeSeriesValues")
-    except Exception:
+    except Exception as e:
+        logger.debug("read_timeseries: cannot read EcosimTimeSeries: %s", e)
+        return EweTimeSeriesCollection([])
+    if meta_df.empty:
         return EweTimeSeriesCollection([])
 
-    if meta_df.empty or values_df.empty:
-        return EweTimeSeriesCollection([])
-
-    # Filter by scenario if ScenarioID column exists
     if "ScenarioID" in meta_df.columns:
         meta_df = meta_df[meta_df["ScenarioID"] == scenario]
-    if "ScenarioID" in values_df.columns:
-        values_df = values_df[values_df["ScenarioID"] == scenario]
+    if dataset is not None and "DatasetID" in meta_df.columns:
+        meta_df = meta_df[meta_df["DatasetID"] == dataset]
+
+    values_df = None
+    if "EcosimTimeSeriesValues" in tables:
+        try:
+            values_df = read_ewemdb_table(filepath, "EcosimTimeSeriesValues")
+            if "ScenarioID" in values_df.columns:
+                values_df = values_df[values_df["ScenarioID"] == scenario]
+        except Exception as e:
+            logger.debug("read_timeseries: cannot read values table: %s", e)
+            values_df = None
+
+    # Group and fleet links (EwE6 layout), resolved to model order by name.
+    ts_group: Dict[int, int] = {}
+    ts_fleet: Dict[int, int] = {}
+    try:
+        if group_names is None:
+            groups_df = read_ewemdb_table(filepath, "EcopathGroup")
+            order_col = next(
+                (
+                    c
+                    for c in ["Sequence", "sequence", "GroupID"]
+                    if c in groups_df.columns
+                ),
+                None,
+            )
+            if order_col is not None:
+                groups_df = groups_df.sort_values(order_col)
+            name_col = next(
+                (c for c in ["GroupName", "Name", "Group"] if c in groups_df.columns),
+                None,
+            )
+            group_names = [str(n).strip() for n in groups_df[name_col].tolist()]
+            gid_to_name = {
+                _int_or_none(g): str(n).strip()
+                for g, n in zip(
+                    groups_df["GroupID"].tolist(), groups_df[name_col].tolist()
+                )
+            }
+        else:
+            groups_df = read_ewemdb_table(filepath, "EcopathGroup")
+            name_col = next(
+                (c for c in ["GroupName", "Name", "Group"] if c in groups_df.columns),
+                None,
+            )
+            gid_to_name = {
+                _int_or_none(g): str(n).strip()
+                for g, n in zip(
+                    groups_df["GroupID"].tolist(), groups_df[name_col].tolist()
+                )
+            }
+            group_names = [str(n).strip() for n in group_names]
+        name_to_idx = {n: i for i, n in enumerate(group_names)}
+        if "EcosimTimeSeriesGroup" in tables:
+            link = read_ewemdb_table(filepath, "EcosimTimeSeriesGroup")
+            for r in link.itertuples(index=False):
+                tsid = _int_or_none(getattr(r, "TimeSeriesID", None))
+                name = gid_to_name.get(_int_or_none(getattr(r, "GroupID", None)))
+                if tsid is not None and name in name_to_idx:
+                    ts_group[tsid] = name_to_idx[name]
+        if "EcosimTimeSeriesFleet" in tables:
+            fleets = read_ewemdb_table(filepath, "EcopathFleet")
+            forder = next(
+                (c for c in ["Sequence", "sequence", "FleetID"] if c in fleets.columns),
+                None,
+            )
+            if forder is not None:
+                fleets = fleets.sort_values(forder)
+            fid_to_idx = {
+                _int_or_none(f): i for i, f in enumerate(fleets["FleetID"].tolist())
+            }
+            link = read_ewemdb_table(filepath, "EcosimTimeSeriesFleet")
+            for r in link.itertuples(index=False):
+                tsid = _int_or_none(getattr(r, "TimeSeriesID", None))
+                fidx = fid_to_idx.get(_int_or_none(getattr(r, "FleetID", None)))
+                if tsid is not None and fidx is not None:
+                    ts_fleet[tsid] = fidx
+    except Exception as e:
+        logger.debug("read_timeseries: group/fleet links unavailable: %s", e)
 
     series_list = []
     for _, row in meta_df.iterrows():
         ts_id = int(row["TimeSeriesID"])
-        name = str(row.get("Name", f"Series_{ts_id}"))
+        name = str(row.get("DatName", row.get("Name", f"Series_{ts_id}")))
         dat_type = int(row.get("DatType", 0))
-
-        group_id = row.get("GroupID")
-        group_idx = (
-            int(group_id) - 1 if pd.notna(group_id) and int(group_id) > 0 else None
-        )
-
-        fleet_id = row.get("FleetID")
-        fleet_idx = (
-            int(fleet_id) - 1 if pd.notna(fleet_id) and int(fleet_id) > 0 else None
-        )
-
         dataset_id = (
             int(row.get("DatasetID", 0)) if pd.notna(row.get("DatasetID")) else 0
         )
-
         # WtType is a method enum (0=SS, 1=SSLog, etc.), NOT a weight value.
         weight = 1.0
 
-        # Extract values for this series, sorted by timestep
-        ts_vals = values_df[values_df["TimeSeriesID"] == ts_id].sort_values("TimeStep")
-        values = ts_vals["Value"].to_numpy(dtype=float)
+        group_idx = ts_group.get(ts_id)
+        fleet_idx = ts_fleet.get(ts_id)
+        if group_idx is None and "GroupID" in meta_df.columns:
+            gid = _int_or_none(row.get("GroupID"))
+            if gid is not None and gid > 0:
+                group_idx = gid - 1  # older layout: ID order
+        if fleet_idx is None and "FleetID" in meta_df.columns:
+            fid = _int_or_none(row.get("FleetID"))
+            if fid is not None and fid > 0:
+                fleet_idx = fid - 1
 
+        if values_df is not None and "TimeSeriesID" in values_df.columns:
+            ts_vals = values_df[values_df["TimeSeriesID"] == ts_id].sort_values(
+                "TimeStep"
+            )
+            values = ts_vals["Value"].to_numpy(dtype=float)
+        else:
+            raw = row.get("TimeValues", "")
+            values = np.array(
+                [float(v) for v in str(raw).split()] if pd.notna(raw) else [],
+                dtype=float,
+            )
         if len(values) == 0:
             continue
 

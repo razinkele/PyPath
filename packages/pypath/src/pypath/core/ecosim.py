@@ -198,6 +198,15 @@ class RsimParams:
     # EwE6 solves NoIntegrate groups at equilibrium in every RK4 stage;
     # Rpath's rk4_run integrates them (fast_group_rule='rpath').
     RK4_FAST_EQUILIBRIUM: bool = True
+    # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
+    # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
+    # ForagingTimeLowerLimit, EcopathGroup.vbK).
+    MoPred: Optional[np.ndarray] = None  # other mortality follows feeding time
+    FtimeMax: Optional[np.ndarray] = None  # feeding-time cap per group
+    VbK: Optional[np.ndarray] = None  # von Bertalanffy K per group
+    AssimEff: Optional[np.ndarray] = None  # GE0 * (PB + 3 K) / PB
+    ForagingTimeLowerLimit: float = 0.1  # EwE6: 0.01
+    UseVarPQ: bool = False  # GE = AssimEff * Z / (Z + 3 K)
 
 
 @dataclass
@@ -815,6 +824,10 @@ def rsim_params(
         PBopt=pbopt,
         NoIntegrate=no_integrate,
         RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
+        MoPred=np.zeros(ngroups + 1),
+        FtimeMax=np.full(ngroups + 1, 2.0),
+        VbK=np.zeros(ngroups + 1),
+        AssimEff=np.zeros(ngroups + 1),
         HandleSelf=handle_self,
         ScrambleSelf=scramble_self,
         PreyFrom=prey_from,
@@ -924,6 +937,26 @@ def rsim_fishing(params: RsimParams, years: range) -> RsimFishing:
         ForcedFRate=frate,
         ForcedCatch=catch,
     )
+
+
+def _set_assimilation_efficiency(params: "RsimParams") -> None:
+    """EwE6 CalculateAssimilationEfficiencies: AssimEff = GE0 * (PB + 3 K) / PB.
+
+    With UseVarPQ the gross efficiency is GE = AssimEff * Z / (Z + 3 K), so
+    it equals the Ecopath GE0 = PB / QB at the base mortality Z = PB. Groups
+    without a positive K keep 0 and a fixed GE.
+    """
+    vbk = params.VbK
+    if vbk is None:
+        return
+    n = len(vbk)
+    assim = np.zeros(n)
+    for i in range(1, min(n, params.NUM_LIVING + 1)):
+        pb = float(params.PBopt[i])
+        qb = float(params.FtimeQBOpt[i])
+        if vbk[i] > 0 and pb > 0 and qb > 0 and params.PP_type[i] == 0:
+            assim[i] = (pb / qb) * (pb + 3.0 * vbk[i]) / pb
+    params.AssimEff = assim
 
 
 def _fast_group_flags(
@@ -1062,6 +1095,28 @@ def rsim_scenario(
                 pred_g = params.PreyTo[lk] - 1
                 if (prey_g, pred_g) in vv_dict:
                     params.VV[lk] = vv_dict[(prey_g, pred_g)]
+
+        # EwE6 Ecosim options (per group: 0-based model index -> value)
+        for key, attr in (
+            ("mo_pred", "MoPred"),
+            ("ftime_max", "FtimeMax"),
+            ("vbk", "VbK"),
+        ):
+            if scenario_overrides.get(key):
+                arr = getattr(params, attr)
+                for g, val in scenario_overrides[key].items():
+                    if val is None or not np.isfinite(val):
+                        continue
+                    ecosim_idx = g + 1
+                    if 0 < ecosim_idx < len(arr):
+                        arr[ecosim_idx] = float(val)
+        if "use_var_pq" in scenario_overrides:
+            params.UseVarPQ = bool(scenario_overrides["use_var_pq"])
+        if scenario_overrides.get("foraging_time_lower_limit") is not None:
+            params.ForagingTimeLowerLimit = float(
+                scenario_overrides["foraging_time_lower_limit"]
+            )
+        _set_assimilation_efficiency(params)
 
     # Preserve optional instrumentation and debug controls set on the
     # original RpathParams object by copying them onto the generated
@@ -1336,6 +1391,10 @@ def rsim_run(
         "MetabolicTemperature": getattr(params, "MetabolicTemperature", None),
         "MetabolicBodyMass": getattr(params, "MetabolicBodyMass", None),
         "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
+        "MoPred": getattr(params, "MoPred", None),
+        "UseVarPQ": getattr(params, "UseVarPQ", False),
+        "VbK": getattr(params, "VbK", None),
+        "AssimEff": getattr(params, "AssimEff", None),
     }
 
     # Pre-compute sparse link arrays for the consumption kernel so that
@@ -2241,6 +2300,12 @@ def rsim_run(
         }
         if stanza_state is not None:
             forcing_dict["StanzaPredRatio"] = _stanza_pred_ratio()
+        # Forced biomass replaces the group's state (EwE6 setForcedBiomass,
+        # applied before and after the step); the derivative sees it too.
+        _forced_now = forcing_dict["ForcedBio"]
+        _forced_mask = np.asarray(_forced_now) > 0
+        if np.any(_forced_mask):
+            state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
         month_start_state = state.copy()
 
         # Integration step
@@ -2325,6 +2390,8 @@ def rsim_run(
             state = integrate_rk4(
                 state, params_dict, forcing_dict, fishing_dict, dt, n_steps=rk4_steps
             )
+        if np.any(_forced_mask):
+            state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
 
         # Monthly M0 adjustment to enforce algebraic equilibrium for small residuals
         if not params_dict.get("MONTHLY_M0_ADJUST", False):
@@ -2514,9 +2581,11 @@ def rsim_run(
                 n_living=params.NUM_LIVING,
             )
             _ecotracer_out[month] = _ecotracer_conc.copy()
-        # Dynamic Ftime adjustment: Rpath formula (ecosim.cpp)
-        # new_Ftime = 0.1 + 0.9*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), cap 2.0
+        # Dynamic Ftime adjustment (Rpath ecosim.cpp; EwE6 rk4):
+        # new_Ftime = L + (1-L)*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), capped
         if _has_ftime_adj:
+            _ftime_lower = float(getattr(params, "ForagingTimeLowerLimit", 0.1))
+            _ftime_max = getattr(params, "FtimeMax", None)
             for i in range(1, params.NUM_LIVING + 1):
                 if _ftime_adj[i] > 0 and state[i] > 0 and _ftime_qbopt[i] > 0:
                     food_gain = float(np.nansum(QQ_month[:, i]))
@@ -2526,6 +2595,8 @@ def rsim_run(
                         _ftime_qbopt[i],
                         food_gain,
                         state[i],
+                        lower=_ftime_lower,
+                        cap=float(_ftime_max[i]) if _ftime_max is not None else 2.0,
                     )
         # Accumulate monthly Q (converted to monthly by dividing by 12)
         if annual_qlink is not None:
@@ -2726,7 +2797,8 @@ def rsim_run(
     end_state = RsimState(
         Biomass=state.copy(),
         N=np.zeros(n_groups),
-        Ftime=scenario.start_state.Ftime.copy(),
+        # the feeding time as updated month by month, not the start value
+        Ftime=np.asarray(_ftime_current, dtype=float).copy(),
     )
 
     # Build predator-prey identifiers for output
@@ -2810,17 +2882,23 @@ def _build_link_matrix(params: RsimParams, link_values: np.ndarray) -> np.ndarra
     return matrix
 
 
-def _ftime_update_rpath(old_ftime, ftadj, qbopt, food_gain, biomass):
-    """Update foraging time using Rpath formula (ecosim.cpp).
+def _ftime_update_rpath(
+    old_ftime, ftadj, qbopt, food_gain, biomass, lower=0.1, cap=2.0
+):
+    """Monthly feeding-time update (Rpath ecosim.cpp; EwE6 rk4).
 
-    new_Ftime = 0.1 + 0.9 * old_Ftime * ((1-adj) + adj * QBopt / (FoodGain/B))
-    Capped at 2.0 per Rpath.
+    new_Ftime = L + (1 - L) * old_Ftime * ((1 - adj) + adj * QBopt / (FoodGain/B))
+
+    Rpath: L = 0.1, cap 2. EwE6: L = ForagingTimeLowerLimit (default 0.01)
+    and the cap is the group's FtimeMax.
     """
     if food_gain <= 0 or biomass <= 0 or qbopt <= 0:
         return old_ftime
     actual_qb = food_gain / biomass
-    new_ftime = 0.1 + 0.9 * old_ftime * ((1.0 - ftadj) + ftadj * qbopt / actual_qb)
-    return min(new_ftime, 2.0)
+    new_ftime = lower + (1.0 - lower) * old_ftime * (
+        (1.0 - ftadj) + ftadj * qbopt / actual_qb
+    )
+    return min(new_ftime, cap)
 
 
 def _compute_Q_matrix(

@@ -28,11 +28,13 @@ pytestmark = pytest.mark.integration
 # the settings EwE6 actually uses, SS was 881.2 on main's dynamics and is
 # 642.0 with the stanza coupling, the closed detritus budget, EwE's fast-group
 # rule (Zooplankton, Phytoplankton and Detritus at equilibrium, under RK4 as
-# under AB) and donor control at v = 1. The real reference is EwE6's own
-# scenario-16 trajectory.
+# under AB) and donor control at v = 1, and 643.5 with dataset 35 applied as
+# EwE applies a loaded dataset (Round goby's biomass forced from 0.03 to 7.8
+# and back to 2.4; the dataset is also the fit's observations). The real
+# reference is EwE6's own scenario-16 trajectory.
 # A change beyond 2 % needs a reason. Keep in step with
 # test_ecosim_lt2022_parity.py.
-LT2022_SS16 = 642.0
+LT2022_SS16 = 643.5
 
 
 def _db_available():
@@ -74,7 +76,7 @@ def ecosim_scenario_16():
         pytest.skip("LT2022 database not found")
     from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
 
-    return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16)
+    return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16, timeseries_dataset=35)
 
 
 # =========================================================================

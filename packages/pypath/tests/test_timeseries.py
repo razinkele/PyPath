@@ -27,7 +27,7 @@ class TestDatTypeConstants:
         assert DATTYPE_ABS_BIOMASS == 1
 
     def test_fishing_mortality(self):
-        assert DATTYPE_FISHING_MORTALITY == 2
+        assert DATTYPE_FISHING_MORTALITY == 4
 
     def test_effort(self):
         assert DATTYPE_EFFORT == 3
@@ -292,7 +292,24 @@ class TestApplyTimeseriesDrivers:
         np.testing.assert_array_equal(scenario.forcing.ForcedBio, bio_before)
         np.testing.assert_array_equal(scenario.fishing.ForcedEffort, effort_before)
 
-    def test_nan_values_preserve_temporal_position(self):
+    def test_yearly_values_hold_for_their_twelve_months(self):
+        """EwE6 setForcedBiomass: the data year's value is used in every
+        month of that year (toForcingTimeStep), no interpolation."""
+        scenario = _make_mock_scenario(n_months=36, n_years=3)
+        series = [
+            EweTimeSeries(
+                1, "F", DATTYPE_FORCED_BIOMASS, 0, None, np.array([5.0, 5.5, 6.0])
+            ),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        apply_timeseries_drivers(scenario, coll)
+        bio = scenario.forcing.ForcedBio[:, 1]
+        np.testing.assert_array_equal(bio[:12], 5.0)
+        np.testing.assert_array_equal(bio[12:24], 5.5)
+        np.testing.assert_array_equal(bio[24:36], 6.0)
+
+    def test_missing_year_is_not_forced(self):
+        """A year without a value leaves the group free (PoolForceBB <= 0)."""
         scenario = _make_mock_scenario(n_months=48, n_years=4)
         series = [
             EweTimeSeries(
@@ -307,9 +324,37 @@ class TestApplyTimeseriesDrivers:
         coll = EweTimeSeriesCollection(series)
         apply_timeseries_drivers(scenario, coll)
         bio = scenario.forcing.ForcedBio[:, 1]
-        assert abs(bio[0] - 5.0) < 0.5
-        assert abs(bio[-1] - 7.0) < 0.5
-        assert 5.0 < bio[12] < 6.0
+        np.testing.assert_array_equal(bio[:12], 5.0)
+        np.testing.assert_array_equal(bio[12:24], -1.0)
+        np.testing.assert_array_equal(bio[24:36], 6.0)
+        np.testing.assert_array_equal(bio[36:48], 7.0)
+
+    def test_effort_holds_yearly_values_and_series_shorter_than_the_run(self):
+        scenario = _make_mock_scenario(n_months=36, n_years=3)
+        series = [
+            EweTimeSeries(
+                2, "Trawl effort", DATTYPE_EFFORT, None, 0, np.array([1.5, 2.0])
+            ),
+        ]
+        coll = EweTimeSeriesCollection(series)
+        apply_timeseries_drivers(scenario, coll)
+        effort = scenario.fishing.ForcedEffort[:, 1]
+        np.testing.assert_array_equal(effort[:12], 1.5)
+        np.testing.assert_array_equal(effort[12:24], 2.0)
+        np.testing.assert_array_equal(effort[24:36], 1.0)  # beyond the data: unchanged
+
+    def test_type_codes_follow_ewe6(self):
+        """CoreEnumerators.vb eTimeSeriesType."""
+        from pypath.core import timeseries as ts
+
+        assert ts.DATTYPE_REL_BIOMASS == 0
+        assert ts.DATTYPE_ABS_BIOMASS == 1
+        assert ts.DATTYPE_FORCED_BIOMASS == -1
+        assert ts.DATTYPE_TIME_FORCING == 2
+        assert ts.DATTYPE_EFFORT == 3
+        assert ts.DATTYPE_FISHING_MORTALITY == 4
+        assert ts.DATTYPE_CATCH == 6
+        assert ts.DATTYPE_CATCH_FORCING == -6
 
 
 class TestLoadTimeseries:
