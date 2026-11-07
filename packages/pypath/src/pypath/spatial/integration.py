@@ -554,23 +554,26 @@ def rsim_run_spatial(
                 "; ".join(problems),
             )
         else:
-            from pypath.core.ecosim import _warn_stanza_start_mismatch
+            from pypath.core.ecosim import _stanza_start_consistent
 
             stanza_state = RsimStanzaState.from_base(stanzas_obj, n_groups)
             stanza_idx = stanza_group_indices(stanzas_obj)
-            biomass_spatial0 = biomass_spatial0.copy()
             total0 = biomass_spatial0.sum(axis=1)
-            entered = total0[stanza_idx].copy()
-            split_set_pred(stanzas_obj, stanza_state, total0)
-            _warn_stanza_start_mismatch(
-                stanza_idx, entered, total0[stanza_idx], scenario.params
-            )
-            for i in stanza_idx:
-                biomass_spatial0[i] = _spread_over_patches(
-                    total0[i], biomass_spatial0[i], patch_w
-                )
-            stanza_biomass = np.zeros((n_months + 1, n_groups + 1))
-            stanza_biomass[0, stanza_idx] = total0[stanza_idx]
+            trial = total0.copy()
+            split_set_pred(stanzas_obj, stanza_state, trial)
+            if _stanza_start_consistent(
+                stanza_idx, total0[stanza_idx], trial[stanza_idx], scenario.params
+            ):
+                biomass_spatial0 = biomass_spatial0.copy()
+                for i in stanza_idx:
+                    biomass_spatial0[i] = _spread_over_patches(
+                        trial[i], biomass_spatial0[i], patch_w
+                    )
+                stanza_biomass = np.zeros((n_months + 1, n_groups + 1))
+                stanza_biomass[0, stanza_idx] = trial[stanza_idx]
+            else:
+                stanza_state = None
+                stanza_idx = np.zeros(0, dtype=int)
 
     state_spatial = SpatialState(Biomass=biomass_spatial0.copy())
 

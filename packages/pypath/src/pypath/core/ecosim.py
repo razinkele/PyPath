@@ -1050,13 +1050,19 @@ def _normalize_fishing_input(fishing_obj, n_groups):
 STANZA_START_MISMATCH_RTOL = 0.01
 
 
-def _warn_stanza_start_mismatch(stanza_idx, entered, derived, params) -> None:
-    """Warn when a stanza group's entered biomass is not its age structure.
+def _stanza_start_consistent(stanza_idx, entered, derived, params) -> bool:
+    """Whether every stanza group's entered biomass is its age structure.
 
-    Ecosim replaces each stanza group's start biomass with sum(N * W) of its
-    age structure (Rpath SplitSetPred). If the Ecopath biomass was typed by
-    hand instead of derived with ``rpath_stanzas``, the two disagree and the
-    run starts away from the Ecopath balance and drifts.
+    Ecosim starts each stanza group at sum(N * W) of its age structure (Rpath
+    SplitSetPred). When the Ecopath biomass was not derived from that
+    structure (typed by hand, or computed by EwE with a derivation PyPath
+    does not reproduce), the two disagree, and a run that starts from the
+    age structure leaves the Ecopath balance at once: LT2022's Blue mussel
+    juveniles would start at 5.3 instead of 15, their death flow to a
+    detritus pool that turns over 2800 times a year disappears, and the
+    food web collapses. So the age structure is only used when it
+    reproduces the entered biomass within ``STANZA_START_MISMATCH_RTOL``;
+    otherwise this warns and the caller runs without it.
     """
     names = getattr(params, "spname", None)
     bad = []
@@ -1065,15 +1071,20 @@ def _warn_stanza_start_mismatch(stanza_idx, entered, derived, params) -> None:
         if abs(b_age - b_in) / scale > STANZA_START_MISMATCH_RTOL:
             name = names[i] if names is not None and i < len(names) else str(i)
             bad.append("%s %.4g -> %.4g" % (name, b_in, b_age))
-    if bad:
-        logger.warning(
-            "Multi-stanza biomass differs from its age structure by more than "
-            "%.0f%%; Ecosim starts these groups at the age-structure biomass "
-            "(entered -> age structure): %s. Derive the stanza biomasses with "
-            "rpath_stanzas() before balancing to start at equilibrium.",
-            STANZA_START_MISMATCH_RTOL * 100,
-            "; ".join(bad),
-        )
+    if not bad:
+        return True
+    warnings.warn(
+        "Multi-stanza biomass differs from its age structure by more than "
+        "%.0f%% (entered -> age structure): %s. Ecosim runs without the stanza "
+        "age structure: these groups keep their Ecopath biomass and have no "
+        "age-structured recruitment. Derive the stanza biomasses with "
+        "rpath_stanzas() before balancing (Rpath), or check the stanza growth "
+        "and mortality parameters (EwE: K, Z = P/B)."
+        % (STANZA_START_MISMATCH_RTOL * 100, "; ".join(bad)),
+        UserWarning,
+        stacklevel=3,
+    )
+    return False
 
 
 def rsim_run(
@@ -1153,14 +1164,20 @@ def rsim_run(
         else:
             stanza_state = RsimStanzaState.from_base(stanzas_obj, params.NUM_GROUPS)
             stanza_idx = stanza_group_indices(stanzas_obj)
-            # Rpath starts each run with SplitSetPred on the start state
-            entered = state[stanza_idx].copy()
-            split_set_pred(stanzas_obj, stanza_state, state)
-            _warn_stanza_start_mismatch(
-                stanza_idx, entered, state[stanza_idx], scenario.params
-            )
-            stanza_biomass = np.zeros((n_months + 1, n_groups))
-            stanza_biomass[0, stanza_idx] = state[stanza_idx]
+            # Rpath starts each run with SplitSetPred on the start state. The
+            # age structure is used only if it reproduces the Ecopath
+            # biomass; otherwise the run would start off the balance.
+            trial = state.copy()
+            split_set_pred(stanzas_obj, stanza_state, trial)
+            if _stanza_start_consistent(
+                stanza_idx, state[stanza_idx], trial[stanza_idx], scenario.params
+            ):
+                state = trial
+                stanza_biomass = np.zeros((n_months + 1, n_groups))
+                stanza_biomass[0, stanza_idx] = state[stanza_idx]
+            else:
+                stanza_state = None
+                stanza_idx = np.zeros(0, dtype=int)
     _stanza_set = set(int(i) for i in stanza_idx)
 
     def _stanza_pred_ratio():

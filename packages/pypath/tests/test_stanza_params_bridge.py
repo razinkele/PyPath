@@ -405,36 +405,34 @@ class TestCoupling:
         assert out.stanza_biomass is None
         assert any("split_alpha" in r.getMessage() for r in caplog.records)
 
-    def test_consistent_stanza_biomass_does_not_warn(self, model_and_params, caplog):
+    def test_consistent_stanza_biomass_does_not_warn(self, model_and_params):
+        import warnings
+
         model, params = model_and_params
         sc = rsim_scenario(model, params, years=range(1, 3))
-        with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
-            rsim_run(sc, method="RK4", years=range(1, 3))
-        assert not any(
-            "differs from its age structure" in r.getMessage() for r in caplog.records
-        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            out = rsim_run(sc, method="RK4", years=range(1, 3))
+        assert not [w for w in caught if "age structure" in str(w.message)]
+        assert out.stanza_biomass is not None
 
-    def test_hand_typed_stanza_biomass_warns(self, model_and_params, caplog):
-        """A stanza biomass that is not sum(N*W) is reset at month 0; say so."""
+    def test_hand_typed_stanza_biomass_runs_uncoupled_with_a_warning(
+        self, model_and_params
+    ):
+        """A stanza biomass that is not sum(N*W) keeps its Ecopath value and
+        the run goes without the age structure, with a warning."""
         model, params = model_and_params
         sc = rsim_scenario(model, params, years=range(1, 3))
         from pypath.core.stanzas import stanza_group_indices
 
         g = int(stanza_group_indices(sc.stanzas)[0])
         sc.start_state.Biomass[g] *= 2.0
-        with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
+        with pytest.warns(UserWarning, match="differs from its age structure") as rec:
             out = rsim_run(sc, method="RK4", years=range(1, 3))
-        msgs = [
-            r.getMessage()
-            for r in caplog.records
-            if "differs from its age structure" in r.getMessage()
-        ]
-        assert len(msgs) == 1
-        assert sc.params.spname[g] in msgs[0]
-        # the run still starts from the age structure, as in Rpath
-        assert out.out_Biomass[0, g] == pytest.approx(
-            sc.start_state.Biomass[g] / 2.0, rel=0.01
-        )
+        assert sum("age structure" in str(w.message) for w in rec) == 1
+        assert sc.params.spname[g] in str(rec[0].message)
+        assert out.stanza_biomass is None
+        assert out.out_Biomass[0, g] == pytest.approx(sc.start_state.Biomass[g])
 
     def test_split_update_gets_ecopath_rates_at_baseline(
         self, model_and_params, monkeypatch
