@@ -1245,6 +1245,36 @@ def read_ewemdb(
                     }
                 )
 
+            # EwE takes each life stage's total mortality Z from the stage's
+            # Ecopath P/B (Rpath's EwE-derived examples carry Z == PB). The
+            # StanzaLifeStage.Mortality column is often 0, and a Z of 0 gives
+            # a flat age structure that puts almost no biomass in the young
+            # stages (LT2022: 2e-4 against an Ecopath 15.0).
+            try:
+                pb_by_group = dict(
+                    zip(
+                        params.model["Group"].astype(str).str.strip(),
+                        pd.to_numeric(params.model["PB"], errors="coerce"),
+                    )
+                )
+            except Exception as e:
+                logger.debug("stanza Z: no model PB available: %s", e)
+                pb_by_group = {}
+
+            def _stanza_z(group_name: str, mortality: Any) -> float:
+                pb = pb_by_group.get(str(group_name).strip(), np.nan)
+                mort = pd.to_numeric(mortality, errors="coerce")
+                if pd.notna(pb) and float(pb) > 0:
+                    if pd.notna(mort) and float(mort) > 0 and not np.isclose(mort, pb):
+                        logger.debug(
+                            "stanza %s: Mortality %s differs from PB %s; using PB as Z",
+                            group_name,
+                            mort,
+                            pb,
+                        )
+                    return float(pb)
+                return float(mort) if pd.notna(mort) else np.nan
+
             # Build stindiv DataFrame (one row per life stage)
             stindiv_data = []
             for _, row in stanza_life_df.iterrows():
@@ -1268,7 +1298,7 @@ def read_ewemdb(
                         "Group": group_name,
                         "First": row.get("AgeStart", 0),
                         "Last": np.nan,  # Will be calculated from next stage's First
-                        "Z": row.get("Mortality", np.nan),
+                        "Z": _stanza_z(group_name, row.get("Mortality", np.nan)),
                         "Leading": (
                             row.get("Sequence", 1)
                             == stanza_df[stanza_df["StanzaID"] == stanza_id][
