@@ -30,7 +30,7 @@ params.instrument_callback = cb
 
 pypath_model = rpath(params)
 
-scenario = rsim_scenario(pypath_model, params, years=range(1, 3))
+scenario = rsim_scenario(pypath_model, params, years=range(1, 3), fast_group_rule="rpath")
 print('Scenario params has INSTRUMENT_GROUPS:', hasattr(scenario.params, 'INSTRUMENT_GROUPS') and scenario.params.INSTRUMENT_GROUPS)
 print('Scenario params has instrument_callback:', hasattr(scenario.params, 'instrument_callback'))
 out_ab = rsim_run(scenario, method='AB', years=range(1, 3))

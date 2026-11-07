@@ -22,7 +22,7 @@ params.diet = diet_df
 
 # Build balanced rpath model and scenario
 r = rpath(params)
-scenario = rsim_scenario(r, params)
+scenario = rsim_scenario(r, params, fast_group_rule="rpath")
 
 # Identify Seabirds index in Rref ordering
 group_names = model_df['Group'].tolist()

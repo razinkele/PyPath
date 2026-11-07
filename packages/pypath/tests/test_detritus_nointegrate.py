@@ -28,7 +28,9 @@ def scenario():
     )
     params.model = model_df
     params.diet = pd.read_csv(RE / "ecopath" / "diet_matrix.csv")
-    return rsim_scenario(rpath(params), params, years=range(1, 3))
+    return rsim_scenario(
+        rpath(params), params, years=range(1, 3), fast_group_rule="rpath"
+    )
 
 
 @pytest.fixture(scope="module")

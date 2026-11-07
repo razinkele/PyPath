@@ -16,7 +16,7 @@ params = create_rpath_params(model_df['Group'].tolist(), model_df['Type'].tolist
 params.model = model_df
 params.diet = diet_df
 r = rpath(params)
-scenario = rsim_scenario(r, params)
+scenario = rsim_scenario(r, params, fast_group_rule="rpath")
 params_dict = {"NUM_GROUPS": scenario.params.NUM_GROUPS, "NUM_LIVING": scenario.params.NUM_LIVING, "NUM_DEAD": scenario.params.NUM_DEAD, "NUM_GEARS": scenario.params.NUM_GEARS, "PB": scenario.params.PBopt, "QB": scenario.params.FtimeQBOpt, "M0": scenario.params.MzeroMort, "Unassim": scenario.params.UnassimRespFrac, "ActiveLink": None, "VV": scenario.params.VV, "DD": scenario.params.DD, "QQbase": scenario.params.QQ, "Bbase": scenario.params.B_BaseRef, "PP_type": scenario.params.PP_type }
 state = scenario.start_state.Biomass.copy()
 forcing_dict = {"Ftime": scenario.start_state.Ftime.copy(), "ForcedBio": np.ones(len(state)), "ForcedMigrate": np.zeros(len(state)), "ForcedEffort": scenario.fishing.ForcedEffort[0]}

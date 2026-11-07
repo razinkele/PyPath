@@ -33,7 +33,7 @@ detfrom = getattr(params, 'DetFrom', None)
 detto = getattr(params, 'DetTo', None)
 print('Initial DetFrom:', detfrom[:20] if detfrom is not None else None)
 print('Initial DetTo:', detto[:20] if detto is not None else None)
-scenario = rsim_scenario(model, params, years=range(1, 101))
+scenario = rsim_scenario(model, params, years=range(1, 101), fast_group_rule="rpath")
 # DetFrac inside scenario.params (before running) may differ from params
 pre_run_DetFrac = getattr(scenario.params, 'DetFrac', None)
 print('Pre-run DetFrac shape (scenario.params):', getattr(pre_run_DetFrac, 'shape', type(pre_run_DetFrac)))

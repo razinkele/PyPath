@@ -20,7 +20,7 @@ params.model = model_df.copy()
 params.diet = diet_df
 rpath_model, diag = rpath(params, debug=True)
 
-scenario = rsim_scenario(rpath_model, params, years=range(1, 101))
+scenario = rsim_scenario(rpath_model, params, years=range(1, 101), fast_group_rule="rpath")
 pp = scenario.params
 
 rref = json.load(open(ECOSIM_DIR / 'ecosim_params.json'))

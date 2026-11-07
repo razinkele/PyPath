@@ -16,7 +16,7 @@ params=create_rpath_params(groups, model_df['Type'].tolist())
 params.model=model_df
 params.diet=diet_df
 pypath_model=rpath(params)
-scenario=rsim_scenario(pypath_model, params, years=range(1,3))
+scenario=rsim_scenario(pypath_model, params, years=range(1, 3), fast_group_rule="rpath")
 out_ab=rsim_run(scenario, method='AB', years=range(1,3))
 rpath_traj_ab=pd.read_csv(ECOSIM_DIR/'biomass_trajectory_ab.csv')
 macrob_idx=groups.index('Macrobenthos')

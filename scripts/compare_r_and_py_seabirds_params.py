@@ -37,7 +37,7 @@ params=create_rpath_params(model_df['Group'].tolist(), model_df['Type'].tolist()
 params.model=model_df
 params.diet=diet_df
 r=rpath(params)
-scenario=rsim_scenario(r, params)
+scenario=rsim_scenario(r, params, fast_group_rule="rpath")
 print('\nPy MzeroMort first 10:', scenario.params.MzeroMort[:10])
 print('Py PP_type first 10:', scenario.params.PP_type[:10])
 print('Py start_state biomass Seabirds:', scenario.start_state.Biomass[1])

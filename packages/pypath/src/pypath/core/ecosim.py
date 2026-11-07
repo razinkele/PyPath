@@ -430,6 +430,7 @@ def rsim_params(
     handleselfwt: float = 0.0,
     steps_yr: int = 12,
     steps_m: int = 1,
+    fast_group_rule: str = "ewe",
 ) -> RsimParams:
     """Convert Rpath model to Ecosim simulation parameters.
 
@@ -451,12 +452,24 @@ def rsim_params(
         Timesteps per year (default 12 = monthly)
     steps_m : int
         Sub-timesteps per month (default 1)
+    fast_group_rule : {"ewe", "rpath"}
+        Which groups are solved as fast equilibria (``NoIntegrate``) instead
+        of being integrated. ``"ewe"`` (default) follows EwE6: a group whose
+        total loss rate at the start, |loss|/B, exceeds 24 per year
+        (predation + other mortality + fishing; for detritus the inflow minus
+        biomass accumulation). ``"rpath"`` follows Rpath: other-mortality
+        flow M0*B above 24, plus every detritus group (PyPath's former
+        behaviour; use it to compare with Rpath outputs).
 
     Returns
     -------
     RsimParams
         Parameters object for simulation
     """
+    if fast_group_rule not in ("ewe", "rpath"):
+        raise ValueError(
+            f"fast_group_rule must be 'ewe' or 'rpath', got {fast_group_rule!r}"
+        )
     nliving = rpath.NUM_LIVING
     ndead = rpath.NUM_DEAD
     ngear = rpath.NUM_GEARS
@@ -514,13 +527,8 @@ def rsim_params(
     ftime_qbopt = np.concatenate([[1.0], ftime_qbopt_values])
     pbopt = np.concatenate([[1.0], rpath.PB])
 
-    # NoIntegrate flag: 1 indicates groups that should not be integrated (fast-turnover/equilibrium)
-    # Previously this used 0/spnum which was inconsistent with downstream checks. Use 1 for NoIntegrate.
-    no_integrate = np.where(mzero * b_baseref > 2 * steps_yr * steps_m, 1, 0)
-
-    # Rpath marks fast-equilibrium groups by this rule alone; a detritus pool
-    # with slow turnover (e.g. Discards) is integrated like any other group.
-    # (NoIntegrate only matters to Adams-Bashforth; RK4 integrates all.)
+    # NoIntegrate (fast-equilibrium) flags are set after the predator-prey and
+    # fishing links exist; see _fast_group_flags below.
 
     # Predator-prey handling parameters
     handle_self = np.full(ngroups + 1, handleselfwt)
@@ -770,6 +778,23 @@ def rsim_params(
         logger.debug("DetFate diagnostic logging failed: %s", e)
 
     _warn_detritus_self_fate(rpath, nliving, ndead)
+    no_integrate = _fast_group_flags(
+        fast_group_rule,
+        threshold=2.0 * steps_yr * steps_m,
+        rpath=rpath,
+        nliving=nliving,
+        ndead=ndead,
+        b_baseref=b_baseref,
+        mzero=mzero,
+        unassim=unassim,
+        pp_type=pp_type,
+        prey_from=prey_from,
+        prey_to=prey_to,
+        qq=qq,
+        fish_from=fish_from,
+        fish_to=fish_to,
+        fish_q=fish_q,
+    )
 
     return RsimParams(
         NUM_GROUPS=ngroups,
@@ -898,12 +923,89 @@ def rsim_fishing(params: RsimParams, years: range) -> RsimFishing:
     )
 
 
+def _fast_group_flags(
+    rule: str,
+    threshold: float,
+    rpath: Rpath,
+    nliving: int,
+    ndead: int,
+    b_baseref: np.ndarray,
+    mzero: np.ndarray,
+    unassim: np.ndarray,
+    pp_type: np.ndarray,
+    prey_from: np.ndarray,
+    prey_to: np.ndarray,
+    qq: np.ndarray,
+    fish_from: np.ndarray,
+    fish_to: np.ndarray,
+    fish_q: np.ndarray,
+) -> np.ndarray:
+    """NoIntegrate flags (1 = solved at equilibrium, 0 = integrated).
+
+    ``"ewe"``: EwE6's rule (cEcoSimModel.SetTimeSteps): a group is not
+    integrated when its total loss rate at the start, |loss|/B, exceeds the
+    threshold (24 /yr for monthly steps). For living groups the loss is
+    predation + other mortality + fishing. For detritus EwE's loss is
+    consumption + export*B, and the export rate is set at the start to close
+    the detritus budget, so the loss equals the inflow minus the biomass
+    accumulation: other-mortality and unassimilated flows routed by the
+    detritus fate, plus discards. Evaluated at the Ecopath base, which is
+    where EwE evaluates its first derivative.
+
+    ``"rpath"``: Rpath's rule, other-mortality flow M0*B above the threshold,
+    plus every detritus group (PyPath's former behaviour).
+    """
+    n = len(b_baseref)
+    nbio = nliving + ndead
+    if rule == "rpath":
+        flags = np.where(np.nan_to_num(mzero) * b_baseref > threshold, 1, 0)
+        flags[np.where(np.asarray(pp_type) == 2)[0]] = 1
+        flags[0] = 0
+        return flags
+
+    mzero = np.nan_to_num(np.asarray(mzero, dtype=float))
+    loss = np.zeros(n)
+    consumption = np.zeros(n)
+    for k in range(1, len(qq)):
+        if prey_from[k] > 0:  # links from Outside are primary production
+            loss[prey_from[k]] += qq[k]
+            consumption[prey_to[k]] += qq[k]
+    for k in range(1, len(fish_q)):
+        loss[fish_from[k]] += fish_q[k] * b_baseref[fish_from[k]]
+    loss[1 : nliving + 1] += mzero[1 : nliving + 1] * b_baseref[1 : nliving + 1]
+
+    ba = np.nan_to_num(np.asarray(getattr(rpath, "BA", np.zeros(n - 1)), dtype=float))
+    det_fate = np.asarray(rpath.DetFate, dtype=float)
+    for det_idx in range(ndead):
+        d = nliving + det_idx + 1
+        inflow = 0.0
+        for i in range(nliving):
+            frac = det_fate[i, det_idx] if i < det_fate.shape[0] else 0.0
+            if frac > 0:
+                inflow += (
+                    mzero[i + 1] * b_baseref[i + 1]
+                    + unassim[i + 1] * consumption[i + 1]
+                ) * frac
+        for k in range(1, len(fish_q)):
+            if fish_to[k] == d:
+                inflow += fish_q[k] * b_baseref[fish_from[k]]
+        loss[d] = inflow - (ba[d - 1] if d - 1 < len(ba) else 0.0)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rate = np.where(b_baseref > 0, np.abs(loss) / b_baseref, 0.0)
+    flags = np.where(rate > threshold, 1, 0)
+    flags[0] = 0
+    flags[nbio + 1 :] = 0
+    return flags
+
+
 def rsim_scenario(
     rpath: Rpath,
     rpath_params: RpathParams,
     years: range = range(1, 101),
     vulnerability: float = 2.0,
     scenario_overrides: dict = None,
+    fast_group_rule: Optional[str] = None,
 ) -> RsimScenario:
     """Create a complete Ecosim scenario.
 
@@ -926,6 +1028,8 @@ def rsim_scenario(
         - 'ftime_adjust': dict mapping 0-based group index -> FtimeAdjust value
         - 'vv_overrides': dict mapping (prey_0based, pred_0based) -> VV value
         - 'forced_bio': dict mapping 0-based group index -> array of annual biomass values
+    fast_group_rule : {"ewe", "rpath"}, optional
+        Passed to :func:`rsim_params`; None keeps its default ("ewe").
 
     Returns
     -------
@@ -935,7 +1039,10 @@ def rsim_scenario(
     if len(years) < 2:
         raise ValueError("Years must be a range of at least 2 years")
 
-    params = rsim_params(rpath, mscramble=vulnerability)
+    rule_kwargs = (
+        {} if fast_group_rule is None else {"fast_group_rule": fast_group_rule}
+    )
+    params = rsim_params(rpath, mscramble=vulnerability, **rule_kwargs)
     # Apply scenario-level overrides from EwE database
     if scenario_overrides:
         # Apply FtimeAdjust per group
@@ -2817,8 +2924,11 @@ def _compute_Q_matrix(
                 continue
             PYY = preyYY[prey]
             PDY = predYY[pred]
-            dd_term = dd / (dd - 1.0 + max(PYY, 1e-10)) if dd > 1.0 else 1.0
-            vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
+            # No special case at DD = 1 or VV = 1: the closed form gives
+            # prey-independent (handling-limited) and donor-controlled
+            # consumption there, which is what those settings mean in EwE.
+            dd_term = dd / max(dd - 1.0 + max(PYY, 1e-10), 1e-10)
+            vv_term = vv / max(vv - 1.0 + max(PDY, 1e-10), 1e-10)
             Q_calc = qbase * PDY * PYY * dd_term * vv_term
             QQ[prey, pred] = max(Q_calc, 0.0)
 

@@ -24,7 +24,7 @@ params: RpathParams = create_rpath_params(model_df['Group'].tolist(), model_df['
 params.model = model_df
 params.diet = diet_df
 r: Rpath | Tuple[Rpath, Dict[str, object]] = rpath(params)
-scenario: RsimScenario = rsim_scenario(r, params)
+scenario: RsimScenario = rsim_scenario(r, params, fast_group_rule="rpath")
 sp: RsimParams = scenario.params
 groups: list[Any] = model_df['Group'].tolist()
 seabirds_idx: int = groups.index('Seabirds')  # 0-based

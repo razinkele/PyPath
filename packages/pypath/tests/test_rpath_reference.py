@@ -149,7 +149,9 @@ def ecosim_reference(reference_data_available):
 @pytest.fixture(scope="module")
 def pypath_ecosim(pypath_model, rpath_params):
     """Create PyPath Ecosim scenario."""
-    return rsim_scenario(pypath_model, rpath_params, years=range(1, 101))
+    return rsim_scenario(
+        pypath_model, rpath_params, years=range(1, 101), fast_group_rule="rpath"
+    )
 
 
 # =============================================================================
@@ -491,7 +493,9 @@ class TestForcingScenarios:
         rel_range = (values.max(axis=0) - values.min(axis=0)) / values.mean(axis=0)
         assert np.nanmax(rel_range) > 0.1, f"{reference} does not respond to effort"
 
-        scenario = rsim_scenario(pypath_model, rpath_params, years=range(1, 51))
+        scenario = rsim_scenario(
+            pypath_model, rpath_params, years=range(1, 51), fast_group_rule="rpath"
+        )
         assert scenario.stanzas is not None and scenario.stanzas.n_split == 4
         scenario.fishing.ForcedEffort = scenario.fishing.ForcedEffort * effort
         output = rsim_run(scenario, method=method, years=range(1, 51))

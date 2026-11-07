@@ -17,7 +17,7 @@ params.model = model_df
 params.diet = diet_df
 
 model = rpath(params)
-scenario = rsim_scenario(model, params, years=range(1, 101))
+scenario = rsim_scenario(model, params, years=range(1, 101), fast_group_rule="rpath")
 print('Model row for Discards:')
 print(model_df[model_df['Group']=='Discards'])
 

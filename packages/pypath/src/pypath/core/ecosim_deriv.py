@@ -142,33 +142,30 @@ def _compute_consumption_python(
             else:
                 PYY_term = PYY
 
-            # Handling time term (DD denominator) with suite pooling
-            if dd > 1.0:
-                if use_pooling:
-                    Hself = HandleSelf[prey, pred]
-                    dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
-                else:
-                    dd_prey_eff = PYY
-                dd_prey_safe = max(dd_prey_eff, 1e-10)
-                if hs_exp > 0.0:
-                    dd_denom = dd_prey_safe**hs_exp
-                else:
-                    dd_denom = dd_prey_safe
-                dd_term = dd / (dd - 1.0 + dd_denom)
+            # Handling time term (DD denominator) with suite pooling.
+            # No special case at DD = 1 (prey-independent, handling-limited
+            # consumption) or VV = 1 (donor control): the closed form covers
+            # them, as in Rpath and EwE6.
+            if use_pooling:
+                Hself = HandleSelf[prey, pred]
+                dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
             else:
-                dd_term = 1.0
+                dd_prey_eff = PYY
+            dd_prey_safe = max(dd_prey_eff, 1e-10)
+            if hs_exp > 0.0:
+                dd_denom = dd_prey_safe**hs_exp
+            else:
+                dd_denom = dd_prey_safe
+            dd_term = dd / max(dd - 1.0 + dd_denom, 1e-10)
 
             # Vulnerability term (VV denominator) with suite pooling
-            if vv > 1.0:
-                if use_pooling:
-                    Sself = ScrambleSelf[prey, pred]
-                    vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
-                else:
-                    vv_pred_eff = PDY
-                vv_pred_safe = max(vv_pred_eff, 1e-10)
-                vv_term = vv / (vv - 1.0 + vv_pred_safe)
+            if use_pooling:
+                Sself = ScrambleSelf[prey, pred]
+                vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
             else:
-                vv_term = 1.0
+                vv_pred_eff = PDY
+            vv_pred_safe = max(vv_pred_eff, 1e-10)
+            vv_term = vv / max(vv - 1.0 + vv_pred_safe, 1e-10)
 
             Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
 
@@ -298,33 +295,28 @@ def _compute_consumption_sparse_python(
         else:
             PYY_term = PYY
 
-        # Handling time term (DD denominator) with suite pooling
-        if dd > 1.0:
-            if use_pooling:
-                Hself = HandleSelf[prey, pred]
-                dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
-            else:
-                dd_prey_eff = PYY
-            dd_prey_safe = max(dd_prey_eff, 1e-10)
-            if hs_exp > 0.0:
-                dd_denom = dd_prey_safe**hs_exp
-            else:
-                dd_denom = dd_prey_safe
-            dd_term = dd / (dd - 1.0 + dd_denom)
+        # Handling time term (DD denominator) with suite pooling. No special
+        # case at DD = 1 or VV = 1 (see the sparse kernel above).
+        if use_pooling:
+            Hself = HandleSelf[prey, pred]
+            dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
         else:
-            dd_term = 1.0
+            dd_prey_eff = PYY
+        dd_prey_safe = max(dd_prey_eff, 1e-10)
+        if hs_exp > 0.0:
+            dd_denom = dd_prey_safe**hs_exp
+        else:
+            dd_denom = dd_prey_safe
+        dd_term = dd / max(dd - 1.0 + dd_denom, 1e-10)
 
         # Vulnerability term (VV denominator) with suite pooling
-        if vv > 1.0:
-            if use_pooling:
-                Sself = ScrambleSelf[prey, pred]
-                vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
-            else:
-                vv_pred_eff = PDY
-            vv_pred_safe = max(vv_pred_eff, 1e-10)
-            vv_term = vv / (vv - 1.0 + vv_pred_safe)
+        if use_pooling:
+            Sself = ScrambleSelf[prey, pred]
+            vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
         else:
-            vv_term = 1.0
+            vv_pred_eff = PDY
+        vv_pred_safe = max(vv_pred_eff, 1e-10)
+        vv_term = vv / max(vv - 1.0 + vv_pred_safe, 1e-10)
 
         Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
 
@@ -1441,8 +1433,8 @@ def deriv_vector(
                         PDY = predYY[pred]
                         dd = DD[prey, pred]
                         vv = VV[prey, pred]
-                        dd_term = dd / (dd - 1.0 + max(PYY, 1e-10)) if dd > 1.0 else 1.0
-                        vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
+                        dd_term = dd / max(dd - 1.0 + max(PYY, 1e-10), 1e-10)
+                        vv_term = vv / max(vv - 1.0 + max(PDY, 1e-10), 1e-10)
                         logger.debug(
                             "INSTR Q prey=%s name=%s pred=%s name=%s qbase=%.6e PDY=%.6e PYY=%.6e dd_term=%.6e vv_term=%.6e Q_calc=%.6e",
                             prey,

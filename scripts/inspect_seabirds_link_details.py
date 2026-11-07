@@ -18,7 +18,7 @@ params.model = model_df
 params.diet = diet_df
 
 r = rpath(params)
-scenario = rsim_scenario(r, params)
+scenario = rsim_scenario(r, params, fast_group_rule="rpath")
 sp = scenario.params
 
 groups = model_df['Group'].tolist()

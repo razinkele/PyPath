@@ -37,7 +37,7 @@ params.model = model_df
 params.diet = diet_df
 
 pypath_model = rpath(params)
-scenario = rsim_scenario(pypath_model, params, years=range(1, 101))
+scenario = rsim_scenario(pypath_model, params, years=range(1, 101), fast_group_rule="rpath")
 
 # Run PyPath RK4 to obtain monthly biomass (if not already present)
 print("Running PyPath RK4 run (this may take a short while)...")
