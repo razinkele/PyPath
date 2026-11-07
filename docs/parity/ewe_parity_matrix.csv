@@ -46,7 +46,7 @@ EcosimScenarioGroup,ecosim,true,true,true,true,implemented,
 EcosimScenarioGroupYear,ecosim,true,false,false,false,partial,
 EcosimScenarioLandingsShape,ecosim,true,false,false,false,partial,
 EcosimScenarioMSE,ecosim,true,false,false,false,partial,
-EcosimScenarioPredPreyShape,ecosim,true,false,false,false,partial,
+EcosimScenarioPredPreyShape,ecosim,true,true,false,false,partial,read: shape-to-link assignments with EwE application types (production rate; vulnerability; other mortality)
 EcosimScenarioQuota,ecosim,true,true,false,false,partial,
 EcosimScenarioShapeMedWeightsFleet,ecosim,true,true,false,true,partial,
 EcosimScenarioshapeMedWeightsGroup,ecosim,true,true,false,true,partial,

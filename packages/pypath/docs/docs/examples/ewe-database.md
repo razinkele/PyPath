@@ -245,12 +245,21 @@ write_ewemdb(params, "with_ecosim.eweaccdb", scenarios=[scenario])
 | `EcopathDietComp` | Diet composition matrix |
 | `EcopathStanza` / `StanzaLifeStage` | Multi-stanza group definitions |
 | `EcosimScenario` | Scenario names, time spans, settings |
-| `EcosimScenarioForcingMatrix` | Vulnerability overrides per pred-prey link |
-| `EcosimScenarioGroup` | Per-group Ecosim settings (FtimeAdjust, etc.) |
+| `EcosimScenarioForcingMatrix` | Vulnerability overrides per pred-prey link (Ecosim `GroupID`s) |
+| `EcosimScenarioGroup` | Per-group Ecosim settings (FtimeAdjust, etc.); maps Ecosim `GroupID` to `EcopathGroupID` |
 | `EcosimTimeSeries` | Observed time series for calibration |
 | `EcosimTimeSeriesGroup` | Time series to group mapping |
 | `EcosimShape` / `EcosimShapeTime` | Forcing function shapes |
+| `EcosimScenarioPredPreyShape` | Which shape acts on which link, and how (`FunctionType`: 1 search rate, 2 vulnerability, 6 production rate, 8 other mortality, ...) |
 | `EcosimShapeFishRate` | Fishing effort time series |
+
+Groups are identified by ID in every scenario table. EwE assigns IDs in
+creation order, which is not the model order (`EcopathGroup.Sequence`), so
+PyPath resolves them through `EcopathGroup.GroupID` → group name. A
+production-rate shape on a producer scales its production only
+(`ForcedSearch` on that group); a vulnerability shape scales a prey's
+availability (`ForcedPrey`). Stanza growth uses `EcopathGroup.vbK` of the
+leading life stage's group, as EwE6 does.
 
 ## Curonian Lagoon End-to-End Example
 

@@ -1991,14 +1991,24 @@ def rsim_run(
         year_idx = (month - 1) // 12
         month_in_year = (month - 1) % 12
 
-        # Build forcing dict for this timestep
-        # ForcedPrey: prey availability multiplier per group per month.
-        # For producers this also serves as the primary production forcing.
+        # Build forcing dict for this timestep.
+        # ForcedPrey scales a prey's availability to its predators (EwE's
+        # vulnerability forcing). Production forcing is separate: a
+        # producer's ForcedSearch scales its production (its search rate on
+        # the primary-production link, Rpath's force_bysearch; EwE's
+        # production-rate forcing) and reaches the derivative as PP_forcing.
         _forced_prey = (
             forcing.ForcedPrey[month - 1]
             if hasattr(forcing, "ForcedPrey")
             and forcing.ForcedPrey is not None
             and month - 1 < len(forcing.ForcedPrey)
+            else np.ones(params.NUM_GROUPS + 1)
+        )
+        _forced_search = (
+            forcing.ForcedSearch[month - 1]
+            if hasattr(forcing, "ForcedSearch")
+            and forcing.ForcedSearch is not None
+            and month - 1 < len(forcing.ForcedSearch)
             else np.ones(params.NUM_GROUPS + 1)
         )
         forcing_dict = {
@@ -2010,7 +2020,7 @@ def rsim_run(
             "ForcedRecs": forcing.ForcedRecs[month - 1],
             "ForcedActresp": forcing.ForcedActresp[month - 1],
             "ForcedPrey": _forced_prey,
-            "PP_forcing": _forced_prey,
+            "PP_forcing": _forced_search,
             "ForcedEffort": (
                 fishing_obj.ForcedEffort[month - 1]
                 if month - 1 < len(fishing_obj.ForcedEffort)

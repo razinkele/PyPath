@@ -37,9 +37,19 @@ def test_stanza_z_is_the_group_pb(params):
     assert stindiv["Z"].min() > 0
 
 
-def test_derived_juvenile_biomass_is_not_negligible(params):
-    """With Z = P/B the juvenile stanza carries real biomass (5.3 of an
-    Ecopath 15.0; the remaining gap is EwE's own derivation, see #52/F0)."""
+def test_stanza_k_is_the_group_vbk(params):
+    """EwE6 derives the age structure with ``EcopathGroup.vbK`` of the leading
+    life stage's group (cCore.CalculateStanza, cEcoSimModel.InitStanza), not
+    ``StanzaLifeStage.vbK``, where it writes 0.3 as a placeholder."""
+    stgroups = params.stanzas.stgroups
+    assert len(stgroups) == 1
+    assert float(stgroups["VBGF_Ksp"].iloc[0]) == pytest.approx(1.175)
+
+
+def test_derived_juvenile_biomass_matches_ewe6(params):
+    """With K = 1.175 and Z = P/B the age structure reproduces the biomass EwE6
+    wrote into the database for Blue mussel (juv.): 15.005259 (a verbatim port
+    of EwE6's CalculateStanzaParameters gives 15.005255)."""
     from pypath.core.ecopath import rpath
     from pypath.core.ecosim import rsim_scenario
 
@@ -57,5 +67,8 @@ def test_derived_juvenile_biomass_is_not_negligible(params):
                     st.base_nage_s[a1 : a2 + 1, isp] * st.base_wage_s[a1 : a2 + 1, isp]
                 ).sum()
             )
-            assert derived > 1.0
-            assert derived < float(p.B_BaseRef[juv])
+            # EwE6 closes the oldest age with a geometric plus-group
+            # extrapolation; PyPath sums the tail explicitly. They agree to
+            # 2e-5 (15.00556 vs 15.00526).
+            assert derived == pytest.approx(15.005259, rel=1e-4)
+            assert float(p.B_BaseRef[juv]) == pytest.approx(15.005259, rel=1e-5)
