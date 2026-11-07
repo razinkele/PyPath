@@ -60,8 +60,8 @@ EcosimShapeTime,ecosim,true,true,true,true,implemented,
 EcosimStanzaShape,ecosim,true,false,false,false,partial,
 EcosimTimeSeries,ecosim,true,true,false,true,partial,
 EcosimTimeSeriesDataset,ecosim,true,false,false,true,partial,
-EcosimTimeSeriesFleet,ecosim,true,false,false,false,partial,
-EcosimTimeSeriesGroup,ecosim,true,false,false,false,partial,
+EcosimTimeSeriesFleet,ecosim,true,true,false,false,partial,read: links effort series to fleets (read_timeseries)
+EcosimTimeSeriesGroup,ecosim,true,true,false,false,partial,read: links series to groups by EcopathGroupID (read_timeseries)
 EcospaceScenario,ecospace,true,true,true,true,implemented,
 EcospaceScenarioCapacityDrivers,ecospace,true,true,true,true,implemented,
 EcospaceScenarioDataConnection,ecospace,true,true,true,true,implemented,
