@@ -2795,4 +2795,11 @@ def _compute_Q_matrix(
             Q_calc = qbase * PDY * PYY * dd_term * vv_term
             QQ[prey, pred] = max(Q_calc, 0.0)
 
+    # Imported diet, as deriv_vector credits it: QB * import * B, which
+    # rsim_params stores as the link from group 0 (QQbase[0, i] at Bbase)
+    PP_type = params_dict.get("PP_type", np.zeros(NUM_GROUPS + 1))
+    for pred in range(1, NUM_LIVING + 1):
+        if PP_type[pred] <= 0 and Bbase[pred] > 0 and QQbase[0, pred] > 0:
+            QQ[0, pred] = QQbase[0, pred] / Bbase[pred] * BB[pred]
+
     return QQ
