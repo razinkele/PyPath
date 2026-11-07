@@ -1,0 +1,143 @@
+"""Ecosim scenario settings must land on the groups the EwE database names.
+
+``EcosimScenarioGroup`` and ``EcosimScenarioForcingMatrix`` identify groups by
+Ecosim ``GroupID`` and Ecopath ``GroupID``. EwE assigns those IDs in creation
+order; the model order is ``EcopathGroup.Sequence``. The two differ in real
+databases (LT2022: Detritus is GroupID 1 and the last group), so the mapping
+must go through the IDs, never through row position.
+"""
+
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from pypath.core.params import create_rpath_params
+from pypath.io.ewemdb import _build_scenario_overrides
+
+DATA_DIR = Path(__file__).parents[3] / "Data"
+DB_PATH = DATA_DIR / "LT2022_0.5ST_final7.eweaccdb"
+
+
+def _four_group_params():
+    # Model order (EwE Sequence): Birds, Fish, Phyto, Detritus.
+    return create_rpath_params(
+        groups=["Birds", "Fish", "Phyto", "Detritus"], types=[0, 0, 1, 2]
+    )
+
+
+def _scenario_meta():
+    # EwE numbered the groups in creation order: Detritus 1, Phyto 2, Fish 3,
+    # Birds 4 - the reverse of the model order.
+    scenario_group_df = pd.DataFrame(
+        {
+            "ScenarioID": [1, 1, 1, 1],
+            "EcopathGroupID": [1, 2, 3, 4],
+            "GroupID": [501, 502, 503, 504],
+            "FtimeAdjust": [0.0, 0.0, 0.5, 0.9],
+        }
+    )
+    forcing_matrix_df = pd.DataFrame(
+        {
+            "ScenarioID": [1, 1],
+            "PredID": [504, 503],  # Birds, Fish
+            "PreyID": [503, 502],  # Fish, Phyto
+            "vulnerability": [5.0, 1.0],
+        }
+    )
+    return {
+        "scenario_group_df": scenario_group_df,
+        "forcing_matrix_df": forcing_matrix_df,
+        "group_id_to_name": {1: "Detritus", 2: "Phyto", 3: "Fish", 4: "Birds"},
+    }
+
+
+def test_feeding_time_adjustment_follows_group_ids():
+    params = _four_group_params()
+    overrides = _build_scenario_overrides(
+        params, _scenario_meta(), params.model["Group"].tolist()
+    )
+    # Birds 0.9, Fish 0.5, Phyto 0.0, Detritus 0.0 in model order
+    assert overrides["ftime_adjust"] == {0: 0.9, 1: 0.5, 2: 0.0, 3: 0.0}
+
+
+def test_vulnerabilities_follow_group_ids():
+    params = _four_group_params()
+    overrides = _build_scenario_overrides(
+        params, _scenario_meta(), params.model["Group"].tolist()
+    )
+    # (prey, pred) in model order: Fish eaten by Birds = 5, Phyto eaten by Fish = 1
+    assert overrides["vv_overrides"] == {(1, 0): 5.0, (2, 1): 1.0}
+
+
+def test_without_an_id_map_nothing_is_guessed():
+    """Scrambling settings silently is worse than applying none."""
+    params = _four_group_params()
+    meta = _scenario_meta()
+    del meta["group_id_to_name"]
+    assert (
+        _build_scenario_overrides(params, meta, params.model["Group"].tolist()) is None
+    )
+
+
+# LT2022 scenario 16, read straight from EcosimScenarioForcingMatrix and
+# EcosimScenarioGroup with the GroupID -> EcopathGroupID -> name chain.
+LT2022_VV = {
+    ("Herring", "Cod"): 1.0,
+    ("Round goby", "Cod"): 1.0,
+    ("Smelt", "Long-tailed duck"): 10.0,
+    ("Round goby", "Perciformes"): 10.36,
+    ("Mobile crustaceans", "Round goby"): 100.0,
+    ("Blue mussel (juv.)", "Long-tailed duck"): 10.0,
+    ("Blue mussel (juv.)", "Round goby"): 100000.0,
+    ("Blue mussel (ad.)", "Long-tailed duck"): 10.0,
+    ("Blue mussel (ad.)", "Round goby"): 10000.0,
+    ("Sand bivalves", "Cypriniformes"): 100000.0,
+}
+
+
+@pytest.fixture(scope="module")
+def lt2022_scenario():
+    if not DB_PATH.exists():
+        pytest.skip("LT2022 database not found")
+    from pypath.io.ewemdb import EwEDatabaseError, ecosim_scenario_from_ewemdb
+
+    try:
+        return ecosim_scenario_from_ewemdb(str(DB_PATH), scenario=16)
+    except EwEDatabaseError as e:
+        pytest.skip(f"No EwE database driver: {e}")
+
+
+@pytest.mark.integration
+def test_lt2022_vulnerabilities_land_on_the_named_links(lt2022_scenario):
+    p = lt2022_scenario.params
+    names = [str(n).strip() for n in p.spname]
+    seen = {}
+    for prey, pred, vv in zip(p.PreyFrom, p.PreyTo, p.VV):
+        pair = (names[prey], names[pred])
+        expected = LT2022_VV.get(pair, 2.0)
+        assert float(vv) == pytest.approx(expected), pair
+        if pair in LT2022_VV:
+            seen[pair] = float(vv)
+    assert seen == pytest.approx(LT2022_VV)
+
+
+@pytest.mark.integration
+def test_lt2022_feeding_time_adjustment_matches_the_table(lt2022_scenario):
+    from pypath.io.ewemdb import read_ewemdb_table
+
+    sg = read_ewemdb_table(str(DB_PATH), "EcosimScenarioGroup")
+    sg = sg[sg["ScenarioID"] == 16]
+    eg = read_ewemdb_table(str(DB_PATH), "EcopathGroup")
+    id_to_name = dict(zip(eg["GroupID"], eg["GroupName"].astype(str).str.strip()))
+    expected = {
+        id_to_name[int(r.EcopathGroupID)]: float(r.FtimeAdjust) for r in sg.itertuples()
+    }
+    p = lt2022_scenario.params
+    names = [str(n).strip() for n in p.spname]
+    compared = 0
+    for i, name in enumerate(names):
+        if name in expected:
+            assert float(p.FtimeAdj[i]) == pytest.approx(expected[name]), name
+            compared += 1
+    assert compared == len(expected) == 24
