@@ -11,10 +11,14 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # Regression pin, not a target: no EwE 6 reference SS for this calibrated
 # scenario is available. History: ~725 was quoted as an "old broken baseline";
 # the limit was relaxed to 1100 on 2026-10-24 (message left at 800); SS was
-# 1084.9 before the detritus/discard fate reading fix (#29) and is 1101.2 after
-# it -- that fix is correct EwE behaviour (LT2022 EE matches EwE-F incl.
-# detritus), so the pin follows it. A change beyond 2 % needs a reason.
-LT2022_SS16 = 1101.2
+# 1084.9 before the detritus/discard fate reading fix (#29) and 1101.2 after
+# it. Every value up to there was computed with the scenario's vulnerabilities
+# and FtimeAdjust on the wrong groups, the wrong forcing shape applied as prey
+# availability, and a flat stanza (importer defects fixed 2026-11-07); with
+# the settings EwE6 actually uses, SS is 881.2 (Adams-Bashforth, fast groups
+# as on main). The real reference is EwE6's own scenario-16 trajectory.
+# A change beyond 2 % needs a reason.
+LT2022_SS16 = 881.2
 
 
 @pytest.mark.integration
