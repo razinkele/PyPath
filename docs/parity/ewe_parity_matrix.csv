@@ -42,11 +42,11 @@ EcosimScenarioCapacityDrivers,ecosim,false,false,true,false,partial,
 EcosimScenarioFleet,ecosim,true,true,false,false,partial,
 EcosimScenarioFleetYear,ecosim,true,false,false,false,partial,
 EcosimScenarioForcingMatrix,ecosim,true,true,true,true,implemented,
-EcosimScenarioGroup,ecosim,true,true,true,true,implemented,
+EcosimScenarioGroup,ecosim,true,true,true,true,implemented,"read by group ID: FtimeAdjust, MoPred, FtimeMax, Pbmaxs, SwitchPower"
 EcosimScenarioGroupYear,ecosim,true,false,false,false,partial,
 EcosimScenarioLandingsShape,ecosim,true,false,false,false,partial,
 EcosimScenarioMSE,ecosim,true,false,false,false,partial,
-EcosimScenarioPredPreyShape,ecosim,true,true,false,false,partial,read: shape-to-link assignments with EwE application types (production rate; vulnerability; other mortality)
+EcosimScenarioPredPreyShape,ecosim,true,true,false,false,partial,read: shape-to-link assignments with EwE application types (production rate; consumer search rate; vulnerability; other mortality)
 EcosimScenarioQuota,ecosim,true,true,false,false,partial,
 EcosimScenarioShapeMedWeightsFleet,ecosim,true,true,false,true,partial,
 EcosimScenarioshapeMedWeightsGroup,ecosim,true,true,false,true,partial,
