@@ -73,6 +73,63 @@ def _local_deriv(
     return deriv
 
 
+def _capacity_matrix(
+    ecospace, environmental_drivers, mpa_cap_mult, n_rows, n_patches, patch_share
+):
+    """Per-group, per-patch habitat capacity as EwE6 uses it, or None (#58).
+
+    EwE starts a cell at ``B * HabCap * nWaterCells / TotHabCap``: only the
+    pattern of a group's capacity matters, normalised to an area-weighted
+    mean of 1. The habitat capacity applies when environmental drivers are
+    given; an MPA capacity bonus multiplies it. Row 0 (Outside) and groups
+    without a capacity row stay at 1.
+    """
+    active = (environmental_drivers is not None or mpa_cap_mult is not None) and (
+        getattr(ecospace, "habitat_capacity", None) is not None
+    )
+    if not active:
+        return None
+    w = (
+        np.asarray(patch_share, dtype=float)
+        if patch_share is not None
+        else np.full(n_patches, 1.0 / n_patches)
+    )
+    cap = np.ones((n_rows, n_patches))
+    if environmental_drivers is not None:
+        raw = np.asarray(ecospace.habitat_capacity, dtype=float)
+        for g in range(min(raw.shape[0], n_rows - 1)):
+            mean = float(np.sum(w * raw[g]))
+            if mean > 0:
+                cap[g + 1] = raw[g] / mean
+    if mpa_cap_mult is not None:
+        cap[1:] *= np.asarray(mpa_cap_mult, dtype=float)[np.newaxis, :]
+    return cap
+
+
+def _capacity_overlap(cap, patch_share, n_patches):
+    """Map-wide mean of c_prey * c_pred for every pair (EwE6 MeanBP)."""
+    w = (
+        np.asarray(patch_share, dtype=float)
+        if patch_share is not None
+        else np.full(n_patches, 1.0 / n_patches)
+    )
+    return (cap * w[np.newaxis, :]) @ cap.T
+
+
+def _patch_link_factor(cap, overlap, patch_idx):
+    """Base-flow factor of one patch: c_prey * c_pred / mean(c_prey * c_pred).
+
+    EwE6 rescales each link's search rate so that map-wide base consumption,
+    with prey and predator densities following their habitat, equals the
+    Ecopath flow. In the closed-form kernel that is this factor on Q0.
+    Pairs whose habitats do not overlap anywhere get 0.
+    """
+    c = cap[:, patch_idx]
+    outer = np.outer(c, c)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where(overlap > 0, outer / np.where(overlap > 0, overlap, 1.0), 0.0)
+
+
 def _spread_over_patches(total, row, patch_share):
     """Split a group's total over the patches by their current share of it.
 
@@ -84,7 +141,7 @@ def _spread_over_patches(total, row, patch_share):
 
 
 def _patch_stanza_pred_ratios(
-    stanzas, sstate, stanza_idx, biomass_spatial, patch_share
+    stanzas, sstate, stanza_idx, biomass_spatial, patch_share, capacity=None
 ):
     """``StanzaPred / baseStanzaPred`` of each stanza group, per patch.
 
@@ -105,8 +162,15 @@ def _patch_stanza_pred_ratios(
         if i < len(base) and base[i] > 0:
             row = biomass_spatial[i]
             s = row.sum()
-            share = row / s if s > 0 else area / area.sum()
-            ratio[i] = sstate.stanza_pred[i] / base[i] * share / area
+            # the patch's base is its area share times its habitat capacity
+            base_share = area * capacity[i] if capacity is not None else area
+            share = row / s if s > 0 else base_share / base_share.sum()
+            with np.errstate(divide="ignore", invalid="ignore"):
+                ratio[i] = np.where(
+                    base_share > 0,
+                    sstate.stanza_pred[i] / base[i] * share / base_share,
+                    0.0,
+                )
     return ratio
 
 
@@ -235,30 +299,34 @@ def deriv_vector_spatial(
     )
 
     if params_need_modification:
-        # Pre-compute all modified B_BaseRef arrays for all patches
-        b_base_ref_original = params["B_BaseRef"]
-        n_ecospace_groups = ecospace.habitat_capacity.shape[0]
+        # Habitat capacity as EwE6 applies it (#58): each patch's base biomass
+        # is B * c and each link's base flow Q0 * c_prey * c_pred over the
+        # map-wide mean of that product (EwE's MeanBP rescaling of the search
+        # rates). Map-wide base flows stay Ecopath's, and a group's per-capita
+        # rates no longer rise as its own habitat gets poorer.
+        b_base_ref_original = np.asarray(params["B_BaseRef"], dtype=float)
+        capacity = _capacity_matrix(
+            ecospace,
+            environmental_drivers,
+            mpa_cap_mult,
+            len(b_base_ref_original),
+            n_patches,
+            patch_share,
+        )
+        b_base_ref_patches = b_base_ref_original[:, np.newaxis] * capacity
+        qq_base_original = params.get("QQbase")
+        capacity_overlap = (
+            _capacity_overlap(capacity, patch_share, n_patches)
+            if qq_base_original is not None
+            and np.shape(qq_base_original)[0] == len(b_base_ref_original)
+            else None
+        )
 
-        # Create modified B_BaseRef for each patch (vectorized)
-        b_base_ref_patches = np.tile(b_base_ref_original[:, np.newaxis], (1, n_patches))
-
-        # Apply habitat capacity multipliers (only when environmental drivers present)
-        if environmental_drivers is not None:
-            capacity_multipliers = ecospace.habitat_capacity  # [n_groups, n_patches]
-            for g_idx in range(n_ecospace_groups):
-                state_idx = g_idx + 1  # Skip index 0 (Outside)
-                if (
-                    state_idx < len(b_base_ref_original)
-                    and g_idx < capacity_multipliers.shape[0]
-                ):
-                    b_base_ref_patches[state_idx, :] *= capacity_multipliers[g_idx, :]
-
-        # Apply MPA capacity bonus (uniform across groups)
-        if mpa_cap_mult is not None:
-            for g_idx in range(n_ecospace_groups):
-                state_idx = g_idx + 1
-                if state_idx < len(b_base_ref_original):
-                    b_base_ref_patches[state_idx, :] *= mpa_cap_mult
+    def _patch_qq_base(patch_idx):
+        """Base consumption matrix of one patch under habitat capacity."""
+        return qq_base_original * _patch_link_factor(
+            capacity, capacity_overlap, patch_idx
+        )
 
     # Build SpatialContext for each IBM group
     ibm_groups = params.get("ibm_groups", {})
@@ -332,6 +400,8 @@ def deriv_vector_spatial(
         if params_need_modification:
             patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
             patch_params["Bbase"] = b_base_ref_patches[:, patch_idx]
+            if capacity_overlap is not None:
+                patch_params["QQbase"] = _patch_qq_base(patch_idx)
         rates = {} if rates_out is not None else None
         deriv_spatial[:, patch_idx] = _local_deriv(
             state_patch,
@@ -376,9 +446,12 @@ def deriv_vector_spatial(
                 if params_need_modification:
                     b_base_ref_backup = params["B_BaseRef"]
                     b_base_backup = params.get("Bbase")
+                    qq_base_backup = params.get("QQbase")
                     modified = b_base_ref_patches[:, patch_idx]
                     params["B_BaseRef"] = modified
                     params["Bbase"] = modified
+                    if capacity_overlap is not None:
+                        params["QQbase"] = _patch_qq_base(patch_idx)
                     try:
                         deriv_local = _local_deriv(
                             state_patch,
@@ -394,6 +467,8 @@ def deriv_vector_spatial(
                         params["B_BaseRef"] = b_base_ref_backup
                         if b_base_backup is not None:
                             params["Bbase"] = b_base_backup
+                        if qq_base_backup is not None:
+                            params["QQbase"] = qq_base_backup
                 else:
                     deriv_local = _local_deriv(
                         state_patch,
@@ -522,12 +597,25 @@ def rsim_run_spatial(
     # or uniform expansion of the scenario start biomass.
     initial_biomass = scenario.start_state.Biomass  # [n_groups+1]
 
+    # Habitat capacity (with environmental drivers): EwE6 starts each cell at
+    # B * HabCap normalised to an area-weighted mean of 1 (#58).
+    start_capacity = _capacity_matrix(
+        ecospace,
+        environmental_drivers,
+        None,
+        n_groups + 1,
+        n_patches,
+        _patch_area_fractions(ecospace, n_patches),
+    )
     if initial_state_vector is None:
-        # Uniform density: each patch starts with its area share of every group
+        # Each patch starts with its area share of every group, at the density
+        # its habitat capacity sets (uniform density without capacity).
         biomass_spatial0 = (
             initial_biomass[:, np.newaxis]
             * _patch_area_fractions(ecospace, n_patches)[np.newaxis, :]
         )
+        if start_capacity is not None:
+            biomass_spatial0 = biomass_spatial0 * start_capacity
     else:
         state_vec = np.asarray(initial_state_vector, dtype=float).reshape(-1)
         expected_size = (n_groups + 1) * n_patches
@@ -706,6 +794,7 @@ def rsim_run_spatial(
                 stanza_idx,
                 current_biomass,
                 patch_w if density_form else None,
+                capacity=start_capacity if density_form else None,
             )
 
         # Spatial effort allocation for this month, from the biomass at the
