@@ -285,7 +285,7 @@ class CsvBundleWriter:
             # Determine num_years from forcing shape
             num_months = 0
             if hasattr(scen, "forcing") and hasattr(scen.forcing, "ForcedBio"):
-                num_months = scen.forcing.ForcedBio.shape[1]
+                num_months = scen.forcing.ForcedBio.shape[0]
             num_years = max(num_months // 12, 1)
 
             scen_rows.append(
@@ -301,7 +301,11 @@ class CsvBundleWriter:
                     "EquilibriumStepSize": 1.0,
                     "SystemRecovery": 0.0,
                     "Discount": 0.0,
-                    "ForagingTimeLowerLimit": 0.0,
+                    "ForagingTimeLowerLimit": float(
+                        getattr(p, "ForagingTimeLowerLimit", 0.01)
+                    )
+                    if p is not None
+                    else 0.01,
                 }
             )
 
@@ -311,23 +315,33 @@ class CsvBundleWriter:
             # --- EcosimScenarioGroup: group-level Ecosim settings ---
             n_groups = getattr(p, "NUM_GROUPS", 0) + 1  # +1 for Outside
 
+            def _group_value(attr, gi, default):
+                arr = getattr(p, attr, None)
+                if arr is None or gi >= len(arr) or not np.isfinite(arr[gi]):
+                    return default
+                return float(arr[gi])
+
+            # Producers' maximum relative P/B is held as their link's
+            # vulnerability VV = PBmaxs / (PBmaxs - 1) (rsim_scenario).
+            pb_maxs = {}
+            for lk in range(1, len(getattr(p, "PreyFrom", []))):
+                if int(p.PreyFrom[lk]) == 0:
+                    vv = float(p.VV[lk])
+                    pb_maxs[int(p.PreyTo[lk])] = (
+                        vv / (vv - 1.0) if 1.0 < vv < 1e9 else 1.0
+                    )
+
             for gi in range(1, n_groups):  # skip Outside (0)
                 group_info_rows.append(
                     {
                         "ScenarioID": scen_id,
                         "EcopathGroupID": gi,
                         "GroupID": gi,
-                        "Pbmaxs": float(p.MaxRelPB[gi])
-                        if hasattr(p, "MaxRelPB") and gi < len(p.MaxRelPB)
-                        else 2.0,
-                        "FtimeMax": float(p.MaxRelFeedingTime[gi])
-                        if hasattr(p, "MaxRelFeedingTime")
-                        and gi < len(p.MaxRelFeedingTime)
-                        else 2.0,
-                        "FtimeAdjust": float(p.FtimeAdj[gi])
-                        if hasattr(p, "FtimeAdj") and gi < len(p.FtimeAdj)
-                        else 0.0,
-                        "SwitchPower": 0.0,
+                        "Pbmaxs": pb_maxs.get(gi, 2.0),
+                        "FtimeMax": _group_value("FtimeMax", gi, 2.0),
+                        "FtimeAdjust": _group_value("FtimeAdj", gi, 0.0),
+                        "MoPred": _group_value("MoPred", gi, 0.0),
+                        "SwitchPower": _group_value("SwitchPower", gi, 0.0),
                     }
                 )
 

@@ -1290,7 +1290,10 @@ def read_ewemdb(
                 ).dropna()
                 last = int(seqs.max()) if len(seqs) else len(stages)
                 lead = _int_or_none(srow.get("LeadingLifeStage"))
-                leading_stage[sid] = lead if lead is not None and lead > 0 else last
+                # unset -> last stage; EwE6 also clamps it to the stage count
+                leading_stage[sid] = (
+                    min(lead, last) if lead is not None and lead > 0 else last
+                )
 
             # Build stindiv DataFrame (one row per life stage)
             stindiv_data = []

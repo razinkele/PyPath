@@ -74,10 +74,12 @@ def test_derived_juvenile_biomass_matches_ewe6(params):
             assert float(p.B_BaseRef[juv]) == pytest.approx(15.005259, rel=1e-5)
 
 
-def test_stanza_table_without_leading_life_stage(params, monkeypatch):
+@pytest.mark.parametrize("leading", ["missing", 0, 99])
+def test_stanza_table_without_leading_life_stage(params, monkeypatch, leading):
     """Older EwE6 databases (Curonian 'curonian pelagic-multistanza', converted
     from EwE5) have no Stanza.LeadingLifeStage column. EwE6 then leads with the
-    last life stage (cEcoSimModel: BaseStanza <= 0 -> Nstanza). The importer
+    last life stage (cEcoSimModel: BaseStanza <= 0 -> Nstanza), and clamps a
+    value above the stage count to it (cStanzaDatastructures). The importer
     looked the column up directly, and the KeyError dropped every stanza
     group without a warning."""
     import pypath.io.ewemdb as ewemdb
@@ -87,7 +89,11 @@ def test_stanza_table_without_leading_life_stage(params, monkeypatch):
     def without_leading(filepath, table, *args, **kwargs):
         df = original(filepath, table, *args, **kwargs)
         if table == "Stanza":
-            df = df.drop(columns=[c for c in df.columns if c.startswith("Leading")])
+            if leading == "missing":
+                df = df.drop(columns=[c for c in df.columns if c.startswith("Leading")])
+            else:
+                df = df.copy()
+                df["LeadingLifeStage"] = leading
         return df
 
     monkeypatch.setattr(ewemdb, "read_ewemdb_table", without_leading)

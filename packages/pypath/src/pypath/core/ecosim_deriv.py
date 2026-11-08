@@ -965,6 +965,10 @@ def prey_switching(
     """
     Calculate prey switching factors.
 
+    Not used by the simulation, and not EwE6's formula: Ecosim runs use
+    :func:`apply_prey_switching` (EwE6 SetRelaSwitch) with each
+    predator's ``SwitchPower``.
+
     Prey switching occurs when predators preferentially consume more abundant
     prey, stabilizing the system. Uses a power function of relative abundance.
 
@@ -1303,7 +1307,9 @@ def deriv_vector(
         - Bbase: Baseline biomass [group]
         - DetFrac: Fraction to detritus [group]
         - Unassim: Unassimilated fraction [group]
-        - SwitchPower: Prey switching power (0-2, default 0)
+        - SwitchPower: per-group EwE6 prey switching power (array, 0 = off);
+          see apply_prey_switching. SwitchA / SwitchBbase optionally give
+          the pre-computed search-rate weights and normalising base biomass
         - PP_type: Producer type array [group]
         - Mediation: Mediation configuration dict
     forcing : dict
