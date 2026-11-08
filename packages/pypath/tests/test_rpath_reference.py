@@ -468,8 +468,11 @@ class TestForcingScenarios:
         "JuvFlatfish2",
         "AduFlatfish2",
     }
-    STANZA_TOLERANCE = 0.03
-    OTHER_TOLERANCE = 0.10
+    # Max relative error over 50 years. Measured after the M0 nudges were
+    # removed (#54): RK4 below 3e-4 for every group; AB below 0.0045 except
+    # Discards (0.041, AB's one-month lag on a pool fed by the catch).
+    STANZA_TOLERANCE = {"RK4": 1e-3, "AB": 0.01}
+    OTHER_TOLERANCE = {"RK4": 1e-3, "AB": 0.05}
     # Every group is compared. (Until the RK4 fast-group fix, RK4 held the
     # fast-turnover groups at baseline and AB's fast-equilibrium update left
     # out production, respiration and detritus flows, so Seabirds, Discards,
@@ -514,9 +517,9 @@ class TestForcingScenarios:
             p = pypath_biomass[:n_months, col_idx]
             error = float(np.max(np.abs(p - r) / r))
             tol = (
-                self.STANZA_TOLERANCE
+                self.STANZA_TOLERANCE[method]
                 if group_name in self.STANZA_GROUPS
-                else self.OTHER_TOLERANCE
+                else self.OTHER_TOLERANCE[method]
             )
             if not error < tol:
                 failures.append(f"{group_name}: max error {error:.4f} >= {tol}")

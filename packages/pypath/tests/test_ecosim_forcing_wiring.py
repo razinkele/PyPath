@@ -64,19 +64,22 @@ class TestForcingWiring:
         # Patch deriv_vector to capture the forcing_dict
         captured = {}
         import pypath.core.ecosim as ecosim_mod
+        import pypath.core.ecosim_deriv as _ecosim_deriv_mod
 
         orig_deriv = ecosim_mod.deriv_vector
 
-        def _capture_deriv(state, params_dict, forcing, fishing):
+        def _capture_deriv(state, params_dict, forcing, fishing, *args, **kwargs):
             captured["forcing"] = forcing.copy()
-            return orig_deriv(state, params_dict, forcing, fishing)
+            return orig_deriv(state, params_dict, forcing, fishing, *args, **kwargs)
 
         ecosim_mod.deriv_vector = _capture_deriv
+
+        _ecosim_deriv_mod.deriv_vector = _capture_deriv
         try:
             rsim_run(sc, method="RK4")
         finally:
             ecosim_mod.deriv_vector = orig_deriv
-
+            _ecosim_deriv_mod.deriv_vector = orig_deriv
         assert "ForcedPrey" in captured["forcing"], (
             "ForcedPrey missing from forcing_dict"
         )

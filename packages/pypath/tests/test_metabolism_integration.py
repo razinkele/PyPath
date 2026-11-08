@@ -32,19 +32,22 @@ class TestMetabolismWiring:
 
         captured = {}
         import pypath.core.ecosim as ecosim_mod
+        import pypath.core.ecosim_deriv as _ecosim_deriv_mod
 
         orig_deriv = ecosim_mod.deriv_vector
 
-        def _capture_deriv(state, params_dict, forcing, fishing):
+        def _capture_deriv(state, params_dict, forcing, fishing, *args, **kwargs):
             captured["keys"] = set(forcing.keys())
-            return orig_deriv(state, params_dict, forcing, fishing)
+            return orig_deriv(state, params_dict, forcing, fishing, *args, **kwargs)
 
         ecosim_mod.deriv_vector = _capture_deriv
+
+        _ecosim_deriv_mod.deriv_vector = _capture_deriv
         try:
             rsim_run(sc, method="RK4")
         finally:
             ecosim_mod.deriv_vector = orig_deriv
-
+            _ecosim_deriv_mod.deriv_vector = orig_deriv
         assert "ForcedActresp" in captured["keys"]
 
     def test_forced_actresp_changes_dynamics(self):

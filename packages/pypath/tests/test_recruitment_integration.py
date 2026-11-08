@@ -80,24 +80,27 @@ class TestRecruitmentWiring:
         sc.forcing.ForcedRecs[:, 2] = 1.0
 
         import pypath.core.ecosim as ecosim_mod
+        import pypath.core.ecosim_deriv as _ecosim_deriv_mod
 
         captured = {}
         orig_deriv = ecosim_mod.deriv_vector
 
-        def _capture_deriv(state, params_dict, forcing, fishing):
+        def _capture_deriv(state, params_dict, forcing, fishing, *args, **kwargs):
             forcing = dict(forcing)
             forcing["RecruitmentAdj"] = np.ones_like(forcing["Ftime"])
             forcing["RecruitmentAdj"][2] = 1.1
             captured["has_forced_recs"] = "ForcedRecs" in forcing
             captured["has_recruit_adj"] = "RecruitmentAdj" in forcing
-            return orig_deriv(state, params_dict, forcing, fishing)
+            return orig_deriv(state, params_dict, forcing, fishing, *args, **kwargs)
 
         ecosim_mod.deriv_vector = _capture_deriv
+
+        _ecosim_deriv_mod.deriv_vector = _capture_deriv
         try:
             rsim_run(sc, method="RK4")
         finally:
             ecosim_mod.deriv_vector = orig_deriv
-
+            _ecosim_deriv_mod.deriv_vector = orig_deriv
         assert captured["has_forced_recs"]
         assert captured["has_recruit_adj"]
 
