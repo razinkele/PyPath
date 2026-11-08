@@ -877,6 +877,84 @@ class SimState:
 # =============================================================================
 
 
+def prey_switch_weights(VV, QQbase, Bbase) -> np.ndarray:
+    """EwE6 base search rates ``A[prey, pred]`` up to a per-predator factor.
+
+    EwE6 MakeAMatrixCell: with the vulnerability exchange rate
+    ``v = VV * Q0 / B0_prey``,
+    ``A = 2 Dzero Q0 v / max(P0 (B0_prey v - Q0), 1e-20)``
+    ``  = 2 Dzero VV Q0^2 / B0_prey / max(P0 Q0 (VV - 1), 1e-20)``.
+    The predator's ``2 Dzero`` cancels in the switching factor and is left
+    out. Row 0 (imports) gets no weight.
+    """
+    VV = np.asarray(VV, dtype=float)
+    Q0 = np.asarray(QQbase, dtype=float)
+    n = Q0.shape[0]
+    b0 = np.zeros(n)
+    b = np.asarray(Bbase, dtype=float)[:n]
+    b0[: len(b)] = b
+    b_prey = b0[:, None]
+    p0 = b0[None, :]
+    ok = (Q0 > 0) & (b_prey > 0)
+    ok[0, :] = False
+    denv = np.maximum(p0 * Q0 * (VV - 1.0), 1e-20)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        weights = np.where(ok, VV * Q0 * Q0 / np.where(ok, b_prey, 1.0) / denv, 0.0)
+    return np.nan_to_num(weights, nan=0.0, posinf=1e300)
+
+
+def apply_prey_switching(BB, VV, QQbase, switch_power, Bbase, weights=None):
+    """EwE6 prey switching as an effective vulnerability and base flow.
+
+    EwE6 (SetRelaSwitch) multiplies the search rate of link (i, j) by
+    ``r = [A_ij B_i^s / sum_k A_kj B_k^s] / [A_ij B0_i^s / sum_k A_kj B0_k^s]``
+    with ``s`` the predator's SwitchPower. In the closed-form kernel
+    ``Q = Q0 PYY PDY VV / (VV - 1 + PDY)`` a search-rate factor ``r`` is
+    ``Q = Q0 PYY (r PDY) VV / (VV - 1 + r PDY)``, i.e. the kernel with
+    ``VV' = 1 + (VV - 1) / r`` and ``Q0' = Q0 VV / VV'``. Returns copies of
+    VV and QQbase with those values on the switching predators' links;
+    the inputs are left untouched. ``Bbase`` is the base biomass EwE6
+    normalises by (Ecospace: the map-wide Ecosim base).
+    """
+    Q0 = np.asarray(QQbase, dtype=float)
+    n = Q0.shape[0]
+    sp = np.asarray(switch_power, dtype=float)
+    s_all = np.full(n, float(sp)) if sp.ndim == 0 else np.zeros(n)
+    if sp.ndim:
+        m = min(n, len(sp))
+        s_all[:m] = sp[:m]
+    preds = np.nonzero(s_all > 0)[0]
+    if preds.size == 0:
+        return VV, QQbase
+    if weights is None:
+        weights = prey_switch_weights(VV, Q0, Bbase)
+    b = np.zeros(n)
+    bb = np.asarray(BB, dtype=float)[:n]
+    b[: len(bb)] = np.maximum(bb, 0.0)
+    b0 = np.zeros(n)
+    bref = np.asarray(Bbase, dtype=float)[:n]
+    b0[: len(bref)] = bref
+    vv_out = np.array(VV, dtype=float, copy=True)
+    q_out = np.array(Q0, dtype=float, copy=True)
+    for j in preds:
+        a = weights[:, j]
+        rows = np.nonzero(a > 0)[0]
+        if rows.size == 0:
+            continue
+        s = s_all[j]
+        now = a[rows] * b[rows] ** s
+        base = a[rows] * b0[rows] ** s
+        share_now = now / (now.sum() + 1e-20)
+        share_base = base / (base.sum() + 1e-20)
+        r = np.where(share_base > 0, share_now / np.maximum(share_base, 1e-300), 1.0)
+        r = np.maximum(r, 1e-20)
+        vv = vv_out[rows, j]
+        vv_new = 1.0 + (vv - 1.0) / r
+        q_out[rows, j] = q_out[rows, j] * vv / vv_new
+        vv_out[rows, j] = vv_new
+    return vv_out, q_out
+
+
 def prey_switching(
     BB: np.ndarray,
     Bbase: np.ndarray,
@@ -1271,7 +1349,6 @@ def deriv_vector(
     DD = params["DD"]
     Unassim = params.get("Unassim", np.zeros(NUM_GROUPS + 1))
     Bbase = params.get("Bbase", state.copy())  # Baseline biomass
-    _SwitchPower = params.get("SwitchPower", 0.0)  # Prey switching power
     PP_type = params.get("PP_type", np.zeros(NUM_GROUPS + 1, dtype=int))
     _mediation = params.get("_mediation", None)
     # Pre-fetch spname and M0 once to avoid repeated dict lookups and
@@ -1359,6 +1436,20 @@ def deriv_vector(
 
     # Get base consumption matrix
     QQbase = params.get("QQbase", np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
+
+    # EwE6 prey switching (SwitchPower): each link's search rate scales with
+    # the prey's share of the predator's base-weighted prey pool. Applied as
+    # the equivalent vulnerability and base flow of the closed-form kernel.
+    _switch_power = params.get("SwitchPower")
+    if _switch_power is not None and np.any(np.asarray(_switch_power) > 0):
+        VV, QQbase = apply_prey_switching(
+            BB,
+            VV,
+            QQbase,
+            _switch_power,
+            params.get("SwitchBbase", Bbase),
+            params.get("SwitchA"),
+        )
 
     # Extract suite-pooling parameters (None means old behaviour / no pooling)
     _ScrambleSelf = params.get("ScrambleSelf")

@@ -3102,6 +3102,7 @@ def _build_scenario_overrides(
         ("MoPred", "mo_pred"),
         ("FtimeMax", "ftime_max"),
         ("Pbmaxs", "pb_maxs"),
+        ("SwitchPower", "switch_power"),
     ):
         if column not in sg_df.columns:
             continue

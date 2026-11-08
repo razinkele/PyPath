@@ -697,6 +697,7 @@ def rsim_run_spatial(
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
         "AssimEff": getattr(params, "AssimEff", None),
+        "SwitchPower": getattr(params, "SwitchPower", None),
         "FishFrom": getattr(params, "FishFrom", np.array([])),
         "FishTo": getattr(params, "FishTo", np.array([])),
         "FishQ": getattr(params, "FishQ", np.array([])),
@@ -710,6 +711,10 @@ def rsim_run_spatial(
         "DetLinkFrac": params.DetFrac,
         "RpathPrimaryProduction": True,
     }
+    # Prey switching normalises by the Ecosim base, not a patch's B * c
+    from pypath.core.ecosim import _set_switch_weights
+
+    _set_switch_weights(params_dict, switch_bbase=params.B_BaseRef)
 
     # Pre-compute sparse link arrays for the consumption kernel
     from pypath.core.link_array import ActiveLinkArray

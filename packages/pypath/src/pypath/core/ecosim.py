@@ -208,6 +208,7 @@ class RsimParams:
     AssimEff: Optional[np.ndarray] = None  # GE0 * (PB + 3 K) / PB
     ForagingTimeLowerLimit: float = 0.1  # EwE6: 0.01
     UseVarPQ: bool = False  # GE = AssimEff * Z / (Z + 3 K)
+    SwitchPower: Optional[np.ndarray] = None  # EwE6 prey switching per predator
 
 
 @dataclass
@@ -837,6 +838,7 @@ def rsim_params(
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
         MoPred=np.zeros(ngroups + 1),
         FtimeMax=np.full(ngroups + 1, 2.0),
+        SwitchPower=np.zeros(ngroups + 1),
         VbK=np.zeros(ngroups + 1),
         AssimEff=np.zeros(ngroups + 1),
         HandleSelf=handle_self,
@@ -948,6 +950,25 @@ def rsim_fishing(params: RsimParams, years: range) -> RsimFishing:
         ForcedFRate=frate,
         ForcedCatch=catch,
     )
+
+
+def _set_switch_weights(params_dict, switch_bbase=None):
+    """Pre-compute EwE6's prey-switching search rates once per run.
+
+    Adds ``SwitchA`` (and ``SwitchBbase`` when given) to a deriv_vector
+    parameter dict whose ``SwitchPower`` is positive for some predator.
+    """
+    from pypath.core.ecosim_deriv import prey_switch_weights
+
+    sp = params_dict.get("SwitchPower")
+    if sp is None or not np.any(np.asarray(sp, dtype=float) > 0):
+        return
+    b0 = params_dict["Bbase"] if switch_bbase is None else switch_bbase
+    params_dict["SwitchA"] = prey_switch_weights(
+        params_dict["VV"], params_dict["QQbase"], b0
+    )
+    if switch_bbase is not None:
+        params_dict["SwitchBbase"] = np.asarray(switch_bbase, dtype=float)
 
 
 def _forced_fishing_rate(fishing_obj, year_idx, biomass, n_groups):
@@ -1168,6 +1189,7 @@ def rsim_scenario(
             ("mo_pred", "MoPred"),
             ("ftime_max", "FtimeMax"),
             ("vbk", "VbK"),
+            ("switch_power", "SwitchPower"),
         ):
             if scenario_overrides.get(key):
                 arr = getattr(params, attr)
@@ -1462,7 +1484,9 @@ def rsim_run(
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
         "AssimEff": getattr(params, "AssimEff", None),
+        "SwitchPower": getattr(params, "SwitchPower", None),
     }
+    _set_switch_weights(params_dict)
 
     # Pre-compute sparse link arrays for the consumption kernel so that
     # deriv_vector can skip inactive prey-predator pairs entirely.
@@ -2533,6 +2557,20 @@ def _compute_Q_matrix(
     VV = _ensure_mat(VV, "VV")
     DD = _ensure_mat(DD, "DD")
     QQbase = _ensure_mat(QQbase, "QQbase")
+
+    # EwE6 prey switching, as in deriv_vector
+    _switch_power = params_dict.get("SwitchPower")
+    if _switch_power is not None and np.any(np.asarray(_switch_power) > 0):
+        from pypath.core.ecosim_deriv import apply_prey_switching
+
+        VV, QQbase = apply_prey_switching(
+            state,
+            VV,
+            QQbase,
+            _switch_power,
+            params_dict.get("SwitchBbase", Bbase),
+            params_dict.get("SwitchA"),
+        )
 
     # Ensure ActiveLink is a boolean matrix; if not, try to build it from
     # PreyFrom/PreyTo arrays when available.
