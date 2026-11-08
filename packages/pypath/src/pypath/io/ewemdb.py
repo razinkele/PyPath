@@ -3098,7 +3098,11 @@ def _build_scenario_overrides(
         overrides["ftime_adjust"] = ftime_adjust
 
     # Other per-group Ecosim settings EwE6 applies (EcosimScenarioGroup).
-    for column, key in (("MoPred", "mo_pred"), ("FtimeMax", "ftime_max")):
+    for column, key in (
+        ("MoPred", "mo_pred"),
+        ("FtimeMax", "ftime_max"),
+        ("Pbmaxs", "pb_maxs"),
+    ):
         if column not in sg_df.columns:
             continue
         values: Dict[int, float] = {}

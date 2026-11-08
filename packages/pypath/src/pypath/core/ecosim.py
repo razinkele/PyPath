@@ -1148,6 +1148,21 @@ def rsim_scenario(
                 if (prey_g, pred_g) in vv_dict:
                     params.VV[lk] = vv_dict[(prey_g, pred_g)]
 
+        # EwE6 maximum relative P/B of producers (EcosimScenarioGroup.Pbmaxs):
+        # production PBmaxs*PB*B / (1 + (PBmaxs-1)*B/B0) is Rpath's producer
+        # link with VV = PBmaxs / (PBmaxs - 1); PBmaxs <= 1 is linear.
+        if scenario_overrides.get("pb_maxs"):
+            for g, pbmax in scenario_overrides["pb_maxs"].items():
+                if pbmax is None or not np.isfinite(pbmax):
+                    continue
+                prod = g + 1
+                if not (0 < prod < len(params.PP_type)) or params.PP_type[prod] != 1:
+                    continue
+                vv = pbmax / (pbmax - 1.0) if pbmax > 1.0 + 1e-9 else 1e10
+                for lk in range(1, len(params.PreyFrom)):
+                    if params.PreyFrom[lk] == 0 and params.PreyTo[lk] == prod:
+                        params.VV[lk] = vv
+
         # EwE6 Ecosim options (per group: 0-based model index -> value)
         for key, attr in (
             ("mo_pred", "MoPred"),

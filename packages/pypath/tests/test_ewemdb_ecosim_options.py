@@ -56,3 +56,16 @@ def test_vbk_and_assimilation_efficiency_from_the_group_table(scenario):
     assert p.AssimEff[cod] == pytest.approx(
         ge0 * (p.PBopt[cod] + 3 * 0.23) / p.PBopt[cod]
     )
+
+
+def test_pbmaxs_reaches_the_producer_link(scenario):
+    """LT2022 uses EwE's default Pbmaxs of 2: the producer link keeps VV 2."""
+    p = scenario.params
+    phyto = _idx(scenario, "Phytoplankton")
+    link = [
+        k
+        for k in range(1, len(p.PreyFrom))
+        if p.PreyFrom[k] == 0 and p.PreyTo[k] == phyto
+    ]
+    assert len(link) == 1
+    assert p.VV[link[0]] == pytest.approx(2.0)

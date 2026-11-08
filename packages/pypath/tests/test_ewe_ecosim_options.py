@@ -78,6 +78,9 @@ def _params_dict(sim):
         "DetFrac": sim.DetFrac,
         "DetFrom": sim.DetFrom,
         "DetTo": sim.DetTo,
+        "DetLinkFrom": sim.DetFrom,
+        "DetLinkTo": sim.DetTo,
+        "DetLinkFrac": sim.DetFrac,
         "MoPred": sim.MoPred,
         "UseVarPQ": sim.UseVarPQ,
         "VbK": sim.VbK,
@@ -210,3 +213,61 @@ def test_run_caps_feeding_time_per_group():
     out = rsim_run(sc, method="RK4")
     ftime = out.end_state.Ftime[ZOO]
     assert 1.0 < ftime <= 1.2 + 1e-9
+
+
+def test_pbmaxs_sets_the_producer_link_vulnerability():
+    """EwE6 producer production PBmaxs*PB*B / (1 + (PBmaxs-1)*B/B0) is Rpath's
+    producer link with VV = PBmaxs / (PBmaxs - 1); EwE's default 2 is VV 2."""
+    model, params = _model()
+    sc = rsim_scenario(
+        model,
+        params,
+        years=range(1, 3),
+        scenario_overrides={"pb_maxs": {PHYTO - 1: 3.0}},
+    )
+    p = sc.params
+    link = [
+        k
+        for k in range(1, len(p.PreyFrom))
+        if p.PreyFrom[k] == 0 and p.PreyTo[k] == PHYTO
+    ]
+    assert len(link) == 1
+    assert p.VV[link[0]] == pytest.approx(1.5)
+
+
+def test_pbmaxs_production_curve_matches_ewe():
+    model, params = _model()
+    sc = rsim_scenario(
+        model,
+        params,
+        years=range(1, 3),
+        scenario_overrides={"pb_maxs": {PHYTO - 1: 3.0}},
+    )
+    sim = sc.params
+    d = _params_dict(sim)
+    d["RpathPrimaryProduction"] = True
+    pb, b0, pbmax = sim.PBopt[PHYTO], sim.B_BaseRef[PHYTO], 3.0
+    for rel in (0.25, 1.0, 3.0):
+        state = sim.B_BaseRef.copy()
+        state[PHYTO] = rel * b0
+        rates = {}
+        deriv_vector(state, d, _forcing(sim.NUM_GROUPS), _fishing(sim), rates=rates)
+        expected = pbmax * pb * state[PHYTO] / (1.0 + (pbmax - 1.0) * rel)
+        assert rates["TotGain"][PHYTO] == pytest.approx(expected, rel=1e-9)
+
+
+def test_pbmaxs_of_one_is_linear_production():
+    model, params = _model()
+    sc = rsim_scenario(
+        model,
+        params,
+        years=range(1, 3),
+        scenario_overrides={"pb_maxs": {PHYTO - 1: 1.0}},
+    )
+    p = sc.params
+    link = [
+        k
+        for k in range(1, len(p.PreyFrom))
+        if p.PreyFrom[k] == 0 and p.PreyTo[k] == PHYTO
+    ]
+    assert p.VV[link[0]] > 1e6
