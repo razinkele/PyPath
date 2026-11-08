@@ -1277,6 +1277,21 @@ def read_ewemdb(
                     return float(pb)
                 return float(mort) if pd.notna(mort) else np.nan
 
+            # Leading life stage per stanza group. Older databases (e.g. ones
+            # converted from EwE5) have no LeadingLifeStage column, and EwE6
+            # then leads with the last life stage (cEcoSimModel: BaseStanza
+            # <= 0 -> Nstanza).
+            leading_stage = {}
+            for _, srow in stanza_df.iterrows():
+                sid = srow.get("StanzaID", srow.get("ID", 0))
+                stages = stanza_life_df[stanza_life_df["StanzaID"] == sid]
+                seqs = pd.to_numeric(
+                    stages.get("Sequence", pd.Series(dtype=float)), errors="coerce"
+                ).dropna()
+                last = int(seqs.max()) if len(seqs) else len(stages)
+                lead = _int_or_none(srow.get("LeadingLifeStage"))
+                leading_stage[sid] = lead if lead is not None and lead > 0 else last
+
             # Build stindiv DataFrame (one row per life stage)
             stindiv_data = []
             for _, row in stanza_life_df.iterrows():
@@ -1302,12 +1317,8 @@ def read_ewemdb(
                         "Last": np.nan,  # Will be calculated from next stage's First
                         "Z": _stanza_z(group_name, row.get("Mortality", np.nan)),
                         "Leading": (
-                            row.get("Sequence", 1)
-                            == stanza_df[stanza_df["StanzaID"] == stanza_id][
-                                "LeadingLifeStage"
-                            ].iloc[0]
-                            if len(stanza_df[stanza_df["StanzaID"] == stanza_id]) > 0
-                            else False
+                            _int_or_none(row.get("Sequence", 1))
+                            == leading_stage.get(stanza_id)
                         ),
                     }
                 )
@@ -1340,7 +1351,8 @@ def read_ewemdb(
         IndexError,
         TypeError,
     ) as e:
-        logger.debug("Could not read stanza tables: %s", e)
+        # The model then runs without its multi-stanza age structure
+        logger.warning("Could not read the multi-stanza tables: %r", e)
 
     # OPTIONAL: Read Ecosim scenarios and associated time-series if requested
     if include_ecosim:

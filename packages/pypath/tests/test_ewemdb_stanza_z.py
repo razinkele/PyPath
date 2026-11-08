@@ -72,3 +72,28 @@ def test_derived_juvenile_biomass_matches_ewe6(params):
             # 2e-5 (15.00556 vs 15.00526).
             assert derived == pytest.approx(15.005259, rel=1e-4)
             assert float(p.B_BaseRef[juv]) == pytest.approx(15.005259, rel=1e-5)
+
+
+def test_stanza_table_without_leading_life_stage(params, monkeypatch):
+    """Older EwE6 databases (Curonian 'curonian pelagic-multistanza', converted
+    from EwE5) have no Stanza.LeadingLifeStage column. EwE6 then leads with the
+    last life stage (cEcoSimModel: BaseStanza <= 0 -> Nstanza). The importer
+    looked the column up directly, and the KeyError dropped every stanza
+    group without a warning."""
+    import pypath.io.ewemdb as ewemdb
+
+    original = ewemdb.read_ewemdb_table
+
+    def without_leading(filepath, table, *args, **kwargs):
+        df = original(filepath, table, *args, **kwargs)
+        if table == "Stanza":
+            df = df.drop(columns=[c for c in df.columns if c.startswith("Leading")])
+        return df
+
+    monkeypatch.setattr(ewemdb, "read_ewemdb_table", without_leading)
+    old = ewemdb.read_ewemdb(str(DB_PATH))
+    assert old.stanzas.n_stanza_groups == params.stanzas.n_stanza_groups == 1
+    stindiv = old.stanzas.stindiv
+    leading = stindiv[stindiv["Leading"].astype(bool)]
+    assert leading["StanzaNum"].tolist() == [stindiv["StanzaNum"].max()]
+    assert float(old.stanzas.stgroups["VBGF_Ksp"].iloc[0]) == pytest.approx(1.175)
