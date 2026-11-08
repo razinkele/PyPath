@@ -265,6 +265,33 @@ def apply_timeseries_drivers(
         given = ~np.isnan(steps)
         scenario.fishing.ForcedEffort[given, col] = steps[given]
 
+    def _mark_replace(col, given_years):
+        fishing = scenario.fishing
+        flags = getattr(fishing, "ForcedFReplace", None)
+        if flags is None:
+            flags = np.zeros(fishing.ForcedFRate.shape, dtype=bool)
+        flags[given_years, col] = True
+        fishing.ForcedFReplace = flags
+
+    for s in collection.series:
+        if s.dat_type != DATTYPE_CATCH_FORCING or s.group_idx is None:
+            continue
+        if s.group_idx >= n_groups:
+            warnings.warn(
+                f"Time series '{s.name}' references group index {s.group_idx} "
+                f"but model only has {n_groups} groups. Skipping.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+        col = s.group_idx + 1
+        n_years = scenario.fishing.ForcedCatch.shape[0]
+        values = np.asarray(s.values, dtype=float)
+        n = min(n_years, len(values))
+        given = np.where(~np.isnan(values[:n]))[0]
+        scenario.fishing.ForcedCatch[given, col] = values[given]
+        _mark_replace(col, given)
+
     fmort_series = [
         s for s in collection.series if s.dat_type == DATTYPE_FISHING_MORTALITY
     ]
@@ -283,8 +310,9 @@ def apply_timeseries_drivers(
         n_years = scenario.fishing.ForcedFRate.shape[0]
         values = np.asarray(s.values, dtype=float)
         n = min(n_years, len(values))
-        given = ~np.isnan(values[:n])
-        scenario.fishing.ForcedFRate[:n, col][given] = values[:n][given]
+        given = np.where(~np.isnan(values[:n]))[0]
+        scenario.fishing.ForcedFRate[given, col] = values[given]
+        _mark_replace(col, given)
 
 
 def load_timeseries(path: str | Path) -> EweTimeSeriesCollection:

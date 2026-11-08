@@ -790,6 +790,15 @@ def rsim_run_spatial(
                 forcing_dict[_key] = _arr[mi]
         if "ForcedSearch" in forcing_dict:
             forcing_dict["PP_forcing"] = forcing_dict["ForcedSearch"]
+        # Forced fishing: a forced catch becomes a rate on the map-wide biomass
+        from pypath.core.ecosim import _forced_fishing_rate
+
+        _ff_rate, _ff_replace = _forced_fishing_rate(
+            fishing_obj, mi // 12, current_biomass.sum(axis=1), params.NUM_GROUPS
+        )
+        if _ff_rate is not None:
+            forcing_dict["ForcedF"] = _ff_rate
+            forcing_dict["ForcedFReplace"] = _ff_replace
 
         # Stanza groups eat in proportion to their age structure's consumption
         # index, split over the patches by their share of the group. Held for

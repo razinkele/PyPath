@@ -286,6 +286,10 @@ class RsimFishing:
     ForcedEffort: np.ndarray
     ForcedFRate: np.ndarray
     ForcedCatch: np.ndarray
+    # Where True (per year and group) ForcedFRate / ForcedCatch replace the
+    # gears' fishing on the group (EwE6 setFishTime); elsewhere they are added
+    # as a clean fishery landing Outside (Rpath). None = add everywhere.
+    ForcedFReplace: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -944,6 +948,47 @@ def rsim_fishing(params: RsimParams, years: range) -> RsimFishing:
         ForcedFRate=frate,
         ForcedCatch=catch,
     )
+
+
+def _forced_fishing_rate(fishing_obj, year_idx, biomass, n_groups):
+    """Forced fishing mortality of one month and where it replaces the gears.
+
+    Rpath's ForcedFRate / ForcedCatch and EwE's forced F / forced catch, as a
+    rate per group: F + catch / B, the catch part capped at 3 (EwE6
+    setFishTime), with B at the start of the month. Returns (rate, replace)
+    arrays of length ``n_groups + 1``, or (None, None) when nothing is forced.
+    """
+    frate = getattr(fishing_obj, "ForcedFRate", None)
+    fcatch = getattr(fishing_obj, "ForcedCatch", None)
+    if frate is None and fcatch is None:
+        return None, None
+    rate = np.zeros(n_groups + 1)
+    replace = np.zeros(n_groups + 1, dtype=bool)
+    if frate is not None and year_idx < len(frate):
+        row = np.nan_to_num(np.asarray(frate[year_idx], dtype=float))
+        m = min(len(row), n_groups + 1)
+        rate[:m] += np.maximum(row[:m], 0.0)
+    if fcatch is not None and year_idx < len(fcatch):
+        row = np.nan_to_num(np.asarray(fcatch[year_idx], dtype=float))
+        m = min(len(row), n_groups + 1)
+        b = np.asarray(biomass, dtype=float)[:m]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            catch_rate = np.where(
+                (row[:m] > 0) & (b > 0),
+                np.minimum(row[:m] / np.where(b > 0, b, 1.0), 3.0),
+                0.0,
+            )
+        rate[:m] += catch_rate
+    flags = getattr(fishing_obj, "ForcedFReplace", None)
+    if flags is not None and year_idx < len(flags):
+        row = np.asarray(flags[year_idx], dtype=bool)
+        m = min(len(row), n_groups + 1)
+        replace[:m] = row[:m]
+    rate[0] = 0.0
+    replace[0] = False
+    if not np.any(rate > 0) and not np.any(replace):
+        return None, None
+    return rate, replace
 
 
 def _set_assimilation_efficiency(params: "RsimParams") -> None:
@@ -1942,6 +1987,15 @@ def rsim_run(
         _forced_mask = np.asarray(_forced_now) > 0
         if np.any(_forced_mask):
             state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
+        # Forced fishing mortality / catches for the month (Rpath ForcedFRate
+        # and ForcedCatch, EwE forced F and catch), as a rate fixed at the
+        # start of the month as EwE6 setFishTime does.
+        _ff_rate, _ff_replace = _forced_fishing_rate(
+            fishing_obj, year_idx, state, params.NUM_GROUPS
+        )
+        if _ff_rate is not None:
+            forcing_dict["ForcedF"] = _ff_rate
+            forcing_dict["ForcedFReplace"] = _ff_replace
         month_start_state = state.copy()
 
         # Integration step

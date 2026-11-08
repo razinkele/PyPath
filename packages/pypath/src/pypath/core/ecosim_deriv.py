@@ -1522,6 +1522,23 @@ def deriv_vector(
             effort_mult *= _fleet_med[gear_idx]
         FishMort[grp] += FishQ[i] * effort_mult
         _link_fish_rate[i] = FishQ[i] * effort_mult
+    # Forced fishing (rsim_run's ForcedF: forced F plus forced catch / B).
+    # Where ForcedFReplace is set it replaces the gears on the group (EwE6),
+    # else it is a clean fishery added to them and landed Outside (Rpath).
+    _forced_f = forcing.get("ForcedF")
+    if _forced_f is not None:
+        _ff = np.asarray(_forced_f, dtype=float)
+        _replace = np.asarray(
+            forcing.get("ForcedFReplace", np.zeros(len(_ff), dtype=bool)), dtype=bool
+        )
+        n_bio_groups = NUM_LIVING + NUM_DEAD
+        for grp in range(1, min(len(_ff), n_bio_groups + 1)):
+            if grp < len(_replace) and _replace[grp]:
+                FishMort[grp] = 0.0
+                for i in range(1, len(FishFrom)):
+                    if int(FishFrom[i]) == grp:
+                        _link_fish_rate[i] = 0.0
+            FishMort[grp] += _ff[grp]
 
     for i in range(1, NUM_LIVING + 1):
         Catch[i] = FishMort[i] * BB[i]
