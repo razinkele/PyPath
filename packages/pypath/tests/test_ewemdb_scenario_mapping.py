@@ -141,3 +141,24 @@ def test_lt2022_feeding_time_adjustment_matches_the_table(lt2022_scenario):
             assert float(p.FtimeAdj[i]) == pytest.approx(expected[name]), name
             compared += 1
     assert compared == len(expected) == 24
+
+
+def test_ewe_missing_value_marker_is_not_a_setting():
+    """EwE stores -9999 for an unset value. Read as a number it would make a
+    producer's P/B linear (Pbmaxs) or scale other mortality by
+    1 - MoPred + MoPred * Ftime with MoPred = -9999."""
+    params = _four_group_params()
+    meta = _scenario_meta()
+    sg = meta["scenario_group_df"]
+    sg["FtimeAdjust"] = [-9999.0, 0.0, 0.5, 0.9]  # Detritus unset
+    sg["MoPred"] = [0.0, 0.0, -9999.0, 0.3]  # Fish unset
+    sg["Pbmaxs"] = [2.0, -9999.0, 2.0, 2.0]  # Phyto unset
+    sg["FtimeMax"] = [2.0, 2.0, 2.0, -9999.0]  # Birds unset
+    sg["SwitchPower"] = [0.0, 0.0, -9999.0, 1.0]  # Fish unset
+    overrides = _build_scenario_overrides(params, meta, params.model["Group"].tolist())
+    # model order: Birds 0, Fish 1, Phyto 2, Detritus 3
+    assert 3 not in overrides["ftime_adjust"]
+    assert overrides["mo_pred"] == {0: 0.3, 2: 0.0, 3: 0.0}
+    assert 2 not in overrides["pb_maxs"]
+    assert 0 not in overrides["ftime_max"]
+    assert overrides["switch_power"] == {0: 1.0, 2: 0.0, 3: 0.0}

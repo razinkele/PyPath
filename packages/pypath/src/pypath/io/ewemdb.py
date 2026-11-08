@@ -3106,9 +3106,9 @@ def _build_scenario_overrides(
     ftime_adjust: Dict[int, float] = {}
     for _, row in sg_df.iterrows():
         egid = _int_or_none(row.get("EcopathGroupID"))
-        ftadj = row.get("FtimeAdjust")
-        if egid in egid_to_idx and ftadj is not None and not pd.isna(ftadj):
-            ftime_adjust[egid_to_idx[egid]] = float(ftadj)
+        ftadj = _ewe_number(row.get("FtimeAdjust"))
+        if egid in egid_to_idx and ftadj is not None:
+            ftime_adjust[egid_to_idx[egid]] = ftadj
     if ftime_adjust:
         overrides["ftime_adjust"] = ftime_adjust
 
@@ -3124,9 +3124,9 @@ def _build_scenario_overrides(
         values: Dict[int, float] = {}
         for _, row in sg_df.iterrows():
             egid = _int_or_none(row.get("EcopathGroupID"))
-            val = row.get(column)
-            if egid in egid_to_idx and val is not None and not pd.isna(val):
-                values[egid_to_idx[egid]] = float(val)
+            val = _ewe_number(row.get(column))
+            if egid in egid_to_idx and val is not None:
+                values[egid_to_idx[egid]] = val
         if values:
             overrides[key] = values
 
@@ -3167,6 +3167,17 @@ def _build_scenario_overrides(
             overrides["vv_overrides"] = vv_overrides
 
     return overrides if overrides else None
+
+
+def _ewe_number(value: Any) -> Optional[float]:
+    """A numeric table cell, or None when missing, NaN or EwE's -9999 marker."""
+    try:
+        if value is None or pd.isna(value):
+            return None
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if number <= -9998.0 else number
 
 
 def _int_or_none(value: Any) -> Optional[int]:
