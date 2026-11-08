@@ -470,7 +470,10 @@ def rsim_params(
         total loss rate at the start, |loss|/B, exceeds 24 per year
         (predation + other mortality + fishing; for detritus the inflow minus
         biomass accumulation). ``"rpath"`` follows Rpath: other-mortality
-        flow M0*B above 24 (use it to compare with Rpath outputs).
+        flow M0*B above 24 (use it to compare with Rpath outputs). The rule
+        also sets the integrator to match: under ``"ewe"`` RK4 takes one step
+        a month with the fast groups at equilibrium in every stage (EwE6
+        rk4 / SetTimeSteps); under ``"rpath"`` four explicit sub-steps.
 
     Returns
     -------
@@ -824,6 +827,9 @@ def rsim_params(
         PBopt=pbopt,
         NoIntegrate=no_integrate,
         RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
+        # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
+        # Rpath's rk4_run takes four sub-steps.
+        RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
         MoPred=np.zeros(ngroups + 1),
         FtimeMax=np.full(ngroups + 1, 2.0),
         VbK=np.zeros(ngroups + 1),

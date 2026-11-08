@@ -91,3 +91,16 @@ def test_lt2022_runs_under_rk4_without_crashes():
     ratio = bio[-1, 1 : n_bio + 1] / bio[0, 1 : n_bio + 1]
     assert np.all(np.isfinite(ratio))
     assert ratio.max() < 20 and ratio.min() > 0.02
+
+
+def test_rk4_takes_one_step_per_month_under_the_ewe_rule():
+    """EwE6 (cEcoSimModel.SetTimeSteps) fixes StepsPerMonth = 1: one RK4 step
+    a month, the fast groups blended at its four stages. Rpath's rk4_run
+    takes RK4_STEPS = 4 sub-steps; with fast groups at equilibrium in every
+    stage that applies the blend four times as often and changes their path
+    (LT2022 Zooplankton ends at 1 % of its start instead of 12 %)."""
+    model, params = _stiff_model()
+    sc = rsim_scenario(model, params, years=range(1, 3))
+    assert sc.params.RK4_STEPS == 1
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="rpath")
+    assert sc.params.RK4_STEPS == 4
