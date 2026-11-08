@@ -1310,6 +1310,8 @@ def deriv_vector(
     ForcedBio = forcing.get("ForcedBio", np.zeros(NUM_GROUPS + 1))
     PP_forcing = forcing.get("PP_forcing", np.ones(NUM_GROUPS + 1))
     ForcedPrey = forcing.get("ForcedPrey", np.ones(NUM_GROUPS + 1))
+    ForcedSearch = forcing.get("ForcedSearch", None)
+    ForcedMort = forcing.get("ForcedMort", None)
     ForcedMigrate = forcing.get("ForcedMigrate", np.zeros(NUM_GROUPS + 1))
     ForcedActresp = forcing.get("ForcedActresp", np.ones(NUM_GROUPS + 1))
     ForcedRecs = forcing.get("ForcedRecs", np.ones(NUM_GROUPS + 1))
@@ -1344,6 +1346,16 @@ def deriv_vector(
     if _stanza_ratio is not None:
         _has_ratio = np.isfinite(_stanza_ratio)
         predYY[_has_ratio] = Ftime[_has_ratio] * _stanza_ratio[_has_ratio]
+    # Search-rate forcing (Rpath force_bysearch, EwE SearchRate) scales a
+    # consumer's effective biomass in the foraging arena. A producer's
+    # ForcedSearch is its production forcing (PP_forcing), applied with the
+    # production term instead.
+    if ForcedSearch is not None:
+        _fs = np.asarray(ForcedSearch, dtype=float)
+        if _fs.shape[0] == NUM_GROUPS + 1:
+            _consumer = np.asarray(PP_type, dtype=float)[: NUM_GROUPS + 1] == 0
+            _consumer[0] = False
+            predYY[_consumer] = predYY[_consumer] * _fs[_consumer]
 
     # Get base consumption matrix
     QQbase = params.get("QQbase", np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
@@ -1647,6 +1659,13 @@ def deriv_vector(
             _M0_effective = _M0_effective * (
                 1.0 - _mo_pred + _mo_pred * np.asarray(Ftime, dtype=float)
             )
+    # Other-mortality forcing (EwE6 MortOther; Rpath force_bymort) scales M0.
+    # The scaled rate also feeds the detritus flows. (Rpath additionally
+    # scales the predation loss without the predator's gain.)
+    if ForcedMort is not None:
+        _fm = np.asarray(ForcedMort, dtype=float)
+        if _fm.shape[0] == NUM_GROUPS + 1:
+            _M0_effective = _M0_effective * _fm
     # EwE6 UseVarPQ: gross efficiency follows the total loss rate Z,
     # GE = AssimEff * Z / (Z + 3 K); AssimEff is set so GE = GE0 at Z = PB.
     if params.get("UseVarPQ", False):

@@ -1921,6 +1921,13 @@ def rsim_run(
             "ForcedActresp": forcing.ForcedActresp[month - 1],
             "ForcedPrey": _forced_prey,
             "PP_forcing": _forced_search,
+            "ForcedSearch": _forced_search,
+            "ForcedMort": (
+                forcing.ForcedMort[month - 1]
+                if getattr(forcing, "ForcedMort", None) is not None
+                and month - 1 < len(forcing.ForcedMort)
+                else np.ones(params.NUM_GROUPS + 1)
+            ),
             "ForcedEffort": (
                 fishing_obj.ForcedEffort[month - 1]
                 if month - 1 < len(fishing_obj.ForcedEffort)
@@ -2487,6 +2494,15 @@ def _compute_Q_matrix(
     for i in range(1, NUM_LIVING + 1):
         if Bbase[i] > 0:
             predYY[i] = Ftime[i] * BB[i] / Bbase[i]
+    # consumer search-rate forcing, as in deriv_vector
+    _forced_search = forcing.get("ForcedSearch")
+    if _forced_search is not None:
+        _fs = np.asarray(_forced_search, dtype=float)
+        _pp = np.asarray(params_dict.get("PP_type", np.zeros(NUM_GROUPS + 1)))
+        if _fs.shape[0] == NUM_GROUPS + 1:
+            for i in range(1, NUM_LIVING + 1):
+                if _pp[i] == 0:
+                    predYY[i] *= _fs[i]
     # Multi-stanza groups: same predator term as deriv_vector
     stanza_ratio = forcing.get("StanzaPredRatio")
     if stanza_ratio is not None:

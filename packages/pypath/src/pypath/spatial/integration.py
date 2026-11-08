@@ -782,6 +782,14 @@ def rsim_run_spatial(
         _forced_recs = getattr(forcing, "ForcedRecs", None)
         if _forced_recs is not None and mi < len(_forced_recs):
             forcing_dict["ForcedRecs"] = _forced_recs[mi]
+        # Prey, production, search-rate, mortality and respiration forcing,
+        # as in rsim_run (Ecospace used to drop them).
+        for _key in ("ForcedPrey", "ForcedSearch", "ForcedMort", "ForcedActresp"):
+            _arr = getattr(forcing, _key, None)
+            if _arr is not None and mi < len(_arr):
+                forcing_dict[_key] = _arr[mi]
+        if "ForcedSearch" in forcing_dict:
+            forcing_dict["PP_forcing"] = forcing_dict["ForcedSearch"]
 
         # Stanza groups eat in proportion to their age structure's consumption
         # index, split over the patches by their share of the group. Held for

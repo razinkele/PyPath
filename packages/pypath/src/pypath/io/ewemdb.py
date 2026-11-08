@@ -3410,7 +3410,8 @@ def _apply_forcing_shapes(
     Rpath's force_bysearch) and never to ``ForcedPrey``, which scales a prey's
     availability to its predators. Vulnerability shapes go to ``ForcedPrey``
     (per prey group: PyPath has no per-link channel), other-mortality shapes
-    to ``ForcedMort``. Shapes with several assignments multiply.
+    to ``ForcedMort`` and a consumer's search-rate shapes to its
+    ``ForcedSearch`` (per predator). Shapes with several assignments multiply.
     """
     try:
         ppshape_df = _try_read_table_variants(filepath, ["EcosimScenarioPredPreyShape"])
@@ -3499,6 +3500,18 @@ def _apply_forcing_shapes(
                     )
             elif appl == _FF_MORT_OTHER:
                 forcing.ForcedMort[:, prey] *= arr
+            elif appl == _FF_SEARCH_RATE:
+                # A consumer's search rate: EwE scales the link's search rate;
+                # PyPath has one search-rate channel per predator, so the
+                # shape acts on all of the predator's links.
+                forcing.ForcedSearch[:, pred] *= arr
+                logger.info(
+                    "Search-rate shape %s on %s -> %s applies to every prey of %s",
+                    shape_id,
+                    spname[prey],
+                    spname[pred],
+                    spname[pred],
+                )
             else:
                 logger.warning(
                     "Forcing application type %s (shape %s on %s -> %s) is not "
