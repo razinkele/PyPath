@@ -75,8 +75,9 @@ class TestDataImportPage:
             sig = inspect.signature(data_import.import_server)
             params = list(sig.parameters.keys())
 
-            # Should have: input, output, session, model_data
-            assert len(params) == 4
+            # input, output, session, model_data, ewe_source (the imported
+            # EwE database, for the Ecosim page)
+            assert len(params) == 5
             assert any(p.lstrip("_") == "model_data" for p in params)
         except ImportError:
             pytest.skip("Data import page module not available")
@@ -135,8 +136,9 @@ class TestEcosimPage:
             sig = inspect.signature(ecosim.ecosim_server)
             params = list(sig.parameters.keys())
 
-            # Should have: input, output, session, model_data, sim_results, sim_scenario
-            assert len(params) == 6
+            # input, output, session, model_data, sim_results, sim_scenario,
+            # ewe_source (the imported EwE database)
+            assert len(params) == 7
             assert any(p.lstrip("_") == "model_data" for p in params)
             assert any(p.lstrip("_") == "sim_results" for p in params)
             assert any(p.lstrip("_") == "sim_scenario" for p in params)

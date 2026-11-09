@@ -27,6 +27,10 @@ except ImportError:  # pragma: no cover
 
 # Import centralized configuration
 from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
+from pypath_shiny.pages.ewe_scenario import (
+    build_ewe_scenario,
+    ewe_source_matches,
+)
 from pypath_shiny.services.ecosim_controls import (
     apply_fishing_management_control,
     apply_metabolism_control,
@@ -136,8 +140,10 @@ def apply_prey_forcing(scen, group, multiplier):
     """Set the prey-availability multiplier for one group on a scenario.
 
     `ForcedPrey` is (n_months, NUM_GROUPS + 1) and 1-based in the group axis;
-    the core multiplies prey availability by it each month. Any previous
-    forcing is reset first so runs do not accumulate.
+    the core multiplies prey availability by it each month. Each call starts
+    again from the scenario's own forcing (kept on the first call), so runs
+    do not accumulate and an EwE scenario's forcing shapes survive; the
+    group's forcing is scaled by the multiplier.
 
     Returns True when a multiplier was applied.
     """
@@ -145,7 +151,11 @@ def apply_prey_forcing(scen, group, multiplier):
     if forcing is None or getattr(forcing, "ForcedPrey", None) is None:
         return False
 
-    forcing.ForcedPrey[:] = 1.0
+    base = getattr(scen, "_base_forced_prey", None)
+    if base is None or np.shape(base) != np.shape(forcing.ForcedPrey):
+        base = np.array(forcing.ForcedPrey, dtype=float, copy=True)
+        scen._base_forced_prey = base
+    forcing.ForcedPrey[:] = base
 
     if multiplier is None or float(multiplier) == 1.0 or not group:
         return False
@@ -154,8 +164,44 @@ def apply_prey_forcing(scen, group, multiplier):
     if group not in spname:
         return False
 
-    forcing.ForcedPrey[:, spname.index(group)] = float(multiplier)
+    col = spname.index(group)
+    forcing.ForcedPrey[:, col] = base[:, col] * float(multiplier)
     return True
+
+
+def scenario_from_balanced_model(
+    model, groups, types, years, vulnerability, fast_group_rule="ewe"
+) -> RsimScenario:
+    """Ecosim scenario from the app's balanced model.
+
+    One vulnerability for every link (the page's slider) and the chosen
+    fast-group rule ('ewe' or 'rpath').
+    """
+    # rsim_scenario needs a params object next to the balanced model
+    from pypath.core.params import create_rpath_params
+
+    orig_params = create_rpath_params(groups, types)
+
+    # Fill in the balanced parameter values
+    orig_params.model["Biomass"] = model.Biomass
+    orig_params.model["PB"] = model.PB
+    orig_params.model["QB"] = model.QB
+    orig_params.model["EE"] = model.EE
+    orig_params.model["Unassim"] = model.Unassim
+    orig_params.model["BioAcc"] = model.BA
+    orig_params.model["Type"] = types
+
+    # Note: the diet matrix is not copied back into orig_params -
+    # rsim_scenario rebuilds it from rpath.DC via rsim_params and only
+    # reads the 'model' attribute of the params object.
+
+    return rsim_scenario(
+        model,
+        orig_params,
+        years=years,
+        vulnerability=vulnerability,
+        fast_group_rule=fast_group_rule,
+    )
 
 
 def ecosim_ui() -> ui.Tag:
@@ -166,6 +212,8 @@ def ecosim_ui() -> ui.Tag:
             # Sidebar for simulation settings
             ui.sidebar(
                 ui.h4("Simulation Settings"),
+                # Scenario stored in an imported EwE database (when it matches)
+                ui.output_ui("ewe_scenario_source_ui"),
                 # Time settings
                 ui.h5("Time Period"),
                 ui.input_numeric(
@@ -194,6 +242,22 @@ def ecosim_ui() -> ui.Tag:
                     ),
                     choices={"RK4": "Runge-Kutta 4", "AB": "Adams-Bashforth"},
                     selected="RK4",
+                ),
+                ui.input_select(
+                    "fast_group_rule",
+                    ui.span(
+                        "Fast Groups ",
+                        ui.tags.i(
+                            class_="bi bi-info-circle",
+                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month.",
+                            style="cursor: help;",
+                        ),
+                    ),
+                    choices={
+                        "ewe": "EwE6: at equilibrium",
+                        "rpath": "Rpath: integrated",
+                    },
+                    selected="ewe",
                 ),
                 ui.tags.hr(),
                 # Vulnerability settings
@@ -696,6 +760,7 @@ def ecosim_server(
     model_data: reactive.Value,
     sim_results: reactive.Value,
     sim_scenario: reactive.Value = None,
+    ewe_source: reactive.Value = None,
 ) -> None:
     """Ecosim simulation page server logic.
 
@@ -714,6 +779,10 @@ def ecosim_server(
         Reactive value containing the balanced Ecopath model
     sim_results : reactive.Value
         Reactive value for storing simulation results
+    ewe_source : reactive.Value, optional
+        The EwE database last imported on the Data Import page (see
+        :func:`pypath_shiny.pages.ewe_scenario.ewe_source_record`); its
+        Ecosim scenarios are offered while the model has its groups.
 
     Returns
     -------
@@ -738,6 +807,59 @@ def ecosim_server(
     def _input_or_default(name: str, default):
         """Read a UI input value with fallback for conditional controls."""
         return read_optional_input(input, name, default)
+
+    def _matching_ewe_source():
+        """The imported EwE database, when the current model has its groups."""
+        if ewe_source is None:
+            return None
+        source = ewe_source.get()
+        return source if ewe_source_matches(source, model_data.get()) else None
+
+    @output
+    @render.ui
+    def ewe_scenario_source_ui():
+        """Offer the Ecosim scenarios stored in the imported EwE database."""
+        source = _matching_ewe_source()
+        if source is None:
+            return ui.div()
+        scenarios = {str(k): v for k, v in source["scenarios"].items()}
+        default = str(source.get("scenario"))
+        if default not in scenarios:
+            default = next(iter(scenarios))
+        datasets = {"": "None"}
+        datasets.update({str(k): v for k, v in source.get("datasets", {}).items()})
+        return ui.div(
+            ui.h5("Scenario Source"),
+            ui.input_radio_buttons(
+                "scenario_source",
+                "Build the scenario from",
+                {
+                    "model": "The balanced model and the settings below",
+                    "ewe": f"An Ecosim scenario stored in {source['name']}",
+                },
+                selected="model",
+            ),
+            ui.panel_conditional(
+                "input.scenario_source === 'ewe'",
+                ui.input_select(
+                    "ewe_scenario_id", "EwE scenario", scenarios, selected=default
+                ),
+                ui.input_select(
+                    "ewe_dataset_id",
+                    "Time-series dataset (drivers)",
+                    datasets,
+                    selected="",
+                ),
+                ui.p(
+                    "Runs the database's Ecopath inputs with the scenario's own "
+                    "vulnerabilities, feeding time, switching, forcing and "
+                    "length, as EwE does. Edits made in this app and the "
+                    "vulnerability slider are not used.",
+                    class_="text-muted small",
+                ),
+            ),
+            ui.tags.hr(),
+        )
 
     @reactive.effect
     @reactive.event(input.btn_help_scenario)
@@ -1501,12 +1623,6 @@ def ecosim_server(
             return
 
         try:
-            years = range(1, input.sim_years() + 1)
-
-            # Create scenario
-            # Need original params - recreate from balanced model
-            from pypath.core.params import create_rpath_params
-
             # Get groups and types safely
             from pypath_shiny.pages.utils import (
                 is_balanced_model,
@@ -1526,24 +1642,31 @@ def ecosim_server(
                     "Model object must be either Rpath or RpathParams type"
                 )
 
-            orig_params = create_rpath_params(groups, types)
-
-            # Fill in the balanced parameter values
-            orig_params.model["Biomass"] = model.Biomass
-            orig_params.model["PB"] = model.PB
-            orig_params.model["QB"] = model.QB
-            orig_params.model["EE"] = model.EE
-            orig_params.model["Unassim"] = model.Unassim
-            orig_params.model["BioAcc"] = model.BA
-            orig_params.model["Type"] = types
-
-            # Note: the diet matrix is not copied back into orig_params -
-            # rsim_scenario rebuilds it from rpath.DC via rsim_params and only
-            # reads the 'model' attribute of the params object.
-
-            new_scenario = rsim_scenario(
-                model, orig_params, years=years, vulnerability=input.vulnerability()
-            )
+            rule = _input_or_default("fast_group_rule", "ewe")
+            source = _matching_ewe_source()
+            if (
+                source is not None
+                and _input_or_default("scenario_source", "model") == "ewe"
+            ):
+                # The database's own scenario, as EwE6 runs it: its Ecopath
+                # inputs, settings, forcing and length.
+                new_scenario = build_ewe_scenario(
+                    source,
+                    _input_or_default("ewe_scenario_id", source["scenario"]),
+                    _input_or_default("ewe_dataset_id", ""),
+                    rule,
+                )
+                built_years = new_scenario.fishing.ForcedEffort.shape[0] // 12
+            else:
+                new_scenario = scenario_from_balanced_model(
+                    model,
+                    groups,
+                    types,
+                    years=range(1, input.sim_years() + 1),
+                    vulnerability=input.vulnerability(),
+                    fast_group_rule=rule,
+                )
+                built_years = input.sim_years()
             _notify_detritus_self_fate(model)
 
             # Apply fishing scenario
@@ -1647,7 +1770,7 @@ def ecosim_server(
             ui.update_select("forcing_group", choices=group_names)
             ui.update_select("recruitment_group", choices=group_names)
 
-            scenario_years.set(input.sim_years())
+            scenario_years.set(built_years)
             notify_success("Scenario created successfully!")
 
         except Exception as e:

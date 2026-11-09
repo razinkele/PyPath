@@ -97,3 +97,20 @@ def test_lt2022_fast_groups_match_ewe6():
     names = [str(n).strip() for n in sc.params.spname]
     fast = {names[i] for i, v in enumerate(sc.params.NoIntegrate) if v != 0}
     assert fast == {"Zooplankton", "Phytoplankton", "Detritus"}
+
+
+@pytest.mark.integration
+def test_ewemdb_scenario_takes_the_rule():
+    """ecosim_scenario_from_ewemdb passes the rule on (the Shiny app offers it)."""
+    if not DB_PATH.exists():
+        pytest.skip("LT2022 database not found")
+    from pypath.io.ewemdb import EwEDatabaseError, ecosim_scenario_from_ewemdb
+
+    try:
+        sc = ecosim_scenario_from_ewemdb(
+            str(DB_PATH), scenario=16, fast_group_rule="rpath"
+        )
+    except EwEDatabaseError as e:
+        pytest.skip(f"No EwE database driver: {e}")
+    assert sc.params.RK4_STEPS == 4
+    assert not sc.params.RK4_FAST_EQUILIBRIUM

@@ -3581,6 +3581,7 @@ def ecosim_scenario_from_ewemdb(
     balance: bool = True,
     years: Optional[range] = None,
     timeseries_dataset: Optional[int] = None,
+    fast_group_rule: Optional[str] = None,
 ) -> "RsimScenario":
     """Convenience: create a full RsimScenario from an EwE database scenario.
 
@@ -3596,6 +3597,11 @@ def ecosim_scenario_from_ewemdb(
         already be balanced (not recommended).
     years : range, optional
         Years to simulate. If None, derived from scenario metadata.
+    timeseries_dataset : int, optional
+        ``DatasetID`` of the time-series dataset whose driver series force
+        the run, as the dataset loaded in EwE6 Ecosim does.
+    fast_group_rule : {'ewe', 'rpath'}, optional
+        Passed to :func:`pypath.core.ecosim.rsim_scenario` (default 'ewe').
 
     Returns
     -------
@@ -3684,7 +3690,11 @@ def ecosim_scenario_from_ewemdb(
 
     # Create RsimScenario with overrides applied
     rsim = rsim_scenario(
-        balanced, params, years=years, scenario_overrides=scenario_overrides
+        balanced,
+        params,
+        years=years,
+        scenario_overrides=scenario_overrides,
+        fast_group_rule=fast_group_rule,
     )
 
     # Replace default forcing/fishing with ones parsed from the DB if available

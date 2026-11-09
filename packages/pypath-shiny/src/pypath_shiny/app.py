@@ -408,6 +408,8 @@ def server(input: Inputs, output: Outputs, session: Session):
     model_data = reactive.Value(None)  # RpathParams: Ecopath model parameters
     sim_results = reactive.Value(None)  # Dict: Ecosim simulation results
     sim_scenario = reactive.Value(None)  # RsimScenario: shared Ecosim scenario
+    # dict: the EwE database last imported (path, groups, Ecosim scenarios)
+    ewe_source = reactive.Value(None)
 
     # Create shared data object for pages that need structured access
     class SharedData:
@@ -450,7 +452,9 @@ def server(input: Inputs, output: Outputs, session: Session):
         ("Home", lambda: home.home_server(input, output, session, model_data)),
         (
             "Data Import",
-            lambda: data_import.import_server(input, output, session, model_data),
+            lambda: data_import.import_server(
+                input, output, session, model_data, ewe_source=ewe_source
+            ),
         ),
         ("Ecopath", lambda: ecopath.ecopath_server(input, output, session, model_data)),
         (
@@ -460,7 +464,13 @@ def server(input: Inputs, output: Outputs, session: Session):
         (
             "Ecosim",
             lambda: ecosim.ecosim_server(
-                input, output, session, model_data, sim_results, sim_scenario
+                input,
+                output,
+                session,
+                model_data,
+                sim_results,
+                sim_scenario,
+                ewe_source=ewe_source,
             ),
         ),
         (
