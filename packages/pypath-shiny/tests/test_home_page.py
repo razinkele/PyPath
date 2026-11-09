@@ -98,3 +98,22 @@ def test_example_stanzas_follow_rpath_conventions():
     assert got["JuvRoundfish1"].qb == pytest.approx(
         model.loc["JuvRoundfish1", "QB"], rel=1e-5
     )
+
+
+def test_ecosim_warns_about_detritus_flowing_to_itself():
+    """The Ecosim page explains why a self-fed detritus pool will grow."""
+    import warnings
+
+    from pypath.core.ecopath import rpath
+
+    from pypath_shiny.pages.ecosim import detritus_self_fate_message
+    from pypath_shiny.pages.home import build_example_params
+
+    params = build_example_params()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert detritus_self_fate_message(rpath(params)) is None
+        det_row = params.model.index[params.model["Group"] == "Detritus"][0]
+        params.model.loc[det_row, "Detritus"] = 1.0
+        msg = detritus_self_fate_message(rpath(params))
+    assert msg is not None and "Detritus" in msg

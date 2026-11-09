@@ -168,7 +168,8 @@ def test_seabirds_initial_m0_persistence():
     # Run a short simulation to trigger initialization adjustments
     _rsim_output = rsim_run(pypath_ecosim, method="RK4", years=range(1, 2))
 
-    after_m0 = float(pypath_ecosim.params.MzeroMort[sidx])
+    # The M0 the run used (rsim_run no longer writes it into scenario.params)
+    after_m0 = float(_rsim_output.params["M0"][sidx])
     logger.debug("Seabirds M0 after run:  %.12e", after_m0)
 
     # Check against reference value in ecosim_params.json

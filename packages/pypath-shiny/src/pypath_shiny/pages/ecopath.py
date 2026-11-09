@@ -274,14 +274,19 @@ def _fill_default_detritus_fate(model_df: pd.DataFrame) -> None:
 
     Only empty (NaN) cells get the default, split evenly over the detritus
     groups; values that are present, including fleet rows' discard fates
-    from the EwE database, are kept.
+    from the EwE database, are kept. Detritus rows default to 0: a pool's
+    unused surplus leaves the system (as in Rpath and EwE). A fate to
+    itself would keep that surplus in the pool, and Ecosim would grow it
+    away from the Ecopath balance.
     """
     det_groups = model_df.loc[model_df["Type"] == 2, "Group"].tolist()
     if not det_groups:
         return
+    is_dead = model_df["Type"] == 2
     for det in det_groups:
         if det not in model_df.columns:
             model_df[det] = np.nan
+        model_df.loc[is_dead, det] = model_df.loc[is_dead, det].fillna(0.0)
         model_df[det] = model_df[det].fillna(1.0 / len(det_groups))
 
 
