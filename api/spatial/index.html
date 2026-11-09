@@ -22847,7 +22847,20 @@ distributed uniformly across patches.</p>
 <span class="normal">643</span>
 <span class="normal">644</span>
 <span class="normal">645</span>
-<span class="normal">646</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -22992,6 +23005,12 @@ distributed uniformly across patches.</p>
         <span class="s2">"DetFrac"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetFrac</span><span class="p">,</span>
         <span class="s2">"DetFrom"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetFrom</span><span class="p">,</span>
         <span class="s2">"DetTo"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetTo</span><span class="p">,</span>
+        <span class="c1"># Same Rpath derivative terms as rsim_run: link-based detritus budget</span>
+        <span class="c1"># and producers gaining through their link from group 0.</span>
+        <span class="s2">"DetLinkFrom"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetFrom</span><span class="p">,</span>
+        <span class="s2">"DetLinkTo"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetTo</span><span class="p">,</span>
+        <span class="s2">"DetLinkFrac"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetFrac</span><span class="p">,</span>
+        <span class="s2">"RpathPrimaryProduction"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="c1"># Pre-compute sparse link arrays for the consumption kernel</span>
@@ -23039,6 +23058,8 @@ distributed uniformly across patches.</p>
     <span class="c1"># Time integration (RK4)</span>
     <span class="n">current_biomass</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="o">.</span><span class="n">Biomass</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
+    <span class="n">rk4_steps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"RK4_STEPS"</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span>
+
     <span class="c1"># Ftime is static — snapshot once before the loop</span>
     <span class="n">_ftime_snapshot</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">start_state</span><span class="o">.</span><span class="n">Ftime</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
@@ -23082,69 +23103,74 @@ distributed uniformly across patches.</p>
             <span class="p">)</span>
             <span class="n">_mpa_cap_mult</span> <span class="o">=</span> <span class="n">mpa</span><span class="o">.</span><span class="n">get_capacity_multipliers</span><span class="p">(</span><span class="n">n_patches</span><span class="p">,</span> <span class="n">month_idx</span><span class="p">)</span>
 
-        <span class="c1"># RK4 integration</span>
-        <span class="c1"># k1 = f(t, y)</span>
-        <span class="n">k1</span> <span class="o">=</span> <span class="n">deriv_vector_spatial</span><span class="p">(</span>
-            <span class="n">current_biomass</span><span class="p">,</span>
-            <span class="n">params_dict</span><span class="p">,</span>
-            <span class="n">forcing_dict</span><span class="p">,</span>
-            <span class="n">fishing_dict</span><span class="p">,</span>
-            <span class="n">ecospace</span><span class="p">,</span>
-            <span class="n">environmental_drivers</span><span class="p">,</span>
-            <span class="n">t</span><span class="o">=</span><span class="n">t</span><span class="p">,</span>
-            <span class="n">dt</span><span class="o">=</span><span class="n">DELTA_T</span><span class="p">,</span>
-            <span class="n">mpa_effort_mask</span><span class="o">=</span><span class="n">_mpa_effort_mask</span><span class="p">,</span>
-            <span class="n">mpa_cap_mult</span><span class="o">=</span><span class="n">_mpa_cap_mult</span><span class="p">,</span>
-            <span class="n">effort_multiplier</span><span class="o">=</span><span class="n">_effort_mult</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="c1"># RK4 in RK4_STEPS sub-steps per month, as rsim_run and Rpath do</span>
+        <span class="n">hh</span> <span class="o">=</span> <span class="n">DELTA_T</span> <span class="o">/</span> <span class="n">rk4_steps</span>
+        <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rk4_steps</span><span class="p">):</span>
+            <span class="n">t_sub</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="n">sub</span> <span class="o">*</span> <span class="n">hh</span>
+            <span class="c1"># k1 = f(t, y)</span>
+            <span class="n">k1</span> <span class="o">=</span> <span class="n">deriv_vector_spatial</span><span class="p">(</span>
+                <span class="n">current_biomass</span><span class="p">,</span>
+                <span class="n">params_dict</span><span class="p">,</span>
+                <span class="n">forcing_dict</span><span class="p">,</span>
+                <span class="n">fishing_dict</span><span class="p">,</span>
+                <span class="n">ecospace</span><span class="p">,</span>
+                <span class="n">environmental_drivers</span><span class="p">,</span>
+                <span class="n">t</span><span class="o">=</span><span class="n">t_sub</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">hh</span><span class="p">,</span>
+                <span class="n">mpa_effort_mask</span><span class="o">=</span><span class="n">_mpa_effort_mask</span><span class="p">,</span>
+                <span class="n">mpa_cap_mult</span><span class="o">=</span><span class="n">_mpa_cap_mult</span><span class="p">,</span>
+                <span class="n">effort_multiplier</span><span class="o">=</span><span class="n">_effort_mult</span><span class="p">,</span>
+            <span class="p">)</span>
 
-        <span class="c1"># k2 = f(t + dt/2, y + k1*dt/2)</span>
-        <span class="n">k2</span> <span class="o">=</span> <span class="n">deriv_vector_spatial</span><span class="p">(</span>
-            <span class="n">current_biomass</span> <span class="o">+</span> <span class="n">k1</span> <span class="o">*</span> <span class="n">DELTA_T</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
-            <span class="n">params_dict</span><span class="p">,</span>
-            <span class="n">forcing_dict</span><span class="p">,</span>
-            <span class="n">fishing_dict</span><span class="p">,</span>
-            <span class="n">ecospace</span><span class="p">,</span>
-            <span class="n">environmental_drivers</span><span class="p">,</span>
-            <span class="n">t</span><span class="o">=</span><span class="n">t</span> <span class="o">+</span> <span class="n">DELTA_T</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
-            <span class="n">dt</span><span class="o">=</span><span class="n">DELTA_T</span><span class="p">,</span>
-            <span class="n">mpa_effort_mask</span><span class="o">=</span><span class="n">_mpa_effort_mask</span><span class="p">,</span>
-            <span class="n">mpa_cap_mult</span><span class="o">=</span><span class="n">_mpa_cap_mult</span><span class="p">,</span>
-            <span class="n">effort_multiplier</span><span class="o">=</span><span class="n">_effort_mult</span><span class="p">,</span>
-        <span class="p">)</span>
+            <span class="c1"># k2 = f(t + dt/2, y + k1*dt/2)</span>
+            <span class="n">k2</span> <span class="o">=</span> <span class="n">deriv_vector_spatial</span><span class="p">(</span>
+                <span class="n">current_biomass</span> <span class="o">+</span> <span class="n">k1</span> <span class="o">*</span> <span class="n">hh</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="n">params_dict</span><span class="p">,</span>
+                <span class="n">forcing_dict</span><span class="p">,</span>
+                <span class="n">fishing_dict</span><span class="p">,</span>
+                <span class="n">ecospace</span><span class="p">,</span>
+                <span class="n">environmental_drivers</span><span class="p">,</span>
+                <span class="n">t</span><span class="o">=</span><span class="n">t_sub</span> <span class="o">+</span> <span class="n">hh</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">hh</span><span class="p">,</span>
+                <span class="n">mpa_effort_mask</span><span class="o">=</span><span class="n">_mpa_effort_mask</span><span class="p">,</span>
+                <span class="n">mpa_cap_mult</span><span class="o">=</span><span class="n">_mpa_cap_mult</span><span class="p">,</span>
+                <span class="n">effort_multiplier</span><span class="o">=</span><span class="n">_effort_mult</span><span class="p">,</span>
+            <span class="p">)</span>
 
-        <span class="c1"># k3 = f(t + dt/2, y + k2*dt/2)</span>
-        <span class="n">k3</span> <span class="o">=</span> <span class="n">deriv_vector_spatial</span><span class="p">(</span>
-            <span class="n">current_biomass</span> <span class="o">+</span> <span class="n">k2</span> <span class="o">*</span> <span class="n">DELTA_T</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
-            <span class="n">params_dict</span><span class="p">,</span>
-            <span class="n">forcing_dict</span><span class="p">,</span>
-            <span class="n">fishing_dict</span><span class="p">,</span>
-            <span class="n">ecospace</span><span class="p">,</span>
-            <span class="n">environmental_drivers</span><span class="p">,</span>
-            <span class="n">t</span><span class="o">=</span><span class="n">t</span> <span class="o">+</span> <span class="n">DELTA_T</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
-            <span class="n">dt</span><span class="o">=</span><span class="n">DELTA_T</span><span class="p">,</span>
-            <span class="n">mpa_effort_mask</span><span class="o">=</span><span class="n">_mpa_effort_mask</span><span class="p">,</span>
-            <span class="n">mpa_cap_mult</span><span class="o">=</span><span class="n">_mpa_cap_mult</span><span class="p">,</span>
-            <span class="n">effort_multiplier</span><span class="o">=</span><span class="n">_effort_mult</span><span class="p">,</span>
-        <span class="p">)</span>
+            <span class="c1"># k3 = f(t + dt/2, y + k2*dt/2)</span>
+            <span class="n">k3</span> <span class="o">=</span> <span class="n">deriv_vector_spatial</span><span class="p">(</span>
+                <span class="n">current_biomass</span> <span class="o">+</span> <span class="n">k2</span> <span class="o">*</span> <span class="n">hh</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="n">params_dict</span><span class="p">,</span>
+                <span class="n">forcing_dict</span><span class="p">,</span>
+                <span class="n">fishing_dict</span><span class="p">,</span>
+                <span class="n">ecospace</span><span class="p">,</span>
+                <span class="n">environmental_drivers</span><span class="p">,</span>
+                <span class="n">t</span><span class="o">=</span><span class="n">t_sub</span> <span class="o">+</span> <span class="n">hh</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">hh</span><span class="p">,</span>
+                <span class="n">mpa_effort_mask</span><span class="o">=</span><span class="n">_mpa_effort_mask</span><span class="p">,</span>
+                <span class="n">mpa_cap_mult</span><span class="o">=</span><span class="n">_mpa_cap_mult</span><span class="p">,</span>
+                <span class="n">effort_multiplier</span><span class="o">=</span><span class="n">_effort_mult</span><span class="p">,</span>
+            <span class="p">)</span>
 
-        <span class="c1"># k4 = f(t + dt, y + k3*dt)</span>
-        <span class="n">k4</span> <span class="o">=</span> <span class="n">deriv_vector_spatial</span><span class="p">(</span>
-            <span class="n">current_biomass</span> <span class="o">+</span> <span class="n">k3</span> <span class="o">*</span> <span class="n">DELTA_T</span><span class="p">,</span>
-            <span class="n">params_dict</span><span class="p">,</span>
-            <span class="n">forcing_dict</span><span class="p">,</span>
-            <span class="n">fishing_dict</span><span class="p">,</span>
-            <span class="n">ecospace</span><span class="p">,</span>
-            <span class="n">environmental_drivers</span><span class="p">,</span>
-            <span class="n">t</span><span class="o">=</span><span class="n">t</span> <span class="o">+</span> <span class="n">DELTA_T</span><span class="p">,</span>
-            <span class="n">dt</span><span class="o">=</span><span class="n">DELTA_T</span><span class="p">,</span>
-            <span class="n">mpa_effort_mask</span><span class="o">=</span><span class="n">_mpa_effort_mask</span><span class="p">,</span>
-            <span class="n">mpa_cap_mult</span><span class="o">=</span><span class="n">_mpa_cap_mult</span><span class="p">,</span>
-            <span class="n">effort_multiplier</span><span class="o">=</span><span class="n">_effort_mult</span><span class="p">,</span>
-        <span class="p">)</span>
+            <span class="c1"># k4 = f(t + dt, y + k3*dt)</span>
+            <span class="n">k4</span> <span class="o">=</span> <span class="n">deriv_vector_spatial</span><span class="p">(</span>
+                <span class="n">current_biomass</span> <span class="o">+</span> <span class="n">k3</span> <span class="o">*</span> <span class="n">hh</span><span class="p">,</span>
+                <span class="n">params_dict</span><span class="p">,</span>
+                <span class="n">forcing_dict</span><span class="p">,</span>
+                <span class="n">fishing_dict</span><span class="p">,</span>
+                <span class="n">ecospace</span><span class="p">,</span>
+                <span class="n">environmental_drivers</span><span class="p">,</span>
+                <span class="n">t</span><span class="o">=</span><span class="n">t_sub</span> <span class="o">+</span> <span class="n">hh</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">hh</span><span class="p">,</span>
+                <span class="n">mpa_effort_mask</span><span class="o">=</span><span class="n">_mpa_effort_mask</span><span class="p">,</span>
+                <span class="n">mpa_cap_mult</span><span class="o">=</span><span class="n">_mpa_cap_mult</span><span class="p">,</span>
+                <span class="n">effort_multiplier</span><span class="o">=</span><span class="n">_effort_mult</span><span class="p">,</span>
+            <span class="p">)</span>
 
-        <span class="c1"># Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)</span>
-        <span class="n">current_biomass</span> <span class="o">=</span> <span class="n">current_biomass</span> <span class="o">+</span> <span class="n">DELTA_T</span> <span class="o">/</span> <span class="mi">6</span> <span class="o">*</span> <span class="p">(</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k3</span> <span class="o">+</span> <span class="n">k4</span><span class="p">)</span>
+            <span class="c1"># Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)</span>
+            <span class="n">current_biomass</span> <span class="o">=</span> <span class="n">current_biomass</span> <span class="o">+</span> <span class="n">hh</span> <span class="o">/</span> <span class="mi">6</span> <span class="o">*</span> <span class="p">(</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k3</span> <span class="o">+</span> <span class="n">k4</span><span class="p">)</span>
+
+            <span class="n">current_biomass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">current_biomass</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
 
         <span class="c1"># Prevent negative biomass</span>
         <span class="n">current_biomass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">current_biomass</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>

@@ -17735,18 +17735,7 @@ columns. None without stanzas.</p>
 <span class="normal">764</span>
 <span class="normal">765</span>
 <span class="normal">766</span>
-<span class="normal">767</span>
-<span class="normal">768</span>
-<span class="normal">769</span>
-<span class="normal">770</span>
-<span class="normal">771</span>
-<span class="normal">772</span>
-<span class="normal">773</span>
-<span class="normal">774</span>
-<span class="normal">775</span>
-<span class="normal">776</span>
-<span class="normal">777</span>
-<span class="normal">778</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
+<span class="normal">767</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
     <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
@@ -17843,20 +17832,9 @@ columns. None without stanzas.</p>
     <span class="c1"># Previously this used 0/spnum which was inconsistent with downstream checks. Use 1 for NoIntegrate.</span>
     <span class="n">no_integrate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mzero</span> <span class="o">*</span> <span class="n">b_baseref</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">steps_yr</span> <span class="o">*</span> <span class="n">steps_m</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
-    <span class="c1"># Ensure detritus (PP_type == 2) groups are treated as algebraic (NoIntegrate)</span>
-    <span class="c1"># Rpath commonly treats dead/detritus pools as fast equilibrium; marking them</span>
-    <span class="c1"># NoIntegrate here makes PyPath behavior match Rpath finite-difference outputs</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">det_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">pp_type</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">det_idx</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">no_integrate</span><span class="p">[</span><span class="n">det_idx</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">"Failed to mark detritus groups as NoIntegrate: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. "</span>
-            <span class="sa">f</span><span class="s2">"Detritus dynamics may be incorrect."</span><span class="p">,</span>
-            <span class="ne">UserWarning</span><span class="p">,</span>
-            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-        <span class="p">)</span>
+    <span class="c1"># Rpath marks fast-equilibrium groups by this rule alone; a detritus pool</span>
+    <span class="c1"># with slow turnover (e.g. Discards) is integrated like any other group.</span>
+    <span class="c1"># (NoIntegrate only matters to Adams-Bashforth; RK4 integrates all.)</span>
 
     <span class="c1"># Predator-prey handling parameters</span>
     <span class="n">handle_self</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">ngroups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">handleselfwt</span><span class="p">)</span>
@@ -18232,24 +18210,24 @@ columns. None without stanzas.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">781</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span>
+<span class="normal">774</span>
+<span class="normal">775</span>
+<span class="normal">776</span>
+<span class="normal">777</span>
+<span class="normal">778</span>
+<span class="normal">779</span>
+<span class="normal">780</span>
+<span class="normal">781</span>
 <span class="normal">782</span>
 <span class="normal">783</span>
 <span class="normal">784</span>
 <span class="normal">785</span>
 <span class="normal">786</span>
-<span class="normal">787</span>
-<span class="normal">788</span>
-<span class="normal">789</span>
-<span class="normal">790</span>
-<span class="normal">791</span>
-<span class="normal">792</span>
-<span class="normal">793</span>
-<span class="normal">794</span>
-<span class="normal">795</span>
-<span class="normal">796</span>
-<span class="normal">797</span>
-<span class="normal">798</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
+<span class="normal">787</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create initial state vectors for simulation.</span>
 
 <span class="sd">    Parameters</span>
@@ -18371,7 +18349,18 @@ columns. None without stanzas.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">801</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">790</span>
+<span class="normal">791</span>
+<span class="normal">792</span>
+<span class="normal">793</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
 <span class="normal">802</span>
 <span class="normal">803</span>
 <span class="normal">804</span>
@@ -18391,18 +18380,7 @@ columns. None without stanzas.</p>
 <span class="normal">818</span>
 <span class="normal">819</span>
 <span class="normal">820</span>
-<span class="normal">821</span>
-<span class="normal">822</span>
-<span class="normal">823</span>
-<span class="normal">824</span>
-<span class="normal">825</span>
-<span class="normal">826</span>
-<span class="normal">827</span>
-<span class="normal">828</span>
-<span class="normal">829</span>
-<span class="normal">830</span>
-<span class="normal">831</span>
-<span class="normal">832</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
+<span class="normal">821</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create forcing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -18538,7 +18516,18 @@ columns. None without stanzas.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">835</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">824</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span>
+<span class="normal">833</span>
+<span class="normal">834</span>
+<span class="normal">835</span>
 <span class="normal">836</span>
 <span class="normal">837</span>
 <span class="normal">838</span>
@@ -18556,18 +18545,7 @@ columns. None without stanzas.</p>
 <span class="normal">850</span>
 <span class="normal">851</span>
 <span class="normal">852</span>
-<span class="normal">853</span>
-<span class="normal">854</span>
-<span class="normal">855</span>
-<span class="normal">856</span>
-<span class="normal">857</span>
-<span class="normal">858</span>
-<span class="normal">859</span>
-<span class="normal">860</span>
-<span class="normal">861</span>
-<span class="normal">862</span>
-<span class="normal">863</span>
-<span class="normal">864</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
+<span class="normal">853</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create fishing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -18761,7 +18739,18 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">867</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">856</span>
+<span class="normal">857</span>
+<span class="normal">858</span>
+<span class="normal">859</span>
+<span class="normal">860</span>
+<span class="normal">861</span>
+<span class="normal">862</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
+<span class="normal">865</span>
+<span class="normal">866</span>
+<span class="normal">867</span>
 <span class="normal">868</span>
 <span class="normal">869</span>
 <span class="normal">870</span>
@@ -18865,18 +18854,7 @@ Controls predator-prey functional response:
 <span class="normal">968</span>
 <span class="normal">969</span>
 <span class="normal">970</span>
-<span class="normal">971</span>
-<span class="normal">972</span>
-<span class="normal">973</span>
-<span class="normal">974</span>
-<span class="normal">975</span>
-<span class="normal">976</span>
-<span class="normal">977</span>
-<span class="normal">978</span>
-<span class="normal">979</span>
-<span class="normal">980</span>
-<span class="normal">981</span>
-<span class="normal">982</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
+<span class="normal">971</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span>
@@ -19112,7 +19090,18 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1045</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
 <span class="normal">1046</span>
 <span class="normal">1047</span>
 <span class="normal">1048</span>
@@ -20680,23 +20669,7 @@ Controls predator-prey functional response:
 <span class="normal">2610</span>
 <span class="normal">2611</span>
 <span class="normal">2612</span>
-<span class="normal">2613</span>
-<span class="normal">2614</span>
-<span class="normal">2615</span>
-<span class="normal">2616</span>
-<span class="normal">2617</span>
-<span class="normal">2618</span>
-<span class="normal">2619</span>
-<span class="normal">2620</span>
-<span class="normal">2621</span>
-<span class="normal">2622</span>
-<span class="normal">2623</span>
-<span class="normal">2624</span>
-<span class="normal">2625</span>
-<span class="normal">2626</span>
-<span class="normal">2627</span>
-<span class="normal">2628</span>
-<span class="normal">2629</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
+<span class="normal">2613</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -20816,6 +20789,13 @@ Controls predator-prey functional response:
         <span class="s2">"FishTo"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"FishTo"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])),</span>
         <span class="s2">"FishQ"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"FishQ"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])),</span>
         <span class="s2">"fleet_idx"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"fleet_idx"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="c1"># Rpath detritus links (DetFrom -&gt; DetTo with DetFrac): deriv_vector</span>
+        <span class="c1"># uses Rpath's link-based detritus budget when these are present.</span>
+        <span class="s2">"DetLinkFrom"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetFrom"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="s2">"DetLinkTo"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetTo"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="s2">"DetLinkFrac"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetFrac"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="c1"># Producers gain through their link from group 0, as in Rpath</span>
+        <span class="s2">"RpathPrimaryProduction"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
         <span class="s2">"MetabolismModel"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"MetabolismModel"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"MetabolicTemperature"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"MetabolicTemperature"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"MetabolicBodyMass"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"MetabolicBodyMass"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
@@ -21609,6 +21589,8 @@ Controls predator-prey functional response:
     <span class="n">derivs_history</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mf">12.0</span>  <span class="c1"># Monthly timestep</span>
+    <span class="c1"># Rpath integrates each month in RK4_STEPS sub-steps</span>
+    <span class="n">rk4_steps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"RK4_STEPS"</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">crash_year</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
     <span class="n">crashed_groups</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>  <span class="c1"># Track which groups have crashed</span>
     <span class="n">crash_threshold</span> <span class="o">=</span> <span class="mf">1e-4</span>  <span class="c1"># More reasonable threshold (0.0001 vs 0.000001)</span>
@@ -21731,14 +21713,9 @@ Controls predator-prey functional response:
         <span class="c1"># Integration step</span>
         <span class="k">if</span> <span class="n">method</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"RK4"</span><span class="p">:</span>
             <span class="n">old_state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="n">state</span> <span class="o">=</span> <span class="n">integrate_rk4</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">params_dict</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-            <span class="c1"># If small initial derivative mask exists, prevent first-step change for those groups</span>
-            <span class="k">if</span> <span class="n">month</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">init_mask</span><span class="p">):</span>
-                <span class="n">state</span><span class="p">[</span><span class="n">init_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_state</span><span class="p">[</span><span class="n">init_mask</span><span class="p">]</span>
-            <span class="c1"># Prevent groups with small initial residuals from changing during warmup</span>
-            <span class="n">WARMUP_MONTHS</span> <span class="o">=</span> <span class="mi">12</span>
-            <span class="k">if</span> <span class="n">month</span> <span class="o">&lt;=</span> <span class="n">WARMUP_MONTHS</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">init_mask_loose</span><span class="p">):</span>
-                <span class="n">state</span><span class="p">[</span><span class="n">init_mask_loose</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_state</span><span class="p">[</span><span class="n">init_mask_loose</span><span class="p">]</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">integrate_rk4</span><span class="p">(</span>
+                <span class="n">state</span><span class="p">,</span> <span class="n">params_dict</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">rk4_steps</span>
+            <span class="p">)</span>
         <span class="k">elif</span> <span class="n">method</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"AB"</span><span class="p">:</span>
             <span class="c1"># Warmup: use RK4 for the first month to populate derivative history</span>
             <span class="c1"># before switching to Adams-Bashforth 2-step (matching Rpath)</span>
@@ -21754,12 +21731,6 @@ Controls predator-prey functional response:
                 <span class="k">finally</span><span class="p">:</span>
                     <span class="c1"># Clean up the temporary context flag</span>
                     <span class="n">params_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"_integration_parent_method"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">month</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">init_mask</span><span class="p">):</span>
-                    <span class="n">state</span><span class="p">[</span><span class="n">init_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_state</span><span class="p">[</span><span class="n">init_mask</span><span class="p">]</span>
-                <span class="c1"># Prevent groups with small initial residuals from changing during warmup</span>
-                <span class="n">WARMUP_MONTHS</span> <span class="o">=</span> <span class="mi">1</span>
-                <span class="k">if</span> <span class="n">month</span> <span class="o">&lt;=</span> <span class="n">WARMUP_MONTHS</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">init_mask_loose</span><span class="p">):</span>
-                    <span class="n">state</span><span class="p">[</span><span class="n">init_mask_loose</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_state</span><span class="p">[</span><span class="n">init_mask_loose</span><span class="p">]</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">new_deriv</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span>
                         <span class="n">state</span><span class="p">,</span> <span class="n">params_dict</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">,</span> <span class="n">fishing_dict</span>
@@ -21787,17 +21758,30 @@ Controls predator-prey functional response:
                 <span class="n">state</span><span class="p">,</span> <span class="n">new_deriv</span> <span class="o">=</span> <span class="n">integrate_ab</span><span class="p">(</span>
                     <span class="n">state</span><span class="p">,</span> <span class="n">derivs_history</span><span class="p">,</span> <span class="n">params_dict</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">,</span> <span class="n">dt</span>
                 <span class="p">)</span>
-                <span class="c1"># Fast equilibrium for NoIntegrate groups (matches Rpath SORWT=0.5)</span>
+                <span class="c1"># Fast equilibrium for NoIntegrate groups (Rpath adams_run):</span>
+                <span class="c1"># B = (1 - SORWT) * biomeq + SORWT * B_old with</span>
+                <span class="c1"># biomeq = TotGain / (TotLoss / B_old), from the derivative</span>
+                <span class="c1"># at the start of the month; SORWT = 0.5.</span>
                 <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">no_integrate_mask</span><span class="p">):</span>
                     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim_deriv</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_biomeq</span>
 
-                    <span class="n">QQ_ni</span> <span class="o">=</span> <span class="n">_compute_Q_matrix</span><span class="p">(</span><span class="n">params_dict</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="p">)):</span>
-                        <span class="k">if</span> <span class="n">no_integrate_mask</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
-                            <span class="n">total_gain</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">QQ_ni</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]))</span>
-                            <span class="n">total_loss</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">QQ_ni</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]))</span>
-                            <span class="n">total_loss</span> <span class="o">+=</span> <span class="n">params_dict</span><span class="p">[</span><span class="s2">"M0"</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-                            <span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                    <span class="n">eq_rates</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="n">deriv_vector</span><span class="p">(</span>
+                        <span class="n">month_start_state</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+                        <span class="n">params_dict</span><span class="p">,</span>
+                        <span class="n">forcing_dict</span><span class="p">,</span>
+                        <span class="n">fishing_dict</span><span class="p">,</span>
+                        <span class="n">rates</span><span class="o">=</span><span class="n">eq_rates</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="s2">"TotGain"</span> <span class="ow">in</span> <span class="n">eq_rates</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">no_integrate_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
+                            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_DEAD</span><span class="p">:</span>
+                                <span class="k">continue</span>
+                            <span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">compute_biomeq</span><span class="p">(</span>
+                                <span class="nb">float</span><span class="p">(</span><span class="n">eq_rates</span><span class="p">[</span><span class="s2">"TotGain"</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                                <span class="nb">float</span><span class="p">(</span><span class="n">eq_rates</span><span class="p">[</span><span class="s2">"TotLoss"</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                                <span class="nb">float</span><span class="p">(</span><span class="n">month_start_state</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span>
+                            <span class="p">)</span>
                     <span class="n">new_deriv</span><span class="p">[</span><span class="n">no_integrate_mask</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
                 <span class="n">derivs_history</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">new_deriv</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">derivs_history</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -21805,9 +21789,9 @@ Controls predator-prey functional response:
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Unknown method: fallback to RK4 to be safe</span>
             <span class="n">old_state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="n">state</span> <span class="o">=</span> <span class="n">integrate_rk4</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">params_dict</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">month</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">init_mask</span><span class="p">):</span>
-                <span class="n">state</span><span class="p">[</span><span class="n">init_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_state</span><span class="p">[</span><span class="n">init_mask</span><span class="p">]</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">integrate_rk4</span><span class="p">(</span>
+                <span class="n">state</span><span class="p">,</span> <span class="n">params_dict</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">rk4_steps</span>
+            <span class="p">)</span>
 
         <span class="c1"># Monthly M0 adjustment to enforce algebraic equilibrium for small residuals</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MONTHLY_M0_ADJUST"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
@@ -21933,16 +21917,6 @@ Controls predator-prey functional response:
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"monthly M0 adjustment failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
-        <span class="c1"># NoIntegrate groups: for RK4, hold at baseline (no biomeq available);</span>
-        <span class="c1"># for AB, biomeq was already applied in the integration branch above.</span>
-        <span class="k">if</span> <span class="n">method</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">"AB"</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">Bbase</span> <span class="o">=</span> <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Bbase"</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">Bbase</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">no_integrate_mask</span><span class="p">):</span>
-                    <span class="n">state</span><span class="p">[</span><span class="n">no_integrate_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">Bbase</span><span class="p">[</span><span class="n">no_integrate_mask</span><span class="p">]</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"NoIntegrate application failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-
         <span class="c1"># Replace invalid numeric values to prevent NaN/inf runaway and</span>
         <span class="c1"># ensure non-negative biomass</span>
         <span class="n">state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">state</span><span class="p">),</span> <span class="n">state</span><span class="p">,</span> <span class="n">EPSILON</span><span class="p">)</span>
@@ -21985,12 +21959,6 @@ Controls predator-prey functional response:
                 <span class="c1"># Track which groups crashed</span>
                 <span class="k">for</span> <span class="n">grp_idx</span> <span class="ow">in</span> <span class="n">low_biomass_groups</span><span class="p">:</span>
                     <span class="n">crashed_groups</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">grp_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># +1 because we sliced from index 1</span>
-
-        <span class="c1"># For non-AB methods, enforce NoIntegrate after stanza updates</span>
-        <span class="k">if</span> <span class="n">method</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">"AB"</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">no_integrate_mask</span><span class="p">):</span>
-            <span class="n">Bbase</span> <span class="o">=</span> <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Bbase"</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">Bbase</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">state</span><span class="p">[</span><span class="n">no_integrate_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">Bbase</span><span class="p">[</span><span class="n">no_integrate_mask</span><span class="p">]</span>
 
         <span class="c1"># Store results</span>
         <span class="n">out_biomass</span><span class="p">[</span><span class="n">month</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span>
@@ -22374,20 +22342,20 @@ Controls predator-prey functional response:
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">805</span>
-<span class="normal">806</span>
-<span class="normal">807</span>
-<span class="normal">808</span>
-<span class="normal">809</span>
-<span class="normal">810</span>
-<span class="normal">811</span>
-<span class="normal">812</span>
-<span class="normal">813</span>
-<span class="normal">814</span>
-<span class="normal">815</span>
-<span class="normal">816</span>
-<span class="normal">817</span>
-<span class="normal">818</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">862</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
+<span class="normal">865</span>
+<span class="normal">866</span>
+<span class="normal">867</span>
+<span class="normal">868</span>
+<span class="normal">869</span>
+<span class="normal">870</span>
+<span class="normal">871</span>
+<span class="normal">872</span>
+<span class="normal">873</span>
+<span class="normal">874</span>
+<span class="normal">875</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Current state of the simulation."""</span>
 
@@ -22567,64 +22535,64 @@ prey, stabilizing the system. Uses a power function of relative abundance.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">826</span>
-<span class="normal">827</span>
-<span class="normal">828</span>
-<span class="normal">829</span>
-<span class="normal">830</span>
-<span class="normal">831</span>
-<span class="normal">832</span>
-<span class="normal">833</span>
-<span class="normal">834</span>
-<span class="normal">835</span>
-<span class="normal">836</span>
-<span class="normal">837</span>
-<span class="normal">838</span>
-<span class="normal">839</span>
-<span class="normal">840</span>
-<span class="normal">841</span>
-<span class="normal">842</span>
-<span class="normal">843</span>
-<span class="normal">844</span>
-<span class="normal">845</span>
-<span class="normal">846</span>
-<span class="normal">847</span>
-<span class="normal">848</span>
-<span class="normal">849</span>
-<span class="normal">850</span>
-<span class="normal">851</span>
-<span class="normal">852</span>
-<span class="normal">853</span>
-<span class="normal">854</span>
-<span class="normal">855</span>
-<span class="normal">856</span>
-<span class="normal">857</span>
-<span class="normal">858</span>
-<span class="normal">859</span>
-<span class="normal">860</span>
-<span class="normal">861</span>
-<span class="normal">862</span>
-<span class="normal">863</span>
-<span class="normal">864</span>
-<span class="normal">865</span>
-<span class="normal">866</span>
-<span class="normal">867</span>
-<span class="normal">868</span>
-<span class="normal">869</span>
-<span class="normal">870</span>
-<span class="normal">871</span>
-<span class="normal">872</span>
-<span class="normal">873</span>
-<span class="normal">874</span>
-<span class="normal">875</span>
-<span class="normal">876</span>
-<span class="normal">877</span>
-<span class="normal">878</span>
-<span class="normal">879</span>
-<span class="normal">880</span>
-<span class="normal">881</span>
-<span class="normal">882</span>
-<span class="normal">883</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">prey_switching</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">883</span>
+<span class="normal">884</span>
+<span class="normal">885</span>
+<span class="normal">886</span>
+<span class="normal">887</span>
+<span class="normal">888</span>
+<span class="normal">889</span>
+<span class="normal">890</span>
+<span class="normal">891</span>
+<span class="normal">892</span>
+<span class="normal">893</span>
+<span class="normal">894</span>
+<span class="normal">895</span>
+<span class="normal">896</span>
+<span class="normal">897</span>
+<span class="normal">898</span>
+<span class="normal">899</span>
+<span class="normal">900</span>
+<span class="normal">901</span>
+<span class="normal">902</span>
+<span class="normal">903</span>
+<span class="normal">904</span>
+<span class="normal">905</span>
+<span class="normal">906</span>
+<span class="normal">907</span>
+<span class="normal">908</span>
+<span class="normal">909</span>
+<span class="normal">910</span>
+<span class="normal">911</span>
+<span class="normal">912</span>
+<span class="normal">913</span>
+<span class="normal">914</span>
+<span class="normal">915</span>
+<span class="normal">916</span>
+<span class="normal">917</span>
+<span class="normal">918</span>
+<span class="normal">919</span>
+<span class="normal">920</span>
+<span class="normal">921</span>
+<span class="normal">922</span>
+<span class="normal">923</span>
+<span class="normal">924</span>
+<span class="normal">925</span>
+<span class="normal">926</span>
+<span class="normal">927</span>
+<span class="normal">928</span>
+<span class="normal">929</span>
+<span class="normal">930</span>
+<span class="normal">931</span>
+<span class="normal">932</span>
+<span class="normal">933</span>
+<span class="normal">934</span>
+<span class="normal">935</span>
+<span class="normal">936</span>
+<span class="normal">937</span>
+<span class="normal">938</span>
+<span class="normal">939</span>
+<span class="normal">940</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">prey_switching</span><span class="p">(</span>
     <span class="n">BB</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">Bbase</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">pred</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -22817,61 +22785,61 @@ interaction, representing effects like habitat provision or fear.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">886</span>
-<span class="normal">887</span>
-<span class="normal">888</span>
-<span class="normal">889</span>
-<span class="normal">890</span>
-<span class="normal">891</span>
-<span class="normal">892</span>
-<span class="normal">893</span>
-<span class="normal">894</span>
-<span class="normal">895</span>
-<span class="normal">896</span>
-<span class="normal">897</span>
-<span class="normal">898</span>
-<span class="normal">899</span>
-<span class="normal">900</span>
-<span class="normal">901</span>
-<span class="normal">902</span>
-<span class="normal">903</span>
-<span class="normal">904</span>
-<span class="normal">905</span>
-<span class="normal">906</span>
-<span class="normal">907</span>
-<span class="normal">908</span>
-<span class="normal">909</span>
-<span class="normal">910</span>
-<span class="normal">911</span>
-<span class="normal">912</span>
-<span class="normal">913</span>
-<span class="normal">914</span>
-<span class="normal">915</span>
-<span class="normal">916</span>
-<span class="normal">917</span>
-<span class="normal">918</span>
-<span class="normal">919</span>
-<span class="normal">920</span>
-<span class="normal">921</span>
-<span class="normal">922</span>
-<span class="normal">923</span>
-<span class="normal">924</span>
-<span class="normal">925</span>
-<span class="normal">926</span>
-<span class="normal">927</span>
-<span class="normal">928</span>
-<span class="normal">929</span>
-<span class="normal">930</span>
-<span class="normal">931</span>
-<span class="normal">932</span>
-<span class="normal">933</span>
-<span class="normal">934</span>
-<span class="normal">935</span>
-<span class="normal">936</span>
-<span class="normal">937</span>
-<span class="normal">938</span>
-<span class="normal">939</span>
-<span class="normal">940</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mediation_function</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">943</span>
+<span class="normal">944</span>
+<span class="normal">945</span>
+<span class="normal">946</span>
+<span class="normal">947</span>
+<span class="normal">948</span>
+<span class="normal">949</span>
+<span class="normal">950</span>
+<span class="normal">951</span>
+<span class="normal">952</span>
+<span class="normal">953</span>
+<span class="normal">954</span>
+<span class="normal">955</span>
+<span class="normal">956</span>
+<span class="normal">957</span>
+<span class="normal">958</span>
+<span class="normal">959</span>
+<span class="normal">960</span>
+<span class="normal">961</span>
+<span class="normal">962</span>
+<span class="normal">963</span>
+<span class="normal">964</span>
+<span class="normal">965</span>
+<span class="normal">966</span>
+<span class="normal">967</span>
+<span class="normal">968</span>
+<span class="normal">969</span>
+<span class="normal">970</span>
+<span class="normal">971</span>
+<span class="normal">972</span>
+<span class="normal">973</span>
+<span class="normal">974</span>
+<span class="normal">975</span>
+<span class="normal">976</span>
+<span class="normal">977</span>
+<span class="normal">978</span>
+<span class="normal">979</span>
+<span class="normal">980</span>
+<span class="normal">981</span>
+<span class="normal">982</span>
+<span class="normal">983</span>
+<span class="normal">984</span>
+<span class="normal">985</span>
+<span class="normal">986</span>
+<span class="normal">987</span>
+<span class="normal">988</span>
+<span class="normal">989</span>
+<span class="normal">990</span>
+<span class="normal">991</span>
+<span class="normal">992</span>
+<span class="normal">993</span>
+<span class="normal">994</span>
+<span class="normal">995</span>
+<span class="normal">996</span>
+<span class="normal">997</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mediation_function</span><span class="p">(</span>
     <span class="n">mediation_type</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">med_bio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">med_base</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">med_params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">""".. deprecated::</span>
@@ -23090,70 +23058,70 @@ increases above baseline, mimicking nutrient limitation.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 943</span>
-<span class="normal"> 944</span>
-<span class="normal"> 945</span>
-<span class="normal"> 946</span>
-<span class="normal"> 947</span>
-<span class="normal"> 948</span>
-<span class="normal"> 949</span>
-<span class="normal"> 950</span>
-<span class="normal"> 951</span>
-<span class="normal"> 952</span>
-<span class="normal"> 953</span>
-<span class="normal"> 954</span>
-<span class="normal"> 955</span>
-<span class="normal"> 956</span>
-<span class="normal"> 957</span>
-<span class="normal"> 958</span>
-<span class="normal"> 959</span>
-<span class="normal"> 960</span>
-<span class="normal"> 961</span>
-<span class="normal"> 962</span>
-<span class="normal"> 963</span>
-<span class="normal"> 964</span>
-<span class="normal"> 965</span>
-<span class="normal"> 966</span>
-<span class="normal"> 967</span>
-<span class="normal"> 968</span>
-<span class="normal"> 969</span>
-<span class="normal"> 970</span>
-<span class="normal"> 971</span>
-<span class="normal"> 972</span>
-<span class="normal"> 973</span>
-<span class="normal"> 974</span>
-<span class="normal"> 975</span>
-<span class="normal"> 976</span>
-<span class="normal"> 977</span>
-<span class="normal"> 978</span>
-<span class="normal"> 979</span>
-<span class="normal"> 980</span>
-<span class="normal"> 981</span>
-<span class="normal"> 982</span>
-<span class="normal"> 983</span>
-<span class="normal"> 984</span>
-<span class="normal"> 985</span>
-<span class="normal"> 986</span>
-<span class="normal"> 987</span>
-<span class="normal"> 988</span>
-<span class="normal"> 989</span>
-<span class="normal"> 990</span>
-<span class="normal"> 991</span>
-<span class="normal"> 992</span>
-<span class="normal"> 993</span>
-<span class="normal"> 994</span>
-<span class="normal"> 995</span>
-<span class="normal"> 996</span>
-<span class="normal"> 997</span>
-<span class="normal"> 998</span>
-<span class="normal"> 999</span>
-<span class="normal">1000</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1000</span>
 <span class="normal">1001</span>
 <span class="normal">1002</span>
 <span class="normal">1003</span>
 <span class="normal">1004</span>
 <span class="normal">1005</span>
-<span class="normal">1006</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">primary_production_forcing</span><span class="p">(</span>
+<span class="normal">1006</span>
+<span class="normal">1007</span>
+<span class="normal">1008</span>
+<span class="normal">1009</span>
+<span class="normal">1010</span>
+<span class="normal">1011</span>
+<span class="normal">1012</span>
+<span class="normal">1013</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span>
+<span class="normal">1017</span>
+<span class="normal">1018</span>
+<span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span>
+<span class="normal">1022</span>
+<span class="normal">1023</span>
+<span class="normal">1024</span>
+<span class="normal">1025</span>
+<span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">primary_production_forcing</span><span class="p">(</span>
     <span class="n">BB</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">Bbase</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">PB</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -23419,64 +23387,7 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1126</span>
-<span class="normal">1127</span>
-<span class="normal">1128</span>
-<span class="normal">1129</span>
-<span class="normal">1130</span>
-<span class="normal">1131</span>
-<span class="normal">1132</span>
-<span class="normal">1133</span>
-<span class="normal">1134</span>
-<span class="normal">1135</span>
-<span class="normal">1136</span>
-<span class="normal">1137</span>
-<span class="normal">1138</span>
-<span class="normal">1139</span>
-<span class="normal">1140</span>
-<span class="normal">1141</span>
-<span class="normal">1142</span>
-<span class="normal">1143</span>
-<span class="normal">1144</span>
-<span class="normal">1145</span>
-<span class="normal">1146</span>
-<span class="normal">1147</span>
-<span class="normal">1148</span>
-<span class="normal">1149</span>
-<span class="normal">1150</span>
-<span class="normal">1151</span>
-<span class="normal">1152</span>
-<span class="normal">1153</span>
-<span class="normal">1154</span>
-<span class="normal">1155</span>
-<span class="normal">1156</span>
-<span class="normal">1157</span>
-<span class="normal">1158</span>
-<span class="normal">1159</span>
-<span class="normal">1160</span>
-<span class="normal">1161</span>
-<span class="normal">1162</span>
-<span class="normal">1163</span>
-<span class="normal">1164</span>
-<span class="normal">1165</span>
-<span class="normal">1166</span>
-<span class="normal">1167</span>
-<span class="normal">1168</span>
-<span class="normal">1169</span>
-<span class="normal">1170</span>
-<span class="normal">1171</span>
-<span class="normal">1172</span>
-<span class="normal">1173</span>
-<span class="normal">1174</span>
-<span class="normal">1175</span>
-<span class="normal">1176</span>
-<span class="normal">1177</span>
-<span class="normal">1178</span>
-<span class="normal">1179</span>
-<span class="normal">1180</span>
-<span class="normal">1181</span>
-<span class="normal">1182</span>
-<span class="normal">1183</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1183</span>
 <span class="normal">1184</span>
 <span class="normal">1185</span>
 <span class="normal">1186</span>
@@ -24276,7 +24187,77 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 <span class="normal">1980</span>
 <span class="normal">1981</span>
 <span class="normal">1982</span>
-<span class="normal">1983</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
+<span class="normal">1983</span>
+<span class="normal">1984</span>
+<span class="normal">1985</span>
+<span class="normal">1986</span>
+<span class="normal">1987</span>
+<span class="normal">1988</span>
+<span class="normal">1989</span>
+<span class="normal">1990</span>
+<span class="normal">1991</span>
+<span class="normal">1992</span>
+<span class="normal">1993</span>
+<span class="normal">1994</span>
+<span class="normal">1995</span>
+<span class="normal">1996</span>
+<span class="normal">1997</span>
+<span class="normal">1998</span>
+<span class="normal">1999</span>
+<span class="normal">2000</span>
+<span class="normal">2001</span>
+<span class="normal">2002</span>
+<span class="normal">2003</span>
+<span class="normal">2004</span>
+<span class="normal">2005</span>
+<span class="normal">2006</span>
+<span class="normal">2007</span>
+<span class="normal">2008</span>
+<span class="normal">2009</span>
+<span class="normal">2010</span>
+<span class="normal">2011</span>
+<span class="normal">2012</span>
+<span class="normal">2013</span>
+<span class="normal">2014</span>
+<span class="normal">2015</span>
+<span class="normal">2016</span>
+<span class="normal">2017</span>
+<span class="normal">2018</span>
+<span class="normal">2019</span>
+<span class="normal">2020</span>
+<span class="normal">2021</span>
+<span class="normal">2022</span>
+<span class="normal">2023</span>
+<span class="normal">2024</span>
+<span class="normal">2025</span>
+<span class="normal">2026</span>
+<span class="normal">2027</span>
+<span class="normal">2028</span>
+<span class="normal">2029</span>
+<span class="normal">2030</span>
+<span class="normal">2031</span>
+<span class="normal">2032</span>
+<span class="normal">2033</span>
+<span class="normal">2034</span>
+<span class="normal">2035</span>
+<span class="normal">2036</span>
+<span class="normal">2037</span>
+<span class="normal">2038</span>
+<span class="normal">2039</span>
+<span class="normal">2040</span>
+<span class="normal">2041</span>
+<span class="normal">2042</span>
+<span class="normal">2043</span>
+<span class="normal">2044</span>
+<span class="normal">2045</span>
+<span class="normal">2046</span>
+<span class="normal">2047</span>
+<span class="normal">2048</span>
+<span class="normal">2049</span>
+<span class="normal">2050</span>
+<span class="normal">2051</span>
+<span class="normal">2052</span>
+<span class="normal">2053</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -24377,34 +24358,10 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
     <span class="c1"># default-argument allocations ([None]*N, np.zeros) inside inner loops.</span>
     <span class="n">spname_list</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"spname"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="n">M0_arr</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"M0"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="n">_NoIntegrate_raw</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"NoIntegrate"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="n">_TRACE_DEBUG_GROUPS</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"TRACE_DEBUG_GROUPS"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="c1"># Current biomass (state variable)</span>
     <span class="n">BB</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
-    <span class="c1"># Enforce NoIntegrate algebraic groups in stage evaluations</span>
-    <span class="c1"># Some groups are marked 'NoIntegrate' to represent algebraic equilibria</span>
-    <span class="c1"># (fast turnover). Ensure derivative evaluations always see these at</span>
-    <span class="c1"># their baseline Bbase value so intermediate RK4 stages don't pollute</span>
-    <span class="c1"># predation/functional response calculations.</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">no_integrate_mask</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
-                <span class="n">_NoIntegrate_raw</span>
-                <span class="k">if</span> <span class="n">_NoIntegrate_raw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="o">!=</span> <span class="mi">0</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">no_integrate_mask</span><span class="p">):</span>
-            <span class="n">Bbase_arr</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Bbase"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">Bbase_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="c1"># apply baseline values for NoIntegrate groups to the local BB</span>
-                <span class="c1"># (BB is already a copy from state.copy() above)</span>
-                <span class="n">BB</span><span class="p">[</span><span class="n">no_integrate_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">Bbase_arr</span><span class="p">[</span><span class="n">no_integrate_mask</span><span class="p">]</span>
-    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
-        <span class="k">pass</span>
 
     <span class="n">instrument_set</span> <span class="o">=</span> <span class="n">_resolve_instrument_groups</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">spname_list</span><span class="p">,</span> <span class="n">NUM_GROUPS</span><span class="p">)</span>
 
@@ -24448,6 +24405,9 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
         <span class="n">Ftime</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">*</span> <span class="n">BB</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">/</span> <span class="n">safe_bbase</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">*</span> <span class="n">ForcedPrey</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span>
         <span class="mf">0.0</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"RpathPrimaryProduction"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">and</span> <span class="n">Bbase</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Group 0 ("the sun") is the prey of the producers' links</span>
+        <span class="n">preyYY</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">Ftime</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">BB</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">safe_bbase</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">ForcedPrey</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="c1"># predYY = Ftime * B / Bbase (where Bbase &gt; 0, living groups only)</span>
     <span class="n">predYY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
@@ -24611,6 +24571,9 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 
     <span class="c1"># Calculate fishing mortality with effort scaling per gear</span>
     <span class="c1"># FishThrough contains 1-based GROUP indices of fleets.</span>
+    <span class="c1"># _link_fish_rate[i] is the per-biomass catch rate of fishing link i</span>
+    <span class="c1"># (Rpath: caught = FishQ * Effort * B), used for discards to FishTo.</span>
+    <span class="n">_link_fish_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">)):</span>
         <span class="n">grp</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
         <span class="n">gear_group_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">FishThrough</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
@@ -24626,6 +24589,7 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
         <span class="k">if</span> <span class="n">_fleet_med</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">effort_mult</span> <span class="o">*=</span> <span class="n">_fleet_med</span><span class="p">[</span><span class="n">gear_idx</span><span class="p">]</span>
         <span class="n">FishMort</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">+=</span> <span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span>
+        <span class="n">_link_fish_rate</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span>
 
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="n">Catch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">FishMort</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">BB</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
@@ -24654,6 +24618,13 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
     <span class="n">pp_rates</span> <span class="o">=</span> <span class="n">primary_production_forcing</span><span class="p">(</span>
         <span class="n">BB</span><span class="p">,</span> <span class="n">Bbase</span><span class="p">,</span> <span class="n">PB</span><span class="p">,</span> <span class="n">PP_forcing</span><span class="p">,</span> <span class="n">PP_type</span><span class="p">,</span> <span class="n">NUM_LIVING</span>
     <span class="p">)</span>
+    <span class="c1"># Rpath: a producer's gain is its consumption from group 0 ("the sun"),</span>
+    <span class="c1"># through the same functional response as any link (saturating in the</span>
+    <span class="c1"># producer's own biomass via VV). rsim_run opts in to this.</span>
+    <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"RpathPrimaryProduction"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">PP_type</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">QQbase</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">pp_rates</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">QQ</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">PP_forcing</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
 
     <span class="c1"># IBM integration: check if any groups are replaced by IBMs</span>
     <span class="n">ibm_groups</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ibm_groups"</span><span class="p">,</span> <span class="p">{})</span>
@@ -24861,6 +24832,46 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
     <span class="c1"># =========================================================================</span>
     <span class="c1"># STEP 5: Calculate derivatives for detritus groups</span>
     <span class="c1"># =========================================================================</span>
+    <span class="c1"># rsim_run passes Rpath's detritus links; use Rpath's budget then.</span>
+    <span class="n">_det_link_from</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DetLinkFrom"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_det_link_from</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">det_gain</span><span class="p">,</span> <span class="n">det_loss</span> <span class="o">=</span> <span class="n">_rpath_detritus_derivs</span><span class="p">(</span>
+            <span class="n">deriv</span><span class="p">,</span>
+            <span class="n">QQ</span><span class="p">,</span>
+            <span class="n">BB</span><span class="p">,</span>
+            <span class="n">_M0_effective</span><span class="p">,</span>
+            <span class="n">Unassim</span><span class="p">,</span>
+            <span class="n">_det_link_from</span><span class="p">,</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">"DetLinkTo"</span><span class="p">],</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">"DetLinkFrac"</span><span class="p">],</span>
+            <span class="n">FishFrom</span><span class="p">,</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"FishTo"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">))),</span>
+            <span class="n">_link_fish_rate</span><span class="p">,</span>
+            <span class="n">NUM_LIVING</span><span class="p">,</span>
+            <span class="n">NUM_DEAD</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">rates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dead</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="n">NUM_DEAD</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">rates</span><span class="p">[</span><span class="s2">"DetGain"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">rates</span><span class="p">[</span><span class="s2">"DetLoss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">rates</span><span class="p">[</span><span class="s2">"DetGain"</span><span class="p">][</span><span class="n">dead</span><span class="p">]</span> <span class="o">=</span> <span class="n">det_gain</span><span class="p">[</span><span class="n">dead</span><span class="p">]</span>
+            <span class="n">rates</span><span class="p">[</span><span class="s2">"DetLoss"</span><span class="p">][</span><span class="n">dead</span><span class="p">]</span> <span class="o">=</span> <span class="n">det_loss</span><span class="p">[</span><span class="n">dead</span><span class="p">]</span>
+            <span class="c1"># Rpath TotGain / TotLoss (biomeq = TotGain / (TotLoss / B)).</span>
+            <span class="c1"># Living gain is all consumption, including a producer's link</span>
+            <span class="c1"># from group 0; every remaining term of the derivative is loss.</span>
+            <span class="n">tot_gain</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">tot_gain</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">QQ</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">producers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">PP_type</span><span class="p">[:</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="n">producers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">tot_gain</span><span class="p">[:</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">producers</span><span class="p">]</span> <span class="o">=</span> <span class="n">pp_rates</span><span class="p">[:</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span>
+                <span class="n">producers</span>
+            <span class="p">]</span>
+            <span class="n">tot_gain</span><span class="p">[</span><span class="n">dead</span><span class="p">]</span> <span class="o">=</span> <span class="n">det_gain</span><span class="p">[</span><span class="n">dead</span><span class="p">]</span>
+            <span class="n">rates</span><span class="p">[</span><span class="s2">"TotGain"</span><span class="p">]</span> <span class="o">=</span> <span class="n">tot_gain</span>
+            <span class="n">rates</span><span class="p">[</span><span class="s2">"TotLoss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">tot_gain</span> <span class="o">-</span> <span class="n">deriv</span>
+            <span class="n">rates</span><span class="p">[</span><span class="s2">"TotLoss"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">return</span> <span class="n">deriv</span>
+
     <span class="n">DetFrac_raw</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DetFrac"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">NUM_DEAD</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)))</span>
     <span class="c1"># RsimParams may store detritus fractions in two formats:</span>
     <span class="c1"># 1) a full 2D array shaped (NUM_GROUPS+1, NUM_DEAD+1), or</span>
@@ -25116,23 +25127,6 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Detritus instrumentation error: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
-    <span class="c1"># Zero derivatives for NoIntegrate (fast-turnover) groups to enforce algebraic equilibrium</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># NoIntegrate: Rpath encodes fast-turnover groups as 0. Treat 0 as True for NoIntegrate</span>
-        <span class="c1"># NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)</span>
-        <span class="n">no_integrate</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
-                <span class="n">_NoIntegrate_raw</span>
-                <span class="k">if</span> <span class="n">_NoIntegrate_raw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="o">!=</span> <span class="mi">0</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">no_integrate</span><span class="p">):</span>
-            <span class="n">deriv</span><span class="p">[</span><span class="n">no_integrate</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
-        <span class="k">pass</span>
-
     <span class="k">return</span> <span class="n">deriv</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -25148,7 +25142,7 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 
 
 <a href="#pypath.core.ecosim_deriv.integrate_rk4" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">integrate_rk4</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">fishing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">integrate_rk4</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">fishing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -25247,6 +25241,22 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
                 <em>required</em>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of RK4 sub-steps of <code>dt / n_steps</code> (Rpath <code>RK4_STEPS</code>).</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -25276,77 +25286,7 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1986</span>
-<span class="normal">1987</span>
-<span class="normal">1988</span>
-<span class="normal">1989</span>
-<span class="normal">1990</span>
-<span class="normal">1991</span>
-<span class="normal">1992</span>
-<span class="normal">1993</span>
-<span class="normal">1994</span>
-<span class="normal">1995</span>
-<span class="normal">1996</span>
-<span class="normal">1997</span>
-<span class="normal">1998</span>
-<span class="normal">1999</span>
-<span class="normal">2000</span>
-<span class="normal">2001</span>
-<span class="normal">2002</span>
-<span class="normal">2003</span>
-<span class="normal">2004</span>
-<span class="normal">2005</span>
-<span class="normal">2006</span>
-<span class="normal">2007</span>
-<span class="normal">2008</span>
-<span class="normal">2009</span>
-<span class="normal">2010</span>
-<span class="normal">2011</span>
-<span class="normal">2012</span>
-<span class="normal">2013</span>
-<span class="normal">2014</span>
-<span class="normal">2015</span>
-<span class="normal">2016</span>
-<span class="normal">2017</span>
-<span class="normal">2018</span>
-<span class="normal">2019</span>
-<span class="normal">2020</span>
-<span class="normal">2021</span>
-<span class="normal">2022</span>
-<span class="normal">2023</span>
-<span class="normal">2024</span>
-<span class="normal">2025</span>
-<span class="normal">2026</span>
-<span class="normal">2027</span>
-<span class="normal">2028</span>
-<span class="normal">2029</span>
-<span class="normal">2030</span>
-<span class="normal">2031</span>
-<span class="normal">2032</span>
-<span class="normal">2033</span>
-<span class="normal">2034</span>
-<span class="normal">2035</span>
-<span class="normal">2036</span>
-<span class="normal">2037</span>
-<span class="normal">2038</span>
-<span class="normal">2039</span>
-<span class="normal">2040</span>
-<span class="normal">2041</span>
-<span class="normal">2042</span>
-<span class="normal">2043</span>
-<span class="normal">2044</span>
-<span class="normal">2045</span>
-<span class="normal">2046</span>
-<span class="normal">2047</span>
-<span class="normal">2048</span>
-<span class="normal">2049</span>
-<span class="normal">2050</span>
-<span class="normal">2051</span>
-<span class="normal">2052</span>
-<span class="normal">2053</span>
-<span class="normal">2054</span>
-<span class="normal">2055</span>
-<span class="normal">2056</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2056</span>
 <span class="normal">2057</span>
 <span class="normal">2058</span>
 <span class="normal">2059</span>
@@ -25434,8 +25374,82 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 <span class="normal">2141</span>
 <span class="normal">2142</span>
 <span class="normal">2143</span>
-<span class="normal">2144</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
-    <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">fishing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span>
+<span class="normal">2144</span>
+<span class="normal">2145</span>
+<span class="normal">2146</span>
+<span class="normal">2147</span>
+<span class="normal">2148</span>
+<span class="normal">2149</span>
+<span class="normal">2150</span>
+<span class="normal">2151</span>
+<span class="normal">2152</span>
+<span class="normal">2153</span>
+<span class="normal">2154</span>
+<span class="normal">2155</span>
+<span class="normal">2156</span>
+<span class="normal">2157</span>
+<span class="normal">2158</span>
+<span class="normal">2159</span>
+<span class="normal">2160</span>
+<span class="normal">2161</span>
+<span class="normal">2162</span>
+<span class="normal">2163</span>
+<span class="normal">2164</span>
+<span class="normal">2165</span>
+<span class="normal">2166</span>
+<span class="normal">2167</span>
+<span class="normal">2168</span>
+<span class="normal">2169</span>
+<span class="normal">2170</span>
+<span class="normal">2171</span>
+<span class="normal">2172</span>
+<span class="normal">2173</span>
+<span class="normal">2174</span>
+<span class="normal">2175</span>
+<span class="normal">2176</span>
+<span class="normal">2177</span>
+<span class="normal">2178</span>
+<span class="normal">2179</span>
+<span class="normal">2180</span>
+<span class="normal">2181</span>
+<span class="normal">2182</span>
+<span class="normal">2183</span>
+<span class="normal">2184</span>
+<span class="normal">2185</span>
+<span class="normal">2186</span>
+<span class="normal">2187</span>
+<span class="normal">2188</span>
+<span class="normal">2189</span>
+<span class="normal">2190</span>
+<span class="normal">2191</span>
+<span class="normal">2192</span>
+<span class="normal">2193</span>
+<span class="normal">2194</span>
+<span class="normal">2195</span>
+<span class="normal">2196</span>
+<span class="normal">2197</span>
+<span class="normal">2198</span>
+<span class="normal">2199</span>
+<span class="normal">2200</span>
+<span class="normal">2201</span>
+<span class="normal">2202</span>
+<span class="normal">2203</span>
+<span class="normal">2204</span>
+<span class="normal">2205</span>
+<span class="normal">2206</span>
+<span class="normal">2207</span>
+<span class="normal">2208</span>
+<span class="normal">2209</span>
+<span class="normal">2210</span>
+<span class="normal">2211</span>
+<span class="normal">2212</span>
+<span class="normal">2213</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">fishing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Runge-Kutta 4th order integration step.</span>
@@ -25452,34 +25466,28 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 <span class="sd">        Fishing parameters</span>
 <span class="sd">    dt : float</span>
 <span class="sd">        Time step</span>
+<span class="sd">    n_steps : int, optional</span>
+<span class="sd">        Number of RK4 sub-steps of ``dt / n_steps`` (Rpath ``RK4_STEPS``).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    np.ndarray</span>
 <span class="sd">        Updated state vector</span>
 <span class="sd">    """</span>
-    <span class="n">k1</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">)</span>
-    <span class="n">k2</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span><span class="n">state</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">k1</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">)</span>
-    <span class="n">k3</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span><span class="n">state</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">k2</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">)</span>
-    <span class="n">k4</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span><span class="n">state</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">k3</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">)</span>
-
-    <span class="n">new_state</span> <span class="o">=</span> <span class="n">state</span> <span class="o">+</span> <span class="p">(</span><span class="n">dt</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k3</span> <span class="o">+</span> <span class="n">k4</span><span class="p">)</span>
-
-    <span class="c1"># Ensure non-negative biomass</span>
-    <span class="n">new_state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">new_state</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-
-    <span class="c1"># Enforce NoIntegrate groups stay at baseline (if provided in params)</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># NoIntegrate uses 1 to indicate fast-turnover groups in params (1 = NoIntegrate)</span>
-        <span class="n">no_integrate</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"NoIntegrate"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_state</span><span class="p">))))</span> <span class="o">!=</span> <span class="mi">0</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">no_integrate</span><span class="p">):</span>
-            <span class="n">Bbase</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Bbase"</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">Bbase</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">new_state</span><span class="p">[</span><span class="n">no_integrate</span><span class="p">]</span> <span class="o">=</span> <span class="n">Bbase</span><span class="p">[</span><span class="n">no_integrate</span><span class="p">]</span>
-    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
-        <span class="k">pass</span>
+    <span class="c1"># Rpath rk4_run: n_steps sub-steps of dt/n_steps, every group integrated</span>
+    <span class="c1"># (NoIntegrate only matters to Adams-Bashforth), biomass clamped per step.</span>
+    <span class="n">n_steps</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_steps</span><span class="p">))</span>
+    <span class="n">hh</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">/</span> <span class="n">n_steps</span>
+    <span class="n">new_state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+        <span class="n">y0</span> <span class="o">=</span> <span class="n">new_state</span>
+        <span class="n">k1</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span><span class="n">y0</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">)</span>
+        <span class="n">k2</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span><span class="n">y0</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">hh</span> <span class="o">*</span> <span class="n">k1</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">)</span>
+        <span class="n">k3</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span><span class="n">y0</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">hh</span> <span class="o">*</span> <span class="n">k2</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">)</span>
+        <span class="n">k4</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span><span class="n">y0</span> <span class="o">+</span> <span class="n">hh</span> <span class="o">*</span> <span class="n">k3</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">)</span>
+        <span class="n">new_state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">y0</span> <span class="o">+</span> <span class="p">(</span><span class="n">hh</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k3</span> <span class="o">+</span> <span class="n">k4</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">hh</span>  <span class="c1"># instrumentation below reports the last sub-step</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">y0</span>
 
     <span class="c1"># Instrumentation: allow callers to obtain compact RK4 stage diagnostics via</span>
     <span class="c1"># params.instrument_callback (similar to AB instrumentation). Compute per-stage</span>
@@ -25619,17 +25627,17 @@ Then: new_B = (1-SORWT)<em>biomeq + SORWT</em>old_B</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2158</span>
-<span class="normal">2159</span>
-<span class="normal">2160</span>
-<span class="normal">2161</span>
-<span class="normal">2162</span>
-<span class="normal">2163</span>
-<span class="normal">2164</span>
-<span class="normal">2165</span>
-<span class="normal">2166</span>
-<span class="normal">2167</span>
-<span class="normal">2168</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2227</span>
+<span class="normal">2228</span>
+<span class="normal">2229</span>
+<span class="normal">2230</span>
+<span class="normal">2231</span>
+<span class="normal">2232</span>
+<span class="normal">2233</span>
+<span class="normal">2234</span>
+<span class="normal">2235</span>
+<span class="normal">2236</span>
+<span class="normal">2237</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Compute fast-equilibrium biomass for NoIntegrate groups.</span>
 
 <span class="sd">    Rpath formula: biomeq = TotGain / (TotLoss / B)</span>
@@ -25800,76 +25808,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2171</span>
-<span class="normal">2172</span>
-<span class="normal">2173</span>
-<span class="normal">2174</span>
-<span class="normal">2175</span>
-<span class="normal">2176</span>
-<span class="normal">2177</span>
-<span class="normal">2178</span>
-<span class="normal">2179</span>
-<span class="normal">2180</span>
-<span class="normal">2181</span>
-<span class="normal">2182</span>
-<span class="normal">2183</span>
-<span class="normal">2184</span>
-<span class="normal">2185</span>
-<span class="normal">2186</span>
-<span class="normal">2187</span>
-<span class="normal">2188</span>
-<span class="normal">2189</span>
-<span class="normal">2190</span>
-<span class="normal">2191</span>
-<span class="normal">2192</span>
-<span class="normal">2193</span>
-<span class="normal">2194</span>
-<span class="normal">2195</span>
-<span class="normal">2196</span>
-<span class="normal">2197</span>
-<span class="normal">2198</span>
-<span class="normal">2199</span>
-<span class="normal">2200</span>
-<span class="normal">2201</span>
-<span class="normal">2202</span>
-<span class="normal">2203</span>
-<span class="normal">2204</span>
-<span class="normal">2205</span>
-<span class="normal">2206</span>
-<span class="normal">2207</span>
-<span class="normal">2208</span>
-<span class="normal">2209</span>
-<span class="normal">2210</span>
-<span class="normal">2211</span>
-<span class="normal">2212</span>
-<span class="normal">2213</span>
-<span class="normal">2214</span>
-<span class="normal">2215</span>
-<span class="normal">2216</span>
-<span class="normal">2217</span>
-<span class="normal">2218</span>
-<span class="normal">2219</span>
-<span class="normal">2220</span>
-<span class="normal">2221</span>
-<span class="normal">2222</span>
-<span class="normal">2223</span>
-<span class="normal">2224</span>
-<span class="normal">2225</span>
-<span class="normal">2226</span>
-<span class="normal">2227</span>
-<span class="normal">2228</span>
-<span class="normal">2229</span>
-<span class="normal">2230</span>
-<span class="normal">2231</span>
-<span class="normal">2232</span>
-<span class="normal">2233</span>
-<span class="normal">2234</span>
-<span class="normal">2235</span>
-<span class="normal">2236</span>
-<span class="normal">2237</span>
-<span class="normal">2238</span>
-<span class="normal">2239</span>
-<span class="normal">2240</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2240</span>
 <span class="normal">2241</span>
 <span class="normal">2242</span>
 <span class="normal">2243</span>
@@ -26202,7 +26141,76 @@ available, falls back to Euler with no history.</p>
 <span class="normal">2570</span>
 <span class="normal">2571</span>
 <span class="normal">2572</span>
-<span class="normal">2573</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
+<span class="normal">2573</span>
+<span class="normal">2574</span>
+<span class="normal">2575</span>
+<span class="normal">2576</span>
+<span class="normal">2577</span>
+<span class="normal">2578</span>
+<span class="normal">2579</span>
+<span class="normal">2580</span>
+<span class="normal">2581</span>
+<span class="normal">2582</span>
+<span class="normal">2583</span>
+<span class="normal">2584</span>
+<span class="normal">2585</span>
+<span class="normal">2586</span>
+<span class="normal">2587</span>
+<span class="normal">2588</span>
+<span class="normal">2589</span>
+<span class="normal">2590</span>
+<span class="normal">2591</span>
+<span class="normal">2592</span>
+<span class="normal">2593</span>
+<span class="normal">2594</span>
+<span class="normal">2595</span>
+<span class="normal">2596</span>
+<span class="normal">2597</span>
+<span class="normal">2598</span>
+<span class="normal">2599</span>
+<span class="normal">2600</span>
+<span class="normal">2601</span>
+<span class="normal">2602</span>
+<span class="normal">2603</span>
+<span class="normal">2604</span>
+<span class="normal">2605</span>
+<span class="normal">2606</span>
+<span class="normal">2607</span>
+<span class="normal">2608</span>
+<span class="normal">2609</span>
+<span class="normal">2610</span>
+<span class="normal">2611</span>
+<span class="normal">2612</span>
+<span class="normal">2613</span>
+<span class="normal">2614</span>
+<span class="normal">2615</span>
+<span class="normal">2616</span>
+<span class="normal">2617</span>
+<span class="normal">2618</span>
+<span class="normal">2619</span>
+<span class="normal">2620</span>
+<span class="normal">2621</span>
+<span class="normal">2622</span>
+<span class="normal">2623</span>
+<span class="normal">2624</span>
+<span class="normal">2625</span>
+<span class="normal">2626</span>
+<span class="normal">2627</span>
+<span class="normal">2628</span>
+<span class="normal">2629</span>
+<span class="normal">2630</span>
+<span class="normal">2631</span>
+<span class="normal">2632</span>
+<span class="normal">2633</span>
+<span class="normal">2634</span>
+<span class="normal">2635</span>
+<span class="normal">2636</span>
+<span class="normal">2637</span>
+<span class="normal">2638</span>
+<span class="normal">2639</span>
+<span class="normal">2640</span>
+<span class="normal">2641</span>
+<span class="normal">2642</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">derivs_history</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -26798,76 +26806,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2576</span>
-<span class="normal">2577</span>
-<span class="normal">2578</span>
-<span class="normal">2579</span>
-<span class="normal">2580</span>
-<span class="normal">2581</span>
-<span class="normal">2582</span>
-<span class="normal">2583</span>
-<span class="normal">2584</span>
-<span class="normal">2585</span>
-<span class="normal">2586</span>
-<span class="normal">2587</span>
-<span class="normal">2588</span>
-<span class="normal">2589</span>
-<span class="normal">2590</span>
-<span class="normal">2591</span>
-<span class="normal">2592</span>
-<span class="normal">2593</span>
-<span class="normal">2594</span>
-<span class="normal">2595</span>
-<span class="normal">2596</span>
-<span class="normal">2597</span>
-<span class="normal">2598</span>
-<span class="normal">2599</span>
-<span class="normal">2600</span>
-<span class="normal">2601</span>
-<span class="normal">2602</span>
-<span class="normal">2603</span>
-<span class="normal">2604</span>
-<span class="normal">2605</span>
-<span class="normal">2606</span>
-<span class="normal">2607</span>
-<span class="normal">2608</span>
-<span class="normal">2609</span>
-<span class="normal">2610</span>
-<span class="normal">2611</span>
-<span class="normal">2612</span>
-<span class="normal">2613</span>
-<span class="normal">2614</span>
-<span class="normal">2615</span>
-<span class="normal">2616</span>
-<span class="normal">2617</span>
-<span class="normal">2618</span>
-<span class="normal">2619</span>
-<span class="normal">2620</span>
-<span class="normal">2621</span>
-<span class="normal">2622</span>
-<span class="normal">2623</span>
-<span class="normal">2624</span>
-<span class="normal">2625</span>
-<span class="normal">2626</span>
-<span class="normal">2627</span>
-<span class="normal">2628</span>
-<span class="normal">2629</span>
-<span class="normal">2630</span>
-<span class="normal">2631</span>
-<span class="normal">2632</span>
-<span class="normal">2633</span>
-<span class="normal">2634</span>
-<span class="normal">2635</span>
-<span class="normal">2636</span>
-<span class="normal">2637</span>
-<span class="normal">2638</span>
-<span class="normal">2639</span>
-<span class="normal">2640</span>
-<span class="normal">2641</span>
-<span class="normal">2642</span>
-<span class="normal">2643</span>
-<span class="normal">2644</span>
-<span class="normal">2645</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2645</span>
 <span class="normal">2646</span>
 <span class="normal">2647</span>
 <span class="normal">2648</span>
@@ -26888,7 +26827,76 @@ available, falls back to Euler with no history.</p>
 <span class="normal">2663</span>
 <span class="normal">2664</span>
 <span class="normal">2665</span>
-<span class="normal">2666</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
+<span class="normal">2666</span>
+<span class="normal">2667</span>
+<span class="normal">2668</span>
+<span class="normal">2669</span>
+<span class="normal">2670</span>
+<span class="normal">2671</span>
+<span class="normal">2672</span>
+<span class="normal">2673</span>
+<span class="normal">2674</span>
+<span class="normal">2675</span>
+<span class="normal">2676</span>
+<span class="normal">2677</span>
+<span class="normal">2678</span>
+<span class="normal">2679</span>
+<span class="normal">2680</span>
+<span class="normal">2681</span>
+<span class="normal">2682</span>
+<span class="normal">2683</span>
+<span class="normal">2684</span>
+<span class="normal">2685</span>
+<span class="normal">2686</span>
+<span class="normal">2687</span>
+<span class="normal">2688</span>
+<span class="normal">2689</span>
+<span class="normal">2690</span>
+<span class="normal">2691</span>
+<span class="normal">2692</span>
+<span class="normal">2693</span>
+<span class="normal">2694</span>
+<span class="normal">2695</span>
+<span class="normal">2696</span>
+<span class="normal">2697</span>
+<span class="normal">2698</span>
+<span class="normal">2699</span>
+<span class="normal">2700</span>
+<span class="normal">2701</span>
+<span class="normal">2702</span>
+<span class="normal">2703</span>
+<span class="normal">2704</span>
+<span class="normal">2705</span>
+<span class="normal">2706</span>
+<span class="normal">2707</span>
+<span class="normal">2708</span>
+<span class="normal">2709</span>
+<span class="normal">2710</span>
+<span class="normal">2711</span>
+<span class="normal">2712</span>
+<span class="normal">2713</span>
+<span class="normal">2714</span>
+<span class="normal">2715</span>
+<span class="normal">2716</span>
+<span class="normal">2717</span>
+<span class="normal">2718</span>
+<span class="normal">2719</span>
+<span class="normal">2720</span>
+<span class="normal">2721</span>
+<span class="normal">2722</span>
+<span class="normal">2723</span>
+<span class="normal">2724</span>
+<span class="normal">2725</span>
+<span class="normal">2726</span>
+<span class="normal">2727</span>
+<span class="normal">2728</span>
+<span class="normal">2729</span>
+<span class="normal">2730</span>
+<span class="normal">2731</span>
+<span class="normal">2732</span>
+<span class="normal">2733</span>
+<span class="normal">2734</span>
+<span class="normal">2735</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
     <span class="n">initial_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
