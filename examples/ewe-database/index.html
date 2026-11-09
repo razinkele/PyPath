@@ -1111,6 +1111,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ewe-f-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EwE-F Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1401,6 +1412,17 @@
     <span class="md-ellipsis">
       
         Curonian Lagoon End-to-End Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ewe-f-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EwE-F Models
       
     </span>
   </a>
@@ -1711,6 +1733,42 @@ python<span class="w"> </span>examples/curonian_model_workflow_example.py<span c
 </code></pre></div>
 <p>Use <code>--strict-biomass</code> if you want biomass parity mismatches treated as
 hard failures instead of warnings.</p>
+<h2 id="ewe-f-models">EwE-F Models<a class="headerlink" href="#ewe-f-models" title="Permanent link">&para;</a></h2>
+<p><a href="https://doi.org/10.5194/gmd-8-2687-2015">EwE-F</a>, the Fortran implementation
+of Ecopath with Ecosim, keeps a model in CSV files named by a namelist
+(<code>*_filenames.nml</code>). <code>read_ewef</code> reads the Ecopath part and
+<code>ecosim_scenario_from_ewef</code> builds an Ecosim scenario from the Ecopath and
+Ecosim inputs:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecopath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rpath</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_run</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ecosim_scenario_from_ewef</span><span class="p">,</span> <span class="n">read_ewef</span>
+
+<span class="n">params</span> <span class="o">=</span> <span class="n">read_ewef</span><span class="p">(</span><span class="s2">"ecopath-f/testcases/Black_Sea"</span><span class="p">)</span>       <span class="c1"># or the .nml file</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">rpath</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">ecosim_scenario_from_ewef</span><span class="p">(</span>
+    <span class="s2">"ecopath-f/testcases/Black_Sea"</span><span class="p">,</span> <span class="s2">"ecosim-f/testcases/Black_Sea"</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"AB"</span><span class="p">)</span>
+</code></pre></div>
+<p>For the Black Sea test case (<code>tests/data/ewef/Black_Sea</code>) PyPath reproduces
+EwE-F's Ecopath biomass and EE for all 20 living groups to within 1e-5. Two
+differences are known:</p>
+<ul>
+<li><strong>Detritus EE</strong>: PyPath routes detritus between pools as Rpath does, counting
+  a pool's own fate share; EwE 6 and EwE-F skip it and pass surpluses in group
+  order. Models with detritus self-fate or chained detritus flows differ.</li>
+<li><strong>Multi-stanza Q/B</strong>: PyPath ends the plus group where 99.999 % of the
+  cumulative biomass is reached (Rpath); EwE-F uses its own maximum age. The
+  juvenile anchovy Q/B differs by 3e-5.</li>
+</ul>
+<p>Settings PyPath does not apply are reported in a warning: handling time
+(QBmax/QBo), predator effect on feeding time, density-dependent catchability,
+nutrient limitation and fishing forcing of type 4 or 5. Diet links without a
+vulnerability, which EwE-F's Ecosim skips, keep the default vulnerability, as
+in EwE 6.</p>
+<p><code>Data/BlackSea_EwEF_testcase.eweaccdb</code> is the same model as an EwE 6
+database; read through <code>read_ewemdb</code> it gives the same Ecopath balance and the
+same Ecosim settings.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../basic-model/">Basic Model Example</a> — Create a model from scratch</li>
