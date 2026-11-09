@@ -12,7 +12,8 @@ def test_import_ui_renders():
 
 def test_import_server_exact_signature():
     p = list(inspect.signature(import_server).parameters)
-    assert p == ["input", "output", "session", "model_data"]
+    # ewe_source: the imported EwE database, shared with the Ecosim page
+    assert p == ["input", "output", "session", "model_data", "ewe_source"]
 
 
 def test_data_import_page_uses_notification_service_not_direct_ui_calls():

@@ -328,9 +328,18 @@ def import_ui():
 
 
 def import_server(
-    input: Inputs, output: Outputs, session: Session, model_data: reactive.Value
+    input: Inputs,
+    output: Outputs,
+    session: Session,
+    model_data: reactive.Value,
+    ewe_source: reactive.Value = None,
 ):
-    """Data import page server logic."""
+    """Data import page server logic.
+
+    ``ewe_source``, when given, receives the EwE database last imported
+    (path, groups, Ecosim scenarios and time-series datasets) for the Ecosim
+    page.
+    """
 
     # Reactive values
     ecobase_models = reactive.Value(None)
@@ -558,6 +567,18 @@ def import_server(
 
             params = read_ewemdb(filepath, scenario=scenario)
             imported_params.set(params)
+            if ewe_source is not None:
+                from pypath_shiny.pages.ewe_scenario import ewe_source_record
+
+                try:
+                    ewe_source.set(
+                        ewe_source_record(
+                            filepath, file_info[0]["name"], scenario, params
+                        )
+                    )
+                except Exception as e:  # the Ecopath import still stands
+                    logger.debug("EwE Ecosim scenarios not listed: %s", e)
+                    ewe_source.set(None)
 
             # Debug: Check for remarks
             has_remarks = hasattr(params, "remarks") and params.remarks is not None
