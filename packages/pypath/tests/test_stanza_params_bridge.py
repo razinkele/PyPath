@@ -7,9 +7,9 @@ the EwE database reader build. ``rpath_stanzas`` / ``rsim_stanzas`` work on
 ``rsim_scenario`` failed on every real multi-stanza model and logged it only
 at debug level.
 
-Note: rsim_run does not yet couple the stanza age structure to group biomass;
-it feeds only ``out.stanza_biomass``. ``out_Biomass`` is the same with or
-without stanzas.
+rsim_run couples the age structure to group biomass the way Rpath's
+SplitUpdate / SplitSetPred do; the coupling tests are at the end of this file
+and the trajectory comparison with Rpath is in ``test_rpath_reference.py``.
 
 The reference values come from Rpath's ``rpath.stanzas()`` on the REco model
 (``tests/data/rpath_reference/ecopath``).
@@ -315,21 +315,153 @@ def test_scenario_does_not_edit_the_params_table():
 
 def test_stanza_update_uses_each_stanzas_own_group():
     """group_num is the 1-based model row and the Rsim arrays have Outside
-    at 0, so a stanza's mortality is MzeroMort[group_num]."""
-    from pypath.core.stanzas import split_update
+    at 0, so a stanza's mortality is LossPropToB[group_num] / B[group_num]."""
+    from pypath.core.stanzas import RsimStanzaState, split_update
 
     params = _reference_params()
     sc = rsim_scenario(rpath(params), params, years=range(1, 3))
-    st, p = sc.stanzas, sc.params
+    st = sc.stanzas
+    biomass = sc.start_state.Biomass.copy()
     juv_row = params.model.index[params.model["Group"] == "JuvRoundfish1"][0] + 1
-    p.MzeroMort = np.zeros_like(p.MzeroMort)
-    p.MzeroMort[juv_row] = 12.0  # monthly survival exp(-1), juveniles only
-    st.spawn_x[:] = 10000.0  # constant recruitment
+    loss = np.zeros_like(biomass)
+    loss[juv_row] = 12.0 * biomass[juv_row]  # monthly survival exp(-1)
+    sstate = RsimStanzaState.from_base(st, sc.params.NUM_GROUPS)
     before = st.base_nage_s[:, 1].copy()
-    split_update(st, None, p, 1)
-    after = st.base_nage_s[:, 1]
+    split_update(st, sstate, biomass, np.zeros_like(biomass), loss)
+    after = sstate.nage_s[:, 1]
     assert after[5] == pytest.approx(before[4] * np.exp(-1.0))  # juvenile age
-    assert after[30] == pytest.approx(before[29])  # adult age, no mortality
+    assert after[30] == pytest.approx(before[29])  # adult age, no loss
+    # The base age structure is a parameter, not run state
+    np.testing.assert_array_equal(st.base_nage_s[:, 1], before)
+
+
+class TestCoupling:
+    """The age structure drives the stanza groups' biomass (Rpath
+    SplitSetPred), and their consumption drives the age structure."""
+
+    @pytest.fixture(scope="class")
+    def model_and_params(self):
+        params = _reference_params()
+        return rpath(params), params
+
+    @staticmethod
+    def _run(model, params, effort, stanzas=True, years=5):
+        sc = rsim_scenario(model, params, years=range(1, years + 1))
+        if not stanzas:
+            sc.stanzas = None
+        sc.fishing.ForcedEffort = sc.fishing.ForcedEffort * effort
+        return sc, rsim_run(sc, method="RK4", years=range(1, years + 1))
+
+    def test_stanza_groups_respond_to_the_age_structure(self, model_and_params):
+        model, params = model_and_params
+        sc, coupled = self._run(model, params, 2.0)
+        _, uncoupled = self._run(model, params, 2.0, stanzas=False)
+        from pypath.core.stanzas import stanza_group_indices
+
+        idx = stanza_group_indices(sc.stanzas)
+        diff = np.abs(coupled.out_Biomass[-1, idx] / uncoupled.out_Biomass[-1, idx] - 1)
+        assert diff.max() > 0.01
+
+    def test_stanza_biomass_output_is_the_coupled_biomass(self, model_and_params):
+        model, params = model_and_params
+        sc, out = self._run(model, params, 2.0, years=2)
+        from pypath.core.stanzas import stanza_group_indices
+
+        idx = stanza_group_indices(sc.stanzas)
+        np.testing.assert_allclose(
+            out.stanza_biomass[:, idx], out.out_Biomass[:, idx], rtol=1e-12
+        )
+
+    def test_a_run_leaves_the_base_age_structure_alone(self, model_and_params):
+        """The age structure evolves in run state; a second run starts from
+        the same base again. (rsim_run does keep its M0 adjustments in
+        scenario.params, so later months may differ slightly.)"""
+        model, params = model_and_params
+        sc = rsim_scenario(model, params, years=range(1, 3))
+        sc.fishing.ForcedEffort = sc.fishing.ForcedEffort * 2.0
+        base = {
+            name: getattr(sc.stanzas, name).copy()
+            for name in (
+                "base_nage_s",
+                "base_wage_s",
+                "base_qage_s",
+                "base_stanza_pred",
+            )
+        }
+        first = rsim_run(sc, method="RK4", years=range(1, 3))
+        for name, before in base.items():
+            np.testing.assert_array_equal(getattr(sc.stanzas, name), before, name)
+        second = rsim_run(sc, method="RK4", years=range(1, 3))
+        np.testing.assert_array_equal(first.stanza_biomass[0], second.stanza_biomass[0])
+
+    def test_incomplete_stanza_arrays_fall_back_with_a_warning(
+        self, model_and_params, caplog
+    ):
+        model, params = model_and_params
+        sc = rsim_scenario(model, params, years=range(1, 3))
+        sc.stanzas.split_alpha = np.zeros((2, 2))
+        with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
+            out = rsim_run(sc, method="RK4", years=range(1, 3))
+        assert out.stanza_biomass is None
+        assert any("split_alpha" in r.getMessage() for r in caplog.records)
+
+    def test_consistent_stanza_biomass_does_not_warn(self, model_and_params, caplog):
+        model, params = model_and_params
+        sc = rsim_scenario(model, params, years=range(1, 3))
+        with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
+            rsim_run(sc, method="RK4", years=range(1, 3))
+        assert not any(
+            "differs from its age structure" in r.getMessage() for r in caplog.records
+        )
+
+    def test_hand_typed_stanza_biomass_warns(self, model_and_params, caplog):
+        """A stanza biomass that is not sum(N*W) is reset at month 0; say so."""
+        model, params = model_and_params
+        sc = rsim_scenario(model, params, years=range(1, 3))
+        from pypath.core.stanzas import stanza_group_indices
+
+        g = int(stanza_group_indices(sc.stanzas)[0])
+        sc.start_state.Biomass[g] *= 2.0
+        with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
+            out = rsim_run(sc, method="RK4", years=range(1, 3))
+        msgs = [
+            r.getMessage()
+            for r in caplog.records
+            if "differs from its age structure" in r.getMessage()
+        ]
+        assert len(msgs) == 1
+        assert sc.params.spname[g] in msgs[0]
+        # the run still starts from the age structure, as in Rpath
+        assert out.out_Biomass[0, g] == pytest.approx(
+            sc.start_state.Biomass[g] / 2.0, rel=0.01
+        )
+
+    def test_split_update_gets_ecopath_rates_at_baseline(
+        self, model_and_params, monkeypatch
+    ):
+        """At the Ecopath baseline a stanza group eats Q/B * B and loses
+        P/B * B to predation + M0 + fishing (production balance)."""
+        import pypath.core.ecosim as ecosim_mod
+
+        model, params = model_and_params
+        sc = rsim_scenario(model, params, years=range(1, 3))
+        seen = []
+        real = ecosim_mod.split_update
+
+        def spy(stanzas, sstate, biomass, food_gain, loss, forced_recs=None):
+            seen.append((biomass.copy(), food_gain.copy(), loss.copy()))
+            return real(stanzas, sstate, biomass, food_gain, loss, forced_recs)
+
+        monkeypatch.setattr(ecosim_mod, "split_update", spy)
+        rsim_run(sc, method="RK4", years=range(1, 3))
+        biomass, food_gain, loss = seen[0]
+        from pypath.core.stanzas import stanza_group_indices
+
+        idx = stanza_group_indices(sc.stanzas)
+        qb = np.asarray(model.QB, dtype=float)[idx - 1]
+        pb = np.asarray(model.PB, dtype=float)[idx - 1]
+        np.testing.assert_allclose(food_gain[idx] / biomass[idx], qb, rtol=1e-3)
+        np.testing.assert_allclose(loss[idx] / biomass[idx], pb, rtol=1e-3)
 
 
 def test_tables_are_saved_even_when_the_count_was_left_at_zero(tmp_path):

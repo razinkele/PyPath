@@ -1124,7 +1124,12 @@ def _resolve_instrument_groups(params, spname_list, num_groups):
 
 
 def deriv_vector(
-    state: np.ndarray, params: dict, forcing: dict, fishing: dict, t: float = 0.0
+    state: np.ndarray,
+    params: dict,
+    forcing: dict,
+    fishing: dict,
+    t: float = 0.0,
+    rates: dict | None = None,
 ) -> np.ndarray:
     """
     Calculate derivatives for all state variables in Ecosim.
@@ -1177,12 +1182,19 @@ def deriv_vector(
         - ForcedEffort: Forced effort [gear]
         - PP_forcing: Primary production forcing [group]
         - Ftime: Time forcing [group]
+        - StanzaPredRatio: StanzaPred / baseStanzaPred for multi-stanza
+          groups, NaN elsewhere; replaces B / Bbase in the predator term
     fishing : dict
         Fishing parameters:
         - FishingMort: Base fishing mortality [group]
         - EffortCap: Effort cap [gear]
     t : float
         Current time (for time-varying forcing)
+    rates : dict, optional
+        If given, filled with per-group rates (per year) as Rpath's
+        derivative returns them: ``FoodGain`` (consumption by the group),
+        ``FoodLoss`` (eaten by predators), ``MzeroLoss``, ``FishingLoss``
+        and ``LossPropToB`` (their sum). Multi-stanza updates use these.
 
     Returns
     -------
@@ -1292,6 +1304,13 @@ def deriv_vector(
         Ftime[sl] * BB[sl] / safe_bbase[sl],
         0.0,
     )
+    # Multi-stanza groups eat in proportion to their age structure's
+    # consumption index, StanzaPred / baseStanzaPred, not their biomass
+    # (Rpath deriv_vector). NaN marks groups without stanzas.
+    _stanza_ratio = forcing.get("StanzaPredRatio")
+    if _stanza_ratio is not None:
+        _has_ratio = np.isfinite(_stanza_ratio)
+        predYY[_has_ratio] = Ftime[_has_ratio] * _stanza_ratio[_has_ratio]
 
     # Get base consumption matrix
     QQbase = params.get("QQbase", np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
@@ -1555,7 +1574,7 @@ def deriv_vector(
             if temp_arr.size == NUM_GROUPS + 1 and mass_arr.size == NUM_GROUPS + 1:
                 ref_temp = _met_model.temperature_dependence.reference_temperature
                 base_temp = np.full(NUM_GROUPS + 1, ref_temp, dtype=float)
-                rates = _met_model.compute_metabolic_rate_batch(
+                met_rates = _met_model.compute_metabolic_rate_batch(
                     body_mass=mass_arr,
                     temperature=temp_arr,
                     activity_multiplier=_forced_actresp_arr,
@@ -1565,7 +1584,7 @@ def deriv_vector(
                     temperature=base_temp,
                     activity_multiplier=np.ones(NUM_GROUPS + 1, dtype=float),
                 )
-                _model_mult = np.where(baseline > 0.0, rates / baseline, 1.0)
+                _model_mult = np.where(baseline > 0.0, met_rates / baseline, 1.0)
                 _MetabolicMult *= np.where(
                     np.isfinite(_model_mult) & (_model_mult > 0.0), _model_mult, 1.0
                 )
@@ -1591,6 +1610,20 @@ def deriv_vector(
         NUM_LIVING,
         NUM_GROUPS,
     )
+
+    if rates is not None:
+        food_gain = np.zeros(NUM_GROUPS + 1)
+        food_loss = np.zeros(NUM_GROUPS + 1)
+        food_gain[1:] = QQ[1:, 1:].sum(axis=0)
+        food_loss[1:] = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=1)
+        mzero_loss = _M0_effective * BB
+        fishing_loss = FishMort * BB
+        rates["FoodGain"] = food_gain
+        rates["FoodLoss"] = food_loss
+        rates["MzeroLoss"] = mzero_loss
+        rates["FishingLoss"] = fishing_loss
+        rates["LossPropToB"] = food_loss + mzero_loss + fishing_loss
+        rates["LossPropToB"][0] = 0.0
 
     # Post-kernel instrumentation / debug logging for living groups
     # (kept outside numba kernel because it uses Python objects: strings, logging, etc.)

@@ -381,7 +381,7 @@ cat("Running test scenarios...\n")
 # Scenario 1: Increased fishing effort
 REco.sim.fishing <- REco.sim
 # Double fishing effort for all gears
-REco.sim.fishing$forcing$ForcedEffort <- REco.sim$forcing$ForcedEffort * 2
+REco.sim.fishing$fishing$ForcedEffort <- REco.sim$fishing$ForcedEffort * 2
 
 REco.run.fishing <- rsim.run(REco.sim.fishing, method = 'RK4', years = 1:50)
 
@@ -419,7 +419,7 @@ write.csv(biomass_fishing,
 # Scenario 2: Zero fishing
 REco.sim.nofishing <- REco.sim
 # Set all fishing to zero
-REco.sim.nofishing$forcing$ForcedEffort <- REco.sim$forcing$ForcedEffort * 0
+REco.sim.nofishing$fishing$ForcedEffort <- REco.sim$fishing$ForcedEffort * 0
 
 REco.run.nofishing <- rsim.run(REco.sim.nofishing, method = 'RK4', years = 1:50)
 
