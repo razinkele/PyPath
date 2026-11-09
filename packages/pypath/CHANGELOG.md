@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.3.0 (2026-11-09)
+
+### Bug Fixes
+
+- **io**: Read the diet import share from EwE databases; negative settings are unset
+  ([`ad47ac9`](https://github.com/razinkele/PyPath/commit/ad47ac989206070ec7fc55b8c7578923628063c3))
+
+### Features
+
+- **io**: Import EwE-F models; Black Sea test case and its EwE 6 database
+  ([`9ad4f1b`](https://github.com/razinkele/PyPath/commit/9ad4f1baee6b8649becbcc0774ca8e433210a16c))
+
+
 ## v1.2.0 (2026-11-09)
 
 ### Bug Fixes
