@@ -1,0 +1,30 @@
+!========================================================================
+! This file is part of EwE-FORTRAN
+! Copyright (C) 2011-2019 METU Institute of Marine Sciences, Turkey.
+!
+! This program is free software; you can redistribute it and/or modify 
+! it under the terms of the GNU General Public License version 2 as 
+! published by the Free Software Foundation.
+!
+! This program is distributed in the hope that it will be useful, but 
+! WITHOUT ANY WARRANTY; without even the implied warranty of 
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+! General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License 
+! along with  this program; if not, 
+! see <http://www.gnu.org/licenses/gpl-2.0.html>.
+!========================================================================
+
+&filenames
+
+InputData_fname   = "testcases/Black_Sea/Black_Sea_Scenario.csv"
+DietComp_fname    = "testcases/Black_Sea/Black_Sea_DC.csv"
+DetFate_fname     = "testcases/Black_Sea/Black_Sea_DetFate.csv"
+GrowthParam_fname = "testcases/Black_Sea/Black_Sea_GrowthParameters.csv"
+Results_fname     = "testcases/Black_Sea/Black_Sea.h5"
+HDF5_fname        = ""
+
+isASCIIinputFile  = .true.
+
+/

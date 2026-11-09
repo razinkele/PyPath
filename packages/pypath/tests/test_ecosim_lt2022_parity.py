@@ -20,10 +20,11 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # rule (Zooplankton, Phytoplankton and Detritus at equilibrium, under RK4 as
 # under AB) and donor control at v = 1, and 643.5 with dataset 35 applied as
 # EwE applies a loaded dataset (Round goby's biomass forced from 0.03 to 7.8
-# and back to 2.4; the dataset is also the fit's observations). The real
-# reference is EwE6's own scenario-16 trajectory.
+# and back to 2.4; the dataset is also the fit's observations), and 637.0
+# with the diet import of Piscivorous birds read (EcopathGroup.ImpVar).
+# The real reference is EwE6's own scenario-16 trajectory.
 # A change beyond 2 % needs a reason.
-LT2022_SS16 = 643.5
+LT2022_SS16 = 637.0
 
 
 @pytest.mark.integration

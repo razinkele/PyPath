@@ -4,6 +4,7 @@ I/O module for PyPath.
 Contains functions for importing/exporting Ecopath models from various sources:
 - EcoBase database (SOAP API)
 - EwE database files (.ewemdb)
+- EwE-F (Fortran EwE) input files
 - Biodiversity databases (WoRMS, OBIS, FishBase)
 - CSV files
 - Excel files
@@ -33,6 +34,12 @@ from pypath.io.ecobase import (
     search_ecobase_models,
 )
 from pypath.io.ewe_writer import export_model_to_ewe, write_ewemdb
+from pypath.io.ewef import (
+    ecosim_scenario_from_ewef,
+    read_ewef,
+    read_ewef_ecosim,
+    read_ewef_results,
+)
 from pypath.io.ewemdb import (
     EcospaceReadResult,
     EwEDatabaseError,
@@ -99,6 +106,11 @@ __all__ = [
     "get_ewemdb_metadata",
     "check_ewemdb_support",
     "EwEDatabaseError",
+    # EwE-F
+    "read_ewef",
+    "read_ewef_ecosim",
+    "ecosim_scenario_from_ewef",
+    "read_ewef_results",
     # Taxonomy
     "read_taxonomy",
     "TaxonomyRecord",

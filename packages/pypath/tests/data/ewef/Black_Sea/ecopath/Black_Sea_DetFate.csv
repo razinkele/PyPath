@@ -1,0 +1,26 @@
+"Number of groups",22,,
+"Number of detrital groups incl. export",3,,
+"Number of detrital groups",2,,
+Groups,POM,Detritus,Export
+Dolphins,0,1,0
+Bonito,0,1,0
+Bluefish,0,1,0
+"A. Mackerel",0,1,0
+Whiting,0,1,0
+Turbot,0,1,0
+"R. Mullet",0,1,0
+Dogfish,0,1,0
+"H. Mackerel",0,1,0
+Shad,0,1,0
+Sprat,0,1,0
+"Anchovy 0-0+",0.5,0.5,0
+"Anchovy 1-1+",0,1,0
+Aurelia,0.5,0.5,0
+Beroe,0.5,0.5,0
+Mnemiopsis,0.5,0.5,0
+Pleurobrachia,0.5,0.5,0
+Noctiluca,0.5,0.5,0
+Zooplankton,0.5,0.5,0
+Phytoplankton,0.5,0.5,0
+POM,0.5,0.5,0
+Detritus,0.3,0.7,0
