@@ -1068,6 +1068,18 @@ def read_ewemdb(
                                         row_idx, params.diet.columns.get_loc(col)
                                     ] = float(value)
 
+    # Diet import: EwE 6 keeps a consumer's imported share of its diet in
+    # EcopathGroup.ImpVar (cDBDataSource: DC(i, 0) = ImpVar), not in
+    # EcopathDietComp.
+    if "ImpVar" in groups_df.columns and "Import" in list(params.diet["Group"]):
+        import_row = list(params.diet["Group"]).index("Import")
+        imports = pd.to_numeric(groups_df["ImpVar"], errors="coerce")
+        for name, value in zip(group_names[: len(groups_df)], imports):
+            if pd.notna(value) and value > 0 and name in params.diet.columns:
+                params.diet.iloc[import_row, params.diet.columns.get_loc(name)] = float(
+                    value
+                )
+
     # Read fleet/catch data
     if fleet_df is not None and catch_df is not None:
         # Add fleet columns to model
@@ -3107,7 +3119,9 @@ def _build_scenario_overrides(
     for _, row in sg_df.iterrows():
         egid = _int_or_none(row.get("EcopathGroupID"))
         ftadj = _ewe_number(row.get("FtimeAdjust"))
-        if egid in egid_to_idx and ftadj is not None:
+        # none of these settings can be negative (an EwE-F conversion can
+        # carry EwE-F's -999 marker)
+        if egid in egid_to_idx and ftadj is not None and ftadj >= 0:
             ftime_adjust[egid_to_idx[egid]] = ftadj
     if ftime_adjust:
         overrides["ftime_adjust"] = ftime_adjust
@@ -3125,7 +3139,7 @@ def _build_scenario_overrides(
         for _, row in sg_df.iterrows():
             egid = _int_or_none(row.get("EcopathGroupID"))
             val = _ewe_number(row.get(column))
-            if egid in egid_to_idx and val is not None:
+            if egid in egid_to_idx and val is not None and val >= 0:
                 values[egid_to_idx[egid]] = val
         if values:
             overrides[key] = values

@@ -162,3 +162,21 @@ def test_ewe_missing_value_marker_is_not_a_setting():
     assert 2 not in overrides["pb_maxs"]
     assert 0 not in overrides["ftime_max"]
     assert overrides["switch_power"] == {0: 1.0, 2: 0.0, 3: 0.0}
+
+
+def test_negative_settings_are_not_settings():
+    """MoPred, FtimeMax, FtimeAdjust, Pbmaxs and SwitchPower cannot be
+    negative. A database converted from EwE-F carries its -999 marker in
+    them (Black Sea test case, Phytoplankton)."""
+    params = _four_group_params()
+    meta = _scenario_meta()
+    sg = meta["scenario_group_df"]
+    sg["FtimeAdjust"] = [0.0, -999.0, 0.5, 0.9]  # Phyto
+    sg["MoPred"] = [0.0, -999.0, 0.2, 0.3]
+    sg["FtimeMax"] = [2.0, -999.0, 2.0, 2.0]
+    sg["Pbmaxs"] = [2.0, -999.0, 2.0, 2.0]
+    sg["SwitchPower"] = [0.0, -999.0, 0.0, 1.0]
+    overrides = _build_scenario_overrides(params, meta, params.model["Group"].tolist())
+    phyto = 2  # model order: Birds, Fish, Phyto, Detritus
+    for key in ("ftime_adjust", "mo_pred", "ftime_max", "pb_maxs", "switch_power"):
+        assert phyto not in overrides[key], key
