@@ -283,6 +283,48 @@ python examples/curonian_model_workflow_example.py --scenario 16 --verbose
 Use `--strict-biomass` if you want biomass parity mismatches treated as
 hard failures instead of warnings.
 
+## EwE-F Models
+
+[EwE-F](https://doi.org/10.5194/gmd-8-2687-2015), the Fortran implementation
+of Ecopath with Ecosim, keeps a model in CSV files named by a namelist
+(`*_filenames.nml`). `read_ewef` reads the Ecopath part and
+`ecosim_scenario_from_ewef` builds an Ecosim scenario from the Ecopath and
+Ecosim inputs:
+
+```python
+from pypath.core.ecopath import rpath
+from pypath.core.ecosim import rsim_run
+from pypath.io import ecosim_scenario_from_ewef, read_ewef
+
+params = read_ewef("ecopath-f/testcases/Black_Sea")       # or the .nml file
+model = rpath(params)
+scenario = ecosim_scenario_from_ewef(
+    "ecopath-f/testcases/Black_Sea", "ecosim-f/testcases/Black_Sea", years=range(1, 11)
+)
+output = rsim_run(scenario, method="AB")
+```
+
+For the Black Sea test case (`tests/data/ewef/Black_Sea`) PyPath reproduces
+EwE-F's Ecopath biomass and EE for all 20 living groups to within 1e-5. Two
+differences are known:
+
+- **Detritus EE**: PyPath routes detritus between pools as Rpath does, counting
+  a pool's own fate share; EwE 6 and EwE-F skip it and pass surpluses in group
+  order. Models with detritus self-fate or chained detritus flows differ.
+- **Multi-stanza Q/B**: PyPath ends the plus group where 99.999 % of the
+  cumulative biomass is reached (Rpath); EwE-F uses its own maximum age. The
+  juvenile anchovy Q/B differs by 3e-5.
+
+Settings PyPath does not apply are reported in a warning: handling time
+(QBmax/QBo), predator effect on feeding time, density-dependent catchability,
+nutrient limitation and fishing forcing of type 4 or 5. Diet links without a
+vulnerability, which EwE-F's Ecosim skips, keep the default vulnerability, as
+in EwE 6.
+
+`Data/BlackSea_EwEF_testcase.eweaccdb` is the same model as an EwE 6
+database; read through `read_ewemdb` it gives the same Ecopath balance and the
+same Ecosim settings.
+
 ## Next Steps
 
 - [Basic Model Example](basic-model.md) — Create a model from scratch

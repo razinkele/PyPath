@@ -1,0 +1,26 @@
+"Number of groups",22,,,,,,,,,
+"Number of parameters",10,,,,,,,,,
+"Number of split groups",1,,,,,,,,,
+Groups,"Max rel. P/B","Feeding time","Max rel. feeding time","Feeding time adjust rate [0,1]","Fraction of other mortality sens. to changes in feeding time","Predator effect on feeding time [0,1]","Density-dep. catchability: Qmax/Qo [>=1]","QBmax/QBo (for handling time) [>1]","Switching power parameter [0,2]",Advected?
+Dolphins,2,1,2,0,1,0,1,2,0,0
+Bonito,2,1,2,0,1,0,1,2,0,0
+Bluefish,2,1,2,0,1,0,1,2,0,0
+"A. Mackerel",2,1,2,0,1,0,1,2,0,0
+Whiting,2,1,2,0,1,0,1,2,0,0
+Turbot,2,1,2,0,1,0,1,2,0,0
+"R. Mullet",2,1,2,0,1,0,1,2,0,0
+Dogfish,2,1,2,0,1,0,1,2,0,0
+"H. Mackerel",2,1,2,0,1,0,1,2,0,0
+Shad,2,1,2,0,1,0,1,2,0,0
+Sprat,2,1,2,0,1,0,1,2,0,0
+"Anchovy 0-0+",2,1,2,0,1,0,1,2,0,0
+"Anchovy 1-1+",2,1,2,0,1,0,1,2,0,0
+Aurelia,2,1,2,0,1,0,1,1000,0,0
+Beroe,2,1,2,0,1,0,1,1000,0,0
+Mnemiopsis,2,1,2,0,1,0,1,1000,0,0
+Pleurobrachia,2,1,2,0,1,0,1,1000,0,0
+Noctiluca,2,1,2,0,1,0,1,1000,0,1
+Zooplankton,2,1,2,0,1,0,1,1000,0,1
+Phytoplankton,2,1,-999,-999,-999,-999,-999,-999,-999,1
+POM,-999,1,-999,-999,-999,-999,-999,-999,-999,1
+Detritus,-999,1,-999,-999,-999,-999,-999,-999,-999,0

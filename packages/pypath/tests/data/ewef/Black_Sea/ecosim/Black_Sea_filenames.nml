@@ -1,0 +1,46 @@
+!========================================================================
+! This file is part of EwE-FORTRAN
+! Copyright (C) 2011-2019 METU Institute of Marine Sciences, Turkey.
+!
+! This program is free software; you can redistribute it and/or modify 
+! it under the terms of the GNU General Public License version 2 as 
+! published by the Free Software Foundation.
+!
+! This program is distributed in the hope that it will be useful, but 
+! WITHOUT ANY WARRANTY; without even the implied warranty of 
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+! General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License 
+! along with  this program; if not, 
+! see <http://www.gnu.org/licenses/gpl-2.0.html>.
+!========================================================================
+
+&filenames
+
+HDF5_fname            = "testcases/Black_Sea/Black_Sea.h5"
+GroupInfo_fname       = "testcases/Black_Sea/Black_Sea_Scenario.csv"
+Vulnerability_fname   = "testcases/Black_Sea/Black_Sea_vul.csv"
+Forcing_fname         = "testcases/Black_Sea/Black_Sea_F.csv"
+NutrientForcing_fname = "testcases/Black_Sea/Black_Sea_NutForce.csv"
+SpatialGrid_fname     = "testcases/Black_Sea/Black_Sea_grid.csv"
+SpatialDistribution_dirname = "testcases/Black_Sea/Black_Sea_SpatialDistribution/"
+Advection_fname       = "testcases/Black_Sea/Black_Sea_Advection.csv"
+SpatialResults_fname  = "testcases/Black_Sea/Black_Sea_spatial_results.h5"
+
+! number of years to simulate
+tf              = 2
+
+! time steps per month
+StepsPerMonth   = 1
+
+! base proportion of free nutrients
+NutBaseFreeProp = 0.9
+
+! max P/B due to nutrient concentration
+NutPBmax        = 1.5
+
+! relaxation parameter
+relax           = 0.5
+
+/
