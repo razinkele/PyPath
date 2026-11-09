@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.3.0 (2026-11-09)
+
+### Bug Fixes
+
+- Warn about detritus that flows to itself; Shiny defaults it to 0
+  ([`a824df8`](https://github.com/razinkele/PyPath/commit/a824df897ae754d839e92dd90d2b512ff9bd699d))
+
+- **shiny**: Home example detritus no longer flows to itself
+  ([`05ecdf4`](https://github.com/razinkele/PyPath/commit/05ecdf498d5633fba4b0a34c775af2b6eab8e221))
+
+### Features
+
+- **shiny**: Run an imported EwE database's Ecosim scenario; choose the fast-group rule
+  ([`4e5fc9e`](https://github.com/razinkele/PyPath/commit/4e5fc9e06b032d919c3d16d46509b2d482490a5f))
+
+
 ## v1.2.0 (2026-11-04)
 
 ### Features
