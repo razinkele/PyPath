@@ -654,8 +654,10 @@ class TestSimulationIntegration:
 
         output = rsim_run(scenario, method="RK4")
 
-        # Check only living groups and detritus
-        n_groups = scenario.params.NUM_LIVING + scenario.params.NUM_DEAD
+        # Check living groups only. Nothing eats this model's detritus and
+        # Ecopath gives it no decay, so it accumulates; Rpath 1.2.0 grows it
+        # the same ~114x over these 20 years.
+        n_groups = scenario.params.NUM_LIVING
 
         initial = output.out_Biomass[0, 1 : n_groups + 1]
         max_biomass = np.max(output.out_Biomass[:, 1 : n_groups + 1], axis=0)

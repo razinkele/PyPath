@@ -440,6 +440,12 @@ def rsim_run_spatial(
         "DetFrac": params.DetFrac,
         "DetFrom": params.DetFrom,
         "DetTo": params.DetTo,
+        # Same Rpath derivative terms as rsim_run: link-based detritus budget
+        # and producers gaining through their link from group 0.
+        "DetLinkFrom": params.DetFrom,
+        "DetLinkTo": params.DetTo,
+        "DetLinkFrac": params.DetFrac,
+        "RpathPrimaryProduction": True,
     }
 
     # Pre-compute sparse link arrays for the consumption kernel
@@ -487,6 +493,8 @@ def rsim_run_spatial(
     # Time integration (RK4)
     current_biomass = state_spatial.Biomass.copy()
 
+    rk4_steps = int(getattr(params, "RK4_STEPS", 4) or 1)
+
     # Ftime is static — snapshot once before the loop
     _ftime_snapshot = scenario.start_state.Ftime.copy()
 
@@ -530,69 +538,74 @@ def rsim_run_spatial(
             )
             _mpa_cap_mult = mpa.get_capacity_multipliers(n_patches, month_idx)
 
-        # RK4 integration
-        # k1 = f(t, y)
-        k1 = deriv_vector_spatial(
-            current_biomass,
-            params_dict,
-            forcing_dict,
-            fishing_dict,
-            ecospace,
-            environmental_drivers,
-            t=t,
-            dt=DELTA_T,
-            mpa_effort_mask=_mpa_effort_mask,
-            mpa_cap_mult=_mpa_cap_mult,
-            effort_multiplier=_effort_mult,
-        )
+        # RK4 in RK4_STEPS sub-steps per month, as rsim_run and Rpath do
+        hh = DELTA_T / rk4_steps
+        for sub in range(rk4_steps):
+            t_sub = t + sub * hh
+            # k1 = f(t, y)
+            k1 = deriv_vector_spatial(
+                current_biomass,
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                ecospace,
+                environmental_drivers,
+                t=t_sub,
+                dt=hh,
+                mpa_effort_mask=_mpa_effort_mask,
+                mpa_cap_mult=_mpa_cap_mult,
+                effort_multiplier=_effort_mult,
+            )
 
-        # k2 = f(t + dt/2, y + k1*dt/2)
-        k2 = deriv_vector_spatial(
-            current_biomass + k1 * DELTA_T / 2,
-            params_dict,
-            forcing_dict,
-            fishing_dict,
-            ecospace,
-            environmental_drivers,
-            t=t + DELTA_T / 2,
-            dt=DELTA_T,
-            mpa_effort_mask=_mpa_effort_mask,
-            mpa_cap_mult=_mpa_cap_mult,
-            effort_multiplier=_effort_mult,
-        )
+            # k2 = f(t + dt/2, y + k1*dt/2)
+            k2 = deriv_vector_spatial(
+                current_biomass + k1 * hh / 2,
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                ecospace,
+                environmental_drivers,
+                t=t_sub + hh / 2,
+                dt=hh,
+                mpa_effort_mask=_mpa_effort_mask,
+                mpa_cap_mult=_mpa_cap_mult,
+                effort_multiplier=_effort_mult,
+            )
 
-        # k3 = f(t + dt/2, y + k2*dt/2)
-        k3 = deriv_vector_spatial(
-            current_biomass + k2 * DELTA_T / 2,
-            params_dict,
-            forcing_dict,
-            fishing_dict,
-            ecospace,
-            environmental_drivers,
-            t=t + DELTA_T / 2,
-            dt=DELTA_T,
-            mpa_effort_mask=_mpa_effort_mask,
-            mpa_cap_mult=_mpa_cap_mult,
-            effort_multiplier=_effort_mult,
-        )
+            # k3 = f(t + dt/2, y + k2*dt/2)
+            k3 = deriv_vector_spatial(
+                current_biomass + k2 * hh / 2,
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                ecospace,
+                environmental_drivers,
+                t=t_sub + hh / 2,
+                dt=hh,
+                mpa_effort_mask=_mpa_effort_mask,
+                mpa_cap_mult=_mpa_cap_mult,
+                effort_multiplier=_effort_mult,
+            )
 
-        # k4 = f(t + dt, y + k3*dt)
-        k4 = deriv_vector_spatial(
-            current_biomass + k3 * DELTA_T,
-            params_dict,
-            forcing_dict,
-            fishing_dict,
-            ecospace,
-            environmental_drivers,
-            t=t + DELTA_T,
-            dt=DELTA_T,
-            mpa_effort_mask=_mpa_effort_mask,
-            mpa_cap_mult=_mpa_cap_mult,
-            effort_multiplier=_effort_mult,
-        )
+            # k4 = f(t + dt, y + k3*dt)
+            k4 = deriv_vector_spatial(
+                current_biomass + k3 * hh,
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                ecospace,
+                environmental_drivers,
+                t=t_sub + hh,
+                dt=hh,
+                mpa_effort_mask=_mpa_effort_mask,
+                mpa_cap_mult=_mpa_cap_mult,
+                effort_multiplier=_effort_mult,
+            )
 
-        # Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
-        current_biomass = current_biomass + DELTA_T / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+            # Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
+            current_biomass = current_biomass + hh / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+
+            current_biomass = np.maximum(current_biomass, 0.0)
 
         # Prevent negative biomass
         current_biomass = np.maximum(current_biomass, 0.0)
