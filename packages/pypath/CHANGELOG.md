@@ -6,6 +6,109 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.2.0 (2026-11-09)
+
+### Bug Fixes
+
+- Keep diet Import in rpath() and credit it in Ecosim
+  ([#53](https://github.com/razinkele/PyPath/pull/53),
+  [`3b44b5e`](https://github.com/razinkele/PyPath/commit/3b44b5e62554d4ba397dd31d113bef96ef0106e9))
+
+- Warn about detritus that flows to itself; Shiny defaults it to 0
+  ([`a824df8`](https://github.com/razinkele/PyPath/commit/a824df897ae754d839e92dd90d2b512ff9bd699d))
+
+- **ecosim**: A run no longer writes its M0 adjustments into the scenario
+  ([`f82b7a3`](https://github.com/razinkele/PyPath/commit/f82b7a3f4927383498e396094a185d3076997fab))
+
+- **ecosim**: EwE6 fast-group rule by default; vulnerability 1 is donor control
+  ([`07c3e87`](https://github.com/razinkele/PyPath/commit/07c3e876fe297609e3c0799003a665972066615c))
+
+- **ecosim**: Integrate every group as Rpath does; real detritus and producer terms
+  ([`1dc88ec`](https://github.com/razinkele/PyPath/commit/1dc88ec149232bc099117d82878f0eebdcfb4222))
+
+- **ecosim**: Metabolic scaling overwrote deriv_vector's rates argument
+  ([`20defd9`](https://github.com/razinkele/PyPath/commit/20defd9a4e9ef42e9a0b948fed5d92ebd15a30ce))
+
+- **ecosim**: One RK4 step per month under the EwE rule, as EwE6
+  ([`455d2ab`](https://github.com/razinkele/PyPath/commit/455d2ab5ea214c4cc86ef77103d4f81ea18fa4b5))
+
+- **ecosim**: Report imported consumption in the Qlink diagnostics too
+  ([`085fbfb`](https://github.com/razinkele/PyPath/commit/085fbfb8bf780d060e1a6f270d16b19fa49fbf6a))
+
+- **ecosim**: RK4 solves fast groups at equilibrium in every stage, as EwE6
+  ([`a1c84f2`](https://github.com/razinkele/PyPath/commit/a1c84f23c2e4fd84747593f31683ad47e18c55fe))
+
+- **ecosim**: Runs no longer adjust M0 ([#54](https://github.com/razinkele/PyPath/pull/54),
+  [`61d26a3`](https://github.com/razinkele/PyPath/commit/61d26a3df6925ad3278d5085a3a71682791a7a7c))
+
+- **ecosim**: Use the stanza age structure only when it reproduces the Ecopath biomass
+  ([`bd4dee0`](https://github.com/razinkele/PyPath/commit/bd4dee0ee1f69a402692b492cf1cb6649e9f80a2))
+
+- **ecospace**: Diffusion and habitat advection follow density, not patch biomass
+  ([#57](https://github.com/razinkele/PyPath/pull/57),
+  [`db7c577`](https://github.com/razinkele/PyPath/commit/db7c577c694878b07845cf78b136e44e05bf9842))
+
+- **ecospace**: Each patch uses its share of base biomass and flows
+  ([#51](https://github.com/razinkele/PyPath/pull/51),
+  [`7b5d66d`](https://github.com/razinkele/PyPath/commit/7b5d66d6d58311f0d9abb62b1bb1102e1a9eda2c))
+
+- **ecospace**: Habitat capacity as EwE6 applies it
+  ([#58](https://github.com/razinkele/PyPath/pull/58),
+  [`9a08177`](https://github.com/razinkele/PyPath/commit/9a081779877cff8075b5fc2d7dc65e6deb53b81e))
+
+- **ecospace**: Keep the multi-stanza age structure
+  ([#52](https://github.com/razinkele/PyPath/pull/52),
+  [`853e757`](https://github.com/razinkele/PyPath/commit/853e757629707672bd109fff67073ac5992aa092))
+
+- **ewemdb**: Map scenario settings by group ID, read stanza K and forcing shapes as EwE6 does
+  ([`756c1ef`](https://github.com/razinkele/PyPath/commit/756c1efce9909db21731b0c1ec3b3c974adcddf0))
+
+- **ewemdb**: Stanza life stages take Z from the group's Ecopath P/B
+  ([`08dae52`](https://github.com/razinkele/PyPath/commit/08dae52f28c426a9187c8d05cdc8a44a68bb9881))
+
+- **ewemdb**: Stanza life stages take Z from the group's Ecopath P/B
+  ([`719777c`](https://github.com/razinkele/PyPath/commit/719777c3968e35bca88e1d8616fc4b6757718bf9))
+
+- **io**: EwE's -9999 marker in scenario-group columns means unset
+  ([`b60301d`](https://github.com/razinkele/PyPath/commit/b60301d5aa7a564f3457fac9d90057376f408f13))
+
+- **io**: Stanzas of EwE databases without Stanza.LeadingLifeStage
+  ([`50ec6e2`](https://github.com/razinkele/PyPath/commit/50ec6e28458c39c63f91d918380f07805702f088))
+
+- **io**: Write Ecosim group settings back; clamp the leading stanza
+  ([`8e178a6`](https://github.com/razinkele/PyPath/commit/8e178a6dffbe15eff6ac53edd698382561eb71c8))
+
+- **spatial**: Ecospace uses the same Ecosim terms and RK4 sub-steps
+  ([`e844ad4`](https://github.com/razinkele/PyPath/commit/e844ad469138a4b0a745bc8aa7f54e1c24e9214e))
+
+### Features
+
+- **ecosim**: Couple the multi-stanza age structure to biomass
+  ([#47](https://github.com/razinkele/PyPath/pull/47),
+  [`3c250b3`](https://github.com/razinkele/PyPath/commit/3c250b3f17b2638f3bcb2426d6e93ad9f969eed0))
+
+- **ecosim**: EwE6 options (MoPred, variable P/Q, feeding-time limits) and dataset forcing
+  ([`de1f425`](https://github.com/razinkele/PyPath/commit/de1f425c05d139ad14f02a2af8608565d4273e54))
+
+- **ecosim**: EwE6 prey switching (SwitchPower)
+  ([`38a8dab`](https://github.com/razinkele/PyPath/commit/38a8dabb87389ea771d59616958f3bb3acd220d6))
+
+- **ecosim**: Forced fishing mortality and forced catches reach the run
+  ([`266e1b1`](https://github.com/razinkele/PyPath/commit/266e1b1f0fe0eb8295278ad2760857c4c29cdd35))
+
+- **ecosim**: Other-mortality and consumer search-rate forcing; Ecospace takes the full forcing set
+  ([`81c71a0`](https://github.com/razinkele/PyPath/commit/81c71a08c8d1f2df3784eb164f0eccce515ef379))
+
+- **ecosim**: Producers' maximum relative P/B (EwE Pbmaxs)
+  ([`70f6cd7`](https://github.com/razinkele/PyPath/commit/70f6cd7314de0f69ff512f31f66358d4ad793a77))
+
+- **ecosim**: Warn when stanza biomass is not its age structure
+  ([`bdb5824`](https://github.com/razinkele/PyPath/commit/bdb582497cdac03ecd380fc5790f999a982ecd90))
+
+- **shiny**: Run an imported EwE database's Ecosim scenario; choose the fast-group rule
+  ([`4e5fc9e`](https://github.com/razinkele/PyPath/commit/4e5fc9e06b032d919c3d16d46509b2d482490a5f))
+
+
 ## v1.1.2 (2026-11-04)
 
 ### Bug Fixes
