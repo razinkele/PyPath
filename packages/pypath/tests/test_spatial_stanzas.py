@@ -80,15 +80,9 @@ def test_uniform_density_patches_keep_stanza_dynamics(
     years = range(1, 3)
     ng = _scenario(reco).params.NUM_GROUPS + 1
 
-    # rsim_run nudges M0 (PyPath-only steps, not in Rpath): once at the start
-    # of a run, by at most 1e-4, and again every month unless switched off.
-    # Ecospace does neither. Switch the monthly one off and give the spatial
-    # run the M0 rsim_run used, so both runs share one model.
-    reference_scenario = _scenario(reco)
-    reference_scenario.params.MONTHLY_M0_ADJUST = False
-    expected = rsim_run(reference_scenario, years=years)
+    # Both runs use the scenario's M0 as it is (rsim_run no longer nudges it, #54).
+    expected = rsim_run(_scenario(reco), years=years)
     spatial_scenario = _scenario(reco)
-    spatial_scenario.params.MzeroMort = np.array(expected.params["M0"], dtype=float)
     got = rsim_run_spatial(
         spatial_scenario,
         ecospace=_uniform_ecospace(ng, n_patches, dispersal, areas),

@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 import pypath.core.ecosim as ecosim_mod
+import pypath.core.ecosim_deriv as _ecosim_deriv_mod
 from pypath.core.ecopath import rpath
 from pypath.core.ecosim import rsim_run, rsim_scenario
 from pypath.core.params import create_rpath_params
@@ -28,7 +29,9 @@ def scenario():
     )
     params.model = model_df
     params.diet = pd.read_csv(RE / "ecopath" / "diet_matrix.csv")
-    return rsim_scenario(rpath(params), params, years=range(1, 3))
+    return rsim_scenario(
+        rpath(params), params, years=range(1, 3), fast_group_rule="rpath"
+    )
 
 
 @pytest.fixture(scope="module")
@@ -42,10 +45,13 @@ def run_inputs(scenario):
         return original(state, params, forcing, fishing, *args, **kwargs)
 
     ecosim_mod.deriv_vector = spy
+
+    _ecosim_deriv_mod.deriv_vector = spy
     try:
         rsim_run(scenario, method="RK4", years=range(1, 2))
     finally:
         ecosim_mod.deriv_vector = original
+        _ecosim_deriv_mod.deriv_vector = original
     return captured["args"]
 
 

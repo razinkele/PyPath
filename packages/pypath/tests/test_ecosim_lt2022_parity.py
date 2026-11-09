@@ -11,10 +11,19 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # Regression pin, not a target: no EwE 6 reference SS for this calibrated
 # scenario is available. History: ~725 was quoted as an "old broken baseline";
 # the limit was relaxed to 1100 on 2026-10-24 (message left at 800); SS was
-# 1084.9 before the detritus/discard fate reading fix (#29) and is 1101.2 after
-# it -- that fix is correct EwE behaviour (LT2022 EE matches EwE-F incl.
-# detritus), so the pin follows it. A change beyond 2 % needs a reason.
-LT2022_SS16 = 1101.2
+# 1084.9 before the detritus/discard fate reading fix (#29) and 1101.2 after
+# it. Every value up to there was computed with the scenario's vulnerabilities
+# and FtimeAdjust on the wrong groups, the wrong forcing shape applied as prey
+# availability, and a flat stanza (importer defects fixed 2026-11-07); with
+# the settings EwE6 actually uses, SS was 881.2 on main's dynamics and is
+# 642.0 with the stanza coupling, the closed detritus budget, EwE's fast-group
+# rule (Zooplankton, Phytoplankton and Detritus at equilibrium, under RK4 as
+# under AB) and donor control at v = 1, and 643.5 with dataset 35 applied as
+# EwE applies a loaded dataset (Round goby's biomass forced from 0.03 to 7.8
+# and back to 2.4; the dataset is also the fit's observations). The real
+# reference is EwE6's own scenario-16 trajectory.
+# A change beyond 2 % needs a reason.
+LT2022_SS16 = 643.5
 
 
 @pytest.mark.integration
@@ -25,7 +34,7 @@ class TestLT2022Parity:
             pytest.skip("LT2022 database not found")
         from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
 
-        return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16)
+        return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16, timeseries_dataset=35)
 
     def test_zooplankton_does_not_crash(self, lt2022_scenario):
         """Zooplankton (group 2, ecosim idx 3) should not collapse to zero."""

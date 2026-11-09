@@ -33,7 +33,9 @@ def test_seabirds_match_rpath_rk4():
     params.diet = diet_df
 
     pypath_model = rpath(params)
-    scenario = rsim_scenario(pypath_model, params, years=range(1, 101))
+    scenario = rsim_scenario(
+        pypath_model, params, years=range(1, 101), fast_group_rule="rpath"
+    )
 
     if "Seabirds" not in scenario.params.spname:
         return

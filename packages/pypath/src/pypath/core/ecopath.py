@@ -333,7 +333,6 @@ def rpath(
 
     # Build diet matrix (rows = ALL groups + Import, cols = predators in living_idx order)
     # Need ngroups rows (one per group) + 1 row for Import
-    n_prey = len(diet_prey_names)  # Number of rows in diet_df (includes Import)
     n_pred = len(diet_cols)
     diet_values = np.zeros(
         (ngroups + 1, n_pred)
@@ -347,14 +346,14 @@ def rpath(
                 old_row_idx, diet_cols
             ].values.astype(float)
 
-    # Add Import row at the end if present
+    # Add Import row at the end if present. The diet table has no fleet rows,
+    # so its row count says nothing about whether Import is there (#53).
     if "Import" in prey_name_to_diet_row:
         import_row_idx = prey_name_to_diet_row["Import"]
         # Import goes at index ngroups (after all groups)
-        if n_prey > ngroups:
-            diet_values[ngroups, :] = diet_df.loc[
-                import_row_idx, diet_cols
-            ].values.astype(float)
+        diet_values[ngroups, :] = diet_df.loc[import_row_idx, diet_cols].values.astype(
+            float
+        )
 
     diet_values = np.nan_to_num(diet_values, nan=0.0)
 
@@ -365,22 +364,12 @@ def rpath(
             diet_values[:, col_idx] *= mix_q
 
     # Extract diet for living groups only (prey rows are living groups)
-    # nodetrdiet[i, j] = fraction of predator j's diet from prey i (both living)
-    # Normalize predator diet columns to exclude Import fractions when present
-    nodetrdiet = np.zeros((nliving, nliving))
-    import_row = (
-        diet_values[ngroups, :]
-        if diet_values.shape[0] > ngroups
-        else np.zeros(diet_values.shape[1])
-    )
-    # Vectorized: normalize diet by (1 - import_frac) for each predator column
-    import_fracs = (
-        import_row[:nliving]
-        if len(import_row) >= nliving
-        else np.pad(import_row, (0, nliving - len(import_row)))
-    )
-    denoms = np.where(1.0 - import_fracs > 0, 1.0 - import_fracs, 1.0)
-    nodetrdiet = diet_values[np.ix_(living_idx, range(nliving))] / denoms[np.newaxis, :]
+    # nodetrdiet[i, j] = fraction of predator j's total consumption from prey i.
+    # Imported diet is simply not local: Ecopath charges local prey the raw
+    # fractions, as Rpath and EwE do (Rpath's import-normalised diet serves
+    # only the trophic levels; see below). Normalising here overstated
+    # predation by 1/(1 - import) (#53).
+    nodetrdiet = diet_values[np.ix_(living_idx, range(nliving))]
 
     # Fill in GE (P/Q), QB, or PB from other inputs
     # Compute GE = PB/QB when QB is present and non-zero, otherwise use prodcons

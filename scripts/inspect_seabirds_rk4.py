@@ -17,7 +17,7 @@ params.diet = diet_df
 from pypath.core.ecopath import rpath
 
 r = rpath(params)
-s = rsim_scenario(r, params)
+s = rsim_scenario(r, params, fast_group_rule="rpath")
 out = rsim_run(s, method='RK4', years=range(1,101))
 ref = pd.read_csv(REPO / 'tests' / 'data' / 'rpath_reference' / 'ecosim' / 'biomass_trajectory_rk4.csv')
 col = 'Seabirds'

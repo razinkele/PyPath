@@ -19,12 +19,18 @@ if TYPE_CHECKING:
     from pypath.core.ecosim import RsimScenario
 
 # --- DatType constants (EwE 6 standard codes) ---
+# EwE6 eTimeSeriesType (CoreEnumerators.vb)
 DATTYPE_REL_BIOMASS = 0
 DATTYPE_ABS_BIOMASS = 1
-DATTYPE_FISHING_MORTALITY = 2
-DATTYPE_EFFORT = 3
-DATTYPE_CATCH = 6
 DATTYPE_FORCED_BIOMASS = -1
+DATTYPE_TIME_FORCING = 2
+DATTYPE_EFFORT = 3
+DATTYPE_FISHING_MORTALITY = 4
+DATTYPE_TOTAL_MORTALITY = 5
+DATTYPE_CATCH = 6
+DATTYPE_CATCH_FORCING = -6
+DATTYPE_CATCH_REL = 61
+DATTYPE_AVERAGE_WEIGHT = 7
 
 
 @dataclass
@@ -178,21 +184,38 @@ def _interpolate_to_length(values: np.ndarray, target_len: int) -> np.ndarray:
     return np.interp(target_indices, valid_idx, valid_vals)
 
 
+def _yearly_steps(values: np.ndarray, n_months: int, fill: float) -> np.ndarray:
+    """Expand yearly data to months the way EwE6 reads a loaded dataset.
+
+    EwE6 maps a model month to its data year (``toForcingTimeStep``) and uses
+    that year's value in every month of the year; a missing value (NaN or,
+    for forced biomass, <= 0) leaves the month at ``fill`` (not forced), and
+    so do the months beyond the data.
+    """
+    out = np.full(n_months, fill, dtype=float)
+    values = np.asarray(values, dtype=float)
+    for year, value in enumerate(values):
+        if np.isnan(value):
+            continue
+        start = 12 * year
+        if start >= n_months:
+            break
+        out[start : min(start + 12, n_months)] = value
+    return out
+
+
 def apply_timeseries_drivers(
     scenario: "RsimScenario",
     collection: EweTimeSeriesCollection,
 ) -> None:
     """Apply driver time series to an Ecosim scenario's forcing arrays.
 
-    Modifies ``scenario`` in place. Only processes driver series
-    (forced biomass, effort, fishing mortality). Observed series are ignored.
-
-    Parameters
-    ----------
-    scenario : RsimScenario
-        The Ecosim scenario to modify.
-    collection : EweTimeSeriesCollection
-        Time series collection containing driver series.
+    Modifies ``scenario`` in place, the way EwE6 applies the dataset loaded
+    in Ecosim: forced biomass (type -1, absolute biomass that replaces the
+    group's state in every month of the data year), fishing effort (3, the
+    fleet's effort multiplier by year) and fishing mortality (4, by year).
+    Observed series are ignored. Yearly values hold for their twelve months;
+    a missing year, or a year beyond the data, leaves the driver untouched.
 
     Raises
     ------
@@ -220,7 +243,10 @@ def apply_timeseries_drivers(
             )
         col = s.group_idx + 1
         n_months = scenario.forcing.ForcedBio.shape[0]
-        scenario.forcing.ForcedBio[:, col] = _interpolate_to_length(s.values, n_months)
+        values = np.where(np.asarray(s.values, dtype=float) > 0, s.values, np.nan)
+        steps = _yearly_steps(values, n_months, fill=np.nan)
+        forced = ~np.isnan(steps)
+        scenario.forcing.ForcedBio[forced, col] = steps[forced]
 
     for s in collection.forced_effort:
         if s.fleet_idx is None:
@@ -235,9 +261,36 @@ def apply_timeseries_drivers(
             continue
         col = s.fleet_idx + 1
         n_months = scenario.fishing.ForcedEffort.shape[0]
-        scenario.fishing.ForcedEffort[:, col] = _interpolate_to_length(
-            s.values, n_months
-        )
+        steps = _yearly_steps(s.values, n_months, fill=np.nan)
+        given = ~np.isnan(steps)
+        scenario.fishing.ForcedEffort[given, col] = steps[given]
+
+    def _mark_replace(col, given_years):
+        fishing = scenario.fishing
+        flags = getattr(fishing, "ForcedFReplace", None)
+        if flags is None:
+            flags = np.zeros(fishing.ForcedFRate.shape, dtype=bool)
+        flags[given_years, col] = True
+        fishing.ForcedFReplace = flags
+
+    for s in collection.series:
+        if s.dat_type != DATTYPE_CATCH_FORCING or s.group_idx is None:
+            continue
+        if s.group_idx >= n_groups:
+            warnings.warn(
+                f"Time series '{s.name}' references group index {s.group_idx} "
+                f"but model only has {n_groups} groups. Skipping.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+        col = s.group_idx + 1
+        n_years = scenario.fishing.ForcedCatch.shape[0]
+        values = np.asarray(s.values, dtype=float)
+        n = min(n_years, len(values))
+        given = np.where(~np.isnan(values[:n]))[0]
+        scenario.fishing.ForcedCatch[given, col] = values[given]
+        _mark_replace(col, given)
 
     fmort_series = [
         s for s in collection.series if s.dat_type == DATTYPE_FISHING_MORTALITY
@@ -255,7 +308,11 @@ def apply_timeseries_drivers(
             continue
         col = s.group_idx + 1
         n_years = scenario.fishing.ForcedFRate.shape[0]
-        scenario.fishing.ForcedFRate[:, col] = _interpolate_to_length(s.values, n_years)
+        values = np.asarray(s.values, dtype=float)
+        n = min(n_years, len(values))
+        given = np.where(~np.isnan(values[:n]))[0]
+        scenario.fishing.ForcedFRate[given, col] = values[given]
+        _mark_replace(col, given)
 
 
 def load_timeseries(path: str | Path) -> EweTimeSeriesCollection:

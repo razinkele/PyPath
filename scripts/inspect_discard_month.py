@@ -21,7 +21,7 @@ params.model = model_df
 params.diet = diet_df
 
 pypath_model = rpath(params)
-scenario = rsim_scenario(pypath_model, params, years=range(1, 101))
+scenario = rsim_scenario(pypath_model, params, years=range(1, 101), fast_group_rule="rpath")
 out = rsim_run(scenario, method='rk4', years=range(1, 101))
 py_biom = out.out_Biomass
 rpath_df = pd.read_csv(ECOSIM_DIR / "biomass_trajectory_rk4.csv")

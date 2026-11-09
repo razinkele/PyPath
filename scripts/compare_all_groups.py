@@ -14,7 +14,7 @@ params = create_rpath_params(model_df['Group'].tolist(), [int(t) for t in model_
 params.model = model_df
 params.diet = diet_df
 pypath_model = rpath(params)
-scenario = rsim_scenario(pypath_model, params, years=range(1,101))
+scenario = rsim_scenario(pypath_model, params, years=range(1, 101), fast_group_rule="rpath")
 out = rsim_run(scenario, method='rk4', years=range(1,101))
 biom = out.out_Biomass
 

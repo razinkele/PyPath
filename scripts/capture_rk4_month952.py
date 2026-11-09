@@ -24,7 +24,7 @@ params = create_rpath_params(groups, [int(t) for t in model_df['Type'].tolist()]
 params.model = model_df
 params.diet = diet_df
 pypath_model = rpath(params)
-scenario = rsim_scenario(pypath_model, params, years=range(1, 101))
+scenario = rsim_scenario(pypath_model, params, years=range(1, 101), fast_group_rule="rpath")
 
 # Capture
 captured = []

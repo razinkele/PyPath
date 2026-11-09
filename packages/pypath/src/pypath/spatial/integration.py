@@ -18,7 +18,12 @@ from typing import TYPE_CHECKING, Dict, Optional
 import numpy as np
 
 # Import ecosim_deriv at module level - no circular dependency exists
-from pypath.core.ecosim_deriv import HAS_NUMBA, deriv_vector
+from pypath.core.ecosim_deriv import (
+    HAS_NUMBA,
+    _rk4_fast_equilibrium,
+    _rk4_fast_mask,
+    deriv_vector,
+)
 from pypath.core.stanzas import (
     RsimStanzaState,
     check_stanza_arrays,
@@ -68,6 +73,63 @@ def _local_deriv(
     return deriv
 
 
+def _capacity_matrix(
+    ecospace, environmental_drivers, mpa_cap_mult, n_rows, n_patches, patch_share
+):
+    """Per-group, per-patch habitat capacity as EwE6 uses it, or None (#58).
+
+    EwE starts a cell at ``B * HabCap * nWaterCells / TotHabCap``: only the
+    pattern of a group's capacity matters, normalised to an area-weighted
+    mean of 1. The habitat capacity applies when environmental drivers are
+    given; an MPA capacity bonus multiplies it. Row 0 (Outside) and groups
+    without a capacity row stay at 1.
+    """
+    active = (environmental_drivers is not None or mpa_cap_mult is not None) and (
+        getattr(ecospace, "habitat_capacity", None) is not None
+    )
+    if not active:
+        return None
+    w = (
+        np.asarray(patch_share, dtype=float)
+        if patch_share is not None
+        else np.full(n_patches, 1.0 / n_patches)
+    )
+    cap = np.ones((n_rows, n_patches))
+    if environmental_drivers is not None:
+        raw = np.asarray(ecospace.habitat_capacity, dtype=float)
+        for g in range(min(raw.shape[0], n_rows - 1)):
+            mean = float(np.sum(w * raw[g]))
+            if mean > 0:
+                cap[g + 1] = raw[g] / mean
+    if mpa_cap_mult is not None:
+        cap[1:] *= np.asarray(mpa_cap_mult, dtype=float)[np.newaxis, :]
+    return cap
+
+
+def _capacity_overlap(cap, patch_share, n_patches):
+    """Map-wide mean of c_prey * c_pred for every pair (EwE6 MeanBP)."""
+    w = (
+        np.asarray(patch_share, dtype=float)
+        if patch_share is not None
+        else np.full(n_patches, 1.0 / n_patches)
+    )
+    return (cap * w[np.newaxis, :]) @ cap.T
+
+
+def _patch_link_factor(cap, overlap, patch_idx):
+    """Base-flow factor of one patch: c_prey * c_pred / mean(c_prey * c_pred).
+
+    EwE6 rescales each link's search rate so that map-wide base consumption,
+    with prey and predator densities following their habitat, equals the
+    Ecopath flow. In the closed-form kernel that is this factor on Q0.
+    Pairs whose habitats do not overlap anywhere get 0.
+    """
+    c = cap[:, patch_idx]
+    outer = np.outer(c, c)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where(overlap > 0, outer / np.where(overlap > 0, overlap, 1.0), 0.0)
+
+
 def _spread_over_patches(total, row, patch_share):
     """Split a group's total over the patches by their current share of it.
 
@@ -79,7 +141,7 @@ def _spread_over_patches(total, row, patch_share):
 
 
 def _patch_stanza_pred_ratios(
-    stanzas, sstate, stanza_idx, biomass_spatial, patch_share
+    stanzas, sstate, stanza_idx, biomass_spatial, patch_share, capacity=None
 ):
     """``StanzaPred / baseStanzaPred`` of each stanza group, per patch.
 
@@ -100,8 +162,15 @@ def _patch_stanza_pred_ratios(
         if i < len(base) and base[i] > 0:
             row = biomass_spatial[i]
             s = row.sum()
-            share = row / s if s > 0 else area / area.sum()
-            ratio[i] = sstate.stanza_pred[i] / base[i] * share / area
+            # the patch's base is its area share times its habitat capacity
+            base_share = area * capacity[i] if capacity is not None else area
+            share = row / s if s > 0 else base_share / base_share.sum()
+            with np.errstate(divide="ignore", invalid="ignore"):
+                ratio[i] = np.where(
+                    base_share > 0,
+                    sstate.stanza_pred[i] / base[i] * share / base_share,
+                    0.0,
+                )
     return ratio
 
 
@@ -230,30 +299,34 @@ def deriv_vector_spatial(
     )
 
     if params_need_modification:
-        # Pre-compute all modified B_BaseRef arrays for all patches
-        b_base_ref_original = params["B_BaseRef"]
-        n_ecospace_groups = ecospace.habitat_capacity.shape[0]
+        # Habitat capacity as EwE6 applies it (#58): each patch's base biomass
+        # is B * c and each link's base flow Q0 * c_prey * c_pred over the
+        # map-wide mean of that product (EwE's MeanBP rescaling of the search
+        # rates). Map-wide base flows stay Ecopath's, and a group's per-capita
+        # rates no longer rise as its own habitat gets poorer.
+        b_base_ref_original = np.asarray(params["B_BaseRef"], dtype=float)
+        capacity = _capacity_matrix(
+            ecospace,
+            environmental_drivers,
+            mpa_cap_mult,
+            len(b_base_ref_original),
+            n_patches,
+            patch_share,
+        )
+        b_base_ref_patches = b_base_ref_original[:, np.newaxis] * capacity
+        qq_base_original = params.get("QQbase")
+        capacity_overlap = (
+            _capacity_overlap(capacity, patch_share, n_patches)
+            if qq_base_original is not None
+            and np.shape(qq_base_original)[0] == len(b_base_ref_original)
+            else None
+        )
 
-        # Create modified B_BaseRef for each patch (vectorized)
-        b_base_ref_patches = np.tile(b_base_ref_original[:, np.newaxis], (1, n_patches))
-
-        # Apply habitat capacity multipliers (only when environmental drivers present)
-        if environmental_drivers is not None:
-            capacity_multipliers = ecospace.habitat_capacity  # [n_groups, n_patches]
-            for g_idx in range(n_ecospace_groups):
-                state_idx = g_idx + 1  # Skip index 0 (Outside)
-                if (
-                    state_idx < len(b_base_ref_original)
-                    and g_idx < capacity_multipliers.shape[0]
-                ):
-                    b_base_ref_patches[state_idx, :] *= capacity_multipliers[g_idx, :]
-
-        # Apply MPA capacity bonus (uniform across groups)
-        if mpa_cap_mult is not None:
-            for g_idx in range(n_ecospace_groups):
-                state_idx = g_idx + 1
-                if state_idx < len(b_base_ref_original):
-                    b_base_ref_patches[state_idx, :] *= mpa_cap_mult
+    def _patch_qq_base(patch_idx):
+        """Base consumption matrix of one patch under habitat capacity."""
+        return qq_base_original * _patch_link_factor(
+            capacity, capacity_overlap, patch_idx
+        )
 
     # Build SpatialContext for each IBM group
     ibm_groups = params.get("ibm_groups", {})
@@ -327,6 +400,8 @@ def deriv_vector_spatial(
         if params_need_modification:
             patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
             patch_params["Bbase"] = b_base_ref_patches[:, patch_idx]
+            if capacity_overlap is not None:
+                patch_params["QQbase"] = _patch_qq_base(patch_idx)
         rates = {} if rates_out is not None else None
         deriv_spatial[:, patch_idx] = _local_deriv(
             state_patch,
@@ -371,9 +446,12 @@ def deriv_vector_spatial(
                 if params_need_modification:
                     b_base_ref_backup = params["B_BaseRef"]
                     b_base_backup = params.get("Bbase")
+                    qq_base_backup = params.get("QQbase")
                     modified = b_base_ref_patches[:, patch_idx]
                     params["B_BaseRef"] = modified
                     params["Bbase"] = modified
+                    if capacity_overlap is not None:
+                        params["QQbase"] = _patch_qq_base(patch_idx)
                     try:
                         deriv_local = _local_deriv(
                             state_patch,
@@ -389,6 +467,8 @@ def deriv_vector_spatial(
                         params["B_BaseRef"] = b_base_ref_backup
                         if b_base_backup is not None:
                             params["Bbase"] = b_base_backup
+                        if qq_base_backup is not None:
+                            params["QQbase"] = qq_base_backup
                 else:
                     deriv_local = _local_deriv(
                         state_patch,
@@ -517,12 +597,25 @@ def rsim_run_spatial(
     # or uniform expansion of the scenario start biomass.
     initial_biomass = scenario.start_state.Biomass  # [n_groups+1]
 
+    # Habitat capacity (with environmental drivers): EwE6 starts each cell at
+    # B * HabCap normalised to an area-weighted mean of 1 (#58).
+    start_capacity = _capacity_matrix(
+        ecospace,
+        environmental_drivers,
+        None,
+        n_groups + 1,
+        n_patches,
+        _patch_area_fractions(ecospace, n_patches),
+    )
     if initial_state_vector is None:
-        # Uniform density: each patch starts with its area share of every group
+        # Each patch starts with its area share of every group, at the density
+        # its habitat capacity sets (uniform density without capacity).
         biomass_spatial0 = (
             initial_biomass[:, np.newaxis]
             * _patch_area_fractions(ecospace, n_patches)[np.newaxis, :]
         )
+        if start_capacity is not None:
+            biomass_spatial0 = biomass_spatial0 * start_capacity
     else:
         state_vec = np.asarray(initial_state_vector, dtype=float).reshape(-1)
         expected_size = (n_groups + 1) * n_patches
@@ -554,23 +647,26 @@ def rsim_run_spatial(
                 "; ".join(problems),
             )
         else:
-            from pypath.core.ecosim import _warn_stanza_start_mismatch
+            from pypath.core.ecosim import _stanza_start_consistent
 
             stanza_state = RsimStanzaState.from_base(stanzas_obj, n_groups)
             stanza_idx = stanza_group_indices(stanzas_obj)
-            biomass_spatial0 = biomass_spatial0.copy()
             total0 = biomass_spatial0.sum(axis=1)
-            entered = total0[stanza_idx].copy()
-            split_set_pred(stanzas_obj, stanza_state, total0)
-            _warn_stanza_start_mismatch(
-                stanza_idx, entered, total0[stanza_idx], scenario.params
-            )
-            for i in stanza_idx:
-                biomass_spatial0[i] = _spread_over_patches(
-                    total0[i], biomass_spatial0[i], patch_w
-                )
-            stanza_biomass = np.zeros((n_months + 1, n_groups + 1))
-            stanza_biomass[0, stanza_idx] = total0[stanza_idx]
+            trial = total0.copy()
+            split_set_pred(stanzas_obj, stanza_state, trial)
+            if _stanza_start_consistent(
+                stanza_idx, total0[stanza_idx], trial[stanza_idx], scenario.params
+            ):
+                biomass_spatial0 = biomass_spatial0.copy()
+                for i in stanza_idx:
+                    biomass_spatial0[i] = _spread_over_patches(
+                        trial[i], biomass_spatial0[i], patch_w
+                    )
+                stanza_biomass = np.zeros((n_months + 1, n_groups + 1))
+                stanza_biomass[0, stanza_idx] = trial[stanza_idx]
+            else:
+                stanza_state = None
+                stanza_idx = np.zeros(0, dtype=int)
 
     state_spatial = SpatialState(Biomass=biomass_spatial0.copy())
 
@@ -596,6 +692,12 @@ def rsim_run_spatial(
         "B_BaseRef": params.B_BaseRef,
         "PP_type": params.PP_type,
         "NoIntegrate": params.NoIntegrate,
+        "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
+        "MoPred": getattr(params, "MoPred", None),
+        "UseVarPQ": getattr(params, "UseVarPQ", False),
+        "VbK": getattr(params, "VbK", None),
+        "AssimEff": getattr(params, "AssimEff", None),
+        "SwitchPower": getattr(params, "SwitchPower", None),
         "FishFrom": getattr(params, "FishFrom", np.array([])),
         "FishTo": getattr(params, "FishTo", np.array([])),
         "FishQ": getattr(params, "FishQ", np.array([])),
@@ -609,6 +711,10 @@ def rsim_run_spatial(
         "DetLinkFrac": params.DetFrac,
         "RpathPrimaryProduction": True,
     }
+    # Prey switching normalises by the Ecosim base, not a patch's B * c
+    from pypath.core.ecosim import _set_switch_weights
+
+    _set_switch_weights(params_dict, switch_bbase=params.B_BaseRef)
 
     # Pre-compute sparse link arrays for the consumption kernel
     from pypath.core.link_array import ActiveLinkArray
@@ -656,6 +762,9 @@ def rsim_run_spatial(
     current_biomass = state_spatial.Biomass.copy()
 
     rk4_steps = int(getattr(params, "RK4_STEPS", 4) or 1)
+    fast_mask = _rk4_fast_mask(params_dict, n_groups + 1)
+    use_fast = bool(np.any(fast_mask))
+    SORWT = 0.5
 
     # Ftime is static — snapshot once before the loop
     _ftime_snapshot = scenario.start_state.Ftime.copy()
@@ -678,6 +787,23 @@ def rsim_run_spatial(
         _forced_recs = getattr(forcing, "ForcedRecs", None)
         if _forced_recs is not None and mi < len(_forced_recs):
             forcing_dict["ForcedRecs"] = _forced_recs[mi]
+        # Prey, production, search-rate, mortality and respiration forcing,
+        # as in rsim_run (Ecospace used to drop them).
+        for _key in ("ForcedPrey", "ForcedSearch", "ForcedMort", "ForcedActresp"):
+            _arr = getattr(forcing, _key, None)
+            if _arr is not None and mi < len(_arr):
+                forcing_dict[_key] = _arr[mi]
+        if "ForcedSearch" in forcing_dict:
+            forcing_dict["PP_forcing"] = forcing_dict["ForcedSearch"]
+        # Forced fishing: a forced catch becomes a rate on the map-wide biomass
+        from pypath.core.ecosim import _forced_fishing_rate
+
+        _ff_rate, _ff_replace = _forced_fishing_rate(
+            fishing_obj, mi // 12, current_biomass.sum(axis=1), params.NUM_GROUPS
+        )
+        if _ff_rate is not None:
+            forcing_dict["ForcedF"] = _ff_rate
+            forcing_dict["ForcedFReplace"] = _ff_replace
 
         # Stanza groups eat in proportion to their age structure's consumption
         # index, split over the patches by their share of the group. Held for
@@ -690,6 +816,7 @@ def rsim_run_spatial(
                 stanza_idx,
                 current_biomass,
                 patch_w if density_form else None,
+                capacity=start_capacity if density_form else None,
             )
 
         # Spatial effort allocation for this month, from the biomass at the
@@ -737,17 +864,49 @@ def rsim_run_spatial(
                 **_month_kwargs,
             )
 
-        # RK4 in RK4_STEPS sub-steps per month, as rsim_run and Rpath do
+        # RK4 in RK4_STEPS sub-steps per month, as rsim_run and Rpath do.
+        # Fast-equilibrium groups follow EwE6's rk4 in every stage, patch by
+        # patch (as integrate_rk4): their stage value is (1 - SorWt) * biomeq
+        # + SorWt * B with biomeq from the stage's own gains and losses. In
+        # the density form gains, losses and biomass all carry the patch
+        # share, so the equilibrium per unit area is unchanged.
         hh = DELTA_T / rk4_steps
+
+        def _stage_rates():
+            if not use_fast:
+                return None
+            return {
+                key: np.zeros((n_groups + 1, n_patches))
+                for key in ("TotGain", "TotLoss")
+            }
+
         for sub in range(rk4_steps):
             t_sub = t + sub * hh
-            k1 = _f(current_biomass, t_sub, hh)
-            k2 = _f(current_biomass + k1 * hh / 2, t_sub + hh / 2, hh)
-            k3 = _f(current_biomass + k2 * hh / 2, t_sub + hh / 2, hh)
-            k4 = _f(current_biomass + k3 * hh, t_sub + hh, hh)
+            y0 = current_biomass
+            r1 = _stage_rates()
+            k1 = _f(y0, t_sub, hh, rates_out=r1)
+            y1 = y0 + k1 * hh / 2
+            if use_fast:
+                y1[fast_mask] = _rk4_fast_equilibrium(r1, y0, y0, fast_mask, SORWT)
+            r2 = _stage_rates()
+            k2 = _f(y1, t_sub + hh / 2, hh, rates_out=r2)
+            y2 = y0 + k2 * hh / 2
+            if use_fast:
+                y2[fast_mask] = _rk4_fast_equilibrium(r2, y1, y0, fast_mask, SORWT)
+            r3 = _stage_rates()
+            k3 = _f(y2, t_sub + hh / 2, hh, rates_out=r3)
+            y3 = y0 + k3 * hh
+            if use_fast:
+                y3[fast_mask] = _rk4_fast_equilibrium(r3, y2, y0, fast_mask, SORWT)
+            r4 = _stage_rates()
+            k4 = _f(y3, t_sub + hh, hh, rates_out=r4)
 
             # Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
-            current_biomass = current_biomass + hh / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+            current_biomass = y0 + hh / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+            if use_fast:
+                current_biomass[fast_mask] = _rk4_fast_equilibrium(
+                    r4, y3, y0, fast_mask, SORWT
+                )
 
             current_biomass = np.maximum(current_biomass, 0.0)
 

@@ -193,8 +193,22 @@ class RsimParams:
     COUPLED: int = 1
     RK4_STEPS: int = 4
     SENSE_LIMIT: Tuple[float, float] = (1e-4, 1e4)
-    # Control whether monthly M0 algebraic adjustments are performed during the run
+    # Accepted for compatibility and ignored: runs no longer adjust M0 (#54;
+    # neither Rpath nor EwE does).
     MONTHLY_M0_ADJUST: bool = True
+    # EwE6 solves NoIntegrate groups at equilibrium in every RK4 stage;
+    # Rpath's rk4_run integrates them (fast_group_rule='rpath').
+    RK4_FAST_EQUILIBRIUM: bool = True
+    # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
+    # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
+    # ForagingTimeLowerLimit, EcopathGroup.vbK).
+    MoPred: Optional[np.ndarray] = None  # other mortality follows feeding time
+    FtimeMax: Optional[np.ndarray] = None  # feeding-time cap per group
+    VbK: Optional[np.ndarray] = None  # von Bertalanffy K per group
+    AssimEff: Optional[np.ndarray] = None  # GE0 * (PB + 3 K) / PB
+    ForagingTimeLowerLimit: float = 0.1  # EwE6: 0.01
+    UseVarPQ: bool = False  # GE = AssimEff * Z / (Z + 3 K)
+    SwitchPower: Optional[np.ndarray] = None  # EwE6 prey switching per predator
 
 
 @dataclass
@@ -273,6 +287,10 @@ class RsimFishing:
     ForcedEffort: np.ndarray
     ForcedFRate: np.ndarray
     ForcedCatch: np.ndarray
+    # Where True (per year and group) ForcedFRate / ForcedCatch replace the
+    # gears' fishing on the group (EwE6 setFishTime); elsewhere they are added
+    # as a clean fishery landing Outside (Rpath). None = add everywhere.
+    ForcedFReplace: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -430,6 +448,7 @@ def rsim_params(
     handleselfwt: float = 0.0,
     steps_yr: int = 12,
     steps_m: int = 1,
+    fast_group_rule: str = "ewe",
 ) -> RsimParams:
     """Convert Rpath model to Ecosim simulation parameters.
 
@@ -451,12 +470,26 @@ def rsim_params(
         Timesteps per year (default 12 = monthly)
     steps_m : int
         Sub-timesteps per month (default 1)
+    fast_group_rule : {"ewe", "rpath"}
+        Which groups are solved as fast equilibria (``NoIntegrate``) instead
+        of being integrated. ``"ewe"`` (default) follows EwE6: a group whose
+        total loss rate at the start, |loss|/B, exceeds 24 per year
+        (predation + other mortality + fishing; for detritus the inflow minus
+        biomass accumulation). ``"rpath"`` follows Rpath: other-mortality
+        flow M0*B above 24 (use it to compare with Rpath outputs). The rule
+        also sets the integrator to match: under ``"ewe"`` RK4 takes one step
+        a month with the fast groups at equilibrium in every stage (EwE6
+        rk4 / SetTimeSteps); under ``"rpath"`` four explicit sub-steps.
 
     Returns
     -------
     RsimParams
         Parameters object for simulation
     """
+    if fast_group_rule not in ("ewe", "rpath"):
+        raise ValueError(
+            f"fast_group_rule must be 'ewe' or 'rpath', got {fast_group_rule!r}"
+        )
     nliving = rpath.NUM_LIVING
     ndead = rpath.NUM_DEAD
     ngear = rpath.NUM_GEARS
@@ -514,13 +547,8 @@ def rsim_params(
     ftime_qbopt = np.concatenate([[1.0], ftime_qbopt_values])
     pbopt = np.concatenate([[1.0], rpath.PB])
 
-    # NoIntegrate flag: 1 indicates groups that should not be integrated (fast-turnover/equilibrium)
-    # Previously this used 0/spnum which was inconsistent with downstream checks. Use 1 for NoIntegrate.
-    no_integrate = np.where(mzero * b_baseref > 2 * steps_yr * steps_m, 1, 0)
-
-    # Rpath marks fast-equilibrium groups by this rule alone; a detritus pool
-    # with slow turnover (e.g. Discards) is integrated like any other group.
-    # (NoIntegrate only matters to Adams-Bashforth; RK4 integrates all.)
+    # NoIntegrate (fast-equilibrium) flags are set after the predator-prey and
+    # fishing links exist; see _fast_group_flags below.
 
     # Predator-prey handling parameters
     handle_self = np.full(ngroups + 1, handleselfwt)
@@ -770,6 +798,23 @@ def rsim_params(
         logger.debug("DetFate diagnostic logging failed: %s", e)
 
     _warn_detritus_self_fate(rpath, nliving, ndead)
+    no_integrate = _fast_group_flags(
+        fast_group_rule,
+        threshold=2.0 * steps_yr * steps_m,
+        rpath=rpath,
+        nliving=nliving,
+        ndead=ndead,
+        b_baseref=b_baseref,
+        mzero=mzero,
+        unassim=unassim,
+        pp_type=pp_type,
+        prey_from=prey_from,
+        prey_to=prey_to,
+        qq=qq,
+        fish_from=fish_from,
+        fish_to=fish_to,
+        fish_q=fish_q,
+    )
 
     return RsimParams(
         NUM_GROUPS=ngroups,
@@ -787,6 +832,15 @@ def rsim_params(
         FtimeQBOpt=ftime_qbopt,
         PBopt=pbopt,
         NoIntegrate=no_integrate,
+        RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
+        # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
+        # Rpath's rk4_run takes four sub-steps.
+        RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
+        MoPred=np.zeros(ngroups + 1),
+        FtimeMax=np.full(ngroups + 1, 2.0),
+        SwitchPower=np.zeros(ngroups + 1),
+        VbK=np.zeros(ngroups + 1),
+        AssimEff=np.zeros(ngroups + 1),
         HandleSelf=handle_self,
         ScrambleSelf=scramble_self,
         PreyFrom=prey_from,
@@ -898,12 +952,168 @@ def rsim_fishing(params: RsimParams, years: range) -> RsimFishing:
     )
 
 
+def _set_switch_weights(params_dict, switch_bbase=None):
+    """Pre-compute EwE6's prey-switching search rates once per run.
+
+    Adds ``SwitchA`` (and ``SwitchBbase`` when given) to a deriv_vector
+    parameter dict whose ``SwitchPower`` is positive for some predator.
+    """
+    from pypath.core.ecosim_deriv import prey_switch_weights
+
+    sp = params_dict.get("SwitchPower")
+    if sp is None or not np.any(np.asarray(sp, dtype=float) > 0):
+        return
+    b0 = params_dict["Bbase"] if switch_bbase is None else switch_bbase
+    params_dict["SwitchA"] = prey_switch_weights(
+        params_dict["VV"], params_dict["QQbase"], b0
+    )
+    if switch_bbase is not None:
+        params_dict["SwitchBbase"] = np.asarray(switch_bbase, dtype=float)
+
+
+def _forced_fishing_rate(fishing_obj, year_idx, biomass, n_groups):
+    """Forced fishing mortality of one month and where it replaces the gears.
+
+    Rpath's ForcedFRate / ForcedCatch and EwE's forced F / forced catch, as a
+    rate per group: F + catch / B, the catch part capped at 3 (EwE6
+    setFishTime), with B at the start of the month. Returns (rate, replace)
+    arrays of length ``n_groups + 1``, or (None, None) when nothing is forced.
+    """
+    frate = getattr(fishing_obj, "ForcedFRate", None)
+    fcatch = getattr(fishing_obj, "ForcedCatch", None)
+    if frate is None and fcatch is None:
+        return None, None
+    rate = np.zeros(n_groups + 1)
+    replace = np.zeros(n_groups + 1, dtype=bool)
+    if frate is not None and year_idx < len(frate):
+        row = np.nan_to_num(np.asarray(frate[year_idx], dtype=float))
+        m = min(len(row), n_groups + 1)
+        rate[:m] += np.maximum(row[:m], 0.0)
+    if fcatch is not None and year_idx < len(fcatch):
+        row = np.nan_to_num(np.asarray(fcatch[year_idx], dtype=float))
+        m = min(len(row), n_groups + 1)
+        b = np.asarray(biomass, dtype=float)[:m]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            catch_rate = np.where(
+                (row[:m] > 0) & (b > 0),
+                np.minimum(row[:m] / np.where(b > 0, b, 1.0), 3.0),
+                0.0,
+            )
+        rate[:m] += catch_rate
+    flags = getattr(fishing_obj, "ForcedFReplace", None)
+    if flags is not None and year_idx < len(flags):
+        row = np.asarray(flags[year_idx], dtype=bool)
+        m = min(len(row), n_groups + 1)
+        replace[:m] = row[:m]
+    rate[0] = 0.0
+    replace[0] = False
+    if not np.any(rate > 0) and not np.any(replace):
+        return None, None
+    return rate, replace
+
+
+def _set_assimilation_efficiency(params: "RsimParams") -> None:
+    """EwE6 CalculateAssimilationEfficiencies: AssimEff = GE0 * (PB + 3 K) / PB.
+
+    With UseVarPQ the gross efficiency is GE = AssimEff * Z / (Z + 3 K), so
+    it equals the Ecopath GE0 = PB / QB at the base mortality Z = PB. Groups
+    without a positive K keep 0 and a fixed GE.
+    """
+    vbk = params.VbK
+    if vbk is None:
+        return
+    n = len(vbk)
+    assim = np.zeros(n)
+    for i in range(1, min(n, params.NUM_LIVING + 1)):
+        pb = float(params.PBopt[i])
+        qb = float(params.FtimeQBOpt[i])
+        if vbk[i] > 0 and pb > 0 and qb > 0 and params.PP_type[i] == 0:
+            assim[i] = (pb / qb) * (pb + 3.0 * vbk[i]) / pb
+    params.AssimEff = assim
+
+
+def _fast_group_flags(
+    rule: str,
+    threshold: float,
+    rpath: Rpath,
+    nliving: int,
+    ndead: int,
+    b_baseref: np.ndarray,
+    mzero: np.ndarray,
+    unassim: np.ndarray,
+    pp_type: np.ndarray,
+    prey_from: np.ndarray,
+    prey_to: np.ndarray,
+    qq: np.ndarray,
+    fish_from: np.ndarray,
+    fish_to: np.ndarray,
+    fish_q: np.ndarray,
+) -> np.ndarray:
+    """NoIntegrate flags (1 = solved at equilibrium, 0 = integrated).
+
+    ``"ewe"``: EwE6's rule (cEcoSimModel.SetTimeSteps): a group is not
+    integrated when its total loss rate at the start, |loss|/B, exceeds the
+    threshold (24 /yr for monthly steps). For living groups the loss is
+    predation + other mortality + fishing. For detritus EwE's loss is
+    consumption + export*B, and the export rate is set at the start to close
+    the detritus budget, so the loss equals the inflow minus the biomass
+    accumulation: other-mortality and unassimilated flows routed by the
+    detritus fate, plus discards. Evaluated at the Ecopath base, which is
+    where EwE evaluates its first derivative.
+
+    ``"rpath"``: Rpath's rule, other-mortality flow M0*B above the threshold
+    (a detritus pool with slow turnover is integrated like any other group).
+    """
+    n = len(b_baseref)
+    nbio = nliving + ndead
+    if rule == "rpath":
+        flags = np.where(np.nan_to_num(mzero) * b_baseref > threshold, 1, 0)
+        flags[0] = 0
+        return flags
+
+    mzero = np.nan_to_num(np.asarray(mzero, dtype=float))
+    loss = np.zeros(n)
+    consumption = np.zeros(n)
+    for k in range(1, len(qq)):
+        if prey_from[k] > 0:  # links from Outside are primary production
+            loss[prey_from[k]] += qq[k]
+            consumption[prey_to[k]] += qq[k]
+    for k in range(1, len(fish_q)):
+        loss[fish_from[k]] += fish_q[k] * b_baseref[fish_from[k]]
+    loss[1 : nliving + 1] += mzero[1 : nliving + 1] * b_baseref[1 : nliving + 1]
+
+    ba = np.nan_to_num(np.asarray(getattr(rpath, "BA", np.zeros(n - 1)), dtype=float))
+    det_fate = np.asarray(rpath.DetFate, dtype=float)
+    for det_idx in range(ndead):
+        d = nliving + det_idx + 1
+        inflow = 0.0
+        for i in range(nliving):
+            frac = det_fate[i, det_idx] if i < det_fate.shape[0] else 0.0
+            if frac > 0:
+                inflow += (
+                    mzero[i + 1] * b_baseref[i + 1]
+                    + unassim[i + 1] * consumption[i + 1]
+                ) * frac
+        for k in range(1, len(fish_q)):
+            if fish_to[k] == d:
+                inflow += fish_q[k] * b_baseref[fish_from[k]]
+        loss[d] = inflow - (ba[d - 1] if d - 1 < len(ba) else 0.0)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rate = np.where(b_baseref > 0, np.abs(loss) / b_baseref, 0.0)
+    flags = np.where(rate > threshold, 1, 0)
+    flags[0] = 0
+    flags[nbio + 1 :] = 0
+    return flags
+
+
 def rsim_scenario(
     rpath: Rpath,
     rpath_params: RpathParams,
     years: range = range(1, 101),
     vulnerability: float = 2.0,
     scenario_overrides: dict = None,
+    fast_group_rule: Optional[str] = None,
 ) -> RsimScenario:
     """Create a complete Ecosim scenario.
 
@@ -926,6 +1136,8 @@ def rsim_scenario(
         - 'ftime_adjust': dict mapping 0-based group index -> FtimeAdjust value
         - 'vv_overrides': dict mapping (prey_0based, pred_0based) -> VV value
         - 'forced_bio': dict mapping 0-based group index -> array of annual biomass values
+    fast_group_rule : {"ewe", "rpath"}, optional
+        Passed to :func:`rsim_params`; None keeps its default ("ewe").
 
     Returns
     -------
@@ -935,7 +1147,10 @@ def rsim_scenario(
     if len(years) < 2:
         raise ValueError("Years must be a range of at least 2 years")
 
-    params = rsim_params(rpath, mscramble=vulnerability)
+    rule_kwargs = (
+        {} if fast_group_rule is None else {"fast_group_rule": fast_group_rule}
+    )
+    params = rsim_params(rpath, mscramble=vulnerability, **rule_kwargs)
     # Apply scenario-level overrides from EwE database
     if scenario_overrides:
         # Apply FtimeAdjust per group
@@ -953,6 +1168,44 @@ def rsim_scenario(
                 pred_g = params.PreyTo[lk] - 1
                 if (prey_g, pred_g) in vv_dict:
                     params.VV[lk] = vv_dict[(prey_g, pred_g)]
+
+        # EwE6 maximum relative P/B of producers (EcosimScenarioGroup.Pbmaxs):
+        # production PBmaxs*PB*B / (1 + (PBmaxs-1)*B/B0) is Rpath's producer
+        # link with VV = PBmaxs / (PBmaxs - 1); PBmaxs <= 1 is linear.
+        if scenario_overrides.get("pb_maxs"):
+            for g, pbmax in scenario_overrides["pb_maxs"].items():
+                if pbmax is None or not np.isfinite(pbmax):
+                    continue
+                prod = g + 1
+                if not (0 < prod < len(params.PP_type)) or params.PP_type[prod] != 1:
+                    continue
+                vv = pbmax / (pbmax - 1.0) if pbmax > 1.0 + 1e-9 else 1e10
+                for lk in range(1, len(params.PreyFrom)):
+                    if params.PreyFrom[lk] == 0 and params.PreyTo[lk] == prod:
+                        params.VV[lk] = vv
+
+        # EwE6 Ecosim options (per group: 0-based model index -> value)
+        for key, attr in (
+            ("mo_pred", "MoPred"),
+            ("ftime_max", "FtimeMax"),
+            ("vbk", "VbK"),
+            ("switch_power", "SwitchPower"),
+        ):
+            if scenario_overrides.get(key):
+                arr = getattr(params, attr)
+                for g, val in scenario_overrides[key].items():
+                    if val is None or not np.isfinite(val):
+                        continue
+                    ecosim_idx = g + 1
+                    if 0 < ecosim_idx < len(arr):
+                        arr[ecosim_idx] = float(val)
+        if "use_var_pq" in scenario_overrides:
+            params.UseVarPQ = bool(scenario_overrides["use_var_pq"])
+        if scenario_overrides.get("foraging_time_lower_limit") is not None:
+            params.ForagingTimeLowerLimit = float(
+                scenario_overrides["foraging_time_lower_limit"]
+            )
+        _set_assimilation_efficiency(params)
 
     # Preserve optional instrumentation and debug controls set on the
     # original RpathParams object by copying them onto the generated
@@ -1050,13 +1303,19 @@ def _normalize_fishing_input(fishing_obj, n_groups):
 STANZA_START_MISMATCH_RTOL = 0.01
 
 
-def _warn_stanza_start_mismatch(stanza_idx, entered, derived, params) -> None:
-    """Warn when a stanza group's entered biomass is not its age structure.
+def _stanza_start_consistent(stanza_idx, entered, derived, params) -> bool:
+    """Whether every stanza group's entered biomass is its age structure.
 
-    Ecosim replaces each stanza group's start biomass with sum(N * W) of its
-    age structure (Rpath SplitSetPred). If the Ecopath biomass was typed by
-    hand instead of derived with ``rpath_stanzas``, the two disagree and the
-    run starts away from the Ecopath balance and drifts.
+    Ecosim starts each stanza group at sum(N * W) of its age structure (Rpath
+    SplitSetPred). When the Ecopath biomass was not derived from that
+    structure (typed by hand, or computed by EwE with a derivation PyPath
+    does not reproduce), the two disagree, and a run that starts from the
+    age structure leaves the Ecopath balance at once: LT2022's Blue mussel
+    juveniles would start at 5.3 instead of 15, their death flow to a
+    detritus pool that turns over 2800 times a year disappears, and the
+    food web collapses. So the age structure is only used when it
+    reproduces the entered biomass within ``STANZA_START_MISMATCH_RTOL``;
+    otherwise this warns and the caller runs without it.
     """
     names = getattr(params, "spname", None)
     bad = []
@@ -1065,15 +1324,20 @@ def _warn_stanza_start_mismatch(stanza_idx, entered, derived, params) -> None:
         if abs(b_age - b_in) / scale > STANZA_START_MISMATCH_RTOL:
             name = names[i] if names is not None and i < len(names) else str(i)
             bad.append("%s %.4g -> %.4g" % (name, b_in, b_age))
-    if bad:
-        logger.warning(
-            "Multi-stanza biomass differs from its age structure by more than "
-            "%.0f%%; Ecosim starts these groups at the age-structure biomass "
-            "(entered -> age structure): %s. Derive the stanza biomasses with "
-            "rpath_stanzas() before balancing to start at equilibrium.",
-            STANZA_START_MISMATCH_RTOL * 100,
-            "; ".join(bad),
-        )
+    if not bad:
+        return True
+    warnings.warn(
+        "Multi-stanza biomass differs from its age structure by more than "
+        "%.0f%% (entered -> age structure): %s. Ecosim runs without the stanza "
+        "age structure: these groups keep their Ecopath biomass and have no "
+        "age-structured recruitment. Derive the stanza biomasses with "
+        "rpath_stanzas() before balancing (Rpath), or check the stanza growth "
+        "and mortality parameters (EwE: K, Z = P/B)."
+        % (STANZA_START_MISMATCH_RTOL * 100, "; ".join(bad)),
+        UserWarning,
+        stacklevel=3,
+    )
+    return False
 
 
 def rsim_run(
@@ -1153,14 +1417,20 @@ def rsim_run(
         else:
             stanza_state = RsimStanzaState.from_base(stanzas_obj, params.NUM_GROUPS)
             stanza_idx = stanza_group_indices(stanzas_obj)
-            # Rpath starts each run with SplitSetPred on the start state
-            entered = state[stanza_idx].copy()
-            split_set_pred(stanzas_obj, stanza_state, state)
-            _warn_stanza_start_mismatch(
-                stanza_idx, entered, state[stanza_idx], scenario.params
-            )
-            stanza_biomass = np.zeros((n_months + 1, n_groups))
-            stanza_biomass[0, stanza_idx] = state[stanza_idx]
+            # Rpath starts each run with SplitSetPred on the start state. The
+            # age structure is used only if it reproduces the Ecopath
+            # biomass; otherwise the run would start off the balance.
+            trial = state.copy()
+            split_set_pred(stanzas_obj, stanza_state, trial)
+            if _stanza_start_consistent(
+                stanza_idx, state[stanza_idx], trial[stanza_idx], scenario.params
+            ):
+                state = trial
+                stanza_biomass = np.zeros((n_months + 1, n_groups))
+                stanza_biomass[0, stanza_idx] = state[stanza_idx]
+            else:
+                stanza_state = None
+                stanza_idx = np.zeros(0, dtype=int)
     _stanza_set = set(int(i) for i in stanza_idx)
 
     def _stanza_pred_ratio():
@@ -1209,7 +1479,14 @@ def rsim_run(
         "MetabolismModel": getattr(params, "MetabolismModel", None),
         "MetabolicTemperature": getattr(params, "MetabolicTemperature", None),
         "MetabolicBodyMass": getattr(params, "MetabolicBodyMass", None),
+        "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
+        "MoPred": getattr(params, "MoPred", None),
+        "UseVarPQ": getattr(params, "UseVarPQ", False),
+        "VbK": getattr(params, "VbK", None),
+        "AssimEff": getattr(params, "AssimEff", None),
+        "SwitchPower": getattr(params, "SwitchPower", None),
     }
+    _set_switch_weights(params_dict)
 
     # Pre-compute sparse link arrays for the consumption kernel so that
     # deriv_vector can skip inactive prey-predator pairs entirely.
@@ -1590,384 +1867,6 @@ def rsim_run(
     except Exception as e:
         logger.debug("verbose instrumentation config failed: %s", e)
 
-    # Enforce exact equilibrium at initialization for tiny residual derivatives
-    # This prevents tiny numerical residuals at t=0 from accumulating over long
-    # simulations (observed in Seabirds tests).
-    INIT_DERIV_EPS = 1e-8
-    # Build forcing for month 0 (first month) similar to loop below
-    forcing0 = {
-        "Ftime": scenario.start_state.Ftime.copy(),
-        "ForcedBio": np.where(forcing.ForcedBio[0] > 0, forcing.ForcedBio[0], 0),
-        "ForcedMigrate": forcing.ForcedMigrate[0],
-        "ForcedEffort": (
-            fishing_obj.ForcedEffort[0]
-            if 0 < len(fishing_obj.ForcedEffort)
-            else np.ones(params.NUM_GEARS + 1)
-        ),
-    }
-    if stanza_state is not None:
-        forcing0["StanzaPredRatio"] = _stanza_pred_ratio()
-    # Debugging: log forcing0 summary to compare with test precomputed forcing
-    try:
-        logger.debug(
-            "forcing0 sample ForcedEffort[:4]=%s ForcedBio[:4]=%s",
-            forcing0["ForcedEffort"][:4],
-            forcing0["ForcedBio"][:4],
-        )
-    except Exception as e:
-        logger.debug("forcing0 debug logging failed: %s", e)
-
-    try:
-        # Compute initial derivative without applying NoIntegrate masking so we
-        # capture the true algebraic residuals used to compute small M0 nudges.
-        params_no_noint = params_dict.copy()
-        params_no_noint["NoIntegrate"] = np.zeros(n_groups, dtype=int)
-        # Use the actual fishing_dict (with FishFrom/FishQ from params) so
-        # the init-deriv computation includes fishing mortality.  Previously
-        # this used a zero-fishing dict which caused M0 to be nudged to
-        # compensate for "missing" fishing, double-counting it once the fix
-        # that populates fishing_dict from params was applied.
-        # Threshold for considering small initial derivatives
-        ADJUST_DERIV_MAX = 1e-3
-        logger.debug(
-            "computing init_deriv with fishing_dict FishFrom length=%d",
-            len(fishing_dict.get("FishFrom", [])),
-        )
-        init_deriv = deriv_vector(state.copy(), params_no_noint, forcing0, fishing_dict)
-        # Also compute a test-style derivative with TRACE to compare
-        params_test = params_no_noint.copy()
-        try:
-            params_test["TRACE_DEBUG_GROUPS"] = params_no_noint.get(
-                "TRACE_DEBUG_GROUPS", None
-            )
-            deriv_test = deriv_vector(state.copy(), params_test, forcing0, fishing_dict)
-        except Exception as e:
-            logger.debug("derivative comparison debug failed: %s", e)
-            deriv_test = None
-        init_mask = np.abs(init_deriv) < INIT_DERIV_EPS
-        # Don't include the outside cell (index 0) in masking
-        init_mask[0] = False
-        # Debug: report summary of initial derivatives
-        logger.debug(
-            "init_deriv min=%.6e max=%.6e",
-            float(np.nanmin(init_deriv)),
-            float(np.nanmax(init_deriv)),
-        )
-        try:
-            logger.debug("init_deriv sample[:10]=%s", init_deriv[:10])
-        except Exception as e:
-            logger.debug("init_deriv debug logging failed: %s", e)
-
-        # Build a test-style params dict (like tests do) and compute its derivative
-        try:
-            params_test = {
-                "NUM_GROUPS": params.NUM_GROUPS,
-                "NUM_LIVING": params.NUM_LIVING,
-                "NUM_DEAD": params.NUM_DEAD,
-                "NUM_GEARS": params.NUM_GEARS,
-                "PB": params.PBopt,
-                "QB": params.FtimeQBOpt,
-                "M0": params.MzeroMort.copy(),
-                "Unassim": params.UnassimRespFrac,
-                "ActiveLink": _build_active_link_matrix(params),
-                "VV": _build_link_matrix(params, params.VV),
-                "DD": _build_link_matrix(params, params.DD),
-                "QQbase": _build_link_matrix(params, params.QQ),
-                "Bbase": params.B_BaseRef,
-                "PP_type": params.PP_type,
-                "FishFrom": getattr(params, "FishFrom", np.array([])),
-                "FishTo": getattr(params, "FishTo", np.array([])),
-                "FishQ": getattr(params, "FishQ", np.array([])),
-                "fleet_idx": getattr(params, "fleet_idx", None),
-            }
-            deriv_test = deriv_vector(state.copy(), params_test, forcing0, fishing_dict)
-            diffs = np.abs(init_deriv - deriv_test)
-            TH = 1e-12
-            if np.any(diffs > TH):
-                logger.debug(
-                    "derivative mismatch between raw (NoIntegrate disabled) and test-style params; count>%s: %d",
-                    TH,
-                    int(np.sum(diffs > TH)),
-                )
-                # Show first few mismatches
-                mism = np.where(diffs > TH)[0][:20]
-                for idx in mism:
-                    name = (
-                        params.spname[idx]
-                        if (hasattr(params, "spname") and idx < len(params.spname))
-                        else ""
-                    )
-                    logger.debug(
-                        "deriv diff idx=%d name=%s raw=%.6e test=%.6e diff=%.6e",
-                        idx,
-                        name,
-                        init_deriv[idx],
-                        deriv_test[idx],
-                        diffs[idx],
-                    )
-            # Also compare key parameter arrays for quick diffs
-            for key in ["M0", "PB", "QB", "Bbase", "NoIntegrate"]:
-                a = params_dict.get(key)
-                b = params_test.get(key)
-                try:
-                    aa = np.asarray(a)
-                    bb = np.asarray(b)
-                    if aa.shape == bb.shape:
-                        md = np.nanmax(np.abs(aa - bb))
-                        if md > 0:
-                            logger.debug("param '%s' max abs diff = %.6e", key, md)
-                    else:
-                        logger.debug(
-                            "param '%s' shape differs: %s vs %s",
-                            key,
-                            aa.shape,
-                            bb.shape,
-                        )
-                except Exception as e:
-                    logger.debug("parameter comparison failed: %s", e)
-        except Exception as e:
-            logger.debug("derivative comparison failed: %s", e)
-
-    except Exception as e:
-        logger.debug("init_deriv computation failed: %s", e)
-        init_mask = np.zeros(n_groups, dtype=bool)
-
-    if np.any(init_mask):
-        # Informative message for debugging; this can be toggled or removed if desired
-        logger.debug(
-            "zeroing tiny initial derivatives for groups: %s",
-            np.where(init_mask)[0].tolist(),
-        )
-
-    # Build a looser mask for small initial derivatives that we should prevent from changing
-    # during the warmup period to avoid slow drift accumulation
-    try:
-        init_mask_loose = np.abs(init_deriv) < ADJUST_DERIV_MAX
-        init_mask_loose[0] = False
-        if np.any(init_mask_loose) and not np.array_equal(init_mask_loose, init_mask):
-            logger.debug(
-                "small initial derivatives (loose mask) groups: %s",
-                np.where(init_mask_loose)[0].tolist(),
-            )
-    except Exception as e:
-        logger.debug("loose mask computation failed: %s", e)
-        init_mask_loose = np.zeros(n_groups, dtype=bool)
-
-    # If there are tiny residuals, nudge M0 in params_dict so initial derivative is exactly zero
-    # This uses a tiny adjustment only when the required change is small (avoid large parameter changes)
-    # Only accept very small M0 changes at init/final check to avoid drifting from Rpath
-    # (use a strict absolute threshold to prevent ~1e-3 sized nudges that affect parity)
-    M0_ADJUST_THRESHOLD = (
-        1e-4  # absolute threshold allowed for M0 adjustments (was 1e-3)
-    )
-    ADJUST_DERIV_MAX = (
-        1e-3  # consider adjusting M0 for initial derivatives smaller than this (abs)
-    )
-    try:
-        # Build immediate fishing mortality (base) to compute fish_loss
-        logger.debug("entering M0 adjustment block")
-        # Use the normalized fishing dict so we don't depend on dataclass vs dict
-        fishing_mort = fishing_dict.get("FishingMort", np.zeros(n_groups))
-        fish_from = fishing_dict.get("FishFrom", [])
-        fish_q = fishing_dict.get("FishQ", np.array([0.0]))
-        for i in range(1, len(fish_from)):
-            grp = int(fish_from[i])
-            fishing_mort[grp] += fish_q[i]
-
-        for grp in range(1, params.NUM_GROUPS + 1):
-            if grp in _stanza_set:
-                continue  # biomass comes from the age structure
-            # Consider small initial residuals within ADJUST_DERIV_MAX
-            if not (abs(init_deriv[grp]) < ADJUST_DERIV_MAX):
-                continue
-            B = state[grp]
-            if B <= 0:
-                continue
-            # Use baseline QQ (QQbase) to approximate consumption and predation loss at equilibrium
-            QQbase = params_dict.get("QQbase")
-            # Consumption by this group (sum over prey)
-            consumption = (
-                float(np.nansum(QQbase[:, grp])) if QQbase is not None else 0.0
-            )
-            # Predation loss on this group (sum over predators)
-            predation_loss = (
-                float(np.nansum(QQbase[grp, :])) if QQbase is not None else 0.0
-            )
-
-            # Production (handle producers/consumers)
-            PB = params_dict.get("PB")[grp]
-            QB = params_dict.get("QB")[grp]
-            PP_type = params_dict.get("PP_type", np.zeros(params.NUM_GROUPS + 1))
-            Bbase = params_dict.get("Bbase")
-            if PP_type[grp] > 0:
-                # Primary producer: use density-dependent formula at baseline forcing
-                if Bbase is not None and Bbase[grp] > 0:
-                    rel_bio = B / Bbase[grp]
-                    dd_factor = max(0.0, 2.0 - rel_bio)
-                    production = PB * B * dd_factor
-                else:
-                    production = PB * B
-            elif QB > 0:
-                GE = PB / QB
-                production = GE * consumption
-            else:
-                production = PB * B
-
-            fish_loss = fishing_mort[grp] * B
-            current_m0 = float(params_dict.get("M0")[grp])
-            # Compute desired M0 using raw initial derivative computed without NoIntegrate masking
-            desired_m0 = current_m0 + float(init_deriv[grp]) / B
-            diff = desired_m0 - current_m0
-            # Debug log the computed quantities
-            logger.debug(
-                "grp=%d B=%.6e consumption=%.6e production=%.6e predation_loss=%.6e fish_loss=%.6e current_m0=%.6e desired_m0=%.6e diff=%.6e",
-                grp,
-                B,
-                consumption,
-                production,
-                predation_loss,
-                fish_loss,
-                current_m0,
-                desired_m0,
-                diff,
-            )
-            # Accept small changes only (absolute threshold)
-            if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
-                logger.debug("assigning M0 for grp=%d diff=%.6e", grp, diff)
-                # Iteratively refine M0 to drive the raw (no-NoIntegrate) initial residual toward zero
-                MAX_M0_ITER = 5
-                TOL_INIT_DERIV_ITER = 1e-10
-                try:
-                    # Start from a params dict that has NoIntegrate disabled so we measure the raw algebraic residual
-                    params_iter = params_no_noint.copy()
-                    # Ensure M0 array is present and set initial candidate
-                    params_iter["M0"] = params_dict["M0"].copy()
-                    params_iter["M0"][grp] = desired_m0
-                    params_dict["M0"][grp] = desired_m0
-                    logger.debug(
-                        "initial M0 assigned grp=%d value=%.6e",
-                        grp,
-                        params_dict["M0"][grp],
-                    )
-
-                    for it in range(1, MAX_M0_ITER + 1):
-                        try:
-                            init_deriv_iter = deriv_vector(
-                                state.copy(), params_iter, forcing0, fishing_dict
-                            )
-                            residual = float(init_deriv_iter[grp])
-                            logger.debug(
-                                "M0 iter grp=%d it=%d residual=%.6e",
-                                grp,
-                                it,
-                                residual,
-                            )
-                            # If residual sufficiently small, stop
-                            if abs(residual) < TOL_INIT_DERIV_ITER:
-                                break
-                            # Compute correction step: delta_m0 = residual / B
-                            step = residual / B
-                            # Clamp step so we don't jump by more than allowed threshold
-                            if abs(step) > M0_ADJUST_THRESHOLD:
-                                step = np.sign(step) * M0_ADJUST_THRESHOLD
-                            params_iter["M0"][grp] += step
-                            params_dict["M0"][grp] = params_iter["M0"][grp]
-                        except Exception as e:
-                            logger.debug(
-                                "M0 iteration failed for grp=%d it=%d: %s",
-                                grp,
-                                it,
-                                e,
-                            )
-                            break
-                    logger.debug(
-                        "final M0 for grp=%d value=%.6e",
-                        grp,
-                        params_dict["M0"][grp],
-                    )
-
-                    # Final check using the params dict that will be persisted
-                    try:
-                        params_check = params_dict.copy()
-                        init_deriv_check = deriv_vector(
-                            state.copy(), params_check, forcing0, fishing_dict
-                        )
-                        final_residual = float(init_deriv_check[grp])
-                        logger.debug(
-                            "final check residual grp=%d residual=%.6e",
-                            grp,
-                            final_residual,
-                        )
-                        if (
-                            B != 0
-                            and np.isfinite(final_residual)
-                            and abs(final_residual) > 0.0
-                        ):
-                            step = final_residual / B
-                            if abs(step) > M0_ADJUST_THRESHOLD:
-                                step = np.sign(step) * M0_ADJUST_THRESHOLD
-                            params_dict["M0"][grp] += step
-                            logger.debug(
-                                "final adj applied grp=%d new_m0=%.6e step=%.6e",
-                                grp,
-                                params_dict["M0"][grp],
-                                step,
-                            )
-                    except Exception as e:
-                        logger.debug("final M0 check failed for grp=%d: %s", grp, e)
-                        pass
-                except Exception as e:
-                    logger.debug("M0 assignment failed for grp=%d: %s", grp, e)
-                    pass
-
-            # Only persist small/safe M0 adjustments; avoid overwriting for larger computed desired_m0
-            if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
-                params_dict["M0"][grp] = desired_m0
-                logger.debug(
-                    "enforcing exact initial equilibrium for group %d: M0 %.6e -> %.6e (init_deriv=%.6e)",
-                    grp,
-                    current_m0,
-                    desired_m0,
-                    init_deriv[grp],
-                )
-            else:
-                # Do not apply large adjustments; leave M0 as originally specified
-                if np.isfinite(desired_m0):
-                    logger.debug(
-                        "skipping initial M0 assign for grp=%d (diff=%.6e > threshold)",
-                        grp,
-                        diff,
-                    )
-    except Exception as e:
-        logger.debug("M0 adjustment failed: %s", e, exc_info=True)
-
-    # Final check: compute derivative using the params dict that will be persisted
-    # and make a small algebraic correction if a tiny residual remains.
-    try:
-        logger.debug("performing final M0 algebraic check")
-        check_deriv = deriv_vector(state.copy(), params_dict, forcing0, fishing_dict)
-        for grp in range(1, params.NUM_GROUPS + 1):
-            if grp in _stanza_set:
-                continue  # biomass comes from the age structure
-            if not np.isfinite(check_deriv[grp]) or state[grp] <= 0:
-                continue
-            # only consider small residuals within adjustment window
-            if abs(check_deriv[grp]) < ADJUST_DERIV_MAX and abs(check_deriv[grp]) > 0:
-                step = check_deriv[grp] / state[grp]
-                if abs(step) > M0_ADJUST_THRESHOLD:
-                    step = np.sign(step) * M0_ADJUST_THRESHOLD
-                params_dict["M0"][grp] += step
-                logger.debug(
-                    "final algebraic adjust grp=%d step=%.6e new_m0=%.6e residual_after=%.6e",
-                    grp,
-                    step,
-                    params_dict["M0"][grp],
-                    check_deriv[grp],
-                )
-    except Exception as e:
-        logger.debug("final M0 algebraic check failed: %s", e)
-        pass
-
     # Build fishing dict
     fishing_dict = {
         "FishFrom": params.FishFrom,
@@ -2076,14 +1975,24 @@ def rsim_run(
         year_idx = (month - 1) // 12
         month_in_year = (month - 1) % 12
 
-        # Build forcing dict for this timestep
-        # ForcedPrey: prey availability multiplier per group per month.
-        # For producers this also serves as the primary production forcing.
+        # Build forcing dict for this timestep.
+        # ForcedPrey scales a prey's availability to its predators (EwE's
+        # vulnerability forcing). Production forcing is separate: a
+        # producer's ForcedSearch scales its production (its search rate on
+        # the primary-production link, Rpath's force_bysearch; EwE's
+        # production-rate forcing) and reaches the derivative as PP_forcing.
         _forced_prey = (
             forcing.ForcedPrey[month - 1]
             if hasattr(forcing, "ForcedPrey")
             and forcing.ForcedPrey is not None
             and month - 1 < len(forcing.ForcedPrey)
+            else np.ones(params.NUM_GROUPS + 1)
+        )
+        _forced_search = (
+            forcing.ForcedSearch[month - 1]
+            if hasattr(forcing, "ForcedSearch")
+            and forcing.ForcedSearch is not None
+            and month - 1 < len(forcing.ForcedSearch)
             else np.ones(params.NUM_GROUPS + 1)
         )
         forcing_dict = {
@@ -2095,7 +2004,14 @@ def rsim_run(
             "ForcedRecs": forcing.ForcedRecs[month - 1],
             "ForcedActresp": forcing.ForcedActresp[month - 1],
             "ForcedPrey": _forced_prey,
-            "PP_forcing": _forced_prey,
+            "PP_forcing": _forced_search,
+            "ForcedSearch": _forced_search,
+            "ForcedMort": (
+                forcing.ForcedMort[month - 1]
+                if getattr(forcing, "ForcedMort", None) is not None
+                and month - 1 < len(forcing.ForcedMort)
+                else np.ones(params.NUM_GROUPS + 1)
+            ),
             "ForcedEffort": (
                 fishing_obj.ForcedEffort[month - 1]
                 if month - 1 < len(fishing_obj.ForcedEffort)
@@ -2104,6 +2020,21 @@ def rsim_run(
         }
         if stanza_state is not None:
             forcing_dict["StanzaPredRatio"] = _stanza_pred_ratio()
+        # Forced biomass replaces the group's state (EwE6 setForcedBiomass,
+        # applied before and after the step); the derivative sees it too.
+        _forced_now = forcing_dict["ForcedBio"]
+        _forced_mask = np.asarray(_forced_now) > 0
+        if np.any(_forced_mask):
+            state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
+        # Forced fishing mortality / catches for the month (Rpath ForcedFRate
+        # and ForcedCatch, EwE forced F and catch), as a rate fixed at the
+        # start of the month as EwE6 setFishTime does.
+        _ff_rate, _ff_replace = _forced_fishing_rate(
+            fishing_obj, year_idx, state, params.NUM_GROUPS
+        )
+        if _ff_rate is not None:
+            forcing_dict["ForcedF"] = _ff_rate
+            forcing_dict["ForcedFReplace"] = _ff_replace
         month_start_state = state.copy()
 
         # Integration step
@@ -2188,130 +2119,8 @@ def rsim_run(
             state = integrate_rk4(
                 state, params_dict, forcing_dict, fishing_dict, dt, n_steps=rk4_steps
             )
-
-        # Monthly M0 adjustment to enforce algebraic equilibrium for small residuals
-        if not params_dict.get("MONTHLY_M0_ADJUST", False):
-            if params_dict.get("VERBOSE_DEBUG"):
-                logger.debug(
-                    "skipping monthly M0 adjustment (disabled) for month=%s", month
-                )
-        else:
-            try:
-                if params_dict.get("VERBOSE_DEBUG"):
-                    logger.debug(
-                        "entering monthly M0 adjustment block for month=%s", month
-                    )
-                # Compute raw derivative with actual fishing to measure algebraic residual
-                raw_init_deriv = deriv_vector(
-                    state.copy(), params_dict, forcing_dict, fishing_dict
-                )
-                if params_dict.get("VERBOSE_DEBUG"):
-                    logger.debug(
-                        "computed raw_init_deriv sample %s", raw_init_deriv[:10]
-                    )
-                # Use the normalized fishing dict so we don't depend on dataclass vs dict
-                fishing_mort = fishing_dict.get("FishingMort", np.zeros(n_groups))
-                fish_from = fishing_dict.get("FishFrom", [])
-                fish_q = fishing_dict.get("FishQ", np.array([0.0]))
-                for i in range(1, len(fish_from)):
-                    grp = int(fish_from[i])
-                    fishing_mort[grp] += fish_q[i]
-
-                for grp in range(1, params.NUM_GROUPS + 1):
-                    if grp in _stanza_set:
-                        continue  # biomass comes from the age structure
-                    if not (abs(raw_init_deriv[grp]) < ADJUST_DERIV_MAX):
-                        continue
-                    B = state[grp]
-                    if B <= 0:
-                        continue
-                    QQbase = params_dict.get("QQbase")
-                    consumption = (
-                        float(np.nansum(QQbase[:, grp])) if QQbase is not None else 0.0
-                    )
-                    predation_loss = (
-                        float(np.nansum(QQbase[grp, :])) if QQbase is not None else 0.0
-                    )
-                    PB = params_dict.get("PB")[grp]
-                    QB = params_dict.get("QB")[grp]
-                    PP_type = params_dict.get(
-                        "PP_type", np.zeros(params.NUM_GROUPS + 1)
-                    )
-                    Bbase = params_dict.get("Bbase")
-                    if PP_type[grp] > 0:
-                        if Bbase is not None and Bbase[grp] > 0:
-                            rel_bio = B / Bbase[grp]
-                            dd_factor = max(0.0, 2.0 - rel_bio)
-                            production = PB * B * dd_factor
-                        else:
-                            production = PB * B
-                    elif QB > 0:
-                        GE = PB / QB
-                        production = GE * consumption
-                    else:
-                        production = PB * B
-                    fish_loss = fishing_mort[grp] * B
-                    current_m0 = float(params_dict.get("M0")[grp])
-                    desired_m0 = current_m0 + float(raw_init_deriv[grp]) / B
-                    diff = desired_m0 - current_m0
-                    # Debug log
-                    logger.debug(
-                        "monthly grp=%s B=%.6e consumption=%.6e production=%.6e predation_loss=%.6e fish_loss=%.6e current_m0=%.6e desired_m0=%.6e diff=%.6e",
-                        grp,
-                        B,
-                        consumption,
-                        production,
-                        predation_loss,
-                        fish_loss,
-                        current_m0,
-                        desired_m0,
-                        diff,
-                    )
-                    if np.isfinite(desired_m0) and abs(diff) <= M0_ADJUST_THRESHOLD:
-                        # Iteratively refine monthly M0 similar to initialization
-                        try:
-                            params_iter = params_dict.copy()
-                            params_iter["M0"] = params_dict["M0"].copy()
-                            params_iter["M0"][grp] = desired_m0
-                            params_dict["M0"][grp] = desired_m0
-                            MAX_M0_ITER = 3
-                            TOL_INIT_DERIV_ITER = 1e-10
-                            for it in range(1, MAX_M0_ITER + 1):
-                                try:
-                                    init_deriv_iter = deriv_vector(
-                                        state.copy(),
-                                        params_iter,
-                                        forcing_dict,
-                                        fishing_dict,
-                                    )
-                                    residual = float(init_deriv_iter[grp])
-                                    if abs(residual) < TOL_INIT_DERIV_ITER:
-                                        break
-                                    step = residual / B
-                                    if abs(step) > M0_ADJUST_THRESHOLD:
-                                        step = np.sign(step) * M0_ADJUST_THRESHOLD
-                                    params_iter["M0"][grp] += step
-                                    params_dict["M0"][grp] = params_iter["M0"][grp]
-                                except Exception as e:
-                                    logger.debug("monthly M0 iteration failed: %s", e)
-                                    break
-                            if params_dict.get("VERBOSE_DEBUG"):
-                                logger.debug(
-                                    "monthly assigned M0 grp=%s new_m0=%.6e",
-                                    grp,
-                                    params_dict["M0"][grp],
-                                )
-                        except Exception as e:
-                            logger.debug("monthly M0 assignment failed: %s", e)
-                            params_dict["M0"][grp] = desired_m0
-                            if params_dict.get("VERBOSE_DEBUG"):
-                                logger.debug(
-                                    "monthly assigned M0 grp=%s new_m0=%.6e",
-                                    grp,
-                                    params_dict["M0"][grp],
-                                )
-            except Exception as e:
-                logger.debug("monthly M0 adjustment failed: %s", e)
+        if np.any(_forced_mask):
+            state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
 
         # Replace invalid numeric values to prevent NaN/inf runaway and
         # ensure non-negative biomass
@@ -2377,9 +2186,11 @@ def rsim_run(
                 n_living=params.NUM_LIVING,
             )
             _ecotracer_out[month] = _ecotracer_conc.copy()
-        # Dynamic Ftime adjustment: Rpath formula (ecosim.cpp)
-        # new_Ftime = 0.1 + 0.9*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), cap 2.0
+        # Dynamic Ftime adjustment (Rpath ecosim.cpp; EwE6 rk4):
+        # new_Ftime = L + (1-L)*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), capped
         if _has_ftime_adj:
+            _ftime_lower = float(getattr(params, "ForagingTimeLowerLimit", 0.1))
+            _ftime_max = getattr(params, "FtimeMax", None)
             for i in range(1, params.NUM_LIVING + 1):
                 if _ftime_adj[i] > 0 and state[i] > 0 and _ftime_qbopt[i] > 0:
                     food_gain = float(np.nansum(QQ_month[:, i]))
@@ -2389,6 +2200,8 @@ def rsim_run(
                         _ftime_qbopt[i],
                         food_gain,
                         state[i],
+                        lower=_ftime_lower,
+                        cap=float(_ftime_max[i]) if _ftime_max is not None else 2.0,
                     )
         # Accumulate monthly Q (converted to monthly by dividing by 12)
         if annual_qlink is not None:
@@ -2589,7 +2402,8 @@ def rsim_run(
     end_state = RsimState(
         Biomass=state.copy(),
         N=np.zeros(n_groups),
-        Ftime=scenario.start_state.Ftime.copy(),
+        # the feeding time as updated month by month, not the start value
+        Ftime=np.asarray(_ftime_current, dtype=float).copy(),
     )
 
     # Build predator-prey identifiers for output
@@ -2673,17 +2487,23 @@ def _build_link_matrix(params: RsimParams, link_values: np.ndarray) -> np.ndarra
     return matrix
 
 
-def _ftime_update_rpath(old_ftime, ftadj, qbopt, food_gain, biomass):
-    """Update foraging time using Rpath formula (ecosim.cpp).
+def _ftime_update_rpath(
+    old_ftime, ftadj, qbopt, food_gain, biomass, lower=0.1, cap=2.0
+):
+    """Monthly feeding-time update (Rpath ecosim.cpp; EwE6 rk4).
 
-    new_Ftime = 0.1 + 0.9 * old_Ftime * ((1-adj) + adj * QBopt / (FoodGain/B))
-    Capped at 2.0 per Rpath.
+    new_Ftime = L + (1 - L) * old_Ftime * ((1 - adj) + adj * QBopt / (FoodGain/B))
+
+    Rpath: L = 0.1, cap 2. EwE6: L = ForagingTimeLowerLimit (default 0.01)
+    and the cap is the group's FtimeMax.
     """
     if food_gain <= 0 or biomass <= 0 or qbopt <= 0:
         return old_ftime
     actual_qb = food_gain / biomass
-    new_ftime = 0.1 + 0.9 * old_ftime * ((1.0 - ftadj) + ftadj * qbopt / actual_qb)
-    return min(new_ftime, 2.0)
+    new_ftime = lower + (1.0 - lower) * old_ftime * (
+        (1.0 - ftadj) + ftadj * qbopt / actual_qb
+    )
+    return min(new_ftime, cap)
 
 
 def _compute_Q_matrix(
@@ -2738,6 +2558,20 @@ def _compute_Q_matrix(
     DD = _ensure_mat(DD, "DD")
     QQbase = _ensure_mat(QQbase, "QQbase")
 
+    # EwE6 prey switching, as in deriv_vector
+    _switch_power = params_dict.get("SwitchPower")
+    if _switch_power is not None and np.any(np.asarray(_switch_power) > 0):
+        from pypath.core.ecosim_deriv import apply_prey_switching
+
+        VV, QQbase = apply_prey_switching(
+            state,
+            VV,
+            QQbase,
+            _switch_power,
+            params_dict.get("SwitchBbase", Bbase),
+            params_dict.get("SwitchA"),
+        )
+
     # Ensure ActiveLink is a boolean matrix; if not, try to build it from
     # PreyFrom/PreyTo arrays when available.
     # If ActiveLink is missing, malformed, or empty, try to build it from
@@ -2767,6 +2601,15 @@ def _compute_Q_matrix(
     for i in range(1, NUM_LIVING + 1):
         if Bbase[i] > 0:
             predYY[i] = Ftime[i] * BB[i] / Bbase[i]
+    # consumer search-rate forcing, as in deriv_vector
+    _forced_search = forcing.get("ForcedSearch")
+    if _forced_search is not None:
+        _fs = np.asarray(_forced_search, dtype=float)
+        _pp = np.asarray(params_dict.get("PP_type", np.zeros(NUM_GROUPS + 1)))
+        if _fs.shape[0] == NUM_GROUPS + 1:
+            for i in range(1, NUM_LIVING + 1):
+                if _pp[i] == 0:
+                    predYY[i] *= _fs[i]
     # Multi-stanza groups: same predator term as deriv_vector
     stanza_ratio = forcing.get("StanzaPredRatio")
     if stanza_ratio is not None:
@@ -2790,9 +2633,19 @@ def _compute_Q_matrix(
                 continue
             PYY = preyYY[prey]
             PDY = predYY[pred]
-            dd_term = dd / (dd - 1.0 + max(PYY, 1e-10)) if dd > 1.0 else 1.0
-            vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
+            # No special case at DD = 1 or VV = 1: the closed form gives
+            # prey-independent (handling-limited) and donor-controlled
+            # consumption there, which is what those settings mean in EwE.
+            dd_term = dd / max(dd - 1.0 + max(PYY, 1e-10), 1e-10)
+            vv_term = vv / max(vv - 1.0 + max(PDY, 1e-10), 1e-10)
             Q_calc = qbase * PDY * PYY * dd_term * vv_term
             QQ[prey, pred] = max(Q_calc, 0.0)
+
+    # Imported diet, as deriv_vector credits it: QB * import * B, which
+    # rsim_params stores as the link from group 0 (QQbase[0, i] at Bbase)
+    PP_type = params_dict.get("PP_type", np.zeros(NUM_GROUPS + 1))
+    for pred in range(1, NUM_LIVING + 1):
+        if PP_type[pred] <= 0 and Bbase[pred] > 0 and QQbase[0, pred] > 0:
+            QQ[0, pred] = QQbase[0, pred] / Bbase[pred] * BB[pred]
 
     return QQ

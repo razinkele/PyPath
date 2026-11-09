@@ -42,7 +42,9 @@ def test_macrobenthos_ab_initial_parity_roundtrip():
 
     # Short scenario: 2 years (24 monthly steps) to give Adams-Bashforth
     # a minimal history window while still keeping the run fast.
-    scenario = rsim_scenario(pypath_model, params, years=range(1, 3))
+    scenario = rsim_scenario(
+        pypath_model, params, years=range(1, 3), fast_group_rule="rpath"
+    )
 
     out_ab = rsim_run(scenario, method="AB", years=range(1, 3))
 

@@ -504,3 +504,55 @@ class TestExportModelToEwe:
         export_model_to_ewe(model, str(outpath), backend="csv")
 
         assert "lossy" in caplog.text.lower()
+
+
+class TestCsvBundleEcosimSettings:
+    """Ecosim settings PyPath reads from EwE databases are written back."""
+
+    def _bundle(self, tmp_path, overrides):
+        from pypath.core.ecopath import rpath
+        from pypath.core.ecosim import rsim_scenario
+        from pypath.io._csv_bundle_writer import CsvBundleWriter
+
+        params = _make_simple_model()
+        model = rpath(params)
+        sc = rsim_scenario(
+            model, params, years=range(1, 4), scenario_overrides=overrides
+        )
+        out = tmp_path / "m.ewecsv.zip"
+        writer = CsvBundleWriter(params, str(out))
+        writer.write_ecopath()
+        writer.write_ecosim([sc])
+        writer.close()
+        with zipfile.ZipFile(out) as zf:
+            groups = pd.read_csv(zf.open("EcosimScenarioGroup.csv"))
+            scen = pd.read_csv(zf.open("EcosimScenario.csv"))
+        return groups.set_index("EcopathGroupID"), scen
+
+    def test_group_settings_are_written(self, tmp_path):
+        groups, _ = self._bundle(
+            tmp_path,
+            {
+                "mo_pred": {1: 0.5},
+                "ftime_max": {1: 3.0},
+                "switch_power": {2: 1.0},
+                "pb_maxs": {0: 4.0},
+            },
+        )
+        # EcopathGroupID 1 = Phyto, 2 = Zoo, 3 = Fish
+        assert groups.loc[2, "MoPred"] == pytest.approx(0.5)
+        assert groups.loc[2, "FtimeMax"] == pytest.approx(3.0)
+        assert groups.loc[3, "SwitchPower"] == pytest.approx(1.0)
+        assert groups.loc[1, "Pbmaxs"] == pytest.approx(4.0)
+
+    def test_defaults_are_ewe_defaults(self, tmp_path):
+        groups, _ = self._bundle(tmp_path, {})
+        assert (groups["SwitchPower"] == 0.0).all()
+        assert (groups["MoPred"] == 0.0).all()
+        assert (groups["FtimeMax"] == 2.0).all()
+        assert groups.loc[1, "Pbmaxs"] == pytest.approx(2.0)
+
+    def test_scenario_settings_are_written(self, tmp_path):
+        _, scen = self._bundle(tmp_path, {"foraging_time_lower_limit": 0.01})
+        assert scen.loc[0, "ForagingTimeLowerLimit"] == pytest.approx(0.01)
+        assert scen.loc[0, "TotalTime"] == 3

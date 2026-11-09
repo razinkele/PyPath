@@ -163,26 +163,49 @@ def _get_diffusion_edge_data(grid, adjacency):
     return result
 
 
+def _area_scaled_density(biomass_vector: np.ndarray, grid) -> np.ndarray:
+    """Density in each patch times the mean patch area (#57).
+
+    Movement follows density gradients: two patches at the same density
+    exchange nothing whatever their areas. Scaling by the mean area keeps
+    the result in biomass units with the old magnitude on a grid of equal
+    cells (where it equals the biomass vector itself). Grids without valid
+    areas are treated as equal cells.
+    """
+    biomass_vector = np.asarray(biomass_vector, dtype=float)
+    areas = getattr(grid, "patch_areas", None)
+    if areas is None:
+        return biomass_vector
+    areas = np.asarray(areas, dtype=float)
+    if areas.shape != biomass_vector.shape or not np.all(areas > 0):
+        return biomass_vector
+    return biomass_vector / areas * areas.mean()
+
+
 def diffusion_flux(
     biomass_vector: np.ndarray,
     dispersal_rate: float,
     grid: EcospaceGrid,
     adjacency: scipy.sparse.csr_matrix,
 ) -> np.ndarray:
-    """Calculate diffusion flux using Fick's law.
+    """Calculate diffusion flux using Fick's law on density.
 
     Flux between adjacent patches follows:
-        flux_pq = -D * (B_p - B_q) * (border_length / distance)
+        flux_pq = -D * (rho_p - rho_q) * A_mean * (border_length / distance)
 
-    where D is the dispersal rate (diffusion coefficient).
+    where rho = B / area is the density, A_mean the mean patch area and D
+    the dispersal rate. Patches at the same density exchange nothing,
+    whatever their areas (#57); on a grid of equal cells this is the same
+    as using the biomass per patch.
 
     Parameters
     ----------
     biomass_vector : np.ndarray
         Biomass in each patch [n_patches]
     dispersal_rate : float
-        Diffusion coefficient (km²/month)
-        Typical values: 1-100 km²/month for fish
+        Dispersal rate per year (the spatial derivative and its RK4 step are
+        per year). Multiplied by the mean patch area it is a diffusion
+        coefficient in km² per year.
     grid : EcospaceGrid
         Spatial grid configuration
     adjacency : scipy.sparse.csr_matrix
@@ -203,6 +226,8 @@ def diffusion_flux(
 
     if len(rows) == 0:
         return net_flux
+
+    biomass_vector = _area_scaled_density(biomass_vector, grid)
 
     # Use Numba-accelerated implementation when available
     if HAS_NUMBA:
@@ -241,8 +266,9 @@ def habitat_advection(
 ) -> np.ndarray:
     """Calculate habitat-directed movement (advection).
 
-    Organisms move toward patches with higher habitat quality,
-    proportional to biomass and habitat gradient.
+    Organisms move toward patches with higher habitat quality, in proportion
+    to the habitat gradient and to the density of the patch they leave
+    (scaled by the mean patch area, as in ``diffusion_flux``; #57).
 
     Parameters
     ----------
@@ -273,6 +299,8 @@ def habitat_advection(
 
     if len(rows) == 0:
         return net_flux
+
+    biomass_vector = _area_scaled_density(biomass_vector, grid)
 
     # Use Numba-accelerated implementation when available
     if HAS_NUMBA:

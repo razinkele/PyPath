@@ -15,7 +15,7 @@ params = create_rpath_params(model_df['Group'].tolist(), model_df['Type'].tolist
 params.model = model_df
 params.diet = diet_df
 r = rpath(params)
-scenario = rsim_scenario(r, params)
+scenario = rsim_scenario(r, params, fast_group_rule="rpath")
 sp = scenario.params
 groups = model_df['Group'].tolist()
 seabirds_idx = groups.index('Seabirds')

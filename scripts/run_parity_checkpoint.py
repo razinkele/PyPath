@@ -47,7 +47,7 @@ params = create_rpath_params(model_df['Group'].tolist(), [int(t) for t in model_
 params.model = model_df
 params.diet = pd.read_csv(ECOPATH_DIR / 'diet_matrix.csv')
 py_rpath = rpath(params)
-full_scenario = rsim_scenario(py_rpath, params, years=range(1, NY + 1))
+full_scenario = rsim_scenario(py_rpath, params, years=range(1, NY + 1), fast_group_rule="rpath")
 
 # Helper: slice forcing/fishing for a chunk
 def slice_forcing(scenario, start_year, n_years):

@@ -142,33 +142,30 @@ def _compute_consumption_python(
             else:
                 PYY_term = PYY
 
-            # Handling time term (DD denominator) with suite pooling
-            if dd > 1.0:
-                if use_pooling:
-                    Hself = HandleSelf[prey, pred]
-                    dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
-                else:
-                    dd_prey_eff = PYY
-                dd_prey_safe = max(dd_prey_eff, 1e-10)
-                if hs_exp > 0.0:
-                    dd_denom = dd_prey_safe**hs_exp
-                else:
-                    dd_denom = dd_prey_safe
-                dd_term = dd / (dd - 1.0 + dd_denom)
+            # Handling time term (DD denominator) with suite pooling.
+            # No special case at DD = 1 (prey-independent, handling-limited
+            # consumption) or VV = 1 (donor control): the closed form covers
+            # them, as in Rpath and EwE6.
+            if use_pooling:
+                Hself = HandleSelf[prey, pred]
+                dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
             else:
-                dd_term = 1.0
+                dd_prey_eff = PYY
+            dd_prey_safe = max(dd_prey_eff, 1e-10)
+            if hs_exp > 0.0:
+                dd_denom = dd_prey_safe**hs_exp
+            else:
+                dd_denom = dd_prey_safe
+            dd_term = dd / max(dd - 1.0 + dd_denom, 1e-10)
 
             # Vulnerability term (VV denominator) with suite pooling
-            if vv > 1.0:
-                if use_pooling:
-                    Sself = ScrambleSelf[prey, pred]
-                    vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
-                else:
-                    vv_pred_eff = PDY
-                vv_pred_safe = max(vv_pred_eff, 1e-10)
-                vv_term = vv / (vv - 1.0 + vv_pred_safe)
+            if use_pooling:
+                Sself = ScrambleSelf[prey, pred]
+                vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
             else:
-                vv_term = 1.0
+                vv_pred_eff = PDY
+            vv_pred_safe = max(vv_pred_eff, 1e-10)
+            vv_term = vv / max(vv - 1.0 + vv_pred_safe, 1e-10)
 
             Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
 
@@ -298,33 +295,28 @@ def _compute_consumption_sparse_python(
         else:
             PYY_term = PYY
 
-        # Handling time term (DD denominator) with suite pooling
-        if dd > 1.0:
-            if use_pooling:
-                Hself = HandleSelf[prey, pred]
-                dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
-            else:
-                dd_prey_eff = PYY
-            dd_prey_safe = max(dd_prey_eff, 1e-10)
-            if hs_exp > 0.0:
-                dd_denom = dd_prey_safe**hs_exp
-            else:
-                dd_denom = dd_prey_safe
-            dd_term = dd / (dd - 1.0 + dd_denom)
+        # Handling time term (DD denominator) with suite pooling. No special
+        # case at DD = 1 or VV = 1 (see the sparse kernel above).
+        if use_pooling:
+            Hself = HandleSelf[prey, pred]
+            dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
         else:
-            dd_term = 1.0
+            dd_prey_eff = PYY
+        dd_prey_safe = max(dd_prey_eff, 1e-10)
+        if hs_exp > 0.0:
+            dd_denom = dd_prey_safe**hs_exp
+        else:
+            dd_denom = dd_prey_safe
+        dd_term = dd / max(dd - 1.0 + dd_denom, 1e-10)
 
         # Vulnerability term (VV denominator) with suite pooling
-        if vv > 1.0:
-            if use_pooling:
-                Sself = ScrambleSelf[prey, pred]
-                vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
-            else:
-                vv_pred_eff = PDY
-            vv_pred_safe = max(vv_pred_eff, 1e-10)
-            vv_term = vv / (vv - 1.0 + vv_pred_safe)
+        if use_pooling:
+            Sself = ScrambleSelf[prey, pred]
+            vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
         else:
-            vv_term = 1.0
+            vv_pred_eff = PDY
+        vv_pred_safe = max(vv_pred_eff, 1e-10)
+        vv_term = vv / max(vv - 1.0 + vv_pred_safe, 1e-10)
 
         Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
 
@@ -371,7 +363,7 @@ def _compute_living_derivs_kernel_python(
     For each living group *i* (1 .. NUM_LIVING) that is NOT an IBM group
     (ibm_mask[i] == 0):
 
-        consumption      = sum(QQ[1:, i])          # total eaten BY pred i
+        consumption      = sum(QQ[:, i])           # total eaten BY pred i (row 0: import)
         predation_loss   = sum(QQ[i, 1:NL+1])      # total eaten OF prey i
         production       = pp_rates[i]              if PP_type[i] > 0
                          = GE_arr[i] * consumption  if QB[i] > 0
@@ -418,9 +410,10 @@ def _compute_living_derivs_kernel_python(
         if ibm_mask[i] != 0:
             continue
 
-        # Total consumption BY this predator
+        # Total consumption BY this predator, including its imported diet
+        # (QQ[0, i], set by deriv_vector in proportion to its own biomass)
         consumption = 0.0
-        for prey in range(1, NUM_GROUPS + 1):
+        for prey in range(0, NUM_GROUPS + 1):
             consumption += QQ[prey, i]
 
         # Total predation ON this prey (losses)
@@ -775,6 +768,7 @@ def _rpath_detritus_derivs(
     link_fish_rate,
     NUM_LIVING,
     NUM_DEAD,
+    import_q=None,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -782,6 +776,8 @@ def _rpath_detritus_derivs(
     unassimilated consumption)`` along each of its detritus links; a dead
     source loses that flow. Discards gain the catch of every fishing link
     whose ``FishTo`` is that pool. Detritivore consumption is the food loss.
+    ``import_q`` is each consumer's intake of imported diet, which is
+    unassimilated like any other food.
 
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
@@ -789,10 +785,11 @@ def _rpath_detritus_derivs(
     n_bio = NUM_LIVING + NUM_DEAD
     mzero_loss = np.zeros(n_bio + 1)
     mzero_loss[1:] = M0_arr[1 : n_bio + 1] * BB[1 : n_bio + 1]
+    consumption = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0)
+    if import_q is not None:
+        consumption = consumption + import_q[1 : NUM_LIVING + 1]
     unassim_loss = np.zeros(n_bio + 1)
-    unassim_loss[1 : NUM_LIVING + 1] = (
-        QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0) * Unassim[1 : NUM_LIVING + 1]
-    )
+    unassim_loss[1 : NUM_LIVING + 1] = consumption * Unassim[1 : NUM_LIVING + 1]
     det_gain = np.zeros(n_bio + 1)
     det_loss = np.zeros(n_bio + 1)
     for k in range(1, len(det_from)):
@@ -880,6 +877,84 @@ class SimState:
 # =============================================================================
 
 
+def prey_switch_weights(VV, QQbase, Bbase) -> np.ndarray:
+    """EwE6 base search rates ``A[prey, pred]`` up to a per-predator factor.
+
+    EwE6 MakeAMatrixCell: with the vulnerability exchange rate
+    ``v = VV * Q0 / B0_prey``,
+    ``A = 2 Dzero Q0 v / max(P0 (B0_prey v - Q0), 1e-20)``
+    ``  = 2 Dzero VV Q0^2 / B0_prey / max(P0 Q0 (VV - 1), 1e-20)``.
+    The predator's ``2 Dzero`` cancels in the switching factor and is left
+    out. Row 0 (imports) gets no weight.
+    """
+    VV = np.asarray(VV, dtype=float)
+    Q0 = np.asarray(QQbase, dtype=float)
+    n = Q0.shape[0]
+    b0 = np.zeros(n)
+    b = np.asarray(Bbase, dtype=float)[:n]
+    b0[: len(b)] = b
+    b_prey = b0[:, None]
+    p0 = b0[None, :]
+    ok = (Q0 > 0) & (b_prey > 0)
+    ok[0, :] = False
+    denv = np.maximum(p0 * Q0 * (VV - 1.0), 1e-20)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        weights = np.where(ok, VV * Q0 * Q0 / np.where(ok, b_prey, 1.0) / denv, 0.0)
+    return np.nan_to_num(weights, nan=0.0, posinf=1e300)
+
+
+def apply_prey_switching(BB, VV, QQbase, switch_power, Bbase, weights=None):
+    """EwE6 prey switching as an effective vulnerability and base flow.
+
+    EwE6 (SetRelaSwitch) multiplies the search rate of link (i, j) by
+    ``r = [A_ij B_i^s / sum_k A_kj B_k^s] / [A_ij B0_i^s / sum_k A_kj B0_k^s]``
+    with ``s`` the predator's SwitchPower. In the closed-form kernel
+    ``Q = Q0 PYY PDY VV / (VV - 1 + PDY)`` a search-rate factor ``r`` is
+    ``Q = Q0 PYY (r PDY) VV / (VV - 1 + r PDY)``, i.e. the kernel with
+    ``VV' = 1 + (VV - 1) / r`` and ``Q0' = Q0 VV / VV'``. Returns copies of
+    VV and QQbase with those values on the switching predators' links;
+    the inputs are left untouched. ``Bbase`` is the base biomass EwE6
+    normalises by (Ecospace: the map-wide Ecosim base).
+    """
+    Q0 = np.asarray(QQbase, dtype=float)
+    n = Q0.shape[0]
+    sp = np.asarray(switch_power, dtype=float)
+    s_all = np.full(n, float(sp)) if sp.ndim == 0 else np.zeros(n)
+    if sp.ndim:
+        m = min(n, len(sp))
+        s_all[:m] = sp[:m]
+    preds = np.nonzero(s_all > 0)[0]
+    if preds.size == 0:
+        return VV, QQbase
+    if weights is None:
+        weights = prey_switch_weights(VV, Q0, Bbase)
+    b = np.zeros(n)
+    bb = np.asarray(BB, dtype=float)[:n]
+    b[: len(bb)] = np.maximum(bb, 0.0)
+    b0 = np.zeros(n)
+    bref = np.asarray(Bbase, dtype=float)[:n]
+    b0[: len(bref)] = bref
+    vv_out = np.array(VV, dtype=float, copy=True)
+    q_out = np.array(Q0, dtype=float, copy=True)
+    for j in preds:
+        a = weights[:, j]
+        rows = np.nonzero(a > 0)[0]
+        if rows.size == 0:
+            continue
+        s = s_all[j]
+        now = a[rows] * b[rows] ** s
+        base = a[rows] * b0[rows] ** s
+        share_now = now / (now.sum() + 1e-20)
+        share_base = base / (base.sum() + 1e-20)
+        r = np.where(share_base > 0, share_now / np.maximum(share_base, 1e-300), 1.0)
+        r = np.maximum(r, 1e-20)
+        vv = vv_out[rows, j]
+        vv_new = 1.0 + (vv - 1.0) / r
+        q_out[rows, j] = q_out[rows, j] * vv / vv_new
+        vv_out[rows, j] = vv_new
+    return vv_out, q_out
+
+
 def prey_switching(
     BB: np.ndarray,
     Bbase: np.ndarray,
@@ -889,6 +964,10 @@ def prey_switching(
 ) -> np.ndarray:
     """
     Calculate prey switching factors.
+
+    Not used by the simulation, and not EwE6's formula: Ecosim runs use
+    :func:`apply_prey_switching` (EwE6 SetRelaSwitch) with each
+    predator's ``SwitchPower``.
 
     Prey switching occurs when predators preferentially consume more abundant
     prey, stabilizing the system. Uses a power function of relative abundance.
@@ -1228,7 +1307,9 @@ def deriv_vector(
         - Bbase: Baseline biomass [group]
         - DetFrac: Fraction to detritus [group]
         - Unassim: Unassimilated fraction [group]
-        - SwitchPower: Prey switching power (0-2, default 0)
+        - SwitchPower: per-group EwE6 prey switching power (array, 0 = off);
+          see apply_prey_switching. SwitchA / SwitchBbase optionally give
+          the pre-computed search-rate weights and normalising base biomass
         - PP_type: Producer type array [group]
         - Mediation: Mediation configuration dict
     forcing : dict
@@ -1274,7 +1355,6 @@ def deriv_vector(
     DD = params["DD"]
     Unassim = params.get("Unassim", np.zeros(NUM_GROUPS + 1))
     Bbase = params.get("Bbase", state.copy())  # Baseline biomass
-    _SwitchPower = params.get("SwitchPower", 0.0)  # Prey switching power
     PP_type = params.get("PP_type", np.zeros(NUM_GROUPS + 1, dtype=int))
     _mediation = params.get("_mediation", None)
     # Pre-fetch spname and M0 once to avoid repeated dict lookups and
@@ -1313,6 +1393,8 @@ def deriv_vector(
     ForcedBio = forcing.get("ForcedBio", np.zeros(NUM_GROUPS + 1))
     PP_forcing = forcing.get("PP_forcing", np.ones(NUM_GROUPS + 1))
     ForcedPrey = forcing.get("ForcedPrey", np.ones(NUM_GROUPS + 1))
+    ForcedSearch = forcing.get("ForcedSearch", None)
+    ForcedMort = forcing.get("ForcedMort", None)
     ForcedMigrate = forcing.get("ForcedMigrate", np.zeros(NUM_GROUPS + 1))
     ForcedActresp = forcing.get("ForcedActresp", np.ones(NUM_GROUPS + 1))
     ForcedRecs = forcing.get("ForcedRecs", np.ones(NUM_GROUPS + 1))
@@ -1347,9 +1429,33 @@ def deriv_vector(
     if _stanza_ratio is not None:
         _has_ratio = np.isfinite(_stanza_ratio)
         predYY[_has_ratio] = Ftime[_has_ratio] * _stanza_ratio[_has_ratio]
+    # Search-rate forcing (Rpath force_bysearch, EwE SearchRate) scales a
+    # consumer's effective biomass in the foraging arena. A producer's
+    # ForcedSearch is its production forcing (PP_forcing), applied with the
+    # production term instead.
+    if ForcedSearch is not None:
+        _fs = np.asarray(ForcedSearch, dtype=float)
+        if _fs.shape[0] == NUM_GROUPS + 1:
+            _consumer = np.asarray(PP_type, dtype=float)[: NUM_GROUPS + 1] == 0
+            _consumer[0] = False
+            predYY[_consumer] = predYY[_consumer] * _fs[_consumer]
 
     # Get base consumption matrix
     QQbase = params.get("QQbase", np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1)))
+
+    # EwE6 prey switching (SwitchPower): each link's search rate scales with
+    # the prey's share of the predator's base-weighted prey pool. Applied as
+    # the equivalent vulnerability and base flow of the closed-form kernel.
+    _switch_power = params.get("SwitchPower")
+    if _switch_power is not None and np.any(np.asarray(_switch_power) > 0):
+        VV, QQbase = apply_prey_switching(
+            BB,
+            VV,
+            QQbase,
+            _switch_power,
+            params.get("SwitchBbase", Bbase),
+            params.get("SwitchA"),
+        )
 
     # Extract suite-pooling parameters (None means old behaviour / no pooling)
     _ScrambleSelf = params.get("ScrambleSelf")
@@ -1436,8 +1542,8 @@ def deriv_vector(
                         PDY = predYY[pred]
                         dd = DD[prey, pred]
                         vv = VV[prey, pred]
-                        dd_term = dd / (dd - 1.0 + max(PYY, 1e-10)) if dd > 1.0 else 1.0
-                        vv_term = vv / (vv - 1.0 + max(PDY, 1e-10)) if vv > 1.0 else 1.0
+                        dd_term = dd / max(dd - 1.0 + max(PYY, 1e-10), 1e-10)
+                        vv_term = vv / max(vv - 1.0 + max(PDY, 1e-10), 1e-10)
                         logger.debug(
                             "INSTR Q prey=%s name=%s pred=%s name=%s qbase=%.6e PDY=%.6e PYY=%.6e dd_term=%.6e vv_term=%.6e Q_calc=%.6e",
                             prey,
@@ -1513,6 +1619,23 @@ def deriv_vector(
             effort_mult *= _fleet_med[gear_idx]
         FishMort[grp] += FishQ[i] * effort_mult
         _link_fish_rate[i] = FishQ[i] * effort_mult
+    # Forced fishing (rsim_run's ForcedF: forced F plus forced catch / B).
+    # Where ForcedFReplace is set it replaces the gears on the group (EwE6),
+    # else it is a clean fishery added to them and landed Outside (Rpath).
+    _forced_f = forcing.get("ForcedF")
+    if _forced_f is not None:
+        _ff = np.asarray(_forced_f, dtype=float)
+        _replace = np.asarray(
+            forcing.get("ForcedFReplace", np.zeros(len(_ff), dtype=bool)), dtype=bool
+        )
+        n_bio_groups = NUM_LIVING + NUM_DEAD
+        for grp in range(1, min(len(_ff), n_bio_groups + 1)):
+            if grp < len(_replace) and _replace[grp]:
+                FishMort[grp] = 0.0
+                for i in range(1, len(FishFrom)):
+                    if int(FishFrom[i]) == grp:
+                        _link_fish_rate[i] = 0.0
+            FishMort[grp] += _ff[grp]
 
     for i in range(1, NUM_LIVING + 1):
         Catch[i] = FishMort[i] * BB[i]
@@ -1639,6 +1762,59 @@ def deriv_vector(
             logger.debug("Metabolic model scaling skipped: %s", _met_err)
 
     _M0_effective = _M0_safe * _MetabolicMult
+    # EwE6 (Derivt): other mortality follows feeding time,
+    # M0 * (1 - MoPred + MoPred * Ftime). The scaled rate also feeds the
+    # detritus flows, which keeps the budget closed (EwE6 itself sends the
+    # unscaled mo * B to detritus).
+    _mo_pred = params.get("MoPred", None)
+    if _mo_pred is not None:
+        _mo_pred = np.asarray(_mo_pred, dtype=float)
+        if _mo_pred.shape[0] == NUM_GROUPS + 1 and np.any(_mo_pred != 0.0):
+            _M0_effective = _M0_effective * (
+                1.0 - _mo_pred + _mo_pred * np.asarray(Ftime, dtype=float)
+            )
+    # Other-mortality forcing (EwE6 MortOther; Rpath force_bymort) scales M0.
+    # The scaled rate also feeds the detritus flows. (Rpath additionally
+    # scales the predation loss without the predator's gain.)
+    if ForcedMort is not None:
+        _fm = np.asarray(ForcedMort, dtype=float)
+        if _fm.shape[0] == NUM_GROUPS + 1:
+            _M0_effective = _M0_effective * _fm
+    # EwE6 UseVarPQ: gross efficiency follows the total loss rate Z,
+    # GE = AssimEff * Z / (Z + 3 K); AssimEff is set so GE = GE0 at Z = PB.
+    if params.get("UseVarPQ", False):
+        _vbk = params.get("VbK", None)
+        _aeff = params.get("AssimEff", None)
+        if _vbk is not None and _aeff is not None:
+            _vbk = np.asarray(_vbk, dtype=float)
+            _aeff = np.asarray(_aeff, dtype=float)
+            for _gi in range(1, NUM_LIVING + 1):
+                if (
+                    _vbk[_gi] > 0.0
+                    and _aeff[_gi] > 0.0
+                    and QB[_gi] > 0.0
+                    and BB[_gi] > 0.0
+                ):
+                    _pred_loss = float(np.sum(QQ[_gi, 1 : NUM_LIVING + 1]))
+                    _z = (
+                        _pred_loss / BB[_gi]
+                        + float(FishMort[_gi])
+                        + float(_M0_effective[_gi])
+                    )
+                    if _z > 0.0:
+                        _GE_arr[_gi] = _aeff[_gi] * _z / (_z + 3.0 * _vbk[_gi])
+
+    # Imported diet (EwE-F derivs: qq = consumption + QBoutside * B). A
+    # consumer's intake from outside the model is QB * import * B: it grows
+    # with the consumer's own biomass and does not depend on local prey, so it
+    # bypasses the foraging arena. rsim_params stores the base intake in the
+    # link from group 0, so QBoutside = QQbase[0, i] / Bbase[i]. Producers'
+    # group-0 link is their primary production and is left alone.
+    import_q = np.zeros(NUM_GROUPS + 1)
+    for i in range(1, NUM_LIVING + 1):
+        if PP_type[i] <= 0 and Bbase[i] > 0 and QQbase[0, i] > 0:
+            import_q[i] = QQbase[0, i] / Bbase[i] * BB[i]
+            QQ[0, i] = import_q[i]
 
     _compute_living_derivs(
         deriv,
@@ -1661,7 +1837,7 @@ def deriv_vector(
     if rates is not None:
         food_gain = np.zeros(NUM_GROUPS + 1)
         food_loss = np.zeros(NUM_GROUPS + 1)
-        food_gain[1:] = QQ[1:, 1:].sum(axis=0)
+        food_gain[1:] = QQ[1:, 1:].sum(axis=0) + import_q[1:]
         food_loss[1:] = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=1)
         mzero_loss = _M0_effective * BB
         fishing_loss = FishMort * BB
@@ -1682,7 +1858,7 @@ def deriv_vector(
                 continue
 
             # Recompute per-group terms for logging (cheap scalar ops)
-            consumption = float(np.sum(QQ[1:, i]))
+            consumption = float(np.sum(QQ[1:, i])) + float(import_q[i])
             predation_loss = float(np.sum(QQ[i, 1 : NUM_LIVING + 1]))
             m0 = float(_M0_effective[i])
             if PP_type[i] > 0:
@@ -1772,6 +1948,7 @@ def deriv_vector(
             _link_fish_rate,
             NUM_LIVING,
             NUM_DEAD,
+            import_q=import_q,
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)
@@ -1783,7 +1960,9 @@ def deriv_vector(
             # Living gain is all consumption, including a producer's link
             # from group 0; every remaining term of the derivative is loss.
             tot_gain = np.zeros(NUM_GROUPS + 1)
-            tot_gain[1 : NUM_LIVING + 1] = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0)
+            tot_gain[1 : NUM_LIVING + 1] = (
+                QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0) + import_q[1 : NUM_LIVING + 1]
+            )
             producers = np.asarray(PP_type[: NUM_LIVING + 1]) > 0
             producers[0] = False
             tot_gain[: NUM_LIVING + 1][producers] = pp_rates[: NUM_LIVING + 1][
@@ -1929,7 +2108,9 @@ def deriv_vector(
     # Pre-compute total consumption by each predator once, avoiding redundant
     # np.sum(QQ[1:, pred]) calls inside the per-detritus-group loop.
     # Shape: (NUM_LIVING,) where index j corresponds to pred = j + 1.
-    total_consump_by_pred = np.sum(QQ[1:, 1 : NUM_LIVING + 1], axis=0)
+    total_consump_by_pred = (
+        np.sum(QQ[1:, 1 : NUM_LIVING + 1], axis=0) + import_q[1 : NUM_LIVING + 1]
+    )
 
     # Pre-fetch detritus decay rates outside the loop
     decay_rate = params.get("DetDecay", np.zeros(NUM_DEAD + 1))
@@ -1947,7 +2128,7 @@ def deriv_vector(
             total_consump_by_pred,
             Unassim,
             _DetFrac,
-            _M0_safe,
+            _M0_effective,
             _decay_rate,
             NUM_LIVING,
             NUM_DEAD,
@@ -2053,6 +2234,44 @@ def deriv_vector(
     return deriv
 
 
+def _rk4_fast_mask(params, n: int) -> np.ndarray:
+    """Groups solved at equilibrium inside RK4 (EwE6), none under Rpath rules."""
+    mask = np.zeros(n, dtype=bool)
+    if not isinstance(params, dict) or not params.get("RK4_FAST_EQUILIBRIUM", True):
+        return mask
+    flags = params.get("NoIntegrate")
+    if flags is None:
+        return mask
+    flags = np.asarray(flags)
+    if flags.shape[0] != n:
+        return mask
+    n_bio = int(params.get("NUM_LIVING", 0)) + int(params.get("NUM_DEAD", 0))
+    mask[1 : n_bio + 1] = flags[1 : n_bio + 1] > 0
+    return mask
+
+
+def _rk4_fast_equilibrium(rates, y_eval, y_base, mask, sorwt):
+    """EwE6: (1 - SorWt) * biomeq + SorWt * B for the masked groups.
+
+    ``biomeq = gain / (loss / B)`` uses the gains and losses of the derivative
+    evaluated at ``y_eval``; the blend is with the biomass at the start of the
+    sub-step, ``y_base`` (EwE6 rk4: B(i), not the stage value). Groups whose
+    loss or biomass is not positive keep their start value.
+    """
+    out = y_base[mask].astype(float)
+    if not rates or "TotGain" not in rates or "TotLoss" not in rates:
+        return out
+    gain = np.asarray(rates["TotGain"], dtype=float)[mask]
+    loss = np.asarray(rates["TotLoss"], dtype=float)[mask]
+    b_eval = np.asarray(y_eval, dtype=float)[mask]
+    ok = (loss > 0) & (b_eval > 0) & np.isfinite(gain) & np.isfinite(loss)
+    biomeq = np.where(
+        ok, gain / np.where(ok, loss / np.where(ok, b_eval, 1.0), 1.0), 0.0
+    )
+    out[ok] = (1.0 - sorwt) * biomeq[ok] + sorwt * out[ok]
+    return out
+
+
 def integrate_rk4(
     state: np.ndarray,
     params: dict,
@@ -2084,18 +2303,46 @@ def integrate_rk4(
     np.ndarray
         Updated state vector
     """
-    # Rpath rk4_run: n_steps sub-steps of dt/n_steps, every group integrated
-    # (NoIntegrate only matters to Adams-Bashforth), biomass clamped per step.
+    # n_steps sub-steps of dt/n_steps (Rpath RK4_STEPS), biomass clamped per
+    # step. Fast-equilibrium groups (NoIntegrate = 1) follow EwE6's rk4: at
+    # every stage, and after the step, their value is
+    # (1 - SorWt) * biomeq + SorWt * B with biomeq = gain / (loss / B) from
+    # the derivative just evaluated, so a P/B of 200 or a detritus pool that
+    # turns over thousands of times a year never meets an explicit sub-step.
+    # Rpath's rk4_run integrates every group (RK4_FAST_EQUILIBRIUM False).
     n_steps = max(1, int(n_steps))
     hh = dt / n_steps
     new_state = np.asarray(state, dtype=float)
+    fast_mask = _rk4_fast_mask(params, len(new_state))
+    use_fast = bool(np.any(fast_mask))
+    sorwt = float(params.get("SorWt", 0.5)) if isinstance(params, dict) else 0.5
+
+    def _stage(y_base, y_eval, k, factor, rates):
+        """Stage state y_base + factor * k, fast groups at their equilibrium."""
+        yt = y_base + factor * k
+        if use_fast:
+            yt[fast_mask] = _rk4_fast_equilibrium(
+                rates, y_eval, y_base, fast_mask, sorwt
+            )
+        return yt
+
     for _ in range(n_steps):
         y0 = new_state
-        k1 = deriv_vector(y0, params, forcing, fishing)
-        k2 = deriv_vector(y0 + 0.5 * hh * k1, params, forcing, fishing)
-        k3 = deriv_vector(y0 + 0.5 * hh * k2, params, forcing, fishing)
-        k4 = deriv_vector(y0 + hh * k3, params, forcing, fishing)
-        new_state = np.maximum(y0 + (hh / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4), 0.0)
+        r1 = {} if use_fast else None
+        k1 = deriv_vector(y0, params, forcing, fishing, rates=r1)
+        y1 = _stage(y0, y0, k1, 0.5 * hh, r1)
+        r2 = {} if use_fast else None
+        k2 = deriv_vector(y1, params, forcing, fishing, rates=r2)
+        y2 = _stage(y0, y1, k2, 0.5 * hh, r2)
+        r3 = {} if use_fast else None
+        k3 = deriv_vector(y2, params, forcing, fishing, rates=r3)
+        y3 = _stage(y0, y2, k3, hh, r3)
+        r4 = {} if use_fast else None
+        k4 = deriv_vector(y3, params, forcing, fishing, rates=r4)
+        new_state = y0 + (hh / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+        if use_fast:
+            new_state[fast_mask] = _rk4_fast_equilibrium(r4, y3, y0, fast_mask, sorwt)
+        new_state = np.maximum(new_state, 0.0)
     dt = hh  # instrumentation below reports the last sub-step
     state = y0
 

@@ -9,7 +9,7 @@ groups = model_df['Group'].tolist()
 params = create_rpath_params(groups, [int(t) for t in model_df['Type'].tolist()])
 params.model = model_df
 model = rpath(params)
-scenario = rsim_scenario(model, params, years=range(1, 101))
+scenario = rsim_scenario(model, params, years=range(1, 101), fast_group_rule="rpath")
 sp = scenario.params.spname
 idx = sp.index('Discards')
 print('Discards idx', idx)
