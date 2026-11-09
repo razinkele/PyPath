@@ -895,6 +895,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pypath.core.ecosim.detritus_self_fates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        detritus_self_fates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pypath.core.ecosim.rsim_params" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6561,6 +6572,17 @@
     <span class="md-ellipsis">
       
         RsimOutput
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.ecosim.detritus_self_fates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        detritus_self_fates
       
     </span>
   </a>
@@ -17158,6 +17180,61 @@ columns. None without stanzas.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="pypath.core.ecosim.detritus_self_fates" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">detritus_self_fates</span>
+
+
+<a href="#pypath.core.ecosim.detritus_self_fates" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Detritus groups whose detritus fate points to themselves.</p>
+<p>Returns <code>{group name: fraction}</code> for every dead group with a fate
+fraction &gt; 0 to its own pool.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Detritus groups whose detritus fate points to themselves.</span>
+
+<span class="sd">    Returns ``{group name: fraction}`` for every dead group with a fate</span>
+<span class="sd">    fraction &gt; 0 to its own pool.</span>
+<span class="sd">    """</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">det_fate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rpath</span><span class="o">.</span><span class="n">DetFate</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ndead</span><span class="p">):</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">nliving</span> <span class="o">+</span> <span class="n">k</span>
+        <span class="k">if</span> <span class="n">row</span> <span class="o">&lt;</span> <span class="n">det_fate</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">det_fate</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">frac</span> <span class="o">=</span> <span class="n">det_fate</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">frac</span><span class="p">)</span> <span class="ow">and</span> <span class="n">frac</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">out</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">rpath</span><span class="o">.</span><span class="n">Group</span><span class="p">[</span><span class="n">row</span><span class="p">])]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frac</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="pypath.core.ecosim.rsim_params" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">rsim_params</span>
 
@@ -17349,50 +17426,7 @@ columns. None without stanzas.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">381</span>
-<span class="normal">382</span>
-<span class="normal">383</span>
-<span class="normal">384</span>
-<span class="normal">385</span>
-<span class="normal">386</span>
-<span class="normal">387</span>
-<span class="normal">388</span>
-<span class="normal">389</span>
-<span class="normal">390</span>
-<span class="normal">391</span>
-<span class="normal">392</span>
-<span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span>
-<span class="normal">396</span>
-<span class="normal">397</span>
-<span class="normal">398</span>
-<span class="normal">399</span>
-<span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span>
-<span class="normal">407</span>
-<span class="normal">408</span>
-<span class="normal">409</span>
-<span class="normal">410</span>
-<span class="normal">411</span>
-<span class="normal">412</span>
-<span class="normal">413</span>
-<span class="normal">414</span>
-<span class="normal">415</span>
-<span class="normal">416</span>
-<span class="normal">417</span>
-<span class="normal">418</span>
-<span class="normal">419</span>
-<span class="normal">420</span>
-<span class="normal">421</span>
-<span class="normal">422</span>
-<span class="normal">423</span>
-<span class="normal">424</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">424</span>
 <span class="normal">425</span>
 <span class="normal">426</span>
 <span class="normal">427</span>
@@ -17735,7 +17769,52 @@ columns. None without stanzas.</p>
 <span class="normal">764</span>
 <span class="normal">765</span>
 <span class="normal">766</span>
-<span class="normal">767</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
+<span class="normal">767</span>
+<span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span>
+<span class="normal">774</span>
+<span class="normal">775</span>
+<span class="normal">776</span>
+<span class="normal">777</span>
+<span class="normal">778</span>
+<span class="normal">779</span>
+<span class="normal">780</span>
+<span class="normal">781</span>
+<span class="normal">782</span>
+<span class="normal">783</span>
+<span class="normal">784</span>
+<span class="normal">785</span>
+<span class="normal">786</span>
+<span class="normal">787</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span>
+<span class="normal">791</span>
+<span class="normal">792</span>
+<span class="normal">793</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span>
+<span class="normal">810</span>
+<span class="normal">811</span>
+<span class="normal">812</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
     <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
@@ -18083,6 +18162,8 @@ columns. None without stanzas.</p>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"DetFate diagnostic logging failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
+    <span class="n">_warn_detritus_self_fate</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">,</span> <span class="n">ndead</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">RsimParams</span><span class="p">(</span>
         <span class="n">NUM_GROUPS</span><span class="o">=</span><span class="n">ngroups</span><span class="p">,</span>
         <span class="n">NUM_LIVING</span><span class="o">=</span><span class="n">nliving</span><span class="p">,</span>
@@ -18210,24 +18291,24 @@ columns. None without stanzas.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">770</span>
-<span class="normal">771</span>
-<span class="normal">772</span>
-<span class="normal">773</span>
-<span class="normal">774</span>
-<span class="normal">775</span>
-<span class="normal">776</span>
-<span class="normal">777</span>
-<span class="normal">778</span>
-<span class="normal">779</span>
-<span class="normal">780</span>
-<span class="normal">781</span>
-<span class="normal">782</span>
-<span class="normal">783</span>
-<span class="normal">784</span>
-<span class="normal">785</span>
-<span class="normal">786</span>
-<span class="normal">787</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">815</span>
+<span class="normal">816</span>
+<span class="normal">817</span>
+<span class="normal">818</span>
+<span class="normal">819</span>
+<span class="normal">820</span>
+<span class="normal">821</span>
+<span class="normal">822</span>
+<span class="normal">823</span>
+<span class="normal">824</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create initial state vectors for simulation.</span>
 
 <span class="sd">    Parameters</span>
@@ -18349,38 +18430,38 @@ columns. None without stanzas.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">790</span>
-<span class="normal">791</span>
-<span class="normal">792</span>
-<span class="normal">793</span>
-<span class="normal">794</span>
-<span class="normal">795</span>
-<span class="normal">796</span>
-<span class="normal">797</span>
-<span class="normal">798</span>
-<span class="normal">799</span>
-<span class="normal">800</span>
-<span class="normal">801</span>
-<span class="normal">802</span>
-<span class="normal">803</span>
-<span class="normal">804</span>
-<span class="normal">805</span>
-<span class="normal">806</span>
-<span class="normal">807</span>
-<span class="normal">808</span>
-<span class="normal">809</span>
-<span class="normal">810</span>
-<span class="normal">811</span>
-<span class="normal">812</span>
-<span class="normal">813</span>
-<span class="normal">814</span>
-<span class="normal">815</span>
-<span class="normal">816</span>
-<span class="normal">817</span>
-<span class="normal">818</span>
-<span class="normal">819</span>
-<span class="normal">820</span>
-<span class="normal">821</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">835</span>
+<span class="normal">836</span>
+<span class="normal">837</span>
+<span class="normal">838</span>
+<span class="normal">839</span>
+<span class="normal">840</span>
+<span class="normal">841</span>
+<span class="normal">842</span>
+<span class="normal">843</span>
+<span class="normal">844</span>
+<span class="normal">845</span>
+<span class="normal">846</span>
+<span class="normal">847</span>
+<span class="normal">848</span>
+<span class="normal">849</span>
+<span class="normal">850</span>
+<span class="normal">851</span>
+<span class="normal">852</span>
+<span class="normal">853</span>
+<span class="normal">854</span>
+<span class="normal">855</span>
+<span class="normal">856</span>
+<span class="normal">857</span>
+<span class="normal">858</span>
+<span class="normal">859</span>
+<span class="normal">860</span>
+<span class="normal">861</span>
+<span class="normal">862</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
+<span class="normal">865</span>
+<span class="normal">866</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create forcing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -18516,36 +18597,36 @@ columns. None without stanzas.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">824</span>
-<span class="normal">825</span>
-<span class="normal">826</span>
-<span class="normal">827</span>
-<span class="normal">828</span>
-<span class="normal">829</span>
-<span class="normal">830</span>
-<span class="normal">831</span>
-<span class="normal">832</span>
-<span class="normal">833</span>
-<span class="normal">834</span>
-<span class="normal">835</span>
-<span class="normal">836</span>
-<span class="normal">837</span>
-<span class="normal">838</span>
-<span class="normal">839</span>
-<span class="normal">840</span>
-<span class="normal">841</span>
-<span class="normal">842</span>
-<span class="normal">843</span>
-<span class="normal">844</span>
-<span class="normal">845</span>
-<span class="normal">846</span>
-<span class="normal">847</span>
-<span class="normal">848</span>
-<span class="normal">849</span>
-<span class="normal">850</span>
-<span class="normal">851</span>
-<span class="normal">852</span>
-<span class="normal">853</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">869</span>
+<span class="normal">870</span>
+<span class="normal">871</span>
+<span class="normal">872</span>
+<span class="normal">873</span>
+<span class="normal">874</span>
+<span class="normal">875</span>
+<span class="normal">876</span>
+<span class="normal">877</span>
+<span class="normal">878</span>
+<span class="normal">879</span>
+<span class="normal">880</span>
+<span class="normal">881</span>
+<span class="normal">882</span>
+<span class="normal">883</span>
+<span class="normal">884</span>
+<span class="normal">885</span>
+<span class="normal">886</span>
+<span class="normal">887</span>
+<span class="normal">888</span>
+<span class="normal">889</span>
+<span class="normal">890</span>
+<span class="normal">891</span>
+<span class="normal">892</span>
+<span class="normal">893</span>
+<span class="normal">894</span>
+<span class="normal">895</span>
+<span class="normal">896</span>
+<span class="normal">897</span>
+<span class="normal">898</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create fishing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -18739,122 +18820,122 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">856</span>
-<span class="normal">857</span>
-<span class="normal">858</span>
-<span class="normal">859</span>
-<span class="normal">860</span>
-<span class="normal">861</span>
-<span class="normal">862</span>
-<span class="normal">863</span>
-<span class="normal">864</span>
-<span class="normal">865</span>
-<span class="normal">866</span>
-<span class="normal">867</span>
-<span class="normal">868</span>
-<span class="normal">869</span>
-<span class="normal">870</span>
-<span class="normal">871</span>
-<span class="normal">872</span>
-<span class="normal">873</span>
-<span class="normal">874</span>
-<span class="normal">875</span>
-<span class="normal">876</span>
-<span class="normal">877</span>
-<span class="normal">878</span>
-<span class="normal">879</span>
-<span class="normal">880</span>
-<span class="normal">881</span>
-<span class="normal">882</span>
-<span class="normal">883</span>
-<span class="normal">884</span>
-<span class="normal">885</span>
-<span class="normal">886</span>
-<span class="normal">887</span>
-<span class="normal">888</span>
-<span class="normal">889</span>
-<span class="normal">890</span>
-<span class="normal">891</span>
-<span class="normal">892</span>
-<span class="normal">893</span>
-<span class="normal">894</span>
-<span class="normal">895</span>
-<span class="normal">896</span>
-<span class="normal">897</span>
-<span class="normal">898</span>
-<span class="normal">899</span>
-<span class="normal">900</span>
-<span class="normal">901</span>
-<span class="normal">902</span>
-<span class="normal">903</span>
-<span class="normal">904</span>
-<span class="normal">905</span>
-<span class="normal">906</span>
-<span class="normal">907</span>
-<span class="normal">908</span>
-<span class="normal">909</span>
-<span class="normal">910</span>
-<span class="normal">911</span>
-<span class="normal">912</span>
-<span class="normal">913</span>
-<span class="normal">914</span>
-<span class="normal">915</span>
-<span class="normal">916</span>
-<span class="normal">917</span>
-<span class="normal">918</span>
-<span class="normal">919</span>
-<span class="normal">920</span>
-<span class="normal">921</span>
-<span class="normal">922</span>
-<span class="normal">923</span>
-<span class="normal">924</span>
-<span class="normal">925</span>
-<span class="normal">926</span>
-<span class="normal">927</span>
-<span class="normal">928</span>
-<span class="normal">929</span>
-<span class="normal">930</span>
-<span class="normal">931</span>
-<span class="normal">932</span>
-<span class="normal">933</span>
-<span class="normal">934</span>
-<span class="normal">935</span>
-<span class="normal">936</span>
-<span class="normal">937</span>
-<span class="normal">938</span>
-<span class="normal">939</span>
-<span class="normal">940</span>
-<span class="normal">941</span>
-<span class="normal">942</span>
-<span class="normal">943</span>
-<span class="normal">944</span>
-<span class="normal">945</span>
-<span class="normal">946</span>
-<span class="normal">947</span>
-<span class="normal">948</span>
-<span class="normal">949</span>
-<span class="normal">950</span>
-<span class="normal">951</span>
-<span class="normal">952</span>
-<span class="normal">953</span>
-<span class="normal">954</span>
-<span class="normal">955</span>
-<span class="normal">956</span>
-<span class="normal">957</span>
-<span class="normal">958</span>
-<span class="normal">959</span>
-<span class="normal">960</span>
-<span class="normal">961</span>
-<span class="normal">962</span>
-<span class="normal">963</span>
-<span class="normal">964</span>
-<span class="normal">965</span>
-<span class="normal">966</span>
-<span class="normal">967</span>
-<span class="normal">968</span>
-<span class="normal">969</span>
-<span class="normal">970</span>
-<span class="normal">971</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 901</span>
+<span class="normal"> 902</span>
+<span class="normal"> 903</span>
+<span class="normal"> 904</span>
+<span class="normal"> 905</span>
+<span class="normal"> 906</span>
+<span class="normal"> 907</span>
+<span class="normal"> 908</span>
+<span class="normal"> 909</span>
+<span class="normal"> 910</span>
+<span class="normal"> 911</span>
+<span class="normal"> 912</span>
+<span class="normal"> 913</span>
+<span class="normal"> 914</span>
+<span class="normal"> 915</span>
+<span class="normal"> 916</span>
+<span class="normal"> 917</span>
+<span class="normal"> 918</span>
+<span class="normal"> 919</span>
+<span class="normal"> 920</span>
+<span class="normal"> 921</span>
+<span class="normal"> 922</span>
+<span class="normal"> 923</span>
+<span class="normal"> 924</span>
+<span class="normal"> 925</span>
+<span class="normal"> 926</span>
+<span class="normal"> 927</span>
+<span class="normal"> 928</span>
+<span class="normal"> 929</span>
+<span class="normal"> 930</span>
+<span class="normal"> 931</span>
+<span class="normal"> 932</span>
+<span class="normal"> 933</span>
+<span class="normal"> 934</span>
+<span class="normal"> 935</span>
+<span class="normal"> 936</span>
+<span class="normal"> 937</span>
+<span class="normal"> 938</span>
+<span class="normal"> 939</span>
+<span class="normal"> 940</span>
+<span class="normal"> 941</span>
+<span class="normal"> 942</span>
+<span class="normal"> 943</span>
+<span class="normal"> 944</span>
+<span class="normal"> 945</span>
+<span class="normal"> 946</span>
+<span class="normal"> 947</span>
+<span class="normal"> 948</span>
+<span class="normal"> 949</span>
+<span class="normal"> 950</span>
+<span class="normal"> 951</span>
+<span class="normal"> 952</span>
+<span class="normal"> 953</span>
+<span class="normal"> 954</span>
+<span class="normal"> 955</span>
+<span class="normal"> 956</span>
+<span class="normal"> 957</span>
+<span class="normal"> 958</span>
+<span class="normal"> 959</span>
+<span class="normal"> 960</span>
+<span class="normal"> 961</span>
+<span class="normal"> 962</span>
+<span class="normal"> 963</span>
+<span class="normal"> 964</span>
+<span class="normal"> 965</span>
+<span class="normal"> 966</span>
+<span class="normal"> 967</span>
+<span class="normal"> 968</span>
+<span class="normal"> 969</span>
+<span class="normal"> 970</span>
+<span class="normal"> 971</span>
+<span class="normal"> 972</span>
+<span class="normal"> 973</span>
+<span class="normal"> 974</span>
+<span class="normal"> 975</span>
+<span class="normal"> 976</span>
+<span class="normal"> 977</span>
+<span class="normal"> 978</span>
+<span class="normal"> 979</span>
+<span class="normal"> 980</span>
+<span class="normal"> 981</span>
+<span class="normal"> 982</span>
+<span class="normal"> 983</span>
+<span class="normal"> 984</span>
+<span class="normal"> 985</span>
+<span class="normal"> 986</span>
+<span class="normal"> 987</span>
+<span class="normal"> 988</span>
+<span class="normal"> 989</span>
+<span class="normal"> 990</span>
+<span class="normal"> 991</span>
+<span class="normal"> 992</span>
+<span class="normal"> 993</span>
+<span class="normal"> 994</span>
+<span class="normal"> 995</span>
+<span class="normal"> 996</span>
+<span class="normal"> 997</span>
+<span class="normal"> 998</span>
+<span class="normal"> 999</span>
+<span class="normal">1000</span>
+<span class="normal">1001</span>
+<span class="normal">1002</span>
+<span class="normal">1003</span>
+<span class="normal">1004</span>
+<span class="normal">1005</span>
+<span class="normal">1006</span>
+<span class="normal">1007</span>
+<span class="normal">1008</span>
+<span class="normal">1009</span>
+<span class="normal">1010</span>
+<span class="normal">1011</span>
+<span class="normal">1012</span>
+<span class="normal">1013</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span>
@@ -19090,52 +19171,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1034</span>
-<span class="normal">1035</span>
-<span class="normal">1036</span>
-<span class="normal">1037</span>
-<span class="normal">1038</span>
-<span class="normal">1039</span>
-<span class="normal">1040</span>
-<span class="normal">1041</span>
-<span class="normal">1042</span>
-<span class="normal">1043</span>
-<span class="normal">1044</span>
-<span class="normal">1045</span>
-<span class="normal">1046</span>
-<span class="normal">1047</span>
-<span class="normal">1048</span>
-<span class="normal">1049</span>
-<span class="normal">1050</span>
-<span class="normal">1051</span>
-<span class="normal">1052</span>
-<span class="normal">1053</span>
-<span class="normal">1054</span>
-<span class="normal">1055</span>
-<span class="normal">1056</span>
-<span class="normal">1057</span>
-<span class="normal">1058</span>
-<span class="normal">1059</span>
-<span class="normal">1060</span>
-<span class="normal">1061</span>
-<span class="normal">1062</span>
-<span class="normal">1063</span>
-<span class="normal">1064</span>
-<span class="normal">1065</span>
-<span class="normal">1066</span>
-<span class="normal">1067</span>
-<span class="normal">1068</span>
-<span class="normal">1069</span>
-<span class="normal">1070</span>
-<span class="normal">1071</span>
-<span class="normal">1072</span>
-<span class="normal">1073</span>
-<span class="normal">1074</span>
-<span class="normal">1075</span>
-<span class="normal">1076</span>
-<span class="normal">1077</span>
-<span class="normal">1078</span>
-<span class="normal">1079</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1079</span>
 <span class="normal">1080</span>
 <span class="normal">1081</span>
 <span class="normal">1082</span>
@@ -20669,7 +20705,43 @@ Controls predator-prey functional response:
 <span class="normal">2610</span>
 <span class="normal">2611</span>
 <span class="normal">2612</span>
-<span class="normal">2613</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
+<span class="normal">2613</span>
+<span class="normal">2614</span>
+<span class="normal">2615</span>
+<span class="normal">2616</span>
+<span class="normal">2617</span>
+<span class="normal">2618</span>
+<span class="normal">2619</span>
+<span class="normal">2620</span>
+<span class="normal">2621</span>
+<span class="normal">2622</span>
+<span class="normal">2623</span>
+<span class="normal">2624</span>
+<span class="normal">2625</span>
+<span class="normal">2626</span>
+<span class="normal">2627</span>
+<span class="normal">2628</span>
+<span class="normal">2629</span>
+<span class="normal">2630</span>
+<span class="normal">2631</span>
+<span class="normal">2632</span>
+<span class="normal">2633</span>
+<span class="normal">2634</span>
+<span class="normal">2635</span>
+<span class="normal">2636</span>
+<span class="normal">2637</span>
+<span class="normal">2638</span>
+<span class="normal">2639</span>
+<span class="normal">2640</span>
+<span class="normal">2641</span>
+<span class="normal">2642</span>
+<span class="normal">2643</span>
+<span class="normal">2644</span>
+<span class="normal">2645</span>
+<span class="normal">2646</span>
+<span class="normal">2647</span>
+<span class="normal">2648</span>
+<span class="normal">2649</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -20775,7 +20847,10 @@ Controls predator-prey functional response:
         <span class="s2">"NUM_GEARS"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_GEARS</span><span class="p">,</span>
         <span class="s2">"PB"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">PBopt</span><span class="p">,</span>
         <span class="s2">"QB"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">FtimeQBOpt</span><span class="p">,</span>
-        <span class="s2">"M0"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">MzeroMort</span><span class="p">,</span>
+        <span class="c1"># A copy: the run adjusts M0 for small residuals, and those</span>
+        <span class="c1"># adjustments must not leak into scenario.params (a second run of the</span>
+        <span class="c1"># same scenario would otherwise start from different M0).</span>
+        <span class="s2">"M0"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">MzeroMort</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
         <span class="s2">"Unassim"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">UnassimRespFrac</span><span class="p">,</span>
         <span class="s2">"ActiveLink"</span><span class="p">:</span> <span class="n">_build_active_link_matrix</span><span class="p">(</span><span class="n">params</span><span class="p">),</span>
         <span class="s2">"VV"</span><span class="p">:</span> <span class="n">_build_link_matrix</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">VV</span><span class="p">),</span>
@@ -21558,20 +21633,6 @@ Controls predator-prey functional response:
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"final M0 algebraic check failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
         <span class="k">pass</span>
 
-    <span class="c1"># Persist any M0 adjustments back to the params dataclass so diagnostics</span>
-    <span class="c1"># and downstream code that read scenario.params.MzeroMort see the same values</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">if</span> <span class="s2">"M0"</span> <span class="ow">in</span> <span class="n">params_dict</span><span class="p">:</span>
-            <span class="c1"># params is the RsimParams object (scenario.params)</span>
-            <span class="n">params</span><span class="o">.</span><span class="n">MzeroMort</span> <span class="o">=</span> <span class="n">params_dict</span><span class="p">[</span><span class="s2">"M0"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="c1"># Debug sample to confirm persistence</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"persisted adjusted M0 sample=</span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">MzeroMort</span><span class="p">[:</span><span class="mi">6</span><span class="p">])</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"M0 persistence debug failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"M0 persistence debug failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-
     <span class="c1"># Build fishing dict</span>
     <span class="n">fishing_dict</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">"FishFrom"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">FishFrom</span><span class="p">,</span>
@@ -22245,6 +22306,8 @@ Controls predator-prey functional response:
             <span class="s2">"NUM_GROUPS"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span><span class="p">,</span>
             <span class="s2">"NUM_LIVING"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_LIVING</span><span class="p">,</span>
             <span class="s2">"years"</span><span class="p">:</span> <span class="n">n_years</span><span class="p">,</span>
+            <span class="c1"># M0 as used by this run, including its small-residual adjustments</span>
+            <span class="s2">"M0"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">params_dict</span><span class="p">[</span><span class="s2">"M0"</span><span class="p">])</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
         <span class="p">},</span>
         <span class="n">ecotracer</span><span class="o">=</span><span class="n">_ecotracer_result</span><span class="p">,</span>
         <span class="n">fleet_dynamics</span><span class="o">=</span><span class="n">_fleet_result</span><span class="p">,</span>
