@@ -21725,24 +21725,7 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 35</span>
-<span class="normal"> 36</span>
-<span class="normal"> 37</span>
-<span class="normal"> 38</span>
-<span class="normal"> 39</span>
-<span class="normal"> 40</span>
-<span class="normal"> 41</span>
-<span class="normal"> 42</span>
-<span class="normal"> 43</span>
-<span class="normal"> 44</span>
-<span class="normal"> 45</span>
-<span class="normal"> 46</span>
-<span class="normal"> 47</span>
-<span class="normal"> 48</span>
-<span class="normal"> 49</span>
-<span class="normal"> 50</span>
-<span class="normal"> 51</span>
-<span class="normal"> 52</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 52</span>
 <span class="normal"> 53</span>
 <span class="normal"> 54</span>
 <span class="normal"> 55</span>
@@ -21985,7 +21968,47 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 <span class="normal">292</span>
 <span class="normal">293</span>
 <span class="normal">294</span>
-<span class="normal">295</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
     <span class="n">state_spatial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
@@ -22049,6 +22072,17 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 
     <span class="c1"># Initialize derivative</span>
     <span class="n">deriv_spatial</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">state_spatial</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="c1"># Each patch holds its share of the biomass, so it also holds that share</span>
+    <span class="c1"># of the base biomass and base flows. The local dynamics are therefore</span>
+    <span class="c1"># evaluated on densities, as in EwE Ecospace: biomass divided by the</span>
+    <span class="c1"># patch's area fraction, with the whole-model Bbase/QQbase as the base</span>
+    <span class="c1"># densities. The derivative is scaled back by the area fraction (#51).</span>
+    <span class="c1"># IBM groups compute their own absolute rates, so they keep the old form.</span>
+    <span class="n">patch_share</span> <span class="o">=</span> <span class="n">_patch_area_fractions</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ibm_groups"</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"IBM groups present: patch dynamics not density-scaled"</span><span class="p">)</span>
+        <span class="n">patch_share</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># Per-patch, per-fleet effort scaling. MPA closures and spatial effort</span>
     <span class="c1"># allocation both scale a fleet's effort in a patch, so they compose.</span>
@@ -22173,8 +22207,8 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
             <span class="n">n_mask_fleets</span> <span class="o">=</span> <span class="n">patch_effort_mask</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
             <span class="n">patch_effort</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="n">n_mask_fleets</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*=</span> <span class="n">patch_effort_mask</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">,</span> <span class="p">:]</span>
             <span class="n">patch_forcing</span><span class="p">[</span><span class="s2">"ForcedEffort"</span><span class="p">]</span> <span class="o">=</span> <span class="n">patch_effort</span>
-        <span class="n">deriv_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span>
-            <span class="n">state_patch</span><span class="p">,</span> <span class="n">patch_params</span><span class="p">,</span> <span class="n">patch_forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">t</span>
+        <span class="n">deriv_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">_local_deriv</span><span class="p">(</span>
+            <span class="n">state_patch</span><span class="p">,</span> <span class="n">patch_params</span><span class="p">,</span> <span class="n">patch_forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">patch_share</span><span class="p">,</span> <span class="n">patch_idx</span>
         <span class="p">)</span>
 
     <span class="k">try</span><span class="p">:</span>
@@ -22221,16 +22255,28 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
                     <span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span> <span class="o">=</span> <span class="n">modified</span>
                     <span class="n">params</span><span class="p">[</span><span class="s2">"Bbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">modified</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="n">deriv_local</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span>
-                            <span class="n">state_patch</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">patch_forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">t</span>
+                        <span class="n">deriv_local</span> <span class="o">=</span> <span class="n">_local_deriv</span><span class="p">(</span>
+                            <span class="n">state_patch</span><span class="p">,</span>
+                            <span class="n">params</span><span class="p">,</span>
+                            <span class="n">patch_forcing</span><span class="p">,</span>
+                            <span class="n">fishing</span><span class="p">,</span>
+                            <span class="n">t</span><span class="p">,</span>
+                            <span class="n">patch_share</span><span class="p">,</span>
+                            <span class="n">patch_idx</span><span class="p">,</span>
                         <span class="p">)</span>
                     <span class="k">finally</span><span class="p">:</span>
                         <span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_ref_backup</span>
                         <span class="k">if</span> <span class="n">b_base_backup</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                             <span class="n">params</span><span class="p">[</span><span class="s2">"Bbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_backup</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">deriv_local</span> <span class="o">=</span> <span class="n">deriv_vector</span><span class="p">(</span>
-                        <span class="n">state_patch</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">patch_forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">t</span>
+                    <span class="n">deriv_local</span> <span class="o">=</span> <span class="n">_local_deriv</span><span class="p">(</span>
+                        <span class="n">state_patch</span><span class="p">,</span>
+                        <span class="n">params</span><span class="p">,</span>
+                        <span class="n">patch_forcing</span><span class="p">,</span>
+                        <span class="n">fishing</span><span class="p">,</span>
+                        <span class="n">t</span><span class="p">,</span>
+                        <span class="n">patch_share</span><span class="p">,</span>
+                        <span class="n">patch_idx</span><span class="p">,</span>
                     <span class="p">)</span>
 
                 <span class="n">deriv_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv_local</span>
@@ -22424,7 +22470,7 @@ relative to the grid mean, so total fleet effort is unchanged and
               <div class="doc-md-description">
                 <p>Flattened initial coupled state vector with shape
 <code>[(n_groups+1) * n_patches]</code>. If omitted, start biomass is
-distributed uniformly across patches.</p>
+distributed by patch area, so every patch starts at the same density.</p>
               </div>
             </td>
             <td>
@@ -22499,47 +22545,7 @@ distributed uniformly across patches.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">298</span>
-<span class="normal">299</span>
-<span class="normal">300</span>
-<span class="normal">301</span>
-<span class="normal">302</span>
-<span class="normal">303</span>
-<span class="normal">304</span>
-<span class="normal">305</span>
-<span class="normal">306</span>
-<span class="normal">307</span>
-<span class="normal">308</span>
-<span class="normal">309</span>
-<span class="normal">310</span>
-<span class="normal">311</span>
-<span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
-<span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">338</span>
 <span class="normal">339</span>
 <span class="normal">340</span>
 <span class="normal">341</span>
@@ -22860,7 +22866,49 @@ distributed uniformly across patches.</p>
 <span class="normal">656</span>
 <span class="normal">657</span>
 <span class="normal">658</span>
-<span class="normal">659</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span>
+<span class="normal">696</span>
+<span class="normal">697</span>
+<span class="normal">698</span>
+<span class="normal">699</span>
+<span class="normal">700</span>
+<span class="normal">701</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -22901,7 +22949,7 @@ distributed uniformly across patches.</p>
 <span class="sd">    initial_state_vector : np.ndarray, optional</span>
 <span class="sd">        Flattened initial coupled state vector with shape</span>
 <span class="sd">        ``[(n_groups+1) * n_patches]``. If omitted, start biomass is</span>
-<span class="sd">        distributed uniformly across patches.</span>
+<span class="sd">        distributed by patch area, so every patch starts at the same density.</span>
 <span class="sd">    store_state_vectors : bool</span>
 <span class="sd">        If True, stores per-timestep flattened state vectors as</span>
 <span class="sd">        ``output.out_StateVector`` for coupled workflow diagnostics.</span>
@@ -22961,8 +23009,10 @@ distributed uniformly across patches.</p>
     <span class="n">initial_biomass</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">start_state</span><span class="o">.</span><span class="n">Biomass</span>  <span class="c1"># [n_groups+1]</span>
 
     <span class="k">if</span> <span class="n">initial_state_vector</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Uniform density: each patch starts with its area share of every group</span>
         <span class="n">biomass_spatial0</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">initial_biomass</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">))</span> <span class="o">/</span> <span class="n">n_patches</span>
+            <span class="n">initial_biomass</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+            <span class="o">*</span> <span class="n">_patch_area_fractions</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">)[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">state_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">initial_state_vector</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
