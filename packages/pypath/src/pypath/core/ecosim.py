@@ -2238,7 +2238,13 @@ def rsim_run(
             _ftime_lower = float(getattr(params, "ForagingTimeLowerLimit", 0.1))
             _ftime_max = getattr(params, "FtimeMax", None)
             _b_src = month_start_state if _fg_ftime is not None else state
+            # EwE updates integrated groups only (NoIntegrate = i or < 0,
+            # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime.
+            _skip_fast = _fg_ftime is not None
+            _no_int = np.asarray(params.NoIntegrate)
             for i in range(1, params.NUM_LIVING + 1):
+                if _skip_fast and _no_int[i] != 0:
+                    continue
                 if _ftime_adj[i] > 0 and _b_src[i] > 0 and _ftime_qbopt[i] > 0:
                     if _fg_ftime is not None:
                         food_gain = float(_fg_ftime[i])

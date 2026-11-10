@@ -126,3 +126,47 @@ def test_ewe_rule_ftime_update_uses_the_derivatives_consumption(monkeypatch):
     per_month = len(seen) // sc.forcing.ForcedBio.shape[0]
     assert abs(expected - 1.0) > 1e-3  # the prey's Ftime does move the update
     assert seen[per_month][FISH] == pytest.approx(expected, rel=1e-9)
+
+
+def _zoo_ftime_by_month(monkeypatch, rule):
+    from .test_fast_group_rule import ZOO
+
+    model, params = _stiff_model()
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule=rule)
+    sc.params.FtimeAdj[ZOO] = 0.5
+    sc.forcing.ForcedSearch[:, PHYTO] = 0.5  # Zoo's food falls from month 1
+    return [ft[ZOO] for ft in _ftime_by_month(monkeypatch, sc)], sc
+
+
+def test_ewe_rule_leaves_fast_groups_ftime_alone(monkeypatch):
+    """EwE updates Ftime only for integrated groups (NoIntegrate = i or < 0,
+    cEcoSimModel.vb ~1761-1771); a fast group keeps its feeding time."""
+    from .test_fast_group_rule import ZOO
+
+    zoo_ft, sc = _zoo_ftime_by_month(monkeypatch, "ewe")
+    assert sc.params.NoIntegrate[ZOO] != 0  # Zoo is a fast group here
+    assert all(v == pytest.approx(1.0, abs=1e-12) for v in zoo_ft)
+
+
+def test_rpath_rule_updates_zoo_ftime(monkeypatch):
+    from .test_fast_group_rule import ZOO
+
+    zoo_ft, sc = _zoo_ftime_by_month(monkeypatch, "rpath")
+    assert sc.params.NoIntegrate[ZOO] == 0  # integrated under Rpath's rule
+    assert max(abs(v - 1.0) for v in zoo_ft) > 1e-3
+
+
+@pytest.mark.integration
+def test_lt2022_scenario15_fast_zooplankton_keeps_ftime(monkeypatch):
+    """Scenario 15 sets FtimeAdj 0.5 on Zooplankton, a fast group; EwE 6.7.144
+    keeps its FeedingTime at 1.0 in every month (oracle run, scenario 15)."""
+    if not DB_PATH.exists():
+        pytest.skip("LT2022 database not found")
+    from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+
+    sc = ecosim_scenario_from_ewemdb(str(DB_PATH), scenario=15, timeseries_dataset=35)
+    names = [str(n).strip() for n in sc.params.spname]
+    zoo = names.index("Zooplankton")
+    assert sc.params.FtimeAdj[zoo] > 0 and sc.params.NoIntegrate[zoo] != 0
+    ft = _ftime_by_month(monkeypatch, sc)
+    assert all(f[zoo] == pytest.approx(1.0, abs=1e-12) for f in ft)
