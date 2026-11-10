@@ -20,7 +20,7 @@ Status values:
 | B5 | Ecospace | EatEff and RelVulBad, migration maps, fitness-based emigration, advection mapping, frozen feeding time, zero spatial catch | P6 |
 | C1–C3 | Fitting | `fit_to_timeseries` fits catch to biomass, keeps one series per group, and uses a different q and sampling month. The LT2022 SS pin (value and history in `test_ecosim_lt2022_parity.py`) is PyPath's own linear SS, not EwE's (EwE's own SS for scenario 16 is 75.22) | P3 |
 | D1 | Ecosim | Fixed under the EwE rule: prey Ftime and vulnerability forcing enter the arena as EwE's vulnerable-pool inflow (`PREY_FTIME_ARENA`). The `"rpath"` rule keeps Rpath's linear prey term. Vulnerability-type mediation still scales consumption directly (see D3) | P4 |
-| D2 | Ecosim | Fixed under the EwE rule: the timing (start-of-month state) and the Q source (the derivative's consumption). Still open: the stanza denominator, fast groups are still updated (EwE updates integrated groups only), and RiskTime | P4 |
+| D2 | Ecosim | Fixed under the EwE rule: the timing (start-of-month state) and the Q source (the derivative's consumption). Fast groups now keep their Ftime, as in EwE (it updates integrated groups only). Still open: the stanza denominator and RiskTime | P4 |
 | D3 | Ecosim | Mediation weights, normalisation, combination and application type | P4 |
 | D4 | Ecopath | Entered EE is not recomputed; missing Q/B is not estimated; fractional Type is truncated | P5 |
 | E | Stanzas | LeadingCB, BABsplit, plus-group weight, recruitment forcing, SpawnProp and related settings | P2 |
