@@ -25,7 +25,7 @@ EcopathDietComp,ecopath,true,true,true,true,implemented,
 EcopathDietCompSample,ecopath,true,true,false,false,partial,
 EcopathDiscardFate,ecopath,true,true,true,false,partial,
 EcopathFleet,ecopath,true,true,true,true,implemented,
-EcopathGroup,ecopath,true,true,true,true,implemented,ImpVar read as the diet import share
+EcopathGroup,ecopath,true,true,true,true,partial,"ImpVar read as the diet import share; BiomAcc, BiomAccRate and DtImports read (A1); not used: BiomAccRate (with B left to Ecopath), BiomAcc (detritus groups), OtherMort, Immigration, Emigration, EmigRate, Type (fractional, mixotrophs)"
 EcopathGroupCatchSample,ecopath,true,true,true,false,partial,
 EcopathGroupPedigree,ecopath,true,true,false,false,partial,
 EcopathGroupSample,ecopath,true,true,true,false,partial,
@@ -36,13 +36,13 @@ EcopathSample,ecopath,true,true,false,false,partial,
 EcopathStanzaTaxon,ecopath,true,true,true,true,implemented,
 EcopathTaxon,ecopath,true,true,true,true,implemented,
 EcosimModel,ecosim,true,false,false,false,partial,
-EcosimScenario,ecosim,true,true,true,true,implemented,
+EcosimScenario,ecosim,true,true,true,true,partial,"not read: StepSize, SystemRecovery, sorwt, Discount, NutBaseFreeProp, NutForcingShapeID"
 EcosimScenarioArena,ecosim,true,false,false,false,partial,
 EcosimScenarioCapacityDrivers,ecosim,false,false,true,false,partial,
 EcosimScenarioFleet,ecosim,true,true,false,false,partial,
 EcosimScenarioFleetYear,ecosim,true,false,false,false,partial,
 EcosimScenarioForcingMatrix,ecosim,true,true,true,true,implemented,
-EcosimScenarioGroup,ecosim,true,true,true,true,implemented,"read by group ID: FtimeAdjust, MoPred, FtimeMax, Pbmaxs, SwitchPower"
+EcosimScenarioGroup,ecosim,true,true,true,true,partial,"read by group ID: FtimeAdjust, MoPred, FtimeMax, Pbmaxs, SwitchPower; not read: RiskTime, QmQo, CmCo, FishRateMax, AdditivePredMort"
 EcosimScenarioGroupYear,ecosim,true,false,false,false,partial,
 EcosimScenarioLandingsShape,ecosim,true,false,false,false,partial,
 EcosimScenarioMSE,ecosim,true,false,false,false,partial,
@@ -81,5 +81,5 @@ EcospaceScenarioWeightLayer,ecospace,true,true,true,true,implemented,
 EcotracerScenario,ecotracer,true,true,false,false,partial,
 EcotracerScenarioGroup,ecotracer,true,true,false,false,partial,
 Pedigree,pedigree,true,true,false,false,partial,
-Stanza,ecopath,true,true,true,true,implemented,
-StanzaLifeStage,ecopath,true,true,true,true,implemented,
+Stanza,ecopath,true,true,true,true,partial,"not read: LeadingCB, BABsplit, RecStanza, FixedFecundity, EggAtSpawn"
+StanzaLifeStage,ecopath,true,true,true,true,partial,not read: SpawnProp

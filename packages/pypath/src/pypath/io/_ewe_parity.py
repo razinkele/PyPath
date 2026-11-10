@@ -164,9 +164,50 @@ def derive_table_support() -> dict[str, dict[str, bool]]:
     return support
 
 
-def status_from_flags(flags: dict[str, bool]) -> str:
-    """Return coarse status bucket from support booleans."""
+# Columns PyPath does not read although they change results in EwE 6.7.144
+# (audit 2026-11-10, docs/plans/2026-11-10-ewe-parity-roadmap.md). A table
+# with any entry here is at most "partial", whatever the code references say.
+# Remove a column once a test proves it is read and used.
+UNREAD_RESULT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "EcopathGroup": (
+        # BiomAcc, BiomAccRate and DtImports are read (A1); these cases are not
+        "BiomAccRate (with B left to Ecopath)",
+        "BiomAcc (detritus groups)",
+        "OtherMort",
+        "Immigration",
+        "Emigration",
+        "EmigRate",
+        "Type (fractional, mixotrophs)",
+    ),
+    "EcosimScenario": (
+        "StepSize",
+        "SystemRecovery",
+        "sorwt",
+        "Discount",
+        "NutBaseFreeProp",
+        "NutForcingShapeID",
+    ),
+    "EcosimScenarioGroup": (
+        "RiskTime",
+        "QmQo",
+        "CmCo",
+        "FishRateMax",
+        "AdditivePredMort",
+    ),
+    "Stanza": ("LeadingCB", "BABsplit", "RecStanza", "FixedFecundity", "EggAtSpawn"),
+    "StanzaLifeStage": ("SpawnProp",),
+}
+
+
+def status_from_flags(flags: dict[str, bool], table_name: str | None = None) -> str:
+    """Return coarse status bucket from support booleans.
+
+    ``table_name`` caps the status at "partial" when the table is listed in
+    ``UNREAD_RESULT_COLUMNS``.
+    """
     if all(flags.values()):
+        if table_name and UNREAD_RESULT_COLUMNS.get(table_name):
+            return "partial"
         return "implemented"
     if any(flags.values()):
         return "partial"

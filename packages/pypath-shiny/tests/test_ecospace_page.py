@@ -70,3 +70,10 @@ def test_spatial_task_alert_success_uses_message():
 
     assert alert_class == "alert alert-success mt-2"
     assert "121 time steps" in message
+
+
+def test_ecospace_ui_warns_runs_are_not_ewe_equivalent():
+    """Audit 2026-11-10 B1-B4: imported Ecospace runs are not EwE output."""
+    html = str(ecospace_ui())
+    assert 'id="ecospace_parity_warning"' in html
+    assert "not equivalent to EwE Ecospace" in html

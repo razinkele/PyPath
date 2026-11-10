@@ -16,11 +16,14 @@ DB_PATH = DATA_DIR / "LT2022_0.5ST_final7.eweaccdb"
 
 pytestmark = pytest.mark.integration
 
-# EE from EwE-F Ecopath_Results.dat: all 21 living groups and Detritus
+# EE from EwE-F Ecopath_Results.dat. EwE-F's input lacked the database's
+# BiomAcc (Scoters, Long-tailed duck) and DtImports (Detritus), so those three
+# EwE-F values were computed without them and are not pinned here; they are
+# pinned against EwE's formula and EwE's stored detritus Export in
+# test_ewemdb_ba_detritus_import.py (audit A1, 2026-11-10). BA and the import
+# touch no other group's EE.
 EWEF_EE = {
     "Piscivorous birds": 0.15331,
-    "Scoters": 0.46937,
-    "Long-tailed duck": 0.69241,
     "Turbot": 0.50528,
     "Flounder": 0.37121,
     "Sprat": 0.59795,
@@ -39,7 +42,6 @@ EWEF_EE = {
     "Meiobenthos": 0.58495,
     "Zooplankton": 0.78241,
     "Phytoplankton": 0.15622,
-    "Detritus": 0.14918,
 }
 
 

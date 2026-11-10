@@ -66,3 +66,49 @@ def test_parity_matrix_matches_code_derived_support_flags() -> None:
                 f"{table_name} column '{column}' mismatch: "
                 f"matrix={actual} derived={expected[column]}"
             )
+
+
+def test_tables_with_unread_result_columns_are_not_implemented() -> None:
+    """Audit 2026-11-10 §4: these tables skip columns that change results."""
+    from pypath.io._ewe_parity import UNREAD_RESULT_COLUMNS
+
+    for table in (
+        "EcopathGroup",
+        "EcosimScenario",
+        "EcosimScenarioGroup",
+        "Stanza",
+        "StanzaLifeStage",
+    ):
+        assert UNREAD_RESULT_COLUMNS.get(table), f"{table}: no unread columns listed"
+
+
+def test_matrix_status_matches_flags_and_unread_columns() -> None:
+    from pypath.io._ewe_parity import status_from_flags
+
+    rows = _read_matrix()
+    derived = derive_table_support()
+    for row in rows:
+        table_name = row["table_name"].strip()
+        expected = status_from_flags(derived[table_name], table_name)
+        assert row["overall_status"].strip() == expected, (
+            f"{table_name}: matrix={row['overall_status']} expected={expected}"
+        )
+
+
+def test_columns_now_read_are_not_listed_unread() -> None:
+    """A1 reads BiomAcc and DtImports (test_ewemdb_ba_detritus_import.py)."""
+    from pypath.io._ewe_parity import UNREAD_RESULT_COLUMNS
+
+    unread = UNREAD_RESULT_COLUMNS["EcopathGroup"]
+    assert "BiomAcc" not in unread
+    assert "DtImports" not in unread
+
+
+def test_matrix_notes_name_every_registry_unread_column() -> None:
+    """The matrix CSV is hand-written; keep its notes in step with the registry."""
+    from pypath.io._ewe_parity import UNREAD_RESULT_COLUMNS
+
+    notes = {r["table_name"].strip(): r["notes"] for r in _read_matrix()}
+    for table, columns in UNREAD_RESULT_COLUMNS.items():
+        for column in columns:
+            assert column in notes[table], f"{table}: notes omit {column!r}"

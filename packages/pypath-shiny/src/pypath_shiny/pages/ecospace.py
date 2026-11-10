@@ -781,6 +781,19 @@ def ecospace_ui():
                 "Run spatially-explicit ecosystem simulations and visualize results.",
                 class_="text-muted mb-4",
             ),
+            # Audit vs EwE 6.7.144 (2026-11-10), findings B1-B4. Remove once
+            # roadmap phase P6 lands.
+            ui.div(
+                ui.tags.i(class_="bi bi-exclamation-triangle me-2"),
+                ui.strong("Not EwE-equivalent yet. "),
+                "Ecospace runs here are not equivalent to EwE Ecospace output: "
+                "dispersal units, capacity-driven movement and dynamic habitat "
+                "capacity still differ from EwE 6.7.144. Use them for exploration, "
+                "not for comparison with EwE results.",
+                id="ecospace_parity_warning",
+                class_="alert alert-warning",
+                role="alert",
+            ),
             class_="mb-4",
         ),
     )

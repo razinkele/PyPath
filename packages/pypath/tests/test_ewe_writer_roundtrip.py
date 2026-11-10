@@ -117,6 +117,22 @@ class TestCsvRoundTrip:
         exported_fleets = fleets["FleetName"].tolist()
         assert exported_fleets == original_fleets
 
+    def test_biomacc_dtimports_exported(self, lt2022_path, tmp_path):
+        """BioAcc and DetInput land in EwE's BiomAcc and DtImports columns."""
+        from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
+
+        params = read_ewemdb(lt2022_path)
+        outpath = tmp_path / "rt_test.ewecsv.zip"
+        write_ewemdb(params, str(outpath), backend="csv")
+
+        with zipfile.ZipFile(outpath) as zf:
+            groups = pd.read_csv(zf.open("EcopathGroup.csv"))
+
+        by_name = groups.set_index("GroupName")
+        np.testing.assert_allclose(by_name.loc["Scoters", "BiomAcc"], -0.0039)
+        np.testing.assert_allclose(by_name.loc["Detritus", "DtImports"], 1000.0)
+
 
 class TestAccessRoundTrip:
     """Full round-trip: read LT2022 -> write Access -> read back via read_ewemdb."""
@@ -161,3 +177,16 @@ class TestAccessRoundTrip:
                 assert np.isnan(b)
             else:
                 np.testing.assert_allclose(b, o, rtol=1e-6)
+
+    def test_access_biomacc_roundtrip(self, lt2022_path, tmp_path):
+        """Biomass accumulation and detritus import survive write -> read."""
+        from pypath.io.ewe_writer import write_ewemdb
+        from pypath.io.ewemdb import read_ewemdb
+
+        params_orig = read_ewemdb(lt2022_path)
+        outpath = tmp_path / "rt_access.eweaccdb"
+        write_ewemdb(params_orig, str(outpath), backend="access")
+
+        back = read_ewemdb(str(outpath)).model.set_index("Group")
+        np.testing.assert_allclose(back.loc["Scoters", "BioAcc"], -0.0039)
+        np.testing.assert_allclose(back.loc["Detritus", "DetInput"], 1000.0)
