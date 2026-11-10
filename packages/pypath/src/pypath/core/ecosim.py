@@ -203,6 +203,10 @@ class RsimParams:
     # state (rk4: EatenByAvg after the first Derivt); the 'rpath' rule keeps
     # PyPath's end-of-month consumption.
     FTIME_START_OF_MONTH: bool = True
+    # EwE6 arena: prey Ftime and vulnerability forcing scale the inflow to the
+    # vulnerable pool (saturating); the 'rpath' rule keeps Rpath's linear prey
+    # term (audit D1).
+    PREY_FTIME_ARENA: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -841,6 +845,7 @@ def rsim_params(
         NoIntegrate=no_integrate,
         RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
         FTIME_START_OF_MONTH=(fast_group_rule == "ewe"),
+        PREY_FTIME_ARENA=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -1502,6 +1507,7 @@ def rsim_run(
         "MetabolicTemperature": getattr(params, "MetabolicTemperature", None),
         "MetabolicBodyMass": getattr(params, "MetabolicBodyMass", None),
         "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
+        "PREY_FTIME_ARENA": getattr(params, "PREY_FTIME_ARENA", False),
         "MoPred": getattr(params, "MoPred", None),
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
@@ -2059,11 +2065,21 @@ def rsim_run(
             forcing_dict["ForcedF"] = _ff_rate
             forcing_dict["ForcedFReplace"] = _ff_replace
         month_start_state = state.copy()
-        # EwE6's feeding-time update uses the consumption of this state (rk4
-        # accumulates EatenByAvg after its first Derivt), so take it now.
-        _qq_ftime = None
+        # EwE6's feeding-time update uses the consumption of this state as
+        # Derivt computes it (rk4 accumulates EatenByAvg after its first
+        # Derivt), so prey Ftime and mediation are included: take the
+        # derivative's FoodGain now.
+        _fg_ftime = None
         if _has_ftime_adj and getattr(params, "FTIME_START_OF_MONTH", False):
-            _qq_ftime = _compute_Q_matrix(params_dict, month_start_state, forcing_dict)
+            _fg_rates: dict = {}
+            deriv_vector(
+                month_start_state.copy(),
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                rates=_fg_rates,
+            )
+            _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
 
         # Integration step
         if method.upper() == "RK4":
@@ -2221,13 +2237,13 @@ def rsim_run(
         if _has_ftime_adj:
             _ftime_lower = float(getattr(params, "ForagingTimeLowerLimit", 0.1))
             _ftime_max = getattr(params, "FtimeMax", None)
-            if _qq_ftime is not None:
-                _qq_src, _b_src = _qq_ftime, month_start_state
-            else:
-                _qq_src, _b_src = QQ_month, state
+            _b_src = month_start_state if _fg_ftime is not None else state
             for i in range(1, params.NUM_LIVING + 1):
                 if _ftime_adj[i] > 0 and _b_src[i] > 0 and _ftime_qbopt[i] > 0:
-                    food_gain = float(np.nansum(_qq_src[:, i]))
+                    if _fg_ftime is not None:
+                        food_gain = float(_fg_ftime[i])
+                    else:
+                        food_gain = float(np.nansum(QQ_month[:, i]))
                     _ftime_current[i] = _ftime_update_rpath(
                         _ftime_current[i],
                         _ftime_adj[i],

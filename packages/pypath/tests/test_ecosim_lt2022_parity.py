@@ -38,8 +38,11 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # fishing, cEcoSimModel.vb:3112). RK4 with Rpath's gross TotGain/TotLoss biomeq
 # gives 622.9; the AB runs above were 618.9. 624.8 with the feeding-time
 # update from the start-of-month consumption, as EwE's rk4 (end-of-month: 624.6).
+# 615.6 with that update taking the derivative's consumption (prey Ftime
+# included, as EwE's Derivt), and 617.6 with prey Ftime and vulnerability
+# forcing saturating in the arena as in EwE (D1; linear prey term: 615.6).
 # A change beyond 2 % needs a reason.
-LT2022_SS16 = 624.8
+LT2022_SS16 = 617.6
 
 
 @pytest.mark.integration

@@ -83,3 +83,46 @@ def test_lt2022_feeding_time_follows_the_ewe_oracle(monkeypatch):
             # end-of-month update is off by ~3 % at t = 14; what remains here
             # (<= 0.21 %, Herring at t = 16) is deviation D1 building up.
             assert ft[t][i] == pytest.approx(expected, rel=5e-3), (group, t)
+
+
+def test_ewe_rule_ftime_update_uses_the_derivatives_consumption(monkeypatch):
+    """EwE's CBlast is the Derivt consumption (prey Ftime, mediation included).
+
+    _compute_Q_matrix leaves prey Ftime out, so a predator whose prey forages
+    more than at base looked exactly as fed as at base.
+    """
+    from pypath.core.ecosim import _ftime_update_rpath
+
+    from .test_fast_group_rule import ZOO
+
+    model, params = _stiff_model()
+    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc.params.FtimeAdj[FISH] = 0.5
+    sc.params.FtimeAdj[ZOO] = 0.0
+    sc.start_state.Ftime[ZOO] = 1.3  # Fish's prey is more exposed from month 1
+    first = {}
+    seen = []
+    real = D.deriv_vector
+
+    def spy(state, params_, forcing, fishing, *a, **k):
+        out = real(state, params_, forcing, fishing, *a, **k)
+        if "rates" not in first and k.get("rates") is not None:
+            first.update(rates=k["rates"], state=np.array(state, float))
+        seen.append(np.array(forcing["Ftime"], float))
+        return out
+
+    monkeypatch.setattr(D, "deriv_vector", spy)
+    rsim_run(sc, method="RK4")
+    fg = first["rates"]["FoodGain"][FISH]
+    expected = _ftime_update_rpath(
+        1.0,
+        0.5,
+        sc.params.FtimeQBOpt[FISH],
+        fg,
+        first["state"][FISH],
+        lower=float(sc.params.ForagingTimeLowerLimit),
+        cap=float(sc.params.FtimeMax[FISH]),
+    )
+    per_month = len(seen) // sc.forcing.ForcedBio.shape[0]
+    assert abs(expected - 1.0) > 1e-3  # the prey's Ftime does move the update
+    assert seen[per_month][FISH] == pytest.approx(expected, rel=1e-9)

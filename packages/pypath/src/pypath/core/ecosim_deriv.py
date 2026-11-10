@@ -909,6 +909,38 @@ def prey_switch_weights(VV, QQbase, Bbase) -> np.ndarray:
     return np.nan_to_num(weights, nan=0.0, posinf=1e300)
 
 
+def ewe_prey_multiplier_arena(VV, QQbase, f):
+    """EwE6 prey Ftime / vulnerability forcing in the arena (audit D1).
+
+    EwE scales only the flow into the vulnerable pool, Veff = VulArena * f
+    (cEcoSimModel.vb:2886-2905). For a private arena that is Rpath's form with
+    the prey term B/B0 (f left out) and, per link of a prey with f != 1,
+    VV' = 1 + (VV - 1)(1 + f) / 2 and QQbase' = QQbase * VV * f / VV':
+    Q = Q0 x f K y / ((K - 1)(1 + f)/2 + y) instead of Q0 (f x) K y / (K - 1 + y).
+
+    ``VV`` and ``QQbase`` are (prey, predator) matrices; ``f`` is per prey.
+    Row 0 (a producer's link from group 0) is not remapped. Returns new arrays;
+    the inputs are not modified.
+    """
+    f = np.asarray(f, dtype=float)
+    rows = np.flatnonzero(f != 1.0)
+    rows = rows[(rows > 0) & (rows < VV.shape[0])]
+    if rows.size == 0:
+        return VV, QQbase
+    VV = np.array(VV, dtype=float)
+    QQbase = np.array(QQbase, dtype=float)
+    fr = f[rows][:, None]
+    vv_old = VV[rows, :]
+    vv_new = 1.0 + (vv_old - 1.0) * (1.0 + fr) / 2.0
+    QQbase[rows, :] = np.where(
+        vv_new > 0,
+        QQbase[rows, :] * vv_old * fr / np.where(vv_new > 0, vv_new, 1.0),
+        0.0,
+    )
+    VV[rows, :] = vv_new
+    return VV, QQbase
+
+
 def apply_prey_switching(BB, VV, QQbase, switch_power, Bbase, weights=None):
     """EwE6 prey switching as an effective vulnerability and base flow.
 
@@ -1416,6 +1448,13 @@ def deriv_vector(
         Ftime[1:] * BB[1:] / safe_bbase[1:] * ForcedPrey[1:],
         0.0,
     )
+    # EwE arena (D1): prey Ftime and vulnerability forcing enter through the
+    # vulnerable-pool inflow (remapped VV / QQbase below), not the prey term.
+    _ewe_prey_f = None
+    if params.get("PREY_FTIME_ARENA", False):
+        _ewe_prey_f = np.ones(NUM_GROUPS + 1)
+        _ewe_prey_f[1:] = Ftime[1:] * ForcedPrey[1:]
+        preyYY[1:] = np.where(Bbase[1:] > 0, BB[1:] / safe_bbase[1:], 0.0)
     if params.get("RpathPrimaryProduction", False) and Bbase[0] > 0:
         # Group 0 ("the sun") is the prey of the producers' links
         preyYY[0] = Ftime[0] * BB[0] / safe_bbase[0] * ForcedPrey[0]
@@ -1462,6 +1501,8 @@ def deriv_vector(
             params.get("SwitchBbase", Bbase),
             params.get("SwitchA"),
         )
+    if _ewe_prey_f is not None:
+        VV, QQbase = ewe_prey_multiplier_arena(VV, QQbase, _ewe_prey_f)
 
     # Extract suite-pooling parameters (None means old behaviour / no pooling)
     _ScrambleSelf = params.get("ScrambleSelf")

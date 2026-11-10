@@ -693,6 +693,8 @@ def rsim_run_spatial(
         "PP_type": params.PP_type,
         "NoIntegrate": params.NoIntegrate,
         "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
+        # EwE arena for prey Ftime / vulnerability forcing, as rsim_run (D1)
+        "PREY_FTIME_ARENA": getattr(params, "PREY_FTIME_ARENA", False),
         "MoPred": getattr(params, "MoPred", None),
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
