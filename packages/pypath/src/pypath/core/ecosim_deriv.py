@@ -1707,6 +1707,8 @@ def deriv_vector(
     for _gi in range(1, NUM_LIVING + 1):
         if QB[_gi] > 0.0:
             _GE_arr[_gi] = PB[_gi] / QB[_gi]
+    # base GE (EwE SimGE) for the fast-group biomeq; UseVarPQ may change _GE_arr
+    _GE_base = _GE_arr.copy()
     _ibm_mask = np.zeros(NUM_GROUPS + 1, dtype=np.int64)
     for _ibm_i in ibm_groups:
         if 0 <= _ibm_i <= NUM_GROUPS:
@@ -1979,6 +1981,20 @@ def deriv_vector(
             rates["TotGain"] = tot_gain
             rates["TotLoss"] = tot_gain - deriv
             rates["TotLoss"][0] = 0.0
+            # EwE6 biomeq terms (cEcoSimModel.vb:3112): a consumer gains its net
+            # production SimGE * Eatenby and loses predation, other mortality,
+            # fishing and emigration; respiration and egestion are not losses.
+            # Producers and detritus keep the terms above.
+            net_gain = tot_gain.copy()
+            net_loss = rates["TotLoss"].copy()
+            cons = np.zeros(NUM_GROUPS + 1, dtype=bool)
+            cons[1 : NUM_LIVING + 1] = (~producers[1:]) & (QB[1 : NUM_LIVING + 1] > 0)
+            net_gain[cons] = _GE_base[cons] * tot_gain[cons]
+            net_loss[cons] = (
+                _GE_arr[cons] * tot_gain[cons] * _RecruitmentMult[cons] - deriv[cons]
+            )
+            rates["NetGain"] = net_gain
+            rates["NetLoss"] = net_loss
         return deriv
 
     DetFrac_raw = params.get("DetFrac", np.zeros((NUM_GROUPS + 1, NUM_DEAD + 1)))
@@ -2261,15 +2277,23 @@ def _rk4_fast_equilibrium(rates, y_eval, y_base, mask, sorwt):
     """EwE6: (1 - SorWt) * biomeq + SorWt * B for the masked groups.
 
     ``biomeq = gain / (loss / B)`` uses the gains and losses of the derivative
-    evaluated at ``y_eval``; the blend is with the biomass at the start of the
+    evaluated at ``y_eval``: EwE's net terms (NetGain / NetLoss: a consumer's
+    net production over predation, other mortality and fishing,
+    cEcoSimModel.vb:3112), or Rpath's TotGain / TotLoss when the derivative
+    gives no net terms. The blend is with the biomass at the start of the
     sub-step, ``y_base`` (EwE6 rk4: B(i), not the stage value). Groups whose
     loss or biomass is not positive keep their start value.
     """
     out = y_base[mask].astype(float)
-    if not rates or "TotGain" not in rates or "TotLoss" not in rates:
+    if not rates:
         return out
-    gain = np.asarray(rates["TotGain"], dtype=float)[mask]
-    loss = np.asarray(rates["TotLoss"], dtype=float)[mask]
+    key_gain, key_loss = (
+        ("NetGain", "NetLoss") if "NetGain" in rates else ("TotGain", "TotLoss")
+    )
+    if key_gain not in rates or key_loss not in rates:
+        return out
+    gain = np.asarray(rates[key_gain], dtype=float)[mask]
+    loss = np.asarray(rates[key_loss], dtype=float)[mask]
     b_eval = np.asarray(y_eval, dtype=float)[mask]
     ok = (loss > 0) & (b_eval > 0) & np.isfinite(gain) & np.isfinite(loss)
     biomeq = np.where(

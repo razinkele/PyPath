@@ -878,9 +878,10 @@ def rsim_run_spatial(
         def _stage_rates():
             if not use_fast:
                 return None
+            # NetGain / NetLoss: EwE's fast-group biomeq, as integrate_rk4
             return {
                 key: np.zeros((n_groups + 1, n_patches))
-                for key in ("TotGain", "TotLoss")
+                for key in ("TotGain", "TotLoss", "NetGain", "NetLoss")
             }
 
         for sub in range(rk4_steps):

@@ -33,8 +33,12 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # This is still PyPath's own linear SS. EwE's own scenario-16 run (headless
 # oracle) gives EwE SS 75.22, a different metric; its trajectory is checked by
 # test_birds_follow_the_ewe_oracle below.
+# 624.6 under RK4, the only integrator EwE has (cEcoSimModel.vb:758), with
+# EwE's fast-group biomeq (net production over predation, other mortality and
+# fishing, cEcoSimModel.vb:3112). RK4 with Rpath's gross TotGain/TotLoss biomeq
+# gives 622.9; the AB runs above were 618.9.
 # A change beyond 2 % needs a reason.
-LT2022_SS16 = 618.9
+LT2022_SS16 = 624.6
 
 
 @pytest.mark.integration
@@ -51,7 +55,7 @@ class TestLT2022Parity:
         """Zooplankton (group 2, ecosim idx 3) should not collapse to zero."""
         from pypath.core.ecosim import rsim_run
 
-        out = rsim_run(lt2022_scenario, method="AB")
+        out = rsim_run(lt2022_scenario, method="RK4")
 
         zoo_final = out.annual_Biomass[-1, 3]
         zoo_initial = out.annual_Biomass[0, 3]
@@ -65,7 +69,7 @@ class TestLT2022Parity:
         low-biomass groups (e.g. indices 3, 5) can still hit epsilon."""
         from pypath.core.ecosim import rsim_run
 
-        out = rsim_run(lt2022_scenario, method="AB")
+        out = rsim_run(lt2022_scenario, method="RK4")
 
         assert len(out.crashed_groups) <= 2, (
             f"Too many groups crashed: {out.crashed_groups}"
@@ -77,7 +81,7 @@ class TestLT2022Parity:
         from pypath.core.ecosim import rsim_run
         from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
 
-        out = rsim_run(lt2022_scenario, method="AB")
+        out = rsim_run(lt2022_scenario, method="RK4")
 
         params = read_ewemdb(DB_PATH)
         model = rpath(params)
@@ -125,7 +129,7 @@ EWE_ORACLE_BIRDS = {
 def test_birds_follow_the_ewe_oracle(lt2022_scenario_module):
     from pypath.core.ecosim import rsim_run
 
-    out = rsim_run(lt2022_scenario_module, method="AB")
+    out = rsim_run(lt2022_scenario_module, method="RK4")
     names = [str(n).strip() for n in lt2022_scenario_module.params.spname]
     for group, (month1, month12) in EWE_ORACLE_BIRDS.items():
         i = names.index(group)
@@ -140,3 +144,20 @@ def lt2022_scenario_module():
     from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
 
     return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16, timeseries_dataset=35)
+
+
+# EwE 6.7.144 oracle, month 13: the year-2 step of the "PTOT_Baltic" production
+# forcing on Phytoplankton (x0.875) reaches the fast groups in the same month.
+# EwE integrates with RK4 only (cEcoSimModel.vb:758).
+EWE_ORACLE_MONTH13 = {"Zooplankton": 3.5051415, "Phytoplankton": 24.5586262}
+
+
+@pytest.mark.integration
+def test_fast_groups_follow_the_ewe_oracle_at_the_forcing_step(lt2022_scenario_module):
+    from pypath.core.ecosim import rsim_run
+
+    out = rsim_run(lt2022_scenario_module, method="RK4")
+    names = [str(n).strip() for n in lt2022_scenario_module.params.spname]
+    for group, month13 in EWE_ORACLE_MONTH13.items():
+        i = names.index(group)
+        assert out.out_Biomass[13, i] == pytest.approx(month13, rel=1e-3), group
