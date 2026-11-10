@@ -233,5 +233,8 @@ def test_ecospace_detritus_flat_with_import():
         gravity_strength=np.zeros(n),
     )
     out = rsim_run_spatial(sc, ecospace=eco, years=range(1, 3))
+    # each patch gets its area share of the import, so each stays flat
+    det_patch = out.out_Biomass_spatial[:, DET, :]
+    np.testing.assert_allclose(det_patch[12] / det_patch[0], 1.0, atol=1e-6)
     det = out.out_Biomass[:, DET]
     assert abs(det[12] / det[0] - 1) < 1e-6
