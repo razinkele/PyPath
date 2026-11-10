@@ -170,9 +170,9 @@ def derive_table_support() -> dict[str, dict[str, bool]]:
 # Remove a column once a test proves it is read and used.
 UNREAD_RESULT_COLUMNS: dict[str, tuple[str, ...]] = {
     "EcopathGroup": (
-        "BiomAcc",
-        "BiomAccRate",
-        "DtImports",
+        # BiomAcc, BiomAccRate and DtImports are read (A1); these cases are not
+        "BiomAccRate (with B left to Ecopath)",
+        "BiomAcc (detritus groups)",
         "OtherMort",
         "Immigration",
         "Emigration",

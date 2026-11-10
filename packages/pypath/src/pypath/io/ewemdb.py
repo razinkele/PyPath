@@ -508,15 +508,28 @@ def _resolve_group_inputs(
     the EwE 6 column is absent. As in EwE (cEcoPathModel.vb:1564-1568), a
     BiomAcc of 0 falls back to BiomAccRate * B. EwE applies that after B is
     estimated; here it needs an entered B, and a group whose B is left to
-    Ecopath gets a warning and BA = 0.
+    Ecopath gets a warning and BA = 0. Detritus BA is not modelled (EwE's
+    rate loop covers living groups only, and the Ecopath and Ecosim detritus
+    budgets here have no BA term), so it is set to 0 with a warning.
 
     Returns ``(bioacc, det_input)``: ``det_input`` is DtImports on detritus
     groups (missing -> 0) and NaN on every other group.
     """
     types = np.asarray(types, dtype=int)
+    is_det = types == 2
     bioacc = _group_column(groups_df, ("BiomAcc", "BA", "BioAcc", "BiomassAccum"))
     rate = _group_column(groups_df, ("BiomAccRate", "BioAccRate"))
     biomass = _group_column(groups_df, ("Biomass", "BiomassAreaInput", "B"))
+
+    det_ba = is_det & ((np.nan_to_num(bioacc) != 0) | (np.nan_to_num(rate) != 0))
+    if det_ba.any():
+        labels = _group_labels(groups_df)
+        logger.warning(
+            "Biomass accumulation on detritus is not modelled; BA set to 0 for %s",
+            ", ".join(labels[i] for i in np.where(det_ba)[0]),
+        )
+    bioacc = np.where(is_det, 0.0, bioacc)
+    rate = np.where(is_det, np.nan, rate)
 
     use_rate = ((bioacc == 0) | np.isnan(bioacc)) & ~np.isnan(rate) & (rate != 0)
     known_b = ~np.isnan(biomass) & (biomass > 0)
@@ -532,9 +545,29 @@ def _resolve_group_inputs(
         bioacc = np.where(unresolved, 0.0, bioacc)
 
     det_input = _group_column(groups_df, ("DtImports", "DetInput", "DetritalInput"))
-    is_det = types == 2
     det_input = np.where(is_det, np.nan_to_num(det_input, nan=0.0), np.nan)
     return bioacc, det_input
+
+
+def _drop_stanza_stage_bioacc(model: pd.DataFrame, stage_groups: Sequence[str]) -> None:
+    """Set BA to 0 on multi-stanza life stages, in place, with a warning.
+
+    EwE writes stage BA = stanza B * BABsplit into EcopathGroup.BiomAcc
+    (cCore.vb:12389) but leaves BA out of a stanza group's EE
+    (cEcoPathModel.vb:486-489, 2052-2056). PyPath's balance adds BA to every
+    living group, so the stage values are dropped to keep EwE's EE.
+    """
+    stages = {str(g).strip() for g in stage_groups}
+    on_stage = model["Group"].astype(str).str.strip().isin(stages)
+    ba = pd.to_numeric(model["BioAcc"], errors="coerce").fillna(0.0)
+    dropped = on_stage & (ba != 0)
+    if dropped.any():
+        logger.warning(
+            "Biomass accumulation on multi-stanza life stages is left out, as "
+            "EwE leaves it out of stanza-group EE; BA set to 0 for %s",
+            ", ".join(model.loc[dropped, "Group"].astype(str)),
+        )
+    model.loc[on_stage, "BioAcc"] = 0.0
 
 
 # EcopathGroup columns that change EwE results but have no PyPath equivalent
@@ -1557,6 +1590,7 @@ def read_ewemdb(
             params.stanzas.n_stanza_groups = len(stanza_df)
             params.stanzas.stgroups = pd.DataFrame(stgroups_data)
             params.stanzas.stindiv = stindiv_data_df
+            _drop_stanza_stage_bioacc(params.model, stindiv_data_df["Group"])
 
             logger.debug(
                 "Populated stanza params: %d groups",

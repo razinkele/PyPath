@@ -225,7 +225,7 @@ Every phase that moves a pin must name it in its PR. The table lists each pin's 
 | Pin | File | Moved by |
 |---|---|---|
 | LT2022 EwE-F EE (22 groups) | `test_lt2022_ewef_parity.py` | P1 (3 groups), P5 (EE recomputation, if adopted) |
-| SS16 = 637.0 | `test_ecosim_lt2022_parity.py:27` | P0 relabel; P1, P2 and P4 move it; P3 redefines it |
+| SS16 = 631.7 (637.0 before P1) | `test_ecosim_lt2022_parity.py:35` | P0 relabel; P1, P2 and P4 move it; P3 redefines it |
 | Rpath reference outputs | `test_rpath_*`, `test_detritus_*` (~20 files) | Must stay green under `compat="rpath"` in every phase |
 | Black Sea detritus self-fate xfail | Black Sea tests | P7 |
 | Stanza Q/B | new, from `stz.py` values | P2 |

@@ -260,3 +260,126 @@ def test_lt2022_detritus_with_import(lt2022_rpath):
     assert inputs == pytest.approx(6131.6, rel=1e-3)
     assert lt2022_rpath.EE[i] == pytest.approx(0.125, abs=2e-3)
     assert inputs * (1 - lt2022_rpath.EE[i]) == pytest.approx(5366.09, rel=1e-3)
+
+
+# --- review fixes: stanza and detritus BA, read_ewemdb wiring (DB-free) ------
+
+
+def test_detritus_biomacc_not_applied(caplog):
+    # EwE's BaBi loop covers living groups only (cEcoPathModel.vb:1564), and
+    # detritus BA would need the Ecopath and Ecosim detritus budgets to use it.
+    df = _groups(
+        GroupName=["Fish", "Detritus", "Pool"],
+        Biomass=[2.0, 100.0, 50.0],
+        BiomAcc=[0.0, 0.3, 0.0],
+        BiomAccRate=[0.0, 0.0, 0.1],
+    )
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        bioacc, _ = _resolve_group_inputs(df, [CONSUMER, DETRITUS, DETRITUS])
+    assert bioacc.tolist() == [0.0, 0.0, 0.0]
+    msgs = _warnings(caplog)
+    assert len(msgs) == 1
+    assert "Detritus" in msgs[0] and "Pool" in msgs[0]
+
+
+_WIRING_GROUPS = pd.DataFrame(
+    {
+        "GroupID": [1, 2, 3, 4, 5],
+        "GroupName": ["Phyto", "Zoo", "Juv fish", "Adult fish", "Detritus"],
+        "Type": [1, 0, 0, 0, 2],
+        "Biomass": [10.0, 4.0, 0.5, 2.0, 100.0],
+        "ProdBiom": [100.0, 40.0, 3.0, 1.5, -9999.0],
+        "ConsBiom": [0.0, 150.0, 20.0, 5.0, -9999.0],
+        "EcoEfficiency": [-9999.0] * 5,
+        "ProdCons": [-9999.0] * 5,
+        "Unassim": [0.0, 0.2, 0.2, 0.2, 0.0],
+        # Zoo BA is entered; the fish stages carry EwE's BABsplit stage BA
+        "BiomAcc": [0.0, -0.4, -0.05, -0.2, 0.0],
+        "BiomAccRate": [0.0] * 5,
+        "DtImports": [0.0, 0.0, 0.0, 0.0, 1000.0],
+    }
+)
+_WIRING_DIET = pd.DataFrame(
+    {
+        "PredID": [2, 3, 4, 4, 1, 2, 3, 4],
+        "PreyID": [1, 2, 2, 3, 5, 5, 5, 5],
+        "Diet": [1.0, 1.0, 0.7, 0.3, 0.0, 0.0, 0.0, 0.0],
+        "DetritusFate": [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+    }
+)
+_STANZA = pd.DataFrame(
+    {
+        "StanzaID": [1],
+        "StanzaName": ["Fish"],
+        "BABsplit": [-0.1],
+        "LeadingLifeStage": [2],
+        "LeadingCB": [2],
+    }
+)
+_STANZA_LIFE = pd.DataFrame(
+    {
+        "StanzaID": [1, 1],
+        "GroupID": [3, 4],
+        "Sequence": [1, 2],
+        "AgeStart": [0, 24],
+        "Mortality": [3.0, 1.5],
+    }
+)
+
+
+def _read_mocked(tables):
+    import os
+    import tempfile
+    from unittest.mock import patch
+
+    from pypath.io.ewemdb import EwEDatabaseError, read_ewemdb
+
+    def read(filepath, table):
+        if table in tables:
+            return tables[table]
+        raise EwEDatabaseError(f"Unknown table: {table}")
+
+    with tempfile.NamedTemporaryFile(suffix=".eweaccdb", delete=False) as f:
+        path = f.name
+    try:
+        with patch("pypath.io.ewemdb.read_ewemdb_table", side_effect=read):
+            return read_ewemdb(path)
+    finally:
+        os.unlink(path)
+
+
+def _model_col(params, col):
+    m = params.model
+    return dict(zip(m["Group"], m[col]))
+
+
+def test_read_ewemdb_carries_biomacc_and_dtimports():
+    """Wiring in read_ewemdb itself, so CI (no Data/) catches its removal."""
+    params = _read_mocked(
+        {"EcopathGroup": _WIRING_GROUPS, "EcopathDietComp": _WIRING_DIET}
+    )
+    ba = _model_col(params, "BioAcc")
+    det = _model_col(params, "DetInput")
+    assert ba["Zoo"] == pytest.approx(-0.4)
+    assert det["Detritus"] == pytest.approx(1000.0)
+    assert np.isnan(det["Zoo"])
+
+
+def test_stanza_stage_biomacc_dropped(caplog):
+    # EwE writes stage BA = stanza B * BABsplit (cCore.vb:12389) and leaves it
+    # out of stanza-group EE (cEcoPathModel.vb:486-489, 2052-2056)
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        params = _read_mocked(
+            {
+                "EcopathGroup": _WIRING_GROUPS,
+                "EcopathDietComp": _WIRING_DIET,
+                "Stanza": _STANZA,
+                "StanzaLifeStage": _STANZA_LIFE,
+            }
+        )
+    ba = _model_col(params, "BioAcc")
+    assert ba["Juv fish"] == 0.0
+    assert ba["Adult fish"] == 0.0
+    assert ba["Zoo"] == pytest.approx(-0.4)  # non-stanza BA kept
+    msgs = [m for m in _warnings(caplog) if "Juv fish" in m]
+    assert len(msgs) == 1 and "Adult fish" in msgs[0]

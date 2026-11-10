@@ -93,3 +93,22 @@ def test_matrix_status_matches_flags_and_unread_columns() -> None:
         assert row["overall_status"].strip() == expected, (
             f"{table_name}: matrix={row['overall_status']} expected={expected}"
         )
+
+
+def test_columns_now_read_are_not_listed_unread() -> None:
+    """A1 reads BiomAcc and DtImports (test_ewemdb_ba_detritus_import.py)."""
+    from pypath.io._ewe_parity import UNREAD_RESULT_COLUMNS
+
+    unread = UNREAD_RESULT_COLUMNS["EcopathGroup"]
+    assert "BiomAcc" not in unread
+    assert "DtImports" not in unread
+
+
+def test_matrix_notes_name_every_registry_unread_column() -> None:
+    """The matrix CSV is hand-written; keep its notes in step with the registry."""
+    from pypath.io._ewe_parity import UNREAD_RESULT_COLUMNS
+
+    notes = {r["table_name"].strip(): r["notes"] for r in _read_matrix()}
+    for table, columns in UNREAD_RESULT_COLUMNS.items():
+        for column in columns:
+            assert column in notes[table], f"{table}: notes omit {column!r}"
