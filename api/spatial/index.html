@@ -23171,7 +23171,8 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">990</span>
 <span class="normal">991</span>
 <span class="normal">992</span>
-<span class="normal">993</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">993</span>
+<span class="normal">994</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23552,9 +23553,10 @@ distributed by patch area, so every patch starts at the same density.</p>
         <span class="k">def</span><span class="w"> </span><span class="nf">_stage_rates</span><span class="p">():</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">use_fast</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
+            <span class="c1"># NetGain / NetLoss: EwE's fast-group biomeq, as integrate_rk4</span>
             <span class="k">return</span> <span class="p">{</span>
                 <span class="n">key</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">))</span>
-                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"TotGain"</span><span class="p">,</span> <span class="s2">"TotLoss"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"TotGain"</span><span class="p">,</span> <span class="s2">"TotLoss"</span><span class="p">,</span> <span class="s2">"NetGain"</span><span class="p">,</span> <span class="s2">"NetLoss"</span><span class="p">)</span>
             <span class="p">}</span>
 
         <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rk4_steps</span><span class="p">):</span>
