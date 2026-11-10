@@ -221,7 +221,8 @@ class TestEcosimRunScenario16:
     def sim_output(self, ecosim_scenario_16):
         from pypath.core.ecosim import rsim_run
 
-        return rsim_run(ecosim_scenario_16, method="AB")
+        # RK4, the only integrator EwE has, as the pin in test_ecosim_lt2022_parity
+        return rsim_run(ecosim_scenario_16, method="RK4")
 
     def test_simulation_completes(self, sim_output):
         assert sim_output is not None

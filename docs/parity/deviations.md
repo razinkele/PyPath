@@ -31,6 +31,7 @@ Status values:
 
 | ID | Area | Difference | Reason |
 |---|---|---|---|
+| AB-fast | Ecosim | With `method="AB"`, fast groups (NoIntegrate) use Rpath adams_run's biomeq, TotGain / (TotLoss / B), which counts all consumption as gain and respiration as loss. EwE has only RK4 (`cEcoSimModel.vb:758`). Under RK4 with the EwE fast-group rule, PyPath uses EwE's net biomeq (`cEcoSimModel.vb:3112`) | AB reproduces Rpath's integrator, so its fast-group update stays Rpath's. EwE-equivalent runs use RK4, which is the default |
 | A2-space | Ecospace | Detritus import (DtImports) enters every patch's detritus, per unit area, so a balanced model stays balanced at t = 0. EwE 6.7.144 Ecospace leaves it out of the detritus inflow, `Immig x DtImpMult + ToDetritus` (`cSpaceSolver.vb:1043`, `cEcoSpace.vb:3514`), but keeps it in the export rate taken from Ecosim's first `Derivt` (`cEcoSpace.vb:2427`, `cEcoSimModel.vb:3206`), so EwE Ecospace detritus drifts down from t = 0 when there is an import | The EwE form loses mass with every step; PyPath's matches Ecosim, which EwE balances. Ecospace is not EwE-equivalent anyway (B1-B5). Rpath-compatible behaviour will be kept behind `compat="rpath"` (roadmap decision D1), not listed here |
 
 ## EwE 6.7.144 behaviour reproduced on purpose

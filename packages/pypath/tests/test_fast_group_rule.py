@@ -114,3 +114,40 @@ def test_ewemdb_scenario_takes_the_rule():
         pytest.skip(f"No EwE database driver: {e}")
     assert sc.params.RK4_STEPS == 4
     assert not sc.params.RK4_FAST_EQUILIBRIUM
+
+
+def test_ewe_rk4_fast_consumer_uses_net_production(monkeypatch):
+    """EwE6 biomeq for a fast consumer is net production over non-metabolic loss.
+
+    cEcoSimModel.vb:3112: biomeq = (Immig + SimGE * Eatenby + pbb * B) / (loss / B),
+    loss = predation + other mortality + fishing (+ emigration). Rpath's
+    TotGain / TotLoss (all consumption over consumption*(1 - GE) + losses)
+    agrees only at equilibrium and damps the response away from it.
+    """
+    import pypath.core.ecosim_deriv as D
+    from pypath.core.ecosim import rsim_run
+
+    model, params = _stiff_model()
+    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc.forcing.ForcedSearch[:, PHYTO] = 0.8  # production cut pushes Zoo off balance
+    calls = []
+    real = D._rk4_fast_equilibrium
+
+    def spy(rates, y_eval, y_base, mask, sorwt):
+        out = real(rates, y_eval, y_base, mask, sorwt)
+        calls.append(
+            (rates, np.array(y_eval, float), np.array(y_base, float), mask, sorwt, out)
+        )
+        return out
+
+    monkeypatch.setattr(D, "_rk4_fast_equilibrium", spy)
+    rsim_run(sc, method="RK4")
+    # month 1: three stage updates, then the end-of-step update
+    rates, y_eval, y_base, mask, sorwt, out = calls[3]
+    ge0 = model.PB[ZOO - 1] / model.QB[ZOO - 1]
+    gain = ge0 * rates["FoodGain"][ZOO]
+    loss = rates["FoodLoss"][ZOO] + rates["MzeroLoss"][ZOO] + rates["FishingLoss"][ZOO]
+    expected = (1 - sorwt) * gain / (loss / y_eval[ZOO]) + sorwt * y_base[ZOO]
+    zoo_pos = int(np.flatnonzero(np.flatnonzero(mask) == ZOO)[0])
+    assert gain / (loss / y_eval[ZOO]) < 0.99 * y_eval[ZOO]  # really off balance
+    assert out[zoo_pos] == pytest.approx(expected, rel=1e-9)
