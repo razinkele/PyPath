@@ -18,9 +18,9 @@ Status values:
 | A1-det | Reader / Ecopath / Ecosim | Biomass accumulation on detritus groups is not modelled: the reader warns and sets it to 0. EwE subtracts it from the detritus export (`cEcoSimModel.vb:3206`) | P5 |
 | B1–B4 | Ecospace | Dispersal units, capacity-driven movement, RK4 stability and static habitat capacity. **Ecospace runs of imported models are not EwE Ecospace output**, and the Shiny Ecospace page says so | P6 |
 | B5 | Ecospace | EatEff and RelVulBad, migration maps, fitness-based emigration, advection mapping, frozen feeding time, zero spatial catch | P6 |
-| C1–C3 | Fitting | `fit_to_timeseries` fits catch to biomass, keeps one series per group, and uses a different q and sampling month. The LT2022 SS pin (618.9; history in `test_ecosim_lt2022_parity.py`) is PyPath's own linear SS, not EwE's (EwE's own SS for scenario 16 is 75.22) | P3 |
-| D1 | Ecosim | Prey Ftime and vulnerability forcing scale consumption linearly; EwE saturates them in the arena | P4 |
-| D2 | Ecosim | Feeding-time update timing, Q source, stanza denominator, groups updated, RiskTime | P4 |
+| C1–C3 | Fitting | `fit_to_timeseries` fits catch to biomass, keeps one series per group, and uses a different q and sampling month. The LT2022 SS pin (value and history in `test_ecosim_lt2022_parity.py`) is PyPath's own linear SS, not EwE's (EwE's own SS for scenario 16 is 75.22) | P3 |
+| D1 | Ecosim | Fixed under the EwE rule: prey Ftime and vulnerability forcing enter the arena as EwE's vulnerable-pool inflow (`PREY_FTIME_ARENA`). The `"rpath"` rule keeps Rpath's linear prey term. Vulnerability-type mediation still scales consumption directly (see D3) | P4 |
+| D2 | Ecosim | Fixed under the EwE rule: the timing (start-of-month state) and the Q source (the derivative's consumption). Still open: the stanza denominator, fast groups are still updated (EwE updates integrated groups only), and RiskTime | P4 |
 | D3 | Ecosim | Mediation weights, normalisation, combination and application type | P4 |
 | D4 | Ecopath | Entered EE is not recomputed; missing Q/B is not estimated; fractional Type is truncated | P5 |
 | E | Stanzas | LeadingCB, BABsplit, plus-group weight, recruitment forcing, SpawnProp and related settings | P2 |
@@ -32,6 +32,7 @@ Status values:
 | ID | Area | Difference | Reason |
 |---|---|---|---|
 | AB-fast | Ecosim | With `method="AB"`, fast groups (NoIntegrate) use Rpath adams_run's biomeq, TotGain / (TotLoss / B), which counts all consumption as gain and respiration as loss. EwE has only RK4 (`cEcoSimModel.vb:758`). Under RK4 with the EwE fast-group rule, PyPath uses EwE's net biomeq (`cEcoSimModel.vb:3112`) | AB reproduces Rpath's integrator, so its fast-group update stays Rpath's. EwE-equivalent runs use RK4, which is the default |
+| ewe-default | Ecosim | The default fast-group rule is `"ewe"`, also for models built from Rpath-style CSVs. Such models therefore get EwE's fast-group biomeq, feeding-time update (start-of-month, from the derivative's consumption) and arena (D1) whenever those features are active (fast groups, FtimeAdj > 0, ForcedPrey != 1) | `fast_group_rule="rpath"` reproduces Rpath's behaviour (roadmap decision D1, compat switch) |
 | A2-space | Ecospace | Detritus import (DtImports) enters every patch's detritus, per unit area, so a balanced model stays balanced at t = 0. EwE 6.7.144 Ecospace leaves it out of the detritus inflow, `Immig x DtImpMult + ToDetritus` (`cSpaceSolver.vb:1043`, `cEcoSpace.vb:3514`), but keeps it in the export rate taken from Ecosim's first `Derivt` (`cEcoSpace.vb:2427`, `cEcoSimModel.vb:3206`), so EwE Ecospace detritus drifts down from t = 0 when there is an import | The EwE form loses mass with every step; PyPath's matches Ecosim, which EwE balances. Ecospace is not EwE-equivalent anyway (B1-B5). Rpath-compatible behaviour will be kept behind `compat="rpath"` (roadmap decision D1), not listed here |
 
 ## EwE 6.7.144 behaviour reproduced on purpose

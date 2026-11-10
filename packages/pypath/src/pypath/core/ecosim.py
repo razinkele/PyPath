@@ -203,6 +203,10 @@ class RsimParams:
     # state (rk4: EatenByAvg after the first Derivt); the 'rpath' rule keeps
     # PyPath's end-of-month consumption.
     FTIME_START_OF_MONTH: bool = True
+    # EwE6 arena: prey Ftime and vulnerability forcing scale the inflow to the
+    # vulnerable pool (saturating); the 'rpath' rule keeps Rpath's linear prey
+    # term (audit D1).
+    PREY_FTIME_ARENA: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -841,6 +845,7 @@ def rsim_params(
         NoIntegrate=no_integrate,
         RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
         FTIME_START_OF_MONTH=(fast_group_rule == "ewe"),
+        PREY_FTIME_ARENA=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -1502,6 +1507,7 @@ def rsim_run(
         "MetabolicTemperature": getattr(params, "MetabolicTemperature", None),
         "MetabolicBodyMass": getattr(params, "MetabolicBodyMass", None),
         "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
+        "PREY_FTIME_ARENA": getattr(params, "PREY_FTIME_ARENA", False),
         "MoPred": getattr(params, "MoPred", None),
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
