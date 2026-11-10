@@ -18,7 +18,7 @@ Status values:
 | A1-det | Reader / Ecopath / Ecosim | Biomass accumulation on detritus groups is not modelled: the reader warns and sets it to 0. EwE subtracts it from the detritus export (`cEcoSimModel.vb:3206`) | P5 |
 | B1–B4 | Ecospace | Dispersal units, capacity-driven movement, RK4 stability and static habitat capacity. **Ecospace runs of imported models are not EwE Ecospace output**, and the Shiny Ecospace page says so | P6 |
 | B5 | Ecospace | EatEff and RelVulBad, migration maps, fitness-based emigration, advection mapping, frozen feeding time, zero spatial catch | P6 |
-| C1–C3 | Fitting | `fit_to_timeseries` fits catch to biomass, keeps one series per group, and uses a different q and sampling month. The LT2022 SS pin (631.7 since A1/A2, 637.0 before) is PyPath's own linear SS, not EwE's | P3 |
+| C1–C3 | Fitting | `fit_to_timeseries` fits catch to biomass, keeps one series per group, and uses a different q and sampling month. The LT2022 SS pin (618.9; history in `test_ecosim_lt2022_parity.py`) is PyPath's own linear SS, not EwE's (EwE's own SS for scenario 16 is 75.22) | P3 |
 | D1 | Ecosim | Prey Ftime and vulnerability forcing scale consumption linearly; EwE saturates them in the arena | P4 |
 | D2 | Ecosim | Feeding-time update timing, Q source, stanza denominator, groups updated, RiskTime | P4 |
 | D3 | Ecosim | Mediation weights, normalisation, combination and application type | P4 |
@@ -32,3 +32,12 @@ Status values:
 | ID | Area | Difference | Reason |
 |---|---|---|---|
 | A2-space | Ecospace | Detritus import (DtImports) enters every patch's detritus, per unit area, so a balanced model stays balanced at t = 0. EwE 6.7.144 Ecospace leaves it out of the detritus inflow, `Immig x DtImpMult + ToDetritus` (`cSpaceSolver.vb:1043`, `cEcoSpace.vb:3514`), but keeps it in the export rate taken from Ecosim's first `Derivt` (`cEcoSpace.vb:2427`, `cEcoSimModel.vb:3206`), so EwE Ecospace detritus drifts down from t = 0 when there is an import | The EwE form loses mass with every step; PyPath's matches Ecosim, which EwE balances. Ecospace is not EwE-equivalent anyway (B1-B5). Rpath-compatible behaviour will be kept behind `compat="rpath"` (roadmap decision D1), not listed here |
+
+## EwE 6.7.144 behaviour reproduced on purpose
+
+PyPath follows what EwE 6.7.144 actually does, even where that comes from an EwE defect. The headless EwE oracle run is the evidence.
+
+| ID | Area | EwE behaviour | PyPath |
+|---|---|---|---|
+| R1 | Reader / Ecosim | `EcosimScenario.UseVarPQ` stored True is loaded as False: `cEwEDatabase.ReadSafe` treats a Boolean True as its -9999 "ignore" value (`Convert.ToBoolean(-9999)` is True) and returns the default, False (`cDBDataSource.vb:3739`). The variable P/Q never runs; the oracle shows GE/GE0 = 1 for every LT2022 group in every month | `ecosim_scenario_from_ewemdb` sets `UseVarPQ = False` and warns when the stored flag is True. Set `params.UseVarPQ = True` to use the variable P/Q |
+

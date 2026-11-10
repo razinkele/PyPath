@@ -11,10 +11,9 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # Regression pin, NOT EwE's sum of squares (audit 2026-11-10, C3): this is a
 # linear sum of (annual mean B/B0 - obs)^2 over dataset 35's biomass series,
 # with no q, no weights and no catch series. EwE's SS is weighted and
-# logarithmic, sum W*(ln(obs/B_month6) - q)^2, so 637.0 guards PyPath against
+# logarithmic, sum W*(ln(obs/B_month6) - q)^2, so the pin guards PyPath against
 # regressions and says nothing about agreement with EwE.
-# No EwE 6 reference SS for this calibrated
-# scenario is available. History: ~725 was quoted as an "old broken baseline";
+# History: ~725 was quoted as an "old broken baseline";
 # the limit was relaxed to 1100 on 2026-10-24 (message left at 800); SS was
 # 1084.9 before the detritus/discard fate reading fix (#29) and 1101.2 after
 # it. Every value up to there was computed with the scenario's vulnerabilities
@@ -29,10 +28,13 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # with the diet import of Piscivorous birds read (EcopathGroup.ImpVar), and
 # 631.7 with biomass accumulation and detritus import read (A1/A2: Scoters and
 # Long-tailed duck BiomAcc, Detritus DtImports 1000; zeroing those three
-# reproduces 637.0). 631.7 is PyPath's own output, not checked against EwE.
-# The real reference is EwE6's own scenario-16 trajectory.
+# reproduces 637.0), and 618.9 with UseVarPQ off as EwE 6.7.144 runs it (the
+# stored True is lost to a cEwEDatabase.ReadSafe bug; forcing it on gives 631.7).
+# This is still PyPath's own linear SS. EwE's own scenario-16 run (headless
+# oracle) gives EwE SS 75.22, a different metric; its trajectory is checked by
+# test_birds_follow_the_ewe_oracle below.
 # A change beyond 2 % needs a reason.
-LT2022_SS16 = 631.7
+LT2022_SS16 = 618.9
 
 
 @pytest.mark.integration
@@ -107,3 +109,34 @@ class TestLT2022Parity:
         assert abs(total_ss - LT2022_SS16) <= 0.02 * LT2022_SS16, (
             f"SS={total_ss:.1f}, pinned at {LT2022_SS16} (+/- 2 %)"
         )
+
+
+# EwE 6.7.144's own scenario-16 run (headless EwECore oracle, runs 42860867155
+# and 42863343066, identical): biomass at the end of months 1 and 12. The birds
+# carry biomass accumulation, so they test the BA path and the variable P/Q
+# setting together. EwE computes in single precision.
+EWE_ORACLE_BIRDS = {
+    "Scoters": (0.038677871, 0.035548966),
+    "Long-tailed duck": (0.005950296, 0.005438729),
+}
+
+
+@pytest.mark.integration
+def test_birds_follow_the_ewe_oracle(lt2022_scenario_module):
+    from pypath.core.ecosim import rsim_run
+
+    out = rsim_run(lt2022_scenario_module, method="AB")
+    names = [str(n).strip() for n in lt2022_scenario_module.params.spname]
+    for group, (month1, month12) in EWE_ORACLE_BIRDS.items():
+        i = names.index(group)
+        assert out.out_Biomass[1, i] == pytest.approx(month1, rel=1e-5), group
+        assert out.out_Biomass[12, i] == pytest.approx(month12, rel=2e-3), group
+
+
+@pytest.fixture(scope="module")
+def lt2022_scenario_module():
+    if not Path(DB_PATH).exists():
+        pytest.skip("LT2022 database not found")
+    from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+
+    return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16, timeseries_dataset=35)

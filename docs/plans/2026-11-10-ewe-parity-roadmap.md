@@ -21,7 +21,7 @@ Until rule 3 holds, phase exits are labelled **formula parity**: matching transc
 All seven recommendations below were approved on 2026-11-10:
 
 - **D1:** one global `compat="ewe"|"rpath"` switch, built in P2, the first phase that needs it.
-- **D2:** a headless EwECore spike, falling back to your own exports. The spike has not run yet: the background agent was refused by the permission check, so it needs your go-ahead.
+- **D2:** a headless EwECore spike, falling back to your own exports. **Spike verdict (2026-11-10): feasible.** The unmodified EwE 6.7.144 core (tag `v6.7.144`) runs headless on a GitHub Actions Windows runner, in the private repo `razinkele/ewe-oracle`. Linux can't open `.eweaccdb` files, because EwE's Access layer uses OleDb/ACE. Exit criterion met: the LT2022 detritus export is 5366.089. LT2022 inputs and Ecopath match PyPath to single precision. First finding: EwE loads `UseVarPQ` as False (deviation R1).
 - **D3:** oracles stay outside the repo, and only their numbers are committed; production code is reimplemented from the equations.
 - **D4:** Tier 1 first, then Tier 2.
 - **D5:** Ecotracer is relabelled.
@@ -225,7 +225,7 @@ Every phase that moves a pin must name it in its PR. The table lists each pin's 
 | Pin | File | Moved by |
 |---|---|---|
 | LT2022 EwE-F EE (22 groups) | `test_lt2022_ewef_parity.py` | P1 (3 groups), P5 (EE recomputation, if adopted) |
-| SS16 = 631.7 (637.0 before P1) | `test_ecosim_lt2022_parity.py:35` | P0 relabel; P1, P2 and P4 move it; P3 redefines it |
+| SS16 = 618.9 (631.7 after P1, 637.0 before) | `test_ecosim_lt2022_parity.py:37` | P0 relabel; P1, P2 and P4 move it; P3 redefines it |
 | Rpath reference outputs | `test_rpath_*`, `test_detritus_*` (~20 files) | Must stay green under `compat="rpath"` in every phase |
 | Black Sea detritus self-fate xfail | Black Sea tests | P7 |
 | Stanza Q/B | new, from `stz.py` values | P2 |

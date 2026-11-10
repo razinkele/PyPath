@@ -3395,9 +3395,20 @@ def _build_scenario_overrides(
 
     # Scenario-level options (EcosimScenario).
     settings = scenario_meta.get("ecosim_settings") or {}
+    # EwE 6.7.144 always runs with UseVarPQ False: cEwEDatabase.ReadSafe treats
+    # a stored Boolean True as its -9999 "ignore" value (Convert.ToBoolean of
+    # -9999 is True) and returns the default, False (cDBDataSource.vb:3739).
+    # Confirmed by the headless EwE run of LT2022 scenario 16. PyPath follows
+    # EwE; set params.UseVarPQ = True after import to use the variable P/Q.
     use_var_pq = settings.get("UseVarPQ")
     if use_var_pq is not None and not pd.isna(use_var_pq):
-        overrides["use_var_pq"] = bool(use_var_pq)
+        if bool(use_var_pq):
+            logger.warning(
+                "EcosimScenario.UseVarPQ is set, but EwE 6.7.144 loads it as "
+                "False (cEwEDatabase.ReadSafe bug), so the variable P/Q is off "
+                "here too; set params.UseVarPQ = True to use it"
+            )
+        overrides["use_var_pq"] = False
     lower = settings.get("ForagingTimeLowerLimit")
     if lower is not None and not pd.isna(lower) and float(lower) >= 0:
         overrides["foraging_time_lower_limit"] = float(lower)

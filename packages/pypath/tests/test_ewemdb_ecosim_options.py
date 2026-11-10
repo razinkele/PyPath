@@ -1,8 +1,9 @@
 """The importer reads the EwE6 Ecosim options a calibrated model relies on.
 
 LT2022 scenario 16: MoPred 1 on every group, FtimeMax 2 (1 for Phytoplankton
-and Detritus), UseVarPQ True, ForagingTimeLowerLimit 0.01, and EcopathGroup.vbK
-per group (EwE6 uses it for the variable P/Q).
+and Detritus), ForagingTimeLowerLimit 0.01, and EcopathGroup.vbK per group.
+The database stores UseVarPQ True, but EwE 6.7.144 loads it as False (a
+ReadSafe bug), so the variable P/Q is off, as in EwE.
 """
 
 from pathlib import Path
@@ -42,7 +43,8 @@ def test_mopred_and_ftime_max_follow_the_scenario_group_table(scenario):
 
 
 def test_scenario_level_options(scenario):
-    assert scenario.params.UseVarPQ is True
+    # stored True; EwE 6.7.144 runs with False (oracle run 42863343066)
+    assert scenario.params.UseVarPQ is False
     assert scenario.params.ForagingTimeLowerLimit == pytest.approx(0.01)
 
 
