@@ -226,7 +226,8 @@ def test_lt2022_scenario_warns_risktime(caplog):
 
     with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
         try:
-            ecosim_scenario_from_ewemdb(str(LT2022), scenario=16)
+            # RiskTime is set (0.5 or 1.0) only in LT2022 scenarios 10-12
+            ecosim_scenario_from_ewemdb(str(LT2022), scenario=10)
         except EwEDatabaseError as e:
             pytest.skip(f"No EwE database driver: {e}")
     assert any("RiskTime" in m for m in _warnings(caplog))
