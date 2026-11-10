@@ -209,6 +209,9 @@ class RsimParams:
     ForagingTimeLowerLimit: float = 0.1  # EwE6: 0.01
     UseVarPQ: bool = False  # GE = AssimEff * Z / (Z + 3 K)
     SwitchPower: Optional[np.ndarray] = None  # EwE6 prey switching per predator
+    # Constant detritus import per group, indexed like B_BaseRef (EwE
+    # DetInFlow, cEcoSimModel.vb:3119-3124); None or zeros = no import.
+    DetInput: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -839,6 +842,7 @@ def rsim_params(
         MoPred=np.zeros(ngroups + 1),
         FtimeMax=np.full(ngroups + 1, 2.0),
         SwitchPower=np.zeros(ngroups + 1),
+        DetInput=_det_input_vector(rpath, ngroups),
         VbK=np.zeros(ngroups + 1),
         AssimEff=np.zeros(ngroups + 1),
         HandleSelf=handle_self,
@@ -1058,7 +1062,8 @@ def _fast_group_flags(
     consumption + export*B, and the export rate is set at the start to close
     the detritus budget, so the loss equals the inflow minus the biomass
     accumulation: other-mortality and unassimilated flows routed by the
-    detritus fate, plus discards. Evaluated at the Ecopath base, which is
+    detritus fate, plus discards, plus the detritus import (DtImp enters the
+    export rate, cEcoSimModel.vb:3207). Evaluated at the Ecopath base, which is
     where EwE evaluates its first derivative.
 
     ``"rpath"``: Rpath's rule, other-mortality flow M0*B above the threshold
@@ -1097,6 +1102,9 @@ def _fast_group_flags(
         for k in range(1, len(fish_q)):
             if fish_to[k] == d:
                 inflow += fish_q[k] * b_baseref[fish_from[k]]
+        det_input = getattr(rpath, "DetInput", None)
+        if det_input is not None and d - 1 < len(det_input):
+            inflow += float(np.nan_to_num(det_input[d - 1]))
         loss[d] = inflow - (ba[d - 1] if d - 1 < len(ba) else 0.0)
 
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -1105,6 +1113,15 @@ def _fast_group_flags(
     flags[0] = 0
     flags[nbio + 1 :] = 0
     return flags
+
+
+def _det_input_vector(rpath, ngroups: int) -> np.ndarray:
+    """Rpath.DetInput as an rsim vector (index 0 = Outside)."""
+    out = np.zeros(ngroups + 1)
+    det_input = np.asarray(getattr(rpath, "DetInput", np.zeros(0)), dtype=float)
+    if len(det_input) == ngroups:
+        out[1:] = np.nan_to_num(det_input, nan=0.0)
+    return out
 
 
 def rsim_scenario(
@@ -1485,6 +1502,7 @@ def rsim_run(
         "VbK": getattr(params, "VbK", None),
         "AssimEff": getattr(params, "AssimEff", None),
         "SwitchPower": getattr(params, "SwitchPower", None),
+        "DetInput": getattr(params, "DetInput", None),
     }
     _set_switch_weights(params_dict)
 

@@ -8,7 +8,7 @@ that performs mass-balance calculations for food web models.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Tuple, Union
 
 import numpy as np
@@ -128,6 +128,9 @@ class Rpath:
     Discards: np.ndarray
     eco_name: str = ""
     eco_area: float = 1.0
+    # Detritus import per group (t/km2/yr, 0 except on detritus groups);
+    # Ecosim adds it as a constant inflow (EwE DetInFlow, audit A2)
+    DetInput: np.ndarray = field(default_factory=lambda: np.zeros(0))
 
     def __repr__(self) -> str:
         max_ee = np.nanmax(self.EE[: self.NUM_LIVING + self.NUM_DEAD])
@@ -662,6 +665,8 @@ def rpath(
             else 0.0
         )
     det_input = np.nan_to_num(det_input, nan=0.0)
+    det_input_full = np.zeros(ngroups)
+    det_input_full[dead_idx] = det_input
 
     # Stage 1: Inputs from living + gear sources only (not other detritus)
     living_fleet_idx = np.concatenate([living_idx, fleet_idx])
@@ -830,6 +835,7 @@ def rpath(
         Discards=discardmat,
         eco_name=eco_name,
         eco_area=eco_area,
+        DetInput=det_input_full,
     )
 
     if debug:

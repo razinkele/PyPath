@@ -769,6 +769,7 @@ def _rpath_detritus_derivs(
     NUM_LIVING,
     NUM_DEAD,
     import_q=None,
+    det_input=None,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -777,7 +778,9 @@ def _rpath_detritus_derivs(
     source loses that flow. Discards gain the catch of every fishing link
     whose ``FishTo`` is that pool. Detritivore consumption is the food loss.
     ``import_q`` is each consumer's intake of imported diet, which is
-    unassimilated like any other food.
+    unassimilated like any other food. ``det_input`` is a constant import per
+    group (EwE DetInFlow, cEcoSimModel.vb:3119-3124), counted as gain so the
+    fast-equilibrium biomeq includes it as EwE's does (:3126).
 
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
@@ -808,6 +811,9 @@ def _rpath_detritus_derivs(
         if NUM_LIVING < dest <= n_bio:
             fish_gain[dest] += link_fish_rate[k] * BB[int(fish_from[k])]
     gain = det_gain + fish_gain
+    if det_input is not None:
+        dead = slice(NUM_LIVING + 1, n_bio + 1)
+        gain[dead] += np.asarray(det_input, dtype=float)[dead]
     loss = det_loss.copy()
     for d in range(NUM_LIVING + 1, n_bio + 1):
         loss[d] += QQ[d, 1 : NUM_LIVING + 1].sum()
@@ -1949,6 +1955,7 @@ def deriv_vector(
             NUM_LIVING,
             NUM_DEAD,
             import_q=import_q,
+            det_input=params.get("DetInput"),
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)

@@ -709,6 +709,8 @@ def rsim_run_spatial(
         "DetLinkFrom": params.DetFrom,
         "DetLinkTo": params.DetTo,
         "DetLinkFrac": params.DetFrac,
+        # constant detritus import per unit area (EwE DetInFlow, audit A2)
+        "DetInput": getattr(params, "DetInput", None),
         "RpathPrimaryProduction": True,
     }
     # Prey switching normalises by the Ecosim base, not a patch's B * c

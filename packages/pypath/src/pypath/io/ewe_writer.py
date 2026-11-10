@@ -15,6 +15,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 if TYPE_CHECKING:
     from pypath.core.ecopath import Rpath
     from pypath.core.params import RpathParams
@@ -92,6 +94,11 @@ def _rpath_to_params(model: "Rpath") -> "RpathParams":
     params.model["EE"] = model.EE[:n]
     params.model["ProdCons"] = model.GE[:n]
     params.model["BioAcc"] = model.BA[:n]
+    det_input = np.asarray(getattr(model, "DetInput", np.zeros(0)), dtype=float)
+    if len(det_input) >= n:
+        params.model["DetInput"] = np.where(
+            np.asarray(types[:n]) == 2, det_input[:n], np.nan
+        )
     params.model["Unassim"] = model.Unassim[:n]
 
     # Best-effort diet transfer for living predators/prey where dimensions align.
