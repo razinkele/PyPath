@@ -8,7 +8,12 @@ import pytest
 DATA_DIR = Path(__file__).parents[3] / "Data"
 DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 
-# Regression pin, not a target: no EwE 6 reference SS for this calibrated
+# Regression pin, NOT EwE's sum of squares (audit 2026-11-10, C3): this is a
+# linear sum of (annual mean B/B0 - obs)^2 over dataset 35's biomass series,
+# with no q, no weights and no catch series. EwE's SS is weighted and
+# logarithmic, sum W*(ln(obs/B_month6) - q)^2, so 637.0 guards PyPath against
+# regressions and says nothing about agreement with EwE.
+# No EwE 6 reference SS for this calibrated
 # scenario is available. History: ~725 was quoted as an "old broken baseline";
 # the limit was relaxed to 1100 on 2026-10-24 (message left at 800); SS was
 # 1084.9 before the detritus/discard fate reading fix (#29) and 1101.2 after
@@ -61,8 +66,8 @@ class TestLT2022Parity:
             f"Too many groups crashed: {out.crashed_groups}"
         )
 
-    def test_ss_improves_over_baseline(self, lt2022_scenario):
-        """Fit to the scenario's time series stays at the pinned SS (LT2022_SS16)."""
+    def test_ss_regression_pin(self, lt2022_scenario):
+        """PyPath's own linear SS on dataset 35 stays at LT2022_SS16 (not EwE's SS)."""
         from pypath.core.ecopath import rpath
         from pypath.core.ecosim import rsim_run
         from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table

@@ -16,6 +16,18 @@ PyPath can claim parity with EwE 6.7.144 when all four of these hold:
 
 Until rule 3 holds, phase exits are labelled **formula parity**: matching transcribed EwE code or EwE's stored values. **Trajectory parity**, matching an EwE run, is the stronger label.
 
+## Decisions (recorded 2026-11-10)
+
+All seven recommendations below were approved on 2026-11-10:
+
+- **D1:** one global `compat="ewe"|"rpath"` switch, built in P2, the first phase that needs it.
+- **D2:** a headless EwECore spike, falling back to your own exports. The spike has not run yet: the background agent was refused by the permission check, so it needs your go-ahead.
+- **D3:** oracles stay outside the repo, and only their numbers are committed; production code is reimplemented from the equations.
+- **D4:** Tier 1 first, then Tier 2.
+- **D5:** Ecotracer is relabelled.
+- **D6:** yes / yes / yes.
+- **D7:** left to you.
+
 ## Decisions needed before Phase 0 ends
 
 | # | Decision | Options | Recommendation | Blocks |
