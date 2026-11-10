@@ -199,6 +199,10 @@ class RsimParams:
     # EwE6 solves NoIntegrate groups at equilibrium in every RK4 stage;
     # Rpath's rk4_run integrates them (fast_group_rule='rpath').
     RK4_FAST_EQUILIBRIUM: bool = True
+    # EwE6 updates the feeding time from the consumption of the start-of-month
+    # state (rk4: EatenByAvg after the first Derivt); the 'rpath' rule keeps
+    # PyPath's end-of-month consumption.
+    FTIME_START_OF_MONTH: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -836,6 +840,7 @@ def rsim_params(
         PBopt=pbopt,
         NoIntegrate=no_integrate,
         RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
+        FTIME_START_OF_MONTH=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -2054,6 +2059,11 @@ def rsim_run(
             forcing_dict["ForcedF"] = _ff_rate
             forcing_dict["ForcedFReplace"] = _ff_replace
         month_start_state = state.copy()
+        # EwE6's feeding-time update uses the consumption of this state (rk4
+        # accumulates EatenByAvg after its first Derivt), so take it now.
+        _qq_ftime = None
+        if _has_ftime_adj and getattr(params, "FTIME_START_OF_MONTH", False):
+            _qq_ftime = _compute_Q_matrix(params_dict, month_start_state, forcing_dict)
 
         # Integration step
         if method.upper() == "RK4":
@@ -2205,19 +2215,25 @@ def rsim_run(
             )
             _ecotracer_out[month] = _ecotracer_conc.copy()
         # Dynamic Ftime adjustment (Rpath ecosim.cpp; EwE6 rk4):
-        # new_Ftime = L + (1-L)*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), capped
+        # new_Ftime = L + (1-L)*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), capped.
+        # EwE rule: FoodGain/B of the start-of-month state (CBlast); 'rpath'
+        # rule: of the end-of-month state.
         if _has_ftime_adj:
             _ftime_lower = float(getattr(params, "ForagingTimeLowerLimit", 0.1))
             _ftime_max = getattr(params, "FtimeMax", None)
+            if _qq_ftime is not None:
+                _qq_src, _b_src = _qq_ftime, month_start_state
+            else:
+                _qq_src, _b_src = QQ_month, state
             for i in range(1, params.NUM_LIVING + 1):
-                if _ftime_adj[i] > 0 and state[i] > 0 and _ftime_qbopt[i] > 0:
-                    food_gain = float(np.nansum(QQ_month[:, i]))
+                if _ftime_adj[i] > 0 and _b_src[i] > 0 and _ftime_qbopt[i] > 0:
+                    food_gain = float(np.nansum(_qq_src[:, i]))
                     _ftime_current[i] = _ftime_update_rpath(
                         _ftime_current[i],
                         _ftime_adj[i],
                         _ftime_qbopt[i],
                         food_gain,
-                        state[i],
+                        _b_src[i],
                         lower=_ftime_lower,
                         cap=float(_ftime_max[i]) if _ftime_max is not None else 2.0,
                     )

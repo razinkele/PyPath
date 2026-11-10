@@ -36,9 +36,10 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # 624.6 under RK4, the only integrator EwE has (cEcoSimModel.vb:758), with
 # EwE's fast-group biomeq (net production over predation, other mortality and
 # fishing, cEcoSimModel.vb:3112). RK4 with Rpath's gross TotGain/TotLoss biomeq
-# gives 622.9; the AB runs above were 618.9.
+# gives 622.9; the AB runs above were 618.9. 624.8 with the feeding-time
+# update from the start-of-month consumption, as EwE's rk4 (end-of-month: 624.6).
 # A change beyond 2 % needs a reason.
-LT2022_SS16 = 624.6
+LT2022_SS16 = 624.8
 
 
 @pytest.mark.integration
