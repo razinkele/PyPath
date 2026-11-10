@@ -18,24 +18,11 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 
 pytestmark = pytest.mark.integration
 
-# Regression pin, not a target: no EwE 6 reference SS for this calibrated
-# scenario is available. History: ~725 was quoted as an "old broken baseline";
-# the limit was relaxed to 1100 on 2026-10-24 (message left at 800); SS was
-# 1084.9 before the detritus/discard fate reading fix (#29) and 1101.2 after
-# it. Every value up to there was computed with the scenario's vulnerabilities
-# and FtimeAdjust on the wrong groups, the wrong forcing shape applied as prey
-# availability, and a flat stanza (importer defects fixed 2026-11-07); with
-# the settings EwE6 actually uses, SS was 881.2 on main's dynamics and is
-# 642.0 with the stanza coupling, the closed detritus budget, EwE's fast-group
-# rule (Zooplankton, Phytoplankton and Detritus at equilibrium, under RK4 as
-# under AB) and donor control at v = 1, and 643.5 with dataset 35 applied as
-# EwE applies a loaded dataset (Round goby's biomass forced from 0.03 to 7.8
-# and back to 2.4; the dataset is also the fit's observations), and 637.0
-# with the diet import of Piscivorous birds read (EcopathGroup.ImpVar).
-# The real reference is EwE6's own scenario-16 trajectory.
-# A change beyond 2 % needs a reason. Keep in step with
-# test_ecosim_lt2022_parity.py.
-LT2022_SS16 = 637.0
+# Regression pin (PyPath's own linear SS, not EwE's). One source of truth: the
+# value and its history live in test_ecosim_lt2022_parity.py. This file kept a
+# copy at 637.0 that the A1/A2 re-pin missed, because 631.7 was still inside its
+# 2 % band.
+from .test_ecosim_lt2022_parity import LT2022_SS16  # noqa: E402
 
 
 def _db_available():

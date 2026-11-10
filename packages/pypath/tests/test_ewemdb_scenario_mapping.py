@@ -180,3 +180,40 @@ def test_negative_settings_are_not_settings():
     phyto = 2  # model order: Birds, Fish, Phyto, Detritus
     for key in ("ftime_adjust", "mo_pred", "ftime_max", "pb_maxs", "switch_power"):
         assert phyto not in overrides[key], key
+
+
+def test_stored_use_var_pq_true_is_ignored_like_ewe_6_7_144(caplog):
+    """EwE 6.7.144 loads a stored UseVarPQ True as False.
+
+    cEwEDatabase.ReadSafe treats a Boolean True as its -9999 "ignore" value
+    (Convert.ToBoolean(-9999) is True) and returns the caller's default, which
+    is False for UseVarPQ (cDBDataSource.vb:3739). The headless EwE oracle run
+    on LT2022 scenario 16 confirms it: UseVarPQ False at run time and GE/GE0
+    = 1 for every group in every month.
+    """
+    import logging
+
+    params = _four_group_params()
+    meta = _scenario_meta()
+    meta["ecosim_settings"] = {"UseVarPQ": True}
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        overrides = _build_scenario_overrides(
+            params, meta, params.model["Group"].tolist()
+        )
+    assert overrides["use_var_pq"] is False
+    msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(msgs) == 1 and "UseVarPQ" in msgs[0] and "6.7.144" in msgs[0]
+
+
+def test_stored_use_var_pq_false_stays_off_silently(caplog):
+    import logging
+
+    params = _four_group_params()
+    meta = _scenario_meta()
+    meta["ecosim_settings"] = {"UseVarPQ": False}
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        overrides = _build_scenario_overrides(
+            params, meta, params.model["Group"].tolist()
+        )
+    assert overrides["use_var_pq"] is False
+    assert not [r for r in caplog.records if "UseVarPQ" in r.getMessage()]
