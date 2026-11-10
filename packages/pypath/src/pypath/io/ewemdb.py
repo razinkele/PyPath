@@ -34,7 +34,7 @@ import subprocess
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -479,6 +479,196 @@ def read_ewemdb_table(
     raise EwEDatabaseError("No database driver available. Install pyodbc or mdb-tools.")
 
 
+def _group_column(groups_df: pd.DataFrame, names: Sequence[str]) -> np.ndarray:
+    """First of ``names`` present in ``groups_df`` as floats, -9999 as NaN."""
+    for name in names:
+        if name in groups_df.columns:
+            return (
+                pd.to_numeric(groups_df[name], errors="coerce")
+                .replace(EWE_MISSING, np.nan)
+                .to_numpy(dtype=float)
+            )
+    return np.full(len(groups_df), np.nan)
+
+
+def _group_labels(groups_df: pd.DataFrame) -> List[str]:
+    for col in ("GroupName", "Name"):
+        if col in groups_df.columns:
+            return [str(v) for v in groups_df[col]]
+    return [f"group {i + 1}" for i in range(len(groups_df))]
+
+
+def _resolve_group_inputs(
+    groups_df: pd.DataFrame, types: Sequence[int]
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Biomass accumulation and detritus import per biological group.
+
+    EwE 6 stores them in EcopathGroup as BiomAcc, BiomAccRate and DtImports
+    (cDBDataSource.vb:2010-2024); older names (BA, DetInput) are accepted when
+    the EwE 6 column is absent. As in EwE (cEcoPathModel.vb:1564-1568), a
+    BiomAcc of 0 falls back to BiomAccRate * B. EwE applies that after B is
+    estimated; here it needs an entered B, and a group whose B is left to
+    Ecopath gets a warning and BA = 0.
+
+    Returns ``(bioacc, det_input)``: ``det_input`` is DtImports on detritus
+    groups (missing -> 0) and NaN on every other group.
+    """
+    types = np.asarray(types, dtype=int)
+    bioacc = _group_column(groups_df, ("BiomAcc", "BA", "BioAcc", "BiomassAccum"))
+    rate = _group_column(groups_df, ("BiomAccRate", "BioAccRate"))
+    biomass = _group_column(groups_df, ("Biomass", "BiomassAreaInput", "B"))
+
+    use_rate = ((bioacc == 0) | np.isnan(bioacc)) & ~np.isnan(rate) & (rate != 0)
+    known_b = ~np.isnan(biomass) & (biomass > 0)
+    bioacc = np.where(use_rate & known_b, rate * biomass, bioacc)
+    unresolved = use_rate & ~known_b
+    if unresolved.any():
+        labels = _group_labels(groups_df)
+        logger.warning(
+            "BiomAccRate ignored for %s: biomass is left to Ecopath, so BA = "
+            "BiomAccRate * B cannot be applied before the balance; BA set to 0",
+            ", ".join(labels[i] for i in np.where(unresolved)[0]),
+        )
+        bioacc = np.where(unresolved, 0.0, bioacc)
+
+    det_input = _group_column(groups_df, ("DtImports", "DetInput", "DetritalInput"))
+    is_det = types == 2
+    det_input = np.where(is_det, np.nan_to_num(det_input, nan=0.0), np.nan)
+    return bioacc, det_input
+
+
+# EcopathGroup columns that change EwE results but have no PyPath equivalent
+# yet (roadmap P5). Non-zero, non-missing values are reported, not used.
+_UNSUPPORTED_GROUP_COLUMNS = ("OtherMort", "Immigration", "Emigration", "EmigRate")
+
+
+def _warn_unsupported_group_columns(
+    groups_df: pd.DataFrame, group_names: Sequence[str]
+) -> None:
+    """Warn once per EcopathGroup column that is set but ignored by PyPath."""
+    for col in _UNSUPPORTED_GROUP_COLUMNS:
+        if col not in groups_df.columns:
+            continue
+        values = _group_column(groups_df, (col,))
+        used = ~np.isnan(values) & (values != 0)
+        if used.any():
+            logger.warning(
+                "EcopathGroup.%s is set for %s but PyPath does not model it yet; "
+                "the value is ignored, so results will differ from EwE",
+                col,
+                ", ".join(str(group_names[i]) for i in np.where(used)[0]),
+            )
+
+
+# EcosimScenarioGroup settings PyPath does not model yet, with EwE's defaults
+# (cEcoSimDatastructures.vb:1340-1353). Roadmap P4 (RiskTime, QmQo, CmCo) and
+# P7 (AdditivePredMort = PaddP).
+_IGNORED_SCENARIO_GROUP_SETTINGS = (
+    ("RiskTime", 0.0),
+    ("QmQo", 1.0),
+    ("CmCo", 1000.0),
+    ("AdditivePredMort", 1.0),
+)
+
+
+def _not_default(value: Any, default: float) -> bool:
+    number = _ewe_number(value)
+    return number is not None and not np.isclose(number, default)
+
+
+def _warn_ignored_scenario_settings(scenario_meta: dict) -> None:
+    """Warn for Ecosim scenario settings that differ from EwE's defaults.
+
+    PyPath ignores them, so a run differs from EwE wherever they are set.
+    """
+    scen = scenario_meta.get("name") or scenario_meta.get("id")
+    sg_df = scenario_meta.get("scenario_group_df")
+    if sg_df is not None and len(sg_df) > 0:
+        id_to_name = scenario_meta.get("group_id_to_name") or {}
+        for col, default in _IGNORED_SCENARIO_GROUP_SETTINGS:
+            if col not in sg_df.columns:
+                continue
+            groups = [
+                str(id_to_name.get(_int_or_none(row.get("EcopathGroupID")), "?"))
+                for _, row in sg_df.iterrows()
+                if _not_default(row.get(col), default)
+            ]
+            if groups:
+                logger.warning(
+                    "Ecosim scenario %s: %s differs from the EwE default (%g) for "
+                    "%s; PyPath does not model it yet, so results will differ "
+                    "from EwE",
+                    scen,
+                    col,
+                    default,
+                    ", ".join(groups),
+                )
+
+    settings = scenario_meta.get("ecosim_settings") or {}
+    if _not_default(settings.get("sorwt"), 0.5):
+        logger.warning(
+            "Ecosim scenario %s: sorwt = %s is ignored; PyPath uses EwE's "
+            "default 0.5 for fast-equilibrium groups",
+            scen,
+            settings.get("sorwt"),
+        )
+    nut_shape = _int_or_none(settings.get("NutForcingShapeID"))
+    if nut_shape is not None and nut_shape > 0:
+        logger.warning(
+            "Ecosim scenario %s: nutrient forcing (NutForcingShapeID %s) is not "
+            "modelled; producer nutrient limitation is ignored",
+            scen,
+            nut_shape,
+        )
+
+
+def _warn_ignored_stanza_settings(stanza_df: pd.DataFrame) -> None:
+    """Warn for Stanza settings PyPath ignores (roadmap P2)."""
+    names = _group_labels(stanza_df.rename(columns={"StanzaName": "Name"}))
+    if "BABsplit" in stanza_df.columns:
+        used = [
+            names[i]
+            for i, v in enumerate(stanza_df["BABsplit"])
+            if _not_default(v, 0.0)
+        ]
+        if used:
+            logger.warning(
+                "Stanza BABsplit is set for %s but PyPath ignores it; survival "
+                "and stage BA will differ from EwE",
+                ", ".join(used),
+            )
+    if {"LeadingCB", "LeadingLifeStage"} <= set(stanza_df.columns):
+        differs = [
+            names[i]
+            for i, (cb, lead) in enumerate(
+                zip(stanza_df["LeadingCB"], stanza_df["LeadingLifeStage"])
+            )
+            if _int_or_none(cb) is not None
+            and _int_or_none(lead) is not None
+            and _int_or_none(cb) != _int_or_none(lead)
+        ]
+        if differs:
+            logger.warning(
+                "Stanza LeadingCB differs from LeadingLifeStage for %s; PyPath "
+                "anchors consumption on the leading biomass stage, so stanza "
+                "consumption will differ from EwE",
+                ", ".join(differs),
+            )
+
+
+def _warn_fractional_types(groups_df: pd.DataFrame, type_col: str) -> None:
+    """Warn for mixotrophs (0 < Type < 1), which the reader truncates to 0."""
+    types = pd.to_numeric(groups_df[type_col], errors="coerce").to_numpy(float)
+    frac = (types > 0) & (types < 1)
+    if frac.any():
+        labels = _group_labels(groups_df)
+        logger.warning(
+            "EcopathGroup Type is fractional (mixotroph) for %s; PyPath "
+            "truncates it to a consumer, so the balance will differ from EwE",
+            ", ".join(labels[i] for i in np.where(frac)[0]),
+        )
+
+
 def _discard_mortality(value: Any, group: Any, fleet: Any) -> float:
     """Return EwE's DiscardMortality as a fraction in [0, 1].
 
@@ -730,6 +920,7 @@ def read_ewemdb(
     if type_col:
         # EwE types: 0=consumer, 1=producer, 2=detritus, 3=fleet
         # Some versions use: 0=normal, 1=PP=1, 2=PP=2 (detritus)
+        _warn_fractional_types(groups_df, type_col)
         raw_types = groups_df[type_col].fillna(0).astype(int).tolist()
 
         # Convert PP values to our types if needed
@@ -794,8 +985,7 @@ def read_ewemdb(
         ],
         "ProdCons": ["GE", "ProdCons", "GrossEfficiency", "PoverQ"],
         "Unassim": ["GS", "Unassim", "UnassimilatedConsumption"],
-        "BioAcc": ["BA", "BioAcc", "BiomassAccumulation", "BiomassAccum"],
-        "DetInput": ["DetInput", "DetritalInput", "ImmigEmig"],
+        # BioAcc and DetInput come from _resolve_group_inputs below
     }
 
     # Map remarks columns - EwE stores remarks as separate columns
@@ -836,6 +1026,19 @@ def read_ewemdb(
                     values = values + [np.nan] * len(fleet_names)
                 params.model[param_name] = values
                 break
+        else:
+            logger.debug(
+                "EcopathGroup: no column found for %s (tried %s)",
+                param_name,
+                ", ".join(possible_cols),
+            )
+
+    # Biomass accumulation and detritus import (audit A1)
+    bioacc, det_input = _resolve_group_inputs(groups_df, group_types[:n_bio_groups])
+    fleet_pad = [np.nan] * len(fleet_names)
+    params.model["BioAcc"] = bioacc.tolist() + fleet_pad
+    params.model["DetInput"] = det_input.tolist() + fleet_pad
+    _warn_unsupported_group_columns(groups_df, group_names[:n_bio_groups])
 
     # Extract remarks if available and create remarks DataFrame
     remarks_data = {"Group": group_names}
@@ -1204,6 +1407,7 @@ def read_ewemdb(
     try:
         stanza_df = read_ewemdb_table(filepath, "Stanza")
         stanza_life_df = read_ewemdb_table(filepath, "StanzaLifeStage")
+        _warn_ignored_stanza_settings(stanza_df)
 
         if len(stanza_df) > 0 and len(stanza_life_df) > 0:
             logger.debug(
@@ -1507,6 +1711,9 @@ def read_ewemdb(
                     "ecosim_settings": {
                         "UseVarPQ": row.get("UseVarPQ"),
                         "ForagingTimeLowerLimit": row.get("ForagingTimeLowerLimit"),
+                        # read only to warn: PyPath does not use them yet
+                        "sorwt": row.get("sorwt"),
+                        "NutForcingShapeID": row.get("NutForcingShapeID"),
                     },
                 }
 
@@ -3700,6 +3907,7 @@ def ecosim_scenario_from_ewemdb(
         group_names = params.model["Group"].tolist()
     except (AttributeError, KeyError):
         group_names = []
+    _warn_ignored_scenario_settings(selected)
     scenario_overrides = _build_scenario_overrides(params, selected, group_names)
 
     # Create RsimScenario with overrides applied
