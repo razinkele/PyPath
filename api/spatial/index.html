@@ -23168,7 +23168,10 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">987</span>
 <span class="normal">988</span>
 <span class="normal">989</span>
-<span class="normal">990</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">990</span>
+<span class="normal">991</span>
+<span class="normal">992</span>
+<span class="normal">993</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23380,6 +23383,9 @@ distributed by patch area, so every patch starts at the same density.</p>
         <span class="s2">"DetLinkFrom"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetFrom</span><span class="p">,</span>
         <span class="s2">"DetLinkTo"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetTo</span><span class="p">,</span>
         <span class="s2">"DetLinkFrac"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">DetFrac</span><span class="p">,</span>
+        <span class="c1"># constant detritus import per unit area, as Ecosim's DetInFlow (A2).</span>
+        <span class="c1"># EwE 6.7.144 Ecospace leaves it out (deviations.md, A2-space).</span>
+        <span class="s2">"DetInput"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetInput"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"RpathPrimaryProduction"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="c1"># Prey switching normalises by the Ecosim base, not a patch's B * c</span>
