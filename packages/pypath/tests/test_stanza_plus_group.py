@@ -214,3 +214,33 @@ def test_plus_group_steps_once_then_holds_at_equilibrium():
     # month's growth (as EwE's SplitUpdate), so recruitment moves slightly
     # and reaches the adults through the juveniles' growth (2e-5 by month 6).
     np.testing.assert_allclose(series[1:, 1], series[0, 1], rtol=1e-4)
+
+
+def test_stanza_feeding_time_follows_the_predator_index(monkeypatch):
+    """EwE's feeding-time ratio is consumption per predator index (CBlast =
+    EatenByAvg / PredAvg against Cbase = StartEatenBy / pred; vb 1762, 3310).
+    For a stanza group the index is sum(N * WWa), which the plus-group step
+    leaves alone, so the adults' feeding time stays at 1 for month 3. Per
+    unit biomass (x 1.00186 after month 1) it would rise to
+    0.1 + 0.9 * (1 - 0.5 + 0.5 * 1.00186) = 1.00084."""
+    import pypath.core.ecosim_deriv as D
+    from pypath.core.ecosim import rsim_run
+
+    _, sc = _ewe_scenario()
+    ad = sc.params.spname.index("Adult")
+    sc.params.FtimeAdj[ad] = 0.5
+    seen = []
+    real = D.deriv_vector
+
+    def spy(state, params, forcing, fishing, *a, **k):
+        seen.append(float(forcing["Ftime"][ad]))
+        return real(state, params, forcing, fishing, *a, **k)
+
+    monkeypatch.setattr(D, "deriv_vector", spy)
+    out = rsim_run(sc, method="RK4")
+    months = sc.forcing.ForcedBio.shape[0]
+    per_month = len(seen) // months
+    ftime = [seen[m * per_month] for m in range(months)]
+    # The plus-group step happened (adult biomass up 0.19 % after month 1).
+    assert out.out_Biomass[1, ad] / out.out_Biomass[0, ad] > 1.0018
+    assert ftime[2] == pytest.approx(1.0, abs=1e-6)

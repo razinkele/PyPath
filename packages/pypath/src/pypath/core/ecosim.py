@@ -2104,6 +2104,19 @@ def rsim_run(
                 rates=_fg_rates,
             )
             _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
+            # EwE's ratio is per predator index (CBlast = EatenByAvg /
+            # PredAvg, Cbase = StartEatenBy / pred; vb 1762, 3310). That is
+            # the biomass for a simple group, and sum(N * WWa) for a stanza
+            # group: in biomass units B0 * StanzaPredRatio, taken now, at the
+            # start of the month.
+            _ftime_index = np.array(month_start_state, dtype=float, copy=True)
+            _stanza_ratio_now = forcing_dict.get("StanzaPredRatio")
+            if _stanza_ratio_now is not None:
+                _sr = np.asarray(_stanza_ratio_now, dtype=float)
+                _has_sr = np.isfinite(_sr)
+                _ftime_index[_has_sr] = (
+                    np.asarray(params.B_BaseRef, dtype=float)[_has_sr] * _sr[_has_sr]
+                )
 
         # Integration step
         if method.upper() == "RK4":
@@ -2256,12 +2269,13 @@ def rsim_run(
             _ecotracer_out[month] = _ecotracer_conc.copy()
         # Dynamic Ftime adjustment (Rpath ecosim.cpp; EwE6 rk4):
         # new_Ftime = L + (1-L)*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), capped.
-        # EwE rule: FoodGain/B of the start-of-month state (CBlast); 'rpath'
-        # rule: of the end-of-month state.
+        # EwE rule: FoodGain per predator index of the start-of-month state
+        # (CBlast; B for simple groups, B0 * StanzaPredRatio for stanza
+        # groups); 'rpath' rule: FoodGain/B of the end-of-month state.
         if _has_ftime_adj:
             _ftime_lower = float(getattr(params, "ForagingTimeLowerLimit", 0.1))
             _ftime_max = getattr(params, "FtimeMax", None)
-            _b_src = month_start_state if _fg_ftime is not None else state
+            _b_src = _ftime_index if _fg_ftime is not None else state
             # EwE updates integrated groups only (NoIntegrate = i or < 0,
             # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime.
             _skip_fast = _fg_ftime is not None
