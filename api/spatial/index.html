@@ -23210,7 +23210,9 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1029</span>
 <span class="normal">1030</span>
 <span class="normal">1031</span>
-<span class="normal">1032</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23674,6 +23676,7 @@ distributed by patch area, so every patch starts at the same density.</p>
                     <span class="n">last_stage</span><span class="p">[</span><span class="s2">"FoodGain"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
                     <span class="n">first_stage</span><span class="p">[</span><span class="s2">"LossPropToB"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
                     <span class="n">forced_recs</span><span class="o">=</span><span class="n">forcing_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedRecs"</span><span class="p">),</span>
+                    <span class="n">month_index</span><span class="o">=</span><span class="n">mi</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">month_rates</span> <span class="o">=</span> <span class="p">{</span>
@@ -23688,6 +23691,7 @@ distributed by patch area, so every patch starts at the same density.</p>
                     <span class="n">month_rates</span><span class="p">[</span><span class="s2">"FoodGain"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
                     <span class="n">month_rates</span><span class="p">[</span><span class="s2">"LossPropToB"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
                     <span class="n">forced_recs</span><span class="o">=</span><span class="n">forcing_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedRecs"</span><span class="p">),</span>
+                    <span class="n">month_index</span><span class="o">=</span><span class="n">mi</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="n">split_set_pred</span><span class="p">(</span><span class="n">stanzas_obj</span><span class="p">,</span> <span class="n">stanza_state</span><span class="p">,</span> <span class="n">total</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">stanza_idx</span><span class="p">:</span>
