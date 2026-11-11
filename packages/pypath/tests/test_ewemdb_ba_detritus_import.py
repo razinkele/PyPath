@@ -143,8 +143,8 @@ def test_scenario_group_settings_warn_when_not_default(caplog):
         "group_id_to_name": {1: "Cod", 2: "Herring"},
         "scenario_group_df": _groups(
             EcopathGroupID=[1, 2],
-            RiskTime=[0.0, 0.5],
-            QmQo=[1.0, 1.0],
+            RiskTime=[0.0, 0.5],  # modelled (RsimParams.RiskTime): no warning
+            QmQo=[1.0, 2.0],
             CmCo=[1000.0, 3.0],
             AdditivePredMort=[1.0, 1.0],
         ),
@@ -154,8 +154,9 @@ def test_scenario_group_settings_warn_when_not_default(caplog):
         _warn_ignored_scenario_settings(meta)
     msgs = _warnings(caplog)
     assert len(msgs) == 2
-    assert any("RiskTime" in m and "Herring" in m for m in msgs)
+    assert any("QmQo" in m and "Herring" in m for m in msgs)
     assert any("CmCo" in m and "Herring" in m for m in msgs)
+    assert not any("RiskTime" in m for m in msgs)
 
 
 def test_scenario_settings_silent_at_defaults(caplog):
@@ -245,21 +246,6 @@ def test_fractional_type_warns(caplog):
         _warn_fractional_types(df, "Type")
     msgs = _warnings(caplog)
     assert len(msgs) == 1 and "Mixo" in msgs[0]
-
-
-@pytest.mark.integration
-def test_lt2022_scenario_warns_risktime(caplog):
-    if not LT2022.exists():
-        pytest.skip("LT2022 database not found")
-    from pypath.io.ewemdb import EwEDatabaseError, ecosim_scenario_from_ewemdb
-
-    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
-        try:
-            # RiskTime is set (0.5 or 1.0) only in LT2022 scenarios 10-12
-            ecosim_scenario_from_ewemdb(str(LT2022), scenario=10)
-        except EwEDatabaseError as e:
-            pytest.skip(f"No EwE database driver: {e}")
-    assert any("RiskTime" in m for m in _warnings(caplog))
 
 
 # --- LT2022 Ecopath balance with BA and detritus import (Task 2) ---------------

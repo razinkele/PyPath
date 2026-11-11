@@ -188,7 +188,6 @@ UNREAD_RESULT_COLUMNS: dict[str, tuple[str, ...]] = {
         "NutForcingShapeID",
     ),
     "EcosimScenarioGroup": (
-        "RiskTime",
         "QmQo",
         "CmCo",
         # FishRateMax is left out: it only scales EwE's fishing-rate sketch

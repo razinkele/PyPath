@@ -594,10 +594,9 @@ def _warn_unsupported_group_columns(
 
 
 # EcosimScenarioGroup settings PyPath does not model yet, with EwE's defaults
-# (cEcoSimDatastructures.vb:1340-1353). Roadmap P4 (RiskTime, QmQo, CmCo) and
-# P7 (AdditivePredMort = PaddP).
+# (cEcoSimDatastructures.vb:1340-1353). Roadmap P4 (QmQo, CmCo) and P7
+# (AdditivePredMort = PaddP). RiskTime is read (RsimParams.RiskTime).
 _IGNORED_SCENARIO_GROUP_SETTINGS = (
-    ("RiskTime", 0.0),
     ("QmQo", 1.0),
     ("CmCo", 1000.0),
     ("AdditivePredMort", 1.0),
@@ -609,16 +608,16 @@ def _not_default(value: Any, default: float) -> bool:
     return number is not None and not np.isclose(number, default)
 
 
-# Settings that act only through a group's own consumption (Qopt, handling
-# time; cEcoSimModel.vb 1766, 3379), so not on producers and detritus.
-_CONSUMPTION_SETTINGS = {"RiskTime", "CmCo"}
+# Settings that act only through a group's own consumption (handling time;
+# cEcoSimModel.vb 3379), so not on producers and detritus.
+_CONSUMPTION_SETTINGS = {"CmCo"}
 
 
 def _no_effect_here(
     col: str, group_type: Optional[float], is_fished: Optional[bool]
 ) -> bool:
-    """A setting that cannot act on this group in EwE: RiskTime or CmCo on a
-    producer or detritus group, QmQo (density-dependent catchability, a factor
+    """A setting that cannot act on this group in EwE: CmCo on a producer or
+    detritus group, QmQo (density-dependent catchability, a factor
     on F; vb 5092) on an unfished group. EwE writes -999 in such cells
     (Black Sea). AdditivePredMort acts on every group that is eaten."""
     if col in _CONSUMPTION_SETTINGS:
@@ -3406,6 +3405,8 @@ def _build_scenario_overrides(
         ("FtimeMax", "ftime_max"),
         ("Pbmaxs", "pb_maxs"),
         ("SwitchPower", "switch_power"),
+        # predator effect on feeding time (cEcoSimModel.vb 3309-3314, 1765)
+        ("RiskTime", "risk_time"),
     ):
         if column not in sg_df.columns:
             continue
