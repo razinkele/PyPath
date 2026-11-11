@@ -245,6 +245,10 @@ class RsimParams:
     RiskTime: Optional[np.ndarray] = None
     # EwE6 QBmax / QB0 per group (EcosimScenarioGroup.CmCo, default 1000)
     CmCo: Optional[np.ndarray] = None
+    # EwE6 nutrient limitation of primary production: the free share of the
+    # total nutrient at the base (EcosimScenario.NutBaseFreeProp, EwE default
+    # 0.9999); None (the 'rpath' rule) = no limitation
+    NutBaseFreeProp: Optional[float] = None
     # Constant detritus import per group, indexed like B_BaseRef (EwE
     # DetInFlow, cEcoSimModel.vb:3119-3124); None or zeros = no import.
     DetInput: Optional[np.ndarray] = None
@@ -312,6 +316,9 @@ class RsimForcing:
     # None unless an EwE scenario assigns shapes to single links.
     ForcedSearchLink: Optional[np.ndarray] = None
     ForcedVulLink: Optional[np.ndarray] = None
+    # EwE6 nutrient forcing shape (EcosimScenario.NutForcingShapeID), one
+    # multiplier of the total nutrient per month; None = 1
+    NutForcing: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -906,6 +913,7 @@ def rsim_params(
         SwitchPower=np.zeros(ngroups + 1),
         RiskTime=np.zeros(ngroups + 1),
         CmCo=np.full(ngroups + 1, 1000.0),
+        NutBaseFreeProp=(0.9999 if fast_group_rule == "ewe" else None),
         DetInput=_det_input_vector(rpath, ngroups),
         VbK=np.zeros(ngroups + 1),
         AssimEff=np.zeros(ngroups + 1),
@@ -1284,6 +1292,11 @@ def rsim_scenario(
                         arr[ecosim_idx] = float(val)
         if "use_var_pq" in scenario_overrides:
             params.UseVarPQ = bool(scenario_overrides["use_var_pq"])
+        if (
+            scenario_overrides.get("nut_base_free_prop") is not None
+            and params.NutBaseFreeProp is not None
+        ):
+            params.NutBaseFreeProp = float(scenario_overrides["nut_base_free_prop"])
         if scenario_overrides.get("foraging_time_lower_limit") is not None:
             params.ForagingTimeLowerLimit = float(
                 scenario_overrides["foraging_time_lower_limit"]
@@ -1576,6 +1589,8 @@ def rsim_run(
         "PREY_FTIME_ARENA": getattr(params, "PREY_FTIME_ARENA", False),
         "MoPred": getattr(params, "MoPred", None),
         "DETRITUS_MO_UNSCALED": getattr(params, "DETRITUS_MO_UNSCALED", False),
+        # EwE6 nutrient limitation of primary production (None = off)
+        "NutBaseFreeProp": getattr(params, "NutBaseFreeProp", None),
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
         "AssimEff": getattr(params, "AssimEff", None),
@@ -2155,6 +2170,10 @@ def rsim_run(
                 else np.ones(params.NUM_GEARS + 1)
             ),
         }
+        # EwE6 nutrient forcing: the month's multiplier of the total nutrient
+        _nut_forcing = getattr(forcing, "NutForcing", None)
+        if _nut_forcing is not None and month - 1 < len(_nut_forcing):
+            forcing_dict["NutForcing"] = float(_nut_forcing[month - 1])
         # EwE link-level search-rate / vulnerability forcing for the month
         for _link_key in ("ForcedSearchLink", "ForcedVulLink"):
             _link_arr = getattr(forcing, _link_key, None)

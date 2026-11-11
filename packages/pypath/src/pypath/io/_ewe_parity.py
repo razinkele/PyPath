@@ -184,8 +184,6 @@ UNREAD_RESULT_COLUMNS: dict[str, tuple[str, ...]] = {
         "SystemRecovery",
         "sorwt",
         "Discount",
-        "NutBaseFreeProp",
-        "NutForcingShapeID",
     ),
     "EcosimScenarioGroup": (
         "QmQo",
