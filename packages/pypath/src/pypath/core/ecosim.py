@@ -207,6 +207,11 @@ class RsimParams:
     # vulnerable pool (saturating); the 'rpath' rule keeps Rpath's linear prey
     # term (audit D1).
     PREY_FTIME_ARENA: bool = True
+    # EwE6 multi-stanza age table: it ends where a cohort reaches 90 % of
+    # W_inf and closes with a Ford-Walford plus group, re-closed each month;
+    # the 'rpath' rule keeps Rpath's 99.999 % table and numbers-weighted
+    # plus group (rsim_scenario -> rpath_stanzas(rule=...)).
+    STANZA_WALFORD_PLUS_GROUP: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -496,6 +501,9 @@ def rsim_params(
         also sets the integrator to match: under ``"ewe"`` RK4 takes one step
         a month with the fast groups at equilibrium in every stage (EwE6
         rk4 / SetTimeSteps); under ``"rpath"`` four explicit sub-steps.
+        It also picks the multi-stanza age table :func:`rsim_scenario`
+        builds (``STANZA_WALFORD_PLUS_GROUP``): EwE6's, closed by a
+        Ford-Walford plus group, or Rpath's.
 
     Returns
     -------
@@ -851,6 +859,7 @@ def rsim_params(
         RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
         FTIME_START_OF_MONTH=(fast_group_rule == "ewe"),
         PREY_FTIME_ARENA=(fast_group_rule == "ewe"),
+        STANZA_WALFORD_PLUS_GROUP=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -1279,7 +1288,12 @@ def rsim_scenario(
             # rpath_stanzas(params) before rpath(params).
             work = copy.copy(rpath_params)
             work.model = rpath_params.model.copy()
-            rpath_stanzas(work, stanza_params=stanza_params)
+            table_rule = (
+                "ewe"
+                if getattr(params, "STANZA_WALFORD_PLUS_GROUP", False)
+                else "rpath"
+            )
+            rpath_stanzas(work, stanza_params=stanza_params, rule=table_rule)
             stanzas = rsim_stanzas(work, state, params, stanza_params=stanza_params)
         except Exception as e:
             logger.warning(

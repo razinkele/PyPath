@@ -222,15 +222,44 @@ class TestEcosimRunsStanzas:
             assert np.isfinite(st.base_nage_s[0, isp])
             assert np.isfinite(st.base_wage_s[0, isp])
 
-    def test_baseline_stays_at_equilibrium(self, scenario):
-        """The baseline stays flat with the stanza age structure set up."""
-        out = rsim_run(scenario, method="RK4", years=range(1, 11))
+    def test_baseline_stays_at_equilibrium(self):
+        """Under Rpath's rule the baseline stays flat with the stanza age
+        structure set up (Rpath's table has no plus-group correction)."""
+        params = _reference_params()
+        sc = rsim_scenario(
+            rpath(params), params, years=range(1, 11), fast_group_rule="rpath"
+        )
+        out = rsim_run(sc, method="RK4", years=range(1, 11))
         assert out.stanza_biomass is not None
         bio = out.out_Biomass
         start = bio[0]
         live = start > 0
         drift = np.max(np.abs(bio[-1, live] / start[live] - 1.0))
         assert drift < 1e-3
+
+    def test_ewe_rule_baseline_steps_only_at_the_plus_group(self, scenario):
+        """Under the EwE rule (the default) EwE's plus group is not exactly in
+        equilibrium: in month 1 only the oldest stanzas step (EwE's growth
+        coefficient below the plus group comes from its corrected weight;
+        test_stanza_plus_group.py), by 1e-3 here. The extra eggs then move
+        recruitment, and the baseline settles within 1 % (0.5 % at 10 years)."""
+        out = rsim_run(scenario, method="RK4", years=range(1, 11))
+        assert out.stanza_biomass is not None
+        bio = out.out_Biomass
+        start = bio[0]
+        live = start > 0
+        st = scenario.stanzas
+        oldest = [
+            int(st.ecopath_code[isp, int(st.n_stanzas[isp])])
+            for isp in range(1, st.n_split + 1)
+        ]
+        others = live.copy()
+        others[oldest] = False
+        month1 = np.abs(bio[1] / np.where(live, start, 1.0) - 1.0)
+        assert np.max(month1[others]) < 2e-4
+        assert 5e-4 < np.max(month1[oldest]) < 3e-3
+        drift = np.max(np.abs(bio[1:, live] / start[live] - 1.0))
+        assert drift < 1e-2
 
     def test_n_stanza_groups_zero_but_tables_present_still_runs(self):
         """The parity fixture used to load the tables but leave the count at 0."""

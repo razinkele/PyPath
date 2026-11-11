@@ -150,6 +150,30 @@ def lt2022_scenario_module():
     return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16, timeseries_dataset=35)
 
 
+ORACLE_DIR = Path(__file__).parent / "data" / "ewe_oracle" / "lt2022"
+
+
+@pytest.mark.integration
+def test_mussels_follow_the_ewe_oracle_in_month_one(lt2022_scenario_module):
+    """EwE's adult mussels step +0.19 % in month 1 (27.000 -> 27.050) and the
+    juveniles hold: EwE's growth coefficient at the month before the plus
+    group comes from the corrected plus-group weight, so the plus group's
+    weight steps once (test_stanza_plus_group.py). With Rpath's age table the
+    adults moved +0.004 % and the juveniles +0.04 %."""
+    import pandas as pd
+
+    from pypath.core.ecosim import rsim_run
+
+    oracle = pd.read_csv(ORACLE_DIR / "ecosim_biomass_monthly.csv", index_col=0)
+    oracle.columns = [c.strip() for c in oracle.columns]
+    out = rsim_run(lt2022_scenario_module, method="RK4", years=range(1, 2))
+    names = [str(n).strip() for n in lt2022_scenario_module.params.spname]
+    for group in ("Blue mussel (juv.)", "Blue mussel (ad.)"):
+        i = names.index(group)
+        expected = float(oracle.loc[1, group])
+        assert out.out_Biomass[1, i] == pytest.approx(expected, rel=2e-5), group
+
+
 # EwE 6.7.144 oracle, month 13: the year-2 step of the "PTOT_Baltic" production
 # forcing on Phytoplankton (x0.875) reaches the fast groups in the same month.
 # EwE integrates with RK4 only (cEcoSimModel.vb:758).
