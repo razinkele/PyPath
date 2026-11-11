@@ -17,6 +17,8 @@ then depend on the habitat of the groups a group interacts with, not on its
 own capacity, and the map as a whole starts at its Ecopath balance.
 """
 
+import copy
+
 import numpy as np
 import pytest
 
@@ -108,7 +110,12 @@ def test_map_wide_rates_do_not_depend_on_the_habitat_pattern(spatial_scenario):
     """Summed over the patches, the start derivative is that of the uniform map
     (the model's own, whether or not it starts at its Ecopath balance): the
     habitat pattern redistributes the base flows, it does not create any."""
-    scenario, _ = spatial_scenario
+    # The start derivative without EwE's handling time: each patch's own Hden
+    # (EwE's HdenCell) makes the map-wide rates depend on local intake, and
+    # the captured params carry the run's final Hden. Handling has its own
+    # tests (test_handling_time.py); the shared fixture is copied.
+    scenario = copy.deepcopy(spatial_scenario[0])
+    scenario.params.EWE_HANDLING_TIME = False
     n_rows = scenario.params.NUM_GROUPS + 1
     drivers = EnvironmentalDrivers()
     uniform = _local_rates(
@@ -128,7 +135,12 @@ def test_own_capacity_does_not_drive_per_capita_growth(spatial_scenario):
     """Zoo's habitat differs between the patches, its partners' does not: Zoo's
     per-capita rate is the same in both patches and the same as on a uniform
     map. Before, the poor patch made Zoo grow and the good one shrink."""
-    scenario, _ = spatial_scenario
+    # The start derivative without EwE's handling time: each patch's own Hden
+    # (EwE's HdenCell) makes the map-wide rates depend on local intake, and
+    # the captured params carry the run's final Hden. Handling has its own
+    # tests (test_handling_time.py); the shared fixture is copied.
+    scenario = copy.deepcopy(spatial_scenario[0])
+    scenario.params.EWE_HANDLING_TIME = False
     n_rows = scenario.params.NUM_GROUPS + 1
     drivers = EnvironmentalDrivers()
     u_args = _first_call(scenario, _ecospace(n_rows, np.ones((n_rows, 2))), drivers)
