@@ -670,23 +670,6 @@ def _warn_ignored_stanza_settings(stanza_df: pd.DataFrame) -> None:
                 "and stage BA will differ from EwE",
                 ", ".join(used),
             )
-    if {"LeadingCB", "LeadingLifeStage"} <= set(stanza_df.columns):
-        differs = [
-            names[i]
-            for i, (cb, lead) in enumerate(
-                zip(stanza_df["LeadingCB"], stanza_df["LeadingLifeStage"])
-            )
-            if _int_or_none(cb) is not None
-            and _int_or_none(lead) is not None
-            and _int_or_none(cb) != _int_or_none(lead)
-        ]
-        if differs:
-            logger.warning(
-                "Stanza LeadingCB differs from LeadingLifeStage for %s; PyPath "
-                "anchors consumption on the leading biomass stage, so stanza "
-                "consumption will differ from EwE",
-                ", ".join(differs),
-            )
 
 
 def _warn_fractional_types(groups_df: pd.DataFrame, type_col: str) -> None:
@@ -1526,11 +1509,13 @@ def read_ewemdb(
                     return float(pb)
                 return float(mort) if pd.notna(mort) else np.nan
 
-            # Leading life stage per stanza group. Older databases (e.g. ones
-            # converted from EwE5) have no LeadingLifeStage column, and EwE6
-            # then leads with the last life stage (cEcoSimModel: BaseStanza
-            # <= 0 -> Nstanza).
+            # Leading life stages per stanza group: biomass (LeadingLifeStage,
+            # BaseStanza) and consumption (LeadingCB, BaseStanzaCB). Older
+            # databases (e.g. ones converted from EwE5) have neither column,
+            # and EwE6 then leads with the last life stage (cEcoSimModel:
+            # BaseStanza <= 0 -> Nstanza; the same for BaseStanzaCB).
             leading_stage = {}
+            leading_cb_stage = {}
             for _, srow in stanza_df.iterrows():
                 sid = srow.get("StanzaID", srow.get("ID", 0))
                 stages = stanza_life_df[stanza_life_df["StanzaID"] == sid]
@@ -1538,11 +1523,15 @@ def read_ewemdb(
                     stages.get("Sequence", pd.Series(dtype=float)), errors="coerce"
                 ).dropna()
                 last = int(seqs.max()) if len(seqs) else len(stages)
-                lead = _int_or_none(srow.get("LeadingLifeStage"))
-                # unset -> last stage; EwE6 also clamps it to the stage count
-                leading_stage[sid] = (
-                    min(lead, last) if lead is not None and lead > 0 else last
-                )
+                for column, target in (
+                    ("LeadingLifeStage", leading_stage),
+                    ("LeadingCB", leading_cb_stage),
+                ):
+                    lead = _int_or_none(srow.get(column))
+                    # unset -> last stage; EwE6 also clamps it to the count
+                    target[sid] = (
+                        min(lead, last) if lead is not None and lead > 0 else last
+                    )
 
             # Build stindiv DataFrame (one row per life stage)
             stindiv_data = []
@@ -1571,6 +1560,10 @@ def read_ewemdb(
                         "Leading": (
                             _int_or_none(row.get("Sequence", 1))
                             == leading_stage.get(stanza_id)
+                        ),
+                        "LeadingCB": (
+                            _int_or_none(row.get("Sequence", 1))
+                            == leading_cb_stage.get(stanza_id)
                         ),
                     }
                 )

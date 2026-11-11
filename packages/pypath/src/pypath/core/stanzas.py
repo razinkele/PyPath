@@ -73,6 +73,9 @@ class StanzaIndividual:
         last: Last month of this age class
         z: Total mortality rate (annual)
         leading: True if this is the leading (reference) stanza
+        leading_cb: True if this stanza anchors the group's consumption
+            (EwE's LeadingCB); when no stanza is marked, the leading one
+            does
         biomass: Calculated biomass
         qb: Calculated Q/B
     """
@@ -85,6 +88,7 @@ class StanzaIndividual:
     last: int
     z: float
     leading: bool = False
+    leading_cb: bool = False
     biomass: float = 0.0
     qb: float = 0.0
 
@@ -457,10 +461,23 @@ def rpath_stanzas(
         else:
             total_biomass = leading_biomass
 
-        if leading_stanza.qs > 0:
-            total_cons = leading_qb * leading_biomass / leading_stanza.qs
+        # Consumption is anchored on the LeadingCB stanza (EwE BaseStanzaCB,
+        # cEcoSimModel.vb 4384-4398): its Q/B is kept, with its derived
+        # biomass. Without one marked, the leading stanza anchors it.
+        cb_stanza = next((st for st in group_stanzas if st.leading_cb), None)
+        if cb_stanza is None or cb_stanza is leading_stanza:
+            cb_stanza, cb_qb, cb_biomass = leading_stanza, leading_qb, leading_biomass
         else:
-            total_cons = leading_qb * leading_biomass
+            cb_idx = rpath_params.model[
+                rpath_params.model["Group"] == cb_stanza.group_name
+            ].index[0]
+            cb_qb = rpath_params.model.loc[cb_idx, "QB"]
+            cb_biomass = cb_stanza.bs * total_biomass
+
+        if cb_stanza.qs > 0:
+            total_cons = cb_qb * cb_biomass / cb_stanza.qs
+        else:
+            total_cons = cb_qb * cb_biomass
 
         # Distribute to other stanzas
         for st in group_stanzas:
@@ -960,7 +977,7 @@ def create_stanza_params(
         List of dictionaries with individual stanza parameters.
         Required keys: stanza_group_num, stanza_num, group_num,
         group_name, first, last, z.
-        Optional keys: leading.
+        Optional keys: leading, leading_cb (defaults to leading).
 
     Returns
     -------
@@ -1004,6 +1021,7 @@ def create_stanza_params(
             last=ind["last"],
             z=ind["z"],
             leading=ind.get("leading", False),
+            leading_cb=ind.get("leading_cb", ind.get("leading", False)),
         )
         stanza_individuals.append(si)
 
@@ -1038,6 +1056,7 @@ _INDIV_COLUMNS = {
     "last": ("Last", "last"),
     "z": ("Z", "z"),
     "leading": ("Leading", "leading"),
+    "leading_cb": ("LeadingCB", "leading_cb"),
 }
 
 
@@ -1168,6 +1187,23 @@ def ecosim_stanza_params(
                 rec["stanza_num"] = i
         else:
             members.sort(key=lambda r: int(r["stanza_num"]))
+        # LeadingCB: where any is given, the marked stanza anchors the
+        # consumption; with none given (Rpath tables), the leading one.
+        if all(_is_missing(r["leading_cb"]) for r in members):
+            cb_flags = [r["leading"] for r in members]
+        else:
+            cb_flags = [
+                False if _is_missing(r["leading_cb"]) else _as_bool(r["leading_cb"])
+                for r in members
+            ]
+            if sum(cb_flags) > 1:
+                raise ValueError(
+                    f"stanza group {sg_num}: more than one LeadingCB stanza"
+                )
+            if not any(cb_flags):
+                cb_flags = [r["leading"] for r in members]
+        for rec, flag in zip(members, cb_flags):
+            rec["leading_cb"] = bool(flag)
         firsts = [float(r["first"]) for r in members]
         if firsts[0] != 0:
             # The age tables are indexed by absolute month from 0.
@@ -1200,6 +1236,7 @@ def ecosim_stanza_params(
                     last=int(last),
                     z=float(rec["z"]),
                     leading=rec["leading"],
+                    leading_cb=rec["leading_cb"],
                 )
             )
 
