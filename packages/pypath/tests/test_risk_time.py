@@ -41,7 +41,7 @@ def test_risk_qopt_is_ewes_expression():
     assert _risk_qopt(cbase, 0.0, risk0, eaten_of, b_end, mo) == cbase
 
 
-def _scenario():
+def _scenario(rule=None):
     from pypath.core.ecopath import rpath
     from pypath.core.ecosim import rsim_scenario
     from pypath.core.params import create_rpath_params
@@ -59,7 +59,9 @@ def _scenario():
     params.diet["Fish"] = [0.0, 1.0, 0.0, 0.0, 0.0]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        scenario = rsim_scenario(rpath(params), params, years=range(1, 4))
+        scenario = rsim_scenario(
+            rpath(params), params, years=range(1, 4), fast_group_rule=rule
+        )
     scenario.params.FtimeAdj[ZOO] = 0.5
     # the predator doubles: Zoo's predation risk rises
     scenario.forcing.ForcedBio[:, FISH] = 10.0
@@ -89,6 +91,47 @@ def test_risk_time_lowers_feeding_time_when_predation_rises():
     base, risky = _run(0.0), _run(1.0)
     assert risky.end_state.Ftime[ZOO] < base.end_state.Ftime[ZOO]
     assert not np.allclose(risky.out_Biomass[:, ZOO], base.out_Biomass[:, ZOO])
+
+
+def test_rpath_rule_takes_predation_and_biomass_from_the_months_end():
+    """Under the 'rpath' rule RiskRate uses the month-end state for both: the
+    derivative's FoodLoss there (prey Ftime included) and its biomass."""
+    from unittest.mock import patch
+
+    from pypath.core import ecosim, ecosim_deriv
+    from pypath.core.ecosim import rsim_run
+
+    sc = _scenario(rule="rpath")
+    sc.params.RiskTime = np.zeros(len(sc.params.FtimeAdj))
+    sc.params.RiskTime[ZOO] = 1.0
+    real_deriv, real_qopt = ecosim_deriv.deriv_vector, ecosim._risk_qopt
+    derivs, risks = [], []
+
+    def deriv_spy(state, params, forcing, fishing, t=0.0, rates=None):
+        d = real_deriv(state, params, forcing, fishing, t, rates=rates)
+        if rates is not None:
+            derivs.append((np.array(state, dtype=float), rates["FoodLoss"].copy()))
+        return d
+
+    def qopt_spy(cbase, risk_time, risk0, eaten_of, biomass, mo):
+        risks.append((eaten_of, biomass))
+        return real_qopt(cbase, risk_time, risk0, eaten_of, biomass, mo)
+
+    with (
+        patch.object(ecosim_deriv, "deriv_vector", deriv_spy),
+        patch.object(ecosim, "deriv_vector", deriv_spy),
+        patch.object(ecosim, "_risk_qopt", qopt_spy),
+        warnings.catch_warnings(),
+    ):
+        warnings.simplefilter("ignore")
+        out = rsim_run(sc, method="RK4")
+
+    assert len(risks) == out.out_Biomass.shape[0] - 1
+    for month, (eaten_of, biomass) in enumerate(risks, start=1):
+        end = out.out_Biomass[month]
+        assert biomass == pytest.approx(end[ZOO], rel=1e-12)
+        loss = next(fl for st, fl in derivs if np.allclose(st, end, rtol=1e-12))
+        assert eaten_of == pytest.approx(loss[ZOO], rel=1e-12)
 
 
 @pytest.mark.integration

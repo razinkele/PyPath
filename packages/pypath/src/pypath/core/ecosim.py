@@ -2380,6 +2380,7 @@ def rsim_run(
             # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime.
             _skip_fast = _fg_ftime is not None
             _no_int = np.asarray(params.NoIntegrate)
+            _end_rates = None  # 'rpath' rule RiskTime: month-end derivative
             for i in range(1, params.NUM_LIVING + 1):
                 if _skip_fast and _no_int[i] != 0:
                     continue
@@ -2391,19 +2392,29 @@ def rsim_run(
                     qopt = float(_ftime_qbopt[i])
                     if _has_risk and _risk_time[i] > 0:
                         # EwE rule: predation of the start-of-month Derivt
-                        # (EatenOfAvg); 'rpath' rule: of the month's end.
+                        # (EatenOfAvg) over the biomass after RK4 (BBAvg);
+                        # 'rpath' rule: both from the month-end state.
                         if _fg_ftime is not None:
                             eaten_of = float(_fg_rates["FoodLoss"][i])
+                            b_risk = float(_b_integrated[i])
                         else:
-                            eaten_of = float(
-                                np.nansum(QQ_month[i, 1 : params.NUM_LIVING + 1])
-                            )
+                            if _end_rates is None:
+                                _end_rates = {}
+                                deriv_vector(
+                                    state.copy(),
+                                    params_dict,
+                                    forcing_dict,
+                                    fishing_dict,
+                                    rates=_end_rates,
+                                )
+                            eaten_of = float(_end_rates["FoodLoss"][i])
+                            b_risk = float(state[i])
                         qopt = _risk_qopt(
                             qopt,
                             float(_risk_time[i]),
                             float(_risk0[i]),
                             eaten_of,
-                            float(_b_integrated[i]),
+                            b_risk,
                             float(_risk_mo[i]),
                         )
                     _ftime_current[i] = _ftime_update_rpath(
