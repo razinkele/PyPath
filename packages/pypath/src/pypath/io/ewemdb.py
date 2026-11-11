@@ -3931,10 +3931,18 @@ def _apply_capacity_drivers(
             esim_to_idx[esim_gid] = spname.index(str(name).strip())
 
         def _values(row) -> np.ndarray:
-            return np.asarray(
-                [float(v) for v in str(row.get("zScale", "")).split() if v.strip()],
-                dtype=float,
-            )
+            """A shape's zScale as numbers: empty when missing, NaN for a
+            token that is not a number (the row check then skips it)."""
+            raw = row.get("zScale")
+            if raw is None or (not isinstance(raw, str) and pd.isna(raw)):
+                return np.empty(0)
+            out = []
+            for token in str(raw).split():
+                try:
+                    out.append(float(token))
+                except ValueError:
+                    out.append(np.nan)
+            return np.asarray(out, dtype=float)
 
         drivers = {
             _int_or_none(r.get("ShapeID")): _values(r)
@@ -3957,12 +3965,7 @@ def _apply_capacity_drivers(
             grp = esim_to_idx.get(_int_or_none(row.get("GroupID")))
             driver = drivers.get(_int_or_none(row.get("DriverID")))
             response = responses.get(_int_or_none(row.get("ResponseID")))
-            if (
-                grp is None
-                or driver is None
-                or response is None
-                or not len(response[0])
-            ):
+            if grp is None or driver is None or response is None:
                 logger.warning(
                     "Environmental response (group %s, driver %s, response %s) "
                     "of Ecosim scenario %s matches no group or shape; skipped",
@@ -3972,10 +3975,27 @@ def _apply_capacity_drivers(
                     sid,
                 )
                 continue
+            points, x_min, x_max = response
+            usable = (
+                len(driver) > 0
+                and len(points) > 0
+                and np.isfinite(driver).all()
+                and np.isfinite(points).all()
+                and np.isfinite([x_min, x_max]).all()
+            )
+            if not usable:
+                # One broken shape must not poison or stop the other rows.
+                logger.warning(
+                    "Environmental response on %s skipped: driver %s or response "
+                    "%s holds no usable numbers",
+                    spname[grp],
+                    row.get("DriverID"),
+                    row.get("ResponseID"),
+                )
+                continue
             x = driver[:n_months]
             if len(x) < n_months:  # as the forcing shapes: the last value holds
                 x = np.pad(x, (0, n_months - len(x)), mode="edge")
-            points, x_min, x_max = response
             r = np.array([_enviro_response(points, x_min, x_max, v) for v in x])
             target = _int_or_none(row.get("Target")) or _ENV_SEARCH_RESPONSE
             gtype = group_types[grp - 1] if 0 < grp <= len(group_types) else None

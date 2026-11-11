@@ -163,12 +163,73 @@ def test_detritus_driver_is_reported_and_skipped(monkeypatch, caplog):
     assert any("Det" in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"response": (np.nan,)},  # a null zScale reads as one NaN point
+        {"response": ()},  # an empty curve
+        {"driver": ()},  # an empty driver series
+        {"driver": (0.0, np.nan)},  # a driver value that is not a number
+    ],
+)
+def test_a_broken_shape_skips_only_its_own_row(monkeypatch, caplog, bad):
+    """A row whose driver or response holds no usable numbers is reported and
+    skipped; the other rows still apply, and nothing becomes NaN."""
+    tables = _tables([_row(902), _row(901)])
+    good = _tables([])
+    if "response" in bad:
+        tables["EcosimShapeMediation"] = pd.concat(
+            [
+                good["EcosimShapeMediation"],
+                pd.DataFrame(
+                    {
+                        "ShapeID": [281],
+                        "zScale": [
+                            " ".join(str(v) for v in bad["response"])
+                            if bad["response"]
+                            else None
+                        ],
+                        "XAxisMin": [0.0],
+                        "XAxisMax": [1.0],
+                    }
+                ),
+            ]
+        )
+        tables["EcosimScenarioCapacityDrivers"].loc[0, "ResponseID"] = 281
+    else:
+        tables["EcosimShapeTime"] = pd.concat(
+            [
+                good["EcosimShapeTime"],
+                pd.DataFrame(
+                    {
+                        "ShapeID": [97],
+                        "zScale": [" ".join(str(v) for v in bad["driver"])],
+                        "Title": ["broken"],
+                    }
+                ),
+            ]
+        )
+        tables["EcosimScenarioCapacityDrivers"].loc[0, "DriverID"] = 97
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        sc = _apply(monkeypatch, tables)
+    fs = sc.forcing.ForcedSearch
+    assert np.isfinite(fs).all() and np.isfinite(sc.forcing.ForcedMort).all()
+    np.testing.assert_allclose(fs[:, ZOO], 1.0)  # the broken row
+    assert fs[0, PHYTO] == pytest.approx(1.2)  # the good row still applies
+    assert any("Zoo" in r.getMessage() for r in caplog.records)
+
+
 def _lt2022_s7():
     if not LT2022.exists():
         pytest.skip("LT2022 database not found")
-    from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+    from pypath.io.ewemdb import EwEDatabaseError, ecosim_scenario_from_ewemdb
 
-    return ecosim_scenario_from_ewemdb(str(LT2022), scenario=7, timeseries_dataset=35)
+    try:
+        return ecosim_scenario_from_ewemdb(
+            str(LT2022), scenario=7, timeseries_dataset=35
+        )
+    except EwEDatabaseError as e:
+        pytest.skip(f"No EwE database driver: {e}")
 
 
 @pytest.mark.integration
