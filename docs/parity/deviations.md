@@ -20,10 +20,10 @@ Status values:
 | B5 | Ecospace | EatEff and RelVulBad, migration maps, fitness-based emigration, advection mapping, frozen feeding time, zero spatial catch | P6 |
 | C1–C3 | Fitting | `fit_to_timeseries` fits catch to biomass, keeps one series per group, and uses a different q and sampling month. The LT2022 SS pin (value and history in `test_ecosim_lt2022_parity.py`) is PyPath's own linear SS, not EwE's (EwE's own SS for scenario 16 is 75.22) | P3 |
 | D1 | Ecosim | Fixed under the EwE rule: prey Ftime and vulnerability forcing enter the arena as EwE's vulnerable-pool inflow (`PREY_FTIME_ARENA`). The `"rpath"` rule keeps Rpath's linear prey term. Vulnerability-type mediation still scales consumption directly (see D3) | P4 |
-| D2 | Ecosim | Fixed under the EwE rule: the timing (start-of-month state) and the Q source (the derivative's consumption). Fast groups now keep their Ftime, as in EwE (it updates integrated groups only). Still open: the stanza denominator and RiskTime | P4 |
+| D2 | Ecosim | Fixed under the EwE rule: the timing (start-of-month state), the Q source (the derivative's consumption) and the stanza denominator (consumption per predator index, sum(N x WWa) for stanza groups; `cEcoSimModel.vb:1762, 3310`). Fast groups keep their Ftime, as in EwE (it updates integrated groups only). Still open: RiskTime | P4 |
 | D3 | Ecosim | Mediation weights, normalisation, combination and application type | P4 |
 | D4 | Ecopath | Entered EE is not recomputed; missing Q/B is not estimated; fractional Type is truncated | P5 |
-| E | Stanzas | LeadingCB, BABsplit, plus-group weight, recruitment forcing, SpawnProp and related settings | P2 |
+| E | Stanzas | Fixed under the EwE rule: the age table (ends at 90 % of W_inf, `CInt(40.3978/K)`), the Ford-Walford plus group in the setup and in every month, and the static consumption weights WWa (`cEcoSimModel.vb:4288-4335, 1866, 3549`). `rpath_stanzas()` keeps Rpath's table by default. Still open: LeadingCB, BABsplit, RzeroS x exp(BaB/12), recruitment forcing, SpawnProp and related settings, and the monthly rates SplitUpdate takes (EwE: BAvg and LossAvg averaged over the month; PyPath: the end-of-month state) | P2 |
 | F | Ecotracer | `core/ecotracer.py` is a simplified tracer, not EwE's Ecotracer (no environment pool; different uptake and losses) | P8 (relabel) |
 | G | Various | Fishing, Ecosim options, Ecopath reporting and minor reader items listed in the audit's section G | P5, P7 |
 
