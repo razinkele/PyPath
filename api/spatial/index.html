@@ -22104,7 +22104,14 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 <span class="normal">494</span>
 <span class="normal">495</span>
 <span class="normal">496</span>
-<span class="normal">497</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
+<span class="normal">497</span>
+<span class="normal">498</span>
+<span class="normal">499</span>
+<span class="normal">500</span>
+<span class="normal">501</span>
+<span class="normal">502</span>
+<span class="normal">503</span>
+<span class="normal">504</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
     <span class="n">state_spatial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
@@ -22320,6 +22327,9 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
     <span class="k">for</span> <span class="n">g_idx</span><span class="p">,</span> <span class="n">ctx</span> <span class="ow">in</span> <span class="n">ibm_spatial_contexts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">params</span><span class="p">[</span><span class="s2">"_ibm_spatial_context_</span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="n">g_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span>
 
+    <span class="c1"># EwE6 handling time: each patch's Hden column (updated in place)</span>
+    <span class="n">_hden_patches</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_hden_patches"</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_patch</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">,</span> <span class="n">patch_params</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Compute local Ecosim derivative for a single patch.</span>
 
@@ -22327,6 +22337,8 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 <span class="sd">        threads never share mutable state.</span>
 <span class="sd">        """</span>
         <span class="n">state_patch</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
         <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
             <span class="n">patch_params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_ref_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
             <span class="n">patch_params</span><span class="p">[</span><span class="s2">"Bbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_ref_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
@@ -22372,6 +22384,8 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
                 <span class="n">state_patch</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
                 <span class="n">patch_forcing</span> <span class="o">=</span> <span class="n">_patch_forcing</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">)</span>
                 <span class="n">rates</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">rates_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
 
                 <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
                     <span class="n">b_base_ref_backup</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span>
@@ -22678,14 +22692,7 @@ distributed by patch area, so every patch starts at the same density.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 500</span>
-<span class="normal"> 501</span>
-<span class="normal"> 502</span>
-<span class="normal"> 503</span>
-<span class="normal"> 504</span>
-<span class="normal"> 505</span>
-<span class="normal"> 506</span>
-<span class="normal"> 507</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 507</span>
 <span class="normal"> 508</span>
 <span class="normal"> 509</span>
 <span class="normal"> 510</span>
@@ -23212,7 +23219,33 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1031</span>
 <span class="normal">1032</span>
 <span class="normal">1033</span>
-<span class="normal">1034</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span>
+<span class="normal">1060</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23390,6 +23423,8 @@ distributed by patch area, so every patch starts at the same density.</p>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">_build_active_link_matrix</span><span class="p">,</span>
         <span class="n">_build_link_matrix</span><span class="p">,</span>
+        <span class="n">_ewe_handling_setup</span><span class="p">,</span>
+        <span class="n">_frozen_hden</span><span class="p">,</span>
         <span class="n">_handling_matrix</span><span class="p">,</span>
     <span class="p">)</span>
 
@@ -23451,6 +23486,18 @@ distributed by patch area, so every patch starts at the same density.</p>
     <span class="c1"># Include IBM groups in params dict for deriv_vector</span>
     <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"ibm_groups"</span><span class="p">):</span>
         <span class="n">params_dict</span><span class="p">[</span><span class="s2">"ibm_groups"</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">ibm_groups</span>
+
+    <span class="c1"># EwE6 handling time (D5) as rsim_run applies it, with each patch's own</span>
+    <span class="c1"># Hden (deriv_vector_spatial hands every patch its column); the run starts</span>
+    <span class="c1"># from CmCo / (CmCo + 1) and one derivative at the start state.</span>
+    <span class="n">_hden_start_pending</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">_handling</span> <span class="o">=</span> <span class="n">_ewe_handling_setup</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">n_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_handling</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_hden0</span><span class="p">,</span> <span class="n">_hden_start</span><span class="p">,</span> <span class="n">_cmco_qb</span> <span class="o">=</span> <span class="n">_handling</span>
+        <span class="n">params_dict</span><span class="p">[</span><span class="s2">"_hden0"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden0</span>
+        <span class="n">params_dict</span><span class="p">[</span><span class="s2">"_cmco_qb"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_cmco_qb</span>
+        <span class="n">params_dict</span><span class="p">[</span><span class="s2">"_hden_patches"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">_hden_start</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">))</span>
+        <span class="n">_hden_start_pending</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="c1"># Build fishing dict (constant across timesteps, same as rsim_run)</span>
     <span class="n">fishing_dict</span> <span class="o">=</span> <span class="p">{</span>
@@ -23621,6 +23668,10 @@ distributed by patch area, so every patch starts at the same density.</p>
             <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">))</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_stage_keys</span><span class="p">}</span>
 
         <span class="n">month_start_biomass</span> <span class="o">=</span> <span class="n">current_biomass</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">_hden_start_pending</span><span class="p">:</span>
+            <span class="c1"># EwE6 SetTimeSteps: one Derivt at the start state advances Hden</span>
+            <span class="n">_f</span><span class="p">(</span><span class="n">current_biomass</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">hh</span><span class="p">)</span>
+            <span class="n">_hden_start_pending</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">first_stage</span> <span class="o">=</span> <span class="n">last_stage</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rk4_steps</span><span class="p">):</span>
             <span class="n">t_sub</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="n">sub</span> <span class="o">*</span> <span class="n">hh</span>
@@ -23683,7 +23734,8 @@ distributed by patch area, so every patch starts at the same density.</p>
                     <span class="n">key</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">))</span>
                     <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"FoodGain"</span><span class="p">,</span> <span class="s2">"LossPropToB"</span><span class="p">)</span>
                 <span class="p">}</span>
-                <span class="n">_f</span><span class="p">(</span><span class="n">current_biomass</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">DELTA_T</span><span class="p">,</span> <span class="n">rates_out</span><span class="o">=</span><span class="n">month_rates</span><span class="p">)</span>
+                <span class="k">with</span> <span class="n">_frozen_hden</span><span class="p">(</span><span class="n">params_dict</span><span class="p">):</span>
+                    <span class="n">_f</span><span class="p">(</span><span class="n">current_biomass</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">DELTA_T</span><span class="p">,</span> <span class="n">rates_out</span><span class="o">=</span><span class="n">month_rates</span><span class="p">)</span>
                 <span class="n">split_update</span><span class="p">(</span>
                     <span class="n">stanzas_obj</span><span class="p">,</span>
                     <span class="n">stanza_state</span><span class="p">,</span>
