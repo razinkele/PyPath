@@ -144,6 +144,12 @@ STANZA_COLUMNS = {
     "stgroups": ["StGroupNum", "StanzaGroup", "VBGF_Ksp", "Wmat", "RecPower"],
     "stindiv": ["StGroupNum", "StanzaNum", "Group", "First", "Z", "Leading"],
 }
+# Columns the reader adds once it reads them (LeadingCB, BABsplit, SpawnProp,
+# FixedFecundity, RecStanza); compared when present.
+OPTIONAL_STANZA_COLUMNS = {
+    "stgroups": ["BAB", "FixedFecundity", "RecStanza"],
+    "stindiv": ["LeadingCB", "SpawnProp"],
+}
 
 
 @pytest.mark.integration
@@ -163,10 +169,10 @@ def test_stanza_tables_survive_a_round_trip(tmp_path, db):
         pytest.skip(f"No EwE database driver: {e}")
     back = _read_back(_tables(original, tmp_path), tmp_path)
     for table, columns in STANZA_COLUMNS.items():
-        extra = [c for c in ("LeadingCB", "SpawnProp", "BAB") if table == "stindiv"]
         a = getattr(original.stanzas, table)
         b = getattr(back.stanzas, table)
-        cols = [c for c in columns + extra if c in a.columns]
+        cols = [c for c in columns + OPTIONAL_STANZA_COLUMNS[table] if c in a.columns]
+        assert set(OPTIONAL_STANZA_COLUMNS[table]) <= set(a.columns), table
         a = a.sort_values(cols[:2]).reset_index(drop=True)[cols]
         b = b.sort_values(cols[:2]).reset_index(drop=True)[cols]
         a.columns = b.columns = cols
