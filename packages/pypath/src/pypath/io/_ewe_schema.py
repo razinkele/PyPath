@@ -263,6 +263,7 @@ EWE_TABLES = {
             ("ScenarioID", "INTEGER"),
             ("DatasourceName", "TEXT"),
             ("Enabled", "YESNO"),
+            ("DataInterval", "INTEGER"),
         ]
     ),
     "EcosimTimeSeriesSeason": OrderedDict(

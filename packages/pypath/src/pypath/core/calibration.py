@@ -301,7 +301,9 @@ def fit_to_timeseries(
     if n_points < 2:
         raise ValueError("Need at least 2 observed timesteps for calibration.")
     annual = getattr(timeseries, "interval", "annual") != "timestep"
-    years = range(1, (n_points if annual else -(-n_points // 12)) + 1)
+    n_years = n_points if annual else -(-n_points // 12)
+    # rsim_scenario needs two years; only the supplied data are compared
+    years = range(1, max(n_years, 2) + 1)
 
     # Build base scenario
     scenario = rsim_scenario(rpath_model, params, years=years)

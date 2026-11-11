@@ -99,6 +99,18 @@ class TestFitObjective:
         refit = ewe_sum_of_squares(rsim_run(result.fitted_scenario), ts)
         assert refit.total == pytest.approx(result.ss, abs=1e-12)
 
+    def test_short_time_step_series_fit(self):
+        """Six monthly values still run the two years rsim_scenario needs."""
+        balanced, params = _fished_model()
+        ts = EweTimeSeriesCollection(
+            [EweTimeSeries(1, "Fish", DATTYPE_REL_BIOMASS, 2, None, np.ones(6))],
+            interval="timestep",
+        )
+        result = fit_to_timeseries(
+            balanced, params, ts, method="minimize", max_iterations=1
+        )
+        assert np.isfinite(result.ss)
+
     def test_series_left_out_are_reported_once(self, caplog):
         import logging
 

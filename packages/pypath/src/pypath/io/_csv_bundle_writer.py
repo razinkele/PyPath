@@ -594,6 +594,10 @@ class CsvBundleWriter:
                 "ScenarioID": self._scenario_id,
                 "DatasourceName": f"Dataset_{did}",
                 "Enabled": True,
+                # EwE eTSDataSetInterval: 0 annual, 1 time step
+                "DataInterval": int(
+                    getattr(timeseries, "interval", "annual") == "timestep"
+                ),
             }
             for did in sorted(dataset_ids)
         ]

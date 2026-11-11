@@ -4727,12 +4727,29 @@ def read_timeseries(
 
     # EcosimTimeSeriesDataset.DataInterval: 0 annual, 1 time step
     # (eTSDataSetInterval); it sets when the data are compared with the run.
+    # Without a dataset, the loaded series' datasets decide; mixed intervals
+    # cannot share one comparison and are reported.
     interval = "annual"
-    if dataset is not None and "EcosimTimeSeriesDataset" in tables:
+    loaded = {dataset} if dataset is not None else {s.dataset_id for s in series_list}
+    if loaded and "EcosimTimeSeriesDataset" in tables:
         try:
             ds_df = read_ewemdb_table(filepath, "EcosimTimeSeriesDataset")
-            ds_row = ds_df[ds_df["DatasetID"] == dataset]
-            if len(ds_row) and _int_or_none(ds_row.iloc[0].get("DataInterval")) == 1:
+            intervals = {
+                int(r["DatasetID"]): _int_or_none(r.get("DataInterval")) == 1
+                for _, r in ds_df.iterrows()
+                if _int_or_none(r.get("DatasetID")) in loaded
+            }
+            if len(set(intervals.values())) > 1:
+                logger.warning(
+                    "Time series from datasets with different data intervals "
+                    "(%s); they are compared as annual data. Read one dataset "
+                    "with read_timeseries(..., dataset=ID)",
+                    ", ".join(
+                        f"{k}: {'time step' if v else 'annual'}"
+                        for k, v in sorted(intervals.items())
+                    ),
+                )
+            elif intervals and all(intervals.values()):
                 interval = "timestep"
         except Exception as e:
             logger.debug("read_timeseries: dataset interval unavailable: %s", e)

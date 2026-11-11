@@ -230,6 +230,23 @@ def apply_timeseries_drivers(
     n_groups = scenario.params.NUM_GROUPS
     n_gears = scenario.params.NUM_GEARS
 
+    driver_types = (
+        DATTYPE_FORCED_BIOMASS,
+        DATTYPE_EFFORT,
+        DATTYPE_FISHING_MORTALITY,
+        DATTYPE_CATCH_FORCING,
+    )
+    if getattr(collection, "interval", "annual") == "timestep" and any(
+        s.dat_type in driver_types for s in collection.series
+    ):
+        warnings.warn(
+            "The dataset has time-step (monthly) data, but its driver series "
+            "are applied per year (value k holds for year k); monthly drivers "
+            "are not supported yet",
+            UserWarning,
+            stacklevel=2,
+        )
+
     for s in collection.forced_biomass:
         if s.group_idx is None:
             continue
