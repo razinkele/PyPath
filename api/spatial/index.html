@@ -23185,7 +23185,8 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1004</span>
 <span class="normal">1005</span>
 <span class="normal">1006</span>
-<span class="normal">1007</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1007</span>
+<span class="normal">1008</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23388,6 +23389,7 @@ distributed by patch area, so every patch starts at the same density.</p>
         <span class="c1"># EwE arena for prey Ftime / vulnerability forcing, as rsim_run (D1)</span>
         <span class="s2">"PREY_FTIME_ARENA"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"PREY_FTIME_ARENA"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
         <span class="s2">"MoPred"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"MoPred"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="s2">"DETRITUS_MO_UNSCALED"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DETRITUS_MO_UNSCALED"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
         <span class="s2">"UseVarPQ"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"UseVarPQ"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
         <span class="s2">"VbK"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"VbK"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"AssimEff"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"AssimEff"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
