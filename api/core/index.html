@@ -29108,11 +29108,7 @@ means a scenario can be run more than once from the same start.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">722</span>
-<span class="normal">723</span>
-<span class="normal">724</span>
-<span class="normal">725</span>
-<span class="normal">726</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">726</span>
 <span class="normal">727</span>
 <span class="normal">728</span>
 <span class="normal">729</span>
@@ -29141,7 +29137,11 @@ means a scenario can be run more than once from the same start.</p>
 <span class="normal">752</span>
 <span class="normal">753</span>
 <span class="normal">754</span>
-<span class="normal">755</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">755</span>
+<span class="normal">756</span>
+<span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimStanzaState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Live age structure of the multi-stanza groups during a run.</span>
 
@@ -29213,11 +29213,7 @@ means a scenario can be run more than once from the same start.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">740</span>
-<span class="normal">741</span>
-<span class="normal">742</span>
-<span class="normal">743</span>
-<span class="normal">744</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">744</span>
 <span class="normal">745</span>
 <span class="normal">746</span>
 <span class="normal">747</span>
@@ -29228,7 +29224,11 @@ means a scenario can be run more than once from the same start.</p>
 <span class="normal">752</span>
 <span class="normal">753</span>
 <span class="normal">754</span>
-<span class="normal">755</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">755</span>
+<span class="normal">756</span>
+<span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_base</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RsimStanzaState"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Start state: copies of the base arrays (Rpath ``rsim.scenario``)."""</span>
     <span class="n">stanza_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
@@ -29804,11 +29804,7 @@ the simulation engine.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">767</span>
-<span class="normal">768</span>
-<span class="normal">769</span>
-<span class="normal">770</span>
-<span class="normal">771</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">771</span>
 <span class="normal">772</span>
 <span class="normal">773</span>
 <span class="normal">774</span>
@@ -29858,7 +29854,11 @@ the simulation engine.</p>
 <span class="normal">818</span>
 <span class="normal">819</span>
 <span class="normal">820</span>
-<span class="normal">821</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_stanza_arrays</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="normal">821</span>
+<span class="normal">822</span>
+<span class="normal">823</span>
+<span class="normal">824</span>
+<span class="normal">825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_stanza_arrays</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Return the problems that stop the age structure from being simulated.</span>
 
 <span class="sd">    An empty list means :func:`split_update` / :func:`split_set_pred` can run.</span>
@@ -30033,11 +30033,7 @@ Optional keys: leading, leading_cb (defaults to leading).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 962</span>
-<span class="normal"> 963</span>
-<span class="normal"> 964</span>
-<span class="normal"> 965</span>
-<span class="normal"> 966</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 966</span>
 <span class="normal"> 967</span>
 <span class="normal"> 968</span>
 <span class="normal"> 969</span>
@@ -30103,7 +30099,11 @@ Optional keys: leading, leading_cb (defaults to leading).</p>
 <span class="normal">1029</span>
 <span class="normal">1030</span>
 <span class="normal">1031</span>
-<span class="normal">1032</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_stanza_params</span><span class="p">(</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_stanza_params</span><span class="p">(</span>
     <span class="n">groups</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">individuals</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcosimStanzaParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create EcosimStanzaParams from dictionaries.</span>
@@ -30275,11 +30275,7 @@ is not in the model.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1109</span>
-<span class="normal">1110</span>
-<span class="normal">1111</span>
-<span class="normal">1112</span>
-<span class="normal">1113</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1113</span>
 <span class="normal">1114</span>
 <span class="normal">1115</span>
 <span class="normal">1116</span>
@@ -30460,7 +30456,11 @@ is not in the model.</p>
 <span class="normal">1291</span>
 <span class="normal">1292</span>
 <span class="normal">1293</span>
-<span class="normal">1294</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecosim_stanza_params</span><span class="p">(</span>
+<span class="normal">1294</span>
+<span class="normal">1295</span>
+<span class="normal">1296</span>
+<span class="normal">1297</span>
+<span class="normal">1298</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecosim_stanza_params</span><span class="p">(</span>
     <span class="n">stanzas</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcosimStanzaParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Convert ``RpathParams.stanzas`` to the form the stanza engine uses.</span>
@@ -30672,11 +30672,7 @@ that assigns <code>stgroups</code>/<code>stindiv</code> directly often leaves th
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1063</span>
-<span class="normal">1064</span>
-<span class="normal">1065</span>
-<span class="normal">1066</span>
-<span class="normal">1067</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1067</span>
 <span class="normal">1068</span>
 <span class="normal">1069</span>
 <span class="normal">1070</span>
@@ -30686,7 +30682,11 @@ that assigns <code>stgroups</code>/<code>stindiv</code> directly often leaves th
 <span class="normal">1074</span>
 <span class="normal">1075</span>
 <span class="normal">1076</span>
-<span class="normal">1077</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">has_stanza_tables</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="normal">1077</span>
+<span class="normal">1078</span>
+<span class="normal">1079</span>
+<span class="normal">1080</span>
+<span class="normal">1081</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">has_stanza_tables</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""True if ``stanzas`` describes at least one stanza group.</span>
 
 <span class="sd">    Looks at the tables rather than ``n_stanza_groups`` alone, because code</span>
@@ -31496,7 +31496,11 @@ plus group (:func:<code>_ewe_age_table</code>). :func:<code>rsim_scenario</code>
 <span class="normal">716</span>
 <span class="normal">717</span>
 <span class="normal">718</span>
-<span class="normal">719</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_stanzas</span><span class="p">(</span>
+<span class="normal">719</span>
+<span class="normal">720</span>
+<span class="normal">721</span>
+<span class="normal">722</span>
+<span class="normal">723</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_stanzas</span><span class="p">(</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -31620,6 +31624,10 @@ plus group (:func:<code>_ewe_age_table</code>). :func:<code>rsim_scenario</code>
         <span class="n">rstan</span><span class="o">.</span><span class="n">recruits</span><span class="p">[</span><span class="n">isp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">recruits</span>
         <span class="n">rstan</span><span class="o">.</span><span class="n">vbgf_d</span><span class="p">[</span><span class="n">isp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">vbgf_d</span>
         <span class="n">rstan</span><span class="o">.</span><span class="n">r_zero_s</span><span class="p">[</span><span class="n">isp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">recruits</span>
+        <span class="k">if</span> <span class="n">stanza_params</span><span class="o">.</span><span class="n">plus_group_rule</span> <span class="o">==</span> <span class="s2">"ewe"</span><span class="p">:</span>
+            <span class="c1"># EwE6: RzeroS = Recruits x exp(BaB / 12) (vb 4362); with the</span>
+            <span class="c1"># stages losing Z the numbers then grow at the rate BaB.</span>
+            <span class="n">rstan</span><span class="o">.</span><span class="n">r_zero_s</span><span class="p">[</span><span class="n">isp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">sg</span><span class="o">.</span><span class="n">bab</span> <span class="o">/</span> <span class="mf">12.0</span><span class="p">)</span>
         <span class="c1"># Energy required to grow a unit in weight (scaled to Winf=1)</span>
         <span class="n">rstan</span><span class="o">.</span><span class="n">vbm</span><span class="p">[</span><span class="n">isp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="n">sg</span><span class="o">.</span><span class="n">vbgf_ksp</span> <span class="o">/</span> <span class="mf">12.0</span>
         <span class="n">rstan</span><span class="o">.</span><span class="n">ahat</span><span class="p">[</span><span class="n">isp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">ahat</span>
@@ -31725,11 +31733,7 @@ place: this is what couples the age structure to Ecosim.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">940</span>
-<span class="normal">941</span>
-<span class="normal">942</span>
-<span class="normal">943</span>
-<span class="normal">944</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">944</span>
 <span class="normal">945</span>
 <span class="normal">946</span>
 <span class="normal">947</span>
@@ -31744,7 +31748,11 @@ place: this is what couples the age structure to Ecosim.</p>
 <span class="normal">956</span>
 <span class="normal">957</span>
 <span class="normal">958</span>
-<span class="normal">959</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">split_set_pred</span><span class="p">(</span>
+<span class="normal">959</span>
+<span class="normal">960</span>
+<span class="normal">961</span>
+<span class="normal">962</span>
+<span class="normal">963</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">split_set_pred</span><span class="p">(</span>
     <span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">,</span> <span class="n">sstate</span><span class="p">:</span> <span class="n">RsimStanzaState</span><span class="p">,</span> <span class="n">biomass</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Sum the age structure into group totals (Rpath ``SplitSetPred``).</span>
@@ -31923,11 +31931,7 @@ at the group of the last stanza.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">824</span>
-<span class="normal">825</span>
-<span class="normal">826</span>
-<span class="normal">827</span>
-<span class="normal">828</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">828</span>
 <span class="normal">829</span>
 <span class="normal">830</span>
 <span class="normal">831</span>
@@ -32036,7 +32040,11 @@ at the group of the last stanza.</p>
 <span class="normal">934</span>
 <span class="normal">935</span>
 <span class="normal">936</span>
-<span class="normal">937</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">split_update</span><span class="p">(</span>
+<span class="normal">937</span>
+<span class="normal">938</span>
+<span class="normal">939</span>
+<span class="normal">940</span>
+<span class="normal">941</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">split_update</span><span class="p">(</span>
     <span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">,</span>
     <span class="n">sstate</span><span class="p">:</span> <span class="n">RsimStanzaState</span><span class="p">,</span>
     <span class="n">biomass</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -32174,13 +32182,13 @@ at the group of the last stanza.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/stanzas.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">758</span>
-<span class="normal">759</span>
-<span class="normal">760</span>
-<span class="normal">761</span>
-<span class="normal">762</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">762</span>
 <span class="normal">763</span>
-<span class="normal">764</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">stanza_group_indices</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span>
+<span class="normal">767</span>
+<span class="normal">768</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">stanza_group_indices</span><span class="p">(</span><span class="n">stanzas</span><span class="p">:</span> <span class="n">RsimStanzas</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Model group numbers (Rsim indexing, Outside = 0) of all stanza groups."""</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">isp</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">stanzas</span><span class="o">.</span><span class="n">n_split</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
