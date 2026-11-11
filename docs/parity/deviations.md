@@ -24,6 +24,7 @@ Status values:
 | D3 | Ecosim | Mediation weights, normalisation, combination and application type | P4 |
 | D4 | Ecopath | Entered EE is not recomputed; missing Q/B is not estimated; fractional Type is truncated | P5 |
 | E | Stanzas | Fixed under the EwE rule: the age table (ends at 90 % of W_inf, `CInt(40.3978/K)`), the Ford-Walford plus group in the setup and in every month, and the static consumption weights WWa (`cEcoSimModel.vb:4288-4335, 1866, 3549`). `rpath_stanzas()` keeps Rpath's table by default. Consumption is anchored on the LeadingCB stage (both rules; `cEcoSimModel.vb:4180-4187, 4384-4398`). Still open: BABsplit, RzeroS x exp(BaB/12), recruitment forcing, SpawnProp and related settings, and the monthly rates SplitUpdate takes (EwE: BAvg and LossAvg averaged over the month; PyPath: the end-of-month state) | P2 |
+| H | Ecosim | Fixed: environmental response functions (`EcosimScenarioCapacityDrivers`) were not read. They are applied as EwE does (`cEcoSimModel.vb:4931, 5016`): Target 115 scales a consumer's search rate or a producer's production (`ForcedSearch`), Target 126 other mortality (`ForcedMort`). Still open: a response on a detritus group, which scales its import in EwE (reported and skipped) | — |
 | F | Ecotracer | `core/ecotracer.py` is a simplified tracer, not EwE's Ecotracer (no environment pool; different uptake and losses) | P8 (relabel) |
 | G | Various | Fishing, Ecosim options, Ecopath reporting and minor reader items listed in the audit's section G | P5, P7 |
 

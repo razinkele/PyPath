@@ -38,7 +38,7 @@ EcopathTaxon,ecopath,true,true,true,true,implemented,
 EcosimModel,ecosim,true,false,false,false,partial,
 EcosimScenario,ecosim,true,true,true,true,partial,"not read: StepSize, SystemRecovery, sorwt, Discount, NutBaseFreeProp, NutForcingShapeID"
 EcosimScenarioArena,ecosim,true,false,false,false,partial,
-EcosimScenarioCapacityDrivers,ecosim,false,false,true,false,partial,
+EcosimScenarioCapacityDrivers,ecosim,false,true,true,false,partial,"read: environmental response functions (Target 115: search rate or production, as ForcedSearch; 126: other mortality, as ForcedMort); a response on a detritus group (its import) is reported, not modelled"
 EcosimScenarioFleet,ecosim,true,true,false,false,partial,
 EcosimScenarioFleetYear,ecosim,true,false,false,false,partial,
 EcosimScenarioForcingMatrix,ecosim,true,true,true,true,implemented,
