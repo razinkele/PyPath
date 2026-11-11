@@ -2258,6 +2258,7 @@ def rsim_run(
                     _stanza_stages["last"]["FoodGain"],
                     _stanza_stages["first"]["LossPropToB"],
                     forced_recs=forcing_dict.get("ForcedRecs"),
+                    month_index=month - 1,
                 )
             else:
                 rate_state = month_start_state if method.upper() == "AB" else state
@@ -2276,6 +2277,7 @@ def rsim_run(
                     stanza_rates["FoodGain"],
                     stanza_rates["LossPropToB"],
                     forced_recs=forcing_dict.get("ForcedRecs"),
+                    month_index=month - 1,
                 )
             # Overwrite the stanza groups' biomass with sum(N * W)
             split_set_pred(stanzas_obj, stanza_state, state)
