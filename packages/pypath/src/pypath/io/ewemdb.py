@@ -610,32 +610,51 @@ def _not_default(value: Any, default: float) -> bool:
 
 
 # Settings that act only through a group's own consumption (Qopt, handling
-# time), so they do nothing on producers and detritus.
+# time; cEcoSimModel.vb 1766, 3379), so not on producers and detritus.
 _CONSUMPTION_SETTINGS = {"RiskTime", "CmCo"}
 
 
-def _no_effect_here(col: str, value: Any, group_type: Optional[float]) -> bool:
-    """A setting on a producer or detritus row that cannot act there: EwE's
-    -999 "not set" marker (written for those groups), or a consumption
-    setting."""
-    if group_type is None or not group_type >= 1:
-        return False
-    number = _ewe_number(value)
-    return col in _CONSUMPTION_SETTINGS or (number is not None and number <= -998.0)
+def _no_effect_here(
+    col: str, group_type: Optional[float], is_fished: Optional[bool]
+) -> bool:
+    """A setting that cannot act on this group in EwE: RiskTime or CmCo on a
+    producer or detritus group, QmQo (density-dependent catchability, a factor
+    on F; vb 5092) on an unfished group. EwE writes -999 in such cells
+    (Black Sea). AdditivePredMort acts on every group that is eaten."""
+    if col in _CONSUMPTION_SETTINGS:
+        return group_type is not None and group_type >= 1
+    if col == "QmQo":
+        return is_fished is False
+    return False
+
+
+def _fished_groups(params) -> Optional[set]:
+    """Names of the groups with landings or discards in the Ecopath model."""
+    try:
+        m = params.model
+        fleets = [str(g) for g, t in zip(m["Group"], m["Type"]) if t == 3]
+    except (AttributeError, KeyError):
+        return None
+    cols = [c for c in m.columns if c in fleets or c in {f"{f}.disc" for f in fleets}]
+    caught = m[cols].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1) > 0
+    return {str(g).strip() for g, c in zip(m["Group"], caught) if c}
 
 
 def _warn_ignored_scenario_settings(
-    scenario_meta: dict, group_types: Optional[Dict[str, float]] = None
+    scenario_meta: dict,
+    group_types: Optional[Dict[str, float]] = None,
+    fished: Optional[set] = None,
 ) -> None:
     """Warn for Ecosim scenario settings that differ from EwE's defaults.
 
     PyPath ignores them, so a run differs from EwE wherever they are set.
-    ``group_types`` (Ecopath Type by group name) silences rows where the
-    setting has no effect: producers and detritus.
+    ``group_types`` (Ecopath Type by group name) and ``fished`` (names of the
+    fished groups) silence the rows where a setting has no effect in EwE.
     """
     scen = scenario_meta.get("name") or scenario_meta.get("id")
     sg_df = scenario_meta.get("scenario_group_df")
     types = {str(k).strip(): v for k, v in (group_types or {}).items()}
+    fished_names = None if fished is None else {str(g).strip() for g in fished}
     if sg_df is not None and len(sg_df) > 0:
         id_to_name = scenario_meta.get("group_id_to_name") or {}
         for col, default in _IGNORED_SCENARIO_GROUP_SETTINGS:
@@ -644,9 +663,10 @@ def _warn_ignored_scenario_settings(
             groups = []
             for _, row in sg_df.iterrows():
                 name = str(id_to_name.get(_int_or_none(row.get("EcopathGroupID")), "?"))
-                value = row.get(col)
-                if _not_default(value, default) and not _no_effect_here(
-                    col, value, types.get(name.strip())
+                key = name.strip()
+                is_fished = None if fished_names is None else key in fished_names
+                if _not_default(row.get(col), default) and not _no_effect_here(
+                    col, types.get(key), is_fished
                 ):
                     groups.append(name)
             if groups:
@@ -4304,7 +4324,9 @@ def ecosim_scenario_from_ewemdb(
         )
     except (AttributeError, KeyError):
         group_types = None
-    _warn_ignored_scenario_settings(selected, group_types=group_types)
+    _warn_ignored_scenario_settings(
+        selected, group_types=group_types, fished=_fished_groups(params)
+    )
     scenario_overrides = _build_scenario_overrides(params, selected, group_names)
 
     # Create RsimScenario with overrides applied

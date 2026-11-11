@@ -170,7 +170,12 @@ try:
     HAS_OPTIMIZATION = bool(HAS_SKOPT)
 except ImportError:
     HAS_OPTIMIZATION = False
-from pypath.core.calibration import CalibrationResult, fit_to_timeseries
+from pypath.core.calibration import (
+    CalibrationResult,
+    EweSSResult,
+    ewe_sum_of_squares,
+    fit_to_timeseries,
+)
 from pypath.core.mediation import (
     MediationCollection,
     MediationLink,
@@ -426,6 +431,8 @@ __all__ = [
     "load_timeseries",
     # Calibration
     "CalibrationResult",
+    "EweSSResult",
+    "ewe_sum_of_squares",
     "fit_to_timeseries",
     # Mediation
     "MediationShape",
