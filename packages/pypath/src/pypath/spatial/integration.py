@@ -672,7 +672,11 @@ def rsim_run_spatial(
 
     # Convert scenario to dictionary format for deriv function
     # Must match the key names that deriv_vector expects (same as rsim_run in ecosim.py)
-    from pypath.core.ecosim import _build_active_link_matrix, _build_link_matrix
+    from pypath.core.ecosim import (
+        _build_active_link_matrix,
+        _build_link_matrix,
+        _handling_matrix,
+    )
 
     params = scenario.params
     params_dict = {
@@ -686,7 +690,7 @@ def rsim_run_spatial(
         "Unassim": params.UnassimRespFrac,
         "ActiveLink": _build_active_link_matrix(params),
         "VV": _build_link_matrix(params, params.VV),
-        "DD": _build_link_matrix(params, params.DD),
+        "DD": _handling_matrix(params),
         "QQbase": _build_link_matrix(params, params.QQ),
         "Bbase": params.B_BaseRef,
         "B_BaseRef": params.B_BaseRef,
@@ -696,6 +700,7 @@ def rsim_run_spatial(
         # EwE arena for prey Ftime / vulnerability forcing, as rsim_run (D1)
         "PREY_FTIME_ARENA": getattr(params, "PREY_FTIME_ARENA", False),
         "MoPred": getattr(params, "MoPred", None),
+        "DETRITUS_MO_UNSCALED": getattr(params, "DETRITUS_MO_UNSCALED", False),
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
         "AssimEff": getattr(params, "AssimEff", None),
@@ -884,20 +889,31 @@ def rsim_run_spatial(
         # share, so the equilibrium per unit area is unchanged.
         hh = DELTA_T / rk4_steps
 
+        # EwE6's stanza update reads the step's first and last stages
+        # (STANZA_STAGE_RATES, as rsim_run): it needs their FoodGain and
+        # LossPropToB too.
+        use_stanza_stages = stanza_state is not None and bool(
+            getattr(params, "STANZA_STAGE_RATES", False)
+        )
+        _stage_keys = ("TotGain", "TotLoss", "NetGain", "NetLoss")
+        if use_stanza_stages:
+            _stage_keys = _stage_keys + ("FoodGain", "LossPropToB")
+
         def _stage_rates():
-            if not use_fast:
+            if not (use_fast or use_stanza_stages):
                 return None
             # NetGain / NetLoss: EwE's fast-group biomeq, as integrate_rk4
-            return {
-                key: np.zeros((n_groups + 1, n_patches))
-                for key in ("TotGain", "TotLoss", "NetGain", "NetLoss")
-            }
+            return {key: np.zeros((n_groups + 1, n_patches)) for key in _stage_keys}
 
+        month_start_biomass = current_biomass.copy()
+        first_stage = last_stage = None
         for sub in range(rk4_steps):
             t_sub = t + sub * hh
             y0 = current_biomass
             r1 = _stage_rates()
             k1 = _f(y0, t_sub, hh, rates_out=r1)
+            if sub == 0:
+                first_stage = r1
             y1 = y0 + k1 * hh / 2
             if use_fast:
                 y1[fast_mask] = _rk4_fast_equilibrium(r1, y0, y0, fast_mask, SORWT)
@@ -913,6 +929,7 @@ def rsim_run_spatial(
                 y3[fast_mask] = _rk4_fast_equilibrium(r3, y2, y0, fast_mask, SORWT)
             r4 = _stage_rates()
             k4 = _f(y3, t_sub + hh, hh, rates_out=r4)
+            last_stage = r4
 
             # Update: y(t+dt) = y(t) + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
             current_biomass = y0 + hh / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
@@ -928,25 +945,37 @@ def rsim_run_spatial(
 
         if stanza_state is not None:
             # Rpath SplitUpdate + SplitSetPred on the map-wide age structure,
-            # with the rates at the end of the month as rsim_run's RK4 does.
+            # with the rates rsim_run's RK4 uses: under the EwE rule growth
+            # from the step's last stage and survival from its first, over
+            # the start-of-month biomass; otherwise the end of the month.
             # Summing each patch's consumption and losses gives the age
             # structure the biomass-weighted map averages EwE uses; each life
             # stage's new total is then spread back over the patches by their
             # current share of it.
-            month_rates = {
-                key: np.zeros((n_groups + 1, n_patches))
-                for key in ("FoodGain", "LossPropToB")
-            }
-            _f(current_biomass, t, DELTA_T, rates_out=month_rates)
             total = current_biomass.sum(axis=1)
-            split_update(
-                stanzas_obj,
-                stanza_state,
-                total,
-                month_rates["FoodGain"].sum(axis=1),
-                month_rates["LossPropToB"].sum(axis=1),
-                forced_recs=forcing_dict.get("ForcedRecs"),
-            )
+            if use_stanza_stages:
+                split_update(
+                    stanzas_obj,
+                    stanza_state,
+                    month_start_biomass.sum(axis=1),
+                    last_stage["FoodGain"].sum(axis=1),
+                    first_stage["LossPropToB"].sum(axis=1),
+                    forced_recs=forcing_dict.get("ForcedRecs"),
+                )
+            else:
+                month_rates = {
+                    key: np.zeros((n_groups + 1, n_patches))
+                    for key in ("FoodGain", "LossPropToB")
+                }
+                _f(current_biomass, t, DELTA_T, rates_out=month_rates)
+                split_update(
+                    stanzas_obj,
+                    stanza_state,
+                    total,
+                    month_rates["FoodGain"].sum(axis=1),
+                    month_rates["LossPropToB"].sum(axis=1),
+                    forced_recs=forcing_dict.get("ForcedRecs"),
+                )
             split_set_pred(stanzas_obj, stanza_state, total)
             for i in stanza_idx:
                 current_biomass[i] = _spread_over_patches(

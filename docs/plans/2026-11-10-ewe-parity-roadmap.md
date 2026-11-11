@@ -98,7 +98,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
 - **Rpath:** the plus-group weight is an Rpath choice, so it goes behind the D1 switch.
 - **Pins moved:** LT2022 blue mussel Q/B (13.6086 → 13.6205), Edgaras stanza outputs and SS16.
 - **Exit:** the stanza tables match EwE's stored values to 1e-6; Matrix rows 84 and 85 become `implemented`.
-- **Status (2026-11-11):** the age table, the Ford-Walford plus group (setup and monthly) and the static WWa are done under the EwE rule, with the D2 stanza feeding-time denominator they need. The tables match EwE's stored values to 1e-6 in all five databases (Edgaras included). Oracle, median monthly deviation: scenario 16 0.44 → 0.06 %, scenario 15 0.64 → 0.19 %, scenario 7 unchanged (5.8 %). LeadingCB is read and anchors the consumption (Edgaras' Karšis leads from stage 6). BABsplit is read and scales RzeroS. Next: recruitment forcing, SpawnProp, and SplitUpdate's monthly-average rates.
+- **Status (2026-11-11):** the age table, the Ford-Walford plus group (setup and monthly) and the static WWa are done under the EwE rule, with the D2 stanza feeding-time denominator they need. The tables match EwE's stored values to 1e-6 in all five databases (Edgaras included). Oracle, median monthly deviation: scenario 16 0.44 → 0.06 %, scenario 15 0.64 → 0.19 %, scenario 7 unchanged (5.8 %). LeadingCB is read and anchors the consumption (Edgaras' Karšis leads from stage 6). SplitUpdate takes EwE's rates (last RK4 stage for growth, first for survival). Oracle median in scenarios 16, 15 and 7: 0.01-0.02 %, every group under 0.5 %. BABsplit is read and scales RzeroS. Next: recruitment forcing, SpawnProp.
 
 ### P3: Fitting (C1, C2, C3 + type-5)
 
@@ -226,7 +226,7 @@ Every phase that moves a pin must name it in its PR. The table lists each pin's 
 | Pin | File | Moved by |
 |---|---|---|
 | LT2022 EwE-F EE (22 groups) | `test_lt2022_ewef_parity.py` | P1 (3 groups), P5 (EE recomputation, if adopted) |
-| SS16 = 618.2 (history in the test) | `test_ecosim_lt2022_parity.py:49` | P0 relabel; P1, P2 and P4 move it; P3 redefines it |
+| SS16 = 617.0 (history in the test) | `test_ecosim_lt2022_parity.py:52` | P0 relabel; P1, P2 and P4 move it; P3 redefines it |
 | Rpath reference outputs | `test_rpath_*`, `test_detritus_*` (~20 files) | Must stay green under `compat="rpath"` in every phase |
 | Black Sea detritus self-fate xfail | Black Sea tests | P7 |
 | Stanza B and Q/B | `test_stanza_plus_group.py`, `test_ewemdb_stanza_z.py` (LT2022 juvenile mussels 15.005259 / 13.620459, to 1e-6) | P2 (age table and plus group: done) |
