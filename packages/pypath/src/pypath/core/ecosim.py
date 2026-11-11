@@ -216,6 +216,11 @@ class RsimParams:
     # its handling time acts on the predator's total intake (Hden), so under
     # the EwE rule the derivative gets no link handling (_handling_matrix).
     LINK_HANDLING_TERM: bool = False
+    # EwE6 sends the unscaled mo x B to detritus while the group loses
+    # mo x (1 - MoPred + MoPred x Ftime) x B (SimDetritusMT, vb 3160-3166),
+    # so its detritus budget is not closed when Ftime != 1; the 'rpath' rule
+    # sends the scaled flow and keeps it closed.
+    DETRITUS_MO_UNSCALED: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -865,6 +870,7 @@ def rsim_params(
         PREY_FTIME_ARENA=(fast_group_rule == "ewe"),
         STANZA_WALFORD_PLUS_GROUP=(fast_group_rule == "ewe"),
         LINK_HANDLING_TERM=(fast_group_rule == "rpath"),
+        DETRITUS_MO_UNSCALED=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -1536,6 +1542,7 @@ def rsim_run(
         "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
         "PREY_FTIME_ARENA": getattr(params, "PREY_FTIME_ARENA", False),
         "MoPred": getattr(params, "MoPred", None),
+        "DETRITUS_MO_UNSCALED": getattr(params, "DETRITUS_MO_UNSCALED", False),
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
         "AssimEff": getattr(params, "AssimEff", None),

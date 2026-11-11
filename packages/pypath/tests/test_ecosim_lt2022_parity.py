@@ -48,6 +48,8 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # 617.0 without Rpath's per-link handling term DD / (DD - 1 + preyYY), which
 # EwE6 does not have (Cod, Turbot and Perciformes through the year-8 Round goby
 # boom; test_link_handling.py).
+# 617.1 (pin unchanged) with other mortality reaching detritus unscaled by
+# feeding time, as EwE6 sends it (test_detritus_mo_flow.py).
 # A change beyond 2 % needs a reason.
 LT2022_SS16 = 617.0
 

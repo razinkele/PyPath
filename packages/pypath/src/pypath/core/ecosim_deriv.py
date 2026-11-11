@@ -1861,10 +1861,10 @@ def deriv_vector(
             logger.debug("Metabolic model scaling skipped: %s", _met_err)
 
     _M0_effective = _M0_safe * _MetabolicMult
+    # Other mortality as it reaches detritus (see DETRITUS_MO_UNSCALED below).
+    _M0_detritus = _M0_effective
     # EwE6 (Derivt): other mortality follows feeding time,
-    # M0 * (1 - MoPred + MoPred * Ftime). The scaled rate also feeds the
-    # detritus flows, which keeps the budget closed (EwE6 itself sends the
-    # unscaled mo * B to detritus).
+    # M0 * (1 - MoPred + MoPred * Ftime).
     _mo_pred = params.get("MoPred", None)
     if _mo_pred is not None:
         _mo_pred = np.asarray(_mo_pred, dtype=float)
@@ -1879,6 +1879,13 @@ def deriv_vector(
         _fm = np.asarray(ForcedMort, dtype=float)
         if _fm.shape[0] == NUM_GROUPS + 1:
             _M0_effective = _M0_effective * _fm
+            _M0_detritus = _M0_detritus * _fm
+    # EwE rule: detritus receives the unscaled mo x B (times other-mortality
+    # forcing), as EwE6's SimDetritusMT (vb 3160-3166), although the group
+    # loses the Ftime-scaled flow; 'rpath' rule: the scaled flow, so the
+    # detritus budget stays closed.
+    if not params.get("DETRITUS_MO_UNSCALED", False):
+        _M0_detritus = _M0_effective
     # EwE6 UseVarPQ: gross efficiency follows the total loss rate Z,
     # GE = AssimEff * Z / (Z + 3 K); AssimEff is set so GE = GE0 at Z = PB.
     if params.get("UseVarPQ", False):
@@ -2037,7 +2044,7 @@ def deriv_vector(
             deriv,
             QQ,
             BB,
-            _M0_effective,
+            _M0_detritus,
             Unassim,
             _det_link_from,
             params["DetLinkTo"],
@@ -2242,7 +2249,7 @@ def deriv_vector(
             total_consump_by_pred,
             Unassim,
             _DetFrac,
-            _M0_effective,
+            _M0_detritus,
             _decay_rate,
             NUM_LIVING,
             NUM_DEAD,
