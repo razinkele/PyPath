@@ -5936,8 +5936,7 @@ and simulation settings.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5168</span>
-<span class="normal">5169</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5169</span>
 <span class="normal">5170</span>
 <span class="normal">5171</span>
 <span class="normal">5172</span>
@@ -5953,7 +5952,8 @@ and simulation settings.</p>
 <span class="normal">5182</span>
 <span class="normal">5183</span>
 <span class="normal">5184</span>
-<span class="normal">5185</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">5185</span>
+<span class="normal">5186</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EcospaceReadResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Result of reading Ecospace configuration from an EwE database."""</span>
 
@@ -6332,8 +6332,7 @@ and simulation settings.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4518</span>
-<span class="normal">4519</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4519</span>
 <span class="normal">4520</span>
 <span class="normal">4521</span>
 <span class="normal">4522</span>
@@ -6349,7 +6348,8 @@ and simulation settings.</p>
 <span class="normal">4532</span>
 <span class="normal">4533</span>
 <span class="normal">4534</span>
-<span class="normal">4535</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_ewemdb_support</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+<span class="normal">4535</span>
+<span class="normal">4536</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_ewemdb_support</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Check what database drivers are available.</span>
 
 <span class="sd">    Returns</span>
@@ -6545,8 +6545,7 @@ out = rsim_run(scen, method='RK4', years=range(1, 11))</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4207</span>
-<span class="normal">4208</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4208</span>
 <span class="normal">4209</span>
 <span class="normal">4210</span>
 <span class="normal">4211</span>
@@ -6732,7 +6731,8 @@ out = rsim_run(scen, method='RK4', years=range(1, 11))</p>
 <span class="normal">4391</span>
 <span class="normal">4392</span>
 <span class="normal">4393</span>
-<span class="normal">4394</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecosim_scenario_from_ewemdb</span><span class="p">(</span>
+<span class="normal">4394</span>
+<span class="normal">4395</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecosim_scenario_from_ewemdb</span><span class="p">(</span>
     <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">balance</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -7005,8 +7005,7 @@ out = rsim_run(scen, method='RK4', years=range(1, 11))</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4397</span>
-<span class="normal">4398</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4398</span>
 <span class="normal">4399</span>
 <span class="normal">4400</span>
 <span class="normal">4401</span>
@@ -7123,7 +7122,8 @@ out = rsim_run(scen, method='RK4', years=range(1, 11))</p>
 <span class="normal">4512</span>
 <span class="normal">4513</span>
 <span class="normal">4514</span>
-<span class="normal">4515</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_ewemdb_metadata</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="normal">4515</span>
+<span class="normal">4516</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_ewemdb_metadata</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Get metadata from an EwE database file.</span>
 
 <span class="sd">    Parameters</span>
@@ -7582,8 +7582,7 @@ from Inrow/Incol/CellLength in EcospaceScenario.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5188</span>
-<span class="normal">5189</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5189</span>
 <span class="normal">5190</span>
 <span class="normal">5191</span>
 <span class="normal">5192</span>
@@ -7820,7 +7819,8 @@ from Inrow/Incol/CellLength in EcospaceScenario.</p>
 <span class="normal">5423</span>
 <span class="normal">5424</span>
 <span class="normal">5425</span>
-<span class="normal">5426</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecospace</span><span class="p">(</span>
+<span class="normal">5426</span>
+<span class="normal">5427</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecospace</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
@@ -8159,8 +8159,7 @@ Returns default params if tables are missing/empty.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4975</span>
-<span class="normal">4976</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4976</span>
 <span class="normal">4977</span>
 <span class="normal">4978</span>
 <span class="normal">4979</span>
@@ -8225,7 +8224,8 @@ Returns default params if tables are missing/empty.</p>
 <span class="normal">5038</span>
 <span class="normal">5039</span>
 <span class="normal">5040</span>
-<span class="normal">5041</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecotracer</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"EcotracerParams"</span><span class="p">:</span>
+<span class="normal">5041</span>
+<span class="normal">5042</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecotracer</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"EcotracerParams"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read Ecotracer parameters from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
@@ -8436,8 +8436,7 @@ If sample_id is None, returns a dict mapping SampleID → SampleContainer.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5811</span>
-<span class="normal">5812</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5812</span>
 <span class="normal">5813</span>
 <span class="normal">5814</span>
 <span class="normal">5815</span>
@@ -8652,7 +8651,8 @@ If sample_id is None, returns a dict mapping SampleID → SampleContainer.</p>
 <span class="normal">6024</span>
 <span class="normal">6025</span>
 <span class="normal">6026</span>
-<span class="normal">6027</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewe_samples</span><span class="p">(</span>
+<span class="normal">6027</span>
+<span class="normal">6028</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewe_samples</span><span class="p">(</span>
     <span class="n">filepath</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
     <span class="n">sample_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">SampleContainer</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">SampleContainer</span><span class="p">]]:</span>
@@ -9011,7 +9011,8 @@ Key tables include:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 832</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 831</span>
+<span class="normal"> 832</span>
 <span class="normal"> 833</span>
 <span class="normal"> 834</span>
 <span class="normal"> 835</span>
@@ -10342,8 +10343,7 @@ Key tables include:
 <span class="normal">2160</span>
 <span class="normal">2161</span>
 <span class="normal">2162</span>
-<span class="normal">2163</span>
-<span class="normal">2164</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewemdb</span><span class="p">(</span>
+<span class="normal">2163</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewemdb</span><span class="p">(</span>
     <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scenario</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">include_ecosim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RpathParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read an EwE database file and convert to RpathParams.</span>
@@ -12098,8 +12098,7 @@ print(groups.columns)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5044</span>
-<span class="normal">5045</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5045</span>
 <span class="normal">5046</span>
 <span class="normal">5047</span>
 <span class="normal">5048</span>
@@ -12219,7 +12218,8 @@ print(groups.columns)</p>
 <span class="normal">5162</span>
 <span class="normal">5163</span>
 <span class="normal">5164</span>
-<span class="normal">5165</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_fleet_dynamics</span><span class="p">(</span>
+<span class="normal">5165</span>
+<span class="normal">5166</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_fleet_dynamics</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_fleets</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_links</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -12424,8 +12424,7 @@ print(groups.columns)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4760</span>
-<span class="normal">4761</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4761</span>
 <span class="normal">4762</span>
 <span class="normal">4763</span>
 <span class="normal">4764</span>
@@ -12569,7 +12568,8 @@ print(groups.columns)</p>
 <span class="normal">4902</span>
 <span class="normal">4903</span>
 <span class="normal">4904</span>
-<span class="normal">4905</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mediation</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MediationCollection"</span><span class="p">:</span>
+<span class="normal">4905</span>
+<span class="normal">4906</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mediation</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MediationCollection"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read mediation shapes and link assignments from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
@@ -12841,8 +12841,7 @@ print(groups.columns)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5505</span>
-<span class="normal">5506</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5506</span>
 <span class="normal">5507</span>
 <span class="normal">5508</span>
 <span class="normal">5509</span>
@@ -12947,7 +12946,8 @@ print(groups.columns)</p>
 <span class="normal">5608</span>
 <span class="normal">5609</span>
 <span class="normal">5610</span>
-<span class="normal">5611</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mpa_config</span><span class="p">(</span>
+<span class="normal">5611</span>
+<span class="normal">5612</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mpa_config</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">fleet_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
@@ -13134,8 +13134,7 @@ print(groups.columns)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4908</span>
-<span class="normal">4909</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4909</span>
 <span class="normal">4910</span>
 <span class="normal">4911</span>
 <span class="normal">4912</span>
@@ -13198,7 +13197,8 @@ print(groups.columns)</p>
 <span class="normal">4969</span>
 <span class="normal">4970</span>
 <span class="normal">4971</span>
-<span class="normal">4972</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_pedigree</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="normal">4972</span>
+<span class="normal">4973</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_pedigree</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read pedigree tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
@@ -13347,8 +13347,7 @@ Empty defaults if tables are missing.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5667</span>
-<span class="normal">5668</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5668</span>
 <span class="normal">5669</span>
 <span class="normal">5670</span>
 <span class="normal">5671</span>
@@ -13445,7 +13444,8 @@ Empty defaults if tables are missing.</p>
 <span class="normal">5762</span>
 <span class="normal">5763</span>
 <span class="normal">5764</span>
-<span class="normal">5765</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_taxonomy</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaxonomyData</span><span class="p">:</span>
+<span class="normal">5765</span>
+<span class="normal">5766</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_taxonomy</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaxonomyData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read taxonomy tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
@@ -13682,8 +13682,7 @@ None reads every series.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4538</span>
-<span class="normal">4539</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">4539</span>
 <span class="normal">4540</span>
 <span class="normal">4541</span>
 <span class="normal">4542</span>
@@ -13901,7 +13900,8 @@ None reads every series.</p>
 <span class="normal">4754</span>
 <span class="normal">4755</span>
 <span class="normal">4756</span>
-<span class="normal">4757</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_timeseries</span><span class="p">(</span>
+<span class="normal">4757</span>
+<span class="normal">4758</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_timeseries</span><span class="p">(</span>
     <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -14204,8 +14204,7 @@ None reads every series.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5768</span>
-<span class="normal">5769</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5769</span>
 <span class="normal">5770</span>
 <span class="normal">5771</span>
 <span class="normal">5772</span>
@@ -14244,7 +14243,8 @@ None reads every series.</p>
 <span class="normal">5805</span>
 <span class="normal">5806</span>
 <span class="normal">5807</span>
-<span class="normal">5808</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_value_chain</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValueChainData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">5808</span>
+<span class="normal">5809</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_value_chain</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValueChainData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read value chain economics tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
