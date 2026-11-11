@@ -2,57 +2,49 @@
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 DATA_DIR = Path(__file__).parents[3] / "Data"
 DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 
-# Regression pin, NOT EwE's sum of squares (audit 2026-11-10, C3): this is a
-# linear sum of (annual mean B/B0 - obs)^2 over dataset 35's biomass series,
-# with no q, no weights and no catch series. EwE's SS is weighted and
-# logarithmic, sum W*(ln(obs/B_month6) - q)^2, so the pin guards PyPath against
-# regressions and says nothing about agreement with EwE.
-# History: ~725 was quoted as an "old broken baseline";
-# the limit was relaxed to 1100 on 2026-10-24 (message left at 800); SS was
-# 1084.9 before the detritus/discard fate reading fix (#29) and 1101.2 after
-# it. Every value up to there was computed with the scenario's vulnerabilities
-# and FtimeAdjust on the wrong groups, the wrong forcing shape applied as prey
-# availability, and a flat stanza (importer defects fixed 2026-11-07); with
-# the settings EwE6 actually uses, SS was 881.2 on main's dynamics and is
-# 642.0 with the stanza coupling, the closed detritus budget, EwE's fast-group
-# rule (Zooplankton, Phytoplankton and Detritus at equilibrium, under RK4 as
-# under AB) and donor control at v = 1, and 643.5 with dataset 35 applied as
-# EwE applies a loaded dataset (Round goby's biomass forced from 0.03 to 7.8
-# and back to 2.4; the dataset is also the fit's observations), 637.0
-# with the diet import of Piscivorous birds read (EcopathGroup.ImpVar), and
-# 631.7 with biomass accumulation and detritus import read (A1/A2: Scoters and
-# Long-tailed duck BiomAcc, Detritus DtImports 1000; zeroing those three
-# reproduces 637.0), and 618.9 with UseVarPQ off as EwE 6.7.144 runs it (the
-# stored True is lost to a cEwEDatabase.ReadSafe bug; forcing it on gives 631.7).
-# This is still PyPath's own linear SS. EwE's own scenario-16 run (headless
-# oracle) gives EwE SS 75.22, a different metric; its trajectory is checked by
-# test_birds_follow_the_ewe_oracle below.
-# 624.6 under RK4, the only integrator EwE has (cEcoSimModel.vb:758), with
-# EwE's fast-group biomeq (net production over predation, other mortality and
-# fishing, cEcoSimModel.vb:3112). RK4 with Rpath's gross TotGain/TotLoss biomeq
-# gives 622.9; the AB runs above were 618.9. 624.8 with the feeding-time
-# update from the start-of-month consumption, as EwE's rk4 (end-of-month: 624.6).
-# 615.6 with that update taking the derivative's consumption (prey Ftime
-# included, as EwE's Derivt), and 617.6 with prey Ftime and vulnerability
-# forcing saturating in the arena as in EwE (D1; linear prey term: 615.6).
-# 618.2 with EwE's multi-stanza age table and Ford-Walford plus group (P2;
-# the blue mussels follow the oracle to 0.2 % instead of 15-20 %). EwE's
-# stanza feeding-time denominator leaves it there (no FtimeAdj on the
-# mussels in scenario 16).
-# 617.0 without Rpath's per-link handling term DD / (DD - 1 + preyYY), which
-# EwE6 does not have (Cod, Turbot and Perciformes through the year-8 Round goby
-# boom; test_link_handling.py).
-# 617.1 (pin unchanged) with other mortality reaching detritus unscaled by
-# feeding time, as EwE6 sends it (test_detritus_mo_flow.py), and 617.1 with
-# the stanza update reading EwE's RK4 stages (test_stanza_stage_rates.py).
-# A change beyond 2 % needs a reason.
-LT2022_SS16 = 617.0
+# EwE 6.7.144's own sum of squares for scenario 16 against dataset 35
+# (headless oracle run 42863343066, ecosim_ss.csv): sum over series of
+# WtType x (ln(obs / B at the start of month 6) - ln q)^2, q estimated for
+# relative series. Until 2026-11-11 this test pinned PyPath's own linear SS
+# (sum of (annual mean B/B0 - obs)^2; 617.0 at the end, its history is in git),
+# which was not EwE's statistic (audit C3). PyPath's run gives 75.211.
+EWE_SS16 = 75.2231369
+EWE_SS16_BY_GROUP = {
+    "Turbot": 3.07261205,
+    "Flounder": 5.24761868,
+    "Cod": 1.68064594,
+    "Smelt": 2.30133533,
+    "Perciformes": 17.7172451,
+    "Cypriniformes": 5.27536535,
+    "Blue mussel (juv.)": 14.9818096,
+    "Blue mussel (ad.)": 13.3068247,
+    "Sand bivalves": 0.605426371,
+    "Worms": 3.24376297,
+    "Zooplankton": 5.25244427,
+    "Phytoplankton": 2.53803778,
+}
+# The same with dataset 22 (oracle run 43079493003).
+EWE_SS16_DS22 = 42447.1445
+EWE_SS16_DS22_BY_GROUP = {
+    "Turbot": 12.2528095,
+    "Flounder": 27.5206299,
+    "Cod": 18.2156181,
+    "Herring": 6.97605467,
+    "Smelt": 0.0107403072,
+    "Perciformes": 19.7464447,
+    "Cypriniformes": 5.63677883,
+    "Round goby": 110.498817,
+    "Blue mussel (juv.)": 42185.9844,
+    "Sand bivalves": 39.2457161,
+    "Worms": 8.15091324,
+    "Zooplankton": 6.36616802,
+    "Phytoplankton": 6.54104805,
+}
 
 
 @pytest.mark.integration
@@ -89,44 +81,41 @@ class TestLT2022Parity:
             f"Too many groups crashed: {out.crashed_groups}"
         )
 
-    def test_ss_regression_pin(self, lt2022_scenario):
-        """PyPath's own linear SS on dataset 35 stays at LT2022_SS16 (not EwE's SS)."""
-        from pypath.core.ecopath import rpath
+    def test_ewe_sum_of_squares_matches_the_oracle(self, lt2022_scenario):
+        """EwE's SS of scenario 16 against dataset 35, in total and by group
+        (the other groups' series carry weight 0)."""
+        from pypath.core.calibration import ewe_sum_of_squares
         from pypath.core.ecosim import rsim_run
-        from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
 
         out = rsim_run(lt2022_scenario, method="RK4")
+        res = ewe_sum_of_squares(out, lt2022_scenario._timeseries)
+        assert res.total == pytest.approx(EWE_SS16, rel=1e-3)
+        names = [str(n).strip() for n in lt2022_scenario.params.spname]
+        by_name = {names[g + 1]: v for g, v in res.by_group.items() if v > 0}
+        assert set(by_name) == set(EWE_SS16_BY_GROUP)
+        for group, ewe in EWE_SS16_BY_GROUP.items():
+            assert by_name[group] == pytest.approx(ewe, rel=2e-3), group
 
-        params = read_ewemdb(DB_PATH)
-        model = rpath(params)
-        ts_all = read_ewemdb_table(DB_PATH, "EcosimTimeSeries")
-        ds35 = ts_all[ts_all["DatasetID"] == 35].copy()
-        tsg = read_ewemdb_table(DB_PATH, "EcosimTimeSeriesGroup")
-        groups_db = read_ewemdb_table(DB_PATH, "EcopathGroup")
-        gid_to_name = dict(zip(groups_db["GroupID"], groups_db["GroupName"]))
+    def test_ewe_sum_of_squares_with_catches_matches_the_oracle(self):
+        """Dataset 22 ("fittingdata24A") forces seven groups' catches (type -6,
+        weighted, compared as B x FishTime of the month before), adds a catch
+        series, absolute biomass and a weight of 100 (oracle run 43079493003,
+        EwE SS 42447.14). On EwE's own biomass and FishTime the function
+        reproduces it to 1e-7; PyPath's run follows to 0.2 %."""
+        if not Path(DB_PATH).exists():
+            pytest.skip("LT2022 database not found")
+        from pypath.core.calibration import ewe_sum_of_squares
+        from pypath.core.ecosim import rsim_run
+        from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
 
-        ts_to_group = {}
-        for _, r in tsg.iterrows():
-            db_gname = gid_to_name.get(r["GroupID"], "").strip()
-            for g in range(model.NUM_GROUPS):
-                if str(model.Group[g]).strip() == db_gname:
-                    ts_to_group[int(r["TimeSeriesID"])] = g
-                    break
-
-        total_ss = 0.0
-        for _, row in ds35.iterrows():
-            dtype = int(row["DatType"])
-            tsid = int(row["TimeSeriesID"])
-            g = ts_to_group.get(tsid)
-            if dtype == 0 and g is not None:
-                vals = np.array([float(x) for x in str(row["TimeValues"]).split()])
-                sim = out.annual_Biomass[:, g + 1] / model.Biomass[g]
-                n = min(len(vals), len(sim))
-                total_ss += np.sum((sim[:n] - vals[:n]) ** 2)
-
-        assert abs(total_ss - LT2022_SS16) <= 0.02 * LT2022_SS16, (
-            f"SS={total_ss:.1f}, pinned at {LT2022_SS16} (+/- 2 %)"
-        )
+        sc = ecosim_scenario_from_ewemdb(DB_PATH, scenario=16, timeseries_dataset=22)
+        res = ewe_sum_of_squares(rsim_run(sc, method="RK4"), sc._timeseries)
+        assert res.total == pytest.approx(EWE_SS16_DS22, rel=5e-3)
+        names = [str(n).strip() for n in sc.params.spname]
+        by_name = {names[g + 1]: v for g, v in res.by_group.items() if v > 0}
+        assert set(by_name) == set(EWE_SS16_DS22_BY_GROUP)
+        for group, ewe in EWE_SS16_DS22_BY_GROUP.items():
+            assert by_name[group] == pytest.approx(ewe, rel=5e-3), group
 
 
 # EwE 6.7.144's own scenario-16 run (headless EwECore oracle, runs 42860867155

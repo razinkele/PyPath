@@ -52,48 +52,173 @@ class CalibrationResult:
     link_map: list[tuple[int, int]]
 
 
-def _compute_ss(
-    observed: dict[int, np.ndarray],
-    predicted: dict[int, np.ndarray],
-    weights: dict[int, float],
-    relative: dict[int, bool],
-) -> tuple[float, dict[int, float]]:
-    """Compute EwE-standard log-ratio sum-of-squares.
+# EwE6 eTimeSeriesType codes that AccumulateDataInfo compares with the model
+# (cEcoSimModel.vb 2604-2615), and those of them whose catchability q
+# PlotDataInfo estimates (relative series, vb 3891-3903). PyPath predicts the
+# biomass and catch types; the others are reported and left out.
+_EWE_REFERENCE_TYPES = {
+    0: "relative biomass",
+    1: "absolute biomass",
+    5: "total mortality",
+    6: "catch",
+    -6: "catch (forcing)",
+    61: "relative catch",
+    7: "average weight",
+    12: "landings",
+    13: "discards",
+    19: "total discards",
+    20: "relative total discards",
+    104: "fishing mortality (reference)",
+}
+_EWE_RELATIVE_TYPES = {0, 5, 7, 20, 61, 104}
+_EWE_BIOMASS_TYPES = {0, 1}
+_EWE_CATCH_TYPES = {6, -6, 61}
+# EwE's annual data are compared at the start of this month (1-12), before the
+# month's integration (cTimeSeriesDataStructures.ANNUAL_DATA_MONTH).
+_EWE_ANNUAL_DATA_MONTH = 6
 
-    SS = sum_groups( weight_i * sum_t( (log(pred/obs))^2 ) )
+
+@dataclass
+class EweSSResult:
+    """EwE6's sum of squares of a run against reference time series.
+
+    Parameters
+    ----------
+    total : float
+        Sum over series of WtType x sum (Z - q)^2.
+    by_series : dict[int, float]
+        Each series' weighted contribution, by ``series_id``.
+    by_group : dict[int, float]
+        Summed by the series' 0-based group (EwE's SS by group).
+    log_q : dict[int, float]
+        ln q of each series: mean(Z) for relative series, 0 otherwise.
+    n_obs : dict[int, int]
+        Observations compared, by ``series_id``.
     """
-    total_ss = 0.0
-    ss_by_group: dict[int, float] = {}
 
-    for grp_idx, obs in observed.items():
-        if grp_idx not in predicted:
+    total: float
+    by_series: dict[int, float]
+    by_group: dict[int, float]
+    log_q: dict[int, float]
+    n_obs: dict[int, int]
+
+
+def _compared_series(timeseries, warn: bool = True) -> list:
+    """The reference series EwE compares with the run that PyPath can predict.
+
+    Drivers are skipped silently (EwE does not compare them). With ``warn``,
+    weighted series of reference types PyPath does not predict, and series
+    linked to no model group, are reported.
+    """
+    compared = []
+    for s in timeseries.series:
+        if s.dat_type not in _EWE_REFERENCE_TYPES:
+            continue  # a driver
+        if s.dat_type not in _EWE_BIOMASS_TYPES | _EWE_CATCH_TYPES:
+            if warn and s.weight > 0:
+                logger.warning(
+                    "Time series %r (%s) is not compared: PyPath does not "
+                    "predict this EwE reference type yet, so it is left out of "
+                    "the sum of squares",
+                    s.name,
+                    _EWE_REFERENCE_TYPES[s.dat_type],
+                )
             continue
-        pred = predicted[grp_idx]
-        w = weights.get(grp_idx, 1.0)
-
-        n = min(len(obs), len(pred))
-        obs_n = obs[:n]
-        pred_n = pred[:n]
-
-        valid = ~np.isnan(obs_n) & ~np.isnan(pred_n) & (obs_n > 0) & (pred_n > 0)
-
-        if not np.any(valid):
-            ss_by_group[grp_idx] = 0.0
+        if s.group_idx is None:
+            if warn and s.weight > 0:
+                logger.warning(
+                    "Time series %r is linked to no model group; left out of "
+                    "the sum of squares",
+                    s.name,
+                )
             continue
+        compared.append(s)
+    return compared
 
-        obs_v = obs_n[valid]
-        pred_v = pred_n[valid]
 
-        if relative.get(grp_idx, False):
-            scale = np.mean(obs_v) / np.mean(pred_v)
-            pred_v = pred_v * scale
+def ewe_sum_of_squares(output, timeseries, *, warn: bool = True) -> EweSSResult:
+    """EwE6's sum of squares of an Ecosim run against reference time series.
 
-        log_ratios = np.log(pred_v / obs_v)
-        group_ss = w * np.sum(log_ratios**2)
-        ss_by_group[grp_idx] = group_ss
-        total_ss += group_ss
+    Follows ``cEcoSimModel.AccumulateDataInfo`` and ``PlotDataInfo`` (vb
+    2575-2735, 3849-3966):
 
-    return total_ss, ss_by_group
+    - Annual data (``timeseries.interval == "annual"``) are compared once a
+      year, at the start of month 6 before its integration: the biomass at the
+      end of month (year - 1) x 12 + 5, i.e. ``out_Biomass`` row
+      (year - 1) x 12 + 5. Time-step data compare value k with row k - 1 (the
+      start of month k). Data years past the run are ignored.
+    - Each observation gives Z = ln(obs / pred). Biomass series predict B;
+      catch series predict B x F, F being the fishing mortality of the month
+      before the sample (EwE sets FishTime after the comparison), from
+      ``out_FishMort``. An observation of an unfished group (F = 0) counts
+      with Z = 0, as in EwE. Observations <= 0 or missing are skipped.
+    - Relative series (types 0, 61) subtract q = mean(Z); absolute ones do
+      not. Each series adds WtType x sum (Z - q)^2, and every series counts,
+      several per group included.
+
+    Other reference types (total mortality, average weight, landings,
+    discards, fishing mortality) are reported and left out; drivers (forced
+    biomass, effort, ...) are not compared, as in EwE.
+
+    Parameters
+    ----------
+    output : RsimOutput
+        The run; needs ``out_Biomass`` and, for catch series,
+        ``out_FishMort``.
+    timeseries : EweTimeSeriesCollection
+        The dataset, with each series' ``weight`` (EwE's WtType).
+    warn : bool
+        Report the weighted series left out (unsupported types, no group).
+        ``fit_to_timeseries`` reports them once, not at every evaluation.
+
+    Returns
+    -------
+    EweSSResult
+    """
+    biomass = np.asarray(output.out_Biomass, dtype=float)
+    fish_mort = getattr(output, "out_FishMort", None)
+    n_months = biomass.shape[0] - 1
+    annual = getattr(timeseries, "interval", "annual") != "timestep"
+    n_points = n_months // 12 if annual else n_months
+
+    result = EweSSResult(0.0, {}, {}, {}, {})
+    for s in _compared_series(timeseries, warn):
+        col = s.group_idx + 1
+        is_catch = s.dat_type in _EWE_CATCH_TYPES
+        if is_catch and fish_mort is None:
+            raise ValueError(
+                f"Catch series {s.name!r} needs the run's monthly fishing "
+                "mortality (out_FishMort)"
+            )
+
+        z = []
+        for k, obs in enumerate(np.asarray(s.values, dtype=float)[:n_points], 1):
+            if not obs > 0:  # also skips NaN
+                continue
+            row = (k - 1) * 12 + _EWE_ANNUAL_DATA_MONTH - 1 if annual else k - 1
+            pred = biomass[row, col]
+            if is_catch:
+                f = float(fish_mort[row, col])
+                if not f > 0:
+                    z.append(0.0)
+                    continue
+                pred = pred * f
+            # A crashed group (B = 0) gives a large, finite error.
+            z.append(np.log(obs / max(pred, np.finfo(float).tiny)))
+
+        z_arr = np.asarray(z, dtype=float)
+        log_q = (
+            float(z_arr.mean())
+            if len(z_arr) and s.dat_type in _EWE_RELATIVE_TYPES
+            else 0.0
+        )
+        ss = float(s.weight * np.sum((z_arr - log_q) ** 2))
+        result.by_series[s.series_id] = ss
+        result.log_q[s.series_id] = log_q
+        result.n_obs[s.series_id] = len(z_arr)
+        result.by_group[s.group_idx] = result.by_group.get(s.group_idx, 0.0) + ss
+        result.total += ss
+    return result
 
 
 def fit_to_timeseries(
@@ -172,10 +297,11 @@ def fit_to_timeseries(
             )
         timeseries = EweTimeSeriesCollection(series_list)
 
-    n_obs_years = timeseries.n_timesteps
-    if n_obs_years < 2:
+    n_points = timeseries.n_timesteps
+    if n_points < 2:
         raise ValueError("Need at least 2 observed timesteps for calibration.")
-    years = range(1, n_obs_years + 1)
+    annual = getattr(timeseries, "interval", "annual") != "timestep"
+    years = range(1, (n_points if annual else -(-n_points // 12)) + 1)
 
     # Build base scenario
     scenario = rsim_scenario(rpath_model, params, years=years)
@@ -183,28 +309,18 @@ def fit_to_timeseries(
     # Apply driver series
     apply_timeseries_drivers(scenario, timeseries)
 
-    # Build observed data dict
-    observed: dict[int, np.ndarray] = {}
-    weights: dict[int, float] = {}
-    relative: dict[int, bool] = {}
-
-    for s in timeseries.observed_biomass:
-        if s.group_idx is not None:
-            observed[s.group_idx] = s.values[:n_obs_years]
-            weights[s.group_idx] = s.weight
-            relative[s.group_idx] = s.dat_type == DATTYPE_REL_BIOMASS
-
-    for s in timeseries.observed_catch:
-        if s.group_idx is not None and s.group_idx not in observed:
-            observed[s.group_idx] = s.values[:n_obs_years]
-            weights[s.group_idx] = s.weight
-            relative[s.group_idx] = False
-
-    if not observed:
+    # The objective is EwE6's sum of squares (ewe_sum_of_squares): every
+    # reference series counts, catch is compared with B x F, relative series
+    # take q = mean ln(obs / pred), annual data are taken at the start of
+    # month 6, each series weighted by its WtType.
+    reference_groups = {
+        s.group_idx for s in _compared_series(timeseries) if s.weight > 0
+    }
+    if not reference_groups:
         raise ValueError("No observed series found in timeseries collection.")
 
     if fit_groups is None:
-        fit_groups = list(observed.keys())
+        fit_groups = sorted(reference_groups)
 
     # Build link map: PreyFrom/PreyTo are 1-based
     link_indices = []
@@ -238,23 +354,9 @@ def fit_to_timeseries(
             logger.warning("Simulation failed during optimization: %s", e)
             return 1e10
 
-        predicted: dict[int, np.ndarray] = {}
-        n_months = output.out_Biomass.shape[0]
-        months_per_year = n_months // n_obs_years if n_obs_years > 0 else 12
-
-        for grp_idx in observed:
-            col = grp_idx + 1
-            if col >= output.out_Biomass.shape[1]:
-                continue
-            annual = np.zeros(n_obs_years)
-            for yr in range(n_obs_years):
-                start = yr * months_per_year
-                end = min(start + months_per_year, n_months)
-                if start < n_months:
-                    annual[yr] = np.mean(output.out_Biomass[start:end, col])
-            predicted[grp_idx] = annual
-
-        ss, _ = _compute_ss(observed, predicted, weights, relative)
+        ss = ewe_sum_of_squares(output, timeseries, warn=False).total
+        if not np.isfinite(ss):
+            return 1e10
 
         iteration_count[0] += 1
         if verbose and iteration_count[0] % 50 == 0:
@@ -303,25 +405,13 @@ def fit_to_timeseries(
         for j, link_idx in enumerate(link_indices):
             scenario.params.VV[link_idx] = best_vv[j]
 
-    # Compute final SS breakdown
+    # SS by group of the fitted parameters
     try:
-        output = rsim_run(scenario)
-        predicted_final: dict[int, np.ndarray] = {}
-        n_months = output.out_Biomass.shape[0]
-        months_per_year = n_months // n_obs_years if n_obs_years > 0 else 12
-        for grp_idx in observed:
-            col = grp_idx + 1
-            if col >= output.out_Biomass.shape[1]:
-                continue
-            annual = np.zeros(n_obs_years)
-            for yr in range(n_obs_years):
-                start = yr * months_per_year
-                end = min(start + months_per_year, n_months)
-                if start < n_months:
-                    annual[yr] = np.mean(output.out_Biomass[start:end, col])
-            predicted_final[grp_idx] = annual
-        _, ss_by_group = _compute_ss(observed, predicted_final, weights, relative)
-    except Exception:
+        ss_by_group = ewe_sum_of_squares(
+            rsim_run(scenario), timeseries, warn=False
+        ).by_group
+    except (RuntimeError, ValueError, FloatingPointError) as e:
+        logger.warning("Final run of the fitted parameters failed: %s", e)
         ss_by_group = {}
 
     return CalibrationResult(

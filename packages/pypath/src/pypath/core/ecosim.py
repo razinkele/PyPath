@@ -30,7 +30,7 @@ if os.environ.get("PYPATH_SILENCE_DEBUG", "").lower() in ("1", "true", "yes"):
     logging.getLogger("pypath").setLevel(logging.WARNING)
 
 from pypath.core.ecopath import Rpath  # noqa: E402
-from pypath.core.ecosim_deriv import deriv_vector  # noqa: E402
+from pypath.core.ecosim_deriv import deriv_vector, fishing_mortality  # noqa: E402
 from pypath.core.params import RpathParams  # noqa: E402
 from pypath.core.stanzas import (  # noqa: E402
     RsimStanzas,
@@ -393,6 +393,11 @@ class RsimOutput:
         Monthly sum(N * W) of each multi-stanza group (n_months+1 x
         n_groups+1, zero for other groups); equals ``out_Biomass`` in those
         columns. None without stanzas.
+    out_FishMort : np.ndarray or None
+        Fishing mortality (per year) applied in each month, as the derivative
+        applies it (effort, forced F and catch; EwE6's FishTime), n_months+1 x
+        n_groups+1; row m is month m, row 0 the base F (FishQ at effort 1).
+        Predicts catch as B x F in ``ewe_sum_of_squares``.
     end_state : RsimState
         Final state at end of simulation
     crash_year : int
@@ -429,6 +434,7 @@ class RsimOutput:
     stanza_biomass: Optional[np.ndarray] = None
     ecotracer: "EcotracerResult | None" = None
     fleet_dynamics: "FleetDynamicsResult | None" = None
+    out_FishMort: Optional[np.ndarray] = None
 
 
 def detritus_self_fates(rpath, nliving: int, ndead: int) -> dict:
@@ -1461,6 +1467,8 @@ def rsim_run(
     out_biomass = np.zeros((n_months + 1, n_groups))
     out_catch = np.zeros((n_months + 1, n_groups))
     out_gear_catch = np.zeros((n_months + 1, params.NumFishingLinks + 1))
+    # F applied in each month (EwE6 FishTime); predicts catch as B x F
+    out_fishmort = np.zeros((n_months + 1, n_groups))
 
     # Initialize state
     state = scenario.start_state.Biomass.copy()
@@ -2036,6 +2044,9 @@ def rsim_run(
         _fleet_cumul_catch = np.zeros((_n_fd_fleets, params.NUM_GROUPS))
         _original_fish_q = params.FishQ.copy()
 
+    # Row 0: the base F (EwE6 starts FishTime at Fish1 = catch / B)
+    out_fishmort[0] = fishing_mortality(params_dict, {}, fishing_dict)[0]
+
     for month in range(1, n_months + 1):
         # Debug: indicate loop iteration for first few months
         if month <= 6:
@@ -2110,6 +2121,17 @@ def rsim_run(
             forcing_dict["ForcedF"] = _ff_rate
             forcing_dict["ForcedFReplace"] = _ff_replace
         month_start_state = state.copy()
+        # The month's F, as the derivative applies it (EwE6 setFishTime)
+        _fleet_med_now = None
+        if params_dict.get("_mediation") is not None:
+            _fleet_med_now = params_dict["_mediation"].compute_fleet_multipliers(
+                month_start_state,
+                params_dict.get("Bbase", month_start_state),
+                params_dict.get("NUM_GEARS", 0),
+            )
+        out_fishmort[month] = fishing_mortality(
+            params_dict, forcing_dict, fishing_dict, fleet_med=_fleet_med_now
+        )[0]
         # EwE6's feeding-time update uses the consumption of this state as
         # Derivt computes it (rk4 accumulates EatenByAvg after its first
         # Derivt), so prey Ftime and mediation are included: take the
@@ -2586,6 +2608,7 @@ def rsim_run(
         annual_QB=annual_qb,
         annual_Qlink=annual_qlink,
         stanza_biomass=stanza_biomass_out,
+        out_FishMort=out_fishmort,
         end_state=end_state,
         crash_year=crash_year,
         crashed_groups=crashed_groups,

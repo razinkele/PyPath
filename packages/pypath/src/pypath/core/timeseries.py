@@ -79,9 +79,14 @@ class EweTimeSeriesCollection:
     ----------
     series : list[EweTimeSeries]
         List of time series to include.
+    interval : str
+        The dataset's data interval (``EcosimTimeSeriesDataset.DataInterval``,
+        EwE6 ``eTSDataSetInterval``): ``"annual"`` (one value per year, the
+        default) or ``"timestep"`` (one value per monthly time step).
     """
 
     series: list[EweTimeSeries] = field(default_factory=list)
+    interval: str = "annual"
     n_timesteps: int = field(init=False, default=0)
 
     def __post_init__(self) -> None:

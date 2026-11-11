@@ -565,7 +565,8 @@ class CsvBundleWriter:
                     "GroupID": (s.group_idx + 1) if s.group_idx is not None else 0,
                     "FleetID": (s.fleet_idx + 1) if s.fleet_idx is not None else 0,
                     "DatasetID": s.dataset_id,
-                    "WtType": 0,
+                    # The series' weight in EwE's sum of squares (Single)
+                    "WtType": float(s.weight),
                     "PoolColor": 0,
                 }
             )

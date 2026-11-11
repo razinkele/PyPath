@@ -174,6 +174,34 @@ def test_scenario_settings_silent_at_defaults(caplog):
     assert _warnings(caplog) == []
 
 
+def test_ewe_unset_marker_on_producers_and_detritus_is_silent(caplog):
+    """EwE writes -999 in the RiskTime, QmQo, CmCo and SwitchPower cells of
+    producers and detritus (Black Sea), groups those settings do not act on.
+    RiskTime and CmCo act through consumption only."""
+    from pypath.io.ewemdb import _warn_ignored_scenario_settings
+
+    meta = {
+        "name": "S1",
+        "group_id_to_name": {1: "Cod", 2: "Phyto", 3: "Det"},
+        "scenario_group_df": _groups(
+            EcopathGroupID=[1, 2, 3],
+            RiskTime=[0.0, -999.0, -999.0],
+            QmQo=[1.0, -999.0, -999.0],
+            CmCo=[2.0, -999.0, 5.0],
+            AdditivePredMort=[1.0, -999.0, -999.0],
+        ),
+        "ecosim_settings": {"sorwt": 0.5, "NutForcingShapeID": None},
+    }
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        _warn_ignored_scenario_settings(
+            meta, group_types={"Cod": 0, "Phyto": 1, "Det": 2}
+        )
+    msgs = _warnings(caplog)
+    assert len(msgs) == 1
+    assert "CmCo" in msgs[0] and "Cod" in msgs[0]
+    assert "Phyto" not in msgs[0] and "Det" not in msgs[0]
+
+
 def test_scenario_level_settings_warn(caplog):
     from pypath.io.ewemdb import _warn_ignored_scenario_settings
 

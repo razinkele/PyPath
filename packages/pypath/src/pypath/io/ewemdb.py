@@ -609,23 +609,46 @@ def _not_default(value: Any, default: float) -> bool:
     return number is not None and not np.isclose(number, default)
 
 
-def _warn_ignored_scenario_settings(scenario_meta: dict) -> None:
+# Settings that act only through a group's own consumption (Qopt, handling
+# time), so they do nothing on producers and detritus.
+_CONSUMPTION_SETTINGS = {"RiskTime", "CmCo"}
+
+
+def _no_effect_here(col: str, value: Any, group_type: Optional[float]) -> bool:
+    """A setting on a producer or detritus row that cannot act there: EwE's
+    -999 "not set" marker (written for those groups), or a consumption
+    setting."""
+    if group_type is None or not group_type >= 1:
+        return False
+    number = _ewe_number(value)
+    return col in _CONSUMPTION_SETTINGS or (number is not None and number <= -998.0)
+
+
+def _warn_ignored_scenario_settings(
+    scenario_meta: dict, group_types: Optional[Dict[str, float]] = None
+) -> None:
     """Warn for Ecosim scenario settings that differ from EwE's defaults.
 
     PyPath ignores them, so a run differs from EwE wherever they are set.
+    ``group_types`` (Ecopath Type by group name) silences rows where the
+    setting has no effect: producers and detritus.
     """
     scen = scenario_meta.get("name") or scenario_meta.get("id")
     sg_df = scenario_meta.get("scenario_group_df")
+    types = {str(k).strip(): v for k, v in (group_types or {}).items()}
     if sg_df is not None and len(sg_df) > 0:
         id_to_name = scenario_meta.get("group_id_to_name") or {}
         for col, default in _IGNORED_SCENARIO_GROUP_SETTINGS:
             if col not in sg_df.columns:
                 continue
-            groups = [
-                str(id_to_name.get(_int_or_none(row.get("EcopathGroupID")), "?"))
-                for _, row in sg_df.iterrows()
-                if _not_default(row.get(col), default)
-            ]
+            groups = []
+            for _, row in sg_df.iterrows():
+                name = str(id_to_name.get(_int_or_none(row.get("EcopathGroupID")), "?"))
+                value = row.get(col)
+                if _not_default(value, default) and not _no_effect_here(
+                    col, value, types.get(name.strip())
+                ):
+                    groups.append(name)
             if groups:
                 logger.warning(
                     "Ecosim scenario %s: %s differs from the EwE default (%g) for "
@@ -4272,7 +4295,16 @@ def ecosim_scenario_from_ewemdb(
         group_names = params.model["Group"].tolist()
     except (AttributeError, KeyError):
         group_names = []
-    _warn_ignored_scenario_settings(selected)
+    try:
+        group_types = dict(
+            zip(
+                [str(g).strip() for g in params.model["Group"]],
+                pd.to_numeric(params.model["Type"], errors="coerce"),
+            )
+        )
+    except (AttributeError, KeyError):
+        group_types = None
+    _warn_ignored_scenario_settings(selected, group_types=group_types)
     scenario_overrides = _build_scenario_overrides(params, selected, group_names)
 
     # Create RsimScenario with overrides applied
@@ -4620,8 +4652,11 @@ def read_timeseries(
         dataset_id = (
             int(row.get("DatasetID", 0)) if pd.notna(row.get("DatasetID")) else 0
         )
-        # WtType is a method enum (0=SS, 1=SSLog, etc.), NOT a weight value.
-        weight = 1.0
+        # WtType is the series' weight in EwE6's sum of squares (Single,
+        # loaded as TimeSeriesWeight; cDBDataSource.vb 6985). Older layouts
+        # without the column weigh every series 1.
+        wt = _ewe_number(row.get("WtType")) if "WtType" in meta_df.columns else 1.0
+        weight = max(wt, 0.0) if wt is not None else 1.0
 
         group_idx = ts_group.get(ts_id)
         fleet_idx = ts_fleet.get(ts_id)
@@ -4661,7 +4696,26 @@ def read_timeseries(
             )
         )
 
-    return EweTimeSeriesCollection(series_list)
+    # EwE6: when no loaded series has a weight above 0, the reference series
+    # of these types get weight 1 (cTimeSeriesDataStructures.vb 1053-1064).
+    if series_list and not any(s.weight > 0 for s in series_list):
+        for s in series_list:
+            if s.dat_type in (0, 1, 5, 6, -6, 7):
+                s.weight = 1.0
+
+    # EcosimTimeSeriesDataset.DataInterval: 0 annual, 1 time step
+    # (eTSDataSetInterval); it sets when the data are compared with the run.
+    interval = "annual"
+    if dataset is not None and "EcosimTimeSeriesDataset" in tables:
+        try:
+            ds_df = read_ewemdb_table(filepath, "EcosimTimeSeriesDataset")
+            ds_row = ds_df[ds_df["DatasetID"] == dataset]
+            if len(ds_row) and _int_or_none(ds_row.iloc[0].get("DataInterval")) == 1:
+                interval = "timestep"
+        except Exception as e:
+            logger.debug("read_timeseries: dataset interval unavailable: %s", e)
+
+    return EweTimeSeriesCollection(series_list, interval=interval)
 
 
 def read_mediation(db_path: str) -> "MediationCollection":
