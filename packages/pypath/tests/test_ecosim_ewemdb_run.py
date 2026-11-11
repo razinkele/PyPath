@@ -18,11 +18,9 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 
 pytestmark = pytest.mark.integration
 
-# Regression pin (PyPath's own linear SS, not EwE's). One source of truth: the
-# value and its history live in test_ecosim_lt2022_parity.py. This file kept a
-# copy at 637.0 that the A1/A2 re-pin missed, because 631.7 was still inside its
-# 2 % band.
-from .test_ecosim_lt2022_parity import LT2022_SS16  # noqa: E402
+# EwE's own sum of squares for scenario 16 against dataset 35 (oracle). One
+# source of truth: the value lives in test_ecosim_lt2022_parity.py.
+from .test_ecosim_lt2022_parity import EWE_SS16  # noqa: E402
 
 
 def _db_available():
@@ -241,48 +239,11 @@ class TestEcosimRunScenario16:
         assert len(sim_output.crashed_groups) <= 2
 
     def test_ss_reasonable(self, sim_output, ecosim_scenario_16):
-        """Fit to the scenario's time series stays at the pinned SS (LT2022_SS16)."""
-        from pypath.core.ecopath import rpath
-        from pypath.io.ewemdb import read_ewemdb, read_ewemdb_table
+        """EwE's SS of the run against dataset 35 is the oracle's (EWE_SS16)."""
+        from pypath.core.calibration import ewe_sum_of_squares
 
-        params = read_ewemdb(DB_PATH)
-        model = rpath(params)
-
-        # Load time series for SS calculation
-        try:
-            ts_all = read_ewemdb_table(DB_PATH, "EcosimTimeSeries")
-            ds35 = ts_all[ts_all["DatasetID"] == 35].copy()
-        except Exception:
-            pytest.skip("Time series data not available for SS calculation")
-
-        tsg = read_ewemdb_table(DB_PATH, "EcosimTimeSeriesGroup")
-        groups_db = read_ewemdb_table(DB_PATH, "EcopathGroup")
-        gid_to_name = dict(zip(groups_db["GroupID"], groups_db["GroupName"]))
-
-        ts_to_group = {}
-        for _, r in tsg.iterrows():
-            db_gname = gid_to_name.get(r["GroupID"], "").strip()
-            for g in range(model.NUM_GROUPS):
-                if str(model.Group[g]).strip() == db_gname:
-                    ts_to_group[int(r["TimeSeriesID"])] = g
-                    break
-
-        total_ss = 0.0
-        n_series = 0
-        for _, row in ds35.iterrows():
-            dtype = int(row["DatType"])
-            tsid = int(row["TimeSeriesID"])
-            g = ts_to_group.get(tsid)
-            if dtype == 0 and g is not None:
-                vals = np.array([float(x) for x in str(row["TimeValues"]).split()])
-                sim = sim_output.annual_Biomass[:, g + 1] / model.Biomass[g]
-                n = min(len(vals), len(sim))
-                total_ss += np.sum((sim[:n] - vals[:n]) ** 2)
-                n_series += 1
-
-        assert abs(total_ss - LT2022_SS16) <= 0.02 * LT2022_SS16, (
-            f"SS={total_ss:.1f} (n_series={n_series}), pinned at {LT2022_SS16} (+/- 2 %)"
-        )
+        res = ewe_sum_of_squares(sim_output, ecosim_scenario_16._timeseries)
+        assert res.total == pytest.approx(EWE_SS16, rel=1e-3)
 
 
 # =========================================================================

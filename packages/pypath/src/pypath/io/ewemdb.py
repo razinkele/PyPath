@@ -609,23 +609,66 @@ def _not_default(value: Any, default: float) -> bool:
     return number is not None and not np.isclose(number, default)
 
 
-def _warn_ignored_scenario_settings(scenario_meta: dict) -> None:
+# Settings that act only through a group's own consumption (Qopt, handling
+# time; cEcoSimModel.vb 1766, 3379), so not on producers and detritus.
+_CONSUMPTION_SETTINGS = {"RiskTime", "CmCo"}
+
+
+def _no_effect_here(
+    col: str, group_type: Optional[float], is_fished: Optional[bool]
+) -> bool:
+    """A setting that cannot act on this group in EwE: RiskTime or CmCo on a
+    producer or detritus group, QmQo (density-dependent catchability, a factor
+    on F; vb 5092) on an unfished group. EwE writes -999 in such cells
+    (Black Sea). AdditivePredMort acts on every group that is eaten."""
+    if col in _CONSUMPTION_SETTINGS:
+        return group_type is not None and group_type >= 1
+    if col == "QmQo":
+        return is_fished is False
+    return False
+
+
+def _fished_groups(params) -> Optional[set]:
+    """Names of the groups with landings or discards in the Ecopath model."""
+    try:
+        m = params.model
+        fleets = [str(g) for g, t in zip(m["Group"], m["Type"]) if t == 3]
+    except (AttributeError, KeyError):
+        return None
+    cols = [c for c in m.columns if c in fleets or c in {f"{f}.disc" for f in fleets}]
+    caught = m[cols].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1) > 0
+    return {str(g).strip() for g, c in zip(m["Group"], caught) if c}
+
+
+def _warn_ignored_scenario_settings(
+    scenario_meta: dict,
+    group_types: Optional[Dict[str, float]] = None,
+    fished: Optional[set] = None,
+) -> None:
     """Warn for Ecosim scenario settings that differ from EwE's defaults.
 
     PyPath ignores them, so a run differs from EwE wherever they are set.
+    ``group_types`` (Ecopath Type by group name) and ``fished`` (names of the
+    fished groups) silence the rows where a setting has no effect in EwE.
     """
     scen = scenario_meta.get("name") or scenario_meta.get("id")
     sg_df = scenario_meta.get("scenario_group_df")
+    types = {str(k).strip(): v for k, v in (group_types or {}).items()}
+    fished_names = None if fished is None else {str(g).strip() for g in fished}
     if sg_df is not None and len(sg_df) > 0:
         id_to_name = scenario_meta.get("group_id_to_name") or {}
         for col, default in _IGNORED_SCENARIO_GROUP_SETTINGS:
             if col not in sg_df.columns:
                 continue
-            groups = [
-                str(id_to_name.get(_int_or_none(row.get("EcopathGroupID")), "?"))
-                for _, row in sg_df.iterrows()
-                if _not_default(row.get(col), default)
-            ]
+            groups = []
+            for _, row in sg_df.iterrows():
+                name = str(id_to_name.get(_int_or_none(row.get("EcopathGroupID")), "?"))
+                key = name.strip()
+                is_fished = None if fished_names is None else key in fished_names
+                if _not_default(row.get(col), default) and not _no_effect_here(
+                    col, types.get(key), is_fished
+                ):
+                    groups.append(name)
             if groups:
                 logger.warning(
                     "Ecosim scenario %s: %s differs from the EwE default (%g) for "
@@ -4272,7 +4315,18 @@ def ecosim_scenario_from_ewemdb(
         group_names = params.model["Group"].tolist()
     except (AttributeError, KeyError):
         group_names = []
-    _warn_ignored_scenario_settings(selected)
+    try:
+        group_types = dict(
+            zip(
+                [str(g).strip() for g in params.model["Group"]],
+                pd.to_numeric(params.model["Type"], errors="coerce"),
+            )
+        )
+    except (AttributeError, KeyError):
+        group_types = None
+    _warn_ignored_scenario_settings(
+        selected, group_types=group_types, fished=_fished_groups(params)
+    )
     scenario_overrides = _build_scenario_overrides(params, selected, group_names)
 
     # Create RsimScenario with overrides applied
@@ -4620,8 +4674,11 @@ def read_timeseries(
         dataset_id = (
             int(row.get("DatasetID", 0)) if pd.notna(row.get("DatasetID")) else 0
         )
-        # WtType is a method enum (0=SS, 1=SSLog, etc.), NOT a weight value.
-        weight = 1.0
+        # WtType is the series' weight in EwE6's sum of squares (Single,
+        # loaded as TimeSeriesWeight; cDBDataSource.vb 6985). Older layouts
+        # without the column weigh every series 1.
+        wt = _ewe_number(row.get("WtType")) if "WtType" in meta_df.columns else 1.0
+        weight = max(wt, 0.0) if wt is not None else 1.0
 
         group_idx = ts_group.get(ts_id)
         fleet_idx = ts_fleet.get(ts_id)
@@ -4661,7 +4718,43 @@ def read_timeseries(
             )
         )
 
-    return EweTimeSeriesCollection(series_list)
+    # EwE6: when no loaded series has a weight above 0, the reference series
+    # of these types get weight 1 (cTimeSeriesDataStructures.vb 1053-1064).
+    if series_list and not any(s.weight > 0 for s in series_list):
+        for s in series_list:
+            if s.dat_type in (0, 1, 5, 6, -6, 7):
+                s.weight = 1.0
+
+    # EcosimTimeSeriesDataset.DataInterval: 0 annual, 1 time step
+    # (eTSDataSetInterval); it sets when the data are compared with the run.
+    # Without a dataset, the loaded series' datasets decide; mixed intervals
+    # cannot share one comparison and are reported.
+    interval = "annual"
+    loaded = {dataset} if dataset is not None else {s.dataset_id for s in series_list}
+    if loaded and "EcosimTimeSeriesDataset" in tables:
+        try:
+            ds_df = read_ewemdb_table(filepath, "EcosimTimeSeriesDataset")
+            intervals = {
+                int(r["DatasetID"]): _int_or_none(r.get("DataInterval")) == 1
+                for _, r in ds_df.iterrows()
+                if _int_or_none(r.get("DatasetID")) in loaded
+            }
+            if len(set(intervals.values())) > 1:
+                logger.warning(
+                    "Time series from datasets with different data intervals "
+                    "(%s); they are compared as annual data. Read one dataset "
+                    "with read_timeseries(..., dataset=ID)",
+                    ", ".join(
+                        f"{k}: {'time step' if v else 'annual'}"
+                        for k, v in sorted(intervals.items())
+                    ),
+                )
+            elif intervals and all(intervals.values()):
+                interval = "timestep"
+        except Exception as e:
+            logger.debug("read_timeseries: dataset interval unavailable: %s", e)
+
+    return EweTimeSeriesCollection(series_list, interval=interval)
 
 
 def read_mediation(db_path: str) -> "MediationCollection":

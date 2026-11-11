@@ -1338,6 +1338,100 @@ def _resolve_instrument_groups(params, spname_list, num_groups):
     return instrument_set
 
 
+def _fishing_links(fishing) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """FishFrom, FishThrough and FishQ of dict-like or dataclass fishing."""
+    if isinstance(fishing, dict):
+        return (
+            fishing.get("FishFrom", np.array([0])),
+            fishing.get("FishThrough", np.array([0])),
+            fishing.get("FishQ", np.array([0.0])),
+        )
+    return (
+        getattr(fishing, "FishFrom", np.array([0])),
+        getattr(fishing, "FishThrough", np.array([0])),
+        getattr(fishing, "FishQ", np.array([0.0])),
+    )
+
+
+def fishing_mortality(
+    params: dict,
+    forcing: dict,
+    fishing: dict,
+    fleet_med: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Fishing mortality per group (per year) under one month's forcing.
+
+    The gears' FishQ x effort (``forcing["ForcedEffort"]``, times the fleet
+    mediation multipliers when given) plus the forced fishing of the month
+    (``forcing["ForcedF"]``, which replaces the gears where
+    ``ForcedFReplace`` is set). This is the F ``deriv_vector`` applies, EwE6's
+    FishTime. Returns ``(FishMort, link_fish_rate)``: F by group
+    (``NUM_GROUPS + 1``) and the per-biomass catch rate of each fishing link.
+    """
+    NUM_GROUPS = params["NUM_GROUPS"]
+    NUM_LIVING = params["NUM_LIVING"]
+    NUM_DEAD = params["NUM_DEAD"]
+    NUM_GEARS = params.get("NUM_GEARS", 0)
+    FishMort = np.zeros(NUM_GROUPS + 1)
+
+    ForcedEffort = forcing.get("ForcedEffort", np.ones(max(NUM_GEARS + 1, 1)))
+    FishFrom, FishThrough, FishQ = _fishing_links(fishing)
+
+    # fleet_idx: 0-based array of fleet group indices, used to resolve gear
+    # indices from FishThrough values without assuming canonical group ordering.
+    if isinstance(params, dict):
+        fleet_idx = params.get("fleet_idx", None)
+    else:
+        fleet_idx = getattr(params, "fleet_idx", None)
+
+    # Build a fast lookup from 0-based group index to 1-based gear index.
+    # Falls back to the legacy arithmetic when fleet_idx is not available.
+    _gear_lookup = {}
+    if fleet_idx is not None:
+        for pos, grp_0 in enumerate(fleet_idx):
+            _gear_lookup[int(grp_0)] = pos + 1  # 1-based gear index
+
+    # Calculate fishing mortality with effort scaling per gear
+    # FishThrough contains 1-based GROUP indices of fleets.
+    # _link_fish_rate[i] is the per-biomass catch rate of fishing link i
+    # (Rpath: caught = FishQ * Effort * B), used for discards to FishTo.
+    _link_fish_rate = np.zeros(len(FishFrom))
+    for i in range(1, len(FishFrom)):
+        grp = int(FishFrom[i])
+        gear_group_idx = int(FishThrough[i])
+        gear_0based = gear_group_idx - 1  # convert to 0-based group index
+        if _gear_lookup:
+            gear_idx = _gear_lookup.get(gear_0based, 0)
+        else:
+            # Legacy fallback: assumes canonical ordering
+            gear_idx = gear_group_idx - NUM_LIVING - NUM_DEAD
+        effort_mult = (
+            ForcedEffort[gear_idx] if 0 < gear_idx < len(ForcedEffort) else 1.0
+        )
+        if fleet_med is not None:
+            effort_mult *= fleet_med[gear_idx]
+        FishMort[grp] += FishQ[i] * effort_mult
+        _link_fish_rate[i] = FishQ[i] * effort_mult
+    # Forced fishing (rsim_run's ForcedF: forced F plus forced catch / B).
+    # Where ForcedFReplace is set it replaces the gears on the group (EwE6),
+    # else it is a clean fishery added to them and landed Outside (Rpath).
+    _forced_f = forcing.get("ForcedF")
+    if _forced_f is not None:
+        _ff = np.asarray(_forced_f, dtype=float)
+        _replace = np.asarray(
+            forcing.get("ForcedFReplace", np.zeros(len(_ff), dtype=bool)), dtype=bool
+        )
+        n_bio_groups = NUM_LIVING + NUM_DEAD
+        for grp in range(1, min(len(_ff), n_bio_groups + 1)):
+            if grp < len(_replace) and _replace[grp]:
+                FishMort[grp] = 0.0
+                for i in range(1, len(FishFrom)):
+                    if int(FishFrom[i]) == grp:
+                        _link_fish_rate[i] = 0.0
+            FishMort[grp] += _ff[grp]
+    return FishMort, _link_fish_rate
+
+
 def deriv_vector(
     state: np.ndarray,
     params: dict,
@@ -1667,72 +1761,11 @@ def deriv_vector(
     # =========================================================================
     # STEP 3: Calculate fishing mortality with forced effort
     # =========================================================================
-    FishMort = np.zeros(NUM_GROUPS + 1)
     Catch = np.zeros(NUM_GROUPS + 1)
-
-    ForcedEffort = forcing.get("ForcedEffort", np.ones(max(NUM_GEARS + 1, 1)))
-    # Support both dict-like and dataclass fishing inputs
-    if isinstance(fishing, dict):
-        FishFrom = fishing.get("FishFrom", np.array([0]))
-        FishThrough = fishing.get("FishThrough", np.array([0]))
-        FishQ = fishing.get("FishQ", np.array([0.0]))
-    else:
-        FishFrom = getattr(fishing, "FishFrom", np.array([0]))
-        FishThrough = getattr(fishing, "FishThrough", np.array([0]))
-        FishQ = getattr(fishing, "FishQ", np.array([0.0]))
-
-    # fleet_idx: 0-based array of fleet group indices, used to resolve gear
-    # indices from FishThrough values without assuming canonical group ordering.
-    if isinstance(params, dict):
-        fleet_idx = params.get("fleet_idx", None)
-    else:
-        fleet_idx = getattr(params, "fleet_idx", None)
-
-    # Build a fast lookup from 0-based group index to 1-based gear index.
-    # Falls back to the legacy arithmetic when fleet_idx is not available.
-    _gear_lookup = {}
-    if fleet_idx is not None:
-        for pos, grp_0 in enumerate(fleet_idx):
-            _gear_lookup[int(grp_0)] = pos + 1  # 1-based gear index
-
-    # Calculate fishing mortality with effort scaling per gear
-    # FishThrough contains 1-based GROUP indices of fleets.
-    # _link_fish_rate[i] is the per-biomass catch rate of fishing link i
-    # (Rpath: caught = FishQ * Effort * B), used for discards to FishTo.
-    _link_fish_rate = np.zeros(len(FishFrom))
-    for i in range(1, len(FishFrom)):
-        grp = int(FishFrom[i])
-        gear_group_idx = int(FishThrough[i])
-        gear_0based = gear_group_idx - 1  # convert to 0-based group index
-        if _gear_lookup:
-            gear_idx = _gear_lookup.get(gear_0based, 0)
-        else:
-            # Legacy fallback: assumes canonical ordering
-            gear_idx = gear_group_idx - NUM_LIVING - NUM_DEAD
-        effort_mult = (
-            ForcedEffort[gear_idx] if 0 < gear_idx < len(ForcedEffort) else 1.0
-        )
-        if _fleet_med is not None:
-            effort_mult *= _fleet_med[gear_idx]
-        FishMort[grp] += FishQ[i] * effort_mult
-        _link_fish_rate[i] = FishQ[i] * effort_mult
-    # Forced fishing (rsim_run's ForcedF: forced F plus forced catch / B).
-    # Where ForcedFReplace is set it replaces the gears on the group (EwE6),
-    # else it is a clean fishery added to them and landed Outside (Rpath).
-    _forced_f = forcing.get("ForcedF")
-    if _forced_f is not None:
-        _ff = np.asarray(_forced_f, dtype=float)
-        _replace = np.asarray(
-            forcing.get("ForcedFReplace", np.zeros(len(_ff), dtype=bool)), dtype=bool
-        )
-        n_bio_groups = NUM_LIVING + NUM_DEAD
-        for grp in range(1, min(len(_ff), n_bio_groups + 1)):
-            if grp < len(_replace) and _replace[grp]:
-                FishMort[grp] = 0.0
-                for i in range(1, len(FishFrom)):
-                    if int(FishFrom[i]) == grp:
-                        _link_fish_rate[i] = 0.0
-            FishMort[grp] += _ff[grp]
+    FishFrom = _fishing_links(fishing)[0]
+    FishMort, _link_fish_rate = fishing_mortality(
+        params, forcing, fishing, fleet_med=_fleet_med
+    )
 
     for i in range(1, NUM_LIVING + 1):
         Catch[i] = FishMort[i] * BB[i]

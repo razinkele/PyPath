@@ -565,7 +565,8 @@ class CsvBundleWriter:
                     "GroupID": (s.group_idx + 1) if s.group_idx is not None else 0,
                     "FleetID": (s.fleet_idx + 1) if s.fleet_idx is not None else 0,
                     "DatasetID": s.dataset_id,
-                    "WtType": 0,
+                    # The series' weight in EwE's sum of squares (Single)
+                    "WtType": float(s.weight),
                     "PoolColor": 0,
                 }
             )
@@ -593,6 +594,10 @@ class CsvBundleWriter:
                 "ScenarioID": self._scenario_id,
                 "DatasourceName": f"Dataset_{did}",
                 "Enabled": True,
+                # EwE eTSDataSetInterval: 0 annual, 1 time step
+                "DataInterval": int(
+                    getattr(timeseries, "interval", "annual") == "timestep"
+                ),
             }
             for did in sorted(dataset_ids)
         ]

@@ -117,6 +117,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
   - **Search parity:** the fitted vulnerabilities match EwE's fit on LT2022 scenario 16. This needs the oracle.
 - **Rpath:** none, because Rpath has no fitting.
 - **Pins moved:** SS16 is redefined as EwE's SS, and a new pin replaces the old one.
+- **Status (2026-11-11):** objective parity done (`ewe_sum_of_squares`, `out_FishMort`, WtType read as the weight). Checked on EwE's own trajectories against the oracle's SS to 1e-7 (scenario 16 with datasets 35 and 22); the LT2022 pin is now EwE's SS, 75.22 (PyPath's run: 75.21). Search parity (v = 1 + exp(p), blocks, PP anomaly, AIC) and the reference types other than biomass and catch remain.
 
 ### P4: Ecosim kernel (D1 → D2 → D3, plus handling time)
 
@@ -226,7 +227,7 @@ Every phase that moves a pin must name it in its PR. The table lists each pin's 
 | Pin | File | Moved by |
 |---|---|---|
 | LT2022 EwE-F EE (22 groups) | `test_lt2022_ewef_parity.py` | P1 (3 groups), P5 (EE recomputation, if adopted) |
-| SS16 = 617.0 (history in the test) | `test_ecosim_lt2022_parity.py:52` | P0 relabel; P1, P2 and P4 move it; P3 redefines it |
+| EwE SS16 = 75.2231 and dataset 22's 42447.14, by group (oracle); was PyPath's linear SS 617.0 until P3 | `test_ecosim_lt2022_parity.py` | Kernel changes (P4) |
 | Rpath reference outputs | `test_rpath_*`, `test_detritus_*` (~20 files) | Must stay green under `compat="rpath"` in every phase |
 | Black Sea detritus self-fate xfail | Black Sea tests | P7 |
 | Stanza B and Q/B | `test_stanza_plus_group.py`, `test_ewemdb_stanza_z.py` (LT2022 juvenile mussels 15.005259 / 13.620459, to 1e-6) | P2 (age table and plus group: done) |

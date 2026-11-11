@@ -79,9 +79,14 @@ class EweTimeSeriesCollection:
     ----------
     series : list[EweTimeSeries]
         List of time series to include.
+    interval : str
+        The dataset's data interval (``EcosimTimeSeriesDataset.DataInterval``,
+        EwE6 ``eTSDataSetInterval``): ``"annual"`` (one value per year, the
+        default) or ``"timestep"`` (one value per monthly time step).
     """
 
     series: list[EweTimeSeries] = field(default_factory=list)
+    interval: str = "annual"
     n_timesteps: int = field(init=False, default=0)
 
     def __post_init__(self) -> None:
@@ -224,6 +229,23 @@ def apply_timeseries_drivers(
     """
     n_groups = scenario.params.NUM_GROUPS
     n_gears = scenario.params.NUM_GEARS
+
+    driver_types = (
+        DATTYPE_FORCED_BIOMASS,
+        DATTYPE_EFFORT,
+        DATTYPE_FISHING_MORTALITY,
+        DATTYPE_CATCH_FORCING,
+    )
+    if getattr(collection, "interval", "annual") == "timestep" and any(
+        s.dat_type in driver_types for s in collection.series
+    ):
+        warnings.warn(
+            "The dataset has time-step (monthly) data, but its driver series "
+            "are applied per year (value k holds for year k); monthly drivers "
+            "are not supported yet",
+            UserWarning,
+            stacklevel=2,
+        )
 
     for s in collection.forced_biomass:
         if s.group_idx is None:

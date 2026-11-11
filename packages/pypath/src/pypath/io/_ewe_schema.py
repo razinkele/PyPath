@@ -245,7 +245,7 @@ EWE_TABLES = {
             ("GroupID", "INTEGER"),
             ("FleetID", "INTEGER"),
             ("DatasetID", "INTEGER"),
-            ("WtType", "INTEGER"),
+            ("WtType", "DOUBLE"),  # EwE: Single, the series' weight
             ("PoolColor", "INTEGER"),
         ]
     ),
@@ -263,6 +263,7 @@ EWE_TABLES = {
             ("ScenarioID", "INTEGER"),
             ("DatasourceName", "TEXT"),
             ("Enabled", "YESNO"),
+            ("DataInterval", "INTEGER"),
         ]
     ),
     "EcosimTimeSeriesSeason": OrderedDict(

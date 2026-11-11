@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pypath.core.calibration import CalibrationResult, _compute_ss, fit_to_timeseries
+from pypath.core.calibration import CalibrationResult, fit_to_timeseries
 from pypath.core.timeseries import (
     DATTYPE_REL_BIOMASS,
     EweTimeSeries,
@@ -43,58 +43,91 @@ class TestCalibrationResult:
         assert len(result.best_vv) == len(result.link_map)
 
 
-class TestComputeSS:
-    def test_perfect_match_zero_ss(self):
-        observed = {0: np.array([1.0, 2.0, 3.0])}
-        predicted = {0: np.array([1.0, 2.0, 3.0])}
-        weights = {0: 1.0}
-        ss, ss_by_group = _compute_ss(observed, predicted, weights, relative={0: False})
-        assert ss == pytest.approx(0.0, abs=1e-10)
+def _fished_model():
+    """Phyto -> Zoo -> Fish with a fleet catching Fish (0-based group 2)."""
+    import warnings
 
-    def test_ss_increases_with_deviation(self):
-        observed = {0: np.array([1.0, 1.0, 1.0])}
-        pred_close = {0: np.array([1.1, 1.1, 1.1])}
-        pred_far = {0: np.array([2.0, 2.0, 2.0])}
-        weights = {0: 1.0}
-        rel = {0: False}
-        ss_close, _ = _compute_ss(observed, pred_close, weights, relative=rel)
-        ss_far, _ = _compute_ss(observed, pred_far, weights, relative=rel)
-        assert ss_close < ss_far
+    from pypath.core.ecopath import rpath
+    from pypath.core.params import create_rpath_params
 
-    def test_nan_timesteps_skipped(self):
-        observed = {0: np.array([1.0, np.nan, 1.0])}
-        predicted = {0: np.array([1.0, 999.0, 1.0])}
-        weights = {0: 1.0}
-        ss, _ = _compute_ss(observed, predicted, weights, relative={0: False})
-        assert ss == pytest.approx(0.0, abs=1e-10)
+    params = create_rpath_params(
+        ["Phyto", "Zoo", "Fish", "Det", "Fleet"], [1, 0, 0, 2, 3]
+    )
+    m = params.model
+    m["Biomass"] = [100.0, 20.0, 50.0, 10.0, 0.0]
+    m["PB"] = [10.0, 1.0, 1.0, np.nan, np.nan]
+    m["QB"] = [np.nan, 50.0, 2.0, np.nan, np.nan]
+    m["EE"] = [0.8, 0.5, 0.8, np.nan, np.nan]
+    m["BioAcc"] = 0.0
+    m["Unassim"] = [0.0, 0.2, 0.2, 0.0, 0.0]
+    m["Det"] = [1.0, 1.0, 1.0, 0.0, 0.0]
+    m.loc[2, "Fleet"] = 0.5
+    params.diet["Zoo"] = [1.0, 0.0, 0.0, 0.0, 0.0]
+    params.diet["Fish"] = [0.0, 1.0, 0.0, 0.0, 0.0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return rpath(params), params
 
-    def test_weight_scaling(self):
-        observed = {0: np.array([1.0, 2.0])}
-        predicted = {0: np.array([1.5, 2.5])}
-        w1 = {0: 1.0}
-        w2 = {0: 2.0}
-        rel = {0: False}
-        ss1, _ = _compute_ss(observed, predicted, w1, relative=rel)
-        ss2, _ = _compute_ss(observed, predicted, w2, relative=rel)
-        assert ss2 == pytest.approx(ss1 * 2.0, rel=1e-10)
 
-    def test_relative_biomass_rescaling(self):
-        observed = {0: np.array([1.0, 1.0, 1.0])}
-        predicted = {0: np.array([10.0, 10.0, 10.0])}
-        weights = {0: 1.0}
-        ss, _ = _compute_ss(observed, predicted, weights, relative={0: True})
-        assert ss == pytest.approx(0.0, abs=1e-10)
+class TestFitObjective:
+    """fit_to_timeseries minimises EwE6's sum of squares (C1, C2)."""
 
-    def test_ss_by_group(self):
-        observed = {0: np.array([1.0]), 1: np.array([2.0])}
-        predicted = {0: np.array([1.5]), 1: np.array([2.0])}
-        weights = {0: 1.0, 1: 1.0}
-        rel = {0: False, 1: False}
-        _, ss_by_group = _compute_ss(observed, predicted, weights, relative=rel)
-        assert 0 in ss_by_group
-        assert 1 in ss_by_group
-        assert ss_by_group[0] > 0
-        assert ss_by_group[1] == pytest.approx(0.0, abs=1e-10)
+    def test_catch_series_are_fitted_to_the_catch(self):
+        """A catch series equal to the run's own B x F has SS 0. The old
+        objective compared it with the annual mean biomass (C1)."""
+        import warnings
+
+        from pypath.core.calibration import ewe_sum_of_squares
+        from pypath.core.ecosim import rsim_run, rsim_scenario
+        from pypath.core.timeseries import DATTYPE_CATCH
+
+        balanced, params = _fished_model()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            out = rsim_run(rsim_scenario(balanced, params, years=range(1, 6)))
+        rows = [(k - 1) * 12 + 5 for k in range(1, 6)]
+        catch = out.out_Biomass[rows, 3] * out.out_FishMort[rows, 3]
+        ts = EweTimeSeriesCollection(
+            [EweTimeSeries(1, "Fish catch", DATTYPE_CATCH, 2, None, catch)]
+        )
+
+        result = fit_to_timeseries(
+            balanced, params, ts, method="minimize", max_iterations=1
+        )
+        assert result.ss == pytest.approx(0.0, abs=1e-12)
+        assert result.ss_by_group[2] == pytest.approx(0.0, abs=1e-12)
+        refit = ewe_sum_of_squares(rsim_run(result.fitted_scenario), ts)
+        assert refit.total == pytest.approx(result.ss, abs=1e-12)
+
+    def test_short_time_step_series_fit(self):
+        """Six monthly values still run the two years rsim_scenario needs."""
+        balanced, params = _fished_model()
+        ts = EweTimeSeriesCollection(
+            [EweTimeSeries(1, "Fish", DATTYPE_REL_BIOMASS, 2, None, np.ones(6))],
+            interval="timestep",
+        )
+        result = fit_to_timeseries(
+            balanced, params, ts, method="minimize", max_iterations=1
+        )
+        assert np.isfinite(result.ss)
+
+    def test_series_left_out_are_reported_once(self, caplog):
+        import logging
+
+        from pypath.core.timeseries import DATTYPE_TOTAL_MORTALITY
+
+        balanced, params = _fished_model()
+        ts = EweTimeSeriesCollection(
+            [
+                EweTimeSeries(1, "Fish", DATTYPE_REL_BIOMASS, 2, None, np.ones(3)),
+                EweTimeSeries(
+                    2, "Fish Z", DATTYPE_TOTAL_MORTALITY, 2, None, np.ones(3)
+                ),
+            ]
+        )
+        with caplog.at_level(logging.WARNING, logger="pypath.core.calibration"):
+            fit_to_timeseries(balanced, params, ts, method="minimize", max_iterations=1)
+        assert caplog.text.count("'Fish Z'") == 1
 
 
 @pytest.mark.slow

@@ -1,11 +1,11 @@
 {
-  "implemented": 31,
+  "implemented": 32,
   "matrix_total": 84,
   "mismatches": [],
   "missing": 0,
   "missing_tables": [],
   "ok": true,
-  "partial": 53,
+  "partial": 52,
   "target_total": 84,
   "unknown_tables": []
 }

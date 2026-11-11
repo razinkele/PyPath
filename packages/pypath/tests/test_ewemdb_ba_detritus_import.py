@@ -174,6 +174,52 @@ def test_scenario_settings_silent_at_defaults(caplog):
     assert _warnings(caplog) == []
 
 
+def test_settings_without_effect_on_a_group_are_silent(caplog):
+    """EwE writes -999 in producer and detritus rows (Black Sea). RiskTime and
+    CmCo act through a group's own consumption, so not on producers and
+    detritus; QmQo scales a group's F, so not on unfished groups."""
+    from pypath.io.ewemdb import _warn_ignored_scenario_settings
+
+    meta = {
+        "name": "S1",
+        "group_id_to_name": {1: "Cod", 2: "Phyto", 3: "Det", 4: "Sprat"},
+        "scenario_group_df": _groups(
+            EcopathGroupID=[1, 2, 3, 4],
+            RiskTime=[0.0, -999.0, -999.0, 0.0],
+            QmQo=[1.0, -999.0, -999.0, 3.0],
+            CmCo=[2.0, -999.0, 5.0, 1000.0],
+            AdditivePredMort=[1.0, 1.0, 1.0, 1.0],
+        ),
+        "ecosim_settings": {"sorwt": 0.5, "NutForcingShapeID": None},
+    }
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        _warn_ignored_scenario_settings(
+            meta,
+            group_types={"Cod": 0, "Phyto": 1, "Det": 2, "Sprat": 0},
+            fished={"Sprat"},
+        )
+    msgs = _warnings(caplog)
+    assert len(msgs) == 2
+    assert any("CmCo" in m and "Cod" in m and "Phyto" not in m for m in msgs)
+    assert any("QmQo" in m and "Sprat" in m and "Phyto" not in m for m in msgs)
+
+
+def test_additive_pred_mort_on_a_producer_still_warns(caplog):
+    """EwE applies PaddP to every group that is eaten, producers included
+    (cEcoSimModel.vb 3058-3074, 3809)."""
+    from pypath.io.ewemdb import _warn_ignored_scenario_settings
+
+    meta = {
+        "name": "S1",
+        "group_id_to_name": {2: "Phyto"},
+        "scenario_group_df": _groups(EcopathGroupID=[2], AdditivePredMort=[-999.0]),
+        "ecosim_settings": {},
+    }
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        _warn_ignored_scenario_settings(meta, group_types={"Phyto": 1}, fished=set())
+    assert any("AdditivePredMort" in m for m in _warnings(caplog))
+
+
 def test_scenario_level_settings_warn(caplog):
     from pypath.io.ewemdb import _warn_ignored_scenario_settings
 
