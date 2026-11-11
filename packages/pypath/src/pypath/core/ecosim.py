@@ -236,6 +236,9 @@ class RsimParams:
     ForagingTimeLowerLimit: float = 0.1  # EwE6: 0.01
     UseVarPQ: bool = False  # GE = AssimEff * Z / (Z + 3 K)
     SwitchPower: Optional[np.ndarray] = None  # EwE6 prey switching per predator
+    # EwE6 predator effect on feeding time (EcosimScenarioGroup.RiskTime): the
+    # share of the optimal consumption that scales with predation risk
+    RiskTime: Optional[np.ndarray] = None
     # Constant detritus import per group, indexed like B_BaseRef (EwE
     # DetInFlow, cEcoSimModel.vb:3119-3124); None or zeros = no import.
     DetInput: Optional[np.ndarray] = None
@@ -889,6 +892,7 @@ def rsim_params(
         MoPred=np.zeros(ngroups + 1),
         FtimeMax=np.full(ngroups + 1, 2.0),
         SwitchPower=np.zeros(ngroups + 1),
+        RiskTime=np.zeros(ngroups + 1),
         DetInput=_det_input_vector(rpath, ngroups),
         VbK=np.zeros(ngroups + 1),
         AssimEff=np.zeros(ngroups + 1),
@@ -1254,6 +1258,7 @@ def rsim_scenario(
             ("ftime_max", "FtimeMax"),
             ("vbk", "VbK"),
             ("switch_power", "SwitchPower"),
+            ("risk_time", "RiskTime"),
         ):
             if scenario_overrides.get(key):
                 arr = getattr(params, attr)
@@ -1984,6 +1989,26 @@ def rsim_run(
     _ftime_adj = params.FtimeAdj
     _ftime_qbopt = params.FtimeQBOpt
     _has_ftime_adj = np.any(_ftime_adj > 0)
+    # EwE6 RiskTime: the base predation risk StartEatenOf / B0 + mo of each
+    # group, with StartEatenOf the base consumption of the group by living
+    # predators (cEcoSimModel.vb 3313, 3787-3792).
+    _risk_time = getattr(params, "RiskTime", None)
+    _has_risk = (
+        _has_ftime_adj
+        and _risk_time is not None
+        and bool(np.any(np.asarray(_risk_time) > 0))
+    )
+    _risk_mo = np.asarray(params.MzeroMort, dtype=float)
+    _risk0 = None
+    if _has_risk:
+        _eaten0 = np.zeros(params.NUM_GROUPS + 1)
+        for _lk in range(1, len(params.PreyFrom)):
+            _py, _pd = int(params.PreyFrom[_lk]), int(params.PreyTo[_lk])
+            if _py > 0 and 0 < _pd <= params.NUM_LIVING:
+                _eaten0[_py] += params.QQ[_lk]
+        _b0 = np.asarray(params.B_BaseRef, dtype=float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            _risk0 = np.where(_b0 > 0, _eaten0 / _b0, 0.0) + _risk_mo + 1e-10
 
     # Main simulation loop
     # Debug: log fishing link summary before starting loop
@@ -2264,6 +2289,9 @@ def rsim_run(
         # ensure non-negative biomass
         state = np.where(np.isfinite(state), state, EPSILON)
         state = np.maximum(state, EPSILON)
+        # EwE6's RiskRate divides by BBAvg, the biomass after the month's RK4
+        # and before the stanza update overwrites the stanza groups.
+        _b_integrated = state.copy() if _has_risk else None
 
         # Multi-stanza update (Rpath SplitUpdate + SplitSetPred). The rates
         # come from the derivative where Rpath takes them: after the month's
@@ -2352,6 +2380,7 @@ def rsim_run(
             # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime.
             _skip_fast = _fg_ftime is not None
             _no_int = np.asarray(params.NoIntegrate)
+            _end_rates = None  # 'rpath' rule RiskTime: month-end derivative
             for i in range(1, params.NUM_LIVING + 1):
                 if _skip_fast and _no_int[i] != 0:
                     continue
@@ -2360,10 +2389,38 @@ def rsim_run(
                         food_gain = float(_fg_ftime[i])
                     else:
                         food_gain = float(np.nansum(QQ_month[:, i]))
+                    qopt = float(_ftime_qbopt[i])
+                    if _has_risk and _risk_time[i] > 0:
+                        # EwE rule: predation of the start-of-month Derivt
+                        # (EatenOfAvg) over the biomass after RK4 (BBAvg);
+                        # 'rpath' rule: both from the month-end state.
+                        if _fg_ftime is not None:
+                            eaten_of = float(_fg_rates["FoodLoss"][i])
+                            b_risk = float(_b_integrated[i])
+                        else:
+                            if _end_rates is None:
+                                _end_rates = {}
+                                deriv_vector(
+                                    state.copy(),
+                                    params_dict,
+                                    forcing_dict,
+                                    fishing_dict,
+                                    rates=_end_rates,
+                                )
+                            eaten_of = float(_end_rates["FoodLoss"][i])
+                            b_risk = float(state[i])
+                        qopt = _risk_qopt(
+                            qopt,
+                            float(_risk_time[i]),
+                            float(_risk0[i]),
+                            eaten_of,
+                            b_risk,
+                            float(_risk_mo[i]),
+                        )
                     _ftime_current[i] = _ftime_update_rpath(
                         _ftime_current[i],
                         _ftime_adj[i],
-                        _ftime_qbopt[i],
+                        qopt,
                         food_gain,
                         _b_src[i],
                         lower=_ftime_lower,
@@ -2674,6 +2731,20 @@ def _handling_matrix(params: RsimParams) -> np.ndarray:
     if getattr(params, "LINK_HANDLING_TERM", True):
         return _build_link_matrix(params, params.DD)
     return _build_link_matrix(params, np.full(len(params.PreyFrom), _NO_LINK_HANDLING))
+
+
+def _risk_qopt(cbase, risk_time, risk0, eaten_of, biomass, mo):
+    """EwE6's optimal consumption with the predator effect on feeding time.
+
+    Qmain = (1 - RiskTime) x Cbase and Qrisk = RiskTime x Cbase x risk0, with
+    risk0 = StartEatenOf / B0 + mo; Qopt = Qmain + Qrisk / RiskRate, RiskRate
+    = EatenOf / B + mo + 1e-10 (cEcoSimModel.vb 3309-3314, 1765-1766). Equals
+    Cbase at the base risk and without RiskTime.
+    """
+    if risk_time <= 0:
+        return cbase
+    risk_rate = eaten_of / biomass + mo + 1e-10 if biomass > 0 else np.inf
+    return (1.0 - risk_time) * cbase + risk_time * cbase * risk0 / risk_rate
 
 
 def _ftime_update_rpath(
