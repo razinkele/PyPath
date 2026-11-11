@@ -109,3 +109,40 @@ def test_lt2022_scenario_10_reads_risk_time(caplog):
     assert rt["Cod"] == 1.0
     assert rt["Zooplankton"] == 0.0
     assert "RiskTime" not in caplog.text
+
+
+# EwE 6.7.144 headless oracle, LT2022 scenario 10 with dataset 35 (run
+# 43101350230): biomass at the end of months 36, 72 and 120. With RiskTime
+# PyPath follows to 0.06 % (every RiskTime group within 0.22 % over the run,
+# median 0.01 %); without it these groups are off by up to 5.7 % at month 120.
+EWE_S10 = {
+    "Cod": {36: 0.875023186, 72: 0.844508171, 120: 1.37255096},
+    "Cypriniformes": {36: 0.742441714, 72: 0.772814155, 120: 0.780116618},
+    "Smelt": {36: 4.92343044, 72: 4.87686634, 120: 5.24536943},
+    "Herring": {36: 6.16794586, 72: 6.13676929, 120: 6.7469883},
+    "Sand-eels": {36: 0.80840826, 72: 0.791967094, 120: 0.903272212},
+}
+
+
+@pytest.mark.integration
+def test_lt2022_scenario_10_follows_the_ewe_oracle():
+    from pathlib import Path
+
+    db = Path(__file__).parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb"
+    if not db.exists():
+        pytest.skip("LT2022 database not found")
+    from pypath.core.ecosim import rsim_run
+    from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sc = ecosim_scenario_from_ewemdb(str(db), scenario=10, timeseries_dataset=35)
+        out = rsim_run(sc, method="RK4")
+    names = [str(n).strip() for n in sc.params.spname]
+    for group, months in EWE_S10.items():
+        j = names.index(group)
+        for month, ewe in months.items():
+            assert out.out_Biomass[month, j] == pytest.approx(ewe, rel=3e-3), (
+                group,
+                month,
+            )
