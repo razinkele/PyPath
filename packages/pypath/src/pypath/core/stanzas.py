@@ -645,6 +645,10 @@ def rsim_stanzas(
         rstan.recruits[isp + 1] = sg.recruits
         rstan.vbgf_d[isp + 1] = sg.vbgf_d
         rstan.r_zero_s[isp + 1] = sg.recruits
+        if stanza_params.plus_group_rule == "ewe":
+            # EwE6: RzeroS = Recruits x exp(BaB / 12) (vb 4362); with the
+            # stages losing Z the numbers then grow at the rate BaB.
+            rstan.r_zero_s[isp + 1] *= np.exp(sg.bab / 12.0)
         # Energy required to grow a unit in weight (scaled to Winf=1)
         rstan.vbm[isp + 1] = 1.0 - 3.0 * sg.vbgf_ksp / 12.0
         rstan.ahat[isp + 1] = sg.ahat

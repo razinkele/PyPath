@@ -655,23 +655,6 @@ def _warn_ignored_scenario_settings(scenario_meta: dict) -> None:
         )
 
 
-def _warn_ignored_stanza_settings(stanza_df: pd.DataFrame) -> None:
-    """Warn for Stanza settings PyPath ignores (roadmap P2)."""
-    names = _group_labels(stanza_df.rename(columns={"StanzaName": "Name"}))
-    if "BABsplit" in stanza_df.columns:
-        used = [
-            names[i]
-            for i, v in enumerate(stanza_df["BABsplit"])
-            if _not_default(v, 0.0)
-        ]
-        if used:
-            logger.warning(
-                "Stanza BABsplit is set for %s but PyPath ignores it; survival "
-                "and stage BA will differ from EwE",
-                ", ".join(used),
-            )
-
-
 def _warn_fractional_types(groups_df: pd.DataFrame, type_col: str) -> None:
     """Warn for mixotrophs (0 < Type < 1), which the reader truncates to 0."""
     types = pd.to_numeric(groups_df[type_col], errors="coerce").to_numpy(float)
@@ -1423,7 +1406,6 @@ def read_ewemdb(
     try:
         stanza_df = read_ewemdb_table(filepath, "Stanza")
         stanza_life_df = read_ewemdb_table(filepath, "StanzaLifeStage")
-        _warn_ignored_stanza_settings(stanza_df)
 
         if len(stanza_df) > 0 and len(stanza_life_df) > 0:
             logger.debug(
@@ -1476,6 +1458,10 @@ def read_ewemdb(
                         "VBGF_d": 0.66667,
                         "Wmat": row.get("WmatWinf", np.nan),
                         "RecPower": row.get("RecPower", np.nan),
+                        # Stanza.BABsplit: the group's biomass accumulation
+                        # rate, added to every stage's Z in the age table
+                        # and to the base recruits (CalculateStanzaParameters)
+                        "BAB": _ewe_number(row.get("BABsplit")) or 0.0,
                     }
                 )
 
