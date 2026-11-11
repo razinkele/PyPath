@@ -59,6 +59,11 @@ class CsvBundleWriter:
 
         n_bio = len(bio_groups)
 
+        # EwE derives a stanza group's age structure from its life stages'
+        # EcopathGroup.vbK (cEcoSimModel.InitStanza): give every stage group
+        # its stanza group's K.
+        stage_vbk = _stanza_stage_vbk(self._params.stanzas)
+
         # --- EcopathGroup ---
         group_rows: List[Dict[str, Any]] = []
         for i, (_, row) in enumerate(bio_groups.iterrows()):
@@ -89,7 +94,7 @@ class CsvBundleWriter:
                     "Emigration": None,
                     "EmigRate": None,
                     "Production": None,
-                    "vbK": None,
+                    "vbK": stage_vbk.get(str(row["Group"]).strip()),
                     "OtherMort": None,
                 }
             )
@@ -178,55 +183,11 @@ class CsvBundleWriter:
             self._tables["EcopathCatch"] = pd.DataFrame(catch_rows)
 
         # --- Stanza / StanzaLifeStage ---
-        stanzas = self._params.stanzas
-        if stanzas is not None and hasattr(stanzas, "stgroups"):
-            stg = stanzas.stgroups
-            if stg is not None and len(stg) > 0:
-                stanza_rows = []
-                for i, (_, row) in enumerate(stg.iterrows()):
-                    stanza_rows.append(
-                        {
-                            "StanzaID": i + 1,
-                            "StanzaName": row.get(
-                                "StGroupName",
-                                row.get("StanzaName", f"Stanza{i + 1}"),
-                            ),
-                            "HatchCode": 0,
-                            "BABsplit": _nan_to_none(row.get("BABsplit")),
-                            "WmatWinf": _nan_to_none(row.get("WmatWinf")),
-                            "RecPower": _nan_to_none(row.get("RecPower")),
-                            "FixedFecundity": 0.0,
-                            "LeadingLifeStage": 0,
-                            "EggAtSpawn": 0.0,
-                            "LeadingCB": 0.0,
-                            "RecStanza": 0,
-                        }
-                    )
-                self._tables["Stanza"] = pd.DataFrame(stanza_rows)
-
-            sti = stanzas.stindiv
-            if sti is not None and len(sti) > 0:
-                ls_rows = []
-                for i, (_, row) in enumerate(sti.iterrows()):
-                    group_name = row.get("Group", row.get("GroupName", ""))
-                    group_id = name_to_id.get(group_name, 0)
-                    ls_rows.append(
-                        {
-                            "GroupID": group_id,
-                            "StanzaID": int(row.get("StGroupNum", 1)),
-                            "Sequence": i + 1,
-                            "AgeStart": int(row.get("First", row.get("AgeStart", 0))),
-                            "Mortality": float(row.get("Z", row.get("Mortality", 0.0))),
-                            "vbK": float(
-                                row.get(
-                                    "VBGF_Ksp",
-                                    row.get("vbK", row.get("VBK", 0.0)),
-                                )
-                            ),
-                            "SpawnProp": 0.0,
-                        }
-                    )
-                self._tables["StanzaLifeStage"] = pd.DataFrame(ls_rows)
+        stanza_rows, ls_rows = _stanza_tables(self._params.stanzas, name_to_id)
+        if stanza_rows:
+            self._tables["Stanza"] = pd.DataFrame(stanza_rows)
+        if ls_rows:
+            self._tables["StanzaLifeStage"] = pd.DataFrame(ls_rows)
 
         # --- EcopathModel ---
         self._tables["EcopathModel"] = pd.DataFrame(
@@ -827,3 +788,133 @@ def _nan_to_none(value):
     except (TypeError, ValueError):
         pass
     return value
+
+
+def _first_of(row: Any, names: tuple, default: Any = None) -> Any:
+    """The first of ``names`` present and not missing in ``row``."""
+    for name in names:
+        value = row.get(name) if hasattr(row, "get") else None
+        if value is not None and not (isinstance(value, float) and np.isnan(value)):
+            return value
+    return default
+
+
+def _stanza_frames(stanzas: Any):
+    """(stgroups, stindiv) DataFrames of RpathParams.stanzas, or (None, None)."""
+    stg = getattr(stanzas, "stgroups", None)
+    sti = getattr(stanzas, "stindiv", None)
+    if not isinstance(stg, pd.DataFrame) or len(stg) == 0:
+        return None, None
+    if not isinstance(sti, pd.DataFrame) or len(sti) == 0:
+        return stg, None
+    return stg, sti
+
+
+def _stage_order(sti: pd.DataFrame) -> pd.DataFrame:
+    """stindiv with a 1-based ``_seq`` within each stanza group."""
+    sti = sti.copy()
+    sti["_group"] = pd.to_numeric(sti.get("StGroupNum", 1), errors="coerce").fillna(1)
+    if "StanzaNum" in sti.columns:
+        sti["_seq"] = pd.to_numeric(sti["StanzaNum"], errors="coerce")
+    else:
+        sti["_seq"] = np.nan
+    first = pd.to_numeric(sti.get("First", 0), errors="coerce").fillna(0)
+    missing = sti["_seq"].isna() | (sti["_seq"] <= 0)
+    if missing.any():
+        rank = first.groupby(sti["_group"]).rank(method="first")
+        sti.loc[missing, "_seq"] = rank[missing]
+    sti["_seq"] = sti["_seq"].astype(int)
+    return sti.sort_values(["_group", "_seq"])
+
+
+def _stanza_stage_vbk(stanzas: Any) -> Dict[str, float]:
+    """Life-stage group name -> its stanza group's VBGF K."""
+    stg, sti = _stanza_frames(stanzas)
+    if stg is None or sti is None:
+        return {}
+    k_of = {}
+    for _, row in stg.iterrows():
+        k = _first_of(row, ("VBGF_Ksp", "vbgf_ksp"))
+        gid = _first_of(row, ("StGroupNum", "stanza_group_num"))
+        if k is not None and gid is not None:
+            k_of[int(gid)] = float(k)
+    out = {}
+    for _, row in sti.iterrows():
+        gid = _first_of(row, ("StGroupNum", "stanza_group_num"))
+        name = _first_of(row, ("Group", "group_name", "GroupName"))
+        if gid is not None and name is not None and int(gid) in k_of:
+            out[str(name).strip()] = k_of[int(gid)]
+    return out
+
+
+def _flagged_stage(stages: pd.DataFrame, column: str) -> int:
+    """Sequence of the stage whose ``column`` is true, or 0 (EwE: unset)."""
+    if column not in stages.columns:
+        return 0
+    flags = stages[column].map(
+        lambda v: str(v).strip().lower() in ("true", "1", "1.0", "yes")
+    )
+    hits = stages.loc[flags, "_seq"]
+    return int(hits.iloc[0]) if len(hits) else 0
+
+
+def _stanza_tables(stanzas: Any, name_to_id: Dict[str, int]):
+    """EwE Stanza and StanzaLifeStage rows from RpathParams.stanzas, so that
+    the EwE reader gets the same stanza tables back: the stanza ID, name,
+    leading life stages (biomass and consumption), maturity weight,
+    recruitment power, BABsplit, fixed fecundity, linked recruitment, and
+    each stage's sequence within its group, start age, Z, VBGF K and
+    SpawnProp (EwE's default 1). EggAtSpawn is written as EwE's default
+    (it has no effect on the model)."""
+    stg, sti = _stanza_frames(stanzas)
+    if stg is None:
+        return [], []
+    ids = {str(k).strip(): v for k, v in name_to_id.items()}
+    stages = _stage_order(sti) if sti is not None else None
+    stanza_rows, ls_rows = [], []
+    for i, (_, row) in enumerate(stg.iterrows()):
+        sid = int(_first_of(row, ("StGroupNum", "stanza_group_num"), i + 1))
+        mine = stages[stages["_group"] == sid] if stages is not None else None
+        leading = _flagged_stage(mine, "Leading") if mine is not None else 0
+        leading_cb = (
+            _flagged_stage(mine, "LeadingCB") if mine is not None else 0
+        ) or leading
+        stanza_rows.append(
+            {
+                "StanzaID": sid,
+                "StanzaName": _first_of(
+                    row,
+                    ("StanzaGroup", "StGroupName", "StanzaName", "Name"),
+                    f"Stanza{sid}",
+                ),
+                "HatchCode": 0,
+                "BABsplit": float(_first_of(row, ("BAB", "BABsplit", "bab"), 0.0)),
+                "WmatWinf": _nan_to_none(_first_of(row, ("Wmat", "WmatWinf", "wmat"))),
+                "RecPower": _nan_to_none(_first_of(row, ("RecPower", "rec_power"))),
+                "FixedFecundity": int(
+                    str(_first_of(row, ("FixedFecundity",), 0)).strip().lower()
+                    in ("true", "1", "1.0")
+                ),
+                "LeadingLifeStage": leading,
+                "EggAtSpawn": 1,
+                "LeadingCB": leading_cb,
+                "RecStanza": int(float(_first_of(row, ("RecStanza",), 0))),
+            }
+        )
+        if mine is None:
+            continue
+        k = _first_of(row, ("VBGF_Ksp", "vbgf_ksp"))
+        for _, stage in mine.iterrows():
+            name = str(_first_of(stage, ("Group", "GroupName"), "")).strip()
+            ls_rows.append(
+                {
+                    "GroupID": ids.get(name, 0),
+                    "StanzaID": sid,
+                    "Sequence": int(stage["_seq"]),
+                    "AgeStart": int(float(_first_of(stage, ("First", "AgeStart"), 0))),
+                    "Mortality": float(_first_of(stage, ("Z", "Mortality"), 0.0)),
+                    "vbK": float(k) if k is not None else 0.0,
+                    "SpawnProp": float(_first_of(stage, ("SpawnProp",), 1.0)),
+                }
+            )
+    return stanza_rows, ls_rows
