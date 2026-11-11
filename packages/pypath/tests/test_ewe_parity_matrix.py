@@ -69,7 +69,8 @@ def test_parity_matrix_matches_code_derived_support_flags() -> None:
 
 
 def test_tables_with_unread_result_columns_are_not_implemented() -> None:
-    """Audit 2026-11-10 §4: these tables skip columns that change results."""
+    """Audit 2026-11-10 §4: these tables skip columns that change results.
+    (StanzaLifeStage left the list when SpawnProp was read.)"""
     from pypath.io._ewe_parity import UNREAD_RESULT_COLUMNS
 
     for table in (
@@ -77,7 +78,6 @@ def test_tables_with_unread_result_columns_are_not_implemented() -> None:
         "EcosimScenario",
         "EcosimScenarioGroup",
         "Stanza",
-        "StanzaLifeStage",
     ):
         assert UNREAD_RESULT_COLUMNS.get(table), f"{table}: no unread columns listed"
 

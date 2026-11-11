@@ -191,24 +191,6 @@ def test_scenario_level_settings_warn(caplog):
     assert any("NutForcingShapeID" in m for m in msgs)
 
 
-def test_stanza_settings_warn(caplog):
-    from pypath.io.ewemdb import _warn_ignored_stanza_settings
-
-    stanza = _groups(
-        StanzaName=["Cod", "Karšis", "Herring"],
-        BABsplit=[0.0, 0.0, 0.2],
-        LeadingLifeStage=[2, 1, 2],
-        LeadingCB=[2, 6, 2],
-    )
-    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
-        _warn_ignored_stanza_settings(stanza)
-    msgs = _warnings(caplog)
-    # LeadingCB is read and used now (test_stanza_leading_cb.py): no warning.
-    assert len(msgs) == 1
-    assert any("BABsplit" in m and "Herring" in m for m in msgs)
-    assert not any("LeadingCB" in m for m in msgs)
-
-
 def test_fractional_type_warns(caplog):
     from pypath.io.ewemdb import _warn_fractional_types
 

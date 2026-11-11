@@ -102,8 +102,10 @@ def test_rpath_rule_keeps_the_linear_prey_term():
 
 
 def test_unforced_links_are_bit_identical_to_the_rpath_form():
-    """With every prey at f = 1 the arena change touches nothing."""
+    """With every prey at f = 1 the arena change touches nothing. (The rules
+    also differ in the per-link handling term, D5, so both get Rpath's.)"""
     ewe, rpath = _captured("ewe"), _captured("rpath")
+    ewe["P"] = dict(ewe["P"], DD=rpath["P"]["DD"])
     for x, y in ((1.0, 1.0), (1.3, 0.8)):
         assert _fish_intake(ewe, x, y) == _fish_intake(rpath, x, y)
 

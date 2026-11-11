@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -55,6 +55,11 @@ class StanzaGroup:
     bab: float = 0.0
     rec_power: float = 1.0
     recruits: float = 0.0
+    # EwE Stanza.FixedFecundity: eggs per individual stay at their base value
+    fixed_fecundity: bool = False
+    # EwE Stanza.RecStanza: 1-based position of the stanza group whose
+    # recruits this one follows (0 = its own)
+    rec_stanza: int = 0
     last_month: int = 0
     ahat: float = 0.0
     rhat: float = 0.0
@@ -89,6 +94,8 @@ class StanzaIndividual:
     z: float
     leading: bool = False
     leading_cb: bool = False
+    # EwE StanzaLifeStage.SpawnProp: the stage's share of the spawning
+    spawn_prop: float = 1.0
     biomass: float = 0.0
     qb: float = 0.0
 
@@ -156,6 +163,19 @@ class RsimStanzas:
     plus_group_rule: str = "rpath"
     ahat: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
     rhat: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
+    # EwE6 hatch-code shape by month (rows) and stanza group (columns, as
+    # the other per-group arrays); NaN where a stanza has none. Under the EwE
+    # rule a stanza with one recruits RscaleSplit x egg x RzeroS x hatch,
+    # without the stock-recruitment term (split_update).
+    hatch_forcing: Optional[np.ndarray] = None
+    # Spawning (EwE6 SplitInitialize / SplitUpdate): SpawnProp and base eggs
+    # per individual (EggsSplit) by month of age; per stanza group the
+    # fixed-fecundity flag and the group whose recruits it follows
+    # (RecStanza, rsim index, 0 = none). None = Rpath defaults.
+    spawn_prop: Optional[np.ndarray] = None
+    eggs_split: Optional[np.ndarray] = None
+    fixed_fecundity: Optional[np.ndarray] = None
+    rec_stanza: Optional[np.ndarray] = None
 
 
 def von_bertalanffy_weight(age: np.ndarray, k: float, d: float = 0.66667) -> np.ndarray:
@@ -640,24 +660,45 @@ def rsim_stanzas(
         rstan.recruits[isp + 1] = sg.recruits
         rstan.vbgf_d[isp + 1] = sg.vbgf_d
         rstan.r_zero_s[isp + 1] = sg.recruits
+        if stanza_params.plus_group_rule == "ewe":
+            # EwE6: RzeroS = Recruits x exp(BaB / 12) (vb 4362); with the
+            # stages losing Z the numbers then grow at the rate BaB.
+            rstan.r_zero_s[isp + 1] *= np.exp(sg.bab / 12.0)
         # Energy required to grow a unit in weight (scaled to Winf=1)
         rstan.vbm[isp + 1] = 1.0 - 3.0 * sg.vbgf_ksp / 12.0
         rstan.ahat[isp + 1] = sg.ahat
         rstan.rhat[isp + 1] = sg.rhat
 
-    # Calculate spawning biomass and eggs
+    # Spawning (EwE6 SplitInitialize, vb 3458-3466): each life stage's
+    # SpawnProp share of N (W - Wmat) over the mature ages; EggsSplit is the
+    # base eggs per individual, kept for fixed fecundity.
+    rstan.spawn_prop = np.ones((max_months, n_split + 1))
+    rstan.eggs_split = np.zeros((max_months, n_split + 1))
+    rstan.fixed_fecundity = np.zeros(n_split + 1, dtype=bool)
+    rstan.rec_stanza = np.zeros(n_split + 1, dtype=int)
     eggs = np.zeros(n_split + 1)
     for isp in range(n_split):
         stanza_group = stanza_params.stanza_groups[isp]
+        rstan.fixed_fecundity[isp + 1] = bool(stanza_group.fixed_fecundity)
+        if 1 <= int(stanza_group.rec_stanza) <= n_split:
+            rstan.rec_stanza[isp + 1] = int(stanza_group.rec_stanza)
+        group_stanzas = [
+            s for s in stanza_params.stanza_individuals if s.stanza_group_num == isp + 1
+        ]
+        for st in group_stanzas:
+            rstan.spawn_prop[int(st.first) : int(st.last) + 1, isp + 1] = st.spawn_prop
         if isp + 1 in stanza_params.st_groups:
             st_group = stanza_params.st_groups[isp + 1]
-            # Sum eggs from mature individuals
-            mature_mask = st_group["WageS"] > rstan.wmat[isp + 1]
-            if mature_mask.any():
-                eggs[isp + 1] = (
-                    st_group.loc[mature_mask, "NageS"]
-                    * (st_group.loc[mature_mask, "WageS"] - rstan.wmat[isp + 1])
-                ).sum()
+            n_rows = len(st_group)
+            w = st_group["WageS"].to_numpy(dtype=float)
+            mature = w > rstan.wmat[isp + 1]
+            per_fish = np.where(
+                mature,
+                (w - rstan.wmat[isp + 1]) * rstan.spawn_prop[:n_rows, isp + 1],
+                0.0,
+            )
+            rstan.eggs_split[:n_rows, isp + 1] = per_fish
+            eggs[isp + 1] = float(np.sum(st_group["NageS"].to_numpy(float) * per_fish))
 
     # Initialize split alpha growth coefficients
     for isp in range(n_split):
@@ -736,6 +777,9 @@ class RsimStanzaState:
     n: np.ndarray
     spawn_bio: np.ndarray
     eggs_stanza: np.ndarray
+    # EwE RecStanzaScalar: recruits of a linked group over its source's, set
+    # at the first update of the run (0 = not yet)
+    rec_scalar: Optional[np.ndarray] = None
 
     @classmethod
     def from_base(cls, stanzas: RsimStanzas, n_groups: int) -> "RsimStanzaState":
@@ -752,6 +796,7 @@ class RsimStanzaState:
             n=np.zeros(n_groups + 1),
             spawn_bio=np.array(stanzas.base_spawn_bio, dtype=float, copy=True),
             eggs_stanza=np.array(stanzas.base_eggs_stanza, dtype=float, copy=True),
+            rec_scalar=np.zeros(int(stanzas.n_split) + 1),
         )
 
 
@@ -828,6 +873,7 @@ def split_update(
     food_gain: np.ndarray,
     loss_prop_to_b: np.ndarray,
     forced_recs: np.ndarray | None = None,
+    month_index: int | None = None,
 ) -> None:
     """Advance the stanza age structure by one month (Rpath ``SplitUpdate``).
 
@@ -881,13 +927,36 @@ def split_update(
                 stanzas.vbm[isp] * wage[ages, isp] + gf * stanzas.split_alpha[ages, isp]
             )
             w = wage[ages, isp]
-            mature = w > wmat
-            spawn += float(np.sum(nage[ages, isp][mature] * (w[mature] - wmat)))
+            # SpawnProp of this life stage (EwE6 SplitUpdate, vb 1852-1861)
+            sp = (
+                stanzas.spawn_prop[ages, isp]
+                if getattr(stanzas, "spawn_prop", None) is not None
+                else 1.0
+            )
+            fixed = getattr(stanzas, "fixed_fecundity", None)
+            if fixed is not None and bool(fixed[isp]):
+                # Eggs per individual at their base value; EwE multiplies by
+                # SpawnProp again (EggsSplit already holds it).
+                spawn += float(
+                    np.sum(nage[ages, isp] * stanzas.eggs_split[ages, isp] * sp)
+                )
+            else:
+                mature = w > wmat
+                spawn += float(np.sum((nage[ages, isp] * (w - wmat) * sp)[mature]))
         sstate.spawn_bio[isp] = spawn
 
         spawn_x = stanzas.spawn_x[isp]
         base_spawn = stanzas.base_spawn_bio[isp]
-        if base_spawn > 0:
+        egg_mult = (
+            float(forced_recs[ieco])
+            if forced_recs is not None and ieco < len(forced_recs)
+            else 1.0
+        )
+        if ewe_plus:
+            # EwE6: the eggs are the spawning biomass (no saturation); the
+            # egg-production forcing multiplies the recruits below.
+            eggs = spawn
+        elif base_spawn > 0:
             eggs = (
                 spawn
                 * stanzas.spawn_energy[isp]
@@ -896,8 +965,8 @@ def split_update(
             )
         else:
             eggs = 0.0
-        if forced_recs is not None and ieco < len(forced_recs):
-            eggs *= forced_recs[ieco]
+        if not ewe_plus:
+            eggs *= egg_mult  # Rpath: inside the RecPower exponent
         sstate.eggs_stanza[isp] = eggs
 
         last = int(stanzas.age2[isp, nst])
@@ -924,17 +993,57 @@ def split_update(
 
         base_eggs = stanzas.base_eggs_stanza[isp]
         if base_eggs > 0:
-            nage[first, isp] = (
-                stanzas.r_scale_split[isp]
-                * stanzas.r_zero_s[isp]
-                * (eggs / base_eggs) ** stanzas.rec_power[isp]
-            )
+            recruits = stanzas.r_scale_split[isp] * stanzas.r_zero_s[isp]
+            if ewe_plus:
+                # EwE6 SplitUpdate (vb 1895-1902): RscaleSplit x egg x RzeroS
+                # x hatch, times (Eggs / BaseEggs)^RecPower only without a
+                # hatch-code shape.
+                hatch = _hatch_value(stanzas, isp, month_index)
+                recruits *= egg_mult
+                if hatch is None:
+                    recruits *= (eggs / base_eggs) ** stanzas.rec_power[isp]
+                else:
+                    recruits *= hatch
+            else:
+                recruits *= (eggs / base_eggs) ** stanzas.rec_power[isp]
+            nage[first, isp] = recruits
         wage[first, isp] = 0.0
         if not ewe_plus:
             # EwE6's SplitSetPred keeps the setup's W^(2/3) (WWa) instead.
             sstate.qage_s[: last + 1, isp] = (
                 wage[: last + 1, isp] ** stanzas.vbgf_d[isp]
             )
+
+    # Linked recruitment (EwE6 SplitUpdate, vb 1905-1912): a group with a
+    # RecStanza recruits as that group, times the ratio of the two at the
+    # first update of the run.
+    rec = getattr(stanzas, "rec_stanza", None)
+    if rec is not None:
+        n_split = int(stanzas.n_split)
+        if sstate.rec_scalar is None:
+            sstate.rec_scalar = np.zeros(n_split + 1)
+        for isp in range(1, n_split + 1):
+            src = int(rec[isp])
+            if not 1 <= src <= n_split:
+                continue
+            first_src = int(stanzas.age1[src, 1])
+            first = int(stanzas.age1[isp, 1])
+            s_from = sstate.nage_s[first_src, src]
+            if sstate.rec_scalar[isp] == 0 and s_from > 0:
+                sstate.rec_scalar[isp] = sstate.nage_s[first, isp] / s_from
+            sstate.nage_s[first, isp] = s_from * sstate.rec_scalar[isp]
+
+
+def _hatch_value(stanzas: RsimStanzas, isp: int, month_index: int | None):
+    """The stanza's hatch-code shape value this month, or None without one."""
+    hatch = getattr(stanzas, "hatch_forcing", None)
+    if hatch is None or month_index is None:
+        return None
+    hatch = np.asarray(hatch, dtype=float)
+    if not (0 <= month_index < hatch.shape[0] and isp < hatch.shape[1]):
+        return None
+    value = hatch[month_index, isp]
+    return float(value) if np.isfinite(value) else None
 
 
 def split_set_pred(
@@ -1007,6 +1116,8 @@ def create_stanza_params(
             wmat=g.get("wmat", 0.0),
             bab=g.get("bab", 0.0),
             rec_power=g.get("rec_power", 1.0),
+            fixed_fecundity=bool(g.get("fixed_fecundity", False)),
+            rec_stanza=int(g.get("rec_stanza", 0)),
         )
         stanza_groups.append(sg)
 
@@ -1022,6 +1133,7 @@ def create_stanza_params(
             z=ind["z"],
             leading=ind.get("leading", False),
             leading_cb=ind.get("leading_cb", ind.get("leading", False)),
+            spawn_prop=float(ind.get("spawn_prop", 1.0)),
         )
         stanza_individuals.append(si)
 
@@ -1046,6 +1158,8 @@ _GROUP_COLUMNS = {
     "wmat": ("Wmat", "wmat"),
     "bab": ("BAB", "bab"),
     "rec_power": ("RecPower", "rec_power"),
+    "fixed_fecundity": ("FixedFecundity", "fixed_fecundity"),
+    "rec_stanza": ("RecStanza", "rec_stanza"),
 }
 _INDIV_COLUMNS = {
     "stanza_group_num": ("StGroupNum", "stanza_group_num"),
@@ -1057,6 +1171,7 @@ _INDIV_COLUMNS = {
     "z": ("Z", "z"),
     "leading": ("Leading", "leading"),
     "leading_cb": ("LeadingCB", "leading_cb"),
+    "spawn_prop": ("SpawnProp", "spawn_prop"),
 }
 
 
@@ -1237,6 +1352,7 @@ def ecosim_stanza_params(
                     z=float(rec["z"]),
                     leading=rec["leading"],
                     leading_cb=rec["leading_cb"],
+                    spawn_prop=_number(rec["spawn_prop"], 1.0),
                 )
             )
 
@@ -1270,6 +1386,12 @@ def ecosim_stanza_params(
                 wmat=_number(rec["wmat"], 0.0),
                 bab=_number(rec["bab"], 0.0),
                 rec_power=_number(rec["rec_power"], 1.0),
+                fixed_fecundity=(
+                    False
+                    if _is_missing(rec["fixed_fecundity"])
+                    else _as_bool(rec["fixed_fecundity"])
+                ),
+                rec_stanza=int(_number(rec["rec_stanza"], 0.0)),
             )
         )
     groups.sort(key=lambda g: g.stanza_group_num)

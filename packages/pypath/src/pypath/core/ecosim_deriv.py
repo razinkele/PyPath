@@ -13,7 +13,7 @@ These are ported from the C++ ecosim.cpp file in Rpath.
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 
@@ -1861,10 +1861,10 @@ def deriv_vector(
             logger.debug("Metabolic model scaling skipped: %s", _met_err)
 
     _M0_effective = _M0_safe * _MetabolicMult
+    # Other mortality as it reaches detritus (see DETRITUS_MO_UNSCALED below).
+    _M0_detritus = _M0_effective
     # EwE6 (Derivt): other mortality follows feeding time,
-    # M0 * (1 - MoPred + MoPred * Ftime). The scaled rate also feeds the
-    # detritus flows, which keeps the budget closed (EwE6 itself sends the
-    # unscaled mo * B to detritus).
+    # M0 * (1 - MoPred + MoPred * Ftime).
     _mo_pred = params.get("MoPred", None)
     if _mo_pred is not None:
         _mo_pred = np.asarray(_mo_pred, dtype=float)
@@ -1879,6 +1879,13 @@ def deriv_vector(
         _fm = np.asarray(ForcedMort, dtype=float)
         if _fm.shape[0] == NUM_GROUPS + 1:
             _M0_effective = _M0_effective * _fm
+            _M0_detritus = _M0_detritus * _fm
+    # EwE rule: detritus receives the unscaled mo x B (times other-mortality
+    # forcing), as EwE6's SimDetritusMT (vb 3160-3166), although the group
+    # loses the Ftime-scaled flow; 'rpath' rule: the scaled flow, so the
+    # detritus budget stays closed.
+    if not params.get("DETRITUS_MO_UNSCALED", False):
+        _M0_detritus = _M0_effective
     # EwE6 UseVarPQ: gross efficiency follows the total loss rate Z,
     # GE = AssimEff * Z / (Z + 3 K); AssimEff is set so GE = GE0 at Z = PB.
     if params.get("UseVarPQ", False):
@@ -2037,7 +2044,7 @@ def deriv_vector(
             deriv,
             QQ,
             BB,
-            _M0_effective,
+            _M0_detritus,
             Unassim,
             _det_link_from,
             params["DetLinkTo"],
@@ -2242,7 +2249,7 @@ def deriv_vector(
             total_consump_by_pred,
             Unassim,
             _DetFrac,
-            _M0_effective,
+            _M0_detritus,
             _decay_rate,
             NUM_LIVING,
             NUM_DEAD,
@@ -2401,6 +2408,7 @@ def integrate_rk4(
     fishing: dict,
     dt: float,
     n_steps: int = 1,
+    stage_rates: Optional[dict] = None,
 ) -> np.ndarray:
     """
     Runge-Kutta 4th order integration step.
@@ -2419,6 +2427,11 @@ def integrate_rk4(
         Time step
     n_steps : int, optional
         Number of RK4 sub-steps of ``dt / n_steps`` (Rpath ``RK4_STEPS``).
+    stage_rates : dict, optional
+        Filled with the derivative's ``rates`` at the first stage of the
+        first sub-step (``"first"``, the start state) and at the last stage
+        of the last sub-step (``"last"``, y + h k3): what EwE6's monthly
+        stanza update reads (``rsim_run``, ``STANZA_STAGE_RATES``).
 
     Returns
     -------
@@ -2448,10 +2461,13 @@ def integrate_rk4(
             )
         return yt
 
-    for _ in range(n_steps):
+    want_stages = stage_rates is not None
+    for sub in range(n_steps):
         y0 = new_state
-        r1 = {} if use_fast else None
+        r1 = {} if (use_fast or (want_stages and sub == 0)) else None
         k1 = deriv_vector(y0, params, forcing, fishing, rates=r1)
+        if want_stages and sub == 0:
+            stage_rates["first"] = r1
         y1 = _stage(y0, y0, k1, 0.5 * hh, r1)
         r2 = {} if use_fast else None
         k2 = deriv_vector(y1, params, forcing, fishing, rates=r2)
@@ -2459,8 +2475,10 @@ def integrate_rk4(
         r3 = {} if use_fast else None
         k3 = deriv_vector(y2, params, forcing, fishing, rates=r3)
         y3 = _stage(y0, y2, k3, hh, r3)
-        r4 = {} if use_fast else None
+        r4 = {} if (use_fast or want_stages) else None
         k4 = deriv_vector(y3, params, forcing, fishing, rates=r4)
+        if want_stages:
+            stage_rates["last"] = r4
         new_state = y0 + (hh / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
         if use_fast:
             new_state[fast_mask] = _rk4_fast_equilibrium(r4, y3, y0, fast_mask, sorwt)
