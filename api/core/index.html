@@ -1094,6 +1094,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pypath.core.ecosim_deriv.fishing_mortality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fishing_mortality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pypath.core.ecosim_deriv.deriv_vector" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3367,6 +3378,28 @@
     <span class="md-ellipsis">
       
         CalibrationResult
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.calibration.EweSSResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EweSSResult
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.calibration.ewe_sum_of_squares" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ewe_sum_of_squares
       
     </span>
   </a>
@@ -6822,6 +6855,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pypath.core.ecosim_deriv.fishing_mortality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fishing_mortality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pypath.core.ecosim_deriv.deriv_vector" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9095,6 +9139,28 @@
     <span class="md-ellipsis">
       
         CalibrationResult
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.calibration.EweSSResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EweSSResult
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.calibration.ewe_sum_of_squares" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ewe_sum_of_squares
       
     </span>
   </a>
@@ -17119,6 +17185,20 @@ columns. None without stanzas.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="pypath.core.ecosim.RsimOutput.out_FishMort">out_FishMort</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span> or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Fishing mortality (per year) applied in each month, as the derivative
+applies it (effort, forced F and catch; EwE6's FishTime), n_months+1 x
+n_groups+1; row m is month m, row 0 the base F (FishQ at effort 1).
+Predicts catch as B x F in <code>ewe_sum_of_squares</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="pypath.core.ecosim.RsimOutput.end_state">end_state</span></code></td>
             <td>
                   <code><a class="autorefs autorefs-internal" title="RsimState
@@ -17276,7 +17356,13 @@ columns. None without stanzas.</p>
 <span class="normal">428</span>
 <span class="normal">429</span>
 <span class="normal">430</span>
-<span class="normal">431</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span>
+<span class="normal">437</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Output from Ecosim simulation run.</span>
 
@@ -17300,6 +17386,11 @@ columns. None without stanzas.</p>
 <span class="sd">        Monthly sum(N * W) of each multi-stanza group (n_months+1 x</span>
 <span class="sd">        n_groups+1, zero for other groups); equals ``out_Biomass`` in those</span>
 <span class="sd">        columns. None without stanzas.</span>
+<span class="sd">    out_FishMort : np.ndarray or None</span>
+<span class="sd">        Fishing mortality (per year) applied in each month, as the derivative</span>
+<span class="sd">        applies it (effort, forced F and catch; EwE6's FishTime), n_months+1 x</span>
+<span class="sd">        n_groups+1; row m is month m, row 0 the base F (FishQ at effort 1).</span>
+<span class="sd">        Predicts catch as B x F in ``ewe_sum_of_squares``.</span>
 <span class="sd">    end_state : RsimState</span>
 <span class="sd">        Final state at end of simulation</span>
 <span class="sd">    crash_year : int</span>
@@ -17336,6 +17427,7 @@ columns. None without stanzas.</p>
     <span class="n">stanza_biomass</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">ecotracer</span><span class="p">:</span> <span class="s2">"EcotracerResult | None"</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">fleet_dynamics</span><span class="p">:</span> <span class="s2">"FleetDynamicsResult | None"</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">out_FishMort</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -17381,13 +17473,7 @@ fraction &gt; 0 to its own pool.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">440</span>
 <span class="normal">441</span>
 <span class="normal">442</span>
 <span class="normal">443</span>
@@ -17395,7 +17481,13 @@ fraction &gt; 0 to its own pool.</p>
 <span class="normal">445</span>
 <span class="normal">446</span>
 <span class="normal">447</span>
-<span class="normal">448</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Detritus groups whose detritus fate points to themselves.</span>
 
 <span class="sd">    Returns ``{group name: fraction}`` for every dead group with a fate</span>
@@ -17637,13 +17729,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">477</span>
-<span class="normal">478</span>
-<span class="normal">479</span>
-<span class="normal">480</span>
-<span class="normal">481</span>
-<span class="normal">482</span>
-<span class="normal">483</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">483</span>
 <span class="normal">484</span>
 <span class="normal">485</span>
 <span class="normal">486</span>
@@ -18071,7 +18157,13 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">908</span>
 <span class="normal">909</span>
 <span class="normal">910</span>
-<span class="normal">911</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
+<span class="normal">911</span>
+<span class="normal">912</span>
+<span class="normal">913</span>
+<span class="normal">914</span>
+<span class="normal">915</span>
+<span class="normal">916</span>
+<span class="normal">917</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
     <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
@@ -18594,13 +18686,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">914</span>
-<span class="normal">915</span>
-<span class="normal">916</span>
-<span class="normal">917</span>
-<span class="normal">918</span>
-<span class="normal">919</span>
-<span class="normal">920</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">920</span>
 <span class="normal">921</span>
 <span class="normal">922</span>
 <span class="normal">923</span>
@@ -18611,7 +18697,13 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">928</span>
 <span class="normal">929</span>
 <span class="normal">930</span>
-<span class="normal">931</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
+<span class="normal">931</span>
+<span class="normal">932</span>
+<span class="normal">933</span>
+<span class="normal">934</span>
+<span class="normal">935</span>
+<span class="normal">936</span>
+<span class="normal">937</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create initial state vectors for simulation.</span>
 
 <span class="sd">    Parameters</span>
@@ -18733,13 +18825,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">934</span>
-<span class="normal">935</span>
-<span class="normal">936</span>
-<span class="normal">937</span>
-<span class="normal">938</span>
-<span class="normal">939</span>
-<span class="normal">940</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">940</span>
 <span class="normal">941</span>
 <span class="normal">942</span>
 <span class="normal">943</span>
@@ -18764,7 +18850,13 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">962</span>
 <span class="normal">963</span>
 <span class="normal">964</span>
-<span class="normal">965</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
+<span class="normal">965</span>
+<span class="normal">966</span>
+<span class="normal">967</span>
+<span class="normal">968</span>
+<span class="normal">969</span>
+<span class="normal">970</span>
+<span class="normal">971</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create forcing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -18900,36 +18992,36 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">968</span>
-<span class="normal">969</span>
-<span class="normal">970</span>
-<span class="normal">971</span>
-<span class="normal">972</span>
-<span class="normal">973</span>
-<span class="normal">974</span>
-<span class="normal">975</span>
-<span class="normal">976</span>
-<span class="normal">977</span>
-<span class="normal">978</span>
-<span class="normal">979</span>
-<span class="normal">980</span>
-<span class="normal">981</span>
-<span class="normal">982</span>
-<span class="normal">983</span>
-<span class="normal">984</span>
-<span class="normal">985</span>
-<span class="normal">986</span>
-<span class="normal">987</span>
-<span class="normal">988</span>
-<span class="normal">989</span>
-<span class="normal">990</span>
-<span class="normal">991</span>
-<span class="normal">992</span>
-<span class="normal">993</span>
-<span class="normal">994</span>
-<span class="normal">995</span>
-<span class="normal">996</span>
-<span class="normal">997</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 974</span>
+<span class="normal"> 975</span>
+<span class="normal"> 976</span>
+<span class="normal"> 977</span>
+<span class="normal"> 978</span>
+<span class="normal"> 979</span>
+<span class="normal"> 980</span>
+<span class="normal"> 981</span>
+<span class="normal"> 982</span>
+<span class="normal"> 983</span>
+<span class="normal"> 984</span>
+<span class="normal"> 985</span>
+<span class="normal"> 986</span>
+<span class="normal"> 987</span>
+<span class="normal"> 988</span>
+<span class="normal"> 989</span>
+<span class="normal"> 990</span>
+<span class="normal"> 991</span>
+<span class="normal"> 992</span>
+<span class="normal"> 993</span>
+<span class="normal"> 994</span>
+<span class="normal"> 995</span>
+<span class="normal"> 996</span>
+<span class="normal"> 997</span>
+<span class="normal"> 998</span>
+<span class="normal"> 999</span>
+<span class="normal">1000</span>
+<span class="normal">1001</span>
+<span class="normal">1002</span>
+<span class="normal">1003</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create fishing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -19139,13 +19231,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1168</span>
-<span class="normal">1169</span>
-<span class="normal">1170</span>
-<span class="normal">1171</span>
-<span class="normal">1172</span>
-<span class="normal">1173</span>
-<span class="normal">1174</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1174</span>
 <span class="normal">1175</span>
 <span class="normal">1176</span>
 <span class="normal">1177</span>
@@ -19306,7 +19392,13 @@ Controls predator-prey functional response:
 <span class="normal">1332</span>
 <span class="normal">1333</span>
 <span class="normal">1334</span>
-<span class="normal">1335</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
+<span class="normal">1335</span>
+<span class="normal">1336</span>
+<span class="normal">1337</span>
+<span class="normal">1338</span>
+<span class="normal">1339</span>
+<span class="normal">1340</span>
+<span class="normal">1341</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span>
@@ -19594,13 +19686,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1409</span>
-<span class="normal">1410</span>
-<span class="normal">1411</span>
-<span class="normal">1412</span>
-<span class="normal">1413</span>
-<span class="normal">1414</span>
-<span class="normal">1415</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1415</span>
 <span class="normal">1416</span>
 <span class="normal">1417</span>
 <span class="normal">1418</span>
@@ -20792,7 +20878,30 @@ Controls predator-prey functional response:
 <span class="normal">2604</span>
 <span class="normal">2605</span>
 <span class="normal">2606</span>
-<span class="normal">2607</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
+<span class="normal">2607</span>
+<span class="normal">2608</span>
+<span class="normal">2609</span>
+<span class="normal">2610</span>
+<span class="normal">2611</span>
+<span class="normal">2612</span>
+<span class="normal">2613</span>
+<span class="normal">2614</span>
+<span class="normal">2615</span>
+<span class="normal">2616</span>
+<span class="normal">2617</span>
+<span class="normal">2618</span>
+<span class="normal">2619</span>
+<span class="normal">2620</span>
+<span class="normal">2621</span>
+<span class="normal">2622</span>
+<span class="normal">2623</span>
+<span class="normal">2624</span>
+<span class="normal">2625</span>
+<span class="normal">2626</span>
+<span class="normal">2627</span>
+<span class="normal">2628</span>
+<span class="normal">2629</span>
+<span class="normal">2630</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -20847,6 +20956,8 @@ Controls predator-prey functional response:
     <span class="n">out_biomass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_months</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">))</span>
     <span class="n">out_catch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_months</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">))</span>
     <span class="n">out_gear_catch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_months</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">NumFishingLinks</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="c1"># F applied in each month (EwE6 FishTime); predicts catch as B x F</span>
+    <span class="n">out_fishmort</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_months</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">))</span>
 
     <span class="c1"># Initialize state</span>
     <span class="n">state</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">start_state</span><span class="o">.</span><span class="n">Biomass</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -21422,6 +21533,9 @@ Controls predator-prey functional response:
         <span class="n">_fleet_cumul_catch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">_n_fd_fleets</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span><span class="p">))</span>
         <span class="n">_original_fish_q</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">FishQ</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
+    <span class="c1"># Row 0: the base F (EwE6 starts FishTime at Fish1 = catch / B)</span>
+    <span class="n">out_fishmort</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">fishing_mortality</span><span class="p">(</span><span class="n">params_dict</span><span class="p">,</span> <span class="p">{},</span> <span class="n">fishing_dict</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
     <span class="k">for</span> <span class="n">month</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_months</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="c1"># Debug: indicate loop iteration for first few months</span>
         <span class="k">if</span> <span class="n">month</span> <span class="o">&lt;=</span> <span class="mi">6</span><span class="p">:</span>
@@ -21496,6 +21610,17 @@ Controls predator-prey functional response:
             <span class="n">forcing_dict</span><span class="p">[</span><span class="s2">"ForcedF"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ff_rate</span>
             <span class="n">forcing_dict</span><span class="p">[</span><span class="s2">"ForcedFReplace"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ff_replace</span>
         <span class="n">month_start_state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="c1"># The month's F, as the derivative applies it (EwE6 setFishTime)</span>
+        <span class="n">_fleet_med_now</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_mediation"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_fleet_med_now</span> <span class="o">=</span> <span class="n">params_dict</span><span class="p">[</span><span class="s2">"_mediation"</span><span class="p">]</span><span class="o">.</span><span class="n">compute_fleet_multipliers</span><span class="p">(</span>
+                <span class="n">month_start_state</span><span class="p">,</span>
+                <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Bbase"</span><span class="p">,</span> <span class="n">month_start_state</span><span class="p">),</span>
+                <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"NUM_GEARS"</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="n">out_fishmort</span><span class="p">[</span><span class="n">month</span><span class="p">]</span> <span class="o">=</span> <span class="n">fishing_mortality</span><span class="p">(</span>
+            <span class="n">params_dict</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">,</span> <span class="n">fleet_med</span><span class="o">=</span><span class="n">_fleet_med_now</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="c1"># EwE6's feeding-time update uses the consumption of this state as</span>
         <span class="c1"># Derivt computes it (rk4 accumulates EatenByAvg after its first</span>
         <span class="c1"># Derivt), so prey Ftime and mediation are included: take the</span>
@@ -21972,6 +22097,7 @@ Controls predator-prey functional response:
         <span class="n">annual_QB</span><span class="o">=</span><span class="n">annual_qb</span><span class="p">,</span>
         <span class="n">annual_Qlink</span><span class="o">=</span><span class="n">annual_qlink</span><span class="p">,</span>
         <span class="n">stanza_biomass</span><span class="o">=</span><span class="n">stanza_biomass_out</span><span class="p">,</span>
+        <span class="n">out_FishMort</span><span class="o">=</span><span class="n">out_fishmort</span><span class="p">,</span>
         <span class="n">end_state</span><span class="o">=</span><span class="n">end_state</span><span class="p">,</span>
         <span class="n">crash_year</span><span class="o">=</span><span class="n">crash_year</span><span class="p">,</span>
         <span class="n">crashed_groups</span><span class="o">=</span><span class="n">crashed_groups</span><span class="p">,</span>
@@ -23355,6 +23481,189 @@ increases above baseline, mimicking nutrient limitation.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="pypath.core.ecosim_deriv.fishing_mortality" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">fishing_mortality</span>
+
+
+<a href="#pypath.core.ecosim_deriv.fishing_mortality" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">fishing_mortality</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">fishing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">fleet_med</span><span class="p">:</span> <span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Fishing mortality per group (per year) under one month's forcing.</p>
+<p>The gears' FishQ x effort (<code>forcing["ForcedEffort"]</code>, times the fleet
+mediation multipliers when given) plus the forced fishing of the month
+(<code>forcing["ForcedF"]</code>, which replaces the gears where
+<code>ForcedFReplace</code> is set). This is the F <code>deriv_vector</code> applies, EwE6's
+FishTime. Returns <code>(FishMort, link_fish_rate)</code>: F by group
+(<code>NUM_GROUPS + 1</code>) and the per-biomass catch rate of each fishing link.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1356</span>
+<span class="normal">1357</span>
+<span class="normal">1358</span>
+<span class="normal">1359</span>
+<span class="normal">1360</span>
+<span class="normal">1361</span>
+<span class="normal">1362</span>
+<span class="normal">1363</span>
+<span class="normal">1364</span>
+<span class="normal">1365</span>
+<span class="normal">1366</span>
+<span class="normal">1367</span>
+<span class="normal">1368</span>
+<span class="normal">1369</span>
+<span class="normal">1370</span>
+<span class="normal">1371</span>
+<span class="normal">1372</span>
+<span class="normal">1373</span>
+<span class="normal">1374</span>
+<span class="normal">1375</span>
+<span class="normal">1376</span>
+<span class="normal">1377</span>
+<span class="normal">1378</span>
+<span class="normal">1379</span>
+<span class="normal">1380</span>
+<span class="normal">1381</span>
+<span class="normal">1382</span>
+<span class="normal">1383</span>
+<span class="normal">1384</span>
+<span class="normal">1385</span>
+<span class="normal">1386</span>
+<span class="normal">1387</span>
+<span class="normal">1388</span>
+<span class="normal">1389</span>
+<span class="normal">1390</span>
+<span class="normal">1391</span>
+<span class="normal">1392</span>
+<span class="normal">1393</span>
+<span class="normal">1394</span>
+<span class="normal">1395</span>
+<span class="normal">1396</span>
+<span class="normal">1397</span>
+<span class="normal">1398</span>
+<span class="normal">1399</span>
+<span class="normal">1400</span>
+<span class="normal">1401</span>
+<span class="normal">1402</span>
+<span class="normal">1403</span>
+<span class="normal">1404</span>
+<span class="normal">1405</span>
+<span class="normal">1406</span>
+<span class="normal">1407</span>
+<span class="normal">1408</span>
+<span class="normal">1409</span>
+<span class="normal">1410</span>
+<span class="normal">1411</span>
+<span class="normal">1412</span>
+<span class="normal">1413</span>
+<span class="normal">1414</span>
+<span class="normal">1415</span>
+<span class="normal">1416</span>
+<span class="normal">1417</span>
+<span class="normal">1418</span>
+<span class="normal">1419</span>
+<span class="normal">1420</span>
+<span class="normal">1421</span>
+<span class="normal">1422</span>
+<span class="normal">1423</span>
+<span class="normal">1424</span>
+<span class="normal">1425</span>
+<span class="normal">1426</span>
+<span class="normal">1427</span>
+<span class="normal">1428</span>
+<span class="normal">1429</span>
+<span class="normal">1430</span>
+<span class="normal">1431</span>
+<span class="normal">1432</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fishing_mortality</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">fishing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">fleet_med</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Fishing mortality per group (per year) under one month's forcing.</span>
+
+<span class="sd">    The gears' FishQ x effort (``forcing["ForcedEffort"]``, times the fleet</span>
+<span class="sd">    mediation multipliers when given) plus the forced fishing of the month</span>
+<span class="sd">    (``forcing["ForcedF"]``, which replaces the gears where</span>
+<span class="sd">    ``ForcedFReplace`` is set). This is the F ``deriv_vector`` applies, EwE6's</span>
+<span class="sd">    FishTime. Returns ``(FishMort, link_fish_rate)``: F by group</span>
+<span class="sd">    (``NUM_GROUPS + 1``) and the per-biomass catch rate of each fishing link.</span>
+<span class="sd">    """</span>
+    <span class="n">NUM_GROUPS</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">"NUM_GROUPS"</span><span class="p">]</span>
+    <span class="n">NUM_LIVING</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">"NUM_LIVING"</span><span class="p">]</span>
+    <span class="n">NUM_DEAD</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">"NUM_DEAD"</span><span class="p">]</span>
+    <span class="n">NUM_GEARS</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"NUM_GEARS"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">FishMort</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">ForcedEffort</span> <span class="o">=</span> <span class="n">forcing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedEffort"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">NUM_GEARS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+    <span class="n">FishFrom</span><span class="p">,</span> <span class="n">FishThrough</span><span class="p">,</span> <span class="n">FishQ</span> <span class="o">=</span> <span class="n">_fishing_links</span><span class="p">(</span><span class="n">fishing</span><span class="p">)</span>
+
+    <span class="c1"># fleet_idx: 0-based array of fleet group indices, used to resolve gear</span>
+    <span class="c1"># indices from FishThrough values without assuming canonical group ordering.</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">fleet_idx</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fleet_idx"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">fleet_idx</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"fleet_idx"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># Build a fast lookup from 0-based group index to 1-based gear index.</span>
+    <span class="c1"># Falls back to the legacy arithmetic when fleet_idx is not available.</span>
+    <span class="n">_gear_lookup</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">fleet_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">grp_0</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fleet_idx</span><span class="p">):</span>
+            <span class="n">_gear_lookup</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">grp_0</span><span class="p">)]</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># 1-based gear index</span>
+
+    <span class="c1"># Calculate fishing mortality with effort scaling per gear</span>
+    <span class="c1"># FishThrough contains 1-based GROUP indices of fleets.</span>
+    <span class="c1"># _link_fish_rate[i] is the per-biomass catch rate of fishing link i</span>
+    <span class="c1"># (Rpath: caught = FishQ * Effort * B), used for discards to FishTo.</span>
+    <span class="n">_link_fish_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">)):</span>
+        <span class="n">grp</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">gear_group_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">FishThrough</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">gear_0based</span> <span class="o">=</span> <span class="n">gear_group_idx</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># convert to 0-based group index</span>
+        <span class="k">if</span> <span class="n">_gear_lookup</span><span class="p">:</span>
+            <span class="n">gear_idx</span> <span class="o">=</span> <span class="n">_gear_lookup</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">gear_0based</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Legacy fallback: assumes canonical ordering</span>
+            <span class="n">gear_idx</span> <span class="o">=</span> <span class="n">gear_group_idx</span> <span class="o">-</span> <span class="n">NUM_LIVING</span> <span class="o">-</span> <span class="n">NUM_DEAD</span>
+        <span class="n">effort_mult</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ForcedEffort</span><span class="p">[</span><span class="n">gear_idx</span><span class="p">]</span> <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">gear_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ForcedEffort</span><span class="p">)</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">fleet_med</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">effort_mult</span> <span class="o">*=</span> <span class="n">fleet_med</span><span class="p">[</span><span class="n">gear_idx</span><span class="p">]</span>
+        <span class="n">FishMort</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">+=</span> <span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span>
+        <span class="n">_link_fish_rate</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span>
+    <span class="c1"># Forced fishing (rsim_run's ForcedF: forced F plus forced catch / B).</span>
+    <span class="c1"># Where ForcedFReplace is set it replaces the gears on the group (EwE6),</span>
+    <span class="c1"># else it is a clean fishery added to them and landed Outside (Rpath).</span>
+    <span class="n">_forced_f</span> <span class="o">=</span> <span class="n">forcing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedF"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_forced_f</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_ff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">_forced_f</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">_replace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+            <span class="n">forcing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedFReplace"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">_ff</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span>
+        <span class="p">)</span>
+        <span class="n">n_bio_groups</span> <span class="o">=</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="n">NUM_DEAD</span>
+        <span class="k">for</span> <span class="n">grp</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">_ff</span><span class="p">),</span> <span class="n">n_bio_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">grp</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">_replace</span><span class="p">)</span> <span class="ow">and</span> <span class="n">_replace</span><span class="p">[</span><span class="n">grp</span><span class="p">]:</span>
+                <span class="n">FishMort</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">)):</span>
+                    <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">==</span> <span class="n">grp</span><span class="p">:</span>
+                        <span class="n">_link_fish_rate</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">FishMort</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">+=</span> <span class="n">_ff</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">FishMort</span><span class="p">,</span> <span class="n">_link_fish_rate</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="pypath.core.ecosim_deriv.deriv_vector" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">deriv_vector</span>
 
@@ -23550,101 +23859,7 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1341</span>
-<span class="normal">1342</span>
-<span class="normal">1343</span>
-<span class="normal">1344</span>
-<span class="normal">1345</span>
-<span class="normal">1346</span>
-<span class="normal">1347</span>
-<span class="normal">1348</span>
-<span class="normal">1349</span>
-<span class="normal">1350</span>
-<span class="normal">1351</span>
-<span class="normal">1352</span>
-<span class="normal">1353</span>
-<span class="normal">1354</span>
-<span class="normal">1355</span>
-<span class="normal">1356</span>
-<span class="normal">1357</span>
-<span class="normal">1358</span>
-<span class="normal">1359</span>
-<span class="normal">1360</span>
-<span class="normal">1361</span>
-<span class="normal">1362</span>
-<span class="normal">1363</span>
-<span class="normal">1364</span>
-<span class="normal">1365</span>
-<span class="normal">1366</span>
-<span class="normal">1367</span>
-<span class="normal">1368</span>
-<span class="normal">1369</span>
-<span class="normal">1370</span>
-<span class="normal">1371</span>
-<span class="normal">1372</span>
-<span class="normal">1373</span>
-<span class="normal">1374</span>
-<span class="normal">1375</span>
-<span class="normal">1376</span>
-<span class="normal">1377</span>
-<span class="normal">1378</span>
-<span class="normal">1379</span>
-<span class="normal">1380</span>
-<span class="normal">1381</span>
-<span class="normal">1382</span>
-<span class="normal">1383</span>
-<span class="normal">1384</span>
-<span class="normal">1385</span>
-<span class="normal">1386</span>
-<span class="normal">1387</span>
-<span class="normal">1388</span>
-<span class="normal">1389</span>
-<span class="normal">1390</span>
-<span class="normal">1391</span>
-<span class="normal">1392</span>
-<span class="normal">1393</span>
-<span class="normal">1394</span>
-<span class="normal">1395</span>
-<span class="normal">1396</span>
-<span class="normal">1397</span>
-<span class="normal">1398</span>
-<span class="normal">1399</span>
-<span class="normal">1400</span>
-<span class="normal">1401</span>
-<span class="normal">1402</span>
-<span class="normal">1403</span>
-<span class="normal">1404</span>
-<span class="normal">1405</span>
-<span class="normal">1406</span>
-<span class="normal">1407</span>
-<span class="normal">1408</span>
-<span class="normal">1409</span>
-<span class="normal">1410</span>
-<span class="normal">1411</span>
-<span class="normal">1412</span>
-<span class="normal">1413</span>
-<span class="normal">1414</span>
-<span class="normal">1415</span>
-<span class="normal">1416</span>
-<span class="normal">1417</span>
-<span class="normal">1418</span>
-<span class="normal">1419</span>
-<span class="normal">1420</span>
-<span class="normal">1421</span>
-<span class="normal">1422</span>
-<span class="normal">1423</span>
-<span class="normal">1424</span>
-<span class="normal">1425</span>
-<span class="normal">1426</span>
-<span class="normal">1427</span>
-<span class="normal">1428</span>
-<span class="normal">1429</span>
-<span class="normal">1430</span>
-<span class="normal">1431</span>
-<span class="normal">1432</span>
-<span class="normal">1433</span>
-<span class="normal">1434</span>
-<span class="normal">1435</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1435</span>
 <span class="normal">1436</span>
 <span class="normal">1437</span>
 <span class="normal">1438</span>
@@ -24564,7 +24779,40 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 <span class="normal">2352</span>
 <span class="normal">2353</span>
 <span class="normal">2354</span>
-<span class="normal">2355</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
+<span class="normal">2355</span>
+<span class="normal">2356</span>
+<span class="normal">2357</span>
+<span class="normal">2358</span>
+<span class="normal">2359</span>
+<span class="normal">2360</span>
+<span class="normal">2361</span>
+<span class="normal">2362</span>
+<span class="normal">2363</span>
+<span class="normal">2364</span>
+<span class="normal">2365</span>
+<span class="normal">2366</span>
+<span class="normal">2367</span>
+<span class="normal">2368</span>
+<span class="normal">2369</span>
+<span class="normal">2370</span>
+<span class="normal">2371</span>
+<span class="normal">2372</span>
+<span class="normal">2373</span>
+<span class="normal">2374</span>
+<span class="normal">2375</span>
+<span class="normal">2376</span>
+<span class="normal">2377</span>
+<span class="normal">2378</span>
+<span class="normal">2379</span>
+<span class="normal">2380</span>
+<span class="normal">2381</span>
+<span class="normal">2382</span>
+<span class="normal">2383</span>
+<span class="normal">2384</span>
+<span class="normal">2385</span>
+<span class="normal">2386</span>
+<span class="normal">2387</span>
+<span class="normal">2388</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -24893,72 +25141,11 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
     <span class="c1"># =========================================================================</span>
     <span class="c1"># STEP 3: Calculate fishing mortality with forced effort</span>
     <span class="c1"># =========================================================================</span>
-    <span class="n">FishMort</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">Catch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-
-    <span class="n">ForcedEffort</span> <span class="o">=</span> <span class="n">forcing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedEffort"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">NUM_GEARS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
-    <span class="c1"># Support both dict-like and dataclass fishing inputs</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fishing</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="n">FishFrom</span> <span class="o">=</span> <span class="n">fishing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"FishFrom"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]))</span>
-        <span class="n">FishThrough</span> <span class="o">=</span> <span class="n">fishing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"FishThrough"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]))</span>
-        <span class="n">FishQ</span> <span class="o">=</span> <span class="n">fishing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"FishQ"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">]))</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">FishFrom</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">fishing</span><span class="p">,</span> <span class="s2">"FishFrom"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]))</span>
-        <span class="n">FishThrough</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">fishing</span><span class="p">,</span> <span class="s2">"FishThrough"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]))</span>
-        <span class="n">FishQ</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">fishing</span><span class="p">,</span> <span class="s2">"FishQ"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">]))</span>
-
-    <span class="c1"># fleet_idx: 0-based array of fleet group indices, used to resolve gear</span>
-    <span class="c1"># indices from FishThrough values without assuming canonical group ordering.</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="n">fleet_idx</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fleet_idx"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">fleet_idx</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"fleet_idx"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-
-    <span class="c1"># Build a fast lookup from 0-based group index to 1-based gear index.</span>
-    <span class="c1"># Falls back to the legacy arithmetic when fleet_idx is not available.</span>
-    <span class="n">_gear_lookup</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">if</span> <span class="n">fleet_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">grp_0</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fleet_idx</span><span class="p">):</span>
-            <span class="n">_gear_lookup</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">grp_0</span><span class="p">)]</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># 1-based gear index</span>
-
-    <span class="c1"># Calculate fishing mortality with effort scaling per gear</span>
-    <span class="c1"># FishThrough contains 1-based GROUP indices of fleets.</span>
-    <span class="c1"># _link_fish_rate[i] is the per-biomass catch rate of fishing link i</span>
-    <span class="c1"># (Rpath: caught = FishQ * Effort * B), used for discards to FishTo.</span>
-    <span class="n">_link_fish_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">))</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">)):</span>
-        <span class="n">grp</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-        <span class="n">gear_group_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">FishThrough</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-        <span class="n">gear_0based</span> <span class="o">=</span> <span class="n">gear_group_idx</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># convert to 0-based group index</span>
-        <span class="k">if</span> <span class="n">_gear_lookup</span><span class="p">:</span>
-            <span class="n">gear_idx</span> <span class="o">=</span> <span class="n">_gear_lookup</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">gear_0based</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Legacy fallback: assumes canonical ordering</span>
-            <span class="n">gear_idx</span> <span class="o">=</span> <span class="n">gear_group_idx</span> <span class="o">-</span> <span class="n">NUM_LIVING</span> <span class="o">-</span> <span class="n">NUM_DEAD</span>
-        <span class="n">effort_mult</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">ForcedEffort</span><span class="p">[</span><span class="n">gear_idx</span><span class="p">]</span> <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">gear_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ForcedEffort</span><span class="p">)</span> <span class="k">else</span> <span class="mf">1.0</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">_fleet_med</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">effort_mult</span> <span class="o">*=</span> <span class="n">_fleet_med</span><span class="p">[</span><span class="n">gear_idx</span><span class="p">]</span>
-        <span class="n">FishMort</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">+=</span> <span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span>
-        <span class="n">_link_fish_rate</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span>
-    <span class="c1"># Forced fishing (rsim_run's ForcedF: forced F plus forced catch / B).</span>
-    <span class="c1"># Where ForcedFReplace is set it replaces the gears on the group (EwE6),</span>
-    <span class="c1"># else it is a clean fishery added to them and landed Outside (Rpath).</span>
-    <span class="n">_forced_f</span> <span class="o">=</span> <span class="n">forcing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedF"</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">_forced_f</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">_ff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">_forced_f</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="n">_replace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
-            <span class="n">forcing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedFReplace"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">_ff</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span>
-        <span class="p">)</span>
-        <span class="n">n_bio_groups</span> <span class="o">=</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="n">NUM_DEAD</span>
-        <span class="k">for</span> <span class="n">grp</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">_ff</span><span class="p">),</span> <span class="n">n_bio_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
-            <span class="k">if</span> <span class="n">grp</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">_replace</span><span class="p">)</span> <span class="ow">and</span> <span class="n">_replace</span><span class="p">[</span><span class="n">grp</span><span class="p">]:</span>
-                <span class="n">FishMort</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
-                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">)):</span>
-                    <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">FishFrom</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">==</span> <span class="n">grp</span><span class="p">:</span>
-                        <span class="n">_link_fish_rate</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
-            <span class="n">FishMort</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">+=</span> <span class="n">_ff</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span>
+    <span class="n">FishFrom</span> <span class="o">=</span> <span class="n">_fishing_links</span><span class="p">(</span><span class="n">fishing</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">FishMort</span><span class="p">,</span> <span class="n">_link_fish_rate</span> <span class="o">=</span> <span class="n">fishing_mortality</span><span class="p">(</span>
+        <span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">fishing</span><span class="p">,</span> <span class="n">fleet_med</span><span class="o">=</span><span class="n">_fleet_med</span>
+    <span class="p">)</span>
 
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="n">Catch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">FishMort</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">BB</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
@@ -25756,40 +25943,7 @@ stanza update reads (<code>rsim_run</code>, <code>STANZA_STAGE_RATES</code>).</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2404</span>
-<span class="normal">2405</span>
-<span class="normal">2406</span>
-<span class="normal">2407</span>
-<span class="normal">2408</span>
-<span class="normal">2409</span>
-<span class="normal">2410</span>
-<span class="normal">2411</span>
-<span class="normal">2412</span>
-<span class="normal">2413</span>
-<span class="normal">2414</span>
-<span class="normal">2415</span>
-<span class="normal">2416</span>
-<span class="normal">2417</span>
-<span class="normal">2418</span>
-<span class="normal">2419</span>
-<span class="normal">2420</span>
-<span class="normal">2421</span>
-<span class="normal">2422</span>
-<span class="normal">2423</span>
-<span class="normal">2424</span>
-<span class="normal">2425</span>
-<span class="normal">2426</span>
-<span class="normal">2427</span>
-<span class="normal">2428</span>
-<span class="normal">2429</span>
-<span class="normal">2430</span>
-<span class="normal">2431</span>
-<span class="normal">2432</span>
-<span class="normal">2433</span>
-<span class="normal">2434</span>
-<span class="normal">2435</span>
-<span class="normal">2436</span>
-<span class="normal">2437</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2437</span>
 <span class="normal">2438</span>
 <span class="normal">2439</span>
 <span class="normal">2440</span>
@@ -25952,7 +26106,40 @@ stanza update reads (<code>rsim_run</code>, <code>STANZA_STAGE_RATES</code>).</p
 <span class="normal">2597</span>
 <span class="normal">2598</span>
 <span class="normal">2599</span>
-<span class="normal">2600</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
+<span class="normal">2600</span>
+<span class="normal">2601</span>
+<span class="normal">2602</span>
+<span class="normal">2603</span>
+<span class="normal">2604</span>
+<span class="normal">2605</span>
+<span class="normal">2606</span>
+<span class="normal">2607</span>
+<span class="normal">2608</span>
+<span class="normal">2609</span>
+<span class="normal">2610</span>
+<span class="normal">2611</span>
+<span class="normal">2612</span>
+<span class="normal">2613</span>
+<span class="normal">2614</span>
+<span class="normal">2615</span>
+<span class="normal">2616</span>
+<span class="normal">2617</span>
+<span class="normal">2618</span>
+<span class="normal">2619</span>
+<span class="normal">2620</span>
+<span class="normal">2621</span>
+<span class="normal">2622</span>
+<span class="normal">2623</span>
+<span class="normal">2624</span>
+<span class="normal">2625</span>
+<span class="normal">2626</span>
+<span class="normal">2627</span>
+<span class="normal">2628</span>
+<span class="normal">2629</span>
+<span class="normal">2630</span>
+<span class="normal">2631</span>
+<span class="normal">2632</span>
+<span class="normal">2633</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -26175,17 +26362,17 @@ Then: new_B = (1-SORWT)<em>biomeq + SORWT</em>old_B</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2614</span>
-<span class="normal">2615</span>
-<span class="normal">2616</span>
-<span class="normal">2617</span>
-<span class="normal">2618</span>
-<span class="normal">2619</span>
-<span class="normal">2620</span>
-<span class="normal">2621</span>
-<span class="normal">2622</span>
-<span class="normal">2623</span>
-<span class="normal">2624</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2647</span>
+<span class="normal">2648</span>
+<span class="normal">2649</span>
+<span class="normal">2650</span>
+<span class="normal">2651</span>
+<span class="normal">2652</span>
+<span class="normal">2653</span>
+<span class="normal">2654</span>
+<span class="normal">2655</span>
+<span class="normal">2656</span>
+<span class="normal">2657</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Compute fast-equilibrium biomass for NoIntegrate groups.</span>
 
 <span class="sd">    Rpath formula: biomeq = TotGain / (TotLoss / B)</span>
@@ -26356,40 +26543,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2627</span>
-<span class="normal">2628</span>
-<span class="normal">2629</span>
-<span class="normal">2630</span>
-<span class="normal">2631</span>
-<span class="normal">2632</span>
-<span class="normal">2633</span>
-<span class="normal">2634</span>
-<span class="normal">2635</span>
-<span class="normal">2636</span>
-<span class="normal">2637</span>
-<span class="normal">2638</span>
-<span class="normal">2639</span>
-<span class="normal">2640</span>
-<span class="normal">2641</span>
-<span class="normal">2642</span>
-<span class="normal">2643</span>
-<span class="normal">2644</span>
-<span class="normal">2645</span>
-<span class="normal">2646</span>
-<span class="normal">2647</span>
-<span class="normal">2648</span>
-<span class="normal">2649</span>
-<span class="normal">2650</span>
-<span class="normal">2651</span>
-<span class="normal">2652</span>
-<span class="normal">2653</span>
-<span class="normal">2654</span>
-<span class="normal">2655</span>
-<span class="normal">2656</span>
-<span class="normal">2657</span>
-<span class="normal">2658</span>
-<span class="normal">2659</span>
-<span class="normal">2660</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2660</span>
 <span class="normal">2661</span>
 <span class="normal">2662</span>
 <span class="normal">2663</span>
@@ -26758,7 +26912,40 @@ available, falls back to Euler with no history.</p>
 <span class="normal">3026</span>
 <span class="normal">3027</span>
 <span class="normal">3028</span>
-<span class="normal">3029</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
+<span class="normal">3029</span>
+<span class="normal">3030</span>
+<span class="normal">3031</span>
+<span class="normal">3032</span>
+<span class="normal">3033</span>
+<span class="normal">3034</span>
+<span class="normal">3035</span>
+<span class="normal">3036</span>
+<span class="normal">3037</span>
+<span class="normal">3038</span>
+<span class="normal">3039</span>
+<span class="normal">3040</span>
+<span class="normal">3041</span>
+<span class="normal">3042</span>
+<span class="normal">3043</span>
+<span class="normal">3044</span>
+<span class="normal">3045</span>
+<span class="normal">3046</span>
+<span class="normal">3047</span>
+<span class="normal">3048</span>
+<span class="normal">3049</span>
+<span class="normal">3050</span>
+<span class="normal">3051</span>
+<span class="normal">3052</span>
+<span class="normal">3053</span>
+<span class="normal">3054</span>
+<span class="normal">3055</span>
+<span class="normal">3056</span>
+<span class="normal">3057</span>
+<span class="normal">3058</span>
+<span class="normal">3059</span>
+<span class="normal">3060</span>
+<span class="normal">3061</span>
+<span class="normal">3062</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">derivs_history</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -27354,40 +27541,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3032</span>
-<span class="normal">3033</span>
-<span class="normal">3034</span>
-<span class="normal">3035</span>
-<span class="normal">3036</span>
-<span class="normal">3037</span>
-<span class="normal">3038</span>
-<span class="normal">3039</span>
-<span class="normal">3040</span>
-<span class="normal">3041</span>
-<span class="normal">3042</span>
-<span class="normal">3043</span>
-<span class="normal">3044</span>
-<span class="normal">3045</span>
-<span class="normal">3046</span>
-<span class="normal">3047</span>
-<span class="normal">3048</span>
-<span class="normal">3049</span>
-<span class="normal">3050</span>
-<span class="normal">3051</span>
-<span class="normal">3052</span>
-<span class="normal">3053</span>
-<span class="normal">3054</span>
-<span class="normal">3055</span>
-<span class="normal">3056</span>
-<span class="normal">3057</span>
-<span class="normal">3058</span>
-<span class="normal">3059</span>
-<span class="normal">3060</span>
-<span class="normal">3061</span>
-<span class="normal">3062</span>
-<span class="normal">3063</span>
-<span class="normal">3064</span>
-<span class="normal">3065</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3065</span>
 <span class="normal">3066</span>
 <span class="normal">3067</span>
 <span class="normal">3068</span>
@@ -27444,7 +27598,40 @@ available, falls back to Euler with no history.</p>
 <span class="normal">3119</span>
 <span class="normal">3120</span>
 <span class="normal">3121</span>
-<span class="normal">3122</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
+<span class="normal">3122</span>
+<span class="normal">3123</span>
+<span class="normal">3124</span>
+<span class="normal">3125</span>
+<span class="normal">3126</span>
+<span class="normal">3127</span>
+<span class="normal">3128</span>
+<span class="normal">3129</span>
+<span class="normal">3130</span>
+<span class="normal">3131</span>
+<span class="normal">3132</span>
+<span class="normal">3133</span>
+<span class="normal">3134</span>
+<span class="normal">3135</span>
+<span class="normal">3136</span>
+<span class="normal">3137</span>
+<span class="normal">3138</span>
+<span class="normal">3139</span>
+<span class="normal">3140</span>
+<span class="normal">3141</span>
+<span class="normal">3142</span>
+<span class="normal">3143</span>
+<span class="normal">3144</span>
+<span class="normal">3145</span>
+<span class="normal">3146</span>
+<span class="normal">3147</span>
+<span class="normal">3148</span>
+<span class="normal">3149</span>
+<span class="normal">3150</span>
+<span class="normal">3151</span>
+<span class="normal">3152</span>
+<span class="normal">3153</span>
+<span class="normal">3154</span>
+<span class="normal">3155</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
     <span class="n">initial_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -53997,6 +54184,24 @@ series, and <code>n_timesteps</code> is set to that uniform length.</p>
                   <code><span title="list">list</span>()</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>interval</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The dataset's data interval (<code>EcosimTimeSeriesDataset.DataInterval</code>,
+EwE6 <code>eTSDataSetInterval</code>): <code>"annual"</code> (one value per year, the
+default) or <code>"timestep"</code> (one value per monthly time step).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;annual&#39;</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -54102,7 +54307,12 @@ series, and <code>n_timesteps</code> is set to that uniform length.</p>
 <span class="normal">161</span>
 <span class="normal">162</span>
 <span class="normal">163</span>
-<span class="normal">164</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EweTimeSeriesCollection</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Container for multiple EwE time series with filtered views.</span>
 
@@ -54113,9 +54323,14 @@ series, and <code>n_timesteps</code> is set to that uniform length.</p>
 <span class="sd">    ----------</span>
 <span class="sd">    series : list[EweTimeSeries]</span>
 <span class="sd">        List of time series to include.</span>
+<span class="sd">    interval : str</span>
+<span class="sd">        The dataset's data interval (``EcosimTimeSeriesDataset.DataInterval``,</span>
+<span class="sd">        EwE6 ``eTSDataSetInterval``): ``"annual"`` (one value per year, the</span>
+<span class="sd">        default) or ``"timestep"`` (one value per monthly time step).</span>
 <span class="sd">    """</span>
 
     <span class="n">series</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">EweTimeSeries</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">interval</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"annual"</span>
     <span class="n">n_timesteps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -54329,12 +54544,7 @@ EcosimOptimizer uses 1-based group indices; this returns 0-based).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/timeseries.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">128</span>
 <span class="normal">129</span>
 <span class="normal">130</span>
 <span class="normal">131</span>
@@ -54347,7 +54557,12 @@ EcosimOptimizer uses 1-based group indices; this returns 0-based).</p>
 <span class="normal">138</span>
 <span class="normal">139</span>
 <span class="normal">140</span>
-<span class="normal">141</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_observed_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_timesteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_observed_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_timesteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Convert observed biomass series to {group_idx: array} dict.</span>
 
 <span class="sd">    Arrays are padded with NaN or truncated to ``n_timesteps``.</span>
@@ -54391,12 +54606,7 @@ EcosimOptimizer uses 1-based group indices; this returns 0-based).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/timeseries.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">148</span>
 <span class="normal">149</span>
 <span class="normal">150</span>
 <span class="normal">151</span>
@@ -54412,7 +54622,12 @@ EcosimOptimizer uses 1-based group indices; this returns 0-based).</p>
 <span class="normal">161</span>
 <span class="normal">162</span>
 <span class="normal">163</span>
-<span class="normal">164</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"pd.DataFrame"</span><span class="p">:</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"pd.DataFrame"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Convert to a DataFrame in simple format (time, group, value, dat_type).</span>
 
 <span class="sd">    Suitable for CSV export and round-tripping.</span>
@@ -54496,12 +54711,7 @@ a missing year, or a year beyond the data, leaves the driver untouched.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/timeseries.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">212</span>
 <span class="normal">213</span>
 <span class="normal">214</span>
 <span class="normal">215</span>
@@ -54604,7 +54814,29 @@ a missing year, or a year beyond the data, leaves the driver untouched.</p>
 <span class="normal">312</span>
 <span class="normal">313</span>
 <span class="normal">314</span>
-<span class="normal">315</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_timeseries_drivers</span><span class="p">(</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_timeseries_drivers</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="s2">"RsimScenario"</span><span class="p">,</span>
     <span class="n">collection</span><span class="p">:</span> <span class="n">EweTimeSeriesCollection</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -54624,6 +54856,23 @@ a missing year, or a year beyond the data, leaves the driver untouched.</p>
 <span class="sd">    """</span>
     <span class="n">n_groups</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span>
     <span class="n">n_gears</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GEARS</span>
+
+    <span class="n">driver_types</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">DATTYPE_FORCED_BIOMASS</span><span class="p">,</span>
+        <span class="n">DATTYPE_EFFORT</span><span class="p">,</span>
+        <span class="n">DATTYPE_FISHING_MORTALITY</span><span class="p">,</span>
+        <span class="n">DATTYPE_CATCH_FORCING</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="s2">"interval"</span><span class="p">,</span> <span class="s2">"annual"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"timestep"</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">dat_type</span> <span class="ow">in</span> <span class="n">driver_types</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">collection</span><span class="o">.</span><span class="n">series</span>
+    <span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">"The dataset has time-step (monthly) data, but its driver series "</span>
+            <span class="s2">"are applied per year (value k holds for year k); monthly drivers "</span>
+            <span class="s2">"are not supported yet"</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">collection</span><span class="o">.</span><span class="n">forced_biomass</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">group_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -54822,29 +55071,7 @@ a missing year, or a year beyond the data, leaves the driver untouched.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/timeseries.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
-<span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span>
-<span class="normal">340</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">340</span>
 <span class="normal">341</span>
 <span class="normal">342</span>
 <span class="normal">343</span>
@@ -54857,7 +55084,29 @@ a missing year, or a year beyond the data, leaves the driver untouched.</p>
 <span class="normal">350</span>
 <span class="normal">351</span>
 <span class="normal">352</span>
-<span class="normal">353</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_timeseries</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EweTimeSeriesCollection</span><span class="p">:</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span>
+<span class="normal">375</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_timeseries</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EweTimeSeriesCollection</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Load time series from a file, dispatching by extension.</span>
 
 <span class="sd">    Supported extensions:</span>
@@ -55209,6 +55458,512 @@ and primary production (PP) parameters against observed time series.</p>
 
 </div>
 
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="pypath.core.calibration.EweSSResult" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">EweSSResult</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#pypath.core.calibration.EweSSResult" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>EwE6's sum of squares of a run against reference time series.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>total</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Sum over series of WtType x sum (Z - q)^2.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>by_series</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="int">int</span>, <span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Each series' weighted contribution, by <code>series_id</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>by_group</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="int">int</span>, <span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Summed by the series' 0-based group (EwE's SS by group).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_q</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="int">int</span>, <span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>ln q of each series: mean(Z) for relative series, 0 otherwise.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_obs</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="int">int</span>, <span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Observations compared, by <code>series_id</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>pypath/core/calibration.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">EweSSResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""EwE6's sum of squares of a run against reference time series.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    total : float</span>
+<span class="sd">        Sum over series of WtType x sum (Z - q)^2.</span>
+<span class="sd">    by_series : dict[int, float]</span>
+<span class="sd">        Each series' weighted contribution, by ``series_id``.</span>
+<span class="sd">    by_group : dict[int, float]</span>
+<span class="sd">        Summed by the series' 0-based group (EwE's SS by group).</span>
+<span class="sd">    log_q : dict[int, float]</span>
+<span class="sd">        ln q of each series: mean(Z) for relative series, 0 otherwise.</span>
+<span class="sd">    n_obs : dict[int, int]</span>
+<span class="sd">        Observations compared, by ``series_id``.</span>
+<span class="sd">    """</span>
+
+    <span class="n">total</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">by_series</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+    <span class="n">by_group</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+    <span class="n">log_q</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+    <span class="n">n_obs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="pypath.core.calibration.ewe_sum_of_squares" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">ewe_sum_of_squares</span>
+
+
+<a href="#pypath.core.calibration.ewe_sum_of_squares" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">ewe_sum_of_squares</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">timeseries</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">warn</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EweSSResult</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>EwE6's sum of squares of an Ecosim run against reference time series.</p>
+<p>Follows <code>cEcoSimModel.AccumulateDataInfo</code> and <code>PlotDataInfo</code> (vb
+2575-2735, 3849-3966):</p>
+<ul>
+<li>Annual data (<code>timeseries.interval == "annual"</code>) are compared once a
+  year, at the start of month 6 before its integration: the biomass at the
+  end of month (year - 1) x 12 + 5, i.e. <code>out_Biomass</code> row
+  (year - 1) x 12 + 5. Time-step data compare value k with row k - 1 (the
+  start of month k). Data years past the run are ignored.</li>
+<li>Each observation gives Z = ln(obs / pred). Biomass series predict B;
+  catch series predict B x F, F being the fishing mortality of the month
+  before the sample (EwE sets FishTime after the comparison), from
+  <code>out_FishMort</code>. An observation of an unfished group (F = 0) counts
+  with Z = 0, as in EwE. Observations &lt;= 0 or missing are skipped.</li>
+<li>Relative series (types 0, 61) subtract q = mean(Z); absolute ones do
+  not. Each series adds WtType x sum (Z - q)^2, and every series counts,
+  several per group included.</li>
+</ul>
+<p>Other reference types (total mortality, average weight, landings,
+discards, fishing mortality) are reported and left out; drivers (forced
+biomass, effort, ...) are not compared, as in EwE.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>output</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="RsimOutput
+
+
+  
+      dataclass
+   (pypath.core.ecosim.RsimOutput)" href="#pypath.core.ecosim.RsimOutput">RsimOutput</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The run; needs <code>out_Biomass</code> and, for catch series,
+<code>out_FishMort</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timeseries</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="EweTimeSeriesCollection
+
+
+  
+      dataclass
+   (pypath.core.timeseries.EweTimeSeriesCollection)" href="#pypath.core.timeseries.EweTimeSeriesCollection">EweTimeSeriesCollection</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The dataset, with each series' <code>weight</code> (EwE's WtType).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>warn</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Report the weighted series left out (unsupported types, no group).
+<code>fit_to_timeseries</code> reports them once, not at every evaluation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="EweSSResult
+
+
+  
+      dataclass
+   (pypath.core.calibration.EweSSResult)" href="#pypath.core.calibration.EweSSResult">EweSSResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/core/calibration.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_sum_of_squares</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">timeseries</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">warn</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EweSSResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""EwE6's sum of squares of an Ecosim run against reference time series.</span>
+
+<span class="sd">    Follows ``cEcoSimModel.AccumulateDataInfo`` and ``PlotDataInfo`` (vb</span>
+<span class="sd">    2575-2735, 3849-3966):</span>
+
+<span class="sd">    - Annual data (``timeseries.interval == "annual"``) are compared once a</span>
+<span class="sd">      year, at the start of month 6 before its integration: the biomass at the</span>
+<span class="sd">      end of month (year - 1) x 12 + 5, i.e. ``out_Biomass`` row</span>
+<span class="sd">      (year - 1) x 12 + 5. Time-step data compare value k with row k - 1 (the</span>
+<span class="sd">      start of month k). Data years past the run are ignored.</span>
+<span class="sd">    - Each observation gives Z = ln(obs / pred). Biomass series predict B;</span>
+<span class="sd">      catch series predict B x F, F being the fishing mortality of the month</span>
+<span class="sd">      before the sample (EwE sets FishTime after the comparison), from</span>
+<span class="sd">      ``out_FishMort``. An observation of an unfished group (F = 0) counts</span>
+<span class="sd">      with Z = 0, as in EwE. Observations &lt;= 0 or missing are skipped.</span>
+<span class="sd">    - Relative series (types 0, 61) subtract q = mean(Z); absolute ones do</span>
+<span class="sd">      not. Each series adds WtType x sum (Z - q)^2, and every series counts,</span>
+<span class="sd">      several per group included.</span>
+
+<span class="sd">    Other reference types (total mortality, average weight, landings,</span>
+<span class="sd">    discards, fishing mortality) are reported and left out; drivers (forced</span>
+<span class="sd">    biomass, effort, ...) are not compared, as in EwE.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    output : RsimOutput</span>
+<span class="sd">        The run; needs ``out_Biomass`` and, for catch series,</span>
+<span class="sd">        ``out_FishMort``.</span>
+<span class="sd">    timeseries : EweTimeSeriesCollection</span>
+<span class="sd">        The dataset, with each series' ``weight`` (EwE's WtType).</span>
+<span class="sd">    warn : bool</span>
+<span class="sd">        Report the weighted series left out (unsupported types, no group).</span>
+<span class="sd">        ``fit_to_timeseries`` reports them once, not at every evaluation.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    EweSSResult</span>
+<span class="sd">    """</span>
+    <span class="n">biomass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">out_Biomass</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">fish_mort</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="s2">"out_FishMort"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">n_months</span> <span class="o">=</span> <span class="n">biomass</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">annual</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">timeseries</span><span class="p">,</span> <span class="s2">"interval"</span><span class="p">,</span> <span class="s2">"annual"</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">"timestep"</span>
+    <span class="n">n_points</span> <span class="o">=</span> <span class="n">n_months</span> <span class="o">//</span> <span class="mi">12</span> <span class="k">if</span> <span class="n">annual</span> <span class="k">else</span> <span class="n">n_months</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">EweSSResult</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="p">{},</span> <span class="p">{},</span> <span class="p">{},</span> <span class="p">{})</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_compared_series</span><span class="p">(</span><span class="n">timeseries</span><span class="p">,</span> <span class="n">warn</span><span class="p">):</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">group_idx</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">is_catch</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">dat_type</span> <span class="ow">in</span> <span class="n">_EWE_CATCH_TYPES</span>
+        <span class="k">if</span> <span class="n">is_catch</span> <span class="ow">and</span> <span class="n">fish_mort</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Catch series </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> needs the run's monthly fishing "</span>
+                <span class="s2">"mortality (out_FishMort)"</span>
+            <span class="p">)</span>
+
+        <span class="n">z</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">obs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)[:</span><span class="n">n_points</span><span class="p">],</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">obs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># also skips NaN</span>
+                <span class="k">continue</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">12</span> <span class="o">+</span> <span class="n">_EWE_ANNUAL_DATA_MONTH</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">annual</span> <span class="k">else</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span>
+            <span class="n">pred</span> <span class="o">=</span> <span class="n">biomass</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">is_catch</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">fish_mort</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">])</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="n">pred</span> <span class="o">=</span> <span class="n">pred</span> <span class="o">*</span> <span class="n">f</span>
+            <span class="c1"># A crashed group (B = 0) gives a large, finite error.</span>
+            <span class="n">z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">obs</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">tiny</span><span class="p">)))</span>
+
+        <span class="n">z_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">log_q</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">float</span><span class="p">(</span><span class="n">z_arr</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">z_arr</span><span class="p">)</span> <span class="ow">and</span> <span class="n">s</span><span class="o">.</span><span class="n">dat_type</span> <span class="ow">in</span> <span class="n">_EWE_RELATIVE_TYPES</span>
+            <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="p">)</span>
+        <span class="n">ss</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">weight</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">z_arr</span> <span class="o">-</span> <span class="n">log_q</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">by_series</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">series_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">ss</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">log_q</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">series_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">log_q</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">n_obs</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">series_id</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">z_arr</span><span class="p">)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">by_group</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">group_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">by_group</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">group_idx</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">+</span> <span class="n">ss</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">total</span> <span class="o">+=</span> <span class="n">ss</span>
+    <span class="k">return</span> <span class="n">result</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 
@@ -55463,132 +56218,7 @@ of relative biomass (0-based group indices).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/calibration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 99</span>
-<span class="normal">100</span>
-<span class="normal">101</span>
-<span class="normal">102</span>
-<span class="normal">103</span>
-<span class="normal">104</span>
-<span class="normal">105</span>
-<span class="normal">106</span>
-<span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
-<span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
-<span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
-<span class="normal">173</span>
-<span class="normal">174</span>
-<span class="normal">175</span>
-<span class="normal">176</span>
-<span class="normal">177</span>
-<span class="normal">178</span>
-<span class="normal">179</span>
-<span class="normal">180</span>
-<span class="normal">181</span>
-<span class="normal">182</span>
-<span class="normal">183</span>
-<span class="normal">184</span>
-<span class="normal">185</span>
-<span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
-<span class="normal">189</span>
-<span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span>
-<span class="normal">194</span>
-<span class="normal">195</span>
-<span class="normal">196</span>
-<span class="normal">197</span>
-<span class="normal">198</span>
-<span class="normal">199</span>
-<span class="normal">200</span>
-<span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">224</span>
 <span class="normal">225</span>
 <span class="normal">226</span>
 <span class="normal">227</span>
@@ -55700,7 +56330,99 @@ of relative biomass (0-based group indices).</p>
 <span class="normal">333</span>
 <span class="normal">334</span>
 <span class="normal">335</span>
-<span class="normal">336</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fit_to_timeseries</span><span class="p">(</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span>
+<span class="normal">375</span>
+<span class="normal">376</span>
+<span class="normal">377</span>
+<span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span>
+<span class="normal">403</span>
+<span class="normal">404</span>
+<span class="normal">405</span>
+<span class="normal">406</span>
+<span class="normal">407</span>
+<span class="normal">408</span>
+<span class="normal">409</span>
+<span class="normal">410</span>
+<span class="normal">411</span>
+<span class="normal">412</span>
+<span class="normal">413</span>
+<span class="normal">414</span>
+<span class="normal">415</span>
+<span class="normal">416</span>
+<span class="normal">417</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span>
+<span class="normal">426</span>
+<span class="normal">427</span>
+<span class="normal">428</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fit_to_timeseries</span><span class="p">(</span>
     <span class="n">rpath_model</span><span class="p">,</span>
     <span class="n">params</span><span class="p">,</span>
     <span class="n">timeseries</span><span class="p">,</span>
@@ -55776,10 +56498,13 @@ of relative biomass (0-based group indices).</p>
             <span class="p">)</span>
         <span class="n">timeseries</span> <span class="o">=</span> <span class="n">EweTimeSeriesCollection</span><span class="p">(</span><span class="n">series_list</span><span class="p">)</span>
 
-    <span class="n">n_obs_years</span> <span class="o">=</span> <span class="n">timeseries</span><span class="o">.</span><span class="n">n_timesteps</span>
-    <span class="k">if</span> <span class="n">n_obs_years</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+    <span class="n">n_points</span> <span class="o">=</span> <span class="n">timeseries</span><span class="o">.</span><span class="n">n_timesteps</span>
+    <span class="k">if</span> <span class="n">n_points</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Need at least 2 observed timesteps for calibration."</span><span class="p">)</span>
-    <span class="n">years</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_obs_years</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">annual</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">timeseries</span><span class="p">,</span> <span class="s2">"interval"</span><span class="p">,</span> <span class="s2">"annual"</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">"timestep"</span>
+    <span class="n">n_years</span> <span class="o">=</span> <span class="n">n_points</span> <span class="k">if</span> <span class="n">annual</span> <span class="k">else</span> <span class="o">-</span><span class="p">(</span><span class="o">-</span><span class="n">n_points</span> <span class="o">//</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="c1"># rsim_scenario needs two years; only the supplied data are compared</span>
+    <span class="n">years</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">n_years</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># Build base scenario</span>
     <span class="n">scenario</span> <span class="o">=</span> <span class="n">rsim_scenario</span><span class="p">(</span><span class="n">rpath_model</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">years</span><span class="p">)</span>
@@ -55787,28 +56512,18 @@ of relative biomass (0-based group indices).</p>
     <span class="c1"># Apply driver series</span>
     <span class="n">apply_timeseries_drivers</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">timeseries</span><span class="p">)</span>
 
-    <span class="c1"># Build observed data dict</span>
-    <span class="n">observed</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">weights</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">relative</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-
-    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">timeseries</span><span class="o">.</span><span class="n">observed_biomass</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">group_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">observed</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">group_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">values</span><span class="p">[:</span><span class="n">n_obs_years</span><span class="p">]</span>
-            <span class="n">weights</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">group_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">weight</span>
-            <span class="n">relative</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">group_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">dat_type</span> <span class="o">==</span> <span class="n">DATTYPE_REL_BIOMASS</span>
-
-    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">timeseries</span><span class="o">.</span><span class="n">observed_catch</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">group_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">s</span><span class="o">.</span><span class="n">group_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">observed</span><span class="p">:</span>
-            <span class="n">observed</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">group_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">values</span><span class="p">[:</span><span class="n">n_obs_years</span><span class="p">]</span>
-            <span class="n">weights</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">group_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">weight</span>
-            <span class="n">relative</span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">group_idx</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
-
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">observed</span><span class="p">:</span>
+    <span class="c1"># The objective is EwE6's sum of squares (ewe_sum_of_squares): every</span>
+    <span class="c1"># reference series counts, catch is compared with B x F, relative series</span>
+    <span class="c1"># take q = mean ln(obs / pred), annual data are taken at the start of</span>
+    <span class="c1"># month 6, each series weighted by its WtType.</span>
+    <span class="n">reference_groups</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">group_idx</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_compared_series</span><span class="p">(</span><span class="n">timeseries</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">weight</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">reference_groups</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No observed series found in timeseries collection."</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">fit_groups</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">fit_groups</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">observed</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">fit_groups</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">reference_groups</span><span class="p">)</span>
 
     <span class="c1"># Build link map: PreyFrom/PreyTo are 1-based</span>
     <span class="n">link_indices</span> <span class="o">=</span> <span class="p">[]</span>
@@ -55842,23 +56557,9 @@ of relative biomass (0-based group indices).</p>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Simulation failed during optimization: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
             <span class="k">return</span> <span class="mf">1e10</span>
 
-        <span class="n">predicted</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">n_months</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">out_Biomass</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">months_per_year</span> <span class="o">=</span> <span class="n">n_months</span> <span class="o">//</span> <span class="n">n_obs_years</span> <span class="k">if</span> <span class="n">n_obs_years</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">12</span>
-
-        <span class="k">for</span> <span class="n">grp_idx</span> <span class="ow">in</span> <span class="n">observed</span><span class="p">:</span>
-            <span class="n">col</span> <span class="o">=</span> <span class="n">grp_idx</span> <span class="o">+</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="n">col</span> <span class="o">&gt;=</span> <span class="n">output</span><span class="o">.</span><span class="n">out_Biomass</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-                <span class="k">continue</span>
-            <span class="n">annual</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_obs_years</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">yr</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_obs_years</span><span class="p">):</span>
-                <span class="n">start</span> <span class="o">=</span> <span class="n">yr</span> <span class="o">*</span> <span class="n">months_per_year</span>
-                <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">months_per_year</span><span class="p">,</span> <span class="n">n_months</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="n">n_months</span><span class="p">:</span>
-                    <span class="n">annual</span><span class="p">[</span><span class="n">yr</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">out_Biomass</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">,</span> <span class="n">col</span><span class="p">])</span>
-            <span class="n">predicted</span><span class="p">[</span><span class="n">grp_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">annual</span>
-
-        <span class="n">ss</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_compute_ss</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">predicted</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">relative</span><span class="p">)</span>
+        <span class="n">ss</span> <span class="o">=</span> <span class="n">ewe_sum_of_squares</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">timeseries</span><span class="p">,</span> <span class="n">warn</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">total</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">ss</span><span class="p">):</span>
+            <span class="k">return</span> <span class="mf">1e10</span>
 
         <span class="n">iteration_count</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="n">iteration_count</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="mi">50</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -55907,25 +56608,13 @@ of relative biomass (0-based group indices).</p>
         <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">link_idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indices</span><span class="p">):</span>
             <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">VV</span><span class="p">[</span><span class="n">link_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_vv</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
 
-    <span class="c1"># Compute final SS breakdown</span>
+    <span class="c1"># SS by group of the fitted parameters</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
-        <span class="n">predicted_final</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">n_months</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">out_Biomass</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">months_per_year</span> <span class="o">=</span> <span class="n">n_months</span> <span class="o">//</span> <span class="n">n_obs_years</span> <span class="k">if</span> <span class="n">n_obs_years</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">12</span>
-        <span class="k">for</span> <span class="n">grp_idx</span> <span class="ow">in</span> <span class="n">observed</span><span class="p">:</span>
-            <span class="n">col</span> <span class="o">=</span> <span class="n">grp_idx</span> <span class="o">+</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="n">col</span> <span class="o">&gt;=</span> <span class="n">output</span><span class="o">.</span><span class="n">out_Biomass</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-                <span class="k">continue</span>
-            <span class="n">annual</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_obs_years</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">yr</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_obs_years</span><span class="p">):</span>
-                <span class="n">start</span> <span class="o">=</span> <span class="n">yr</span> <span class="o">*</span> <span class="n">months_per_year</span>
-                <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">months_per_year</span><span class="p">,</span> <span class="n">n_months</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="n">n_months</span><span class="p">:</span>
-                    <span class="n">annual</span><span class="p">[</span><span class="n">yr</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">out_Biomass</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">,</span> <span class="n">col</span><span class="p">])</span>
-            <span class="n">predicted_final</span><span class="p">[</span><span class="n">grp_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">annual</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">ss_by_group</span> <span class="o">=</span> <span class="n">_compute_ss</span><span class="p">(</span><span class="n">observed</span><span class="p">,</span> <span class="n">predicted_final</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">relative</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">ss_by_group</span> <span class="o">=</span> <span class="n">ewe_sum_of_squares</span><span class="p">(</span>
+            <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">),</span> <span class="n">timeseries</span><span class="p">,</span> <span class="n">warn</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">by_group</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">FloatingPointError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Final run of the fitted parameters failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
         <span class="n">ss_by_group</span> <span class="o">=</span> <span class="p">{}</span>
 
     <span class="k">return</span> <span class="n">CalibrationResult</span><span class="p">(</span>
