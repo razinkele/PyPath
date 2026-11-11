@@ -279,6 +279,11 @@ class RsimForcing:
     ForcedMigrate: np.ndarray
     ForcedBio: np.ndarray
     ForcedEffort: Optional[np.ndarray] = None
+    # EwE link-level forcing, (months, prey, predator) multipliers: a link's
+    # search rate and its vulnerable-pool inflow (ApplyAVmodifiers per link).
+    # None unless an EwE scenario assigns shapes to single links.
+    ForcedSearchLink: Optional[np.ndarray] = None
+    ForcedVulLink: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -2047,6 +2052,11 @@ def rsim_run(
                 else np.ones(params.NUM_GEARS + 1)
             ),
         }
+        # EwE link-level search-rate / vulnerability forcing for the month
+        for _link_key in ("ForcedSearchLink", "ForcedVulLink"):
+            _link_arr = getattr(forcing, _link_key, None)
+            if _link_arr is not None and month - 1 < len(_link_arr):
+                forcing_dict[_link_key] = _link_arr[month - 1]
         if stanza_state is not None:
             forcing_dict["StanzaPredRatio"] = _stanza_pred_ratio()
         # Forced biomass replaces the group's state (EwE6 setForcedBiomass,
