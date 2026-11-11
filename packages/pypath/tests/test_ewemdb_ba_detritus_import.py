@@ -203,9 +203,10 @@ def test_stanza_settings_warn(caplog):
     with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
         _warn_ignored_stanza_settings(stanza)
     msgs = _warnings(caplog)
-    assert len(msgs) == 2
+    # LeadingCB is read and used now (test_stanza_leading_cb.py): no warning.
+    assert len(msgs) == 1
     assert any("BABsplit" in m and "Herring" in m for m in msgs)
-    assert any("LeadingCB" in m and "Karšis" in m for m in msgs)
+    assert not any("LeadingCB" in m for m in msgs)
 
 
 def test_fractional_type_warns(caplog):
