@@ -23181,7 +23181,11 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1000</span>
 <span class="normal">1001</span>
 <span class="normal">1002</span>
-<span class="normal">1003</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1003</span>
+<span class="normal">1004</span>
+<span class="normal">1005</span>
+<span class="normal">1006</span>
+<span class="normal">1007</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23356,7 +23360,11 @@ distributed by patch area, so every patch starts at the same density.</p>
 
     <span class="c1"># Convert scenario to dictionary format for deriv function</span>
     <span class="c1"># Must match the key names that deriv_vector expects (same as rsim_run in ecosim.py)</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="n">_build_active_link_matrix</span><span class="p">,</span> <span class="n">_build_link_matrix</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">_build_active_link_matrix</span><span class="p">,</span>
+        <span class="n">_build_link_matrix</span><span class="p">,</span>
+        <span class="n">_handling_matrix</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="n">params</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span>
     <span class="n">params_dict</span> <span class="o">=</span> <span class="p">{</span>
@@ -23370,7 +23378,7 @@ distributed by patch area, so every patch starts at the same density.</p>
         <span class="s2">"Unassim"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">UnassimRespFrac</span><span class="p">,</span>
         <span class="s2">"ActiveLink"</span><span class="p">:</span> <span class="n">_build_active_link_matrix</span><span class="p">(</span><span class="n">params</span><span class="p">),</span>
         <span class="s2">"VV"</span><span class="p">:</span> <span class="n">_build_link_matrix</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">VV</span><span class="p">),</span>
-        <span class="s2">"DD"</span><span class="p">:</span> <span class="n">_build_link_matrix</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">DD</span><span class="p">),</span>
+        <span class="s2">"DD"</span><span class="p">:</span> <span class="n">_handling_matrix</span><span class="p">(</span><span class="n">params</span><span class="p">),</span>
         <span class="s2">"QQbase"</span><span class="p">:</span> <span class="n">_build_link_matrix</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">QQ</span><span class="p">),</span>
         <span class="s2">"Bbase"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">B_BaseRef</span><span class="p">,</span>
         <span class="s2">"B_BaseRef"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">B_BaseRef</span><span class="p">,</span>
