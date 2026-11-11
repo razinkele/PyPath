@@ -226,6 +226,10 @@ class RsimParams:
     # the start-of-month stanza biomass); the 'rpath' rule takes both from
     # the end-of-month state, as Rpath's RK4 does.
     STANZA_STAGE_RATES: bool = True
+    # EwE6 handling time (D5): each predator's search rate is divided by Hden,
+    # updated once per Derivt from its intake (CmCo = QBmax / QB0); the
+    # 'rpath' rule keeps Rpath's per-link handling term instead.
+    EWE_HANDLING_TIME: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -239,6 +243,8 @@ class RsimParams:
     # EwE6 predator effect on feeding time (EcosimScenarioGroup.RiskTime): the
     # share of the optimal consumption that scales with predation risk
     RiskTime: Optional[np.ndarray] = None
+    # EwE6 QBmax / QB0 per group (EcosimScenarioGroup.CmCo, default 1000)
+    CmCo: Optional[np.ndarray] = None
     # Constant detritus import per group, indexed like B_BaseRef (EwE
     # DetInFlow, cEcoSimModel.vb:3119-3124); None or zeros = no import.
     DetInput: Optional[np.ndarray] = None
@@ -401,6 +407,11 @@ class RsimOutput:
         applies it (effort, forced F and catch; EwE6's FishTime), n_months+1 x
         n_groups+1; row m is month m, row 0 the base F (FishQ at effort 1).
         Predicts catch as B x F in ``ewe_sum_of_squares``.
+    out_Hden : np.ndarray or None
+        EwE6's handling-time term Hden of each predator at the end of each
+        month (n_months+1 x n_groups+1; row 0 the run's start, CmCo / (CmCo +
+        1)). None when ``EWE_HANDLING_TIME`` is off. Recorded by ``rsim_run``;
+        Ecospace keeps one Hden per patch and does not record it.
     end_state : RsimState
         Final state at end of simulation
     crash_year : int
@@ -438,6 +449,7 @@ class RsimOutput:
     ecotracer: "EcotracerResult | None" = None
     fleet_dynamics: "FleetDynamicsResult | None" = None
     out_FishMort: Optional[np.ndarray] = None
+    out_Hden: Optional[np.ndarray] = None
 
 
 def detritus_self_fates(rpath, nliving: int, ndead: int) -> dict:
@@ -886,6 +898,7 @@ def rsim_params(
         LINK_HANDLING_TERM=(fast_group_rule == "rpath"),
         DETRITUS_MO_UNSCALED=(fast_group_rule == "ewe"),
         STANZA_STAGE_RATES=(fast_group_rule == "ewe"),
+        EWE_HANDLING_TIME=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -893,6 +906,7 @@ def rsim_params(
         FtimeMax=np.full(ngroups + 1, 2.0),
         SwitchPower=np.zeros(ngroups + 1),
         RiskTime=np.zeros(ngroups + 1),
+        CmCo=np.full(ngroups + 1, 1000.0),
         DetInput=_det_input_vector(rpath, ngroups),
         VbK=np.zeros(ngroups + 1),
         AssimEff=np.zeros(ngroups + 1),
@@ -1259,6 +1273,7 @@ def rsim_scenario(
             ("vbk", "VbK"),
             ("switch_power", "SwitchPower"),
             ("risk_time", "RiskTime"),
+            ("cm_co", "CmCo"),
         ):
             if scenario_overrides.get(key):
                 arr = getattr(params, attr)
@@ -2072,6 +2087,24 @@ def rsim_run(
     # Row 0: the base F (EwE6 starts FishTime at Fish1 = catch / B)
     out_fishmort[0] = fishing_mortality(params_dict, {}, fishing_dict)[0]
 
+    # EwE6 handling time (D5): the base search rates carry Dzero = Hden0 =
+    # CmCo / (CmCo - 1) (InitialState, cEcoSimModel.vb 3286, 3383), but a run
+    # starts from Hden = CmCo / (CmCo + 1), followed by one Derivt at the
+    # start biomass (SetTimeSteps, vb 2761-2770); Hden is then carried between
+    # the derivative calls of the integration. Consumers with QB > 0 and
+    # CmCo > 1 only.
+    out_hden = None
+    _hden_start_pending = False
+    _handling = _ewe_handling_setup(params, n_groups)
+    if _handling is not None:
+        _hden0, _hden_start, _cmco_qb = _handling
+        params_dict["_hden0"] = _hden0
+        params_dict["_hden"] = _hden_start
+        params_dict["_cmco_qb"] = _cmco_qb
+        out_hden = np.zeros((n_months + 1, n_groups))
+        out_hden[0] = _hden_start
+        _hden_start_pending = True
+
     for month in range(1, n_months + 1):
         # Debug: indicate loop iteration for first few months
         if month <= 6:
@@ -2146,6 +2179,12 @@ def rsim_run(
             forcing_dict["ForcedF"] = _ff_rate
             forcing_dict["ForcedFReplace"] = _ff_replace
         month_start_state = state.copy()
+        if _hden_start_pending:
+            # EwE6 SetTimeSteps: one Derivt at the start biomass advances Hden
+            deriv_vector(
+                month_start_state.copy(), params_dict, forcing_dict, fishing_dict
+            )
+            _hden_start_pending = False
         # The month's F, as the derivative applies it (EwE6 setFishTime)
         _fleet_med_now = None
         if params_dict.get("_mediation") is not None:
@@ -2164,13 +2203,14 @@ def rsim_run(
         _fg_ftime = None
         if _has_ftime_adj and getattr(params, "FTIME_START_OF_MONTH", False):
             _fg_rates: dict = {}
-            deriv_vector(
-                month_start_state.copy(),
-                params_dict,
-                forcing_dict,
-                fishing_dict,
-                rates=_fg_rates,
-            )
+            with _frozen_hden(params_dict):
+                deriv_vector(
+                    month_start_state.copy(),
+                    params_dict,
+                    forcing_dict,
+                    fishing_dict,
+                    rates=_fg_rates,
+                )
             _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
             # EwE's ratio is per predator index (CBlast = EatenByAvg /
             # PredAvg, Cbase = StartEatenBy / pred; vb 1762, 3310). That is
@@ -2256,13 +2296,14 @@ def rsim_run(
                     from pypath.core.ecosim_deriv import compute_biomeq
 
                     eq_rates: dict = {}
-                    deriv_vector(
-                        month_start_state.copy(),
-                        params_dict,
-                        forcing_dict,
-                        fishing_dict,
-                        rates=eq_rates,
-                    )
+                    with _frozen_hden(params_dict):
+                        deriv_vector(
+                            month_start_state.copy(),
+                            params_dict,
+                            forcing_dict,
+                            fishing_dict,
+                            rates=eq_rates,
+                        )
                     if "TotGain" in eq_rates:
                         for i in np.where(no_integrate_mask)[0]:
                             if i == 0 or i > params.NUM_LIVING + params.NUM_DEAD:
@@ -2313,13 +2354,14 @@ def rsim_run(
             else:
                 rate_state = month_start_state if method.upper() == "AB" else state
                 stanza_rates: dict = {}
-                deriv_vector(
-                    rate_state.copy(),
-                    params_dict,
-                    forcing_dict,
-                    fishing_dict,
-                    rates=stanza_rates,
-                )
+                with _frozen_hden(params_dict):
+                    deriv_vector(
+                        rate_state.copy(),
+                        params_dict,
+                        forcing_dict,
+                        fishing_dict,
+                        rates=stanza_rates,
+                    )
                 split_update(
                     stanzas_obj,
                     stanza_state,
@@ -2348,6 +2390,8 @@ def rsim_run(
 
         # Store results
         out_biomass[month] = state
+        if out_hden is not None:
+            out_hden[month] = params_dict["_hden"]
 
         # Compute consumption QQ matrix for this month to track Qlinks
         QQ_month = _compute_Q_matrix(params_dict, state, forcing_dict)
@@ -2400,13 +2444,14 @@ def rsim_run(
                         else:
                             if _end_rates is None:
                                 _end_rates = {}
-                                deriv_vector(
-                                    state.copy(),
-                                    params_dict,
-                                    forcing_dict,
-                                    fishing_dict,
-                                    rates=_end_rates,
-                                )
+                                with _frozen_hden(params_dict):
+                                    deriv_vector(
+                                        state.copy(),
+                                        params_dict,
+                                        forcing_dict,
+                                        fishing_dict,
+                                        rates=_end_rates,
+                                    )
                             eaten_of = float(_end_rates["FoodLoss"][i])
                             b_risk = float(state[i])
                         qopt = _risk_qopt(
@@ -2666,6 +2711,7 @@ def rsim_run(
         annual_Qlink=annual_qlink,
         stanza_biomass=stanza_biomass_out,
         out_FishMort=out_fishmort,
+        out_Hden=out_hden,
         end_state=end_state,
         crash_year=crash_year,
         crashed_groups=crashed_groups,
@@ -2731,6 +2777,49 @@ def _handling_matrix(params: RsimParams) -> np.ndarray:
     if getattr(params, "LINK_HANDLING_TERM", True):
         return _build_link_matrix(params, params.DD)
     return _build_link_matrix(params, np.full(len(params.PreyFrom), _NO_LINK_HANDLING))
+
+
+def _ewe_handling_setup(params, n_groups: int):
+    """EwE6 handling-time state for a run, or None when it is off.
+
+    Returns ``(hden0, hden_start, cmco_qb)`` by group: Hden0 = CmCo /
+    (CmCo - 1), carried by the base search rates (Dzero); the run's start
+    value CmCo / (CmCo + 1) (SetTimeSteps); and CmCo x QB (0 where there is
+    no handling). Consumers with QB > 0 and CmCo > 1 only: a producer's
+    FtimeQBOpt is its P/B, and EwE's Htime is 0 for it (SimQB = 0);
+    mixotrophs (0 < PP < 1) are consumers.
+    """
+    if not getattr(params, "EWE_HANDLING_TIME", False) or params.CmCo is None:
+        return None
+    cmco = np.asarray(params.CmCo, dtype=float)[:n_groups]
+    qb = np.asarray(params.FtimeQBOpt, dtype=float)[:n_groups]
+    consumer = np.zeros(n_groups, dtype=bool)
+    consumer[1 : params.NUM_LIVING + 1] = True
+    consumer &= np.asarray(params.PP_type, dtype=float)[:n_groups] < 1
+    consumer &= (qb > 0) & (cmco > 1.0)
+    hden0 = np.ones(n_groups)
+    hden0[consumer] = cmco[consumer] / (cmco[consumer] - 1.0)
+    hden_start = np.ones(n_groups)
+    hden_start[consumer] = cmco[consumer] / (cmco[consumer] + 1.0)
+    return hden0, hden_start, np.where(consumer, cmco * qb, 0.0)
+
+
+class _frozen_hden:
+    """Evaluate the derivative without advancing EwE6's Hden: only the
+    integration's calls (EwE's Derivt in rk4) update it; PyPath's extra
+    evaluations of the same state (feeding time, stanza and fast-group rates)
+    must not."""
+
+    def __init__(self, params_dict):
+        self.params_dict = params_dict
+
+    def __enter__(self):
+        self.params_dict["_hden_frozen"] = True
+        return self
+
+    def __exit__(self, *exc):
+        self.params_dict.pop("_hden_frozen", None)
+        return False
 
 
 def _risk_qopt(cbase, risk_time, risk0, eaten_of, biomass, mo):

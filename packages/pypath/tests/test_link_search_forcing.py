@@ -55,6 +55,9 @@ def _model():
 def _captured():
     model, params = _model()
     sc = rsim_scenario(model, params, years=range(1, 3))
+    # isolates the mechanism under test; EwE's handling time (D5)
+    # has its own tests (test_handling_time.py)
+    sc.params.EWE_HANDLING_TIME = False
     cap = {}
     real = D.deriv_vector
 
@@ -147,6 +150,9 @@ def _imported(rule):
 
     model, params = _model()
     sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule=rule)
+    # isolates the mechanism under test; EwE's handling time (D5)
+    # has its own tests (test_handling_time.py)
+    sc.params.EWE_HANDLING_TIME = False
     selected = {
         "id": 1,
         "scenario_group_df": pd.DataFrame(
@@ -187,6 +193,9 @@ def test_ecospace_uniform_patches_match_rsim_run_with_link_forcing():
 
     model, params = _model()
     sc = rsim_scenario(model, params, years=range(1, 3))
+    # isolates the mechanism under test; EwE's handling time (D5)
+    # has its own tests (test_handling_time.py)
+    sc.params.EWE_HANDLING_TIME = False
     n = sc.params.NUM_GROUPS + 1
     months = sc.forcing.ForcedSearch.shape[0]
     sc.forcing.ForcedSearchLink = np.ones((months, n, n))

@@ -145,8 +145,8 @@ def test_scenario_group_settings_warn_when_not_default(caplog):
             EcopathGroupID=[1, 2],
             RiskTime=[0.0, 0.5],  # modelled (RsimParams.RiskTime): no warning
             QmQo=[1.0, 2.0],
-            CmCo=[1000.0, 3.0],
-            AdditivePredMort=[1.0, 1.0],
+            CmCo=[1000.0, 3.0],  # modelled (RsimParams.CmCo): no warning
+            AdditivePredMort=[1.0, 0.5],
         ),
         "ecosim_settings": {"sorwt": 0.5, "NutForcingShapeID": 0},
     }
@@ -155,8 +155,8 @@ def test_scenario_group_settings_warn_when_not_default(caplog):
     msgs = _warnings(caplog)
     assert len(msgs) == 2
     assert any("QmQo" in m and "Herring" in m for m in msgs)
-    assert any("CmCo" in m and "Herring" in m for m in msgs)
-    assert not any("RiskTime" in m for m in msgs)
+    assert any("AdditivePredMort" in m and "Herring" in m for m in msgs)
+    assert not any("RiskTime" in m or "CmCo" in m for m in msgs)
 
 
 def test_scenario_settings_silent_at_defaults(caplog):
@@ -176,9 +176,9 @@ def test_scenario_settings_silent_at_defaults(caplog):
 
 
 def test_settings_without_effect_on_a_group_are_silent(caplog):
-    """EwE writes -999 in producer and detritus rows (Black Sea). RiskTime and
-    CmCo act through a group's own consumption, so not on producers and
-    detritus; QmQo scales a group's F, so not on unfished groups."""
+    """EwE writes -999 in producer and detritus rows (Black Sea). QmQo scales
+    a group's F, so it does nothing on unfished groups (RiskTime and CmCo are
+    modelled and never warn)."""
     from pypath.io.ewemdb import _warn_ignored_scenario_settings
 
     meta = {
@@ -200,9 +200,8 @@ def test_settings_without_effect_on_a_group_are_silent(caplog):
             fished={"Sprat"},
         )
     msgs = _warnings(caplog)
-    assert len(msgs) == 2
-    assert any("CmCo" in m and "Cod" in m and "Phyto" not in m for m in msgs)
-    assert any("QmQo" in m and "Sprat" in m and "Phyto" not in m for m in msgs)
+    assert len(msgs) == 1
+    assert "QmQo" in msgs[0] and "Sprat" in msgs[0] and "Phyto" not in msgs[0]
 
 
 def test_additive_pred_mort_on_a_producer_still_warns(caplog):

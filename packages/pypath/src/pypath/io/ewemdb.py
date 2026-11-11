@@ -594,11 +594,10 @@ def _warn_unsupported_group_columns(
 
 
 # EcosimScenarioGroup settings PyPath does not model yet, with EwE's defaults
-# (cEcoSimDatastructures.vb:1340-1353). Roadmap P4 (QmQo, CmCo) and P7
-# (AdditivePredMort = PaddP). RiskTime is read (RsimParams.RiskTime).
+# (cEcoSimDatastructures.vb:1340-1353). Roadmap P4 (QmQo) and P7
+# (AdditivePredMort = PaddP). RiskTime and CmCo are read (RsimParams).
 _IGNORED_SCENARIO_GROUP_SETTINGS = (
     ("QmQo", 1.0),
-    ("CmCo", 1000.0),
     ("AdditivePredMort", 1.0),
 )
 
@@ -608,20 +607,13 @@ def _not_default(value: Any, default: float) -> bool:
     return number is not None and not np.isclose(number, default)
 
 
-# Settings that act only through a group's own consumption (handling time;
-# cEcoSimModel.vb 3379), so not on producers and detritus.
-_CONSUMPTION_SETTINGS = {"CmCo"}
-
-
 def _no_effect_here(
     col: str, group_type: Optional[float], is_fished: Optional[bool]
 ) -> bool:
-    """A setting that cannot act on this group in EwE: CmCo on a producer or
-    detritus group, QmQo (density-dependent catchability, a factor
-    on F; vb 5092) on an unfished group. EwE writes -999 in such cells
-    (Black Sea). AdditivePredMort acts on every group that is eaten."""
-    if col in _CONSUMPTION_SETTINGS:
-        return group_type is not None and group_type >= 1
+    """A setting that cannot act on this group in EwE: QmQo (density-dependent
+    catchability, a factor on F; vb 5092) on an unfished group. EwE writes
+    -999 in such cells (Black Sea). AdditivePredMort acts on every group that
+    is eaten."""
     if col == "QmQo":
         return is_fished is False
     return False
@@ -3407,6 +3399,8 @@ def _build_scenario_overrides(
         ("SwitchPower", "switch_power"),
         # predator effect on feeding time (cEcoSimModel.vb 3309-3314, 1765)
         ("RiskTime", "risk_time"),
+        # QBmax / QB0 of EwE's handling time (cEcoSimModel.vb 3286, 3379)
+        ("CmCo", "cm_co"),
     ):
         if column not in sg_df.columns:
             continue

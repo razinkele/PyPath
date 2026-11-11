@@ -19,6 +19,9 @@ def test_nointegrate_groups_stay_at_baseline():
 
     p = rpath(params)
     scenario = rsim_scenario(p, params, years=range(1, 3))  # 2 years = initial + 1 year
+    # isolates the mechanism under test; EwE's handling time (D5)
+    # has its own tests (test_handling_time.py)
+    scenario.params.EWE_HANDLING_TIME = False
     out = rsim_run(scenario, method="RK4", years=range(1, 3))
 
     # For each NoIntegrate group verify month 1 biomass equals baseline

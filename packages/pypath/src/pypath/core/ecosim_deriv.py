@@ -1338,6 +1338,24 @@ def _resolve_instrument_groups(params, spname_list, num_groups):
     return instrument_set
 
 
+def _ewe_hden_update(
+    hden_old: np.ndarray, q: np.ndarray, index: np.ndarray, cmco_qb: np.ndarray
+) -> np.ndarray:
+    """One EwE6 handling-time update (Derivt, cEcoSimModel.vb 2926-2928).
+
+    Hden <- (1 - Dwe) x (1 + Htime x Hdent) + Dwe x Hden with Dwe = 0.5,
+    Htime = pred0 / (CmCo x B0 x QB) and Hdent = sum(a x Vbiom) =
+    Q x Hden / pred, so Htime x Hdent = Hden x Q / (CmCo x QB x index) with
+    index the predator abundance in biomass units (B, or B0 x StanzaPredRatio
+    for a stanza group). Groups with ``cmco_qb`` 0 keep their Hden.
+    """
+    out = np.array(hden_old, dtype=float, copy=True)
+    ok = (cmco_qb > 0) & (index > 0)
+    htime_hdent = hden_old[ok] * q[ok] / (cmco_qb[ok] * index[ok])
+    out[ok] = 0.5 * (1.0 + htime_hdent) + 0.5 * hden_old[ok]
+    return out
+
+
 def _fishing_links(fishing) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """FishFrom, FishThrough and FishQ of dict-like or dataclass fishing."""
     if isinstance(fishing, dict):
@@ -1671,50 +1689,75 @@ def deriv_vector(
     # over inactive links); otherwise fall back to the dense kernel.
     _link_prey = params.get("_link_prey", None)
     _link_pred = params.get("_link_pred", None)
-    if _link_prey is not None and _link_pred is not None:
-        _compute_consumption_sparse(
-            QQ,
-            BB,
-            VV,
-            DD,
-            QQbase,
-            preyYY,
-            predYY,
-            _link_prey,
-            _link_pred,
-            len(_link_prey),
-            ScrambleSelf=_ScrambleSelf,
-            HandleSelf=_HandleSelf,
-            PredPredWeight=_PredPredWeight,
-            PreyPreyWeight=_PreyPreyWeight,
-            HandleSwitch=_HandleSwitch,
-            COUPLED=_COUPLED,
-            med_multipliers=_med_multipliers,
-        )
+
+    def _run_kernel(pred_yy):
+        if _link_prey is not None and _link_pred is not None:
+            _compute_consumption_sparse(
+                QQ,
+                BB,
+                VV,
+                DD,
+                QQbase,
+                preyYY,
+                pred_yy,
+                _link_prey,
+                _link_pred,
+                len(_link_prey),
+                ScrambleSelf=_ScrambleSelf,
+                HandleSelf=_HandleSelf,
+                PredPredWeight=_PredPredWeight,
+                PreyPreyWeight=_PreyPreyWeight,
+                HandleSwitch=_HandleSwitch,
+                COUPLED=_COUPLED,
+                med_multipliers=_med_multipliers,
+            )
+        else:
+            # ActiveLink may be a boolean array; ensure it is integer for numba.
+            _active_int = (
+                ActiveLink.astype(np.int64)
+                if ActiveLink.dtype != np.int64
+                else ActiveLink
+            )
+            _compute_consumption(
+                QQ,
+                BB,
+                _active_int,
+                VV,
+                DD,
+                QQbase,
+                preyYY,
+                pred_yy,
+                NUM_LIVING,
+                NUM_GROUPS,
+                ScrambleSelf=_ScrambleSelf,
+                HandleSelf=_HandleSelf,
+                PredPredWeight=_PredPredWeight,
+                PreyPreyWeight=_PreyPreyWeight,
+                HandleSwitch=_HandleSwitch,
+                COUPLED=_COUPLED,
+                med_multipliers=_med_multipliers,
+            )
+
+    # EwE6 handling time (D5): each predator's search rate is divided by
+    # Hden, the base rates carrying Dzero = Hden0, so the predator term is
+    # scaled by Hden0 / Hden. Hden is updated once per call from the
+    # consumption at the previous Hden, then the consumption is recomputed
+    # (Derivt, cEcoSimModel.vb 2890-2969). rsim_run keeps Hden between calls
+    # and freezes it for calls that are not integration stages.
+    _hden = params.get("_hden")
+    if _hden is not None:
+        _hden0 = params["_hden0"]
+        _cmco_qb = params["_cmco_qb"]
+        _run_kernel(predYY * (_hden0 / _hden))
+        _index = np.array(BB, dtype=float, copy=True)
+        if _stanza_ratio is not None:
+            _index[_has_ratio] = Bbase[_has_ratio] * _stanza_ratio[_has_ratio]
+        _hden_new = _ewe_hden_update(_hden, QQ[1:, :].sum(axis=0), _index, _cmco_qb)
+        if not params.get("_hden_frozen", False):
+            _hden[:] = _hden_new
+        _run_kernel(predYY * (_hden0 / _hden_new))
     else:
-        # ActiveLink may be a boolean array; ensure it is integer for numba compat.
-        _active_int = (
-            ActiveLink.astype(np.int64) if ActiveLink.dtype != np.int64 else ActiveLink
-        )
-        _compute_consumption(
-            QQ,
-            BB,
-            _active_int,
-            VV,
-            DD,
-            QQbase,
-            preyYY,
-            predYY,
-            NUM_LIVING,
-            NUM_GROUPS,
-            ScrambleSelf=_ScrambleSelf,
-            HandleSelf=_HandleSelf,
-            PredPredWeight=_PredPredWeight,
-            PreyPreyWeight=_PreyPreyWeight,
-            HandleSwitch=_HandleSwitch,
-            COUPLED=_COUPLED,
-            med_multipliers=_med_multipliers,
-        )
+        _run_kernel(predYY)
 
     # Post-loop instrumentation: log per-link breakdown for interesting groups
     if instrument_set:

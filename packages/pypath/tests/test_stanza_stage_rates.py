@@ -31,6 +31,9 @@ def test_integrate_rk4_reports_its_first_and_last_stage_rates(monkeypatch):
     """No fast groups here, so the fourth stage is exactly y0 + h k3."""
     model, params = _simple_model()
     sc = rsim_scenario(model, params, years=range(1, 3))
+    # isolates the mechanism under test; EwE's handling time (D5)
+    # has its own tests (test_handling_time.py)
+    sc.params.EWE_HANDLING_TIME = False
     cap = {}
     real = D.deriv_vector
 
