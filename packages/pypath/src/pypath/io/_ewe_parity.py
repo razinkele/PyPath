@@ -194,7 +194,7 @@ UNREAD_RESULT_COLUMNS: dict[str, tuple[str, ...]] = {
         "FishRateMax",
         "AdditivePredMort",
     ),
-    "Stanza": ("BABsplit", "RecStanza", "FixedFecundity", "EggAtSpawn"),
+    "Stanza": ("RecStanza", "FixedFecundity", "EggAtSpawn"),
     "StanzaLifeStage": ("SpawnProp",),
 }
 
