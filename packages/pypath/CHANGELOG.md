@@ -6,6 +6,41 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.4.0 (2026-11-11)
+
+### Bug Fixes
+
+- **ecosim**: Constant detritus import inflow, matching EwE DetInFlow (A2)
+  ([`470fbe7`](https://github.com/razinkele/PyPath/commit/470fbe77cbfbf4752bf2ad5348f237c65642d90a))
+
+- **ecosim**: EwE's net biomeq for fast consumers under RK4; oracle tests on RK4
+  ([`0200e69`](https://github.com/razinkele/PyPath/commit/0200e690942322eff38232eef1a9ee4cbdeddf6a))
+
+- **ecosim**: Fast groups keep their feeding time under the EwE rule (D2)
+  ([`8f1229d`](https://github.com/razinkele/PyPath/commit/8f1229d0124d1f068dcac610aa814ff0d311da23))
+
+- **ecosim**: Feeding time updates from start-of-month consumption (EwE rule)
+  ([`f848184`](https://github.com/razinkele/PyPath/commit/f8481843d31fe3995775471954754ec10a632590))
+
+- **ecosim**: Feeding-time update uses the derivative's consumption (EwE rule)
+  ([`db3bc1f`](https://github.com/razinkele/PyPath/commit/db3bc1f1b22c4f71fc22c1036f4a5181f1fce4b3))
+
+- **ecosim**: Prey Ftime and vulnerability forcing saturate in the arena (D1)
+  ([`fa0c21a`](https://github.com/razinkele/PyPath/commit/fa0c21a1adc8902df613f37af657060745534bd1))
+
+- **ecospace**: Fast groups use EwE's net biomeq per patch, as rsim_run
+  ([`95a7f12`](https://github.com/razinkele/PyPath/commit/95a7f1216dbe32160ba521f971fd4c189c0410f5))
+
+- **io**: Drop stanza-stage and detritus BA; parity docs after review
+  ([`498def6`](https://github.com/razinkele/PyPath/commit/498def6d7cd1267d52bbee2a44fe00966c19e0ff))
+
+- **io**: Read EwE BiomAcc, BiomAccRate and DtImports; warn on ignored settings (A1)
+  ([`26cb3ad`](https://github.com/razinkele/PyPath/commit/26cb3ad60392727a314e761a06a606a6eff07362))
+
+- **io**: UseVarPQ follows EwE 6.7.144, which always loads it as False
+  ([`87f5556`](https://github.com/razinkele/PyPath/commit/87f5556c3c00a5db214bafd9eb052ed5f56d26b0))
+
+
 ## v1.3.0 (2026-11-09)
 
 ### Bug Fixes
