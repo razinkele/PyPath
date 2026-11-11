@@ -43,6 +43,8 @@ class StanzaGroup:
         rec_power: Recruitment power parameter
         recruits: Base number of recruits (R)
         last_month: Final month of the oldest age class
+        ahat, rhat: Ford-Walford intercept and slope of the plus group
+            (EwE age table only; see :func:`_ewe_age_table`)
     """
 
     stanza_group_num: int
@@ -54,6 +56,8 @@ class StanzaGroup:
     rec_power: float = 1.0
     recruits: float = 0.0
     last_month: int = 0
+    ahat: float = 0.0
+    rhat: float = 0.0
 
 
 @dataclass
@@ -94,12 +98,15 @@ class EcosimStanzaParams:
         stanza_groups: List of StanzaGroup objects
         stanza_individuals: List of StanzaIndividual objects
         st_groups: DataFrame with stanza calculations per age
+        plus_group_rule: Age table :func:`rpath_stanzas` built ("rpath" or
+            "ewe")
     """
 
     n_stanza_groups: int = 0
     stanza_groups: List[StanzaGroup] = field(default_factory=list)
     stanza_individuals: List[StanzaIndividual] = field(default_factory=list)
     st_groups: Dict[int, pd.DataFrame] = field(default_factory=dict)
+    plus_group_rule: str = "rpath"
 
 
 @dataclass
@@ -139,6 +146,12 @@ class RsimStanzas:
     base_spawn_bio: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
     r_scale_split: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
     base_stanza_pred: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
+    # Plus group: "rpath" merges the two oldest months by numbers; "ewe"
+    # re-closes it each month on the Ford-Walford line (ahat, rhat) and keeps
+    # the consumption weights of the setup (EwE6 SplitUpdate, SplitSetPred).
+    plus_group_rule: str = "rpath"
+    ahat: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
+    rhat: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
 
 
 def von_bertalanffy_weight(age: np.ndarray, k: float, d: float = 0.66667) -> np.ndarray:
@@ -214,9 +227,135 @@ def calculate_survival(z_by_month: np.ndarray, bab: float = 0.0) -> np.ndarray:
     return np.cumprod(monthly_survival)
 
 
+def _rpath_age_table(
+    stanza_group: StanzaGroup, group_stanzas: List[StanzaIndividual]
+) -> pd.DataFrame:
+    """Rpath's age table (rpath.stanzas): out to 99.999 % of the cumulative
+    biomass, rounded up to the end of that year, with no plus group."""
+    # Calculate last month using biomass accumulation method
+    # This finds the age at which 99.999% of cumulative biomass is reached
+    st_max = group_stanzas[-1]
+
+    # Get growth parameters
+    k_monthly = (stanza_group.vbgf_ksp * 3) / 12.0
+    d = stanza_group.vbgf_d
+    bab = stanza_group.bab
+
+    # Calculate out to a very long time (5999 months = ~500 years)
+    ages = np.arange(st_max.first, 6000)
+    monthly_z = (st_max.z + bab) / 12.0
+
+    # Survival and biomass
+    nn = np.cumprod(
+        np.concatenate([[1.0], np.exp(-monthly_z * np.ones(len(ages) - 1))])
+    )
+    # Rpath's rpath.stanzas() uses VBGF_Ksp as stored here, without the
+    # *3/12 conversion applied everywhere else. Kept for parity: it sets
+    # the length of the plus group (e.g. REco Roundfish1 ends at 371).
+    bb = nn * von_bertalanffy_weight(ages, stanza_group.vbgf_ksp, d)
+
+    # Cumulative biomass fraction
+    bb_cum = np.cumsum(bb) / np.sum(bb)
+
+    # First age where cumulative biomass exceeds 99.999%, rounded up to
+    # the end of that year: ceiling(AGE / 12) * 12 - 1, as in Rpath.
+    above = np.flatnonzero(bb_cum > 0.99999)
+    idx = int(above[0]) if above.size else len(ages) - 1
+    last_month = int(np.ceil(ages[idx] / 12.0) * 12 - 1)
+    # A plus group starting on a whole year past the cutoff would round
+    # to the month before it starts.
+    last_month = max(last_month, int(st_max.first))
+
+    stanza_group.last_month = last_month
+
+    # Update oldest stanza's last month
+    group_stanzas[-1].last = last_month
+
+    # Build age-structured table for this group
+    all_ages = np.arange(group_stanzas[0].first, last_month + 1)
+
+    st_group = pd.DataFrame(
+        {
+            "age": all_ages,
+            "WageS": von_bertalanffy_weight(all_ages, k_monthly, d),
+        }
+    )
+    st_group["QageS"] = von_bertalanffy_consumption(st_group["WageS"].values, d)
+
+    # Calculate survival for each age
+    # Need to assign Z by stanza
+    z_by_age = np.zeros(len(all_ages))
+    for st in group_stanzas:
+        mask = (all_ages >= st.first) & (all_ages <= st.last)
+        z_by_age[mask] = st.z
+
+    st_group["Survive"] = calculate_survival(z_by_age, bab)
+    return st_group
+
+
+# cCore.MAX_AGE: the longest age table EwE6 builds, in months.
+EWE_MAX_AGE = 400
+
+
+def _ewe_age_table(
+    stanza_group: StanzaGroup, group_stanzas: List[StanzaIndividual]
+) -> pd.DataFrame:
+    """EwE6's age table (cEcoSimModel.CalculateStanzaParameters, vb 4288-4335).
+
+    The table ends at the month a cohort reaches 90 % of W_inf,
+    ``CInt(40.3978 / K)``, at least 12 months into the last stanza and at
+    most :data:`EWE_MAX_AGE`, and that month is a plus group: the survivors
+    accumulate there (``Survive / (1 - Surv)``) and its weight is the mean
+    over the tail of the Ford-Walford line ``w' = Ahat + Rhat * w`` through
+    the last three months. ``Ahat`` and ``Rhat`` are kept on
+    ``stanza_group`` for Ecosim's monthly plus-group update. Weights are
+    ``(1 - exp(-K a / 12))^3`` and consumption ``W^(2/3)``, whatever
+    ``vbgf_d`` holds, as in EwE.
+    """
+    k = float(stanza_group.vbgf_ksp)
+    if not k > 0:
+        raise ValueError(
+            f"Stanza group {stanza_group.stanza_group_num}: EwE's age table "
+            f"needs the VBGF K > 0, got {k}"
+        )
+    bab = stanza_group.bab
+    last_stanza = group_stanzas[-1]
+    months = 40.3978 / k
+    # VB's CInt rounds half to even, as round() does.
+    n = EWE_MAX_AGE if months >= EWE_MAX_AGE else int(round(months))
+    n = max(n, int(last_stanza.first) + 12)
+    n = min(n, EWE_MAX_AGE)
+    stanza_group.last_month = n
+    last_stanza.last = n
+
+    ages = np.arange(group_stanzas[0].first, n + 1)
+    w = (1.0 - np.exp(-k * ages / 12.0)) ** 3
+    q = w ** (2.0 / 3.0)
+    z_by_age = np.zeros(len(ages))
+    for st in group_stanzas:
+        z_by_age[(ages >= st.first) & (ages <= st.last)] = st.z
+    survive = calculate_survival(z_by_age, bab)
+
+    surv = np.exp(-(last_stanza.z + bab) / 12.0)
+    if surv < 1.0:
+        survive[-1] /= 1.0 - surv
+    rhat = (w[-1] - w[-2]) / (w[-2] - w[-3])
+    ahat = w[-1] - rhat * w[-2]
+    w[-1] = (surv * ahat + (1.0 - surv) * w[-1]) / (1.0 - rhat * surv)
+    rhat_c = (q[-1] - q[-2]) / (q[-2] - q[-3])
+    # EwE takes the intercept with the weight's Rhat, not RhatC (vb 4334).
+    ahat_c = q[-1] - rhat * q[-2]
+    q[-1] = (surv * ahat_c + (1.0 - surv) * q[-1]) / (1.0 - rhat_c * surv)
+    stanza_group.ahat = float(ahat)
+    stanza_group.rhat = float(rhat)
+
+    return pd.DataFrame({"age": ages, "WageS": w, "QageS": q, "Survive": survive})
+
+
 def rpath_stanzas(
     rpath_params: RpathParams,
     stanza_params: EcosimStanzaParams | None = None,
+    rule: str = "rpath",
 ) -> RpathParams:
     """Calculate biomass and consumption for multi-stanza groups.
 
@@ -235,12 +374,20 @@ def rpath_stanzas(
         converted with :func:`ecosim_stanza_params`. The computed age
         structure is written to this object, so pass the same object on to
         :func:`rsim_stanzas`.
+    rule : {"rpath", "ewe"}
+        The age table. "rpath" (default) runs it out to 99.999 % of the
+        cumulative biomass, as Rpath's ``rpath.stanzas``; "ewe" builds EwE6's
+        table, ending where a cohort reaches 90 % of W_inf and closed by a
+        plus group (:func:`_ewe_age_table`). :func:`rsim_scenario` uses
+        "ewe" under ``fast_group_rule="ewe"``.
 
     Returns
     -------
     RpathParams
         Updated RpathParams with calculated stanza biomass and Q/B
     """
+    if rule not in ("rpath", "ewe"):
+        raise ValueError(f"rule must be 'rpath' or 'ewe', got {rule!r}")
     if stanza_params is None:
         if not has_stanza_tables(rpath_params.stanzas):
             return rpath_params
@@ -249,6 +396,7 @@ def rpath_stanzas(
         return rpath_params
 
     n_split = stanza_params.n_stanza_groups
+    stanza_params.plus_group_rule = rule
 
     # Process each stanza group
     for isp in range(n_split):
@@ -272,64 +420,10 @@ def rpath_stanzas(
         if leading_stanza is None:
             raise ValueError(f"No leading stanza found for stanza group {isp + 1}")
 
-        # Calculate last month using biomass accumulation method
-        # This finds the age at which 99.999% of cumulative biomass is reached
-        st_max = group_stanzas[-1]
-
-        # Get growth parameters
-        k_monthly = (stanza_group.vbgf_ksp * 3) / 12.0
-        d = stanza_group.vbgf_d
-        bab = stanza_group.bab
-
-        # Calculate out to a very long time (5999 months = ~500 years)
-        ages = np.arange(st_max.first, 6000)
-        monthly_z = (st_max.z + bab) / 12.0
-
-        # Survival and biomass
-        nn = np.cumprod(
-            np.concatenate([[1.0], np.exp(-monthly_z * np.ones(len(ages) - 1))])
-        )
-        # Rpath's rpath.stanzas() uses VBGF_Ksp as stored here, without the
-        # *3/12 conversion applied everywhere else. Kept for parity: it sets
-        # the length of the plus group (e.g. REco Roundfish1 ends at 371).
-        bb = nn * von_bertalanffy_weight(ages, stanza_group.vbgf_ksp, d)
-
-        # Cumulative biomass fraction
-        bb_cum = np.cumsum(bb) / np.sum(bb)
-
-        # First age where cumulative biomass exceeds 99.999%, rounded up to
-        # the end of that year: ceiling(AGE / 12) * 12 - 1, as in Rpath.
-        above = np.flatnonzero(bb_cum > 0.99999)
-        idx = int(above[0]) if above.size else len(ages) - 1
-        last_month = int(np.ceil(ages[idx] / 12.0) * 12 - 1)
-        # A plus group starting on a whole year past the cutoff would round
-        # to the month before it starts.
-        last_month = max(last_month, int(st_max.first))
-
-        stanza_group.last_month = last_month
-
-        # Update oldest stanza's last month
-        group_stanzas[-1].last = last_month
-
-        # Build age-structured table for this group
-        all_ages = np.arange(group_stanzas[0].first, last_month + 1)
-
-        st_group = pd.DataFrame(
-            {
-                "age": all_ages,
-                "WageS": von_bertalanffy_weight(all_ages, k_monthly, d),
-            }
-        )
-        st_group["QageS"] = von_bertalanffy_consumption(st_group["WageS"].values, d)
-
-        # Calculate survival for each age
-        # Need to assign Z by stanza
-        z_by_age = np.zeros(len(all_ages))
-        for st in group_stanzas:
-            mask = (all_ages >= st.first) & (all_ages <= st.last)
-            z_by_age[mask] = st.z
-
-        st_group["Survive"] = calculate_survival(z_by_age, bab)
+        if rule == "ewe":
+            st_group = _ewe_age_table(stanza_group, group_stanzas)
+        else:
+            st_group = _rpath_age_table(stanza_group, group_stanzas)
 
         # Biomass and consumption relative values
         st_group["B"] = st_group["Survive"] * st_group["WageS"]
@@ -519,6 +613,9 @@ def rsim_stanzas(
     rstan.vbgf_d = np.zeros(n_split + 1)
     rstan.r_zero_s = np.zeros(n_split + 1)
     rstan.vbm = np.zeros(n_split + 1)
+    rstan.ahat = np.zeros(n_split + 1)
+    rstan.rhat = np.zeros(n_split + 1)
+    rstan.plus_group_rule = stanza_params.plus_group_rule
 
     for isp, sg in enumerate(stanza_params.stanza_groups):
         rstan.wmat[isp + 1] = sg.wmat
@@ -528,6 +625,8 @@ def rsim_stanzas(
         rstan.r_zero_s[isp + 1] = sg.recruits
         # Energy required to grow a unit in weight (scaled to Winf=1)
         rstan.vbm[isp + 1] = 1.0 - 3.0 * sg.vbgf_ksp / 12.0
+        rstan.ahat[isp + 1] = sg.ahat
+        rstan.rhat[isp + 1] = sg.rhat
 
     # Calculate spawning biomass and eggs
     eggs = np.zeros(n_split + 1)
@@ -723,6 +822,11 @@ def split_update(
     enter at the first month as
     ``RscaleSplit * RzeroS * (eggs / baseEggs) ** RecPower``.
 
+    With ``stanzas.plus_group_rule == "ewe"`` (EwE6 SplitUpdate) the plus
+    group's weight is ``(Su * Ahat + (1 - Su) * W[n-1]) / (1 - Rhat * Su)``
+    instead of the numbers-weighted mean, and the consumption weights
+    ``qage_s`` stay at the setup's ``W^(2/3)``, as EwE's SplitSetPred.
+
     Parameters
     ----------
     stanzas : RsimStanzas
@@ -738,6 +842,7 @@ def split_update(
         Recruitment forcing by group for this month. Like Rpath, it is read
         at the group of the last stanza.
     """
+    ewe_plus = getattr(stanzas, "plus_group_rule", "rpath") == "ewe"
     for isp in range(1, int(stanzas.n_split) + 1):
         nst = int(stanzas.n_stanzas[isp])
         if nst < 1:
@@ -783,10 +888,18 @@ def split_update(
         nt = nage[last, isp] + nage[last - 1, isp]
         if nt == 0:
             nt = 1e-30
-        wage[last, isp] = (
-            wage[last, isp] * nage[last, isp]
-            + wage[last - 1, isp] * nage[last - 1, isp]
-        ) / nt
+        if ewe_plus:
+            # EwE6 SplitUpdate (vb 1866): the plus group's weight is the tail
+            # mean on the Ford-Walford line, from the month below it after
+            # growth and the oldest stanza's survival (su, from the loop).
+            wage[last, isp] = (
+                su * stanzas.ahat[isp] + (1.0 - su) * wage[last - 1, isp]
+            ) / (1.0 - stanzas.rhat[isp] * su)
+        else:
+            wage[last, isp] = (
+                wage[last, isp] * nage[last, isp]
+                + wage[last - 1, isp] * nage[last - 1, isp]
+            ) / nt
         nage[last, isp] = nt
         # Age everyone by one month (copy first: the slices overlap)
         nage[first + 1 : last, isp] = nage[first : last - 1, isp].copy()
@@ -800,7 +913,11 @@ def split_update(
                 * (eggs / base_eggs) ** stanzas.rec_power[isp]
             )
         wage[first, isp] = 0.0
-        sstate.qage_s[: last + 1, isp] = wage[: last + 1, isp] ** stanzas.vbgf_d[isp]
+        if not ewe_plus:
+            # EwE6's SplitSetPred keeps the setup's W^(2/3) (WWa) instead.
+            sstate.qage_s[: last + 1, isp] = (
+                wage[: last + 1, isp] ** stanzas.vbgf_d[isp]
+            )
 
 
 def split_set_pred(

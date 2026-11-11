@@ -41,8 +41,12 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # 615.6 with that update taking the derivative's consumption (prey Ftime
 # included, as EwE's Derivt), and 617.6 with prey Ftime and vulnerability
 # forcing saturating in the arena as in EwE (D1; linear prey term: 615.6).
+# 618.2 with EwE's multi-stanza age table and Ford-Walford plus group (P2;
+# the blue mussels follow the oracle to 0.2 % instead of 15-20 %). EwE's
+# stanza feeding-time denominator leaves it there (no FtimeAdj on the
+# mussels in scenario 16).
 # A change beyond 2 % needs a reason.
-LT2022_SS16 = 617.6
+LT2022_SS16 = 618.2
 
 
 @pytest.mark.integration
@@ -148,6 +152,38 @@ def lt2022_scenario_module():
     from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
 
     return ecosim_scenario_from_ewemdb(DB_PATH, scenario=16, timeseries_dataset=35)
+
+
+ORACLE_DIR = Path(__file__).parent / "data" / "ewe_oracle" / "lt2022"
+
+
+@pytest.mark.integration
+def test_mussels_follow_the_ewe_oracle(lt2022_scenario_module):
+    """EwE's adult mussels step +0.19 % in month 1 (27.000 -> 27.050) and the
+    juveniles hold: EwE's growth coefficient at the month before the plus
+    group comes from the corrected plus-group weight, so the plus group's
+    weight steps once (test_stanza_plus_group.py). With Rpath's age table the
+    adults moved +0.004 % and the juveniles +0.04 %."""
+    import pandas as pd
+
+    from pypath.core.ecosim import rsim_run
+
+    oracle = pd.read_csv(ORACLE_DIR / "ecosim_biomass_monthly.csv", index_col=0)
+    oracle.columns = [c.strip() for c in oracle.columns]
+    out = rsim_run(lt2022_scenario_module, method="RK4", years=range(1, 3))
+    names = [str(n).strip() for n in lt2022_scenario_module.params.spname]
+    for group in ("Blue mussel (juv.)", "Blue mussel (ad.)"):
+        i = names.index(group)
+        expected = float(oracle.loc[1, group])
+        assert out.out_Biomass[1, i] == pytest.approx(expected, rel=2e-5), group
+        # After the year-2 production step they still follow EwE (3e-4;
+        # Rpath's age table left them 3-4 % off by then).
+        for t in (15, 17, 19):
+            expected = float(oracle.loc[t, group])
+            assert out.out_Biomass[t, i] == pytest.approx(expected, rel=1e-3), (
+                group,
+                t,
+            )
 
 
 # EwE 6.7.144 oracle, month 13: the year-2 step of the "PTOT_Baltic" production

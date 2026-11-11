@@ -50,16 +50,26 @@ def test_example_model_starts_ecosim_at_equilibrium():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         model = rpath(params)
-        out = rsim_run(
-            rsim_scenario(model, params, years=range(1, 3)),
-            method="RK4",
-            years=range(1, 3),
-        )
+        runs = {
+            rule: rsim_run(
+                rsim_scenario(model, params, years=range(1, 3), fast_group_rule=rule),
+                method="RK4",
+                years=range(1, 3),
+            )
+            for rule in ("rpath", "ewe")
+        }
     living = model.NUM_LIVING
     assert np.all(model.EE[:living] <= 1.0)
-    b = out.out_Biomass[:, 1 : living + 1]
+    # Rpath's stanza table is exactly in equilibrium: any drift is a broken
+    # example.
+    b = runs["rpath"].out_Biomass[:, 1 : living + 1]
     drift = np.abs(b[-1] / b[0] - 1.0)
     assert drift.max() < 1e-3, dict(zip(model.Group[:living], drift.round(4)))
+    # EwE's plus group (the default rule) steps once in month 1 and moves
+    # recruitment a little (pypath tests/test_stanza_plus_group.py).
+    b = runs["ewe"].out_Biomass[:, 1 : living + 1]
+    drift = np.abs(b[1:] / b[0] - 1.0).max(axis=0)
+    assert drift.max() < 1e-2, dict(zip(model.Group[:living], drift.round(4)))
 
 
 def test_example_stanzas_follow_rpath_conventions():

@@ -48,14 +48,15 @@ def test_stanza_k_is_the_group_vbk(params):
 
 def test_derived_juvenile_biomass_matches_ewe6(params):
     """With K = 1.175 and Z = P/B the age structure reproduces the biomass EwE6
-    wrote into the database for Blue mussel (juv.): 15.005259 (a verbatim port
-    of EwE6's CalculateStanzaParameters gives 15.005255)."""
+    wrote into the database for Blue mussel (juv.): 15.005259, in single
+    precision (EwE's CalculateStanzaParameters in double gives 15.005255)."""
     from pypath.core.ecopath import rpath
     from pypath.core.ecosim import rsim_scenario
 
     model = rpath(params)
     sc = rsim_scenario(model, params, years=range(1, 3))
     st, p = sc.stanzas, sc.params
+    assert st is not None
     juv = p.spname.index("Blue mussel (juv.)")
     for isp in range(1, int(st.n_split) + 1):
         for ist in range(1, int(st.n_stanzas[isp]) + 1):
@@ -67,11 +68,30 @@ def test_derived_juvenile_biomass_matches_ewe6(params):
                     st.base_nage_s[a1 : a2 + 1, isp] * st.base_wage_s[a1 : a2 + 1, isp]
                 ).sum()
             )
-            # EwE6 closes the oldest age with a geometric plus-group
-            # extrapolation; PyPath sums the tail explicitly. They agree to
-            # 2e-5 (15.00556 vs 15.00526).
-            assert derived == pytest.approx(15.005259, rel=1e-4)
+            # Under the EwE rule the table is EwE's: 34 months, closed by the
+            # Ford-Walford plus group. Rpath's 99.999 % table gives 15.00556.
+            assert int(st.age2[isp, int(st.n_stanzas[isp])]) == 34
+            assert derived == pytest.approx(15.005259, rel=1e-6)
             assert float(p.B_BaseRef[juv]) == pytest.approx(15.005259, rel=1e-5)
+
+
+def test_ewe_rule_rederives_the_stored_juvenile_stanza(params):
+    """EwE's stanza calculation, run from the leading adult stanza alone,
+    gives back the juvenile biomass and Q/B EwE6 stored (15.005259,
+    13.620459; single precision)."""
+    import copy
+
+    import numpy as np
+
+    from pypath.core.stanzas import rpath_stanzas
+
+    q = copy.deepcopy(params)
+    names = [str(g).strip() for g in q.model["Group"]]
+    j = names.index("Blue mussel (juv.)")
+    q.model.loc[j, ["Biomass", "QB"]] = np.nan
+    q = rpath_stanzas(q, rule="ewe")
+    assert q.model.loc[j, "Biomass"] == pytest.approx(15.005259, rel=1e-6)
+    assert q.model.loc[j, "QB"] == pytest.approx(13.620459, rel=1e-6)
 
 
 @pytest.mark.parametrize("leading", ["missing", 0, 99])

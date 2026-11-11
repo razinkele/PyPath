@@ -207,6 +207,11 @@ class RsimParams:
     # vulnerable pool (saturating); the 'rpath' rule keeps Rpath's linear prey
     # term (audit D1).
     PREY_FTIME_ARENA: bool = True
+    # EwE6 multi-stanza age table: it ends where a cohort reaches 90 % of
+    # W_inf and closes with a Ford-Walford plus group, re-closed each month;
+    # the 'rpath' rule keeps Rpath's 99.999 % table and numbers-weighted
+    # plus group (rsim_scenario -> rpath_stanzas(rule=...)).
+    STANZA_WALFORD_PLUS_GROUP: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -496,6 +501,9 @@ def rsim_params(
         also sets the integrator to match: under ``"ewe"`` RK4 takes one step
         a month with the fast groups at equilibrium in every stage (EwE6
         rk4 / SetTimeSteps); under ``"rpath"`` four explicit sub-steps.
+        It also picks the multi-stanza age table :func:`rsim_scenario`
+        builds (``STANZA_WALFORD_PLUS_GROUP``): EwE6's, closed by a
+        Ford-Walford plus group, or Rpath's.
 
     Returns
     -------
@@ -851,6 +859,7 @@ def rsim_params(
         RK4_FAST_EQUILIBRIUM=(fast_group_rule == "ewe"),
         FTIME_START_OF_MONTH=(fast_group_rule == "ewe"),
         PREY_FTIME_ARENA=(fast_group_rule == "ewe"),
+        STANZA_WALFORD_PLUS_GROUP=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -1270,8 +1279,11 @@ def rsim_scenario(
             # RpathParams keeps the stanza tables as DataFrames; convert them
             # once and hand the same object to both steps, because
             # rpath_stanzas writes the age structure that rsim_stanzas reads.
-            stanza_params = ecosim_stanza_params(
-                rpath_params.stanzas, rpath_params.model
+            # ecosim_stanza_params returns an EcosimStanzaParams it is given
+            # as it is: copy it, so the scenario's table (and rule) never
+            # lands in the user's object.
+            stanza_params = copy.deepcopy(
+                ecosim_stanza_params(rpath_params.stanzas, rpath_params.model)
             )
             # rpath_stanzas writes stanza Biomass/QB into the model table.
             # Work on a copy so building a scenario never edits the user's
@@ -1279,7 +1291,12 @@ def rsim_scenario(
             # rpath_stanzas(params) before rpath(params).
             work = copy.copy(rpath_params)
             work.model = rpath_params.model.copy()
-            rpath_stanzas(work, stanza_params=stanza_params)
+            table_rule = (
+                "ewe"
+                if getattr(params, "STANZA_WALFORD_PLUS_GROUP", False)
+                else "rpath"
+            )
+            rpath_stanzas(work, stanza_params=stanza_params, rule=table_rule)
             stanzas = rsim_stanzas(work, state, params, stanza_params=stanza_params)
         except Exception as e:
             logger.warning(
@@ -2090,6 +2107,19 @@ def rsim_run(
                 rates=_fg_rates,
             )
             _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
+            # EwE's ratio is per predator index (CBlast = EatenByAvg /
+            # PredAvg, Cbase = StartEatenBy / pred; vb 1762, 3310). That is
+            # the biomass for a simple group, and sum(N * WWa) for a stanza
+            # group: in biomass units B0 * StanzaPredRatio, taken now, at the
+            # start of the month.
+            _ftime_index = np.array(month_start_state, dtype=float, copy=True)
+            _stanza_ratio_now = forcing_dict.get("StanzaPredRatio")
+            if _stanza_ratio_now is not None:
+                _sr = np.asarray(_stanza_ratio_now, dtype=float)
+                _has_sr = np.isfinite(_sr)
+                _ftime_index[_has_sr] = (
+                    np.asarray(params.B_BaseRef, dtype=float)[_has_sr] * _sr[_has_sr]
+                )
 
         # Integration step
         if method.upper() == "RK4":
@@ -2242,12 +2272,13 @@ def rsim_run(
             _ecotracer_out[month] = _ecotracer_conc.copy()
         # Dynamic Ftime adjustment (Rpath ecosim.cpp; EwE6 rk4):
         # new_Ftime = L + (1-L)*Ft*((1-adj) + adj*QBopt/(FoodGain/B)), capped.
-        # EwE rule: FoodGain/B of the start-of-month state (CBlast); 'rpath'
-        # rule: of the end-of-month state.
+        # EwE rule: FoodGain per predator index of the start-of-month state
+        # (CBlast; B for simple groups, B0 * StanzaPredRatio for stanza
+        # groups); 'rpath' rule: FoodGain/B of the end-of-month state.
         if _has_ftime_adj:
             _ftime_lower = float(getattr(params, "ForagingTimeLowerLimit", 0.1))
             _ftime_max = getattr(params, "FtimeMax", None)
-            _b_src = month_start_state if _fg_ftime is not None else state
+            _b_src = _ftime_index if _fg_ftime is not None else state
             # EwE updates integrated groups only (NoIntegrate = i or < 0,
             # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime.
             _skip_fast = _fg_ftime is not None
