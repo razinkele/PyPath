@@ -212,6 +212,20 @@ class RsimParams:
     # the 'rpath' rule keeps Rpath's 99.999 % table and numbers-weighted
     # plus group (rsim_scenario -> rpath_stanzas(rule=...)).
     STANZA_WALFORD_PLUS_GROUP: bool = True
+    # Rpath's per-link handling term DD / (DD - 1 + preyYY). EwE6 has none:
+    # its handling time acts on the predator's total intake (Hden), so under
+    # the EwE rule the derivative gets no link handling (_handling_matrix).
+    LINK_HANDLING_TERM: bool = False
+    # EwE6 sends the unscaled mo x B to detritus while the group loses
+    # mo x (1 - MoPred + MoPred x Ftime) x B (SimDetritusMT, vb 3160-3166),
+    # so its detritus budget is not closed when Ftime != 1; the 'rpath' rule
+    # sends the scaled flow and keeps it closed.
+    DETRITUS_MO_UNSCALED: bool = True
+    # EwE6's monthly stanza update reads growth from the step's last RK4
+    # stage (Eatenby at y + h k3) and survival from its first (LossSt, with
+    # the start-of-month stanza biomass); the 'rpath' rule takes both from
+    # the end-of-month state, as Rpath's RK4 does.
+    STANZA_STAGE_RATES: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -860,6 +874,9 @@ def rsim_params(
         FTIME_START_OF_MONTH=(fast_group_rule == "ewe"),
         PREY_FTIME_ARENA=(fast_group_rule == "ewe"),
         STANZA_WALFORD_PLUS_GROUP=(fast_group_rule == "ewe"),
+        LINK_HANDLING_TERM=(fast_group_rule == "rpath"),
+        DETRITUS_MO_UNSCALED=(fast_group_rule == "ewe"),
+        STANZA_STAGE_RATES=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -1508,7 +1525,7 @@ def rsim_run(
         "Unassim": params.UnassimRespFrac,
         "ActiveLink": _build_active_link_matrix(params),
         "VV": _build_link_matrix(params, params.VV),
-        "DD": _build_link_matrix(params, params.DD),
+        "DD": _handling_matrix(params),
         "QQbase": _build_link_matrix(params, params.QQ),
         "Bbase": params.B_BaseRef,
         "PP_type": params.PP_type,
@@ -1531,6 +1548,7 @@ def rsim_run(
         "RK4_FAST_EQUILIBRIUM": getattr(params, "RK4_FAST_EQUILIBRIUM", True),
         "PREY_FTIME_ARENA": getattr(params, "PREY_FTIME_ARENA", False),
         "MoPred": getattr(params, "MoPred", None),
+        "DETRITUS_MO_UNSCALED": getattr(params, "DETRITUS_MO_UNSCALED", False),
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
         "AssimEff": getattr(params, "AssimEff", None),
@@ -2121,11 +2139,25 @@ def rsim_run(
                     np.asarray(params.B_BaseRef, dtype=float)[_has_sr] * _sr[_has_sr]
                 )
 
+        # EwE6's stanza update reads the step's first and last RK4 stages.
+        _stanza_stages = (
+            {}
+            if stanza_state is not None
+            and method.upper() == "RK4"
+            and getattr(params, "STANZA_STAGE_RATES", False)
+            else None
+        )
         # Integration step
         if method.upper() == "RK4":
             old_state = state.copy()
             state = integrate_rk4(
-                state, params_dict, forcing_dict, fishing_dict, dt, n_steps=rk4_steps
+                state,
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                dt,
+                n_steps=rk4_steps,
+                stage_rates=_stanza_stages,
             )
         elif method.upper() == "AB":
             # Warmup: use RK4 for the first month to populate derivative history
@@ -2215,24 +2247,38 @@ def rsim_run(
         # come from the derivative where Rpath takes them: after the month's
         # integration for RK4, at the start of the month for AB.
         if stanza_state is not None:
-            rate_state = month_start_state if method.upper() == "AB" else state
-            stanza_rates: dict = {}
-            deriv_vector(
-                rate_state.copy(),
-                params_dict,
-                forcing_dict,
-                fishing_dict,
-                rates=stanza_rates,
-            )
-            split_update(
-                stanzas_obj,
-                stanza_state,
-                rate_state,
-                stanza_rates["FoodGain"],
-                stanza_rates["LossPropToB"],
-                forced_recs=forcing_dict.get("ForcedRecs"),
-                month_index=month - 1,
-            )
+            if _stanza_stages:
+                # EwE6 rule: growth from the last stage's consumption,
+                # survival from the first stage's loss over the stanza
+                # groups' start-of-month biomass (cEcoSimModel.rk4).
+                split_update(
+                    stanzas_obj,
+                    stanza_state,
+                    month_start_state,
+                    _stanza_stages["last"]["FoodGain"],
+                    _stanza_stages["first"]["LossPropToB"],
+                    forced_recs=forcing_dict.get("ForcedRecs"),
+                    month_index=month - 1,
+                )
+            else:
+                rate_state = month_start_state if method.upper() == "AB" else state
+                stanza_rates: dict = {}
+                deriv_vector(
+                    rate_state.copy(),
+                    params_dict,
+                    forcing_dict,
+                    fishing_dict,
+                    rates=stanza_rates,
+                )
+                split_update(
+                    stanzas_obj,
+                    stanza_state,
+                    rate_state,
+                    stanza_rates["FoodGain"],
+                    stanza_rates["LossPropToB"],
+                    forced_recs=forcing_dict.get("ForcedRecs"),
+                    month_index=month - 1,
+                )
             # Overwrite the stanza groups' biomass with sum(N * W)
             split_set_pred(stanzas_obj, stanza_state, state)
             stanza_biomass[month, stanza_idx] = state[stanza_idx]
@@ -2583,6 +2629,28 @@ def _build_link_matrix(params: RsimParams, link_values: np.ndarray) -> np.ndarra
         if prey < n and pred < n and i < len(link_values):
             matrix[prey, pred] = link_values[i]
     return matrix
+
+
+# With DD this large, Rpath's handling term DD / (DD - 1 + preyYY) is exactly 1
+# ("large DD = no handling time effect", Rpath), in every derivative kernel.
+_NO_LINK_HANDLING = 1e300
+
+
+def _handling_matrix(params: RsimParams) -> np.ndarray:
+    """The DD matrix the derivative uses.
+
+    Rpath multiplies each link by DD / (DD - 1 + preyYY), so a predator's
+    intake from one prey saturates as that prey becomes abundant. EwE6 has no
+    per-link term: handling time acts on the predator's total intake,
+    Hden = 1 + Htime x sum(a x V), Htime = pred / (CmCo x B0 x QB)
+    (cEcoSimModel.Derivt, vb 2896-2969), which at CmCo = 1000 stays within
+    0.1 % of its base value unless the predator eats far more per head than at
+    base, and is not modelled. Under the EwE rule (LINK_HANDLING_TERM False)
+    every link gets a DD so large that the term is 1.
+    """
+    if getattr(params, "LINK_HANDLING_TERM", True):
+        return _build_link_matrix(params, params.DD)
+    return _build_link_matrix(params, np.full(len(params.PreyFrom), _NO_LINK_HANDLING))
 
 
 def _ftime_update_rpath(

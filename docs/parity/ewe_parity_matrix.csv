@@ -81,5 +81,5 @@ EcospaceScenarioWeightLayer,ecospace,true,true,true,true,implemented,
 EcotracerScenario,ecotracer,true,true,false,false,partial,
 EcotracerScenarioGroup,ecotracer,true,true,false,false,partial,
 Pedigree,pedigree,true,true,false,false,partial,
-Stanza,ecopath,true,true,true,true,partial,"not read: BABsplit, EggAtSpawn (no effect on the model in EwE)"
+Stanza,ecopath,true,true,true,true,partial,"not read: EggAtSpawn (no effect on the model in EwE)"
 StanzaLifeStage,ecopath,true,true,true,true,implemented,

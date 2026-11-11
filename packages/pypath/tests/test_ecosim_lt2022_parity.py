@@ -45,8 +45,14 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # the blue mussels follow the oracle to 0.2 % instead of 15-20 %). EwE's
 # stanza feeding-time denominator leaves it there (no FtimeAdj on the
 # mussels in scenario 16).
+# 617.0 without Rpath's per-link handling term DD / (DD - 1 + preyYY), which
+# EwE6 does not have (Cod, Turbot and Perciformes through the year-8 Round goby
+# boom; test_link_handling.py).
+# 617.1 (pin unchanged) with other mortality reaching detritus unscaled by
+# feeding time, as EwE6 sends it (test_detritus_mo_flow.py), and 617.1 with
+# the stanza update reading EwE's RK4 stages (test_stanza_stage_rates.py).
 # A change beyond 2 % needs a reason.
-LT2022_SS16 = 618.2
+LT2022_SS16 = 617.0
 
 
 @pytest.mark.integration
