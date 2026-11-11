@@ -66,6 +66,9 @@ def _intake_ratio(cap, factor):
 def test_intake_of_an_abundant_prey(monkeypatch, rule, expected):
     model, params = _simple_model()
     sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule=rule)
+    # isolates the mechanism under test; EwE's handling time (D5)
+    # has its own tests (test_handling_time.py)
+    sc.params.EWE_HANDLING_TIME = False
     cap = _first_call(monkeypatch, lambda: rsim_run(sc, method="RK4"))
     monkeypatch.undo()
     assert _intake_ratio(cap, 190.0) == pytest.approx(expected, rel=1e-9)

@@ -31,6 +31,9 @@ def _captured(rule="ewe"):
     """params / forcing / fishing dicts rsim_run passes to the derivative."""
     model, params = _stiff_model()
     sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule=rule)
+    # isolates the mechanism under test; EwE's handling time (D5)
+    # has its own tests (test_handling_time.py)
+    sc.params.EWE_HANDLING_TIME = False
     cap = {}
     real = D.deriv_vector
 
@@ -116,6 +119,9 @@ def test_ecospace_uniform_patches_match_rsim_run_with_prey_forcing():
 
     model, params = _stiff_model()
     sc = rsim_scenario(model, params, years=range(1, 3))
+    # isolates the mechanism under test; EwE's handling time (D5)
+    # has its own tests (test_handling_time.py)
+    sc.params.EWE_HANDLING_TIME = False
     sc.forcing.ForcedPrey[:, ZOO] = 0.7  # f != 1 on Fish's prey
     n = sc.params.NUM_GROUPS + 1
     grid = create_1d_grid(n_patches=2, spacing=1.0)

@@ -390,6 +390,9 @@ def deriv_vector_spatial(
     for g_idx, ctx in ibm_spatial_contexts.items():
         params["_ibm_spatial_context_%d" % g_idx] = ctx
 
+    # EwE6 handling time: each patch's Hden column (updated in place)
+    _hden_patches = params.get("_hden_patches")
+
     def _compute_patch(patch_idx, patch_params):
         """Compute local Ecosim derivative for a single patch.
 
@@ -397,6 +400,8 @@ def deriv_vector_spatial(
         threads never share mutable state.
         """
         state_patch = state_spatial[:, patch_idx]
+        if _hden_patches is not None:
+            patch_params["_hden"] = _hden_patches[:, patch_idx]  # a view
         if params_need_modification:
             patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
             patch_params["Bbase"] = b_base_ref_patches[:, patch_idx]
@@ -442,6 +447,8 @@ def deriv_vector_spatial(
                 state_patch = state_spatial[:, patch_idx]
                 patch_forcing = _patch_forcing(patch_idx)
                 rates = {} if rates_out is not None else None
+                if _hden_patches is not None:
+                    params["_hden"] = _hden_patches[:, patch_idx]  # a view
 
                 if params_need_modification:
                     b_base_ref_backup = params["B_BaseRef"]
@@ -675,6 +682,8 @@ def rsim_run_spatial(
     from pypath.core.ecosim import (
         _build_active_link_matrix,
         _build_link_matrix,
+        _ewe_handling_setup,
+        _frozen_hden,
         _handling_matrix,
     )
 
@@ -736,6 +745,18 @@ def rsim_run_spatial(
     # Include IBM groups in params dict for deriv_vector
     if hasattr(params, "ibm_groups"):
         params_dict["ibm_groups"] = params.ibm_groups
+
+    # EwE6 handling time (D5) as rsim_run applies it, with each patch's own
+    # Hden (deriv_vector_spatial hands every patch its column); the run starts
+    # from CmCo / (CmCo + 1) and one derivative at the start state.
+    _hden_start_pending = False
+    _handling = _ewe_handling_setup(params, n_groups + 1)
+    if _handling is not None:
+        _hden0, _hden_start, _cmco_qb = _handling
+        params_dict["_hden0"] = _hden0
+        params_dict["_cmco_qb"] = _cmco_qb
+        params_dict["_hden_patches"] = np.tile(_hden_start[:, None], (1, n_patches))
+        _hden_start_pending = True
 
     # Build fishing dict (constant across timesteps, same as rsim_run)
     fishing_dict = {
@@ -906,6 +927,10 @@ def rsim_run_spatial(
             return {key: np.zeros((n_groups + 1, n_patches)) for key in _stage_keys}
 
         month_start_biomass = current_biomass.copy()
+        if _hden_start_pending:
+            # EwE6 SetTimeSteps: one Derivt at the start state advances Hden
+            _f(current_biomass, t, hh)
+            _hden_start_pending = False
         first_stage = last_stage = None
         for sub in range(rk4_steps):
             t_sub = t + sub * hh
@@ -968,7 +993,8 @@ def rsim_run_spatial(
                     key: np.zeros((n_groups + 1, n_patches))
                     for key in ("FoodGain", "LossPropToB")
                 }
-                _f(current_biomass, t, DELTA_T, rates_out=month_rates)
+                with _frozen_hden(params_dict):
+                    _f(current_biomass, t, DELTA_T, rates_out=month_rates)
                 split_update(
                     stanzas_obj,
                     stanza_state,
