@@ -3847,6 +3847,194 @@ def _apply_forcing_shapes(
         logger.debug("Failed to apply forcing shapes: %s", e)
 
 
+# EwE6 eDataTypes targets of EcosimScenarioCapacityDrivers (CoreEnumerators.vb)
+_ENV_SEARCH_RESPONSE = 115  # EcosimEnviroResponseFunctionManager
+_ENV_MORTALITY_RESPONSE = 126  # EcosimMortalityResponseFunctionManager
+
+
+def _enviro_response(points: np.ndarray, x_min: float, x_max: float, x: float) -> float:
+    """A response curve read at ``x`` as EwE6 reads it
+    (cMediationDataStructures.getEnviroResponse): the first point at or below
+    ``x_min``, the last at or above ``x_max``, otherwise point
+    ``1 + trunc((x - x_min) * N / (x_max - x_min + 1e-5))`` (1-based), with no
+    interpolation. EwE's missing value (-9999) gives 1."""
+    if x == -9999.0:
+        return 1.0
+    if x <= x_min:
+        return float(points[0])
+    if x >= x_max:
+        return float(points[-1])
+    n = len(points)
+    ip = 1 + int(np.trunc((x - x_min) * n / (x_max - x_min + 1e-5)))
+    return float(points[min(ip, n) - 1])
+
+
+def _apply_capacity_drivers(
+    filepath: str,
+    selected: Dict[str, Any],
+    rsim: "RsimScenario",
+    params: "RpathParams",
+) -> None:
+    """Apply the scenario's environmental response functions as EwE6 does.
+
+    ``EcosimScenarioCapacityDrivers(ScenarioID, GroupID, DriverID,
+    ResponseID, Target)`` ties a group to a driver time series (an
+    ``EcosimShapeTime`` shape) through a response curve (an
+    ``EcosimShapeMediation`` shape, N points over [XAxisMin, XAxisMax];
+    cDBDataSource.LoadEcosimCapacityDrivers). Each month EwE reads the curve
+    at the driver's value (:func:`_enviro_response`).
+
+    - Target 115 (the default): the response multiplies the group's search
+      rate on all its prey, or a producer's production (ApplyAVmodifiers ->
+      ApplyEnvironmentalResponse, cEcoSimModel.vb 4931, 2895, 3033); several
+      drivers multiply. EwE's arena uses a predator's abundance only as
+      search rate x abundance, so this is PyPath's group-level
+      ``ForcedSearch`` (for a producer, its production forcing).
+    - Target 126: the responses are proportions of mortality, summed over
+      drivers and capped at 0.9999, and other mortality becomes
+      mo - 12 ln(1 - p) (ApplyMortalityResponse, vb 5016-5050): a
+      ``ForcedMort`` multiplier, for groups with mo > 0.
+
+    EwE also scales a detritus group's import by a search-rate response
+    (vb 3118); PyPath has no import forcing, so that is reported and
+    skipped.
+    """
+    try:
+        cap_df = _try_read_table_variants(filepath, ["EcosimScenarioCapacityDrivers"])
+        if cap_df is None or len(cap_df) == 0:
+            return
+        sid = selected.get("id")
+        if sid is not None and "ScenarioID" in cap_df.columns:
+            cap_df = cap_df[cap_df["ScenarioID"] == sid]
+        if len(cap_df) == 0:
+            return
+
+        shape_time_df = _try_read_table_variants(filepath, ["EcosimShapeTime"])
+        med_df = _try_read_table_variants(filepath, ["EcosimShapeMediation"])
+        sg_df = selected.get("scenario_group_df")
+        id_to_name = selected.get("group_id_to_name") or {}
+        if shape_time_df is None or med_df is None or sg_df is None or not id_to_name:
+            logger.warning(
+                "Environmental response functions of Ecosim scenario %s "
+                "skipped: shape or group tables are missing",
+                sid,
+            )
+            return
+
+        spname = [str(n).strip() for n in rsim.params.spname]
+        esim_to_idx: Dict[int, int] = {}
+        for _, row in sg_df.iterrows():
+            esim_gid = _int_or_none(row.get("GroupID"))
+            name = id_to_name.get(_int_or_none(row.get("EcopathGroupID")))
+            if esim_gid is None or name is None or str(name).strip() not in spname:
+                continue
+            esim_to_idx[esim_gid] = spname.index(str(name).strip())
+
+        def _values(row) -> np.ndarray:
+            """A shape's zScale as numbers: empty when missing, NaN for a
+            token that is not a number (the row check then skips it)."""
+            raw = row.get("zScale")
+            if raw is None or (not isinstance(raw, str) and pd.isna(raw)):
+                return np.empty(0)
+            out = []
+            for token in str(raw).split():
+                try:
+                    out.append(float(token))
+                except ValueError:
+                    out.append(np.nan)
+            return np.asarray(out, dtype=float)
+
+        drivers = {
+            _int_or_none(r.get("ShapeID")): _values(r)
+            for _, r in shape_time_df.iterrows()
+        }
+        responses = {
+            _int_or_none(r.get("ShapeID")): (
+                _values(r),
+                float(r.get("XAxisMin", 0.0)),
+                float(r.get("XAxisMax", 1.0)),
+            )
+            for _, r in med_df.iterrows()
+        }
+
+        forcing = rsim.forcing
+        n_months = forcing.ForcedSearch.shape[0]
+        group_types = list(params.model["Type"])  # model order, 0-based
+        mort_prop: Dict[int, np.ndarray] = {}
+        for _, row in cap_df.iterrows():
+            grp = esim_to_idx.get(_int_or_none(row.get("GroupID")))
+            driver = drivers.get(_int_or_none(row.get("DriverID")))
+            response = responses.get(_int_or_none(row.get("ResponseID")))
+            if grp is None or driver is None or response is None:
+                logger.warning(
+                    "Environmental response (group %s, driver %s, response %s) "
+                    "of Ecosim scenario %s matches no group or shape; skipped",
+                    row.get("GroupID"),
+                    row.get("DriverID"),
+                    row.get("ResponseID"),
+                    sid,
+                )
+                continue
+            points, x_min, x_max = response
+            usable = (
+                len(driver) > 0
+                and len(points) > 0
+                and np.isfinite(driver).all()
+                and np.isfinite(points).all()
+                and np.isfinite([x_min, x_max]).all()
+            )
+            if not usable:
+                # One broken shape must not poison or stop the other rows.
+                logger.warning(
+                    "Environmental response on %s skipped: driver %s or response "
+                    "%s holds no usable numbers",
+                    spname[grp],
+                    row.get("DriverID"),
+                    row.get("ResponseID"),
+                )
+                continue
+            x = driver[:n_months]
+            if len(x) < n_months:  # as the forcing shapes: the last value holds
+                x = np.pad(x, (0, n_months - len(x)), mode="edge")
+            r = np.array([_enviro_response(points, x_min, x_max, v) for v in x])
+            target = _int_or_none(row.get("Target")) or _ENV_SEARCH_RESPONSE
+            gtype = group_types[grp - 1] if 0 < grp <= len(group_types) else None
+            if target == _ENV_MORTALITY_RESPONSE:
+                mort_prop[grp] = mort_prop.get(grp, 0.0) + r
+            elif target != _ENV_SEARCH_RESPONSE:
+                logger.warning(
+                    "Environmental response target %s on %s is not known; skipped",
+                    target,
+                    spname[grp],
+                )
+            elif gtype == 2:
+                logger.warning(
+                    "Environmental response on detritus group %s (it scales the "
+                    "detritus import in EwE) is not modelled; skipped",
+                    spname[grp],
+                )
+            else:
+                forcing.ForcedSearch[:, grp] *= r
+                logger.info(
+                    "Applied environmental response %s (driver %s) to %s",
+                    row.get("ResponseID"),
+                    row.get("DriverID"),
+                    spname[grp],
+                )
+
+        mzero = np.asarray(rsim.params.MzeroMort, dtype=float)
+        for grp, p in mort_prop.items():
+            mo = float(mzero[grp])
+            if mo <= 0:
+                continue  # EwE: a multiplier on mo = 0 has no effect
+            p = np.minimum(p, 0.9999)
+            forcing.ForcedMort[:, grp] *= (mo - 12.0 * np.log(1.0 - p)) / mo
+            logger.info("Applied environmental mortality response to %s", spname[grp])
+
+    except Exception as e:
+        logger.warning("Failed to apply environmental response functions: %s", e)
+
+
 # EwE6 eForcingFunctionApplication (Sources/EwECore/Core/CoreEnumerators.vb)
 _FF_SEARCH_RATE = 1
 _FF_VULNERABILITY = 2
@@ -3995,6 +4183,9 @@ def ecosim_scenario_from_ewemdb(
 
     # Load environmental forcing shapes (EcosimShapeTime, EcosimScenarioGroup)
     _apply_forcing_shapes(filepath, selected, rsim, params)
+
+    # Environmental response functions (EcosimScenarioCapacityDrivers)
+    _apply_capacity_drivers(filepath, selected, rsim, params)
 
     # The time-series dataset loaded in Ecosim drives the run (forced biomass,
     # effort, fishing mortality), as in EwE6. The scenario tables do not name
