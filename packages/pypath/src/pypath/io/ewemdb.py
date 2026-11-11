@@ -4035,6 +4035,125 @@ def _apply_capacity_drivers(
         logger.warning("Failed to apply environmental response functions: %s", e)
 
 
+def _shape_series(values: np.ndarray, n_months: int, seasonal: bool) -> np.ndarray:
+    """A forcing shape over ``n_months`` as EwE6 extends it
+    (cEcosimDatastructures, vb 1239-1260): beyond its points a seasonal shape
+    repeats its first 12 months, any other holds its last value."""
+    out = np.empty(n_months)
+    k = min(len(values), n_months)
+    out[:k] = values[:k]
+    for i in range(k, n_months):
+        out[i] = values[i % 12] if seasonal and len(values) >= 12 else values[-1]
+    return out
+
+
+def _apply_stanza_shapes(filepath: str, rsim: "RsimScenario", params) -> None:
+    """Attach the stanza groups' egg-production and hatch-code shapes.
+
+    ``EcosimStanzaShape(StanzaID, EggprodShapeID, HatchCodeShapeID)``
+    (cDBDataSource, LoadStanzaShapes) links a stanza group to forcing shapes
+    (``EcosimShapeEggProd`` or ``EcosimShapeTime``; ``EcosimShape.IsSeasonal``
+    marks a seasonal one). The egg-production shape goes to ``ForcedRecs`` at
+    the stanza group's last stage (where split_update reads it); a seasonal one
+    also sets RscaleSplit = 12 / (sum of its first 12 months) (SplitInitialize,
+    vb 3487-3498). The hatch-code shape goes to ``rsim.stanzas.hatch_forcing``.
+    Under the EwE rule split_update then recruits RscaleSplit x egg x RzeroS x
+    hatch, with (Eggs / BaseEggs)^RecPower only without a hatch-code shape.
+    """
+    try:
+        st = rsim.stanzas
+        link_df = _try_read_table_variants(filepath, ["EcosimStanzaShape"])
+        if link_df is None or len(link_df) == 0 or st is None or int(st.n_split) < 1:
+            return
+        stindiv = getattr(getattr(params, "stanzas", None), "stindiv", None)
+        if not isinstance(stindiv, pd.DataFrame) or len(stindiv) == 0:
+            logger.warning("Stanza shapes skipped: no stanza tables to match them")
+            return
+
+        spname = [str(n).strip() for n in rsim.params.spname]
+        isp_of: Dict[int, int] = {}
+        for sid, rows in stindiv.groupby("StGroupNum"):
+            last = str(rows.sort_values("StanzaNum")["Group"].iloc[-1]).strip()
+            if last not in spname:
+                continue
+            g = spname.index(last)
+            for isp in range(1, int(st.n_split) + 1):
+                if int(st.ecopath_code[isp, int(st.n_stanzas[isp])]) == g:
+                    isp_of[int(sid)] = isp
+
+        values: Dict[int, np.ndarray] = {}
+        for table in ("EcosimShapeEggProd", "EcosimShapeTime"):
+            df = _try_read_table_variants(filepath, [table])
+            if df is None:
+                continue
+            for _, r in df.iterrows():
+                sid = _int_or_none(r.get("ShapeID"))
+                raw = r.get("zScale")
+                if (
+                    sid is None
+                    or raw is None
+                    or (not isinstance(raw, str) and pd.isna(raw))
+                ):
+                    continue
+                try:
+                    vals = np.asarray([float(v) for v in str(raw).split()], float)
+                except ValueError:
+                    continue
+                if len(vals) and np.isfinite(vals).all():
+                    values.setdefault(sid, vals)
+        seasonal: Dict[int, bool] = {}
+        shape_df = _try_read_table_variants(filepath, ["EcosimShape"])
+        if shape_df is not None and "IsSeasonal" in shape_df.columns:
+            for _, r in shape_df.iterrows():
+                sid = _int_or_none(r.get("ShapeID"))
+                if sid is not None:
+                    seasonal[sid] = bool(_int_or_none(r.get("IsSeasonal")) or 0)
+
+        n_months = rsim.forcing.ForcedRecs.shape[0]
+        for _, row in link_df.iterrows():
+            stanza_id = _int_or_none(row.get("StanzaID"))
+            isp = isp_of.get(stanza_id)
+            if isp is None:
+                logger.warning(
+                    "Stanza shape row for stanza %s matches no stanza group; skipped",
+                    stanza_id,
+                )
+                continue
+            last_group = int(st.ecopath_code[isp, int(st.n_stanzas[isp])])
+            for column in ("EggprodShapeID", "HatchCodeShapeID"):
+                shape_id = _int_or_none(row.get(column))
+                if shape_id is None or shape_id <= 0:
+                    continue
+                if shape_id not in values:
+                    logger.warning(
+                        "Stanza %s: %s %s is not a usable forcing shape; skipped",
+                        stanza_id,
+                        column,
+                        shape_id,
+                    )
+                    continue
+                is_seasonal = seasonal.get(shape_id, False)
+                series = _shape_series(values[shape_id], n_months, is_seasonal)
+                if column == "EggprodShapeID":
+                    rsim.forcing.ForcedRecs[:, last_group] *= series
+                    if is_seasonal and series[:12].sum() > 0:
+                        st.r_scale_split[isp] = 12.0 / float(series[:12].sum())
+                else:
+                    if st.hatch_forcing is None:
+                        st.hatch_forcing = np.full(
+                            (n_months, int(st.n_split) + 1), np.nan
+                        )
+                    st.hatch_forcing[:, isp] = series
+                logger.info(
+                    "Applied %s %s to stanza group %s",
+                    column,
+                    shape_id,
+                    spname[last_group],
+                )
+    except Exception as e:
+        logger.warning("Failed to apply stanza egg-production/hatch shapes: %s", e)
+
+
 # EwE6 eForcingFunctionApplication (Sources/EwECore/Core/CoreEnumerators.vb)
 _FF_SEARCH_RATE = 1
 _FF_VULNERABILITY = 2
@@ -4186,6 +4305,9 @@ def ecosim_scenario_from_ewemdb(
 
     # Environmental response functions (EcosimScenarioCapacityDrivers)
     _apply_capacity_drivers(filepath, selected, rsim, params)
+
+    # Egg-production and hatch-code shapes of the stanza groups
+    _apply_stanza_shapes(filepath, rsim, params)
 
     # The time-series dataset loaded in Ecosim drives the run (forced biomass,
     # effort, fishing mortality), as in EwE6. The scenario tables do not name

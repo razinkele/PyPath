@@ -475,9 +475,9 @@ class TestCoupling:
         seen = []
         real = ecosim_mod.split_update
 
-        def spy(stanzas, sstate, biomass, food_gain, loss, forced_recs=None):
+        def spy(stanzas, sstate, biomass, food_gain, loss, **kwargs):
             seen.append((biomass.copy(), food_gain.copy(), loss.copy()))
-            return real(stanzas, sstate, biomass, food_gain, loss, forced_recs)
+            return real(stanzas, sstate, biomass, food_gain, loss, **kwargs)
 
         monkeypatch.setattr(ecosim_mod, "split_update", spy)
         rsim_run(sc, method="RK4", years=range(1, 3))

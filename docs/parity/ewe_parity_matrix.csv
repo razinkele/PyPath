@@ -51,13 +51,13 @@ EcosimScenarioQuota,ecosim,true,true,false,false,partial,
 EcosimScenarioShapeMedWeightsFleet,ecosim,true,true,false,true,partial,
 EcosimScenarioshapeMedWeightsGroup,ecosim,true,true,false,true,partial,
 EcosimScenarioshapeMedWeightsLandings,ecosim,true,true,false,true,partial,
-EcosimShape,ecosim,true,false,true,true,partial,
-EcosimShapeEggProd,ecosim,true,false,false,false,partial,
+EcosimShape,ecosim,true,true,true,true,implemented,
+EcosimShapeEggProd,ecosim,true,true,false,false,partial,"read: egg-production shapes linked to stanza groups (EcosimStanzaShape)"
 EcosimShapeFishMort,ecosim,true,false,false,false,partial,
 EcosimShapeFishRate,ecosim,true,true,true,true,implemented,
 EcosimShapeMediation,ecosim,true,true,false,true,partial,
 EcosimShapeTime,ecosim,true,true,true,true,implemented,
-EcosimStanzaShape,ecosim,true,false,false,false,partial,
+EcosimStanzaShape,ecosim,true,true,false,false,partial,"read: egg-production shape (ForcedRecs, seasonal RscaleSplit) and hatch-code shape per stanza group; not written"
 EcosimTimeSeries,ecosim,true,true,false,true,partial,
 EcosimTimeSeriesDataset,ecosim,true,false,false,true,partial,
 EcosimTimeSeriesFleet,ecosim,true,true,false,false,partial,read: links effort series to fleets (read_timeseries)

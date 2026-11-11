@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -156,6 +156,11 @@ class RsimStanzas:
     plus_group_rule: str = "rpath"
     ahat: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
     rhat: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0]))
+    # EwE6 hatch-code shape by month (rows) and stanza group (columns, as
+    # the other per-group arrays); NaN where a stanza has none. Under the EwE
+    # rule a stanza with one recruits RscaleSplit x egg x RzeroS x hatch,
+    # without the stock-recruitment term (split_update).
+    hatch_forcing: Optional[np.ndarray] = None
 
 
 def von_bertalanffy_weight(age: np.ndarray, k: float, d: float = 0.66667) -> np.ndarray:
@@ -828,6 +833,7 @@ def split_update(
     food_gain: np.ndarray,
     loss_prop_to_b: np.ndarray,
     forced_recs: np.ndarray | None = None,
+    month_index: int | None = None,
 ) -> None:
     """Advance the stanza age structure by one month (Rpath ``SplitUpdate``).
 
@@ -887,7 +893,16 @@ def split_update(
 
         spawn_x = stanzas.spawn_x[isp]
         base_spawn = stanzas.base_spawn_bio[isp]
-        if base_spawn > 0:
+        egg_mult = (
+            float(forced_recs[ieco])
+            if forced_recs is not None and ieco < len(forced_recs)
+            else 1.0
+        )
+        if ewe_plus:
+            # EwE6: the eggs are the spawning biomass (no saturation); the
+            # egg-production forcing multiplies the recruits below.
+            eggs = spawn
+        elif base_spawn > 0:
             eggs = (
                 spawn
                 * stanzas.spawn_energy[isp]
@@ -896,8 +911,8 @@ def split_update(
             )
         else:
             eggs = 0.0
-        if forced_recs is not None and ieco < len(forced_recs):
-            eggs *= forced_recs[ieco]
+        if not ewe_plus:
+            eggs *= egg_mult  # Rpath: inside the RecPower exponent
         sstate.eggs_stanza[isp] = eggs
 
         last = int(stanzas.age2[isp, nst])
@@ -924,17 +939,38 @@ def split_update(
 
         base_eggs = stanzas.base_eggs_stanza[isp]
         if base_eggs > 0:
-            nage[first, isp] = (
-                stanzas.r_scale_split[isp]
-                * stanzas.r_zero_s[isp]
-                * (eggs / base_eggs) ** stanzas.rec_power[isp]
-            )
+            recruits = stanzas.r_scale_split[isp] * stanzas.r_zero_s[isp]
+            if ewe_plus:
+                # EwE6 SplitUpdate (vb 1895-1902): RscaleSplit x egg x RzeroS
+                # x hatch, times (Eggs / BaseEggs)^RecPower only without a
+                # hatch-code shape.
+                hatch = _hatch_value(stanzas, isp, month_index)
+                recruits *= egg_mult
+                if hatch is None:
+                    recruits *= (eggs / base_eggs) ** stanzas.rec_power[isp]
+                else:
+                    recruits *= hatch
+            else:
+                recruits *= (eggs / base_eggs) ** stanzas.rec_power[isp]
+            nage[first, isp] = recruits
         wage[first, isp] = 0.0
         if not ewe_plus:
             # EwE6's SplitSetPred keeps the setup's W^(2/3) (WWa) instead.
             sstate.qage_s[: last + 1, isp] = (
                 wage[: last + 1, isp] ** stanzas.vbgf_d[isp]
             )
+
+
+def _hatch_value(stanzas: RsimStanzas, isp: int, month_index: int | None):
+    """The stanza's hatch-code shape value this month, or None without one."""
+    hatch = getattr(stanzas, "hatch_forcing", None)
+    if hatch is None or month_index is None:
+        return None
+    hatch = np.asarray(hatch, dtype=float)
+    if not (0 <= month_index < hatch.shape[0] and isp < hatch.shape[1]):
+        return None
+    value = hatch[month_index, isp]
+    return float(value) if np.isfinite(value) else None
 
 
 def split_set_pred(

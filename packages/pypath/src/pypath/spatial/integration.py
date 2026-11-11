@@ -946,6 +946,7 @@ def rsim_run_spatial(
                 month_rates["FoodGain"].sum(axis=1),
                 month_rates["LossPropToB"].sum(axis=1),
                 forced_recs=forcing_dict.get("ForcedRecs"),
+                month_index=mi,
             )
             split_set_pred(stanzas_obj, stanza_state, total)
             for i in stanza_idx:
