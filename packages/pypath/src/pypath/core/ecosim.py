@@ -1279,8 +1279,11 @@ def rsim_scenario(
             # RpathParams keeps the stanza tables as DataFrames; convert them
             # once and hand the same object to both steps, because
             # rpath_stanzas writes the age structure that rsim_stanzas reads.
-            stanza_params = ecosim_stanza_params(
-                rpath_params.stanzas, rpath_params.model
+            # ecosim_stanza_params returns an EcosimStanzaParams it is given
+            # as it is: copy it, so the scenario's table (and rule) never
+            # lands in the user's object.
+            stanza_params = copy.deepcopy(
+                ecosim_stanza_params(rpath_params.stanzas, rpath_params.model)
             )
             # rpath_stanzas writes stanza Biomass/QB into the model table.
             # Work on a copy so building a scenario never edits the user's

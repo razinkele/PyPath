@@ -34,7 +34,7 @@ from pypath.core.stanzas import (
 K, Z_JUV, Z_AD = 1.175, 1.94, 1.75
 
 
-def _mussel_params(k=K):
+def _mussel_params(k=K, adult_first=12):
     params = create_rpath_params(
         ["Phyto", "Juv", "Adult", "Det"],
         [1, 0, 0, 2],
@@ -57,7 +57,7 @@ def _mussel_params(k=K):
                 "group_num": 2,
                 "group_name": "Juv",
                 "first": 0,
-                "last": 11,
+                "last": adult_first - 1,
                 "z": Z_JUV,
             },
             {
@@ -65,8 +65,8 @@ def _mussel_params(k=K):
                 "stanza_num": 2,
                 "group_num": 3,
                 "group_name": "Adult",
-                "first": 12,
-                "last": 60,
+                "first": adult_first,
+                "last": adult_first + 48,
                 "z": Z_AD,
                 "leading": True,
             },
@@ -75,23 +75,26 @@ def _mussel_params(k=K):
     return params
 
 
-def _ewe_table(k=K):
-    params = _mussel_params(k)
+def _ewe_table(k=K, adult_first=12):
+    params = _mussel_params(k, adult_first)
     sp = params.stanzas
     rpath_stanzas(params, stanza_params=sp, rule="ewe")
     return params, sp, sp.st_groups[1]
 
 
 @pytest.mark.parametrize(
-    "k, last_month",
+    "k, adult_first, last_month",
     [
-        (K, 34),  # CInt(40.3978 / 1.175) = CInt(34.38)
-        (3.0, 24),  # CInt(13.47) = 13, raised to first + 12
-        (0.05, 400),  # CInt(807.96), capped at cCore.MAX_AGE
+        (K, 12, 34),  # CInt(40.3978 / 1.175) = CInt(34.38)
+        (1.1, 12, 37),  # CInt(36.73) rounds up (truncation would give 36)
+        (3.0, 12, 24),  # CInt(13.47) = 13, raised to first + 12
+        (0.05, 12, 400),  # CInt(807.96), capped at cCore.MAX_AGE
+        # Raised to first + 12 = 402 first, then capped (vb 4289-4290).
+        (0.05, 390, 400),
     ],
 )
-def test_ewe_age_table_ends_at_90_percent_of_winf(k, last_month):
-    _, sp, table = _ewe_table(k)
+def test_ewe_age_table_ends_at_90_percent_of_winf(k, adult_first, last_month):
+    _, sp, table = _ewe_table(k, adult_first)
     assert sp.stanza_groups[0].last_month == last_month
     assert sp.stanza_individuals[-1].last == last_month
     assert table["age"].iloc[-1] == last_month
@@ -164,6 +167,24 @@ def test_ewe_rule_scenario_uses_the_ewe_table():
     _, sc = _ewe_scenario()
     st = sc.stanzas
     assert int(st.age2[1, 2]) == 34
+    assert st.plus_group_rule == "ewe"
+
+
+def test_building_a_scenario_leaves_the_users_stanza_object_alone():
+    """rsim_scenario works on a copy: an EwE-rule scenario must not write its
+    table (or its rule) into an EcosimStanzaParams held by the user's params,
+    where a later rsim_stanzas() would pick it up."""
+    params = _mussel_params()
+    rpath_stanzas(params, rule="ewe")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = rpath(params)
+    mine = _mussel_params().stanzas
+    params.stanzas = mine
+    rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
+    assert mine.plus_group_rule == "rpath"
+    assert mine.st_groups == {}
+    assert mine.stanza_individuals[-1].last == 60
 
 
 def test_rpath_rule_scenario_keeps_rpaths_table():
@@ -174,6 +195,7 @@ def test_rpath_rule_scenario_keeps_rpaths_table():
         model = rpath(params)
     sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="rpath")
     assert int(sc.stanzas.age2[1, 2]) > 34
+    assert sc.stanzas.plus_group_rule == "rpath"
 
 
 def test_plus_group_steps_once_then_holds_at_equilibrium():
@@ -244,3 +266,54 @@ def test_stanza_feeding_time_follows_the_predator_index(monkeypatch):
     # The plus-group step happened (adult biomass up 0.19 % after month 1).
     assert out.out_Biomass[1, ad] / out.out_Biomass[0, ad] > 1.0018
     assert ftime[2] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_stanza_feeding_time_denominator_is_b0_times_the_index_ratio(monkeypatch):
+    """Off equilibrium (extra mortality on the adults), each month's update
+    is Ftime' = L + (1 - L) Ftime (1 - adj + adj QBopt B0 r / FoodGain) with
+    r = StanzaPredRatio and FoodGain at the start of the month, i.e. EwE's
+    Cbase / CBlast. Dividing by B0 alone or by the biomass gives other
+    values."""
+    import pypath.core.ecosim as E
+
+    _, sc = _ewe_scenario()
+    p = sc.params
+    ad = p.spname.index("Adult")
+    adj = 0.5
+    p.FtimeAdj[ad] = adj
+    sc.forcing.ForcedMort[:4, ad] = 1.5
+    calls = []
+    real = E.deriv_vector
+
+    def spy(state, params, forcing, fishing, *a, **k):
+        out = real(state, params, forcing, fishing, *a, **k)
+        rates = k.get("rates")
+        if rates is not None and "StanzaPredRatio" in forcing:
+            calls.append(
+                (
+                    float(forcing["Ftime"][ad]),
+                    float(forcing["StanzaPredRatio"][ad]),
+                    float(rates["FoodGain"][ad]),
+                    float(state[ad]),
+                )
+            )
+        return out
+
+    monkeypatch.setattr(E, "deriv_vector", spy)
+    E.rsim_run(sc, method="RK4")
+    months = sc.forcing.ForcedBio.shape[0]
+    assert len(calls) == 2 * months  # Ftime call, then the stanza-rates call
+    ftime_calls = calls[0::2]
+    lower = float(p.ForagingTimeLowerLimit)
+    qbopt, b0 = float(p.FtimeQBOpt[ad]), float(p.B_BaseRef[ad])
+
+    def update(ft, index, food):
+        return lower + (1 - lower) * ft * (1 - adj + adj * qbopt * index / food)
+
+    for m in range(1, 4):
+        ft, ratio, food, b = ftime_calls[m]
+        expected = update(ft, b0 * ratio, food)
+        assert ftime_calls[m + 1][0] == pytest.approx(expected, rel=1e-12)
+        assert abs(ratio - 1.0) > 1e-2
+        for other in (b0, b):
+            assert abs(update(ft, other, food) - expected) > 1e-6
