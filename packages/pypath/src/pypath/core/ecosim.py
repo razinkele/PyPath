@@ -409,8 +409,9 @@ class RsimOutput:
         Predicts catch as B x F in ``ewe_sum_of_squares``.
     out_Hden : np.ndarray or None
         EwE6's handling-time term Hden of each predator at the end of each
-        month (n_months+1 x n_groups+1; row 0 the start, CmCo / (CmCo - 1)).
-        None when ``EWE_HANDLING_TIME`` is off.
+        month (n_months+1 x n_groups+1; row 0 the run's start, CmCo / (CmCo +
+        1)). None when ``EWE_HANDLING_TIME`` is off. Recorded by ``rsim_run``;
+        Ecospace keeps one Hden per patch and does not record it.
     end_state : RsimState
         Final state at end of simulation
     crash_year : int

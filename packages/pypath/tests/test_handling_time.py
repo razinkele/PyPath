@@ -79,7 +79,8 @@ def _run(sc):
 def test_run_starts_from_ewes_hden_and_settles_on_the_base():
     """EwE starts a run from Hden = CmCo / (CmCo + 1) (SetTimeSteps), while
     the base search rates assume CmCo / (CmCo - 1): with CmCo = 2 the
-    predators eat three times their base rate at first. Hden then climbs to
+    predators' search rates start at three times their base value (their
+    intake rises less, as the arena saturates). Hden then climbs to
     its fixed point and the run returns to the base state; with EwE's default
     1000 the start transient stays below 1e-4."""
     out = _run(_scenario(2.0))
