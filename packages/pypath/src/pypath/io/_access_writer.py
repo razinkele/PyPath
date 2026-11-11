@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +21,14 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 _TEMPLATE_PATH = Path(__file__).parent / "templates" / "blank_ewe6.eweaccdb"
+
+# EwE reads a database's schema version from UpdateLog. An empty log reads as
+# version 0, and EwE 6.7.144 then runs every schema update from 6.011 and
+# fails on the current schema ("Model failed to update"). The template has
+# EwE 6.7.144's schema (same tables and columns as databases EwE writes) but
+# an empty log, so the writer adds the row EwE 6.7.144 writes last.
+EWE_SCHEMA_VERSION = 6.7000141
+EWE_SCHEMA_VERSION_EWE = "6.7.0.18858"
 
 
 def _find_access_driver() -> str:
@@ -166,10 +175,41 @@ class AccessWriter:
         conn_str = f"DRIVER={{{self._driver}}};DBQ={self._tmp_path};"
         self._conn = pyodbc.connect(conn_str)
         self._conn.autocommit = True
+        self._ensure_update_log()
 
         # source_db mode: no tables cleared during init.
         # write_ecosim uses UPDATE instead of DELETE+INSERT.
         # Ecopath tables are left untouched.
+
+    def _ensure_update_log(self) -> None:
+        """Give an empty UpdateLog EwE 6.7.144's schema version, so EwE opens
+        the file instead of running every schema update from 6.011. A log
+        that has rows (a source database written by EwE) is left alone."""
+        import pyodbc
+
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute("SELECT COUNT(*) FROM [UpdateLog]")
+            if cursor.fetchone()[0]:
+                return
+            cursor.execute(
+                "INSERT INTO [UpdateLog] ([Version], [Date], [Remark], [EwEVersion]) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    EWE_SCHEMA_VERSION,
+                    datetime.now(),
+                    "Written by PyPath (EwE 6.7.144 schema)",
+                    EWE_SCHEMA_VERSION_EWE,
+                ),
+            )
+        except pyodbc.Error as e:
+            logger.warning(
+                "UpdateLog could not be stamped (%s); EwE may refuse to open %s",
+                e,
+                self._path,
+            )
+        finally:
+            cursor.close()
 
     def _clear_tables(self, tables: list[str]) -> None:
         """Clear rows from the specified tables.
