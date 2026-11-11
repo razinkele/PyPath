@@ -221,6 +221,11 @@ class RsimParams:
     # so its detritus budget is not closed when Ftime != 1; the 'rpath' rule
     # sends the scaled flow and keeps it closed.
     DETRITUS_MO_UNSCALED: bool = True
+    # EwE6's monthly stanza update reads growth from the step's last RK4
+    # stage (Eatenby at y + h k3) and survival from its first (LossSt, with
+    # the start-of-month stanza biomass); the 'rpath' rule takes both from
+    # the end-of-month state, as Rpath's RK4 does.
+    STANZA_STAGE_RATES: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -871,6 +876,7 @@ def rsim_params(
         STANZA_WALFORD_PLUS_GROUP=(fast_group_rule == "ewe"),
         LINK_HANDLING_TERM=(fast_group_rule == "rpath"),
         DETRITUS_MO_UNSCALED=(fast_group_rule == "ewe"),
+        STANZA_STAGE_RATES=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -2133,11 +2139,25 @@ def rsim_run(
                     np.asarray(params.B_BaseRef, dtype=float)[_has_sr] * _sr[_has_sr]
                 )
 
+        # EwE6's stanza update reads the step's first and last RK4 stages.
+        _stanza_stages = (
+            {}
+            if stanza_state is not None
+            and method.upper() == "RK4"
+            and getattr(params, "STANZA_STAGE_RATES", False)
+            else None
+        )
         # Integration step
         if method.upper() == "RK4":
             old_state = state.copy()
             state = integrate_rk4(
-                state, params_dict, forcing_dict, fishing_dict, dt, n_steps=rk4_steps
+                state,
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                dt,
+                n_steps=rk4_steps,
+                stage_rates=_stanza_stages,
             )
         elif method.upper() == "AB":
             # Warmup: use RK4 for the first month to populate derivative history
@@ -2227,23 +2247,36 @@ def rsim_run(
         # come from the derivative where Rpath takes them: after the month's
         # integration for RK4, at the start of the month for AB.
         if stanza_state is not None:
-            rate_state = month_start_state if method.upper() == "AB" else state
-            stanza_rates: dict = {}
-            deriv_vector(
-                rate_state.copy(),
-                params_dict,
-                forcing_dict,
-                fishing_dict,
-                rates=stanza_rates,
-            )
-            split_update(
-                stanzas_obj,
-                stanza_state,
-                rate_state,
-                stanza_rates["FoodGain"],
-                stanza_rates["LossPropToB"],
-                forced_recs=forcing_dict.get("ForcedRecs"),
-            )
+            if _stanza_stages:
+                # EwE6 rule: growth from the last stage's consumption,
+                # survival from the first stage's loss over the stanza
+                # groups' start-of-month biomass (cEcoSimModel.rk4).
+                split_update(
+                    stanzas_obj,
+                    stanza_state,
+                    month_start_state,
+                    _stanza_stages["last"]["FoodGain"],
+                    _stanza_stages["first"]["LossPropToB"],
+                    forced_recs=forcing_dict.get("ForcedRecs"),
+                )
+            else:
+                rate_state = month_start_state if method.upper() == "AB" else state
+                stanza_rates: dict = {}
+                deriv_vector(
+                    rate_state.copy(),
+                    params_dict,
+                    forcing_dict,
+                    fishing_dict,
+                    rates=stanza_rates,
+                )
+                split_update(
+                    stanzas_obj,
+                    stanza_state,
+                    rate_state,
+                    stanza_rates["FoodGain"],
+                    stanza_rates["LossPropToB"],
+                    forced_recs=forcing_dict.get("ForcedRecs"),
+                )
             # Overwrite the stanza groups' biomass with sum(N * W)
             split_set_pred(stanzas_obj, stanza_state, state)
             stanza_biomass[month, stanza_idx] = state[stanza_idx]

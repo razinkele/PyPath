@@ -49,7 +49,8 @@ DB_PATH = str(DATA_DIR / "LT2022_0.5ST_final7.eweaccdb")
 # EwE6 does not have (Cod, Turbot and Perciformes through the year-8 Round goby
 # boom; test_link_handling.py).
 # 617.1 (pin unchanged) with other mortality reaching detritus unscaled by
-# feeding time, as EwE6 sends it (test_detritus_mo_flow.py).
+# feeding time, as EwE6 sends it (test_detritus_mo_flow.py), and 617.1 with
+# the stanza update reading EwE's RK4 stages (test_stanza_stage_rates.py).
 # A change beyond 2 % needs a reason.
 LT2022_SS16 = 617.0
 
