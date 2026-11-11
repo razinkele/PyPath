@@ -672,7 +672,11 @@ def rsim_run_spatial(
 
     # Convert scenario to dictionary format for deriv function
     # Must match the key names that deriv_vector expects (same as rsim_run in ecosim.py)
-    from pypath.core.ecosim import _build_active_link_matrix, _build_link_matrix
+    from pypath.core.ecosim import (
+        _build_active_link_matrix,
+        _build_link_matrix,
+        _handling_matrix,
+    )
 
     params = scenario.params
     params_dict = {
@@ -686,7 +690,7 @@ def rsim_run_spatial(
         "Unassim": params.UnassimRespFrac,
         "ActiveLink": _build_active_link_matrix(params),
         "VV": _build_link_matrix(params, params.VV),
-        "DD": _build_link_matrix(params, params.DD),
+        "DD": _handling_matrix(params),
         "QQbase": _build_link_matrix(params, params.QQ),
         "Bbase": params.B_BaseRef,
         "B_BaseRef": params.B_BaseRef,

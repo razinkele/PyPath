@@ -212,6 +212,10 @@ class RsimParams:
     # the 'rpath' rule keeps Rpath's 99.999 % table and numbers-weighted
     # plus group (rsim_scenario -> rpath_stanzas(rule=...)).
     STANZA_WALFORD_PLUS_GROUP: bool = True
+    # Rpath's per-link handling term DD / (DD - 1 + preyYY). EwE6 has none:
+    # its handling time acts on the predator's total intake (Hden), so under
+    # the EwE rule the derivative gets no link handling (_handling_matrix).
+    LINK_HANDLING_TERM: bool = False
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -860,6 +864,7 @@ def rsim_params(
         FTIME_START_OF_MONTH=(fast_group_rule == "ewe"),
         PREY_FTIME_ARENA=(fast_group_rule == "ewe"),
         STANZA_WALFORD_PLUS_GROUP=(fast_group_rule == "ewe"),
+        LINK_HANDLING_TERM=(fast_group_rule == "rpath"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -1508,7 +1513,7 @@ def rsim_run(
         "Unassim": params.UnassimRespFrac,
         "ActiveLink": _build_active_link_matrix(params),
         "VV": _build_link_matrix(params, params.VV),
-        "DD": _build_link_matrix(params, params.DD),
+        "DD": _handling_matrix(params),
         "QQbase": _build_link_matrix(params, params.QQ),
         "Bbase": params.B_BaseRef,
         "PP_type": params.PP_type,
@@ -2582,6 +2587,28 @@ def _build_link_matrix(params: RsimParams, link_values: np.ndarray) -> np.ndarra
         if prey < n and pred < n and i < len(link_values):
             matrix[prey, pred] = link_values[i]
     return matrix
+
+
+# With DD this large, Rpath's handling term DD / (DD - 1 + preyYY) is exactly 1
+# ("large DD = no handling time effect", Rpath), in every derivative kernel.
+_NO_LINK_HANDLING = 1e300
+
+
+def _handling_matrix(params: RsimParams) -> np.ndarray:
+    """The DD matrix the derivative uses.
+
+    Rpath multiplies each link by DD / (DD - 1 + preyYY), so a predator's
+    intake from one prey saturates as that prey becomes abundant. EwE6 has no
+    per-link term: handling time acts on the predator's total intake,
+    Hden = 1 + Htime x sum(a x V), Htime = pred / (CmCo x B0 x QB)
+    (cEcoSimModel.Derivt, vb 2896-2969), which at CmCo = 1000 stays within
+    0.1 % of its base value unless the predator eats far more per head than at
+    base, and is not modelled. Under the EwE rule (LINK_HANDLING_TERM False)
+    every link gets a DD so large that the term is 1.
+    """
+    if getattr(params, "LINK_HANDLING_TERM", True):
+        return _build_link_matrix(params, params.DD)
+    return _build_link_matrix(params, np.full(len(params.PreyFrom), _NO_LINK_HANDLING))
 
 
 def _ftime_update_rpath(
