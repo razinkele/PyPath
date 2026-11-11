@@ -1458,6 +1458,11 @@ def read_ewemdb(
                         "VBGF_d": 0.66667,
                         "Wmat": row.get("WmatWinf", np.nan),
                         "RecPower": row.get("RecPower", np.nan),
+                        # Spawning settings (EwE6 SplitInitialize/Update)
+                        "FixedFecundity": bool(
+                            _int_or_none(row.get("FixedFecundity")) or 0
+                        ),
+                        "RecStanza": _int_or_none(row.get("RecStanza")) or 0,
                         # Stanza.BABsplit: the group's biomass accumulation
                         # rate, added to every stage's Z in the age table
                         # and to the base recruits (CalculateStanzaParameters)
@@ -1543,6 +1548,12 @@ def read_ewemdb(
                         "First": row.get("AgeStart", 0),
                         "Last": np.nan,  # Will be calculated from next stage's First
                         "Z": _stanza_z(group_name, row.get("Mortality", np.nan)),
+                        # EwE reads a missing SpawnProp as 1 (cDBDataSource)
+                        "SpawnProp": (
+                            1.0
+                            if _ewe_number(row.get("SpawnProp")) is None
+                            else _ewe_number(row.get("SpawnProp"))
+                        ),
                         "Leading": (
                             _int_or_none(row.get("Sequence", 1))
                             == leading_stage.get(stanza_id)
