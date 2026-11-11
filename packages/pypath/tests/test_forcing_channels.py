@@ -203,8 +203,10 @@ def _params_dict(sc):
 
 
 def test_importer_routes_a_consumer_search_rate_shape(monkeypatch):
-    """EwE application type 1 (search rate) on a consumer's link becomes that
-    consumer's ForcedSearch (PyPath has one search-rate channel per predator)."""
+    """EwE application type 1 (search rate) on a consumer's link scales that
+    link's search rate (EwE rule: ForcedSearchLink[:, prey, predator]); the
+    consumer's group-level ForcedSearch stays 1. The 'rpath' rule's
+    group-level mapping is tested in test_link_search_forcing.py."""
     import pandas as pd
 
     import pypath.io.ewemdb as ew
@@ -240,6 +242,7 @@ def test_importer_routes_a_consumer_search_rate_shape(monkeypatch):
         "group_id_to_name": {11: "Phyto", 12: "Zoo", 13: "Det"},
     }
     ew._apply_forcing_shapes("unused.eweaccdb", selected, sc, params)
-    np.testing.assert_allclose(sc.forcing.ForcedSearch[:, ZOO], 1.5)
+    np.testing.assert_allclose(sc.forcing.ForcedSearchLink[:, PHYTO, ZOO], 1.5)
+    np.testing.assert_allclose(sc.forcing.ForcedSearch[:, ZOO], 1.0)
     np.testing.assert_allclose(sc.forcing.ForcedSearch[:, PHYTO], 1.0)
     assert np.all(sc.forcing.ForcedPrey == 1.0)
