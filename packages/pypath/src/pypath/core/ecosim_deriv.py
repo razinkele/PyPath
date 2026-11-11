@@ -918,11 +918,27 @@ def ewe_prey_multiplier_arena(VV, QQbase, f):
     VV' = 1 + (VV - 1)(1 + f) / 2 and QQbase' = QQbase * VV * f / VV':
     Q = Q0 x f K y / ((K - 1)(1 + f)/2 + y) instead of Q0 (f x) K y / (K - 1 + y).
 
-    ``VV`` and ``QQbase`` are (prey, predator) matrices; ``f`` is per prey.
+    ``VV`` and ``QQbase`` are (prey, predator) matrices; ``f`` is per prey, or a
+    (prey, predator) matrix when a link carries its own vulnerability forcing.
     Row 0 (a producer's link from group 0) is not remapped. Returns new arrays;
     the inputs are not modified.
     """
     f = np.asarray(f, dtype=float)
+    if f.ndim == 2:
+        mask = f != 1.0
+        mask[0, :] = False
+        if not mask.any():
+            return VV, QQbase
+        VV = np.array(VV, dtype=float)
+        QQbase = np.array(QQbase, dtype=float)
+        vv_new = 1.0 + (VV[mask] - 1.0) * (1.0 + f[mask]) / 2.0
+        QQbase[mask] = np.where(
+            vv_new > 0,
+            QQbase[mask] * VV[mask] * f[mask] / np.where(vv_new > 0, vv_new, 1.0),
+            0.0,
+        )
+        VV[mask] = vv_new
+        return VV, QQbase
     rows = np.flatnonzero(f != 1.0)
     rows = rows[(rows > 0) & (rows < VV.shape[0])]
     if rows.size == 0:
@@ -938,6 +954,31 @@ def ewe_prey_multiplier_arena(VV, QQbase, f):
         0.0,
     )
     VV[rows, :] = vv_new
+    return VV, QQbase
+
+
+def ewe_link_search_arena(VV, QQbase, s):
+    """EwE6 search-rate forcing on single links (ApplyAVmodifiers per link).
+
+    A multiplier s on a link's search rate replaces the predator term y by
+    s*y in that link's arena: Q = Q0 x K s y / (K - 1 + s y). That is Rpath's
+    form with VV' = 1 + (VV - 1) / s and QQbase' = QQbase * VV / VV'. It
+    composes with ewe_prey_multiplier_arena (apply that one first). ``s`` is a
+    (prey, predator) matrix; s = 0 stops the link. Row 0 is not remapped.
+    Returns new arrays; the inputs are not modified.
+    """
+    s = np.asarray(s, dtype=float)
+    mask = s != 1.0
+    mask[0, :] = False
+    if not mask.any():
+        return VV, QQbase
+    VV = np.array(VV, dtype=float)
+    QQbase = np.array(QQbase, dtype=float)
+    pos = mask & (s > 0)
+    vv_new = 1.0 + (VV[pos] - 1.0) / s[pos]
+    QQbase[pos] = QQbase[pos] * VV[pos] / vv_new
+    VV[pos] = vv_new
+    QQbase[mask & (s <= 0)] = 0.0
     return VV, QQbase
 
 
@@ -1502,7 +1543,16 @@ def deriv_vector(
             params.get("SwitchA"),
         )
     if _ewe_prey_f is not None:
-        VV, QQbase = ewe_prey_multiplier_arena(VV, QQbase, _ewe_prey_f)
+        _f_arena = _ewe_prey_f
+        _vul_link = forcing.get("ForcedVulLink")
+        if _vul_link is not None:
+            # a link's own vulnerability forcing joins the prey's f
+            _f_arena = _ewe_prey_f[:, None] * np.asarray(_vul_link, dtype=float)
+        VV, QQbase = ewe_prey_multiplier_arena(VV, QQbase, _f_arena)
+    # EwE link-level search-rate forcing (built only for EwE-rule scenarios)
+    _search_link = forcing.get("ForcedSearchLink")
+    if _search_link is not None:
+        VV, QQbase = ewe_link_search_arena(VV, QQbase, _search_link)
 
     # Extract suite-pooling parameters (None means old behaviour / no pooling)
     _ScrambleSelf = params.get("ScrambleSelf")

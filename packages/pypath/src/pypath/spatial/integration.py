@@ -794,7 +794,14 @@ def rsim_run_spatial(
             forcing_dict["ForcedRecs"] = _forced_recs[mi]
         # Prey, production, search-rate, mortality and respiration forcing,
         # as in rsim_run (Ecospace used to drop them).
-        for _key in ("ForcedPrey", "ForcedSearch", "ForcedMort", "ForcedActresp"):
+        for _key in (
+            "ForcedPrey",
+            "ForcedSearch",
+            "ForcedMort",
+            "ForcedActresp",
+            "ForcedSearchLink",
+            "ForcedVulLink",
+        ):
             _arr = getattr(forcing, _key, None)
             if _arr is not None and mi < len(_arr):
                 forcing_dict[_key] = _arr[mi]

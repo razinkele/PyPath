@@ -42,7 +42,7 @@ import pandas as pd
 from pypath.core.params import RpathParams, create_rpath_params
 
 if TYPE_CHECKING:
-    from pypath.core.ecosim import RsimScenario
+    from pypath.core.ecosim import RsimForcing, RsimScenario
     from pypath.core.ecotracer import EcotracerParams
     from pypath.core.fleet_dynamics import FleetEconParams
     from pypath.core.mediation import MediationCollection
@@ -3686,6 +3686,16 @@ def _apply_effort_shapes(
         logger.debug("Failed to apply effort shapes: %s", e)
 
 
+def _link_array(forcing: "RsimForcing", name: str) -> np.ndarray:
+    """A (months, prey, predator) link-forcing array, created as ones if absent."""
+    arr = getattr(forcing, name, None)
+    if arr is None:
+        n_months, n = forcing.ForcedSearch.shape
+        arr = np.ones((n_months, n, n))
+        setattr(forcing, name, arr)
+    return arr
+
+
 def _apply_forcing_shapes(
     filepath: str,
     selected: Dict[str, Any],
@@ -3705,10 +3715,12 @@ def _apply_forcing_shapes(
     Production forcing scales the producer's production only, so it goes to
     ``ForcedSearch`` (the producer's search rate on its production link, as
     Rpath's force_bysearch) and never to ``ForcedPrey``, which scales a prey's
-    availability to its predators. Vulnerability shapes go to ``ForcedPrey``
-    (per prey group: PyPath has no per-link channel), other-mortality shapes
-    to ``ForcedMort`` and a consumer's search-rate shapes to its
-    ``ForcedSearch`` (per predator). Shapes with several assignments multiply.
+    availability to its predators. Other-mortality shapes go to ``ForcedMort``.
+    Under the EwE rule a vulnerability or search-rate shape on a pred-prey link
+    acts on that link only, as EwE's ApplyAVmodifiers does: it goes to
+    ``ForcedVulLink`` / ``ForcedSearchLink`` (months, prey, predator). Under the
+    'rpath' rule they go to the group-level ``ForcedPrey`` (per prey) and
+    ``ForcedSearch`` (per predator). Several shapes on one link multiply.
     """
     try:
         ppshape_df = _try_read_table_variants(filepath, ["EcosimScenarioPredPreyShape"])
@@ -3750,6 +3762,8 @@ def _apply_forcing_shapes(
         group_types = list(params.model["Type"])  # model order, 0-based
         forcing = rsim.forcing
         n_months = forcing.ForcedSearch.shape[0]
+        # EwE rule: link shapes stay on their links (see _link_array)
+        link_rule = bool(getattr(rsim.params, "PREY_FTIME_ARENA", False))
         for _, row in ppshape_df.iterrows():
             shape_id = _int_or_none(row.get("ShapeID"))
             pred = esim_to_idx.get(_int_or_none(row.get("PredID")))
@@ -3783,10 +3797,17 @@ def _apply_forcing_shapes(
             elif appl == _FF_SEARCH_RATE and pred_type == 2:
                 appl = _FF_IMPORT
 
+            # EwE rule: a shape on a pred-prey link acts on that link only
+            # (ApplyAVmodifiers per link), so it goes to the link arrays.
+            on_link = link_rule and pred != prey
+
             if appl == _FF_PRODUCTION_RATE:
                 forcing.ForcedSearch[:, pred] *= arr
             elif appl in (_FF_VULNERABILITY, _FF_VUL_AND_AREA):
-                forcing.ForcedPrey[:, prey] *= arr
+                if on_link:
+                    _link_array(forcing, "ForcedVulLink")[:, prey, pred] *= arr
+                else:
+                    forcing.ForcedPrey[:, prey] *= arr
                 if appl == _FF_VUL_AND_AREA:
                     logger.warning(
                         "Shape %s on %s -> %s: the arena-area part of a "
@@ -3797,9 +3818,11 @@ def _apply_forcing_shapes(
                     )
             elif appl == _FF_MORT_OTHER:
                 forcing.ForcedMort[:, prey] *= arr
+            elif appl == _FF_SEARCH_RATE and on_link:
+                # A consumer's search rate on this link only (EwE rule)
+                _link_array(forcing, "ForcedSearchLink")[:, prey, pred] *= arr
             elif appl == _FF_SEARCH_RATE:
-                # A consumer's search rate: EwE scales the link's search rate;
-                # PyPath has one search-rate channel per predator, so the
+                # 'rpath' rule: one search-rate channel per predator, so the
                 # shape acts on all of the predator's links.
                 forcing.ForcedSearch[:, pred] *= arr
                 logger.info(
