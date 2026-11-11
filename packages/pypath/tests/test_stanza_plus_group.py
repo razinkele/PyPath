@@ -302,8 +302,10 @@ def test_stanza_feeding_time_denominator_is_b0_times_the_index_ratio(monkeypatch
     monkeypatch.setattr(E, "deriv_vector", spy)
     E.rsim_run(sc, method="RK4")
     months = sc.forcing.ForcedBio.shape[0]
-    assert len(calls) == 2 * months  # Ftime call, then the stanza-rates call
-    ftime_calls = calls[0::2]
+    # One start-of-month Ftime call a month; under the EwE rule the stanza
+    # update reads the RK4 stages instead (test_stanza_stage_rates.py).
+    assert len(calls) == months
+    ftime_calls = calls
     lower = float(p.ForagingTimeLowerLimit)
     qbopt, b0 = float(p.FtimeQBOpt[ad]), float(p.B_BaseRef[ad])
 
