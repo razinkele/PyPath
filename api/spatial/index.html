@@ -21784,8 +21784,7 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">204</span>
-<span class="normal">205</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">205</span>
 <span class="normal">206</span>
 <span class="normal">207</span>
 <span class="normal">208</span>
@@ -22111,7 +22110,17 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 <span class="normal">528</span>
 <span class="normal">529</span>
 <span class="normal">530</span>
-<span class="normal">531</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
+<span class="normal">531</span>
+<span class="normal">532</span>
+<span class="normal">533</span>
+<span class="normal">534</span>
+<span class="normal">535</span>
+<span class="normal">536</span>
+<span class="normal">537</span>
+<span class="normal">538</span>
+<span class="normal">539</span>
+<span class="normal">540</span>
+<span class="normal">541</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
     <span class="n">state_spatial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
@@ -22193,8 +22202,13 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
     <span class="c1"># densities. The derivative is scaled back by the area fraction (#51).</span>
     <span class="c1"># IBM groups compute their own absolute rates, so they keep the old form.</span>
     <span class="n">patch_share</span> <span class="o">=</span> <span class="n">_patch_area_fractions</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">)</span>
+    <span class="n">_mediation_scale</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ibm_groups"</span><span class="p">):</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"IBM groups present: patch dynamics not density-scaled"</span><span class="p">)</span>
+        <span class="c1"># EwE mediation compares a mediator's density with its whole-model</span>
+        <span class="c1"># base, so it still gets densities: biomass / the patch's area share</span>
+        <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"EweMediation"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_mediation_scale</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">patch_share</span>
         <span class="n">patch_share</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># Per-patch, per-fleet effort scaling. MPA closures and spatial effort</span>
@@ -22339,6 +22353,8 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
         <span class="n">state_patch</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
+        <span class="k">if</span> <span class="n">_mediation_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_mediation_density_scale"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_mediation_scale</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
             <span class="n">patch_params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_ref_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
             <span class="n">patch_params</span><span class="p">[</span><span class="s2">"Bbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_ref_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
@@ -22386,6 +22402,8 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
                 <span class="n">rates</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">rates_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
+                <span class="k">if</span> <span class="n">_mediation_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">params</span><span class="p">[</span><span class="s2">"_mediation_density_scale"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_mediation_scale</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span>
 
                 <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
                     <span class="n">b_base_ref_backup</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span>
@@ -22692,17 +22710,7 @@ distributed by patch area, so every patch starts at the same density.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 534</span>
-<span class="normal"> 535</span>
-<span class="normal"> 536</span>
-<span class="normal"> 537</span>
-<span class="normal"> 538</span>
-<span class="normal"> 539</span>
-<span class="normal"> 540</span>
-<span class="normal"> 541</span>
-<span class="normal"> 542</span>
-<span class="normal"> 543</span>
-<span class="normal"> 544</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 544</span>
 <span class="normal"> 545</span>
 <span class="normal"> 546</span>
 <span class="normal"> 547</span>
@@ -23264,7 +23272,19 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1103</span>
 <span class="normal">1104</span>
 <span class="normal">1105</span>
-<span class="normal">1106</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1106</span>
+<span class="normal">1107</span>
+<span class="normal">1108</span>
+<span class="normal">1109</span>
+<span class="normal">1110</span>
+<span class="normal">1111</span>
+<span class="normal">1112</span>
+<span class="normal">1113</span>
+<span class="normal">1114</span>
+<span class="normal">1115</span>
+<span class="normal">1116</span>
+<span class="normal">1117</span>
+<span class="normal">1118</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23493,6 +23513,8 @@ distributed by patch area, so every patch starts at the same density.</p>
         <span class="c1"># EwE6 detritus fate between pools (audit P7; None = Rpath links)</span>
         <span class="s2">"DetPassedProp"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetPassedProp"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"DetBA"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetBA"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="c1"># EwE6 pred/prey mediation, from each patch's own densities</span>
+        <span class="s2">"EweMediation"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"EweMediation"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"RpathPrimaryProduction"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="c1"># Prey switching normalises by the Ecosim base, not a patch's B * c</span>
