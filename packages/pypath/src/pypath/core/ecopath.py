@@ -131,6 +131,12 @@ class Rpath:
     # Detritus import per group (t/km2/yr, 0 except on detritus groups);
     # Ecosim adds it as a constant inflow (EwE DetInFlow, audit A2)
     DetInput: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    # EwE migration per group (0 except on living groups): Immigration and
+    # Emigration flows (t/km2/yr) and EmigRate (emigration per unit of B,
+    # used where Emigration is 0); audit A1-s2
+    Immigration: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    Emigration: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    EmigRate: np.ndarray = field(default_factory=lambda: np.zeros(0))
     # Whose conventions the model follows, from RpathParams.compat (D1)
     compat: str = "rpath"
 
@@ -189,6 +195,8 @@ def _build_balance_system(
     nodetrdiet,
     original_no_pb,
     unknown_biomass_mask,
+    living_migration=None,
+    living_emig_rate=None,
 ):
     """Build the linear system (A, b_vec) for the Ecopath mass-balance solve.
 
@@ -201,6 +209,11 @@ def _build_balance_system(
     nodetrdiet : 2-D array (nliving x nliving), diet fractions excluding detritus
     original_no_pb : array of bool, indexed by global group index
     unknown_biomass_mask : array of bool (length nliving), True if biomass unknown
+    living_migration : array of float, Emigration - Immigration (flows), or None
+    living_emig_rate : array of float, EmigRate (per unit of biomass) where
+        Emigration is 0, or None. EwE counts it as EmigRate x B
+        (cEcoPathModel.vb:466-468): on the right-hand side when B is known,
+        on the diagonal when B is solved.
 
     Returns
     -------
@@ -211,20 +224,27 @@ def _build_balance_system(
     bio_qb = np.where(unknown_biomass_mask, 0.0, bio_qb)
     cons = nodetrdiet * bio_qb[np.newaxis, :]
     b_vec = living_catch + living_bioacc + np.sum(cons, axis=1)
+    if living_migration is not None:
+        b_vec = b_vec + living_migration
+    rate = np.zeros(nliving) if living_emig_rate is None else living_emig_rate
 
     A = np.zeros((nliving, nliving))
     for i in range(nliving):
         g_idx = living_idx[i]
         if original_no_pb[g_idx]:
             A[i, i] = living_biomass[i] * living_ee[i]
+            b_vec[i] += rate[i] * living_biomass[i]
         elif np.isnan(living_ee[i]):
             A[i, i] = (
                 living_biomass[i] * living_pb[i]
                 if not np.isnan(living_biomass[i])
                 else living_pb[i] * living_ee[i]
             )
+            if not np.isnan(living_biomass[i]):
+                b_vec[i] += rate[i] * living_biomass[i]
         else:
-            A[i, i] = living_pb[i] * living_ee[i]
+            # B is solved: EmigRate x B moves to the left-hand side
+            A[i, i] = living_pb[i] * living_ee[i] - rate[i]
 
     qb_dc = nodetrdiet * living_qb[np.newaxis, :]
     qb_dc = np.nan_to_num(qb_dc, nan=0.0)
@@ -326,6 +346,19 @@ def rpath(
 
     # Replace NaN with 0 for BioAcc and Unassim
     bioacc = np.where(np.isnan(bioacc), 0.0, bioacc)
+
+    # EwE migration of living groups (cEcoPathModel.vb:466-489): Immigration
+    # and Emigration are flows, EmigRate is emigration per unit of biomass,
+    # used where Emigration is 0. Detritus migration is not modelled.
+    def _group_values(col):
+        if col not in model_df.columns:
+            return np.zeros(ngroups)
+        vals = pd.to_numeric(model_df[col], errors="coerce").to_numpy(dtype=float)
+        return np.where(types < 2, np.nan_to_num(vals, nan=0.0), 0.0)
+
+    immigration = _group_values("Immigration")
+    emigration = _group_values("Emigration")
+    emig_rate = np.where(emigration == 0, _group_values("EmigRate"), 0.0)
     unassim = np.where(np.isnan(unassim), 0.0, unassim)
 
     # Get diet matrix - columns are predators (living groups only)
@@ -469,6 +502,8 @@ def rpath(
         living_ee = ee[living_idx]
         living_bioacc = bioacc[living_idx]
         living_catch = totcatch[living_idx]
+        living_migration = emigration[living_idx] - immigration[living_idx]
+        living_emig_rate = emig_rate[living_idx]
         # Determine which variables are unknown in this iteration
         living_no_b = np.isnan(living_biomass)
         living_no_ee = np.isnan(living_ee)
@@ -494,6 +529,8 @@ def rpath(
             nodetrdiet,
             original_no_pb,
             pred_unknown_mask,
+            living_migration=living_migration,
+            living_emig_rate=living_emig_rate,
         )
 
         # Validate
@@ -841,6 +878,9 @@ def rpath(
         eco_name=eco_name,
         eco_area=eco_area,
         DetInput=det_input_full,
+        Immigration=immigration,
+        Emigration=emigration,
+        EmigRate=emig_rate,
         compat=compat,
     )
     if compat == "ewe":

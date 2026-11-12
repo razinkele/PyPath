@@ -25,7 +25,7 @@ EcopathDietComp,ecopath,true,true,true,true,implemented,
 EcopathDietCompSample,ecopath,true,true,false,false,partial,
 EcopathDiscardFate,ecopath,true,true,true,false,partial,
 EcopathFleet,ecopath,true,true,true,true,implemented,
-EcopathGroup,ecopath,true,true,true,true,partial,"ImpVar read as the diet import share; BiomAcc, BiomAccRate and DtImports read (A1); not used: BiomAccRate (with B left to Ecopath), BiomAcc (detritus groups), OtherMort, Immigration, Emigration, EmigRate, Type (fractional, mixotrophs)"
+EcopathGroup,ecopath,true,true,true,true,partial,"ImpVar read as the diet import share; BiomAcc, BiomAccRate and DtImports read (A1); Immigration, Emigration and EmigRate read and modelled for living groups (A1-s2); not used: BiomAccRate (with B left to Ecopath), BiomAcc (detritus groups), OtherMort, Immigration, Emigration, EmigRate (detritus groups), Type (fractional, mixotrophs)"
 EcopathGroupCatchSample,ecopath,true,true,true,false,partial,
 EcopathGroupPedigree,ecopath,true,true,false,false,partial,
 EcopathGroupSample,ecopath,true,true,true,false,partial,

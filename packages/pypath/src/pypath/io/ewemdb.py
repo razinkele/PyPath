@@ -572,7 +572,34 @@ def _drop_stanza_stage_bioacc(model: pd.DataFrame, stage_groups: Sequence[str]) 
 
 # EcopathGroup columns that change EwE results but have no PyPath equivalent
 # yet (roadmap P5). Non-zero, non-missing values are reported, not used.
-_UNSUPPORTED_GROUP_COLUMNS = ("OtherMort", "Immigration", "Emigration", "EmigRate")
+_UNSUPPORTED_GROUP_COLUMNS = ("OtherMort",)
+
+# EcopathGroup migration columns (audit A1-s2), read as model columns of the
+# same name: flows (t/km2/yr) and emigration per unit of biomass
+_MIGRATION_COLUMNS = ("Immigration", "Emigration", "EmigRate")
+
+
+def _resolve_migration(groups_df: pd.DataFrame, types: Sequence[int]) -> dict:
+    """EcopathGroup Immigration, Emigration and EmigRate (missing -> 0).
+
+    EwE balances living groups' migration (cEcoPathModel.vb:466-489) and
+    Ecosim moves it (cEcoSimModel.vb:3081, 3111, 4528). Detritus migration is
+    not modelled here, so it is set to 0 with a warning.
+    """
+    is_det = np.asarray(types, dtype=int) == 2
+    out = {}
+    for col in _MIGRATION_COLUMNS:
+        vals = np.nan_to_num(_group_column(groups_df, (col,)), nan=0.0)
+        on_det = is_det & (vals != 0)
+        if on_det.any():
+            labels = _group_labels(groups_df)
+            logger.warning(
+                "Detritus %s is not modelled; set to 0 for %s",
+                col,
+                ", ".join(labels[i] for i in np.where(on_det)[0]),
+            )
+        out[col] = np.where(is_det, 0.0, vals)
+    return out
 
 
 def _warn_unsupported_group_columns(
@@ -1063,6 +1090,9 @@ def read_ewemdb(
     fleet_pad = [np.nan] * len(fleet_names)
     params.model["BioAcc"] = bioacc.tolist() + fleet_pad
     params.model["DetInput"] = det_input.tolist() + fleet_pad
+    # Migration (audit A1-s2)
+    for col, vals in _resolve_migration(groups_df, group_types[:n_bio_groups]).items():
+        params.model[col] = vals.tolist() + fleet_pad
     _warn_unsupported_group_columns(groups_df, group_names[:n_bio_groups])
 
     # Extract remarks if available and create remarks DataFrame
