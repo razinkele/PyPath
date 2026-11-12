@@ -685,14 +685,13 @@ def rpath(
         ee_val = ee[idx] if np.isfinite(ee[idx]) else 1.0
         m0[idx] = pb[idx] * (1 - ee_val)
 
-    # Flows to detritus from living groups
-    # M0 can be negative if EE > 1, but loss flows should be non-negative
+    # Flows to detritus from living groups. M0 is negative where EE > 1; Rpath
+    # (loss = M0 B + B QB Unassim) and EwE's Ecopath (FlowToDet) both count
+    # it as it is (deviation M0)
     qb_loss = np.where(np.isnan(qb), 0.0, qb)
     loss = np.zeros(ngroups)
     for idx in living_idx:
-        # Only positive M0 contributes to detrital flow
-        m0_pos = max(0.0, m0[idx])
-        loss[idx] = (m0_pos * biomass[idx]) + (
+        loss[idx] = (m0[idx] * biomass[idx]) + (
             biomass[idx] * qb_loss[idx] * unassim[idx]
         )
     # Add discards from fleets
@@ -1005,7 +1004,7 @@ def ewe_detritus_fate(model: Rpath) -> EweDetritusFate:
     # Flows into each pool from living groups (deaths, as rpath() counts them,
     # and egestion; CalcGS_Det_FlowToDet) and fleets (discards)
     loss = np.zeros(n)
-    loss[living] = np.maximum(m0[living], 0.0) * biomass[living] + (
+    loss[living] = m0[living] * biomass[living] + (
         biomass[living] * qb[living] * unassim[living]
     )
     for f_col, f in enumerate(fleets):

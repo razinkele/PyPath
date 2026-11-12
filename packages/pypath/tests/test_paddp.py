@@ -47,10 +47,10 @@ def _scenario(paddp_zoo=1.0):
 def test_compensation_setup_is_ewes():
     """Zoo: eaten 20 by Fish, B0 20, so M2_0 = 1; mo = 2 x (1 - 0.5) = 1.
     PaddP 0: moMax = 1 + 1 = 2, Qh = 2 / 1 - 1 = 1."""
-    from pypath.core.ecosim import _paddp_setup
+    from pypath.core.ecosim import _mo_tot_setup
 
     sc = _scenario(paddp_zoo=0.0)
-    mo_max, qh, start_eaten_of = _paddp_setup(sc.params)
+    mo_max, qh, start_eaten_of = _mo_tot_setup(sc.params)
     assert start_eaten_of[ZOO] == pytest.approx(20.0)
     assert mo_max[ZOO] == pytest.approx(2.0)
     assert qh[ZOO] == pytest.approx(1.0)
@@ -58,7 +58,7 @@ def test_compensation_setup_is_ewes():
 
 
 def test_other_mortality_compensates():
-    from pypath.core.ecosim_deriv import _paddp_mo_factor
+    from pypath.core.ecosim_deriv import _mo_tot_factor
 
     mo = np.array([0.0, 1.0, 1.0, 0.5])
     mo_max = np.array([0.0, 2.0, 1.0, 1.0])
@@ -67,7 +67,7 @@ def test_other_mortality_compensates():
     eaten = np.array([0.0, 40.0, 10.0, 4.0])  # Zoo eaten twice the base
     # Zoo: 2 / (1 + 1 x 2) = 2/3 of... over mo 1; index 2 PaddP 1; index 3 at base
     np.testing.assert_allclose(
-        _paddp_mo_factor(eaten, start, mo, mo_max, qh), [1.0, 2.0 / 3.0, 1.0, 1.0]
+        _mo_tot_factor(eaten, start, mo, mo_max, qh), [1.0, 2.0 / 3.0, 1.0, 1.0]
     )
 
 

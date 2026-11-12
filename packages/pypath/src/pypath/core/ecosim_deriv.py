@@ -854,15 +854,16 @@ def _rpath_detritus_derivs(
     return gain, loss
 
 
-def _paddp_mo_factor(eaten_of, start_eaten_of, mo, mo_max, qh):
-    """moTot / mo of EwE6's non-additive predation mortality: moTot = moMax
-    / (1 + Qh x Eatenof / StartEatenOf) (cEcoSimModel.vb 3074); 1 where Qh is
-    0 (PaddP 1, or no base predation or other mortality)."""
+def _mo_tot_factor(eaten_of, start_eaten_of, mo, mo_max, qh):
+    """moTot / mo of EwE6's Derivt for every eaten group: moTot = moMax /
+    (1 + Qh x Eatenof / StartEatenOf) (cEcoSimModel.vb 3074). 1 for a group
+    that is not eaten (vb 3077-3078) and where mo is 0 (EwE's 1e-20 left
+    out); about 0 for an eaten group with mo < 0 (moMax = 1e-20)."""
     eaten_of = np.asarray(eaten_of, dtype=float)
     start = np.asarray(start_eaten_of, dtype=float)
     mo = np.asarray(mo, dtype=float)
     out = np.ones(len(eaten_of))
-    ok = (np.asarray(qh) > 0) & (start > 0) & (mo > 0)
+    ok = (start > 0) & (mo != 0)
     out[ok] = (
         np.asarray(mo_max)[ok] / (1.0 + np.asarray(qh)[ok] * eaten_of[ok] / start[ok])
     ) / mo[ok]
@@ -2074,18 +2075,19 @@ def deriv_vector(
     # detritus budget stays closed.
     if not params.get("DETRITUS_MO_UNSCALED", False):
         _M0_detritus = _M0_effective
-    # EwE6 non-additive predation mortality (PaddP < 1): other mortality
-    # compensates for predation, moTot = moMax / (1 + Qh x Eatenof /
-    # StartEatenOf) in place of mo (Derivt, vb 3058-3081). The detritus flow
-    # keeps mo (SimDetritusMT, vb 3165).
-    _paddp = params.get("_paddp")
-    if _paddp is not None:
-        _mo_max, _qh, _start_eaten_of = _paddp
+    # EwE6 other mortality moTot = moMax / (1 + Qh x Eatenof / StartEatenOf)
+    # in place of mo for every eaten group (Derivt, vb 3058-3081): with
+    # PaddP < 1 other mortality compensates for predation, and an eaten group
+    # with mo <= 0 (EE > 1) loses none. The detritus flow keeps mo
+    # (SimDetritusMT, vb 3165).
+    _mo_tot = params.get("_mo_tot")
+    if _mo_tot is not None:
+        _mo_max, _qh, _start_eaten_of = _mo_tot
         _eaten_of = np.zeros(NUM_GROUPS + 1)
         _eaten_of[1 : NUM_LIVING + 1] = QQ[1 : NUM_LIVING + 1, 1 : NUM_LIVING + 1].sum(
             axis=1
         )
-        _M0_effective = _M0_effective * _paddp_mo_factor(
+        _M0_effective = _M0_effective * _mo_tot_factor(
             _eaten_of, _start_eaten_of, _M0_safe, _mo_max, _qh
         )
     # EwE6 UseVarPQ: gross efficiency follows the total loss rate Z,

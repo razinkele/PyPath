@@ -234,6 +234,11 @@ class RsimParams:
     # updated once per Derivt from its intake (CmCo = QBmax / QB0); the
     # 'rpath' rule keeps Rpath's per-link handling term instead.
     EWE_HANDLING_TIME: bool = True
+    # EwE6 other mortality in Derivt is moTot (CalcBaseAdditiveMort, vb
+    # 3802-3816; Derivt vb 3058-3081): non-additive predation mortality
+    # (PaddP), and no other mortality for an eaten group with mo <= 0 (EE > 1);
+    # the 'rpath' rule keeps mo (see _mo_tot_setup).
+    EWE_MO_TOT: bool = True
     # EwE6 Ecosim options. Defaults keep Rpath's behaviour; EwE databases set
     # them (EcosimScenarioGroup.MoPred/FtimeMax, EcosimScenario.UseVarPQ and
     # ForagingTimeLowerLimit, EcopathGroup.vbK).
@@ -251,7 +256,7 @@ class RsimParams:
     CmCo: Optional[np.ndarray] = None
     # EwE6 share of predation mortality that adds to other mortality
     # (EcosimScenarioGroup.AdditivePredMort, default 1); below 1 other
-    # mortality compensates (see _paddp_setup). Used under the EwE rule.
+    # mortality compensates (see _mo_tot_setup). Used under the EwE rule.
     PaddP: Optional[np.ndarray] = None
     # EwE6 nutrient limitation of primary production: the free share of the
     # total nutrient at the base (EcosimScenario.NutBaseFreeProp, EwE default
@@ -944,6 +949,7 @@ def rsim_params(
         DETRITUS_MO_UNSCALED=(fast_group_rule == "ewe"),
         STANZA_STAGE_RATES=(fast_group_rule == "ewe"),
         EWE_HANDLING_TIME=(fast_group_rule == "ewe"),
+        EWE_MO_TOT=(fast_group_rule == "ewe"),
         # EwE6 takes one RK4 step a month (SetTimeSteps: StepsPerMonth = 1);
         # Rpath's rk4_run takes four sub-steps.
         RK4_STEPS=(1 if fast_group_rule == "ewe" else 4),
@@ -1202,9 +1208,14 @@ def _fast_group_flags(
         if prey_from[k] > 0:  # links from Outside are primary production
             loss[prey_from[k]] += qq[k]
             consumption[prey_to[k]] += qq[k]
+    eaten = loss[1 : nliving + 1] > 0  # base predation (StartEatenOf > 0)
     for k in range(1, len(fish_q)):
         loss[fish_from[k]] += fish_q[k] * b_baseref[fish_from[k]]
-    loss[1 : nliving + 1] += mzero[1 : nliving + 1] * b_baseref[1 : nliving + 1]
+    # EwE's first Derivt loses moTot, which at the base is mo except for an
+    # eaten group with mo <= 0: 1e-20 (CalcBaseAdditiveMort, vb 3807-3815)
+    living_mo = mzero[1 : nliving + 1]
+    living_mo = np.where(eaten & (living_mo <= 0), 0.0, living_mo)
+    loss[1 : nliving + 1] += living_mo * b_baseref[1 : nliving + 1]
 
     ba = np.nan_to_num(np.asarray(getattr(rpath, "BA", np.zeros(n - 1)), dtype=float))
     det_fate = np.asarray(rpath.DetFate, dtype=float)
@@ -1243,35 +1254,44 @@ def _fast_group_flags(
     return flags
 
 
-def _paddp_params(params: "RsimParams"):
-    """``_paddp_setup`` for the derivative, or None when every group's
-    predation mortality is additive. EwE-rule only: the 'rpath' rule reports
-    and ignores PaddP < 1."""
+def _mo_tot_params(params: "RsimParams"):
+    """``_mo_tot_setup`` for the derivative, or None when moTot = mo for
+    every group (all predation mortality additive and no eaten group with a
+    negative mo). EwE-rule only (``EWE_MO_TOT``): the 'rpath' rule reports
+    and ignores PaddP < 1 and keeps a negative mo."""
     paddp = getattr(params, "PaddP", None)
-    if paddp is None or not np.any(np.asarray(paddp, dtype=float) < 1.0):
+    if not getattr(params, "EWE_MO_TOT", False):
+        if paddp is not None and np.any(np.asarray(paddp, dtype=float) < 1.0):
+            logger.warning(
+                "AdditivePredMort below 1 needs the EwE rule "
+                "(fast_group_rule='ewe'); predation mortality is taken as additive"
+            )
         return None
-    if not getattr(params, "PREY_FTIME_ARENA", False):
-        logger.warning(
-            "AdditivePredMort below 1 needs the EwE rule (fast_group_rule='ewe'); "
-            "predation mortality is taken as additive"
-        )
-        return None
-    return _paddp_setup(params)
+    mo_max, qh, start = setup = _mo_tot_setup(params)
+    mo = np.nan_to_num(np.asarray(params.MzeroMort, dtype=float))
+    living = np.zeros(len(mo), dtype=bool)
+    living[1 : params.NUM_LIVING + 1] = True
+    if np.any(qh != 0.0) or np.any(living & (start > 0) & (mo < 0)):
+        return setup
+    return None
 
 
-def _paddp_setup(params: "RsimParams"):
-    """EwE6's base non-additive predation mortality (CalcBaseAdditiveMort,
-    cEcoSimModel.vb 3802-3816), as rsim vectors ``(mo_max, qh,
-    start_eaten_of)``.
+def _mo_tot_setup(params: "RsimParams"):
+    """EwE6's base other mortality (CalcBaseAdditiveMort, cEcoSimModel.vb
+    3802-3816), as rsim vectors ``(mo_max, qh, start_eaten_of)``. The
+    derivative takes moTot = moMax / (1 + Qh x Eatenof / StartEatenOf) in
+    place of mo for every eaten group (Derivt, vb 3058-3081).
 
     StartEatenOf is the base predation on a group (sum of its base link
-    flows); M2_0 = StartEatenOf / B0. Where PaddP < 1, StartEatenOf > 0 and
-    mo > 0: moMax = mo + M2_0 x (1 - PaddP) and Qh = moMax / mo - 1. Elsewhere
-    both stay 0 and other mortality is unchanged.
+    flows); M2_0 = StartEatenOf / B0. Where StartEatenOf > 0 and mo > 0:
+    moMax = mo + M2_0 x (1 - PaddP) and Qh = moMax / mo - 1, so moTot = mo
+    when PaddP = 1. Where mo <= 0 (EE > 1): EwE's moMax = 1e-20 and Qh = 0,
+    so an eaten group loses no other mortality. PaddP above 1 counts as 1,
+    as before (EwE's formula would raise mortality with predation).
     """
     n = params.NUM_GROUPS + 1
     paddp = getattr(params, "PaddP", None)
-    paddp = np.ones(n) if paddp is None else np.asarray(paddp, dtype=float)
+    paddp = np.ones(n) if paddp is None else np.minimum(np.asarray(paddp, float), 1.0)
     start = np.zeros(n)
     for k in range(1, len(params.PreyFrom)):
         prey = int(params.PreyFrom[k])
@@ -1279,7 +1299,7 @@ def _paddp_setup(params: "RsimParams"):
             start[prey] += float(params.QQ[k])
     mo = np.nan_to_num(np.asarray(params.MzeroMort, dtype=float))
     b0 = np.asarray(params.B_BaseRef, dtype=float)
-    mo_max = np.zeros(n)
+    mo_max = np.where(mo > 0, mo, 1e-20)
     qh = np.zeros(n)
     ok = (paddp < 1.0) & (start > 0) & (mo > 0) & (b0 > 0)
     mo_max[ok] = mo[ok] + start[ok] / b0[ok] * (1.0 - paddp[ok])
@@ -1740,8 +1760,8 @@ def rsim_run(
         "Immigration": getattr(params, "Immigration", None),
         "Emig": getattr(params, "Emig", None),
         "EweMediation": getattr(params, "EweMediation", None),
-        # EwE6 non-additive predation mortality (None = additive)
-        "_paddp": _paddp_params(params),
+        # EwE6 other mortality moTot (None = mo for every group)
+        "_mo_tot": _mo_tot_params(params),
     }
     _set_switch_weights(params_dict)
 
