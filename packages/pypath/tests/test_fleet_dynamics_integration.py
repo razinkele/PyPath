@@ -135,3 +135,24 @@ class TestFleetDynamicsIntegration:
         assert result.fleet_dynamics.out_Revenue.shape == (n_months + 1, 1)
         assert result.fleet_dynamics.annual_Effort.shape == (n_years, 1)
         assert result.fleet_dynamics.annual_Profit.shape == (n_years, 1)
+
+
+def test_a_new_quota_year_reopens_closed_links_in_its_first_month():
+    """A TAC closes the Fish link within year 1 (about 0.04 caught a month
+    against a TAC of 0.1). The quota year restarts in month 13: the link fishes
+    again from that month on, its F applied and its catch counted."""
+    params = _make_fleet_model()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        scenario = rsim_scenario(rpath(params), params, years=range(1, 3))
+    n_links = len(scenario.params.FishFrom)
+    fd_params = create_fleet_econ_params(1, n_links)
+    fd_params.tac = np.zeros((1, scenario.params.NUM_GROUPS))
+    fd_params.tac[0, 2] = 0.1  # Fish (group 3)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        out = rsim_run(scenario, fleet_dynamics=fd_params, method="RK4")
+    fish = 3
+    assert out.out_FishMort[12, fish] == 0.0  # closed by the TAC in year 1
+    assert out.out_FishMort[13, fish] > 0.0
+    assert out.out_Catch[13, fish] > 0.0
