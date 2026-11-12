@@ -12624,16 +12624,7 @@ sends to itself (EwE BA after CalcBAofDetritus).</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecopath.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">914</span>
-<span class="normal">915</span>
-<span class="normal">916</span>
-<span class="normal">917</span>
-<span class="normal">918</span>
-<span class="normal">919</span>
-<span class="normal">920</span>
-<span class="normal">921</span>
-<span class="normal">922</span>
-<span class="normal">923</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">923</span>
 <span class="normal">924</span>
 <span class="normal">925</span>
 <span class="normal">926</span>
@@ -12652,7 +12643,16 @@ sends to itself (EwE BA after CalcBAofDetritus).</p>
 <span class="normal">939</span>
 <span class="normal">940</span>
 <span class="normal">941</span>
-<span class="normal">942</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">942</span>
+<span class="normal">943</span>
+<span class="normal">944</span>
+<span class="normal">945</span>
+<span class="normal">946</span>
+<span class="normal">947</span>
+<span class="normal">948</span>
+<span class="normal">949</span>
+<span class="normal">950</span>
+<span class="normal">951</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EweDetritusFate</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""EwE6's detritus fate on a balanced model (see :func:`ewe_detritus_fate`).</span>
 
@@ -13544,7 +13544,16 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
 <span class="normal">908</span>
 <span class="normal">909</span>
 <span class="normal">910</span>
-<span class="normal">911</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rpath</span><span class="p">(</span>
+<span class="normal">911</span>
+<span class="normal">912</span>
+<span class="normal">913</span>
+<span class="normal">914</span>
+<span class="normal">915</span>
+<span class="normal">916</span>
+<span class="normal">917</span>
+<span class="normal">918</span>
+<span class="normal">919</span>
+<span class="normal">920</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rpath</span><span class="p">(</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">eco_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
     <span class="n">eco_area</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
@@ -13648,6 +13657,10 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
     <span class="n">immigration</span> <span class="o">=</span> <span class="n">_group_values</span><span class="p">(</span><span class="s2">"Immigration"</span><span class="p">)</span>
     <span class="n">emigration</span> <span class="o">=</span> <span class="n">_group_values</span><span class="p">(</span><span class="s2">"Emigration"</span><span class="p">)</span>
     <span class="n">emig_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">emigration</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">_group_values</span><span class="p">(</span><span class="s2">"EmigRate"</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="c1"># BiomAccRate where BiomAcc is 0 counts as BiomAccRate x B, like EmigRate</span>
+    <span class="c1"># (cEcoPathModel.vb:466, 2047, 2097); its BA is reported after the solve</span>
+    <span class="n">ba_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bioacc</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">_group_values</span><span class="p">(</span><span class="s2">"BioAccRate"</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">balance_rate</span> <span class="o">=</span> <span class="n">emig_rate</span> <span class="o">+</span> <span class="n">ba_rate</span>
     <span class="n">unassim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">unassim</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">unassim</span><span class="p">)</span>
 
     <span class="c1"># Get diet matrix - columns are predators (living groups only)</span>
@@ -13792,7 +13805,7 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
         <span class="n">living_bioacc</span> <span class="o">=</span> <span class="n">bioacc</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
         <span class="n">living_catch</span> <span class="o">=</span> <span class="n">totcatch</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
         <span class="n">living_migration</span> <span class="o">=</span> <span class="n">emigration</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span> <span class="o">-</span> <span class="n">immigration</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
-        <span class="n">living_emig_rate</span> <span class="o">=</span> <span class="n">emig_rate</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
+        <span class="n">living_rate</span> <span class="o">=</span> <span class="n">balance_rate</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
         <span class="c1"># Determine which variables are unknown in this iteration</span>
         <span class="n">living_no_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">living_biomass</span><span class="p">)</span>
         <span class="n">living_no_ee</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">living_ee</span><span class="p">)</span>
@@ -13819,7 +13832,7 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
             <span class="n">original_no_pb</span><span class="p">,</span>
             <span class="n">pred_unknown_mask</span><span class="p">,</span>
             <span class="n">living_migration</span><span class="o">=</span><span class="n">living_migration</span><span class="p">,</span>
-            <span class="n">living_emig_rate</span><span class="o">=</span><span class="n">living_emig_rate</span><span class="p">,</span>
+            <span class="n">living_emig_rate</span><span class="o">=</span><span class="n">living_rate</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Validate</span>
@@ -13942,6 +13955,8 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
         <span class="n">nodetrdiet</span><span class="p">,</span>
         <span class="n">original_no_pb</span><span class="p">,</span>
         <span class="n">pred_unknown_mask</span><span class="p">,</span>
+        <span class="n">living_migration</span><span class="o">=</span><span class="n">emigration</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span> <span class="o">-</span> <span class="n">immigration</span><span class="p">[</span><span class="n">living_idx</span><span class="p">],</span>
+        <span class="n">living_emig_rate</span><span class="o">=</span><span class="n">balance_rate</span><span class="p">[</span><span class="n">living_idx</span><span class="p">],</span>
     <span class="p">)</span>
 
     <span class="c1"># Save final solve results in context for debug output</span>
@@ -13957,6 +13972,9 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
             <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b_vec</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unable to solve linear system during balancing"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="c1"># A rate group's biomass accumulation, BiomAccRate x the solved B</span>
+    <span class="n">bioacc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ba_rate</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ba_rate</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">biomass</span><span class="p">),</span> <span class="n">bioacc</span><span class="p">)</span>
 
     <span class="c1"># Calculate M0 (other mortality) for living groups (detritus handled after</span>
     <span class="c1"># detritus PB/biomass is computed below)</span>
@@ -14233,16 +14251,7 @@ detritus another pool passed to it. Ecosim's EwE rule uses this routing.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecopath.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 963</span>
-<span class="normal"> 964</span>
-<span class="normal"> 965</span>
-<span class="normal"> 966</span>
-<span class="normal"> 967</span>
-<span class="normal"> 968</span>
-<span class="normal"> 969</span>
-<span class="normal"> 970</span>
-<span class="normal"> 971</span>
-<span class="normal"> 972</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 972</span>
 <span class="normal"> 973</span>
 <span class="normal"> 974</span>
 <span class="normal"> 975</span>
@@ -14304,7 +14313,16 @@ detritus another pool passed to it. Ecosim's EwE rule uses this routing.</p>
 <span class="normal">1031</span>
 <span class="normal">1032</span>
 <span class="normal">1033</span>
-<span class="normal">1034</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_detritus_fate</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EweDetritusFate</span><span class="p">:</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_detritus_fate</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EweDetritusFate</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Route detritus between pools as EwE6's Ecopath does.</span>
 
 <span class="sd">    EwE (cEcoPathModel.CalcFateOfDetritus and CalcBAofDetritus, vb 619-668)</span>
