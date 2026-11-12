@@ -10,6 +10,7 @@ Integrates ECOSPACE spatial dynamics with Ecosim temporal dynamics:
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -71,6 +72,32 @@ def _local_deriv(
         for key, value in rates.items():
             rates[key] = value * w
     return deriv
+
+
+def _ecosim_detritus_out(params, forcing, fishing, biomass, hden_start):
+    """Ecosim's DetritusOut, which EwE6 Ecospace uses in every cell
+    (cEcoSpace.vb:2427, cSpaceSolver.vb:1035).
+
+    As rsim_run: Ecosim's SetTimeSteps Derivt at the start biomass advances
+    Hden, and the next Derivt, after FirstTime is armed again (vb 860), fixes
+    each detritus pool's export rate. Both start from the month's state with
+    its forced biomass, as rsim_run's, and run on a copy of ``params`` whose
+    IBM groups are copies too (they step in every derivative).
+    """
+    ecosim = dict(params)
+    ecosim.pop("_hden_patches", None)
+    if ecosim.get("ibm_groups"):
+        ecosim["ibm_groups"] = copy.deepcopy(ecosim["ibm_groups"])
+    state = np.array(biomass, dtype=float)
+    forced = np.asarray(forcing.get("ForcedBio", np.zeros(0)), dtype=float)
+    if forced.shape == state.shape:
+        state[forced > 0] = forced[forced > 0]
+    if hden_start is not None:
+        ecosim["_hden"] = np.array(hden_start, dtype=float, copy=True)
+        deriv_vector(state.copy(), ecosim, forcing, fishing)
+    ecosim["_det_out"] = np.full(len(state), np.nan)
+    deriv_vector(state.copy(), ecosim, forcing, fishing)
+    return ecosim["_det_out"]
 
 
 def _capacity_matrix(
@@ -730,6 +757,9 @@ def rsim_run_spatial(
         # constant detritus import per unit area, as Ecosim's DetInFlow (A2).
         # EwE 6.7.144 Ecospace leaves it out (deviations.md, A2-space).
         "DetInput": getattr(params, "DetInput", None),
+        # EwE6 detritus fate between pools (audit P7; None = Rpath links)
+        "DetPassedProp": getattr(params, "DetPassedProp", None),
+        "DetBA": getattr(params, "DetBA", None),
         "RpathPrimaryProduction": True,
     }
     # Prey switching normalises by the Ecosim base, not a patch's B * c
@@ -759,6 +789,8 @@ def rsim_run_spatial(
         params_dict["_cmco_qb"] = _cmco_qb
         params_dict["_hden_patches"] = np.tile(_hden_start[:, None], (1, n_patches))
         _hden_start_pending = True
+    # EwE6 DetritusOut: Ecosim's, shared by every patch (set in month 1)
+    _det_out_pending = params_dict["DetPassedProp"] is not None
 
     # Build fishing dict (constant across timesteps, same as rsim_run)
     fishing_dict = {
@@ -936,6 +968,15 @@ def rsim_run_spatial(
             # EwE6 SetTimeSteps: one Derivt at the start state advances Hden
             _f(current_biomass, t, hh)
             _hden_start_pending = False
+        if _det_out_pending:
+            params_dict["_det_out"] = _ecosim_detritus_out(
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                initial_biomass,
+                None if _handling is None else _hden_start,
+            )
+            _det_out_pending = False
         first_stage = last_stage = None
         for sub in range(rk4_steps):
             t_sub = t + sub * hh

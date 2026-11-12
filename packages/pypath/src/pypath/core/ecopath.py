@@ -861,3 +861,108 @@ def rpath(
         return rpath_obj, diagnostics
 
     return rpath_obj
+
+
+@dataclass
+class EweDetritusFate:
+    """EwE6's detritus fate on a balanced model (see :func:`ewe_detritus_fate`).
+
+    Each array has one value per group, in the model's group order, and is 0
+    except on detritus groups.
+
+    Attributes
+    ----------
+    input_to_det : np.ndarray
+        Inflow (EwE InputToDet): import, living groups' deaths and egestion,
+        discards and the surplus other pools passed on.
+    det_eaten : np.ndarray
+        Consumption of the pool (EwE DetEaten).
+    passed_on : np.ndarray
+        Surplus passed on to the other pools (EwE DetPassedOn, the Ecopath
+        FlowToDet of a detritus group).
+    ba : np.ndarray
+        Biomass accumulation: the model's BA plus the surplus share the pool
+        sends to itself (EwE BA after CalcBAofDetritus).
+    ee : np.ndarray
+        Ecotrophic efficiency, det_eaten / input_to_det (EwE EE).
+    """
+
+    input_to_det: np.ndarray
+    det_eaten: np.ndarray
+    passed_on: np.ndarray
+    ba: np.ndarray
+    ee: np.ndarray
+
+
+def ewe_detritus_fate(model: Rpath) -> EweDetritusFate:
+    """Route detritus between pools as EwE6's Ecopath does.
+
+    EwE (cEcoPathModel.CalcFateOfDetritus and CalcBAofDetritus, vb 619-668)
+    takes the detritus pools in group order. A pool's surplus, inflow minus
+    consumption, goes to every other pool j in the fraction DF(i, j); a later
+    pool's surplus therefore includes what earlier pools passed to it, while
+    what a later pool passes back to an earlier one only adds to that pool's
+    inflow. The fraction a pool sends to itself is not inflow but biomass
+    accumulation, BA += (inflow - consumption - catch) x DF(i, i).
+
+    :func:`rpath` keeps Rpath v1.1's routing instead (a pool's own share
+    counts as inflow; only the first-stage surpluses are passed on), so its
+    detritus EE differ wherever a pool has a fate to itself or passes on
+    detritus another pool passed to it. Ecosim's EwE rule uses this routing.
+    """
+    types = np.asarray(model.type, dtype=float)
+    n = len(types)
+    living = np.where(types < 2)[0]
+    dead = np.where(types == 2)[0]
+    fleets = np.where(types == 3)[0]
+    biomass = np.nan_to_num(np.asarray(model.Biomass, dtype=float))
+    qb = np.nan_to_num(np.asarray(model.QB, dtype=float))
+    m0 = np.nan_to_num(np.asarray(model.M0, dtype=float))
+    unassim = np.nan_to_num(np.asarray(model.Unassim, dtype=float))
+    fate = np.nan_to_num(np.asarray(model.DetFate, dtype=float))
+    diet = np.nan_to_num(np.asarray(model.DC, dtype=float))
+    landings = np.nan_to_num(np.asarray(model.Landings, dtype=float))
+    discards = np.nan_to_num(np.asarray(model.Discards, dtype=float))
+    imports = np.zeros(n)
+    if len(model.DetInput) == n:
+        imports = np.nan_to_num(np.asarray(model.DetInput, dtype=float))
+
+    # Flows into each pool from living groups (deaths, as rpath() counts them,
+    # and egestion; CalcGS_Det_FlowToDet) and fleets (discards)
+    loss = np.zeros(n)
+    loss[living] = np.maximum(m0[living], 0.0) * biomass[living] + (
+        biomass[living] * qb[living] * unassim[living]
+    )
+    for f_col, f in enumerate(fleets):
+        loss[f] = discards[living, f_col].sum()
+    sources = np.concatenate([living, fleets])
+    inflow = imports[dead] + loss[sources] @ fate[sources, :]
+    # CalcDetEaten: B x QB x DC of every consumer (DC columns follow living)
+    eaten = diet[dead, :] @ (biomass[living] * qb[living])
+    passed = np.zeros(len(dead))
+    for k in range(len(dead)):
+        surplus = inflow[k] - eaten[k]
+        if surplus > 0:
+            for j in range(len(dead)):
+                if j != k:
+                    inflow[j] += surplus * fate[dead[k], j]
+                    passed[k] += surplus * fate[dead[k], j]
+    catch = landings[dead].sum(axis=1) + discards[dead].sum(axis=1)
+    own = fate[dead, np.arange(len(dead))]
+    ba = np.nan_to_num(np.asarray(model.BA, dtype=float))[dead]
+    ba = ba + (inflow - eaten - catch) * own
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ee = np.where(inflow > 0, eaten / inflow, 0.0)
+
+    def _full(values):
+        out = np.zeros(n)
+        out[dead] = values
+        return out
+
+    return EweDetritusFate(
+        input_to_det=_full(inflow),
+        det_eaten=_full(eaten),
+        passed_on=_full(passed),
+        ba=_full(ba),
+        ee=_full(ee),
+    )

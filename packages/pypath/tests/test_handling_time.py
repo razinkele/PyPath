@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-ZOO, FISH = 2, 3  # spname indices (0 = Outside)
+ZOO, FISH, DET = 2, 3, 4  # spname indices (0 = Outside)
 BLACKSEA = Path(__file__).parents[3] / "Data" / "BlackSea_EwEF_testcase.eweaccdb"
 
 
@@ -81,13 +81,19 @@ def test_run_starts_from_ewes_hden_and_settles_on_the_base():
     the base search rates assume CmCo / (CmCo - 1): with CmCo = 2 the
     predators' search rates start at three times their base value (their
     intake rises less, as the arena saturates). Hden then climbs to
-    its fixed point and the run returns to the base state; with EwE's default
-    1000 the start transient stays below 1e-4."""
+    its fixed point and the living groups return to the base state; with
+    EwE's default 1000 the start transient stays below 1e-4."""
     out = _run(_scenario(2.0))
     assert out.out_Hden[0, FISH] == pytest.approx(2.0 / 3.0)
     assert out.out_Hden[-1, FISH] == pytest.approx(2.0, abs=0.01)
     assert np.abs(out.out_Biomass / out.out_Biomass[0] - 1).max() > 0.01
-    np.testing.assert_allclose(out.out_Biomass[-1], out.out_Biomass[0], rtol=5e-3)
+    np.testing.assert_allclose(
+        out.out_Biomass[-1, :DET], out.out_Biomass[0, :DET], rtol=5e-3
+    )
+    # The detritus export rate is fixed by the first derivative (EwE's
+    # FirstTime), while the predators still eat and egest more: as in EwE,
+    # detritus settles below its base.
+    assert out.out_Biomass[-1, DET] < 0.99 * out.out_Biomass[0, DET]
     default = _run(_scenario(1000.0))
     assert default.out_Hden[0, FISH] == pytest.approx(1000.0 / 1001.0)
     assert np.abs(default.out_Biomass / default.out_Biomass[0] - 1).max() < 1e-4

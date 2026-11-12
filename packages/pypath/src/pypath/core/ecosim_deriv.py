@@ -770,6 +770,9 @@ def _rpath_detritus_derivs(
     NUM_DEAD,
     import_q=None,
     det_input=None,
+    det_passed_prop=None,
+    det_ba=None,
+    det_out=None,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -782,6 +785,15 @@ def _rpath_detritus_derivs(
     group (EwE DetInFlow, cEcoSimModel.vb:3119-3124), counted as gain so the
     fast-equilibrium biomeq includes it as EwE's does (:3126).
 
+    With ``det_passed_prop`` (the EwE rule, audit P7) a dead source follows
+    EwE6 instead (SimDetritusMT and Derivt, cEcoSimModel.vb 3115-3209): it
+    sends DetPassedProp x B x DF along each link to another pool (DF counts
+    twice, as in EwE: DetPassedProp already holds it), nothing to itself
+    or out, and loses DetritusOut x B besides consumption. ``det_out`` holds
+    DetritusOut; NaN entries are set from this call so that the pool grows at
+    ``det_ba`` (EwE's FirstTime, vb 3202-3207), and are kept from then on.
+    Without ``det_out`` every call sets it afresh.
+
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
     """
@@ -793,6 +805,7 @@ def _rpath_detritus_derivs(
         consumption = consumption + import_q[1 : NUM_LIVING + 1]
     unassim_loss = np.zeros(n_bio + 1)
     unassim_loss[1 : NUM_LIVING + 1] = consumption * Unassim[1 : NUM_LIVING + 1]
+    ewe = det_passed_prop is not None
     det_gain = np.zeros(n_bio + 1)
     det_loss = np.zeros(n_bio + 1)
     for k in range(1, len(det_from)):
@@ -800,6 +813,10 @@ def _rpath_detritus_derivs(
         dest = int(det_to[k])
         if src < 1 or src > n_bio:
             continue  # gear rows carry no M0 / unassimilated flow
+        if ewe and src > NUM_LIVING:
+            if dest != src and NUM_LIVING < dest <= n_bio:
+                det_gain[dest] += det_passed_prop[src] * det_frac[k] * BB[src]
+            continue
         flow = float(det_frac[k]) * (mzero_loss[src] + unassim_loss[src])
         if 0 < dest <= n_bio:
             det_gain[dest] += flow
@@ -817,8 +834,33 @@ def _rpath_detritus_derivs(
     loss = det_loss.copy()
     for d in range(NUM_LIVING + 1, n_bio + 1):
         loss[d] += QQ[d, 1 : NUM_LIVING + 1].sum()
+    if ewe:
+        dead = slice(NUM_LIVING + 1, n_bio + 1)
+        if det_out is None:
+            det_out = np.full(n_bio + 1, np.nan)
+        out = det_out[: n_bio + 1]  # a view: rates set here are kept
+        unset = np.zeros(n_bio + 1, dtype=bool)
+        unset[dead] = np.isnan(out[dead])
+        if unset.any():
+            out[unset] = _ewe_detritus_out(
+                gain[unset],
+                loss[unset],
+                np.asarray(det_ba, dtype=float)[: n_bio + 1][unset],
+                BB[: n_bio + 1][unset],
+            )
+        loss[dead] += out[dead] * BB[dead]
+    for d in range(NUM_LIVING + 1, n_bio + 1):
         deriv[d] = gain[d] - loss[d]
     return gain, loss
+
+
+def _ewe_detritus_out(gain, eaten, ba, biomass):
+    """EwE6's DetritusOut (cEcoSimModel.vb 3206-3207): the export rate that
+    leaves a detritus pool growing at its BA, (inflow - BA - eaten) / B, at
+    least 1e-20."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rate = np.where(biomass > 0, (gain - ba - eaten) / biomass, 0.0)
+    return np.maximum(rate, 1e-20)
 
 
 def _compute_detritus_derivs(
@@ -2168,6 +2210,9 @@ def deriv_vector(
             NUM_DEAD,
             import_q=import_q,
             det_input=params.get("DetInput"),
+            det_passed_prop=params.get("DetPassedProp"),
+            det_ba=params.get("DetBA"),
+            det_out=params.get("_det_out"),
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)

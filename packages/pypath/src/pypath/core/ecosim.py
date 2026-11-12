@@ -29,7 +29,11 @@ logger = logging.getLogger(__name__)
 if os.environ.get("PYPATH_SILENCE_DEBUG", "").lower() in ("1", "true", "yes"):
     logging.getLogger("pypath").setLevel(logging.WARNING)
 
-from pypath.core.ecopath import Rpath  # noqa: E402
+from pypath.core.ecopath import (  # noqa: E402
+    EweDetritusFate,
+    Rpath,
+    ewe_detritus_fate,
+)
 from pypath.core.ecosim_deriv import deriv_vector, fishing_mortality  # noqa: E402
 from pypath.core.params import RpathParams  # noqa: E402
 from pypath.core.stanzas import (  # noqa: E402
@@ -252,6 +256,13 @@ class RsimParams:
     # Constant detritus import per group, indexed like B_BaseRef (EwE
     # DetInFlow, cEcoSimModel.vb:3119-3124); None or zeros = no import.
     DetInput: Optional[np.ndarray] = None
+    # EwE6 detritus fate between pools (audit P7), indexed like B_BaseRef:
+    # a pool moves DetPassedProp x B x DF to each other pool and, besides
+    # consumption, loses an export rate fixed at the first derivative so it
+    # grows at DetBA (which holds the share it sends to itself). None (the
+    # 'rpath' rule) = Rpath's detritus links.
+    DetPassedProp: Optional[np.ndarray] = None
+    DetBA: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -479,11 +490,13 @@ def detritus_self_fates(rpath, nliving: int, ndead: int) -> dict:
 def _warn_detritus_self_fate(rpath, nliving: int, ndead: int) -> None:
     """Warn about detritus pools that flow to themselves.
 
-    Ecopath counts a pool's flow to itself as input (fraction f of its
-    unused surplus), but in Ecosim the pool sends f of its whole decay
-    (M0 * B) back to itself, so it grows by f^2 * surplus per year from the
-    Ecopath balance. Rpath does the same; its REco example, like EwE models,
-    gives a detritus pool no fate to itself, so the surplus leaves the system.
+    Either way the pool grows from the Ecopath balance. EwE6 (the 'ewe'
+    rule) counts the fraction f of its surplus it sends to itself as biomass
+    accumulation, so Ecosim starts it growing at f * surplus per year. Rpath
+    (the 'rpath' rule) counts that flow as input, and in Ecosim the pool sends
+    f of its whole decay (M0 * B) back to itself, so it grows by f^2 *
+    surplus per year. Rpath's REco example gives a detritus pool no fate to
+    itself, so the surplus leaves the system.
     """
     try:
         self_fates = detritus_self_fates(rpath, nliving, ndead)
@@ -495,8 +508,9 @@ def _warn_detritus_self_fate(rpath, nliving: int, ndead: int) -> None:
         warnings.warn(
             "Detritus fate of a detritus group to itself: %s. Ecosim keeps that "
             "share of the pool's surplus in the pool, so it grows away from the "
-            "Ecopath balance. Set the group's fate to itself to 0 (its surplus "
-            "then leaves the system, as in Rpath and EwE)." % listed,
+            "Ecopath balance (EwE counts it as the pool's biomass "
+            "accumulation). Set the group's fate to itself to 0 if the surplus "
+            "should leave the system instead." % listed,
             UserWarning,
             stacklevel=3,
         )
@@ -864,6 +878,8 @@ def rsim_params(
         logger.debug("DetFate diagnostic logging failed: %s", e)
 
     _warn_detritus_self_fate(rpath, nliving, ndead)
+    # EwE6 detritus fate between pools (audit P7), for the EwE rule
+    ewe_fate = ewe_detritus_fate(rpath) if fast_group_rule == "ewe" else None
     no_integrate = _fast_group_flags(
         fast_group_rule,
         threshold=2.0 * steps_yr * steps_m,
@@ -880,7 +896,11 @@ def rsim_params(
         fish_from=fish_from,
         fish_to=fish_to,
         fish_q=fish_q,
+        ewe_fate=ewe_fate,
     )
+    det_passed_prop = det_ba = None
+    if ewe_fate is not None:
+        det_passed_prop, det_ba = _ewe_detritus_vectors(ewe_fate, b_baseref)
 
     return RsimParams(
         NUM_GROUPS=ngroups,
@@ -916,6 +936,8 @@ def rsim_params(
         CmCo=np.full(ngroups + 1, 1000.0),
         NutBaseFreeProp=(0.9999 if fast_group_rule == "ewe" else None),
         DetInput=_det_input_vector(rpath, ngroups),
+        DetPassedProp=det_passed_prop,
+        DetBA=det_ba,
         VbK=np.zeros(ngroups + 1),
         AssimEff=np.zeros(ngroups + 1),
         HandleSelf=handle_self,
@@ -1125,6 +1147,7 @@ def _fast_group_flags(
     fish_from: np.ndarray,
     fish_to: np.ndarray,
     fish_q: np.ndarray,
+    ewe_fate: Optional[EweDetritusFate] = None,
 ) -> np.ndarray:
     """NoIntegrate flags (1 = solved at equilibrium, 0 = integrated).
 
@@ -1136,8 +1159,10 @@ def _fast_group_flags(
     the detritus budget, so the loss equals the inflow minus the biomass
     accumulation: other-mortality and unassimilated flows routed by the
     detritus fate, plus discards, plus the detritus import (DtImp enters the
-    export rate, cEcoSimModel.vb:3207). Evaluated at the Ecopath base, which is
-    where EwE evaluates its first derivative.
+    export rate, cEcoSimModel.vb:3207). With ``ewe_fate`` (EwE's detritus
+    routing) the inflow includes what the other pools pass on and the
+    biomass accumulation the share a pool sends to itself. Evaluated at the
+    Ecopath base, which is where EwE evaluates its first derivative.
 
     ``"rpath"``: Rpath's rule, other-mortality flow M0*B above the threshold
     (a detritus pool with slow turnover is integrated like any other group).
@@ -1178,6 +1203,15 @@ def _fast_group_flags(
         det_input = getattr(rpath, "DetInput", None)
         if det_input is not None and d - 1 < len(det_input):
             inflow += float(np.nan_to_num(det_input[d - 1]))
+        if ewe_fate is not None:
+            for src in range(ndead):
+                if src != det_idx:
+                    inflow += (
+                        ewe_fate.passed_on[nliving + src]
+                        * det_fate[nliving + src, det_idx]
+                    )
+            loss[d] = inflow - ewe_fate.ba[d - 1]
+            continue
         loss[d] = inflow - (ba[d - 1] if d - 1 < len(ba) else 0.0)
 
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -1186,6 +1220,17 @@ def _fast_group_flags(
     flags[0] = 0
     flags[nbio + 1 :] = 0
     return flags
+
+
+def _ewe_detritus_vectors(
+    ewe_fate: EweDetritusFate, b_baseref: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """EwE6's DetPassedProp (passed-on flow / B0) and BA as rsim vectors."""
+    passed = np.concatenate([[0.0], ewe_fate.passed_on])
+    with np.errstate(divide="ignore", invalid="ignore"):
+        prop = np.where(b_baseref > 0, passed / b_baseref, 0.0)
+    prop[0] = 0.0
+    return prop, np.concatenate([[0.0], ewe_fate.ba])
 
 
 def _det_input_vector(rpath, ngroups: int) -> np.ndarray:
@@ -1597,6 +1642,9 @@ def rsim_run(
         "AssimEff": getattr(params, "AssimEff", None),
         "SwitchPower": getattr(params, "SwitchPower", None),
         "DetInput": getattr(params, "DetInput", None),
+        # EwE6 detritus fate between pools (audit P7; None = Rpath links)
+        "DetPassedProp": getattr(params, "DetPassedProp", None),
+        "DetBA": getattr(params, "DetBA", None),
     }
     _set_switch_weights(params_dict)
 
@@ -2110,6 +2158,10 @@ def rsim_run(
     # CmCo > 1 only.
     out_hden = None
     _hden_start_pending = False
+    # EwE6 DetritusOut, set by the first derivative after FirstTime is armed
+    _det_out_pending = params_dict["DetPassedProp"] is not None
+    if _det_out_pending:
+        params_dict["_det_out"] = np.full(n_groups, np.nan)
     _handling = _ewe_handling_setup(params, n_groups)
     if _handling is not None:
         _hden0, _hden_start, _cmco_qb = _handling
@@ -2204,6 +2256,11 @@ def rsim_run(
                 month_start_state.copy(), params_dict, forcing_dict, fishing_dict
             )
             _hden_start_pending = False
+        if _det_out_pending:
+            # EwE6 arms FirstTime again after SetTimeSteps (vb 860), so the
+            # month's first Derivt fixes each pool's DetritusOut (vb 3202)
+            params_dict["_det_out"][:] = np.nan
+            _det_out_pending = False
         # The month's F, as the derivative applies it (EwE6 setFishTime)
         _fleet_med_now = None
         if params_dict.get("_mediation") is not None:
