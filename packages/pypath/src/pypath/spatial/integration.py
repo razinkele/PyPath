@@ -86,6 +86,7 @@ def _ecosim_detritus_out(params, forcing, fishing, biomass, hden_start):
     """
     ecosim = dict(params)
     ecosim.pop("_hden_patches", None)
+    ecosim.pop("_mediation_density_scale", None)
     if ecosim.get("ibm_groups"):
         ecosim["ibm_groups"] = copy.deepcopy(ecosim["ibm_groups"])
     state = np.array(biomass, dtype=float)
@@ -283,8 +284,13 @@ def deriv_vector_spatial(
     # densities. The derivative is scaled back by the area fraction (#51).
     # IBM groups compute their own absolute rates, so they keep the old form.
     patch_share = _patch_area_fractions(ecospace, n_patches)
+    _mediation_scale = None
     if params.get("ibm_groups"):
         logger.debug("IBM groups present: patch dynamics not density-scaled")
+        # EwE mediation compares a mediator's density with its whole-model
+        # base, so it still gets densities: biomass / the patch's area share
+        if params.get("EweMediation") is not None:
+            _mediation_scale = 1.0 / patch_share
         patch_share = None
 
     # Per-patch, per-fleet effort scaling. MPA closures and spatial effort
@@ -429,6 +435,8 @@ def deriv_vector_spatial(
         state_patch = state_spatial[:, patch_idx]
         if _hden_patches is not None:
             patch_params["_hden"] = _hden_patches[:, patch_idx]  # a view
+        if _mediation_scale is not None:
+            patch_params["_mediation_density_scale"] = _mediation_scale[patch_idx]
         if params_need_modification:
             patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
             patch_params["Bbase"] = b_base_ref_patches[:, patch_idx]
@@ -476,6 +484,8 @@ def deriv_vector_spatial(
                 rates = {} if rates_out is not None else None
                 if _hden_patches is not None:
                     params["_hden"] = _hden_patches[:, patch_idx]  # a view
+                if _mediation_scale is not None:
+                    params["_mediation_density_scale"] = _mediation_scale[patch_idx]
 
                 if params_need_modification:
                     b_base_ref_backup = params["B_BaseRef"]
@@ -763,6 +773,8 @@ def rsim_run_spatial(
         # EwE6 migration of living groups, per unit area in each patch
         "Immigration": getattr(params, "Immigration", None),
         "Emig": getattr(params, "Emig", None),
+        # EwE6 pred/prey mediation, from each patch's own densities
+        "EweMediation": getattr(params, "EweMediation", None),
         "RpathPrimaryProduction": True,
     }
     # Prey switching normalises by the Ecosim base, not a patch's B * c

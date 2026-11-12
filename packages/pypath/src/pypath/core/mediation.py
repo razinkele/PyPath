@@ -7,6 +7,7 @@ the mediator's relative biomass and a user-defined response shape.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -215,3 +216,97 @@ def make_ushape(
     abs_diff = np.abs(x - 1.0)
     y = high - (high - low) * abs_diff**shape / (1.0 + abs_diff**shape)
     return MediationShape(shape_id=shape_id, name=name, x_points=x, y_points=y)
+
+
+# --- EwE6 pred/prey mediation (cMediationDataStructures) ----------------------
+
+N_MED_POINTS = 1200  # cMediationDataStructures.N_DEFAULT_MEDIATIONPOINTS
+SEARCH_RATE = 1  # eForcingFunctionApplication.SearchRate
+VULNERABILITY = 2  # eForcingFunctionApplication.Vulnerability
+
+
+@dataclass
+class EweMediation:
+    """EwE6's pred/prey mediation functions, as Ecosim applies them.
+
+    Each shape has 1200 points (``points[s, ip - 1]`` is Medpoints(ip)) and
+    a base point ``imedbase[s]``. Its mediators are the groups with a weight
+    > 0 in ``weights[s]`` (rsim index). Every derivative sets the shape's
+    value from the current biomass (SetMedFunctions, cEcoSimModel.vb:2851):
+    X = 1e-10 + sum(weight x B), ip = Trunc(IMedBase x X / MedXbase + 0.01)
+    clamped to 1..1200, value = Medpoints(ip) / MedYbase, with MedXbase =
+    sum(weight x start biomass) and MedYbase = Medpoints(IMedBase)
+    (InitializeMedFunctions, vb 3568-3650). A shape without mediators, base X
+    or base point value is unused and its value stays 1. EwE computes in
+    single precision; so does this, so the point index truncates alike.
+
+    ``links`` are ``(prey, pred, shape, application)`` (rsim indices): a
+    search-rate function multiplies the link's search rate, a vulnerability
+    function its vulnerability (ApplyAVmodifiers, vb 4928-4970). Several
+    functions on one link multiply.
+    """
+
+    points: np.ndarray
+    imedbase: np.ndarray
+    weights: np.ndarray
+    links: list
+    xbase: np.ndarray | None = None
+    ybase: np.ndarray | None = None
+    used: np.ndarray | None = None
+
+    def setup(self, start_biomass: np.ndarray) -> None:
+        """MedXbase, MedYbase and MedIsUsed from the start biomass."""
+        pts = np.asarray(self.points, dtype=np.float32)
+        imed = np.asarray(self.imedbase, dtype=int)
+        n_shapes = pts.shape[0]
+        self.xbase = np.zeros(n_shapes, dtype=np.float32)
+        self.ybase = np.zeros(n_shapes, dtype=np.float32)
+        self.used = np.zeros(n_shapes, dtype=bool)
+        b0 = np.asarray(start_biomass, dtype=np.float32)
+        for s in range(n_shapes):
+            w = np.asarray(self.weights[s], dtype=np.float32)
+            x = np.float32(0.0)
+            for j in np.nonzero(w > 0)[0]:
+                x = np.float32(x + w[j] * b0[j])
+            self.xbase[s] = x
+            ip = min(max(int(imed[s]), 1), N_MED_POINTS)
+            self.ybase[s] = pts[s, ip - 1]
+            self.used[s] = bool(np.any(w > 0)) and x != 0 and self.ybase[s] != 0
+
+    def lookup(self, shape: int, x: float) -> float:
+        """getMedValue: the shape's value at mediator sum ``x``."""
+        ratio = np.float32(np.float32(self.imedbase[shape]) * np.float32(x))
+        ratio = np.float32(ratio / self.xbase[shape])
+        ip = int(math.trunc(float(ratio) + 0.01))
+        ip = max(1, min(N_MED_POINTS, ip))
+        return float(np.float32(self.points[shape][ip - 1]) / self.ybase[shape])
+
+    def values(self, biomass: np.ndarray) -> np.ndarray:
+        """MedVal of every shape at ``biomass`` (1 for unused shapes)."""
+        out = np.ones(len(self.used))
+        b = np.asarray(biomass, dtype=np.float32)
+        for s in np.nonzero(self.used)[0]:
+            w = np.asarray(self.weights[s], dtype=np.float32)
+            x = np.float32(1e-10)
+            for j in np.nonzero(w > 0)[0]:
+                x = np.float32(x + b[j] * w[j])
+            out[s] = self.lookup(s, float(x))
+        return out
+
+    def link_factors(self, biomass: np.ndarray, n: int):
+        """Search-rate and vulnerability multipliers by link, (n, n) arrays
+        indexed [prey, pred], or None where no link has that application."""
+        if not self.links:
+            return None, None
+        vals = self.values(biomass)
+        search = vul = None
+        for prey, pred, shape, application in self.links:
+            if application == SEARCH_RATE:
+                if search is None:
+                    search = np.ones((n, n))
+                search[prey, pred] *= vals[shape]
+            elif application == VULNERABILITY:
+                if vul is None:
+                    vul = np.ones((n, n))
+                vul[prey, pred] *= vals[shape]
+        return search, vul

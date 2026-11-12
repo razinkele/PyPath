@@ -269,6 +269,9 @@ class RsimParams:
     # Ecosim does not use EmigRate for living groups). None = no migration.
     Immigration: Optional[np.ndarray] = None
     Emig: Optional[np.ndarray] = None
+    # EwE6 pred/prey mediation functions (core.mediation.EweMediation, D3),
+    # applied under the EwE rule; None = no mediation
+    EweMediation: Optional[object] = None
 
 
 @dataclass
@@ -1686,6 +1689,7 @@ def rsim_run(
         # EwE6 migration of living groups (A1-s2; None = none)
         "Immigration": getattr(params, "Immigration", None),
         "Emig": getattr(params, "Emig", None),
+        "EweMediation": getattr(params, "EweMediation", None),
     }
     _set_switch_weights(params_dict)
 

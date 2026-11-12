@@ -3802,13 +3802,7 @@ def _apply_forcing_shapes(
             return
 
         spname = [str(n).strip() for n in rsim.params.spname]
-        esim_to_idx: Dict[int, int] = {}
-        for _, row in sg_df.iterrows():
-            esim_gid = _int_or_none(row.get("GroupID"))
-            name = id_to_name.get(_int_or_none(row.get("EcopathGroupID")))
-            if esim_gid is None or name is None or str(name).strip() not in spname:
-                continue
-            esim_to_idx[esim_gid] = spname.index(str(name).strip())
+        esim_to_idx = _esim_group_index(selected, spname)
 
         shapes: Dict[int, np.ndarray] = {}
         for _, srow in shape_time_df.iterrows():
@@ -3820,6 +3814,7 @@ def _apply_forcing_shapes(
         group_types = list(params.model["Type"])  # model order, 0-based
         forcing = rsim.forcing
         n_months = forcing.ForcedSearch.shape[0]
+        mediation_ids = _mediation_shape_ids(filepath)
         # EwE rule: link shapes stay on their links (see _link_array)
         link_rule = bool(getattr(rsim.params, "PREY_FTIME_ARENA", False))
         for _, row in ppshape_df.iterrows():
@@ -3836,9 +3831,11 @@ def _apply_forcing_shapes(
                 )
                 continue
             if shape_id not in shapes:
+                if shape_id in mediation_ids:
+                    continue  # a mediation function (_apply_mediation)
                 logger.warning(
-                    "Shape %s on %s -> %s is not a time-series forcing shape "
-                    "(mediation shapes are not supported); skipped",
+                    "Shape %s on %s -> %s is neither a time-series forcing nor a "
+                    "mediation shape; skipped",
                     shape_id,
                     spname[prey],
                     spname[pred],
@@ -4258,6 +4255,194 @@ def _apply_stanza_shapes(filepath: str, rsim: "RsimScenario", params) -> None:
         logger.warning("Failed to apply stanza egg-production/hatch shapes: %s", e)
 
 
+# EwE6 eDataTypes.Mediation: EcosimShape.ShapeType of a pred/prey mediation shape
+_SHAPE_MEDIATION = 10
+
+
+def _mediation_shape_ids(filepath: str) -> set:
+    """ShapeIDs of the pred/prey mediation shapes (EcosimShape.ShapeType 10)."""
+    shape_df = _try_read_table_variants(filepath, ["EcosimShape"])
+    if shape_df is None or "ShapeType" not in shape_df.columns:
+        return set()
+    ids = shape_df.loc[shape_df["ShapeType"] == _SHAPE_MEDIATION, "ShapeID"]
+    return {int(i) for i in ids if _int_or_none(i) is not None}
+
+
+def _apply_mediation(
+    filepath: str,
+    selected: Dict[str, Any],
+    rsim: "RsimScenario",
+    params: "RpathParams",
+) -> None:
+    """EwE6 pred/prey mediation functions of the scenario (deviation D3).
+
+    A link's row in ``EcosimScenarioPredPreyShape`` whose ShapeID is a
+    mediation shape (EcosimShape.ShapeType 10) makes that shape a function of
+    the link (cDBDataSource.LoadPredPreyInteractions). The shape's 1200 points
+    and base point come from ``EcosimShapeMediation`` (zScale, IMedBase;
+    missing points are 1), its mediators and their weights from the
+    scenario's ``EcosimScenarioShapeMedWeightsGroup`` rows
+    (LoadMediationWeights). Ecosim then scales the link's search rate or
+    vulnerability by the shape's value at the current biomass
+    (:class:`pypath.core.mediation.EweMediation`).
+
+    Applied under the EwE rule, to search-rate and vulnerability functions;
+    other applications (arena area, production, import, other mortality)
+    and shapes mediated by fleets are reported and skipped.
+    """
+    from pypath.core.mediation import N_MED_POINTS, EweMediation
+
+    try:
+        mediation_ids = _mediation_shape_ids(filepath)
+        if not mediation_ids:
+            return
+        pp = _try_read_table_variants(filepath, ["EcosimScenarioPredPreyShape"])
+        if pp is None or len(pp) == 0:
+            return
+        sid = selected.get("id")
+        if sid is not None and "ScenarioID" in pp.columns:
+            pp = pp[pp["ScenarioID"] == sid]
+        pp = pp[pp["ShapeID"].apply(_int_or_none).isin(mediation_ids)]
+        if len(pp) == 0:
+            return
+        if not getattr(rsim.params, "PREY_FTIME_ARENA", False):
+            logger.warning(
+                "Ecosim scenario %s: %d mediation functions need the EwE rule "
+                "(fast_group_rule='ewe'); skipped",
+                sid,
+                len(pp),
+            )
+            return
+
+        spname = [str(n).strip() for n in rsim.params.spname]
+        esim_to_idx = _esim_group_index(selected, spname)
+        group_types = list(params.model["Type"])
+        order = sorted({int(v) for v in pp["ShapeID"]})
+        index = {shape_id: k for k, shape_id in enumerate(order)}
+        points = np.ones((len(order), N_MED_POINTS), dtype=np.float32)
+        imedbase = np.full(len(order), N_MED_POINTS // 3, dtype=int)
+        med_df = _try_read_table_variants(filepath, ["EcosimShapeMediation"])
+        for _, row in (med_df if med_df is not None else pd.DataFrame()).iterrows():
+            k = index.get(_int_or_none(row.get("ShapeID")))
+            if k is None:
+                continue
+            try:
+                vals = [
+                    float(v) for v in str(row.get("zScale", "")).split() if v.strip()
+                ]
+            except ValueError:
+                logger.warning(
+                    "Mediation shape %s has an unreadable zScale; its points stay at 1",
+                    row.get("ShapeID"),
+                )
+                continue
+            vals = vals[:N_MED_POINTS]
+            points[k, : len(vals)] = vals
+            base = _int_or_none(row.get("IMedBase"))
+            if base is not None:
+                imedbase[k] = base
+
+        weights = np.zeros((len(order), len(spname)))
+        wg = _try_read_table_variants(
+            filepath,
+            [
+                "EcosimScenarioShapeMedWeightsGroup",
+                "EcosimScenarioshapeMedWeightsGroup",
+            ],
+        )
+        if wg is not None and sid is not None and "ScenarioID" in wg.columns:
+            wg = wg[wg["ScenarioID"] == sid]
+        for _, row in (wg if wg is not None else pd.DataFrame()).iterrows():
+            k = index.get(_int_or_none(row.get("ShapeID")))
+            j = esim_to_idx.get(_int_or_none(row.get("GroupID")))
+            w = row.get("MedWeights")
+            if k is not None and j is not None and pd.notna(w):
+                weights[k, j] = float(w)
+
+        fleet_shapes = set()
+        wf = _try_read_table_variants(
+            filepath,
+            [
+                "EcosimScenarioShapeMedWeightsFleet",
+                "EcosimScenarioshapeMedWeightsFleet",
+            ],
+        )
+        if wf is not None and sid is not None and "ScenarioID" in wf.columns:
+            wf = wf[wf["ScenarioID"] == sid]
+        for _, row in (wf if wf is not None else pd.DataFrame()).iterrows():
+            shape_id = _int_or_none(row.get("ShapeID"))
+            w = row.get("MedWeights")
+            if shape_id in index and pd.notna(w) and float(w) > 0:
+                fleet_shapes.add(shape_id)
+        for shape_id in sorted(fleet_shapes):
+            logger.warning(
+                "Mediation shape %s is mediated by fleet effort, which is not "
+                "supported; its functions are skipped",
+                shape_id,
+            )
+
+        links = []
+        for _, row in pp.iterrows():
+            shape_id = int(row["ShapeID"])
+            pred = esim_to_idx.get(_int_or_none(row.get("PredID")))
+            prey = esim_to_idx.get(_int_or_none(row.get("PreyID")))
+            if pred is None or prey is None or shape_id in fleet_shapes:
+                continue
+            appl = _int_or_none(row.get("FunctionType")) or 0
+            pred_type = group_types[pred - 1] if 0 < pred <= len(group_types) else None
+            if appl == _FF_SEARCH_RATE and pred_type == 1:
+                appl = _FF_PRODUCTION_RATE
+            elif appl == _FF_SEARCH_RATE and pred_type == 2:
+                appl = _FF_IMPORT
+            if appl not in (_FF_SEARCH_RATE, _FF_VULNERABILITY):
+                logger.warning(
+                    "Mediation shape %s on %s -> %s as application type %s is not "
+                    "supported; skipped",
+                    shape_id,
+                    spname[prey],
+                    spname[pred],
+                    appl,
+                )
+                continue
+            links.append((prey, pred, index[shape_id], appl))
+        if not links:
+            return
+
+        med = EweMediation(
+            points=points, imedbase=imedbase, weights=weights, links=links
+        )
+        med.setup(np.asarray(rsim.params.B_BaseRef, dtype=float))
+        for k in sorted({link[2] for link in links}):
+            if not med.used[k]:
+                logger.info(
+                    "Mediation shape %s has no mediator, base or base point value; "
+                    "EwE leaves its value at 1",
+                    order[k],
+                )
+        rsim.params.EweMediation = med
+        logger.info(
+            "Applied %d mediation functions of %d shapes", len(links), len(order)
+        )
+    except Exception as e:
+        logger.warning("Failed to apply mediation functions: %s", e)
+
+
+def _esim_group_index(selected: Dict[str, Any], spname: list) -> Dict[int, int]:
+    """Ecosim GroupID -> rsim index, through the scenario's EcosimScenarioGroup."""
+    sg_df = selected.get("scenario_group_df")
+    id_to_name = selected.get("group_id_to_name") or {}
+    out: Dict[int, int] = {}
+    if sg_df is None:
+        return out
+    for _, row in sg_df.iterrows():
+        esim_gid = _int_or_none(row.get("GroupID"))
+        name = id_to_name.get(_int_or_none(row.get("EcopathGroupID")))
+        if esim_gid is None or name is None or str(name).strip() not in spname:
+            continue
+        out[esim_gid] = spname.index(str(name).strip())
+    return out
+
+
 # EwE6 eForcingFunctionApplication (Sources/EwECore/Core/CoreEnumerators.vb)
 _FF_SEARCH_RATE = 1
 _FF_VULNERABILITY = 2
@@ -4417,6 +4602,9 @@ def ecosim_scenario_from_ewemdb(
 
     # Load environmental forcing shapes (EcosimShapeTime, EcosimScenarioGroup)
     _apply_forcing_shapes(filepath, selected, rsim, params)
+
+    # Pred/prey mediation functions (EcosimShapeMediation, ShapeMedWeights)
+    _apply_mediation(filepath, selected, rsim, params)
 
     # Environmental response functions (EcosimScenarioCapacityDrivers)
     _apply_capacity_drivers(filepath, selected, rsim, params)

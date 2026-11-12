@@ -48,14 +48,14 @@ EcosimScenarioLandingsShape,ecosim,true,false,false,false,partial,
 EcosimScenarioMSE,ecosim,true,false,false,false,partial,
 EcosimScenarioPredPreyShape,ecosim,true,true,false,false,partial,read: shape-to-link assignments with EwE application types (production rate; consumer search rate; vulnerability; other mortality)
 EcosimScenarioQuota,ecosim,true,true,false,false,partial,
-EcosimScenarioShapeMedWeightsFleet,ecosim,true,true,false,true,partial,
-EcosimScenarioshapeMedWeightsGroup,ecosim,true,true,false,true,partial,
+EcosimScenarioShapeMedWeightsFleet,ecosim,true,true,false,true,partial,"read: a pred/prey mediation shape with fleet mediators is reported and skipped (fleet effort as a mediator is not supported)"
+EcosimScenarioshapeMedWeightsGroup,ecosim,true,true,false,true,partial,"read: the scenario's mediators and weights of each pred/prey mediation shape (EweMediation, EwE rule)"
 EcosimScenarioshapeMedWeightsLandings,ecosim,true,true,false,true,partial,
 EcosimShape,ecosim,true,true,true,true,implemented,
 EcosimShapeEggProd,ecosim,true,true,false,false,partial,"read: egg-production shapes linked to stanza groups (EcosimStanzaShape)"
 EcosimShapeFishMort,ecosim,true,false,false,false,partial,
 EcosimShapeFishRate,ecosim,true,true,true,true,implemented,
-EcosimShapeMediation,ecosim,true,true,false,true,partial,
+EcosimShapeMediation,ecosim,true,true,false,true,partial,"read: points and IMedBase of the mediation shapes (EcosimShape.ShapeType 10) used on pred/prey links, applied to search rates and vulnerabilities (EweMediation, EwE rule); FunctionType and FunctionParams not read (the points are what EwE uses)"
 EcosimShapeTime,ecosim,true,true,true,true,implemented,
 EcosimStanzaShape,ecosim,true,true,false,false,partial,"read: egg-production shape (ForcedRecs, seasonal RscaleSplit) and hatch-code shape per stanza group; not written"
 EcosimTimeSeries,ecosim,true,true,false,true,partial,"read: DatType, TimeValues, WtType (the series' weight in EwE's sum of squares)"
