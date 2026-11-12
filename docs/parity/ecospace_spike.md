@@ -74,17 +74,17 @@ With capacity off, PyPath's 304 patches stay identical: (max − min) / mean acr
    - Ecospace's own detritus and emigration terms (deviations A1-space and A2-space);
    - Ecospace's nutrient pool, which sums biomass per cell (`cEcoSpace.vb:3323`). It is a candidate for Phytoplankton's flat doubling, on a model with nutrient forcing;
    - EwE's dispersal and solver (B1–B3).
-6. **Reader gap.** `read_ecospace` does not read the depth map, so a database's land cells are modelled as water: here all 1302 cells, against EwE's 304. The map is stored in `EcospaceScenario.DepthMap` as rows separated by ';' and columns by ','. The spike took the water mask from the oracle's grid.
+6. **Reader gap.** `read_ecospace` does not read the depth map, so a database's land cells are modelled as water: here all 1302 cells, against EwE's 304. The map is stored in `EcospaceScenario.DepthMap` as rows separated by ';' and columns by ','. The spike took the water mask from the oracle's grid. **Closed** (step 1 below): `read_ecospace` now reads DepthMap and ExclusionMap as EwE does, and its grid is the oracle's 304 water cells. The capacity-on run on the reader's grid matches the run on the oracle's mask to 2e-15 (21.5 % median, 208 % max from EwE's Ecospace).
 7. **Oracle outputs.** The area mean in `ecospace_steps.csv` is the mean over the 304 water cells; checked against the maps. Run 43288513485's maps also hold one padding cell, (32, 43), outside the 31 × 42 grid. The harness now writes only the model's cells.
 
 ## Next steps (P6)
 
 This case is the yardstick for each step. Step 3 and the nutrient pool are hypotheses until a step is measured against it:
 
-1. Read the depth map (the land mask) and EwE's per-group Ecospace inputs (Mvel and habitat) in `read_ecospace`.
+1. Read the depth map (the land mask) and EwE's per-group Ecospace inputs (Mvel and habitat) in `read_ecospace`. **Depth map done:** DepthMap and ExclusionMap give the grid's water cells, pinned to the oracle's 304 cells (`test_ecospace_depth_map.py`). Mvel was already read; the habitat and capacity maps are not yet.
 2. Apply habitat capacity always (B4).
 3. Add EatEff and RelVulBad, and producer PbSpace (B5).
 4. Compare the cell maps in `ecospace_maps.csv`, not only area means.
 5. Bring dispersal to EwE's rules (B1–B3).
 
-Each step can then be pinned against the oracle, as the Ecosim fixes were. The oracle numbers (area means, cell maps, grid) can be committed as test data when the first of these steps lands.
+Each step can then be pinned against the oracle, as the Ecosim fixes were. The oracle numbers (area means, cell maps, grid) can be committed as test data when the first of these steps lands. The water cells are committed (`packages/pypath/tests/data/ewe_oracle/blacksea/`); the rest follows with the steps that use it.
