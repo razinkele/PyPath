@@ -36,23 +36,19 @@ def test_biomacc_read_directly():
     assert bioacc[0] == pytest.approx(-0.0039)
 
 
-def test_biomaccrate_fallback():
-    # EwE: BA = BaBi * B when BA is 0 (cEcoPathModel.vb:1564-1568)
-    df = _groups(Biomass=[2.0], BiomAcc=[0.0], BiomAccRate=[-0.1])
-    bioacc, _ = _resolve_group_inputs(df, [CONSUMER])
-    assert bioacc[0] == pytest.approx(-0.2)
-
-
-def test_biomaccrate_unknown_b_warns(caplog):
+def test_biomaccrate_is_left_to_the_balance(caplog):
+    # BiomAccRate is solved with the balance as rate x B (test_biomaccrate.py),
+    # whether B is entered or not: the absolute BA stays 0 and nothing warns
     df = _groups(
-        GroupName=["Cod"], Biomass=[-9999.0], BiomAcc=[0.0], BiomAccRate=[-0.1]
+        GroupName=["Cod", "Herring"],
+        Biomass=[-9999.0, 2.0],
+        BiomAcc=[0.0, 0.0],
+        BiomAccRate=[-0.1, -0.1],
     )
     with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
-        bioacc, _ = _resolve_group_inputs(df, [CONSUMER])
-    assert bioacc[0] == 0.0
-    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert len(warnings) == 1
-    assert "Cod" in warnings[0].getMessage()
+        bioacc, _ = _resolve_group_inputs(df, [CONSUMER, CONSUMER])
+    np.testing.assert_array_equal(bioacc, [0.0, 0.0])
+    assert not [r for r in caplog.records if r.levelno == logging.WARNING]
 
 
 def test_dtimports_detritus_only():
@@ -376,3 +372,24 @@ def test_stanza_stage_biomacc_dropped(caplog):
     assert ba["Zoo"] == pytest.approx(-0.4)  # non-stanza BA kept
     msgs = [m for m in _warnings(caplog) if "Juv fish" in m]
     assert len(msgs) == 1 and "Adult fish" in msgs[0]
+
+
+def test_reader_drops_the_rate_on_stanza_stages(caplog):
+    """The oracle (run 43235479966) shows EwE ignoring BiomAccRate on a
+    multi-stanza stage: Blue mussel (ad.) with BiomAccRate 0.02 keeps its EE
+    and its Ecosim biomass, as an absolute stage BA is dropped too."""
+    groups = _WIRING_GROUPS.copy()
+    groups["BiomAcc"] = [0.0, 0.0, 0.0, 0.0, 0.0]
+    groups["BiomAccRate"] = [0.0, 0.1, 0.05, 0.02, 0.0]
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        params = _read_mocked(
+            {
+                "EcopathGroup": groups,
+                "EcopathDietComp": _WIRING_DIET,
+                "Stanza": _STANZA,
+                "StanzaLifeStage": _STANZA_LIFE,
+            }
+        )
+    rate = _model_col(params, "BioAccRate")
+    assert rate["Zoo"] == pytest.approx(0.1)
+    assert rate["Juv fish"] == 0.0 and rate["Adult fish"] == 0.0

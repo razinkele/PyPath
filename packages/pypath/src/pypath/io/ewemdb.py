@@ -505,12 +505,12 @@ def _resolve_group_inputs(
 
     EwE 6 stores them in EcopathGroup as BiomAcc, BiomAccRate and DtImports
     (cDBDataSource.vb:2010-2024); older names (BA, DetInput) are accepted when
-    the EwE 6 column is absent. As in EwE (cEcoPathModel.vb:1564-1568), a
-    BiomAcc of 0 falls back to BiomAccRate * B. EwE applies that after B is
-    estimated; here it needs an entered B, and a group whose B is left to
-    Ecopath gets a warning and BA = 0. Detritus BA is not modelled (EwE's
-    rate loop covers living groups only, and the Ecopath and Ecosim detritus
-    budgets here have no BA term), so it is set to 0 with a warning.
+    the EwE 6 column is absent. ``bioacc`` is the absolute BiomAcc;
+    BiomAccRate, which EwE uses where BiomAcc is 0, is read separately
+    (:func:`_resolve_bioacc_rate`) and solved with the balance. Detritus BA is
+    not modelled (EwE's rate loop covers living groups only, and the Ecopath
+    and Ecosim detritus budgets here have no BA term), so it is set to 0 with
+    a warning.
 
     Returns ``(bioacc, det_input)``: ``det_input`` is DtImports on detritus
     groups (missing -> 0) and NaN on every other group.
@@ -519,7 +519,6 @@ def _resolve_group_inputs(
     is_det = types == 2
     bioacc = _group_column(groups_df, ("BiomAcc", "BA", "BioAcc", "BiomassAccum"))
     rate = _group_column(groups_df, ("BiomAccRate", "BioAccRate"))
-    biomass = _group_column(groups_df, ("Biomass", "BiomassAreaInput", "B"))
 
     det_ba = is_det & ((np.nan_to_num(bioacc) != 0) | (np.nan_to_num(rate) != 0))
     if det_ba.any():
@@ -529,24 +528,27 @@ def _resolve_group_inputs(
             ", ".join(labels[i] for i in np.where(det_ba)[0]),
         )
     bioacc = np.where(is_det, 0.0, bioacc)
-    rate = np.where(is_det, np.nan, rate)
-
-    use_rate = ((bioacc == 0) | np.isnan(bioacc)) & ~np.isnan(rate) & (rate != 0)
-    known_b = ~np.isnan(biomass) & (biomass > 0)
-    bioacc = np.where(use_rate & known_b, rate * biomass, bioacc)
-    unresolved = use_rate & ~known_b
-    if unresolved.any():
-        labels = _group_labels(groups_df)
-        logger.warning(
-            "BiomAccRate ignored for %s: biomass is left to Ecopath, so BA = "
-            "BiomAccRate * B cannot be applied before the balance; BA set to 0",
-            ", ".join(labels[i] for i in np.where(unresolved)[0]),
-        )
-        bioacc = np.where(unresolved, 0.0, bioacc)
 
     det_input = _group_column(groups_df, ("DtImports", "DetInput", "DetritalInput"))
     det_input = np.where(is_det, np.nan_to_num(det_input, nan=0.0), np.nan)
     return bioacc, det_input
+
+
+def _resolve_bioacc_rate(groups_df: pd.DataFrame, types: Sequence[int]) -> np.ndarray:
+    """EcopathGroup.BiomAccRate where BiomAcc is 0 (else 0), living groups only.
+
+    EwE counts it as BiomAccRate x B in the balance, whether B is entered or
+    solved (cEcoPathModel.vb:466, 2047, 2097); ``rpath()`` does so from the
+    model's ``BioAccRate`` column. Detritus BA is not modelled.
+    """
+    is_det = np.asarray(types, dtype=int) == 2
+    bioacc = np.nan_to_num(
+        _group_column(groups_df, ("BiomAcc", "BA", "BioAcc", "BiomassAccum")), nan=0.0
+    )
+    rate = np.nan_to_num(
+        _group_column(groups_df, ("BiomAccRate", "BioAccRate")), nan=0.0
+    )
+    return np.where(~is_det & (bioacc == 0), rate, 0.0)
 
 
 def _drop_stanza_stage_bioacc(model: pd.DataFrame, stage_groups: Sequence[str]) -> None:
@@ -555,12 +557,18 @@ def _drop_stanza_stage_bioacc(model: pd.DataFrame, stage_groups: Sequence[str]) 
     EwE writes stage BA = stanza B * BABsplit into EcopathGroup.BiomAcc
     (cCore.vb:12389) but leaves BA out of a stanza group's EE
     (cEcoPathModel.vb:486-489, 2052-2056). PyPath's balance adds BA to every
-    living group, so the stage values are dropped to keep EwE's EE.
+    living group, so the stage values are dropped to keep EwE's EE. EwE
+    ignores a stage's BiomAccRate too, in EE and in Ecosim (the oracle, LT2022
+    Blue mussel (ad.) with BiomAccRate 0.02), so it is dropped alike.
     """
     stages = {str(g).strip() for g in stage_groups}
     on_stage = model["Group"].astype(str).str.strip().isin(stages)
     ba = pd.to_numeric(model["BioAcc"], errors="coerce").fillna(0.0)
     dropped = on_stage & (ba != 0)
+    if "BioAccRate" in model.columns:
+        rate = pd.to_numeric(model["BioAccRate"], errors="coerce").fillna(0.0)
+        dropped = dropped | (on_stage & (rate != 0))
+        model.loc[on_stage, "BioAccRate"] = 0.0
     if dropped.any():
         logger.warning(
             "Biomass accumulation on multi-stanza life stages is left out, as "
@@ -1077,6 +1085,10 @@ def read_ewemdb(
     fleet_pad = [np.nan] * len(fleet_names)
     params.model["BioAcc"] = bioacc.tolist() + fleet_pad
     params.model["DetInput"] = det_input.tolist() + fleet_pad
+    # BiomAccRate x B, solved with the balance (audit A1-rate)
+    params.model["BioAccRate"] = (
+        _resolve_bioacc_rate(groups_df, group_types[:n_bio_groups]).tolist() + fleet_pad
+    )
     # Migration (audit A1-s2)
     for col, vals in _resolve_migration(groups_df, group_types[:n_bio_groups]).items():
         params.model[col] = vals.tolist() + fleet_pad
