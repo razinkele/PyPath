@@ -189,7 +189,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
   - F6 pooling weights.
 - **Ecosim options:**
   - non-additive predation mortality (PaddP);
-  - BoutFeeding;
+  - BoutFeeding: closed with no code change, because EwE 6.7.144 never sets it (`docs/parity/deviations.md`, BF);
   - environmental and mortality response functions (Mo = (−ln(1 − p)·12 + mo)/mo);
   - a MortOther forcing value of 0 is ignored;
   - relative prey-energy GE scaling;

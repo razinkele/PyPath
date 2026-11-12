@@ -1,6 +1,6 @@
 # Known deviations from EwE 6.7.144
 
-This file lists every place where PyPath knowingly behaves differently from EwE 6.7.144. It is part of the definition of parity in `docs/plans/2026-11-10-ewe-parity-roadmap.md`: a finding is closed only when it is fixed or listed here as an accepted deviation.
+This file lists every place where PyPath knowingly behaves differently from EwE 6.7.144. It is part of the definition of parity in `docs/plans/2026-11-10-ewe-parity-roadmap.md`: a finding is closed only when it is fixed, listed here as an accepted deviation, or listed under "Nothing to change" because EwE 6.7.144 cannot reach it.
 
 Source: the audit of 2026-11-10 against tag `v6.7.144` of Official-EwE/Eii.Ecopath. Line references point to that tag.
 
@@ -8,6 +8,7 @@ Status values:
 
 - **Open:** a known difference that a roadmap phase will fix.
 - **Accepted:** kept on purpose, with the reason given.
+- **Nothing to change:** an audit finding that EwE 6.7.144 cannot reach, so PyPath already matches every EwE run.
 
 ## Open (scheduled)
 
@@ -31,7 +32,7 @@ Status values:
 | PaddP | Ecosim | Fixed under the EwE rule: non-additive predation mortality (EcosimScenarioGroup.AdditivePredMort, read as `RsimParams.PaddP`). Below 1 a group's other mortality compensates for predation: moMax = mo + M2_0 x (1 - PaddP) and Qh = moMax / mo - 1 from the base predation rate M2_0 = StartEatenOf / B0 (`CalcBaseAdditiveMort`, `cEcoSimModel.vb:3802-3816`), and each derivative uses moTot = moMax / (1 + Qh x Eatenof / StartEatenOf) in place of mo (`:3058-3081`); see R5 for the detritus flow. Checked against the oracle on a purpose-built LT2022 scenario 16 case (ewe-oracle `patches/lt2022_s16_paddp.sql`, `Data/LT2022_s16_paddp.eweaccdb`: Sprat 0, Zooplankton 0.5, Herring 0.3): a 0.007 % median deviation; Sprat, which collapses to 0.3 % of B0, drifts to 0.5 % by month 144; the case has no multi-stanza stage with PaddP below 1. Ecospace keeps additive mortality, as EwE's `cSpaceSolver` does (mo in place of moTot, `cSpaceSolver.vb:1009`; read from the source, not checked against the oracle). The 'rpath' rule reports and ignores PaddP | — |
 | M0 | Ecopath / Ecosim | Fixed under the EwE rule (`EWE_MO_TOT`): a group with EE > 1 has a negative other mortality, mo = (1 - EE) x PB (`CalcMo`, `cEcoSimModel.vb:4481`). EwE's Derivt gives an eaten one moTot = 1e-20 in place of mo whatever its PaddP (`CalcBaseAdditiveMort` sets moMax = 1e-20 and Qh = 0 where mo <= 0, vb 3807-3815; the loss takes moTot, vb 3058-3081), and the fast-group test reads that loss (vb 2794). A group that is not eaten keeps mo (vb 3077-3078), as does the detritus flow (vb 3165) and Ecospace (`cSpaceSolver.vb:1009`). Under both rules Ecopath now sends the negative M0 x B to detritus, as Rpath (`loss = M0 B + B QB Unassim`) and EwE's Ecopath (FlowToDet) do; PyPath clamped it at 0. Checked against the oracle on a purpose-built LT2022 case (ewe-oracle `patches/lt2022_m0_negative_mo.sql`, `Data/LT2022_negative_mo.eweaccdb`: Sand goby's B 2.2 -> 1.5, EE 1.12): Ecopath detritus EE to 1e-7 (it was 3e-5 off), Ecosim 0.0075 % median and 0.12 % max deviation (Sand goby was 31 % off, its predators 3-6 %). The 'rpath' rule keeps mo in Ecosim | — |
 | F | Ecotracer | `core/ecotracer.py` is a simplified tracer, not EwE's Ecotracer (no environment pool; different uptake and losses) | P8 (relabel) |
-| G | Various | Fishing, Ecosim options, Ecopath reporting and minor reader items listed in the audit's section G | P5, P7 |
+| G | Various | Fishing, Ecosim options, Ecopath reporting and minor reader items listed in the audit's section G (BoutFeeding: see BF under "Nothing to change") | P5, P7 |
 
 ## Accepted
 
@@ -53,3 +54,11 @@ PyPath follows what EwE 6.7.144 actually does, even where that comes from an EwE
 | R4 | Ecosim | Ecopath's balance counts EmigRate x B, but Ecosim takes a living group's emigration from Emigration only (`SetupSimVariables`, `cEcoSimModel.vb:4528`; EmigRate is used for detritus groups only). A group whose emigration is entered as a rate is therefore balanced in Ecopath and grows at EmigRate x B from the start of Ecosim: the oracle's Smelt (EmigRate 0.05) is 0.41 % up in month 1 and 0.82 % in month 2 | The same (`RsimParams.Emig` = Emigration / B0) |
 | R5 | Ecosim | With non-additive predation mortality (PaddP < 1) a group loses moTot x B to other mortality, but `SimDetritusMT` sends mo x B to detritus (`cEcoSimModel.vb:3165`), so the detritus budget is not closed when predation moves away from its base, as with MoPred (R2) | The same under the EwE rule: the detritus flow keeps mo |
 
+
+## Nothing to change
+
+Findings from the audit that EwE 6.7.144 cannot reach, so PyPath already matches every EwE run.
+
+| ID | Area | EwE code | Why nothing changes |
+|---|---|---|---|
+| BF | Ecosim / Ecospace | BoutFeeding switches the vulnerable biomass from Veff x B / (VulArena + Veff + D) to Veff x B x (1 - exp(-D)) / D, where D is the arena's total search, sum(a x P / Hden) (`cEcoSimModel.vb:2908-2953`), and the base vulnerable biomass from (VulMult - 1) x Q / (2 x VulArena) to -Q / ln(1 - 1 / VulMult) (`:5386`). The Ecospace solver reads the same switch (`cSpaceSolver.vb:889, 920, 2767, 2798`; `cEcoSpace.vb:3353, 3387, 6092`; located, not read line by line) | `cEcosimDatastructures.BoutFeeding` is a Boolean marked "this needs an interface" (`cEcoSimDatastructures.vb:591`). It is copied once (`:1819`) and never assigned anywhere in the v6.7.144 tree: not in the core, the database layer, the user interface or the plugins. No EwE database table has a column for it. It therefore stays False, and every EwE run takes the other branch, which is the arena PyPath implements and the oracle runs check. PyPath does not implement bout feeding |
