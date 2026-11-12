@@ -271,6 +271,88 @@ def test_ecospace_patches_follow_ecosim():
     )
 
 
+def _uniform_ecospace(n):
+    from pypath.spatial import EcospaceParams, create_1d_grid
+
+    grid = create_1d_grid(n_patches=2, spacing=1.0)
+    return EcospaceParams(
+        grid=grid,
+        habitat_preference=np.ones((n, 2)),
+        habitat_capacity=np.ones((n, 2)),
+        dispersal_rate=np.zeros(n),
+        advection_enabled=np.zeros(n, dtype=bool),
+        gravity_strength=np.zeros(n),
+    )
+
+
+def _export_rate_calls(sc, monkeypatch, on_call=None):
+    """Run Ecospace and record each call of its Ecosim export-rate helper."""
+    import pypath.spatial.integration as integ
+    from pypath.spatial import rsim_run_spatial
+
+    calls = []
+    original = integ._ecosim_detritus_out
+
+    def spy(*args):
+        before = on_call() if on_call else None
+        out = original(*args)
+        calls.append((args, before, on_call() if on_call else None))
+        return out
+
+    monkeypatch.setattr(integ, "_ecosim_detritus_out", spy)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rsim_run_spatial(
+            sc, ecospace=_uniform_ecospace(sc.params.NUM_GROUPS + 1), years=range(1, 2)
+        )
+    return calls, original
+
+
+class _CountingIBM:
+    """Stands in for an IBM group; counts the steps it takes."""
+
+    def __init__(self, group_index, n_groups, biomass):
+        self.group_index, self.n_groups, self.biomass = group_index, n_groups, biomass
+        self.steps = 0
+
+    def compute_step(self, **kwargs):
+        from types import SimpleNamespace
+
+        self.steps += 1
+        return SimpleNamespace(
+            biomass=self.biomass, consumption_by_prey=np.zeros(self.n_groups)
+        )
+
+
+def test_ecospace_export_rate_leaves_ibm_groups_alone(monkeypatch):
+    """An IBM group steps in every derivative; the extra derivatives that
+    set Ecospace's export rate must not advance the run's populations."""
+    sc = _scenario()
+    ibm = _CountingIBM(2, sc.params.NUM_GROUPS, sc.params.B_BaseRef[2])
+    sc.params.ibm_groups = {2: ibm}
+    calls, _ = _export_rate_calls(sc, monkeypatch, on_call=lambda: ibm.steps)
+    assert len(calls) == 1
+    _, before, after = calls[0]
+    assert after == before
+
+
+def test_ecospace_export_rate_starts_from_the_forced_state(monkeypatch):
+    """rsim_run fixes DetritusOut on the month's start state with ForcedBio
+    applied; Ecospace's shared rate starts from the same state."""
+    sc = _scenario()
+    forced = 1.5 * sc.params.B_BaseRef[2]
+    sc.forcing.ForcedBio[:, 2] = forced
+    calls, original = _export_rate_calls(sc, monkeypatch)
+    params, forcing, fishing, biomass, hden = calls[0][0]
+    forced_state = np.array(biomass, dtype=float)
+    forced_state[2] = forced
+    np.testing.assert_allclose(
+        original(params, forcing, fishing, biomass, hden),
+        original(params, forcing, fishing, forced_state, hden),
+        rtol=1e-12,
+    )
+
+
 # --- EwE 6.7.144 headless oracle, Black Sea scenario 1 (run 43103422428) -------
 
 # ecopath.csv: InputToDet, FlowToDet (= DetPassedOn), BioAccum, EE

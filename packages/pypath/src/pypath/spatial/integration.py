@@ -10,6 +10,7 @@ Integrates ECOSPACE spatial dynamics with Ecosim temporal dynamics:
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -79,15 +80,23 @@ def _ecosim_detritus_out(params, forcing, fishing, biomass, hden_start):
 
     As rsim_run: Ecosim's SetTimeSteps Derivt at the start biomass advances
     Hden, and the next Derivt, after FirstTime is armed again (vb 860), fixes
-    each detritus pool's export rate. Evaluated on a copy of ``params``.
+    each detritus pool's export rate. Both start from the month's state with
+    its forced biomass, as rsim_run's, and run on a copy of ``params`` whose
+    IBM groups are copies too (they step in every derivative).
     """
     ecosim = dict(params)
     ecosim.pop("_hden_patches", None)
+    if ecosim.get("ibm_groups"):
+        ecosim["ibm_groups"] = copy.deepcopy(ecosim["ibm_groups"])
+    state = np.array(biomass, dtype=float)
+    forced = np.asarray(forcing.get("ForcedBio", np.zeros(0)), dtype=float)
+    if forced.shape == state.shape:
+        state[forced > 0] = forced[forced > 0]
     if hden_start is not None:
         ecosim["_hden"] = np.array(hden_start, dtype=float, copy=True)
-        deriv_vector(np.array(biomass, dtype=float), ecosim, forcing, fishing)
-    ecosim["_det_out"] = np.full(len(biomass), np.nan)
-    deriv_vector(np.array(biomass, dtype=float), ecosim, forcing, fishing)
+        deriv_vector(state.copy(), ecosim, forcing, fishing)
+    ecosim["_det_out"] = np.full(len(state), np.nan)
+    deriv_vector(state.copy(), ecosim, forcing, fishing)
     return ecosim["_det_out"]
 
 
