@@ -172,9 +172,6 @@ UNREAD_RESULT_COLUMNS: dict[str, tuple[str, ...]] = {
     "EcopathGroup": (
         # BiomAcc, BiomAccRate and DtImports are read (A1); this case is not
         "BiomAcc (detritus groups)",
-        # OtherMort, Immigration, Emigration and EmigRate are read (A1-s2);
-        # this case is not
-        "Immigration, Emigration, EmigRate (detritus groups)",
         "Type (fractional, mixotrophs)",
     ),
     "EcosimScenario": (

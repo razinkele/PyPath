@@ -596,23 +596,14 @@ def _resolve_migration(groups_df: pd.DataFrame, types: Sequence[int]) -> dict:
     """EcopathGroup Immigration, Emigration and EmigRate (missing -> 0).
 
     EwE balances living groups' migration (cEcoPathModel.vb:466-489) and
-    Ecosim moves it (cEcoSimModel.vb:3081, 3111, 4528). Detritus migration is
-    not modelled here, so it is set to 0 with a warning.
+    Ecosim moves it (cEcoSimModel.vb:3081, 3111, 4528). A detritus group's
+    migration is left out of Ecopath and moved by Ecosim (vb 3117-3124, 3206,
+    4535). ``types`` is kept for the callers.
     """
-    is_det = np.asarray(types, dtype=int) == 2
-    out = {}
-    for col in _MIGRATION_COLUMNS:
-        vals = np.nan_to_num(_group_column(groups_df, (col,)), nan=0.0)
-        on_det = is_det & (vals != 0)
-        if on_det.any():
-            labels = _group_labels(groups_df)
-            logger.warning(
-                "Detritus %s is not modelled; set to 0 for %s",
-                col,
-                ", ".join(labels[i] for i in np.where(on_det)[0]),
-            )
-        out[col] = np.where(is_det, 0.0, vals)
-    return out
+    return {
+        col: np.nan_to_num(_group_column(groups_df, (col,)), nan=0.0)
+        for col in _MIGRATION_COLUMNS
+    }
 
 
 # EcosimScenarioGroup settings PyPath does not model yet, with EwE's defaults

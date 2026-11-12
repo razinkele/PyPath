@@ -773,6 +773,7 @@ def _rpath_detritus_derivs(
     det_passed_prop=None,
     det_ba=None,
     det_out=None,
+    det_emig=None,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -792,7 +793,10 @@ def _rpath_detritus_derivs(
     or out, and loses DetritusOut x B besides consumption. ``det_out`` holds
     DetritusOut; NaN entries are set from this call so that the pool grows at
     ``det_ba`` (EwE's FirstTime, vb 3202-3207), and are kept from then on.
-    Without ``det_out`` every call sets it afresh.
+    Without ``det_out`` every call sets it afresh. ``det_emig`` is a pool's
+    emigration rate under the EwE rule (Emig, vb 3121, 4535): the pool loses
+    (Emig + DetritusOut) x B, and DetritusOut is set Emig lower, at least
+    1e-20 (vb 3206). A pool's immigration comes in ``det_input``.
 
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
@@ -841,14 +845,18 @@ def _rpath_detritus_derivs(
         out = det_out[: n_bio + 1]  # a view: rates set here are kept
         unset = np.zeros(n_bio + 1, dtype=bool)
         unset[dead] = np.isnan(out[dead])
+        emig = np.zeros(n_bio + 1)
+        if det_emig is not None:
+            emig[dead] = np.asarray(det_emig, dtype=float)[dead]
         if unset.any():
             out[unset] = _ewe_detritus_out(
                 gain[unset],
                 loss[unset],
                 np.asarray(det_ba, dtype=float)[: n_bio + 1][unset],
                 BB[: n_bio + 1][unset],
+                emig[unset],
             )
-        loss[dead] += out[dead] * BB[dead]
+        loss[dead] += (emig[dead] + out[dead]) * BB[dead]
     for d in range(NUM_LIVING + 1, n_bio + 1):
         deriv[d] = gain[d] - loss[d]
     return gain, loss
@@ -870,13 +878,29 @@ def _mo_tot_factor(eaten_of, start_eaten_of, mo, mo_max, qh):
     return out
 
 
-def _ewe_detritus_out(gain, eaten, ba, biomass):
+def _det_inflow(det_input, immigration, num_living, num_dead):
+    """A detritus pool's constant inflow, DetInFlow = DtImp + Immig
+    (cEcoSimModel.vb 3119), or ``det_input`` alone without immigration."""
+    if immigration is None:
+        return det_input
+    dead = slice(num_living + 1, num_living + num_dead + 1)
+    immig = np.asarray(immigration, dtype=float)
+    if not np.any(immig[dead] != 0):
+        return det_input
+    out = np.zeros(len(immig))
+    if det_input is not None:
+        out[: len(det_input)] = np.asarray(det_input, dtype=float)[: len(out)]
+    out[dead] += immig[dead]
+    return out
+
+
+def _ewe_detritus_out(gain, eaten, ba, biomass, emig=0.0):
     """EwE6's DetritusOut (cEcoSimModel.vb 3206-3207): the export rate that
-    leaves a detritus pool growing at its BA, (inflow - BA - eaten) / B, at
-    least 1e-20."""
+    leaves a detritus pool growing at its BA, (inflow - BA - eaten) / B -
+    Emig, at least 1e-20."""
     with np.errstate(divide="ignore", invalid="ignore"):
         rate = np.where(biomass > 0, (gain - ba - eaten) / biomass, 0.0)
-    return np.maximum(rate, 1e-20)
+    return np.maximum(rate - emig, 1e-20)
 
 
 def _compute_detritus_derivs(
@@ -2279,10 +2303,13 @@ def deriv_vector(
             NUM_LIVING,
             NUM_DEAD,
             import_q=import_q,
-            det_input=params.get("DetInput"),
+            det_input=_det_inflow(
+                params.get("DetInput"), _immigration, NUM_LIVING, NUM_DEAD
+            ),
             det_passed_prop=params.get("DetPassedProp"),
             det_ba=params.get("DetBA"),
             det_out=params.get("_det_out"),
+            det_emig=_emig,
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)
