@@ -148,6 +148,10 @@ def test_t0_living_derivative_equals_ba():
 def test_detritus_flat_over_a_year(method, noint):
     model, params = _model(det_input=50.0)
     scen = rsim_scenario(model, params, years=range(1, 3))
+    # isolates the import: EwE's handling time starts with a transient (R3)
+    # that the first derivative, which fixes the detritus export rate
+    # (DetritusOut, test_ewe_detritus_fate.py), would see
+    scen.params.EWE_HANDLING_TIME = False
     scen.params.NoIntegrate[DET] = 1 if noint else 0  # PyPath: non-zero = fast eq.
     out = rsim_run(scen, method=method)
     det = out.out_Biomass[:, DET]
@@ -221,6 +225,10 @@ def test_ecospace_detritus_flat_with_import():
 
     model, params = _model(det_input=50.0)
     sc = rsim_scenario(model, params, years=range(1, 3))
+    # isolates the import: EwE's handling time starts with a transient (R3)
+    # that the first derivative, which fixes the detritus export rate
+    # (DetritusOut, test_ewe_detritus_fate.py), would see
+    sc.params.EWE_HANDLING_TIME = False
     n = sc.params.NUM_GROUPS + 1
     grid = create_1d_grid(n_patches=3, spacing=1.0)
     grid.patch_areas = np.array([1.0, 2.0, 3.0])

@@ -43,7 +43,7 @@ from pypath.core.autofix import (
     diagnose_crash_causes,
     validate_and_fix_scenario,
 )
-from pypath.core.ecopath import Rpath, rpath
+from pypath.core.ecopath import EweDetritusFate, Rpath, ewe_detritus_fate, rpath
 from pypath.core.ecosim import (
     RsimFishing,
     RsimForcing,
@@ -284,6 +284,8 @@ __all__ = [
     "write_rpath_params",
     "check_rpath_params",
     "Rpath",
+    "EweDetritusFate",
+    "ewe_detritus_fate",
     # Ensemble
     "EnsembleResult",
     "run_ensemble_rpath",

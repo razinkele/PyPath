@@ -136,9 +136,9 @@ def test_black_sea_nutrient_settings_are_read(caplog):
 
 
 # EwE 6.7.144 headless oracle, Black Sea scenario 1 (run 43103422428): biomass
-# at the end of months 1-3, while the detritus self-fate difference (POM) has
-# not yet spread. With nutrient limitation PyPath follows to 0.25 %; without
-# it the phytoplankton is 6.3 % high in month 1 and 2.3 % low in month 3.
+# at the end of months 1-3. Without nutrient limitation the phytoplankton is
+# 6.3 % high in month 1 and 2.3 % low in month 3 (test_ewe_detritus_fate.py
+# pins the whole run, with EwE's detritus fate).
 EWE_BLACKSEA = {
     "Phytoplankton": {1: 0.315152794, 2: 0.321531773, 3: 0.342840672},
     "Zooplankton": {1: 0.378464729, 2: 0.377369165, 3: 0.389126897},
