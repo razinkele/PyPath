@@ -95,7 +95,6 @@ def test_more_predation_kills_less_through_other_mortality():
     assert runs[0.0].out_Biomass[-1, ZOO] > 1.01 * runs[1.0].out_Biomass[-1, ZOO]
 
 
-
 def test_ecospace_keeps_additive_mortality():
     """EwE's Ecospace takes mo, not moTot (cSpaceSolver.vb 1009, 2861): PaddP
     acts in Ecosim only, so the spatial run is the same with PaddP 0 or 1."""
@@ -122,6 +121,7 @@ def test_ecospace_keeps_additive_mortality():
     np.testing.assert_allclose(
         runs[0.0].out_Biomass, runs[1.0].out_Biomass, rtol=1e-12, atol=1e-14
     )
+
 
 # --- EwE 6.7.144 oracle: LT2022 with ewe-oracle patches/lt2022_s16_paddp.sql ---
 # Scenario 16 with Sprat PaddP 0, Zooplankton 0.5 and Herring 0.3; run
