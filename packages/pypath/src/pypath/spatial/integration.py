@@ -760,6 +760,8 @@ def rsim_run_spatial(
         # EwE6 detritus fate between pools (audit P7; None = Rpath links)
         "DetPassedProp": getattr(params, "DetPassedProp", None),
         "DetBA": getattr(params, "DetBA", None),
+        # EwE6 pred/prey mediation, from each patch's own densities
+        "EweMediation": getattr(params, "EweMediation", None),
         "RpathPrimaryProduction": True,
     }
     # Prey switching normalises by the Ecosim base, not a patch's B * c

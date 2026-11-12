@@ -263,6 +263,9 @@ class RsimParams:
     # 'rpath' rule) = Rpath's detritus links.
     DetPassedProp: Optional[np.ndarray] = None
     DetBA: Optional[np.ndarray] = None
+    # EwE6 pred/prey mediation functions (core.mediation.EweMediation, D3),
+    # applied under the EwE rule; None = no mediation
+    EweMediation: Optional[object] = None
 
 
 @dataclass
@@ -1649,6 +1652,7 @@ def rsim_run(
         # EwE6 detritus fate between pools (audit P7; None = Rpath links)
         "DetPassedProp": getattr(params, "DetPassedProp", None),
         "DetBA": getattr(params, "DetBA", None),
+        "EweMediation": getattr(params, "EweMediation", None),
     }
     _set_switch_weights(params_dict)
 

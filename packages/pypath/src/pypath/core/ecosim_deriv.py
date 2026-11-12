@@ -1732,15 +1732,32 @@ def deriv_vector(
             params.get("SwitchBbase", Bbase),
             params.get("SwitchA"),
         )
+    # EwE6 pred/prey mediation (D3): each mediated link's search rate or
+    # vulnerability is multiplied by its shapes' values at this biomass
+    # (SetMedFunctions at the start of every Derivt, ApplyAVmodifiers)
+    _med_search = _med_vul = None
+    _ewe_med = params.get("EweMediation")
+    if _ewe_med is not None and _ewe_prey_f is not None:
+        _med_search, _med_vul = _ewe_med.link_factors(BB, NUM_GROUPS + 1)
     if _ewe_prey_f is not None:
         _f_arena = _ewe_prey_f
         _vul_link = forcing.get("ForcedVulLink")
         if _vul_link is not None:
             # a link's own vulnerability forcing joins the prey's f
             _f_arena = _ewe_prey_f[:, None] * np.asarray(_vul_link, dtype=float)
+        if _med_vul is not None:
+            _f_arena = (
+                _f_arena if _f_arena.ndim == 2 else _f_arena[:, None]
+            ) * _med_vul
         VV, QQbase = ewe_prey_multiplier_arena(VV, QQbase, _f_arena)
     # EwE link-level search-rate forcing (built only for EwE-rule scenarios)
     _search_link = forcing.get("ForcedSearchLink")
+    if _med_search is not None:
+        _search_link = (
+            _med_search
+            if _search_link is None
+            else np.asarray(_search_link, dtype=float) * _med_search
+        )
     if _search_link is not None:
         VV, QQbase = ewe_link_search_arena(VV, QQbase, _search_link)
 
