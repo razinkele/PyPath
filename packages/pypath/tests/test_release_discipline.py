@@ -87,3 +87,24 @@ def test_claude_version_table_matches_package_versions():
 
     expected_row = f"| **Version** | {core_version} | {shiny_version} |"
     assert expected_row in claude
+
+
+def _job_condition(workflow: str, job: str) -> str:
+    """The ``if:`` expression of a job in a GitHub workflow, whitespace folded."""
+    match = re.search(rf"^  {job}:\n(.*?)^    runs-on:", workflow, re.M | re.S)
+    if not match or "    if:" not in match.group(1):
+        raise AssertionError(f"No if: condition found for job {job}")
+    return " ".join(match.group(1).split("    if:", 1)[1].split())
+
+
+def test_release_jobs_require_the_package_job_to_succeed():
+    """A package job sets ``released`` before it builds, publishes and tags, so
+    a later failure (a rejected PyPI upload, say) still leaves it 'true'. The
+    GitHub release and the CI/deploy dispatch must also need the job to have
+    succeeded, or they release a commit that was never bumped or tagged."""
+    workflow = _read_text(REPO_ROOT / ".github" / "workflows" / "release.yml")
+    github_release = _job_condition(workflow, "create-github-release")
+    assert "needs.release-core.result == 'success'" in github_release
+    post_release = _job_condition(workflow, "post-release")
+    assert "needs.release-core.result == 'success'" in post_release
+    assert "needs.release-shiny.result == 'success'" in post_release
