@@ -570,9 +570,14 @@ def _drop_stanza_stage_bioacc(model: pd.DataFrame, stage_groups: Sequence[str]) 
     model.loc[on_stage, "BioAcc"] = 0.0
 
 
-# EcopathGroup columns that change EwE results but have no PyPath equivalent
-# yet (roadmap P5). Non-zero, non-missing values are reported, not used.
-_UNSUPPORTED_GROUP_COLUMNS = ("OtherMort",)
+def _ee_with_other_mort(ee: np.ndarray, other_mort: np.ndarray) -> np.ndarray:
+    """EwE's EE from EcopathGroup.OtherMort, the share of production lost to
+    other mortality: EE = 1 - OtherMort wherever OtherMort > 0, over an
+    entered EE (cEcopathDataStructures.CopyInputToModelArrays, vb 1026-1031).
+    """
+    om = np.nan_to_num(np.asarray(other_mort, dtype=float), nan=0.0)
+    return np.where(om > 0, 1.0 - om, np.asarray(ee, dtype=float))
+
 
 # EcopathGroup migration columns (audit A1-s2), read as model columns of the
 # same name: flows (t/km2/yr) and emigration per unit of biomass
@@ -600,24 +605,6 @@ def _resolve_migration(groups_df: pd.DataFrame, types: Sequence[int]) -> dict:
             )
         out[col] = np.where(is_det, 0.0, vals)
     return out
-
-
-def _warn_unsupported_group_columns(
-    groups_df: pd.DataFrame, group_names: Sequence[str]
-) -> None:
-    """Warn once per EcopathGroup column that is set but ignored by PyPath."""
-    for col in _UNSUPPORTED_GROUP_COLUMNS:
-        if col not in groups_df.columns:
-            continue
-        values = _group_column(groups_df, (col,))
-        used = ~np.isnan(values) & (values != 0)
-        if used.any():
-            logger.warning(
-                "EcopathGroup.%s is set for %s but PyPath does not model it yet; "
-                "the value is ignored, so results will differ from EwE",
-                col,
-                ", ".join(str(group_names[i]) for i in np.where(used)[0]),
-            )
 
 
 # EcosimScenarioGroup settings PyPath does not model yet, with EwE's defaults
@@ -1093,7 +1080,13 @@ def read_ewemdb(
     # Migration (audit A1-s2)
     for col, vals in _resolve_migration(groups_df, group_types[:n_bio_groups]).items():
         params.model[col] = vals.tolist() + fleet_pad
-    _warn_unsupported_group_columns(groups_df, group_names[:n_bio_groups])
+    # Other mortality input sets EE (A1-s2)
+    if "EE" in params.model.columns:
+        ee = params.model["EE"].to_numpy(dtype=float, copy=True)
+        ee[:n_bio_groups] = _ee_with_other_mort(
+            ee[:n_bio_groups], _group_column(groups_df, ("OtherMort",))
+        )
+        params.model["EE"] = ee
 
     # Extract remarks if available and create remarks DataFrame
     remarks_data = {"Group": group_names}
