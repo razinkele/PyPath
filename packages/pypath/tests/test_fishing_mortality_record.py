@@ -86,3 +86,96 @@ def test_record_is_the_fishing_mortality_the_derivative_uses():
         loss = next(fl for st, fl in calls if np.array_equal(st, start))
         for g in (ZOO, FISH):
             assert loss[g] == pytest.approx(out.out_FishMort[month, g] * start[g])
+
+
+# --- Catch (out_Catch, out_Gear_Catch) ------------------------------------------
+# EwE6 reports a month's catch as BB x FishTime: the month-end biomass times the
+# F set for the month (PopulateResults, cEcoSimModel.vb:2222-2389), forced F and
+# forced catch included. A group whose F is forced has no fleet breakdown
+# (EwE books it under fleet 0), so the gear links keep only the gears' share.
+
+
+def _run(scenario):
+    from pypath.core.ecosim import rsim_run
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return rsim_run(scenario, method="RK4")
+
+
+def test_catch_is_month_end_biomass_times_the_months_f():
+    out = _run(_scenario())
+    expected = out.out_Biomass[1:] * out.out_FishMort[1:] / 12.0
+    np.testing.assert_allclose(
+        out.out_Catch[1:, [ZOO, FISH]], expected[:, [ZOO, FISH]], rtol=1e-12
+    )
+    # year 2: the forced F of 0.3 replaces Fish's gear F of 0.01
+    assert out.out_Catch[13, FISH] == pytest.approx(
+        out.out_Biomass[13, FISH] * 0.3 / 12.0, rel=1e-12
+    )
+
+
+def test_forced_catch_is_reported():
+    """A forced catch adds catch / B (B at the month's start) to the gears."""
+    sc = _scenario()
+    sc.fishing.ForcedCatch[0, ZOO] = 0.5
+    out = _run(sc)
+    for m in (1, 6, 12):
+        f = (
+            BASE_F_ZOO * (2.0 if 4 <= m <= 6 else 1.0)
+            + 0.5 / out.out_Biomass[m - 1, ZOO]
+        )
+        assert out.out_Catch[m, ZOO] == pytest.approx(
+            out.out_Biomass[m, ZOO] * f / 12.0, rel=1e-12
+        ), m
+
+
+def test_gear_catch_keeps_only_the_gears_share():
+    sc = _scenario()
+    out = _run(sc)
+    p = sc.params
+    links = {int(p.FishFrom[i]): i for i in range(1, len(p.FishFrom))}
+    zoo, fish = links[ZOO], links[FISH]
+    b = out.out_Biomass
+    assert out.out_Gear_Catch[5, zoo] == pytest.approx(
+        b[5, ZOO] * BASE_F_ZOO * 2.0 / 12.0, rel=1e-12
+    )
+    assert out.out_Gear_Catch[2, fish] == pytest.approx(
+        b[2, FISH] * BASE_F_FISH / 12.0, rel=1e-12
+    )
+    assert out.out_Gear_Catch[13, fish] == 0.0  # replaced by the forced F
+
+
+# EwE 6.7.144 headless oracle, LT2022 scenario 16 with dataset 22 (forced
+# catches; run 43079493003): the catch rate B x FishTime at the end of months
+# 1, 13, 60 and 120, with FishTime = FishMort - PredMort as exported. Before,
+# out_Catch left out the forced catches: 22-1700 % off for these groups.
+EWE_YIELD_S16_DS22 = {
+    "Cod": {1: 0.450376363, 13: 0.334648237, 60: 0.183194887, 120: 0.428022839},
+    "Perciformes": {1: 0.00403135666, 13: 0.00201518256, 60: 0.00397075068},
+    "Smelt": {1: 0.520797783, 13: 0.490074899, 60: 0.189870729, 120: 0.307748989},
+    "Herring": {1: 0.299253395, 13: 0.178124196, 60: 0.239980673, 120: 0.330559762},
+}
+
+
+@pytest.mark.integration
+def test_lt2022_forced_catches_follow_the_ewe_oracle():
+    from pathlib import Path
+
+    from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
+
+    db = Path(__file__).parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb"
+    if not db.exists():
+        pytest.skip("LT2022 database not found")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sc = ecosim_scenario_from_ewemdb(str(db), scenario=16, timeseries_dataset=22)
+    out = _run(sc)
+    names = [str(n).strip() for n in sc.params.spname]
+    for group, months in EWE_YIELD_S16_DS22.items():
+        j = names.index(group)
+        for month, ewe in months.items():
+            assert 12 * out.out_Catch[month, j] == pytest.approx(ewe, rel=3e-3), (
+                group,
+                month,
+            )

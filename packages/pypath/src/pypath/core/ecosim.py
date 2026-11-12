@@ -405,9 +405,13 @@ class RsimOutput:
     out_Biomass : np.ndarray
         Monthly biomass values (n_months x n_groups+1)
     out_Catch : np.ndarray
-        Monthly catch values (n_months x n_groups+1)
+        Monthly catch (n_months x n_groups+1): the month-end biomass times
+        the month's fishing mortality (``out_FishMort``), / 12, so forced F
+        and forced catch are included (EwE6's BB x FishTime)
     out_Gear_Catch : np.ndarray
-        Monthly catch by gear link
+        Monthly catch by gear link: the gears' share (effort and fleet
+        mediation). A forced F has no fleet breakdown, so where it replaces
+        the gears their links carry 0
     annual_Biomass : np.ndarray
         Annual biomass (n_years x n_groups+1)
     annual_Catch : np.ndarray
@@ -2269,9 +2273,10 @@ def rsim_run(
                 params_dict.get("Bbase", month_start_state),
                 params_dict.get("NUM_GEARS", 0),
             )
-        out_fishmort[month] = fishing_mortality(
+        _month_f, _month_link_f = fishing_mortality(
             params_dict, forcing_dict, fishing_dict, fleet_med=_fleet_med_now
-        )[0]
+        )
+        out_fishmort[month] = _month_f
         # EwE6's feeding-time update uses the consumption of this state as
         # Derivt computes it (rk4 accumulates EatenByAvg after its first
         # Derivt), so prey Ftime and mediation are included: take the
@@ -2555,39 +2560,18 @@ def rsim_run(
                 if prey < QQ_month.shape[0] and pred < QQ_month.shape[1]:
                     annual_qlink[year_idx, li] += QQ_month[prey, pred] / 12.0
 
-        # Calculate catch for this month
+        # Catch for this month: EwE6's BB x FishTime (PopulateResults,
+        # cEcoSimModel.vb:2222-2389), the month-end biomass times the F set
+        # for the month, forced F and forced catch included. The gear links
+        # carry the gears' share (effort and fleet mediation); a forced F has
+        # no fleet breakdown, as EwE books it under fleet 0.
         for i in range(1, len(params.FishFrom)):
             grp = params.FishFrom[i]
-            gear_group_idx = params.FishThrough[i]
-            # Convert group-based gear index to gear array index
-            gear_0based = int(gear_group_idx) - 1
-            if _run_gear_lookup:
-                gear_idx = _run_gear_lookup.get(gear_0based, 0)
-            else:
-                gear_idx = int(gear_group_idx - params.NUM_LIVING - params.NUM_DEAD)
-            effort_mult = (
-                forcing_dict["ForcedEffort"][gear_idx]
-                if 0 < gear_idx < len(forcing_dict["ForcedEffort"])
-                else 1.0
-            )
-            catch = params.FishQ[i] * state[grp] * effort_mult / 12.0
-            # Debug log to trace catch computation for early months
-            try:
-                if month <= 2:
-                    logger.debug(
-                        "month=%s link=%s grp=%s FishQ=%.6e effort_mult=%.6e state=%.6e catch=%.6e",
-                        month,
-                        i,
-                        grp,
-                        params.FishQ[i],
-                        effort_mult,
-                        state[grp],
-                        catch,
-                    )
-            except Exception as e:
-                logger.debug("catch computation debug failed: %s", e)
-            out_catch[month, grp] += catch
-            out_gear_catch[month, i] = catch
+            out_gear_catch[month, i] = _month_link_f[i] * state[grp] / 12.0
+        _n_bio = params.NUM_LIVING + params.NUM_DEAD
+        out_catch[month, 1 : _n_bio + 1] = (
+            _month_f[1 : _n_bio + 1] * state[1 : _n_bio + 1] / 12.0
+        )
 
         # Fleet dynamics step (after catch computation)
         if _fleet_capacity is not None:
