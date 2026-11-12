@@ -375,3 +375,180 @@ def test_black_sea_habitat_capacity_is_the_ewe_oracle(caplog):
     for g, name in enumerate(oracle.columns[2:]):
         # EwE computes in single precision.
         np.testing.assert_allclose(got[g], want[name], rtol=1e-6, err_msg=name)
+
+
+# --- review of #101: single precision, rounding, masks, order ---
+
+
+def test_a_cell_at_the_minimum_capacity_is_not_low():
+    # EwE compares with MinHabCap as Single 0.01F: a cell normalised to
+    # exactly 0.01F is not raised, so nothing is adjusted.
+    depth = np.ones((1, 3))
+    got = _cap(
+        depth, capacity_input=np.array([[[1.0, 0.01, 1.0]]]), cal_type=[0], mvel=[0.0]
+    )
+    np.testing.assert_array_equal(got, [1.0, float(np.float32(0.01)), 1.0])
+
+
+def test_the_sweep_count_rounds_half_to_even():
+    # Mvel / PB / (CellLength / 2) = 2.5: CInt gives 2 sweeps, so with good
+    # habitat at the right end only the two cells next to it are reached.
+    depth = np.ones((1, 6))
+    share = np.zeros((2, 1, 6))
+    share[1, 0, 5] = 1.0
+    got = _cap(
+        depth,
+        habitat_share=share,
+        preference=np.array([[0.0, 1.0]]),
+        mvel=[2.5],
+        pb=[1.0],
+        cell_length=2.0,
+    )
+    far = 0.01 * np.exp(-0.4 * 6)
+    want = [far, far, far, 0.01 * np.exp(-0.8), 0.01 * np.exp(-0.4), 1.0]
+    np.testing.assert_allclose(got, want, rtol=1e-6)
+
+
+def test_the_sweeps_are_capped_by_the_longer_side_of_the_grid():
+    # A 6 x 1 column with good habitat at the bottom: a top-down sweep reaches
+    # one more cell upwards per sweep, so the top needs 5 sweeps.
+    depth = np.ones((6, 1))
+    share = np.zeros((2, 6, 1))
+    share[1, 5, 0] = 1.0
+    got = _ewe_habitat_capacity(
+        depth,
+        capacity_input=np.ones((1, 6, 1)),
+        cal_type=[2],
+        preference=np.array([[0.0, 1.0]]),
+        habitat_share=share,
+        mvel=[1e6],
+        pb=[1.0],
+        cell_length=1.0,
+    )[0][:, 0]
+    want = [0.01 * np.exp(-0.4 * d) for d in (5, 4, 3, 2, 1)] + [1.0]
+    np.testing.assert_allclose(got, want, rtol=1e-6)
+
+
+def test_an_input_map_counts_only_in_water():
+    # Land keeps the pre-fill 1; the water cells are 0, so EwE uses 1.
+    depth = np.array([[4.0, 0.0, 4.0]])
+    share = np.zeros((2, 1, 3))
+    share[1, 0] = [1.0, 0.0, 0.5]
+    got = _cap(
+        depth,
+        capacity_input=np.array([[[0.0, 1.0, 0.0]]]),
+        habitat_share=share,
+        preference=np.array([[0.0, 1.0]]),
+        mvel=[0.0],
+    )
+    np.testing.assert_allclose(got[[0, 2]], [1.0, 0.5], rtol=1e-6)
+
+
+def test_maps_are_masked_by_the_depth_input_not_by_exclusion():
+    # The excluded middle cell is still in DepthInput, so it takes a value
+    # from the stored row; it is just not modelled.
+    tables = _tables()
+    tables["EcospaceScenario"] = tables["EcospaceScenario"].assign(
+        ExclusionMap="0,1,0;"
+    )
+    tables["EcospaceScenarioHabitat"] = tables["EcospaceScenarioHabitat"].assign(
+        HabitatMap=[None, "1,0.7,0.5;"]
+    )
+    cap = _read(tables).ecospace.habitat_capacity
+    np.testing.assert_allclose(cap[1], [1.0, 0.5], rtol=1e-6)
+
+
+def test_habitats_are_taken_in_sequence_order():
+    tables = _tables()
+    tables["EcospaceScenarioHabitat"] = tables["EcospaceScenarioHabitat"].iloc[::-1]
+    cap = _read(tables).ecospace.habitat_capacity
+    np.testing.assert_allclose(cap[1], [1.0, 0.5, 0.01 * np.exp(-0.4)], rtol=1e-6)
+
+
+# --- groups map through EcopathGroupID, as in EwE ---
+
+
+def _two_group_ecopath(sequence):
+    return pd.DataFrame(
+        [
+            {
+                "GroupID": 1,
+                "GroupName": "Fish",
+                "Type": 0,
+                "ProdBiom": 1.0,
+                "Sequence": sequence[0],
+            },
+            {
+                "GroupID": 2,
+                "GroupName": "Crab",
+                "Type": 0,
+                "ProdBiom": 1.0,
+                "Sequence": sequence[1],
+            },
+        ]
+    )
+
+
+def test_a_second_scenario_maps_its_groups_through_the_ecopath_ids():
+    # Ecospace GroupIDs run over the whole table: scenario 2's are 3 and 4.
+    t = _tables(EcopathGroup=_two_group_ecopath([1, 2]))
+    second = t["EcospaceScenario"].assign(ScenarioID=2)
+    groups2 = pd.DataFrame(
+        [
+            {"ScenarioID": 2, "GroupID": 3, "EcopathGroupID": 1, "Mvel": 100.0},
+            {"ScenarioID": 2, "GroupID": 4, "EcopathGroupID": 2, "Mvel": 200.0},
+        ]
+    )
+    t["EcospaceScenario"] = pd.concat([t["EcospaceScenario"], second])
+    t["EcospaceScenarioGroup"] = pd.concat([t["EcospaceScenarioGroup"], groups2])
+    t["EcospaceScenarioHabitat"] = pd.concat(
+        [
+            t["EcospaceScenarioHabitat"],
+            t["EcospaceScenarioHabitat"].assign(ScenarioID=2, HabitatID=[17, 19]),
+        ]
+    )
+    t["EcospaceScenarioGroupHabitat"] = pd.DataFrame(
+        [{"ScenarioID": 2, "GroupID": 4, "HabitatID": 19, "Preference": 1.0}]
+    )
+    eco = _read(t, scenario_id=2).ecospace
+    np.testing.assert_allclose(eco.dispersal_rate, [100.0, 200.0])
+    np.testing.assert_allclose(eco.habitat_capacity[0], 1.0)
+    # Crab: CInt(200 / 1 / 50) = 4 sweeps reach the empty cell.
+    np.testing.assert_allclose(
+        eco.habitat_capacity[1], [1.0, 0.5, 0.01 * np.exp(-0.4)], rtol=1e-6
+    )
+
+
+def test_groups_follow_the_ecopath_sequence():
+    # Crab (EcopathGroupID 2) comes first in the Ecopath model, so it is row 0.
+    t = _tables(EcopathGroup=_two_group_ecopath([2, 1]))
+    t["EcospaceScenarioGroup"] = t["EcospaceScenarioGroup"].assign(Mvel=[100.0, 200.0])
+    eco = _read(t).ecospace
+    np.testing.assert_allclose(eco.dispersal_rate, [200.0, 100.0])
+    np.testing.assert_allclose(
+        eco.habitat_capacity[0], [1.0, 0.5, 0.01 * np.exp(-0.4)], rtol=1e-6
+    )
+    np.testing.assert_allclose(eco.habitat_capacity[1], 1.0)
+
+
+# --- PB ---
+
+
+def test_detritus_gets_no_sweeps_whatever_pb_is_passed():
+    # EwE's Ecopath leaves a detritus group's PB at NULL; PyPath's balance
+    # reports one. The low cell keeps the maximum distance, max(1, 3).
+    ecopath = pd.DataFrame(
+        [
+            {"GroupID": 1, "GroupName": "Fish", "Type": 0, "ProdBiom": 1.0},
+            {"GroupID": 2, "GroupName": "Det", "Type": 2, "ProdBiom": -9999.0},
+        ]
+    )
+    cap = _read(_tables(EcopathGroup=ecopath), ecopath_pb=[1.0, 1.0])
+    assert cap.ecospace.habitat_capacity[1, 2] == pytest.approx(
+        0.01 * np.exp(-0.4 * 3), rel=1e-6
+    )
+
+
+def test_ecopath_pb_must_have_one_value_per_group():
+    with pytest.raises(ValueError, match="ecopath_pb"):
+        _read(_tables(), ecopath_pb=[1.0])
