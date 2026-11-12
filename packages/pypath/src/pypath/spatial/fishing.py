@@ -368,7 +368,10 @@ def effort_multipliers(
     allocation has to reach it as a *relative* multiplier rather than as an
     absolute split. Each gear's allocation is therefore normalised to mean 1.0
     across patches: total effort over the grid is unchanged, and a "uniform"
-    allocation reproduces a run with no spatial fishing exactly.
+    allocation reproduces a run with no spatial fishing exactly, except for
+    EwE mediation shapes mediated by a fleet: with an allocation they follow
+    each patch's effort, without one they count the fleet at its base effort
+    of 1 (as EwE's Ecospace does with and without predicted effort).
 
     Parameters
     ----------

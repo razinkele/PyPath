@@ -302,6 +302,20 @@ def deriv_vector_spatial(
     else:
         patch_effort_mask = mpa_effort_mask * effort_multiplier
 
+    # A fleet mediator's effort. EwE's Ecospace passes the cell's predicted
+    # effort, EffortSpace (the month's effort x the cell's share), when it
+    # predicts effort, and 1 otherwise (cSpaceSolver.vb:516-528). PyPath's
+    # counterpart of predicted effort is the spatial effort allocation: with
+    # it each patch's own effort is used (ForcedEffort), without it 1.
+    if effort_multiplier is None and params.get("EweMediation") is not None:
+        forcing = dict(forcing)
+        forcing["MediationEffort"] = np.ones_like(
+            np.asarray(
+                forcing.get("ForcedEffort", np.ones(params.get("NUM_GEARS", 0) + 1)),
+                dtype=float,
+            )
+        )
+
     def _patch_forcing(patch_idx):
         """Forcing of one patch: its own effort and stanza consumption index."""
         if patch_effort_mask is None and stanza_pred_ratio is None:
@@ -578,7 +592,9 @@ def rsim_run_spatial(
     spatial_fishing : SpatialFishing, optional
         How fleet effort is distributed across patches. Effort is redistributed
         relative to the grid mean, so total fleet effort is unchanged and
-        "uniform" reproduces a run with no spatial fishing.
+        "uniform" reproduces a run with no spatial fishing (except for EwE
+        mediation shapes mediated by a fleet, which follow each patch's effort
+        with an allocation and count the fleet at effort 1 without one).
     initial_state_vector : np.ndarray, optional
         Flattened initial coupled state vector with shape
         ``[(n_groups+1) * n_patches]``. If omitted, start biomass is

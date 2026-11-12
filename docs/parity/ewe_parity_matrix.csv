@@ -48,7 +48,7 @@ EcosimScenarioLandingsShape,ecosim,true,false,false,false,partial,
 EcosimScenarioMSE,ecosim,true,false,false,false,partial,
 EcosimScenarioPredPreyShape,ecosim,true,true,false,false,partial,read: shape-to-link assignments with EwE application types (production rate; consumer search rate; vulnerability; other mortality)
 EcosimScenarioQuota,ecosim,true,true,false,false,partial,
-EcosimScenarioShapeMedWeightsFleet,ecosim,true,true,false,true,partial,"read: a pred/prey mediation shape with fleet mediators is reported and skipped (fleet effort as a mediator is not supported)"
+EcosimScenarioShapeMedWeightsFleet,ecosim,true,true,false,true,partial,"read: the fleet mediators and weights of each pred/prey mediation shape; FleetID is the Ecopath fleet, mapped to its gear by name (EweMediation, EwE rule)"
 EcosimScenarioshapeMedWeightsGroup,ecosim,true,true,false,true,partial,"read: the scenario's mediators and weights of each pred/prey mediation shape (EweMediation, EwE rule)"
 EcosimScenarioshapeMedWeightsLandings,ecosim,true,true,false,true,partial,
 EcosimShape,ecosim,true,true,true,true,implemented,

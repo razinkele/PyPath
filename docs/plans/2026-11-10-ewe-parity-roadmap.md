@@ -132,7 +132,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
   - normalised at the base point;
   - one combined X across mediators;
   - application by ApplicationType (search rate, vulnerability, arena area or Mo);
-  - fleet effort allowed as a mediator;
+  - fleet effort allowed as a mediator (done: oracle case C, `docs/parity/deviations.md` D3);
   - truncated table lookup, as EwE does.
 - **Oracle:** `arena_check.py` gives formula parity; the P0 harness on LT2022 scenario 16 and Curonian gives trajectory parity.
 - **Rpath:** D1 is an Rpath choice, so it goes behind the D1 switch. The Rpath-reference tests must stay green under `compat="rpath"`.
