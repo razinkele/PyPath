@@ -902,6 +902,9 @@ def rsim_params(
     _warn_detritus_self_fate(rpath, nliving, ndead)
     # EwE6 detritus fate between pools (audit P7), for the EwE rule
     ewe_fate = ewe_detritus_fate(rpath) if fast_group_rule == "ewe" else None
+    immigration_sim, emig_sim = _migration_vectors(
+        rpath, b_baseref, nliving, ndead, detritus=fast_group_rule == "ewe"
+    )
     no_integrate = _fast_group_flags(
         fast_group_rule,
         threshold=2.0 * steps_yr * steps_m,
@@ -919,8 +922,9 @@ def rsim_params(
         fish_to=fish_to,
         fish_q=fish_q,
         ewe_fate=ewe_fate,
+        immigration=immigration_sim,
+        emig=emig_sim,
     )
-    immigration_sim, emig_sim = _migration_vectors(rpath, b_baseref, nliving)
     det_passed_prop = det_ba = None
     if ewe_fate is not None:
         det_passed_prop, det_ba = _ewe_detritus_vectors(ewe_fate, b_baseref)
@@ -1175,6 +1179,8 @@ def _fast_group_flags(
     fish_to: np.ndarray,
     fish_q: np.ndarray,
     ewe_fate: Optional[EweDetritusFate] = None,
+    immigration: Optional[np.ndarray] = None,
+    emig: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """NoIntegrate flags (1 = solved at equilibrium, 0 = integrated).
 
@@ -1242,7 +1248,19 @@ def _fast_group_flags(
                         ewe_fate.passed_on[nliving + src]
                         * det_fate[nliving + src, det_idx]
                     )
-            loss[d] = inflow - ewe_fate.ba[d - 1]
+            # detritus migration (vb 3119-3121, 3206): Immig joins the inflow;
+            # the pool loses Eatenof + (Emig + DetritusOut) x B, which is
+            # inflow - BA unless Emig x B exceeds the surplus
+            eaten_d = loss[d]
+            if immigration is not None:
+                inflow += float(immigration[d])
+            emig_d = float(emig[d]) if emig is not None else 0.0
+            surplus = inflow - ewe_fate.ba[d - 1] - eaten_d
+            b0 = b_baseref[d]
+            if b0 > 0 and surplus / b0 - emig_d < 1e-20:
+                loss[d] = eaten_d + (emig_d + 1e-20) * b0
+            else:
+                loss[d] = inflow - ewe_fate.ba[d - 1]
             continue
         loss[d] = inflow - (ba[d - 1] if d - 1 < len(ba) else 0.0)
 
@@ -1307,19 +1325,41 @@ def _mo_tot_setup(params: "RsimParams"):
     return mo_max, qh, start
 
 
-def _migration_vectors(rpath, b_baseref: np.ndarray, nliving: int):
+def _migration_vectors(
+    rpath, b_baseref: np.ndarray, nliving: int, ndead: int = 0, detritus: bool = False
+):
     """EwE6 Ecosim migration as rsim vectors, or (None, None) without any.
 
     Immigration is the Ecopath flow; Emig = Emigration / B0 for living groups
-    (cEcoSimModel.vb:4528). EmigRate is not used: EwE's Ecosim takes it only
-    for detritus, which is not modelled here.
+    (cEcoSimModel.vb:4528), which leaves EmigRate out (R4). With ``detritus``
+    (the EwE rule) detritus groups move too: Immigration joins the pool's
+    inflow and Emig = EmigRate where only a rate is entered, else Emigration
+    / B0 (vb 4535; Rpath.EmigRate is 0 where Emigration is entered). The
+    'rpath' rule reports and ignores detritus migration.
     """
     n = len(b_baseref)
     immig = np.asarray(getattr(rpath, "Immigration", np.zeros(0)), dtype=float)
     emigration = np.asarray(getattr(rpath, "Emigration", np.zeros(0)), dtype=float)
+    emig_rate = np.asarray(getattr(rpath, "EmigRate", np.zeros(0)), dtype=float)
     if len(immig) != n - 1 or len(emigration) != n - 1:
         return None, None
-    if not (np.any(immig != 0) or np.any(emigration != 0)):
+    if len(emig_rate) != n - 1:
+        emig_rate = np.zeros(n - 1)
+    dead = slice(nliving, nliving + ndead)
+    det_moves = bool(
+        np.any(immig[dead] != 0)
+        or np.any(emigration[dead] != 0)
+        or np.any(emig_rate[dead] != 0)
+    )
+    if det_moves and not detritus:
+        logger.warning(
+            "Detritus migration is moved by the EwE rule only "
+            "(fast_group_rule='ewe'); ignored"
+        )
+    living_moves = bool(
+        np.any(immig[:nliving] != 0) or np.any(emigration[:nliving] != 0)
+    )
+    if not living_moves and not (det_moves and detritus):
         return None, None
     immigration_sim = np.zeros(n)
     emig_sim = np.zeros(n)
@@ -1329,6 +1369,20 @@ def _migration_vectors(rpath, b_baseref: np.ndarray, nliving: int):
         emig_sim[living] = np.where(
             b_baseref[living] > 0, emigration[:nliving] / b_baseref[living], 0.0
         )
+        if detritus:
+            det = slice(nliving + 1, nliving + ndead + 1)
+            immigration_sim[det] = immig[dead]
+            by_flow = np.where(
+                b_baseref[det] > 0, emigration[dead] / b_baseref[det], 0.0
+            )
+            no_base = (b_baseref[det] <= 0) & (emigration[dead] != 0)
+            if np.any(no_base):
+                logger.warning(
+                    "Detritus groups %s have Emigration but no start biomass; "
+                    "Emig = Emigration / B0 is left out (EwE divides by 0)",
+                    list(np.nonzero(no_base)[0] + nliving + 1),
+                )
+            emig_sim[det] = np.where(emig_rate[dead] > 0, emig_rate[dead], by_flow)
     return immigration_sim, emig_sim
 
 

@@ -131,9 +131,10 @@ class Rpath:
     # Detritus import per group (t/km2/yr, 0 except on detritus groups);
     # Ecosim adds it as a constant inflow (EwE DetInFlow, audit A2)
     DetInput: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    # EwE migration per group (0 except on living groups): Immigration and
-    # Emigration flows (t/km2/yr) and EmigRate (emigration per unit of B,
-    # used where Emigration is 0); audit A1-s2
+    # EwE migration per group (0 on fleets): Immigration and Emigration flows
+    # (t/km2/yr) and EmigRate (emigration per unit of B, used where Emigration
+    # is 0); audit A1-s2. Ecopath balances living groups' only; detritus
+    # migration is reported for Ecosim
     Immigration: np.ndarray = field(default_factory=lambda: np.zeros(0))
     Emigration: np.ndarray = field(default_factory=lambda: np.zeros(0))
     EmigRate: np.ndarray = field(default_factory=lambda: np.zeros(0))
@@ -349,19 +350,29 @@ def rpath(
 
     # EwE migration of living groups (cEcoPathModel.vb:466-489): Immigration
     # and Emigration are flows, EmigRate is emigration per unit of biomass,
-    # used where Emigration is 0. Detritus migration is not modelled.
-    def _group_values(col):
+    # used where Emigration is 0. A detritus group's migration is left out of
+    # the balance, as in EwE (InputToDet = DtImp + flows, vb 628; its export
+    # skips migration, vb 912-916), and only reported for Ecosim.
+    def _group_values(col, groups_mask):
         if col not in model_df.columns:
             return np.zeros(ngroups)
         vals = pd.to_numeric(model_df[col], errors="coerce").to_numpy(dtype=float)
-        return np.where(types < 2, np.nan_to_num(vals, nan=0.0), 0.0)
+        return np.where(groups_mask, np.nan_to_num(vals, nan=0.0), 0.0)
 
-    immigration = _group_values("Immigration")
-    emigration = _group_values("Emigration")
-    emig_rate = np.where(emigration == 0, _group_values("EmigRate"), 0.0)
+    living_mask = types < 2
+    immigration = _group_values("Immigration", living_mask)
+    emigration = _group_values("Emigration", living_mask)
+    emig_rate = np.where(emigration == 0, _group_values("EmigRate", living_mask), 0.0)
+    # reported: every group's migration, detritus included
+    migrating = types <= 2
+    immigration_out = _group_values("Immigration", migrating)
+    emigration_out = _group_values("Emigration", migrating)
+    emig_rate_out = np.where(
+        emigration_out == 0, _group_values("EmigRate", migrating), 0.0
+    )
     # BiomAccRate where BiomAcc is 0 counts as BiomAccRate x B, like EmigRate
     # (cEcoPathModel.vb:466, 2047, 2097); its BA is reported after the solve
-    ba_rate = np.where(bioacc == 0, _group_values("BioAccRate"), 0.0)
+    ba_rate = np.where(bioacc == 0, _group_values("BioAccRate", living_mask), 0.0)
     balance_rate = emig_rate + ba_rate
     unassim = np.where(np.isnan(unassim), 0.0, unassim)
 
@@ -886,9 +897,9 @@ def rpath(
         eco_name=eco_name,
         eco_area=eco_area,
         DetInput=det_input_full,
-        Immigration=immigration,
-        Emigration=emigration,
-        EmigRate=emig_rate,
+        Immigration=immigration_out,
+        Emigration=emigration_out,
+        EmigRate=emig_rate_out,
         compat=compat,
     )
     if compat == "ewe":
