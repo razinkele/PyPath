@@ -101,37 +101,39 @@ def _ecosim_detritus_out(params, forcing, fishing, biomass, hden_start):
     return ecosim["_det_out"]
 
 
-def _capacity_matrix(
-    ecospace, environmental_drivers, mpa_cap_mult, n_rows, n_patches, patch_share
-):
-    """Per-group, per-patch habitat capacity as EwE6 uses it, or None (#58).
+def _capacity_matrix(ecospace, mpa_cap_mult, n_rows, n_patches, patch_share):
+    """Per-group, per-patch habitat capacity as EwE6 uses it, or None (#58, B4).
 
     EwE starts a cell at ``B * HabCap * nWaterCells / TotHabCap``: only the
     pattern of a group's capacity matters, normalised to an area-weighted
-    mean of 1. The habitat capacity applies when environmental drivers are
-    given; an MPA capacity bonus multiplies it. Row 0 (Outside) and groups
-    without a capacity row stay at 1.
+    mean of 1. EwE's Ecospace always uses HabCap, so the habitat capacity
+    always applies; an MPA capacity bonus multiplies it. Row 0 (Outside),
+    groups without a capacity row and groups whose capacity is the same in
+    every patch stay at 1. Returns None when no group's capacity varies and
+    there is no MPA bonus: the run is then the uniform one.
     """
-    active = (environmental_drivers is not None or mpa_cap_mult is not None) and (
-        getattr(ecospace, "habitat_capacity", None) is not None
-    )
-    if not active:
-        return None
     w = (
         np.asarray(patch_share, dtype=float)
         if patch_share is not None
         else np.full(n_patches, 1.0 / n_patches)
     )
     cap = np.ones((n_rows, n_patches))
-    if environmental_drivers is not None:
-        raw = np.asarray(ecospace.habitat_capacity, dtype=float)
+    varied = False
+    raw = getattr(ecospace, "habitat_capacity", None)
+    if raw is not None:
+        raw = np.asarray(raw, dtype=float)
         for g in range(min(raw.shape[0], n_rows - 1)):
-            mean = float(np.sum(w * raw[g]))
+            row = raw[g]
+            if np.all(row == row[0]):
+                continue
+            mean = float(np.sum(w * row))
             if mean > 0:
-                cap[g + 1] = raw[g] / mean
+                cap[g + 1] = row / mean
+                varied = True
     if mpa_cap_mult is not None:
         cap[1:] *= np.asarray(mpa_cap_mult, dtype=float)[np.newaxis, :]
-    return cap
+        varied = True
+    return cap if varied else None
 
 
 def _capacity_overlap(cap, patch_share, n_patches):
@@ -221,7 +223,7 @@ def deriv_vector_spatial(
 
     For each patch p:
         1. Calculate local Ecosim dynamics (production, predation, fishing, M0)
-        2. Apply habitat capacity to carrying capacity (if environmental drivers present)
+        2. Apply habitat capacity to the patch's base biomass and flows (always)
         3. Add spatial fluxes (migration/dispersal)
 
     Parameters
@@ -239,7 +241,8 @@ def deriv_vector_spatial(
     ecospace : EcospaceParams
         Spatial parameters
     environmental_drivers : EnvironmentalDrivers, optional
-        Time-varying environmental layers for habitat capacity
+        Time-varying environmental layers. Not evaluated here; the habitat
+        capacity applies with or without them.
     t : float
         Simulation time (years)
     dt : float
@@ -265,8 +268,9 @@ def deriv_vector_spatial(
     For each patch, the local Ecosim dynamics are calculated independently,
     then spatial fluxes (movement) are added to account for dispersal.
 
-    Habitat capacity can be calculated from environmental drivers:
-        capacity = f(temperature, depth, salinity, ...)
+    The habitat capacity (``ecospace.habitat_capacity``) always applies, as
+    EwE's Ecospace always uses HabCap. ``environmental_drivers`` no longer
+    switches it on.
     """
     from pypath.ibm.base import SpatialContext
     from pypath.spatial.dispersal import calculate_spatial_flux
@@ -339,27 +343,26 @@ def deriv_vector_spatial(
 
     # Step 1: Calculate local dynamics for each patch
     # Pre-compute habitat capacity modifications if needed
-    params_need_modification = (
-        (environmental_drivers is not None or mpa_cap_mult is not None)
-        and hasattr(ecospace, "habitat_capacity")
-        and "B_BaseRef" in params
-    )
-
-    if params_need_modification:
-        # Habitat capacity as EwE6 applies it (#58): each patch's base biomass
-        # is B * c and each link's base flow Q0 * c_prey * c_pred over the
-        # map-wide mean of that product (EwE's MeanBP rescaling of the search
-        # rates). Map-wide base flows stay Ecopath's, and a group's per-capita
-        # rates no longer rise as its own habitat gets poorer.
-        b_base_ref_original = np.asarray(params["B_BaseRef"], dtype=float)
-        capacity = _capacity_matrix(
+    # Habitat capacity as EwE6 applies it (#58), always (B4): each patch's
+    # base biomass is B * c and each link's base flow Q0 * c_prey * c_pred
+    # over the map-wide mean of that product (EwE's MeanBP rescaling of the
+    # search rates). Map-wide base flows stay Ecopath's, and a group's
+    # per-capita rates no longer rise as its own habitat gets poorer.
+    capacity = (
+        _capacity_matrix(
             ecospace,
-            environmental_drivers,
             mpa_cap_mult,
-            len(b_base_ref_original),
+            len(params["B_BaseRef"]),
             n_patches,
             patch_share,
         )
+        if "B_BaseRef" in params
+        else None
+    )
+    params_need_modification = capacity is not None
+
+    if params_need_modification:
+        b_base_ref_original = np.asarray(params["B_BaseRef"], dtype=float)
         b_base_ref_patches = b_base_ref_original[:, np.newaxis] * capacity
         qq_base_original = params.get("QQbase")
         capacity_overlap = (
@@ -586,7 +589,9 @@ def rsim_run_spatial(
         Spatial parameters
         If None, runs standard non-spatial Ecosim
     environmental_drivers : EnvironmentalDrivers, optional
-        Time-varying environmental layers for habitat capacity
+        Time-varying environmental layers. Not evaluated in the run; the
+        habitat capacity (``ecospace.habitat_capacity``) applies with or
+        without them (B4).
     mpa : MPAConfig, optional
         Marine protected areas; closes patches to some or all fleets
     spatial_fishing : SpatialFishing, optional
@@ -657,11 +662,10 @@ def rsim_run_spatial(
     # or uniform expansion of the scenario start biomass.
     initial_biomass = scenario.start_state.Biomass  # [n_groups+1]
 
-    # Habitat capacity (with environmental drivers): EwE6 starts each cell at
-    # B * HabCap normalised to an area-weighted mean of 1 (#58).
+    # Habitat capacity: EwE6 starts each cell at B * HabCap normalised to an
+    # area-weighted mean of 1 (#58), whether or not drivers are given (B4).
     start_capacity = _capacity_matrix(
         ecospace,
-        environmental_drivers,
         None,
         n_groups + 1,
         n_patches,

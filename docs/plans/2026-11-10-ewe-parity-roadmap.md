@@ -163,7 +163,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
   - capacity = input map × preference × habitat share × environmental responses;
   - normalised once by the starting maximum;
   - recomputed when drivers change;
-  - always on (not gated on `environmental_drivers`).
+  - always on (not gated on `environmental_drivers`). **Done (2026-11-13)**, with EwE's HabCap read from the database on EwE's grid; environmental responses and recomputing the capacity when drivers change are still open.
 - **B2:** asymmetric per-edge flow k·ρᵢ·min(1, cⱼ/cᵢ), plus the low-capacity gradient (AdjustLowHabCaps, factor 0.4 per cell).
 - **B1:** Mrate = Mvel/(π·CellLength), or Mvel/√CellLength for migratory groups; fix both docstrings.
 - **B3:** an implicit movement step (backward Euler on the sparse adjacency matrix, or EwE's BDF2 + SOR as a clean-room build per D3).

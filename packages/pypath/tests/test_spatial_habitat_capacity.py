@@ -169,3 +169,50 @@ def test_uniform_capacity_changes_nothing(spatial_scenario, level):
         years=range(1, 3),
     )
     np.testing.assert_allclose(capped.out_Biomass, plain.out_Biomass, rtol=1e-9)
+
+
+# --- B4: habitat capacity is always on ---
+
+
+def test_capacity_applies_without_environmental_drivers(spatial_scenario):
+    # EwE's Ecospace always uses HabCap; PyPath applied it only when
+    # environmental drivers were passed, which are otherwise unused here.
+    scenario, _ = spatial_scenario
+    n_rows = scenario.params.NUM_GROUPS + 1
+    eco = _ecospace(n_rows, _zoo_capacity(n_rows, [0.2, 1.8]))
+    plain = rsim_run_spatial(scenario, ecospace=eco, years=range(1, 3))
+    driven = rsim_run_spatial(
+        scenario,
+        ecospace=eco,
+        environmental_drivers=EnvironmentalDrivers(),
+        years=range(1, 3),
+    )
+    b_zoo = scenario.start_state.Biomass[ZOO]
+    np.testing.assert_allclose(
+        plain.out_Biomass_spatial[0, ZOO],
+        b_zoo * 0.5 * np.array([0.2, 1.8]),
+        rtol=1e-12,
+    )
+    np.testing.assert_array_equal(plain.out_Biomass_spatial, driven.out_Biomass_spatial)
+
+
+def test_capacity_constant_within_each_group_changes_nothing(spatial_scenario):
+    # Only a group's pattern matters: a constant row, whatever its level,
+    # is no capacity at all, and the run is the plain one exactly.
+    scenario, _ = spatial_scenario
+    n_rows = scenario.params.NUM_GROUPS + 1
+    # Levels whose map mean is not exact in floating point.
+    levels = (np.pi / 7) * np.arange(1, n_rows + 1)[:, np.newaxis]
+    plain = rsim_run_spatial(
+        scenario, ecospace=_ecospace(n_rows, np.ones((n_rows, 7))), years=range(1, 3)
+    )
+    for drivers in (None, EnvironmentalDrivers()):
+        leveled = rsim_run_spatial(
+            scenario,
+            ecospace=_ecospace(n_rows, np.tile(levels, (1, 7))),
+            environmental_drivers=drivers,
+            years=range(1, 3),
+        )
+        np.testing.assert_array_equal(
+            leveled.out_Biomass_spatial, plain.out_Biomass_spatial
+        )
