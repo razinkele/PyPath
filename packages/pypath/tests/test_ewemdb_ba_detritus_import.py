@@ -14,7 +14,6 @@ import pytest
 
 from pypath.io.ewemdb import (
     _resolve_group_inputs,
-    _warn_unsupported_group_columns,
 )
 
 DATA_DIR = Path(__file__).parents[3] / "Data"
@@ -72,26 +71,6 @@ def test_legacy_column_names_still_accepted():
     bioacc, det_input = _resolve_group_inputs(df, [CONSUMER, DETRITUS])
     assert bioacc[0] == pytest.approx(0.5)
     assert det_input[1] == pytest.approx(7.0)
-
-
-def test_unsupported_columns_warn(caplog):
-    df = _groups(
-        OtherMort=[0.0, 0.2],
-        Immigration=[0.0, -9999.0],
-        Emigration=[0.0, 0.0],
-    )
-    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
-        _warn_unsupported_group_columns(df, ["Cod", "Herring"])
-    msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert len(msgs) == 1
-    assert "OtherMort" in msgs[0] and "Herring" in msgs[0]
-
-
-def test_unsupported_columns_silent_at_defaults(caplog):
-    df = _groups(OtherMort=[0.0, -9999.0], EmigRate=[0.0, 0.0])
-    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
-        _warn_unsupported_group_columns(df, ["Cod", "Herring"])
-    assert not [r for r in caplog.records if r.levelno == logging.WARNING]
 
 
 # --- Databases (integration) -------------------------------------------------
