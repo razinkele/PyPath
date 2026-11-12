@@ -5566,6 +5566,11 @@ def read_ecospace(
         cell_length = float(scenario_row.get("CellLength", 1.0))
         min_lon = float(scenario_row.get("MinLon", 0.0))
         min_lat = float(scenario_row.get("MinLat", 0.0))
+        if n_rows * n_cols <= 0:
+            raise EwEDatabaseError(
+                f"Ecospace scenario {scenario_id} has no grid "
+                f"(Inrow x Incol = {n_rows} x {n_cols}); pass grid="
+            )
         depth = _ewe_depth_map(scenario_row, n_rows, n_cols)
         n_water = int((depth > 0).sum())
         if n_water == 0:
@@ -5752,6 +5757,7 @@ def read_ecospace(
 
 
 _EWE_NULL_VALUE = -9999.0  # cCore.NULL_VALUE
+_EWE_NUMBER = re.compile(r"\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*$")
 
 
 def _ewe_map_from_string(
@@ -5772,27 +5778,36 @@ def _ewe_map_from_string(
     cover, and empty values, keep ``fill``: the value EwE pre-filled.
     Boolean maps read "1" as True and any other value as False.
 
+    Numbers are read in single precision, as EwE holds them. A value that
+    is not a plain decimal number (and "-", "_" or a "nan" spelling) is
+    NULL_VALUE (-9999), as ``cStringUtils.ConvertToSingle`` returns when
+    its parse fails; PyPath warns once per map. EwE's .NET parser accepts
+    a few more forms, such as "(5)" for -5, which EwE never writes.
+
     Raises
     ------
     EwEDatabaseError
-        On a value or compressed string that cannot be read; EwE then
-        fails to load the scenario.
+        On a compressed string that cannot be read; EwE then fails to load
+        the scenario.
     """
+    import zlib
+
     out = np.full((n_rows, n_cols), fill, dtype=dtype)
     if text is None or (isinstance(text, float) and np.isnan(text)):
         return out
-    if isinstance(text, (bytes, bytearray)):
-        text = text.decode("utf-8-sig")
-    text = str(text)
-    if text.startswith("gzip:"):
-        import base64
-        import gzip
+    try:
+        if isinstance(text, (bytes, bytearray)):
+            text = text.decode("utf-8-sig")
+        text = str(text)
+        if text.startswith("gzip:"):
+            import base64
+            import gzip
 
-        try:
             text = gzip.decompress(base64.b64decode(text[5:])).decode("utf-8-sig")
-        except (ValueError, OSError, EOFError) as e:
-            raise EwEDatabaseError(f"{name}: cannot decompress: {e}") from e
+    except (ValueError, OSError, EOFError, zlib.error) as e:
+        raise EwEDatabaseError(f"{name}: cannot decode: {e}") from e
     lines = text.replace('"', "").split(";")
+    n_null = 0
     for i in range(min(n_rows, len(lines) - 1)):
         for j, token in enumerate(lines[i].split(",")[:n_cols]):
             if token == "":
@@ -5800,12 +5815,17 @@ def _ewe_map_from_string(
             if dtype is bool:
                 out[i, j] = token == "1"
                 continue
-            try:
-                out[i, j] = float(token)
-            except ValueError:
-                raise EwEDatabaseError(
-                    f"{name}: unreadable value {token!r} in row {i + 1}"
-                ) from None
+            if _EWE_NUMBER.match(token):
+                out[i, j] = float(np.float32(float(token)))
+            else:
+                out[i, j] = _EWE_NULL_VALUE
+                n_null += 1
+    if n_null:
+        logger.warning(
+            "%s: %d unreadable value(s) read as NULL (-9999), as EwE reads them.",
+            name,
+            n_null,
+        )
     return out
 
 

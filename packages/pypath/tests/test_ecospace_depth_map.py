@@ -91,15 +91,33 @@ def test_a_missing_map_is_all_fill():
         np.testing.assert_array_equal(got, np.ones((2, 2)))
 
 
-def test_a_boolean_map_reads_one_as_true():
-    got = _ewe_map_from_string("1,0;0,1;", 2, 2, fill=False, dtype=bool)
-    np.testing.assert_array_equal(got, [[True, False], [False, True]])
+def test_a_boolean_map_reads_only_one_as_true():
+    got = _ewe_map_from_string("1,0;2,true;", 2, 2, fill=False, dtype=bool)
+    np.testing.assert_array_equal(got, [[True, False], [False, False]])
 
 
-def test_an_unreadable_value_fails_the_read():
-    # EwE's StringToArray returns False and the scenario load fails.
+def test_an_unreadable_value_is_null(caplog):
+    # cStringUtils.ConvertToSingle returns NULL_VALUE when its parse fails,
+    # and CheckNaN sends "-", "_" and "nan" spellings to the same NULL.
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        got = _ewe_map_from_string("1,x,-,nan,1_0;", 1, 5, fill=1.0, name="DepthMap")
+    np.testing.assert_array_equal(got, [[1, -9999, -9999, -9999, -9999]])
+    assert "DepthMap: 4 unreadable" in caplog.text
+
+
+def test_values_are_read_in_single_precision():
+    got = _ewe_map_from_string("12.3,1e-50;", 1, 2, fill=1.0)
+    assert got[0, 0] == float(np.float32(12.3)) and got[0, 1] == 0.0
+
+
+def test_a_corrupt_gzip_map_fails_the_read():
+    body = bytearray(gzip.compress(b"0,2;3,0;", mtime=0))
+    body[10] ^= 0xFF  # first deflate byte: zlib.error, not a gzip CRC error
+    packed = "gzip:" + base64.b64encode(bytes(body)).decode()
     with pytest.raises(EwEDatabaseError, match="DepthMap"):
-        _ewe_map_from_string("1,x;", 1, 2, fill=1.0, name="DepthMap")
+        _ewe_map_from_string(packed, 2, 2, fill=1.0, name="DepthMap")
 
 
 # --- the Depth map (cEcoSpace.UpdateDepthMap) ---
@@ -122,14 +140,14 @@ def test_a_scenario_without_maps_is_all_water_at_depth_one():
 
 
 def test_the_grid_holds_only_water_cells_renumbered_in_row_order():
-    # 0 = land.     row 0:  5  0  5
-    #               row 1:  5  5  0
-    depth = np.array([[5.0, 0.0, 5.0], [5.0, 5.0, 0.0]])
+    # 0 = land.     row 0:  5  0  6
+    #               row 1:  7  8  0
+    depth = np.array([[5.0, 0.0, 6.0], [7.0, 8.0, 0.0]])
     grid = _build_fallback_grid(2, 3, cell_length=2.0, depth=depth)
     assert grid.n_patches == 4
     meta = grid.cell_metadata
     assert list(zip(meta["row"], meta["col"])) == [(0, 0), (0, 2), (1, 0), (1, 1)]
-    np.testing.assert_array_equal(meta["depth"], [5, 5, 5, 5])
+    np.testing.assert_array_equal(meta["depth"], [5, 6, 7, 8])
     np.testing.assert_array_equal(grid.patch_ids, np.arange(4))
     np.testing.assert_array_equal(grid.patch_areas, 4.0)
     adj = grid.adjacency_matrix.toarray()
@@ -165,6 +183,11 @@ def test_read_ecospace_drops_land_and_excluded_cells():
     assert result.ecospace.habitat_capacity.shape == (2, 7)
 
 
+def test_read_ecospace_without_a_grid_raises():
+    with pytest.raises(EwEDatabaseError, match="no grid"):
+        _read(_scenario(0, 0))
+
+
 def test_read_ecospace_without_water_raises():
     with pytest.raises(EwEDatabaseError, match="no water cells"):
         _read(_scenario(2, 2, DepthMap="0,0;0,0;"))
@@ -181,7 +204,10 @@ def test_read_ecospace_without_a_depth_map_is_all_water():
 def test_black_sea_grid_is_the_ewe_oracle_water_cells():
     if not BLACK_SEA.exists():
         pytest.skip(f"{BLACK_SEA.name} not found")
-    from pypath.io.ewemdb import read_ecospace
+    from pypath.io.ewemdb import check_ewemdb_support, read_ecospace
+
+    if not any(check_ewemdb_support().values()):
+        pytest.skip("No EwE database driver")
 
     oracle = pd.read_csv(ORACLE / "ecospace_water_cells.csv")
     grid = read_ecospace(str(BLACK_SEA), n_groups=22).ecospace.grid
