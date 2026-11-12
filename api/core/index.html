@@ -17433,7 +17433,7 @@ NumDetLinks : int
 
   
       dataclass
-   (pypath.spatial.ecospace_params.EcospaceParams)" href="../spatial/#pypath.spatial.ecospace_params.EcospaceParams">EcospaceParams</a>, <span title="optional">optional</span>)</code>
+   (pypath.spatial.ecospace_params.EcospaceParams)" href="../spatial/#pypath.spatial.ecospace_params.EcospaceParams">EcospaceParams</a>, optional)</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -17444,7 +17444,7 @@ NumDetLinks : int
           <tr class="doc-section-item">
             <td><code><span title="pypath.core.ecosim.RsimScenario.environmental_drivers">environmental_drivers</span></code></td>
             <td>
-                  <code>(<a class="autorefs autorefs-internal" title="EnvironmentalDrivers (pypath.spatial.environmental.EnvironmentalDrivers)" href="../spatial/#pypath.spatial.environmental.EnvironmentalDrivers">EnvironmentalDrivers</a>, <span title="optional">optional</span>)</code>
+                  <code>(<a class="autorefs autorefs-internal" title="EnvironmentalDrivers (pypath.spatial.environmental.EnvironmentalDrivers)" href="../spatial/#pypath.spatial.environmental.EnvironmentalDrivers">EnvironmentalDrivers</a>, optional)</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -22332,6 +22332,13 @@ Controls predator-prey functional response:
             <span class="c1"># month's first Derivt fixes each pool's DetritusOut (vb 3202)</span>
             <span class="n">params_dict</span><span class="p">[</span><span class="s2">"_det_out"</span><span class="p">][:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
             <span class="n">_det_out_pending</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">_fleet_capacity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">month</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="p">(</span><span class="n">month</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">12</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># A new quota year: the TAC-closed links reopen before this month</span>
+            <span class="c1"># runs (the derivative reads fishing_dict), and its catch starts</span>
+            <span class="c1"># the year's cumulative catch</span>
+            <span class="n">_fleet_cumul_catch</span><span class="p">[:]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">FishQ</span> <span class="o">=</span> <span class="n">_original_fish_q</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">fishing_dict</span><span class="p">[</span><span class="s2">"FishQ"</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">FishQ</span>
         <span class="c1"># The month's F, as the derivative applies it (EwE6 setFishTime)</span>
         <span class="n">_fleet_med_now</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_mediation"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -22642,13 +22649,6 @@ Controls predator-prey functional response:
 
         <span class="c1"># Fleet dynamics step (after catch computation)</span>
         <span class="k">if</span> <span class="n">_fleet_capacity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># Reset cumulative catch at year boundary (BEFORE accumulation)</span>
-            <span class="n">month_in_year</span> <span class="o">=</span> <span class="p">(</span><span class="n">month</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">12</span>
-            <span class="k">if</span> <span class="n">month_in_year</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">month</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">_fleet_cumul_catch</span><span class="p">[:]</span> <span class="o">=</span> <span class="mf">0.0</span>
-                <span class="c1"># Restore original FishQ so all links reopen for new quota year</span>
-                <span class="n">params</span><span class="o">.</span><span class="n">FishQ</span> <span class="o">=</span> <span class="n">_original_fish_q</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
             <span class="c1"># Accumulate catch into cumulative tracker by fleet and group</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">FishFrom</span><span class="p">)):</span>
                 <span class="n">gear_group_idx</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">FishThrough</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
@@ -37968,7 +37968,7 @@ more abundant prey species.</p>
                 <code>time_series</code>
             </td>
             <td>
-                  <code><span title="array">array</span> - <span title="like">like</span> or <span title="dict">dict</span></code>
+                  <code>array - like or <span title="dict">dict</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -37985,7 +37985,7 @@ If dict, keys are years and values are forced values</p>
                 <code>years</code>
             </td>
             <td>
-                  <code><span title="array">array</span> - <span title="like">like</span></code>
+                  <code>array - like</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -38634,7 +38634,7 @@ If dict, keys are years and values are forced values</p>
                 <code>observed_biomass</code>
             </td>
             <td>
-                  <code><span title="array">array</span> - <span title="like">like</span> or <span title="dict">dict</span></code>
+                  <code>array - like or <span title="dict">dict</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -38650,7 +38650,7 @@ If dict, keys are years and values are forced values</p>
                 <code>years</code>
             </td>
             <td>
-                  <code><span title="array">array</span> - <span title="like">like</span></code>
+                  <code>array - like</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -39066,7 +39066,7 @@ If dict, keys are years and values are forced values</p>
                 <code>recruitment_multiplier</code>
             </td>
             <td>
-                  <code><span title="array">array</span> - <span title="like">like</span> or <span title="dict">dict</span></code>
+                  <code>array - like or <span title="dict">dict</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -39082,7 +39082,7 @@ If dict, keys are years and values are forced values</p>
                 <code>years</code>
             </td>
             <td>
-                  <code><span title="array">array</span> - <span title="like">like</span></code>
+                  <code>array - like</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -47369,7 +47369,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
                 <code>ax</code>
             </td>
             <td>
-                  <code><span title="Axes">Axes</span></code>
+                  <code>Axes</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -47395,7 +47395,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="matplotlib.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -47671,7 +47671,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="matplotlib.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -47931,7 +47931,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="plotly.graph_objects.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -48201,7 +48201,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
                 <code>ax</code>
             </td>
             <td>
-                  <code><span title="Axes">Axes</span></code>
+                  <code>Axes</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -48227,7 +48227,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="matplotlib.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -48477,7 +48477,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="matplotlib.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -48749,7 +48749,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
                 <code>ax</code>
             </td>
             <td>
-                  <code><span title="Axes">Axes</span></code>
+                  <code>Axes</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -48775,7 +48775,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="matplotlib.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -49239,7 +49239,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="plotly.graph_objects.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -49620,7 +49620,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
                 <code>ax</code>
             </td>
             <td>
-                  <code><span title="Axes">Axes</span></code>
+                  <code>Axes</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -49646,7 +49646,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="matplotlib.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -49904,7 +49904,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
                 <code>ax</code>
             </td>
             <td>
-                  <code><span title="Axes">Axes</span></code>
+                  <code>Axes</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -49930,7 +49930,7 @@ and Ecosim simulation results using matplotlib and optionally plotly.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="matplotlib.Figure">Figure</span></code>
+                  <code>Figure</code>
             </td>
             <td>
               <div class="doc-md-description">
