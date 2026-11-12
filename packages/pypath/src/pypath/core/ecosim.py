@@ -2265,6 +2265,13 @@ def rsim_run(
             # month's first Derivt fixes each pool's DetritusOut (vb 3202)
             params_dict["_det_out"][:] = np.nan
             _det_out_pending = False
+        if _fleet_capacity is not None and month > 1 and (month - 1) % 12 == 0:
+            # A new quota year: the TAC-closed links reopen before this month
+            # runs (the derivative reads fishing_dict), and its catch starts
+            # the year's cumulative catch
+            _fleet_cumul_catch[:] = 0.0
+            params.FishQ = _original_fish_q.copy()
+            fishing_dict["FishQ"] = params.FishQ
         # The month's F, as the derivative applies it (EwE6 setFishTime)
         _fleet_med_now = None
         if params_dict.get("_mediation") is not None:
@@ -2575,13 +2582,6 @@ def rsim_run(
 
         # Fleet dynamics step (after catch computation)
         if _fleet_capacity is not None:
-            # Reset cumulative catch at year boundary (BEFORE accumulation)
-            month_in_year = (month - 1) % 12
-            if month_in_year == 0 and month > 1:
-                _fleet_cumul_catch[:] = 0.0
-                # Restore original FishQ so all links reopen for new quota year
-                params.FishQ = _original_fish_q.copy()
-
             # Accumulate catch into cumulative tracker by fleet and group
             for i in range(1, len(params.FishFrom)):
                 gear_group_idx = params.FishThrough[i]
