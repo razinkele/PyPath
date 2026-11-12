@@ -2113,6 +2113,20 @@ def deriv_vector(
         NUM_GROUPS,
     )
 
+    # EwE6 migration (audit A1-s2): Immigration flows into a living group and
+    # Emig x B leaves it (cEcoSimModel.vb:3081, 3111)
+    _immigration = params.get("Immigration")
+    _emig = params.get("Emig")
+    _living = slice(1, NUM_LIVING + 1)
+    emig_loss = np.zeros(NUM_GROUPS + 1)
+    immig_gain = np.zeros(NUM_GROUPS + 1)
+    if _emig is not None:
+        emig_loss[_living] = np.asarray(_emig, dtype=float)[_living] * BB[_living]
+        deriv[_living] -= emig_loss[_living]
+    if _immigration is not None:
+        immig_gain[_living] = np.asarray(_immigration, dtype=float)[_living]
+        deriv[_living] += immig_gain[_living]
+
     if rates is not None:
         food_gain = np.zeros(NUM_GROUPS + 1)
         food_loss = np.zeros(NUM_GROUPS + 1)
@@ -2124,7 +2138,8 @@ def deriv_vector(
         rates["FoodLoss"] = food_loss
         rates["MzeroLoss"] = mzero_loss
         rates["FishingLoss"] = fishing_loss
-        rates["LossPropToB"] = food_loss + mzero_loss + fishing_loss
+        rates["EmigLoss"] = emig_loss
+        rates["LossPropToB"] = food_loss + mzero_loss + fishing_loss + emig_loss
         rates["LossPropToB"][0] = 0.0
 
     # Post-kernel instrumentation / debug logging for living groups
@@ -2252,6 +2267,8 @@ def deriv_vector(
                 producers
             ]
             tot_gain[dead] = det_gain[dead]
+            food_or_pp = tot_gain.copy()
+            tot_gain = tot_gain + immig_gain  # Immigration is gain (vb 3112)
             rates["TotGain"] = tot_gain
             rates["TotLoss"] = tot_gain - deriv
             rates["TotLoss"][0] = 0.0
@@ -2263,9 +2280,11 @@ def deriv_vector(
             net_loss = rates["TotLoss"].copy()
             cons = np.zeros(NUM_GROUPS + 1, dtype=bool)
             cons[1 : NUM_LIVING + 1] = (~producers[1:]) & (QB[1 : NUM_LIVING + 1] > 0)
-            net_gain[cons] = _GE_base[cons] * tot_gain[cons]
+            net_gain[cons] = _GE_base[cons] * food_or_pp[cons] + immig_gain[cons]
             net_loss[cons] = (
-                _GE_arr[cons] * tot_gain[cons] * _RecruitmentMult[cons] - deriv[cons]
+                _GE_arr[cons] * food_or_pp[cons] * _RecruitmentMult[cons]
+                + immig_gain[cons]
+                - deriv[cons]
             )
             rates["NetGain"] = net_gain
             rates["NetLoss"] = net_loss

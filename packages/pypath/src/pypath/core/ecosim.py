@@ -263,6 +263,12 @@ class RsimParams:
     # 'rpath' rule) = Rpath's detritus links.
     DetPassedProp: Optional[np.ndarray] = None
     DetBA: Optional[np.ndarray] = None
+    # EwE6 migration of living groups (audit A1-s2), indexed like B_BaseRef:
+    # Immigration flows into the group (t/km2/yr) and Emig x B leaves it,
+    # Emig = Emigration / B0 (SetupSimVariables, cEcoSimModel.vb:4528; EwE's
+    # Ecosim does not use EmigRate for living groups). None = no migration.
+    Immigration: Optional[np.ndarray] = None
+    Emig: Optional[np.ndarray] = None
     # EwE6 pred/prey mediation functions (core.mediation.EweMediation, D3),
     # applied under the EwE rule; None = no mediation
     EweMediation: Optional[object] = None
@@ -905,6 +911,7 @@ def rsim_params(
         fish_q=fish_q,
         ewe_fate=ewe_fate,
     )
+    immigration_sim, emig_sim = _migration_vectors(rpath, b_baseref, nliving)
     det_passed_prop = det_ba = None
     if ewe_fate is not None:
         det_passed_prop, det_ba = _ewe_detritus_vectors(ewe_fate, b_baseref)
@@ -945,6 +952,8 @@ def rsim_params(
         DetInput=_det_input_vector(rpath, ngroups),
         DetPassedProp=det_passed_prop,
         DetBA=det_ba,
+        Immigration=immigration_sim,
+        Emig=emig_sim,
         VbK=np.zeros(ngroups + 1),
         AssimEff=np.zeros(ngroups + 1),
         HandleSelf=handle_self,
@@ -1227,6 +1236,31 @@ def _fast_group_flags(
     flags[0] = 0
     flags[nbio + 1 :] = 0
     return flags
+
+
+def _migration_vectors(rpath, b_baseref: np.ndarray, nliving: int):
+    """EwE6 Ecosim migration as rsim vectors, or (None, None) without any.
+
+    Immigration is the Ecopath flow; Emig = Emigration / B0 for living groups
+    (cEcoSimModel.vb:4528). EmigRate is not used: EwE's Ecosim takes it only
+    for detritus, which is not modelled here.
+    """
+    n = len(b_baseref)
+    immig = np.asarray(getattr(rpath, "Immigration", np.zeros(0)), dtype=float)
+    emigration = np.asarray(getattr(rpath, "Emigration", np.zeros(0)), dtype=float)
+    if len(immig) != n - 1 or len(emigration) != n - 1:
+        return None, None
+    if not (np.any(immig != 0) or np.any(emigration != 0)):
+        return None, None
+    immigration_sim = np.zeros(n)
+    emig_sim = np.zeros(n)
+    living = slice(1, nliving + 1)
+    immigration_sim[living] = immig[:nliving]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        emig_sim[living] = np.where(
+            b_baseref[living] > 0, emigration[:nliving] / b_baseref[living], 0.0
+        )
+    return immigration_sim, emig_sim
 
 
 def _ewe_detritus_vectors(
@@ -1652,6 +1686,9 @@ def rsim_run(
         # EwE6 detritus fate between pools (audit P7; None = Rpath links)
         "DetPassedProp": getattr(params, "DetPassedProp", None),
         "DetBA": getattr(params, "DetBA", None),
+        # EwE6 migration of living groups (A1-s2; None = none)
+        "Immigration": getattr(params, "Immigration", None),
+        "Emig": getattr(params, "Emig", None),
         "EweMediation": getattr(params, "EweMediation", None),
     }
     _set_switch_weights(params_dict)
