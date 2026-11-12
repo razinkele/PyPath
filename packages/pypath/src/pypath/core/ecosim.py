@@ -249,6 +249,10 @@ class RsimParams:
     RiskTime: Optional[np.ndarray] = None
     # EwE6 QBmax / QB0 per group (EcosimScenarioGroup.CmCo, default 1000)
     CmCo: Optional[np.ndarray] = None
+    # EwE6 share of predation mortality that adds to other mortality
+    # (EcosimScenarioGroup.AdditivePredMort, default 1); below 1 other
+    # mortality compensates (see _paddp_setup). Used under the EwE rule.
+    PaddP: Optional[np.ndarray] = None
     # EwE6 nutrient limitation of primary production: the free share of the
     # total nutrient at the base (EcosimScenario.NutBaseFreeProp, EwE default
     # 0.9999); None (the 'rpath' rule) = no limitation
@@ -948,6 +952,7 @@ def rsim_params(
         SwitchPower=np.zeros(ngroups + 1),
         RiskTime=np.zeros(ngroups + 1),
         CmCo=np.full(ngroups + 1, 1000.0),
+        PaddP=np.ones(ngroups + 1),
         NutBaseFreeProp=(0.9999 if fast_group_rule == "ewe" else None),
         DetInput=_det_input_vector(rpath, ngroups),
         DetPassedProp=det_passed_prop,
@@ -1238,6 +1243,50 @@ def _fast_group_flags(
     return flags
 
 
+def _paddp_params(params: "RsimParams"):
+    """``_paddp_setup`` for the derivative, or None when every group's
+    predation mortality is additive. EwE-rule only: the 'rpath' rule reports
+    and ignores PaddP < 1."""
+    paddp = getattr(params, "PaddP", None)
+    if paddp is None or not np.any(np.asarray(paddp, dtype=float) < 1.0):
+        return None
+    if not getattr(params, "PREY_FTIME_ARENA", False):
+        logger.warning(
+            "AdditivePredMort below 1 needs the EwE rule (fast_group_rule='ewe'); "
+            "predation mortality is taken as additive"
+        )
+        return None
+    return _paddp_setup(params)
+
+
+def _paddp_setup(params: "RsimParams"):
+    """EwE6's base non-additive predation mortality (CalcBaseAdditiveMort,
+    cEcoSimModel.vb 3802-3816), as rsim vectors ``(mo_max, qh,
+    start_eaten_of)``.
+
+    StartEatenOf is the base predation on a group (sum of its base link
+    flows); M2_0 = StartEatenOf / B0. Where PaddP < 1, StartEatenOf > 0 and
+    mo > 0: moMax = mo + M2_0 x (1 - PaddP) and Qh = moMax / mo - 1. Elsewhere
+    both stay 0 and other mortality is unchanged.
+    """
+    n = params.NUM_GROUPS + 1
+    paddp = getattr(params, "PaddP", None)
+    paddp = np.ones(n) if paddp is None else np.asarray(paddp, dtype=float)
+    start = np.zeros(n)
+    for k in range(1, len(params.PreyFrom)):
+        prey = int(params.PreyFrom[k])
+        if 0 < prey <= params.NUM_LIVING:
+            start[prey] += float(params.QQ[k])
+    mo = np.nan_to_num(np.asarray(params.MzeroMort, dtype=float))
+    b0 = np.asarray(params.B_BaseRef, dtype=float)
+    mo_max = np.zeros(n)
+    qh = np.zeros(n)
+    ok = (paddp < 1.0) & (start > 0) & (mo > 0) & (b0 > 0)
+    mo_max[ok] = mo[ok] + start[ok] / b0[ok] * (1.0 - paddp[ok])
+    qh[ok] = mo_max[ok] / mo[ok] - 1.0
+    return mo_max, qh, start
+
+
 def _migration_vectors(rpath, b_baseref: np.ndarray, nliving: int):
     """EwE6 Ecosim migration as rsim vectors, or (None, None) without any.
 
@@ -1368,6 +1417,7 @@ def rsim_scenario(
             ("switch_power", "SwitchPower"),
             ("risk_time", "RiskTime"),
             ("cm_co", "CmCo"),
+            ("padd_p", "PaddP"),
         ):
             if scenario_overrides.get(key):
                 arr = getattr(params, attr)
@@ -1690,6 +1740,8 @@ def rsim_run(
         "Immigration": getattr(params, "Immigration", None),
         "Emig": getattr(params, "Emig", None),
         "EweMediation": getattr(params, "EweMediation", None),
+        # EwE6 non-additive predation mortality (None = additive)
+        "_paddp": _paddp_params(params),
     }
     _set_switch_weights(params_dict)
 

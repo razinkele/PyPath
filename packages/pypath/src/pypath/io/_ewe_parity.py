@@ -187,7 +187,6 @@ UNREAD_RESULT_COLUMNS: dict[str, tuple[str, ...]] = {
         "QmQo",
         # FishRateMax is left out: it only scales EwE's fishing-rate sketch
         # pad (cEcoSimModel.vb 4526-4543), no model calculation uses it.
-        "AdditivePredMort",
     ),
     "Stanza": ("EggAtSpawn",),
 }
