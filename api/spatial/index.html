@@ -23245,7 +23245,12 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1057</span>
 <span class="normal">1058</span>
 <span class="normal">1059</span>
-<span class="normal">1060</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23451,6 +23456,8 @@ distributed by patch area, so every patch starts at the same density.</p>
         <span class="s2">"PREY_FTIME_ARENA"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"PREY_FTIME_ARENA"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
         <span class="s2">"MoPred"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"MoPred"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"DETRITUS_MO_UNSCALED"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DETRITUS_MO_UNSCALED"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+        <span class="c1"># EwE6 nutrient limitation of primary production (None = off)</span>
+        <span class="s2">"NutBaseFreeProp"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"NutBaseFreeProp"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"UseVarPQ"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"UseVarPQ"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
         <span class="s2">"VbK"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"VbK"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"AssimEff"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"AssimEff"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
@@ -23559,6 +23566,9 @@ distributed by patch area, so every patch starts at the same density.</p>
         <span class="n">_forced_recs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">forcing</span><span class="p">,</span> <span class="s2">"ForcedRecs"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">_forced_recs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mi</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">_forced_recs</span><span class="p">):</span>
             <span class="n">forcing_dict</span><span class="p">[</span><span class="s2">"ForcedRecs"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_forced_recs</span><span class="p">[</span><span class="n">mi</span><span class="p">]</span>
+        <span class="n">_nut_forcing</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">forcing</span><span class="p">,</span> <span class="s2">"NutForcing"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_nut_forcing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mi</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">_nut_forcing</span><span class="p">):</span>
+            <span class="n">forcing_dict</span><span class="p">[</span><span class="s2">"NutForcing"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">_nut_forcing</span><span class="p">[</span><span class="n">mi</span><span class="p">])</span>
         <span class="c1"># Prey, production, search-rate, mortality and respiration forcing,</span>
         <span class="c1"># as in rsim_run (Ecospace used to drop them).</span>
         <span class="k">for</span> <span class="n">_key</span> <span class="ow">in</span> <span class="p">(</span>
