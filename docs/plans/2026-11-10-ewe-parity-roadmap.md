@@ -174,7 +174,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
   - the IsAdvected mapping;
   - per-cell feeding time;
   - catch in spatial outputs.
-- **Oracle:** `audit_ecospace/exp1-3.py` gives formula parity: equilibrium at density ∝ HabCap, stability at 300 km/yr. Trajectory parity needs the P0 harness, if it can run Ecospace.
+- **Oracle:** `audit_ecospace/exp1-3.py` gives formula parity: equilibrium at density ∝ HabCap, stability at 300 km/yr. Trajectory parity needs the P0 harness, if it can run Ecospace. **Spike verdict (2026-11-12): it can.** The oracle's optional Ecospace stage runs the Black Sea test case, and PyPath is 15–22 % off it (`docs/parity/ecospace_spike.md`).
 - **Rpath:** none, because Rpath has no Ecospace.
 - **Exit:** the banner from P0 is removed; matrix ecospace rows are reviewed.
 
