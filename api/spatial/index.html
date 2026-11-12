@@ -23284,7 +23284,10 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1115</span>
 <span class="normal">1116</span>
 <span class="normal">1117</span>
-<span class="normal">1118</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1118</span>
+<span class="normal">1119</span>
+<span class="normal">1120</span>
+<span class="normal">1121</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23513,6 +23516,9 @@ distributed by patch area, so every patch starts at the same density.</p>
         <span class="c1"># EwE6 detritus fate between pools (audit P7; None = Rpath links)</span>
         <span class="s2">"DetPassedProp"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetPassedProp"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"DetBA"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetBA"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="c1"># EwE6 migration of living groups, per unit area in each patch</span>
+        <span class="s2">"Immigration"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"Immigration"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="s2">"Emig"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"Emig"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="c1"># EwE6 pred/prey mediation, from each patch's own densities</span>
         <span class="s2">"EweMediation"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"EweMediation"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"RpathPrimaryProduction"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>

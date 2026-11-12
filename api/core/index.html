@@ -12271,7 +12271,13 @@ rpath() function.</p>
 <span class="normal">174</span>
 <span class="normal">175</span>
 <span class="normal">176</span>
-<span class="normal">177</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Rpath</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Balanced Ecopath model.</span>
 
@@ -12348,6 +12354,12 @@ rpath() function.</p>
     <span class="c1"># Detritus import per group (t/km2/yr, 0 except on detritus groups);</span>
     <span class="c1"># Ecosim adds it as a constant inflow (EwE DetInFlow, audit A2)</span>
     <span class="n">DetInput</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="c1"># EwE migration per group (0 except on living groups): Immigration and</span>
+    <span class="c1"># Emigration flows (t/km2/yr) and EmigRate (emigration per unit of B,</span>
+    <span class="c1"># used where Emigration is 0); audit A1-s2</span>
+    <span class="n">Immigration</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">Emigration</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">EmigRate</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
     <span class="c1"># Whose conventions the model follows, from RpathParams.compat (D1)</span>
     <span class="n">compat</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"rpath"</span>
 
@@ -12449,13 +12461,7 @@ rpath() function.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecopath.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
-<span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">161</span>
 <span class="normal">162</span>
 <span class="normal">163</span>
 <span class="normal">164</span>
@@ -12471,7 +12477,13 @@ rpath() function.</p>
 <span class="normal">174</span>
 <span class="normal">175</span>
 <span class="normal">176</span>
-<span class="normal">177</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Get summary table of model results.</span>
 
 <span class="sd">    Returns</span>
@@ -12612,35 +12624,35 @@ sends to itself (EwE BA after CalcBAofDetritus).</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecopath.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">874</span>
-<span class="normal">875</span>
-<span class="normal">876</span>
-<span class="normal">877</span>
-<span class="normal">878</span>
-<span class="normal">879</span>
-<span class="normal">880</span>
-<span class="normal">881</span>
-<span class="normal">882</span>
-<span class="normal">883</span>
-<span class="normal">884</span>
-<span class="normal">885</span>
-<span class="normal">886</span>
-<span class="normal">887</span>
-<span class="normal">888</span>
-<span class="normal">889</span>
-<span class="normal">890</span>
-<span class="normal">891</span>
-<span class="normal">892</span>
-<span class="normal">893</span>
-<span class="normal">894</span>
-<span class="normal">895</span>
-<span class="normal">896</span>
-<span class="normal">897</span>
-<span class="normal">898</span>
-<span class="normal">899</span>
-<span class="normal">900</span>
-<span class="normal">901</span>
-<span class="normal">902</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">914</span>
+<span class="normal">915</span>
+<span class="normal">916</span>
+<span class="normal">917</span>
+<span class="normal">918</span>
+<span class="normal">919</span>
+<span class="normal">920</span>
+<span class="normal">921</span>
+<span class="normal">922</span>
+<span class="normal">923</span>
+<span class="normal">924</span>
+<span class="normal">925</span>
+<span class="normal">926</span>
+<span class="normal">927</span>
+<span class="normal">928</span>
+<span class="normal">929</span>
+<span class="normal">930</span>
+<span class="normal">931</span>
+<span class="normal">932</span>
+<span class="normal">933</span>
+<span class="normal">934</span>
+<span class="normal">935</span>
+<span class="normal">936</span>
+<span class="normal">937</span>
+<span class="normal">938</span>
+<span class="normal">939</span>
+<span class="normal">940</span>
+<span class="normal">941</span>
+<span class="normal">942</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EweDetritusFate</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""EwE6's detritus fate on a balanced model (see :func:`ewe_detritus_fate`).</span>
 
@@ -12879,27 +12891,7 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecopath.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span>
-<span class="normal">247</span>
-<span class="normal">248</span>
-<span class="normal">249</span>
-<span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span>
-<span class="normal">253</span>
-<span class="normal">254</span>
-<span class="normal">255</span>
-<span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">258</span>
 <span class="normal">259</span>
 <span class="normal">260</span>
 <span class="normal">261</span>
@@ -13512,7 +13504,47 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
 <span class="normal">868</span>
 <span class="normal">869</span>
 <span class="normal">870</span>
-<span class="normal">871</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rpath</span><span class="p">(</span>
+<span class="normal">871</span>
+<span class="normal">872</span>
+<span class="normal">873</span>
+<span class="normal">874</span>
+<span class="normal">875</span>
+<span class="normal">876</span>
+<span class="normal">877</span>
+<span class="normal">878</span>
+<span class="normal">879</span>
+<span class="normal">880</span>
+<span class="normal">881</span>
+<span class="normal">882</span>
+<span class="normal">883</span>
+<span class="normal">884</span>
+<span class="normal">885</span>
+<span class="normal">886</span>
+<span class="normal">887</span>
+<span class="normal">888</span>
+<span class="normal">889</span>
+<span class="normal">890</span>
+<span class="normal">891</span>
+<span class="normal">892</span>
+<span class="normal">893</span>
+<span class="normal">894</span>
+<span class="normal">895</span>
+<span class="normal">896</span>
+<span class="normal">897</span>
+<span class="normal">898</span>
+<span class="normal">899</span>
+<span class="normal">900</span>
+<span class="normal">901</span>
+<span class="normal">902</span>
+<span class="normal">903</span>
+<span class="normal">904</span>
+<span class="normal">905</span>
+<span class="normal">906</span>
+<span class="normal">907</span>
+<span class="normal">908</span>
+<span class="normal">909</span>
+<span class="normal">910</span>
+<span class="normal">911</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rpath</span><span class="p">(</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">eco_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
     <span class="n">eco_area</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
@@ -13603,6 +13635,19 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
 
     <span class="c1"># Replace NaN with 0 for BioAcc and Unassim</span>
     <span class="n">bioacc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">bioacc</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">bioacc</span><span class="p">)</span>
+
+    <span class="c1"># EwE migration of living groups (cEcoPathModel.vb:466-489): Immigration</span>
+    <span class="c1"># and Emigration are flows, EmigRate is emigration per unit of biomass,</span>
+    <span class="c1"># used where Emigration is 0. Detritus migration is not modelled.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_group_values</span><span class="p">(</span><span class="n">col</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">model_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ngroups</span><span class="p">)</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">model_df</span><span class="p">[</span><span class="n">col</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">types</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+
+    <span class="n">immigration</span> <span class="o">=</span> <span class="n">_group_values</span><span class="p">(</span><span class="s2">"Immigration"</span><span class="p">)</span>
+    <span class="n">emigration</span> <span class="o">=</span> <span class="n">_group_values</span><span class="p">(</span><span class="s2">"Emigration"</span><span class="p">)</span>
+    <span class="n">emig_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">emigration</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">_group_values</span><span class="p">(</span><span class="s2">"EmigRate"</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
     <span class="n">unassim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">unassim</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">unassim</span><span class="p">)</span>
 
     <span class="c1"># Get diet matrix - columns are predators (living groups only)</span>
@@ -13746,6 +13791,8 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
         <span class="n">living_ee</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
         <span class="n">living_bioacc</span> <span class="o">=</span> <span class="n">bioacc</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
         <span class="n">living_catch</span> <span class="o">=</span> <span class="n">totcatch</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
+        <span class="n">living_migration</span> <span class="o">=</span> <span class="n">emigration</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span> <span class="o">-</span> <span class="n">immigration</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
+        <span class="n">living_emig_rate</span> <span class="o">=</span> <span class="n">emig_rate</span><span class="p">[</span><span class="n">living_idx</span><span class="p">]</span>
         <span class="c1"># Determine which variables are unknown in this iteration</span>
         <span class="n">living_no_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">living_biomass</span><span class="p">)</span>
         <span class="n">living_no_ee</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">living_ee</span><span class="p">)</span>
@@ -13771,6 +13818,8 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
             <span class="n">nodetrdiet</span><span class="p">,</span>
             <span class="n">original_no_pb</span><span class="p">,</span>
             <span class="n">pred_unknown_mask</span><span class="p">,</span>
+            <span class="n">living_migration</span><span class="o">=</span><span class="n">living_migration</span><span class="p">,</span>
+            <span class="n">living_emig_rate</span><span class="o">=</span><span class="n">living_emig_rate</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Validate</span>
@@ -14118,6 +14167,9 @@ diet_values, nodetrdiet, living_idx, no_b, no_ee).</p>
         <span class="n">eco_name</span><span class="o">=</span><span class="n">eco_name</span><span class="p">,</span>
         <span class="n">eco_area</span><span class="o">=</span><span class="n">eco_area</span><span class="p">,</span>
         <span class="n">DetInput</span><span class="o">=</span><span class="n">det_input_full</span><span class="p">,</span>
+        <span class="n">Immigration</span><span class="o">=</span><span class="n">immigration</span><span class="p">,</span>
+        <span class="n">Emigration</span><span class="o">=</span><span class="n">emigration</span><span class="p">,</span>
+        <span class="n">EmigRate</span><span class="o">=</span><span class="n">emig_rate</span><span class="p">,</span>
         <span class="n">compat</span><span class="o">=</span><span class="n">compat</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">compat</span> <span class="o">==</span> <span class="s2">"ewe"</span><span class="p">:</span>
@@ -14181,78 +14233,78 @@ detritus another pool passed to it. Ecosim's EwE rule uses this routing.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecopath.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">923</span>
-<span class="normal">924</span>
-<span class="normal">925</span>
-<span class="normal">926</span>
-<span class="normal">927</span>
-<span class="normal">928</span>
-<span class="normal">929</span>
-<span class="normal">930</span>
-<span class="normal">931</span>
-<span class="normal">932</span>
-<span class="normal">933</span>
-<span class="normal">934</span>
-<span class="normal">935</span>
-<span class="normal">936</span>
-<span class="normal">937</span>
-<span class="normal">938</span>
-<span class="normal">939</span>
-<span class="normal">940</span>
-<span class="normal">941</span>
-<span class="normal">942</span>
-<span class="normal">943</span>
-<span class="normal">944</span>
-<span class="normal">945</span>
-<span class="normal">946</span>
-<span class="normal">947</span>
-<span class="normal">948</span>
-<span class="normal">949</span>
-<span class="normal">950</span>
-<span class="normal">951</span>
-<span class="normal">952</span>
-<span class="normal">953</span>
-<span class="normal">954</span>
-<span class="normal">955</span>
-<span class="normal">956</span>
-<span class="normal">957</span>
-<span class="normal">958</span>
-<span class="normal">959</span>
-<span class="normal">960</span>
-<span class="normal">961</span>
-<span class="normal">962</span>
-<span class="normal">963</span>
-<span class="normal">964</span>
-<span class="normal">965</span>
-<span class="normal">966</span>
-<span class="normal">967</span>
-<span class="normal">968</span>
-<span class="normal">969</span>
-<span class="normal">970</span>
-<span class="normal">971</span>
-<span class="normal">972</span>
-<span class="normal">973</span>
-<span class="normal">974</span>
-<span class="normal">975</span>
-<span class="normal">976</span>
-<span class="normal">977</span>
-<span class="normal">978</span>
-<span class="normal">979</span>
-<span class="normal">980</span>
-<span class="normal">981</span>
-<span class="normal">982</span>
-<span class="normal">983</span>
-<span class="normal">984</span>
-<span class="normal">985</span>
-<span class="normal">986</span>
-<span class="normal">987</span>
-<span class="normal">988</span>
-<span class="normal">989</span>
-<span class="normal">990</span>
-<span class="normal">991</span>
-<span class="normal">992</span>
-<span class="normal">993</span>
-<span class="normal">994</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_detritus_fate</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EweDetritusFate</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 963</span>
+<span class="normal"> 964</span>
+<span class="normal"> 965</span>
+<span class="normal"> 966</span>
+<span class="normal"> 967</span>
+<span class="normal"> 968</span>
+<span class="normal"> 969</span>
+<span class="normal"> 970</span>
+<span class="normal"> 971</span>
+<span class="normal"> 972</span>
+<span class="normal"> 973</span>
+<span class="normal"> 974</span>
+<span class="normal"> 975</span>
+<span class="normal"> 976</span>
+<span class="normal"> 977</span>
+<span class="normal"> 978</span>
+<span class="normal"> 979</span>
+<span class="normal"> 980</span>
+<span class="normal"> 981</span>
+<span class="normal"> 982</span>
+<span class="normal"> 983</span>
+<span class="normal"> 984</span>
+<span class="normal"> 985</span>
+<span class="normal"> 986</span>
+<span class="normal"> 987</span>
+<span class="normal"> 988</span>
+<span class="normal"> 989</span>
+<span class="normal"> 990</span>
+<span class="normal"> 991</span>
+<span class="normal"> 992</span>
+<span class="normal"> 993</span>
+<span class="normal"> 994</span>
+<span class="normal"> 995</span>
+<span class="normal"> 996</span>
+<span class="normal"> 997</span>
+<span class="normal"> 998</span>
+<span class="normal"> 999</span>
+<span class="normal">1000</span>
+<span class="normal">1001</span>
+<span class="normal">1002</span>
+<span class="normal">1003</span>
+<span class="normal">1004</span>
+<span class="normal">1005</span>
+<span class="normal">1006</span>
+<span class="normal">1007</span>
+<span class="normal">1008</span>
+<span class="normal">1009</span>
+<span class="normal">1010</span>
+<span class="normal">1011</span>
+<span class="normal">1012</span>
+<span class="normal">1013</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span>
+<span class="normal">1017</span>
+<span class="normal">1018</span>
+<span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span>
+<span class="normal">1022</span>
+<span class="normal">1023</span>
+<span class="normal">1024</span>
+<span class="normal">1025</span>
+<span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_detritus_fate</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EweDetritusFate</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Route detritus between pools as EwE6's Ecopath does.</span>
 
 <span class="sd">    EwE (cEcoPathModel.CalcFateOfDetritus and CalcBAofDetritus, vb 619-668)</span>
@@ -16677,7 +16729,13 @@ NumDetLinks : int
 <span class="normal">265</span>
 <span class="normal">266</span>
 <span class="normal">267</span>
-<span class="normal">268</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Dynamic simulation parameters.</span>
 
@@ -16884,6 +16942,12 @@ NumDetLinks : int
     <span class="c1"># 'rpath' rule) = Rpath's detritus links.</span>
     <span class="n">DetPassedProp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">DetBA</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># EwE6 migration of living groups (audit A1-s2), indexed like B_BaseRef:</span>
+    <span class="c1"># Immigration flows into the group (t/km2/yr) and Emig x B leaves it,</span>
+    <span class="c1"># Emig = Emigration / B0 (SetupSimVariables, cEcoSimModel.vb:4528; EwE's</span>
+    <span class="c1"># Ecosim does not use EmigRate for living groups). None = no migration.</span>
+    <span class="n">Immigration</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">Emig</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="c1"># EwE6 pred/prey mediation functions (core.mediation.EweMediation, D3),</span>
     <span class="c1"># applied under the EwE rule; None = no mediation</span>
     <span class="n">EweMediation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -16988,13 +17052,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">271</span>
-<span class="normal">272</span>
-<span class="normal">273</span>
-<span class="normal">274</span>
-<span class="normal">275</span>
-<span class="normal">276</span>
-<span class="normal">277</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">277</span>
 <span class="normal">278</span>
 <span class="normal">279</span>
 <span class="normal">280</span>
@@ -17010,7 +17068,13 @@ NumDetLinks : int
 <span class="normal">290</span>
 <span class="normal">291</span>
 <span class="normal">292</span>
-<span class="normal">293</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""State variables for Ecosim simulation.</span>
 
@@ -17179,13 +17243,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">296</span>
-<span class="normal">297</span>
-<span class="normal">298</span>
-<span class="normal">299</span>
-<span class="normal">300</span>
-<span class="normal">301</span>
-<span class="normal">302</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">302</span>
 <span class="normal">303</span>
 <span class="normal">304</span>
 <span class="normal">305</span>
@@ -17218,7 +17276,13 @@ NumDetLinks : int
 <span class="normal">332</span>
 <span class="normal">333</span>
 <span class="normal">334</span>
-<span class="normal">335</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Forcing matrices for environmental and biological effects.</span>
 
@@ -17359,13 +17423,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">338</span>
-<span class="normal">339</span>
-<span class="normal">340</span>
-<span class="normal">341</span>
-<span class="normal">342</span>
-<span class="normal">343</span>
-<span class="normal">344</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">344</span>
 <span class="normal">345</span>
 <span class="normal">346</span>
 <span class="normal">347</span>
@@ -17379,7 +17437,13 @@ NumDetLinks : int
 <span class="normal">355</span>
 <span class="normal">356</span>
 <span class="normal">357</span>
-<span class="normal">358</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Fishing forcing matrices.</span>
 
@@ -17592,13 +17656,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">361</span>
-<span class="normal">362</span>
-<span class="normal">363</span>
-<span class="normal">364</span>
-<span class="normal">365</span>
-<span class="normal">366</span>
-<span class="normal">367</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">367</span>
 <span class="normal">368</span>
 <span class="normal">369</span>
 <span class="normal">370</span>
@@ -17630,7 +17688,13 @@ NumDetLinks : int
 <span class="normal">396</span>
 <span class="normal">397</span>
 <span class="normal">398</span>
-<span class="normal">399</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span>
+<span class="normal">403</span>
+<span class="normal">404</span>
+<span class="normal">405</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimScenario</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Complete Ecosim simulation scenario.</span>
 
@@ -17946,13 +18010,7 @@ Ecospace keeps one Hden per patch and does not record it.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span>
-<span class="normal">407</span>
-<span class="normal">408</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">408</span>
 <span class="normal">409</span>
 <span class="normal">410</span>
 <span class="normal">411</span>
@@ -18021,7 +18079,13 @@ Ecospace keeps one Hden per patch and does not record it.</p>
 <span class="normal">474</span>
 <span class="normal">475</span>
 <span class="normal">476</span>
-<span class="normal">477</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Output from Ecosim simulation run.</span>
 
@@ -18142,13 +18206,7 @@ fraction &gt; 0 to its own pool.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">480</span>
-<span class="normal">481</span>
-<span class="normal">482</span>
-<span class="normal">483</span>
-<span class="normal">484</span>
-<span class="normal">485</span>
-<span class="normal">486</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">486</span>
 <span class="normal">487</span>
 <span class="normal">488</span>
 <span class="normal">489</span>
@@ -18156,7 +18214,13 @@ fraction &gt; 0 to its own pool.</p>
 <span class="normal">491</span>
 <span class="normal">492</span>
 <span class="normal">493</span>
-<span class="normal">494</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="normal">494</span>
+<span class="normal">495</span>
+<span class="normal">496</span>
+<span class="normal">497</span>
+<span class="normal">498</span>
+<span class="normal">499</span>
+<span class="normal">500</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Detritus groups whose detritus fate points to themselves.</span>
 
 <span class="sd">    Returns ``{group name: fraction}`` for every dead group with a fate</span>
@@ -18398,13 +18462,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">526</span>
-<span class="normal">527</span>
-<span class="normal">528</span>
-<span class="normal">529</span>
-<span class="normal">530</span>
-<span class="normal">531</span>
-<span class="normal">532</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">532</span>
 <span class="normal">533</span>
 <span class="normal">534</span>
 <span class="normal">535</span>
@@ -18844,7 +18902,16 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">969</span>
 <span class="normal">970</span>
 <span class="normal">971</span>
-<span class="normal">972</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
+<span class="normal">972</span>
+<span class="normal">973</span>
+<span class="normal">974</span>
+<span class="normal">975</span>
+<span class="normal">976</span>
+<span class="normal">977</span>
+<span class="normal">978</span>
+<span class="normal">979</span>
+<span class="normal">980</span>
+<span class="normal">981</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
     <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
@@ -19226,6 +19293,7 @@ Ford-Walford plus group, or Rpath's.</p>
         <span class="n">fish_q</span><span class="o">=</span><span class="n">fish_q</span><span class="p">,</span>
         <span class="n">ewe_fate</span><span class="o">=</span><span class="n">ewe_fate</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="n">immigration_sim</span><span class="p">,</span> <span class="n">emig_sim</span> <span class="o">=</span> <span class="n">_migration_vectors</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">b_baseref</span><span class="p">,</span> <span class="n">nliving</span><span class="p">)</span>
     <span class="n">det_passed_prop</span> <span class="o">=</span> <span class="n">det_ba</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">ewe_fate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">det_passed_prop</span><span class="p">,</span> <span class="n">det_ba</span> <span class="o">=</span> <span class="n">_ewe_detritus_vectors</span><span class="p">(</span><span class="n">ewe_fate</span><span class="p">,</span> <span class="n">b_baseref</span><span class="p">)</span>
@@ -19266,6 +19334,8 @@ Ford-Walford plus group, or Rpath's.</p>
         <span class="n">DetInput</span><span class="o">=</span><span class="n">_det_input_vector</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">ngroups</span><span class="p">),</span>
         <span class="n">DetPassedProp</span><span class="o">=</span><span class="n">det_passed_prop</span><span class="p">,</span>
         <span class="n">DetBA</span><span class="o">=</span><span class="n">det_ba</span><span class="p">,</span>
+        <span class="n">Immigration</span><span class="o">=</span><span class="n">immigration_sim</span><span class="p">,</span>
+        <span class="n">Emig</span><span class="o">=</span><span class="n">emig_sim</span><span class="p">,</span>
         <span class="n">VbK</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ngroups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
         <span class="n">AssimEff</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ngroups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
         <span class="n">HandleSelf</span><span class="o">=</span><span class="n">handle_self</span><span class="p">,</span>
@@ -19379,24 +19449,24 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">975</span>
-<span class="normal">976</span>
-<span class="normal">977</span>
-<span class="normal">978</span>
-<span class="normal">979</span>
-<span class="normal">980</span>
-<span class="normal">981</span>
-<span class="normal">982</span>
-<span class="normal">983</span>
-<span class="normal">984</span>
-<span class="normal">985</span>
-<span class="normal">986</span>
-<span class="normal">987</span>
-<span class="normal">988</span>
-<span class="normal">989</span>
-<span class="normal">990</span>
-<span class="normal">991</span>
-<span class="normal">992</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 984</span>
+<span class="normal"> 985</span>
+<span class="normal"> 986</span>
+<span class="normal"> 987</span>
+<span class="normal"> 988</span>
+<span class="normal"> 989</span>
+<span class="normal"> 990</span>
+<span class="normal"> 991</span>
+<span class="normal"> 992</span>
+<span class="normal"> 993</span>
+<span class="normal"> 994</span>
+<span class="normal"> 995</span>
+<span class="normal"> 996</span>
+<span class="normal"> 997</span>
+<span class="normal"> 998</span>
+<span class="normal"> 999</span>
+<span class="normal">1000</span>
+<span class="normal">1001</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create initial state vectors for simulation.</span>
 
 <span class="sd">    Parameters</span>
@@ -19518,16 +19588,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 995</span>
-<span class="normal"> 996</span>
-<span class="normal"> 997</span>
-<span class="normal"> 998</span>
-<span class="normal"> 999</span>
-<span class="normal">1000</span>
-<span class="normal">1001</span>
-<span class="normal">1002</span>
-<span class="normal">1003</span>
-<span class="normal">1004</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1004</span>
 <span class="normal">1005</span>
 <span class="normal">1006</span>
 <span class="normal">1007</span>
@@ -19549,7 +19610,16 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">1023</span>
 <span class="normal">1024</span>
 <span class="normal">1025</span>
-<span class="normal">1026</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
+<span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create forcing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -19685,16 +19755,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1029</span>
-<span class="normal">1030</span>
-<span class="normal">1031</span>
-<span class="normal">1032</span>
-<span class="normal">1033</span>
-<span class="normal">1034</span>
-<span class="normal">1035</span>
-<span class="normal">1036</span>
-<span class="normal">1037</span>
-<span class="normal">1038</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1038</span>
 <span class="normal">1039</span>
 <span class="normal">1040</span>
 <span class="normal">1041</span>
@@ -19714,7 +19775,16 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">1055</span>
 <span class="normal">1056</span>
 <span class="normal">1057</span>
-<span class="normal">1058</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span>
+<span class="normal">1066</span>
+<span class="normal">1067</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create fishing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -19924,41 +19994,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1252</span>
-<span class="normal">1253</span>
-<span class="normal">1254</span>
-<span class="normal">1255</span>
-<span class="normal">1256</span>
-<span class="normal">1257</span>
-<span class="normal">1258</span>
-<span class="normal">1259</span>
-<span class="normal">1260</span>
-<span class="normal">1261</span>
-<span class="normal">1262</span>
-<span class="normal">1263</span>
-<span class="normal">1264</span>
-<span class="normal">1265</span>
-<span class="normal">1266</span>
-<span class="normal">1267</span>
-<span class="normal">1268</span>
-<span class="normal">1269</span>
-<span class="normal">1270</span>
-<span class="normal">1271</span>
-<span class="normal">1272</span>
-<span class="normal">1273</span>
-<span class="normal">1274</span>
-<span class="normal">1275</span>
-<span class="normal">1276</span>
-<span class="normal">1277</span>
-<span class="normal">1278</span>
-<span class="normal">1279</span>
-<span class="normal">1280</span>
-<span class="normal">1281</span>
-<span class="normal">1282</span>
-<span class="normal">1283</span>
-<span class="normal">1284</span>
-<span class="normal">1285</span>
-<span class="normal">1286</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1286</span>
 <span class="normal">1287</span>
 <span class="normal">1288</span>
 <span class="normal">1289</span>
@@ -20098,7 +20134,41 @@ Controls predator-prey functional response:
 <span class="normal">1423</span>
 <span class="normal">1424</span>
 <span class="normal">1425</span>
-<span class="normal">1426</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
+<span class="normal">1426</span>
+<span class="normal">1427</span>
+<span class="normal">1428</span>
+<span class="normal">1429</span>
+<span class="normal">1430</span>
+<span class="normal">1431</span>
+<span class="normal">1432</span>
+<span class="normal">1433</span>
+<span class="normal">1434</span>
+<span class="normal">1435</span>
+<span class="normal">1436</span>
+<span class="normal">1437</span>
+<span class="normal">1438</span>
+<span class="normal">1439</span>
+<span class="normal">1440</span>
+<span class="normal">1441</span>
+<span class="normal">1442</span>
+<span class="normal">1443</span>
+<span class="normal">1444</span>
+<span class="normal">1445</span>
+<span class="normal">1446</span>
+<span class="normal">1447</span>
+<span class="normal">1448</span>
+<span class="normal">1449</span>
+<span class="normal">1450</span>
+<span class="normal">1451</span>
+<span class="normal">1452</span>
+<span class="normal">1453</span>
+<span class="normal">1454</span>
+<span class="normal">1455</span>
+<span class="normal">1456</span>
+<span class="normal">1457</span>
+<span class="normal">1458</span>
+<span class="normal">1459</span>
+<span class="normal">1460</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span>
@@ -20393,41 +20463,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1500</span>
-<span class="normal">1501</span>
-<span class="normal">1502</span>
-<span class="normal">1503</span>
-<span class="normal">1504</span>
-<span class="normal">1505</span>
-<span class="normal">1506</span>
-<span class="normal">1507</span>
-<span class="normal">1508</span>
-<span class="normal">1509</span>
-<span class="normal">1510</span>
-<span class="normal">1511</span>
-<span class="normal">1512</span>
-<span class="normal">1513</span>
-<span class="normal">1514</span>
-<span class="normal">1515</span>
-<span class="normal">1516</span>
-<span class="normal">1517</span>
-<span class="normal">1518</span>
-<span class="normal">1519</span>
-<span class="normal">1520</span>
-<span class="normal">1521</span>
-<span class="normal">1522</span>
-<span class="normal">1523</span>
-<span class="normal">1524</span>
-<span class="normal">1525</span>
-<span class="normal">1526</span>
-<span class="normal">1527</span>
-<span class="normal">1528</span>
-<span class="normal">1529</span>
-<span class="normal">1530</span>
-<span class="normal">1531</span>
-<span class="normal">1532</span>
-<span class="normal">1533</span>
-<span class="normal">1534</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1534</span>
 <span class="normal">1535</span>
 <span class="normal">1536</span>
 <span class="normal">1537</span>
@@ -21690,7 +21726,44 @@ Controls predator-prey functional response:
 <span class="normal">2794</span>
 <span class="normal">2795</span>
 <span class="normal">2796</span>
-<span class="normal">2797</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
+<span class="normal">2797</span>
+<span class="normal">2798</span>
+<span class="normal">2799</span>
+<span class="normal">2800</span>
+<span class="normal">2801</span>
+<span class="normal">2802</span>
+<span class="normal">2803</span>
+<span class="normal">2804</span>
+<span class="normal">2805</span>
+<span class="normal">2806</span>
+<span class="normal">2807</span>
+<span class="normal">2808</span>
+<span class="normal">2809</span>
+<span class="normal">2810</span>
+<span class="normal">2811</span>
+<span class="normal">2812</span>
+<span class="normal">2813</span>
+<span class="normal">2814</span>
+<span class="normal">2815</span>
+<span class="normal">2816</span>
+<span class="normal">2817</span>
+<span class="normal">2818</span>
+<span class="normal">2819</span>
+<span class="normal">2820</span>
+<span class="normal">2821</span>
+<span class="normal">2822</span>
+<span class="normal">2823</span>
+<span class="normal">2824</span>
+<span class="normal">2825</span>
+<span class="normal">2826</span>
+<span class="normal">2827</span>
+<span class="normal">2828</span>
+<span class="normal">2829</span>
+<span class="normal">2830</span>
+<span class="normal">2831</span>
+<span class="normal">2832</span>
+<span class="normal">2833</span>
+<span class="normal">2834</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -21845,6 +21918,9 @@ Controls predator-prey functional response:
         <span class="c1"># EwE6 detritus fate between pools (audit P7; None = Rpath links)</span>
         <span class="s2">"DetPassedProp"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetPassedProp"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"DetBA"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"DetBA"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="c1"># EwE6 migration of living groups (A1-s2; None = none)</span>
+        <span class="s2">"Immigration"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"Immigration"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="s2">"Emig"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"Emig"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="s2">"EweMediation"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="s2">"EweMediation"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
     <span class="p">}</span>
     <span class="n">_set_switch_weights</span><span class="p">(</span><span class="n">params_dict</span><span class="p">)</span>
@@ -25746,7 +25822,26 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 <span class="normal">2528</span>
 <span class="normal">2529</span>
 <span class="normal">2530</span>
-<span class="normal">2531</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
+<span class="normal">2531</span>
+<span class="normal">2532</span>
+<span class="normal">2533</span>
+<span class="normal">2534</span>
+<span class="normal">2535</span>
+<span class="normal">2536</span>
+<span class="normal">2537</span>
+<span class="normal">2538</span>
+<span class="normal">2539</span>
+<span class="normal">2540</span>
+<span class="normal">2541</span>
+<span class="normal">2542</span>
+<span class="normal">2543</span>
+<span class="normal">2544</span>
+<span class="normal">2545</span>
+<span class="normal">2546</span>
+<span class="normal">2547</span>
+<span class="normal">2548</span>
+<span class="normal">2549</span>
+<span class="normal">2550</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -26347,6 +26442,20 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
         <span class="n">NUM_GROUPS</span><span class="p">,</span>
     <span class="p">)</span>
 
+    <span class="c1"># EwE6 migration (audit A1-s2): Immigration flows into a living group and</span>
+    <span class="c1"># Emig x B leaves it (cEcoSimModel.vb:3081, 3111)</span>
+    <span class="n">_immigration</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Immigration"</span><span class="p">)</span>
+    <span class="n">_emig</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Emig"</span><span class="p">)</span>
+    <span class="n">_living</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">emig_loss</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">immig_gain</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_emig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">emig_loss</span><span class="p">[</span><span class="n">_living</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">_emig</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)[</span><span class="n">_living</span><span class="p">]</span> <span class="o">*</span> <span class="n">BB</span><span class="p">[</span><span class="n">_living</span><span class="p">]</span>
+        <span class="n">deriv</span><span class="p">[</span><span class="n">_living</span><span class="p">]</span> <span class="o">-=</span> <span class="n">emig_loss</span><span class="p">[</span><span class="n">_living</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">_immigration</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">immig_gain</span><span class="p">[</span><span class="n">_living</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">_immigration</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)[</span><span class="n">_living</span><span class="p">]</span>
+        <span class="n">deriv</span><span class="p">[</span><span class="n">_living</span><span class="p">]</span> <span class="o">+=</span> <span class="n">immig_gain</span><span class="p">[</span><span class="n">_living</span><span class="p">]</span>
+
     <span class="k">if</span> <span class="n">rates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">food_gain</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">food_loss</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
@@ -26358,7 +26467,8 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
         <span class="n">rates</span><span class="p">[</span><span class="s2">"FoodLoss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">food_loss</span>
         <span class="n">rates</span><span class="p">[</span><span class="s2">"MzeroLoss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">mzero_loss</span>
         <span class="n">rates</span><span class="p">[</span><span class="s2">"FishingLoss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">fishing_loss</span>
-        <span class="n">rates</span><span class="p">[</span><span class="s2">"LossPropToB"</span><span class="p">]</span> <span class="o">=</span> <span class="n">food_loss</span> <span class="o">+</span> <span class="n">mzero_loss</span> <span class="o">+</span> <span class="n">fishing_loss</span>
+        <span class="n">rates</span><span class="p">[</span><span class="s2">"EmigLoss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">emig_loss</span>
+        <span class="n">rates</span><span class="p">[</span><span class="s2">"LossPropToB"</span><span class="p">]</span> <span class="o">=</span> <span class="n">food_loss</span> <span class="o">+</span> <span class="n">mzero_loss</span> <span class="o">+</span> <span class="n">fishing_loss</span> <span class="o">+</span> <span class="n">emig_loss</span>
         <span class="n">rates</span><span class="p">[</span><span class="s2">"LossPropToB"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
 
     <span class="c1"># Post-kernel instrumentation / debug logging for living groups</span>
@@ -26486,6 +26596,8 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
                 <span class="n">producers</span>
             <span class="p">]</span>
             <span class="n">tot_gain</span><span class="p">[</span><span class="n">dead</span><span class="p">]</span> <span class="o">=</span> <span class="n">det_gain</span><span class="p">[</span><span class="n">dead</span><span class="p">]</span>
+            <span class="n">food_or_pp</span> <span class="o">=</span> <span class="n">tot_gain</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">tot_gain</span> <span class="o">=</span> <span class="n">tot_gain</span> <span class="o">+</span> <span class="n">immig_gain</span>  <span class="c1"># Immigration is gain (vb 3112)</span>
             <span class="n">rates</span><span class="p">[</span><span class="s2">"TotGain"</span><span class="p">]</span> <span class="o">=</span> <span class="n">tot_gain</span>
             <span class="n">rates</span><span class="p">[</span><span class="s2">"TotLoss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">tot_gain</span> <span class="o">-</span> <span class="n">deriv</span>
             <span class="n">rates</span><span class="p">[</span><span class="s2">"TotLoss"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
@@ -26497,9 +26609,11 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
             <span class="n">net_loss</span> <span class="o">=</span> <span class="n">rates</span><span class="p">[</span><span class="s2">"TotLoss"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="n">cons</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
             <span class="n">cons</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">producers</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">QB</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="n">net_gain</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">=</span> <span class="n">_GE_base</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">*</span> <span class="n">tot_gain</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span>
+            <span class="n">net_gain</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">=</span> <span class="n">_GE_base</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">*</span> <span class="n">food_or_pp</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">+</span> <span class="n">immig_gain</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span>
             <span class="n">net_loss</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">_GE_arr</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">*</span> <span class="n">tot_gain</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">*</span> <span class="n">_RecruitmentMult</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">-</span> <span class="n">deriv</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span>
+                <span class="n">_GE_arr</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">*</span> <span class="n">food_or_pp</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span> <span class="o">*</span> <span class="n">_RecruitmentMult</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span>
+                <span class="o">+</span> <span class="n">immig_gain</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span>
+                <span class="o">-</span> <span class="n">deriv</span><span class="p">[</span><span class="n">cons</span><span class="p">]</span>
             <span class="p">)</span>
             <span class="n">rates</span><span class="p">[</span><span class="s2">"NetGain"</span><span class="p">]</span> <span class="o">=</span> <span class="n">net_gain</span>
             <span class="n">rates</span><span class="p">[</span><span class="s2">"NetLoss"</span><span class="p">]</span> <span class="o">=</span> <span class="n">net_loss</span>
@@ -26940,26 +27054,7 @@ stanza update reads (<code>rsim_run</code>, <code>STANZA_STAGE_RATES</code>).</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2580</span>
-<span class="normal">2581</span>
-<span class="normal">2582</span>
-<span class="normal">2583</span>
-<span class="normal">2584</span>
-<span class="normal">2585</span>
-<span class="normal">2586</span>
-<span class="normal">2587</span>
-<span class="normal">2588</span>
-<span class="normal">2589</span>
-<span class="normal">2590</span>
-<span class="normal">2591</span>
-<span class="normal">2592</span>
-<span class="normal">2593</span>
-<span class="normal">2594</span>
-<span class="normal">2595</span>
-<span class="normal">2596</span>
-<span class="normal">2597</span>
-<span class="normal">2598</span>
-<span class="normal">2599</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2599</span>
 <span class="normal">2600</span>
 <span class="normal">2601</span>
 <span class="normal">2602</span>
@@ -27136,7 +27231,26 @@ stanza update reads (<code>rsim_run</code>, <code>STANZA_STAGE_RATES</code>).</p
 <span class="normal">2773</span>
 <span class="normal">2774</span>
 <span class="normal">2775</span>
-<span class="normal">2776</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
+<span class="normal">2776</span>
+<span class="normal">2777</span>
+<span class="normal">2778</span>
+<span class="normal">2779</span>
+<span class="normal">2780</span>
+<span class="normal">2781</span>
+<span class="normal">2782</span>
+<span class="normal">2783</span>
+<span class="normal">2784</span>
+<span class="normal">2785</span>
+<span class="normal">2786</span>
+<span class="normal">2787</span>
+<span class="normal">2788</span>
+<span class="normal">2789</span>
+<span class="normal">2790</span>
+<span class="normal">2791</span>
+<span class="normal">2792</span>
+<span class="normal">2793</span>
+<span class="normal">2794</span>
+<span class="normal">2795</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -27359,17 +27473,17 @@ Then: new_B = (1-SORWT)<em>biomeq + SORWT</em>old_B</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2790</span>
-<span class="normal">2791</span>
-<span class="normal">2792</span>
-<span class="normal">2793</span>
-<span class="normal">2794</span>
-<span class="normal">2795</span>
-<span class="normal">2796</span>
-<span class="normal">2797</span>
-<span class="normal">2798</span>
-<span class="normal">2799</span>
-<span class="normal">2800</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2809</span>
+<span class="normal">2810</span>
+<span class="normal">2811</span>
+<span class="normal">2812</span>
+<span class="normal">2813</span>
+<span class="normal">2814</span>
+<span class="normal">2815</span>
+<span class="normal">2816</span>
+<span class="normal">2817</span>
+<span class="normal">2818</span>
+<span class="normal">2819</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Compute fast-equilibrium biomass for NoIntegrate groups.</span>
 
 <span class="sd">    Rpath formula: biomeq = TotGain / (TotLoss / B)</span>
@@ -27540,26 +27654,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2803</span>
-<span class="normal">2804</span>
-<span class="normal">2805</span>
-<span class="normal">2806</span>
-<span class="normal">2807</span>
-<span class="normal">2808</span>
-<span class="normal">2809</span>
-<span class="normal">2810</span>
-<span class="normal">2811</span>
-<span class="normal">2812</span>
-<span class="normal">2813</span>
-<span class="normal">2814</span>
-<span class="normal">2815</span>
-<span class="normal">2816</span>
-<span class="normal">2817</span>
-<span class="normal">2818</span>
-<span class="normal">2819</span>
-<span class="normal">2820</span>
-<span class="normal">2821</span>
-<span class="normal">2822</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2822</span>
 <span class="normal">2823</span>
 <span class="normal">2824</span>
 <span class="normal">2825</span>
@@ -27942,7 +28037,26 @@ available, falls back to Euler with no history.</p>
 <span class="normal">3202</span>
 <span class="normal">3203</span>
 <span class="normal">3204</span>
-<span class="normal">3205</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
+<span class="normal">3205</span>
+<span class="normal">3206</span>
+<span class="normal">3207</span>
+<span class="normal">3208</span>
+<span class="normal">3209</span>
+<span class="normal">3210</span>
+<span class="normal">3211</span>
+<span class="normal">3212</span>
+<span class="normal">3213</span>
+<span class="normal">3214</span>
+<span class="normal">3215</span>
+<span class="normal">3216</span>
+<span class="normal">3217</span>
+<span class="normal">3218</span>
+<span class="normal">3219</span>
+<span class="normal">3220</span>
+<span class="normal">3221</span>
+<span class="normal">3222</span>
+<span class="normal">3223</span>
+<span class="normal">3224</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">derivs_history</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -28538,26 +28652,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3208</span>
-<span class="normal">3209</span>
-<span class="normal">3210</span>
-<span class="normal">3211</span>
-<span class="normal">3212</span>
-<span class="normal">3213</span>
-<span class="normal">3214</span>
-<span class="normal">3215</span>
-<span class="normal">3216</span>
-<span class="normal">3217</span>
-<span class="normal">3218</span>
-<span class="normal">3219</span>
-<span class="normal">3220</span>
-<span class="normal">3221</span>
-<span class="normal">3222</span>
-<span class="normal">3223</span>
-<span class="normal">3224</span>
-<span class="normal">3225</span>
-<span class="normal">3226</span>
-<span class="normal">3227</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3227</span>
 <span class="normal">3228</span>
 <span class="normal">3229</span>
 <span class="normal">3230</span>
@@ -28628,7 +28723,26 @@ available, falls back to Euler with no history.</p>
 <span class="normal">3295</span>
 <span class="normal">3296</span>
 <span class="normal">3297</span>
-<span class="normal">3298</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
+<span class="normal">3298</span>
+<span class="normal">3299</span>
+<span class="normal">3300</span>
+<span class="normal">3301</span>
+<span class="normal">3302</span>
+<span class="normal">3303</span>
+<span class="normal">3304</span>
+<span class="normal">3305</span>
+<span class="normal">3306</span>
+<span class="normal">3307</span>
+<span class="normal">3308</span>
+<span class="normal">3309</span>
+<span class="normal">3310</span>
+<span class="normal">3311</span>
+<span class="normal">3312</span>
+<span class="normal">3313</span>
+<span class="normal">3314</span>
+<span class="normal">3315</span>
+<span class="normal">3316</span>
+<span class="normal">3317</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
     <span class="n">initial_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
