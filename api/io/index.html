@@ -7532,7 +7532,11 @@ print(tables)
             <td>
               <div class="doc-md-description">
                 <p>User-provided spatial grid. If None, a regular grid is constructed
-from Inrow/Incol/CellLength in EcospaceScenario.</p>
+from Inrow/Incol/CellLength in EcospaceScenario, holding the water
+cells of EwE's depth map (DepthMap with ExclusionMap applied; see
+<code>_ewe_depth_map</code>). Patches are those cells in row order, and
+<code>cell_metadata</code> keeps each one's EwE row and column (0-based) and
+depth.</p>
               </div>
             </td>
             <td>
@@ -7586,7 +7590,8 @@ from Inrow/Incol/CellLength in EcospaceScenario.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If EcospaceScenario table is missing.</p>
+                <p>If EcospaceScenario table is missing, a depth or exclusion map
+cannot be read, or the maps leave no water cell.</p>
               </div>
             </td>
           </tr>
@@ -7834,7 +7839,27 @@ from Inrow/Incol/CellLength in EcospaceScenario.</p>
 <span class="normal">5733</span>
 <span class="normal">5734</span>
 <span class="normal">5735</span>
-<span class="normal">5736</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecospace</span><span class="p">(</span>
+<span class="normal">5736</span>
+<span class="normal">5737</span>
+<span class="normal">5738</span>
+<span class="normal">5739</span>
+<span class="normal">5740</span>
+<span class="normal">5741</span>
+<span class="normal">5742</span>
+<span class="normal">5743</span>
+<span class="normal">5744</span>
+<span class="normal">5745</span>
+<span class="normal">5746</span>
+<span class="normal">5747</span>
+<span class="normal">5748</span>
+<span class="normal">5749</span>
+<span class="normal">5750</span>
+<span class="normal">5751</span>
+<span class="normal">5752</span>
+<span class="normal">5753</span>
+<span class="normal">5754</span>
+<span class="normal">5755</span>
+<span class="normal">5756</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecospace</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
@@ -7852,7 +7877,11 @@ from Inrow/Incol/CellLength in EcospaceScenario.</p>
 <span class="sd">        Scenario ID to filter by (default 1).</span>
 <span class="sd">    grid : EcospaceGrid, optional</span>
 <span class="sd">        User-provided spatial grid. If None, a regular grid is constructed</span>
-<span class="sd">        from Inrow/Incol/CellLength in EcospaceScenario.</span>
+<span class="sd">        from Inrow/Incol/CellLength in EcospaceScenario, holding the water</span>
+<span class="sd">        cells of EwE's depth map (DepthMap with ExclusionMap applied; see</span>
+<span class="sd">        ``_ewe_depth_map``). Patches are those cells in row order, and</span>
+<span class="sd">        ``cell_metadata`` keeps each one's EwE row and column (0-based) and</span>
+<span class="sd">        depth.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -7861,7 +7890,8 @@ from Inrow/Incol/CellLength in EcospaceScenario.</p>
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    EwEDatabaseError</span>
-<span class="sd">        If EcospaceScenario table is missing.</span>
+<span class="sd">        If EcospaceScenario table is missing, a depth or exclusion map</span>
+<span class="sd">        cannot be read, or the maps leave no water cell.</span>
 <span class="sd">    """</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.ecospace_params</span><span class="w"> </span><span class="kn">import</span> <span class="n">EcospaceParams</span>
 
@@ -7900,13 +7930,28 @@ from Inrow/Incol/CellLength in EcospaceScenario.</p>
         <span class="n">cell_length</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"CellLength"</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
         <span class="n">min_lon</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MinLon"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
         <span class="n">min_lat</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MinLat"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">"No grid provided; building fallback </span><span class="si">%d</span><span class="s2">x</span><span class="si">%d</span><span class="s2"> grid. "</span>
-            <span class="s2">"Land/water distinction not available without basemap."</span><span class="p">,</span>
+        <span class="k">if</span> <span class="n">n_rows</span> <span class="o">*</span> <span class="n">n_cols</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">EwEDatabaseError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Ecospace scenario </span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2"> has no grid "</span>
+                <span class="sa">f</span><span class="s2">"(Inrow x Incol = </span><span class="si">{</span><span class="n">n_rows</span><span class="si">}</span><span class="s2"> x </span><span class="si">{</span><span class="n">n_cols</span><span class="si">}</span><span class="s2">); pass grid="</span>
+            <span class="p">)</span>
+        <span class="n">depth</span> <span class="o">=</span> <span class="n">_ewe_depth_map</span><span class="p">(</span><span class="n">scenario_row</span><span class="p">,</span> <span class="n">n_rows</span><span class="p">,</span> <span class="n">n_cols</span><span class="p">)</span>
+        <span class="n">n_water</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">depth</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">n_water</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">EwEDatabaseError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Ecospace scenario </span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2"> has no water cells "</span>
+                <span class="s2">"(DepthMap and ExclusionMap leave no cell with depth &gt; 0)"</span>
+            <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"No grid provided; built </span><span class="si">%d</span><span class="s2"> water cells of the </span><span class="si">%d</span><span class="s2">x</span><span class="si">%d</span><span class="s2"> EwE grid "</span>
+            <span class="s2">"from DepthMap and ExclusionMap."</span><span class="p">,</span>
+            <span class="n">n_water</span><span class="p">,</span>
             <span class="n">n_rows</span><span class="p">,</span>
             <span class="n">n_cols</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">grid</span> <span class="o">=</span> <span class="n">_build_fallback_grid</span><span class="p">(</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">n_cols</span><span class="p">,</span> <span class="n">cell_length</span><span class="p">,</span> <span class="n">min_lon</span><span class="p">,</span> <span class="n">min_lat</span><span class="p">)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">_build_fallback_grid</span><span class="p">(</span>
+            <span class="n">n_rows</span><span class="p">,</span> <span class="n">n_cols</span><span class="p">,</span> <span class="n">cell_length</span><span class="p">,</span> <span class="n">min_lon</span><span class="p">,</span> <span class="n">min_lat</span><span class="p">,</span> <span class="n">depth</span><span class="o">=</span><span class="n">depth</span>
+        <span class="p">)</span>
 
     <span class="n">n_patches</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">n_patches</span>
 
@@ -8450,131 +8495,7 @@ If sample_id is None, returns a dict mapping SampleID → SampleContainer.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6121</span>
-<span class="normal">6122</span>
-<span class="normal">6123</span>
-<span class="normal">6124</span>
-<span class="normal">6125</span>
-<span class="normal">6126</span>
-<span class="normal">6127</span>
-<span class="normal">6128</span>
-<span class="normal">6129</span>
-<span class="normal">6130</span>
-<span class="normal">6131</span>
-<span class="normal">6132</span>
-<span class="normal">6133</span>
-<span class="normal">6134</span>
-<span class="normal">6135</span>
-<span class="normal">6136</span>
-<span class="normal">6137</span>
-<span class="normal">6138</span>
-<span class="normal">6139</span>
-<span class="normal">6140</span>
-<span class="normal">6141</span>
-<span class="normal">6142</span>
-<span class="normal">6143</span>
-<span class="normal">6144</span>
-<span class="normal">6145</span>
-<span class="normal">6146</span>
-<span class="normal">6147</span>
-<span class="normal">6148</span>
-<span class="normal">6149</span>
-<span class="normal">6150</span>
-<span class="normal">6151</span>
-<span class="normal">6152</span>
-<span class="normal">6153</span>
-<span class="normal">6154</span>
-<span class="normal">6155</span>
-<span class="normal">6156</span>
-<span class="normal">6157</span>
-<span class="normal">6158</span>
-<span class="normal">6159</span>
-<span class="normal">6160</span>
-<span class="normal">6161</span>
-<span class="normal">6162</span>
-<span class="normal">6163</span>
-<span class="normal">6164</span>
-<span class="normal">6165</span>
-<span class="normal">6166</span>
-<span class="normal">6167</span>
-<span class="normal">6168</span>
-<span class="normal">6169</span>
-<span class="normal">6170</span>
-<span class="normal">6171</span>
-<span class="normal">6172</span>
-<span class="normal">6173</span>
-<span class="normal">6174</span>
-<span class="normal">6175</span>
-<span class="normal">6176</span>
-<span class="normal">6177</span>
-<span class="normal">6178</span>
-<span class="normal">6179</span>
-<span class="normal">6180</span>
-<span class="normal">6181</span>
-<span class="normal">6182</span>
-<span class="normal">6183</span>
-<span class="normal">6184</span>
-<span class="normal">6185</span>
-<span class="normal">6186</span>
-<span class="normal">6187</span>
-<span class="normal">6188</span>
-<span class="normal">6189</span>
-<span class="normal">6190</span>
-<span class="normal">6191</span>
-<span class="normal">6192</span>
-<span class="normal">6193</span>
-<span class="normal">6194</span>
-<span class="normal">6195</span>
-<span class="normal">6196</span>
-<span class="normal">6197</span>
-<span class="normal">6198</span>
-<span class="normal">6199</span>
-<span class="normal">6200</span>
-<span class="normal">6201</span>
-<span class="normal">6202</span>
-<span class="normal">6203</span>
-<span class="normal">6204</span>
-<span class="normal">6205</span>
-<span class="normal">6206</span>
-<span class="normal">6207</span>
-<span class="normal">6208</span>
-<span class="normal">6209</span>
-<span class="normal">6210</span>
-<span class="normal">6211</span>
-<span class="normal">6212</span>
-<span class="normal">6213</span>
-<span class="normal">6214</span>
-<span class="normal">6215</span>
-<span class="normal">6216</span>
-<span class="normal">6217</span>
-<span class="normal">6218</span>
-<span class="normal">6219</span>
-<span class="normal">6220</span>
-<span class="normal">6221</span>
-<span class="normal">6222</span>
-<span class="normal">6223</span>
-<span class="normal">6224</span>
-<span class="normal">6225</span>
-<span class="normal">6226</span>
-<span class="normal">6227</span>
-<span class="normal">6228</span>
-<span class="normal">6229</span>
-<span class="normal">6230</span>
-<span class="normal">6231</span>
-<span class="normal">6232</span>
-<span class="normal">6233</span>
-<span class="normal">6234</span>
-<span class="normal">6235</span>
-<span class="normal">6236</span>
-<span class="normal">6237</span>
-<span class="normal">6238</span>
-<span class="normal">6239</span>
-<span class="normal">6240</span>
-<span class="normal">6241</span>
-<span class="normal">6242</span>
-<span class="normal">6243</span>
-<span class="normal">6244</span>
-<span class="normal">6245</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6245</span>
 <span class="normal">6246</span>
 <span class="normal">6247</span>
 <span class="normal">6248</span>
@@ -8666,7 +8587,131 @@ If sample_id is None, returns a dict mapping SampleID → SampleContainer.</p>
 <span class="normal">6334</span>
 <span class="normal">6335</span>
 <span class="normal">6336</span>
-<span class="normal">6337</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewe_samples</span><span class="p">(</span>
+<span class="normal">6337</span>
+<span class="normal">6338</span>
+<span class="normal">6339</span>
+<span class="normal">6340</span>
+<span class="normal">6341</span>
+<span class="normal">6342</span>
+<span class="normal">6343</span>
+<span class="normal">6344</span>
+<span class="normal">6345</span>
+<span class="normal">6346</span>
+<span class="normal">6347</span>
+<span class="normal">6348</span>
+<span class="normal">6349</span>
+<span class="normal">6350</span>
+<span class="normal">6351</span>
+<span class="normal">6352</span>
+<span class="normal">6353</span>
+<span class="normal">6354</span>
+<span class="normal">6355</span>
+<span class="normal">6356</span>
+<span class="normal">6357</span>
+<span class="normal">6358</span>
+<span class="normal">6359</span>
+<span class="normal">6360</span>
+<span class="normal">6361</span>
+<span class="normal">6362</span>
+<span class="normal">6363</span>
+<span class="normal">6364</span>
+<span class="normal">6365</span>
+<span class="normal">6366</span>
+<span class="normal">6367</span>
+<span class="normal">6368</span>
+<span class="normal">6369</span>
+<span class="normal">6370</span>
+<span class="normal">6371</span>
+<span class="normal">6372</span>
+<span class="normal">6373</span>
+<span class="normal">6374</span>
+<span class="normal">6375</span>
+<span class="normal">6376</span>
+<span class="normal">6377</span>
+<span class="normal">6378</span>
+<span class="normal">6379</span>
+<span class="normal">6380</span>
+<span class="normal">6381</span>
+<span class="normal">6382</span>
+<span class="normal">6383</span>
+<span class="normal">6384</span>
+<span class="normal">6385</span>
+<span class="normal">6386</span>
+<span class="normal">6387</span>
+<span class="normal">6388</span>
+<span class="normal">6389</span>
+<span class="normal">6390</span>
+<span class="normal">6391</span>
+<span class="normal">6392</span>
+<span class="normal">6393</span>
+<span class="normal">6394</span>
+<span class="normal">6395</span>
+<span class="normal">6396</span>
+<span class="normal">6397</span>
+<span class="normal">6398</span>
+<span class="normal">6399</span>
+<span class="normal">6400</span>
+<span class="normal">6401</span>
+<span class="normal">6402</span>
+<span class="normal">6403</span>
+<span class="normal">6404</span>
+<span class="normal">6405</span>
+<span class="normal">6406</span>
+<span class="normal">6407</span>
+<span class="normal">6408</span>
+<span class="normal">6409</span>
+<span class="normal">6410</span>
+<span class="normal">6411</span>
+<span class="normal">6412</span>
+<span class="normal">6413</span>
+<span class="normal">6414</span>
+<span class="normal">6415</span>
+<span class="normal">6416</span>
+<span class="normal">6417</span>
+<span class="normal">6418</span>
+<span class="normal">6419</span>
+<span class="normal">6420</span>
+<span class="normal">6421</span>
+<span class="normal">6422</span>
+<span class="normal">6423</span>
+<span class="normal">6424</span>
+<span class="normal">6425</span>
+<span class="normal">6426</span>
+<span class="normal">6427</span>
+<span class="normal">6428</span>
+<span class="normal">6429</span>
+<span class="normal">6430</span>
+<span class="normal">6431</span>
+<span class="normal">6432</span>
+<span class="normal">6433</span>
+<span class="normal">6434</span>
+<span class="normal">6435</span>
+<span class="normal">6436</span>
+<span class="normal">6437</span>
+<span class="normal">6438</span>
+<span class="normal">6439</span>
+<span class="normal">6440</span>
+<span class="normal">6441</span>
+<span class="normal">6442</span>
+<span class="normal">6443</span>
+<span class="normal">6444</span>
+<span class="normal">6445</span>
+<span class="normal">6446</span>
+<span class="normal">6447</span>
+<span class="normal">6448</span>
+<span class="normal">6449</span>
+<span class="normal">6450</span>
+<span class="normal">6451</span>
+<span class="normal">6452</span>
+<span class="normal">6453</span>
+<span class="normal">6454</span>
+<span class="normal">6455</span>
+<span class="normal">6456</span>
+<span class="normal">6457</span>
+<span class="normal">6458</span>
+<span class="normal">6459</span>
+<span class="normal">6460</span>
+<span class="normal">6461</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewe_samples</span><span class="p">(</span>
     <span class="n">filepath</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
     <span class="n">sample_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">SampleContainer</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">SampleContainer</span><span class="p">]]:</span>
@@ -12887,113 +12932,113 @@ print(groups.columns)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5815</span>
-<span class="normal">5816</span>
-<span class="normal">5817</span>
-<span class="normal">5818</span>
-<span class="normal">5819</span>
-<span class="normal">5820</span>
-<span class="normal">5821</span>
-<span class="normal">5822</span>
-<span class="normal">5823</span>
-<span class="normal">5824</span>
-<span class="normal">5825</span>
-<span class="normal">5826</span>
-<span class="normal">5827</span>
-<span class="normal">5828</span>
-<span class="normal">5829</span>
-<span class="normal">5830</span>
-<span class="normal">5831</span>
-<span class="normal">5832</span>
-<span class="normal">5833</span>
-<span class="normal">5834</span>
-<span class="normal">5835</span>
-<span class="normal">5836</span>
-<span class="normal">5837</span>
-<span class="normal">5838</span>
-<span class="normal">5839</span>
-<span class="normal">5840</span>
-<span class="normal">5841</span>
-<span class="normal">5842</span>
-<span class="normal">5843</span>
-<span class="normal">5844</span>
-<span class="normal">5845</span>
-<span class="normal">5846</span>
-<span class="normal">5847</span>
-<span class="normal">5848</span>
-<span class="normal">5849</span>
-<span class="normal">5850</span>
-<span class="normal">5851</span>
-<span class="normal">5852</span>
-<span class="normal">5853</span>
-<span class="normal">5854</span>
-<span class="normal">5855</span>
-<span class="normal">5856</span>
-<span class="normal">5857</span>
-<span class="normal">5858</span>
-<span class="normal">5859</span>
-<span class="normal">5860</span>
-<span class="normal">5861</span>
-<span class="normal">5862</span>
-<span class="normal">5863</span>
-<span class="normal">5864</span>
-<span class="normal">5865</span>
-<span class="normal">5866</span>
-<span class="normal">5867</span>
-<span class="normal">5868</span>
-<span class="normal">5869</span>
-<span class="normal">5870</span>
-<span class="normal">5871</span>
-<span class="normal">5872</span>
-<span class="normal">5873</span>
-<span class="normal">5874</span>
-<span class="normal">5875</span>
-<span class="normal">5876</span>
-<span class="normal">5877</span>
-<span class="normal">5878</span>
-<span class="normal">5879</span>
-<span class="normal">5880</span>
-<span class="normal">5881</span>
-<span class="normal">5882</span>
-<span class="normal">5883</span>
-<span class="normal">5884</span>
-<span class="normal">5885</span>
-<span class="normal">5886</span>
-<span class="normal">5887</span>
-<span class="normal">5888</span>
-<span class="normal">5889</span>
-<span class="normal">5890</span>
-<span class="normal">5891</span>
-<span class="normal">5892</span>
-<span class="normal">5893</span>
-<span class="normal">5894</span>
-<span class="normal">5895</span>
-<span class="normal">5896</span>
-<span class="normal">5897</span>
-<span class="normal">5898</span>
-<span class="normal">5899</span>
-<span class="normal">5900</span>
-<span class="normal">5901</span>
-<span class="normal">5902</span>
-<span class="normal">5903</span>
-<span class="normal">5904</span>
-<span class="normal">5905</span>
-<span class="normal">5906</span>
-<span class="normal">5907</span>
-<span class="normal">5908</span>
-<span class="normal">5909</span>
-<span class="normal">5910</span>
-<span class="normal">5911</span>
-<span class="normal">5912</span>
-<span class="normal">5913</span>
-<span class="normal">5914</span>
-<span class="normal">5915</span>
-<span class="normal">5916</span>
-<span class="normal">5917</span>
-<span class="normal">5918</span>
-<span class="normal">5919</span>
-<span class="normal">5920</span>
-<span class="normal">5921</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mpa_config</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5939</span>
+<span class="normal">5940</span>
+<span class="normal">5941</span>
+<span class="normal">5942</span>
+<span class="normal">5943</span>
+<span class="normal">5944</span>
+<span class="normal">5945</span>
+<span class="normal">5946</span>
+<span class="normal">5947</span>
+<span class="normal">5948</span>
+<span class="normal">5949</span>
+<span class="normal">5950</span>
+<span class="normal">5951</span>
+<span class="normal">5952</span>
+<span class="normal">5953</span>
+<span class="normal">5954</span>
+<span class="normal">5955</span>
+<span class="normal">5956</span>
+<span class="normal">5957</span>
+<span class="normal">5958</span>
+<span class="normal">5959</span>
+<span class="normal">5960</span>
+<span class="normal">5961</span>
+<span class="normal">5962</span>
+<span class="normal">5963</span>
+<span class="normal">5964</span>
+<span class="normal">5965</span>
+<span class="normal">5966</span>
+<span class="normal">5967</span>
+<span class="normal">5968</span>
+<span class="normal">5969</span>
+<span class="normal">5970</span>
+<span class="normal">5971</span>
+<span class="normal">5972</span>
+<span class="normal">5973</span>
+<span class="normal">5974</span>
+<span class="normal">5975</span>
+<span class="normal">5976</span>
+<span class="normal">5977</span>
+<span class="normal">5978</span>
+<span class="normal">5979</span>
+<span class="normal">5980</span>
+<span class="normal">5981</span>
+<span class="normal">5982</span>
+<span class="normal">5983</span>
+<span class="normal">5984</span>
+<span class="normal">5985</span>
+<span class="normal">5986</span>
+<span class="normal">5987</span>
+<span class="normal">5988</span>
+<span class="normal">5989</span>
+<span class="normal">5990</span>
+<span class="normal">5991</span>
+<span class="normal">5992</span>
+<span class="normal">5993</span>
+<span class="normal">5994</span>
+<span class="normal">5995</span>
+<span class="normal">5996</span>
+<span class="normal">5997</span>
+<span class="normal">5998</span>
+<span class="normal">5999</span>
+<span class="normal">6000</span>
+<span class="normal">6001</span>
+<span class="normal">6002</span>
+<span class="normal">6003</span>
+<span class="normal">6004</span>
+<span class="normal">6005</span>
+<span class="normal">6006</span>
+<span class="normal">6007</span>
+<span class="normal">6008</span>
+<span class="normal">6009</span>
+<span class="normal">6010</span>
+<span class="normal">6011</span>
+<span class="normal">6012</span>
+<span class="normal">6013</span>
+<span class="normal">6014</span>
+<span class="normal">6015</span>
+<span class="normal">6016</span>
+<span class="normal">6017</span>
+<span class="normal">6018</span>
+<span class="normal">6019</span>
+<span class="normal">6020</span>
+<span class="normal">6021</span>
+<span class="normal">6022</span>
+<span class="normal">6023</span>
+<span class="normal">6024</span>
+<span class="normal">6025</span>
+<span class="normal">6026</span>
+<span class="normal">6027</span>
+<span class="normal">6028</span>
+<span class="normal">6029</span>
+<span class="normal">6030</span>
+<span class="normal">6031</span>
+<span class="normal">6032</span>
+<span class="normal">6033</span>
+<span class="normal">6034</span>
+<span class="normal">6035</span>
+<span class="normal">6036</span>
+<span class="normal">6037</span>
+<span class="normal">6038</span>
+<span class="normal">6039</span>
+<span class="normal">6040</span>
+<span class="normal">6041</span>
+<span class="normal">6042</span>
+<span class="normal">6043</span>
+<span class="normal">6044</span>
+<span class="normal">6045</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mpa_config</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">fleet_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
@@ -13393,105 +13438,105 @@ Empty defaults if tables are missing.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5977</span>
-<span class="normal">5978</span>
-<span class="normal">5979</span>
-<span class="normal">5980</span>
-<span class="normal">5981</span>
-<span class="normal">5982</span>
-<span class="normal">5983</span>
-<span class="normal">5984</span>
-<span class="normal">5985</span>
-<span class="normal">5986</span>
-<span class="normal">5987</span>
-<span class="normal">5988</span>
-<span class="normal">5989</span>
-<span class="normal">5990</span>
-<span class="normal">5991</span>
-<span class="normal">5992</span>
-<span class="normal">5993</span>
-<span class="normal">5994</span>
-<span class="normal">5995</span>
-<span class="normal">5996</span>
-<span class="normal">5997</span>
-<span class="normal">5998</span>
-<span class="normal">5999</span>
-<span class="normal">6000</span>
-<span class="normal">6001</span>
-<span class="normal">6002</span>
-<span class="normal">6003</span>
-<span class="normal">6004</span>
-<span class="normal">6005</span>
-<span class="normal">6006</span>
-<span class="normal">6007</span>
-<span class="normal">6008</span>
-<span class="normal">6009</span>
-<span class="normal">6010</span>
-<span class="normal">6011</span>
-<span class="normal">6012</span>
-<span class="normal">6013</span>
-<span class="normal">6014</span>
-<span class="normal">6015</span>
-<span class="normal">6016</span>
-<span class="normal">6017</span>
-<span class="normal">6018</span>
-<span class="normal">6019</span>
-<span class="normal">6020</span>
-<span class="normal">6021</span>
-<span class="normal">6022</span>
-<span class="normal">6023</span>
-<span class="normal">6024</span>
-<span class="normal">6025</span>
-<span class="normal">6026</span>
-<span class="normal">6027</span>
-<span class="normal">6028</span>
-<span class="normal">6029</span>
-<span class="normal">6030</span>
-<span class="normal">6031</span>
-<span class="normal">6032</span>
-<span class="normal">6033</span>
-<span class="normal">6034</span>
-<span class="normal">6035</span>
-<span class="normal">6036</span>
-<span class="normal">6037</span>
-<span class="normal">6038</span>
-<span class="normal">6039</span>
-<span class="normal">6040</span>
-<span class="normal">6041</span>
-<span class="normal">6042</span>
-<span class="normal">6043</span>
-<span class="normal">6044</span>
-<span class="normal">6045</span>
-<span class="normal">6046</span>
-<span class="normal">6047</span>
-<span class="normal">6048</span>
-<span class="normal">6049</span>
-<span class="normal">6050</span>
-<span class="normal">6051</span>
-<span class="normal">6052</span>
-<span class="normal">6053</span>
-<span class="normal">6054</span>
-<span class="normal">6055</span>
-<span class="normal">6056</span>
-<span class="normal">6057</span>
-<span class="normal">6058</span>
-<span class="normal">6059</span>
-<span class="normal">6060</span>
-<span class="normal">6061</span>
-<span class="normal">6062</span>
-<span class="normal">6063</span>
-<span class="normal">6064</span>
-<span class="normal">6065</span>
-<span class="normal">6066</span>
-<span class="normal">6067</span>
-<span class="normal">6068</span>
-<span class="normal">6069</span>
-<span class="normal">6070</span>
-<span class="normal">6071</span>
-<span class="normal">6072</span>
-<span class="normal">6073</span>
-<span class="normal">6074</span>
-<span class="normal">6075</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_taxonomy</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaxonomyData</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6101</span>
+<span class="normal">6102</span>
+<span class="normal">6103</span>
+<span class="normal">6104</span>
+<span class="normal">6105</span>
+<span class="normal">6106</span>
+<span class="normal">6107</span>
+<span class="normal">6108</span>
+<span class="normal">6109</span>
+<span class="normal">6110</span>
+<span class="normal">6111</span>
+<span class="normal">6112</span>
+<span class="normal">6113</span>
+<span class="normal">6114</span>
+<span class="normal">6115</span>
+<span class="normal">6116</span>
+<span class="normal">6117</span>
+<span class="normal">6118</span>
+<span class="normal">6119</span>
+<span class="normal">6120</span>
+<span class="normal">6121</span>
+<span class="normal">6122</span>
+<span class="normal">6123</span>
+<span class="normal">6124</span>
+<span class="normal">6125</span>
+<span class="normal">6126</span>
+<span class="normal">6127</span>
+<span class="normal">6128</span>
+<span class="normal">6129</span>
+<span class="normal">6130</span>
+<span class="normal">6131</span>
+<span class="normal">6132</span>
+<span class="normal">6133</span>
+<span class="normal">6134</span>
+<span class="normal">6135</span>
+<span class="normal">6136</span>
+<span class="normal">6137</span>
+<span class="normal">6138</span>
+<span class="normal">6139</span>
+<span class="normal">6140</span>
+<span class="normal">6141</span>
+<span class="normal">6142</span>
+<span class="normal">6143</span>
+<span class="normal">6144</span>
+<span class="normal">6145</span>
+<span class="normal">6146</span>
+<span class="normal">6147</span>
+<span class="normal">6148</span>
+<span class="normal">6149</span>
+<span class="normal">6150</span>
+<span class="normal">6151</span>
+<span class="normal">6152</span>
+<span class="normal">6153</span>
+<span class="normal">6154</span>
+<span class="normal">6155</span>
+<span class="normal">6156</span>
+<span class="normal">6157</span>
+<span class="normal">6158</span>
+<span class="normal">6159</span>
+<span class="normal">6160</span>
+<span class="normal">6161</span>
+<span class="normal">6162</span>
+<span class="normal">6163</span>
+<span class="normal">6164</span>
+<span class="normal">6165</span>
+<span class="normal">6166</span>
+<span class="normal">6167</span>
+<span class="normal">6168</span>
+<span class="normal">6169</span>
+<span class="normal">6170</span>
+<span class="normal">6171</span>
+<span class="normal">6172</span>
+<span class="normal">6173</span>
+<span class="normal">6174</span>
+<span class="normal">6175</span>
+<span class="normal">6176</span>
+<span class="normal">6177</span>
+<span class="normal">6178</span>
+<span class="normal">6179</span>
+<span class="normal">6180</span>
+<span class="normal">6181</span>
+<span class="normal">6182</span>
+<span class="normal">6183</span>
+<span class="normal">6184</span>
+<span class="normal">6185</span>
+<span class="normal">6186</span>
+<span class="normal">6187</span>
+<span class="normal">6188</span>
+<span class="normal">6189</span>
+<span class="normal">6190</span>
+<span class="normal">6191</span>
+<span class="normal">6192</span>
+<span class="normal">6193</span>
+<span class="normal">6194</span>
+<span class="normal">6195</span>
+<span class="normal">6196</span>
+<span class="normal">6197</span>
+<span class="normal">6198</span>
+<span class="normal">6199</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_taxonomy</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaxonomyData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read taxonomy tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
@@ -14250,47 +14295,47 @@ None reads every series.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6078</span>
-<span class="normal">6079</span>
-<span class="normal">6080</span>
-<span class="normal">6081</span>
-<span class="normal">6082</span>
-<span class="normal">6083</span>
-<span class="normal">6084</span>
-<span class="normal">6085</span>
-<span class="normal">6086</span>
-<span class="normal">6087</span>
-<span class="normal">6088</span>
-<span class="normal">6089</span>
-<span class="normal">6090</span>
-<span class="normal">6091</span>
-<span class="normal">6092</span>
-<span class="normal">6093</span>
-<span class="normal">6094</span>
-<span class="normal">6095</span>
-<span class="normal">6096</span>
-<span class="normal">6097</span>
-<span class="normal">6098</span>
-<span class="normal">6099</span>
-<span class="normal">6100</span>
-<span class="normal">6101</span>
-<span class="normal">6102</span>
-<span class="normal">6103</span>
-<span class="normal">6104</span>
-<span class="normal">6105</span>
-<span class="normal">6106</span>
-<span class="normal">6107</span>
-<span class="normal">6108</span>
-<span class="normal">6109</span>
-<span class="normal">6110</span>
-<span class="normal">6111</span>
-<span class="normal">6112</span>
-<span class="normal">6113</span>
-<span class="normal">6114</span>
-<span class="normal">6115</span>
-<span class="normal">6116</span>
-<span class="normal">6117</span>
-<span class="normal">6118</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_value_chain</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValueChainData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6202</span>
+<span class="normal">6203</span>
+<span class="normal">6204</span>
+<span class="normal">6205</span>
+<span class="normal">6206</span>
+<span class="normal">6207</span>
+<span class="normal">6208</span>
+<span class="normal">6209</span>
+<span class="normal">6210</span>
+<span class="normal">6211</span>
+<span class="normal">6212</span>
+<span class="normal">6213</span>
+<span class="normal">6214</span>
+<span class="normal">6215</span>
+<span class="normal">6216</span>
+<span class="normal">6217</span>
+<span class="normal">6218</span>
+<span class="normal">6219</span>
+<span class="normal">6220</span>
+<span class="normal">6221</span>
+<span class="normal">6222</span>
+<span class="normal">6223</span>
+<span class="normal">6224</span>
+<span class="normal">6225</span>
+<span class="normal">6226</span>
+<span class="normal">6227</span>
+<span class="normal">6228</span>
+<span class="normal">6229</span>
+<span class="normal">6230</span>
+<span class="normal">6231</span>
+<span class="normal">6232</span>
+<span class="normal">6233</span>
+<span class="normal">6234</span>
+<span class="normal">6235</span>
+<span class="normal">6236</span>
+<span class="normal">6237</span>
+<span class="normal">6238</span>
+<span class="normal">6239</span>
+<span class="normal">6240</span>
+<span class="normal">6241</span>
+<span class="normal">6242</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_value_chain</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValueChainData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read value chain economics tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
