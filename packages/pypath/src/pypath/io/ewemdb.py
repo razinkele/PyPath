@@ -5513,7 +5513,11 @@ def read_ecospace(
         Scenario ID to filter by (default 1).
     grid : EcospaceGrid, optional
         User-provided spatial grid. If None, a regular grid is constructed
-        from Inrow/Incol/CellLength in EcospaceScenario.
+        from Inrow/Incol/CellLength in EcospaceScenario, holding the water
+        cells of EwE's depth map (DepthMap with ExclusionMap applied; see
+        ``_ewe_depth_map``). Patches are those cells in row order, and
+        ``cell_metadata`` keeps each one's EwE row and column (0-based) and
+        depth.
 
     Returns
     -------
@@ -5522,7 +5526,8 @@ def read_ecospace(
     Raises
     ------
     EwEDatabaseError
-        If EcospaceScenario table is missing.
+        If EcospaceScenario table is missing, a depth or exclusion map
+        cannot be read, or the maps leave no water cell.
     """
     from pypath.spatial.ecospace_params import EcospaceParams
 
@@ -5561,13 +5566,28 @@ def read_ecospace(
         cell_length = float(scenario_row.get("CellLength", 1.0))
         min_lon = float(scenario_row.get("MinLon", 0.0))
         min_lat = float(scenario_row.get("MinLat", 0.0))
-        logger.warning(
-            "No grid provided; building fallback %dx%d grid. "
-            "Land/water distinction not available without basemap.",
+        if n_rows * n_cols <= 0:
+            raise EwEDatabaseError(
+                f"Ecospace scenario {scenario_id} has no grid "
+                f"(Inrow x Incol = {n_rows} x {n_cols}); pass grid="
+            )
+        depth = _ewe_depth_map(scenario_row, n_rows, n_cols)
+        n_water = int((depth > 0).sum())
+        if n_water == 0:
+            raise EwEDatabaseError(
+                f"Ecospace scenario {scenario_id} has no water cells "
+                "(DepthMap and ExclusionMap leave no cell with depth > 0)"
+            )
+        logger.info(
+            "No grid provided; built %d water cells of the %dx%d EwE grid "
+            "from DepthMap and ExclusionMap.",
+            n_water,
             n_rows,
             n_cols,
         )
-        grid = _build_fallback_grid(n_rows, n_cols, cell_length, min_lon, min_lat)
+        grid = _build_fallback_grid(
+            n_rows, n_cols, cell_length, min_lon, min_lat, depth=depth
+        )
 
     n_patches = grid.n_patches
 
@@ -5736,24 +5756,132 @@ def read_ecospace(
     )
 
 
+_EWE_NULL_VALUE = -9999.0  # cCore.NULL_VALUE
+_EWE_NUMBER = re.compile(r"\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*$")
+
+
+def _ewe_map_from_string(
+    text,
+    n_rows: int,
+    n_cols: int,
+    fill,
+    dtype=float,
+    name: str = "map",
+) -> np.ndarray:
+    """Read an EwE map string into an ``(n_rows, n_cols)`` array.
+
+    Follows EwE 6.7.144's ``cStringUtils.StringToArray`` without a land
+    mask. A ``gzip:`` prefix marks a base64 gzip string (EwE 6.7 saves maps
+    compressed); quotes are dropped; rows are separated by ';' and values
+    by ','. Row i (1-based) is read only when i < the number of
+    ';'-pieces, so EwE's closing ';' matters. Cells the string does not
+    cover, and empty values, keep ``fill``: the value EwE pre-filled.
+    Boolean maps read "1" as True and any other value as False.
+
+    Numbers are read in single precision, as EwE holds them. A value that
+    is not a plain decimal number (and "-", "_" or a "nan" spelling) is
+    NULL_VALUE (-9999), as ``cStringUtils.ConvertToSingle`` returns when
+    its parse fails; PyPath warns once per map. EwE's .NET parser accepts
+    a few more forms, such as "(5)" for -5, which EwE never writes.
+
+    Raises
+    ------
+    EwEDatabaseError
+        On a compressed string that cannot be read; EwE then fails to load
+        the scenario.
+    """
+    import zlib
+
+    out = np.full((n_rows, n_cols), fill, dtype=dtype)
+    if text is None or (isinstance(text, float) and np.isnan(text)):
+        return out
+    try:
+        if isinstance(text, (bytes, bytearray)):
+            text = text.decode("utf-8-sig")
+        text = str(text)
+        if text.startswith("gzip:"):
+            import base64
+            import gzip
+
+            text = gzip.decompress(base64.b64decode(text[5:])).decode("utf-8-sig")
+    except (ValueError, OSError, EOFError, zlib.error) as e:
+        raise EwEDatabaseError(f"{name}: cannot decode: {e}") from e
+    lines = text.replace('"', "").split(";")
+    n_null = 0
+    for i in range(min(n_rows, len(lines) - 1)):
+        for j, token in enumerate(lines[i].split(",")[:n_cols]):
+            if token == "":
+                continue
+            if dtype is bool:
+                out[i, j] = token == "1"
+                continue
+            if _EWE_NUMBER.match(token):
+                out[i, j] = float(np.float32(float(token)))
+            else:
+                out[i, j] = _EWE_NULL_VALUE
+                n_null += 1
+    if n_null:
+        logger.warning(
+            "%s: %d unreadable value(s) read as NULL (-9999), as EwE reads them.",
+            name,
+            n_null,
+        )
+    return out
+
+
+def _ewe_depth_map(scenario_row, n_rows: int, n_cols: int) -> np.ndarray:
+    """EwE's Ecospace depth map for an EcospaceScenario row.
+
+    EwE fills DepthInput with 1 (water) before reading DepthMap
+    (``cEcospaceDataStructures.ReDimMapDims``), and reads ExclusionMap
+    over all-False. ``cEcoSpace.UpdateDepthMap`` then sets the Depth the
+    model uses: NULL_VALUE (-9999) where a cell is excluded or DepthInput
+    is NULL_VALUE, else max(0, DepthInput). Water cells have Depth > 0.
+    """
+    depth_input = _ewe_map_from_string(
+        scenario_row.get("DepthMap"), n_rows, n_cols, fill=1.0, name="DepthMap"
+    )
+    excluded = _ewe_map_from_string(
+        scenario_row.get("ExclusionMap"),
+        n_rows,
+        n_cols,
+        fill=False,
+        dtype=bool,
+        name="ExclusionMap",
+    )
+    depth = np.maximum(0.0, depth_input)
+    depth[excluded | (depth_input == _EWE_NULL_VALUE)] = _EWE_NULL_VALUE
+    return depth
+
+
 def _build_fallback_grid(
     n_rows: int,
     n_cols: int,
     cell_length: float,
     min_lon: float = 0.0,
     min_lat: float = 0.0,
+    depth: Optional[np.ndarray] = None,
 ) -> "EcospaceGrid":
     """Build a regular raster grid from EwE scenario dimensions.
 
-    Creates square cells in a row-major layout. All cells are treated as
-    water (no land exclusion). Adjacency uses rook neighborhood (shared edges,
-    no diagonals).
+    Creates square cells in a row-major layout. With ``depth`` (an
+    ``(n_rows, n_cols)`` EwE depth map, see ``_ewe_depth_map``) only the
+    water cells, depth > 0, become patches, numbered in row order;
+    without it every cell is water. Adjacency uses rook neighborhood
+    (shared edges, no diagonals) between patches.
     """
     import scipy.sparse
 
     from pypath.spatial.ecospace_params import EcospaceGrid
 
-    n_patches = n_rows * n_cols
+    if depth is None:
+        water = np.ones((n_rows, n_cols), dtype=bool)
+    else:
+        water = np.asarray(depth) > 0
+    rows_arr, cols_arr = np.nonzero(water)  # row-major order
+    n_patches = len(rows_arr)
+    patch_of = np.full((n_rows, n_cols), -1, dtype=int)
+    patch_of[rows_arr, cols_arr] = np.arange(n_patches)
     cell_area = cell_length**2
 
     # Patch IDs, areas
@@ -5761,8 +5889,6 @@ def _build_fallback_grid(
     patch_areas = np.full(n_patches, cell_area)
 
     # Centroids: row-major layout
-    rows_arr = np.arange(n_patches) // n_cols
-    cols_arr = np.arange(n_patches) % n_cols
     lon = min_lon + (cols_arr + 0.5) * cell_length
     lat = min_lat + (rows_arr + 0.5) * cell_length
     centroids = np.column_stack([lon, lat])
@@ -5771,20 +5897,14 @@ def _build_fallback_grid(
     row_idx = []
     col_idx = []
     edge_lengths = {}
-    for p in range(n_patches):
-        r, c = divmod(p, n_cols)
-        # Right neighbor
-        if c + 1 < n_cols:
-            q = r * n_cols + (c + 1)
-            row_idx.extend([p, q])
-            col_idx.extend([q, p])
-            edge_lengths[(min(p, q), max(p, q))] = cell_length
-        # Below neighbor
-        if r + 1 < n_rows:
-            q = (r + 1) * n_cols + c
-            row_idx.extend([p, q])
-            col_idx.extend([q, p])
-            edge_lengths[(min(p, q), max(p, q))] = cell_length
+    for p, (r, c) in enumerate(zip(rows_arr, cols_arr)):
+        # Right and below neighbours, when they are water
+        for rr, cc in ((r, c + 1), (r + 1, c)):
+            if rr < n_rows and cc < n_cols and water[rr, cc]:
+                q = int(patch_of[rr, cc])
+                row_idx.extend([p, q])
+                col_idx.extend([q, p])
+                edge_lengths[(min(p, q), max(p, q))] = cell_length
 
     data = np.ones(len(row_idx), dtype=int)
     adjacency = scipy.sparse.csr_matrix(
@@ -5796,7 +5916,11 @@ def _build_fallback_grid(
         {
             "row": rows_arr,
             "col": cols_arr,
-            "depth": np.zeros(n_patches),
+            "depth": (
+                np.zeros(n_patches)
+                if depth is None
+                else np.asarray(depth, dtype=float)[rows_arr, cols_arr]
+            ),
             "habitat_type_id": np.zeros(n_patches, dtype=int),
         }
     )
