@@ -775,6 +775,8 @@ def rsim_run_spatial(
         "Emig": getattr(params, "Emig", None),
         # EwE6 pred/prey mediation, from each patch's own densities
         "EweMediation": getattr(params, "EweMediation", None),
+        # No "_paddp": EwE's Ecospace keeps additive predation mortality, mo
+        # in place of moTot (cSpaceSolver.vb 1009, 2861)
         "RpathPrimaryProduction": True,
     }
     # Prey switching normalises by the Ecosim base, not a patch's B * c

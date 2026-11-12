@@ -42,7 +42,7 @@ EcosimScenarioCapacityDrivers,ecosim,false,true,true,false,partial,"read: enviro
 EcosimScenarioFleet,ecosim,true,true,false,false,partial,
 EcosimScenarioFleetYear,ecosim,true,false,false,false,partial,
 EcosimScenarioForcingMatrix,ecosim,true,true,true,true,implemented,
-EcosimScenarioGroup,ecosim,true,true,true,true,partial,"read by group ID: FtimeAdjust, MoPred, FtimeMax, Pbmaxs, SwitchPower, RiskTime, CmCo; not read: QmQo, AdditivePredMort; FishRateMax has no model effect (it scales EwE's fishing-rate sketch pad)"
+EcosimScenarioGroup,ecosim,true,true,true,true,partial,"read by group ID: FtimeAdjust, MoPred, FtimeMax, Pbmaxs, SwitchPower, RiskTime, CmCo, AdditivePredMort; not read: QmQo; FishRateMax has no model effect (it scales EwE's fishing-rate sketch pad)"
 EcosimScenarioGroupYear,ecosim,true,false,false,false,partial,
 EcosimScenarioLandingsShape,ecosim,true,false,false,false,partial,
 EcosimScenarioMSE,ecosim,true,false,false,false,partial,

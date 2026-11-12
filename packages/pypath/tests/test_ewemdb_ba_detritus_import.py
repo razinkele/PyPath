@@ -121,17 +121,16 @@ def test_scenario_group_settings_warn_when_not_default(caplog):
             RiskTime=[0.0, 0.5],  # modelled (RsimParams.RiskTime): no warning
             QmQo=[1.0, 2.0],
             CmCo=[1000.0, 3.0],  # modelled (RsimParams.CmCo): no warning
-            AdditivePredMort=[1.0, 0.5],
+            AdditivePredMort=[1.0, 0.5],  # modelled (RsimParams.PaddP)
         ),
         "ecosim_settings": {"sorwt": 0.5, "NutForcingShapeID": 0},
     }
     with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
         _warn_ignored_scenario_settings(meta)
     msgs = _warnings(caplog)
-    assert len(msgs) == 2
-    assert any("QmQo" in m and "Herring" in m for m in msgs)
-    assert any("AdditivePredMort" in m and "Herring" in m for m in msgs)
-    assert not any("RiskTime" in m or "CmCo" in m for m in msgs)
+    assert len(msgs) == 1
+    assert "QmQo" in msgs[0] and "Herring" in msgs[0]
+    assert not any(k in msgs[0] for k in ("RiskTime", "CmCo", "AdditivePredMort"))
 
 
 def test_scenario_settings_silent_at_defaults(caplog):
@@ -177,22 +176,6 @@ def test_settings_without_effect_on_a_group_are_silent(caplog):
     msgs = _warnings(caplog)
     assert len(msgs) == 1
     assert "QmQo" in msgs[0] and "Sprat" in msgs[0] and "Phyto" not in msgs[0]
-
-
-def test_additive_pred_mort_on_a_producer_still_warns(caplog):
-    """EwE applies PaddP to every group that is eaten, producers included
-    (cEcoSimModel.vb 3058-3074, 3809)."""
-    from pypath.io.ewemdb import _warn_ignored_scenario_settings
-
-    meta = {
-        "name": "S1",
-        "group_id_to_name": {2: "Phyto"},
-        "scenario_group_df": _groups(EcopathGroupID=[2], AdditivePredMort=[-999.0]),
-        "ecosim_settings": {},
-    }
-    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
-        _warn_ignored_scenario_settings(meta, group_types={"Phyto": 1}, fished=set())
-    assert any("AdditivePredMort" in m for m in _warnings(caplog))
 
 
 def test_scenario_level_settings_warn(caplog):

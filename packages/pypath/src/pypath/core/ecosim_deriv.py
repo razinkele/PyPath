@@ -854,6 +854,21 @@ def _rpath_detritus_derivs(
     return gain, loss
 
 
+def _paddp_mo_factor(eaten_of, start_eaten_of, mo, mo_max, qh):
+    """moTot / mo of EwE6's non-additive predation mortality: moTot = moMax
+    / (1 + Qh x Eatenof / StartEatenOf) (cEcoSimModel.vb 3074); 1 where Qh is
+    0 (PaddP 1, or no base predation or other mortality)."""
+    eaten_of = np.asarray(eaten_of, dtype=float)
+    start = np.asarray(start_eaten_of, dtype=float)
+    mo = np.asarray(mo, dtype=float)
+    out = np.ones(len(eaten_of))
+    ok = (np.asarray(qh) > 0) & (start > 0) & (mo > 0)
+    out[ok] = (
+        np.asarray(mo_max)[ok] / (1.0 + np.asarray(qh)[ok] * eaten_of[ok] / start[ok])
+    ) / mo[ok]
+    return out
+
+
 def _ewe_detritus_out(gain, eaten, ba, biomass):
     """EwE6's DetritusOut (cEcoSimModel.vb 3206-3207): the export rate that
     leaves a detritus pool growing at its BA, (inflow - BA - eaten) / B, at
@@ -2059,6 +2074,20 @@ def deriv_vector(
     # detritus budget stays closed.
     if not params.get("DETRITUS_MO_UNSCALED", False):
         _M0_detritus = _M0_effective
+    # EwE6 non-additive predation mortality (PaddP < 1): other mortality
+    # compensates for predation, moTot = moMax / (1 + Qh x Eatenof /
+    # StartEatenOf) in place of mo (Derivt, vb 3058-3081). The detritus flow
+    # keeps mo (SimDetritusMT, vb 3165).
+    _paddp = params.get("_paddp")
+    if _paddp is not None:
+        _mo_max, _qh, _start_eaten_of = _paddp
+        _eaten_of = np.zeros(NUM_GROUPS + 1)
+        _eaten_of[1 : NUM_LIVING + 1] = QQ[1 : NUM_LIVING + 1, 1 : NUM_LIVING + 1].sum(
+            axis=1
+        )
+        _M0_effective = _M0_effective * _paddp_mo_factor(
+            _eaten_of, _start_eaten_of, _M0_safe, _mo_max, _qh
+        )
     # EwE6 UseVarPQ: gross efficiency follows the total loss rate Z,
     # GE = AssimEff * Z / (Z + 3 K); AssimEff is set so GE = GE0 at Z = PB.
     if params.get("UseVarPQ", False):

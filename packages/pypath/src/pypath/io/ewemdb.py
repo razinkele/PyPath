@@ -616,12 +616,9 @@ def _resolve_migration(groups_df: pd.DataFrame, types: Sequence[int]) -> dict:
 
 
 # EcosimScenarioGroup settings PyPath does not model yet, with EwE's defaults
-# (cEcoSimDatastructures.vb:1340-1353). Roadmap P4 (QmQo) and P7
-# (AdditivePredMort = PaddP). RiskTime and CmCo are read (RsimParams).
-_IGNORED_SCENARIO_GROUP_SETTINGS = (
-    ("QmQo", 1.0),
-    ("AdditivePredMort", 1.0),
-)
+# (cEcoSimDatastructures.vb:1340-1353). Roadmap P4 (QmQo). RiskTime, CmCo and
+# AdditivePredMort (PaddP) are read (RsimParams).
+_IGNORED_SCENARIO_GROUP_SETTINGS = (("QmQo", 1.0),)
 
 
 def _not_default(value: Any, default: float) -> bool:
@@ -634,8 +631,7 @@ def _no_effect_here(
 ) -> bool:
     """A setting that cannot act on this group in EwE: QmQo (density-dependent
     catchability, a factor on F; vb 5092) on an unfished group. EwE writes
-    -999 in such cells (Black Sea). AdditivePredMort acts on every group that
-    is eaten."""
+    -999 in such cells (Black Sea)."""
     if col == "QmQo":
         return is_fished is False
     return False
@@ -3431,6 +3427,8 @@ def _build_scenario_overrides(
         ("RiskTime", "risk_time"),
         # QBmax / QB0 of EwE's handling time (cEcoSimModel.vb 3286, 3379)
         ("CmCo", "cm_co"),
+        # share of predation mortality that is additive (vb 3802-3816, 3074)
+        ("AdditivePredMort", "padd_p"),
     ):
         if column not in sg_df.columns:
             continue
