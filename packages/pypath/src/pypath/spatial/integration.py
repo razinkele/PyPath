@@ -710,6 +710,8 @@ def rsim_run_spatial(
         "PREY_FTIME_ARENA": getattr(params, "PREY_FTIME_ARENA", False),
         "MoPred": getattr(params, "MoPred", None),
         "DETRITUS_MO_UNSCALED": getattr(params, "DETRITUS_MO_UNSCALED", False),
+        # EwE6 nutrient limitation of primary production (None = off)
+        "NutBaseFreeProp": getattr(params, "NutBaseFreeProp", None),
         "UseVarPQ": getattr(params, "UseVarPQ", False),
         "VbK": getattr(params, "VbK", None),
         "AssimEff": getattr(params, "AssimEff", None),
@@ -818,6 +820,9 @@ def rsim_run_spatial(
         _forced_recs = getattr(forcing, "ForcedRecs", None)
         if _forced_recs is not None and mi < len(_forced_recs):
             forcing_dict["ForcedRecs"] = _forced_recs[mi]
+        _nut_forcing = getattr(forcing, "NutForcing", None)
+        if _nut_forcing is not None and mi < len(_nut_forcing):
+            forcing_dict["NutForcing"] = float(_nut_forcing[mi])
         # Prey, production, search-rate, mortality and respiration forcing,
         # as in rsim_run (Ecospace used to drop them).
         for _key in (

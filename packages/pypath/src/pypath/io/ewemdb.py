@@ -679,14 +679,6 @@ def _warn_ignored_scenario_settings(
             scen,
             settings.get("sorwt"),
         )
-    nut_shape = _int_or_none(settings.get("NutForcingShapeID"))
-    if nut_shape is not None and nut_shape > 0:
-        logger.warning(
-            "Ecosim scenario %s: nutrient forcing (NutForcingShapeID %s) is not "
-            "modelled; producer nutrient limitation is ignored",
-            scen,
-            nut_shape,
-        )
 
 
 def _warn_fractional_types(groups_df: pd.DataFrame, type_col: str) -> None:
@@ -1769,8 +1761,10 @@ def read_ewemdb(
                     "ecosim_settings": {
                         "UseVarPQ": row.get("UseVarPQ"),
                         "ForagingTimeLowerLimit": row.get("ForagingTimeLowerLimit"),
-                        # read only to warn: PyPath does not use them yet
+                        # read only to warn: PyPath does not use it yet
                         "sorwt": row.get("sorwt"),
+                        # EwE6 nutrient limitation of primary production
+                        "NutBaseFreeProp": row.get("NutBaseFreeProp"),
                         "NutForcingShapeID": row.get("NutForcingShapeID"),
                     },
                 }
@@ -3440,6 +3434,11 @@ def _build_scenario_overrides(
     lower = settings.get("ForagingTimeLowerLimit")
     if lower is not None and not pd.isna(lower) and float(lower) >= 0:
         overrides["foraging_time_lower_limit"] = float(lower)
+    # EwE6 nutrient limitation: the free share of the nutrient at the base
+    # (clamped to at least 0.1 where it is used, InitialState vb 3255)
+    nut_prop = _ewe_number(settings.get("NutBaseFreeProp"))
+    if nut_prop is not None and 0 <= nut_prop < 1:
+        overrides["nut_base_free_prop"] = nut_prop
 
     # Vulnerabilities (EcosimScenarioForcingMatrix) use the Ecosim GroupID.
     fm_df = scenario_meta.get("forcing_matrix_df")
@@ -4082,6 +4081,45 @@ def _shape_series(values: np.ndarray, n_months: int, seasonal: bool) -> np.ndarr
     return out
 
 
+def _apply_nutrient_forcing(
+    filepath: str, selected: dict, rsim: "RsimScenario"
+) -> None:
+    """EcosimScenario.NutForcingShapeID: the shape that multiplies EwE6's
+    total nutrient each month (NutFree = NutTot x shape - sum(B), Derivt vb
+    2869), from EcosimShapeTime, extended as EwE extends shapes."""
+    shape_id = _int_or_none(
+        (selected.get("ecosim_settings") or {}).get("NutForcingShapeID")
+    )
+    if shape_id is None or shape_id <= 0:
+        return
+    shape_df = _try_read_table_variants(filepath, ["EcosimShapeTime"])
+    rows = (
+        shape_df[shape_df["ShapeID"] == shape_id]
+        if shape_df is not None and "ShapeID" in shape_df.columns
+        else None
+    )
+    if rows is None or len(rows) == 0:
+        logger.warning(
+            "Nutrient forcing shape %s is not a time shape; nutrient forcing skipped",
+            shape_id,
+        )
+        return
+    raw = rows.iloc[0].get("zScale")
+    values = np.array(
+        [float(v) for v in str(raw).split()] if pd.notna(raw) else [], dtype=float
+    )
+    if len(values) == 0:
+        return
+    meta = _try_read_table_variants(filepath, ["EcosimShape"])
+    seasonal = False
+    if meta is not None and "ShapeID" in meta.columns:
+        m = meta[meta["ShapeID"] == shape_id]
+        if len(m):
+            seasonal = bool(_int_or_none(m.iloc[0].get("IsSeasonal")) or 0)
+    n_months = rsim.forcing.ForcedBio.shape[0]
+    rsim.forcing.NutForcing = _shape_series(values, n_months, seasonal)
+
+
 def _apply_stanza_shapes(filepath: str, rsim: "RsimScenario", params) -> None:
     """Attach the stanza groups' egg-production and hatch-code shapes.
 
@@ -4354,6 +4392,9 @@ def ecosim_scenario_from_ewemdb(
 
     # Egg-production and hatch-code shapes of the stanza groups
     _apply_stanza_shapes(filepath, rsim, params)
+
+    # The nutrient forcing shape (EcosimScenario.NutForcingShapeID)
+    _apply_nutrient_forcing(filepath, selected, rsim)
 
     # The time-series dataset loaded in Ecosim drives the run (forced biomass,
     # effort, fishing mortality), as in EwE6. The scenario tables do not name

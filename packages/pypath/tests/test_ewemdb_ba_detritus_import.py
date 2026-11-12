@@ -232,9 +232,9 @@ def test_scenario_level_settings_warn(caplog):
     with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
         _warn_ignored_scenario_settings(meta)
     msgs = _warnings(caplog)
-    assert len(msgs) == 2
-    assert any("sorwt" in m for m in msgs)
-    assert any("NutForcingShapeID" in m for m in msgs)
+    # nutrient forcing is modelled (RsimForcing.NutForcing): no warning
+    assert len(msgs) == 1
+    assert "sorwt" in msgs[0]
 
 
 def test_fractional_type_warns(caplog):

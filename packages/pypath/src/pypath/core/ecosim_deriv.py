@@ -1338,6 +1338,26 @@ def _resolve_instrument_groups(params, spname_list, num_groups):
     return instrument_set
 
 
+def _ewe_nutrient_factor(
+    biomass_sum: float, base_sum: float, base_free_prop: float, shape: float
+) -> float:
+    """EwE6's nutrient limitation of primary production.
+
+    NutTot = sum(B0) / (1 - NutBaseFreeProp) (NutBaseFreeProp at least 0.1),
+    NutFree0 = NutTot - sum(B0); NutFree = NutTot x shape - sum(B), at least
+    NutMin = 0.00101 x NutFree0; a producer's production is scaled by
+    2 x NutFree / (NutFree + NutFree0) (cEcoSimModel.vb 3248-3280, 2862-2870,
+    3049). Sums run over the living and detritus groups.
+    """
+    prop = max(float(base_free_prop), 0.1)
+    nut_tot = base_sum / (1.0 - prop)
+    nut_free0 = nut_tot - base_sum
+    if nut_free0 <= 0:
+        return 1.0
+    nut_free = max(nut_tot * shape - biomass_sum, 0.00101 * nut_free0)
+    return 2.0 * nut_free / (nut_free + nut_free0)
+
+
 def _ewe_hden_update(
     hden_old: np.ndarray, q: np.ndarray, index: np.ndarray, cmco_qb: np.ndarray
 ) -> np.ndarray:
@@ -1583,6 +1603,22 @@ def deriv_vector(
     Ftime = forcing.get("Ftime", np.ones(NUM_GROUPS + 1))
     ForcedBio = forcing.get("ForcedBio", np.zeros(NUM_GROUPS + 1))
     PP_forcing = forcing.get("PP_forcing", np.ones(NUM_GROUPS + 1))
+    # EwE6 nutrient limitation (EWE rule: params["NutBaseFreeProp"]): the
+    # producers' production scales with the free nutrient the biomass leaves
+    _nut_prop = params.get("NutBaseFreeProp")
+    if _nut_prop is not None:
+        _nb = slice(1, NUM_LIVING + NUM_DEAD + 1)
+        _nut_f = _ewe_nutrient_factor(
+            float(np.sum(state[_nb])),
+            float(np.sum(Bbase[_nb])),
+            _nut_prop,
+            float(forcing.get("NutForcing", 1.0)),
+        )
+        if _nut_f != 1.0:
+            PP_forcing = np.array(PP_forcing, dtype=float, copy=True)
+            _producer = np.asarray(PP_type, dtype=float)[: len(PP_forcing)] > 0
+            _producer[0] = False
+            PP_forcing[_producer] *= _nut_f
     ForcedPrey = forcing.get("ForcedPrey", np.ones(NUM_GROUPS + 1))
     ForcedSearch = forcing.get("ForcedSearch", None)
     ForcedMort = forcing.get("ForcedMort", None)
