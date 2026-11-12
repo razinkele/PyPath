@@ -75,7 +75,7 @@ EWE_LOOKUP = {
 }
 
 
-def _mediation(points, imedbase, weights, links, start):
+def _mediation(points, imedbase, weights, links, start, fleet_weights=None):
     from pypath.core.mediation import EweMediation
 
     med = EweMediation(
@@ -83,6 +83,7 @@ def _mediation(points, imedbase, weights, links, start):
         imedbase=np.atleast_1d(imedbase),
         weights=np.atleast_2d(weights),
         links=links,
+        fleet_weights=(None if fleet_weights is None else np.atleast_2d(fleet_weights)),
     )
     med.setup(np.asarray(start, dtype=float))
     return med
@@ -123,6 +124,35 @@ def test_a_shape_without_mediators_or_base_is_unused():
     )
     assert not med.used[0] and not med.used[1]
     np.testing.assert_array_equal(med.values(np.array([1.0, 1.0, 9.0])), 1.0)
+
+
+# --- fleet effort as a mediator ------------------------------------------------
+# A fleet's weight counts its effort: SetMedFunctions adds FishRateGear(fleet,
+# TimeNow) x weight to X (cMediationDataStructures.vb:139-143), and
+# InitializeMedFunctions counts it at 1 in MedXbase, "Ecosim effort at Ecopath
+# base effort is always one" (cEcoSimModel.vb:3618-3622). fleet_weights[s, g]
+# is the weight of gear g, the column of ForcedEffort.
+
+
+def test_a_fleet_mediator_counts_its_effort():
+    start = np.array([1.0, 8.0, 4.0])
+    # group 1 weight 1 and gear 1 weight 2: MedXbase = 8 + 2 x 1
+    med = _mediation(SHAPE_B, 500, [0.0, 1.0, 0.0], [], start, [0.0, 2.0])
+    assert med.xbase[0] == pytest.approx(10.0)
+    assert med.values(start, np.array([1.0, 1.0]))[0] == pytest.approx(1.0)
+    assert med.values(start)[0] == pytest.approx(1.0)  # no effort: the base
+    # effort 0.25: X = 8 + 0.5
+    assert med.values(start, np.array([1.0, 0.25]))[0] == pytest.approx(
+        med.lookup(0, 8.5)
+    )
+    assert med.lookup(0, 8.5) < 0.95
+
+
+def test_a_shape_mediated_by_a_fleet_alone_is_used():
+    med = _mediation(SHAPE_A, 300, [0.0, 0.0, 0.0], [], [1.0, 5.0, 5.0], [0.0, 1.0])
+    assert med.used[0] and med.xbase[0] == pytest.approx(1.0)
+    got = med.values(np.array([1.0, 9.0, 9.0]), np.array([1.0, 0.5]))[0]
+    assert got == pytest.approx(med.lookup(0, 0.5))
 
 
 # --- the mediated link acts as a link forcing shape of the same value ---------
@@ -220,6 +250,119 @@ def test_ecospace_uniform_patches_match_rsim_run_with_mediation():
     )
 
 
+# --- a fleet-mediated link: the month's effort sets the value -----------------
+TRAWL = 1  # gear index (ForcedEffort column); rsim index 6
+
+
+def _fleet_scenario():
+    """The model above plus a trawl landing Fish; its effort halves in year 2."""
+    params = create_rpath_params(
+        groups=["Fish", "Zoo", "Benthos", "Phyto", "Det", "Trawl"],
+        types=[0, 0, 0, 1, 2, 3],
+    )
+    params.model.loc[0, ["Biomass", "PB", "QB"]] = [2.0, 1.0, 5.0]
+    params.model.loc[1, ["Biomass", "PB", "QB"]] = [10.0, 30.0, 100.0]
+    params.model.loc[2, ["Biomass", "PB", "QB"]] = [20.0, 2.0, 8.0]
+    params.model.loc[3, ["Biomass", "PB"]] = [50.0, 100.0]
+    params.model.loc[4, "Biomass"] = 1000.0
+    params.model["EE"] = np.nan
+    params.model["Det"] = [1.0, 1.0, 1.0, 1.0, 0.0, 1.0]
+    params.model.loc[0, "Trawl"] = 0.5  # Fish landings
+    params.diet["Fish"] = [0.0, 0.6, 0.4, 0.0, 0.0, 0.0]
+    params.diet["Zoo"] = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    params.diet["Benthos"] = [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+    params.diet["Phyto"] = [0.0] * 6
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sc = rsim_scenario(rpath(params), params, years=range(1, 3))
+    sc.fishing.ForcedEffort[12:, TRAWL] = 0.5
+    return sc
+
+
+def _fleet_mediated():
+    """Zoo -> Fish search rate mediated by the trawl alone: the flat shape is
+    1 at effort 1 (the base point) and 0.625 at effort 0.5."""
+    sc = _fleet_scenario()
+    n = sc.params.NUM_GROUPS + 1
+    fleet_weights = np.zeros(sc.params.NUM_GEARS + 1)
+    fleet_weights[TRAWL] = 1.0
+    sc.params.EweMediation = _mediation(
+        _flat_shape(),
+        400,
+        np.zeros(n),
+        [(ZOO, FISH, 0, SEARCH)],
+        sc.params.B_BaseRef,
+        fleet_weights,
+    )
+    return sc
+
+
+def test_a_fleet_mediated_link_follows_the_months_effort():
+    """The mediated run equals one whose Zoo -> Fish search rate is forced to
+    1 in year 1 and 0.625 in year 2, month by month (SetMedFunctions reads
+    FishRateGear(fleet, TimeNow))."""
+    mediated = _fleet_mediated()
+    forced = _fleet_scenario()
+    n = forced.params.NUM_GROUPS + 1
+    months = forced.forcing.ForcedSearch.shape[0]
+    arr = np.ones((months, n, n))
+    arr[12:, ZOO, FISH] = 0.625
+    forced.forcing.ForcedSearchLink = arr
+    plain = _run(_fleet_scenario())
+    a, b = _run(mediated), _run(forced)
+    assert not np.allclose(a.out_Biomass[-1], plain.out_Biomass[-1])  # it acts
+    np.testing.assert_allclose(a.out_Biomass, b.out_Biomass, rtol=1e-10)
+
+
+def _two_patches(n):
+    from pypath.spatial import EcospaceParams, create_1d_grid
+
+    return EcospaceParams(
+        grid=create_1d_grid(n_patches=2, spacing=1.0),
+        habitat_preference=np.ones((n, 2)),
+        habitat_capacity=np.ones((n, 2)),
+        dispersal_rate=np.zeros(n),
+        advection_enabled=np.zeros(n, dtype=bool),
+        gravity_strength=np.zeros(n),
+    )
+
+
+def _spatial(sc, **kw):
+    from pypath.spatial import rsim_run_spatial
+
+    eco = _two_patches(sc.params.NUM_GROUPS + 1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return rsim_run_spatial(sc, ecospace=eco, years=range(1, 3), **kw)
+
+
+def test_ecospace_without_effort_allocation_counts_a_fleet_at_effort_1():
+    """EwE's Ecospace passes the cell's effort to SetMedFunctions: 1 when it
+    does not predict effort (cSpaceSolver.vb:528), so a fleet-mediated shape
+    stays at its base value while the fleet's effort changes."""
+    got = _spatial(_fleet_mediated())
+    unmediated = _spatial(_fleet_scenario())
+    np.testing.assert_allclose(
+        got.out_Biomass, unmediated.out_Biomass, rtol=1e-10, atol=1e-12
+    )
+
+
+def test_ecospace_with_effort_allocation_counts_each_patchs_effort():
+    """With predicted effort EwE passes the cell's EffortSpace, the month's
+    effort x the cell's share (cSpaceSolver.vb:516, cEcoSpace.vb:4440). A
+    uniform allocation gives every patch the month's effort, so uniform
+    patches follow rsim_run."""
+    from pypath.spatial.fishing import SpatialFishing
+
+    got = _spatial(
+        _fleet_mediated(), spatial_fishing=SpatialFishing(allocation_type="uniform")
+    )
+    expected = _run(_fleet_mediated())
+    np.testing.assert_allclose(
+        got.out_Biomass, expected.out_Biomass, rtol=1e-6, atol=1e-10
+    )
+
+
 # --- EwE databases: purpose-built oracle cases on LT2022 scenario 16 ----------
 # The EwE oracle harness applied ewe-oracle patches/lt2022_s16_mediation_{a,b}.sql
 # to LT2022 and returned the patched databases. A: shape 900 (IMedBase 300),
@@ -227,6 +370,11 @@ def test_ecospace_uniform_patches_match_rsim_run_with_mediation():
 # 900 on Herring's search rate for Zooplankton, and shape 901 (IMedBase 500;
 # Zooplankton weight 1, Mobile crustaceans 0.5) on the vulnerability of
 # Zooplankton to Smelt and to Herring (so Zooplankton -> Herring carries two).
+# C (patches/lt2022_s16_mediation_c.sql): fleet effort as a mediator. Shape 900
+# mediated by the fleet (Fishery) alone on Mobile crustaceans' search rate for
+# Zooplankton; shape 901 by Sprat (weight 1) and the fleet (weight 1.28) on the
+# vulnerability of Zooplankton to Smelt. The scenario's effort is 1 in year 1,
+# then 0.64-1.14.
 
 from pathlib import Path  # noqa: E402
 
@@ -234,6 +382,7 @@ DATA = Path(__file__).parents[3] / "Data"
 CASES = {
     "a": DATA / "LT2022_s16_mediation_a.eweaccdb",
     "b": DATA / "LT2022_s16_mediation_b.eweaccdb",
+    "c": DATA / "LT2022_s16_mediation_c.eweaccdb",
 }
 
 
@@ -280,6 +429,28 @@ def test_reader_builds_ewes_mediation(caplog):
     )
 
 
+@pytest.mark.integration
+def test_reader_builds_ewes_fleet_mediation(caplog):
+    """Case C: the fleet's weights reach its gear, and MedXbase counts the
+    fleet at effort 1 (oracle mediation_shapes.csv: 1 and 2.55996299, Sprat's
+    start biomass 1.27996302 + 1.28)."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        sc = _case("c")
+    assert "mediat" not in caplog.text.lower()
+    med = sc.params.EweMediation
+    names = [str(n).strip() for n in sc.params.spname]
+    sprat, zoo = names.index("Sprat"), names.index("Zooplankton")
+    crust, smelt = names.index("Mobile crustaceans"), names.index("Smelt")
+    np.testing.assert_allclose(med.fleet_weights, [[0.0, 1.0], [0.0, 1.28]])
+    assert med.weights[1, sprat] == 1.0 and np.count_nonzero(med.weights) == 1
+    np.testing.assert_allclose(med.xbase, [1.0, 2.55996299], rtol=1e-6)
+    assert sorted(med.links) == sorted(
+        [(zoo, crust, 0, SEARCH), (zoo, smelt, 1, VULNERABILITY)]
+    )
+
+
 # EwE 6.7.144 oracle, scenario 16 with dataset 35 (runs 43218423464 for A,
 # 43216917549 for B): biomass at the end of months 24, 60 and 144. Without
 # the mediation the run is the baseline (run 43216863421), e.g. Herring 4.58,
@@ -297,11 +468,43 @@ EWE_MEDIATED = {
         "Herring": {24: 4.29798603, 60: 3.22801542, 144: 0.851211309},
         "Smelt": {24: 4.45975971, 60: 3.04334712, 144: 1.35549843},
     },
+    # run 43271823818. Month 12 is the last at effort 1; in month 13 the
+    # shapes move (900 to 0.805), and without them Zooplankton is 3.5 % off.
+    "c": {
+        "Zooplankton": {
+            12: 3.67555189,
+            13: 3.63076997,
+            24: 2.71274996,
+            60: 2.15685225,
+            144: 1.44148386,
+        },
+        "Mobile crustaceans": {
+            12: 15.737113,
+            13: 15.5279446,
+            24: 9.07304573,
+            60: 11.6067772,
+            144: 1.02890599,
+        },
+        "Smelt": {
+            12: 4.70224667,
+            13: 4.71585083,
+            24: 4.44213629,
+            60: 2.87429261,
+            144: 1.18441117,
+        },
+        "Sprat": {
+            12: 1.2801342,
+            13: 1.28116417,
+            24: 0.936746299,
+            60: 1.12345707,
+            144: 0.109285861,
+        },
+    },
 }
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("name", ["a", "b"])
+@pytest.mark.parametrize("name", ["a", "b", "c"])
 def test_mediated_runs_follow_the_ewe_oracle(name):
     sc = _case(name)
     out = _run(sc)
@@ -339,7 +542,7 @@ def test_the_rpath_rule_reports_and_skips_mediation(caplog):
 # --- reader edge cases, on stand-in tables (no database) ----------------------
 
 
-def _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows):
+def _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows, fleet_rows=(), fleets=()):
     import pandas as pd
 
     import pypath.io.ewemdb as ew
@@ -359,6 +562,14 @@ def _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows):
             weight_rows, columns=["ScenarioID", "ShapeID", "GroupID", "MedWeights"]
         ),
     }
+    if fleet_rows:
+        tables["EcosimScenarioShapeMedWeightsFleet"] = pd.DataFrame(
+            fleet_rows, columns=["ScenarioID", "ShapeID", "FleetID", "MedWeights"]
+        )
+    if fleets:
+        tables["EcopathFleet"] = pd.DataFrame(
+            fleets, columns=["FleetID", "FleetName", "Sequence"]
+        )
 
     def read(filepath, names):
         for name in names:
@@ -369,15 +580,18 @@ def _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows):
     monkeypatch.setattr(ew, "_try_read_table_variants", read)
 
 
-def _apply(monkeypatch, pp_rows, med_rows, weight_rows):
+def _apply(monkeypatch, pp_rows, med_rows, weight_rows, fleet_rows=(), fleets=()):
+    """``fleets`` are EcopathFleet rows (FleetID, FleetName, Sequence); the
+    model's gears are those fleets in name order."""
     from types import SimpleNamespace
 
     import pandas as pd
 
     from pypath.io.ewemdb import _apply_mediation
 
-    _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows)
+    _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows, fleet_rows, fleets)
     names = ["Fish", "Zoo", "Benthos", "Phyto", "Det"]
+    gears = sorted(str(f[1]) for f in fleets)  # the model's gear order
     selected = {
         "id": 1,
         "scenario_group_df": pd.DataFrame(
@@ -388,13 +602,19 @@ def _apply(monkeypatch, pp_rows, med_rows, weight_rows):
     rsim = SimpleNamespace(
         params=SimpleNamespace(
             PREY_FTIME_ARENA=True,
-            spname=["Outside"] + names,
-            B_BaseRef=np.array([1.0, 2.0, 10.0, 20.0, 50.0, 1000.0]),
+            spname=["Outside"] + names + gears,
+            B_BaseRef=np.array(
+                [1.0, 2.0, 10.0, 20.0, 50.0, 1000.0] + [0.0] * len(gears)
+            ),
+            NUM_GROUPS=len(names) + len(gears),
+            NUM_GEARS=len(gears),
             EweMediation=None,
         )
     )
     params = SimpleNamespace(
-        model=pd.DataFrame({"Group": names, "Type": [0, 0, 0, 1, 2]})
+        model=pd.DataFrame(
+            {"Group": names + gears, "Type": [0, 0, 0, 1, 2] + [3] * len(gears)}
+        )
     )
     _apply_mediation("stand-in", selected, rsim, params)
     return rsim.params.EweMediation
@@ -457,9 +677,9 @@ def test_ecospace_with_ibm_groups_gives_mediation_densities(monkeypatch):
     ratios = []
     original = EweMediation.values
 
-    def spy(self, biomass):
+    def spy(self, biomass, *args, **kwargs):
         ratios.append(float(biomass[BENTHOS]) / float(self.xbase[0]))
-        return original(self, biomass)
+        return original(self, biomass, *args, **kwargs)
 
     monkeypatch.setattr(EweMediation, "values", spy)
     grid = create_1d_grid(n_patches=2, spacing=1.0)
@@ -475,3 +695,32 @@ def test_ecospace_with_ibm_groups_gives_mediation_densities(monkeypatch):
         warnings.simplefilter("ignore")
         rsim_run_spatial(sc, ecospace=eco, years=range(1, 3))
     assert ratios[0] == pytest.approx(1.0, rel=1e-9)
+
+
+def test_fleet_weights_follow_the_ecopath_fleet_to_its_gear(monkeypatch, caplog):
+    """EcosimScenarioShapeMedWeightsFleet.FleetID is the Ecopath fleet
+    ("Unfortunate legacy: fleet refers to Ecopath fleet",
+    cDBDataSource.LoadMediationWeights); its weight goes to that fleet's gear,
+    whatever the IDs' order. A FleetID that is no Ecopath fleet is dropped,
+    as is another scenario's row."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        med = _apply(
+            monkeypatch,
+            pp_rows=[(1, 11, 12, 900, SEARCH)],
+            med_rows=[(900, POINTS, 400)],
+            weight_rows=[(1, 900, 13, 1.0)],
+            fleet_rows=[
+                (1, 900, 7, 0.5),  # Seine
+                (1, 900, 3, 2.0),  # Trawl
+                (1, 900, 99, 4.0),  # no such Ecopath fleet
+                (2, 900, 3, 9.0),  # another scenario
+            ],
+            fleets=[(7, "Seine", 1), (3, "Trawl", 2)],
+        )
+    assert "mediat" not in caplog.text.lower()
+    assert med is not None and med.links == [(ZOO, FISH, 0, SEARCH)]
+    # gears in name order: 1 Seine, 2 Trawl
+    np.testing.assert_array_equal(med.fleet_weights[0], [0.0, 0.5, 2.0])
+    assert med.xbase[0] == pytest.approx(20.0 + 0.5 + 2.0)

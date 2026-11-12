@@ -302,6 +302,17 @@ def deriv_vector_spatial(
     else:
         patch_effort_mask = mpa_effort_mask * effort_multiplier
 
+    # A fleet mediator's effort. EwE's Ecospace passes the cell's predicted
+    # effort, EffortSpace (the month's effort x the cell's share), when it
+    # predicts effort, and 1 otherwise (cSpaceSolver.vb:516-528). PyPath's
+    # counterpart of predicted effort is the spatial effort allocation: with
+    # it each patch's own effort is used (ForcedEffort), without it 1.
+    if effort_multiplier is None and params.get("EweMediation") is not None:
+        forcing = dict(forcing)
+        forcing["MediationEffort"] = np.ones_like(
+            np.asarray(forcing["ForcedEffort"], dtype=float)
+        )
+
     def _patch_forcing(patch_idx):
         """Forcing of one patch: its own effort and stanza consumption index."""
         if patch_effort_mask is None and stanza_pred_ratio is None:

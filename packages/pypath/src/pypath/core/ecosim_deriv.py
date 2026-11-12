@@ -1749,14 +1749,19 @@ def deriv_vector(
             params.get("SwitchA"),
         )
     # EwE6 pred/prey mediation (D3): each mediated link's search rate or
-    # vulnerability is multiplied by its shapes' values at this biomass
-    # (SetMedFunctions at the start of every Derivt, ApplyAVmodifiers)
+    # vulnerability is multiplied by its shapes' values at this biomass and
+    # the month's fleet effort (SetMedFunctions at the start of every Derivt
+    # with FishRateGear(fleet, TimeNow), ApplyAVmodifiers). Ecospace passes
+    # its own mediator effort ("MediationEffort", cSpaceSolver.vb:516-528).
     _med_search = _med_vul = None
     _ewe_med = params.get("EweMediation")
     if _ewe_med is not None and _ewe_prey_f is not None:
         # spatial IBM runs pass absolute patch biomass; mediation needs density
         _med_bb = BB * params.get("_mediation_density_scale", 1.0)
-        _med_search, _med_vul = _ewe_med.link_factors(_med_bb, NUM_GROUPS + 1)
+        _med_effort = forcing.get("MediationEffort", forcing.get("ForcedEffort"))
+        _med_search, _med_vul = _ewe_med.link_factors(
+            _med_bb, NUM_GROUPS + 1, _med_effort
+        )
     if _ewe_prey_f is not None:
         _f_arena = _ewe_prey_f
         _vul_link = forcing.get("ForcedVulLink")

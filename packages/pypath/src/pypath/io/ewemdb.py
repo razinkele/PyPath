@@ -4284,14 +4284,16 @@ def _apply_mediation(
     the link (cDBDataSource.LoadPredPreyInteractions). The shape's 1200 points
     and base point come from ``EcosimShapeMediation`` (zScale, IMedBase;
     missing points are 1), its mediators and their weights from the
-    scenario's ``EcosimScenarioShapeMedWeightsGroup`` rows
-    (LoadMediationWeights). Ecosim then scales the link's search rate or
-    vulnerability by the shape's value at the current biomass
+    scenario's ``EcosimScenarioShapeMedWeightsGroup`` and
+    ``EcosimScenarioShapeMedWeightsFleet`` rows (LoadMediationWeights; a
+    fleet row's FleetID is the Ecopath fleet, mapped to its gear by name).
+    Ecosim then scales the link's search rate or vulnerability by the shape's
+    value at the current biomass and fleet effort
     (:class:`pypath.core.mediation.EweMediation`).
 
     Applied under the EwE rule, to search-rate and vulnerability functions;
-    other applications (arena area, production, import, other mortality)
-    and shapes mediated by fleets are reported and skipped.
+    other applications (arena area, production, import, other mortality) are
+    reported and skipped.
     """
     from pypath.core.mediation import N_MED_POINTS, EweMediation
 
@@ -4362,7 +4364,7 @@ def _apply_mediation(
             if k is not None and j is not None and pd.notna(w):
                 weights[k, j] = float(w)
 
-        fleet_shapes = set()
+        fleet_weights = None
         wf = _try_read_table_variants(
             filepath,
             [
@@ -4372,24 +4374,24 @@ def _apply_mediation(
         )
         if wf is not None and sid is not None and "ScenarioID" in wf.columns:
             wf = wf[wf["ScenarioID"] == sid]
-        for _, row in (wf if wf is not None else pd.DataFrame()).iterrows():
-            shape_id = _int_or_none(row.get("ShapeID"))
-            w = row.get("MedWeights")
-            if shape_id in index and pd.notna(w) and float(w) > 0:
-                fleet_shapes.add(shape_id)
-        for shape_id in sorted(fleet_shapes):
-            logger.warning(
-                "Mediation shape %s is mediated by fleet effort, which is not "
-                "supported; its functions are skipped",
-                shape_id,
+        if wf is not None and len(wf) > 0:
+            gear_of = _ecopath_fleet_gear_index(filepath, rsim.params)
+            fleet_weights = np.zeros(
+                (len(order), int(getattr(rsim.params, "NUM_GEARS", 0) or 0) + 1)
             )
+            for _, row in wf.iterrows():
+                k = index.get(_int_or_none(row.get("ShapeID")))
+                g = gear_of.get(_int_or_none(row.get("FleetID")))
+                w = row.get("MedWeights")
+                if k is not None and g is not None and pd.notna(w):
+                    fleet_weights[k, g] = float(w)
 
         links = []
         for _, row in pp.iterrows():
             shape_id = int(row["ShapeID"])
             pred = esim_to_idx.get(_int_or_none(row.get("PredID")))
             prey = esim_to_idx.get(_int_or_none(row.get("PreyID")))
-            if pred is None or prey is None or shape_id in fleet_shapes:
+            if pred is None or prey is None:
                 continue
             appl = _int_or_none(row.get("FunctionType")) or 0
             pred_type = group_types[pred - 1] if 0 < pred <= len(group_types) else None
@@ -4412,7 +4414,11 @@ def _apply_mediation(
             return
 
         med = EweMediation(
-            points=points, imedbase=imedbase, weights=weights, links=links
+            points=points,
+            imedbase=imedbase,
+            weights=weights,
+            links=links,
+            fleet_weights=fleet_weights,
         )
         med.setup(np.asarray(rsim.params.B_BaseRef, dtype=float))
         for k in sorted({link[2] for link in links}):
@@ -4428,6 +4434,37 @@ def _apply_mediation(
         )
     except Exception as e:
         logger.warning("Failed to apply mediation functions: %s", e)
+
+
+def _ecopath_fleet_gear_index(filepath: str, rsim_params: Any) -> Dict[int, int]:
+    """EcopathFleet.FleetID -> gear index (the column of ForcedEffort), by the
+    fleet's name among the model's gears (the last NUM_GEARS of spname). A
+    fleet the model does not have is left out, as EwE drops a weight whose
+    FleetID is no Ecopath fleet (LoadMediationWeights)."""
+    n_gears = int(getattr(rsim_params, "NUM_GEARS", 0) or 0)
+    if n_gears <= 0:
+        return {}
+    spname = [str(n).strip() for n in rsim_params.spname]
+    first_gear = int(rsim_params.NUM_GROUPS) - n_gears + 1  # spname index of gear 1
+    gear_names = {
+        name: i - first_gear + 1
+        for i, name in enumerate(spname)
+        if first_gear <= i < first_gear + n_gears
+    }
+    fleets = _try_read_table_variants(filepath, ["EcopathFleet"])
+    out: Dict[int, int] = {}
+    if fleets is None or "FleetID" not in fleets.columns:
+        return out
+    name_col = next(
+        (c for c in ["FleetName", "Name", "Fleet"] if c in fleets.columns), None
+    )
+    if name_col is None:
+        return out
+    for fid, name in zip(fleets["FleetID"], fleets[name_col]):
+        g = gear_names.get(str(name).strip())
+        if _int_or_none(fid) is not None and g is not None:
+            out[_int_or_none(fid)] = g
+    return out
 
 
 def _esim_group_index(selected: Dict[str, Any], spname: list) -> Dict[int, int]:

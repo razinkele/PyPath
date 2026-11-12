@@ -231,14 +231,19 @@ class EweMediation:
 
     Each shape has 1200 points (``points[s, ip - 1]`` is Medpoints(ip)) and
     a base point ``imedbase[s]``. Its mediators are the groups with a weight
-    > 0 in ``weights[s]`` (rsim index). Every derivative sets the shape's
-    value from the current biomass (SetMedFunctions, cEcoSimModel.vb:2851):
-    X = 1e-10 + sum(weight x B), ip = Trunc(IMedBase x X / MedXbase + 0.01)
-    clamped to 1..1200, value = Medpoints(ip) / MedYbase, with MedXbase =
-    sum(weight x start biomass) and MedYbase = Medpoints(IMedBase)
-    (InitializeMedFunctions, vb 3568-3650). A shape without mediators, base X
-    or base point value is unused and its value stays 1. EwE computes in
-    single precision; so does this, so the point index truncates alike.
+    > 0 in ``weights[s]`` (rsim index) and the fleets with a weight > 0 in
+    ``fleet_weights[s]`` (gear index, the column of ForcedEffort). Every
+    derivative sets the shape's value from the current biomass and effort
+    (SetMedFunctions, cEcoSimModel.vb:2851, cMediationDataStructures.vb:129):
+    X = 1e-10 + sum(weight x B) + sum(fleet weight x effort), ip =
+    Trunc(IMedBase x X / MedXbase + 0.01) clamped to 1..1200, value =
+    Medpoints(ip) / MedYbase, with MedXbase = sum(weight x start biomass) +
+    sum(fleet weight), as "Ecosim effort at Ecopath base effort is always
+    one", and MedYbase = Medpoints(IMedBase) (InitializeMedFunctions, vb
+    3568-3650). Groups come first in both sums, then fleets, as in EwE. A
+    shape without mediators, base X or base point value is unused and its
+    value stays 1. EwE computes in single precision; so does this, so the
+    point index truncates alike.
 
     ``links`` are ``(prey, pred, shape, application)`` (rsim indices): a
     search-rate function multiplies the link's search rate, a vulnerability
@@ -250,6 +255,7 @@ class EweMediation:
     imedbase: np.ndarray
     weights: np.ndarray
     links: list
+    fleet_weights: np.ndarray | None = None
     xbase: np.ndarray | None = None
     ybase: np.ndarray | None = None
     used: np.ndarray | None = None
@@ -265,13 +271,23 @@ class EweMediation:
         b0 = np.asarray(start_biomass, dtype=np.float32)
         for s in range(n_shapes):
             w = np.asarray(self.weights[s], dtype=np.float32)
+            wf = self._fleet_row(s)
             x = np.float32(0.0)
             for j in np.nonzero(w > 0)[0]:
                 x = np.float32(x + w[j] * b0[j])
+            for g in np.nonzero(wf > 0)[0]:
+                x = np.float32(x + wf[g] * np.float32(1.0))  # base effort
             self.xbase[s] = x
             ip = min(max(int(imed[s]), 1), N_MED_POINTS)
             self.ybase[s] = pts[s, ip - 1]
-            self.used[s] = bool(np.any(w > 0)) and x != 0 and self.ybase[s] != 0
+            has_mediator = bool(np.any(w > 0) or np.any(wf > 0))
+            self.used[s] = has_mediator and x != 0 and self.ybase[s] != 0
+
+    def _fleet_row(self, s: int) -> np.ndarray:
+        """The fleet weights of shape ``s`` (empty without fleet mediators)."""
+        if self.fleet_weights is None:
+            return np.zeros(0, dtype=np.float32)
+        return np.asarray(self.fleet_weights[s], dtype=np.float32)
 
     def lookup(self, shape: int, x: float) -> float:
         """getMedValue: the shape's value at mediator sum ``x``."""
@@ -281,24 +297,36 @@ class EweMediation:
         ip = max(1, min(N_MED_POINTS, ip))
         return float(np.float32(self.points[shape][ip - 1]) / self.ybase[shape])
 
-    def values(self, biomass: np.ndarray) -> np.ndarray:
-        """MedVal of every shape at ``biomass`` (1 for unused shapes)."""
+    def values(
+        self, biomass: np.ndarray, effort: np.ndarray | None = None
+    ) -> np.ndarray:
+        """MedVal of every shape at ``biomass`` and ``effort`` (by gear, as a
+        row of ForcedEffort; None or a missing gear counts as the base effort,
+        1). Unused shapes are 1."""
         out = np.ones(len(self.used))
         b = np.asarray(biomass, dtype=np.float32)
+        e = None if effort is None else np.asarray(effort, dtype=np.float32)
         for s in np.nonzero(self.used)[0]:
             w = np.asarray(self.weights[s], dtype=np.float32)
+            wf = self._fleet_row(s)
             x = np.float32(1e-10)
             for j in np.nonzero(w > 0)[0]:
                 x = np.float32(x + b[j] * w[j])
+            for g in np.nonzero(wf > 0)[0]:
+                eff = e[g] if e is not None and g < len(e) else np.float32(1.0)
+                x = np.float32(x + eff * wf[g])
             out[s] = self.lookup(s, float(x))
         return out
 
-    def link_factors(self, biomass: np.ndarray, n: int):
+    def link_factors(
+        self, biomass: np.ndarray, n: int, effort: np.ndarray | None = None
+    ):
         """Search-rate and vulnerability multipliers by link, (n, n) arrays
-        indexed [prey, pred], or None where no link has that application."""
+        indexed [prey, pred], or None where no link has that application.
+        ``effort`` is the fleets' effort by gear (see :meth:`values`)."""
         if not self.links:
             return None, None
-        vals = self.values(biomass)
+        vals = self.values(biomass, effort)
         search = vul = None
         for prey, pred, shape, application in self.links:
             if application == SEARCH_RATE:
