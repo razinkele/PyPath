@@ -4296,7 +4296,16 @@ def _apply_mediation(
             k = index.get(_int_or_none(row.get("ShapeID")))
             if k is None:
                 continue
-            vals = [float(v) for v in str(row.get("zScale", "")).split() if v.strip()]
+            try:
+                vals = [
+                    float(v) for v in str(row.get("zScale", "")).split() if v.strip()
+                ]
+            except ValueError:
+                logger.warning(
+                    "Mediation shape %s has an unreadable zScale; its points stay at 1",
+                    row.get("ShapeID"),
+                )
+                continue
             vals = vals[:N_MED_POINTS]
             points[k, : len(vals)] = vals
             base = _int_or_none(row.get("IMedBase"))
@@ -4355,7 +4364,7 @@ def _apply_mediation(
                 appl = _FF_PRODUCTION_RATE
             elif appl == _FF_SEARCH_RATE and pred_type == 2:
                 appl = _FF_IMPORT
-            if pred == prey or appl not in (_FF_SEARCH_RATE, _FF_VULNERABILITY):
+            if appl not in (_FF_SEARCH_RATE, _FF_VULNERABILITY):
                 logger.warning(
                     "Mediation shape %s on %s -> %s as application type %s is not "
                     "supported; skipped",

@@ -334,3 +334,144 @@ def test_the_rpath_rule_reports_and_skips_mediation(caplog):
         )
     assert sc.params.EweMediation is None
     assert "3 mediation functions need the EwE rule" in caplog.text
+
+
+# --- reader edge cases, on stand-in tables (no database) ----------------------
+
+
+def _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows):
+    import pandas as pd
+
+    import pypath.io.ewemdb as ew
+
+    tables = {
+        "EcosimShape": pd.DataFrame(
+            {"ShapeID": [r[0] for r in med_rows], "ShapeType": 10, "IsSeasonal": 0}
+        ),
+        "EcosimShapeMediation": pd.DataFrame(
+            med_rows, columns=["ShapeID", "zScale", "IMedBase"]
+        ),
+        "EcosimScenarioPredPreyShape": pd.DataFrame(
+            pp_rows,
+            columns=["ScenarioID", "PredID", "PreyID", "ShapeID", "FunctionType"],
+        ),
+        "EcosimScenarioShapeMedWeightsGroup": pd.DataFrame(
+            weight_rows, columns=["ScenarioID", "ShapeID", "GroupID", "MedWeights"]
+        ),
+    }
+
+    def read(filepath, names):
+        for name in names:
+            if name in tables:
+                return tables[name].copy()
+        return None
+
+    monkeypatch.setattr(ew, "_try_read_table_variants", read)
+
+
+def _apply(monkeypatch, pp_rows, med_rows, weight_rows):
+    from types import SimpleNamespace
+
+    import pandas as pd
+
+    from pypath.io.ewemdb import _apply_mediation
+
+    _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows)
+    names = ["Fish", "Zoo", "Benthos", "Phyto", "Det"]
+    selected = {
+        "id": 1,
+        "scenario_group_df": pd.DataFrame(
+            {"GroupID": [11, 12, 13, 14, 15], "EcopathGroupID": [1, 2, 3, 4, 5]}
+        ),
+        "group_id_to_name": dict(zip([1, 2, 3, 4, 5], names)),
+    }
+    rsim = SimpleNamespace(
+        params=SimpleNamespace(
+            PREY_FTIME_ARENA=True,
+            spname=["Outside"] + names,
+            B_BaseRef=np.array([1.0, 2.0, 10.0, 20.0, 50.0, 1000.0]),
+            EweMediation=None,
+        )
+    )
+    params = SimpleNamespace(
+        model=pd.DataFrame({"Group": names, "Type": [0, 0, 0, 1, 2]})
+    )
+    _apply_mediation("stand-in", selected, rsim, params)
+    return rsim.params.EweMediation
+
+
+POINTS = " ".join(["1"] * 1200)
+
+
+def test_a_cannibal_link_keeps_its_mediation(monkeypatch):
+    """Fish eats Fish: EwE applies a link's functions to any arena link,
+    a predator's own included (ApplyAVmodifiers)."""
+    med = _apply(
+        monkeypatch,
+        pp_rows=[(1, 11, 11, 900, SEARCH)],
+        med_rows=[(900, POINTS, 400)],
+        weight_rows=[(1, 900, 13, 1.0)],
+    )
+    assert med is not None and med.links == [(FISH, FISH, 0, SEARCH)]
+
+
+def test_an_unreadable_shape_does_not_drop_the_others(monkeypatch):
+    med = _apply(
+        monkeypatch,
+        pp_rows=[(1, 11, 12, 900, SEARCH), (1, 11, 13, 901, VULNERABILITY)],
+        med_rows=[(900, "1 x 2", 400), (901, POINTS.replace("1", "0.5", 1), 400)],
+        weight_rows=[(1, 900, 13, 1.0), (1, 901, 13, 1.0)],
+    )
+    assert med is not None and len(med.links) == 2
+    np.testing.assert_array_equal(med.points[0], 1.0)  # unreadable: neutral
+    assert med.points[1][0] == pytest.approx(0.5)
+
+
+def test_ecospace_with_ibm_groups_gives_mediation_densities(monkeypatch):
+    """IBM groups keep absolute patch biomass in the spatial derivative;
+    mediation compares densities with its whole-model base, so a mediator at
+    its base density starts at X / MedXbase = 1 in every patch."""
+    from types import SimpleNamespace
+
+    from pypath.core.mediation import EweMediation
+    from pypath.spatial import EcospaceParams, create_1d_grid, rsim_run_spatial
+
+    sc = _scenario()
+    sc.forcing.ForcedBio[:, BENTHOS] = 0
+    n = sc.params.NUM_GROUPS + 1
+    weights = np.zeros(n)
+    weights[BENTHOS] = 1.0
+    sc.params.EweMediation = _mediation(
+        SHAPE_A, 300, weights, [(ZOO, FISH, 0, SEARCH)], sc.params.B_BaseRef
+    )
+
+    class _IBM:
+        group_index, n_groups = PHYTO, sc.params.NUM_GROUPS
+
+        def compute_step(self, **kwargs):
+            return SimpleNamespace(
+                biomass=1000.0, consumption_by_prey=np.zeros(self.n_groups)
+            )
+
+    sc.params.ibm_groups = {PHYTO: _IBM()}
+    ratios = []
+    original = EweMediation.values
+
+    def spy(self, biomass):
+        ratios.append(float(biomass[BENTHOS]) / float(self.xbase[0]))
+        return original(self, biomass)
+
+    monkeypatch.setattr(EweMediation, "values", spy)
+    grid = create_1d_grid(n_patches=2, spacing=1.0)
+    eco = EcospaceParams(
+        grid=grid,
+        habitat_preference=np.ones((n, 2)),
+        habitat_capacity=np.ones((n, 2)),
+        dispersal_rate=np.zeros(n),
+        advection_enabled=np.zeros(n, dtype=bool),
+        gravity_strength=np.zeros(n),
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rsim_run_spatial(sc, ecospace=eco, years=range(1, 3))
+    assert ratios[0] == pytest.approx(1.0, rel=1e-9)

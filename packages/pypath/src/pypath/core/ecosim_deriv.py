@@ -1738,7 +1738,9 @@ def deriv_vector(
     _med_search = _med_vul = None
     _ewe_med = params.get("EweMediation")
     if _ewe_med is not None and _ewe_prey_f is not None:
-        _med_search, _med_vul = _ewe_med.link_factors(BB, NUM_GROUPS + 1)
+        # spatial IBM runs pass absolute patch biomass; mediation needs density
+        _med_bb = BB * params.get("_mediation_density_scale", 1.0)
+        _med_search, _med_vul = _ewe_med.link_factors(_med_bb, NUM_GROUPS + 1)
     if _ewe_prey_f is not None:
         _f_arena = _ewe_prey_f
         _vul_link = forcing.get("ForcedVulLink")
