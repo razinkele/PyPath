@@ -4381,10 +4381,28 @@ def _apply_mediation(
             )
             for _, row in wf.iterrows():
                 k = index.get(_int_or_none(row.get("ShapeID")))
-                g = gear_of.get(_int_or_none(row.get("FleetID")))
+                fid = _int_or_none(row.get("FleetID"))
                 w = row.get("MedWeights")
-                if k is not None and g is not None and pd.notna(w):
-                    fleet_weights[k, g] = float(w)
+                if k is None or pd.isna(w):
+                    continue
+                if fid not in gear_of:
+                    # no such Ecopath fleet: EwE drops the weight too
+                    logger.debug(
+                        "Mediation shape %s: FleetID %s is no fleet", order[k], fid
+                    )
+                    continue
+                g, name = gear_of[fid]
+                if g is None:
+                    if float(w) > 0:
+                        logger.warning(
+                            "Mediation shape %s: fleet %s is not among the model's "
+                            "gears; its weight %s is dropped",
+                            order[k],
+                            name,
+                            w,
+                        )
+                    continue
+                fleet_weights[k, g] = float(w)
 
         links = []
         for _, row in pp.iterrows():
@@ -4436,34 +4454,40 @@ def _apply_mediation(
         logger.warning("Failed to apply mediation functions: %s", e)
 
 
-def _ecopath_fleet_gear_index(filepath: str, rsim_params: Any) -> Dict[int, int]:
-    """EcopathFleet.FleetID -> gear index (the column of ForcedEffort), by the
-    fleet's name among the model's gears (the last NUM_GEARS of spname). A
-    fleet the model does not have is left out, as EwE drops a weight whose
-    FleetID is no Ecopath fleet (LoadMediationWeights)."""
+def _ecopath_fleet_gear_index(
+    filepath: str, rsim_params: Any
+) -> Dict[int, Tuple[Optional[int], str]]:
+    """EcopathFleet.FleetID -> (gear index, fleet name). The gear index is the
+    column of ForcedEffort, found by the fleet's name among the model's gears
+    (the last NUM_GEARS of spname), or None when the model has no such gear.
+    A FleetID that is no Ecopath fleet is absent: EwE drops its weight
+    (LoadMediationWeights)."""
     n_gears = int(getattr(rsim_params, "NUM_GEARS", 0) or 0)
-    if n_gears <= 0:
-        return {}
-    spname = [str(n).strip() for n in rsim_params.spname]
-    first_gear = int(rsim_params.NUM_GROUPS) - n_gears + 1  # spname index of gear 1
-    gear_names = {
-        name: i - first_gear + 1
-        for i, name in enumerate(spname)
-        if first_gear <= i < first_gear + n_gears
-    }
+    gear_names: Dict[str, int] = {}
+    if n_gears > 0:
+        spname = [str(n).strip() for n in rsim_params.spname]
+        first_gear = int(rsim_params.NUM_GROUPS) - n_gears + 1  # gear 1 in spname
+        gear_names = {
+            name: i - first_gear + 1
+            for i, name in enumerate(spname)
+            if first_gear <= i < first_gear + n_gears
+        }
     fleets = _try_read_table_variants(filepath, ["EcopathFleet"])
-    out: Dict[int, int] = {}
-    if fleets is None or "FleetID" not in fleets.columns:
-        return out
-    name_col = next(
-        (c for c in ["FleetName", "Name", "Fleet"] if c in fleets.columns), None
-    )
+    name_col = None
+    if fleets is not None and "FleetID" in fleets.columns:
+        name_col = next(
+            (c for c in ["FleetName", "Name", "Fleet"] if c in fleets.columns), None
+        )
     if name_col is None:
-        return out
+        logger.warning(
+            "EcopathFleet is unreadable: fleet mediation weights are dropped"
+        )
+        return {}
+    out: Dict[int, Tuple[Optional[int], str]] = {}
     for fid, name in zip(fleets["FleetID"], fleets[name_col]):
-        g = gear_names.get(str(name).strip())
-        if _int_or_none(fid) is not None and g is not None:
-            out[_int_or_none(fid)] = g
+        if _int_or_none(fid) is not None:
+            name = str(name).strip()
+            out[_int_or_none(fid)] = (gear_names.get(name), name)
     return out
 
 

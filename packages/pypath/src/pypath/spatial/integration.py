@@ -310,7 +310,10 @@ def deriv_vector_spatial(
     if effort_multiplier is None and params.get("EweMediation") is not None:
         forcing = dict(forcing)
         forcing["MediationEffort"] = np.ones_like(
-            np.asarray(forcing["ForcedEffort"], dtype=float)
+            np.asarray(
+                forcing.get("ForcedEffort", np.ones(params.get("NUM_GEARS", 0) + 1)),
+                dtype=float,
+            )
         )
 
     def _patch_forcing(patch_idx):
@@ -589,7 +592,9 @@ def rsim_run_spatial(
     spatial_fishing : SpatialFishing, optional
         How fleet effort is distributed across patches. Effort is redistributed
         relative to the grid mean, so total fleet effort is unchanged and
-        "uniform" reproduces a run with no spatial fishing.
+        "uniform" reproduces a run with no spatial fishing (except for EwE
+        mediation shapes mediated by a fleet, which follow each patch's effort
+        with an allocation and count the fleet at effort 1 without one).
     initial_state_vector : np.ndarray, optional
         Flattened initial coupled state vector with shape
         ``[(n_groups+1) * n_patches]``. If omitted, start biomass is

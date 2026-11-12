@@ -363,6 +363,52 @@ def test_ecospace_with_effort_allocation_counts_each_patchs_effort():
     )
 
 
+def _mediation_efforts(monkeypatch):
+    """Record the trawl effort each mediation lookup receives."""
+    from pypath.core.mediation import EweMediation
+
+    seen = []
+    original = EweMediation.values
+
+    def spy(self, biomass, effort=None):
+        seen.append(None if effort is None else round(float(effort[TRAWL]), 9))
+        return original(self, biomass, effort)
+
+    monkeypatch.setattr(EweMediation, "values", spy)
+    return seen
+
+
+def test_ecospace_allocation_gives_each_patch_its_own_effort(monkeypatch):
+    """A prescribed allocation of 1 : 3 (mean 1: 0.5 and 1.5) gives the two
+    patches efforts 0.25 and 0.75 in year 2, when the trawl's effort is 0.5,
+    as EwE's EffortSpace is the month's effort x the cell's share."""
+    from pypath.spatial.fishing import SpatialFishing
+
+    seen = _mediation_efforts(monkeypatch)
+    alloc = SpatialFishing(
+        allocation_type="prescribed",
+        effort_allocation=np.array([[1.0, 1.0], [1.0, 3.0]]),
+    )
+    _spatial(_fleet_mediated(), spatial_fishing=alloc)
+    assert {0.5, 1.5, 0.25, 0.75} <= set(seen)
+
+
+def test_ecospace_closure_without_allocation_keeps_effort_1():
+    """An MPA closing one patch to the trawl, with no allocation: EwE's
+    Ecospace still passes 1 (it predicts no effort), so the fleet-mediated
+    shape stays at its base value."""
+    from pypath.spatial.mpa import MPAConfig, MPAZone
+
+    def closed():
+        return MPAConfig(zones=[MPAZone(mpa_id=1, name="closed", patches=[0])])
+
+    got = _spatial(_fleet_mediated(), mpa=closed())
+    unmediated = _spatial(_fleet_scenario(), mpa=closed())
+    np.testing.assert_allclose(
+        got.out_Biomass, unmediated.out_Biomass, rtol=1e-10, atol=1e-12
+    )
+
+
 # --- EwE databases: purpose-built oracle cases on LT2022 scenario 16 ----------
 # The EwE oracle harness applied ewe-oracle patches/lt2022_s16_mediation_{a,b}.sql
 # to LT2022 and returned the patched databases. A: shape 900 (IMedBase 300),
@@ -580,7 +626,9 @@ def _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows, fleet_rows=(), fle
     monkeypatch.setattr(ew, "_try_read_table_variants", read)
 
 
-def _apply(monkeypatch, pp_rows, med_rows, weight_rows, fleet_rows=(), fleets=()):
+def _apply(
+    monkeypatch, pp_rows, med_rows, weight_rows, fleet_rows=(), fleets=(), gears=None
+):
     """``fleets`` are EcopathFleet rows (FleetID, FleetName, Sequence); the
     model's gears are those fleets in name order."""
     from types import SimpleNamespace
@@ -591,7 +639,8 @@ def _apply(monkeypatch, pp_rows, med_rows, weight_rows, fleet_rows=(), fleets=()
 
     _fake_tables(monkeypatch, pp_rows, med_rows, weight_rows, fleet_rows, fleets)
     names = ["Fish", "Zoo", "Benthos", "Phyto", "Det"]
-    gears = sorted(str(f[1]) for f in fleets)  # the model's gear order
+    if gears is None:
+        gears = sorted(str(f[1]) for f in fleets)  # the model's gear order
     selected = {
         "id": 1,
         "scenario_group_df": pd.DataFrame(
@@ -724,3 +773,23 @@ def test_fleet_weights_follow_the_ecopath_fleet_to_its_gear(monkeypatch, caplog)
     # gears in name order: 1 Seine, 2 Trawl
     np.testing.assert_array_equal(med.fleet_weights[0], [0.0, 0.5, 2.0])
     assert med.xbase[0] == pytest.approx(20.0 + 0.5 + 2.0)
+
+
+def test_a_fleet_the_model_lacks_is_reported(monkeypatch, caplog):
+    """An Ecopath fleet that is not among the model's gears loses its
+    weight; unlike an unknown FleetID (EwE drops those too), that is
+    PyPath's doing, so it is reported."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        med = _apply(
+            monkeypatch,
+            pp_rows=[(1, 11, 12, 900, SEARCH)],
+            med_rows=[(900, POINTS, 400)],
+            weight_rows=[(1, 900, 13, 1.0)],
+            fleet_rows=[(1, 900, 3, 2.0), (1, 900, 5, 1.0)],
+            fleets=[(3, "Trawl", 1), (5, "Ghost", 2)],
+            gears=["Trawl"],
+        )
+    np.testing.assert_array_equal(med.fleet_weights[0], [0.0, 2.0])
+    assert "Ghost" in caplog.text
