@@ -1187,7 +1187,8 @@ def _fast_group_flags(
     ``"ewe"``: EwE6's rule (cEcoSimModel.SetTimeSteps): a group is not
     integrated when its total loss rate at the start, |loss|/B, exceeds the
     threshold (24 /yr for monthly steps). For living groups the loss is
-    predation + other mortality + fishing. For detritus EwE's loss is
+    predation + other mortality + fishing + emigration (Emig x B, ``emig``).
+    For detritus EwE's loss is
     consumption + export*B, and the export rate is set at the start to close
     the detritus budget, so the loss equals the inflow minus the biomass
     accumulation: other-mortality and unassimilated flows routed by the
@@ -1222,6 +1223,12 @@ def _fast_group_flags(
     living_mo = mzero[1 : nliving + 1]
     living_mo = np.where(eaten & (living_mo <= 0), 0.0, living_mo)
     loss[1 : nliving + 1] += living_mo * b_baseref[1 : nliving + 1]
+    # and emigration, Emig x B (Derivt, vb 3081): a balanced group's loss is
+    # then its production, as Ecopath lowered its mo by the emigration
+    if emig is not None:
+        loss[1 : nliving + 1] += (
+            np.asarray(emig, dtype=float)[1 : nliving + 1] * b_baseref[1 : nliving + 1]
+        )
 
     ba = np.nan_to_num(np.asarray(getattr(rpath, "BA", np.zeros(n - 1)), dtype=float))
     det_fate = np.asarray(rpath.DetFate, dtype=float)
