@@ -6,6 +6,85 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.5.0 (2026-11-12)
+
+### Bug Fixes
+
+- **calibration**: EwE's sum of squares for time-series fitting (C1-C3)
+  ([`d7ac54b`](https://github.com/razinkele/PyPath/commit/d7ac54b35f8de7b27991fe5edd72ef0a4fbfa6df))
+
+- **ecosim**: EwE's detritus fate between detritus pools (P7)
+  ([`55462b8`](https://github.com/razinkele/PyPath/commit/55462b83897a3420a0c0148597ebe4af6a036b30))
+
+- **ecosim**: EwE's handling time on each predator's intake (D5)
+  ([`4d1abbf`](https://github.com/razinkele/PyPath/commit/4d1abbf59dcfa35c7a096a1ec981b9b9dafd1404))
+
+- **ecosim**: EwE's nutrient limitation of primary production
+  ([`12d7066`](https://github.com/razinkele/PyPath/commit/12d70662520b0bd254df6e5f41b0fc5f3cdf2c58))
+
+- **ecosim**: No per-link handling term under the EwE rule
+  ([`ff367fd`](https://github.com/razinkele/PyPath/commit/ff367fdb15bff9f91c8437935d7216476d2ccafa))
+
+- **ecosim**: Other mortality reaches detritus unscaled by Ftime (EwE rule)
+  ([`d77ec19`](https://github.com/razinkele/PyPath/commit/d77ec1961f755ae9778d6b988caefb01959134f0))
+
+- **ecosim**: RiskTime under the 'rpath' rule reads one month-end state
+  ([`f3aff0b`](https://github.com/razinkele/PyPath/commit/f3aff0b4971d3c899fbfb629066227fe7001e3f7))
+
+- **ecosim**: RiskTime, the predator effect on feeding time (D2)
+  ([`83cc31a`](https://github.com/razinkele/PyPath/commit/83cc31ad46d522aca1b402db612b9183d13f86cc))
+
+- **ecosim**: Stanza feeding time follows the predator index (EwE rule)
+  ([`cdc616e`](https://github.com/razinkele/PyPath/commit/cdc616e62ca724f2b46b0418d6f809da8847d2dd))
+
+- **ecospace**: The export-rate helper keeps IBM groups and sees forced biomass
+  ([`0ccfbb0`](https://github.com/razinkele/PyPath/commit/0ccfbb067eadbe4ac3c4610ce06791957c7308d4))
+
+- **io**: A broken capacity-driver shape skips only its own row
+  ([`fa224b0`](https://github.com/razinkele/PyPath/commit/fa224b0963d6fe4dddef866e457fa1182df8c7d1))
+
+- **io**: Apply EwE's Ecosim environmental response functions
+  ([`b38240b`](https://github.com/razinkele/PyPath/commit/b38240b747bad57d01d5ad66c32a74824954afc0))
+
+- **io**: Multi-stanza groups survive the EwE writers
+  ([`a54908e`](https://github.com/razinkele/PyPath/commit/a54908ef1dc36e5be2f6706ea3ed9b66ac8203cf))
+
+- **io**: Silence scenario settings only where EwE cannot apply them
+  ([`3cf6134`](https://github.com/razinkele/PyPath/commit/3cf61341d01065c81abcd3f5bdf4858f853091a3))
+
+- **io**: Stamp UpdateLog so EwE 6.7.144 opens databases PyPath writes
+  ([`c1832fc`](https://github.com/razinkele/PyPath/commit/c1832fc0445dd65ffd0c8b56cb5a144b51a49983))
+
+- **io,ecosim**: Search-rate and vulnerability shapes act on their own link (EwE rule)
+  ([`04d0044`](https://github.com/razinkele/PyPath/commit/04d00442ac34de620e4131b34c9085921b663d93))
+
+- **stanzas**: Anchor stanza consumption on EwE's LeadingCB stage
+  ([`bb703b5`](https://github.com/razinkele/PyPath/commit/bb703b52c42e33499bddcfc1c6cf8ede830a22dd))
+
+- **stanzas**: EwE's age table and Ford-Walford plus group (EwE rule)
+  ([`e32412a`](https://github.com/razinkele/PyPath/commit/e32412a97a20363a74744efbe4dc2a06572d2be6))
+
+- **stanzas**: Read Stanza.BABsplit and scale base recruits by it (EwE rule)
+  ([`e377e03`](https://github.com/razinkele/PyPath/commit/e377e038f75ea1a7247ddf6a84821d4d1058c6af))
+
+- **stanzas**: Recruitment forcing and the hatch code as EwE applies them
+  ([`ae87dab`](https://github.com/razinkele/PyPath/commit/ae87dabf07d9dea145c0c4525a35d3f020b88be0))
+
+- **stanzas**: SpawnProp, FixedFecundity and RecStanza as EwE uses them
+  ([`3b3a16d`](https://github.com/razinkele/PyPath/commit/3b3a16df6115ce9e68f0d0c33f1dad3657b93588))
+
+- **stanzas**: The monthly stanza update reads EwE's RK4 stages (EwE rule)
+  ([`7227557`](https://github.com/razinkele/PyPath/commit/72275573b56a4a18884497fa1a3b381debb11e0e))
+
+- **timeseries**: Keep the dataset interval through reading, writing and fitting
+  ([`0bc27f9`](https://github.com/razinkele/PyPath/commit/0bc27f93fa5d3d624a34cb575124f99bbf8d5ecd))
+
+### Features
+
+- **ecopath**: Models read from EwE carry compat="ewe" (roadmap D1)
+  ([`383a459`](https://github.com/razinkele/PyPath/commit/383a459fe7f5e86a62478aab14cbd6526900311b))
+
+
 ## v1.4.0 (2026-11-11)
 
 ### Bug Fixes
