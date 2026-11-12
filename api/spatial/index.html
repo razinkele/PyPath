@@ -18705,10 +18705,7 @@ flux_matrix[i, j] = flux from patch i to patch j</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">630</span>
-<span class="normal">631</span>
-<span class="normal">632</span>
-<span class="normal">633</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">633</span>
 <span class="normal">634</span>
 <span class="normal">635</span>
 <span class="normal">636</span>
@@ -18719,7 +18716,10 @@ flux_matrix[i, j] = flux from patch i to patch j</p>
 <span class="normal">641</span>
 <span class="normal">642</span>
 <span class="normal">643</span>
-<span class="normal">644</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">FleetDeployment</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Spatial fleet deployment plan."""</span>
 
@@ -18768,12 +18768,12 @@ flux_matrix[i, j] = flux from patch i to patch j</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">639</span>
-<span class="normal">640</span>
-<span class="normal">641</span>
-<span class="normal">642</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">642</span>
 <span class="normal">643</span>
-<span class="normal">644</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">accessibility_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distance_to_port_km</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">accessibility_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distance_to_port_km</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Compute accessibility weights by distance to nearest port."""</span>
     <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">distance_to_port_km</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dist</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_range_km</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">))</span>
@@ -20557,10 +20557,7 @@ Column 0 is "Outside" (ignored)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">490</span>
-<span class="normal">491</span>
-<span class="normal">492</span>
-<span class="normal">493</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">493</span>
 <span class="normal">494</span>
 <span class="normal">495</span>
 <span class="normal">496</span>
@@ -20660,7 +20657,10 @@ Column 0 is "Outside" (ignored)</p>
 <span class="normal">590</span>
 <span class="normal">591</span>
 <span class="normal">592</span>
-<span class="normal">593</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_spatial_fishing</span><span class="p">(</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_spatial_fishing</span><span class="p">(</span>
     <span class="n">n_months</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_gears</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -20788,10 +20788,7 @@ Column 0 is "Outside" (ignored)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">647</span>
-<span class="normal">648</span>
-<span class="normal">649</span>
-<span class="normal">650</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">650</span>
 <span class="normal">651</span>
 <span class="normal">652</span>
 <span class="normal">653</span>
@@ -20800,7 +20797,10 @@ Column 0 is "Outside" (ignored)</p>
 <span class="normal">656</span>
 <span class="normal">657</span>
 <span class="normal">658</span>
-<span class="normal">659</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">distribute_effort_with_fleet</span><span class="p">(</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">distribute_effort_with_fleet</span><span class="p">(</span>
     <span class="n">base_effort</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">deployment</span><span class="p">:</span> <span class="n">FleetDeployment</span><span class="p">,</span>
     <span class="n">distance_to_port_km</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -20837,7 +20837,10 @@ Column 0 is "Outside" (ignored)</p>
 allocation has to reach it as a <em>relative</em> multiplier rather than as an
 absolute split. Each gear's allocation is therefore normalised to mean 1.0
 across patches: total effort over the grid is unchanged, and a "uniform"
-allocation reproduces a run with no spatial fishing exactly.</p>
+allocation reproduces a run with no spatial fishing exactly, except for
+EwE mediation shapes mediated by a fleet: with an allocation they follow
+each patch's effort, without one they count the fleet at its base effort
+of 1 (as EwE's Ecospace does with and without predicted effort).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -21145,7 +21148,10 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 <span class="normal">484</span>
 <span class="normal">485</span>
 <span class="normal">486</span>
-<span class="normal">487</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">effort_multipliers</span><span class="p">(</span>
+<span class="normal">487</span>
+<span class="normal">488</span>
+<span class="normal">489</span>
+<span class="normal">490</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">effort_multipliers</span><span class="p">(</span>
     <span class="n">spatial_fishing</span><span class="p">:</span> <span class="s2">"SpatialFishing"</span><span class="p">,</span>
     <span class="n">n_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_gears</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -21160,7 +21166,10 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 <span class="sd">    allocation has to reach it as a *relative* multiplier rather than as an</span>
 <span class="sd">    absolute split. Each gear's allocation is therefore normalised to mean 1.0</span>
 <span class="sd">    across patches: total effort over the grid is unchanged, and a "uniform"</span>
-<span class="sd">    allocation reproduces a run with no spatial fishing exactly.</span>
+<span class="sd">    allocation reproduces a run with no spatial fishing exactly, except for</span>
+<span class="sd">    EwE mediation shapes mediated by a fleet: with an allocation they follow</span>
+<span class="sd">    each patch's effort, without one they count the fleet at its base effort</span>
+<span class="sd">    of 1 (as EwE's Ecospace does with and without predicted effort).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -21301,15 +21310,15 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">662</span>
-<span class="normal">663</span>
-<span class="normal">664</span>
-<span class="normal">665</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">665</span>
 <span class="normal">666</span>
 <span class="normal">667</span>
 <span class="normal">668</span>
 <span class="normal">669</span>
-<span class="normal">670</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mpa_spillover_potential</span><span class="p">(</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mpa_spillover_potential</span><span class="p">(</span>
     <span class="n">biomass_inside_mpa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">biomass_outside_mpa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">boundary_length_km</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -21430,10 +21439,7 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">596</span>
-<span class="normal">597</span>
-<span class="normal">598</span>
-<span class="normal">599</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">599</span>
 <span class="normal">600</span>
 <span class="normal">601</span>
 <span class="normal">602</span>
@@ -21458,7 +21464,10 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 <span class="normal">621</span>
 <span class="normal">622</span>
 <span class="normal">623</span>
-<span class="normal">624</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_effort_allocation</span><span class="p">(</span>
+<span class="normal">624</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_effort_allocation</span><span class="p">(</span>
     <span class="n">effort_allocation</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">forced_effort</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Validate that spatial effort allocation sums correctly.</span>
@@ -22120,7 +22129,21 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 <span class="normal">538</span>
 <span class="normal">539</span>
 <span class="normal">540</span>
-<span class="normal">541</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
+<span class="normal">553</span>
+<span class="normal">554</span>
+<span class="normal">555</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
     <span class="n">state_spatial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
@@ -22219,6 +22242,20 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
         <span class="n">patch_effort_mask</span> <span class="o">=</span> <span class="n">effort_multiplier</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">patch_effort_mask</span> <span class="o">=</span> <span class="n">mpa_effort_mask</span> <span class="o">*</span> <span class="n">effort_multiplier</span>
+
+    <span class="c1"># A fleet mediator's effort. EwE's Ecospace passes the cell's predicted</span>
+    <span class="c1"># effort, EffortSpace (the month's effort x the cell's share), when it</span>
+    <span class="c1"># predicts effort, and 1 otherwise (cSpaceSolver.vb:516-528). PyPath's</span>
+    <span class="c1"># counterpart of predicted effort is the spatial effort allocation: with</span>
+    <span class="c1"># it each patch's own effort is used (ForcedEffort), without it 1.</span>
+    <span class="k">if</span> <span class="n">effort_multiplier</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"EweMediation"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">forcing</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">forcing</span><span class="p">)</span>
+        <span class="n">forcing</span><span class="p">[</span><span class="s2">"MediationEffort"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+                <span class="n">forcing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ForcedEffort"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"NUM_GEARS"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)),</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_patch_forcing</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Forcing of one patch: its own effort and stanza consumption index."""</span>
@@ -22617,7 +22654,9 @@ If None, runs standard non-spatial Ecosim</p>
               <div class="doc-md-description">
                 <p>How fleet effort is distributed across patches. Effort is redistributed
 relative to the grid mean, so total fleet effort is unchanged and
-"uniform" reproduces a run with no spatial fishing.</p>
+"uniform" reproduces a run with no spatial fishing (except for EwE
+mediation shapes mediated by a fleet, which follow each patch's effort
+with an allocation and count the fleet at effort 1 without one).</p>
               </div>
             </td>
             <td>
@@ -22710,21 +22749,7 @@ distributed by patch area, so every patch starts at the same density.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 544</span>
-<span class="normal"> 545</span>
-<span class="normal"> 546</span>
-<span class="normal"> 547</span>
-<span class="normal"> 548</span>
-<span class="normal"> 549</span>
-<span class="normal"> 550</span>
-<span class="normal"> 551</span>
-<span class="normal"> 552</span>
-<span class="normal"> 553</span>
-<span class="normal"> 554</span>
-<span class="normal"> 555</span>
-<span class="normal"> 556</span>
-<span class="normal"> 557</span>
-<span class="normal"> 558</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 558</span>
 <span class="normal"> 559</span>
 <span class="normal"> 560</span>
 <span class="normal"> 561</span>
@@ -23290,7 +23315,23 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1121</span>
 <span class="normal">1122</span>
 <span class="normal">1123</span>
-<span class="normal">1124</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1124</span>
+<span class="normal">1125</span>
+<span class="normal">1126</span>
+<span class="normal">1127</span>
+<span class="normal">1128</span>
+<span class="normal">1129</span>
+<span class="normal">1130</span>
+<span class="normal">1131</span>
+<span class="normal">1132</span>
+<span class="normal">1133</span>
+<span class="normal">1134</span>
+<span class="normal">1135</span>
+<span class="normal">1136</span>
+<span class="normal">1137</span>
+<span class="normal">1138</span>
+<span class="normal">1139</span>
+<span class="normal">1140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23327,7 +23368,9 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="sd">    spatial_fishing : SpatialFishing, optional</span>
 <span class="sd">        How fleet effort is distributed across patches. Effort is redistributed</span>
 <span class="sd">        relative to the grid mean, so total fleet effort is unchanged and</span>
-<span class="sd">        "uniform" reproduces a run with no spatial fishing.</span>
+<span class="sd">        "uniform" reproduces a run with no spatial fishing (except for EwE</span>
+<span class="sd">        mediation shapes mediated by a fleet, which follow each patch's effort</span>
+<span class="sd">        with an allocation and count the fleet at effort 1 without one).</span>
 <span class="sd">    initial_state_vector : np.ndarray, optional</span>
 <span class="sd">        Flattened initial coupled state vector with shape</span>
 <span class="sd">        ``[(n_groups+1) * n_patches]``. If omitted, start biomass is</span>
