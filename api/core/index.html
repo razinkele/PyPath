@@ -17615,7 +17615,9 @@ NumDetLinks : int
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Monthly catch values (n_months x n_groups+1)</p>
+                <p>Monthly catch (n_months x n_groups+1): the month-end biomass times
+the month's fishing mortality (<code>out_FishMort</code>), / 12, so forced F
+and forced catch are included (EwE6's BB x FishTime)</p>
               </div>
             </td>
           </tr>
@@ -17626,7 +17628,9 @@ NumDetLinks : int
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Monthly catch by gear link</p>
+                <p>Monthly catch by gear link: the gears' share (effort and fleet
+mediation). A forced F has no fleet breakdown, so where it replaces
+the gears their links carry 0</p>
               </div>
             </td>
           </tr>
@@ -17885,7 +17889,11 @@ Ecospace keeps one Hden per patch and does not record it.</p>
 <span class="normal">467</span>
 <span class="normal">468</span>
 <span class="normal">469</span>
-<span class="normal">470</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">470</span>
+<span class="normal">471</span>
+<span class="normal">472</span>
+<span class="normal">473</span>
+<span class="normal">474</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Output from Ecosim simulation run.</span>
 
@@ -17894,9 +17902,13 @@ Ecospace keeps one Hden per patch and does not record it.</p>
 <span class="sd">    out_Biomass : np.ndarray</span>
 <span class="sd">        Monthly biomass values (n_months x n_groups+1)</span>
 <span class="sd">    out_Catch : np.ndarray</span>
-<span class="sd">        Monthly catch values (n_months x n_groups+1)</span>
+<span class="sd">        Monthly catch (n_months x n_groups+1): the month-end biomass times</span>
+<span class="sd">        the month's fishing mortality (``out_FishMort``), / 12, so forced F</span>
+<span class="sd">        and forced catch are included (EwE6's BB x FishTime)</span>
 <span class="sd">    out_Gear_Catch : np.ndarray</span>
-<span class="sd">        Monthly catch by gear link</span>
+<span class="sd">        Monthly catch by gear link: the gears' share (effort and fleet</span>
+<span class="sd">        mediation). A forced F has no fleet breakdown, so where it replaces</span>
+<span class="sd">        the gears their links carry 0</span>
 <span class="sd">    annual_Biomass : np.ndarray</span>
 <span class="sd">        Annual biomass (n_years x n_groups+1)</span>
 <span class="sd">    annual_Catch : np.ndarray</span>
@@ -18002,11 +18014,7 @@ fraction &gt; 0 to its own pool.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">473</span>
-<span class="normal">474</span>
-<span class="normal">475</span>
-<span class="normal">476</span>
-<span class="normal">477</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">477</span>
 <span class="normal">478</span>
 <span class="normal">479</span>
 <span class="normal">480</span>
@@ -18016,7 +18024,11 @@ fraction &gt; 0 to its own pool.</p>
 <span class="normal">484</span>
 <span class="normal">485</span>
 <span class="normal">486</span>
-<span class="normal">487</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="normal">487</span>
+<span class="normal">488</span>
+<span class="normal">489</span>
+<span class="normal">490</span>
+<span class="normal">491</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Detritus groups whose detritus fate points to themselves.</span>
 
 <span class="sd">    Returns ``{group name: fraction}`` for every dead group with a fate</span>
@@ -18258,11 +18270,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">519</span>
-<span class="normal">520</span>
-<span class="normal">521</span>
-<span class="normal">522</span>
-<span class="normal">523</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">523</span>
 <span class="normal">524</span>
 <span class="normal">525</span>
 <span class="normal">526</span>
@@ -18704,7 +18712,11 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">962</span>
 <span class="normal">963</span>
 <span class="normal">964</span>
-<span class="normal">965</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
+<span class="normal">965</span>
+<span class="normal">966</span>
+<span class="normal">967</span>
+<span class="normal">968</span>
+<span class="normal">969</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
     <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
@@ -19239,11 +19251,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">968</span>
-<span class="normal">969</span>
-<span class="normal">970</span>
-<span class="normal">971</span>
-<span class="normal">972</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">972</span>
 <span class="normal">973</span>
 <span class="normal">974</span>
 <span class="normal">975</span>
@@ -19256,7 +19264,11 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">982</span>
 <span class="normal">983</span>
 <span class="normal">984</span>
-<span class="normal">985</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
+<span class="normal">985</span>
+<span class="normal">986</span>
+<span class="normal">987</span>
+<span class="normal">988</span>
+<span class="normal">989</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create initial state vectors for simulation.</span>
 
 <span class="sd">    Parameters</span>
@@ -19378,11 +19390,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 988</span>
-<span class="normal"> 989</span>
-<span class="normal"> 990</span>
-<span class="normal"> 991</span>
-<span class="normal"> 992</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 992</span>
 <span class="normal"> 993</span>
 <span class="normal"> 994</span>
 <span class="normal"> 995</span>
@@ -19409,7 +19417,11 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">1016</span>
 <span class="normal">1017</span>
 <span class="normal">1018</span>
-<span class="normal">1019</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
+<span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span>
+<span class="normal">1022</span>
+<span class="normal">1023</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create forcing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -19545,11 +19557,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1022</span>
-<span class="normal">1023</span>
-<span class="normal">1024</span>
-<span class="normal">1025</span>
-<span class="normal">1026</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1026</span>
 <span class="normal">1027</span>
 <span class="normal">1028</span>
 <span class="normal">1029</span>
@@ -19574,7 +19582,11 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">1048</span>
 <span class="normal">1049</span>
 <span class="normal">1050</span>
-<span class="normal">1051</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create fishing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -19784,11 +19796,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1245</span>
-<span class="normal">1246</span>
-<span class="normal">1247</span>
-<span class="normal">1248</span>
-<span class="normal">1249</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1249</span>
 <span class="normal">1250</span>
 <span class="normal">1251</span>
 <span class="normal">1252</span>
@@ -19958,7 +19966,11 @@ Controls predator-prey functional response:
 <span class="normal">1416</span>
 <span class="normal">1417</span>
 <span class="normal">1418</span>
-<span class="normal">1419</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
+<span class="normal">1419</span>
+<span class="normal">1420</span>
+<span class="normal">1421</span>
+<span class="normal">1422</span>
+<span class="normal">1423</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span>
@@ -20253,11 +20265,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1493</span>
-<span class="normal">1494</span>
-<span class="normal">1495</span>
-<span class="normal">1496</span>
-<span class="normal">1497</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1497</span>
 <span class="normal">1498</span>
 <span class="normal">1499</span>
 <span class="normal">1500</span>
@@ -21553,23 +21561,7 @@ Controls predator-prey functional response:
 <span class="normal">2790</span>
 <span class="normal">2791</span>
 <span class="normal">2792</span>
-<span class="normal">2793</span>
-<span class="normal">2794</span>
-<span class="normal">2795</span>
-<span class="normal">2796</span>
-<span class="normal">2797</span>
-<span class="normal">2798</span>
-<span class="normal">2799</span>
-<span class="normal">2800</span>
-<span class="normal">2801</span>
-<span class="normal">2802</span>
-<span class="normal">2803</span>
-<span class="normal">2804</span>
-<span class="normal">2805</span>
-<span class="normal">2806</span>
-<span class="normal">2807</span>
-<span class="normal">2808</span>
-<span class="normal">2809</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
+<span class="normal">2793</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -22348,9 +22340,10 @@ Controls predator-prey functional response:
                 <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Bbase"</span><span class="p">,</span> <span class="n">month_start_state</span><span class="p">),</span>
                 <span class="n">params_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"NUM_GEARS"</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
             <span class="p">)</span>
-        <span class="n">out_fishmort</span><span class="p">[</span><span class="n">month</span><span class="p">]</span> <span class="o">=</span> <span class="n">fishing_mortality</span><span class="p">(</span>
+        <span class="n">_month_f</span><span class="p">,</span> <span class="n">_month_link_f</span> <span class="o">=</span> <span class="n">fishing_mortality</span><span class="p">(</span>
             <span class="n">params_dict</span><span class="p">,</span> <span class="n">forcing_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">,</span> <span class="n">fleet_med</span><span class="o">=</span><span class="n">_fleet_med_now</span>
-        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">out_fishmort</span><span class="p">[</span><span class="n">month</span><span class="p">]</span> <span class="o">=</span> <span class="n">_month_f</span>
         <span class="c1"># EwE6's feeding-time update uses the consumption of this state as</span>
         <span class="c1"># Derivt computes it (rk4 accumulates EatenByAvg after its first</span>
         <span class="c1"># Derivt), so prey Ftime and mediation are included: take the</span>
@@ -22634,39 +22627,18 @@ Controls predator-prey functional response:
                 <span class="k">if</span> <span class="n">prey</span> <span class="o">&lt;</span> <span class="n">QQ_month</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">pred</span> <span class="o">&lt;</span> <span class="n">QQ_month</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
                     <span class="n">annual_qlink</span><span class="p">[</span><span class="n">year_idx</span><span class="p">,</span> <span class="n">li</span><span class="p">]</span> <span class="o">+=</span> <span class="n">QQ_month</span><span class="p">[</span><span class="n">prey</span><span class="p">,</span> <span class="n">pred</span><span class="p">]</span> <span class="o">/</span> <span class="mf">12.0</span>
 
-        <span class="c1"># Calculate catch for this month</span>
+        <span class="c1"># Catch for this month: EwE6's BB x FishTime (PopulateResults,</span>
+        <span class="c1"># cEcoSimModel.vb:2222-2389), the month-end biomass times the F set</span>
+        <span class="c1"># for the month, forced F and forced catch included. The gear links</span>
+        <span class="c1"># carry the gears' share (effort and fleet mediation); a forced F has</span>
+        <span class="c1"># no fleet breakdown, as EwE books it under fleet 0.</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">FishFrom</span><span class="p">)):</span>
             <span class="n">grp</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">FishFrom</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">gear_group_idx</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">FishThrough</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="c1"># Convert group-based gear index to gear array index</span>
-            <span class="n">gear_0based</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">gear_group_idx</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="n">_run_gear_lookup</span><span class="p">:</span>
-                <span class="n">gear_idx</span> <span class="o">=</span> <span class="n">_run_gear_lookup</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">gear_0based</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">gear_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">gear_group_idx</span> <span class="o">-</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_LIVING</span> <span class="o">-</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_DEAD</span><span class="p">)</span>
-            <span class="n">effort_mult</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">forcing_dict</span><span class="p">[</span><span class="s2">"ForcedEffort"</span><span class="p">][</span><span class="n">gear_idx</span><span class="p">]</span>
-                <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">gear_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">forcing_dict</span><span class="p">[</span><span class="s2">"ForcedEffort"</span><span class="p">])</span>
-                <span class="k">else</span> <span class="mf">1.0</span>
-            <span class="p">)</span>
-            <span class="n">catch</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">state</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span> <span class="o">/</span> <span class="mf">12.0</span>
-            <span class="c1"># Debug log to trace catch computation for early months</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">month</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                        <span class="s2">"month=</span><span class="si">%s</span><span class="s2"> link=</span><span class="si">%s</span><span class="s2"> grp=</span><span class="si">%s</span><span class="s2"> FishQ=</span><span class="si">%.6e</span><span class="s2"> effort_mult=</span><span class="si">%.6e</span><span class="s2"> state=</span><span class="si">%.6e</span><span class="s2"> catch=</span><span class="si">%.6e</span><span class="s2">"</span><span class="p">,</span>
-                        <span class="n">month</span><span class="p">,</span>
-                        <span class="n">i</span><span class="p">,</span>
-                        <span class="n">grp</span><span class="p">,</span>
-                        <span class="n">params</span><span class="o">.</span><span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-                        <span class="n">effort_mult</span><span class="p">,</span>
-                        <span class="n">state</span><span class="p">[</span><span class="n">grp</span><span class="p">],</span>
-                        <span class="n">catch</span><span class="p">,</span>
-                    <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"catch computation debug failed: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-            <span class="n">out_catch</span><span class="p">[</span><span class="n">month</span><span class="p">,</span> <span class="n">grp</span><span class="p">]</span> <span class="o">+=</span> <span class="n">catch</span>
-            <span class="n">out_gear_catch</span><span class="p">[</span><span class="n">month</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">catch</span>
+            <span class="n">out_gear_catch</span><span class="p">[</span><span class="n">month</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_month_link_f</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">state</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">/</span> <span class="mf">12.0</span>
+        <span class="n">_n_bio</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="n">params</span><span class="o">.</span><span class="n">NUM_DEAD</span>
+        <span class="n">out_catch</span><span class="p">[</span><span class="n">month</span><span class="p">,</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">_n_bio</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_month_f</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="n">_n_bio</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">state</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="n">_n_bio</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">12.0</span>
+        <span class="p">)</span>
 
         <span class="c1"># Fleet dynamics step (after catch computation)</span>
         <span class="k">if</span> <span class="n">_fleet_capacity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
