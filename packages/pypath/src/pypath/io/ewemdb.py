@@ -5500,6 +5500,7 @@ def read_ecospace(
     n_groups: int,
     scenario_id: int = 1,
     grid: "Optional[EcospaceGrid]" = None,
+    ecopath_pb: Optional[Sequence[float]] = None,
 ) -> EcospaceReadResult:
     """Read Ecospace configuration from an EwE database.
 
@@ -5517,7 +5518,15 @@ def read_ecospace(
         cells of EwE's depth map (DepthMap with ExclusionMap applied; see
         ``_ewe_depth_map``). Patches are those cells in row order, and
         ``cell_metadata`` keeps each one's EwE row and column (0-based) and
-        depth.
+        depth. On that grid ``habitat_capacity`` is EwE's habitat capacity
+        (``_ewe_habitat_capacity``: input capacity maps, habitat
+        preferences and shares, normalised, with EwE's low-capacity
+        gradient), without environmental responses or migration maps. With
+        a user grid it is 1.
+    ecopath_pb : sequence of float, optional
+        Balanced Ecopath PB by group (index 0 = group 1), which EwE's
+        low-capacity gradient uses. Defaults to the input PB in
+        EcopathGroup.ProdBiom; a living group without one gets a warning.
 
     Returns
     -------
@@ -5560,6 +5569,7 @@ def read_ecospace(
             scenario_meta[col] = scenario_row[col]
 
     # 2. Grid construction
+    ewe_depth = None
     if grid is None:
         n_rows = int(scenario_row.get("Inrow", 1))
         n_cols = int(scenario_row.get("Incol", 1))
@@ -5588,6 +5598,7 @@ def read_ecospace(
         grid = _build_fallback_grid(
             n_rows, n_cols, cell_length, min_lon, min_lat, depth=depth
         )
+        ewe_depth = depth
 
     n_patches = grid.n_patches
 
@@ -5635,7 +5646,17 @@ def read_ecospace(
         except Exception as e:
             logger.warning("Failed to read EcospaceScenarioGroupHabitat: %s", e)
 
-    habitat_capacity = np.ones((n_groups, n_patches))
+    # 4b. Habitat capacity, as EwE sets it, on EwE's own grid
+    if ewe_depth is not None:
+        capacity_maps = _read_ewe_habitat_capacity(
+            db_path, tables, scenario_id, scenario_row, ewe_depth, n_groups, ecopath_pb
+        )
+        meta = grid.cell_metadata
+        habitat_capacity = capacity_maps[
+            :, meta["row"].to_numpy(), meta["col"].to_numpy()
+        ]
+    else:
+        habitat_capacity = np.ones((n_groups, n_patches))
 
     # 5. Read group spatial params
     dispersal_rate = np.zeros(n_groups)
@@ -5767,16 +5788,21 @@ def _ewe_map_from_string(
     fill,
     dtype=float,
     name: str = "map",
+    water: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Read an EwE map string into an ``(n_rows, n_cols)`` array.
 
-    Follows EwE 6.7.144's ``cStringUtils.StringToArray`` without a land
-    mask. A ``gzip:`` prefix marks a base64 gzip string (EwE 6.7 saves maps
-    compressed); quotes are dropped; rows are separated by ';' and values
-    by ','. Row i (1-based) is read only when i < the number of
-    ';'-pieces, so EwE's closing ';' matters. Cells the string does not
-    cover, and empty values, keep ``fill``: the value EwE pre-filled.
-    Boolean maps read "1" as True and any other value as False.
+    Follows EwE 6.7.144's ``cStringUtils.StringToArray``. A ``gzip:``
+    prefix marks a base64 gzip string (EwE 6.7 saves maps compressed);
+    quotes are dropped; rows are separated by ';' and values by ','. Row i
+    (1-based) is read only when i < the number of ';'-pieces, so EwE's
+    closing ';' matters. Cells the string does not cover, and empty
+    values, keep ``fill``: the value EwE pre-filled. Boolean maps read "1"
+    as True and any other value as False.
+
+    With ``water`` (EwE's land layer, DepthInput > 0) a row's values go to
+    its water cells only, in order; other cells keep ``fill``. EwE stores
+    habitat and capacity maps that way.
 
     Numbers are read in single precision, as EwE holds them. A value that
     is not a plain decimal number (and "-", "_" or a "nan" spelling) is
@@ -5809,7 +5835,9 @@ def _ewe_map_from_string(
     lines = text.replace('"', "").split(";")
     n_null = 0
     for i in range(min(n_rows, len(lines) - 1)):
-        for j, token in enumerate(lines[i].split(",")[:n_cols]):
+        values = lines[i].split(",")
+        cols = range(n_cols) if water is None else np.flatnonzero(water[i])
+        for j, token in zip(cols, values):
             if token == "":
                 continue
             if dtype is bool:
@@ -5852,6 +5880,301 @@ def _ewe_depth_map(scenario_row, n_rows: int, n_cols: int) -> np.ndarray:
     depth = np.maximum(0.0, depth_input)
     depth[excluded | (depth_input == _EWE_NULL_VALUE)] = _EWE_NULL_VALUE
     return depth
+
+
+_EWE_MIN_HABCAP = 1e-6  # cEcoSpace.MIN_HABCAP
+_EWE_MIN_HABCAP_INPUT = 0.01  # cEcospaceDataStructures.MinHabCap (not stored)
+_EWE_HABCAP_DIST_FAC = 0.4  # AdjustLowHabCapsThreaded DistFac
+_EWE_CAPCAL_ENV = 1  # eEcospaceCapacityCalType.EnvResponses
+_EWE_CAPCAL_HABITAT = 2  # eEcospaceCapacityCalType.Habitat
+
+
+def _ewe_habcap_sweeps(mvel: float, pb: float, cell_length: float, max_dist: int):
+    """Distance sweeps of EwE's low-capacity gradient for one group.
+
+    ``CInt(Mvel / PB / (CellLength / 2))`` in single precision, at most
+    ``max_dist``. A group whose PB is EwE's NULL (-9999, detritus) gets
+    none. EwE throws on an infinite ratio (PB 0); PyPath gives no sweeps.
+    """
+    with np.errstate(divide="ignore", invalid="ignore"):
+        v = np.float32(mvel) / np.float32(pb) / (np.float32(cell_length) / 2)
+    if not np.isfinite(v):
+        return 0
+    return max(0, min(int(round(float(v))), max_dist))  # CInt: half to even
+
+
+def _ewe_adjust_low_habcap(cap, water, sweeps: int, gradient: bool) -> np.ndarray:
+    """``cEcoSpace.AdjustLowHabCapsThreaded`` for one normalised map."""
+    hab_min = max(_EWE_MIN_HABCAP_INPUT, _EWE_MIN_HABCAP)
+    n_rows, n_cols = cap.shape
+    max_dist = max(n_rows, n_cols)
+    bad = water & (cap < hab_min)
+    if not bad.any():
+        return cap
+    cap = cap.copy()
+    cap[bad] = hab_min
+    if not gradient:
+        return cap
+    dist = np.where(bad, max_dist, 0)
+    low = [(int(i), int(j)) for i, j in zip(*np.nonzero(water & (cap <= hab_min)))]
+    for _ in range(sweeps):
+        changed = False
+        # Row-major sweep that reuses this sweep's distances, as EwE's does.
+        for i, j in low:
+            d = max_dist
+            for a, b in ((i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)):
+                if 0 <= a < n_rows and 0 <= b < n_cols and water[a, b]:
+                    d = min(d, dist[a, b] + 1)
+            if d != dist[i, j]:
+                dist[i, j] = d
+                changed = True
+        if not changed:  # the remaining sweeps would change nothing
+            break
+    for i, j in low:
+        cap[i, j] = max(
+            hab_min * np.exp(-_EWE_HABCAP_DIST_FAC * dist[i, j]), _EWE_MIN_HABCAP
+        )
+    return cap
+
+
+def _ewe_habitat_capacity(
+    depth,
+    capacity_input,
+    cal_type,
+    preference,
+    habitat_share,
+    mvel,
+    pb,
+    cell_length: float,
+    gradient: bool = True,
+    names: Optional[Sequence[str]] = None,
+) -> np.ndarray:
+    """Habitat capacity maps as EwE 6.7.144's ``cEcoSpace.SetHabCap`` sets them.
+
+    Leaves out environmental responses (``setHabCapFromMaps``) and the
+    migration-map normalisation of migratory groups.
+
+    Parameters
+    ----------
+    depth : (rows, cols) EwE Depth map; water cells have depth > 0.
+    capacity_input : (groups, rows, cols) input capacity maps (HabCapInput).
+    cal_type : (groups,) CapacityCalType bits (1 environment, 2 habitat).
+    preference : (groups, habitats) EwE's PrefHab by habitat position
+        (Sequence order); column 0 is also the all-habitats flag.
+    habitat_share : (habitats, rows, cols) share of each habitat (PHabType).
+    mvel, pb : (groups,) dispersal rate and Ecopath PB.
+    cell_length : cell length (km).
+    gradient : UseHabCapGradientCorrections.
+
+    Returns
+    -------
+    (groups, rows, cols) capacity, 0 on land.
+    """
+    depth = np.asarray(depth, dtype=float)
+    water = depth > 0
+    capacity_input = np.asarray(capacity_input, dtype=float)
+    preference = np.asarray(preference, dtype=float)
+    share = np.asarray(habitat_share, dtype=float)
+    n_groups = capacity_input.shape[0]
+    max_dist = max(depth.shape)
+    out = np.zeros((n_groups,) + depth.shape)
+    for g in range(n_groups):
+        # setHabCapFromCapInputMap
+        base = capacity_input[g]
+        cap = np.where(water, base if (base[water] > 0).any() else 1.0, 0.0)
+        # setHabCapFromHabitat: habitats after the first, by position
+        if int(cal_type[g]) & _EWE_CAPCAL_HABITAT and preference[g, 0] == 0:
+            habitat_sum = np.tensordot(preference[g, 1:], share[1:], axes=1)
+            cap = np.where(water, cap * habitat_sum, 0.0)
+        # normalizeCapacityMap
+        top = float(cap[water].max()) if water.any() else 0.0
+        if not top > 0:
+            name = names[g] if names is not None else f"group {g + 1}"
+            logger.warning(
+                "Ecospace group %s has no habitat capacity in any water cell; "
+                "its capacity is set to 1 (EwE divides by the zero maximum).",
+                name,
+            )
+            out[g] = np.where(water, 1.0, 0.0)
+            continue
+        cap = np.where(water, np.maximum(cap / top, _EWE_MIN_HABCAP), 0.0)
+        sweeps = _ewe_habcap_sweeps(mvel[g], pb[g], cell_length, max_dist)
+        cap = _ewe_adjust_low_habcap(cap, water, sweeps, gradient)
+        out[g] = np.where(water, np.maximum(cap, _EWE_MIN_HABCAP), 0.0)
+    return out
+
+
+def _yes(value, default: bool) -> bool:
+    """An EwE YESNO / integer flag, ``default`` when missing."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() in ("yes", "true", "1", "-1")
+    return bool(value)
+
+
+def _read_ewe_habitat_capacity(
+    db_path: str,
+    tables: Sequence[str],
+    scenario_id: int,
+    scenario_row,
+    depth: np.ndarray,
+    n_groups: int,
+    ecopath_pb: Optional[Sequence[float]] = None,
+) -> np.ndarray:
+    """Read an Ecospace scenario's capacity inputs and compute EwE's HabCap.
+
+    Inputs as ``cDBDataSource`` loads them: CapacityMap and HabitatMap
+    stored for water cells (DepthInput > 0), habitats in Sequence order,
+    preferences per (group, habitat), CapacityCalType defaulting to
+    Habitat. Groups are indexed by GroupID - 1, as elsewhere in
+    ``read_ecospace``. Returns ``(n_groups, rows, cols)`` maps.
+    """
+    n_rows, n_cols = depth.shape
+    water_in = (
+        _ewe_map_from_string(
+            scenario_row.get("DepthMap"), n_rows, n_cols, fill=1.0, name="DepthMap"
+        )
+        > 0
+    )
+
+    def _table(name):
+        if name not in tables:
+            return None
+        df = read_ewemdb_table(db_path, name)
+        if "ScenarioID" in df.columns:
+            df = df[df["ScenarioID"] == scenario_id]
+        return df
+
+    capacity_input = np.ones((n_groups, n_rows, n_cols))
+    cal_type = np.full(n_groups, _EWE_CAPCAL_HABITAT, dtype=int)
+    mvel = np.zeros(n_groups)
+    migratory = np.zeros(n_groups, dtype=bool)
+    ecopath_ids = list(range(1, n_groups + 1))
+    groups = _table("EcospaceScenarioGroup")
+    if groups is not None:
+        for _, row in groups.iterrows():
+            g = int(row["GroupID"]) - 1
+            if not 0 <= g < n_groups:
+                continue
+            mvel[g] = float(row.get("Mvel", 0.0))
+            cct = row.get("CapacityCalType")
+            if cct is not None and not (isinstance(cct, float) and np.isnan(cct)):
+                cal_type[g] = int(cct)
+            migratory[g] = _yes(row.get("IsMigratory"), False)
+            eid = row.get("EcopathGroupID")
+            if eid is not None and not (isinstance(eid, float) and np.isnan(eid)):
+                ecopath_ids[g] = int(eid)
+            capacity_input[g] = _ewe_map_from_string(
+                row.get("CapacityMap"),
+                n_rows,
+                n_cols,
+                fill=1.0,
+                name=f"CapacityMap of group {g + 1}",
+                water=water_in,
+            )
+
+    # Ecopath names and PB
+    names = [f"group {g + 1}" for g in range(n_groups)]
+    pb = np.full(n_groups, _EWE_NULL_VALUE)
+    ecopath = _table("EcopathGroup")
+    by_id = (
+        {int(r["GroupID"]): r for _, r in ecopath.iterrows()}
+        if ecopath is not None
+        else {}
+    )
+    for g in range(n_groups):
+        row = by_id.get(ecopath_ids[g])
+        if row is not None and row.get("GroupName") is not None:
+            names[g] = str(row["GroupName"]).strip()
+    if ecopath_pb is not None:
+        pb[:] = np.asarray(ecopath_pb, dtype=float)[:n_groups]
+    else:
+        for g in range(n_groups):
+            row = by_id.get(ecopath_ids[g])
+            if row is None:
+                continue
+            value = row.get("ProdBiom")
+            missing = (
+                value is None
+                or (isinstance(value, float) and np.isnan(value))
+                or float(value) == _EWE_NULL_VALUE
+            )
+            if not missing:
+                pb[g] = float(value)
+            elif int(row.get("Type", 0)) != 2:
+                logger.warning(
+                    "Ecospace group %s has no input PB; its habitat-capacity "
+                    "gradient gets no distance sweeps. Pass the balanced PB "
+                    "as ecopath_pb to follow EwE.",
+                    names[g],
+                )
+
+    # Habitats in Sequence order, their shares, and the preferences
+    habitats = _table("EcospaceScenarioHabitat")
+    habitat_share = np.zeros((1, n_rows, n_cols))
+    position = {}
+    if habitats is not None and len(habitats) > 0:
+        habitats = habitats.sort_values("Sequence", kind="stable")
+        habitat_share = np.zeros((len(habitats), n_rows, n_cols))
+        for k, (_, row) in enumerate(habitats.iterrows()):
+            position[int(row["HabitatID"])] = k
+            habitat_share[k] = _ewe_map_from_string(
+                row.get("HabitatMap"),
+                n_rows,
+                n_cols,
+                fill=0.0,
+                name=f"HabitatMap of habitat {int(row['HabitatID'])}",
+                water=water_in,
+            )
+    preference = np.zeros((n_groups, habitat_share.shape[0]))
+    preference[:, 0] = 1.0  # all habitats, until a preference says otherwise
+    prefs = _table("EcospaceScenarioGroupHabitat")
+    if prefs is not None:
+        for _, row in prefs.iterrows():
+            g = int(row["GroupID"]) - 1
+            k = position.get(int(row["HabitatID"]))
+            if not 0 <= g < n_groups or k is None:
+                continue
+            value = row.get("Preference", 1.0)
+            if value is None or (isinstance(value, float) and np.isnan(value)):
+                value = 1.0
+            preference[g, 0] = 0.0
+            preference[g, k] = float(value)
+
+    # What the reader leaves out
+    drivers = _table("EcospaceScenarioCapacityDrivers")
+    driven = (
+        {int(x) - 1 for x in drivers["GroupID"]}
+        if drivers is not None and len(drivers) > 0
+        else set()
+    )
+    for g in range(n_groups):
+        if cal_type[g] & _EWE_CAPCAL_ENV and g in driven:
+            logger.warning(
+                "Ecospace group %s: capacity environmental responses are not "
+                "applied to the habitat capacity read from EwE.",
+                names[g],
+            )
+        if migratory[g]:
+            logger.warning(
+                "Ecospace group %s is migratory: its habitat capacity is "
+                "normalised as a resident group's (migration maps are not read).",
+                names[g],
+            )
+
+    return _ewe_habitat_capacity(
+        depth,
+        capacity_input,
+        cal_type,
+        preference,
+        habitat_share,
+        mvel,
+        pb,
+        float(scenario_row.get("CellLength", 1.0)),
+        gradient=_yes(scenario_row.get("UseHabCapGradientCorrections"), True),
+        names=names,
+    )
 
 
 def _build_fallback_grid(

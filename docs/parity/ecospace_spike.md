@@ -81,7 +81,7 @@ With capacity off, PyPath's 304 patches stay identical: (max − min) / mean acr
 
 This case is the yardstick for each step. Step 3 and the nutrient pool are hypotheses until a step is measured against it:
 
-1. Read the depth map (the land mask) and EwE's per-group Ecospace inputs (Mvel and habitat) in `read_ecospace`. **Depth map done:** DepthMap and ExclusionMap give the grid's water cells, pinned to the oracle's 304 cells (`test_ecospace_depth_map.py`). Mvel was already read; the habitat and capacity maps are not yet.
+1. Read the depth map (the land mask) and EwE's per-group Ecospace inputs (Mvel and habitat) in `read_ecospace`. **Depth map done:** DepthMap and ExclusionMap give the grid's water cells, pinned to the oracle's 304 cells (`test_ecospace_depth_map.py`). Mvel was already read. **Habitat capacity done:** on EwE's grid `read_ecospace` sets each group's capacity as EwE's SetHabCap does (input capacity map, habitat preference x share, normalised by the maximum, the low-capacity gradient), pinned to the oracle's HabCap for all 22 groups and 304 cells to 1e-6 (`test_ecospace_habitat_capacity.py`); the capacity-on run on the reader's grid and capacity matches the run on the oracle's HabCap to 3e-8. Environmental responses and migration maps are not applied. Runs still apply the capacity only with environmental drivers (step 2).
 2. Apply habitat capacity always (B4).
 3. Add EatEff and RelVulBad, and producer PbSpace (B5).
 4. Compare the cell maps in `ecospace_maps.csv`, not only area means.
