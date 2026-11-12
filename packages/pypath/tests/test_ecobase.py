@@ -319,6 +319,8 @@ class TestEcobaseToRpath:
         }
 
         params = ecobase_to_rpath(model_data)
+        # EcoBase holds EwE models (roadmap decision D1)
+        assert params.compat == "ewe"
 
         # Check groups (use len(model) instead of ngroups)
         assert len(params.model) == 2

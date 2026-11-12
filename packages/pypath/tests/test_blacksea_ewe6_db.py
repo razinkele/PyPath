@@ -17,7 +17,6 @@ from pypath.core.ecopath import rpath
 from tests.test_ewef_import import ECOPATH_NML, ECOSIM_NML, EWEF_ECOPATH
 
 DB_PATH = Path(__file__).parents[3] / "Data" / "BlackSea_EwEF_testcase.eweaccdb"
-LIVING = [g for g in EWEF_ECOPATH if g not in ("POM", "Detritus")]
 
 pytestmark = pytest.mark.integration
 
@@ -42,7 +41,7 @@ def balanced():
         return rpath(params)
 
 
-@pytest.mark.parametrize("group", LIVING)
+@pytest.mark.parametrize("group", list(EWEF_ECOPATH))
 def test_database_balances_to_ewef(balanced, group):
     b, _, qb, ee = EWEF_ECOPATH[group]
     i = list(balanced.Group).index(group)

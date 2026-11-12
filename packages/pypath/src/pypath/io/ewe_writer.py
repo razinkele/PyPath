@@ -86,6 +86,7 @@ def _rpath_to_params(model: "Rpath") -> "RpathParams":
     types = [int(t) for t in model.type.tolist()]
 
     params = create_rpath_params(groups=groups, types=types)
+    params.compat = getattr(model, "compat", "rpath")
 
     n = len(groups)
     params.model["Biomass"] = model.Biomass[:n]

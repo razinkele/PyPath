@@ -74,6 +74,14 @@ class RpathParams:
         Comments/remarks for parameter values. Has same structure as model
         with string values containing remarks for each cell.
 
+    compat : {"rpath", "ewe"}
+        Whose conventions the model follows (roadmap decision D1): "ewe" for
+        models read from EwE (``read_ewemdb``, ``read_ewef``,
+        ``ecobase_to_rpath``), "rpath" (the default) for models built here or
+        read from Rpath CSVs. ``rpath()`` reports EwE's detritus routing for
+        "ewe" (see ``ewe_detritus_fate``). Ecosim's rules are chosen
+        separately (``rsim_scenario(fast_group_rule=...)``).
+
     Examples
     --------
     >>> params = create_rpath_params(
@@ -89,6 +97,7 @@ class RpathParams:
     pedigree: Optional[pd.DataFrame] = None
     remarks: Optional[pd.DataFrame] = None
     ecosim: Optional[Dict[str, Any]] = None
+    compat: str = "rpath"
 
     def __repr__(self) -> str:
         n_groups = len(self.model)

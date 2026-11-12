@@ -131,6 +131,8 @@ class Rpath:
     # Detritus import per group (t/km2/yr, 0 except on detritus groups);
     # Ecosim adds it as a constant inflow (EwE DetInFlow, audit A2)
     DetInput: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    # Whose conventions the model follows, from RpathParams.compat (D1)
+    compat: str = "rpath"
 
     def __repr__(self) -> str:
         max_ee = np.nanmax(self.EE[: self.NUM_LIVING + self.NUM_DEAD])
@@ -291,6 +293,9 @@ def rpath(
     >>> model = rpath(params, eco_name='Georges Bank')
     >>> print(model)
     """
+    compat = getattr(rpath_params, "compat", "rpath")
+    if compat not in ("rpath", "ewe"):
+        raise ValueError(f"compat must be 'rpath' or 'ewe', got {compat!r}")
     # Make a deep copy to avoid modifying original
     model_df = rpath_params.model.copy()
     diet_df = rpath_params.diet.copy()
@@ -836,7 +841,10 @@ def rpath(
         eco_name=eco_name,
         eco_area=eco_area,
         DetInput=det_input_full,
+        compat=compat,
     )
+    if compat == "ewe":
+        _report_ewe_detritus(rpath_obj)
 
     if debug:
         diagnostics = {
@@ -892,6 +900,24 @@ class EweDetritusFate:
     passed_on: np.ndarray
     ba: np.ndarray
     ee: np.ndarray
+
+
+def _report_ewe_detritus(model: Rpath) -> None:
+    """Give a model read from EwE its detritus EE and PB as EwE reports them.
+
+    rpath() balances detritus with Rpath v1.1's routing; EwE's
+    (:func:`ewe_detritus_fate`) differs where a pool has a fate to itself or
+    passes on detritus another pool passed to it. EE = eaten / inflow and
+    PB = inflow / B, from EwE's inflow. The routing reads only the living
+    groups and the fates, so it can follow the balance.
+    """
+    fate = ewe_detritus_fate(model)
+    dead = np.asarray(model.type) == 2
+    biomass = np.asarray(model.Biomass, dtype=float)
+    model.EE[dead] = fate.ee[dead]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        pb = np.where(biomass > 0, fate.input_to_det / biomass, 0.0)
+    model.PB[dead] = pb[dead]
 
 
 def ewe_detritus_fate(model: Rpath) -> EweDetritusFate:

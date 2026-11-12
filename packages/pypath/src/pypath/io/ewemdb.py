@@ -2146,6 +2146,7 @@ def read_ewemdb(
                 ecosim_meta["scenarios"].append(scen)
         params.ecosim = ecosim_meta
 
+    params.compat = "ewe"  # an EwE model (roadmap decision D1)
     return params
 
 
