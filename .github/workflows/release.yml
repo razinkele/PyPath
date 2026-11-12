@@ -224,8 +224,14 @@ jobs:
   create-github-release:
     name: Create GitHub Release
     needs: [release-core, release-shiny]
-    # !cancelled(): still run when release-shiny was skipped
-    if: ${{ !cancelled() && !inputs.dry_run && needs.release-core.outputs.released == 'true' }}
+    # !cancelled(): still run when release-shiny was skipped. The core job
+    # sets `released` before it publishes and tags, so it must also have
+    # succeeded: a failed upload otherwise leaves a GitHub release (and tag)
+    # on a commit that was never bumped.
+    if: >-
+      ${{ !cancelled() && !inputs.dry_run &&
+          needs.release-core.result == 'success' &&
+          needs.release-core.outputs.released == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -259,10 +265,14 @@ jobs:
   post-release:
     name: Run CI and deploy on the release commit
     needs: [release-core, release-shiny]
+    # Only for a package job that finished: `released` is set before the
+    # publish and tag steps, which can still fail.
     if: >-
       ${{ !cancelled() && !inputs.dry_run &&
-          (needs.release-core.outputs.released == 'true' ||
-           needs.release-shiny.outputs.released == 'true') }}
+          ((needs.release-core.result == 'success' &&
+            needs.release-core.outputs.released == 'true') ||
+           (needs.release-shiny.result == 'success' &&
+            needs.release-shiny.outputs.released == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
