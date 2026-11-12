@@ -820,6 +820,7 @@ def ecobase_to_rpath(
 
     # Store model name
     params.model_name = f"EcoBase Model {model_data.get('model_id', 'Unknown')}"
+    params.compat = "ewe"  # EcoBase holds EwE models (roadmap decision D1)
 
     return params
 

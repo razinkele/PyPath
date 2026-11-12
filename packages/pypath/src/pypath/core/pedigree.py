@@ -311,6 +311,7 @@ def apply_sample(params: "RpathParams", sample: dict) -> "RpathParams":
         pedigree=params.pedigree,
         remarks=params.remarks,
         ecosim=params.ecosim,
+        compat=params.compat,
     )
 
 

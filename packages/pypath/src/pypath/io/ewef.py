@@ -297,6 +297,7 @@ def read_ewef(
             from pypath.core.stanzas import rpath_stanzas
 
             params = rpath_stanzas(params)
+    params.compat = "ewe"  # an EwE model (roadmap decision D1)
     return params
 
 

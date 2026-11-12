@@ -121,16 +121,6 @@ EWEF_ECOPATH = {
 }
 GROUPS = list(EWEF_ECOPATH)
 
-# PyPath routes detritus as Rpath does: a pool's own fate share counts as its
-# input, and the surplus passed between pools comes from living inflows only.
-# EwE 6 (cEcoPathModel.CalcFateOfDetritus) and EwE-F (calculateDetritusFate)
-# skip a pool's own fate and pass surpluses in group order, each including
-# what earlier pools passed on. The Black Sea pools have both (POM -> POM 0.5,
-# Detritus -> Detritus 0.7, Detritus -> POM 0.3), so their EE differ.
-DETRITUS_ROUTING = pytest.mark.xfail(
-    strict=True, reason="Rpath vs EwE detritus-to-detritus routing"
-)
-
 
 @pytest.fixture(scope="module")
 def params():
@@ -212,13 +202,14 @@ def test_stanzas(params):
 # --- Ecopath balance against EwE-F --------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "group",
-    [
-        pytest.param(g, marks=DETRITUS_ROUTING) if g in ("POM", "Detritus") else g
-        for g in GROUPS
-    ],
-)
+def test_the_model_is_marked_as_from_ewe(params):
+    """EwE 6 (cEcoPathModel.CalcFateOfDetritus) and EwE-F
+    (calculateDetritusFate) route detritus between pools alike, and the
+    Black Sea pools need it (POM -> POM 0.5, Detritus -> POM 0.3)."""
+    assert params.compat == "ewe"
+
+
+@pytest.mark.parametrize("group", GROUPS)
 def test_biomass_and_ee_match_ewef(balanced, group):
     b, _, _, ee = EWEF_ECOPATH[group]
     i = list(balanced.Group).index(group)

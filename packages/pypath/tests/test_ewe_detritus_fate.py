@@ -124,6 +124,63 @@ def test_routings_agree_without_self_fates_or_cascades():
     assert np.all(fate.ba[dead] == 0.0)
 
 
+# --- Roadmap decision D1: where a model comes from -----------------------------
+
+
+def test_models_follow_rpath_by_default():
+    from pypath.core.ecopath import rpath
+
+    params = _params()
+    assert params.compat == "rpath"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert rpath(params).compat == "rpath"
+
+
+def test_models_from_ewe_report_ewes_detritus_routing():
+    """compat="ewe" (set by the EwE readers): rpath() reports EwE's detritus
+    EE, with PB = inflow / B; the living groups do not change."""
+    from pypath.core.ecopath import rpath
+
+    params = _params()
+    params.compat = "ewe"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = rpath(params)
+    assert model.compat == "ewe"
+    np.testing.assert_allclose(
+        model.EE[[POM - 1, DET - 1]], HAND["ee"], rtol=1e-12, atol=1e-15
+    )
+    np.testing.assert_allclose(
+        model.PB[[POM - 1, DET - 1]],
+        np.array(HAND["input_to_det"]) / [5000.0, 20000.0],
+        rtol=1e-12,
+    )
+    np.testing.assert_allclose(model.EE[:2], [0.32, 0.0], atol=1e-12)
+
+
+def test_compat_must_be_ewe_or_rpath():
+    from pypath.core.ecopath import rpath
+
+    params = _params()
+    params.compat = "ewe6"
+    with pytest.raises(ValueError, match="compat"):
+        rpath(params)
+
+
+def test_derived_params_keep_compat():
+    from pypath.core.ecopath import rpath
+    from pypath.core.pedigree import apply_sample
+    from pypath.io.ewe_writer import _rpath_to_params
+
+    params = _params()
+    params.compat = "ewe"
+    assert apply_sample(params, {}).compat == "ewe"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert _rpath_to_params(rpath(params)).compat == "ewe"
+
+
 def _scenario(rule="ewe"):
     from pypath.core.ecosim import rsim_scenario
 
@@ -341,6 +398,23 @@ def test_black_sea_routing_follows_the_ewe_oracle():
         j = names.index(group)
         got = (fate.input_to_det[j], fate.passed_on[j], fate.ba[j], fate.ee[j])
         np.testing.assert_allclose(got, expected, rtol=1e-6, err_msg=group)
+
+
+@pytest.mark.integration
+def test_black_sea_reports_ewes_detritus_ee():
+    from pypath.core.ecopath import rpath
+    from pypath.io.ewemdb import read_ewemdb
+
+    if not BLACKSEA.exists():
+        pytest.skip("Black Sea database not found")
+    params = read_ewemdb(str(BLACKSEA))
+    assert params.compat == "ewe"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = rpath(params)
+    names = [str(g).strip() for g in model.Group]
+    for group, (_, _, _, ee) in EWE_BLACKSEA_ECOPATH.items():
+        assert model.EE[names.index(group)] == pytest.approx(ee, rel=1e-6), group
 
 
 @pytest.mark.integration
