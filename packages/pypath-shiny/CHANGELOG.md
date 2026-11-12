@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.3.1 (2026-11-12)
+
+### Bug Fixes
+
+- **stanzas**: EwE's age table and Ford-Walford plus group (EwE rule)
+  ([`e32412a`](https://github.com/razinkele/PyPath/commit/e32412a97a20363a74744efbe4dc2a06572d2be6))
+
+
 ## v1.3.0 (2026-11-09)
 
 ### Bug Fixes
