@@ -210,10 +210,10 @@ def _build_balance_system(
     original_no_pb : array of bool, indexed by global group index
     unknown_biomass_mask : array of bool (length nliving), True if biomass unknown
     living_migration : array of float, Emigration - Immigration (flows), or None
-    living_emig_rate : array of float, EmigRate (per unit of biomass) where
-        Emigration is 0, or None. EwE counts it as EmigRate x B
-        (cEcoPathModel.vb:466-468): on the right-hand side when B is known,
-        on the diagonal when B is solved.
+    living_emig_rate : array of float, per-biomass terms of the balance or
+        None: EmigRate where Emigration is 0 plus BiomAccRate where BiomAcc is
+        0. EwE counts them as rate x B (cEcoPathModel.vb:466-468, 2097): on
+        the right-hand side when B is known, on the diagonal when B is solved.
 
     Returns
     -------
@@ -359,6 +359,10 @@ def rpath(
     immigration = _group_values("Immigration")
     emigration = _group_values("Emigration")
     emig_rate = np.where(emigration == 0, _group_values("EmigRate"), 0.0)
+    # BiomAccRate where BiomAcc is 0 counts as BiomAccRate x B, like EmigRate
+    # (cEcoPathModel.vb:466, 2047, 2097); its BA is reported after the solve
+    ba_rate = np.where(bioacc == 0, _group_values("BioAccRate"), 0.0)
+    balance_rate = emig_rate + ba_rate
     unassim = np.where(np.isnan(unassim), 0.0, unassim)
 
     # Get diet matrix - columns are predators (living groups only)
@@ -503,7 +507,7 @@ def rpath(
         living_bioacc = bioacc[living_idx]
         living_catch = totcatch[living_idx]
         living_migration = emigration[living_idx] - immigration[living_idx]
-        living_emig_rate = emig_rate[living_idx]
+        living_rate = balance_rate[living_idx]
         # Determine which variables are unknown in this iteration
         living_no_b = np.isnan(living_biomass)
         living_no_ee = np.isnan(living_ee)
@@ -530,7 +534,7 @@ def rpath(
             original_no_pb,
             pred_unknown_mask,
             living_migration=living_migration,
-            living_emig_rate=living_emig_rate,
+            living_emig_rate=living_rate,
         )
 
         # Validate
@@ -653,6 +657,8 @@ def rpath(
         nodetrdiet,
         original_no_pb,
         pred_unknown_mask,
+        living_migration=emigration[living_idx] - immigration[living_idx],
+        living_emig_rate=balance_rate[living_idx],
     )
 
     # Save final solve results in context for debug output
@@ -668,6 +674,9 @@ def rpath(
             x = np.linalg.lstsq(A, b_vec, rcond=1e-6)[0]
         except (ValueError, np.linalg.LinAlgError) as e:
             raise ValueError("Unable to solve linear system during balancing") from e
+
+    # A rate group's biomass accumulation, BiomAccRate x the solved B
+    bioacc = np.where(ba_rate != 0, ba_rate * np.nan_to_num(biomass), bioacc)
 
     # Calculate M0 (other mortality) for living groups (detritus handled after
     # detritus PB/biomass is computed below)
