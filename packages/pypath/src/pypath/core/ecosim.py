@@ -1375,6 +1375,13 @@ def _migration_vectors(
             by_flow = np.where(
                 b_baseref[det] > 0, emigration[dead] / b_baseref[det], 0.0
             )
+            no_base = (b_baseref[det] <= 0) & (emigration[dead] != 0)
+            if np.any(no_base):
+                logger.warning(
+                    "Detritus groups %s have Emigration but no start biomass; "
+                    "Emig = Emigration / B0 is left out (EwE divides by 0)",
+                    list(np.nonzero(no_base)[0] + nliving + 1),
+                )
             emig_sim[det] = np.where(emig_rate[dead] > 0, emig_rate[dead], by_flow)
     return immigration_sim, emig_sim
 

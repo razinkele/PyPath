@@ -150,10 +150,28 @@ def test_immigration_joins_the_inflow_and_emigration_leaves_detritus_out(
     assert out1 - out0 == pytest.approx(50.0 / 10.0 - 2.0, rel=1e-9)
     assert r1["DetLoss"][DET] == pytest.approx((2.0 + out1) * s1[DET], rel=1e-12)
     assert r1["DetLoss"][DET] == pytest.approx(r1["DetGain"][DET], rel=1e-9)
+    # the fast-pool biomeq terms carry the immigration once
+    assert r1["TotGain"][DET] == pytest.approx(r1["DetGain"][DET], rel=1e-12)
+    assert r1["TotLoss"][DET] == pytest.approx(r1["DetLoss"][DET], rel=1e-12)
 
 
-def test_the_base_holds_with_detritus_migration():
-    out = EC.rsim_run(_scenario(_params(**MIGRATION)), method="RK4")
+@pytest.mark.parametrize("det_b", [10.0, 40.0])  # solved fast / integrated
+def test_the_base_holds_with_detritus_migration(det_b):
+    sc = _scenario(_params(det_b=det_b, **MIGRATION))
+    assert sc.params.NoIntegrate[DET] == (1 if det_b == 10.0 else 0)
+    out = EC.rsim_run(sc, method="RK4")
+    np.testing.assert_allclose(out.out_Biomass[-1], out.out_Biomass[0], rtol=1e-9)
+
+
+def test_an_integrated_pool_takes_its_emigration_rate(monkeypatch):
+    """Det B 40 is integrated; with EmigRate 0.5 its DetritusOut is 709 / 40
+    - 0.5, its loss (0.5 + DetritusOut) x 40 = 709, and the base holds."""
+    sc = _scenario(_params(det_b=40.0, EmigRate={"Det": 0.5}))
+    assert sc.params.NoIntegrate[DET] == 0
+    rates, det_out, s = _first_call(monkeypatch, sc)
+    assert det_out == pytest.approx(rates["DetGain"][DET] / s[DET] - 0.5, rel=1e-12)
+    assert rates["DetLoss"][DET] == pytest.approx(rates["DetGain"][DET], rel=1e-9)
+    out = EC.rsim_run(_scenario(_params(det_b=40.0, EmigRate={"Det": 0.5})))
     np.testing.assert_allclose(out.out_Biomass[-1], out.out_Biomass[0], rtol=1e-9)
 
 
@@ -207,10 +225,15 @@ def test_a_detritus_emigration_rate_counts_where_emigration_is_0(monkeypatch):
 
 
 def test_the_rpath_rule_reports_and_ignores_detritus_migration(monkeypatch, caplog):
+    with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
+        plain = _scenario(_params(Immigration={"Zoo": 1.0}), rule="rpath")
+    assert "detritus migration" not in caplog.text.lower()
+    caplog.clear()
     r0, _, _ = _first_call(monkeypatch, _scenario(_params(), rule="rpath"))
+    del plain
     with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
         sc = _scenario(_params(**MIGRATION), rule="rpath")
-    assert "detritus" in caplog.text.lower() and "migration" in caplog.text.lower()
+    assert caplog.text.lower().count("detritus migration") == 1
     r1, _, _ = _first_call(monkeypatch, sc)
     assert r1["DetGain"][DET] == pytest.approx(r0["DetGain"][DET], rel=1e-12)
 
@@ -221,6 +244,32 @@ def test_the_fast_group_test_counts_detritus_immigration():
     equilibrium."""
     assert _scenario(_params(det_b=40.0)).params.NoIntegrate[DET] == 0
     sc = _scenario(_params(det_b=40.0, Immigration={"Det": 400.0}))
+    assert sc.params.NoIntegrate[DET] == 1
+
+
+def test_a_pool_without_base_biomass_reports_its_emigration(caplog):
+    """Emig = Emigration / B0 needs B0 > 0; EwE divides by 0 there. PyPath
+    leaves the pool's emigration out and says so."""
+    from pypath.core.ecosim import _migration_vectors
+
+    class Model:
+        Immigration = np.array([0.0, 0.0, 0.0, 3.0])
+        Emigration = np.array([0.0, 0.0, 0.0, 2.0])
+        EmigRate = np.zeros(4)
+
+    b0 = np.array([1.0, 100.0, 20.0, 5.0, 0.0])
+    with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
+        immig, emig = _migration_vectors(Model, b0, 3, 1, detritus=True)
+    assert immig[DET] == 3.0 and emig[DET] == 0.0
+    assert "biomass" in caplog.text.lower()
+
+
+def test_the_fast_group_test_floors_detritus_out():
+    """Det B 40 with Emigration 1000 (Emig 25 a year): its surplus, 709 /
+    40 = 17.7 a year, is below Emig, so EwE's first loss is Emig x B + 1e-20
+    x B, 25 a year > 24, and Det is solved at its equilibrium; inflow - BA
+    would give 17.7."""
+    sc = _scenario(_params(det_b=40.0, Emigration={"Det": 1000.0}))
     assert sc.params.NoIntegrate[DET] == 1
 
 
