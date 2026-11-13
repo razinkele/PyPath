@@ -5619,7 +5619,7 @@ def read_ecospace(
         )
     try:
         group_index = _ecospace_group_index(db_path, tables, scenario_id, n_groups)
-    except (KeyError, ValueError, TypeError) as e:
+    except (EwEDatabaseError, KeyError, ValueError, TypeError) as e:
         logger.warning("Failed to map Ecospace groups: %s", e)
         group_index = {}
 
@@ -5685,7 +5685,7 @@ def read_ecospace(
             habitat_capacity = capacity_maps[
                 :, meta["row"].to_numpy(), meta["col"].to_numpy()
             ]
-        except (KeyError, ValueError, TypeError) as e:
+        except (EwEDatabaseError, KeyError, ValueError, TypeError) as e:
             logger.warning(
                 "Failed to read the habitat capacity: %s; capacity set to 1", e
             )
@@ -5937,7 +5937,9 @@ def _ewe_habcap_sweeps(mvel: float, pb: float, cell_length: float, max_dist: int
     (infinite) or ``max_dist`` sweeps (huge).
     """
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-        v = np.float32(mvel) / np.float32(pb) / (np.float32(cell_length) / 2)
+        # Every operand float32: NumPy 1.x turns float32 / int into float64.
+        half_cell = np.float32(cell_length) / np.float32(2)
+        v = np.float32(mvel) / np.float32(pb) / half_cell
     if not np.isfinite(v):
         return 0
     return max(0, min(int(round(float(v))), max_dist))  # CInt: half to even
