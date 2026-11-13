@@ -967,7 +967,7 @@ def rsim_run_spatial(
     SORWT = 0.5
 
     # B3: the groups that diffuse, implicitly after each RK4 step by default
-    from pypath.spatial.dispersal import implicit_diffusion_step
+    from pypath.spatial.dispersal import implicit_diffusion_step, movement_capacity
 
     moving_rows = _moving_rows(
         ecospace, params_dict, n_groups, fast_mask if use_fast else None
@@ -1169,6 +1169,7 @@ def rsim_run_spatial(
                         ecospace.grid.adjacency_matrix,
                         hh,
                         cache=diffusion_lu,
+                        capacity=movement_capacity(ecospace, row - 1),
                     )
 
         # Prevent negative biomass
