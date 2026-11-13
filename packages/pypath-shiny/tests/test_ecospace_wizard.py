@@ -194,3 +194,20 @@ def test_wizard_download_task_alert_success_prefers_message():
 
     assert css_class == "text-success mt-2"
     assert message == "Done! 5 habitat features"
+
+
+def test_wizard_environmental_drivers_hold_depth_and_salinity():
+    # EnvironmentalDrivers takes its layers as a dict by name; given a list,
+    # "Create Ecospace Model" failed whenever depth or salinity was loaded.
+    import numpy as np
+    from pypath.spatial.environmental import EnvironmentalLayer
+
+    from pypath_shiny.pages.ecospace_wizard import wizard_environmental_drivers
+
+    salinity = EnvironmentalLayer(
+        name="salinity", units="psu", values=np.array([7.0, 8.0])
+    )
+    drivers = wizard_environmental_drivers(np.array([10.0, 30.0]), salinity)
+    assert set(drivers.layers) == {"depth", "salinity"}
+    assert drivers.n_patches == 2
+    assert wizard_environmental_drivers() is None
