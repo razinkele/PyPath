@@ -62,7 +62,7 @@ EcosimTimeSeries,ecosim,true,true,false,true,partial,"read: DatType, TimeValues,
 EcosimTimeSeriesDataset,ecosim,true,true,false,true,partial,"read: DataInterval (annual data compared at the start of month 6, time-step data every month)"
 EcosimTimeSeriesFleet,ecosim,true,true,false,false,partial,read: links effort series to fleets (read_timeseries)
 EcosimTimeSeriesGroup,ecosim,true,true,false,false,partial,read: links series to groups by EcopathGroupID (read_timeseries)
-EcospaceScenario,ecospace,true,true,true,true,implemented,"DepthMap and ExclusionMap read: the grid built without a user grid holds EwE's water cells (Depth > 0; checked against the oracle on the Black Sea test case), placed as EwE's basemap: MinLat / MinLon are the top-left corner and cells are CellLength / DegreeToKm degrees; RelPPMap, RelCinMap, DepthAMap, RegionMap, FlowMap, CellAreaMap and EffortZoneMap not read"
+EcospaceScenario,ecospace,true,true,true,true,implemented,"DepthMap and ExclusionMap read: the grid built without a user grid holds EwE's water cells (Depth > 0; checked against the oracle on the Black Sea test case), placed as EwE's basemap: MinLat / MinLon are the top-left corner and cells are CellLength / DegreeToKm degrees (read_ecospace(grid_corner='south_west') for databases that store the south-west corner, as the Black Sea EwE-F test case does); RelPPMap, RelCinMap, DepthAMap, RegionMap, FlowMap, CellAreaMap and EffortZoneMap not read"
 EcospaceScenarioCapacityDrivers,ecospace,true,true,true,true,implemented,
 EcospaceScenarioDataConnection,ecospace,true,true,true,true,implemented,
 EcospaceScenarioDataConnectionDisabled,ecospace,true,true,true,true,implemented,

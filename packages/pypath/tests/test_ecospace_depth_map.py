@@ -269,3 +269,52 @@ def test_black_sea_grid_is_the_ewe_oracle_water_cells():
         [24.7631 + 13.5 * cell, 38.558922 - 7.5 * cell],
         rtol=1e-6,
     )
+
+
+# --- the grid's corner: EwE's north-west, or a database's south-west ---
+
+
+def test_a_south_west_corner_moves_the_grid_north_by_its_height():
+    # The Black Sea EwE-F test database stores its south-west corner in
+    # MinLat / MinLon. Read so, the same cells sit n_rows cells further north.
+    cell = 0.5 * DEGREE_KM
+    nw = _build_fallback_grid(2, 3, cell_length=cell, min_lon=20.0, min_lat=56.0)
+    sw = _build_fallback_grid(
+        2, 3, cell_length=cell, min_lon=20.0, min_lat=55.0, corner="south_west"
+    )
+    np.testing.assert_allclose(sw.patch_centroids, nw.patch_centroids)
+
+
+def test_the_corner_leaves_diffusion_distances_alone():
+    from pypath.spatial.dispersal import _get_diffusion_edge_data
+
+    nw = _build_fallback_grid(3, 3, cell_length=36.7, min_lon=24.76, min_lat=38.56)
+    sw = _build_fallback_grid(
+        3, 3, cell_length=36.7, min_lon=24.76, min_lat=38.56, corner="south_west"
+    )
+    np.testing.assert_allclose(
+        _get_diffusion_edge_data(sw, sw.adjacency_matrix)[3],
+        _get_diffusion_edge_data(nw, nw.adjacency_matrix)[3],
+        rtol=1e-12,
+    )
+
+
+def test_an_unknown_corner_is_rejected():
+    with pytest.raises(ValueError, match="corner"):
+        _build_fallback_grid(2, 2, cell_length=1.0, corner="middle")
+
+
+@pytest.mark.integration
+def test_black_sea_grid_with_its_south_west_corner_lies_on_the_sea():
+    if not BLACK_SEA.exists():
+        pytest.skip(f"{BLACK_SEA.name} not found")
+    from pypath.io.ewemdb import check_ewemdb_support, read_ecospace
+
+    if not any(check_ewemdb_support().values()):
+        pytest.skip("No EwE database driver")
+    grid = read_ecospace(
+        str(BLACK_SEA), n_groups=22, grid_corner="south_west"
+    ).ecospace.grid
+    lat = grid.patch_centroids[:, 1]
+    # between the Turkish coast (~41 N) and the north-west shelf (~46.6 N)
+    assert 40.8 < lat.min() and lat.max() < 46.8
