@@ -123,6 +123,20 @@ def test_ecosim_still_applies_the_nutrient_forcing():
     assert not np.allclose(ends[0], ends[1])
 
 
+def test_a_constant_habitat_row_is_a_uniform_habitat():
+    # EwE normalises each group's capacity by its maximum (normalizeCapacityMap),
+    # so a constant row is 1 everywhere: no habitat ratio, full feeding
+    # efficiency, whatever its value
+    from pypath.spatial.integration import _raw_capacity
+
+    eco = _ecospace([1.0, 0.5, 0.2])
+    eco.habitat_capacity[1] = 0.5  # Plankton: the same everywhere
+    eco.habitat_capacity[0] = [0.8, 0.4, 0.16]  # Fish: a pattern, maximum 0.8
+    cap = _raw_capacity(eco, 5, 3)
+    np.testing.assert_allclose(cap[2], 1.0)
+    np.testing.assert_allclose(cap[1], [1.0, 0.5, 0.2])
+
+
 def test_a_uniform_run_keeps_the_ecosim_kernel():
     # without a habitat pattern the calibration is Ecosim's: patches at the
     # same density stay identical

@@ -138,10 +138,13 @@ def _capacity_matrix(ecospace, mpa_cap_mult, n_rows, n_patches, patch_share):
 
 
 def _raw_capacity(ecospace, n_rows, n_patches):
-    """Each group's habitat capacity per patch (EwE's HabCap, 0 to 1), or None.
+    """Each group's habitat capacity per patch as EwE's HabCap, or None.
 
     Rows by state index: row 0 (Outside) and groups without a capacity row
-    are 1. None when no group's capacity varies over the patches.
+    are 1. Each row is divided by its maximum, as EwE's normalizeCapacityMap
+    does, so it peaks at 1 and a constant row is 1 everywhere (maps read
+    from an EwE database already peak at 1). None when no group's capacity
+    varies over the patches.
     """
     raw = getattr(ecospace, "habitat_capacity", None)
     if raw is None:
@@ -150,6 +153,8 @@ def _raw_capacity(ecospace, n_rows, n_patches):
     cap = np.ones((n_rows, n_patches))
     k = min(raw.shape[0], n_rows - 1)
     cap[1 : k + 1] = raw[:k]
+    peak = cap.max(axis=1, keepdims=True)
+    cap = np.where(peak > 0, cap / np.where(peak > 0, peak, 1.0), 1.0)
     varied = any(not np.all(row == row[0]) for row in cap[1:])
     return cap if varied else None
 
