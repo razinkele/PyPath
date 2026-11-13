@@ -74,6 +74,17 @@ try:
 except ImportError:
     pass
 
+from pypath.io.ewe_official import (
+    EweModel,
+    read_ewe_model,
+)
+from pypath.io.model_importer import (
+    ModelMetadata,
+    ModelRegistry,
+    ModelStatistics,
+    load_model_directory,
+    quick_load,
+)
 from pypath.io.utils import (
     estimate_pb_from_growth,
     estimate_qb_from_tl_pb,
@@ -106,6 +117,15 @@ __all__ = [
     "get_ewemdb_metadata",
     "check_ewemdb_support",
     "EwEDatabaseError",
+    # EwE Official (SQLite/Access)
+    "read_ewe_model",
+    "EweModel",
+    # Model import/registry
+    "load_model_directory",
+    "quick_load",
+    "ModelRegistry",
+    "ModelMetadata",
+    "ModelStatistics",
     # EwE-F
     "read_ewef",
     "read_ewef_ecosim",

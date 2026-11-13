@@ -132,3 +132,8 @@ smoke_failure_*.png
 smoke_failure_*.html
 smoke_console_*.log
 smoke_exit_code.txt
+
+# Local review notes, EwE source copies, papers and browser snapshots
+docs/reviews/
+docs/*.pdf
+.playwright-mcp/

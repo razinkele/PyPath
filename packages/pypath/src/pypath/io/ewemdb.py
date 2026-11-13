@@ -4835,7 +4835,8 @@ def check_ewemdb_support() -> Dict[str, bool]:
         - pyodbc: True if pyodbc is installed
         - pypyodbc: True if pypyodbc is installed
         - mdb_tools: True if mdb-tools is available
-        - any_available: True if any driver works
+        - any_available: True if any of them is installed (pyodbc still
+          needs an Access ODBC driver to read a database)
     """
     return {
         "pyodbc": HAS_PYODBC,
