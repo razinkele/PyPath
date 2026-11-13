@@ -1,330 +1,155 @@
-"""Tests for Official EwE format readers (SQLite and Access).
+"""Official EwE model files: the Access database, and what SQLite files are.
 
-Tests cover:
-- SQLite database reading and inspection
-- Auto-format detection
-- Error handling (missing files, unsupported formats)
-- Model data structure validation
-- Comparison utilities
+EwE stores a model in an Access database (.ewemdb / .eweaccdb: EcopathModel,
+EcopathGroup, EcopathDietComp, EcopathFleet, EcopathCatch, ...).
+``read_ewe_access`` reads those tables through ``ewemdb.read_ewemdb_table``
+(mdb-tools or an ODBC driver), the same access PyPath's model reader uses.
+
+EwE's ``.vc.sqlite`` files hold its Value Chain plug-in's economic data
+(producer, processing, wholesaler, retailer and consumer units, trade links
+and landings), not an Ecopath model; ``read_ewe_sqlite`` says so.
 """
 
-import pytest
+import sqlite3
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+
+import pandas as pd
+import pytest
 
 from pypath.io import ewe_official
+from pypath.io.ewe_official import EweModel, compare_models, read_ewe_model
+
+DATA = Path(__file__).resolve().parents[4] / "Data"
+BLACK_SEA = DATA / "BlackSea_EwEF_testcase.eweaccdb"
+LT2022 = DATA / "LT2022_0.5ST_final7.eweaccdb"
 
 
-class TestEweModelDataclass:
-    """Test EweModel container."""
-    
-    def test_ewe_model_creation(self):
-        """Test basic model creation."""
-        model = ewe_official.EweModel(
-            name="Test Model",
-            author="Test Author",
-            source_format=".sqlite"
-        )
-        assert model.name == "Test Model"
-        assert model.author == "Test Author"
-        assert model.source_format == ".sqlite"
-        assert model.groups is None
-        assert model.diet is None
-    
-    def test_ewe_model_repr(self):
-        """Test model string representation."""
-        model = ewe_official.EweModel(name="TestModel", source_format=".sqlite")
-        repr_str = repr(model)
-        assert "TestModel" in repr_str
-        assert "sqlite" in repr_str
-        assert "EweModel" in repr_str
+def _ewemdb_available(path):
+    if not path.exists():
+        return False
+    from pypath.io.ewemdb import check_ewemdb_support
+
+    return any(check_ewemdb_support().values())
 
 
-class TestAutoFormatDetection:
-    """Test auto-format detection by file extension."""
-    
-    def test_sqlite_detection(self):
-        """Test .sqlite format detection."""
-        path = Path("test_model.sqlite")
-        with patch.object(Path, 'exists', return_value=True):
-            with patch('pypath.io.ewe_official.read_ewe_sqlite') as mock:
-                mock.return_value = ewe_official.EweModel(source_format=".sqlite")
-                result = ewe_official.read_ewe_model(path)
-                mock.assert_called_once_with(path)
-    
-    def test_ewemdb_detection(self):
-        """Test .EwEmdb format detection."""
-        path = Path("test_model.EwEmdb")
-        with patch.object(Path, 'exists', return_value=True):
-            with patch('pypath.io.ewe_official.read_ewe_access') as mock:
-                mock.return_value = ewe_official.EweModel(source_format=".ewemdb")
-                result = ewe_official.read_ewe_model(path)
-                mock.assert_called_once_with(path)
-    
-    def test_accdb_detection(self):
-        """Test .accdb format detection."""
-        path = Path("test_model.accdb")
-        with patch.object(Path, 'exists', return_value=True):
-            with patch('pypath.io.ewe_official.read_ewe_access') as mock:
-                mock.return_value = ewe_official.EweModel(source_format=".accdb")
-                result = ewe_official.read_ewe_model(path)
-                mock.assert_called_once_with(path)
-    
-    def test_unsupported_format_error(self):
-        """Test error on unsupported format."""
-        path = Path("test_model.txt")
-        with patch.object(Path, 'exists', return_value=True):
-            with pytest.raises(ValueError, match="Unsupported EwE format"):
-                ewe_official.read_ewe_model(path)
-    
-    def test_file_not_found_error(self):
-        """Test error when file does not exist."""
-        path = Path("/nonexistent/path/model.sqlite")
-        with pytest.raises(FileNotFoundError):
-            ewe_official.read_ewe_model(path)
+needs_access = pytest.mark.skipif(
+    not _ewemdb_available(BLACK_SEA), reason="EwE test database or driver missing"
+)
 
 
-class TestSqliteReading:
-    """Test SQLite database reading."""
-    
-    def test_sqlite_missing_file(self):
-        """Test error on missing SQLite file."""
-        path = Path("/nonexistent/model.sqlite")
-        with pytest.raises(FileNotFoundError):
-            ewe_official.read_ewe_sqlite(path)
-    
-    @patch('sqlite3.connect')
-    def test_sqlite_read_basic(self, mock_connect):
-        """Test basic SQLite reading with mocked database."""
-        # Mock connection and cursor
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_connect.return_value = mock_conn
-        mock_conn.cursor.return_value = mock_cursor
-        
-        # Mock table list query
-        mock_cursor.fetchall.side_effect = [
-            [('Unit',), ('Link',), ('Parameters',)],  # table list
-        ]
-        
-        # Call function with a real file (or mocked exists)
-        with patch.object(Path, 'exists', return_value=True):
-            path = Path("test.sqlite")
-            model = ewe_official.read_ewe_sqlite(path)
-        
-        # Verify
-        assert model.source_format == '.sqlite'
-        mock_conn.close.assert_called_once()
-    
-    def test_inspect_sqlite_tables(self):
-        """Test database inspection (requires real file or mock)."""
-        # This would require a real SQLite file or comprehensive mocking
-        # For now, just test the function signature
-        with patch('sqlite3.connect') as mock_connect:
-            mock_conn = MagicMock()
-            mock_cursor = MagicMock()
-            mock_connect.return_value = mock_conn
-            mock_conn.cursor.return_value = mock_cursor
-            
-            # Mock table structure - return empty tables first
-            mock_cursor.fetchall.side_effect = [
-                [('Unit',), ('Link',)],  # table names
-                [],  # count for Unit - but wait, fetchall returns list of tuples
-            ]
-            
-            # Use COUNT which returns a single value
-            def mock_execute(query):
-                mock_cursor.fetchone = MagicMock(return_value=(0,))
-            
-            mock_cursor.execute = mock_execute
-            
-            path = Path("test.sqlite")
-            structure = ewe_official.inspect_ewe_sqlite(path)
-            
-            assert 'tables' in structure
-            # Should have found tables even if empty
-            assert len(structure['tables']) >= 0
+# --- the container ---
 
 
-class TestAccessReading:
-    """Test Access database reading (Windows-specific)."""
-    
-    def test_access_pyodbc_not_available(self):
-        """Test error message when pyodbc not available."""
-        path = Path("test.EwEmdb")
-        # The module-level HAS_PYODBC is already False on Linux
-        with pytest.raises(ImportError, match="pyodbc is required"):
-            ewe_official.read_ewe_access(path)
-    
-    @pytest.mark.skipif(
-        not ewe_official.HAS_PYODBC,
-        reason="pyodbc not available (expected on Linux)"
+def test_ewe_model_repr():
+    model = EweModel(name="Test", groups=pd.DataFrame({"GroupName": ["A", "B"]}))
+    assert repr(model) == "EweModel(name='Test', n_groups=2, source='None')"
+
+
+def test_compare_models_reports_differences():
+    a = EweModel(name="A", groups=pd.DataFrame({"x": [1, 2]}))
+    b = EweModel(name="B", groups=pd.DataFrame({"x": [1, 2, 3]}))
+    result = compare_models(a, b)
+    assert result["status"] == "Differences found"
+    assert any("Group count: 2 vs 3" in d for d in result["differences"])
+
+
+# --- format detection ---
+
+
+def test_a_missing_file_is_reported(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        read_ewe_model(tmp_path / "missing.ewemdb")
+
+
+def test_an_unknown_format_is_rejected(tmp_path):
+    path = tmp_path / "model.txt"
+    path.write_text("x")
+    with pytest.raises(ValueError, match="Unsupported"):
+        read_ewe_model(path)
+
+
+@needs_access
+def test_eweaccdb_files_are_read_as_access_databases():
+    assert read_ewe_model(BLACK_SEA).source_format == ".eweaccdb"
+
+
+# --- the Access database ---
+
+
+@needs_access
+@pytest.mark.parametrize("path", [BLACK_SEA, LT2022], ids=["black_sea", "lt2022"])
+def test_access_tables_are_the_databases_own(path):
+    from pypath.io.ewemdb import read_ewemdb_table
+
+    model = read_ewe_model(path)
+    groups = read_ewemdb_table(str(path), "EcopathGroup")
+    order = "Sequence" if "Sequence" in groups.columns else "GroupID"
+    want_names = list(groups.sort_values(order, kind="stable")["GroupName"])
+    assert list(model.groups["GroupName"]) == want_names
+    assert len(model.diet) == len(read_ewemdb_table(str(path), "EcopathDietComp"))
+    assert len(model.fleet) == len(read_ewemdb_table(str(path), "EcopathFleet"))
+    assert len(model.landings) == len(read_ewemdb_table(str(path), "EcopathCatch"))
+    meta = read_ewemdb_table(str(path), "EcopathModel").iloc[0]
+    assert model.name == meta["Name"]
+
+
+def test_a_missing_core_table_is_a_warning(monkeypatch, tmp_path, caplog):
+    import logging
+
+    path = tmp_path / "model.eweaccdb"
+    path.write_bytes(b"")
+    tables = {"EcopathModel": pd.DataFrame([{"ModelID": 1, "Name": "M", "Author": ""}])}
+    monkeypatch.setattr("pypath.io.ewemdb.list_ewemdb_tables", lambda p: list(tables))
+    monkeypatch.setattr("pypath.io.ewemdb.read_ewemdb_table", lambda p, t: tables[t])
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewe_official"):
+        model = read_ewe_model(path)
+    assert model.groups is None and model.diet is None
+    assert "EcopathGroup" in caplog.text and "EcopathDietComp" in caplog.text
+
+
+# --- SQLite files ---
+
+
+def _sqlite(path, tables):
+    con = sqlite3.connect(path)
+    for name, columns in tables.items():
+        con.execute(f"CREATE TABLE [{name}] ({', '.join(columns)})")
+    con.commit()
+    con.close()
+    return path
+
+
+def test_a_value_chain_database_is_not_read_as_a_model(tmp_path):
+    path = _sqlite(
+        tmp_path / "Anchovy Bay Spatial.vc.sqlite",
+        {
+            "Unit": ["DBID", "Sequence", "Name", "Nationality", "NameLocal"],
+            "Link": ["DBID", "Source", "Target"],
+            "ProducerUnit": ["DBID"],
+            "RetailerUnit": ["DBID"],
+        },
     )
-    @patch('pyodbc.connect')
-    def test_access_read_with_pyodbc(self, mock_connect):
-        """Test Access reading with mocked pyodbc."""
-        # Mock connection
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_connect.return_value = mock_conn
-        mock_conn.cursor.return_value = mock_cursor
-        
-        # Call function with exists mock
-        with patch.object(Path, 'exists', return_value=True):
-            path = Path("test.EwEmdb")
-            model = ewe_official.read_ewe_access(path)
-        
-        # Verify
-        assert model.source_format == '.ewemdb'
-        mock_conn.close.assert_called_once()
+    with pytest.raises(ValueError, match="Value Chain"):
+        read_ewe_model(path)
 
 
-class TestModelComparison:
-    """Test model comparison utilities."""
-    
-    def test_compare_identical_models(self):
-        """Test comparison of identical models."""
-        model1 = ewe_official.EweModel(
-            name="Generic_37",
-            source_file=Path("model1.sqlite"),
-            source_format=".sqlite"
-        )
-        model2 = ewe_official.EweModel(
-            name="Generic_37",
-            source_file=Path("model2.sqlite"),
-            source_format=".sqlite"
-        )
-        
-        comparison = ewe_official.compare_models(model1, model2)
-        
-        assert comparison['status'] == 'Models appear identical'
-        assert len(comparison['differences']) == 0
-    
-    def test_compare_different_names(self):
-        """Test comparison with different names."""
-        model1 = ewe_official.EweModel(name="Model1")
-        model2 = ewe_official.EweModel(name="Model2")
-        
-        comparison = ewe_official.compare_models(model1, model2)
-        
-        assert comparison['status'] == 'Differences found'
-        assert any("Name" in diff for diff in comparison['differences'])
-    
-    def test_compare_different_group_counts(self):
-        """Test comparison with different group counts."""
-        import pandas as pd
-        
-        model1 = ewe_official.EweModel(
-            groups=pd.DataFrame({'id': [1, 2, 3]})
-        )
-        model2 = ewe_official.EweModel(
-            groups=pd.DataFrame({'id': [1, 2]})
-        )
-        
-        comparison = ewe_official.compare_models(model1, model2)
-        
-        assert comparison['status'] == 'Differences found'
-        assert any("Group count" in diff for diff in comparison['differences'])
+def test_an_sqlite_file_without_ewe_tables_is_rejected(tmp_path):
+    path = _sqlite(tmp_path / "other.sqlite", {"Things": ["a", "b"]})
+    with pytest.raises(ValueError, match="Access database"):
+        ewe_official.read_ewe_sqlite(path)
 
 
-class TestErrorHandling:
-    """Test error handling and edge cases."""
-    
-    def test_invalid_sqlite_file(self):
-        """Test error on invalid SQLite file."""
-        # Create a temporary non-SQLite file
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix='.sqlite', delete=False) as f:
-            f.write(b'Not a valid SQLite file')
-            temp_path = Path(f.name)
-        
-        try:
-            with pytest.raises(Exception):  # sqlite3.DatabaseError or similar
-                ewe_official.read_ewe_sqlite(temp_path)
-        finally:
-            temp_path.unlink()
-    
-    def test_none_inputs(self):
-        """Test handling of None inputs in models."""
-        model = ewe_official.EweModel()
-        
-        # Should not raise
-        assert model.groups is None
-        assert model.diet is None
-        assert len(model.model_meta) == 0
-    
-    def test_empty_dataframe_handling(self):
-        """Test handling of empty DataFrames."""
-        import pandas as pd
-        
-        model = ewe_official.EweModel(
-            groups=pd.DataFrame(),
-            diet=pd.DataFrame()
-        )
-        
-        comparison = ewe_official.compare_models(model, model)
-        # Should handle empty DataFrames gracefully
-        assert 'differences' in comparison
-
-
-class TestLogging:
-    """Test logging output."""
-    
-    def test_logging_info_level(self, caplog):
-        """Test that info-level logs are produced."""
-        import logging
-        with patch('sqlite3.connect') as mock_connect:
-            mock_conn = MagicMock()
-            mock_cursor = MagicMock()
-            mock_connect.return_value = mock_conn
-            mock_conn.cursor.return_value = mock_cursor
-            mock_cursor.fetchall.return_value = []
-            
-            with patch.object(Path, 'exists', return_value=True):
-                with caplog.at_level(logging.INFO):
-                    ewe_official.read_ewe_sqlite(Path("test.sqlite"))
-            
-            # Should have logged something
-            assert len(caplog.records) > 0
-
-
-# Integration tests (these require real files)
-class TestIntegrationRealFiles:
-    """Integration tests with real EwE files (optional)."""
-    
-    TEST_SQLITE_FILE = Path("/tmp/Eii.Ecopath/Database/Anchovy Bay Spatial.vc.sqlite")
-    TEST_EWEMDB_FILE = Path("/tmp/Eii.Ecopath/Database/Generic_37.EwEmdb")
-    
-    @pytest.mark.skipif(
-        not TEST_SQLITE_FILE.exists(),
-        reason="Test SQLite file not found"
-    )
-    def test_read_real_sqlite_file(self):
-        """Test reading real SQLite file."""
-        model = ewe_official.read_ewe_model(self.TEST_SQLITE_FILE)
-        
-        # Should have loaded model metadata
-        assert model.source_format == '.sqlite'
-        assert model.source_file == self.TEST_SQLITE_FILE
-    
-    @pytest.mark.skipif(
-        not TEST_SQLITE_FILE.exists(),
-        reason="Test SQLite file not found"
-    )
-    def test_inspect_real_sqlite_file(self):
-        """Test inspecting real SQLite file."""
-        structure = ewe_official.inspect_ewe_sqlite(self.TEST_SQLITE_FILE)
-        
-        assert 'tables' in structure
-        assert 'file' in structure
-        # Should have found some tables
-        assert len(structure['tables']) > 0
-    
-    @pytest.mark.skipif(
-        not TEST_EWEMDB_FILE.exists(),
-        reason="Test EwEmdb file not found"
-    )
-    def test_ewemdb_file_exists(self):
-        """Test that EwEmdb test file exists (no pyodbc on Linux)."""
-        assert self.TEST_EWEMDB_FILE.exists()
-        assert self.TEST_EWEMDB_FILE.suffix.lower() == '.ewemdb'
+def test_inspect_lists_tables_rows_and_columns(tmp_path):
+    path = _sqlite(tmp_path / "x.sqlite", {"Unit": ["DBID", "Name"]})
+    con = sqlite3.connect(path)
+    con.execute("INSERT INTO Unit VALUES (1, 'Producer')")
+    con.commit()
+    con.close()
+    structure = ewe_official.inspect_ewe_sqlite(path)
+    assert structure["tables"] == [
+        {
+            "name": "Unit",
+            "rows": 1,
+            "columns": [{"name": "DBID", "type": ""}, {"name": "Name", "type": ""}],
+        }
+    ]

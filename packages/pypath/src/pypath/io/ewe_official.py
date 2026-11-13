@@ -1,29 +1,22 @@
-"""Read Official EwE model files (Access and SQLite formats).
+"""Read Official EwE model files.
 
-Provides I/O for EwE models stored in native format:
-- Microsoft Access (.EwEmdb, .accdb) - Windows-only via pyodbc
-- SQLite (.sqlite) - Cross-platform, pure Python
+EwE stores a model in an Access database (.ewemdb, .eweaccdb, .accdb, .mdb)
+with tables such as EcopathModel, EcopathGroup, EcopathDietComp, EcopathFleet
+and EcopathCatch. ``read_ewe_access`` returns those tables as they are, read
+through ``ewemdb.read_ewemdb_table`` (mdb-tools on Linux/macOS, or an ODBC
+driver): the same access ``read_ewemdb`` uses to build PyPath parameters, so
+it works wherever that does. For a model to run, use ``read_ewemdb``.
 
-The Official EwE software (https://www.ecopath.org) uses Access databases
-as the primary storage format, with SQLite export for version control and
-cross-platform compatibility.
-
-Module Features:
-- Read EwE SQLite databases (cross-platform)
-- Read EwE Access databases (Windows with pyodbc)
-- Auto-detect format and driver
-- Extract ecosystem groups, diet, fishing fleet data
-- Integration with Phase 1 HDF5 reader for unified interface
+EwE's ``.vc.sqlite`` files are not models: they hold its Value Chain
+plug-in's economic data (producer, processing, distribution, wholesaler,
+retailer and consumer units, trade links and landings). ``read_ewe_sqlite``
+refuses them, and any SQLite file without EwE model tables, with a message
+that says so.
 
 Example:
     >>> from pypath.io import ewe_official
-    >>> model = ewe_official.read_ewe_model("Generic_37.EwEmdb")
-    >>> groups = model.groups
-    >>> diet = model.diet_composition
-    
-Requires:
-- sqlite3 (built-in for .sqlite files)
-- pyodbc (optional, for .EwEmdb/.accdb files on Windows)
+    >>> model = ewe_official.read_ewe_model("Data/BlackSea_EwEF_testcase.eweaccdb")
+    >>> model.groups["GroupName"].head()
 """
 
 from __future__ import annotations
@@ -32,36 +25,47 @@ import logging
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 
 import pandas as pd
-
-try:
-    import pyodbc
-    HAS_PYODBC = True
-except ImportError:
-    HAS_PYODBC = False
 
 logger = logging.getLogger(__name__)
 
 PathLike = Union[str, Path]
 
+ACCESS_SUFFIXES = (".ewemdb", ".eweaccdb", ".accdb", ".mdb")
+
+# EwE's Value Chain plug-in tables, as in EwE's sample "Anchovy Bay Spatial.vc.sqlite"
+VALUE_CHAIN_TABLES = {
+    "Unit",
+    "Link",
+    "LinkLandings",
+    "ProducerUnit",
+    "ProcessingUnit",
+    "DistributionUnit",
+    "WholesalerUnit",
+    "RetailerUnit",
+    "ConsumerUnit",
+    "EconomicUnit",
+}
+
 
 @dataclass
 class EweModel:
-    """Container for Official EwE model data.
-    
+    """The tables of an EwE model database, as stored.
+
     Attributes:
-        name: Model name
-        author: Model author
-        groups: DataFrame with group definitions (name, biomass, P/B, Q/B, etc.)
-        diet: Diet composition matrix (rows=prey, cols=predators)
-        fleet: Fishing fleet data
-        model_meta: Dictionary of model metadata
-        source_file: Path to source database file
-        source_format: Format of source file (.sqlite, .EwEmdb, etc.)
+        name: EcopathModel.Name
+        author: EcopathModel.Author
+        groups: EcopathGroup, in model order (Sequence)
+        diet: EcopathDietComp (one row per predator-prey entry)
+        fleet: EcopathFleet
+        landings: EcopathCatch (catch by fleet and group)
+        model_meta: the EcopathModel row
+        source_file: path to the database
+        source_format: its suffix (.ewemdb, .eweaccdb, ...)
     """
-    
+
     name: Optional[str] = None
     author: Optional[str] = None
     groups: Optional[pd.DataFrame] = None
@@ -71,362 +75,191 @@ class EweModel:
     model_meta: Dict[str, Any] = field(default_factory=dict)
     source_file: Optional[Path] = None
     source_format: Optional[str] = None
-    
+
     def __repr__(self) -> str:
         n_groups = len(self.groups) if self.groups is not None else 0
-        return (f"EweModel(name='{self.name}', n_groups={n_groups}, "
-                f"source='{self.source_format}')")
+        return (
+            f"EweModel(name='{self.name}', n_groups={n_groups}, "
+            f"source='{self.source_format}')"
+        )
 
 
 def read_ewe_model(path: PathLike, **kwargs) -> EweModel:
-    """Read EwE model from any supported format.
-    
-    Auto-detects format and delegates to appropriate reader.
-    
+    """Read an EwE model database.
+
     Args:
-        path: Path to EwE model file
-            - .sqlite: SQLite database (cross-platform)
-            - .EwEmdb: Microsoft Access 2003 (Windows only, requires pyodbc)
-            - .accdb: Microsoft Access 2007+ (Windows only, requires pyodbc)
-            - .mdb: Microsoft Access 2000 (Windows only, requires pyodbc)
-        **kwargs: Format-specific options
-        
+        path: .ewemdb / .eweaccdb / .accdb / .mdb (Access). A .sqlite file
+            is checked and refused: see ``read_ewe_sqlite``.
+
     Returns:
-        EweModel object with groups, diet, and metadata
-        
+        EweModel with the database's tables
+
     Raises:
-        ValueError: If format not recognized
-        ImportError: If required driver not available
-        FileNotFoundError: If file does not exist
-        
-    Example:
-        >>> model = read_ewe_model("Generic_37.EwEmdb")
-        >>> print(f"Model: {model.name}, Groups: {len(model.groups)}")
+        FileNotFoundError: If the file does not exist
+        ValueError: If the format is not an EwE model database
     """
     path = Path(path)
-    
     if not path.exists():
         raise FileNotFoundError(f"EwE model file not found: {path}")
-    
     suffix = path.suffix.lower()
-    
-    if suffix == '.sqlite':
+    if suffix == ".sqlite":
         return read_ewe_sqlite(path, **kwargs)
-    elif suffix in ['.ewemdb', '.accdb', '.mdb']:
+    if suffix in ACCESS_SUFFIXES:
         return read_ewe_access(path, **kwargs)
-    else:
-        raise ValueError(f"Unsupported EwE format: {suffix}")
+    raise ValueError(f"Unsupported EwE format: {suffix}")
 
 
-def read_ewe_sqlite(path: PathLike, read_all: bool = False) -> EweModel:
-    """Read EwE model from SQLite database.
-    
-    SQLite format is used by Official EwE for:
-    - Version control (Anchovy Bay Spatial.vc.sqlite)
-    - Cross-platform data exchange
-    - Development/testing
-    
+def read_ewe_access(path: PathLike) -> EweModel:
+    """Read an EwE Access model database's tables.
+
+    Reads EcopathModel, EcopathGroup (in Sequence order, as EwE loads it),
+    EcopathDietComp, EcopathFleet and EcopathCatch through
+    ``ewemdb.read_ewemdb_table``. A missing or unreadable core table is a
+    warning and leaves that attribute None.
+
     Args:
-        path: Path to .sqlite file
-        read_all: If True, read all tables; if False, read only core tables
-        
+        path: Path to the database
+
     Returns:
-        EweModel object
-        
+        EweModel
+    """
+    from pypath.io.ewemdb import list_ewemdb_tables, read_ewemdb_table
+
+    path = Path(path)
+    tables = set(list_ewemdb_tables(str(path)))
+    model = EweModel(source_file=path, source_format=path.suffix.lower())
+
+    def table(name: str) -> Optional[pd.DataFrame]:
+        if name not in tables:
+            logger.warning("%s has no %s table", path.name, name)
+            return None
+        try:
+            return read_ewemdb_table(str(path), name)
+        except Exception as e:  # driver or export failure: report, keep the rest
+            logger.warning("Could not read %s from %s: %s", name, path.name, e)
+            return None
+
+    meta = table("EcopathModel")
+    if meta is not None and len(meta) > 0:
+        row = meta.iloc[0].to_dict()
+        model.model_meta = row
+        model.name = row.get("Name")
+        model.author = row.get("Author")
+
+    groups = table("EcopathGroup")
+    if groups is not None:
+        order = "Sequence" if "Sequence" in groups.columns else "GroupID"
+        if order in groups.columns:
+            groups = groups.sort_values(order, kind="stable").reset_index(drop=True)
+        model.groups = groups
+    model.diet = table("EcopathDietComp")
+    model.fleet = table("EcopathFleet")
+    model.landings = table("EcopathCatch")
+
+    logger.info(
+        "Read EwE model %s from %s: %d groups",
+        model.name,
+        path.name,
+        0 if model.groups is None else len(model.groups),
+    )
+    return model
+
+
+def read_ewe_sqlite(path: PathLike, **kwargs) -> EweModel:
+    """Refuse a SQLite file, explaining what it holds.
+
+    EwE's ``.vc.sqlite`` files are Value Chain (economic) databases, not
+    Ecopath models; PyPath has no real EwE model in SQLite to read. Use the
+    model's Access database with ``read_ewe_access`` or ``read_ewemdb``.
+
     Raises:
-        FileNotFoundError: If file not found
-        sqlite3.DatabaseError: If file is not valid SQLite
+        FileNotFoundError: If the file does not exist
+        ValueError: Always, naming what the file looks like
     """
     path = Path(path)
-    
     if not path.exists():
         raise FileNotFoundError(f"SQLite file not found: {path}")
-    
-    logger.info(f"Reading EwE SQLite model: {path.name}")
-    
+    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
-        conn = sqlite3.connect(path)
-        cursor = conn.cursor()
-        
-        # Get all table names
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        all_tables = {row[0] for row in cursor.fetchall()}
-        logger.debug(f"  Found tables: {all_tables}")
-        
-        model = EweModel(source_file=path, source_format='.sqlite')
-        
-        # Read model metadata if available
-        if 'Parameters' in all_tables:
-            try:
-                params_df = pd.read_sql_query(
-                    "SELECT * FROM Parameters", conn
-                )
-                if len(params_df) > 0:
-                    model.name = params_df.iloc[0].get('ModelName', 'Unknown')
-                    model.author = params_df.iloc[0].get('Author', '')
-                    model.model_meta = params_df.iloc[0].to_dict()
-                    logger.debug(f"  Model: {model.name} by {model.author}")
-            except Exception as e:
-                logger.debug(f"  Could not read Parameters table: {e}")
-        
-        # Read core tables
-        core_tables = ['Unit', 'Link', 'ProducerUnit', 'ConsumerUnit']
-        
-        if 'Unit' in all_tables:
-            try:
-                model.groups = pd.read_sql_query(
-                    "SELECT * FROM Unit", conn
-                )
-                logger.info(f"  Groups: {len(model.groups)} units")
-            except Exception as e:
-                logger.debug(f"  Could not read Unit table: {e}")
-        
-        if 'Link' in all_tables:
-            try:
-                model.diet = pd.read_sql_query(
-                    "SELECT * FROM Link", conn
-                )
-                logger.info(f"  Diet: {len(model.diet)} links")
-            except Exception as e:
-                logger.debug(f"  Could not read Link table: {e}")
-        
-        if 'LinkLandings' in all_tables:
-            try:
-                model.landings = pd.read_sql_query(
-                    "SELECT * FROM LinkLandings", conn
-                )
-                logger.info(f"  Landings: {len(model.landings)} records")
-            except Exception as e:
-                logger.debug(f"  Could not read LinkLandings table: {e}")
-        
-        if read_all:
-            # Store all tables in metadata
-            for table_name in all_tables:
-                if table_name not in ['Unit', 'Link', 'LinkLandings']:
-                    try:
-                        df = pd.read_sql_query(
-                            f"SELECT * FROM [{table_name}]", conn
-                        )
-                        if len(df) > 0:
-                            model.model_meta[f'table_{table_name}'] = df
-                            logger.debug(f"  Table {table_name}: {len(df)} rows")
-                    except Exception as e:
-                        logger.debug(f"  Could not read {table_name}: {e}")
-        
-        conn.close()
-        logger.info(f"✅ Successfully read EwE SQLite model")
-        return model
-        
-    except sqlite3.DatabaseError as e:
-        logger.error(f"SQLite database error: {e}")
-        raise
-
-
-def read_ewe_access(path: PathLike, **kwargs) -> EweModel:
-    """Read EwE model from Microsoft Access database.
-    
-    Requires pyodbc and Windows ODBC driver for Access.
-    
-    Args:
-        path: Path to .EwEmdb or .accdb file
-        **kwargs: Additional options for pyodbc connection
-        
-    Returns:
-        EweModel object
-        
-    Raises:
-        ImportError: If pyodbc not available
-        ValueError: If ODBC driver not installed
-        Exception: If database cannot be opened
-    """
-    if not HAS_PYODBC:
-        raise ImportError(
-            "pyodbc is required to read EwE Access databases. "
-            "Install with: pip install pyodbc\n"
-            "Or use .sqlite format for cross-platform support."
+        names = {
+            row[0]
+            for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    finally:
+        con.close()
+    if names & VALUE_CHAIN_TABLES:
+        raise ValueError(
+            f"{path.name} is an EwE Value Chain database (economic units, "
+            f"trade links and landings: {sorted(names & VALUE_CHAIN_TABLES)}), "
+            "not an Ecopath model. Read the model from its Access database "
+            "(.ewemdb / .eweaccdb) with read_ewe_access or read_ewemdb."
         )
-    
-    path = Path(path)
-    logger.info(f"Reading EwE Access model: {path.name}")
-    
-    try:
-        # Try Access drivers
-        drivers = [
-            'Microsoft Access Driver (*.mdb, *.accdb)',
-            'Microsoft Access dBASE Driver (*.mdb)',
-        ]
-        
-        connection_str = None
-        for driver in drivers:
-            try:
-                connection_str = (
-                    f'Driver={{{driver}}};'
-                    f'DBQ={str(path)};'
-                )
-                conn = pyodbc.connect(connection_str)
-                logger.debug(f"  Connected using driver: {driver}")
-                break
-            except pyodbc.Error:
-                continue
-        
-        if connection_str is None:
-            raise ValueError(
-                "No suitable ODBC driver found for Access files. "
-                "Install 'Microsoft Access Database Engine' or use .sqlite format."
-            )
-        
-        cursor = conn.cursor()
-        model = EweModel(source_file=path, source_format=path.suffix.lower())
-        
-        # Read EcopathModel table for metadata
-        try:
-            cursor.execute(
-                "SELECT * FROM EcopathModel WHERE ModelID=1"
-            )
-            row = cursor.fetchone()
-            if row:
-                columns = [desc[0] for desc in cursor.description]
-                metadata = dict(zip(columns, row))
-                model.name = metadata.get('Name', 'Unknown')
-                model.author = metadata.get('Author', '')
-                model.model_meta = metadata
-                logger.debug(f"  Model: {model.name} by {model.author}")
-        except pyodbc.Error as e:
-            logger.debug(f"  Could not read EcopathModel: {e}")
-        
-        # Read EcopathGroup table
-        try:
-            groups_df = pd.read_sql(
-                "SELECT * FROM EcopathGroup ORDER BY GroupID", conn
-            )
-            if len(groups_df) > 0:
-                model.groups = groups_df
-                logger.info(f"  Groups: {len(model.groups)}")
-        except Exception as e:
-            logger.debug(f"  Could not read EcopathGroup: {e}")
-        
-        # Read DietComposition table
-        try:
-            diet_df = pd.read_sql(
-                "SELECT * FROM DietComposition ORDER BY PreyID, PredatorID",
-                conn
-            )
-            if len(diet_df) > 0:
-                model.diet = diet_df
-                logger.info(f"  Diet: {len(model.diet)} links")
-        except Exception as e:
-            logger.debug(f"  Could not read DietComposition: {e}")
-        
-        # Read FleetLandings or equivalent
-        try:
-            landings_df = pd.read_sql(
-                "SELECT * FROM FleetLandings", conn
-            )
-            if len(landings_df) > 0:
-                model.landings = landings_df
-                logger.info(f"  Landings: {len(model.landings)} records")
-        except Exception as e:
-            logger.debug(f"  Could not read FleetLandings: {e}")
-        
-        conn.close()
-        logger.info(f"✅ Successfully read EwE Access model")
-        return model
-        
-    except Exception as e:
-        logger.error(f"Error reading Access database: {e}")
-        raise
+    raise ValueError(
+        f"{path.name} has no EwE model tables ({sorted(names)}). Read the model "
+        "from its Access database (.ewemdb / .eweaccdb) with read_ewe_access "
+        "or read_ewemdb."
+    )
 
 
 def inspect_ewe_sqlite(path: PathLike) -> Dict[str, Any]:
-    """Inspect SQLite database structure.
-    
-    Lists all tables and their column definitions.
-    
+    """List a SQLite database's tables, row counts and columns.
+
     Args:
         path: Path to .sqlite file
-        
+
     Returns:
-        Dictionary with table names, row counts, and column info
+        Dictionary with ``file`` and ``tables`` (name, rows, columns)
     """
     path = Path(path)
-    
-    structure = {
-        'file': str(path),
-        'tables': []
-    }
-    
+    structure: Dict[str, Any] = {"file": str(path), "tables": []}
+    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
-        conn = sqlite3.connect(path)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = [row[0] for row in cursor.fetchall()]
-        
-        for table_name in tables:
-            cursor.execute(f"SELECT COUNT(*) FROM [{table_name}]")
-            count = cursor.fetchone()[0]
-            
-            cursor.execute(f"PRAGMA table_info([{table_name}])")
+        tables = [
+            row[0]
+            for row in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            )
+        ]
+        for name in tables:
+            count = con.execute(f"SELECT COUNT(*) FROM [{name}]").fetchone()[0]
             columns = [
-                {'name': col[1], 'type': col[2]}
-                for col in cursor.fetchall()
+                {"name": col[1], "type": col[2]}
+                for col in con.execute(f"PRAGMA table_info([{name}])")
             ]
-            
-            structure['tables'].append({
-                'name': table_name,
-                'rows': count,
-                'columns': columns
-            })
-        
-        conn.close()
-        
-    except Exception as e:
-        logger.error(f"Error inspecting database: {e}")
-    
+            structure["tables"].append(
+                {"name": name, "rows": count, "columns": columns}
+            )
+    finally:
+        con.close()
     return structure
 
 
 def compare_models(model1: EweModel, model2: EweModel) -> Dict[str, Any]:
-    """Compare two EwE models.
-    
+    """Compare two EwE models' names, group counts and diet entries.
+
     Args:
         model1: First model
         model2: Second model
-        
+
     Returns:
-        Dictionary with comparison results
+        Dictionary with ``differences`` and ``status``
     """
-    comparison = {
-        'model1': str(model1.source_file),
-        'model2': str(model2.source_file),
-        'differences': []
+    comparison: Dict[str, Any] = {
+        "model1": str(model1.source_file),
+        "model2": str(model2.source_file),
+        "differences": [],
     }
-    
-    # Compare names
     if model1.name != model2.name:
-        comparison['differences'].append(
-            f"Name: '{model1.name}' vs '{model2.name}'"
-        )
-    
-    # Compare group counts
+        comparison["differences"].append(f"Name: '{model1.name}' vs '{model2.name}'")
     n1 = len(model1.groups) if model1.groups is not None else 0
     n2 = len(model2.groups) if model2.groups is not None else 0
     if n1 != n2:
-        comparison['differences'].append(
-            f"Group count: {n1} vs {n2}"
-        )
-    
-    # Compare diet sizes
+        comparison["differences"].append(f"Group count: {n1} vs {n2}")
     d1 = len(model1.diet) if model1.diet is not None else 0
     d2 = len(model2.diet) if model2.diet is not None else 0
     if d1 != d2:
-        comparison['differences'].append(
-            f"Diet links: {d1} vs {d2}"
-        )
-    
-    if len(comparison['differences']) == 0:
-        comparison['status'] = 'Models appear identical'
-    else:
-        comparison['status'] = 'Differences found'
-    
+        comparison["differences"].append(f"Diet links: {d1} vs {d2}")
+    comparison["status"] = (
+        "Differences found" if comparison["differences"] else "Models appear identical"
+    )
     return comparison
