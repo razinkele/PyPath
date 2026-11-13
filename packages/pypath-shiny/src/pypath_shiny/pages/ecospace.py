@@ -131,6 +131,62 @@ def page_ecospace_arrays(
     }
 
 
+def wizard_params_on_grid(wizard_params, grid, n_groups=None):
+    """The Ecospace Wizard's EcospaceParams while their grid is the page's grid.
+
+    The wizard hands its grid over with its configuration. Building a new
+    grid on this page replaces that grid, and the page's own controls apply
+    again. Returns None when there is no wizard configuration or it is for
+    another grid, and, given the scenario's ``n_groups``, when it does not
+    have one row per group (a run would not use it).
+    """
+    if wizard_params is None or grid is None:
+        return None
+    if getattr(wizard_params, "grid", None) is not grid:
+        return None
+    if n_groups is not None and wizard_params.habitat_preference.shape[0] != n_groups:
+        return None
+    return wizard_params
+
+
+def habitat_for_display(wizard_params, grid, page_vector, n_groups=None):
+    """Habitat quality per patch for the habitat map and the effort preview.
+
+    The mean of the wizard's per-group preferences while its configuration
+    applies (``wizard_params_on_grid``), as habitat-based fishing averages
+    them; otherwise ``page_vector``, the page's own habitat pattern.
+    """
+    active = wizard_params_on_grid(wizard_params, grid, n_groups)
+    if active is None:
+        return page_vector
+    return np.asarray(active.habitat_preference, dtype=float).mean(axis=0)
+
+
+def run_ecospace_params(current_grid, n_groups, page_arrays, wizard_params=None):
+    """The EcospaceParams a run on this page uses, and a note for the user.
+
+    The Ecospace Wizard's configuration is used while it applies
+    (``wizard_params_on_grid``) and has one row per scenario group. Otherwise
+    the page's controls apply: ``page_arrays``, from ``page_ecospace_arrays``.
+    The note (None when there is nothing to say) tells which was used, or why
+    the wizard's configuration was not.
+    """
+    from pypath.spatial import EcospaceParams
+
+    page = EcospaceParams(grid=current_grid, **page_arrays)
+    wizard = wizard_params_on_grid(wizard_params, current_grid)
+    if wizard is None:
+        return page, None
+    n_wizard = wizard.habitat_preference.shape[0]
+    if n_wizard != n_groups:
+        return page, (
+            f"The Ecospace Wizard's configuration has {n_wizard} groups but "
+            f"this scenario has {n_groups}, so this page's settings are used. "
+            "Build the wizard configuration again for this model."
+        )
+    return wizard, "Running with the Ecospace Wizard's configuration."
+
+
 def parse_habitat_csv(path, n_patches):
     """Parse a habitat preference CSV into an array of `n_patches` values.
 
@@ -723,6 +779,7 @@ def ecospace_ui():
                     multiple=True,
                 ),
                 ui.hr(),
+                ui.output_ui("wizard_config_note"),
                 # Run simulation button
                 ui.input_action_button(
                     "run_spatial_sim",
@@ -862,6 +919,35 @@ def ecospace_server(
                 type="message",
                 duration=5,
             )
+
+    def _scenario_n_groups():
+        """The Ecosim scenario's group count, or None before there is one."""
+        scenario = _sim_scenario() if _sim_scenario is not None else None
+        return getattr(getattr(scenario, "params", None), "NUM_GROUPS", None)
+
+    @render.ui
+    def wizard_config_note():
+        """Say, beside the Run button, whether the wizard's configuration runs."""
+        wizard = wizard_params_on_grid(_ecospace_params(), grid())
+        if wizard is None:
+            return None
+        n_groups = _scenario_n_groups()
+        if wizard_params_on_grid(wizard, grid(), n_groups) is None:
+            return ui.div(
+                ui.tags.i(class_="bi bi-exclamation-triangle me-2"),
+                f"The Ecospace Wizard's configuration has "
+                f"{wizard.habitat_preference.shape[0]} groups but the scenario "
+                f"has {n_groups}, so runs use this page's settings. Build the "
+                "wizard configuration again for this model.",
+                class_="alert alert-warning small mt-2 mb-0",
+            )
+        return ui.div(
+            ui.tags.i(class_="bi bi-magic me-2"),
+            "Runs use the Ecospace Wizard's habitat preferences and movement "
+            "settings for this grid. The Habitat Preferences and Movement & "
+            "Dispersal controls apply after you create a new grid here.",
+            class_="alert alert-info small mt-2 mb-0",
+        )
 
     # Load and display boundary polygon immediately on file upload
     @reactive.effect
@@ -1347,7 +1433,6 @@ def ecospace_server(
     @reactive.event(input.run_spatial_sim)
     def _run_spatial_simulation():
         """Run spatial ECOSPACE simulation."""
-        from pypath.spatial import EcospaceParams as EcoParams
         from pypath.spatial import rsim_run_spatial
 
         # Guard: need both scenario and grid
@@ -1410,16 +1495,20 @@ def ecospace_server(
                 )
             )
 
-            ecospace_params = EcoParams(
-                grid=current_grid,
-                **page_ecospace_arrays(
+            ecospace_params, config_note = run_ecospace_params(
+                current_grid,
+                n_groups,
+                page_ecospace_arrays(
                     _compute_habitat_vector(current_grid),
                     n_groups,
                     dispersal_rate=input.dispersal_rate_default(),
                     advection=input.enable_advection(),
                     gravity=input.gravity_strength(),
                 ),
+                wizard_params=_ecospace_params.get(),
             )
+            if config_note:
+                _notify_legacy(config_note, type="message", duration=6)
 
             _notify_legacy("Running spatial simulation...", type="message", duration=2)
             _update_latest(
@@ -1585,8 +1674,13 @@ def ecospace_server(
         if g is None:
             await HABITAT_MAP.update(_session, [], widgets=[])
             return
-        habitat = _compute_habitat_vector(g)
-        pattern = input.habitat_pattern().replace("_", " ")
+        wizard = _ecospace_params()
+        n_groups = _scenario_n_groups()
+        habitat = habitat_for_display(wizard, g, _compute_habitat_vector(g), n_groups)
+        if wizard_params_on_grid(wizard, g, n_groups) is not None:
+            pattern = "Ecospace Wizard, mean over groups"
+        else:
+            pattern = input.habitat_pattern().replace("_", " ")
         await HABITAT_MAP.update(
             _session,
             patch_value_layers(
@@ -1648,7 +1742,13 @@ def ecospace_server(
                 )
         elif allocation_method == "habitat":
             effort = allocate_habitat_based(
-                _compute_habitat_vector(g), total_effort=total_effort
+                habitat_for_display(
+                    _ecospace_params(),
+                    g,
+                    _compute_habitat_vector(g),
+                    _scenario_n_groups(),
+                ),
+                total_effort=total_effort,
             )
         else:
             effort = allocate_uniform(n_patches, total_effort)
