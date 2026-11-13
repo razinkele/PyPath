@@ -271,6 +271,22 @@ def shared_group_names(shared_data, default_n=5):
     return [f"Group {i + 1}" for i in range(default_n)]
 
 
+def wizard_environmental_drivers(depth=None, salinity=None):
+    """EnvironmentalDrivers for the wizard's depth and salinity, or None.
+
+    ``depth`` is the depth per patch (m); ``salinity`` an EnvironmentalLayer.
+    EnvironmentalDrivers takes its layers as a dict keyed by layer name.
+    """
+    from pypath.spatial.environmental import EnvironmentalDrivers, EnvironmentalLayer
+
+    layers = {}
+    if depth is not None:
+        layers["depth"] = EnvironmentalLayer(name="depth", units="m", values=depth)
+    if salinity is not None:
+        layers[salinity.name] = salinity
+    return EnvironmentalDrivers(layers=layers) if layers else None
+
+
 def ecospace_wizard_server(
     input: Inputs, output: Outputs, session: Session, shared_data=None
 ):
@@ -873,10 +889,6 @@ def ecospace_wizard_server(
             import numpy as np
             from pypath.io.marine_data import HabitatPreferenceBuilder
             from pypath.spatial.ecospace_params import EcospaceParams
-            from pypath.spatial.environmental import (
-                EnvironmentalDrivers,
-                EnvironmentalLayer,
-            )
 
             # Get group names
             group_names = shared_group_names(shared_data)
@@ -900,14 +912,7 @@ def ecospace_wizard_server(
             advection_enabled = np.ones(n_groups, dtype=bool)
             gravity_strength = np.full(n_groups, gravity)
 
-            # Build environmental drivers
-            layers = []
-            if depth is not None:
-                layers.append(EnvironmentalLayer(name="depth", units="m", values=depth))
-            sal = salinity_layer.get()
-            if sal is not None:
-                layers.append(sal)
-            env = EnvironmentalDrivers(layers=layers) if layers else None
+            env = wizard_environmental_drivers(depth, salinity_layer.get())
 
             # Build EcospaceParams
             params = EcospaceParams(
