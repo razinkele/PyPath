@@ -761,7 +761,7 @@ def ecospace_wizard_server(
         df = pd.DataFrame(
             {
                 "Group": group_names,
-                "Dispersal Rate (km\u00b2/month)": [default_rate] * n_groups,
+                "Dispersal Rate (per year)": [default_rate] * n_groups,
                 "Gravity Strength": [gravity] * n_groups,
             }
         )
@@ -863,9 +863,7 @@ def ecospace_wizard_server(
         items.append(
             ui.div(
                 ui.h5("Dispersal"),
-                ui.p(
-                    f"Default rate: {input.wizard_dispersal_default()} km\u00b2/month"
-                ),
+                ui.p(f"Default rate: {input.wizard_dispersal_default()} per year"),
                 ui.p(f"Gravity: {input.wizard_gravity()}"),
             )
         )
@@ -1146,7 +1144,7 @@ def _step6_set_dispersal_ui():
         ui.card_header("Step 6: Set Dispersal Parameters"),
         ui.input_slider(
             "wizard_dispersal_default",
-            "Default Dispersal Rate (km\u00b2/month)",
+            "Default Dispersal Rate (per year)",
             min=0.0,
             max=100.0,
             value=10.0,

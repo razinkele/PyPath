@@ -324,3 +324,13 @@ def test_the_run_and_the_habitat_views_read_the_wizard_configuration():
         "wizard_config_note",
     ):
         assert _handler_reads_wizard_params(source, handler), handler
+
+
+def test_dispersal_is_labelled_as_a_rate_per_year():
+    # The page passes the value as EcospaceParams.dispersal_rate, a rate per
+    # year (dispersal.diffusion_flux), not km²/month; and the page has no
+    # per-group dispersal setting.
+    html = str(ecospace_ui())
+    assert "Dispersal Rate (per year)" in html
+    assert "km²/month" not in html
+    assert "advanced settings" not in html

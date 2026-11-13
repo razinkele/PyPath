@@ -656,7 +656,7 @@ def ecospace_ui():
                         ),
                         ui.input_numeric(
                             "dispersal_rate_default",
-                            "Default Dispersal Rate (km²/month)",
+                            "Dispersal Rate (per year)",
                             value=5.0,
                             min=0,
                             max=100,
@@ -676,7 +676,13 @@ def ecospace_ui():
                             value=True,
                         ),
                         ui.p(
-                            "Note: Dispersal rates can be set per-group in advanced settings.",
+                            "Without an active Ecospace Wizard configuration "
+                            "(its rates take precedence), every group "
+                            "disperses at this rate: between two neighbouring "
+                            "square cells, biomass flows at this rate times "
+                            "their current biomass difference, per year. For "
+                            "a non-migratory group, EwE's Mvel of 300 km/year "
+                            "on 36.7 km cells is about 2.6 per year.",
                             class_="text-muted small",
                         ),
                         icon=ui.tags.i(class_="bi bi-arrows-move"),
