@@ -9,3 +9,7 @@ Following roadmap decision D3, only numbers are committed here; the harness and 
 | `ecospace_water_cells.csv` | the 304 water cells of the 31 x 42 grid | `cEcospaceDataStructures.Depth(row, col)` > 0, after `UpdateDepthMap`; rows and columns 1-based |
 | `ecospace_habcap.csv` | the 304 water cells | `HabCap(group)(row, col)` for the 22 groups after `SetHabCap` (normalised, with the low-capacity gradient); rows and columns 1-based |
 | `ecospace_maps.csv` | the 304 water cells at months 1 and 12 | each group's biomass density per cell (`ecospace_maps.csv` of the run, TimeStep 1 and 12); rows and columns 1-based |
+| `ecospace_steps.csv` | 120 months | each group's mean biomass density over the water cells (the run's `ecospace_steps.csv`) |
+| `ecospace_calibration_links.csv` | the 52 feeding links | Ecosim's Qlink, Alink and VulArena next to Ecospace's Aspace and Vspace after `AdjustSpaceParsNew` (oracle run 43500051427, harness f9d9a6d) |
+| `ecospace_calibration_groups.csv` | the 22 groups | StartBiomass, the predator index, CmCo, TotHabCap and BRatio (same run) |
+| `ecospace_link_flows.csv` | months 1 and 12 | map-wide consumption per link per unit area, `ResultsRegionConsumptionPredPrey` region 0 (oracle run 43498801657, harness 4f34dbc) |
