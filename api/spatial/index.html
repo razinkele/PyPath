@@ -2022,6 +2022,73 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ecospace-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ecospace Calibration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ecospace Calibration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        calibration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="calibration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.calibration.SpaceCalibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SpaceCalibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.calibration.ewe_space_calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ewe_space_calibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.calibration.habitat_ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        habitat_ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#advanced-movement" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4323,6 +4390,73 @@
     <span class="md-ellipsis">
       
         rsim_run_spatial
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ecospace-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ecospace Calibration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ecospace Calibration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        calibration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="calibration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.calibration.SpaceCalibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SpaceCalibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.calibration.ewe_space_calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ewe_space_calibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.calibration.habitat_ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        habitat_ratio
       
     </span>
   </a>
@@ -22358,30 +22492,7 @@ switches it on.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">230</span>
 <span class="normal">231</span>
 <span class="normal">232</span>
 <span class="normal">233</span>
@@ -22715,7 +22826,51 @@ switches it on.</p>
 <span class="normal">561</span>
 <span class="normal">562</span>
 <span class="normal">563</span>
-<span class="normal">564</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
+<span class="normal">564</span>
+<span class="normal">565</span>
+<span class="normal">566</span>
+<span class="normal">567</span>
+<span class="normal">568</span>
+<span class="normal">569</span>
+<span class="normal">570</span>
+<span class="normal">571</span>
+<span class="normal">572</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span>
+<span class="normal">579</span>
+<span class="normal">580</span>
+<span class="normal">581</span>
+<span class="normal">582</span>
+<span class="normal">583</span>
+<span class="normal">584</span>
+<span class="normal">585</span>
+<span class="normal">586</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span>
+<span class="normal">600</span>
+<span class="normal">601</span>
+<span class="normal">602</span>
+<span class="normal">603</span>
+<span class="normal">604</span>
+<span class="normal">605</span>
+<span class="normal">606</span>
+<span class="normal">607</span>
+<span class="normal">608</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
     <span class="n">state_spatial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
@@ -22876,6 +23031,20 @@ switches it on.</p>
     <span class="p">)</span>
     <span class="n">params_need_modification</span> <span class="o">=</span> <span class="n">capacity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
+    <span class="c1"># EwE's base calibration (rsim_run_spatial sets it): the same calibrated</span>
+    <span class="c1"># parameters for every patch, and each patch's feeding efficiency (EatEff,</span>
+    <span class="c1"># its habitat capacity, times any MPA capacity bonus)</span>
+    <span class="n">_space_cal</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_space_cal"</span><span class="p">)</span>
+    <span class="n">_eat_eff_patches</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_eat_eff_patches"</span><span class="p">)</span>
+    <span class="n">_saved_params</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">_space_cal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_saved_params</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_space_cal</span><span class="p">}</span>
+        <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_space_cal</span><span class="p">)</span>
+        <span class="n">params_need_modification</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">mpa_cap_mult</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_eat_eff_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_eat_eff_patches</span> <span class="o">=</span> <span class="n">_eat_eff_patches</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">_eat_eff_patches</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mpa_cap_mult</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>
+
     <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
         <span class="n">b_base_ref_original</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
         <span class="n">b_base_ref_patches</span> <span class="o">=</span> <span class="n">b_base_ref_original</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">capacity</span>
@@ -22967,6 +23136,8 @@ switches it on.</p>
         <span class="n">state_patch</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
+        <span class="k">if</span> <span class="n">_space_cal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_eat_eff_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_eat_eff"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_eat_eff_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">_mediation_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_mediation_density_scale"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_mediation_scale</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
@@ -23016,6 +23187,8 @@ switches it on.</p>
                 <span class="n">rates</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">rates_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
+                <span class="k">if</span> <span class="n">_space_cal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_eat_eff_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">params</span><span class="p">[</span><span class="s2">"_eat_eff"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_eat_eff_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">_mediation_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">params</span><span class="p">[</span><span class="s2">"_mediation_density_scale"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_mediation_scale</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span>
 
@@ -23063,6 +23236,9 @@ switches it on.</p>
         <span class="c1"># Clean up injected spatial context keys</span>
         <span class="k">for</span> <span class="n">g_idx</span> <span class="ow">in</span> <span class="n">ibm_spatial_contexts</span><span class="p">:</span>
             <span class="n">params</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"_ibm_spatial_context_</span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="n">g_idx</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">params</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"_eat_eff"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_saved_params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_saved_params</span><span class="p">)</span>
 
     <span class="c1"># Step 2: Add spatial fluxes (movement/dispersal)</span>
     <span class="n">spatial_flux</span> <span class="o">=</span> <span class="n">calculate_spatial_flux</span><span class="p">(</span>
@@ -23353,51 +23529,7 @@ in the derivative, as before B3; it is stable only to about
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 647</span>
-<span class="normal"> 648</span>
-<span class="normal"> 649</span>
-<span class="normal"> 650</span>
-<span class="normal"> 651</span>
-<span class="normal"> 652</span>
-<span class="normal"> 653</span>
-<span class="normal"> 654</span>
-<span class="normal"> 655</span>
-<span class="normal"> 656</span>
-<span class="normal"> 657</span>
-<span class="normal"> 658</span>
-<span class="normal"> 659</span>
-<span class="normal"> 660</span>
-<span class="normal"> 661</span>
-<span class="normal"> 662</span>
-<span class="normal"> 663</span>
-<span class="normal"> 664</span>
-<span class="normal"> 665</span>
-<span class="normal"> 666</span>
-<span class="normal"> 667</span>
-<span class="normal"> 668</span>
-<span class="normal"> 669</span>
-<span class="normal"> 670</span>
-<span class="normal"> 671</span>
-<span class="normal"> 672</span>
-<span class="normal"> 673</span>
-<span class="normal"> 674</span>
-<span class="normal"> 675</span>
-<span class="normal"> 676</span>
-<span class="normal"> 677</span>
-<span class="normal"> 678</span>
-<span class="normal"> 679</span>
-<span class="normal"> 680</span>
-<span class="normal"> 681</span>
-<span class="normal"> 682</span>
-<span class="normal"> 683</span>
-<span class="normal"> 684</span>
-<span class="normal"> 685</span>
-<span class="normal"> 686</span>
-<span class="normal"> 687</span>
-<span class="normal"> 688</span>
-<span class="normal"> 689</span>
-<span class="normal"> 690</span>
-<span class="normal"> 691</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 691</span>
 <span class="normal"> 692</span>
 <span class="normal"> 693</span>
 <span class="normal"> 694</span>
@@ -23973,7 +24105,88 @@ in the derivative, as before B3; it is stable only to about
 <span class="normal">1264</span>
 <span class="normal">1265</span>
 <span class="normal">1266</span>
-<span class="normal">1267</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1267</span>
+<span class="normal">1268</span>
+<span class="normal">1269</span>
+<span class="normal">1270</span>
+<span class="normal">1271</span>
+<span class="normal">1272</span>
+<span class="normal">1273</span>
+<span class="normal">1274</span>
+<span class="normal">1275</span>
+<span class="normal">1276</span>
+<span class="normal">1277</span>
+<span class="normal">1278</span>
+<span class="normal">1279</span>
+<span class="normal">1280</span>
+<span class="normal">1281</span>
+<span class="normal">1282</span>
+<span class="normal">1283</span>
+<span class="normal">1284</span>
+<span class="normal">1285</span>
+<span class="normal">1286</span>
+<span class="normal">1287</span>
+<span class="normal">1288</span>
+<span class="normal">1289</span>
+<span class="normal">1290</span>
+<span class="normal">1291</span>
+<span class="normal">1292</span>
+<span class="normal">1293</span>
+<span class="normal">1294</span>
+<span class="normal">1295</span>
+<span class="normal">1296</span>
+<span class="normal">1297</span>
+<span class="normal">1298</span>
+<span class="normal">1299</span>
+<span class="normal">1300</span>
+<span class="normal">1301</span>
+<span class="normal">1302</span>
+<span class="normal">1303</span>
+<span class="normal">1304</span>
+<span class="normal">1305</span>
+<span class="normal">1306</span>
+<span class="normal">1307</span>
+<span class="normal">1308</span>
+<span class="normal">1309</span>
+<span class="normal">1310</span>
+<span class="normal">1311</span>
+<span class="normal">1312</span>
+<span class="normal">1313</span>
+<span class="normal">1314</span>
+<span class="normal">1315</span>
+<span class="normal">1316</span>
+<span class="normal">1317</span>
+<span class="normal">1318</span>
+<span class="normal">1319</span>
+<span class="normal">1320</span>
+<span class="normal">1321</span>
+<span class="normal">1322</span>
+<span class="normal">1323</span>
+<span class="normal">1324</span>
+<span class="normal">1325</span>
+<span class="normal">1326</span>
+<span class="normal">1327</span>
+<span class="normal">1328</span>
+<span class="normal">1329</span>
+<span class="normal">1330</span>
+<span class="normal">1331</span>
+<span class="normal">1332</span>
+<span class="normal">1333</span>
+<span class="normal">1334</span>
+<span class="normal">1335</span>
+<span class="normal">1336</span>
+<span class="normal">1337</span>
+<span class="normal">1338</span>
+<span class="normal">1339</span>
+<span class="normal">1340</span>
+<span class="normal">1341</span>
+<span class="normal">1342</span>
+<span class="normal">1343</span>
+<span class="normal">1344</span>
+<span class="normal">1345</span>
+<span class="normal">1346</span>
+<span class="normal">1347</span>
+<span class="normal">1348</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -24231,6 +24444,32 @@ in the derivative, as before B3; it is stable only to about
 
     <span class="n">_set_switch_weights</span><span class="p">(</span><span class="n">params_dict</span><span class="p">,</span> <span class="n">switch_bbase</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">B_BaseRef</span><span class="p">)</span>
 
+    <span class="c1"># EwE's Ecospace base calibration (B5, pypath.spatial.calibration): with a</span>
+    <span class="c1"># habitat pattern, every group's base is B0 x BRatio and each link's</span>
+    <span class="c1"># search and vulnerability rates are EwE's AdjustSpaceParsNew, mapped onto</span>
+    <span class="c1"># the kernel; each patch's feeding efficiency is its habitat capacity</span>
+    <span class="c1"># (EatEff), and the nutrient pool keeps Ecosim's map-wide base.</span>
+    <span class="n">_space_bratio</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">density_form</span> <span class="ow">and</span> <span class="n">start_capacity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_cap</span> <span class="o">=</span> <span class="n">_raw_capacity</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">n_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_cap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_cal</span> <span class="o">=</span> <span class="n">ewe_space_calibration</span><span class="p">(</span>
+                <span class="n">params_dict</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">],</span>
+                <span class="n">params_dict</span><span class="p">[</span><span class="s2">"QQbase"</span><span class="p">],</span>
+                <span class="n">params_dict</span><span class="p">[</span><span class="s2">"VV"</span><span class="p">],</span>
+                <span class="n">_cap</span><span class="p">,</span>
+                <span class="n">patch_w</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">params_dict</span><span class="p">[</span><span class="s2">"_space_cal"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"B_BaseRef"</span><span class="p">:</span> <span class="n">_cal</span><span class="o">.</span><span class="n">bbase</span><span class="p">,</span>
+                <span class="s2">"Bbase"</span><span class="p">:</span> <span class="n">_cal</span><span class="o">.</span><span class="n">bbase</span><span class="p">,</span>
+                <span class="s2">"QQbase"</span><span class="p">:</span> <span class="n">_cal</span><span class="o">.</span><span class="n">qq</span><span class="p">,</span>
+                <span class="s2">"VV"</span><span class="p">:</span> <span class="n">_cal</span><span class="o">.</span><span class="n">vv</span><span class="p">,</span>
+                <span class="s2">"_nut_base"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">params_dict</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+            <span class="p">}</span>
+            <span class="n">params_dict</span><span class="p">[</span><span class="s2">"_eat_eff_patches"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">_cap</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
+            <span class="n">_space_bratio</span> <span class="o">=</span> <span class="n">_cal</span><span class="o">.</span><span class="n">bratio</span>
+
     <span class="c1"># Pre-compute sparse link arrays for the consumption kernel</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.link_array</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActiveLinkArray</span>
 
@@ -24328,9 +24567,9 @@ in the derivative, as before B3; it is stable only to about
         <span class="n">_forced_recs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">forcing</span><span class="p">,</span> <span class="s2">"ForcedRecs"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">_forced_recs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mi</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">_forced_recs</span><span class="p">):</span>
             <span class="n">forcing_dict</span><span class="p">[</span><span class="s2">"ForcedRecs"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_forced_recs</span><span class="p">[</span><span class="n">mi</span><span class="p">]</span>
-        <span class="n">_nut_forcing</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">forcing</span><span class="p">,</span> <span class="s2">"NutForcing"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">_nut_forcing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mi</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">_nut_forcing</span><span class="p">):</span>
-            <span class="n">forcing_dict</span><span class="p">[</span><span class="s2">"NutForcing"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">_nut_forcing</span><span class="p">[</span><span class="n">mi</span><span class="p">])</span>
+        <span class="c1"># Ecosim's nutrient forcing does not reach Ecospace: EwE's cell has</span>
+        <span class="c1"># NutTot x its relative productivity less its biomass as free nutrient</span>
+        <span class="c1"># (cSpaceSolver.vb 860), whatever Ecosim's NutForcing is.</span>
         <span class="c1"># Prey, production, search-rate, mortality and respiration forcing,</span>
         <span class="c1"># as in rsim_run (Ecospace used to drop them).</span>
         <span class="k">for</span> <span class="n">_key</span> <span class="ow">in</span> <span class="p">(</span>
@@ -24367,7 +24606,15 @@ in the derivative, as before B3; it is stable only to about
                 <span class="n">stanza_idx</span><span class="p">,</span>
                 <span class="n">current_biomass</span><span class="p">,</span>
                 <span class="n">patch_w</span> <span class="k">if</span> <span class="n">density_form</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-                <span class="n">capacity</span><span class="o">=</span><span class="n">start_capacity</span> <span class="k">if</span> <span class="n">density_form</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">capacity</span><span class="o">=</span><span class="p">(</span>
+                    <span class="kc">None</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">density_form</span>
+                    <span class="k">else</span> <span class="p">(</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">_space_bratio</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">n_patches</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">_space_bratio</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                        <span class="k">else</span> <span class="n">start_capacity</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
             <span class="p">)</span>
 
         <span class="c1"># Spatial effort allocation for this month, from the biomass at the</span>
@@ -24442,7 +24689,10 @@ in the derivative, as before B3; it is stable only to about
 
         <span class="n">month_start_biomass</span> <span class="o">=</span> <span class="n">current_biomass</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">_hden_start_pending</span><span class="p">:</span>
-            <span class="c1"># EwE6 SetTimeSteps: one Derivt at the start state advances Hden</span>
+            <span class="c1"># EwE6 SetTimeSteps: one Derivt at the start state advances Hden.</span>
+            <span class="c1"># (EwE's Ecospace start runs a second one, SetBiomassesEcospace's</span>
+            <span class="c1"># Derivt, cEcoSpace.vb 3155; left out so a uniform map stays</span>
+            <span class="c1"># Ecosim: it only changes the first months of handling groups.)</span>
             <span class="n">_f</span><span class="p">(</span><span class="n">current_biomass</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">hh</span><span class="p">)</span>
             <span class="n">_hden_start_pending</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="n">_det_out_pending</span><span class="p">:</span>
@@ -24594,6 +24844,637 @@ in the derivative, as before B3; it is stable only to about
         <span class="n">output</span><span class="o">.</span><span class="n">out_StateVector</span> <span class="o">=</span> <span class="n">out_StateVector</span>
 
     <span class="k">return</span> <span class="n">output</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="ecospace-calibration">Ecospace Calibration<a class="headerlink" href="#ecospace-calibration" title="Permanent link">&para;</a></h2>
+<p>EwE's Ecospace base calibration (<code>AdjustSpaceParsNew</code>), mapped onto the
+consumption kernel: the search and vulnerability rates for groups spread by
+habitat capacity.</p>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h3 id="pypath.spatial.calibration" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">pypath.spatial.calibration</span>
+
+
+<a href="#pypath.spatial.calibration" class="headerlink" title="Permanent link">&para;</a></h3>
+
+    <div class="doc doc-contents first">
+
+        <p>EwE's Ecospace base calibration, mapped onto PyPath's consumption kernel.</p>
+<p>EwE 6.7.144 sets Ecospace's search and vulnerability rates in
+<code>AdjustSpaceParsNew</code> (cEcoSpace.vb 6036-6180) so that, with every group
+spread in proportion to its habitat capacity, map-wide consumption follows
+Ecopath's:</p>
+<ul>
+<li><code>BRatio = ThabArea / TotHabCap</code>: a group's density in its habitat over
+  its map-wide mean, and its base biomass <code>B0 x BRatio</code>;</li>
+<li><code>Vspace = X x Qarena / (B0_prey x BRatio_prey)</code> with
+  <code>Qarena = Q0 x BRatio_pred</code> (one predator per arena), floored at
+  Ecosim's vulnerability rate <code>X x Q0 / B0_prey</code>;</li>
+<li>search rates from five passes of
+  <code>A = Q0 / (Vtemp x MeanBP)</code>, <code>Vtemp = Vspace / (2 Vspace + A x Pbar)</code>,
+  <code>MeanBP</code> the map-wide mean of <code>HabCap_prey x HabCap_pred</code> times the
+  base densities, <code>Pbar = B0_pred x BRatio_pred</code>; the passes stop early
+  when the change is small, and on donor-controlled links (X near 1) they do
+  not converge, so EwE's map-wide base flow there is below Ecopath's;</li>
+<li>producers' shading <code>PbSpace = pbbiomass / BRatio</code>.</li>
+</ul>
+<p>In a cell EwE eats <code>A V B_prey P / (2V + A P / EatEff_pred)</code> (handling
+aside), with <code>EatEff = HabCap</code>. PyPath's kernel eats
+<code>QQ x PDY x PYY x X / (X - 1 + PDY / EatEff)</code> on biomass relative to a base.
+The two are the same with the base <code>B0 x BRatio</code> for every group and, per
+link, <code>X' = 1 + 2 Vspace / (A x Pb)</code> and <code>QQ' = Vspace x Bb_prey / X'</code>
+(Pb, Bb the predator's and prey's bases). With a uniform habitat this gives
+back Ecosim's X and Q0 exactly. A producer's gain is its link from group 0;
+<code>PbSpace = pbbiomass / BRatio</code> on the base <code>B0 x BRatio</code> is that link
+with <code>QQ' = Q0 x BRatio</code> and its X unchanged.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="pypath.spatial.calibration.SpaceCalibration" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SpaceCalibration</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#pypath.spatial.calibration.SpaceCalibration" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Ecospace's base parameters for PyPath's kernel.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.spatial.calibration.SpaceCalibration.bbase">bbase</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Every group's base density, B0 x BRatio [n_groups + 1].</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.spatial.calibration.SpaceCalibration.qq">qq</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Base flows QQ' [prey, pred]; the producers' links from group 0 carry
+Q0 x BRatio.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.spatial.calibration.SpaceCalibration.vv">vv</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Vulnerabilities X' [prey, pred].</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.spatial.calibration.SpaceCalibration.bratio">bratio</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>BRatio = map-wide mean / mean over the habitat [n_groups + 1].</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.spatial.calibration.SpaceCalibration.vspace">vspace</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>EwE's Vspace by link [prey, pred] (0 where there is no link).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.spatial.calibration.SpaceCalibration.search">search</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>EwE's search rate before the handling correction (Atemp) [prey, pred].</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>pypath/spatial/calibration.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpaceCalibration</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Ecospace's base parameters for PyPath's kernel.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bbase : np.ndarray</span>
+<span class="sd">        Every group's base density, B0 x BRatio [n_groups + 1].</span>
+<span class="sd">    qq : np.ndarray</span>
+<span class="sd">        Base flows QQ' [prey, pred]; the producers' links from group 0 carry</span>
+<span class="sd">        Q0 x BRatio.</span>
+<span class="sd">    vv : np.ndarray</span>
+<span class="sd">        Vulnerabilities X' [prey, pred].</span>
+<span class="sd">    bratio : np.ndarray</span>
+<span class="sd">        BRatio = map-wide mean / mean over the habitat [n_groups + 1].</span>
+<span class="sd">    vspace : np.ndarray</span>
+<span class="sd">        EwE's Vspace by link [prey, pred] (0 where there is no link).</span>
+<span class="sd">    search : np.ndarray</span>
+<span class="sd">        EwE's search rate before the handling correction (Atemp) [prey, pred].</span>
+<span class="sd">    """</span>
+
+    <span class="n">bbase</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">qq</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">vv</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">bratio</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">vspace</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">search</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="pypath.spatial.calibration.ewe_space_calibration" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">ewe_space_calibration</span>
+
+
+<a href="#pypath.spatial.calibration.ewe_space_calibration" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">ewe_space_calibration</span><span class="p">(</span><span class="n">b0</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">qq</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">vv</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">patch_share</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceCalibration</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>EwE's AdjustSpaceParsNew, as PyPath kernel parameters.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>b0</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Base biomass by group, index 0 the outside [n_groups + 1].</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>qq</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Ecopath base flows [prey, pred], row 0 the producers' links.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>vv</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Ecosim vulnerabilities X [prey, pred].</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>capacity</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Habitat capacity per group and patch [n_groups + 1, n_patches]; row 0
+and groups without habitat are 1.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>patch_share</code>
+            </td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Patch area fractions (equal patches when omitted).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="SpaceCalibration
+
+
+  
+      dataclass
+   (pypath.spatial.calibration.SpaceCalibration)" href="#pypath.spatial.calibration.SpaceCalibration">SpaceCalibration</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/spatial/calibration.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_space_calibration</span><span class="p">(</span>
+    <span class="n">b0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">qq</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">vv</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">capacity</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">patch_share</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceCalibration</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""EwE's AdjustSpaceParsNew, as PyPath kernel parameters.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    b0 : np.ndarray</span>
+<span class="sd">        Base biomass by group, index 0 the outside [n_groups + 1].</span>
+<span class="sd">    qq : np.ndarray</span>
+<span class="sd">        Ecopath base flows [prey, pred], row 0 the producers' links.</span>
+<span class="sd">    vv : np.ndarray</span>
+<span class="sd">        Ecosim vulnerabilities X [prey, pred].</span>
+<span class="sd">    capacity : np.ndarray</span>
+<span class="sd">        Habitat capacity per group and patch [n_groups + 1, n_patches]; row 0</span>
+<span class="sd">        and groups without habitat are 1.</span>
+<span class="sd">    patch_share : np.ndarray, optional</span>
+<span class="sd">        Patch area fractions (equal patches when omitted).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    SpaceCalibration</span>
+<span class="sd">    """</span>
+    <span class="n">b0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">b0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">q0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">qq</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">vv</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">cap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">capacity</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">patch_share</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">patch_share</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">br</span> <span class="o">=</span> <span class="n">habitat_ratio</span><span class="p">(</span><span class="n">cap</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+    <span class="n">br</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+    <span class="n">qq_new</span><span class="p">,</span> <span class="n">vv_new</span> <span class="o">=</span> <span class="n">q0</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">x0</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">vspace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">q0</span><span class="p">)</span>
+    <span class="n">search</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">q0</span><span class="p">)</span>
+    <span class="n">prey</span><span class="p">,</span> <span class="n">pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">q0</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="p">(</span><span class="n">prey</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">pred</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">prey</span><span class="p">,</span> <span class="n">pred</span> <span class="o">=</span> <span class="n">prey</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">pred</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">prey</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">q0</span><span class="p">[</span><span class="n">prey</span><span class="p">,</span> <span class="n">pred</span><span class="p">]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x0</span><span class="p">[</span><span class="n">prey</span><span class="p">,</span> <span class="n">pred</span><span class="p">]</span> <span class="o">+</span> <span class="mf">1e-10</span>  <span class="c1"># EwE adds 1e-10 to VulMult</span>
+        <span class="n">qarena</span> <span class="o">=</span> <span class="n">q</span> <span class="o">*</span> <span class="n">br</span><span class="p">[</span><span class="n">pred</span><span class="p">]</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">qarena</span> <span class="o">/</span> <span class="p">(</span><span class="n">b0</span><span class="p">[</span><span class="n">prey</span><span class="p">]</span> <span class="o">*</span> <span class="n">br</span><span class="p">[</span><span class="n">prey</span><span class="p">])</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">v</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="c1"># Ecosim's VulArena (cEcoSimModel.vb 5384) is Vspace's floor (vb 6090)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">x</span> <span class="o">*</span> <span class="n">q</span> <span class="o">/</span> <span class="n">b0</span><span class="p">[</span><span class="n">prey</span><span class="p">])</span>
+        <span class="n">vul_biom</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">qarena</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span>
+        <span class="n">vul_biom</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">vul_biom</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">vul_biom</span><span class="p">)</span>
+        <span class="c1"># the predator index: X' and QQ' do not depend on its scale</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">vul_biom</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">q</span> <span class="o">/</span> <span class="p">(</span><span class="n">vul_biom</span> <span class="o">*</span> <span class="n">b0</span><span class="p">[</span><span class="n">pred</span><span class="p">]),</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">pbar</span> <span class="o">=</span> <span class="n">b0</span> <span class="o">*</span> <span class="n">br</span>
+        <span class="n">overlap</span> <span class="o">=</span> <span class="p">(</span><span class="n">cap</span> <span class="o">*</span> <span class="n">w</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:])</span> <span class="o">@</span> <span class="n">cap</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">mean_bp</span> <span class="o">=</span> <span class="n">overlap</span><span class="p">[</span><span class="n">prey</span><span class="p">,</span> <span class="n">pred</span><span class="p">]</span> <span class="o">*</span> <span class="n">b0</span><span class="p">[</span><span class="n">prey</span><span class="p">]</span> <span class="o">*</span> <span class="n">b0</span><span class="p">[</span><span class="n">pred</span><span class="p">]</span> <span class="o">*</span> <span class="n">br</span><span class="p">[</span><span class="n">prey</span><span class="p">]</span> <span class="o">*</span> <span class="n">br</span><span class="p">[</span><span class="n">pred</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>  <span class="c1"># vb 6147-6174</span>
+            <span class="n">vtemp</span> <span class="o">=</span> <span class="n">v</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="n">a</span> <span class="o">*</span> <span class="n">pbar</span><span class="p">[</span><span class="n">pred</span><span class="p">])</span>
+            <span class="n">new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="n">mean_bp</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">q</span> <span class="o">/</span> <span class="p">(</span><span class="n">vtemp</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mean_bp</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">mean_bp</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)),</span> <span class="n">a</span>
+            <span class="p">)</span>
+            <span class="n">change</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">new</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">new</span>
+            <span class="k">if</span> <span class="n">change</span> <span class="o">&lt;</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
+                <span class="k">break</span>
+        <span class="n">pb</span> <span class="o">=</span> <span class="n">b0</span><span class="p">[</span><span class="n">pred</span><span class="p">]</span> <span class="o">*</span> <span class="n">br</span><span class="p">[</span><span class="n">pred</span><span class="p">]</span>
+        <span class="n">x_new</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">v</span> <span class="o">/</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">pb</span><span class="p">)</span>
+        <span class="n">qq_new</span><span class="p">[</span><span class="n">prey</span><span class="p">,</span> <span class="n">pred</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span> <span class="o">*</span> <span class="n">b0</span><span class="p">[</span><span class="n">prey</span><span class="p">]</span> <span class="o">*</span> <span class="n">br</span><span class="p">[</span><span class="n">prey</span><span class="p">]</span> <span class="o">/</span> <span class="n">x_new</span>
+        <span class="n">vv_new</span><span class="p">[</span><span class="n">prey</span><span class="p">,</span> <span class="n">pred</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_new</span>
+        <span class="n">vspace</span><span class="p">[</span><span class="n">prey</span><span class="p">,</span> <span class="n">pred</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="n">search</span><span class="p">[</span><span class="n">prey</span><span class="p">,</span> <span class="n">pred</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span>
+    <span class="c1"># producers' links from group 0: PbSpace = pbbiomass / BRatio</span>
+    <span class="n">sun</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">q0</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">qq_new</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">sun</span><span class="p">]</span> <span class="o">=</span> <span class="n">q0</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">sun</span><span class="p">]</span> <span class="o">*</span> <span class="n">br</span><span class="p">[</span><span class="n">sun</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">SpaceCalibration</span><span class="p">(</span>
+        <span class="n">bbase</span><span class="o">=</span><span class="n">b0</span> <span class="o">*</span> <span class="n">br</span><span class="p">,</span> <span class="n">qq</span><span class="o">=</span><span class="n">qq_new</span><span class="p">,</span> <span class="n">vv</span><span class="o">=</span><span class="n">vv_new</span><span class="p">,</span> <span class="n">bratio</span><span class="o">=</span><span class="n">br</span><span class="p">,</span> <span class="n">vspace</span><span class="o">=</span><span class="n">vspace</span><span class="p">,</span> <span class="n">search</span><span class="o">=</span><span class="n">search</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="pypath.spatial.calibration.habitat_ratio" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">habitat_ratio</span>
+
+
+<a href="#pypath.spatial.calibration.habitat_ratio" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">habitat_ratio</span><span class="p">(</span><span class="n">capacity</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">patch_share</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>EwE's BRatio = ThabArea / TotHabCap of each group row of <code>capacity</code>.</p>
+<p><code>capacity</code> holds each group's habitat capacity per patch (rows by
+group). The ratio is 1 / the area-weighted mean capacity.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/spatial/calibration.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">71</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span>
+<span class="normal">78</span>
+<span class="normal">79</span>
+<span class="normal">80</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span>
+<span class="normal">86</span>
+<span class="normal">87</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">habitat_ratio</span><span class="p">(</span>
+    <span class="n">capacity</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">patch_share</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""EwE's BRatio = ThabArea / TotHabCap of each group row of ``capacity``.</span>
+
+<span class="sd">    ``capacity`` holds each group's habitat capacity per patch (rows by</span>
+<span class="sd">    group). The ratio is 1 / the area-weighted mean capacity.</span>
+<span class="sd">    """</span>
+    <span class="n">cap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">capacity</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">patch_share</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">patch_share</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="p">(</span><span class="n">cap</span> <span class="o">*</span> <span class="n">w</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mean</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mean</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
