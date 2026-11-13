@@ -5501,6 +5501,7 @@ def read_ecospace(
     scenario_id: int = 1,
     grid: "Optional[EcospaceGrid]" = None,
     ecopath_pb: Optional[Sequence[float]] = None,
+    grid_corner: str = "north_west",
 ) -> EcospaceReadResult:
     """Read Ecospace configuration from an EwE database.
 
@@ -5534,6 +5535,13 @@ def read_ecospace(
         in EcopathGroup.ProdBiom; a living group without one gets a warning.
         Detritus groups keep EwE's NULL PB whatever is passed, as EwE's
         Ecopath leaves it.
+    grid_corner : {"north_west", "south_west"}
+        Which corner of the grid EcospaceScenario.MinLat / MinLon give, for
+        the grid built without a user grid. EwE's basemap reads them as the
+        north-west corner (default). Some databases store the south-west
+        corner instead (the Black Sea EwE-F test case): "south_west" places
+        their grid where it belongs. Only the position changes, not the
+        cells or the dynamics.
 
     Returns
     -------
@@ -5604,7 +5612,13 @@ def read_ecospace(
             n_cols,
         )
         grid = _build_fallback_grid(
-            n_rows, n_cols, cell_length, min_lon, min_lat, depth=depth
+            n_rows,
+            n_cols,
+            cell_length,
+            min_lon,
+            min_lat,
+            depth=depth,
+            corner=grid_corner,
         )
         ewe_depth = depth
         ewe_water_input = depth_input > 0
@@ -6336,6 +6350,7 @@ def _build_fallback_grid(
     min_lon: float = 0.0,
     min_lat: float = 0.0,
     depth: Optional[np.ndarray] = None,
+    corner: str = "north_west",
 ) -> "EcospaceGrid":
     """Build a regular raster grid from EwE scenario dimensions.
 
@@ -6353,10 +6368,20 @@ def _build_fallback_grid(
     on each side (cEcospaceDataStructures.ToCellSize). EwE takes map units
     as meters when AssumeSquareCells is set; PyPath's grid is in degrees,
     so the corner is read as degrees either way.
+
+    ``corner="south_west"`` reads ``min_lat`` / ``min_lon`` as the grid's
+    south-west corner instead, as some databases store them (the Black Sea
+    EwE-F test case): the grid then lies ``n_rows`` cells further north.
+    Cells, links, areas and distances are the same either way.
     """
     import scipy.sparse
 
     from pypath.spatial.ecospace_params import EcospaceGrid
+
+    if corner not in ("north_west", "south_west"):
+        raise ValueError(
+            f"corner must be 'north_west' (EwE) or 'south_west', got {corner!r}"
+        )
 
     if depth is None:
         water = np.ones((n_rows, n_cols), dtype=bool)
@@ -6374,8 +6399,9 @@ def _build_fallback_grid(
 
     # Centroids in degrees from the top-left corner, rows running south
     cell_size = cell_length / _EWE_DEGREE_KM
+    top_lat = min_lat if corner == "north_west" else min_lat + n_rows * cell_size
     lon = min_lon + (cols_arr + 0.5) * cell_size
-    lat = min_lat - (rows_arr + 0.5) * cell_size
+    lat = top_lat - (rows_arr + 0.5) * cell_size
     centroids = np.column_stack([lon, lat])
 
     # Rook adjacency and edge lengths
