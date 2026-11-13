@@ -676,11 +676,13 @@ def ecospace_ui():
                             value=True,
                         ),
                         ui.p(
-                            "Every group disperses at this rate: each year, "
-                            "two neighbouring patches of equal size exchange "
-                            "this multiple of their biomass difference. EwE's "
-                            "Mvel of 300 km/year on 36.7 km cells is about "
-                            "2.6 per year.",
+                            "Without an active Ecospace Wizard configuration "
+                            "(its rates take precedence), every group "
+                            "disperses at this rate: between two neighbouring "
+                            "square cells, biomass flows at this rate times "
+                            "their current biomass difference, per year. For "
+                            "a non-migratory group, EwE's Mvel of 300 km/year "
+                            "on 36.7 km cells is about 2.6 per year.",
                             class_="text-muted small",
                         ),
                         icon=ui.tags.i(class_="bi bi-arrows-move"),
