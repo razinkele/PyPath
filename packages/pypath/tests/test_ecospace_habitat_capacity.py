@@ -284,14 +284,16 @@ def _tables(**overrides):
     return tables
 
 
-def _read(tables, **kw):
-    from pypath.io.ewemdb import read_ecospace
+def _read(tables, unreadable=(), **kw):
+    from pypath.io.ewemdb import EwEDatabaseError, read_ecospace
+
+    def read_table(path, tbl):
+        if tbl in unreadable:
+            raise EwEDatabaseError(f"Failed to read table '{tbl}'")
+        return tables[tbl]
 
     with patch("pypath.io.ewemdb.list_ewemdb_tables", return_value=list(tables)):
-        with patch(
-            "pypath.io.ewemdb.read_ewemdb_table",
-            side_effect=lambda path, tbl: tables[tbl],
-        ):
+        with patch("pypath.io.ewemdb.read_ewemdb_table", side_effect=read_table):
             return read_ecospace("fake.eweaccdb", n_groups=2, **kw)
 
 
@@ -333,6 +335,24 @@ def test_a_preference_on_the_first_habitat_keeps_all_habitats():
     )
     cap = _read(_tables(EcospaceScenarioGroupHabitat=prefs)).ecospace.habitat_capacity
     np.testing.assert_allclose(cap[1], 1.0)
+
+
+@pytest.mark.parametrize(
+    "table",
+    [
+        "EcospaceScenarioGroup",
+        "EcospaceScenarioHabitat",
+        "EcospaceScenarioGroupHabitat",
+        "EcopathGroup",
+    ],
+)
+def test_an_unreadable_table_is_a_warning_and_capacity_one(table, caplog):
+    # Like the reader's other optional Ecospace reads: a table the database
+    # cannot give back does not stop read_ecospace.
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        cap = _read(_tables(), unreadable={table}).ecospace.habitat_capacity
+    assert table in caplog.text
+    np.testing.assert_array_equal(cap, np.ones((2, 3)))
 
 
 def test_read_ecospace_warns_for_parts_it_leaves_out(caplog):
@@ -407,6 +427,15 @@ def test_the_sweep_count_rounds_half_to_even():
     far = 0.01 * np.exp(-0.4 * 6)
     want = [far, far, far, 0.01 * np.exp(-0.8), 0.01 * np.exp(-0.4), 1.0]
     np.testing.assert_allclose(got, want, rtol=1e-6)
+
+
+def test_the_sweep_count_is_divided_in_single_precision():
+    # Mvel / PB / (CellLength / 2) = 1.4 / 1 / (0.8 / 2) is 3.5 in Single, so
+    # CInt gives 4, but 3.4999999 in Double (3). On NumPy 1.x a float32
+    # divided by a Python int is a float64, so every operand must be Single.
+    from pypath.io.ewemdb import _ewe_habcap_sweeps
+
+    assert _ewe_habcap_sweeps(1.4, 1.0, 0.8, 6) == 4
 
 
 def test_the_sweeps_are_capped_by_the_longer_side_of_the_grid():
