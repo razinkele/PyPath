@@ -211,3 +211,14 @@ def test_wizard_environmental_drivers_hold_depth_and_salinity():
     assert set(drivers.layers) == {"depth", "salinity"}
     assert drivers.n_patches == 2
     assert wizard_environmental_drivers() is None
+
+
+def test_wizard_dispersal_is_labelled_as_a_rate_per_year():
+    # The wizard's rate becomes EcospaceParams.dispersal_rate, a rate per year.
+    from pathlib import Path
+
+    from pypath_shiny.pages import ecospace_wizard
+
+    assert "Dispersal Rate (per year)" in str(ecospace_wizard._step6_set_dispersal_ui())
+    source = Path(ecospace_wizard.__file__).read_text(encoding="utf-8")
+    assert "km\\u00b2/month" not in source and "km²/month" not in source
