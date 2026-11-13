@@ -120,6 +120,18 @@ def _get_upper_triangle_edges(adjacency: scipy.sparse.csr_matrix):
     return result
 
 
+def _edge_distances(grid, rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
+    """Centroid distance of each edge in km: Euclidean distance in degrees x 111.
+
+    Computed edge by edge, with the arithmetic of ``cdist(..., "euclidean")``
+    for two coordinates (bit for bit), instead of an all-pairs matrix (n^2
+    memory: 3.2 GB for 20,000 patches).
+    """
+    centroids = np.asarray(grid.patch_centroids, dtype=float)
+    delta = centroids[rows] - centroids[cols]
+    return np.sqrt((delta * delta).sum(axis=1)) * 111.0
+
+
 def _get_diffusion_edge_data(grid, adjacency):
     """Return cached (rows, cols, border_lengths, distances) for diffusion.
 
@@ -129,8 +141,6 @@ def _get_diffusion_edge_data(grid, adjacency):
     cached = getattr(grid, "_diffusion_edges", None)
     if cached is not None:
         return cached
-
-    from scipy.spatial.distance import cdist
 
     rows, cols = _get_upper_triangle_edges(adjacency)
     n_edges = len(rows)
@@ -148,13 +158,7 @@ def _get_diffusion_edge_data(grid, adjacency):
     valid = border_lengths > 0
     rows, cols, border_lengths = rows[valid], cols[valid], border_lengths[valid]
 
-    if not hasattr(grid, "_distance_matrix"):
-        grid._distance_matrix = (
-            cdist(grid.patch_centroids, grid.patch_centroids, metric="euclidean")
-            * 111.0
-        )
-
-    distances = grid._distance_matrix[rows, cols]
+    distances = _edge_distances(grid, rows, cols)
 
     # Filter zero-distance edges
     valid = distances > 0
@@ -392,16 +396,7 @@ def gravity_model_flux(
     if len(rows) == 0:
         return net_flux
 
-    # Use cached distance matrix
-    from scipy.spatial.distance import cdist
-
-    if not hasattr(grid, "_distance_matrix"):
-        grid._distance_matrix = (
-            cdist(grid.patch_centroids, grid.patch_centroids, metric="euclidean")
-            * 111.0
-        )
-
-    distances = grid._distance_matrix[rows, cols]
+    distances = _edge_distances(grid, rows, cols)
 
     # Filter out zero distances
     valid_dist = distances > 0
