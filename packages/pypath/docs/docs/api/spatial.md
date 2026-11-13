@@ -128,6 +128,17 @@ dispersal, habitat effects, and optional IBM groups across the grid.
       show_root_heading: true
 
 
+## Ecospace Calibration
+
+EwE's Ecospace base calibration (`AdjustSpaceParsNew`), mapped onto the
+consumption kernel: the search and vulnerability rates for groups spread by
+habitat capacity.
+
+::: pypath.spatial.calibration
+    options:
+      show_root_heading: true
+
+
 ## Advanced Movement
 
 Higher-level movement utilities for behavioral migration, ontogenetic shifts,

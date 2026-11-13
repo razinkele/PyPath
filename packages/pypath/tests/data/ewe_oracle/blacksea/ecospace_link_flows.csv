@@ -1,0 +1,105 @@
+TimeStep,Pred,Prey,Consumption
+1,Dolphins,Bonito,0.00337086921
+1,Dolphins,Bluefish,0.00343582034
+1,Dolphins,A. Mackerel,0.00288793514
+1,Dolphins,Whiting,0.00343929068
+1,Dolphins,H. Mackerel,0.0102798743
+1,Dolphins,Sprat,0.0206343122
+1,Dolphins,Anchovy 1-1+,0.0240745395
+1,Bonito,H. Mackerel,0.0154595152
+1,Bonito,Sprat,0.0766597763
+1,Bonito,Anchovy 1-1+,0.102503039
+1,Bluefish,H. Mackerel,0.0024732661
+1,Bluefish,Sprat,0.0112493923
+1,Bluefish,Anchovy 1-1+,0.0117131071
+1,A. Mackerel,H. Mackerel,0.0143200504
+1,A. Mackerel,Sprat,0.0685470998
+1,A. Mackerel,Anchovy 1-1+,0.0578818247
+1,Whiting,Turbot,0.000432409055
+1,Whiting,R. Mullet,0.000961550337
+1,Whiting,Sprat,0.00459588971
+1,Whiting,Anchovy 1-1+,0.00655452674
+1,Turbot,R. Mullet,0.000497703499
+1,Turbot,Sprat,0.00338341808
+1,Turbot,Zooplankton,0.000528548844
+1,R. Mullet,R. Mullet,0.00180205761
+1,R. Mullet,Detritus,0.0188976657
+1,Dogfish,Whiting,0.000574787206
+1,Dogfish,Turbot,7.53189815e-05
+1,Dogfish,R. Mullet,8.28058764e-05
+1,Dogfish,H. Mackerel,0.00011630496
+1,Dogfish,Sprat,0.000116159565
+1,Dogfish,Anchovy 1-1+,0.000115585513
+1,H. Mackerel,Sprat,0.0836061314
+1,H. Mackerel,Anchovy 1-1+,0.0993502364
+1,H. Mackerel,Zooplankton,0.372709632
+1,Shad,Zooplankton,0.00428893277
+1,Sprat,Zooplankton,2.24548697
+1,Anchovy 0-0+,Zooplankton,0.893548369
+1,Anchovy 1-1+,Zooplankton,2.37026715
+1,Aurelia,Zooplankton,0.475993395
+1,Aurelia,POM,0.640144169
+1,Beroe,Mnemiopsis,2.47869666e-05
+1,Beroe,POM,2.74040713e-06
+1,Mnemiopsis,Anchovy 0-0+,3.11593685e-05
+1,Mnemiopsis,Zooplankton,0.000249644043
+1,Mnemiopsis,POM,3.14859135e-05
+1,Pleurobrachia,Zooplankton,0.305884987
+1,Pleurobrachia,POM,0.344619364
+1,Noctiluca,Zooplankton,0.339658797
+1,Noctiluca,Phytoplankton,1.60065305
+1,Noctiluca,POM,0.63122344
+1,Zooplankton,Phytoplankton,64.7893677
+1,Zooplankton,POM,8.0618763
+12,Dolphins,Bonito,0.00337735843
+12,Dolphins,Bluefish,0.00338208606
+12,Dolphins,A. Mackerel,0.00275088847
+12,Dolphins,Whiting,0.00327931298
+12,Dolphins,H. Mackerel,0.00878024846
+12,Dolphins,Sprat,0.0131184785
+12,Dolphins,Anchovy 1-1+,0.0207117703
+12,Bonito,H. Mackerel,0.0129454369
+12,Bonito,Sprat,0.0505532138
+12,Bonito,Anchovy 1-1+,0.0913883969
+12,Bluefish,H. Mackerel,0.00207175314
+12,Bluefish,Sprat,0.00709128054
+12,Bluefish,Anchovy 1-1+,0.00967466738
+12,A. Mackerel,H. Mackerel,0.0119955502
+12,A. Mackerel,Sprat,0.0431559794
+12,A. Mackerel,Anchovy 1-1+,0.0476600714
+12,Whiting,Turbot,0.000373760588
+12,Whiting,R. Mullet,0.00102155982
+12,Whiting,Sprat,0.00280602556
+12,Whiting,Anchovy 1-1+,0.00541917095
+12,Turbot,R. Mullet,0.000527790689
+12,Turbot,Sprat,0.00207952876
+12,Turbot,Zooplankton,0.000454249355
+12,R. Mullet,R. Mullet,0.00190039177
+12,R. Mullet,Detritus,0.0200721435
+12,Dogfish,Whiting,0.000515826861
+12,Dogfish,Turbot,6.51018345e-05
+12,Dogfish,R. Mullet,8.79294821e-05
+12,Dogfish,H. Mackerel,9.42079423e-05
+12,Dogfish,Sprat,6.92285175e-05
+12,Dogfish,Anchovy 1-1+,9.32805124e-05
+12,H. Mackerel,Sprat,0.0513177849
+12,H. Mackerel,Anchovy 1-1+,0.080664143
+12,H. Mackerel,Zooplankton,0.29362765
+12,Shad,Zooplankton,0.00342502329
+12,Sprat,Zooplankton,1.9354589
+12,Anchovy 0-0+,Zooplankton,0.503728688
+12,Anchovy 1-1+,Zooplankton,1.98150516
+12,Aurelia,Zooplankton,0.407123923
+12,Aurelia,POM,0.593855083
+12,Beroe,Mnemiopsis,1.80596162e-05
+12,Beroe,POM,2.66712686e-06
+12,Mnemiopsis,Anchovy 0-0+,1.698087e-05
+12,Mnemiopsis,Zooplankton,0.000200313414
+12,Mnemiopsis,POM,3.11381882e-05
+12,Pleurobrachia,Zooplankton,0.263015985
+12,Pleurobrachia,POM,0.361608207
+12,Noctiluca,Zooplankton,0.292387873
+12,Noctiluca,Phytoplankton,1.79144251
+12,Noctiluca,POM,0.668686271
+12,Zooplankton,Phytoplankton,73.4774628
+12,Zooplankton,POM,8.5501585

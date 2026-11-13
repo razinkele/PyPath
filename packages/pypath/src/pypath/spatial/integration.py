@@ -32,6 +32,7 @@ from pypath.core.stanzas import (
     split_update,
     stanza_group_indices,
 )
+from pypath.spatial.calibration import ewe_space_calibration
 from pypath.spatial.fishing import SpatialFishing, effort_multipliers
 
 # Cap the worker pool to avoid over-subscription on large machines.
@@ -133,6 +134,28 @@ def _capacity_matrix(ecospace, mpa_cap_mult, n_rows, n_patches, patch_share):
     if mpa_cap_mult is not None:
         cap[1:] *= np.asarray(mpa_cap_mult, dtype=float)[np.newaxis, :]
         varied = True
+    return cap if varied else None
+
+
+def _raw_capacity(ecospace, n_rows, n_patches):
+    """Each group's habitat capacity per patch as EwE's HabCap, or None.
+
+    Rows by state index: row 0 (Outside) and groups without a capacity row
+    are 1. Each row is divided by its maximum, as EwE's normalizeCapacityMap
+    does, so it peaks at 1 and a constant row is 1 everywhere (maps read
+    from an EwE database already peak at 1). None when no group's capacity
+    varies over the patches.
+    """
+    raw = getattr(ecospace, "habitat_capacity", None)
+    if raw is None:
+        return None
+    raw = np.asarray(raw, dtype=float)
+    cap = np.ones((n_rows, n_patches))
+    k = min(raw.shape[0], n_rows - 1)
+    cap[1 : k + 1] = raw[:k]
+    peak = cap.max(axis=1, keepdims=True)
+    cap = np.where(peak > 0, cap / np.where(peak > 0, peak, 1.0), 1.0)
+    varied = any(not np.all(row == row[0]) for row in cap[1:])
     return cap if varied else None
 
 
@@ -365,6 +388,20 @@ def deriv_vector_spatial(
     )
     params_need_modification = capacity is not None
 
+    # EwE's base calibration (rsim_run_spatial sets it): the same calibrated
+    # parameters for every patch, and each patch's feeding efficiency (EatEff,
+    # its habitat capacity, times any MPA capacity bonus)
+    _space_cal = params.get("_space_cal")
+    _eat_eff_patches = params.get("_eat_eff_patches")
+    _saved_params = None
+    if _space_cal is not None:
+        _saved_params = {key: params.get(key) for key in _space_cal}
+        params.update(_space_cal)
+        params_need_modification = False
+        if mpa_cap_mult is not None and _eat_eff_patches is not None:
+            _eat_eff_patches = _eat_eff_patches.copy()
+            _eat_eff_patches[1:] *= np.asarray(mpa_cap_mult, dtype=float)[np.newaxis, :]
+
     if params_need_modification:
         b_base_ref_original = np.asarray(params["B_BaseRef"], dtype=float)
         b_base_ref_patches = b_base_ref_original[:, np.newaxis] * capacity
@@ -456,6 +493,8 @@ def deriv_vector_spatial(
         state_patch = state_spatial[:, patch_idx]
         if _hden_patches is not None:
             patch_params["_hden"] = _hden_patches[:, patch_idx]  # a view
+        if _space_cal is not None and _eat_eff_patches is not None:
+            patch_params["_eat_eff"] = _eat_eff_patches[:, patch_idx]
         if _mediation_scale is not None:
             patch_params["_mediation_density_scale"] = _mediation_scale[patch_idx]
         if params_need_modification:
@@ -505,6 +544,8 @@ def deriv_vector_spatial(
                 rates = {} if rates_out is not None else None
                 if _hden_patches is not None:
                     params["_hden"] = _hden_patches[:, patch_idx]  # a view
+                if _space_cal is not None and _eat_eff_patches is not None:
+                    params["_eat_eff"] = _eat_eff_patches[:, patch_idx]
                 if _mediation_scale is not None:
                     params["_mediation_density_scale"] = _mediation_scale[patch_idx]
 
@@ -552,6 +593,9 @@ def deriv_vector_spatial(
         # Clean up injected spatial context keys
         for g_idx in ibm_spatial_contexts:
             params.pop("_ibm_spatial_context_%d" % g_idx, None)
+        params.pop("_eat_eff", None)
+        if _saved_params is not None:
+            params.update(_saved_params)
 
     # Step 2: Add spatial fluxes (movement/dispersal)
     spatial_flux = calculate_spatial_flux(
@@ -902,6 +946,32 @@ def rsim_run_spatial(
 
     _set_switch_weights(params_dict, switch_bbase=params.B_BaseRef)
 
+    # EwE's Ecospace base calibration (B5, pypath.spatial.calibration): with a
+    # habitat pattern, every group's base is B0 x BRatio and each link's
+    # search and vulnerability rates are EwE's AdjustSpaceParsNew, mapped onto
+    # the kernel; each patch's feeding efficiency is its habitat capacity
+    # (EatEff), and the nutrient pool keeps Ecosim's map-wide base.
+    _space_bratio = None
+    if density_form and start_capacity is not None:
+        _cap = _raw_capacity(ecospace, n_groups + 1, n_patches)
+        if _cap is not None:
+            _cal = ewe_space_calibration(
+                params_dict["B_BaseRef"],
+                params_dict["QQbase"],
+                params_dict["VV"],
+                _cap,
+                patch_w,
+            )
+            params_dict["_space_cal"] = {
+                "B_BaseRef": _cal.bbase,
+                "Bbase": _cal.bbase,
+                "QQbase": _cal.qq,
+                "VV": _cal.vv,
+                "_nut_base": np.asarray(params_dict["B_BaseRef"], dtype=float),
+            }
+            params_dict["_eat_eff_patches"] = np.maximum(_cap, 1e-6)
+            _space_bratio = _cal.bratio
+
     # Pre-compute sparse link arrays for the consumption kernel
     from pypath.core.link_array import ActiveLinkArray
 
@@ -999,9 +1069,9 @@ def rsim_run_spatial(
         _forced_recs = getattr(forcing, "ForcedRecs", None)
         if _forced_recs is not None and mi < len(_forced_recs):
             forcing_dict["ForcedRecs"] = _forced_recs[mi]
-        _nut_forcing = getattr(forcing, "NutForcing", None)
-        if _nut_forcing is not None and mi < len(_nut_forcing):
-            forcing_dict["NutForcing"] = float(_nut_forcing[mi])
+        # Ecosim's nutrient forcing does not reach Ecospace: EwE's cell has
+        # NutTot x its relative productivity less its biomass as free nutrient
+        # (cSpaceSolver.vb 860), whatever Ecosim's NutForcing is.
         # Prey, production, search-rate, mortality and respiration forcing,
         # as in rsim_run (Ecospace used to drop them).
         for _key in (
@@ -1038,7 +1108,15 @@ def rsim_run_spatial(
                 stanza_idx,
                 current_biomass,
                 patch_w if density_form else None,
-                capacity=start_capacity if density_form else None,
+                capacity=(
+                    None
+                    if not density_form
+                    else (
+                        np.repeat(_space_bratio[:, None], n_patches, axis=1)
+                        if _space_bratio is not None
+                        else start_capacity
+                    )
+                ),
             )
 
         # Spatial effort allocation for this month, from the biomass at the
@@ -1113,7 +1191,10 @@ def rsim_run_spatial(
 
         month_start_biomass = current_biomass.copy()
         if _hden_start_pending:
-            # EwE6 SetTimeSteps: one Derivt at the start state advances Hden
+            # EwE6 SetTimeSteps: one Derivt at the start state advances Hden.
+            # (EwE's Ecospace start runs a second one, SetBiomassesEcospace's
+            # Derivt, cEcoSpace.vb 3155; left out so a uniform map stays
+            # Ecosim: it only changes the first months of handling groups.)
             _f(current_biomass, t, hh)
             _hden_start_pending = False
         if _det_out_pending:

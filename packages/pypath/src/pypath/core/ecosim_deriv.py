@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
+def _pdy(predYY, pred, eat_eff):
+    """A predator's relative abundance in the vulnerable-pool denominator."""
+    return predYY[pred] if eat_eff is None else predYY[pred] / eat_eff[pred]
+
+
 def _compute_consumption_python(
     QQ,
     BB,
@@ -50,6 +55,7 @@ def _compute_consumption_python(
     HandleSwitch=None,
     COUPLED=1,
     med_multipliers=None,
+    eat_eff=None,
 ):
     """Compute the consumption matrix QQ in-place using foraging arena theory.
 
@@ -90,6 +96,11 @@ def _compute_consumption_python(
         Per-link prey switching exponent [prey, pred].
     COUPLED : int
         Coupling flag (1 = coupled, 0 = uncoupled).
+    eat_eff : np.ndarray or None
+        Ecospace feeding efficiency of each predator (EwE's EatEff, the
+        cell's habitat capacity): the predator term of the vulnerable-pool
+        denominator is divided by it (cSpaceSolver.vb 883), so a predator
+        at its habitat's base density takes its base share wherever it is.
     """
     use_pooling = (
         ScrambleSelf is not None
@@ -108,7 +119,9 @@ def _compute_consumption_python(
             for prey in range(1, NUM_GROUPS + 1):
                 if ActiveLink[prey, pred] == 0:
                     continue
-                PredSuite[prey] += predYY[pred] * PredPredWeight[prey, pred]
+                PredSuite[prey] += (
+                    _pdy(predYY, pred, eat_eff) * PredPredWeight[prey, pred]
+                )
                 HandleSuite[pred] += preyYY[prey] * PreyPreyWeight[prey, pred]
 
     for pred in range(1, NUM_LIVING + 1):
@@ -161,9 +174,11 @@ def _compute_consumption_python(
             # Vulnerability term (VV denominator) with suite pooling
             if use_pooling:
                 Sself = ScrambleSelf[prey, pred]
-                vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
+                vv_pred_eff = (1.0 - Sself) * _pdy(
+                    predYY, pred, eat_eff
+                ) + Sself * PredSuite[prey]
             else:
-                vv_pred_eff = PDY
+                vv_pred_eff = _pdy(predYY, pred, eat_eff)
             vv_pred_safe = max(vv_pred_eff, 1e-10)
             vv_term = vv / max(vv - 1.0 + vv_pred_safe, 1e-10)
 
@@ -206,6 +221,7 @@ def _compute_consumption_sparse_python(
     HandleSwitch=None,
     COUPLED=1,
     med_multipliers=None,
+    eat_eff=None,
 ):
     """Compute consumption using pre-computed link arrays (single flat loop).
 
@@ -247,6 +263,11 @@ def _compute_consumption_sparse_python(
         Per-link prey switching exponent [prey, pred].
     COUPLED : int
         Coupling flag (1 = coupled, 0 = uncoupled).
+    eat_eff : np.ndarray or None
+        Ecospace feeding efficiency of each predator (EwE's EatEff, the
+        cell's habitat capacity): the predator term of the vulnerable-pool
+        denominator is divided by it (cSpaceSolver.vb 883), so a predator
+        at its habitat's base density takes its base share wherever it is.
     """
     use_pooling = (
         ScrambleSelf is not None
@@ -263,7 +284,7 @@ def _compute_consumption_sparse_python(
         for idx in range(n_links):
             prey = link_prey[idx]
             pred = link_pred[idx]
-            PredSuite[prey] += predYY[pred] * PredPredWeight[prey, pred]
+            PredSuite[prey] += _pdy(predYY, pred, eat_eff) * PredPredWeight[prey, pred]
             HandleSuite[pred] += preyYY[prey] * PreyPreyWeight[prey, pred]
 
     for idx in range(n_links):
@@ -312,9 +333,11 @@ def _compute_consumption_sparse_python(
         # Vulnerability term (VV denominator) with suite pooling
         if use_pooling:
             Sself = ScrambleSelf[prey, pred]
-            vv_pred_eff = (1.0 - Sself) * PDY + Sself * PredSuite[prey]
+            vv_pred_eff = (1.0 - Sself) * _pdy(
+                predYY, pred, eat_eff
+            ) + Sself * PredSuite[prey]
         else:
-            vv_pred_eff = PDY
+            vv_pred_eff = _pdy(predYY, pred, eat_eff)
         vv_pred_safe = max(vv_pred_eff, 1e-10)
         vv_term = vv / max(vv - 1.0 + vv_pred_safe, 1e-10)
 
@@ -1690,9 +1713,11 @@ def deriv_vector(
     _nut_prop = params.get("NutBaseFreeProp")
     if _nut_prop is not None:
         _nb = slice(1, NUM_LIVING + NUM_DEAD + 1)
+        # Ecospace: NutTot from the map-wide base, not a patch's (_nut_base)
+        _nut_base = params.get("_nut_base")
         _nut_f = _ewe_nutrient_factor(
             float(np.sum(state[_nb])),
-            float(np.sum(Bbase[_nb])),
+            float(np.sum((Bbase if _nut_base is None else _nut_base)[_nb])),
             _nut_prop,
             float(forcing.get("NutForcing", 1.0)),
         )
@@ -1701,6 +1726,19 @@ def deriv_vector(
             _producer = np.asarray(PP_type, dtype=float)[: len(PP_forcing)] > 0
             _producer[0] = False
             PP_forcing[_producer] *= _nut_f
+    # Ecospace feeding efficiency (EwE's EatEff = the cell's habitat capacity):
+    # it scales producers' production (pbb, cSpaceSolver.vb 1008) and divides
+    # consumers' predator term in the vulnerable pool (vb 883)
+    _kernel_eat_eff = None
+    _eat_eff = params.get("_eat_eff")
+    if _eat_eff is not None:
+        _eat_eff = np.asarray(_eat_eff, dtype=float)
+        _producer = np.asarray(PP_type, dtype=float)[: len(_eat_eff)] > 0
+        _producer[0] = False
+        PP_forcing = np.array(PP_forcing, dtype=float, copy=True)
+        PP_forcing[: len(_eat_eff)][_producer] *= _eat_eff[_producer]
+        _kernel_eat_eff = _eat_eff.copy()
+        _kernel_eat_eff[_producer] = 1.0  # their gain carries EatEff above
     ForcedPrey = forcing.get("ForcedPrey", np.ones(NUM_GROUPS + 1))
     ForcedSearch = forcing.get("ForcedSearch", None)
     ForcedMort = forcing.get("ForcedMort", None)
@@ -1852,6 +1890,7 @@ def deriv_vector(
                 HandleSwitch=_HandleSwitch,
                 COUPLED=_COUPLED,
                 med_multipliers=_med_multipliers,
+                eat_eff=_kernel_eat_eff,
             )
         else:
             # ActiveLink may be a boolean array; ensure it is integer for numba.
@@ -1878,6 +1917,7 @@ def deriv_vector(
                 HandleSwitch=_HandleSwitch,
                 COUPLED=_COUPLED,
                 med_multipliers=_med_multipliers,
+                eat_eff=_kernel_eat_eff,
             )
 
     # EwE6 handling time (D5): each predator's search rate is divided by
