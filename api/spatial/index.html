@@ -18705,9 +18705,7 @@ flux_matrix[i, j] = flux from patch i to patch j</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">633</span>
-<span class="normal">634</span>
-<span class="normal">635</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">635</span>
 <span class="normal">636</span>
 <span class="normal">637</span>
 <span class="normal">638</span>
@@ -18719,7 +18717,9 @@ flux_matrix[i, j] = flux from patch i to patch j</p>
 <span class="normal">644</span>
 <span class="normal">645</span>
 <span class="normal">646</span>
-<span class="normal">647</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">FleetDeployment</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Spatial fleet deployment plan."""</span>
 
@@ -18768,12 +18768,12 @@ flux_matrix[i, j] = flux from patch i to patch j</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">642</span>
-<span class="normal">643</span>
-<span class="normal">644</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">644</span>
 <span class="normal">645</span>
 <span class="normal">646</span>
-<span class="normal">647</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">accessibility_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distance_to_port_km</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">accessibility_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distance_to_port_km</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Compute accessibility weights by distance to nearest port."""</span>
     <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">distance_to_port_km</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
     <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dist</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_range_km</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">))</span>
@@ -20557,9 +20557,7 @@ Column 0 is "Outside" (ignored)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">493</span>
-<span class="normal">494</span>
-<span class="normal">495</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">495</span>
 <span class="normal">496</span>
 <span class="normal">497</span>
 <span class="normal">498</span>
@@ -20660,7 +20658,9 @@ Column 0 is "Outside" (ignored)</p>
 <span class="normal">593</span>
 <span class="normal">594</span>
 <span class="normal">595</span>
-<span class="normal">596</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_spatial_fishing</span><span class="p">(</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_spatial_fishing</span><span class="p">(</span>
     <span class="n">n_months</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_gears</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -20788,9 +20788,7 @@ Column 0 is "Outside" (ignored)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">650</span>
-<span class="normal">651</span>
-<span class="normal">652</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">652</span>
 <span class="normal">653</span>
 <span class="normal">654</span>
 <span class="normal">655</span>
@@ -20800,7 +20798,9 @@ Column 0 is "Outside" (ignored)</p>
 <span class="normal">659</span>
 <span class="normal">660</span>
 <span class="normal">661</span>
-<span class="normal">662</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">distribute_effort_with_fleet</span><span class="p">(</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">distribute_effort_with_fleet</span><span class="p">(</span>
     <span class="n">base_effort</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">deployment</span><span class="p">:</span> <span class="n">FleetDeployment</span><span class="p">,</span>
     <span class="n">distance_to_port_km</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -20953,8 +20953,9 @@ of 1 (as EwE's Ecospace does with and without predicted effort).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Habitat preference [n_groups + 1, n_patches] or [n_patches], required
-for "habitat" allocation.</p>
+                <p>Habitat preference [n_groups, n_patches] as in EcospaceParams (row
+g - 1 is Ecosim group g, no "Outside" row), averaged over the groups,
+or [n_patches]. Required for "habitat" allocation.</p>
               </div>
             </td>
             <td>
@@ -21151,7 +21152,9 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 <span class="normal">487</span>
 <span class="normal">488</span>
 <span class="normal">489</span>
-<span class="normal">490</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">effort_multipliers</span><span class="p">(</span>
+<span class="normal">490</span>
+<span class="normal">491</span>
+<span class="normal">492</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">effort_multipliers</span><span class="p">(</span>
     <span class="n">spatial_fishing</span><span class="p">:</span> <span class="s2">"SpatialFishing"</span><span class="p">,</span>
     <span class="n">n_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">n_gears</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -21184,8 +21187,9 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 <span class="sd">    grid : EcospaceGrid, optional</span>
 <span class="sd">        Grid, required for "port" allocation.</span>
 <span class="sd">    habitat_preference : np.ndarray, optional</span>
-<span class="sd">        Habitat preference [n_groups + 1, n_patches] or [n_patches], required</span>
-<span class="sd">        for "habitat" allocation.</span>
+<span class="sd">        Habitat preference [n_groups, n_patches] as in EcospaceParams (row</span>
+<span class="sd">        g - 1 is Ecosim group g, no "Outside" row), averaged over the groups,</span>
+<span class="sd">        or [n_patches]. Required for "habitat" allocation.</span>
 <span class="sd">    month : int</span>
 <span class="sd">        Month index, used to select a slice of a "prescribed" allocation.</span>
 
@@ -21250,8 +21254,9 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"habitat allocation requires habitat_preference"</span><span class="p">)</span>
                 <span class="n">pref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">habitat_preference</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">pref</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                    <span class="c1"># Average preference over the real groups (skip "Outside")</span>
-                    <span class="n">pref</span> <span class="o">=</span> <span class="n">pref</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">pref</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">pref</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="c1"># Average over the groups; EcospaceParams rows are groups</span>
+                    <span class="c1"># 1..n (row g - 1 is group g), with no "Outside" row.</span>
+                    <span class="n">pref</span> <span class="o">=</span> <span class="n">pref</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
                 <span class="n">alloc</span> <span class="o">=</span> <span class="n">allocate_habitat_based</span><span class="p">(</span><span class="n">pref</span><span class="p">,</span> <span class="n">total_effort</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">kind</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"prescribed"</span><span class="p">,</span> <span class="s2">"custom"</span><span class="p">):</span>
                 <span class="n">supplied</span> <span class="o">=</span> <span class="n">spatial_fishing</span><span class="o">.</span><span class="n">effort_allocation</span>
@@ -21310,15 +21315,15 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">665</span>
-<span class="normal">666</span>
-<span class="normal">667</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">667</span>
 <span class="normal">668</span>
 <span class="normal">669</span>
 <span class="normal">670</span>
 <span class="normal">671</span>
 <span class="normal">672</span>
-<span class="normal">673</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mpa_spillover_potential</span><span class="p">(</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mpa_spillover_potential</span><span class="p">(</span>
     <span class="n">biomass_inside_mpa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">biomass_outside_mpa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">boundary_length_km</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -21439,9 +21444,7 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/fishing.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">599</span>
-<span class="normal">600</span>
-<span class="normal">601</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">601</span>
 <span class="normal">602</span>
 <span class="normal">603</span>
 <span class="normal">604</span>
@@ -21467,7 +21470,9 @@ An allocation that cannot be computed falls back to ones (uniform).</p>
 <span class="normal">624</span>
 <span class="normal">625</span>
 <span class="normal">626</span>
-<span class="normal">627</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_effort_allocation</span><span class="p">(</span>
+<span class="normal">627</span>
+<span class="normal">628</span>
+<span class="normal">629</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_effort_allocation</span><span class="p">(</span>
     <span class="n">effort_allocation</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">forced_effort</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Validate that spatial effort allocation sums correctly.</span>
