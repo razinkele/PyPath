@@ -614,3 +614,11 @@ def test_slow_groups_get_no_stability_warning(caplog):
     with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
         _read(_tables())  # 300 / (3.14159 * 100) = 0.95 per year
     assert "B3" not in caplog.text
+
+
+def test_a_scenario_without_cell_length_moves_on_the_grid_default():
+    # Without CellLength the grid has cells of length 1; the movement rate is
+    # for the same cells.
+    scenario = _tables()["EcospaceScenario"].drop(columns="CellLength")
+    eco = _read(_tables(EcospaceScenario=scenario)).ecospace
+    np.testing.assert_allclose(eco.dispersal_rate, 300.0 / 3.14159, rtol=1e-6)

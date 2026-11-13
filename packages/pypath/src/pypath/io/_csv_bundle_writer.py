@@ -428,6 +428,15 @@ class CsvBundleWriter:
             )
 
         if hasattr(eco, "dispersal_rate"):
+            from pypath.io.ewemdb import _ewe_mvel_from_rate
+
+            # dispersal_rate is EwE's Mrate (read_ecospace): store the Mvel
+            # that reads back as it with the CellLength written above (the
+            # reader's default 1 without an EcospaceScenario row), not
+            # migratory.
+            cell_length = (
+                float(getattr(grid, "cell_size", 1.0)) if grid is not None else 1.0
+            )
             group_rows = []
             for gi in range(len(eco.dispersal_rate)):
                 group_rows.append(
@@ -435,7 +444,9 @@ class CsvBundleWriter:
                         "ScenarioID": sid,
                         "GroupID": gi + 1,
                         "EcopathGroupID": gi + 1,
-                        "Mvel": float(eco.dispersal_rate[gi]),
+                        "Mvel": _ewe_mvel_from_rate(
+                            float(eco.dispersal_rate[gi]), cell_length, False
+                        ),
                         "RelMoveBad": 2.0,
                         "RelVulBad": 2.0,
                         "IsAdvected": bool(eco.advection_enabled[gi])

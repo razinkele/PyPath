@@ -5702,7 +5702,8 @@ def read_ecospace(
         try:
             grp_df = read_ewemdb_table(db_path, "EcospaceScenarioGroup")
             grp_df = grp_df[grp_df["ScenarioID"] == scenario_id]
-            ewe_cell_length = float(scenario_row.get("CellLength", 0.0))
+            # the grid's default without CellLength (step 2)
+            ewe_cell_length = float(scenario_row.get("CellLength", 1.0))
             for _, row in grp_df.iterrows():
                 gid = _group_of(group_index, row["GroupID"], n_groups)
                 if gid is not None:
@@ -6083,6 +6084,20 @@ def _ewe_movement_rate(mvel: float, cell_length: float, migratory: bool) -> floa
     if migratory:
         return float(mvel32 / np.sqrt(length32))
     return float(mvel32 / (np.float32(3.14159) * length32))
+
+
+def _ewe_mvel_from_rate(rate: float, cell_length: float, migratory: bool) -> float:
+    """The Mvel (km/yr) that ``_ewe_movement_rate`` reads back as ``rate``.
+
+    For writers: an EcospaceParams' ``dispersal_rate`` is EwE's Mrate, so
+    the Mvel stored with a CellLength must convert back to it. 0 without a
+    positive CellLength.
+    """
+    if not cell_length > 0:
+        return 0.0
+    if migratory:
+        return float(rate) * float(np.sqrt(cell_length))
+    return float(rate) * 3.14159 * float(cell_length)
 
 
 def _warn_fast_movement(db_path, tables, dispersal_rate) -> None:
