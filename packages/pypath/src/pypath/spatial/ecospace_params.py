@@ -353,6 +353,11 @@ class EcospaceParams:
     This extends the standard Ecosim parameters with spatial components.
     If ecospace=None in RsimScenario, simulation runs as non-spatial.
 
+    Per-group arrays have one row per Ecosim group: n_groups is the
+    scenario's NUM_GROUPS (living, detritus and fleets), and row g - 1 is
+    Ecosim group g. Unlike the state arrays they have no "Outside" row.
+    ``rsim_run_spatial`` rejects fewer rows and warns about more.
+
     Attributes
     ----------
     grid : EcospaceGrid

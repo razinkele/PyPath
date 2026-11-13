@@ -558,6 +558,39 @@ def deriv_vector_spatial(
     return deriv_spatial
 
 
+def _check_ecospace_rows(ecospace: EcospaceParams, n_groups: int) -> None:
+    """Check that the Ecospace arrays have one row per Ecosim group.
+
+    EcospaceParams rows are Ecosim groups 1..n_groups, fleets included: row
+    g - 1 is group g (``dispersal.calculate_spatial_flux``), with no
+    "Outside" row. Fewer rows would fail inside the run, so they raise.
+    More rows are never read, so they only warn: callers that pad an extra
+    row still run, but an "Outside" row 0 shifts every group by one.
+    """
+    rows = int(np.shape(ecospace.habitat_preference)[0])
+    if rows == n_groups:
+        return
+    if rows < n_groups:
+        raise ValueError(
+            f"EcospaceParams has {rows} group rows but the scenario has "
+            f"{n_groups} groups (living, detritus and fleets); row g - 1 must "
+            "be Ecosim group g"
+        )
+    hint = (
+        ' An "Outside" row 0 would shift every group by one.'
+        if rows == n_groups + 1
+        else ""
+    )
+    logger.warning(
+        "EcospaceParams has %d group rows but the scenario has %d groups: "
+        "row g - 1 is Ecosim group g, and rows past %d are not used.%s",
+        rows,
+        n_groups,
+        n_groups,
+        hint,
+    )
+
+
 def rsim_run_spatial(
     scenario: RsimScenario,
     method: str = "RK4",
@@ -657,6 +690,7 @@ def rsim_run_spatial(
     # Setup spatial dimensions
     n_patches = ecospace.grid.n_patches
     n_groups = scenario.params.NUM_GROUPS
+    _check_ecospace_rows(ecospace, n_groups)
 
     # Initialize spatial state from either a provided coupled state-vector
     # or uniform expansion of the scenario start biomass.
