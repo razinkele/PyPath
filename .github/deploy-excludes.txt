@@ -8,7 +8,7 @@ tests
 docs
 scripts
 logs
-examples
+/examples
 venv
 env
 __pycache__
