@@ -23,13 +23,17 @@ logger = logging.getLogger(__name__)
 def _calculate_trophic_levels(model: RpathParams) -> pd.Series:
     """Calculate trophic levels for unbalanced model.
 
-    This is a simplified TL calculation for pre-balance diagnostics.
-    Uses iterative method based on diet composition.
+    TL = 1 for producers, detritus and fleets. A consumer's TL is 1 plus the
+    diet-weighted TL of its prey, with the diet normalised over the model's
+    prey (imports left out) and, for a mixotroph (0 < Type < 1), weighted by
+    its consumer share 1 - Type: the levels ``rpath`` computes for the
+    balanced model, solved directly as (I - A) TL = 1.
 
     Parameters
     ----------
     model : RpathParams
-        Unbalanced Rpath parameters
+        Unbalanced Rpath parameters. The diet may hold the prey names in a
+        "Group" column (as RpathParams does) or as its index.
 
     Returns
     -------
@@ -37,50 +41,38 @@ def _calculate_trophic_levels(model: RpathParams) -> pd.Series:
         Trophic levels indexed by group name
     """
     groups = model.model["Group"].values
+    types = pd.to_numeric(model.model["Type"], errors="coerce").to_numpy()
     n_groups = len(groups)
+    position = {g: k for k, g in enumerate(groups)}
 
-    # Initialize trophic levels
-    tl = np.ones(n_groups)
+    diet_table = model.diet
+    if "Group" in diet_table.columns:
+        diet_table = diet_table.set_index("Group")
 
-    # Set producers (Type=1) to TL=1
-    for i, row in model.model.iterrows():
-        if row["Type"] == 1:  # Producer
-            tl[i] = 1.0
+    # a[j, i]: the share of consumer j's TL taken from prey i
+    a = np.zeros((n_groups, n_groups))
+    for j, group in enumerate(groups):
+        if not types[j] < 1 or group not in diet_table.columns:
+            continue
+        fractions = pd.to_numeric(diet_table[group], errors="coerce")
+        prey = {
+            position[name]: float(frac)
+            for name, frac in fractions.items()
+            if name in position and np.isfinite(frac) and frac > 0
+        }
+        total = sum(prey.values())
+        if total <= 0:
+            continue
+        consumer_share = 1.0 - max(float(types[j]), 0.0)
+        for i, frac in prey.items():
+            a[j, i] = consumer_share * frac / total
 
-    # Iteratively calculate TL for consumers
-    # TL = 1 + weighted average of prey TLs
-    max_iterations = 50
-    for _iteration in range(max_iterations):
-        tl_old = tl.copy()
-
-        for i, group in enumerate(groups):
-            group_type = model.model.iloc[i]["Type"]
-
-            # Skip producers and detritus
-            if group_type in [1, 2]:
-                continue
-
-            # Get diet for this consumer
-            if group in model.diet.columns:
-                diet = model.diet[group]
-
-                # Calculate weighted TL from prey
-                prey_tl_sum = 0.0
-                diet_sum = 0.0
-
-                for prey_name, diet_frac in diet.items():
-                    if diet_frac > 0 and prey_name in groups:
-                        prey_idx = np.where(groups == prey_name)[0]
-                        if len(prey_idx) > 0:
-                            prey_tl_sum += diet_frac * tl_old[prey_idx[0]]
-                            diet_sum += diet_frac
-
-                if diet_sum > 0:
-                    tl[i] = 1.0 + (prey_tl_sum / diet_sum)
-
-        # Check convergence
-        if np.max(np.abs(tl - tl_old)) < 0.001:
-            break
+    system = np.eye(n_groups) - a
+    try:
+        tl = np.linalg.solve(system, np.ones(n_groups))
+    except np.linalg.LinAlgError:
+        logger.warning("Trophic level solve failed, falling back to least-squares")
+        tl = np.linalg.lstsq(system, np.ones(n_groups), rcond=None)[0]
 
     return pd.Series(tl, index=groups, name="TL")
 
