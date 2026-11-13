@@ -625,6 +625,29 @@ class TestWriter:
         grp_df = writer._tables["EcospaceScenarioGroup"]
         assert len(grp_df) == 3  # 3 groups
 
+    def test_movement_rates_survive_a_write_and_read(self, tmp_path):
+        """dispersal_rate (EwE's Mrate) is written as Mvel and read back the same."""
+        from pypath.io.ewemdb import read_ecospace
+
+        params = _make_test_params()
+        result = _make_ecospace_read_result()
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
+        writer.write_ecospace(result)
+        tables = {
+            k: writer._tables[k] for k in ("EcospaceScenario", "EcospaceScenarioGroup")
+        }
+        with patch("pypath.io.ewemdb.list_ewemdb_tables", return_value=list(tables)):
+            with patch(
+                "pypath.io.ewemdb.read_ewemdb_table",
+                side_effect=lambda path, tbl: tables[tbl],
+            ):
+                again = read_ecospace(
+                    "fake.eweaccdb", n_groups=3, grid=result.ecospace.grid
+                )
+        np.testing.assert_allclose(
+            again.ecospace.dispersal_rate, [1.0, 2.0, 0.0], rtol=1e-6
+        )
+
 
 class TestAccessWriter:
     """Access writer table list tests."""

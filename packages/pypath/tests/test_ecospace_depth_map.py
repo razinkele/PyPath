@@ -155,8 +155,49 @@ def test_the_grid_holds_only_water_cells_renumbered_in_row_order():
     # (1,0)-(1,1). Cell (0,2) is cut off by land on both sides.
     assert sorted(grid.edge_lengths) == [(0, 2), (2, 3)]
     assert adj.sum() == 4 and adj[0, 2] == adj[2, 0] == adj[2, 3] == adj[3, 2] == 1
-    # Patch 1 is cell (0, 2): centre at col 2.5 and row 0.5 cell lengths.
-    np.testing.assert_allclose(grid.patch_centroids[1], [5.0, 1.0])
+    # Patch 1 is cell (0, 2): 2.5 cells east of and 0.5 cells south of the
+    # top-left corner (0, 0), in degrees.
+    cell = 2.0 / (40007.862917 / 360)
+    np.testing.assert_allclose(grid.patch_centroids[1], [2.5 * cell, -0.5 * cell])
+
+
+# --- coordinates, as EwE's basemap places cells (cEcospaceBasemap) ---
+
+# EwE's DegreeToKm (cEcospaceDataStructures): c_sEquatorLength / 360
+DEGREE_KM = 40007.862917 / 360
+
+
+def test_centroids_run_from_the_top_left_corner_in_degrees():
+    # MinLat / MinLon are the top-left (NW) corner of the map. Row r starts at
+    # Latitude - (r - 1) * CellSize and column c at Longitude + (c - 1) *
+    # CellSize (RowToLat, ColToLon), with CellSize = CellLength / DegreeToKm.
+    grid = _build_fallback_grid(
+        2, 3, cell_length=0.5 * DEGREE_KM, min_lon=20.0, min_lat=56.0
+    )
+    np.testing.assert_allclose(
+        grid.patch_centroids,
+        [
+            [20.25, 55.75],
+            [20.75, 55.75],
+            [21.25, 55.75],
+            [20.25, 55.25],
+            [20.75, 55.25],
+            [21.25, 55.25],
+        ],
+    )
+
+
+def test_dispersal_sees_neighbours_one_cell_length_apart():
+    # Diffusion takes a neighbour's distance from the centroids (degrees x
+    # 111 km), so the centroids must be in degrees: CellLength km apart, to
+    # within 111 / DegreeToKm (0.12 %).
+    from pypath.spatial.dispersal import _get_diffusion_edge_data
+
+    grid = _build_fallback_grid(2, 2, cell_length=36.7, min_lon=24.76, min_lat=38.56)
+    _, _, borders, distances = _get_diffusion_edge_data(grid, grid.adjacency_matrix)
+    assert len(distances) == 4  # two row and two column neighbours
+    np.testing.assert_allclose(borders, 36.7)
+    np.testing.assert_allclose(distances, 36.7, rtol=2e-3)
 
 
 def _read(scenario_df):
@@ -219,3 +260,12 @@ def test_black_sea_grid_is_the_ewe_oracle_water_cells():
     assert got == want
     # Rook links between water cells: 555 in the spike's oracle-mask grid.
     assert len(grid.edge_lengths) == 555
+    # Centroids from the scenario's top-left corner (MinLon 24.7631, MinLat
+    # 38.558922) and CellLength 36.7 km; the first water cell is EwE's (8, 14).
+    cell = 36.7 / DEGREE_KM
+    first = list(zip(meta["row"], meta["col"])).index((7, 13))
+    np.testing.assert_allclose(
+        grid.patch_centroids[first],
+        [24.7631 + 13.5 * cell, 38.558922 - 7.5 * cell],
+        rtol=1e-6,
+    )

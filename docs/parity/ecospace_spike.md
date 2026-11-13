@@ -41,7 +41,7 @@ The PyPath Ecospace runs used:
 
 - EwE's 304 water cells, with 4-neighbour links;
 - EwE's habitat capacity in every cell;
-- PyPath's dispersal of 300 km/yr for every group.
+- PyPath's dispersal of 300 km/yr for every group: on that grid an effective 2.70 per year across a cell side (see the update below the table).
 
 Deviations are of area-mean biomass, over every group and month.
 
@@ -52,6 +52,8 @@ Deviations are of area-mean biomass, over every group and month.
 | PyPath Ecospace vs EwE Ecospace | 15 % | 190 % |
 | PyPath Ecospace vs EwE Ecosim | 1.1e-7 | 3.4e-6 |
 | PyPath Ecospace with habitat capacity on vs EwE Ecospace | 22 % | 208 % |
+
+**Update (2026-11-13).** These runs placed the grid's centroids in km on a degree scale, so diffusion saw neighbours 111 times too far apart (4,074 km for 36.7 km cells), and the rate of 300 came to 2.70 per year across a cell side. That is within 4 % of EwE's movement rate, Mrate = Mvel / (3.14159 x CellLength) = 2.60 per year. `read_ecospace` now places the grid as EwE's basemap and converts Mvel to Mrate. Rerun with both: capacity off is unchanged (15 %, 190 %); capacity on gives 21.4 % and 208 %, and the cell maps are 0.286 from EwE's at year 10 (0.287 before). With the grid fixed but Mvel taken as the rate, the capacity-on run is not finite: 300 per year is far beyond what one explicit RK4 step a month keeps stable (B3).
 
 With capacity off, PyPath's 304 patches stay identical: (max − min) / mean across patches is exactly 0 for every group and month. With capacity on, they spread to up to 11 times the mean, and the run is 21 % off EwE's Ecosim at the median.
 

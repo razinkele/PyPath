@@ -364,8 +364,11 @@ class EcospaceParams:
         Habitat capacity multiplier [n_groups, n_patches]
         Affects local carrying capacity (1.0 = no effect)
     dispersal_rate : np.ndarray
-        Diffusion coefficient (km²/month) [n_groups]
-        0 = no dispersal
+        Dispersal rate per year [n_groups]; 0 = no dispersal. Between
+        neighbours, diffusion moves rate x density difference x mean patch
+        area x border / distance per year (``dispersal.diffusion_flux``): on
+        a regular grid, rate x (B_p - B_q). ``read_ecospace`` sets EwE's
+        movement rate Mrate = Mvel / (3.14159 x CellLength).
     advection_enabled : np.ndarray
         Enable habitat-directed movement [n_groups], boolean
     gravity_strength : np.ndarray

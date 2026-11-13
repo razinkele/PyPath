@@ -5702,10 +5702,16 @@ def read_ecospace(
         try:
             grp_df = read_ewemdb_table(db_path, "EcospaceScenarioGroup")
             grp_df = grp_df[grp_df["ScenarioID"] == scenario_id]
+            # the grid's default without CellLength (step 2)
+            ewe_cell_length = float(scenario_row.get("CellLength", 1.0))
             for _, row in grp_df.iterrows():
                 gid = _group_of(group_index, row["GroupID"], n_groups)
                 if gid is not None:
-                    dispersal_rate[gid] = float(row.get("Mvel", 0.0))
+                    dispersal_rate[gid] = _ewe_movement_rate(
+                        float(row.get("Mvel", 0.0)),
+                        ewe_cell_length,
+                        _yes(row.get("IsMigratory"), False),
+                    )
                     is_adv = row.get("IsAdvected", False)
                     if isinstance(is_adv, str):
                         is_adv = is_adv.lower() in ("yes", "true", "1")
@@ -5714,6 +5720,7 @@ def read_ecospace(
                     advection_enabled[gid] = is_adv
         except Exception as e:
             logger.warning("Failed to read EcospaceScenarioGroup: %s", e)
+        _warn_fast_movement(db_path, tables, dispersal_rate)
 
     # 6. Read fleet info
     fleet_info: Optional[pd.DataFrame] = None
@@ -5807,6 +5814,8 @@ def read_ecospace(
 
 
 _EWE_NULL_VALUE = -9999.0  # cCore.NULL_VALUE
+# km per degree: cEcospaceDataStructures.DegreeToKm = c_sEquatorLength / 360
+_EWE_DEGREE_KM = 40007.862917 / 360
 _EWE_NUMBER = re.compile(r"\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*$")
 
 
@@ -6053,6 +6062,67 @@ def _ewe_habitat_capacity(
         cap = _ewe_adjust_low_habcap(cap, water, sweeps, gradient)
         out[g] = np.where(water, np.maximum(cap, f32(_EWE_MIN_HABCAP)), zero)
     return out
+
+
+# One explicit RK4 step a month keeps diffusion on a rook grid stable while
+# 8 x rate / 12 <= 2.785 (the RK4 stability limit on the negative real axis).
+_SPACE_STABLE_RATE = 2.785 * 12 / 8
+
+
+def _ewe_movement_rate(mvel: float, cell_length: float, migratory: bool) -> float:
+    """EwE's movement rate per year across a cell side (cEcoSpace's Mrate).
+
+    ``Mvel / (3.14159 * CellLength)``, or ``Mvel / sqrt(CellLength)`` for a
+    migratory group (cEcoSpace.vb:2432), in single precision. It is PyPath's
+    ``dispersal_rate``: on EwE's grid, neighbours CellLength apart across a
+    side of CellLength, diffusion exchanges ``rate x (B_p - B_q)`` per year.
+    0 without a positive CellLength.
+    """
+    if not cell_length > 0:
+        return 0.0
+    mvel32, length32 = np.float32(mvel), np.float32(cell_length)
+    if migratory:
+        return float(mvel32 / np.sqrt(length32))
+    return float(mvel32 / (np.float32(3.14159) * length32))
+
+
+def _ewe_mvel_from_rate(rate: float, cell_length: float, migratory: bool) -> float:
+    """The Mvel (km/yr) that ``_ewe_movement_rate`` reads back as ``rate``.
+
+    For writers: an EcospaceParams' ``dispersal_rate`` is EwE's Mrate, so
+    the Mvel stored with a CellLength must convert back to it. 0 without a
+    positive CellLength.
+    """
+    if not cell_length > 0:
+        return 0.0
+    if migratory:
+        return float(rate) * float(np.sqrt(cell_length))
+    return float(rate) * 3.14159 * float(cell_length)
+
+
+def _warn_fast_movement(db_path, tables, dispersal_rate) -> None:
+    """Name the groups that move too fast for one RK4 step a month."""
+    fast = np.flatnonzero(np.asarray(dispersal_rate) > _SPACE_STABLE_RATE)
+    if len(fast) == 0:
+        return
+    try:
+        eg = _ecopath_groups_in_order(db_path, tables)
+        names = [] if eg is None else [str(n) for n in eg["GroupName"]]
+    except (EwEDatabaseError, KeyError, ValueError) as e:
+        logger.debug("Group names unavailable: %s", e)
+        names = []
+    label = ", ".join(
+        f"{names[g] if g < len(names) else f'group {g + 1}'} "
+        f"({dispersal_rate[g]:.3g}/yr)"
+        for g in fast
+    )
+    logger.warning(
+        "Ecospace movement faster than about %.1f per year per cell side: %s. "
+        "One explicit RK4 step a month may oscillate or fail at that rate "
+        "(open item B3, RK4 stability).",
+        _SPACE_STABLE_RATE,
+        label,
+    )
 
 
 def _yes(value, default: bool) -> bool:
@@ -6304,7 +6374,16 @@ def _build_fallback_grid(
     ``(n_rows, n_cols)`` EwE depth map, see ``_ewe_depth_map``) only the
     water cells, depth > 0, become patches, numbered in row order;
     without it every cell is water. Adjacency uses rook neighborhood
-    (shared edges, no diagonals) between patches.
+    (shared edges, no diagonals) between patches. Areas are
+    ``cell_length``² km² and edges ``cell_length`` km.
+
+    Centroids are (lon, lat) in degrees, placed as EwE's basemap places
+    cells (cEcospaceBasemap.RowToLat / ColToLon): ``min_lat`` / ``min_lon``
+    (EcospaceScenario.MinLat / MinLon) are the top-left (NW) corner, row 0
+    is the northern row, and a cell is ``cell_length / DegreeToKm`` degrees
+    on each side (cEcospaceDataStructures.ToCellSize). EwE takes map units
+    as meters when AssumeSquareCells is set; PyPath's grid is in degrees,
+    so the corner is read as degrees either way.
     """
     import scipy.sparse
 
@@ -6324,9 +6403,10 @@ def _build_fallback_grid(
     patch_ids = np.arange(n_patches)
     patch_areas = np.full(n_patches, cell_area)
 
-    # Centroids: row-major layout
-    lon = min_lon + (cols_arr + 0.5) * cell_length
-    lat = min_lat + (rows_arr + 0.5) * cell_length
+    # Centroids in degrees from the top-left corner, rows running south
+    cell_size = cell_length / _EWE_DEGREE_KM
+    lon = min_lon + (cols_arr + 0.5) * cell_size
+    lat = min_lat - (rows_arr + 0.5) * cell_size
     centroids = np.column_stack([lon, lat])
 
     # Rook adjacency and edge lengths
