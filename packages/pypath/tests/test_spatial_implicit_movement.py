@@ -119,13 +119,14 @@ def _ecospace(rates, advection=False, gravity=0.0):
 
 def test_fast_movement_stays_finite_and_smooth(scenario):
     # 200 per year per cell side, as EwE's rate on 0.5 km cells: far beyond
-    # what an explicit monthly RK4 step keeps stable. Diffusion that fast
-    # nearly levels Fish across the (equal) patches.
+    # what an explicit monthly RK4 step keeps stable. Movement that fast
+    # holds Fish near EwE's rest state, density in proportion to the
+    # habitat capacity (B2), across the (equal) patches.
     eco = _ecospace([200.0, 200.0, 200.0, 0.0])
     spatial = rsim_run_spatial(scenario, ecospace=eco).out_Biomass_spatial
     assert np.all(np.isfinite(spatial)) and np.all(spatial >= 0)
-    fish = spatial[-1, 1]
-    assert fish.max() / fish.min() < 1.5
+    per_capacity = spatial[-1, 1] / eco.habitat_capacity[0]
+    assert per_capacity.max() / per_capacity.min() < 1.5
 
 
 def test_explicit_movement_at_that_rate_blows_up(scenario):

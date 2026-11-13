@@ -11,7 +11,7 @@ Implements spatial flux calculations:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 import scipy.sparse
@@ -186,11 +186,51 @@ def _area_scaled_density(biomass_vector: np.ndarray, grid) -> np.ndarray:
     return biomass_vector / areas * areas.mean()
 
 
+def movement_capacity(ecospace, eco_idx: int):
+    """A group's habitat capacity row for movement, or None.
+
+    None when there is no habitat capacity, no row for the group, or the row
+    is the same everywhere: movement is then plain diffusion.
+    """
+    cap = getattr(ecospace, "habitat_capacity", None)
+    if cap is None:
+        return None
+    cap = np.asarray(cap, dtype=float)
+    if cap.ndim != 2 or not 0 <= eco_idx < cap.shape[0]:
+        return None
+    row = cap[eco_idx]
+    return None if np.all(row == row[0]) else row
+
+
+def _capacity_ratios(capacity, rows, cols):
+    """EwE's habitat ratios of each edge's two directions (B2).
+
+    Moving from cell x to cell y goes at ``min(1, H_y / H_x)`` of the plain
+    rate (SetMovementParameters, cEcoSpace.vb 3804-3815): full rate into
+    habitat at least as good, slowed by the habitat ratio into poorer
+    habitat. A cell without habitat is left at the full rate and is not
+    entered from a cell with habitat; two cells of equal capacity, zero
+    included, exchange at the full rate, as in EwE. Returns the ratios
+    rows -> cols and cols -> rows.
+    """
+    h = np.asarray(capacity, dtype=float)
+    hx, hy = h[rows], h[cols]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        x_to_y = np.where(hx > 0, np.minimum(1.0, hy / np.where(hx > 0, hx, 1.0)), 1.0)
+        y_to_x = np.where(hy > 0, np.minimum(1.0, hx / np.where(hy > 0, hy, 1.0)), 1.0)
+    return x_to_y, y_to_x
+
+
+def _uniform(capacity) -> bool:
+    return capacity is None or np.all(np.asarray(capacity) == np.asarray(capacity)[0])
+
+
 def diffusion_flux(
     biomass_vector: np.ndarray,
     dispersal_rate: float,
     grid: EcospaceGrid,
     adjacency: scipy.sparse.csr_matrix,
+    capacity: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Calculate diffusion flux using Fick's law on density.
 
@@ -201,6 +241,12 @@ def diffusion_flux(
     the dispersal rate. Patches at the same density exchange nothing,
     whatever their areas (#57); on a grid of equal cells this is the same
     as using the biomass per patch.
+
+    With ``capacity`` (the group's habitat capacity per patch) movement is
+    EwE's (B2): the flow from p to q is D * min(1, H_q / H_p) * rho_p *
+    A_mean * (border_length / distance), so density in proportion to the
+    capacity is at rest (``_capacity_ratios``). A uniform capacity is plain
+    diffusion.
 
     Parameters
     ----------
@@ -214,6 +260,8 @@ def diffusion_flux(
         Spatial grid configuration
     adjacency : scipy.sparse.csr_matrix
         Adjacency matrix [n_patches, n_patches]
+    capacity : np.ndarray, optional
+        The group's habitat capacity per patch (EwE's HabCap, 0 to 1)
 
     Returns
     -------
@@ -232,6 +280,15 @@ def diffusion_flux(
         return net_flux
 
     biomass_vector = _area_scaled_density(biomass_vector, grid)
+
+    if not _uniform(capacity):
+        x_to_y, y_to_x = _capacity_ratios(capacity, rows, cols)
+        safe_distances = np.where(distances == 0, np.inf, distances)
+        rate = dispersal_rate * border_lengths / safe_distances
+        flow = rate * (x_to_y * biomass_vector[rows] - y_to_x * biomass_vector[cols])
+        np.add.at(net_flux, rows, -flow)
+        np.add.at(net_flux, cols, flow)
+        return net_flux
 
     # Use Numba-accelerated implementation when available
     if HAS_NUMBA:
@@ -500,31 +557,42 @@ def apply_external_flux(
     return net_flux
 
 
-def _diffusion_operator(grid, adjacency) -> scipy.sparse.csc_matrix:
+def _diffusion_operator(grid, adjacency, capacity=None) -> scipy.sparse.csc_matrix:
     """Sparse ``Lap @ D_s`` with ``diffusion_flux(B, r) = -r * (Lap @ D_s) @ B``.
 
     ``Lap`` is the graph Laplacian of the diffusion edges weighted by
     border_length / distance (``_get_diffusion_edge_data``) and ``D_s`` the
     area scaling of ``_area_scaled_density``. Its columns sum to zero, so
-    diffusion conserves biomass. Cached on the grid.
+    diffusion conserves biomass. Cached on the grid. With a varying
+    ``capacity`` each direction of an edge is weighted by its habitat ratio
+    (``_capacity_ratios``, EwE's movement); that operator is not cached.
     """
-    cached = getattr(grid, "_diffusion_operator", None)
-    if cached is not None:
-        return cached
+    plain = _uniform(capacity)
+    if plain:
+        cached = getattr(grid, "_diffusion_operator", None)
+        if cached is not None:
+            return cached
     n = grid.n_patches
     rows, cols, border_lengths, distances = _get_diffusion_edge_data(grid, adjacency)
     weight = border_lengths / distances
+    if plain:
+        out_rows, out_cols = weight, weight
+    else:
+        x_to_y, y_to_x = _capacity_ratios(capacity, rows, cols)
+        out_rows, out_cols = weight * x_to_y, weight * y_to_x
+    # entry [destination, source]: -(rate of the flow source -> destination)
     off = scipy.sparse.csr_matrix(
         (
-            np.concatenate([-weight, -weight]),
-            (np.concatenate([rows, cols]), np.concatenate([cols, rows])),
+            np.concatenate([-out_rows, -out_cols]),
+            (np.concatenate([cols, rows]), np.concatenate([rows, cols])),
         ),
         shape=(n, n),
     )
-    lap = off - scipy.sparse.diags(np.asarray(off.sum(axis=1)).ravel())
+    lap = off - scipy.sparse.diags(np.asarray(off.sum(axis=0)).ravel())
     scale = _area_scaled_density(np.ones(n), grid)
     operator = (lap @ scipy.sparse.diags(scale)).tocsc()
-    grid._diffusion_operator = operator
+    if plain:
+        grid._diffusion_operator = operator
     return operator
 
 
@@ -535,6 +603,7 @@ def implicit_diffusion_step(
     adjacency: scipy.sparse.csr_matrix,
     dt: float,
     cache: dict | None = None,
+    capacity: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Diffuse one group's biomass over ``dt`` years by backward Euler.
 
@@ -558,7 +627,11 @@ def implicit_diffusion_step(
     dt : float
         Time step in years
     cache : dict, optional
-        Factorisations by rate x dt, owned by the caller (one per grid)
+        Factorisations by rate x dt (and capacity), owned by the caller
+        (one per grid)
+    capacity : np.ndarray, optional
+        The group's habitat capacity per patch: EwE's capacity-weighted
+        movement (see ``diffusion_flux``). Uniform or None is plain diffusion.
 
     Returns
     -------
@@ -571,13 +644,19 @@ def implicit_diffusion_step(
     step = float(dispersal_rate) * float(dt)
     if not step > 0 or grid.n_patches < 2:
         return biomass_vector.copy()
-    lu = None if cache is None else cache.get(step)
+    if _uniform(capacity):
+        capacity = None
+        key = step
+    else:
+        capacity = np.asarray(capacity, dtype=float)
+        key = (step, capacity.tobytes())
+    lu = None if cache is None else cache.get(key)
     if lu is None:
-        operator = _diffusion_operator(grid, adjacency)
+        operator = _diffusion_operator(grid, adjacency, capacity)
         system = scipy.sparse.identity(grid.n_patches, format="csc") + step * operator
         lu = scipy.sparse.linalg.splu(system.tocsc())
         if cache is not None:
-            cache[step] = lu
+            cache[key] = lu
     return lu.solve(biomass_vector)
 
 
@@ -651,7 +730,11 @@ def calculate_spatial_flux(
             # Passive diffusion (Fick's law)
             if include_diffusion:
                 flux[group_idx] = diffusion_flux(
-                    state[group_idx], ecospace.dispersal_rate[eco_idx], grid, adj
+                    state[group_idx],
+                    ecospace.dispersal_rate[eco_idx],
+                    grid,
+                    adj,
+                    capacity=movement_capacity(ecospace, eco_idx),
                 )
 
             # Add habitat-directed movement if enabled

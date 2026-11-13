@@ -8,3 +8,4 @@ Following roadmap decision D3, only numbers are committed here; the harness and 
 |---|---|---|
 | `ecospace_water_cells.csv` | the 304 water cells of the 31 x 42 grid | `cEcospaceDataStructures.Depth(row, col)` > 0, after `UpdateDepthMap`; rows and columns 1-based |
 | `ecospace_habcap.csv` | the 304 water cells | `HabCap(group)(row, col)` for the 22 groups after `SetHabCap` (normalised, with the low-capacity gradient); rows and columns 1-based |
+| `ecospace_maps.csv` | the 304 water cells at months 1 and 12 | each group's biomass density per cell (`ecospace_maps.csv` of the run, TimeStep 1 and 12); rows and columns 1-based |

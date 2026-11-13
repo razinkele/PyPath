@@ -85,8 +85,23 @@ This case is the yardstick for each step. Step 3 and the nutrient pool are hypot
 
 1. Read the depth map (the land mask) and EwE's per-group Ecospace inputs (Mvel and habitat) in `read_ecospace`. **Depth map done:** DepthMap and ExclusionMap give the grid's water cells, pinned to the oracle's 304 cells (`test_ecospace_depth_map.py`). Mvel was already read. **Habitat capacity done:** on EwE's grid `read_ecospace` sets each group's capacity as EwE's SetHabCap does (input capacity map, habitat preference x share, normalised by the maximum, the low-capacity gradient), pinned to the oracle's HabCap for all 22 groups and 304 cells to 1e-6 (`test_ecospace_habitat_capacity.py`); the capacity-on run on the reader's grid and capacity matches the run on the oracle's HabCap to 3e-8. Environmental responses and migration maps are not applied. **Step 2 done:** runs apply the habitat capacity always. Against the oracle's cell maps (months 1, 12, 60, 120), the distance between PyPath's and EwE's distribution of each group over the cells (total variation, median over groups) falls from 0.49 to 0.13, 0.27, 0.29 and 0.29; the area-mean deviation rises from 15.3 % to 21.5 % (max 190 % -> 208 %).
 2. Apply habitat capacity always (B4). **Done** (see step 1).
-3. Add EatEff and RelVulBad, and producer PbSpace (B5).
-4. Compare the cell maps in `ecospace_maps.csv`, not only area means.
-5. Bring dispersal to EwE's rules (B1–B3).
+3. Add EatEff and RelVulBad, and producer PbSpace (B5). **Spiked, not adopted.** Three variants, measured on this case:
+   - EatEff in the vulnerability term on top of #58: median 50 %;
+   - EatEff on producers only: median 54 %;
+   - EwE's base calibration (`AdjustSpaceParsNew`: BRatio, Vspace, the 5-pass search-rate iteration with MeanBP, PbSpace) mapped onto the kernel with global bases B0 x BRatio, plus EatEff: median 33 %, cell maps unchanged.
+
+   The mapping reduces to Ecosim exactly when the habitat is uniform. On X ≈ 1 links EwE's iteration does not converge and gives 2/3 of Ecopath's consumption map-wide; that is EwE's own behaviour. B5 is not what separates the two runs here.
+4. Compare the cell maps in `ecospace_maps.csv`, not only area means. **Done** at month 1, which showed where the runs part.
+   - EwE's month-1 maps are B0 x BRatio x HabCap to within a few per cent (log correlation 1.000): EwE starts in proportion to capacity and keeps that pattern.
+   - PyPath started the same way, but its plain diffusion levelled the pattern within the month: the per-cell log ratio to EwE spread 2.9 (p90 - p10).
+   - With PyPath's dispersal switched off, that spread fell to 0.15.
+5. Bring dispersal to EwE's rules (B1–B3). B1 and B3 done (#105, #108). **B2 done:** movement is EwE's capacity-weighted rule (`SetMovementParameters`, `cEcoSpace.vb` 3804-3815). The rate from cell x to y is Mrate x min(1, HabCap_y / HabCap_x): full rate into habitat at least as good, slowed by the habitat ratio into poorer habitat. Density in proportion to capacity is then at rest. On this case:
+
+   | | area mean: median / max | cell maps (median distance), months 1 / 12 / 60 / 120 |
+   |---|---|---|
+   | plain diffusion | 21.1 % / 416 % | 0.111 / 0.266 / 0.273 / 0.279 |
+   | B2 | 13.6 % / 225 % | 0.008 / 0.034 / 0.045 / 0.041 |
+
+   Pinned in `test_ecospace_capacity_movement.py`: the medians at months 1 and 12 must stay below 0.03 and 0.06. The oracle's month 1 and 12 maps are in `ecospace_maps.csv` of the test data.
 
 Each step can then be pinned against the oracle, as the Ecosim fixes were. The oracle numbers (area means, cell maps, grid) can be committed as test data when the first of these steps lands. The water cells are committed (`packages/pypath/tests/data/ewe_oracle/blacksea/`); the rest follows with the steps that use it.
