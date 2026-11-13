@@ -5807,6 +5807,8 @@ def read_ecospace(
 
 
 _EWE_NULL_VALUE = -9999.0  # cCore.NULL_VALUE
+# km per degree: cEcospaceDataStructures.DegreeToKm = c_sEquatorLength / 360
+_EWE_DEGREE_KM = 40007.862917 / 360
 _EWE_NUMBER = re.compile(r"\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*$")
 
 
@@ -6304,7 +6306,16 @@ def _build_fallback_grid(
     ``(n_rows, n_cols)`` EwE depth map, see ``_ewe_depth_map``) only the
     water cells, depth > 0, become patches, numbered in row order;
     without it every cell is water. Adjacency uses rook neighborhood
-    (shared edges, no diagonals) between patches.
+    (shared edges, no diagonals) between patches. Areas are
+    ``cell_length``² km² and edges ``cell_length`` km.
+
+    Centroids are (lon, lat) in degrees, placed as EwE's basemap places
+    cells (cEcospaceBasemap.RowToLat / ColToLon): ``min_lat`` / ``min_lon``
+    (EcospaceScenario.MinLat / MinLon) are the top-left (NW) corner, row 0
+    is the northern row, and a cell is ``cell_length / DegreeToKm`` degrees
+    on each side (cEcospaceDataStructures.ToCellSize). EwE takes map units
+    as meters when AssumeSquareCells is set; PyPath's grid is in degrees,
+    so the corner is read as degrees either way.
     """
     import scipy.sparse
 
@@ -6324,9 +6335,10 @@ def _build_fallback_grid(
     patch_ids = np.arange(n_patches)
     patch_areas = np.full(n_patches, cell_area)
 
-    # Centroids: row-major layout
-    lon = min_lon + (cols_arr + 0.5) * cell_length
-    lat = min_lat + (rows_arr + 0.5) * cell_length
+    # Centroids in degrees from the top-left corner, rows running south
+    cell_size = cell_length / _EWE_DEGREE_KM
+    lon = min_lon + (cols_arr + 0.5) * cell_size
+    lat = min_lat - (rows_arr + 0.5) * cell_size
     centroids = np.column_stack([lon, lat])
 
     # Rook adjacency and edge lengths

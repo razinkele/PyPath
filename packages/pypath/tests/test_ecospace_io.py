@@ -253,9 +253,11 @@ class TestBuildFallbackGrid:
             min_lon=20.0,
             min_lat=55.0,
         )
-        # Patch 0 at row=0,col=0 -> centroid at (20+5, 55+5) = (25, 60)
-        assert grid.patch_centroids[0, 0] == pytest.approx(25.0)
-        assert grid.patch_centroids[0, 1] == pytest.approx(60.0)
+        # (20, 55) is EwE's top-left corner; cells are CellLength / DegreeToKm
+        # degrees. Patch 0, row 0 col 0, is half a cell east and south of it.
+        half = 0.5 * 10.0 / (40007.862917 / 360)
+        assert grid.patch_centroids[0, 0] == pytest.approx(20.0 + half)
+        assert grid.patch_centroids[0, 1] == pytest.approx(55.0 - half)
 
     def test_cell_metadata_populated(self):
         from pypath.io.ewemdb import _build_fallback_grid
