@@ -265,6 +265,35 @@ def build_example_params():
     return params
 
 
+def _example_choices() -> dict:
+    """The shipped example models for the Home page picker."""
+    from pypath.examples import list_example_models
+
+    choices = {"": "Open a real model..."}
+    choices.update({m.name: m.title for m in list_example_models()})
+    return choices
+
+
+def open_example_model(name: str):
+    """A shipped example model, checked to balance, and its Ecosim source.
+
+    Returns
+    -------
+    (params, record)
+        The model's RpathParams and the record the Ecosim page uses to offer
+        the model's own EwE-F Ecosim settings.
+    """
+    from pypath.examples import load_example_model
+
+    from pypath_shiny.pages.ewe_scenario import example_source_record
+
+    params = load_example_model(name)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rpath(params)  # raises if the model cannot be balanced
+    return params, example_source_record(name, params)
+
+
 def home_ui():
     """Home page UI."""
     return ui.div(
@@ -294,6 +323,23 @@ def home_ui():
                             "Load Example",
                         ),
                         class_="btn-hero-secondary",
+                    ),
+                    ui.div(
+                        ui.input_select(
+                            "example_model",
+                            None,
+                            _example_choices(),
+                            selected="",
+                        ),
+                        ui.input_action_button(
+                            "btn_load_example_model",
+                            ui.TagList(
+                                ui.tags.i(class_="bi bi-folder2-open me-2"),
+                                "Open",
+                            ),
+                            class_="btn-hero-secondary",
+                        ),
+                        class_="hero-example-picker",
                     ),
                     class_="hero-actions",
                 ),
@@ -580,9 +626,42 @@ def home_ui():
 
 
 def home_server(
-    input: Inputs, output: Outputs, session: Session, model_data: reactive.Value
+    input: Inputs,
+    output: Outputs,
+    session: Session,
+    model_data: reactive.Value,
+    ewe_source: reactive.Value = None,
 ):
-    """Home page server logic."""
+    """Home page server logic.
+
+    ``ewe_source``, when given, receives the record of an example model
+    opened from the picker, so the Ecosim page offers its Ecosim settings.
+    """
+
+    @reactive.effect
+    @reactive.event(input.btn_load_example_model)
+    def _open_example_model():
+        """Open the example model chosen in the picker."""
+        name = input.example_model()
+        if not name:
+            _notify_legacy("Choose a model to open first.", type="warning")
+            return
+        try:
+            params, record = open_example_model(name)
+        except Exception as e:  # report any reader or balance failure
+            logger.exception("Opening the example model %s failed", name)
+            _notify_legacy(f"Could not open {name}: {e}", type="error")
+            return
+        model_data.set(params)
+        if ewe_source is not None:
+            ewe_source.set(record)
+        _notify_legacy(
+            f"{record['name']} opened. Its Ecosim settings are the starting "
+            "scenario on the Ecosim page.",
+            type="message",
+            duration=7,
+        )
+        ui.update_navs("main_nav", selected="Ecopath Model")
 
     @reactive.effect
     @reactive.event(input.btn_goto_import)

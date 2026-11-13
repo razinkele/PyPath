@@ -12,7 +12,26 @@ def test_home_ui_renders():
 
 def test_home_server_exact_signature():
     p = list(inspect.signature(home_server).parameters)
-    assert p == ["input", "output", "session", "model_data"]
+    assert p == ["input", "output", "session", "model_data", "ewe_source"]
+
+
+def test_home_offers_the_shipped_example_models():
+    from pypath.examples import list_example_models
+
+    html = str(home_ui())
+    assert 'id="example_model"' in html and 'id="btn_load_example_model"' in html
+    for model in list_example_models():
+        assert f'value="{model.name}"' in html
+        assert model.title in html
+
+
+def test_opening_an_example_gives_its_model_and_ecosim_source():
+    from pypath_shiny.pages.ewe_scenario import ewe_source_matches
+    from pypath_shiny.pages.home import open_example_model
+
+    params, record = open_example_model("Central_Baltic")
+    assert "Ad. Cod" in list(params.model["Group"])
+    assert ewe_source_matches(record, params)
 
 
 def test_home_page_uses_notification_service_not_direct_ui_calls():
@@ -127,3 +146,21 @@ def test_ecosim_warns_about_detritus_flowing_to_itself():
         params.model.loc[det_row, "Detritus"] = 1.0
         msg = detritus_self_fate_message(rpath(params))
     assert msg is not None and "Detritus" in msg
+
+
+def test_every_example_passes_the_ecopath_pages_checks():
+    # the checks the Ecopath page runs before balancing (Central Baltic's
+    # microzooplankton has P/B 110 a year)
+    from pypath.examples import list_example_models, load_example_model
+
+    from pypath_shiny.pages.validation import validate_model_parameters
+
+    for model in list_example_models():
+        ok, errors = validate_model_parameters(
+            load_example_model(model.name).model,
+            check_groups=True,
+            check_biomass=True,
+            check_pb=True,
+            check_ee=False,
+        )
+        assert ok, f"{model.name}: {errors[:1]}"
