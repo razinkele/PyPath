@@ -39,7 +39,11 @@ EP_FIELDS = [
 
 
 def _ep_records():
-    """Two consumers (org_type 0), a producer (1) and detritus (2)."""
+    """Two consumers, a producer and detritus.
+
+    EPath's org_type: 0 detritus, 1 producer, 2 consumer (the reverse of EwE's
+    group Type codes).
+    """
     rows = []
     for b, pob, qob, landings, discards in (
         (2.0, 0.5, 4.0, 0.3, 0.1),
@@ -47,9 +51,10 @@ def _ep_records():
     ):
         p, q = b * pob, b * qob
         a = q * (1 - 0.2)
-        rows.append((b, pob, qob, 0.8, 0.2, landings, discards, 0, p, q, a - p, a))
-    rows.append((10.0, 20.0, NA, 0.5, NA, NA, NA, 1, 200.0, NA, NA, NA))
-    rows.append((50.0, NA, NA, 0.3, NA, NA, NA, 2, NA, NA, NA, NA))
+        rows.append((b, pob, qob, 0.8, 0.2, landings, discards, 2, p, q, a - p, a))
+    # as EPath writes them: a producer and detritus have zero Q, R and A
+    rows.append((10.0, 20.0, NA, 0.5, NA, NA, NA, 1, 200.0, 0.0, 0.0, 0.0))
+    rows.append((50.0, NA, NA, 0.3, NA, NA, NA, 0, 0.0, 0.0, 0.0, 0.0))
     return np.array(rows, dtype=EP_FIELDS)
 
 
@@ -194,6 +199,34 @@ def test_a_consumer_without_a_valid_assimilation_fails(tmp_path, assimilation):
     # Sprat produces and respires, so it must assimilate: 0 or -999 is a failure
     records = _ep_records()
     records["assimilation"][1] = assimilation
+    path = _write_ecopath(tmp_path / "ecopath_results.h5", records=records)
+    ok, message = ewef_hdf5.validate_hdf5_energy_balance(
+        ewef_hdf5.read_ewef_results(path)
+    )
+    assert not ok and "Sprat" in message
+
+
+@pytest.mark.parametrize("unass_q", [NA, np.inf], ids=["not_applicable", "inf"])
+def test_a_consumer_without_a_valid_unassimilated_fraction_fails(tmp_path, unass_q):
+    records = _ep_records()
+    records["unass_Q"][1] = unass_q
+    path = _write_ecopath(tmp_path / "ecopath_results.h5", records=records)
+    ok, message = ewef_hdf5.validate_hdf5_energy_balance(
+        ewef_hdf5.read_ewef_results(path)
+    )
+    assert not ok and "Sprat" in message
+
+
+def test_zero_assimilation_needs_zero_production_and_respiration(tmp_path):
+    # P + R = 0 and Q = 0, but P and R are not each zero
+    records = _ep_records()
+    for field, value in (
+        ("assimilation", 0.0),
+        ("production", 1.0),
+        ("respiration", -1.0),
+        ("consumption", 0.0),
+    ):
+        records[field][1] = value
     path = _write_ecopath(tmp_path / "ecopath_results.h5", records=records)
     ok, message = ewef_hdf5.validate_hdf5_energy_balance(
         ewef_hdf5.read_ewef_results(path)

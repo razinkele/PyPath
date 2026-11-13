@@ -153,6 +153,20 @@ def test_another_file_under_a_taken_name_is_refused(model_dir):
 
 
 @needs_access
+def test_a_model_whose_statistics_fail_is_not_registered(model_dir, monkeypatch):
+    def broken(params):
+        raise KeyError("Type")
+
+    monkeypatch.setattr(ModelStatistics, "calculate", staticmethod(broken))
+    registry = ModelRegistry()
+    with pytest.raises(ValueError, match="statistics"):
+        registry.load_model(model_dir / BLACK_SEA.name, validate=False)
+    assert not registry.models and not registry.metadata
+    assert registry.load_directory(model_dir, validate=False) == {}
+    assert registry.list_models() == []
+
+
+@needs_access
 def test_models_can_be_filtered_and_compared(model_dir):
     registry = load_model_directory(model_dir, validate=False)
     small = registry.filter_models(max_groups=30)

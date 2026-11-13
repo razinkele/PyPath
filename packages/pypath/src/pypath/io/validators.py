@@ -36,7 +36,7 @@ class ValidationIssue:
         level_icon = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}[self.level]
         if self.group:
             return f"{level_icon} {self.level.upper()}: [{self.group}] {self.message}"
-        return f"{level_icon} {level_icon.upper()}: {self.message}"
+        return f"{level_icon} {self.level.upper()}: {self.message}"
 
 
 @dataclass
@@ -163,6 +163,8 @@ def validate_ecopath_scenario(
         )
         return report
 
+    labels = _scenario_labels(scenario_df)
+
     # Check group names if provided
     if group_names is not None:
         if len(scenario_df) != len(group_names):
@@ -172,7 +174,6 @@ def validate_ecopath_scenario(
                 f"Row count mismatch: {len(scenario_df)} rows vs "
                 f"{len(group_names)} group names",
             )
-        labels = _scenario_labels(scenario_df)
         if labels is not None:
             expected = [str(g) for g in group_names]
             missing = [g for g in expected if g not in set(labels)]
@@ -186,7 +187,8 @@ def validate_ecopath_scenario(
                 )
 
     # Validate each group
-    for group_name, row in scenario_df.iterrows():
+    for position, (index_label, row) in enumerate(scenario_df.iterrows()):
+        group_name = labels[position] if labels is not None else index_label
         values = {}
         for column in required_cols:
             raw = row.get(column)

@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from pypath.io.validators import (
+    ValidationIssue,
     validate_all_ecopath_files,
     validate_detritus_fate,
     validate_diet_composition,
@@ -125,3 +126,16 @@ def test_tables_for_other_groups_fail_the_combined_check():
     other = ["A", "B", "C", "D"]
     report = validate_all_ecopath_files(_scenario(), _diet(), _fate(), other)
     assert not report.passed
+
+
+# --- messages ---
+
+
+def test_an_issue_without_a_group_shows_its_level():
+    assert str(ValidationIssue("error", "data", "x")) == "❌ ERROR: x"
+
+
+def test_issues_name_the_group_from_a_group_column():
+    scenario = _scenario({("Sprat", "Biomass"): np.nan}).reset_index(names="Group")
+    report = validate_ecopath_scenario(scenario, GROUPS)
+    assert [issue.group for issue in report.warnings] == ["Sprat"]

@@ -45,6 +45,9 @@ PathLike = Union[str, Path]
 
 #: EwE-F's "not applicable" value in ep_data, and its land value in biomass_spatial
 NOT_APPLICABLE = -999.0
+# EPath's ep_data org_type: 0 detritus, 1 producer, 2 consumer (the reverse of
+# EwE's group Type codes)
+CONSUMER = 2
 GROUP_NAMES_FILE = "group_names.json"
 
 
@@ -285,11 +288,12 @@ def validate_hdf5_energy_balance(
 ) -> Tuple[bool, str]:
     """Check EwE-F results for consistency.
 
-    For Ecopath results, every consumer (org_type 0) must assimilate what it
+    For Ecopath results, every consumer (EPath org_type 2) must assimilate what it
     produces and respires, ``assimilation = production + respiration``, and
     ``assimilation = consumption x (1 - unass_Q)``, within ``tolerance``
     (relative); a consumer that assimilates nothing must neither produce nor
-    respire, and a missing or negative assimilation fails. Any results also
+    respire, and a missing or negative assimilation, or a missing or
+    infinite ``unass_Q`` when the field exists, fails. Any results also
     need non-negative biomass: NaN marks not applicable (-999), but infinite
     biomass fails.
 
@@ -322,18 +326,21 @@ def validate_hdf5_energy_balance(
     q = _na_to_nan(ep["consumption"])
     u = _na_to_nan(ep["unass_Q"]) if "unass_Q" in ep.dtype.names else None
     failed = []
-    for i in np.flatnonzero(ep["org_type"] == 0):
+    for i in np.flatnonzero(ep["org_type"] == CONSUMER):
         if not np.isfinite(a[i]) or a[i] < 0:
             failed.append(f"{names[i]} (assimilation {a[i]:g})")
             continue
-        expected = [p[i] + r[i]]
-        if u is not None and np.isfinite(u[i]):
-            expected.append(q[i] * (1 - u[i]))
+        if u is not None and not np.isfinite(u[i]):
+            failed.append(f"{names[i]} (unass_Q {u[i]:g})")
+            continue
+        assimilated = [q[i] * (1 - u[i])] if u is not None else []
         if a[i] > 0:
+            expected = np.array([p[i] + r[i]] + assimilated)
             # np.max keeps a NaN, so a missing flow fails the comparison below
-            gap = float(np.max(np.abs(a[i] - np.array(expected)) / a[i]))
+            gap = float(np.max(np.abs(a[i] - expected) / a[i]))
         else:
-            gap = 0.0 if all(e == 0 for e in expected) else np.inf
+            flows = [p[i], r[i]] + assimilated
+            gap = 0.0 if all(flow == 0 for flow in flows) else np.inf
         if not gap <= tolerance:
             failed.append(f"{names[i]} ({100 * gap:.2g} %)")
     if failed:

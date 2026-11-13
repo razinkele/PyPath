@@ -25,7 +25,7 @@ import logging
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -165,6 +165,26 @@ def read_ewe_access(path: PathLike) -> EweModel:
     return model
 
 
+def _connect_read_only(path: Path) -> sqlite3.Connection:
+    """Open a SQLite file read-only; as_uri escapes '#', '?' and '%'."""
+    return sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+
+
+def _table_names(con: sqlite3.Connection, path: Path) -> List[str]:
+    """The database's table names, sorted; ValueError if it is not SQLite."""
+    try:
+        rows = con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        ).fetchall()
+    except sqlite3.DatabaseError as e:
+        raise ValueError(f"{path.name} is not a SQLite database: {e}") from e
+    return [row[0] for row in rows]
+
+
+def _quote_identifier(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
 def read_ewe_sqlite(path: PathLike, **kwargs) -> EweModel:
     """Refuse a SQLite file, explaining what it holds.
 
@@ -174,17 +194,15 @@ def read_ewe_sqlite(path: PathLike, **kwargs) -> EweModel:
 
     Raises:
         FileNotFoundError: If the file does not exist
-        ValueError: Always, naming what the file looks like
+        ValueError: Always, naming what the file looks like (or saying it is
+            not a SQLite database)
     """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"SQLite file not found: {path}")
-    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    con = _connect_read_only(path)
     try:
-        names = {
-            row[0]
-            for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        }
+        names = set(_table_names(con, path))
     finally:
         con.close()
     if names & VALUE_CHAIN_TABLES:
@@ -209,22 +227,20 @@ def inspect_ewe_sqlite(path: PathLike) -> Dict[str, Any]:
 
     Returns:
         Dictionary with ``file`` and ``tables`` (name, rows, columns)
+
+    Raises:
+        ValueError: If the file is not a SQLite database
     """
     path = Path(path)
     structure: Dict[str, Any] = {"file": str(path), "tables": []}
-    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    con = _connect_read_only(path)
     try:
-        tables = [
-            row[0]
-            for row in con.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            )
-        ]
-        for name in tables:
-            count = con.execute(f"SELECT COUNT(*) FROM [{name}]").fetchone()[0]
+        for name in _table_names(con, path):
+            quoted = _quote_identifier(name)
+            count = con.execute(f"SELECT COUNT(*) FROM {quoted}").fetchone()[0]
             columns = [
                 {"name": col[1], "type": col[2]}
-                for col in con.execute(f"PRAGMA table_info([{name}])")
+                for col in con.execute(f"PRAGMA table_info({quoted})")
             ]
             structure["tables"].append(
                 {"name": name, "rows": count, "columns": columns}

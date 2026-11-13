@@ -153,3 +153,35 @@ def test_inspect_lists_tables_rows_and_columns(tmp_path):
             "columns": [{"name": "DBID", "type": ""}, {"name": "Name", "type": ""}],
         }
     ]
+
+
+def test_paths_with_uri_characters_are_opened(tmp_path):
+    # '#', '?' and '%' are special in a SQLite URI; the reader must escape them
+    folder = tmp_path / "run #2 ? 100%"
+    folder.mkdir()
+    path = _sqlite(folder / "x.vc.sqlite", {"Unit": ["DBID"], "Link": ["DBID"]})
+    with pytest.raises(ValueError, match="Value Chain"):
+        ewe_official.read_ewe_sqlite(path)
+    assert [t["name"] for t in ewe_official.inspect_ewe_sqlite(path)["tables"]] == [
+        "Link",
+        "Unit",
+    ]
+
+
+def test_a_file_that_is_not_a_database_is_a_value_error(tmp_path):
+    path = tmp_path / "broken.sqlite"
+    path.write_bytes(b"not a database, just text" * 100)
+    with pytest.raises(ValueError, match="broken.sqlite"):
+        ewe_official.read_ewe_sqlite(path)
+
+
+def test_inspect_quotes_table_names(tmp_path):
+    path = tmp_path / "odd.sqlite"
+    con = sqlite3.connect(path)
+    con.execute('CREATE TABLE "a]b ""c""" (x)')
+    con.commit()
+    con.close()
+    tables = ewe_official.inspect_ewe_sqlite(path)["tables"]
+    assert tables == [
+        {"name": 'a]b "c"', "rows": 0, "columns": [{"name": "x", "type": ""}]}
+    ]

@@ -180,8 +180,9 @@ class ModelRegistry:
 
         Raises:
             FileNotFoundError: If the file does not exist
-            ValueError: If the file cannot be read as an EwE model, or another
-                file is already loaded under the name
+            ValueError: If the file cannot be read as an EwE model, its
+                statistics cannot be computed, or another file is already
+                loaded under the name
         """
         from pypath.io.ewemdb import read_ewemdb
 
@@ -208,10 +209,14 @@ class ModelRegistry:
         if validate:
             groups = list(params.model["Group"])
             meta.validation_report = validate_ecopath_scenario(params.model, groups)
+        try:
+            stats = ModelStatistics.calculate(params)
+        except Exception as e:  # any summary failure: report the file
+            raise ValueError(f"Cannot compute statistics for {path}: {e}") from e
+        # registered only once everything about the model is known
         self.models[model_name] = params
         self.metadata[model_name] = meta
-        self.statistics[model_name] = ModelStatistics.calculate(params)
-        stats = self.statistics[model_name]
+        self.statistics[model_name] = stats
         logger.info(
             "Loaded %s: %d groups, %d links", model_name, stats.n_groups, stats.n_links
         )
