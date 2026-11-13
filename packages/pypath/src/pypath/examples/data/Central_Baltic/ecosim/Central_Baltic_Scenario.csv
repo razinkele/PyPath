@@ -1,0 +1,26 @@
+"Number of groups",22
+"Number of parameters",10
+"Number of split groups",3
+"Groups","Max rel. P/B","Feeding time","Max rel. feeding time","Feeding time adjust rate [0,1]","Fraction of other mortality sens. to changes in feeding time","Predator effect on feeding time [0,1]","Density-dep. catchability: Qmax/Qo [>=1]","QBmax/QBo (for handling time) [>1]","Switching power parameter [0,2]","Advected?"
+"microzooplankton",2,1,2,0.5,1,0,1,1000,0,0
+"Temora sp",2,1,2,0.5,1,0,1,1000,0,0
+"Acartia sp",2,1,2,0.5,1,0,1,1000,0,0
+"Pseudocalanus sp.",2,1,2,0.5,1,0,1,1000,0,0
+"other mesozooplankton",2,1,2,0.5,1,0,1,1000,0,0
+"Mysids",2,1,2,0.5,1,0,1,1000,0,0
+"meiozoobenthos",2,1,2,0.5,1,0,1,1000,0,0
+"macrozoobenthos",2,1,2,0.5,1,0,1,1000,0,0
+"Sprat 0 / Sprat 1",2,1,2,0.5,1,0,1,1000,0,0
+"Ad. Sprat",2,1,2,0.5,1,0,1,1000,0,0
+"Herring 0 / Herring 1 / Herring 2",2,1,2,0.5,1,0,1,1000,0,0
+"Ad. Herring",2,1,2,0.5,1,0,1,1000,0,0
+"Cod larvae",2,1,2,0.5,1,0,1,1000,0,0
+"Cod 0 / Cod 1",2,1,2,0.5,1,0,1,1000,0,0
+"Cod 2 / Cod 3",2,1,2,0.5,1,0,1,1000,0,0
+"Ad. Cod",2,1,2,0.5,1,0,1,1000,0,0
+"Seals",2,1,2,0.5,1,0,1,1000,0,0
+"Cyanobacteria",2,1,-999,-999,-999,-999,-999,-999,-999,0
+"spring phytoplankton",2,1,-999,-999,-999,-999,-999,-999,-999,0
+"other phytoplankton",2,1,-999,-999,-999,-999,-999,-999,-999,0
+"Detritus-water column",-999,1,-999,-999,-999,-999,-999,-999,-999,0
+"Detritus-sediment",-999,1,-999,-999,-999,-999,-999,-999,-999,0

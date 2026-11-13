@@ -1,0 +1,48 @@
+"Number of groups",44
+"Number of parameters",10
+"Number of split groups",1
+"Groups","Max rel. P/B","Feeding time","Max rel. feeding time","Feeding time adjust rate [0,1]","Fraction of other mortality sens. to changes in feeding time","Predator effect on feeding time [0,1]","Density-dep. catchability: Qmax/Qo [>=1]","QBmax/QBo (for handling time) [>1]","Switching power parameter [0,2]","Advected?"
+"Wintering piscivorous birds",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Wintering diving ducks",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Great cormorant",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Pikeperch (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Pikeperch (juvenile/sub-adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Round goby juvenile (under 60 mm)",2,1,2,0.5,1,0,1,1000,0,0
+"Round goby sub-adult (60-120 mm)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Round goby adult (over 120 mm)",2,1,2,0.5,1,0,1,1000,0,0
+"Baltic herring (juvenile)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Baltic herring (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Baltic sprat (juvenile/adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Sandeels (juvenile)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Greater sandeel (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Common and sand gobies",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Twaite shad (juvenile)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Twaite shad (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Eelpout (juvenile)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Eelpout (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Flounder (juvenile/sub-adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Flounder (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Silver bream (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Bream (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Vimba (juvenile)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Vimba (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Three-spined stickleback",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Ruffe (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Perch (juvenile)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Perch (sub-adult/adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Atlantic salmon (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Turbot (juvenile)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Turbot (sub-adult/adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"European smelt (juvenile)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"European smelt (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"European eel (adult)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Polychaetes",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Zoobenthos filtrators",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Zoobenthos omnivores (over 20 mm)",2,1,2,0.5,1,0,1,1000,0,0
+"Zoobenthos omnivores (10-20 mm)",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Zoobenthos omnivores (under 10 mm)",2,1,2,0.5,1,0,1,1000,0,0
+"Nectobenthos",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Mesozooplankton",2.0,1.0,2.0,0.5,1.0,0.0,1.0,1000.0,0.0,0
+"Macrophytobenthos",2.0,1.0,-999,-999,-999,-999,-999,-999,-999,0
+"Phytoplankton",2.0,1.0,-999,-999,-999,-999,-999,-999,-999,0
+"Detritus",-999,1.0,-999,-999,-999,-999,-999,-999,-999,0
