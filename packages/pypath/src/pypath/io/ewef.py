@@ -32,12 +32,15 @@ import logging
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from pypath.core.params import RpathParams, create_rpath_params
+
+if TYPE_CHECKING:
+    from pypath.core.ecosim import RsimScenario
 
 logger = logging.getLogger(__name__)
 
@@ -153,15 +156,22 @@ def _resolve(nml_path: Path, name: Any) -> Optional[Path]:
     )
 
 
-def _read_table(path: Path, first_label: str) -> Tuple[List[str], List[List[str]]]:
+def _read_table(
+    path: Path, first_label: str, keep_unnamed: bool = False
+) -> Tuple[List[str], List[List[str]]]:
     """Header and rows of an EwE-F CSV: the rows after the line whose first
-    cell is ``first_label`` (the lines before it give counts)."""
+    cell is ``first_label`` (the lines before it give counts). Rows without a
+    name are dropped, unless ``keep_unnamed`` (rows read by position); blank
+    lines are always dropped."""
     with open(path, newline="", encoding="utf-8-sig", errors="replace") as fh:
         rows = [r for r in csv.reader(fh)]
     for i, row in enumerate(rows):
         if row and row[0].strip().lower() == first_label.lower():
             header = [c.strip() for c in row]
-            data = [r for r in rows[i + 1 :] if r and r[0].strip()]
+            if keep_unnamed:
+                data = [r for r in rows[i + 1 :] if any(c.strip() for c in r)]
+            else:
+                data = [r for r in rows[i + 1 :] if r and r[0].strip()]
             return header, data
     raise ValueError(f"{path.name}: no header row starting with {first_label!r}")
 
@@ -179,7 +189,7 @@ def _read_growth(path: Optional[Path]) -> List[Tuple[str, Dict[str, float]]]:
     """The growth file's rows: (name, {lower-case label: value}), in order."""
     if path is None:
         return []
-    header, rows = _read_table(path, "Groups")
+    header, rows = _read_table(path, "Groups", keep_unnamed=True)
     labels = [h.lower() for h in header]
     return [
         (
@@ -614,7 +624,7 @@ def ecosim_scenario_from_ewef(
     ecosim_path: PathLike,
     years: Optional[range] = None,
     fast_group_rule: Optional[str] = None,
-):
+) -> RsimScenario:
     """An Ecosim scenario from an EwE-F model's Ecopath and Ecosim inputs.
 
     ``years`` defaults to EwE-F's run length ``tf`` (years) from the Ecosim

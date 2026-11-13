@@ -58,6 +58,25 @@ def test_growth_rows_belong_to_stanza_groups_in_order():
     assert stgroups.loc[order, "Wmat"].tolist() == pytest.approx([0.26, 0.5, 0.22])
 
 
+def test_a_growth_row_without_a_name_keeps_its_place(tmp_path):
+    # rows are read by position, so an unnamed row is still split group 1's
+    folder = tmp_path / "ecopath"
+    shutil.copytree(example_model("Central_Baltic").ecopath_path, folder)
+    growth = folder / "Central_Baltic_GrowthParameters.csv"
+    rows = list(csv.reader(open(growth, newline="")))
+    header = next(i for i, r in enumerate(rows) if r and r[0] == "Groups")
+    rows[header + 1][0] = ""  # the Sprat row
+    with open(growth, "w", newline="") as f:
+        csv.writer(f).writerows(rows)
+
+    stanzas = read_ewef(folder, compute_stanzas=False).stanzas
+    set_of = dict(zip(stanzas.stindiv["Group"], stanzas.stindiv["StanzaGroup"]))
+    k = stanzas.stgroups.set_index("StanzaGroup")["VBGF_Ksp"]
+    assert k[set_of["Ad. Sprat"]] == pytest.approx(0.51)
+    assert k[set_of["Ad. Herring"]] == pytest.approx(0.38)
+    assert k[set_of["Ad. Cod"]] == pytest.approx(0.23)
+
+
 def test_stanza_sets_take_their_names_from_the_growth_rows():
     # the stages ("Sprat 0 / Sprat 1", "Ad. Sprat") share no name; the
     # growth rows carry EwE's stanza set names
