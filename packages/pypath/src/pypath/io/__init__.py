@@ -81,6 +81,19 @@ from pypath.io.utils import (
     safe_float,
 )
 
+from pypath.io.model_importer import (
+    ModelRegistry,
+    ModelMetadata,
+    ModelStatistics,
+    load_model_directory,
+    quick_load,
+)
+
+from pypath.io.ewe_official import (
+    read_ewe_model,
+    EweModel,
+)
+
 __all__ = [
     # EcoBase
     "list_ecobase_models",
@@ -106,6 +119,15 @@ __all__ = [
     "get_ewemdb_metadata",
     "check_ewemdb_support",
     "EwEDatabaseError",
+    # EwE Official (SQLite/Access)
+    "read_ewe_model",
+    "EweModel",
+    # Model import/registry
+    "load_model_directory",
+    "quick_load",
+    "ModelRegistry",
+    "ModelMetadata",
+    "ModelStatistics",
     # EwE-F
     "read_ewef",
     "read_ewef_ecosim",
