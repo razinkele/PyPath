@@ -40,15 +40,14 @@ def fished_scenario():
 def ecospace_params(fished_scenario):
     grid = create_regular_grid(bounds=(0, 0, 2, 2), nx=2, ny=2)
     n = fished_scenario.params.NUM_GROUPS
-    pref = np.ones((n + 1, grid.n_patches))
-    pref[0, :] = 0.0
+    pref = np.ones((n, grid.n_patches))  # row g - 1 is group g
     return EcospaceParams(
         grid=grid,
         habitat_preference=pref,
         habitat_capacity=pref.copy(),
-        dispersal_rate=np.zeros(n + 1),
-        advection_enabled=np.zeros(n + 1, dtype=bool),
-        gravity_strength=np.zeros(n + 1),
+        dispersal_rate=np.zeros(n),
+        advection_enabled=np.zeros(n, dtype=bool),
+        gravity_strength=np.zeros(n),
     )
 
 
@@ -108,6 +107,16 @@ class TestEffortMultipliers:
         assert mult.mean() == pytest.approx(1.0)
         assert mult[1, 0] > mult[0, 0]
 
+    def test_habitat_allocation_averages_every_group_row(self):
+        # EcospaceParams.habitat_preference is indexed from 0 by group (row
+        # g - 1 is Ecosim group g): it has no "Outside" row, so group 1's row
+        # counts like the others. Mean over groups: [0.3, 0.7].
+        pref = np.array([[0.1, 0.9], [0.5, 0.5]])
+        mult = effort_multipliers(
+            SpatialFishing("habitat"), 2, 1, habitat_preference=pref
+        )
+        assert mult[1, 0] > mult[0, 0]
+
     def test_missing_inputs_fall_back_to_uniform(self):
         # gravity without biomass, port without a grid
         assert np.allclose(effort_multipliers(SpatialFishing("gravity"), 3, 1), 1.0)
@@ -163,15 +172,14 @@ class TestSpatialFishingInSimulation:
         n = fished_scenario.params.NUM_GROUPS
         n_patches = ecospace_params.grid.n_patches
         gradient = np.linspace(0.1, 1.0, n_patches)
-        pref = np.tile(gradient, (n + 1, 1))
-        pref[0, :] = 0.0
+        pref = np.tile(gradient, (n, 1))  # row g - 1 is group g
         eco = EcospaceParams(
             grid=ecospace_params.grid,
             habitat_preference=pref,
             habitat_capacity=pref.copy(),
-            dispersal_rate=np.zeros(n + 1),
-            advection_enabled=np.zeros(n + 1, dtype=bool),
-            gravity_strength=np.zeros(n + 1),
+            dispersal_rate=np.zeros(n),
+            advection_enabled=np.zeros(n, dtype=bool),
+            gravity_strength=np.zeros(n),
         )
         uniform = rsim_run_spatial(fished_scenario, ecospace=eco)
         habitat = rsim_run_spatial(
@@ -205,15 +213,14 @@ class TestSpatialFishingInSimulation:
         n_patches = ecospace_params.grid.n_patches
         # Patch 3 is the most preferred, so habitat allocation targets it hardest
         gradient = np.linspace(0.1, 1.0, n_patches)
-        pref = np.tile(gradient, (n + 1, 1))
-        pref[0, :] = 0.0
+        pref = np.tile(gradient, (n, 1))  # row g - 1 is group g
         eco = EcospaceParams(
             grid=ecospace_params.grid,
             habitat_preference=pref,
             habitat_capacity=pref.copy(),
-            dispersal_rate=np.zeros(n + 1),
-            advection_enabled=np.zeros(n + 1, dtype=bool),
-            gravity_strength=np.zeros(n + 1),
+            dispersal_rate=np.zeros(n),
+            advection_enabled=np.zeros(n, dtype=bool),
+            gravity_strength=np.zeros(n),
         )
         closed = n_patches - 1
         mpa = MPAConfig(zones=[MPAZone(mpa_id=1, name="Reserve", patches=[closed])])
