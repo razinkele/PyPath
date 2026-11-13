@@ -6122,8 +6122,11 @@ Affects local carrying capacity (1.0 = no effect)</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Diffusion coefficient (km²/month) [n_groups]
-0 = no dispersal</p>
+                <p>Dispersal rate per year [n_groups]; 0 = no dispersal. Between
+neighbours, diffusion moves rate x density difference x mean patch
+area x border / distance per year (<code>dispersal.diffusion_flux</code>): on
+a regular grid, rate x (B_p - B_q). <code>read_ecospace</code> sets EwE's
+movement rate Mrate = Mvel / (3.14159 x CellLength).</p>
               </div>
             </td>
           </tr>
@@ -6288,7 +6291,10 @@ If provided for a group, overrides model-calculated dispersal</p>
 <span class="normal">444</span>
 <span class="normal">445</span>
 <span class="normal">446</span>
-<span class="normal">447</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EcospaceParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Spatial parameters for ECOSPACE simulation.</span>
 
@@ -6306,8 +6312,11 @@ If provided for a group, overrides model-calculated dispersal</p>
 <span class="sd">        Habitat capacity multiplier [n_groups, n_patches]</span>
 <span class="sd">        Affects local carrying capacity (1.0 = no effect)</span>
 <span class="sd">    dispersal_rate : np.ndarray</span>
-<span class="sd">        Diffusion coefficient (km²/month) [n_groups]</span>
-<span class="sd">        0 = no dispersal</span>
+<span class="sd">        Dispersal rate per year [n_groups]; 0 = no dispersal. Between</span>
+<span class="sd">        neighbours, diffusion moves rate x density difference x mean patch</span>
+<span class="sd">        area x border / distance per year (``dispersal.diffusion_flux``): on</span>
+<span class="sd">        a regular grid, rate x (B_p - B_q). ``read_ecospace`` sets EwE's</span>
+<span class="sd">        movement rate Mrate = Mvel / (3.14159 x CellLength).</span>
 <span class="sd">    advection_enabled : np.ndarray</span>
 <span class="sd">        Enable habitat-directed movement [n_groups], boolean</span>
 <span class="sd">    gravity_strength : np.ndarray</span>
@@ -6421,10 +6430,7 @@ If provided for a group, overrides model-calculated dispersal</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">392</span>
-<span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">395</span>
 <span class="normal">396</span>
 <span class="normal">397</span>
 <span class="normal">398</span>
@@ -6476,7 +6482,10 @@ If provided for a group, overrides model-calculated dispersal</p>
 <span class="normal">444</span>
 <span class="normal">445</span>
 <span class="normal">446</span>
-<span class="normal">447</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Validate spatial parameters."""</span>
     <span class="n">n_patches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">n_patches</span>
 
@@ -7526,10 +7535,7 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">450</span>
-<span class="normal">451</span>
-<span class="normal">452</span>
-<span class="normal">453</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">453</span>
 <span class="normal">454</span>
 <span class="normal">455</span>
 <span class="normal">456</span>
@@ -7568,7 +7574,10 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 <span class="normal">489</span>
 <span class="normal">490</span>
 <span class="normal">491</span>
-<span class="normal">492</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">492</span>
+<span class="normal">493</span>
+<span class="normal">494</span>
+<span class="normal">495</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SpatialState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Extended state for spatial simulation.</span>
 
@@ -7668,15 +7677,15 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">469</span>
-<span class="normal">470</span>
-<span class="normal">471</span>
-<span class="normal">472</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">472</span>
 <span class="normal">473</span>
 <span class="normal">474</span>
 <span class="normal">475</span>
 <span class="normal">476</span>
-<span class="normal">477</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">collapse_to_total</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">collapse_to_total</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Sum biomass across patches for compatibility.</span>
 
 <span class="sd">    Returns</span>
@@ -7763,10 +7772,7 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">479</span>
-<span class="normal">480</span>
-<span class="normal">481</span>
-<span class="normal">482</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">482</span>
 <span class="normal">483</span>
 <span class="normal">484</span>
 <span class="normal">485</span>
@@ -7776,7 +7782,10 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 <span class="normal">489</span>
 <span class="normal">490</span>
 <span class="normal">491</span>
-<span class="normal">492</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_patch_biomass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patch_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">492</span>
+<span class="normal">493</span>
+<span class="normal">494</span>
+<span class="normal">495</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_patch_biomass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patch_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Get biomass in a specific patch.</span>
 
 <span class="sd">    Parameters</span>
