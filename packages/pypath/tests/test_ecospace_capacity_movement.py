@@ -6,7 +6,8 @@ to cell y is ``Mrate x min(1, HabCap_y / HabCap_x)`` (SetMovementParameters,
 cEcoSpace.vb 3804-3815). Density in proportion to the habitat capacity is
 therefore at rest, and movement leads towards it; plain diffusion levels
 the density instead. A cell without habitat is left at the full rate and
-never entered.
+is not entered from a cell with habitat; cells of equal capacity, zero
+included, exchange at the full rate.
 """
 
 from pathlib import Path
@@ -93,6 +94,17 @@ def test_a_cell_without_habitat_is_left_and_never_entered():
     )
     assert got[1] == pytest.approx(0.0, abs=1e-6)
     assert got.sum() == pytest.approx(3.0, rel=1e-9)
+
+
+def test_two_cells_without_habitat_exchange_at_the_full_rate():
+    # EwE: equal capacities, zero included, give Mrate both ways
+    # (If HabCap(b) = HabCap(a) Then d = e = Mrate)
+    grid = _row_of_cells()
+    cap = np.array([1.0, 0.0, 0.0])
+    b = np.array([0.0, 0.0, 1.0])
+    plain = diffusion_flux(b, 2.0, grid, grid.adjacency_matrix)
+    got = diffusion_flux(b, 2.0, grid, grid.adjacency_matrix, capacity=cap)
+    np.testing.assert_allclose(got, plain, rtol=1e-12)
 
 
 def test_no_or_uniform_capacity_is_plain_diffusion():

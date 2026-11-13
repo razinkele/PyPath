@@ -208,8 +208,10 @@ def _capacity_ratios(capacity, rows, cols):
     Moving from cell x to cell y goes at ``min(1, H_y / H_x)`` of the plain
     rate (SetMovementParameters, cEcoSpace.vb 3804-3815): full rate into
     habitat at least as good, slowed by the habitat ratio into poorer
-    habitat. A cell without habitat is left at the full rate and never
-    entered. Returns the ratios rows -> cols and cols -> rows.
+    habitat. A cell without habitat is left at the full rate and is not
+    entered from a cell with habitat; two cells of equal capacity, zero
+    included, exchange at the full rate, as in EwE. Returns the ratios
+    rows -> cols and cols -> rows.
     """
     h = np.asarray(capacity, dtype=float)
     hx, hy = h[rows], h[cols]
