@@ -204,10 +204,10 @@ class TestMovementRedistribution:
         n_patches = 5
         grid = create_1d_grid(n_patches=n_patches, spacing=1.0)
 
-        # Create habitat gradient: patches 0-1 preferred, patches 3-4 poor
-        habitat = np.ones((ng, n_patches))
-        for g in range(1, ng):
-            habitat[g, :] = [1.0, 0.8, 0.5, 0.2, 0.1]
+        # Create habitat gradient: patches 0-1 preferred, patches 3-4 poor.
+        # Ecospace rows are 0-based groups (row g - 1 is group g), so every
+        # row gets it; the last row (index n_groups) is not used.
+        habitat = np.tile([1.0, 0.8, 0.5, 0.2, 0.1], (ng, 1))
 
         ecospace = EcospaceParams(
             grid=grid,
