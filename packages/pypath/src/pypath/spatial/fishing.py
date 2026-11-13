@@ -386,8 +386,9 @@ def effort_multipliers(
     grid : EcospaceGrid, optional
         Grid, required for "port" allocation.
     habitat_preference : np.ndarray, optional
-        Habitat preference [n_groups + 1, n_patches] or [n_patches], required
-        for "habitat" allocation.
+        Habitat preference [n_groups, n_patches] as in EcospaceParams (row
+        g - 1 is Ecosim group g, no "Outside" row), averaged over the groups,
+        or [n_patches]. Required for "habitat" allocation.
     month : int
         Month index, used to select a slice of a "prescribed" allocation.
 
@@ -452,8 +453,9 @@ def effort_multipliers(
                     raise ValueError("habitat allocation requires habitat_preference")
                 pref = np.asarray(habitat_preference, dtype=float)
                 if pref.ndim == 2:
-                    # Average preference over the real groups (skip "Outside")
-                    pref = pref[1:].mean(axis=0) if pref.shape[0] > 1 else pref[0]
+                    # Average over the groups; EcospaceParams rows are groups
+                    # 1..n (row g - 1 is group g), with no "Outside" row.
+                    pref = pref.mean(axis=0)
                 alloc = allocate_habitat_based(pref, total_effort=1.0)
             elif kind in ("prescribed", "custom"):
                 supplied = spatial_fishing.effort_allocation

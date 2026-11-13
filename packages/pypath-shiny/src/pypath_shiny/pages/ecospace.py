@@ -104,6 +104,33 @@ def spatial_task_alert(task_state: TaskState) -> tuple[str, str, str]:
     return ("", "", "")
 
 
+def page_ecospace_arrays(
+    habitat_vec: np.ndarray,
+    n_groups: int,
+    dispersal_rate: float,
+    advection: bool,
+    gravity: float,
+) -> dict:
+    """Per-group EcospaceParams arrays for the page's run, from its controls.
+
+    Every group gets the page's habitat pattern (as preference and capacity)
+    and its movement settings. Returns the keyword arguments for
+    ``EcospaceParams`` other than the grid.
+
+    Ecospace arrays are indexed from 0 by group: row g - 1 is Ecosim group g
+    (``pypath.spatial.dispersal.calculate_spatial_flux``). Unlike the state
+    arrays, they have no "Outside" row, so there are ``n_groups`` rows.
+    """
+    habitat_pref = np.tile(np.asarray(habitat_vec, dtype=float), (n_groups, 1))
+    return {
+        "habitat_preference": habitat_pref,
+        "habitat_capacity": habitat_pref.copy(),
+        "dispersal_rate": np.full(n_groups, float(dispersal_rate)),
+        "advection_enabled": np.full(n_groups, bool(advection), dtype=bool),
+        "gravity_strength": np.full(n_groups, float(gravity)),
+    }
+
+
 def parse_habitat_csv(path, n_patches):
     """Parse a habitat preference CSV into an array of `n_patches` values.
 
@@ -1383,34 +1410,15 @@ def ecospace_server(
                 )
             )
 
-            # Build habitat preference matrix [n_groups+1, n_patches]
-            habitat_vec = _compute_habitat_vector(current_grid)
-            habitat_pref = np.tile(habitat_vec, (n_groups + 1, 1))
-            habitat_pref[0, :] = 0.0  # Index 0 = Outside
-
-            # Build per-group dispersal rates
-            dispersal_rate = np.full(
-                n_groups + 1, float(input.dispersal_rate_default())
-            )
-            dispersal_rate[0] = 0.0  # No dispersal for Outside
-
-            # Build advection flags
-            advection_enabled = np.full(
-                n_groups + 1, bool(input.enable_advection()), dtype=bool
-            )
-            advection_enabled[0] = False
-
-            # Build gravity strength
-            gravity = np.full(n_groups + 1, float(input.gravity_strength()))
-            gravity[0] = 0.0
-
             ecospace_params = EcoParams(
                 grid=current_grid,
-                habitat_preference=habitat_pref,
-                habitat_capacity=habitat_pref.copy(),
-                dispersal_rate=dispersal_rate,
-                advection_enabled=advection_enabled,
-                gravity_strength=gravity,
+                **page_ecospace_arrays(
+                    _compute_habitat_vector(current_grid),
+                    n_groups,
+                    dispersal_rate=input.dispersal_rate_default(),
+                    advection=input.enable_advection(),
+                    gravity=input.gravity_strength(),
+                ),
             )
 
             _notify_legacy("Running spatial simulation...", type="message", duration=2)
