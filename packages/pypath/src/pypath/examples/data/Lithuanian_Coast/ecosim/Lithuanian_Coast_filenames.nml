@@ -1,0 +1,12 @@
+&filenames
+HDF5_fname            = "testcases/Lithuanian_Coast/Lithuanian_Coast.h5"
+GroupInfo_fname       = "testcases/Lithuanian_Coast/Lithuanian_Coast_Scenario.csv"
+Vulnerability_fname   = "testcases/Lithuanian_Coast/Lithuanian_Coast_vul.csv"
+Forcing_fname         = "testcases/Lithuanian_Coast/Lithuanian_Coast_F.csv"
+NutrientForcing_fname = ""
+tf              = 10
+StepsPerMonth   = 1
+NutBaseFreeProp = 0.9999
+NutPBmax        = 1.5
+relax           = 0.5
+/

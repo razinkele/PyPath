@@ -1,0 +1,6 @@
+"Number of split groups",3
+"Number of growth parameters",4
+"Groups","K","Rec. Power","BA/B","Wmaturity/Winf"
+"Sprat",0.51,1.0,0.0,0.26
+"Herring",0.38,1.0,0.0,0.5
+"Cod",0.23,1.0,0.0,0.22

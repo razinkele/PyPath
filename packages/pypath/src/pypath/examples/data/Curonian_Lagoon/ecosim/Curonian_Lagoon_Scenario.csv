@@ -1,0 +1,23 @@
+"Number of groups",19
+"Number of parameters",10
+"Number of split groups",0
+"Groups","Max rel. P/B","Feeding time","Max rel. feeding time","Feeding time adjust rate [0,1]","Fraction of other mortality sens. to changes in feeding time","Predator effect on feeding time [0,1]","Density-dep. catchability: Qmax/Qo [>=1]","QBmax/QBo (for handling time) [>1]","Switching power parameter [0,2]","Advected?"
+"Bacteria",2,1,2,0.5,1,0,1,1000,0,1
+"Grazing zooplankton",2,1,2,0.5,1,0,1,1000,0,1
+"Carnivorous zooplankton",2,1,2,0.5,1,0,1,1000,0,1
+"Planktivorous fish",2,1,2,0.5,1,0,1,1000,0,0
+"deposit feeders gastropods",2,1,2,0.5,1,0,1,1000,0,0
+"chironomids",2,1,2,0.5,1,0,1,1000,0,0
+"oligochets",2,1,2,0.5,1,0,1,1000,0,0
+"Demersal fish",2,1,2,0.5,1,0,1,1000,0,0
+"grey heron",2,1,2,0.5,1,0,1,1000,0,0
+"larus",2,1,2,0.5,1,0,1,1000,0,0
+"goosander",2,1,2,0.5,1,0,1,1000,0,0
+"Great Crested Grebe",2,1,2,0.5,1,0,1,1000,0,0
+"Cormorants",2,1,2,0.5,1,0,1,1000,0,0
+"Predatory fish",2,1,2,0.5,1,0,1,1000,0,0
+"Filtrators bivalves",2,1,2,0.5,1,0,1,1000,0,0
+"Meiobenthos",2,1,2,0.5,1,0,1,1000,0,0
+"Mysids",2,1,2,0.5,1,0,1,1000,0,0
+"Fitoplankton",2,1,-999,-999,-999,-999,-999,-999,-999,1
+"Detritus",-999,1,-999,-999,-999,-999,-999,-999,-999,1

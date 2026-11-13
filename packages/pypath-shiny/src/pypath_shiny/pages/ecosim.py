@@ -30,6 +30,7 @@ from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
 from pypath_shiny.pages.ewe_scenario import (
     build_ewe_scenario,
     ewe_source_matches,
+    scenario_source_choices,
 )
 from pypath_shiny.services.ecosim_controls import (
     apply_fishing_management_control,
@@ -818,29 +819,20 @@ def ecosim_server(
     @output
     @render.ui
     def ewe_scenario_source_ui():
-        """Offer the Ecosim scenarios stored in the imported EwE database."""
+        """Offer the Ecosim scenarios of the imported EwE database, or the
+        Ecosim settings of the example model opened from the Home page."""
         source = _matching_ewe_source()
         if source is None:
             return ui.div()
-        scenarios = {str(k): v for k, v in source["scenarios"].items()}
-        default = str(source.get("scenario"))
-        if default not in scenarios:
-            default = next(iter(scenarios))
-        datasets = {"": "None"}
-        datasets.update({str(k): v for k, v in source.get("datasets", {}).items()})
-        return ui.div(
-            ui.h5("Scenario Source"),
-            ui.input_radio_buttons(
-                "scenario_source",
-                "Build the scenario from",
-                {
-                    "model": "The balanced model and the settings below",
-                    "ewe": f"An Ecosim scenario stored in {source['name']}",
-                },
-                selected="model",
-            ),
-            ui.panel_conditional(
-                "input.scenario_source === 'ewe'",
+        choices, selected, offers_datasets = scenario_source_choices(source)
+        if offers_datasets:
+            scenarios = {str(k): v for k, v in source["scenarios"].items()}
+            default = str(source.get("scenario"))
+            if default not in scenarios:
+                default = next(iter(scenarios))
+            datasets = {"": "None"}
+            datasets.update({str(k): v for k, v in source.get("datasets", {}).items()})
+            details = [
                 ui.input_select(
                     "ewe_scenario_id", "EwE scenario", scenarios, selected=default
                 ),
@@ -857,7 +849,26 @@ def ecosim_server(
                     "vulnerability slider are not used.",
                     class_="text-muted small",
                 ),
+            ]
+        else:
+            details = [
+                ui.p(
+                    "Runs the example's Ecopath inputs with its own EwE-F "
+                    "vulnerabilities, group settings, fishing and run length. "
+                    "Edits made in this app and the vulnerability slider are "
+                    "not used.",
+                    class_="text-muted small",
+                )
+            ]
+        return ui.div(
+            ui.h5("Scenario Source"),
+            ui.input_radio_buttons(
+                "scenario_source",
+                "Build the scenario from",
+                choices,
+                selected=selected,
             ),
+            ui.panel_conditional("input.scenario_source === 'ewe'", *details),
             ui.tags.hr(),
         )
 

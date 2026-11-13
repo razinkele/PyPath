@@ -32,12 +32,15 @@ import logging
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from pypath.core.params import RpathParams, create_rpath_params
+
+if TYPE_CHECKING:
+    from pypath.core.ecosim import RsimScenario
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +62,10 @@ _ECOPATH_COLUMNS = {
     "landings": "landings",
     "discards": "discards",
     "biomass accumulation": "BioAcc",
+    "biomass accumulation rate": "BioAccRate",
+    "immigration": "Immigration",
+    "emigration": "Emigration",
+    "emigration rate": "EmigRate",
     "organism type": "org_type",
     "split group?": "split",
     "stanza no": "stanza_no",
@@ -149,15 +156,22 @@ def _resolve(nml_path: Path, name: Any) -> Optional[Path]:
     )
 
 
-def _read_table(path: Path, first_label: str) -> Tuple[List[str], List[List[str]]]:
+def _read_table(
+    path: Path, first_label: str, keep_unnamed: bool = False
+) -> Tuple[List[str], List[List[str]]]:
     """Header and rows of an EwE-F CSV: the rows after the line whose first
-    cell is ``first_label`` (the lines before it give counts)."""
+    cell is ``first_label`` (the lines before it give counts). Rows without a
+    name are dropped, unless ``keep_unnamed`` (rows read by position); blank
+    lines are always dropped."""
     with open(path, newline="", encoding="utf-8-sig", errors="replace") as fh:
         rows = [r for r in csv.reader(fh)]
     for i, row in enumerate(rows):
         if row and row[0].strip().lower() == first_label.lower():
             header = [c.strip() for c in row]
-            data = [r for r in rows[i + 1 :] if r and r[0].strip()]
+            if keep_unnamed:
+                data = [r for r in rows[i + 1 :] if any(c.strip() for c in r)]
+            else:
+                data = [r for r in rows[i + 1 :] if r and r[0].strip()]
             return header, data
     raise ValueError(f"{path.name}: no header row starting with {first_label!r}")
 
@@ -171,9 +185,29 @@ def _number(cell: Any) -> float:
     return np.nan if value <= EWEF_MISSING + 0.5 else value
 
 
-def _stanza_group_name(stages: List[str], number: int) -> str:
-    """Name shared by a split group's stages ('Anchovy 0-0+', 'Anchovy 1-1+'
-    -> 'Anchovy'), else 'Stanza <n>'."""
+def _read_growth(path: Optional[Path]) -> List[Tuple[str, Dict[str, float]]]:
+    """The growth file's rows: (name, {lower-case label: value}), in order."""
+    if path is None:
+        return []
+    header, rows = _read_table(path, "Groups", keep_unnamed=True)
+    labels = [h.lower() for h in header]
+    return [
+        (
+            row[0].strip(),
+            {labels[j]: _number(row[j]) for j in range(1, min(len(row), len(labels)))},
+        )
+        for row in rows
+    ]
+
+
+def _stanza_group_name(
+    stages: List[str], number: int, growth_name: str = "", groups: Sequence[str] = ()
+) -> str:
+    """A split group's name: its growth row's name (EwE's stanza set name),
+    unless empty or a group's name; else the name its stages share
+    ('Anchovy 0-0+', 'Anchovy 1-1+' -> 'Anchovy'); else 'Stanza <n>'."""
+    if growth_name and growth_name not in groups:
+        return growth_name
     prefix = stages[0]
     for name in stages[1:]:
         while not name.startswith(prefix):
@@ -212,8 +246,12 @@ def read_ewef(
     EwE-F organism types 2/1/0 become PyPath types 0/1/2 (consumer,
     producer, detritus); ``P/Q`` is ``ProdCons``, ``Unass. Q`` is
     ``Unassim``, ``Detritus Import`` is ``DetInput`` and ``Biomass
-    Accumulation`` is ``BioAcc``. Stanza ages are in months, as in EwE-F; each
-    stage's total mortality is its P/B. EwE-F adds a group's discards to
+    Accumulation`` is ``BioAcc``; the optional ``Biomass Accumulation Rate``,
+    ``Immigration``, ``Emigration`` and ``Emigration rate`` columns become
+    ``BioAccRate``, ``Immigration``, ``Emigration`` and ``EmigRate``. Stanza
+    ages are in months, as in EwE-F; each stage's total mortality is its P/B.
+    Row i of the growth file holds split group i's parameters, as EwE-F reads
+    it; the row's name, unless empty or a group's name, names the stanza set. EwE-F adds a group's discards to
     every detritus pool; here the fleet's discards go to the first detritus
     group (the test cases have none). An ``Export`` share of detritus fate is
     not routed to any detritus group.
@@ -257,9 +295,19 @@ def read_ewef(
         n: [names[i] for i, s in enumerate(split) if s and int(stanza_no[i]) == n]
         for n in split_numbers
     }
+    # EwE-F reads row i of the growth file for split group i, by position
+    growth = _read_growth(growth_path)
     split_names = {
-        n: _stanza_group_name(stages, n) for n, stages in split_stages.items()
+        n: _stanza_group_name(
+            stages, n, growth[n - 1][0] if 1 <= n <= len(growth) else "", names
+        )
+        for n, stages in split_stages.items()
     }
+    if len(set(split_names.values())) < len(split_names):
+        split_names = {
+            n: _stanza_group_name(stages, n, "", names)
+            for n, stages in split_stages.items()
+        }
     stgroups = [
         split_names[int(stanza_no[i])] if s else None for i, s in enumerate(split)
     ]
@@ -279,6 +327,11 @@ def read_ewef(
     if "DetInput" in data:
         det_input = [v if t == 2 else np.nan for v, t in zip(data["DetInput"], types)]
         model.loc[: n_bio - 1, "DetInput"] = det_input
+    # EwE migration and the biomass accumulation rate (rpath reads them)
+    for col in ("Immigration", "Emigration", "EmigRate", "BioAccRate"):
+        if col in data:
+            model[col] = 0.0
+            model.loc[: n_bio - 1, col] = np.nan_to_num(np.asarray(data[col]))
     if has_fleet:
         model.loc[: n_bio - 1, fleet_name] = landings
         model.loc[: n_bio - 1, f"{fleet_name}.disc"] = discards
@@ -292,7 +345,7 @@ def read_ewef(
             model.loc[n_bio, det] = 1.0 if det == det_groups[0] else 0.0
 
     if split_numbers:
-        _fill_stanzas(params, data, names, split_stages, split_names, growth_path)
+        _fill_stanzas(params, data, names, split_stages, split_names, growth)
         if compute_stanzas:
             from pypath.core.stanzas import rpath_stanzas
 
@@ -357,24 +410,14 @@ def _fill_stanzas(
     names: List[str],
     split_stages: Dict[int, List[str]],
     split_names: Dict[int, str],
-    growth_path: Optional[Path],
+    growth: List[Tuple[str, Dict[str, float]]],
 ) -> None:
-    growth: Dict[str, Dict[str, float]] = {}
-    if growth_path is not None:
-        header, rows = _read_table(growth_path, "Groups")
-        labels = [h.lower() for h in header]
-        for row in rows:
-            values = {
-                labels[j]: _number(row[j]) for j in range(1, min(len(row), len(labels)))
-            }
-            growth[row[0].strip()] = values
-
-    def _growth(stages: List[str], key_start: str, default: float) -> float:
-        for stage in stages:
-            if stage in growth:
-                for label, value in growth[stage].items():
-                    if label.startswith(key_start) and np.isfinite(value):
-                        return value
+    def _growth(number: int, key_start: str, default: float) -> float:
+        # row i is split group i, as EwE-F reads the file; its name is not used
+        if 1 <= number <= len(growth):
+            for label, value in growth[number - 1][1].items():
+                if label.startswith(key_start) and np.isfinite(value):
+                    return value
         return default
 
     st = params.stanzas
@@ -383,10 +426,10 @@ def _fill_stanzas(
     records = []
     for number, stages in split_stages.items():
         name = split_names[number]
-        stgroups.loc[name, "VBGF_Ksp"] = _growth(stages, "k", np.nan)
-        stgroups.loc[name, "RecPower"] = _growth(stages, "rec", 1.0)
-        stgroups.loc[name, "BAB"] = _growth(stages, "ba/b", 0.0)
-        stgroups.loc[name, "Wmat"] = _growth(stages, "wmat", np.nan)
+        stgroups.loc[name, "VBGF_Ksp"] = _growth(number, "k", np.nan)
+        stgroups.loc[name, "RecPower"] = _growth(number, "rec", 1.0)
+        stgroups.loc[name, "BAB"] = _growth(number, "ba/b", 0.0)
+        stgroups.loc[name, "Wmat"] = _growth(number, "wmat", np.nan)
         ordered = sorted(stages, key=lambda g: data["age_start"][row_of[g]])
         firsts = [int(data["age_start"][row_of[g]]) for g in ordered]
         for k, group in enumerate(ordered):
@@ -581,7 +624,7 @@ def ecosim_scenario_from_ewef(
     ecosim_path: PathLike,
     years: Optional[range] = None,
     fast_group_rule: Optional[str] = None,
-):
+) -> RsimScenario:
     """An Ecosim scenario from an EwE-F model's Ecopath and Ecosim inputs.
 
     ``years`` defaults to EwE-F's run length ``tf`` (years) from the Ecosim

@@ -110,7 +110,8 @@ class TestEcosimControls:
         import pypath_shiny.app as app_module
 
         src = inspect.getsource(app_module)
-        assert src.count("ewe_source=ewe_source") == 2
+        # Data Import and Home set it, Ecosim reads it
+        assert src.count("ewe_source=ewe_source") == 3
 
     @pytest.mark.parametrize("rule, steps", [("ewe", 1), ("rpath", 4)])
     def test_model_scenario_uses_the_chosen_rule(
@@ -166,3 +167,59 @@ class TestLT2022Scenario:
         goby = names.index("Round goby")
         # dataset 35 forces Round goby from 0.03 up to 7.8
         assert np.nanmax(sc.forcing.ForcedBio[:, goby]) > 1.0
+
+
+class TestExampleModelSource:
+    """A shipped example model offers its own EwE-F Ecosim settings."""
+
+    def test_the_record_matches_only_its_model(self, rpath_params):
+        from pypath.examples import load_example_model
+
+        from pypath_shiny.pages.ewe_scenario import (
+            ewe_source_matches,
+            example_source_record,
+        )
+
+        params = load_example_model("Central_Baltic")
+        record = example_source_record("Central_Baltic", params)
+        assert record["kind"] == "ewef_example"
+        assert ewe_source_matches(record, params)
+        assert not ewe_source_matches(record, rpath_params)
+
+    def test_the_scenario_has_the_examples_settings(self):
+        from pypath.examples import example_ecosim_scenario, load_example_model
+
+        from pypath_shiny.pages.ewe_scenario import (
+            build_ewe_scenario,
+            example_source_record,
+        )
+
+        record = example_source_record(
+            "Lithuanian_Coast", load_example_model("Lithuanian_Coast")
+        )
+        built = build_ewe_scenario(record, record["scenario"], "", "ewe")
+        direct = example_ecosim_scenario("Lithuanian_Coast", fast_group_rule="ewe")
+        assert built.fishing.ForcedEffort.shape[0] == 12 * 10  # EwE-F tf = 10
+        assert np.array_equal(built.params.VV, direct.params.VV)
+        assert built.params.RK4_FAST_EQUILIBRIUM
+
+    def test_the_ecosim_page_starts_from_the_examples_settings(self, tmp_path):
+        from pypath.examples import load_example_model
+
+        from pypath_shiny.pages.ewe_scenario import (
+            example_source_record,
+            scenario_source_choices,
+        )
+
+        example = example_source_record(
+            "Curonian_Lagoon", load_example_model("Curonian_Lagoon")
+        )
+        choices, selected, offers_datasets = scenario_source_choices(example)
+        assert selected == "ewe" and not offers_datasets
+        assert "Curonian Lagoon" in choices["ewe"]
+
+        db = tmp_path / "model.eweaccdb"
+        db.write_bytes(b"x")
+        choices, selected, offers_datasets = scenario_source_choices(_source(db, ["A"]))
+        assert selected == "model" and offers_datasets
+        assert "model.eweaccdb" in choices["ewe"]

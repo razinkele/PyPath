@@ -108,7 +108,9 @@ class ValidationConfig:
     max_biomass: float = 1e6
 
     min_pb: float = 0.0
-    max_pb: float = 100.0  # Default for consumers
+    # Consumers: microzooplankton reaches 100-200 a year (Central Baltic's
+    # example has 110); rates entered per day (fish ~365+) still fail
+    max_pb: float = 200.0
     max_pb_producer: float = 250.0  # Higher limit for phytoplankton/producers
 
     min_qb: float = 0.0

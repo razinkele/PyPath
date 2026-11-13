@@ -7,6 +7,10 @@ scenarios while the current model has the same groups, and builds them with
 inputs with the scenario's vulnerabilities, feeding-time, switching and
 forcing settings, and optionally a time-series dataset as drivers, as EwE6
 runs it.
+
+An example model opened from the Home page is recorded the same way
+(``kind`` ``"ewef_example"``); its one scenario is the model's own EwE-F
+Ecosim settings, built with :func:`pypath.examples.example_ecosim_scenario`.
 """
 
 from __future__ import annotations
@@ -140,6 +144,56 @@ def ewe_source_record(
     }
 
 
+EXAMPLE_KIND = "ewef_example"
+
+
+def example_source_record(name: str, params: Any) -> Dict[str, Any]:
+    """What the Home page stores about a shipped example model it opened.
+
+    Its one scenario is the example's EwE-F Ecosim settings.
+    """
+    from pypath.examples import example_model
+
+    model = example_model(name)
+    return {
+        "kind": EXAMPLE_KIND,
+        "example": model.name,
+        "path": str(model.path),
+        "name": model.title,
+        "scenario": 1,
+        "groups": [str(g).strip() for g in params.model["Group"]],
+        "scenarios": {1: "EwE-F Ecosim settings"},
+        "datasets": {},
+    }
+
+
+def scenario_source_choices(source: dict):
+    """The Ecosim page's scenario-source choices for a recorded source.
+
+    Returns
+    -------
+    (choices, selected, offers_datasets)
+        ``choices`` for the radio buttons ("model" or "ewe"); an example
+        starts from its own Ecosim settings, a database from the model; only
+        a database has time-series datasets to offer.
+    """
+    if source.get("kind") == EXAMPLE_KIND:
+        ewe = f"The Ecosim settings of the example: {source['name']}"
+        return (
+            {"model": "The balanced model and the settings below", "ewe": ewe},
+            "ewe",
+            False,
+        )
+    return (
+        {
+            "model": "The balanced model and the settings below",
+            "ewe": f"An Ecosim scenario stored in {source['name']}",
+        },
+        "model",
+        True,
+    )
+
+
 def build_ewe_scenario(
     source: dict,
     scenario_id,
@@ -148,8 +202,17 @@ def build_ewe_scenario(
 ):
     """The database scenario as an RsimScenario, with its own length.
 
-    ``dataset_id`` empty or None runs without a time-series dataset.
+    ``dataset_id`` empty or None runs without a time-series dataset. For an
+    example model, the scenario is its EwE-F Ecosim settings, for EwE-F's run
+    length.
     """
+    if source.get("kind") == EXAMPLE_KIND:
+        from pypath.examples import example_ecosim_scenario
+
+        return example_ecosim_scenario(
+            source["example"], fast_group_rule=fast_group_rule
+        )
+
     from pypath.io.ewemdb import ecosim_scenario_from_ewemdb
 
     dataset = None

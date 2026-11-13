@@ -17,10 +17,16 @@ def test_consumer_valid_pb():
 
 
 def test_consumer_invalid_pb():
-    """Consumer with P/B = 150 should fail."""
-    is_valid, error = validate_pb(150.0, "Large Fish", group_type=0)
-    assert not is_valid, "Consumer P/B=150 should be invalid"
-    assert "100.0" in error, "Error should mention threshold of 100.0"
+    """Consumer with P/B = 250 should fail."""
+    is_valid, error = validate_pb(250.0, "Large Fish", group_type=0)
+    assert not is_valid, "Consumer P/B=250 should be invalid"
+    assert "200.0" in error, "Error should mention threshold of 200.0"
+
+
+def test_microzooplankton_pb_passes():
+    """Consumer with P/B = 110 (Central Baltic's microzooplankton) passes."""
+    is_valid, error = validate_pb(110.0, "microzooplankton", group_type=0)
+    assert is_valid, error
 
 
 def test_producer_valid_pb():
@@ -43,6 +49,6 @@ def test_no_type_valid_pb():
 
 
 def test_no_type_invalid_pb():
-    """No group type specified, P/B = 150 should fail with consumer limit."""
-    is_valid, error = validate_pb(150.0, "Unknown Group", group_type=None)
-    assert not is_valid, "P/B=150 should be invalid with no type"
+    """No group type specified, P/B = 250 should fail with consumer limit."""
+    is_valid, error = validate_pb(250.0, "Unknown Group", group_type=None)
+    assert not is_valid, "P/B=250 should be invalid with no type"

@@ -1,0 +1,12 @@
+&filenames
+HDF5_fname            = "testcases/Central_Baltic/Central_Baltic.h5"
+GroupInfo_fname       = "testcases/Central_Baltic/Central_Baltic_Scenario.csv"
+Vulnerability_fname   = "testcases/Central_Baltic/Central_Baltic_vul.csv"
+Forcing_fname         = "testcases/Central_Baltic/Central_Baltic_F.csv"
+NutrientForcing_fname = ""
+tf              = 10
+StepsPerMonth   = 1
+NutBaseFreeProp = 0.9999
+NutPBmax        = 1.5
+relax           = 0.5
+/

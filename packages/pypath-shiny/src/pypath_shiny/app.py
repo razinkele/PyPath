@@ -449,7 +449,17 @@ def server(input: Inputs, output: Outputs, session: Session):
 
     # Initialize page servers with error handling
     server_modules = [
-        ("Home", lambda: home.home_server(input, output, session, model_data)),
+        (
+            "Home",
+            lambda: home.home_server(
+                input,
+                output,
+                session,
+                model_data,
+                ewe_source=ewe_source,
+                sim_results=sim_results,
+            ),
+        ),
         (
             "Data Import",
             lambda: data_import.import_server(
