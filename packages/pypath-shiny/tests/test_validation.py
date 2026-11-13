@@ -84,7 +84,7 @@ class TestValidatePB:
 
     def test_consumer_pb_at_max(self):
         # Exactly at consumer threshold → valid
-        ok, err = validate_pb(100.0, "Fish", 0)
+        ok, err = validate_pb(200.0, "Fish", 0)
         assert ok is True
 
     def test_valid_producer_pb_below_threshold(self):
