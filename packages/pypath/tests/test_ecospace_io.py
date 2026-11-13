@@ -30,6 +30,11 @@ def _mock_scenario_df(n_rows=3, n_cols=3, cell_length=10.0):
     )
 
 
+def _mrate(mvel, cell_length=10.0):
+    """EwE's movement rate per year for a group's Mvel (cEcoSpace's Mrate)."""
+    return mvel / (3.14159 * cell_length)
+
+
 def _mock_group_df(n_groups=2):
     rows = []
     for i in range(n_groups):
@@ -313,8 +318,8 @@ class TestReadEcospace:
             "EcospaceScenarioGroup": _mock_group_df(2),
         }
         result = self._read_with_mocks(table_map, n_groups=2)
-        assert result.ecospace.dispersal_rate[0] == pytest.approx(0.5)
-        assert result.ecospace.dispersal_rate[1] == pytest.approx(1.0)
+        assert result.ecospace.dispersal_rate[0] == pytest.approx(_mrate(0.5))
+        assert result.ecospace.dispersal_rate[1] == pytest.approx(_mrate(1.0))
         assert result.ecospace.advection_enabled[0]
         assert not result.ecospace.advection_enabled[1]
         np.testing.assert_array_equal(result.ecospace.gravity_strength, 0.0)
@@ -417,7 +422,7 @@ class TestReadEcospace:
             "EcospaceScenarioGroup": group_df,
         }
         result = self._read_with_mocks(table_map, n_groups=3)
-        assert result.ecospace.dispersal_rate[2] == pytest.approx(2.5)
+        assert result.ecospace.dispersal_rate[2] == pytest.approx(_mrate(2.5))
         assert result.ecospace.dispersal_rate[0] == 0.0
 
     def test_yesno_boolean_conversion(self):
@@ -485,7 +490,7 @@ class TestReadEcospace:
             "EcospaceScenarioGroup": group_df,
         }
         result = self._read_with_mocks(table_map, n_groups=2)
-        assert result.ecospace.dispersal_rate[0] == pytest.approx(1.0)
+        assert result.ecospace.dispersal_rate[0] == pytest.approx(_mrate(1.0))
         assert result.ecospace.dispersal_rate[1] == 0.0
 
     def test_zero_groups_handled(self):

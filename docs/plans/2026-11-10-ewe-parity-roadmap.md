@@ -165,7 +165,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
   - recomputed when drivers change;
   - always on (not gated on `environmental_drivers`). **Done (2026-11-13)**, with EwE's HabCap read from the database on EwE's grid; environmental responses and recomputing the capacity when drivers change are still open.
 - **B2:** asymmetric per-edge flow k·ρᵢ·min(1, cⱼ/cᵢ), plus the low-capacity gradient (AdjustLowHabCaps, factor 0.4 per cell).
-- **B1:** Mrate = Mvel/(π·CellLength), or Mvel/√CellLength for migratory groups; fix both docstrings.
+- **B1:** Mrate = Mvel/(π·CellLength), or Mvel/√CellLength for migratory groups; fix both docstrings. **Reader side done (2026-11-13):** `read_ecospace` sets Mrate as the dispersal rate and places its grid as EwE's basemap (it had centroids in km on a degree scale, so diffusion saw neighbours 111 times too far apart); the `EcospaceParams` docstring matches `diffusion_flux`. It warns, naming the groups, when a rate is beyond what one RK4 step a month keeps stable (B3 still open). The Shiny page's dispersal input is still labelled km²/month.
 - **B3:** an implicit movement step (backward Euler on the sparse adjacency matrix, or EwE's BDF2 + SOR as a clean-room build per D3).
 - **B5:**
   - EatEff and RelVulBad;

@@ -62,14 +62,14 @@ EcosimTimeSeries,ecosim,true,true,false,true,partial,"read: DatType, TimeValues,
 EcosimTimeSeriesDataset,ecosim,true,true,false,true,partial,"read: DataInterval (annual data compared at the start of month 6, time-step data every month)"
 EcosimTimeSeriesFleet,ecosim,true,true,false,false,partial,read: links effort series to fleets (read_timeseries)
 EcosimTimeSeriesGroup,ecosim,true,true,false,false,partial,read: links series to groups by EcopathGroupID (read_timeseries)
-EcospaceScenario,ecospace,true,true,true,true,implemented,"DepthMap and ExclusionMap read: the grid built without a user grid holds EwE's water cells (Depth > 0; checked against the oracle on the Black Sea test case); RelPPMap, RelCinMap, DepthAMap, RegionMap, FlowMap, CellAreaMap and EffortZoneMap not read"
+EcospaceScenario,ecospace,true,true,true,true,implemented,"DepthMap and ExclusionMap read: the grid built without a user grid holds EwE's water cells (Depth > 0; checked against the oracle on the Black Sea test case), placed as EwE's basemap: MinLat / MinLon are the top-left corner and cells are CellLength / DegreeToKm degrees; RelPPMap, RelCinMap, DepthAMap, RegionMap, FlowMap, CellAreaMap and EffortZoneMap not read"
 EcospaceScenarioCapacityDrivers,ecospace,true,true,true,true,implemented,
 EcospaceScenarioDataConnection,ecospace,true,true,true,true,implemented,
 EcospaceScenarioDataConnectionDisabled,ecospace,true,true,true,true,implemented,
 EcospaceScenarioDriverDisabled,ecospace,true,true,true,true,implemented,
 EcospaceScenarioDriverLayer,ecospace,true,true,true,true,implemented,
 EcospaceScenarioFleet,ecospace,true,true,true,true,implemented,
-EcospaceScenarioGroup,ecospace,true,true,true,true,implemented,"Mvel read as the dispersal rate; CapacityMap, CapacityCalType and IsMigratory read for the habitat capacity on EwE's grid (EwE's SetHabCap: checked against the oracle on the Black Sea test case); environmental responses and migration maps not applied"
+EcospaceScenarioGroup,ecospace,true,true,true,true,implemented,"Mvel converted to EwE's movement rate, the dispersal rate: Mrate = Mvel / (3.14159 x CellLength), or Mvel / sqrt(CellLength) for migratory groups; CapacityMap, CapacityCalType and IsMigratory read for the habitat capacity on EwE's grid (EwE's SetHabCap: checked against the oracle on the Black Sea test case); environmental responses and migration maps not applied"
 EcospaceScenarioGroupHabitat,ecospace,true,true,true,true,implemented,"Preference read for the habitat capacity on EwE's grid (EwE's PrefHab, with the first habitat as the all-habitats flag)"
 EcospaceScenarioGroupMigration,ecospace,true,true,true,true,implemented,
 EcospaceScenarioHabitat,ecospace,true,true,true,true,implemented,"HabitatMap read (water cells only, Sequence order) for the habitat capacity on EwE's grid"

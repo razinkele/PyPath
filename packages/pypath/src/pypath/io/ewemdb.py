@@ -5702,10 +5702,15 @@ def read_ecospace(
         try:
             grp_df = read_ewemdb_table(db_path, "EcospaceScenarioGroup")
             grp_df = grp_df[grp_df["ScenarioID"] == scenario_id]
+            ewe_cell_length = float(scenario_row.get("CellLength", 0.0))
             for _, row in grp_df.iterrows():
                 gid = _group_of(group_index, row["GroupID"], n_groups)
                 if gid is not None:
-                    dispersal_rate[gid] = float(row.get("Mvel", 0.0))
+                    dispersal_rate[gid] = _ewe_movement_rate(
+                        float(row.get("Mvel", 0.0)),
+                        ewe_cell_length,
+                        _yes(row.get("IsMigratory"), False),
+                    )
                     is_adv = row.get("IsAdvected", False)
                     if isinstance(is_adv, str):
                         is_adv = is_adv.lower() in ("yes", "true", "1")
@@ -5714,6 +5719,7 @@ def read_ecospace(
                     advection_enabled[gid] = is_adv
         except Exception as e:
             logger.warning("Failed to read EcospaceScenarioGroup: %s", e)
+        _warn_fast_movement(db_path, tables, dispersal_rate)
 
     # 6. Read fleet info
     fleet_info: Optional[pd.DataFrame] = None
@@ -6055,6 +6061,53 @@ def _ewe_habitat_capacity(
         cap = _ewe_adjust_low_habcap(cap, water, sweeps, gradient)
         out[g] = np.where(water, np.maximum(cap, f32(_EWE_MIN_HABCAP)), zero)
     return out
+
+
+# One explicit RK4 step a month keeps diffusion on a rook grid stable while
+# 8 x rate / 12 <= 2.785 (the RK4 stability limit on the negative real axis).
+_SPACE_STABLE_RATE = 2.785 * 12 / 8
+
+
+def _ewe_movement_rate(mvel: float, cell_length: float, migratory: bool) -> float:
+    """EwE's movement rate per year across a cell side (cEcoSpace's Mrate).
+
+    ``Mvel / (3.14159 * CellLength)``, or ``Mvel / sqrt(CellLength)`` for a
+    migratory group (cEcoSpace.vb:2432), in single precision. It is PyPath's
+    ``dispersal_rate``: on EwE's grid, neighbours CellLength apart across a
+    side of CellLength, diffusion exchanges ``rate x (B_p - B_q)`` per year.
+    0 without a positive CellLength.
+    """
+    if not cell_length > 0:
+        return 0.0
+    mvel32, length32 = np.float32(mvel), np.float32(cell_length)
+    if migratory:
+        return float(mvel32 / np.sqrt(length32))
+    return float(mvel32 / (np.float32(3.14159) * length32))
+
+
+def _warn_fast_movement(db_path, tables, dispersal_rate) -> None:
+    """Name the groups that move too fast for one RK4 step a month."""
+    fast = np.flatnonzero(np.asarray(dispersal_rate) > _SPACE_STABLE_RATE)
+    if len(fast) == 0:
+        return
+    try:
+        eg = _ecopath_groups_in_order(db_path, tables)
+        names = [] if eg is None else [str(n) for n in eg["GroupName"]]
+    except (EwEDatabaseError, KeyError, ValueError) as e:
+        logger.debug("Group names unavailable: %s", e)
+        names = []
+    label = ", ".join(
+        f"{names[g] if g < len(names) else f'group {g + 1}'} "
+        f"({dispersal_rate[g]:.3g}/yr)"
+        for g in fast
+    )
+    logger.warning(
+        "Ecospace movement faster than about %.1f per year per cell side: %s. "
+        "One explicit RK4 step a month may oscillate or fail at that rate "
+        "(open item B3, RK4 stability).",
+        _SPACE_STABLE_RATE,
+        label,
+    )
 
 
 def _yes(value, default: bool) -> bool:

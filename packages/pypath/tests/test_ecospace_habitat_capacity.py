@@ -540,7 +540,10 @@ def test_a_second_scenario_maps_its_groups_through_the_ecopath_ids():
         [{"ScenarioID": 2, "GroupID": 4, "HabitatID": 19, "Preference": 1.0}]
     )
     eco = _read(t, scenario_id=2).ecospace
-    np.testing.assert_allclose(eco.dispersal_rate, [100.0, 200.0])
+    # Mrate = Mvel / (3.14159 * CellLength)
+    np.testing.assert_allclose(
+        eco.dispersal_rate, np.array([100.0, 200.0]) / (3.14159 * 100.0), rtol=1e-6
+    )
     np.testing.assert_allclose(eco.habitat_capacity[0], 1.0)
     # Crab: CInt(200 / 1 / 50) = 4 sweeps reach the empty cell.
     np.testing.assert_allclose(
@@ -553,7 +556,9 @@ def test_groups_follow_the_ecopath_sequence():
     t = _tables(EcopathGroup=_two_group_ecopath([2, 1]))
     t["EcospaceScenarioGroup"] = t["EcospaceScenarioGroup"].assign(Mvel=[100.0, 200.0])
     eco = _read(t).ecospace
-    np.testing.assert_allclose(eco.dispersal_rate, [200.0, 100.0])
+    np.testing.assert_allclose(
+        eco.dispersal_rate, np.array([200.0, 100.0]) / (3.14159 * 100.0), rtol=1e-6
+    )
     np.testing.assert_allclose(
         eco.habitat_capacity[0], [1.0, 0.5, 0.01 * np.exp(-0.4)], rtol=1e-6
     )
@@ -581,3 +586,31 @@ def test_detritus_gets_no_sweeps_whatever_pb_is_passed():
 def test_ecopath_pb_must_have_one_value_per_group():
     with pytest.raises(ValueError, match="ecopath_pb"):
         _read(_tables(), ecopath_pb=[1.0])
+
+
+# --- movement rate: cEcoSpace's Mrate ---
+
+
+def test_dispersal_rate_is_ewe_movement_rate():
+    # EwE moves a group at Mrate = Mvel / (3.14159 * CellLength) per year,
+    # or Mvel / sqrt(CellLength) when it is migratory (cEcoSpace.vb:2432).
+    groups = _tables()["EcospaceScenarioGroup"].assign(IsMigratory=[0, 1])
+    eco = _read(_tables(EcospaceScenarioGroup=groups)).ecospace
+    np.testing.assert_allclose(
+        eco.dispersal_rate, [300.0 / (3.14159 * 100.0), 300.0 / 10.0], rtol=1e-6
+    )
+
+
+def test_groups_too_fast_for_monthly_steps_are_named(caplog):
+    # 300 / (3.14159 * 0.5) = 191 per year per cell side, far beyond what one
+    # explicit RK4 step a month keeps stable (open item B3).
+    scenario = _tables()["EcospaceScenario"].assign(CellLength=0.5)
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        _read(_tables(EcospaceScenario=scenario))
+    assert "Fish" in caplog.text and "Crab" in caplog.text and "B3" in caplog.text
+
+
+def test_slow_groups_get_no_stability_warning(caplog):
+    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
+        _read(_tables())  # 300 / (3.14159 * 100) = 0.95 per year
+    assert "B3" not in caplog.text
