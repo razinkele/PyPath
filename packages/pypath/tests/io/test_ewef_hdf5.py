@@ -178,6 +178,29 @@ def test_an_unbalanced_consumer_is_named(tmp_path):
     assert not ok and "Sprat" in message
 
 
+def test_infinite_biomass_fails_the_check(tmp_path):
+    # -999 (not applicable) reads as NaN and is exempt; infinity never is
+    records = _ep_records()
+    records["biomass"][1] = np.inf
+    path = _write_ecopath(tmp_path / "ecopath_results.h5", records=records)
+    ok, message = ewef_hdf5.validate_hdf5_energy_balance(
+        ewef_hdf5.read_ewef_results(path)
+    )
+    assert not ok and "finite" in message
+
+
+@pytest.mark.parametrize("assimilation", [0.0, NA], ids=["zero", "not_applicable"])
+def test_a_consumer_without_a_valid_assimilation_fails(tmp_path, assimilation):
+    # Sprat produces and respires, so it must assimilate: 0 or -999 is a failure
+    records = _ep_records()
+    records["assimilation"][1] = assimilation
+    path = _write_ecopath(tmp_path / "ecopath_results.h5", records=records)
+    ok, message = ewef_hdf5.validate_hdf5_energy_balance(
+        ewef_hdf5.read_ewef_results(path)
+    )
+    assert not ok and "Sprat" in message
+
+
 def test_ecospace_results_get_the_basic_checks(tmp_path):
     path, _ = _write_ecospace(tmp_path / "ecospace_results.h5")
     ok, message = ewef_hdf5.validate_hdf5_energy_balance(

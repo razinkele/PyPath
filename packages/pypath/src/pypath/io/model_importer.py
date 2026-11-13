@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -179,7 +180,8 @@ class ModelRegistry:
 
         Raises:
             FileNotFoundError: If the file does not exist
-            ValueError: If the file cannot be read as an EwE model
+            ValueError: If the file cannot be read as an EwE model, or another
+                file is already loaded under the name
         """
         from pypath.io.ewemdb import read_ewemdb
 
@@ -187,6 +189,12 @@ class ModelRegistry:
         if not path.exists():
             raise FileNotFoundError(f"Model file not found: {path}")
         model_name = name or path.stem
+        taken = self.metadata.get(model_name)
+        if taken is not None and taken.file_path.resolve() != path.resolve():
+            raise ValueError(
+                f"A model named {model_name!r} is already loaded from "
+                f"{taken.file_path}; pass another name"
+            )
         start = time.time()
         try:
             params = read_ewemdb(str(path))
@@ -225,8 +233,10 @@ class ModelRegistry:
             recursive: Search subdirectories
 
         Returns:
-            File name -> model name, for the files loaded. A file that cannot
-            be read is logged as an error and skipped.
+            Path relative to ``directory`` -> model name, for the files
+            loaded. A model is named after its file stem, or after its
+            relative path when another file has the same stem. A file that
+            cannot be read is logged as an error and skipped.
         """
         directory = Path(directory)
         if not directory.exists():
@@ -235,12 +245,20 @@ class ModelRegistry:
         patterns = [pattern] if isinstance(pattern, str) else list(pattern)
         glob = directory.rglob if recursive else directory.glob
         files = sorted({p for pat in patterns for p in glob(pat) if p.is_file()})
+        stems = Counter(p.stem for p in files)
         loaded = {}
         for path in files:
+            relative = path.relative_to(directory).as_posix()
+            taken = self.metadata.get(path.stem)
+            unique = stems[path.stem] == 1 and (
+                taken is None or taken.file_path.resolve() == path.resolve()
+            )
             try:
-                loaded[path.name] = self.load_model(path, validate=validate)
+                loaded[relative] = self.load_model(
+                    path, name=path.stem if unique else relative, validate=validate
+                )
             except (ValueError, FileNotFoundError) as e:
-                logger.error("Skipping %s: %s", path.name, e)
+                logger.error("Skipping %s: %s", relative, e)
         logger.info("Loaded %d models from %s", len(loaded), directory)
         return loaded
 

@@ -96,6 +96,36 @@ class ValidationReport:
         return "\n".join(lines)
 
 
+def _as_number(value) -> Optional[float]:
+    """``value`` as a float: NaN when missing, None when it is not a number."""
+    if value is None or (not isinstance(value, str) and pd.isna(value)):
+        return np.nan
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _scenario_labels(scenario_df: pd.DataFrame) -> Optional[List[str]]:
+    """Group names of a scenario: its Group column, else its index labels."""
+    if "Group" in scenario_df.columns:
+        return [str(g) for g in scenario_df["Group"]]
+    if pd.api.types.is_integer_dtype(scenario_df.index):
+        return None  # row numbers, not names
+    return [str(g) for g in scenario_df.index]
+
+
+def _unknown_labels(labels, group_names: List[str], extra=()) -> List[str]:
+    """Labels that are neither group names nor one of ``extra`` (any case)."""
+    known = {str(g) for g in group_names}
+    allowed = {e.lower() for e in extra}
+    return [
+        str(label)
+        for label in labels
+        if str(label) not in known and str(label).lower() not in allowed
+    ]
+
+
 def validate_ecopath_scenario(
     scenario_df: pd.DataFrame,
     group_names: Optional[List[str]] = None,
@@ -104,9 +134,10 @@ def validate_ecopath_scenario(
 
     Checks for:
     - Missing critical columns (Biomass, P/B, Q/B)
+    - Values that are not numbers, and negative biomass (-999 = missing)
     - Physiologically unrealistic values (P/B, Q/B ranges)
-    - Data type consistency
-    - Group name validity
+    - Group names: the scenario's (Group column, else row labels) must be
+      the expected ones
 
     Args:
         scenario_df: DataFrame with scenario data (rows = groups)
@@ -141,24 +172,53 @@ def validate_ecopath_scenario(
                 f"Row count mismatch: {len(scenario_df)} rows vs "
                 f"{len(group_names)} group names",
             )
+        labels = _scenario_labels(scenario_df)
+        if labels is not None:
+            expected = [str(g) for g in group_names]
+            missing = [g for g in expected if g not in set(labels)]
+            unexpected = [g for g in labels if g not in set(expected)]
+            if missing or unexpected:
+                report.add_issue(
+                    "error",
+                    "consistency",
+                    f"Scenario groups differ from the expected ones: missing "
+                    f"{missing}, unexpected {unexpected}",
+                )
 
     # Validate each group
-    for idx, (group_name, row) in enumerate(scenario_df.iterrows()):
-        biomass = row.get("Biomass")
-        pb = row.get("PB")
-        qb = row.get("QB")
+    for group_name, row in scenario_df.iterrows():
+        values = {}
+        for column in required_cols:
+            raw = row.get(column)
+            values[column] = _as_number(raw)
+            if values[column] is None:
+                report.add_issue(
+                    "error",
+                    "data",
+                    f"{column} value {raw!r} is not a number",
+                    group=str(group_name),
+                )
+        biomass, pb, qb = values["Biomass"], values["PB"], values["QB"]
 
-        # Skip if critical values are missing
-        if pd.isna(biomass) or biomass == -999:
-            report.add_issue(
-                "warning",
-                "sanity",
-                "Missing biomass value",
-                group=str(group_name),
-            )
+        if biomass is not None:
+            if np.isnan(biomass) or biomass == -999:
+                report.add_issue(
+                    "warning",
+                    "sanity",
+                    "Missing biomass value",
+                    group=str(group_name),
+                )
+            elif biomass < 0:
+                report.add_issue(
+                    "error",
+                    "sanity",
+                    f"Negative biomass {biomass:g}",
+                    group=str(group_name),
+                    value=biomass,
+                )
 
         # Check P/B range (0.01 - 100 year^-1 typical)
-        if pb is not None and not pd.isna(pb) and pb != -999:
+        if pb is not None and not np.isnan(pb) and pb != -999:
             if pb < 0.001 or pb > 100:
                 report.add_issue(
                     "warning",
@@ -169,7 +229,7 @@ def validate_ecopath_scenario(
                 )
 
         # Check Q/B range (0.1 - 100 year^-1 typical)
-        if qb is not None and not pd.isna(qb) and qb != -999:
+        if qb is not None and not np.isnan(qb) and qb != -999:
             if qb < 0.01 or qb > 100:
                 report.add_issue(
                     "warning",
@@ -191,9 +251,11 @@ def validate_diet_composition(
     """Validate diet composition matrix.
 
     Checks for:
+    - Missing or non-numeric diet values
     - Sum of diet fractions ≈ 1 for each predator
     - Diet values in range [0, 1]
-    - Matrix dimensions consistency
+    - Labels: prey rows and predator columns must be in ``group_names``
+      (rows may also hold ``Import``)
 
     Args:
         diet_df: Diet composition matrix (rows = prey, cols = predators)
@@ -209,8 +271,25 @@ def validate_diet_composition(
         report.add_issue("error", "data", "Diet composition matrix is empty")
         return report
 
+    values = diet_df.apply(pd.to_numeric, errors="coerce")
+    missing = int(values.isna().sum().sum())
+    if missing:
+        report.add_issue(
+            "error", "data", f"{missing} diet values are missing or not numbers"
+        )
+    if group_names is not None:
+        for what, labels, extra in (
+            ("prey", diet_df.index, ("Import",)),
+            ("predator", diet_df.columns, ()),
+        ):
+            unknown = _unknown_labels(labels, group_names, extra)
+            if unknown:
+                report.add_issue(
+                    "error", "consistency", f"Unknown {what} labels: {unknown}"
+                )
+
     # Check that all values are in [0, 1]
-    invalid_vals = ((diet_df < 0) | (diet_df > 1)).sum().sum()
+    invalid_vals = ((values < 0) | (values > 1)).sum().sum()
     if invalid_vals > 0:
         report.add_issue(
             "error",
@@ -219,7 +298,7 @@ def validate_diet_composition(
         )
 
     # Check diet sums per predator (column)
-    col_sums = diet_df.sum(axis=0)
+    col_sums = values.sum(axis=0)
     for col_name, col_sum in col_sums.items():
         # Skip if NaN or all zeros
         if pd.isna(col_sum) or col_sum == 0:
@@ -246,9 +325,11 @@ def validate_detritus_fate(
     """Validate detritus fate matrix.
 
     Checks for:
+    - Missing or non-numeric fate values
     - Fate fractions sum to 1 per group
     - Fate values in [0, 1]
-    - Matrix structure
+    - Labels: rows and detritus columns must be in ``group_names``
+      (columns may also hold ``Export``)
 
     Args:
         fate_df: Detritus fate matrix
@@ -263,8 +344,25 @@ def validate_detritus_fate(
         report.add_issue("error", "data", "Detritus fate matrix is empty")
         return report
 
+    values = fate_df.apply(pd.to_numeric, errors="coerce")
+    missing = int(values.isna().sum().sum())
+    if missing:
+        report.add_issue(
+            "error", "data", f"{missing} fate values are missing or not numbers"
+        )
+    if group_names is not None:
+        for what, labels, extra in (
+            ("group", fate_df.index, ()),
+            ("detritus", fate_df.columns, ("Export",)),
+        ):
+            unknown = _unknown_labels(labels, group_names, extra)
+            if unknown:
+                report.add_issue(
+                    "error", "consistency", f"Unknown {what} labels: {unknown}"
+                )
+
     # Check that all values are in [0, 1]
-    invalid_vals = ((fate_df < 0) | (fate_df > 1)).sum().sum()
+    invalid_vals = ((values < 0) | (values > 1)).sum().sum()
     if invalid_vals > 0:
         report.add_issue(
             "error",
@@ -273,7 +371,7 @@ def validate_detritus_fate(
         )
 
     # Check that each row sums to 1
-    row_sums = fate_df.sum(axis=1)
+    row_sums = values.sum(axis=1)
     for row_name, row_sum in row_sums.items():
         if pd.isna(row_sum):
             continue

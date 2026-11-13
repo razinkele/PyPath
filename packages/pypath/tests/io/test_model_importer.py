@@ -7,7 +7,7 @@ levels and detritus links. The checks compare with the databases' own tables
 """
 
 import json
-import os
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -29,9 +29,16 @@ LT2022 = DATA / "LT2022_0.5ST_final7.eweaccdb"
 def _available():
     if not (BLACK_SEA.exists() and LT2022.exists()):
         return False
-    from pypath.io.ewemdb import check_ewemdb_support
+    from pypath.io import ewemdb
 
-    return any(check_ewemdb_support().values())
+    # read_ewemdb_table tries mdb-tools first; pyodbc needs an Access driver
+    if ewemdb.HAS_MDB_TOOLS:
+        return True
+    if ewemdb.HAS_PYODBC:
+        import pyodbc
+
+        return any("Access" in driver for driver in pyodbc.drivers())
+    return False
 
 
 needs_access = pytest.mark.skipif(
@@ -51,7 +58,7 @@ def _tables(path):
 @pytest.fixture
 def model_dir(tmp_path):
     for path in (BLACK_SEA, LT2022):
-        os.symlink(path, tmp_path / path.name)
+        shutil.copy(path, tmp_path / path.name)
     return tmp_path
 
 
@@ -117,6 +124,32 @@ def test_a_directory_of_ewe_databases_is_loaded(model_dir):
     meta = registry.metadata[BLACK_SEA.stem]
     assert meta.validation_report is not None
     assert meta.to_dict()["validation_status"].startswith(("passed", "failed"))
+
+
+@needs_access
+def test_files_with_the_same_name_in_different_folders_are_both_kept(tmp_path):
+    for site in ("site_a", "site_b"):
+        (tmp_path / site).mkdir()
+        shutil.copy(BLACK_SEA, tmp_path / site / "model.eweaccdb")
+    registry = ModelRegistry()
+    loaded = registry.load_directory(tmp_path, validate=False, recursive=True)
+    assert sorted(loaded) == ["site_a/model.eweaccdb", "site_b/model.eweaccdb"]
+    assert len(set(loaded.values())) == 2
+    assert {registry.metadata[name].file_path for name in loaded.values()} == {
+        tmp_path / "site_a" / "model.eweaccdb",
+        tmp_path / "site_b" / "model.eweaccdb",
+    }
+
+
+@needs_access
+def test_another_file_under_a_taken_name_is_refused(model_dir):
+    registry = ModelRegistry()
+    registry.load_model(model_dir / BLACK_SEA.name, name="m", validate=False)
+    with pytest.raises(ValueError, match="already"):
+        registry.load_model(model_dir / LT2022.name, name="m", validate=False)
+    assert registry.metadata["m"].file_path == model_dir / BLACK_SEA.name
+    # the same file may be loaded again under its name
+    registry.load_model(model_dir / BLACK_SEA.name, name="m", validate=False)
 
 
 @needs_access

@@ -288,7 +288,10 @@ def validate_hdf5_energy_balance(
     For Ecopath results, every consumer (org_type 0) must assimilate what it
     produces and respires, ``assimilation = production + respiration``, and
     ``assimilation = consumption x (1 - unass_Q)``, within ``tolerance``
-    (relative). Any results also need finite, non-negative biomass.
+    (relative); a consumer that assimilates nothing must neither produce nor
+    respire, and a missing or negative assimilation fails. Any results also
+    need non-negative biomass: NaN marks not applicable (-999), but infinite
+    biomass fails.
 
     Args:
         results: EweHDF5Results from read_ewef_results
@@ -299,6 +302,8 @@ def validate_hdf5_energy_balance(
     """
     if results.biomass is None:
         return False, "No biomass data to validate"
+    if np.any(np.isinf(results.biomass)):
+        return False, "Biomass is not finite"
     biomass = results.biomass[np.isfinite(results.biomass)]
     if biomass.size == 0:
         return False, "No finite biomass values"
@@ -318,11 +323,17 @@ def validate_hdf5_energy_balance(
     u = _na_to_nan(ep["unass_Q"]) if "unass_Q" in ep.dtype.names else None
     failed = []
     for i in np.flatnonzero(ep["org_type"] == 0):
-        if not np.isfinite(a[i]) or a[i] <= 0:
+        if not np.isfinite(a[i]) or a[i] < 0:
+            failed.append(f"{names[i]} (assimilation {a[i]:g})")
             continue
-        gap = abs(a[i] - (p[i] + r[i])) / a[i]
+        expected = [p[i] + r[i]]
         if u is not None and np.isfinite(u[i]):
-            gap = max(gap, abs(a[i] - q[i] * (1 - u[i])) / a[i])
+            expected.append(q[i] * (1 - u[i]))
+        if a[i] > 0:
+            # np.max keeps a NaN, so a missing flow fails the comparison below
+            gap = float(np.max(np.abs(a[i] - np.array(expected)) / a[i]))
+        else:
+            gap = 0.0 if all(e == 0 for e in expected) else np.inf
         if not gap <= tolerance:
             failed.append(f"{names[i]} ({100 * gap:.2g} %)")
     if failed:
