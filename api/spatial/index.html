@@ -21568,7 +21568,7 @@ dispersal, habitat effects, and optional IBM groups across the grid.</p>
         <p>Calculate spatial derivative (local dynamics + movement).</p>
 <p>For each patch p:
     1. Calculate local Ecosim dynamics (production, predation, fishing, M0)
-    2. Apply habitat capacity to carrying capacity (if environmental drivers present)
+    2. Apply habitat capacity to the patch's base biomass and flows (always)
     3. Add spatial fluxes (migration/dispersal)</p>
 
 
@@ -21679,7 +21679,8 @@ Index 1+ = Living and detritus groups</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Time-varying environmental layers for habitat capacity</p>
+                <p>Time-varying environmental layers. Not evaluated here; the habitat
+capacity applies with or without them.</p>
               </div>
             </td>
             <td>
@@ -21787,15 +21788,14 @@ deriv[g, p] = rate of change for group g in patch p</p>
   <p>This function extends the standard Ecosim derivative to spatial grids.
 For each patch, the local Ecosim dynamics are calculated independently,
 then spatial fluxes (movement) are added to account for dispersal.</p>
-<p>Habitat capacity can be calculated from environmental drivers:
-    capacity = f(temperature, depth, salinity, ...)</p>
+<p>The habitat capacity (<code>ecospace.habitat_capacity</code>) always applies, as
+EwE's Ecospace always uses HabCap. <code>environmental_drivers</code> no longer
+switches it on.</p>
 </details>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">207</span>
 <span class="normal">208</span>
 <span class="normal">209</span>
 <span class="normal">210</span>
@@ -22143,7 +22143,10 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 <span class="normal">552</span>
 <span class="normal">553</span>
 <span class="normal">554</span>
-<span class="normal">555</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
+<span class="normal">555</span>
+<span class="normal">556</span>
+<span class="normal">557</span>
+<span class="normal">558</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
     <span class="n">state_spatial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
@@ -22162,7 +22165,7 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 
 <span class="sd">    For each patch p:</span>
 <span class="sd">        1. Calculate local Ecosim dynamics (production, predation, fishing, M0)</span>
-<span class="sd">        2. Apply habitat capacity to carrying capacity (if environmental drivers present)</span>
+<span class="sd">        2. Apply habitat capacity to the patch's base biomass and flows (always)</span>
 <span class="sd">        3. Add spatial fluxes (migration/dispersal)</span>
 
 <span class="sd">    Parameters</span>
@@ -22180,7 +22183,8 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 <span class="sd">    ecospace : EcospaceParams</span>
 <span class="sd">        Spatial parameters</span>
 <span class="sd">    environmental_drivers : EnvironmentalDrivers, optional</span>
-<span class="sd">        Time-varying environmental layers for habitat capacity</span>
+<span class="sd">        Time-varying environmental layers. Not evaluated here; the habitat</span>
+<span class="sd">        capacity applies with or without them.</span>
 <span class="sd">    t : float</span>
 <span class="sd">        Simulation time (years)</span>
 <span class="sd">    dt : float</span>
@@ -22206,8 +22210,9 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 <span class="sd">    For each patch, the local Ecosim dynamics are calculated independently,</span>
 <span class="sd">    then spatial fluxes (movement) are added to account for dispersal.</span>
 
-<span class="sd">    Habitat capacity can be calculated from environmental drivers:</span>
-<span class="sd">        capacity = f(temperature, depth, salinity, ...)</span>
+<span class="sd">    The habitat capacity (``ecospace.habitat_capacity``) always applies, as</span>
+<span class="sd">    EwE's Ecospace always uses HabCap. ``environmental_drivers`` no longer</span>
+<span class="sd">    switches it on.</span>
 <span class="sd">    """</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.ibm.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpatialContext</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.dispersal</span><span class="w"> </span><span class="kn">import</span> <span class="n">calculate_spatial_flux</span>
@@ -22280,27 +22285,26 @@ then spatial fluxes (movement) are added to account for dispersal.</p>
 
     <span class="c1"># Step 1: Calculate local dynamics for each patch</span>
     <span class="c1"># Pre-compute habitat capacity modifications if needed</span>
-    <span class="n">params_need_modification</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">(</span><span class="n">environmental_drivers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mpa_cap_mult</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="s2">"habitat_capacity"</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="s2">"B_BaseRef"</span> <span class="ow">in</span> <span class="n">params</span>
-    <span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
-        <span class="c1"># Habitat capacity as EwE6 applies it (#58): each patch's base biomass</span>
-        <span class="c1"># is B * c and each link's base flow Q0 * c_prey * c_pred over the</span>
-        <span class="c1"># map-wide mean of that product (EwE's MeanBP rescaling of the search</span>
-        <span class="c1"># rates). Map-wide base flows stay Ecopath's, and a group's per-capita</span>
-        <span class="c1"># rates no longer rise as its own habitat gets poorer.</span>
-        <span class="n">b_base_ref_original</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="n">capacity</span> <span class="o">=</span> <span class="n">_capacity_matrix</span><span class="p">(</span>
+    <span class="c1"># Habitat capacity as EwE6 applies it (#58), always (B4): each patch's</span>
+    <span class="c1"># base biomass is B * c and each link's base flow Q0 * c_prey * c_pred</span>
+    <span class="c1"># over the map-wide mean of that product (EwE's MeanBP rescaling of the</span>
+    <span class="c1"># search rates). Map-wide base flows stay Ecopath's, and a group's</span>
+    <span class="c1"># per-capita rates no longer rise as its own habitat gets poorer.</span>
+    <span class="n">capacity</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_capacity_matrix</span><span class="p">(</span>
             <span class="n">ecospace</span><span class="p">,</span>
-            <span class="n">environmental_drivers</span><span class="p">,</span>
             <span class="n">mpa_cap_mult</span><span class="p">,</span>
-            <span class="nb">len</span><span class="p">(</span><span class="n">b_base_ref_original</span><span class="p">),</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]),</span>
             <span class="n">n_patches</span><span class="p">,</span>
             <span class="n">patch_share</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="s2">"B_BaseRef"</span> <span class="ow">in</span> <span class="n">params</span>
+        <span class="k">else</span> <span class="kc">None</span>
+    <span class="p">)</span>
+    <span class="n">params_need_modification</span> <span class="o">=</span> <span class="n">capacity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
+        <span class="n">b_base_ref_original</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
         <span class="n">b_base_ref_patches</span> <span class="o">=</span> <span class="n">b_base_ref_original</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">capacity</span>
         <span class="n">qq_base_original</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"QQbase"</span><span class="p">)</span>
         <span class="n">capacity_overlap</span> <span class="o">=</span> <span class="p">(</span>
@@ -22615,7 +22619,9 @@ If None, runs standard non-spatial Ecosim</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Time-varying environmental layers for habitat capacity</p>
+                <p>Time-varying environmental layers. Not evaluated in the run; the
+habitat capacity (<code>ecospace.habitat_capacity</code>) applies with or
+without them (B4).</p>
               </div>
             </td>
             <td>
@@ -22749,10 +22755,7 @@ distributed by patch area, so every patch starts at the same density.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 558</span>
-<span class="normal"> 559</span>
-<span class="normal"> 560</span>
-<span class="normal"> 561</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 561</span>
 <span class="normal"> 562</span>
 <span class="normal"> 563</span>
 <span class="normal"> 564</span>
@@ -23331,7 +23334,11 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="normal">1137</span>
 <span class="normal">1138</span>
 <span class="normal">1139</span>
-<span class="normal">1140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1140</span>
+<span class="normal">1141</span>
+<span class="normal">1142</span>
+<span class="normal">1143</span>
+<span class="normal">1144</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -23362,7 +23369,9 @@ distributed by patch area, so every patch starts at the same density.</p>
 <span class="sd">        Spatial parameters</span>
 <span class="sd">        If None, runs standard non-spatial Ecosim</span>
 <span class="sd">    environmental_drivers : EnvironmentalDrivers, optional</span>
-<span class="sd">        Time-varying environmental layers for habitat capacity</span>
+<span class="sd">        Time-varying environmental layers. Not evaluated in the run; the</span>
+<span class="sd">        habitat capacity (``ecospace.habitat_capacity``) applies with or</span>
+<span class="sd">        without them (B4).</span>
 <span class="sd">    mpa : MPAConfig, optional</span>
 <span class="sd">        Marine protected areas; closes patches to some or all fleets</span>
 <span class="sd">    spatial_fishing : SpatialFishing, optional</span>
@@ -23433,11 +23442,10 @@ distributed by patch area, so every patch starts at the same density.</p>
     <span class="c1"># or uniform expansion of the scenario start biomass.</span>
     <span class="n">initial_biomass</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">start_state</span><span class="o">.</span><span class="n">Biomass</span>  <span class="c1"># [n_groups+1]</span>
 
-    <span class="c1"># Habitat capacity (with environmental drivers): EwE6 starts each cell at</span>
-    <span class="c1"># B * HabCap normalised to an area-weighted mean of 1 (#58).</span>
+    <span class="c1"># Habitat capacity: EwE6 starts each cell at B * HabCap normalised to an</span>
+    <span class="c1"># area-weighted mean of 1 (#58), whether or not drivers are given (B4).</span>
     <span class="n">start_capacity</span> <span class="o">=</span> <span class="n">_capacity_matrix</span><span class="p">(</span>
         <span class="n">ecospace</span><span class="p">,</span>
-        <span class="n">environmental_drivers</span><span class="p">,</span>
         <span class="kc">None</span><span class="p">,</span>
         <span class="n">n_groups</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">n_patches</span><span class="p">,</span>
