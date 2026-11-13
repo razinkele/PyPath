@@ -1,0 +1,16 @@
+&filenames
+HDF5_fname            = "testcases/Curonian_Lagoon/Curonian_Lagoon.h5"
+GroupInfo_fname       = "testcases/Curonian_Lagoon/Curonian_Lagoon_Scenario.csv"
+Vulnerability_fname   = "testcases/Curonian_Lagoon/Curonian_Lagoon_vul.csv"
+Forcing_fname         = "testcases/Curonian_Lagoon/Curonian_Lagoon_F.csv"
+NutrientForcing_fname = ""
+SpatialGrid_fname     = "testcases/Curonian_Lagoon/Curonian_Lagoon_grid.csv"
+SpatialDistribution_dirname = "testcases/Curonian_Lagoon/Curonian_Lagoon_SpatialDistribution/"
+Advection_fname       = "testcases/Curonian_Lagoon/Curonian_Lagoon_Advection.csv"
+SpatialResults_fname  = "testcases/Curonian_Lagoon/Curonian_Lagoon_spatial_results.h5"
+tf              = 10
+StepsPerMonth   = 1
+NutBaseFreeProp = 0.9999
+NutPBmax        = 1.5
+relax           = 0.5
+/

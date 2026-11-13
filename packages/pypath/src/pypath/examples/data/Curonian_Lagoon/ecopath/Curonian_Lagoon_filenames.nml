@@ -1,0 +1,9 @@
+&filenames
+InputData_fname   = "testcases/Curonian_Lagoon/Curonian_Lagoon_Scenario.csv"
+DietComp_fname    = "testcases/Curonian_Lagoon/Curonian_Lagoon_DC.csv"
+DetFate_fname     = "testcases/Curonian_Lagoon/Curonian_Lagoon_DetFate.csv"
+GrowthParam_fname = ""
+Results_fname     = "testcases/Curonian_Lagoon/Curonian_Lagoon.h5"
+HDF5_fname        = ""
+isASCIIinputFile  = .true.
+/

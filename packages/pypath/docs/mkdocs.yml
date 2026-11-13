@@ -70,6 +70,7 @@ nav:
   - Examples:
       - Basic Model: examples/basic-model.md
       - EwE Database Loading: examples/ewe-database.md
+      - Example Models: examples/example-models.md
       - Spatial Modeling: examples/spatial.md
       - Individual-Based Model: examples/ibm.md
 

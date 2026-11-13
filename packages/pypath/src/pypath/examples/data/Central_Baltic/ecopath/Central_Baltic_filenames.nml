@@ -1,0 +1,9 @@
+&filenames
+InputData_fname   = "testcases/Central_Baltic/Central_Baltic_Scenario.csv"
+DietComp_fname    = "testcases/Central_Baltic/Central_Baltic_DC.csv"
+DetFate_fname     = "testcases/Central_Baltic/Central_Baltic_DetFate.csv"
+GrowthParam_fname = "testcases/Central_Baltic/Central_Baltic_GrowthParameters.csv"
+Results_fname     = "testcases/Central_Baltic/Central_Baltic.h5"
+HDF5_fname        = ""
+isASCIIinputFile  = .true.
+/

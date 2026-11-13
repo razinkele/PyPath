@@ -1,0 +1,9 @@
+&filenames
+InputData_fname   = "testcases/Lithuanian_Coast/Lithuanian_Coast_Scenario.csv"
+DietComp_fname    = "testcases/Lithuanian_Coast/Lithuanian_Coast_DC.csv"
+DetFate_fname     = "testcases/Lithuanian_Coast/Lithuanian_Coast_DetFate.csv"
+GrowthParam_fname = "testcases/Lithuanian_Coast/Lithuanian_Coast_GrowthParameters.csv"
+Results_fname     = "testcases/Lithuanian_Coast/Lithuanian_Coast.h5"
+HDF5_fname        = ""
+isASCIIinputFile  = .true.
+/
