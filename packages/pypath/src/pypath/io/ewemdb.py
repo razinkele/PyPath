@@ -5504,6 +5504,11 @@ def read_ecospace(
 ) -> EcospaceReadResult:
     """Read Ecospace configuration from an EwE database.
 
+    Groups are placed as EwE places them: each EcospaceScenarioGroup row at
+    the position of its EcopathGroupID among the Ecopath groups in Sequence
+    order (``_ecospace_group_index``), so a database's later scenarios and
+    reordered groups land on the right rows.
+
     Parameters
     ----------
     db_path : str
@@ -5529,11 +5534,6 @@ def read_ecospace(
         in EcopathGroup.ProdBiom; a living group without one gets a warning.
         Detritus groups keep EwE's NULL PB whatever is passed, as EwE's
         Ecopath leaves it.
-
-    Groups are placed as EwE places them: each EcospaceScenarioGroup row at
-    the position of its EcopathGroupID among the Ecopath groups in Sequence
-    order (``_ecospace_group_index``), so a database's later scenarios and
-    reordered groups land on the right rows.
 
     Returns
     -------
