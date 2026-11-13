@@ -539,13 +539,16 @@ def implicit_diffusion_step(
     grid: EcospaceGrid,
     adjacency: scipy.sparse.csr_matrix,
     dt: float,
+    cache: dict | None = None,
 ) -> np.ndarray:
     """Diffuse one group's biomass over ``dt`` years by backward Euler.
 
     Solves ``(I + dt * rate * Lap @ D_s) B_new = B`` (``_diffusion_operator``),
     the implicit form of ``diffusion_flux``: stable at any rate, conserving
     biomass, and non-negative (the matrix is a column-diagonally dominant
-    M-matrix). The factorisation is cached on the grid for each rate x dt.
+    M-matrix). With ``cache`` (a dict the caller owns for one grid) the
+    factorisation is kept per rate x dt; it is not stored on the grid, which
+    must stay copyable and picklable (SuperLU objects are neither).
 
     Parameters
     ----------
@@ -559,6 +562,8 @@ def implicit_diffusion_step(
         Adjacency matrix [n_patches, n_patches]
     dt : float
         Time step in years
+    cache : dict, optional
+        Factorisations by rate x dt, owned by the caller (one per grid)
 
     Returns
     -------
@@ -571,16 +576,13 @@ def implicit_diffusion_step(
     step = float(dispersal_rate) * float(dt)
     if not step > 0 or grid.n_patches < 2:
         return biomass_vector.copy()
-    cache = getattr(grid, "_implicit_diffusion_lu", None)
-    if cache is None:
-        cache = {}
-        grid._implicit_diffusion_lu = cache
-    lu = cache.get(step)
+    lu = None if cache is None else cache.get(step)
     if lu is None:
         operator = _diffusion_operator(grid, adjacency)
         system = scipy.sparse.identity(grid.n_patches, format="csc") + step * operator
         lu = scipy.sparse.linalg.splu(system.tocsc())
-        cache[step] = lu
+        if cache is not None:
+            cache[step] = lu
     return lu.solve(biomass_vector)
 
 

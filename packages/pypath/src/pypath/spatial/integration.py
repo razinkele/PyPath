@@ -972,6 +972,7 @@ def rsim_run_spatial(
     moving_rows = _moving_rows(
         ecospace, params_dict, n_groups, fast_mask if use_fast else None
     )
+    diffusion_lu: dict = {}  # this run's factorisations (not stored on the grid)
     if not implicit_movement:
         _warn_explicit_rates(
             moving_rows, rk4_steps, list(getattr(scenario.params, "spname", []))
@@ -1167,6 +1168,7 @@ def rsim_run_spatial(
                         ecospace.grid,
                         ecospace.grid.adjacency_matrix,
                         hh,
+                        cache=diffusion_lu,
                     )
 
         # Prevent negative biomass
