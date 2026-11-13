@@ -10,6 +10,7 @@ EwE's ``.vc.sqlite`` files hold its Value Chain plug-in's economic data
 and landings), not an Ecopath model; ``read_ewe_sqlite`` says so.
 """
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -157,7 +158,8 @@ def test_inspect_lists_tables_rows_and_columns(tmp_path):
 
 def test_paths_with_uri_characters_are_opened(tmp_path):
     # '#', '?' and '%' are special in a SQLite URI; the reader must escape them
-    folder = tmp_path / "run #2 ? 100%"
+    # (Windows file names cannot hold '?')
+    folder = tmp_path / ("run #2 100%" + ("" if os.name == "nt" else " ?"))
     folder.mkdir()
     path = _sqlite(folder / "x.vc.sqlite", {"Unit": ["DBID"], "Link": ["DBID"]})
     with pytest.raises(ValueError, match="Value Chain"):
