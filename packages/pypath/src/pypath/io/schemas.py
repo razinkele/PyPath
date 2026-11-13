@@ -7,7 +7,7 @@ including column definitions, data types, and conventions.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Optional
 
 # ============================================================================
 # FORTRAN NAMELIST FORMAT
@@ -40,6 +40,7 @@ Example:
 # ============================================================================
 # ECOPATH SCENARIO FILE (CSV)
 # ============================================================================
+
 
 @dataclass
 class EcopathScenarioColumn:
@@ -462,6 +463,7 @@ Usage:
 # ============================================================================
 # SUMMARY DOCUMENTATION
 # ============================================================================
+
 
 def print_format_guide() -> str:
     """Return formatted guide to all EwE-F file formats."""

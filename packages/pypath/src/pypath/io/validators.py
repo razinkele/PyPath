@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -101,17 +101,17 @@ def validate_ecopath_scenario(
     group_names: Optional[List[str]] = None,
 ) -> ValidationReport:
     """Validate Ecopath scenario data.
-    
+
     Checks for:
     - Missing critical columns (Biomass, P/B, Q/B)
     - Physiologically unrealistic values (P/B, Q/B ranges)
     - Data type consistency
     - Group name validity
-    
+
     Args:
         scenario_df: DataFrame with scenario data (rows = groups)
         group_names: Expected group names for consistency check
-        
+
     Returns:
         ValidationReport with issues found
     """
@@ -189,17 +189,17 @@ def validate_diet_composition(
     tolerance: float = 0.1,
 ) -> ValidationReport:
     """Validate diet composition matrix.
-    
+
     Checks for:
     - Sum of diet fractions ≈ 1 for each predator
     - Diet values in range [0, 1]
     - Matrix dimensions consistency
-    
+
     Args:
         diet_df: Diet composition matrix (rows = prey, cols = predators)
         group_names: List of group names for validation
         tolerance: Allowed deviation from 1.0 for diet sums (default: 0.1)
-        
+
     Returns:
         ValidationReport with issues
     """
@@ -244,16 +244,16 @@ def validate_detritus_fate(
     group_names: Optional[List[str]] = None,
 ) -> ValidationReport:
     """Validate detritus fate matrix.
-    
+
     Checks for:
     - Fate fractions sum to 1 per group
     - Fate values in [0, 1]
     - Matrix structure
-    
+
     Args:
         fate_df: Detritus fate matrix
         group_names: Expected group names
-        
+
     Returns:
         ValidationReport with issues
     """
@@ -299,10 +299,10 @@ def check_energy_balance(
     tolerance: float = 0.01,
 ) -> ValidationReport:
     """Check energy balance closure.
-    
+
     For a balanced ecosystem:
     sum(Imports) ≈ sum(Exports) ±tolerance
-    
+
     Args:
         biomass: Biomass vector (n_groups,)
         production: Production vector (n_groups,)
@@ -310,7 +310,7 @@ def check_energy_balance(
         import_vec: Import vector (n_groups,)
         export_vec: Export vector (n_groups,)
         tolerance: Acceptable relative error (default: 0.01 = 1%)
-        
+
     Returns:
         ValidationReport with balance assessment
     """
@@ -362,15 +362,15 @@ def validate_all_ecopath_files(
     group_names: Optional[List[str]] = None,
 ) -> ValidationReport:
     """Run all validation checks on Ecopath input files.
-    
+
     Combines scenario, diet, and fate validation into single report.
-    
+
     Args:
         scenario_df: Ecopath scenario data
         diet_df: Diet composition matrix
         fate_df: Detritus fate matrix
         group_names: Group names for consistency checks
-        
+
     Returns:
         Combined ValidationReport
     """
@@ -386,8 +386,6 @@ def validate_all_ecopath_files(
     report.issues.extend(diet_report.issues)
     report.issues.extend(fate_report.issues)
 
-    report.passed = (
-        scenario_report.passed and diet_report.passed and fate_report.passed
-    )
+    report.passed = scenario_report.passed and diet_report.passed and fate_report.passed
 
     return report

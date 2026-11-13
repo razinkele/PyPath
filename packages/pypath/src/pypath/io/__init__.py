@@ -74,24 +74,22 @@ try:
 except ImportError:
     pass
 
+from pypath.io.ewe_official import (
+    EweModel,
+    read_ewe_model,
+)
+from pypath.io.model_importer import (
+    ModelMetadata,
+    ModelRegistry,
+    ModelStatistics,
+    load_model_directory,
+    quick_load,
+)
 from pypath.io.utils import (
     estimate_pb_from_growth,
     estimate_qb_from_tl_pb,
     fetch_url,
     safe_float,
-)
-
-from pypath.io.model_importer import (
-    ModelRegistry,
-    ModelMetadata,
-    ModelStatistics,
-    load_model_directory,
-    quick_load,
-)
-
-from pypath.io.ewe_official import (
-    read_ewe_model,
-    EweModel,
 )
 
 __all__ = [
