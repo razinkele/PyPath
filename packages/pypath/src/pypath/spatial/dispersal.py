@@ -505,8 +505,91 @@ def apply_external_flux(
     return net_flux
 
 
+def _diffusion_operator(grid, adjacency) -> scipy.sparse.csc_matrix:
+    """Sparse ``Lap @ D_s`` with ``diffusion_flux(B, r) = -r * (Lap @ D_s) @ B``.
+
+    ``Lap`` is the graph Laplacian of the diffusion edges weighted by
+    border_length / distance (``_get_diffusion_edge_data``) and ``D_s`` the
+    area scaling of ``_area_scaled_density``. Its columns sum to zero, so
+    diffusion conserves biomass. Cached on the grid.
+    """
+    cached = getattr(grid, "_diffusion_operator", None)
+    if cached is not None:
+        return cached
+    n = grid.n_patches
+    rows, cols, border_lengths, distances = _get_diffusion_edge_data(grid, adjacency)
+    weight = border_lengths / distances
+    off = scipy.sparse.csr_matrix(
+        (
+            np.concatenate([-weight, -weight]),
+            (np.concatenate([rows, cols]), np.concatenate([cols, rows])),
+        ),
+        shape=(n, n),
+    )
+    lap = off - scipy.sparse.diags(np.asarray(off.sum(axis=1)).ravel())
+    scale = _area_scaled_density(np.ones(n), grid)
+    operator = (lap @ scipy.sparse.diags(scale)).tocsc()
+    grid._diffusion_operator = operator
+    return operator
+
+
+def implicit_diffusion_step(
+    biomass_vector: np.ndarray,
+    dispersal_rate: float,
+    grid: EcospaceGrid,
+    adjacency: scipy.sparse.csr_matrix,
+    dt: float,
+) -> np.ndarray:
+    """Diffuse one group's biomass over ``dt`` years by backward Euler.
+
+    Solves ``(I + dt * rate * Lap @ D_s) B_new = B`` (``_diffusion_operator``),
+    the implicit form of ``diffusion_flux``: stable at any rate, conserving
+    biomass, and non-negative (the matrix is a column-diagonally dominant
+    M-matrix). The factorisation is cached on the grid for each rate x dt.
+
+    Parameters
+    ----------
+    biomass_vector : np.ndarray
+        Biomass in each patch [n_patches]
+    dispersal_rate : float
+        Dispersal rate per year
+    grid : EcospaceGrid
+        Spatial grid configuration
+    adjacency : scipy.sparse.csr_matrix
+        Adjacency matrix [n_patches, n_patches]
+    dt : float
+        Time step in years
+
+    Returns
+    -------
+    np.ndarray
+        Biomass in each patch after the step [n_patches]
+    """
+    import scipy.sparse.linalg
+
+    biomass_vector = np.asarray(biomass_vector, dtype=float)
+    step = float(dispersal_rate) * float(dt)
+    if not step > 0 or grid.n_patches < 2:
+        return biomass_vector.copy()
+    cache = getattr(grid, "_implicit_diffusion_lu", None)
+    if cache is None:
+        cache = {}
+        grid._implicit_diffusion_lu = cache
+    lu = cache.get(step)
+    if lu is None:
+        operator = _diffusion_operator(grid, adjacency)
+        system = scipy.sparse.identity(grid.n_patches, format="csc") + step * operator
+        lu = scipy.sparse.linalg.splu(system.tocsc())
+        cache[step] = lu
+    return lu.solve(biomass_vector)
+
+
 def calculate_spatial_flux(
-    state: np.ndarray, ecospace: EcospaceParams, params: dict, t: float
+    state: np.ndarray,
+    ecospace: EcospaceParams,
+    params: dict,
+    t: float,
+    include_diffusion: bool = True,
 ) -> np.ndarray:
     """Calculate total spatial flux (diffusion + advection + external).
 
@@ -525,6 +608,10 @@ def calculate_spatial_flux(
         Ecosim parameters
     t : float
         Simulation time (years)
+    include_diffusion : bool
+        Include diffusion (default). ``rsim_run_spatial`` leaves it out when
+        it moves the groups with ``implicit_diffusion_step`` instead; the
+        advection of a dispersing group stays in the flux.
 
     Returns
     -------
@@ -565,9 +652,10 @@ def calculate_spatial_flux(
         # Otherwise use model-calculated dispersal
         elif ecospace.dispersal_rate[eco_idx] > 0:
             # Passive diffusion (Fick's law)
-            flux[group_idx] = diffusion_flux(
-                state[group_idx], ecospace.dispersal_rate[eco_idx], grid, adj
-            )
+            if include_diffusion:
+                flux[group_idx] = diffusion_flux(
+                    state[group_idx], ecospace.dispersal_rate[eco_idx], grid, adj
+                )
 
             # Add habitat-directed movement if enabled
             if (
