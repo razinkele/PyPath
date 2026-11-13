@@ -278,7 +278,13 @@ class TestMovementRedistribution:
             bio_high = result_high.out_Biomass_spatial[-1, g, :].sum()
 
             if bio_low > 1e-10 and bio_high > 1e-10:
-                assert high_var <= low_var * 1.1, (
+                # Patches equal in exact arithmetic differ by round-off (the
+                # implicit movement solve leaves ~1e-14 relative), so
+                # variances below (1e-10 x the patch mean)^2 count as zero.
+                floor = (
+                    1e-10 * bio_low / len(result_low.out_Biomass_spatial[-1, g])
+                ) ** 2
+                assert high_var <= low_var * 1.1 + floor, (
                     f"Group {g}: high dispersal variance ({high_var:.6f}) > "
                     f"low dispersal variance ({low_var:.6f})"
                 )

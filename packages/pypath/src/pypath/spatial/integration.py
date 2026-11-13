@@ -218,6 +218,7 @@ def deriv_vector_spatial(
     effort_multiplier: Optional[np.ndarray] = None,
     stanza_pred_ratio: Optional[np.ndarray] = None,
     rates_out: Optional[Dict[str, np.ndarray]] = None,
+    include_diffusion: bool = True,
 ) -> np.ndarray:
     """Calculate spatial derivative (local dynamics + movement).
 
@@ -255,6 +256,9 @@ def deriv_vector_spatial(
         Arrays [n_groups+1, n_patches] keyed like ``deriv_vector``'s ``rates``
         (e.g. ``"FoodGain"``, ``"LossPropToB"``); each patch writes its own
         column with its absolute flows.
+    include_diffusion : bool
+        Include diffusion in the movement flux (default). ``rsim_run_spatial``
+        leaves it out when it diffuses implicitly after each RK4 step.
 
     Returns
     -------
@@ -550,7 +554,9 @@ def deriv_vector_spatial(
             params.pop("_ibm_spatial_context_%d" % g_idx, None)
 
     # Step 2: Add spatial fluxes (movement/dispersal)
-    spatial_flux = calculate_spatial_flux(state_spatial, ecospace, params, t)
+    spatial_flux = calculate_spatial_flux(
+        state_spatial, ecospace, params, t, include_diffusion=include_diffusion
+    )
 
     # Add spatial fluxes to local dynamics
     deriv_spatial += spatial_flux
@@ -591,6 +597,53 @@ def _check_ecospace_rows(ecospace: EcospaceParams, n_groups: int) -> None:
     )
 
 
+# Explicit diffusion on a rook grid is stable for one RK4 step while
+# 8 x rate x h <= 2.785 (the RK4 limit on the negative real axis); with
+# h = 1/12 year that is about 4.2 per year per cell side, times RK4_STEPS.
+_EXPLICIT_STABLE_RATE = 2.785 * 12 / 8
+
+
+def _moving_rows(ecospace, params, n_groups, fast_mask):
+    """Ecosim rows (1-based) that diffuse, with their rates.
+
+    Groups with a positive dispersal rate, except IBM groups (they move
+    themselves), groups with an external flux (explicit), and fast-equilibrium
+    groups (their biomass is their local equilibrium at every step).
+    """
+    ibm_groups = params.get("ibm_groups", {}) or {}
+    flux = ecospace.external_flux
+    external = set(flux.group_indices) if flux is not None else set()
+    moving = []
+    for row in range(1, n_groups + 1):
+        rate = float(ecospace.dispersal_rate[row - 1])
+        if rate <= 0 or row in ibm_groups or (row - 1) in external:
+            continue
+        if fast_mask is not None and fast_mask[row]:
+            continue
+        moving.append((row, rate))
+    return moving
+
+
+def _warn_explicit_rates(moving, rk4_steps, names) -> None:
+    """Name the groups too fast for explicit diffusion at this step size."""
+    limit = _EXPLICIT_STABLE_RATE * rk4_steps
+    fast = [(row, rate) for row, rate in moving if rate > limit]
+    if not fast:
+        return
+    label = ", ".join(
+        f"{names[row] if row < len(names) else f'group {row}'} ({rate:.3g}/yr)"
+        for row, rate in fast
+    )
+    logger.warning(
+        "Explicit diffusion (implicit_movement=False) is stable to about %.1f "
+        "per year per cell side with %d RK4 step(s) a month; faster: %s. The "
+        "run may oscillate or fail; implicit_movement=True is stable.",
+        limit,
+        rk4_steps,
+        label,
+    )
+
+
 def rsim_run_spatial(
     scenario: RsimScenario,
     method: str = "RK4",
@@ -602,6 +655,7 @@ def rsim_run_spatial(
     spatial_fishing: Optional["SpatialFishing"] = None,
     initial_state_vector: Optional[np.ndarray] = None,
     store_state_vectors: bool = False,
+    implicit_movement: bool = True,
 ) -> RsimOutput:
     """Run spatial Ecosim simulation.
 
@@ -640,6 +694,15 @@ def rsim_run_spatial(
     store_state_vectors : bool
         If True, stores per-timestep flattened state vectors as
         ``output.out_StateVector`` for coupled workflow diagnostics.
+    implicit_movement : bool
+        Diffuse implicitly (default): diffusion leaves the RK4 derivative and
+        each dispersing group is moved by backward Euler after every RK4 step
+        (``dispersal.implicit_diffusion_step``), which is stable at any rate.
+        Advection and external fluxes stay in the derivative. Fast-
+        equilibrium groups are not moved, as their biomass is set from their
+        local equilibrium at every step (EwE rule). ``False`` keeps diffusion
+        in the derivative, as before B3; it is stable only to about
+        4.2 x RK4_STEPS per year per cell side on a rook grid.
 
     Returns
     -------
@@ -903,6 +966,18 @@ def rsim_run_spatial(
     use_fast = bool(np.any(fast_mask))
     SORWT = 0.5
 
+    # B3: the groups that diffuse, implicitly after each RK4 step by default
+    from pypath.spatial.dispersal import implicit_diffusion_step
+
+    moving_rows = _moving_rows(
+        ecospace, params_dict, n_groups, fast_mask if use_fast else None
+    )
+    diffusion_lu: dict = {}  # this run's factorisations (not stored on the grid)
+    if not implicit_movement:
+        _warn_explicit_rates(
+            moving_rows, rk4_steps, list(getattr(scenario.params, "spname", []))
+        )
+
     # Ftime is static — snapshot once before the loop
     _ftime_snapshot = scenario.start_state.Ftime.copy()
 
@@ -1008,6 +1083,7 @@ def rsim_run_spatial(
                 t=t_eval,
                 dt=dt_eval,
                 rates_out=rates_out,
+                include_diffusion=not implicit_movement,
                 **_month_kwargs,
             )
 
@@ -1082,6 +1158,18 @@ def rsim_run_spatial(
                 )
 
             current_biomass = np.maximum(current_biomass, 0.0)
+
+            # Diffusion over the same sub-step, by backward Euler (Lie split)
+            if implicit_movement:
+                for row, rate in moving_rows:
+                    current_biomass[row] = implicit_diffusion_step(
+                        current_biomass[row],
+                        rate,
+                        ecospace.grid,
+                        ecospace.grid.adjacency_matrix,
+                        hh,
+                        cache=diffusion_lu,
+                    )
 
         # Prevent negative biomass
         current_biomass = np.maximum(current_biomass, 0.0)

@@ -601,21 +601,6 @@ def test_dispersal_rate_is_ewe_movement_rate():
     )
 
 
-def test_groups_too_fast_for_monthly_steps_are_named(caplog):
-    # 300 / (3.14159 * 0.5) = 191 per year per cell side, far beyond what one
-    # explicit RK4 step a month keeps stable (open item B3).
-    scenario = _tables()["EcospaceScenario"].assign(CellLength=0.5)
-    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
-        _read(_tables(EcospaceScenario=scenario))
-    assert "Fish" in caplog.text and "Crab" in caplog.text and "B3" in caplog.text
-
-
-def test_slow_groups_get_no_stability_warning(caplog):
-    with caplog.at_level(logging.WARNING, logger="pypath.io.ewemdb"):
-        _read(_tables())  # 300 / (3.14159 * 100) = 0.95 per year
-    assert "B3" not in caplog.text
-
-
 def test_a_scenario_without_cell_length_moves_on_the_grid_default():
     # Without CellLength the grid has cells of length 1; the movement rate is
     # for the same cells.

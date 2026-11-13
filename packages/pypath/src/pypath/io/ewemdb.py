@@ -5720,7 +5720,6 @@ def read_ecospace(
                     advection_enabled[gid] = is_adv
         except Exception as e:
             logger.warning("Failed to read EcospaceScenarioGroup: %s", e)
-        _warn_fast_movement(db_path, tables, dispersal_rate)
 
     # 6. Read fleet info
     fleet_info: Optional[pd.DataFrame] = None
@@ -6064,11 +6063,6 @@ def _ewe_habitat_capacity(
     return out
 
 
-# One explicit RK4 step a month keeps diffusion on a rook grid stable while
-# 8 x rate / 12 <= 2.785 (the RK4 stability limit on the negative real axis).
-_SPACE_STABLE_RATE = 2.785 * 12 / 8
-
-
 def _ewe_movement_rate(mvel: float, cell_length: float, migratory: bool) -> float:
     """EwE's movement rate per year across a cell side (cEcoSpace's Mrate).
 
@@ -6098,31 +6092,6 @@ def _ewe_mvel_from_rate(rate: float, cell_length: float, migratory: bool) -> flo
     if migratory:
         return float(rate) * float(np.sqrt(cell_length))
     return float(rate) * 3.14159 * float(cell_length)
-
-
-def _warn_fast_movement(db_path, tables, dispersal_rate) -> None:
-    """Name the groups that move too fast for one RK4 step a month."""
-    fast = np.flatnonzero(np.asarray(dispersal_rate) > _SPACE_STABLE_RATE)
-    if len(fast) == 0:
-        return
-    try:
-        eg = _ecopath_groups_in_order(db_path, tables)
-        names = [] if eg is None else [str(n) for n in eg["GroupName"]]
-    except (EwEDatabaseError, KeyError, ValueError) as e:
-        logger.debug("Group names unavailable: %s", e)
-        names = []
-    label = ", ".join(
-        f"{names[g] if g < len(names) else f'group {g + 1}'} "
-        f"({dispersal_rate[g]:.3g}/yr)"
-        for g in fast
-    )
-    logger.warning(
-        "Ecospace movement faster than about %.1f per year per cell side: %s. "
-        "One explicit RK4 step a month may oscillate or fail at that rate "
-        "(open item B3, RK4 stability).",
-        _SPACE_STABLE_RATE,
-        label,
-    )
 
 
 def _yes(value, default: bool) -> bool:
