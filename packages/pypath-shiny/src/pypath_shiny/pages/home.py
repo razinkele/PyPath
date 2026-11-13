@@ -631,11 +631,14 @@ def home_server(
     session: Session,
     model_data: reactive.Value,
     ewe_source: reactive.Value = None,
+    sim_results: reactive.Value = None,
 ):
     """Home page server logic.
 
     ``ewe_source``, when given, receives the record of an example model
     opened from the picker, so the Ecosim page offers its Ecosim settings.
+    ``sim_results``, when given, is cleared whenever a model is loaded here,
+    so no page shows the previous model's simulation under the new groups.
     """
 
     @reactive.effect
@@ -653,6 +656,8 @@ def home_server(
             _notify_legacy(f"Could not open {name}: {e}", type="error")
             return
         model_data.set(params)
+        if sim_results is not None:
+            sim_results.set(None)
         if ewe_source is not None:
             ewe_source.set(record)
         _notify_legacy(
@@ -716,6 +721,8 @@ def home_server(
                 warnings.simplefilter("ignore")
                 rpath(params)
             model_data.set(params)
+            if sim_results is not None:
+                sim_results.set(None)
 
             _notify_legacy(
                 "Example model loaded with multi-stanza groups (Roundfish) and sample remarks! Navigate to Ecopath tab or explore Advanced Features.",

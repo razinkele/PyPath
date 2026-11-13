@@ -452,7 +452,12 @@ def server(input: Inputs, output: Outputs, session: Session):
         (
             "Home",
             lambda: home.home_server(
-                input, output, session, model_data, ewe_source=ewe_source
+                input,
+                output,
+                session,
+                model_data,
+                ewe_source=ewe_source,
+                sim_results=sim_results,
             ),
         ),
         (

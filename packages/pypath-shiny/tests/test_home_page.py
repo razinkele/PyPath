@@ -12,7 +12,29 @@ def test_home_ui_renders():
 
 def test_home_server_exact_signature():
     p = list(inspect.signature(home_server).parameters)
-    assert p == ["input", "output", "session", "model_data", "ewe_source"]
+    assert p == [
+        "input",
+        "output",
+        "session",
+        "model_data",
+        "ewe_source",
+        "sim_results",
+    ]
+
+
+def test_loading_a_model_from_home_clears_old_simulation_results():
+    # the Results page must not show the previous model's run under the new
+    # model's groups
+    import re
+
+    import pypath_shiny.app as app_module
+    from pypath_shiny.pages import home
+
+    assert inspect.getsource(home.home_server).count("sim_results.set(None)") == 2
+    assert re.search(
+        r"home\.home_server\([^)]*sim_results=sim_results",
+        inspect.getsource(app_module),
+    )
 
 
 def test_home_offers_the_shipped_example_models():

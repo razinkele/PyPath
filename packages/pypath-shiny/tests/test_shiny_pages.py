@@ -41,10 +41,11 @@ class TestHomePage:
             sig = inspect.signature(home.home_server)
             params = list(sig.parameters.keys())
 
-            # input, output, session, model_data, and ewe_source (an opened
-            # example model's Ecosim settings, for the Ecosim page)
-            assert len(params) == 5
-            assert "ewe_source" in params
+            # input, output, session, model_data, ewe_source (an opened
+            # example model's Ecosim settings) and sim_results (cleared when
+            # a model is loaded)
+            assert len(params) == 6
+            assert "ewe_source" in params and "sim_results" in params
             assert "input" in params
             assert "output" in params
             assert "session" in params
