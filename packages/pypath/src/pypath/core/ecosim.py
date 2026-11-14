@@ -2630,6 +2630,7 @@ def rsim_run(
             default_atol,
             feeding_time,
             integrate_month,
+            month_budget,
         )
 
         _n_bio_c = params.NUM_LIVING + params.NUM_DEAD
@@ -2870,6 +2871,7 @@ def rsim_run(
             # Continuous path: solve_ivp over the month with the month's
             # forcing, effort, forced F, forced biomass, StanzaPredRatio and
             # Ftime held; slot 0 and the gear slots keep their values.
+            assert rhs is not None  # built above for the continuous methods
             rhs.set_month(forcing_dict, state, _forced_mask, _forced_now)
             _y0 = np.array(state[1 : _n_bio_c + 1], dtype=float, copy=True)
             if _ft_groups is not None:
@@ -2905,6 +2907,15 @@ def rsim_run(
             if _ft_groups is not None:
                 _ft_end = res.y_end[_n_bio_c:]
                 _ftime_range = [float(_ft_end.min()), float(_ft_end.max())]
+            # the month's mass budget over the integrated biomass states,
+            # before the stanza overwrite, forced re-apply and floor below
+            _budget, _pool_budget = month_budget(
+                _y0,
+                res,
+                params.NUM_LIVING,
+                _n_bio_c,
+                forced=bool(np.any(_forced_mask)),
+            )
             solver_info["months"].append(
                 {
                     "month": month,
@@ -2919,6 +2930,9 @@ def rsim_run(
                     "hden_passes_max": int(rhs.stats["hden_passes_max"]),
                     "min_state": float(rhs.stats["min_state"]),
                     "ftime_range": _ftime_range,
+                    "budget_residual": _budget,
+                    "pool_budget_residual": _pool_budget,
+                    "nutrient_floor": int(rhs.stats["nutrient_floor"]),
                 }
             )
         if np.any(_forced_mask):

@@ -23,7 +23,12 @@ from scipy.integrate import solve_ivp
 from scipy.optimize import root
 
 from pypath.core.ecosim import _risk_qopt
-from pypath.core.ecosim_deriv import HdenKernel, KernelInputs, deriv_vector
+from pypath.core.ecosim_deriv import (
+    HdenKernel,
+    KernelInputs,
+    _det_inflow,
+    deriv_vector,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -445,6 +450,59 @@ def ftime_target(ft, adj, qopt, food_gain, index, lower, cap) -> np.ndarray:
     return np.clip(np.where(ok, new, ft), lower, cap)
 
 
+def exchange_rate(
+    rates: dict, y_full: np.ndarray, params_dict: dict, forcing: dict
+) -> float:
+    """The net external flux of groups ``1..n_bio`` (per year), from one
+    evaluation's ``rates`` at the full state ``y_full``.
+
+    In: the Production of producers and of groups with QB 0 (drawn from no
+    food), the diet ``Import``, living Immigration and ForcedMigrate, and
+    the pools' inflow ``_det_inflow`` (DetInput plus pool Immigration). Out:
+    respiration ``(1 - Unassim) x FoodGain``, less Production for consumers;
+    the landed catch ``FishingLoss - Discards`` of living groups; living
+    ``EmigLoss``; under the EwE rule a pool's ``Emig x B``; and
+    ``DetExport``. Producers and consumers are told apart as the living
+    kernel does (PP_type as an int, then QB > 0). Internal transfers
+    (predation, other mortality and unassimilated food to detritus, flows
+    between pools, discards) are not used, so a transfer the derivative does
+    not close leaves ``sum(dy) - exchange`` nonzero.
+    """
+    nl = int(params_dict["NUM_LIVING"])
+    n_bio = nl + int(params_dict["NUM_DEAD"])
+    n_full = int(params_dict["NUM_GROUPS"]) + 1
+    lv = slice(1, nl + 1)
+    dead = slice(nl + 1, n_bio + 1)
+    production = np.asarray(rates["Production"], dtype=float)[lv]
+    food = np.asarray(rates["FoodGain"], dtype=float)[lv]
+    pp_type = np.asarray(params_dict.get("PP_type", np.zeros(n_full)))
+    qb = np.asarray(params_dict.get("QB", np.zeros(n_full)), dtype=float)
+    unassim = np.asarray(params_dict.get("Unassim", np.zeros(n_full)), dtype=float)
+    consumer = (pp_type[lv].astype(np.int64) <= 0) & (qb[lv] > 0.0)
+    gain = float(production[~consumer].sum())
+    gain += float(np.asarray(rates["Import"], dtype=float)[lv].sum())
+    immigration = params_dict.get("Immigration")
+    if immigration is not None:
+        gain += float(np.asarray(immigration, dtype=float)[lv].sum())
+    migrate = forcing.get("ForcedMigrate")
+    if migrate is not None:
+        gain += float(np.asarray(migrate, dtype=float)[lv].sum())
+    det_in = _det_inflow(params_dict.get("DetInput"), immigration, nl, n_bio - nl)
+    if det_in is not None:
+        gain += float(np.asarray(det_in, dtype=float)[dead].sum())
+    respiration = (1.0 - unassim[lv]) * food - np.where(consumer, production, 0.0)
+    loss = float(respiration.sum())
+    loss += float(np.asarray(rates["FishingLoss"], dtype=float)[lv].sum())
+    loss -= float(np.asarray(rates["Discards"], dtype=float)[dead].sum())
+    loss += float(np.asarray(rates["EmigLoss"], dtype=float)[lv].sum())
+    loss += float(np.asarray(rates["DetExport"], dtype=float)[1 : n_bio + 1].sum())
+    emig = params_dict.get("Emig")
+    if emig is not None and params_dict.get("DetPassedProp") is not None:
+        pool_b = np.asarray(y_full, dtype=float)[dead]
+        loss += float((np.asarray(emig, dtype=float)[dead] * pool_b).sum())
+    return gain - loss
+
+
 class ContinuousRHS:
     """Pure right-hand side ``dy/dt = f(t, y)`` of the continuous pathway.
 
@@ -477,10 +535,14 @@ class ContinuousRHS:
     at the current FoodLoss and biomass.
 
     ``stats`` (reset by :meth:`set_month`) holds ``clips``, ``min_state``,
-    ``hden_passes_max`` (kernel passes of the largest Hden solve) and
+    ``hden_passes_max`` (kernel passes of the largest Hden solve),
     ``hden_residual_max``, the largest relative residual of the solved Hden
     under the consumption of the final ``deriv_vector`` pass (the link loop,
-    not the vectorised kernel).
+    not the vectorised kernel), and ``nutrient_floor``, the number of
+    evaluations with the free nutrient at its floor.
+
+    :meth:`exchange` is the net external flux of the biomass states
+    (:func:`exchange_rate`) at an evaluation's rates.
     """
 
     def __init__(
@@ -539,6 +601,7 @@ class ContinuousRHS:
         b0 = np.asarray(b0, dtype=float)
         base[: min(len(b0), n_full)] = b0[:n_full]
         self._pd = pd
+        self._nutrient = pd.get("NutBaseFreeProp") is not None
         if pd.get("DetPassedProp") is not None:
             # fix DetritusOut at the unforced base state (EwE's FirstTime)
             pd["_det_out"] = np.full(n_full, np.nan)
@@ -570,6 +633,7 @@ class ContinuousRHS:
             "min_state": np.inf,
             "hden_passes_max": 0,
             "hden_residual_max": 0.0,
+            "nutrient_floor": 0,
         }
 
     def _solve_hden(self, inputs: KernelInputs) -> np.ndarray:
@@ -605,6 +669,16 @@ class ContinuousRHS:
         self._forced_values = np.array(vals[sl], dtype=float, copy=True)
         self._reset_stats()
 
+    def _full_state(self, y: np.ndarray) -> np.ndarray:
+        """The full state ``deriv_vector`` sees at the biomass states
+        ``y[:n_bio]``: clipped at 0, forced groups at their values, the
+        non-state slots held from :meth:`set_month`."""
+        full: np.ndarray = self._state_full.copy()
+        live = np.maximum(np.asarray(y, dtype=float)[: self.n_bio], 0.0)
+        live[self._forced] = self._forced_values[self._forced]
+        full[1 : self.n_bio + 1] = live
+        return full
+
     def _evaluate(self, y: np.ndarray, rates: Optional[dict], count: bool):
         y = np.asarray(y, dtype=float)
         feeding = self.feeding
@@ -623,15 +697,15 @@ class ContinuousRHS:
         if count:
             self.stats["clips"] += int(np.count_nonzero(y < 0))
             self.stats["min_state"] = min(self.stats["min_state"], float(y.min()))
-        full = self._state_full.copy()
-        live = np.maximum(y, 0.0)
-        live[self._forced] = self._forced_values[self._forced]
-        full[1 : self.n_bio + 1] = live
-        # rates carry the solved Hden and the loop's consumption at it
-        need_rates = self.cmco_qb is not None or feeding is not None
+        full = self._full_state(y)
+        # rates carry the solved Hden and the loop's consumption at it, and
+        # whether the free nutrient is at its floor
+        need_rates = self.cmco_qb is not None or feeding is not None or self._nutrient
         out = {} if rates is None and need_rates else rates
         self._solved = None
         deriv = deriv_vector(full, self._pd, forcing, self.fishing, rates=out)
+        if count and out is not None and out.get("NutFloor", False):
+            self.stats["nutrient_floor"] += 1
         h = None if out is None else out.get("Hden")
         if count and self._solved is not None and out is not None:
             inputs, passes = self._solved
@@ -694,6 +768,11 @@ class ContinuousRHS:
         _, h = self._evaluate(y, out, False)
         out["Hden"] = h
         return out
+
+    def exchange(self, rates: dict, y: np.ndarray) -> float:
+        """:func:`exchange_rate` of ``rates`` (from :meth:`rates` at ``y``),
+        over the full state the evaluation saw; feeding times do not enter."""
+        return exchange_rate(rates, self._full_state(y), self._pd, self._forcing)
 
 
 METHOD_NAMES = {
@@ -815,6 +894,11 @@ class MonthResult:
     mean of 0, not a small negative number. ``loss_rate_mean`` is the time
     mean of ``LossPropToB / B`` (0 where B = 0 at a node).
 
+    ``exchange_mean`` is the time mean of ``rhs.exchange`` (NaN when ``rhs``
+    has none) and ``pool_net_mean`` that of ``DetGain - DetLoss``, full
+    length like ``food_gain_mean`` (None when the rates carry no
+    ``DetGain``). Both come from the quadrature's evaluations of the rates.
+
     ``steps`` is the number of solver steps (``len(sol.t) - 1``). ``status``
     and ``message`` are as SciPy reports them; ``t_reached`` is the end of the
     interval reached (``dt`` unless the solve failed).
@@ -836,6 +920,8 @@ class MonthResult:
     message: str
     t_reached: float
     degraded: bool
+    exchange_mean: float = float("nan")
+    pool_net_mean: Optional[np.ndarray] = None
 
 
 def integrate_month(
@@ -862,7 +948,14 @@ def integrate_month(
     ``"month m (year y)"``) prefixes the logged warnings; ``rsim_run`` adds
     the month to raised errors itself. ``n_bio`` (default ``len(y0)``) is the
     number of leading biomass states: the rates, loss rates and ``y_mean``
-    use those, the rest are other states (feeding times).
+    use those, the rest are other states (feeding times). The quadrature
+    nodes' biomass states are clipped at 0 before ``rhs.rates`` and the
+    loss-rate division; when the rates fall back on the start state (with
+    "warn"), ``y_mean`` does too.
+
+    ``rhs.stats``, when the right-hand side keeps one (``ContinuousRHS``,
+    reset by its ``set_month``), counts the solver's evaluations, the start
+    check included; the quadrature's ``rhs.rates`` calls do not count.
     """
     y0 = np.asarray(y0, dtype=float)
     n = len(y0) if n_bio is None else int(n_bio)
@@ -919,8 +1012,17 @@ def integrate_month(
         logger.warning("%smonth means use the start state (no dense output)", prefix)
         degraded = True
 
+    exchange = getattr(rhs, "exchange", None)
+
+    def _clipped(y_nodes):
+        """The nodes with their biomass states clipped at 0."""
+        out = np.array(y_nodes, dtype=float, copy=True)
+        out[:, :n] = np.maximum(out[:, :n], 0.0)
+        return out
+
     def _mean_rates(w_nodes, y_nodes):
-        food = loss = None
+        food = loss = pool = None
+        exch = 0.0 if exchange is not None else float("nan")
         for w, y in zip(w_nodes, y_nodes):
             r = rhs.rates(y)
             fg = np.asarray(r["FoodGain"], dtype=float)
@@ -935,18 +1037,27 @@ def integrate_month(
             lr = np.divide(lp, b, out=np.zeros_like(lp), where=b != 0.0)
             food = w * fg if food is None else food + w * fg
             loss = w * lr if loss is None else loss + w * lr
-        return food, loss
+            if exchange is not None:
+                exch += w * float(exchange(r, y))
+            if "DetGain" in r:
+                net = np.asarray(r["DetGain"], dtype=float) - np.asarray(
+                    r["DetLoss"], dtype=float
+                )
+                pool = w * net if pool is None else pool + w * net
+        return food, loss, exch, pool
 
-    y_mean = np.maximum(weights @ ys[:, :n], 0.0)
+    ys = _clipped(ys)
+    y_mean = weights @ ys[:, :n]
     means = _mean_rates(weights, ys)
     if means is None:
         _fail("non-finite rates at a quadrature node", "using the start state's rates")
         degraded = True
-        weights, ys = np.array([1.0]), y0[None, :]
+        weights, ys = np.array([1.0]), _clipped(y0[None, :])
+        y_mean = weights @ ys[:, :n]
         means = _mean_rates(weights, ys)
         if means is None:
             raise RuntimeError("month integration failed: non-finite start rates")
-    food, loss = means
+    food, loss, exch_mean, pool_mean = means
 
     y_end = np.maximum(y_last, _Y_FLOOR)
     return MonthResult(
@@ -962,4 +1073,33 @@ def integrate_month(
         message=str(sol.message),
         t_reached=t_reach,
         degraded=degraded,
+        exchange_mean=exch_mean,
+        pool_net_mean=pool_mean,
     )
+
+
+def month_budget(
+    y0: np.ndarray, res: MonthResult, n_living: int, n_bio: int, forced: bool
+) -> tuple[Optional[float], Optional[float]]:
+    """``(budget_residual, pool_budget_residual)`` of an integrated month.
+
+    Over the biomass states ``y0[:n_bio]`` and ``res.y_end[:n_bio]`` (any
+    states beyond them are feeding times), with ``t = res.t_reached``:
+    ``budget_residual = (sum(y_end) - sum(y0) - t * exchange_mean) /
+    sum(y0)`` and ``pool_budget_residual`` the largest over the detritus
+    pools of ``|y_end_d - y0_d - t * pool_net_mean_d| / y0_d``. Both are None
+    when ``forced`` (forced biomass: its flows are imposed); the pool
+    residual is None without ``pool_net_mean`` or pools.
+    """
+    if forced:
+        return None, None
+    b0 = np.asarray(y0, dtype=float)[:n_bio]
+    b1 = np.asarray(res.y_end, dtype=float)[:n_bio]
+    t = res.t_reached
+    total = float((b1.sum() - b0.sum() - t * res.exchange_mean) / b0.sum())
+    pool = None
+    if res.pool_net_mean is not None and n_bio > n_living:
+        d = slice(n_living, n_bio)
+        net = np.asarray(res.pool_net_mean, dtype=float)[n_living + 1 : n_bio + 1]
+        pool = float(np.max(np.abs(b1[d] - b0[d] - t * net) / b0[d]))
+    return total, pool

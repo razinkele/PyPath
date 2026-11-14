@@ -933,6 +933,7 @@ def _rpath_detritus_derivs(
     det_emig=None,
     pass_on=True,
     df_once=False,
+    flows: Optional[dict] = None,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -967,6 +968,13 @@ def _rpath_detritus_derivs(
     DF / s, s being the sum of the source's DF to pools other than itself.
     It acts independently of ``pass_on``.
 
+    ``flows``, when a dict, receives ``"Discards"`` (the catch reaching each
+    pool) and ``"DetExport"`` per source group (size NUM_LIVING+NUM_DEAD+1):
+    the detritus that reaches no pool. That is a link's flow to a destination
+    outside 1..NUM_LIVING+NUM_DEAD or one ``pass_on`` drops; under the EwE
+    rule a dead source's is DetritusOut x B less the flows the other pools
+    receive (negative if they receive more). The derivative is unchanged.
+
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
     """
@@ -981,6 +989,7 @@ def _rpath_detritus_derivs(
     ewe = det_passed_prop is not None
     det_gain = np.zeros(n_bio + 1)
     det_loss = np.zeros(n_bio + 1)
+    export = None if flows is None else np.zeros(n_bio + 1)
     other_df = np.zeros(n_bio + 1)
     if ewe and df_once:
         for k in range(1, len(det_from)):
@@ -999,11 +1008,16 @@ def _rpath_detritus_derivs(
                 share = det_frac[k]
                 if df_once:
                     share = share / other_df[src] if other_df[src] > 0 else 0.0
-                det_gain[dest] += det_passed_prop[src] * share * BB[src]
+                moved = det_passed_prop[src] * share * BB[src]
+                det_gain[dest] += moved
+                if export is not None:
+                    export[src] -= moved
             continue
         flow = float(det_frac[k]) * (mzero_loss[src] + unassim_loss[src])
         if 0 < dest <= n_bio and received:
             det_gain[dest] += flow
+        elif export is not None:
+            export[src] += flow
         if src > NUM_LIVING:
             det_loss[src] += flow
     fish_gain = np.zeros(n_bio + 1)
@@ -1037,8 +1051,13 @@ def _rpath_detritus_derivs(
                 emig[unset],
             )
         loss[dead] += (emig[dead] + out[dead]) * BB[dead]
+        if export is not None:
+            export[dead] += out[dead] * BB[dead]
     for d in range(NUM_LIVING + 1, n_bio + 1):
         deriv[d] = gain[d] - loss[d]
+    if flows is not None:
+        flows["Discards"] = fish_gain.copy()
+        flows["DetExport"] = export
     return gain, loss
 
 
@@ -1620,6 +1639,24 @@ def _ewe_nutrient_factor(
     return 2.0 * nut_free / (nut_free + nut_free0)
 
 
+def _ewe_nutrient_free(
+    biomass_sum: float, base_sum: float, base_free_prop: float, shape: float
+) -> tuple[float, float]:
+    """The free nutrient of :func:`_ewe_nutrient_factor`, as it is used.
+
+    Returns ``(nut_free, nut_free0)``: NutFree = NutTot x shape - sum(B), at
+    least the floor 0.00101 x NutFree0, and NutFree0 = NutTot - sum(B0), in
+    the factor's arithmetic. ``nut_free`` is NaN where NutFree0 <= 0, where
+    the factor is 1 (no limitation).
+    """
+    prop = max(float(base_free_prop), 0.1)
+    nut_tot = base_sum / (1.0 - prop)
+    nut_free0 = nut_tot - base_sum
+    if nut_free0 <= 0:
+        return float("nan"), nut_free0
+    return max(nut_tot * shape - biomass_sum, 0.00101 * nut_free0), nut_free0
+
+
 def _ewe_hden_update(
     hden_old: np.ndarray, q: np.ndarray, index: np.ndarray, cmco_qb: np.ndarray
 ) -> np.ndarray:
@@ -1806,6 +1843,11 @@ def deriv_vector(
         derivative returns them: ``FoodGain`` (consumption by the group),
         ``FoodLoss`` (eaten by predators), ``MzeroLoss``, ``FishingLoss``
         and ``LossPropToB`` (their sum). Multi-stanza updates use these.
+        The continuous path's mass budget reads ``Production`` (the living
+        kernel's, x RecruitmentMult), ``Import`` (imported diet), ``NutFree``
+        and ``NutFloor`` (the free nutrient as used, NaN without nutrient
+        limitation, and whether its floor binds) and, with detritus links,
+        ``Discards`` and ``DetExport`` (see ``_rpath_detritus_derivs``).
 
     Returns
     -------
@@ -1878,11 +1920,24 @@ def deriv_vector(
             _nut_prop,
             float(forcing.get("NutForcing", 1.0)),
         )
+        if rates is not None:
+            # the free nutrient as used, and whether its floor binds
+            _nut_free, _nut_free0 = _ewe_nutrient_free(
+                float(np.sum(state[_nb])),
+                float(np.sum((Bbase if _nut_base is None else _nut_base)[_nb])),
+                _nut_prop,
+                float(forcing.get("NutForcing", 1.0)),
+            )
+            rates["NutFree"] = _nut_free
+            rates["NutFloor"] = bool(_nut_free <= 0.00101 * _nut_free0)
         if _nut_f != 1.0:
             PP_forcing = np.array(PP_forcing, dtype=float, copy=True)
             _producer = np.asarray(PP_type, dtype=float)[: len(PP_forcing)] > 0
             _producer[0] = False
             PP_forcing[_producer] *= _nut_f
+    elif rates is not None:
+        rates["NutFree"] = float("nan")  # no nutrient limitation
+        rates["NutFloor"] = False
     # Ecospace feeding efficiency (EwE's EatEff = the cell's habitat capacity):
     # it scales producers' production (pbb, cSpaceSolver.vb 1008) and divides
     # consumers' predator term in the vulnerable pool (vb 883)
@@ -2455,6 +2510,24 @@ def deriv_vector(
         rates["EmigLoss"] = emig_loss
         rates["LossPropToB"] = food_loss + mzero_loss + fishing_loss + emig_loss
         rates["LossPropToB"][0] = 0.0
+        # The living kernel's production x RecruitmentMult, by its branches:
+        # a producer's primary production (PP_type as the kernel's int), a
+        # consumer's GE x consumption (row 0, the import, included), else
+        # PB x B. IBM groups have none.
+        _lv = slice(1, NUM_LIVING + 1)
+        _production = np.zeros(NUM_GROUPS + 1)
+        _production[_lv] = _RecruitmentMult[_lv] * np.where(
+            _PP_type_int[_lv] > 0,
+            pp_rates[_lv],
+            np.where(
+                QB[_lv] > 0.0,
+                _GE_arr[_lv] * QQ[:, _lv].sum(axis=0),
+                PB[_lv] * BB[_lv],
+            ),
+        )
+        _production[_ibm_mask != 0] = 0.0
+        rates["Production"] = _production
+        rates["Import"] = import_q.copy()
 
     # Post-kernel instrumentation / debug logging for living groups
     # (kept outside numba kernel because it uses Python objects: strings, logging, etc.)
@@ -2542,6 +2615,7 @@ def deriv_vector(
     # rsim_run passes Rpath's detritus links; use Rpath's budget then.
     _det_link_from = params.get("DetLinkFrom", None)
     if _det_link_from is not None:
+        _det_flows: dict = {}  # Discards and DetExport, for the rates
         det_gain, det_loss = _rpath_detritus_derivs(
             deriv,
             QQ,
@@ -2566,6 +2640,7 @@ def deriv_vector(
             det_emig=_emig,
             pass_on=params.get("_detritus_pass_on", True),
             df_once=params.get("DETRITUS_DF_ONCE", False),
+            flows=None if rates is None else _det_flows,
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)
@@ -2573,6 +2648,11 @@ def deriv_vector(
             rates["DetLoss"] = np.zeros(NUM_GROUPS + 1)
             rates["DetGain"][dead] = det_gain[dead]
             rates["DetLoss"][dead] = det_loss[dead]
+            _n_bio = NUM_LIVING + NUM_DEAD
+            rates["Discards"] = np.zeros(NUM_GROUPS + 1)
+            rates["Discards"][dead] = _det_flows["Discards"][dead]
+            rates["DetExport"] = np.zeros(NUM_GROUPS + 1)
+            rates["DetExport"][1 : _n_bio + 1] = _det_flows["DetExport"][1:]
             # Rpath TotGain / TotLoss (biomeq = TotGain / (TotLoss / B)).
             # Living gain is all consumption, including a producer's link
             # from group 0; every remaining term of the derivative is loss.
