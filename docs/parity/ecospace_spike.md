@@ -119,4 +119,17 @@ This case is the yardstick for each step. Step 3 and the nutrient pool are hypot
 
    The remaining juvenile anchovy maximum is late drift in year 10, where EwE has 0.004 t/km². Aurelia (27 %) and POM (22 %) are untouched.
 
+7. Follow EwE's Ecospace detritus inflow (B7). **Done** (`EcospaceParams.detritus_pass_on`, `test_ecospace_detritus_pass_on.py`). After B6 the largest gaps were Aurelia (27 %) and POM (22 %).
+   - **Aurelia was inherited.** Its month-1 link flows and Q/B match EwE's exactly and it has no predators: its level follows its food, half of it POM.
+   - **POM and Detritus grew too fast.** Their losses matched EwE's (TotalLoss at month 1: POM 10.60 vs 10.58), and so did DetritusOut (an oracle dump: EwE's Ecospace 0.0462, Ecosim 0.0449, PyPath 0.0449) and the inflow parameters GS, mo, DF and DetPassedProp (a second dump). Yet EwE's POM gained about 2.9 less per unit area a month than its own formula gives from its own flows and biomass.
+   - **The cause.** From month 3 that shortfall equals the flow the other pool passes on (POM: 0.0797 x B(Detritus) x 0.3 = 2.13 / 2.34 / 2.85 at months 12 / 24 / 60, against shortfalls of 2.17 / 2.34 / 2.83). EwE's `SimDetritusSpace` loops over group indices 1 to nDet, living groups, so no pool receives anything from another.
+   - **Ruled out on the way:** detritus import and migration (none in the model), the flow a pool sends itself (both codes skip it), an open map edge (`SetBoundaryDepths`; no Black Sea water cell touches the grid edge) and the mortality multiplier (no response maps).
+
+   | | area mean: median / max | Aurelia max / median | POM max / median | cell maps (median distance), months 12 / 60 / 120 |
+   |---|---|---|---|---|
+   | B6 | 3.4 % / 35 % | 27 % / 22 % | 22 % / 16 % | 0.005 / 0.011 / 0.017 |
+   | B7 | 2.4 % / 26 % | 6 % / 3 % | at most 6 % max | 0.005 / 0.010 / 0.012 |
+
+   Not followed: EwE's first Ecospace step applies 2/3 of the month's change (BDF2 starting from the start state), visible in the detritus pools' first month.
+
 Each step can then be pinned against the oracle, as the Ecosim fixes were. The oracle numbers (area means, cell maps, grid) can be committed as test data when the first of these steps lands. The water cells are committed (`packages/pypath/tests/data/ewe_oracle/blacksea/`); the rest follows with the steps that use it.

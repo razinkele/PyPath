@@ -391,6 +391,14 @@ class EcospaceParams:
         spread by it (``pypath.spatial.stanza_space``). False spreads each
         stage's total by the patches' current shares of it.
         ``read_ecospace`` sets it from the scenario's ModelType.
+    detritus_pass_on : bool
+        Pass detritus from one detritus pool to another in each patch, as
+        Ecosim does (DetPassedProp x B x DF under the EwE rule, the pool's
+        detritus links under Rpath's). False (the default) follows EwE
+        6.7.144's Ecospace, where no pool receives anything from another
+        (cSpaceSolver.vb 1519-1526); a donor still loses its share in the
+        export rate taken from Ecosim. With False a uniform map differs from
+        Ecosim for a model whose detritus pools pass to each other.
     """
 
     grid: EcospaceGrid
@@ -404,6 +412,7 @@ class EcospaceParams:
         None  # EnvironmentalDrivers when available
     )
     new_multi_stanza: bool = True
+    detritus_pass_on: bool = False
 
     def __post_init__(self):
         """Validate spatial parameters."""

@@ -248,7 +248,8 @@ def test_rpath_rule_keeps_the_rpath_links():
 
 def test_ecospace_patches_follow_ecosim():
     """Unequal patch areas, uniform habitat: every patch keeps Ecosim's
-    densities, so the map total follows rsim_run."""
+    densities, so the map total follows rsim_run. With Ecosim's pass-on
+    between pools: EwE's Ecospace, PyPath's default, passes none (B7)."""
     from pypath.spatial import EcospaceParams, create_1d_grid, rsim_run_spatial
 
     sc = _scenario()
@@ -262,6 +263,7 @@ def test_ecospace_patches_follow_ecosim():
         dispersal_rate=np.zeros(n),
         advection_enabled=np.zeros(n, dtype=bool),
         gravity_strength=np.zeros(n),
+        detritus_pass_on=True,
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

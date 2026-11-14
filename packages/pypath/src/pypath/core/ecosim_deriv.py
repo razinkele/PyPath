@@ -797,6 +797,7 @@ def _rpath_detritus_derivs(
     det_ba=None,
     det_out=None,
     det_emig=None,
+    pass_on=True,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -821,6 +822,11 @@ def _rpath_detritus_derivs(
     (Emig + DetritusOut) x B, and DetritusOut is set Emig lower, at least
     1e-20 (vb 3206). A pool's immigration comes in ``det_input``.
 
+    ``pass_on=False`` drops what a pool receives from another detritus pool,
+    as EwE 6.7.144's Ecospace does (cSpaceSolver.vb 1519-1526 loops over group
+    indices 1 to nDet, living groups); the donor's losses and a pool's flow
+    to itself are unchanged.
+
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
     """
@@ -840,12 +846,13 @@ def _rpath_detritus_derivs(
         dest = int(det_to[k])
         if src < 1 or src > n_bio:
             continue  # gear rows carry no M0 / unassimilated flow
+        received = pass_on or src <= NUM_LIVING or dest == src
         if ewe and src > NUM_LIVING:
-            if dest != src and NUM_LIVING < dest <= n_bio:
+            if dest != src and NUM_LIVING < dest <= n_bio and received:
                 det_gain[dest] += det_passed_prop[src] * det_frac[k] * BB[src]
             continue
         flow = float(det_frac[k]) * (mzero_loss[src] + unassim_loss[src])
-        if 0 < dest <= n_bio:
+        if 0 < dest <= n_bio and received:
             det_gain[dest] += flow
         if src > NUM_LIVING:
             det_loss[src] += flow
@@ -2350,6 +2357,7 @@ def deriv_vector(
             det_ba=params.get("DetBA"),
             det_out=params.get("_det_out"),
             det_emig=_emig,
+            pass_on=params.get("_detritus_pass_on", True),
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)
