@@ -6,6 +6,145 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.6.0 (2026-11-14)
+
+### Bug Fixes
+
+- **analysis**: Pre-balance trophic levels follow the diet (were all 1)
+  ([`2209259`](https://github.com/razinkele/PyPath/commit/2209259601e2695144a1c97554bce2c19b4abb53))
+
+- **ci**: Release jobs need the package job to have succeeded
+  ([`e7c0dfc`](https://github.com/razinkele/PyPath/commit/e7c0dfc88276517ffc4833551f4894bfdaa47c10))
+
+- **ecosim**: EwE's other mortality for groups with EE > 1 (M0)
+  ([`8404963`](https://github.com/razinkele/PyPath/commit/8404963a7c1b125af1df7acfe686def045efd927))
+
+- **ecosim**: Mediation keeps cannibal links, unreadable shapes and IBM densities
+  ([`41c13e8`](https://github.com/razinkele/PyPath/commit/41c13e889e473d0df8597c901d570460dd60477a))
+
+- **ecosim**: Out_Catch includes forced F and forced catch
+  ([`9ca401b`](https://github.com/razinkele/PyPath/commit/9ca401b1653c5256f245dd14d898d19c9faa94a4))
+
+- **ecosim**: Review follow-ups for detritus migration
+  ([`634247f`](https://github.com/razinkele/PyPath/commit/634247f969266509c45814351ff1ce104d1f1276))
+
+- **ecosim**: The fast-group test counts emigration (A1-s2)
+  ([`a843b5e`](https://github.com/razinkele/PyPath/commit/a843b5e1eb1a02ffd3eaa16fc554dda4a44a5e99))
+
+- **ecospace**: Direct deriv_vector_spatial calls take EcospaceParams.detritus_pass_on
+  ([`1bc4691`](https://github.com/razinkele/PyPath/commit/1bc4691a558e3d12ab49e4248d4e8754c92f366f))
+
+- **ecospace**: EwE grid centroids in degrees from the top-left corner
+  ([`4a64b60`](https://github.com/razinkele/PyPath/commit/4a64b60fd297919036e8a401897c4adf4f5ad2e3))
+
+- **ecospace**: HabCap sweeps in Single on NumPy 1.x; unreadable tables warn (CodeRabbit)
+  ([`7cf4d17`](https://github.com/razinkele/PyPath/commit/7cf4d17d1a9cca5f40d68eaabe0bd080f8d3bb9b))
+
+- **ecospace**: Habitat rows normalised by their maximum, as EwE's HabCap
+  ([`2db764d`](https://github.com/razinkele/PyPath/commit/2db764ddee3b1488f7781413ac227d2e88ba1915))
+
+- **ecospace**: Map values EwE cannot parse are NULL, as in EwE (review)
+  ([`c2c30fa`](https://github.com/razinkele/PyPath/commit/c2c30fa092ebcfd0a45e173cb849550a7f82e928))
+
+- **ecospace**: Place Ecospace groups through EcopathGroupID; Single HabCap (review)
+  ([`875fd4b`](https://github.com/razinkele/PyPath/commit/875fd4b68c45aea03bbbc1e4895e0a7abae4eeac))
+
+- **ecospace**: Read_ecospace converts Mvel to EwE's movement rate (B1, reader)
+  ([`ad6eb71`](https://github.com/razinkele/PyPath/commit/ad6eb71fe317f6ac15ea6ee8ca4be62c0e765ce5))
+
+- **ecospace**: Weigh the stanza averages by patch amounts; keep advected species' transport
+  ([`d9cfebd`](https://github.com/razinkele/PyPath/commit/d9cfebd2586279878c767fe5bb2c02af3d0151ad))
+
+- **ecospace**: Writers store Mvel back from Mrate; one CellLength default (review)
+  ([`8901d84`](https://github.com/razinkele/PyPath/commit/8901d8451e8070f0a719b971292abdac84c80e5f))
+
+- **examples**: Track the example models' CSV files
+  ([`586e51e`](https://github.com/razinkele/PyPath/commit/586e51eefe7cd32e1291ceac5c495a0dd5edbcfc))
+
+- **fleet**: A new quota year reopens TAC-closed links in its first month
+  ([`066dcf9`](https://github.com/razinkele/PyPath/commit/066dcf9f4c57daa7b064a296be1b3c7f0fac56aa))
+
+- **io**: An EwE-F growth row without a name keeps its place
+  ([`15bac8c`](https://github.com/razinkele/PyPath/commit/15bac8c957ed06456350776a3bf8a0696c6cbe91))
+
+- **io**: EwE readers on real EwE files; Value Chain SQLite refused
+  ([#112](https://github.com/razinkele/PyPath/pull/112),
+  [`182e12a`](https://github.com/razinkele/PyPath/commit/182e12a7a4cacb012ae1f02ef21b5d78dc09f029))
+
+- **mediation**: Review follow-ups for fleet mediators
+  ([`4a3ad72`](https://github.com/razinkele/PyPath/commit/4a3ad7203847ddd5d565992078843b2e337ce951))
+
+- **spatial**: Habitat fishing averages every EcospaceParams group row
+  ([`ad38826`](https://github.com/razinkele/PyPath/commit/ad3882684da11539117d98e427073cbf23da0f89))
+
+- **spatial**: Keep implicit-step factorisations per run, not on the grid (review)
+  ([`9f36fe4`](https://github.com/razinkele/PyPath/commit/9f36fe4dc67fdcc18477244404c19d455403dfa6))
+
+### Features
+
+- **ecopath**: BiomAccRate solved with the balance, as in EwE (A1-rate)
+  ([`fc3b3fe`](https://github.com/razinkele/PyPath/commit/fc3b3fedca89448bb7be84c79a670ffebd66bbcf))
+
+- **ecopath,ecosim**: EwE's migration of living groups (A1-s2)
+  ([`a40d7de`](https://github.com/razinkele/PyPath/commit/a40d7deaa5d446befc2464223f03b81f2f28ba2b))
+
+- **ecosim**: Detritus migration, as EwE moves it (A1-s2)
+  ([`4e84fc2`](https://github.com/razinkele/PyPath/commit/4e84fc204f07af7bc9ff51f71754241f826cad73))
+
+- **ecosim**: EwE's pred/prey mediation functions (D3)
+  ([`f258612`](https://github.com/razinkele/PyPath/commit/f258612b956e8f654444b503390e83ed8ce0e5d4))
+
+- **ecosim**: Fleet effort as a mediator of pred/prey mediation (D3)
+  ([`380adf6`](https://github.com/razinkele/PyPath/commit/380adf68a6c9f8a502711bffc7158ad38ba50b68))
+
+- **ecosim**: Non-additive predation mortality, AdditivePredMort (PaddP)
+  ([`ca99634`](https://github.com/razinkele/PyPath/commit/ca99634fbc698c2bdcc49979f20644903cf9ae04))
+
+- **ecospace**: EwE's base calibration and nutrient rule (B5)
+  ([`eb03b2d`](https://github.com/razinkele/PyPath/commit/eb03b2d70b670b3dd5cddf3cbbe52b6ccc2084c6))
+
+- **ecospace**: EwE's capacity-weighted movement (B2)
+  ([`6ec7419`](https://github.com/razinkele/PyPath/commit/6ec7419f3a004a4d3382bcb12857cc9c69df289f))
+
+- **ecospace**: EwE's NewMultiStanza distribution of stanza groups (B6)
+  ([`e23cba8`](https://github.com/razinkele/PyPath/commit/e23cba8f71bb9ef1b11fd009d358b5bac8132f66))
+
+- **ecospace**: Habitat capacity always applies (P6, B4 always on)
+  ([`abdd71e`](https://github.com/razinkele/PyPath/commit/abdd71e535b7888d0d9869c21508e2682dac2c8e))
+
+- **ecospace**: No detritus passed between pools, as EwE's Ecospace (B7)
+  ([`8e1d6c5`](https://github.com/razinkele/PyPath/commit/8e1d6c536755beaa4b4b79dc9d23f55a22c48e44))
+
+- **ecospace**: Read EwE's depth map, the grid holds only water cells (P6)
+  ([`79eac3a`](https://github.com/razinkele/PyPath/commit/79eac3acb481ee836297d0c17f7d50cc53407e5f))
+
+- **ecospace**: Read EwE's habitat capacity on EwE's grid (P6, B4 part 1)
+  ([`1fab0ce`](https://github.com/razinkele/PyPath/commit/1fab0ce342121542d735662c3db99bc2721ed9d8))
+
+- **ecospace**: Read_ecospace(grid_corner=) for databases storing the south-west corner
+  ([`ae28c3b`](https://github.com/razinkele/PyPath/commit/ae28c3b6d9d5150c63c01b7a2ba5a956a73f9b35))
+
+- **ecospace**: Write the stanza model as EwE's ModelType; cover Rpath's rule
+  ([`ca5cb89`](https://github.com/razinkele/PyPath/commit/ca5cb8931b361c07a694d9cf375f08836d712bf6))
+
+- **examples**: Three EPath models shipped, read as EwE-F reads them
+  ([`52c7468`](https://github.com/razinkele/PyPath/commit/52c746814edb6075163b5bf391d7438b9f89eeb7))
+
+- **io**: EcopathGroup.OtherMort sets EE as in EwE (A1-s2)
+  ([`6cd6432`](https://github.com/razinkele/PyPath/commit/6cd6432ffa05a960c5a9682b66e05d2fcc38ce08))
+
+- **spatial**: Implicit (backward-Euler) movement step in Ecospace runs (B3)
+  ([`13f5506`](https://github.com/razinkele/PyPath/commit/13f5506c4bfddcc33f227ee5e67fb0b26294e38d))
+
+- **spatial**: Rsim_run_spatial checks Ecospace rows against NUM_GROUPS
+  ([`aec8d00`](https://github.com/razinkele/PyPath/commit/aec8d00b06f51e6e2ac4c129e1113c2065ffd0e3))
+
+### Performance Improvements
+
+- **spatial**: Edge distances for diffusion and gravity, not an all-pairs matrix
+  ([`39b1474`](https://github.com/razinkele/PyPath/commit/39b147448bfc8ef4391298134fc1352b42cdf1c5))
+
+
 ## v1.5.0 (2026-11-12)
 
 ### Bug Fixes

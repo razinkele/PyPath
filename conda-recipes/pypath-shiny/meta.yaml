@@ -20,7 +20,7 @@ requirements:
     - pip
   run:
     - python >=3.10
-    - pypath-ewe >=1.5.0
+    - pypath-ewe >=1.6.0
     # pypath-ewe[interactive,spatial] (conda has no extras)
     - plotly >=5.17.0
     - networkx >=3.0
