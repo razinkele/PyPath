@@ -446,17 +446,33 @@ def integrate_month(
     else:
         logger.warning("month means use the start state (no dense output)")
 
+    def _mean_rates(w_nodes, y_nodes):
+        food = loss = None
+        for w, y in zip(w_nodes, y_nodes):
+            r = rhs.rates(y)
+            fg = np.asarray(r["FoodGain"], dtype=float)
+            lp = np.asarray(r["LossPropToB"], dtype=float)
+            if not (
+                np.all(np.isfinite(fg[1 : n + 1]))
+                and np.all(np.isfinite(lp[1 : n + 1]))
+            ):
+                return None
+            b = np.zeros(len(lp))
+            b[1 : n + 1] = y
+            lr = np.divide(lp, b, out=np.zeros_like(lp), where=b != 0.0)
+            food = w * fg if food is None else food + w * fg
+            loss = w * lr if loss is None else loss + w * lr
+        return food, loss
+
     y_mean = weights @ ys
-    food = loss = None
-    for w, y in zip(weights, ys):
-        r = rhs.rates(y)
-        fg = np.asarray(r["FoodGain"], dtype=float)
-        lp = np.asarray(r["LossPropToB"], dtype=float)
-        b = np.zeros(len(lp))
-        b[1 : n + 1] = y
-        lr = np.divide(lp, b, out=np.zeros_like(lp), where=b != 0.0)
-        food = w * fg if food is None else food + w * fg
-        loss = w * lr if loss is None else loss + w * lr
+    means = _mean_rates(weights, ys)
+    if means is None:
+        _fail("non-finite rates at a quadrature node", "using the start state's rates")
+        weights, ys = np.array([1.0]), y0[None, :]
+        means = _mean_rates(weights, ys)
+        if means is None:
+            raise RuntimeError("month integration failed: non-finite start rates")
+    food, loss = means
 
     y_end = np.maximum(y_last, _Y_FLOOR)
     return MonthResult(
