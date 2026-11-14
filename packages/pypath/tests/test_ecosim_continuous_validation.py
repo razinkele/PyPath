@@ -249,6 +249,8 @@ def test_black_sea_and_lt2022_run(model):
     assert np.all(np.isfinite(bio)) and np.all(bio > 0)
     months = lsoda.solver_info["months"]
     assert len(months) == 120 and all(m["status"] == 0 for m in months)
+    assert not any(m["degraded"] for m in months)
+    assert sum(m["clips"] for m in months) == 0
 
     rel = np.abs(bio[1:] / rk4.out_Biomass[1:, 1 : n_bio + 1] - 1)
     living = rel[:, :n_living]

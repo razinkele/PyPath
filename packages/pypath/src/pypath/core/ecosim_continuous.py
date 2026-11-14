@@ -1,8 +1,10 @@
 """Continuous integration pathway for Ecosim (independent of the EwE pathway).
 
-This module starts with the handling-time solver. Under EwE's rule the
-derivative scales each predator's search rate by ``Hden0 / Hden`` where
-``Hden`` satisfies the disc-equation fixed point
+The pathway's pieces: the handling-time solver (``solve_hden``), the pure
+right-hand side (``ContinuousRHS``) and the month integrator
+(``integrate_month``) that ``rsim_run`` calls for the continuous methods.
+Under EwE's rule the derivative scales each predator's search rate by
+``Hden0 / Hden`` where ``Hden`` satisfies the disc-equation fixed point
 
     Hden = 1 + Hden * q(Hden) / (CmCo * QB * index)
 
@@ -215,12 +217,20 @@ class ContinuousRHS:
     forcing, the non-state slots of the full state vector (slot 0, gears) and
     the forced groups are held from :meth:`set_month`. Evaluation is a pure
     function of ``(t, y)``: handling time is solved exactly at each state from
-    a fixed start, and the private copy of ``params_dict`` is never written
-    after construction (``_det_out`` is pre-filled at the unforced base state
-    so ``deriv_vector`` has nothing left to set).
+    a fixed start. After construction the only change to the private copy of
+    ``params_dict`` is that each evaluation rebinds its ``_hden`` entry to the
+    Hden solved at that state before its final ``deriv_vector`` call (the
+    solve starts from ``_hden0``, not from that entry, so no evaluation
+    depends on an earlier one). No array is written in place: ``_det_out`` is
+    pre-filled at the unforced base state so ``deriv_vector`` has nothing left
+    to set.
 
-    Differences from the EwE pathway are listed in ``corrections``; EwE
-    numerics switches this pathway does not honour are in ``ignored_switches``.
+    With ``corrections`` True (the default) the defect corrections R2, R4, R5
+    and DF once are applied; with False none of them is, and the scenario's
+    flags and emigration are kept. The recalibrated Hden0 and the exact Hden
+    are not defect corrections and apply either way. Differences from the EwE
+    pathway are listed in ``self.corrections``; EwE numerics switches this
+    pathway does not honour are in ``ignored_switches``.
     """
 
     def __init__(
@@ -230,23 +240,27 @@ class ContinuousRHS:
         n_bio: int,
         b0: np.ndarray,
         switches: Optional[dict] = None,
+        *,
+        corrections: bool = True,
     ):
         self.n_bio = int(n_bio)
         self.fishing = fishing_dict
         pd = dict(params_dict)
-        pd["DETRITUS_MO_UNSCALED"] = False
-        pd["DETRITUS_MO_TOT"] = True
-        pd["DETRITUS_DF_ONCE"] = True
         pd["_hden_exact"] = True
-        self.corrections = ["R2", "R4", "R5", "DF once"]
+        self.corrections = []
+        if corrections:
+            pd["DETRITUS_MO_UNSCALED"] = False
+            pd["DETRITUS_MO_TOT"] = True
+            pd["DETRITUS_DF_ONCE"] = True
+            pd["Emig"] = continuous_emig(
+                pd.get("Emig"), pd.get("EmigRate"), int(pd["NUM_LIVING"])
+            )
+            self.corrections += ["R2", "R4", "R5", "DF once"]
         self.cmco_qb = None
         if pd.get("_hden") is not None and pd.get("_cmco_qb") is not None:
             self.cmco_qb = np.array(pd["_cmco_qb"], dtype=float, copy=True)
             pd["_hden0"] = recalibrated_hden0(pd, self.cmco_qb)
             self.corrections.append("Hden0 recalibrated")
-        pd["Emig"] = continuous_emig(
-            pd.get("Emig"), pd.get("EmigRate"), int(pd["NUM_LIVING"])
-        )
         n_full = int(pd["NUM_GROUPS"]) + 1
         base = np.zeros(n_full)
         b0 = np.asarray(b0, dtype=float)
@@ -362,8 +376,17 @@ class MonthResult:
     whose entries ``1..n_bio`` correspond to ``y``.
 
     ``y_end`` is floored at 1e-20; ``y_mean`` is the quadrature mean of the
-    dense output, unfloored. ``loss_rate_mean`` is the time mean of
-    ``LossPropToB / B`` (0 where B = 0 at a node).
+    dense output clipped at 0 (not floored), so a group at the floor has a
+    mean of 0, not a small negative number. ``loss_rate_mean`` is the time
+    mean of ``LossPropToB / B`` (0 where B = 0 at a node).
+
+    ``steps`` is the number of solver steps (``len(sol.t) - 1``). ``status``
+    and ``message`` are as SciPy reports them; ``t_reached`` is the end of the
+    interval reached (``dt`` unless the solve failed).
+    ``degraded`` is True when any of the means fell back to the start state:
+    non-finite dense output, non-finite rates at a quadrature node, or no
+    interval to average over. A failed solve whose means are taken over the
+    interval reached is not degraded; ``status`` and ``t_reached`` show it.
     """
 
     y_end: np.ndarray
@@ -373,9 +396,11 @@ class MonthResult:
     nfev: int
     njev: int
     nlu: int
+    steps: int
     status: int
     message: str
     t_reached: float
+    degraded: bool
 
 
 def integrate_month(
@@ -387,13 +412,19 @@ def integrate_month(
     atol,
     *,
     on_failure: str = "raise",
+    label: Optional[str] = None,
 ) -> MonthResult:
     """Solve one month with ``solve_ivp`` and average rates by quadrature.
 
     The means are 6-point Gauss-Legendre quadrature of the dense output over
     the month (over the interval actually reached after a failure). With
     ``on_failure="warn"`` a failed solve logs a warning and returns the last
-    state reached; otherwise it raises ``RuntimeError``.
+    state reached; otherwise it raises ``RuntimeError``. Even with "warn", a
+    non-finite derivative or non-finite rates at the start state raise, and
+    so does any exception from ``rhs`` itself (such as a handling-time solve
+    that fails inside the right-hand side). ``label`` (``rsim_run`` passes
+    ``"month m (year y)"``) prefixes the logged warnings; ``rsim_run`` adds
+    the month to raised errors itself.
     """
     y0 = np.asarray(y0, dtype=float)
     n = len(y0)
@@ -412,11 +443,13 @@ def integrate_month(
         max_step=dt,
     )
     warn = on_failure == "warn"
+    prefix = f"{label}: " if label else ""
+    degraded = False
 
     def _fail(reason: str, tail: str) -> None:
         if not warn:
             raise RuntimeError(f"month integration failed: {reason}")
-        logger.warning("month integration failed (%s); %s", reason, tail)
+        logger.warning("%smonth integration failed (%s); %s", prefix, reason, tail)
 
     failed = sol.status < 0
     if failed:
@@ -443,8 +476,10 @@ def integrate_month(
             weights, ys = 0.5 * _GL_W, cand
         else:
             _fail("non-finite dense output", "using the start state for the means")
+            degraded = True
     else:
-        logger.warning("month means use the start state (no dense output)")
+        logger.warning("%smonth means use the start state (no dense output)", prefix)
+        degraded = True
 
     def _mean_rates(w_nodes, y_nodes):
         food = loss = None
@@ -464,10 +499,11 @@ def integrate_month(
             loss = w * lr if loss is None else loss + w * lr
         return food, loss
 
-    y_mean = weights @ ys
+    y_mean = np.maximum(weights @ ys, 0.0)
     means = _mean_rates(weights, ys)
     if means is None:
         _fail("non-finite rates at a quadrature node", "using the start state's rates")
+        degraded = True
         weights, ys = np.array([1.0]), y0[None, :]
         means = _mean_rates(weights, ys)
         if means is None:
@@ -483,7 +519,9 @@ def integrate_month(
         nfev=int(sol.nfev),
         njev=int(getattr(sol, "njev", 0) or 0),
         nlu=int(getattr(sol, "nlu", 0) or 0),
+        steps=len(sol.t) - 1,
         status=int(sol.status),
         message=str(sol.message),
         t_reached=t_reach,
+        degraded=degraded,
     )

@@ -18,15 +18,16 @@ SWITCHES = (
 )
 
 
-def build(scen, forcing_edit=None):
-    """Return ``(rhs, pd, fd, fi, state)`` for month 1 of ``scen``."""
+def build(scen, forcing_edit=None, **kwargs):
+    """Return ``(rhs, pd, fd, fi, y0)`` for month 1 of ``scen``; ``y0`` is the
+    base biomass of groups 1..n_bio. ``kwargs`` go to ``ContinuousRHS``."""
     state, pd, fd, fi = run_dicts(scen)
     if forcing_edit:
         forcing_edit(fd)
     n_bio = pd["NUM_LIVING"] + pd["NUM_DEAD"]
     switches = {k: getattr(scen.params, k, None) for k in SWITCHES}
     b0 = np.array(pd["Bbase"], dtype=float)
-    rhs = ContinuousRHS(pd, fi, n_bio, b0, switches=switches)
+    rhs = ContinuousRHS(pd, fi, n_bio, b0, switches=switches, **kwargs)
     n1 = pd["NUM_GROUPS"] + 1
     rhs.set_month(fd, state, np.zeros(n1, dtype=bool), np.zeros(n1))
     return rhs, pd, fd, fi, b0[1 : n_bio + 1].copy()
@@ -179,6 +180,47 @@ def test_the_corrections_and_ignored_switches_are_recorded():
         assert name in rhs.corrections
     assert "RK4_FAST_EQUILIBRIUM" in rhs.ignored_switches
     assert "STANZA_STAGE_RATES" in rhs.ignored_switches
+
+
+def test_corrections_can_be_turned_off():
+    """``corrections=False`` leaves R2, R4, R5 and DF once out; handling time
+    keeps the recalibrated Hden0 and the exact solve."""
+    scen = scenario(reco_plain(), rule="ewe", effort=1.0)
+    rhs, pd, *_ = build(scen, neutral, corrections=False)
+    assert pd["DETRITUS_MO_UNSCALED"]  # the EwE rule's value
+    assert rhs._pd["DETRITUS_MO_UNSCALED"] == pd["DETRITUS_MO_UNSCALED"]
+    assert "DETRITUS_MO_TOT" not in rhs._pd
+    assert "DETRITUS_DF_ONCE" not in rhs._pd
+    assert rhs._pd["_hden_exact"] is True
+    assert rhs.corrections == ["Hden0 recalibrated"]
+    on, *_ = build(scen, neutral)
+    assert on._pd["DETRITUS_MO_UNSCALED"] is False
+    assert on._pd["DETRITUS_MO_TOT"] is True and on._pd["DETRITUS_DF_ONCE"] is True
+
+
+def test_emig_rate_reaches_the_continuous_rhs_only():
+    """R4: a living group's EmigRate is a loss on the continuous path alone."""
+    from pypath.core.ecosim import rsim_run
+
+    g = 12  # OtherGroundfish, no Emigration entered
+    scen = scenario(reco_plain(), rule="ewe", effort=1.0)
+    _, pd, _, _ = run_dicts(scen)
+    assert pd.get("Emig") is None or pd["Emig"][g] == 0.0
+    scen.params.EmigRate[g] = 0.05
+    rhs, pd, fd, fi, y0 = build(scen, neutral)
+    assert pd["EmigRate"][g] == 0.05
+    dy = rhs(0.0, y0)
+    rel = dy / y0
+    assert rel[g - 1] == pytest.approx(-0.05, rel=1e-6)
+    others = np.delete(np.abs(rel), g - 1)
+    assert others.max() < 1e-9
+    off, *_ = build(scen, neutral, corrections=False)
+    assert abs(off(0.0, y0)[g - 1] / y0[g - 1]) < 1e-9
+    # the parity path ignores it
+    plain = scenario(reco_plain(), rule="ewe", effort=1.0)
+    with_rate = rsim_run(scen, method="RK4", years=range(1, 2))
+    without = rsim_run(plain, method="RK4", years=range(1, 2))
+    assert np.array_equal(with_rate.out_Biomass, without.out_Biomass)
 
 
 def test_stats_and_forced_groups():

@@ -462,7 +462,8 @@ class RsimOutput:
         month (n_months+1 x n_groups+1; row 0 the run's start, CmCo / (CmCo +
         1)). None when ``EWE_HANDLING_TIME`` is off. Recorded by ``rsim_run``;
         Ecospace keeps one Hden per patch and does not record it. On the
-        continuous path, Hden solved exactly at each month-end state, and at
+        continuous path, Hden solved exactly at each month's integrated end
+        state, before the stanza update overwrites the stanza groups, and at
         the start state (month-1 forcing) in row 0.
     end_state : RsimState
         Final state at end of simulation
@@ -482,7 +483,8 @@ class RsimOutput:
         Continuous path only: ``method``, ``rtol``, ``atol``, the
         ``corrections`` applied, the EwE numerics switches ignored
         (``ignored_switches``) and per month (``months``) ``nfev``, ``njev``,
-        ``nlu``, ``status``, ``t_reached``, ``clips``, ``hden_evals_max`` and
+        ``nlu``, ``steps``, ``status``, ``t_reached``, ``degraded`` (a month
+        mean fell back to the start state), ``clips``, ``hden_evals_max`` and
         ``min_state``. None for RK4 and AB.
     out_Catch_month_end : np.ndarray or None
         Continuous path only: EwE's booking, the month's F times the
@@ -1735,13 +1737,22 @@ def rsim_run(
         Years to run (default: all years in scenario)
     solver_options : dict, optional
         Options of the continuous methods (unused by RK4 and AB):
-        ``rtol`` (default 1e-6), ``atol`` (a scalar or one value per group
-        1..NUM_LIVING + NUM_DEAD; default ``1e-8 x max(B0, 1e-6 x max(B0))``)
-        and ``on_failure`` (``"raise"``, the default, or ``"warn"`` to log a
-        failed month and continue from the last state reached). Other keys
-        raise ``ValueError``. On the continuous path ``out_Catch`` is the
-        month's F times the month-mean biomass / 12 (the integral of F x B)
-        and ``out_Catch_month_end`` is EwE's F x month-end biomass / 12.
+        ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar > 0 or one value
+        > 0 per group 1..NUM_LIVING + NUM_DEAD; default
+        ``1e-8 x max(B0, 1e-6 x max(B0))``), ``corrections`` (bool, default
+        True; False leaves out R2, R4, R5 and DF once, while handling time is
+        still solved exactly from the recalibrated Hden0) and ``on_failure``
+        (``"raise"``, the default, or ``"warn"``). A failed month raises
+        ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
+        the month, and the run continues from the last state reached. Even
+        with ``"warn"``, a handling-time solve that fails inside the
+        right-hand side, and a non-finite derivative or non-finite rates at a
+        month's start state, raise. Other keys and invalid values raise
+        ``ValueError``. On the continuous path ``out_Catch`` is the month's F
+        times the month-mean biomass / 12 (the integral of F x B) and
+        ``out_Catch_month_end`` is EwE's F x month-end biomass / 12;
+        ``out_Hden[m]`` is solved at the integrated month-end state, before
+        the stanza update.
 
     Returns
     -------
@@ -1759,11 +1770,13 @@ def rsim_run(
             )
         _cont_method = method.lower()
         _cont_opts = dict(solver_options or {})
-        _unknown_opts = sorted(set(_cont_opts) - {"rtol", "atol", "on_failure"})
+        _unknown_opts = sorted(
+            set(_cont_opts) - {"rtol", "atol", "corrections", "on_failure"}
+        )
         if _unknown_opts:
             raise ValueError(
                 f"Unknown solver_options {_unknown_opts}: use 'rtol', 'atol', "
-                "'on_failure'"
+                "'corrections', 'on_failure'"
             )
         _on_failure = _cont_opts.get("on_failure", "raise")
         if _on_failure not in ("raise", "warn"):
@@ -1771,6 +1784,34 @@ def rsim_run(
                 "solver_options on_failure must be 'raise' or 'warn', got "
                 f"{_on_failure!r}"
             )
+        _corrections = _cont_opts.get("corrections", True)
+        if not isinstance(_corrections, (bool, np.bool_)):
+            raise ValueError(
+                "solver_options corrections must be True or False, got "
+                f"{_corrections!r}"
+            )
+        _rtol_opt = _cont_opts.get("rtol", 1e-6)
+        try:
+            _rtol_ok = np.ndim(_rtol_opt) == 0 and float(_rtol_opt) > 0
+        except (TypeError, ValueError):
+            _rtol_ok = False
+        if not _rtol_ok:  # NaN fails too
+            raise ValueError(f"solver_options rtol must be > 0, got {_rtol_opt!r}")
+        _atol_opt = _cont_opts.get("atol")
+        if _atol_opt is not None:
+            _n_bio_opt = int(scenario.params.NUM_LIVING) + int(scenario.params.NUM_DEAD)
+            try:
+                _atol_arr = np.asarray(_atol_opt, dtype=float)
+            except (TypeError, ValueError):
+                _atol_arr = np.array([np.nan])  # fails the check below
+            if not (
+                _atol_arr.ndim == 0 or _atol_arr.shape == (_n_bio_opt,)
+            ) or not np.all(_atol_arr > 0):
+                raise ValueError(
+                    "solver_options atol must be a scalar > 0 or "
+                    f"{_n_bio_opt} values > 0 (groups 1..NUM_LIVING + "
+                    f"NUM_DEAD), got {_atol_opt!r}"
+                )
         # params_dict["ibm_groups"] is taken from params.ibm_groups below
         if getattr(scenario.params, "ibm_groups", None):
             raise ValueError(
@@ -2470,6 +2511,7 @@ def rsim_run(
                     "RK4_STEPS",
                 )
             },
+            corrections=bool(_corrections),
         )
         _hden_start_pending = False
         _det_out_pending = False
@@ -2729,19 +2771,31 @@ def rsim_run(
             # Ftime held; slot 0 and the gear slots keep their values.
             rhs.set_month(forcing_dict, state, _forced_mask, _forced_now)
             _y0 = np.array(state[1 : _n_bio_c + 1], dtype=float, copy=True)
-            _start_rates = (
-                rhs.rates(_y0)
-                if _has_risk or (month == 1 and out_hden is not None)
-                else None
-            )
+            # a failure in this month names it (start rates and integration)
+            _month_label = f"month {month} (year {year_idx + scenario.start_year})"
+            try:
+                _start_rates = (
+                    rhs.rates(_y0)
+                    if _has_risk or (month == 1 and out_hden is not None)
+                    else None
+                )
+                res = integrate_month(
+                    rhs,
+                    _y0,
+                    dt,
+                    _cont_method,
+                    _rtol,
+                    _atol,
+                    on_failure=_on_failure,
+                    label=_month_label,
+                )
+            except RuntimeError as e:
+                raise RuntimeError(f"{_month_label}: {e}") from e
             if month == 1 and out_hden is not None:
                 out_hden[0] = _start_rates["Hden"]  # Hden solved at the start
             if _has_risk:
                 # RiskTime below reads the predation of the month-start state
                 _fg_rates = _start_rates
-            res = integrate_month(
-                rhs, _y0, dt, _cont_method, _rtol, _atol, on_failure=_on_failure
-            )
             state = state.copy()
             state[1 : _n_bio_c + 1] = res.y_end
             _y_mean_full = np.zeros(n_groups)
@@ -2757,8 +2811,10 @@ def rsim_run(
                     "nfev": res.nfev,
                     "njev": res.njev,
                     "nlu": res.nlu,
+                    "steps": res.steps,
                     "status": res.status,
                     "t_reached": res.t_reached,
+                    "degraded": bool(res.degraded),
                     "clips": int(rhs.stats["clips"]),
                     "hden_evals_max": int(rhs.stats["hden_evals_max"]),
                     "min_state": float(rhs.stats["min_state"]),
@@ -2848,9 +2904,14 @@ def rsim_run(
         out_biomass[month] = state
         if out_hden is not None:
             if _continuous:
-                # Hden solved at the month-end state (before the feeding-time
-                # update below changes the Ftime the RHS holds)
-                out_hden[month] = rhs.rates(res.y_end)["Hden"]
+                # Hden solved at the integrated month-end state res.y_end, as
+                # it was before the stanza update above overwrote the stanza
+                # groups (and before the feeding-time update below changes
+                # the Ftime the RHS holds)
+                try:
+                    out_hden[month] = rhs.rates(res.y_end)["Hden"]
+                except RuntimeError as e:
+                    raise RuntimeError(f"{_month_label}: {e}") from e
             else:
                 out_hden[month] = params_dict["_hden"]
 

@@ -45,6 +45,7 @@ def test_the_month_mean_is_the_exact_integral():
     np.testing.assert_allclose(res.loss_rate_mean[1:], K, rtol=1e-9)
     assert res.loss_rate_mean[0] == 0.0
     assert res.nfev > 0 and res.njev == 0 and res.status == 0
+    assert res.steps >= 1 and res.degraded is False
 
 
 @pytest.mark.parametrize("method", sorted(METHOD_NAMES))
@@ -64,6 +65,8 @@ def test_a_failed_month_raises_or_warns(caplog):
     assert np.all(np.isfinite(res.y_mean))
     assert res.status < 0
     assert 0.0 < res.t_reached < 1.0
+    # averaged over the interval reached: a failure, but no fallback
+    assert res.degraded is False
     tr = res.t_reached
     np.testing.assert_allclose(res.y_end, Y0 * np.exp(-K * tr), rtol=1e-6)
     np.testing.assert_allclose(
@@ -142,6 +145,7 @@ def test_a_non_finite_final_state_is_a_failure(monkeypatch, caplog):
         res = _run("warn")
     assert np.all(np.isfinite(res.y_end))
     assert res.t_reached == 0.0
+    assert res.degraded is True  # no interval reached: the start state's means
     assert any("non-finite final state" in r.getMessage() for r in caplog.records)
 
 
@@ -152,6 +156,7 @@ def test_non_finite_dense_states_are_a_failure(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim_continuous"):
         res = _run("warn")
     np.testing.assert_allclose(res.y_mean, Y0)
+    assert res.status == 0 and res.t_reached == 1.0 and res.degraded is True
     assert any("non-finite dense output" in r.getMessage() for r in caplog.records)
 
 
@@ -171,4 +176,38 @@ def test_non_finite_rates_are_a_failure(caplog):
         res = integrate_month(_NanRates(), *args, on_failure="warn")
     assert np.all(np.isfinite(res.food_gain_mean))
     assert np.all(np.isfinite(res.loss_rate_mean))
+    assert res.status == 0 and res.t_reached == 1.0 and res.degraded is True
     assert any("non-finite rates" in r.getMessage() for r in caplog.records)
+
+
+def test_steps_count_the_solver_steps(monkeypatch):
+    _patched(monkeypatch, _good(1.0), _good)
+    res = _run("raise")
+    assert res.steps == 1  # the stub's t is [0, 1]
+    assert res.degraded is False
+
+
+def test_the_month_mean_is_clipped_at_zero(monkeypatch):
+    """A dense output dipping below 0 gives a mean of exactly 0, not 1e-20."""
+    _patched(monkeypatch, np.array([1e-20, 1.0]), lambda t: np.array([-1e-14, 1.0]))
+    res = _run("raise")
+    assert res.y_mean[0] == 0.0
+    assert res.y_mean[1] == pytest.approx(1.0, rel=1e-12)
+    assert res.degraded is False
+
+
+def test_a_label_names_the_failure_in_the_warning(caplog):
+    rhs = Decay(nan_after=0.5)
+    with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim_continuous"):
+        integrate_month(
+            rhs,
+            Y0,
+            1.0,
+            "dop853",
+            1e-8,
+            np.full(2, 1e-10),
+            on_failure="warn",
+            label="month 3 (year 1)",
+        )
+    warnings_ = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert warnings_ and all(m.startswith("month 3 (year 1): ") for m in warnings_)

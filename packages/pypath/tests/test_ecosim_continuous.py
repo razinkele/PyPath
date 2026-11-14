@@ -135,13 +135,16 @@ def test_lsoda_runs_reco(reco_stanzas, lsoda_stanzas):
             "nfev",
             "njev",
             "nlu",
+            "steps",
             "status",
             "t_reached",
+            "degraded",
             "clips",
             "hden_evals_max",
             "min_state",
         } <= set(m)
         assert m["status"] == 0 and m["nfev"] > 0
+        assert m["steps"] >= 1 and m["degraded"] is False
     # handling time is on under the EwE rule: Hden solved at each month end
     assert out.out_Hden is not None and np.all(np.isfinite(out.out_Hden))
     handled, cmco, hden0 = handled_groups(scenario(reco_stanzas, rule="ewe"))
@@ -287,6 +290,7 @@ def test_feeding_time_and_risk_time_run(reco_stanzas, rule):
     [
         ({"rtol": 1e-6, "max_step": 0.01}, "max_step"),
         ({"on_failure": "ignore"}, "on_failure"),
+        ({"corrections": "no"}, "corrections"),
     ],
 )
 def test_bad_solver_options_raise(reco_plain, options, match):
@@ -297,3 +301,141 @@ def test_bad_solver_options_raise(reco_plain, options, match):
             years=range(1, 2),
             solver_options=options,
         )
+
+
+@pytest.mark.parametrize("rtol", [0.0, -1e-6, float("nan")])
+def test_rtol_must_be_positive(reco_plain, rtol):
+    with pytest.raises(ValueError, match="rtol"):
+        rsim_run(
+            scenario(reco_plain),
+            method="lsoda",
+            years=range(1, 2),
+            solver_options={"rtol": rtol},
+        )
+
+
+@pytest.mark.parametrize(
+    "case", ["zero", "negative", "short", "one_zero", "nan", "two_d"]
+)
+def test_atol_must_be_positive_scalar_or_per_group(reco_plain, case):
+    scen = scenario(reco_plain)
+    n_bio = scen.params.NUM_LIVING + scen.params.NUM_DEAD
+    good = np.full(n_bio, 1e-8)
+    atol = {
+        "zero": 0.0,
+        "negative": -1e-8,
+        "short": good[:-1],
+        "one_zero": np.where(np.arange(n_bio) == 3, 0.0, good),
+        "nan": np.where(np.arange(n_bio) == 3, np.nan, good),
+        "two_d": good[None, :],
+    }[case]
+    with pytest.raises(ValueError, match="atol"):
+        rsim_run(scen, method="lsoda", years=range(1, 2), solver_options={"atol": atol})
+
+
+def test_corrections_off_are_recorded(reco_plain):
+    out = rsim_run(
+        scenario(reco_plain, rule="ewe"),
+        method="lsoda",
+        years=range(1, 2),
+        solver_options={"corrections": False},
+    )
+    corrections = out.solver_info["corrections"]
+    for name in ("R2", "R4", "R5", "DF once"):
+        assert name not in corrections
+    assert corrections == ["Hden0 recalibrated"]
+    on = rsim_run(scenario(reco_plain, rule="ewe"), method="lsoda", years=range(1, 2))
+    assert {"R2", "R4", "R5", "DF once"} <= set(on.solver_info["corrections"])
+
+
+def _counting_solve_ivp(monkeypatch, fail_at):
+    """Patch the month integrator's ``solve_ivp``: call ``fail_at`` (one call
+    per month) returns the real solution marked as failed (status -1)."""
+    import pypath.core.ecosim_continuous as cont_mod
+
+    real = cont_mod.solve_ivp
+    calls = {"n": 0}
+
+    def wrapper(*args, **kwargs):
+        calls["n"] += 1
+        sol = real(*args, **kwargs)
+        if calls["n"] == fail_at:
+            sol.status = -1
+            sol.message = "forced failure"
+        return sol
+
+    monkeypatch.setattr(cont_mod, "solve_ivp", wrapper)
+    return calls
+
+
+def test_a_failed_month_names_the_month(reco_plain, monkeypatch):
+    _counting_solve_ivp(monkeypatch, fail_at=3)
+    with pytest.raises(RuntimeError, match=r"^month 3 \(year 1\): ") as err:
+        rsim_run(scenario(reco_plain), method="lsoda", years=range(1, 2))
+    assert "forced failure" in str(err.value)
+    assert isinstance(err.value.__cause__, RuntimeError)
+
+
+def test_a_warned_month_names_the_month(reco_plain, monkeypatch, caplog):
+    import logging
+
+    _counting_solve_ivp(monkeypatch, fail_at=3)
+    with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim_continuous"):
+        out = rsim_run(
+            scenario(reco_plain),
+            method="lsoda",
+            years=range(1, 2),
+            solver_options={"on_failure": "warn"},
+        )
+    months = out.solver_info["months"]
+    assert len(months) == 12
+    assert months[2]["status"] == -1
+    assert all(m["status"] == 0 for k, m in enumerate(months) if k != 2)
+    failed = [
+        r.getMessage() for r in caplog.records if "forced failure" in r.getMessage()
+    ]
+    assert failed and all(m.startswith("month 3 (year 1): ") for m in failed)
+
+
+def test_a_handling_time_failure_raises_even_with_warn(reco_plain, monkeypatch):
+    """A failure inside the right-hand side is not caught by ``on_failure``."""
+    import pypath.core.ecosim_continuous as cont_mod
+
+    real_set_month = cont_mod.ContinuousRHS.set_month
+    real_solve_hden = cont_mod.solve_hden
+    month = {"n": 0}
+
+    def set_month(self, *args, **kwargs):
+        month["n"] += 1
+        return real_set_month(self, *args, **kwargs)
+
+    def solve_hden(*args, **kwargs):
+        if month["n"] == 3:
+            raise RuntimeError("handling time did not converge (stub)")
+        return real_solve_hden(*args, **kwargs)
+
+    monkeypatch.setattr(cont_mod.ContinuousRHS, "set_month", set_month)
+    monkeypatch.setattr(cont_mod, "solve_hden", solve_hden)
+    with pytest.raises(RuntimeError, match=r"^month 3 \(year 1\): handling time"):
+        rsim_run(
+            scenario(reco_plain, rule="ewe"),
+            method="lsoda",
+            years=range(1, 2),
+            solver_options={"on_failure": "warn"},
+        )
+
+
+def test_a_group_near_zero_has_no_negative_catch(reco_plain):
+    """Month means are clipped at 0, so a group at the floor books no
+    negative catch (it was about -4e-14 before the clip)."""
+    g = 12  # OtherGroundfish, fished by several gears
+    scen = scenario(reco_plain, rule="ewe")
+    scen.start_state.Biomass[g] = 1e-30
+    out = rsim_run(scen, method="lsoda", years=range(1, 2))
+    assert np.all(out.out_Catch[1:, g] >= 0.0)
+    assert np.all(out.out_Gear_Catch[1:] >= 0.0)
+    assert np.all(out.out_Catch[1:] >= 0.0)
+    # the cached REco objects are untouched
+    fresh = scenario(reco_plain, rule="ewe")
+    assert fresh.start_state.Biomass[g] == scen.params.B_BaseRef[g]
+    assert fresh.start_state.Biomass[g] > 1e-30

@@ -1948,7 +1948,9 @@ def deriv_vector(
     # scaled by Hden0 / Hden. Hden is updated once per call from the
     # consumption at the previous Hden, then the consumption is recomputed
     # (Derivt, cEcoSimModel.vb 2890-2969). rsim_run keeps Hden between calls
-    # and freezes it for calls that are not integration stages.
+    # and freezes it for calls that are not integration stages. With
+    # ``_hden_exact`` (the continuous path) the caller solves Hden and it is
+    # used as given, with no update.
     _hden = params.get("_hden")
     if _hden is not None:
         _hden0 = params["_hden0"]
@@ -2179,7 +2181,8 @@ def deriv_vector(
     # in place of mo for every eaten group (Derivt, vb 3058-3081): with
     # PaddP < 1 other mortality compensates for predation, and an eaten group
     # with mo <= 0 (EE > 1) loses none. The detritus flow keeps mo
-    # (SimDetritusMT, vb 3165).
+    # (SimDetritusMT, vb 3165) unless ``DETRITUS_MO_TOT`` is set (the
+    # continuous path's R5 closure), when it receives moTot x B as well.
     _mo_tot = params.get("_mo_tot")
     if _mo_tot is not None:
         _mo_max, _qh, _start_eaten_of = _mo_tot
