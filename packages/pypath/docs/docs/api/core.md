@@ -135,9 +135,10 @@ lookup in float64, so it differs from EwE by design. Options go in
 `on_failure` and `hden_tol` (the handling-time tolerance, default 1e-12, in
 (0, 1e-8]); `corrections=False` leaves out R2, R4, R5 and DF once.
 `RsimOutput.solver_info` records the corrections that act, the EwE numerics
-switches ignored, `rhs_evals`, `ftime_groups` and per-month solver statistics:
+switches ignored, `atol` (the biomass atol; `atol_ftime` lists the feeding-time
+states' atol, the tail of the solver's vector), `rhs_evals`, `ftime_groups` and per-month solver statistics:
 `nfev`, `steps`, `degraded` (a month whose means fell back to the start
-state), `hden_passes_max`, `ftime_range` and `last_step` (the month's last full step; every month leaves its first step to the solver), and
+state), `hden_passes_max`, `hden_residual_max` (the largest relative residual of the solved handling time: the run-time check that the vectorised kernel agrees with the link loop on your model), `ftime_range` and `last_step` (the month's last full step; every month leaves its first step to the solver), and
 the mass budget: `budget_residual` and `pool_budget_residual` (None in a
 month with forced biomass; the month residual has a floor of about 1e-9 from
 the quadrature, it is not a leak), `nutrient_floor` and `negative_export`. A

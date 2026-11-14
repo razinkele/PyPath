@@ -947,8 +947,8 @@ class MonthResult:
     ``DetGain``). Both come from the quadrature's evaluations of the rates.
 
     ``steps`` is the number of solver steps (``len(sol.t) - 1``).
-    ``last_step`` is the last full step, to start the next month from: the
-    second-to-last step (the last is truncated at ``dt``), or the only step
+    ``last_step`` is the last full step, a diagnostic only (no month starts
+    from it): the second-to-last step (the last is truncated at ``dt``), or the only step
     of a one-step month. ``status``
     and ``message`` are as SciPy reports them; ``t_reached`` is the end of the
     interval reached (``dt`` unless the solve failed).
@@ -1147,10 +1147,12 @@ def month_budget(
     ``budget_residual = (sum(y_end) - sum(y0) - t * exchange_mean) /
     sum(y0)`` and ``pool_budget_residual`` the largest over the detritus
     pools of ``|y_end_d - y0_d - t * pool_net_mean_d| / y0_d``. Both are None
-    when ``forced`` (forced biomass: its flows are imposed); the pool
-    residual is None without ``pool_net_mean`` or pools.
+    when ``forced`` (forced biomass: its flows are imposed) or the month is
+    ``degraded`` (its means are the start state's); the pool residual is None
+    without ``pool_net_mean`` or pools, and skips pools starting at or below
+    the 1e-20 floor (None if every pool is skipped).
     """
-    if forced:
+    if forced or res.degraded:
         return None, None
     b0 = np.asarray(y0, dtype=float)[:n_bio]
     b1 = np.asarray(res.y_end, dtype=float)[:n_bio]
@@ -1160,5 +1162,8 @@ def month_budget(
     if res.pool_net_mean is not None and n_bio > n_living:
         d = slice(n_living, n_bio)
         net = np.asarray(res.pool_net_mean, dtype=float)[n_living + 1 : n_bio + 1]
-        pool = float(np.max(np.abs(b1[d] - b0[d] - t * net) / b0[d]))
+        b0d = b0[d]
+        keep = b0d > _Y_FLOOR  # a pool at the floor has no relative residual
+        if np.any(keep):
+            pool = float(np.max(np.abs(b1[d] - b0d - t * net)[keep] / b0d[keep]))
     return total, pool

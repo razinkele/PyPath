@@ -2463,8 +2463,8 @@ def rsim_run(
         Options of the continuous methods (unused by RK4 and AB):
         ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar > 0 or one value
         > 0 per group 1..NUM_LIVING + NUM_DEAD; default
-        ``1e-8 x max(B0, 1e-6 x max(B0))``), ``corrections`` (bool, default
-        True; False leaves out R2, R4, R5 and DF once, while handling time is
+        ``1e-8 * (rtol / 1e-6) * max(B0_i, 1e-6 * max(B0))``),
+        ``corrections`` (bool, default True; False leaves out R2, R4, R5 and DF once, while handling time is
         still solved exactly from the recalibrated Hden0), ``on_failure``
         (``"raise"``, the default, or ``"warn"``) and ``hden_tol`` (the
         relative residual to which handling time is solved, in (0, 1e-8],
@@ -2681,6 +2681,10 @@ def rsim_run(
             "method": _cont_method,
             "rtol": _rtol,
             "atol": _atol.tolist() if _atol.ndim else float(_atol),
+            # the feeding-time states' atol (the tail of the solver's vector)
+            "atol_ftime": (
+                _atol_run[_n_bio_c:].tolist() if _ft_groups is not None else []
+            ),
             "hden_tol": _cont_opts["hden_tol"],
             "corrections": list(rhs.corrections),
             "ignored_switches": list(rhs.ignored_switches),
@@ -2879,7 +2883,18 @@ def rsim_run(
             rhs.set_month(forcing_dict, state, _forced_mask, _forced_now)
             _y0 = np.array(state[1 : _n_bio_c + 1], dtype=float, copy=True)
             if _ft_groups is not None:
-                _y0 = np.concatenate([_y0, _ftime_current[_ft_groups]])
+                # a start Ftime outside [lower, cap] is clipped (the RHS
+                # clips on use, so the dynamics do not change)
+                _y0 = np.concatenate(
+                    [
+                        _y0,
+                        np.clip(
+                            _ftime_current[_ft_groups],
+                            _feeding.lower,
+                            _feeding.cap[_ft_groups],
+                        ),
+                    ]
+                )
             # a failure in this month names it (start rates and integration)
             _month_label = f"month {month} (year {year_idx + scenario.start_year})"
             try:
@@ -2933,6 +2948,7 @@ def rsim_run(
                     "degraded": bool(res.degraded),
                     "clips": int(rhs.stats["clips"]),
                     "hden_passes_max": int(rhs.stats["hden_passes_max"]),
+                    "hden_residual_max": float(rhs.stats["hden_residual_max"]),
                     "min_state": float(rhs.stats["min_state"]),
                     "ftime_range": _ftime_range,
                     "budget_residual": _budget,

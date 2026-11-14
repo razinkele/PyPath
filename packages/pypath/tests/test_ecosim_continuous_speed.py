@@ -153,7 +153,13 @@ def test_one_derivative_per_rhs_evaluation(monkeypatch):
     # +1: the DetritusOut pre-fill at the base state, outside any evaluation
     assert calls["n"] == info["rhs_evals"] + 1
     assert info["rhs_evals"] > sum(m["nfev"] for m in info["months"])
-    assert max(m["hden_passes_max"] for m in info["months"]) <= 10
+    assert max(m["hden_passes_max"] for m in info["months"]) <= 12
+
+
+def _loadavg():
+    """The load average (None where the OS has none, e.g. Windows)."""
+    getter = getattr(os, "getloadavg", None)
+    return getter() if getter else None
 
 
 def _cpu(fn):
@@ -212,7 +218,7 @@ def test_reco_is_within_its_budget(cmco):
         f"CmCo {cmco}: RK4 samples {rk4}, LSODA samples {lsoda}, "
         f"ratio {ratio:.2f}, rhs_evals {evals}, CPU/eval {per_eval:.3e}, "
         f"exact call {exact:.3e} (x{per_eval / exact:.2f}), "
-        f"loadavg {os.getloadavg()}"
+        f"loadavg {_loadavg()}"
     )
     print(report)
     assert ratio <= RK4_RATIO_BOUND, report

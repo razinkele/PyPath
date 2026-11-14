@@ -10,7 +10,6 @@ The last test prints the differences from the RK4 path and the cost that
 """
 
 import copy
-import os
 import time
 import warnings
 from pathlib import Path
@@ -26,6 +25,7 @@ from tests.test_ecosim_continuous_speed import (
     EVAL_COST_BOUND,
     _cpu,
     _exact_call_cpu,
+    _loadavg,
 )
 
 DATA = Path(__file__).resolve().parents[3] / "Data"
@@ -343,7 +343,7 @@ def test_ten_year_cost(model):
     report = (
         f"{model}: RK4 samples {rk4}, LSODA samples {lsoda}, ratio {ratio:.2f}, "
         f"rhs_evals {evals}, CPU/eval {per_eval:.3e}, exact call {exact:.3e} "
-        f"(x{per_eval / exact:.2f}), loadavg {os.getloadavg()}"
+        f"(x{per_eval / exact:.2f}), loadavg {_loadavg()}"
     )
     print("\n" + report)
     if model == "reco":
