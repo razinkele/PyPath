@@ -94,6 +94,65 @@ def test_unclosed_corrections_leave_a_residual():
     assert gap > 1e-6 * scale, gap / scale
 
 
+DISCARDS, DETRITUS = 22, 21  # REco's pools
+
+
+def _passing_scen(dpp=0.1):
+    """REco under the EwE rule with Discards passing DetPassedProp x B on to
+    Detritus along a link of DF 0.6 (REco itself has no link between pools;
+    the EwE rule ignores a pool's links to itself and to outside)."""
+    scen = _scen("ewe")
+    p = scen.params
+    k = int(np.flatnonzero(np.asarray(p.DetFrom) == DISCARDS)[0])
+    p.DetTo[k] = DETRITUS
+    p.DetFrac[k] = 0.6
+    p.DetPassedProp[DISCARDS] = dpp
+    return scen
+
+
+def test_a_flow_between_pools_closes_the_budget():
+    """On the corrected path (DF once) the passed flow is DetPassedProp x B,
+    and the export is (DetritusOut - DetPassedProp) x B from the parameters."""
+    rhs, pd, fd, y0 = _build(_passing_scen(0.1))
+    y = _alternating(y0)
+    r = rhs.rates(y)
+    b_discards = y[DISCARDS - 1]
+    still, *_ = _build(_passing_scen(0.0))
+    passed = r["DetGain"][DETRITUS] - still.rates(y)["DetGain"][DETRITUS]
+    assert passed == pytest.approx(0.1 * b_discards, rel=1e-12)
+    det_out = rhs._pd["_det_out"][DISCARDS]
+    assert det_out > 0.1  # no negative export here
+    assert r["DetExport"][DISCARDS] == pytest.approx(
+        (det_out - 0.1) * b_discards, rel=1e-12
+    )
+    gap, scale = _gap(rhs, y)
+    assert gap <= 1e-12 * scale, gap / scale
+
+
+def test_df_applied_twice_leaves_a_residual():
+    """Without the corrections the flow is DetPassedProp x DF x B: 0.4 of
+    DetPassedProp x B leaves Discards, reaches no pool and is not export."""
+    rhs, pd, fd, y0 = _build(_passing_scen(0.1), corrections=False)
+    assert "DETRITUS_DF_ONCE" not in rhs._pd
+    y = _alternating(y0)
+    r = rhs.rates(y)
+    gap = float(rhs(0.0, y)[: rhs.n_bio].sum()) - rhs.exchange(r, y)
+    assert gap == pytest.approx(-0.4 * 0.1 * y[DISCARDS - 1], rel=1e-9)
+
+
+def test_negative_export_is_counted():
+    """DetPassedProp above DetritusOut creates mass: the budget still closes
+    (the export is negative), and every month counts the evaluations."""
+    months = rsim_run(_passing_scen(0.1), method="lsoda", years=range(1, 2))
+    assert all(m["negative_export"] == 0 for m in months.solver_info["months"])
+    rhs, *_ = _build(_passing_scen(0.3))
+    assert rhs._pd["_det_out"][DISCARDS] < 0.3
+    out = rsim_run(_passing_scen(0.3), method="lsoda", years=range(1, 2))
+    for m in out.solver_info["months"]:
+        assert m["negative_export"] > 0, m["month"]
+        assert abs(m["budget_residual"]) < 1e-5, (m["month"], m["budget_residual"])
+
+
 def _n_bio(scen):
     return scen.params.NUM_LIVING + scen.params.NUM_DEAD
 
@@ -128,6 +187,7 @@ def test_solver_info_reports_the_budget():
         assert abs(m["budget_residual"]) < 1e-5, (m["month"], m["budget_residual"])
         assert m["pool_budget_residual"] < 1e-5, m["month"]
         assert m["nutrient_floor"] == 0
+        assert m["negative_export"] == 0
     scen = _ftime_scen()
     scen.forcing.ForcedBio[0:6, 12] = 0.8 * scen.params.B_BaseRef[12]
     months = rsim_run(scen, method="lsoda", years=range(1, 2)).solver_info["months"]
@@ -228,8 +288,11 @@ def test_df_once_without_other_pools_passes_nothing():
     gain, loss = _rpath_detritus_derivs(**kw, flows=flows)
     assert np.all(np.isfinite(gain)) and np.all(np.isfinite(loss))
     assert gain[3] == 0.0  # pool 2 has no other pool: nothing passed
-    # all of pool 2's DetritusOut x B leaves the system
-    assert flows["DetExport"][2] == pytest.approx(kw["det_out"][2] * kw["BB"][2])
+    # the export comes from the parameters, (DetritusOut - DetPassedProp) x B,
+    # so the DetPassedProp x B passed nowhere is not hidden in it
+    assert flows["DetExport"][2] == pytest.approx(
+        (kw["det_out"][2] - 0.2) * kw["BB"][2]
+    )
     kw = _one_living_two_pools(det_to_self_only=False)
     gain, loss = _rpath_detritus_derivs(**kw, flows=flows)
     assert gain[3] == pytest.approx(0.2 * 5.0)  # the passed share, once

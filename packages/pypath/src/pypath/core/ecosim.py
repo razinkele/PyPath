@@ -2933,6 +2933,7 @@ def rsim_run(
                     "budget_residual": _budget,
                     "pool_budget_residual": _pool_budget,
                     "nutrient_floor": int(rhs.stats["nutrient_floor"]),
+                    "negative_export": int(rhs.stats["negative_export"]),
                 }
             )
         if np.any(_forced_mask):

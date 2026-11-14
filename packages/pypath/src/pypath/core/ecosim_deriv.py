@@ -969,11 +969,14 @@ def _rpath_detritus_derivs(
     It acts independently of ``pass_on``.
 
     ``flows``, when a dict, receives ``"Discards"`` (the catch reaching each
-    pool) and ``"DetExport"`` per source group (size NUM_LIVING+NUM_DEAD+1):
-    the detritus that reaches no pool. That is a link's flow to a destination
-    outside 1..NUM_LIVING+NUM_DEAD or one ``pass_on`` drops; under the EwE
-    rule a dead source's is DetritusOut x B less the flows the other pools
-    receive (negative if they receive more). The derivative is unchanged.
+    pool) and ``"DetExport"`` per source group (size NUM_LIVING+NUM_DEAD+1),
+    the detritus leaving the system, from the parameters and never from the
+    flows the pools are credited with: a link's flow to a destination outside
+    1..NUM_LIVING+NUM_DEAD and, under the EwE rule, a dead source's
+    (DetritusOut - DetPassedProp) x B (negative when DetPassedProp exceeds
+    DetritusOut). A flow between pools that is passed at another scale (DF
+    twice) or dropped (``pass_on``) is therefore not export. The derivative
+    is unchanged.
 
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
@@ -1008,15 +1011,12 @@ def _rpath_detritus_derivs(
                 share = det_frac[k]
                 if df_once:
                     share = share / other_df[src] if other_df[src] > 0 else 0.0
-                moved = det_passed_prop[src] * share * BB[src]
-                det_gain[dest] += moved
-                if export is not None:
-                    export[src] -= moved
+                det_gain[dest] += det_passed_prop[src] * share * BB[src]
             continue
         flow = float(det_frac[k]) * (mzero_loss[src] + unassim_loss[src])
         if 0 < dest <= n_bio and received:
             det_gain[dest] += flow
-        elif export is not None:
+        elif export is not None and not 0 < dest <= n_bio:
             export[src] += flow
         if src > NUM_LIVING:
             det_loss[src] += flow
@@ -1052,7 +1052,8 @@ def _rpath_detritus_derivs(
             )
         loss[dead] += (emig[dead] + out[dead]) * BB[dead]
         if export is not None:
-            export[dead] += out[dead] * BB[dead]
+            passed = np.asarray(det_passed_prop, dtype=float)[dead]
+            export[dead] += (out[dead] - passed) * BB[dead]
     for d in range(NUM_LIVING + 1, n_bio + 1):
         deriv[d] = gain[d] - loss[d]
     if flows is not None:
@@ -1846,8 +1847,10 @@ def deriv_vector(
         The continuous path's mass budget reads ``Production`` (the living
         kernel's, x RecruitmentMult), ``Import`` (imported diet), ``NutFree``
         and ``NutFloor`` (the free nutrient as used, NaN without nutrient
-        limitation, and whether its floor binds) and, with detritus links,
-        ``Discards`` and ``DetExport`` (see ``_rpath_detritus_derivs``).
+        limitation, and whether its floor binds), ``Landed`` (the catch of
+        the fishing links to no detritus pool plus the forced F) and, with
+        detritus links, ``Discards`` and ``DetExport`` (see
+        ``_rpath_detritus_derivs``).
 
     Returns
     -------
@@ -2528,6 +2531,29 @@ def deriv_vector(
         _production[_ibm_mask != 0] = 0.0
         rates["Production"] = _production
         rates["Import"] = import_q.copy()
+        # Landed catch by group fished, from the fishing links to no detritus
+        # pool (a link without a FishTo entry included) plus the forced F,
+        # which is landed Outside (fishing_mortality)
+        _n_bio = NUM_LIVING + NUM_DEAD
+        _landed = np.zeros(NUM_GROUPS + 1)
+        _fish_from = np.asarray(FishFrom, dtype=np.int64)[1:]
+        _fish_to = np.asarray(params.get("FishTo", np.zeros(len(FishFrom))))
+        _dest = np.zeros(len(_fish_from), dtype=np.int64)
+        _m = min(len(_fish_to) - 1, len(_dest))
+        if _m > 0:
+            _dest[:_m] = np.asarray(_fish_to[1 : _m + 1], dtype=np.int64)
+        _off = ~((_dest > NUM_LIVING) & (_dest <= _n_bio))
+        np.add.at(
+            _landed,
+            _fish_from[_off],
+            np.asarray(_link_fish_rate, dtype=float)[1:][_off] * BB[_fish_from[_off]],
+        )
+        _forced_f = forcing.get("ForcedF")
+        if _forced_f is not None:
+            _ff = np.asarray(_forced_f, dtype=float)
+            _nf = min(len(_ff), _n_bio + 1)
+            _landed[1:_nf] += _ff[1:_nf] * BB[1:_nf]
+        rates["Landed"] = _landed
 
     # Post-kernel instrumentation / debug logging for living groups
     # (kept outside numba kernel because it uses Python objects: strings, logging, etc.)
@@ -2648,11 +2674,11 @@ def deriv_vector(
             rates["DetLoss"] = np.zeros(NUM_GROUPS + 1)
             rates["DetGain"][dead] = det_gain[dead]
             rates["DetLoss"][dead] = det_loss[dead]
-            _n_bio = NUM_LIVING + NUM_DEAD
             rates["Discards"] = np.zeros(NUM_GROUPS + 1)
             rates["Discards"][dead] = _det_flows["Discards"][dead]
             rates["DetExport"] = np.zeros(NUM_GROUPS + 1)
-            rates["DetExport"][1 : _n_bio + 1] = _det_flows["DetExport"][1:]
+            _export = _det_flows["DetExport"]  # groups 0..NUM_LIVING+NUM_DEAD
+            rates["DetExport"][1 : len(_export)] = _export[1:]
             # Rpath TotGain / TotLoss (biomeq = TotGain / (TotLoss / B)).
             # Living gain is all consumption, including a producer's link
             # from group 0; every remaining term of the derivative is loss.

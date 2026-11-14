@@ -456,17 +456,27 @@ def exchange_rate(
     """The net external flux of groups ``1..n_bio`` (per year), from one
     evaluation's ``rates`` at the full state ``y_full``.
 
-    In: the Production of producers and of groups with QB 0 (drawn from no
-    food), the diet ``Import``, living Immigration and ForcedMigrate, and
-    the pools' inflow ``_det_inflow`` (DetInput plus pool Immigration). Out:
-    respiration ``(1 - Unassim) x FoodGain``, less Production for consumers;
-    the landed catch ``FishingLoss - Discards`` of living groups; living
-    ``EmigLoss``; under the EwE rule a pool's ``Emig x B``; and
-    ``DetExport``. Producers and consumers are told apart as the living
-    kernel does (PP_type as an int, then QB > 0). Internal transfers
-    (predation, other mortality and unassimilated food to detritus, flows
-    between pools, discards) are not used, so a transfer the derivative does
-    not close leaves ``sum(dy) - exchange`` nonzero.
+    It uses exactly these terms:
+
+    - in: ``rates["Production"]`` of the living groups that are not
+      consumers (producers, and groups with QB 0, drawn from no food);
+      ``rates["Import"]``; ``params_dict["Immigration"]`` and
+      ``forcing["ForcedMigrate"]`` of the living groups; and the pools'
+      ``_det_inflow`` (``params_dict["DetInput"]`` plus pool Immigration);
+    - out: respiration ``(1 - Unassim) x rates["FoodGain"]`` of the living
+      groups, less ``rates["Production"]`` for consumers;
+      ``rates["Landed"]`` of groups ``1..n_bio`` (the catch of the fishing
+      links to no detritus pool, plus the forced F); ``rates["EmigLoss"]``
+      of the living groups; under the EwE rule (``DetPassedProp`` set) a
+      pool's ``params_dict["Emig"] x y_full``; and ``rates["DetExport"]``
+      (link flows to outside and, under the EwE rule, (DetritusOut -
+      DetPassedProp) x B, both from parameters).
+
+    Consumers are told apart as the living kernel does (PP_type as an int
+    <= 0, then QB > 0). No flow between groups enters: not predation, other
+    mortality, unassimilated food, the flows between pools, nor discards. A
+    transfer the derivative does not close therefore leaves
+    ``sum(dy) - exchange`` nonzero.
     """
     nl = int(params_dict["NUM_LIVING"])
     n_bio = nl + int(params_dict["NUM_DEAD"])
@@ -492,8 +502,7 @@ def exchange_rate(
         gain += float(np.asarray(det_in, dtype=float)[dead].sum())
     respiration = (1.0 - unassim[lv]) * food - np.where(consumer, production, 0.0)
     loss = float(respiration.sum())
-    loss += float(np.asarray(rates["FishingLoss"], dtype=float)[lv].sum())
-    loss -= float(np.asarray(rates["Discards"], dtype=float)[dead].sum())
+    loss += float(np.asarray(rates["Landed"], dtype=float)[1 : n_bio + 1].sum())
     loss += float(np.asarray(rates["EmigLoss"], dtype=float)[lv].sum())
     loss += float(np.asarray(rates["DetExport"], dtype=float)[1 : n_bio + 1].sum())
     emig = params_dict.get("Emig")
@@ -501,6 +510,14 @@ def exchange_rate(
         pool_b = np.asarray(y_full, dtype=float)[dead]
         loss += float((np.asarray(emig, dtype=float)[dead] * pool_b).sum())
     return gain - loss
+
+
+# A pool's DetExport below -NEGATIVE_EXPORT_TOL x DetritusOut x B counts as
+# negative export (mass created). EwE keeps its data in single precision:
+# the Black Sea's Detritus pool passes on all of its DetritusOut, and
+# DetritusOut - DetPassedProp is -3.1e-8 of it (float32 rounding), which
+# this tolerance leaves out.
+NEGATIVE_EXPORT_TOL = 1e-6
 
 
 class ContinuousRHS:
@@ -538,8 +555,10 @@ class ContinuousRHS:
     ``hden_passes_max`` (kernel passes of the largest Hden solve),
     ``hden_residual_max``, the largest relative residual of the solved Hden
     under the consumption of the final ``deriv_vector`` pass (the link loop,
-    not the vectorised kernel), and ``nutrient_floor``, the number of
-    evaluations with the free nutrient at its floor.
+    not the vectorised kernel), ``nutrient_floor``, the number of
+    evaluations with the free nutrient at its floor, and ``negative_export``,
+    the number of evaluations (under the EwE rule) where a pool's DetExport
+    is below ``-NEGATIVE_EXPORT_TOL x DetritusOut x B``.
 
     :meth:`exchange` is the net external flux of the biomass states
     (:func:`exchange_rate`) at an evaluation's rates.
@@ -606,6 +625,8 @@ class ContinuousRHS:
             # fix DetritusOut at the unforced base state (EwE's FirstTime)
             pd["_det_out"] = np.full(n_full, np.nan)
             deriv_vector(base.copy(), pd, neutral_forcing(pd), fishing_dict)
+        # the EwE rule's DetritusOut, fixed above (None under the Rpath rule)
+        self._det_out = pd["_det_out"] if pd.get("DetPassedProp") is not None else None
         self._solved: Optional[tuple] = None  # (KernelInputs, passes)
         if self.cmco_qb is not None:
             pd["_hden_solver"] = self._solve_hden
@@ -634,6 +655,7 @@ class ContinuousRHS:
             "hden_passes_max": 0,
             "hden_residual_max": 0.0,
             "nutrient_floor": 0,
+            "negative_export": 0,
         }
 
     def _solve_hden(self, inputs: KernelInputs) -> np.ndarray:
@@ -698,14 +720,22 @@ class ContinuousRHS:
             self.stats["clips"] += int(np.count_nonzero(y < 0))
             self.stats["min_state"] = min(self.stats["min_state"], float(y.min()))
         full = self._full_state(y)
-        # rates carry the solved Hden and the loop's consumption at it, and
-        # whether the free nutrient is at its floor
-        need_rates = self.cmco_qb is not None or feeding is not None or self._nutrient
+        # rates carry the solved Hden and the loop's consumption at it,
+        # whether the free nutrient is at its floor and the pools' export
+        need_rates = (
+            self.cmco_qb is not None
+            or feeding is not None
+            or self._nutrient
+            or self._det_out is not None
+        )
         out = {} if rates is None and need_rates else rates
         self._solved = None
         deriv = deriv_vector(full, self._pd, forcing, self.fishing, rates=out)
-        if count and out is not None and out.get("NutFloor", False):
-            self.stats["nutrient_floor"] += 1
+        if count and out is not None:
+            if out.get("NutFloor", False):
+                self.stats["nutrient_floor"] += 1
+            if self._negative_export(out, full):
+                self.stats["negative_export"] += 1
         h = None if out is None else out.get("Hden")
         if count and self._solved is not None and out is not None:
             inputs, passes = self._solved
@@ -728,6 +758,16 @@ class ContinuousRHS:
         if out is not None:
             out["Ftime"] = np.array(forcing["Ftime"], dtype=float, copy=True)
         return dy, h
+
+    def _negative_export(self, rates: dict, full: np.ndarray) -> bool:
+        """Whether a pool's DetExport is below ``-NEGATIVE_EXPORT_TOL x
+        DetritusOut x B`` (EwE rule only)."""
+        if self._det_out is None or "DetExport" not in rates:
+            return False
+        dead = slice(int(self._pd["NUM_LIVING"]) + 1, self.n_bio + 1)
+        export = np.asarray(rates["DetExport"], dtype=float)[dead]
+        limit = -NEGATIVE_EXPORT_TOL * np.asarray(self._det_out)[dead] * full[dead]
+        return bool(np.any(export < limit))
 
     def _feeding_derivative(self, full, forcing, rates, ft, ftime) -> np.ndarray:
         """``dFt/dt`` of the feeding-time states, from the evaluation's rates."""
