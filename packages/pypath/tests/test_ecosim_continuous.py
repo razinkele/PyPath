@@ -118,8 +118,8 @@ def test_run_dicts_returns_the_per_run_dicts(reco_plain):
 
 
 def test_lsoda_runs_reco(reco_stanzas, lsoda_stanzas):
-    _, out = lsoda_stanzas
-    n_bio = out.params["NUM_LIVING"] + 2
+    scen, out = lsoda_stanzas
+    n_bio = scen.params.NUM_LIVING + scen.params.NUM_DEAD
     bio = out.out_Biomass[:, 1 : n_bio + 1]
     assert np.all(np.isfinite(bio)) and np.all(bio > 0)
     info = out.solver_info
@@ -175,7 +175,7 @@ CATCH_RTOL = 2e-4
 
 def test_the_catch_is_the_month_integral(lsoda_plain):
     scen, out = lsoda_plain
-    n_bio = out.params["NUM_LIVING"] + 2
+    n_bio = scen.params.NUM_LIVING + scen.params.NUM_DEAD
     fish_from = np.asarray(scen.params.FishFrom)
     B = out.out_Biomass
     checked = gear_checked = 0

@@ -1665,7 +1665,9 @@ def _normalize_fishing_input(fishing_obj, n_groups):
 STANZA_START_MISMATCH_RTOL = 0.01
 
 
-def _stanza_start_consistent(stanza_idx, entered, derived, params) -> bool:
+def _stanza_start_consistent(
+    stanza_idx, entered, derived, params, *, stacklevel: int = 3
+) -> bool:
     """Whether every stanza group's entered biomass is its age structure.
 
     Ecosim starts each stanza group at sum(N * W) of its age structure (Rpath
@@ -1677,7 +1679,9 @@ def _stanza_start_consistent(stanza_idx, entered, derived, params) -> bool:
     detritus pool that turns over 2800 times a year disappears, and the
     food web collapses. So the age structure is only used when it
     reproduces the entered biomass within ``STANZA_START_MISMATCH_RTOL``;
-    otherwise this warns and the caller runs without it.
+    otherwise this warns and the caller runs without it. ``stacklevel`` goes
+    to ``warnings.warn``: the default 3 names the caller's caller, and
+    ``_run_setup`` passes 4 so that the warning names ``rsim_run``'s caller.
     """
     names = getattr(params, "spname", None)
     bad = []
@@ -1697,128 +1701,54 @@ def _stanza_start_consistent(stanza_idx, entered, derived, params) -> bool:
         "and mortality parameters (EwE: K, Z = P/B)."
         % (STANZA_START_MISMATCH_RTOL * 100, "; ".join(bad)),
         UserWarning,
-        stacklevel=3,
+        stacklevel=stacklevel,
     )
     return False
 
 
-def rsim_run(
-    scenario: RsimScenario,
-    method: str = "RK4",
-    years: Optional[range] = None,
-    *,
-    mediation=None,
-    ecotracer=None,
-    fleet_dynamics=None,
-    solver_options: Optional[dict] = None,
-) -> RsimOutput:
-    """Run Ecosim simulation.
+@dataclass
+class RunSetup:
+    """The per-run inputs that ``rsim_run``'s paths share (``_run_setup``).
 
-    Parameters
-    ----------
-    scenario : RsimScenario
-        Simulation scenario
-    method : str
-        Integration method, case-insensitive:
-
-        - ``'RK4'`` (Runge-Kutta 4) and ``'AB'`` (Adams-Bashforth) step
-          EwE's and Rpath's monthly scheme (the parity paths);
-        - ``'lsoda'`` (the choice for stiff models), ``'dop853'``,
-          ``'radau'`` and ``'bdf'`` (``CONTINUOUS_METHODS``) solve the
-          continuous Ecosim equations month by month with SciPy's
-          ``solve_ivp``, with the defect corrections of the continuous
-          pathway (R2, R4, R5, detritus fate applied once, Hden solved
-          exactly from a recalibrated Hden0). They differ from EwE by
-          design; ``RsimOutput.solver_info`` lists the corrections applied
-          and the EwE numerics switches ignored.
-
-        Anything else raises ``ValueError``.
-    years : range, optional
-        Years to run (default: all years in scenario)
-    solver_options : dict, optional
-        Options of the continuous methods (unused by RK4 and AB):
-        ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar > 0 or one value
-        > 0 per group 1..NUM_LIVING + NUM_DEAD; default
-        ``1e-8 x max(B0, 1e-6 x max(B0))``), ``corrections`` (bool, default
-        True; False leaves out R2, R4, R5 and DF once, while handling time is
-        still solved exactly from the recalibrated Hden0) and ``on_failure``
-        (``"raise"``, the default, or ``"warn"``). A failed month raises
-        ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
-        the month, and the run continues from the last state reached. Even
-        with ``"warn"``, a handling-time solve that fails inside the
-        right-hand side, and a non-finite derivative or non-finite rates at a
-        month's start state, raise. Other keys and invalid values raise
-        ``ValueError``. On the continuous path ``out_Catch`` is the month's F
-        times the month-mean biomass / 12 (the integral of F x B) and
-        ``out_Catch_month_end`` is EwE's F x month-end biomass / 12;
-        ``out_Hden[m]`` is solved at the integrated month-end state, before
-        the stanza update.
-
-    Returns
-    -------
-    RsimOutput
-        Simulation results
+    ``params_dict`` and ``fishing_dict`` are the derivative's dicts and
+    ``state`` the start biomass after the stanza start. ``stanzas`` is the
+    scenario's stanza object, ``stanza_state`` its age structure (None when
+    the run goes without it) and ``stanza_idx`` the stanza groups. ``ftime``
+    is a copy of ``start_state.Ftime``, which the run updates in place;
+    ``risk0`` is RiskTime's base predation risk (None when RiskTime is
+    off) and ``handling`` ``_ewe_handling_setup``'s ``(hden0, hden_start,
+    cmco_qb)`` or None. ``params_dict["_hden"]`` is ``hden_start``, EwE's
+    start value, before the run's start-of-run derivative advances it.
     """
-    from pypath.core.ecosim_deriv import integrate_ab, integrate_rk4
 
-    _continuous = method.upper() not in ("RK4", "AB")
-    if _continuous:
-        if method.lower() not in CONTINUOUS_METHODS:
-            raise ValueError(
-                f"Unknown integration method {method!r}: use "
-                f"{', '.join(repr(m) for m in ('RK4', 'AB') + CONTINUOUS_METHODS)}"
-            )
-        _cont_method = method.lower()
-        _cont_opts = dict(solver_options or {})
-        _unknown_opts = sorted(
-            set(_cont_opts) - {"rtol", "atol", "corrections", "on_failure"}
-        )
-        if _unknown_opts:
-            raise ValueError(
-                f"Unknown solver_options {_unknown_opts}: use 'rtol', 'atol', "
-                "'corrections', 'on_failure'"
-            )
-        _on_failure = _cont_opts.get("on_failure", "raise")
-        if _on_failure not in ("raise", "warn"):
-            raise ValueError(
-                "solver_options on_failure must be 'raise' or 'warn', got "
-                f"{_on_failure!r}"
-            )
-        _corrections = _cont_opts.get("corrections", True)
-        if not isinstance(_corrections, (bool, np.bool_)):
-            raise ValueError(
-                "solver_options corrections must be True or False, got "
-                f"{_corrections!r}"
-            )
-        _rtol_opt = _cont_opts.get("rtol", 1e-6)
-        try:
-            _rtol_ok = np.ndim(_rtol_opt) == 0 and float(_rtol_opt) > 0
-        except (TypeError, ValueError):
-            _rtol_ok = False
-        if not _rtol_ok:  # NaN fails too
-            raise ValueError(f"solver_options rtol must be > 0, got {_rtol_opt!r}")
-        _atol_opt = _cont_opts.get("atol")
-        if _atol_opt is not None:
-            _n_bio_opt = int(scenario.params.NUM_LIVING) + int(scenario.params.NUM_DEAD)
-            try:
-                _atol_arr = np.asarray(_atol_opt, dtype=float)
-            except (TypeError, ValueError):
-                _atol_arr = np.array([np.nan])  # fails the check below
-            if not (
-                _atol_arr.ndim == 0 or _atol_arr.shape == (_n_bio_opt,)
-            ) or not np.all(_atol_arr > 0):
-                raise ValueError(
-                    "solver_options atol must be a scalar > 0 or "
-                    f"{_n_bio_opt} values > 0 (groups 1..NUM_LIVING + "
-                    f"NUM_DEAD), got {_atol_opt!r}"
-                )
-        # params_dict["ibm_groups"] is taken from params.ibm_groups below
-        if getattr(scenario.params, "ibm_groups", None):
-            raise ValueError(
-                "IBM groups are not supported by the continuous methods; use "
-                "method='RK4' or 'AB'"
-            )
+    params_dict: dict
+    fishing_dict: dict
+    state: np.ndarray
+    n_months: int
+    n_years: int
+    n_groups: int
+    stanzas: Optional[RsimStanzas]
+    stanza_state: Optional[RsimStanzaState]
+    stanza_idx: np.ndarray
+    ftime: np.ndarray
+    risk0: Optional[np.ndarray]
+    handling: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]
 
+
+def _run_setup(
+    scenario: RsimScenario, years: Optional[range] = None, *, mediation=None
+) -> RunSetup:
+    """``rsim_run``'s run setup, shared by its integration paths.
+
+    Builds the derivative's ``params_dict`` and ``fishing_dict``, the start
+    state with the stanza start applied, the feeding-time copy, RiskTime's
+    base risk and EwE's handling-time start. The side effects are
+    ``rsim_run``'s: it logs, may warn, normalises
+    ``params.INSTRUMENT_GROUPS`` and exports the instrumentation fallbacks
+    to ``ecosim_deriv``. ``params_dict["_det_out"]`` (EwE detritus fate)
+    starts as NaN and ``params_dict["_hden"]`` at EwE's start value; the
+    caller runs EwE's start-of-run steps.
+    """
     params = scenario.params
     forcing = scenario.forcing
     fishing_obj = scenario.fishing
@@ -1843,13 +1773,6 @@ def rsim_run(
 
     n_groups = params.NUM_GROUPS + 1
 
-    # Initialize output arrays
-    out_biomass = np.zeros((n_months + 1, n_groups))
-    out_catch = np.zeros((n_months + 1, n_groups))
-    out_gear_catch = np.zeros((n_months + 1, params.NumFishingLinks + 1))
-    # F applied in each month (EwE6 FishTime); predicts catch as B x F
-    out_fishmort = np.zeros((n_months + 1, n_groups))
-
     # Initialize state
     state = scenario.start_state.Biomass.copy()
 
@@ -1859,7 +1782,6 @@ def rsim_run(
     stanzas_obj = scenario.stanzas
     stanza_state = None
     stanza_idx = np.zeros(0, dtype=int)
-    stanza_biomass = None
     if stanzas_obj is not None and stanzas_obj.n_split > 0:
         problems = check_stanza_arrays(stanzas_obj, params.NUM_GROUPS)
         if problems:
@@ -1877,26 +1799,17 @@ def rsim_run(
             trial = state.copy()
             split_set_pred(stanzas_obj, stanza_state, trial)
             if _stanza_start_consistent(
-                stanza_idx, state[stanza_idx], trial[stanza_idx], scenario.params
+                stanza_idx,
+                state[stanza_idx],
+                trial[stanza_idx],
+                scenario.params,
+                stacklevel=4,
             ):
                 state = trial
-                stanza_biomass = np.zeros((n_months + 1, n_groups))
-                stanza_biomass[0, stanza_idx] = state[stanza_idx]
             else:
                 stanza_state = None
                 stanza_idx = np.zeros(0, dtype=int)
     _stanza_set = set(int(i) for i in stanza_idx)
-
-    def _stanza_pred_ratio():
-        """StanzaPred / baseStanzaPred for stanza groups, NaN elsewhere."""
-        ratio = np.full(n_groups, np.nan)
-        base = stanzas_obj.base_stanza_pred
-        for i in stanza_idx:
-            if base[i] > 0:
-                ratio[i] = stanza_state.stanza_pred[i] / base[i]
-        return ratio
-
-    out_biomass[0] = state
 
     # Build params dict for derivative and matrix computations
     params_dict = {
@@ -2219,7 +2132,7 @@ def rsim_run(
                         "Detected probable 1-based indices — converting to 0-based for now. "
                         "Please update your code to use 0-based indices.",
                         DeprecationWarning,
-                        stacklevel=3,
+                        stacklevel=4,
                     )
                     normalized = [v - 1 for v in nums]
                     params_dict["INSTRUMENT_GROUPS"] = normalized
@@ -2349,33 +2262,10 @@ def rsim_run(
         grp = params.FishFrom[i]
         fishing_dict["FishingMort"][grp] += params.FishQ[i]
 
-    # History for Adams-Bashforth
-    derivs_history = []
-
-    dt = 1.0 / 12.0  # Monthly timestep
-    # Rpath integrates each month in RK4_STEPS sub-steps
-    rk4_steps = int(getattr(params, "RK4_STEPS", 4) or 1)
-    crash_year = -1
-    crashed_groups = set()  # Track which groups have crashed
-    crash_threshold = 1e-4  # More reasonable threshold (0.0001 vs 0.000001)
-
-    # Initialize annual Qlink accumulator if links exist
-    annual_qlink = (
-        np.zeros((n_years, len(params.PreyFrom))) if len(params.PreyFrom) > 0 else None
-    )
-
-    # Pre-compute the NoIntegrate mask once (NoIntegrate never changes during sim).
-    # This avoids recomputing np.asarray(...) != 0 four times per month.
-    no_integrate_mask = (
-        np.asarray(params_dict.get("NoIntegrate", np.zeros(n_groups))) != 0
-    )
-
     # Ftime is dynamically adjusted when FtimeAdj > 0.
     # Initialize from start state; updated each month based on consumption.
     _ftime_current = scenario.start_state.Ftime.copy()
-    _ftime_adj = params.FtimeAdj
-    _ftime_qbopt = params.FtimeQBOpt
-    _has_ftime_adj = np.any(_ftime_adj > 0)
+    _has_ftime_adj = np.any(params.FtimeAdj > 0)
     # EwE6 RiskTime: the base predation risk StartEatenOf / B0 + mo of each
     # group, with StartEatenOf the base consumption of the group by living
     # predators (cEcoSimModel.vb 3313, 3787-3792).
@@ -2397,7 +2287,6 @@ def rsim_run(
         with np.errstate(divide="ignore", invalid="ignore"):
             _risk0 = np.where(_b0 > 0, _eaten0 / _b0, 0.0) + _risk_mo + 1e-10
 
-    # Main simulation loop
     # Debug: log fishing link summary before starting loop
     try:
         if len(params.FishFrom) > 0:
@@ -2415,6 +2304,260 @@ def rsim_run(
             )
     except Exception as e:
         logger.debug("fishing link debug failed: %s", e)
+
+    # EwE6 DetritusOut, set by the first derivative after FirstTime is armed
+    if params_dict["DetPassedProp"] is not None:
+        params_dict["_det_out"] = np.full(n_groups, np.nan)
+    # EwE6 handling time (D5): the base search rates carry Dzero = Hden0 =
+    # CmCo / (CmCo - 1) (InitialState, cEcoSimModel.vb 3286, 3383), but a run
+    # starts from Hden = CmCo / (CmCo + 1), followed by one Derivt at the
+    # start biomass (SetTimeSteps, vb 2761-2770); Hden is then carried between
+    # the derivative calls of the integration. Consumers with QB > 0 and
+    # CmCo > 1 only.
+    _handling = _ewe_handling_setup(params, n_groups)
+    if _handling is not None:
+        _hden0, _hden_start, _cmco_qb = _handling
+        params_dict["_hden0"] = _hden0
+        params_dict["_hden"] = _hden_start
+        params_dict["_cmco_qb"] = _cmco_qb
+
+    return RunSetup(
+        params_dict=params_dict,
+        fishing_dict=fishing_dict,
+        state=state,
+        n_months=n_months,
+        n_years=n_years,
+        n_groups=n_groups,
+        stanzas=stanzas_obj,
+        stanza_state=stanza_state,
+        stanza_idx=stanza_idx,
+        ftime=_ftime_current,
+        risk0=_risk0,
+        handling=_handling,
+    )
+
+
+def _stanza_pred_ratio(setup: RunSetup) -> np.ndarray:
+    """StanzaPred / baseStanzaPred for stanza groups, NaN elsewhere.
+
+    Only for a run with the age structure (``setup.stanza_state`` set).
+    """
+    stanzas, stanza_state = setup.stanzas, setup.stanza_state
+    assert stanzas is not None and stanza_state is not None
+    ratio = np.full(setup.n_groups, np.nan)
+    base = stanzas.base_stanza_pred
+    for i in setup.stanza_idx:
+        if base[i] > 0:
+            ratio[i] = stanza_state.stanza_pred[i] / base[i]
+    return ratio
+
+
+def _month_forcing(
+    scenario: RsimScenario, setup: RunSetup, month: int, ftime: np.ndarray
+) -> dict:
+    """The derivative's forcing dict for month ``month`` (1-based).
+
+    ``ftime`` is put in as ``"Ftime"`` itself, not copied: the run updates
+    it in place. ``StanzaPredRatio`` is read from the stanza state as it is
+    now. The caller applies forced biomass and adds forced F.
+    """
+    params = scenario.params
+    forcing = scenario.forcing
+    fishing_obj = scenario.fishing
+    # Build forcing dict for this timestep.
+    # ForcedPrey scales a prey's availability to its predators (EwE's
+    # vulnerability forcing). Production forcing is separate: a
+    # producer's ForcedSearch scales its production (its search rate on
+    # the primary-production link, Rpath's force_bysearch; EwE's
+    # production-rate forcing) and reaches the derivative as PP_forcing.
+    _forced_prey = (
+        forcing.ForcedPrey[month - 1]
+        if hasattr(forcing, "ForcedPrey")
+        and forcing.ForcedPrey is not None
+        and month - 1 < len(forcing.ForcedPrey)
+        else np.ones(params.NUM_GROUPS + 1)
+    )
+    _forced_search = (
+        forcing.ForcedSearch[month - 1]
+        if hasattr(forcing, "ForcedSearch")
+        and forcing.ForcedSearch is not None
+        and month - 1 < len(forcing.ForcedSearch)
+        else np.ones(params.NUM_GROUPS + 1)
+    )
+    forcing_dict = {
+        "Ftime": ftime,
+        "ForcedBio": np.where(
+            forcing.ForcedBio[month - 1] > 0, forcing.ForcedBio[month - 1], 0
+        ),
+        "ForcedMigrate": forcing.ForcedMigrate[month - 1],
+        "ForcedRecs": forcing.ForcedRecs[month - 1],
+        "ForcedActresp": forcing.ForcedActresp[month - 1],
+        "ForcedPrey": _forced_prey,
+        "PP_forcing": _forced_search,
+        "ForcedSearch": _forced_search,
+        "ForcedMort": (
+            forcing.ForcedMort[month - 1]
+            if getattr(forcing, "ForcedMort", None) is not None
+            and month - 1 < len(forcing.ForcedMort)
+            else np.ones(params.NUM_GROUPS + 1)
+        ),
+        "ForcedEffort": (
+            fishing_obj.ForcedEffort[month - 1]
+            if month - 1 < len(fishing_obj.ForcedEffort)
+            else np.ones(params.NUM_GEARS + 1)
+        ),
+    }
+    # EwE6 nutrient forcing: the month's multiplier of the total nutrient
+    _nut_forcing = getattr(forcing, "NutForcing", None)
+    if _nut_forcing is not None and month - 1 < len(_nut_forcing):
+        forcing_dict["NutForcing"] = float(_nut_forcing[month - 1])
+    # EwE link-level search-rate / vulnerability forcing for the month
+    for _link_key in ("ForcedSearchLink", "ForcedVulLink"):
+        _link_arr = getattr(forcing, _link_key, None)
+        if _link_arr is not None and month - 1 < len(_link_arr):
+            forcing_dict[_link_key] = _link_arr[month - 1]
+    if setup.stanza_state is not None:
+        forcing_dict["StanzaPredRatio"] = _stanza_pred_ratio(setup)
+    return forcing_dict
+
+
+def rsim_run(
+    scenario: RsimScenario,
+    method: str = "RK4",
+    years: Optional[range] = None,
+    *,
+    mediation=None,
+    ecotracer=None,
+    fleet_dynamics=None,
+    solver_options: Optional[dict] = None,
+) -> RsimOutput:
+    """Run Ecosim simulation.
+
+    Parameters
+    ----------
+    scenario : RsimScenario
+        Simulation scenario
+    method : str
+        Integration method, case-insensitive:
+
+        - ``'RK4'`` (Runge-Kutta 4) and ``'AB'`` (Adams-Bashforth) step
+          EwE's and Rpath's monthly scheme (the parity paths);
+        - ``'lsoda'`` (the choice for stiff models), ``'dop853'``,
+          ``'radau'`` and ``'bdf'`` (``CONTINUOUS_METHODS``) solve the
+          continuous Ecosim equations month by month with SciPy's
+          ``solve_ivp``, with the defect corrections of the continuous
+          pathway (R2, R4, R5, detritus fate applied once, Hden solved
+          exactly from a recalibrated Hden0). They differ from EwE by
+          design; ``RsimOutput.solver_info`` lists the corrections applied
+          and the EwE numerics switches ignored.
+
+        Anything else raises ``ValueError``.
+    years : range, optional
+        Years to run (default: all years in scenario)
+    solver_options : dict, optional
+        Options of the continuous methods (unused by RK4 and AB):
+        ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar > 0 or one value
+        > 0 per group 1..NUM_LIVING + NUM_DEAD; default
+        ``1e-8 x max(B0, 1e-6 x max(B0))``), ``corrections`` (bool, default
+        True; False leaves out R2, R4, R5 and DF once, while handling time is
+        still solved exactly from the recalibrated Hden0) and ``on_failure``
+        (``"raise"``, the default, or ``"warn"``). A failed month raises
+        ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
+        the month, and the run continues from the last state reached. Even
+        with ``"warn"``, a handling-time solve that fails inside the
+        right-hand side, and a non-finite derivative or non-finite rates at a
+        month's start state, raise. Other keys and invalid values raise
+        ``ValueError``. On the continuous path ``out_Catch`` is the month's F
+        times the month-mean biomass / 12 (the integral of F x B) and
+        ``out_Catch_month_end`` is EwE's F x month-end biomass / 12;
+        ``out_Hden[m]`` is solved at the integrated month-end state, before
+        the stanza update.
+
+    Returns
+    -------
+    RsimOutput
+        Simulation results
+    """
+    from pypath.core.ecosim_deriv import integrate_ab, integrate_rk4
+
+    _continuous = not isinstance(method, str) or method.upper() not in ("RK4", "AB")
+    if _continuous:
+        from pypath.core.ecosim_continuous import continuous_options
+
+        _cont_opts = continuous_options(
+            method,
+            solver_options,
+            int(scenario.params.NUM_LIVING) + int(scenario.params.NUM_DEAD),
+        )
+        _cont_method = _cont_opts["method"]
+        _on_failure = _cont_opts["on_failure"]
+        # params_dict["ibm_groups"] is taken from params.ibm_groups below
+        if getattr(scenario.params, "ibm_groups", None):
+            raise ValueError(
+                "IBM groups are not supported by the continuous methods; use "
+                "method='RK4' or 'AB'"
+            )
+
+    setup = _run_setup(scenario, years, mediation=mediation)
+    params = scenario.params
+    fishing_obj = scenario.fishing
+    params_dict = setup.params_dict
+    fishing_dict = setup.fishing_dict
+    n_months = setup.n_months
+    n_years = setup.n_years
+    n_groups = setup.n_groups
+    state = setup.state
+    stanzas_obj = setup.stanzas
+    stanza_state = setup.stanza_state
+    stanza_idx = setup.stanza_idx
+
+    # Initialize output arrays
+    out_biomass = np.zeros((n_months + 1, n_groups))
+    out_catch = np.zeros((n_months + 1, n_groups))
+    out_gear_catch = np.zeros((n_months + 1, params.NumFishingLinks + 1))
+    # F applied in each month (EwE6 FishTime); predicts catch as B x F
+    out_fishmort = np.zeros((n_months + 1, n_groups))
+
+    # Multi-stanza biomass by month, when the run has the age structure
+    stanza_biomass = None
+    if stanza_state is not None:
+        stanza_biomass = np.zeros((n_months + 1, n_groups))
+        stanza_biomass[0, stanza_idx] = state[stanza_idx]
+
+    out_biomass[0] = state
+
+    # History for Adams-Bashforth
+    derivs_history = []
+
+    dt = 1.0 / 12.0  # Monthly timestep
+    # Rpath integrates each month in RK4_STEPS sub-steps
+    rk4_steps = int(getattr(params, "RK4_STEPS", 4) or 1)
+    crash_year = -1
+    crashed_groups = set()  # Track which groups have crashed
+    crash_threshold = 1e-4  # More reasonable threshold (0.0001 vs 0.000001)
+
+    # Initialize annual Qlink accumulator if links exist
+    annual_qlink = (
+        np.zeros((n_years, len(params.PreyFrom))) if len(params.PreyFrom) > 0 else None
+    )
+
+    # Pre-compute the NoIntegrate mask once (NoIntegrate never changes during sim).
+    # This avoids recomputing np.asarray(...) != 0 four times per month.
+    no_integrate_mask = (
+        np.asarray(params_dict.get("NoIntegrate", np.zeros(n_groups))) != 0
+    )
+
+    # Ftime is dynamically adjusted when FtimeAdj > 0, from the setup's copy
+    # of the start state; updated each month based on consumption.
+    _ftime_current = setup.ftime
+    _ftime_adj = params.FtimeAdj
+    _ftime_qbopt = params.FtimeQBOpt
+    _has_ftime_adj = np.any(_ftime_adj > 0)
+    # EwE6 RiskTime, with the setup's base predation risk (None when off)
+    _risk_time = getattr(params, "RiskTime", None)
+    _risk0 = setup.risk0
+    _has_risk = _risk0 is not None
+    _risk_mo = np.asarray(params.MzeroMort, dtype=float)
 
     # Build gear lookup from fleet_idx once before the monthly loop,
     # for non-canonical group ordering support.
@@ -2459,26 +2602,16 @@ def rsim_run(
     # Row 0: the base F (EwE6 starts FishTime at Fish1 = catch / B)
     out_fishmort[0] = fishing_mortality(params_dict, {}, fishing_dict)[0]
 
-    # EwE6 handling time (D5): the base search rates carry Dzero = Hden0 =
-    # CmCo / (CmCo - 1) (InitialState, cEcoSimModel.vb 3286, 3383), but a run
-    # starts from Hden = CmCo / (CmCo + 1), followed by one Derivt at the
-    # start biomass (SetTimeSteps, vb 2761-2770); Hden is then carried between
-    # the derivative calls of the integration. Consumers with QB > 0 and
-    # CmCo > 1 only.
+    # EwE6 handling time (D5; values set in _run_setup): out_hden[0] is the
+    # run's start value, which one Derivt at the start biomass advances
+    # before month 1 (SetTimeSteps).
     out_hden = None
     _hden_start_pending = False
     # EwE6 DetritusOut, set by the first derivative after FirstTime is armed
     _det_out_pending = params_dict["DetPassedProp"] is not None
-    if _det_out_pending:
-        params_dict["_det_out"] = np.full(n_groups, np.nan)
-    _handling = _ewe_handling_setup(params, n_groups)
-    if _handling is not None:
-        _hden0, _hden_start, _cmco_qb = _handling
-        params_dict["_hden0"] = _hden0
-        params_dict["_hden"] = _hden_start
-        params_dict["_cmco_qb"] = _cmco_qb
+    if setup.handling is not None:
         out_hden = np.zeros((n_months + 1, n_groups))
-        out_hden[0] = _hden_start
+        out_hden[0] = setup.handling[1]  # hden_start
         _hden_start_pending = True
 
     # Continuous path: one pure right-hand side for the run. It holds its own
@@ -2511,12 +2644,12 @@ def rsim_run(
                     "RK4_STEPS",
                 )
             },
-            corrections=bool(_corrections),
+            corrections=_cont_opts["corrections"],
         )
         _hden_start_pending = False
         _det_out_pending = False
-        _rtol = float(_cont_opts.get("rtol", 1e-6))
-        _atol = _cont_opts.get("atol")
+        _rtol = _cont_opts["rtol"]
+        _atol = _cont_opts["atol"]
         if _atol is None:
             _atol = default_atol(
                 np.asarray(params.B_BaseRef, dtype=float)[1 : _n_bio_c + 1]
@@ -2532,6 +2665,7 @@ def rsim_run(
         }
         out_catch_month_end = np.zeros((n_months + 1, n_groups))
 
+    # Main simulation loop
     for month in range(1, n_months + 1):
         # Debug: indicate loop iteration for first few months
         if month <= 6:
@@ -2540,60 +2674,8 @@ def rsim_run(
         year_idx = (month - 1) // 12
         month_in_year = (month - 1) % 12
 
-        # Build forcing dict for this timestep.
-        # ForcedPrey scales a prey's availability to its predators (EwE's
-        # vulnerability forcing). Production forcing is separate: a
-        # producer's ForcedSearch scales its production (its search rate on
-        # the primary-production link, Rpath's force_bysearch; EwE's
-        # production-rate forcing) and reaches the derivative as PP_forcing.
-        _forced_prey = (
-            forcing.ForcedPrey[month - 1]
-            if hasattr(forcing, "ForcedPrey")
-            and forcing.ForcedPrey is not None
-            and month - 1 < len(forcing.ForcedPrey)
-            else np.ones(params.NUM_GROUPS + 1)
-        )
-        _forced_search = (
-            forcing.ForcedSearch[month - 1]
-            if hasattr(forcing, "ForcedSearch")
-            and forcing.ForcedSearch is not None
-            and month - 1 < len(forcing.ForcedSearch)
-            else np.ones(params.NUM_GROUPS + 1)
-        )
-        forcing_dict = {
-            "Ftime": _ftime_current,
-            "ForcedBio": np.where(
-                forcing.ForcedBio[month - 1] > 0, forcing.ForcedBio[month - 1], 0
-            ),
-            "ForcedMigrate": forcing.ForcedMigrate[month - 1],
-            "ForcedRecs": forcing.ForcedRecs[month - 1],
-            "ForcedActresp": forcing.ForcedActresp[month - 1],
-            "ForcedPrey": _forced_prey,
-            "PP_forcing": _forced_search,
-            "ForcedSearch": _forced_search,
-            "ForcedMort": (
-                forcing.ForcedMort[month - 1]
-                if getattr(forcing, "ForcedMort", None) is not None
-                and month - 1 < len(forcing.ForcedMort)
-                else np.ones(params.NUM_GROUPS + 1)
-            ),
-            "ForcedEffort": (
-                fishing_obj.ForcedEffort[month - 1]
-                if month - 1 < len(fishing_obj.ForcedEffort)
-                else np.ones(params.NUM_GEARS + 1)
-            ),
-        }
-        # EwE6 nutrient forcing: the month's multiplier of the total nutrient
-        _nut_forcing = getattr(forcing, "NutForcing", None)
-        if _nut_forcing is not None and month - 1 < len(_nut_forcing):
-            forcing_dict["NutForcing"] = float(_nut_forcing[month - 1])
-        # EwE link-level search-rate / vulnerability forcing for the month
-        for _link_key in ("ForcedSearchLink", "ForcedVulLink"):
-            _link_arr = getattr(forcing, _link_key, None)
-            if _link_arr is not None and month - 1 < len(_link_arr):
-                forcing_dict[_link_key] = _link_arr[month - 1]
-        if stanza_state is not None:
-            forcing_dict["StanzaPredRatio"] = _stanza_pred_ratio()
+        # Build forcing dict for this timestep (Ftime is _ftime_current itself)
+        forcing_dict = _month_forcing(scenario, setup, month, _ftime_current)
         # Forced biomass replaces the group's state (EwE6 setForcedBiomass,
         # applied before and after the step); the derivative sees it too.
         _forced_now = forcing_dict["ForcedBio"]
@@ -2790,6 +2872,8 @@ def rsim_run(
                     label=_month_label,
                 )
             except RuntimeError as e:
+                if _month_label in str(e):  # already names the month
+                    raise
                 raise RuntimeError(f"{_month_label}: {e}") from e
             if month == 1 and out_hden is not None:
                 out_hden[0] = _start_rates["Hden"]  # Hden solved at the start
@@ -2911,6 +2995,8 @@ def rsim_run(
                 try:
                     out_hden[month] = rhs.rates(res.y_end)["Hden"]
                 except RuntimeError as e:
+                    if _month_label in str(e):  # already names the month
+                        raise
                     raise RuntimeError(f"{_month_label}: {e}") from e
             else:
                 out_hden[month] = params_dict["_hden"]

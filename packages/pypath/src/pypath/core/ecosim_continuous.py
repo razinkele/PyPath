@@ -353,6 +353,77 @@ METHOD_NAMES = {
     "bdf": "BDF",
 }
 
+
+def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> dict:
+    """``rsim_run``'s checks of a continuous method and its ``solver_options``.
+
+    ``method`` is a name in ``METHOD_NAMES``, in any case; anything else, a
+    non-string included, raises ``ValueError`` listing the methods
+    (``rsim_run`` calls this for every method but RK4 and AB).
+    ``solver_options`` takes ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar
+    > 0 or ``n_bio`` values > 0), ``corrections`` (True or False, default
+    True) and ``on_failure`` (``"raise"``, the default, or ``"warn"``); other
+    keys and invalid values raise ``ValueError``.
+
+    Returns a dict with keys ``method`` (lower case), ``rtol`` (float),
+    ``atol`` (None when not given, else an ndarray, 0-d for a scalar),
+    ``on_failure`` and ``corrections`` (bool).
+    """
+    if not isinstance(method, str) or method.lower() not in METHOD_NAMES:
+        raise ValueError(
+            f"Unknown integration method {method!r}: use "
+            f"{', '.join(repr(m) for m in ('RK4', 'AB') + tuple(METHOD_NAMES))}"
+        )
+    _cont_opts = dict(solver_options or {})
+    _unknown_opts = sorted(
+        set(_cont_opts) - {"rtol", "atol", "corrections", "on_failure"}
+    )
+    if _unknown_opts:
+        raise ValueError(
+            f"Unknown solver_options {_unknown_opts}: use 'rtol', 'atol', "
+            "'corrections', 'on_failure'"
+        )
+    _on_failure = _cont_opts.get("on_failure", "raise")
+    if _on_failure not in ("raise", "warn"):
+        raise ValueError(
+            f"solver_options on_failure must be 'raise' or 'warn', got {_on_failure!r}"
+        )
+    _corrections = _cont_opts.get("corrections", True)
+    if not isinstance(_corrections, (bool, np.bool_)):
+        raise ValueError(
+            f"solver_options corrections must be True or False, got {_corrections!r}"
+        )
+    _rtol_opt = _cont_opts.get("rtol", 1e-6)
+    try:
+        _rtol_ok = np.ndim(_rtol_opt) == 0 and float(_rtol_opt) > 0
+    except (TypeError, ValueError):
+        _rtol_ok = False
+    if not _rtol_ok:  # NaN fails too
+        raise ValueError(f"solver_options rtol must be > 0, got {_rtol_opt!r}")
+    _atol_opt = _cont_opts.get("atol")
+    _atol_arr: Optional[np.ndarray] = None
+    if _atol_opt is not None:
+        try:
+            _atol_arr = np.asarray(_atol_opt, dtype=float)
+        except (TypeError, ValueError):
+            _atol_arr = np.array([np.nan])  # fails the check below
+        if not (_atol_arr.ndim == 0 or _atol_arr.shape == (n_bio,)) or not np.all(
+            _atol_arr > 0
+        ):
+            raise ValueError(
+                "solver_options atol must be a scalar > 0 or "
+                f"{n_bio} values > 0 (groups 1..NUM_LIVING + "
+                f"NUM_DEAD), got {_atol_opt!r}"
+            )
+    return {
+        "method": method.lower(),
+        "rtol": float(_rtol_opt),
+        "atol": _atol_arr,
+        "on_failure": _on_failure,
+        "corrections": bool(_corrections),
+    }
+
+
 _Y_FLOOR = 1e-20
 _GL_X, _GL_W = np.polynomial.legendre.leggauss(6)
 
