@@ -516,6 +516,12 @@ def deriv_vector_spatial(
         )
         _store_rates(patch_idx, rates)
 
+    # EcospaceParams.detritus_pass_on reaches each patch's derivative; a value
+    # the caller set (rsim_run_spatial does) is kept
+    _pass_on_added = "_detritus_pass_on" not in params
+    if _pass_on_added:
+        params["_detritus_pass_on"] = bool(getattr(ecospace, "detritus_pass_on", False))
+
     try:
         # Parallelize across patches when numba is active (GIL-free kernels)
         # and there are enough patches to amortize thread-pool overhead.
@@ -595,6 +601,8 @@ def deriv_vector_spatial(
         for g_idx in ibm_spatial_contexts:
             params.pop("_ibm_spatial_context_%d" % g_idx, None)
         params.pop("_eat_eff", None)
+        if _pass_on_added:
+            params.pop("_detritus_pass_on", None)
         if _saved_params is not None:
             params.update(_saved_params)
 

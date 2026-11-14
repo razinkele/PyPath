@@ -222,3 +222,76 @@ def test_black_sea_area_means_follow_ewes(black_sea):
     allg = np.concatenate(list(black_sea.values()))
     assert np.median(allg) < 0.03  # 3.4 % with the pass-on
     assert allg.max() < 0.30  # 35 %
+
+
+def _toy_params():
+    """One living group (1) and two pools, A (2) passing to B (3)."""
+    return {
+        "NUM_GROUPS": 3,
+        "NUM_LIVING": 1,
+        "NUM_DEAD": 2,
+        "NUM_GEARS": 0,
+        "PB": np.array([0, 0.5, 0.0, 0.0]),
+        "QB": np.array([0, 2.0, 0.0, 0.0]),
+        "M0": np.array([0, 0.1, 0.0, 0.0]),
+        "Unassim": np.array([0, 0.2, 0.0, 0.0]),
+        "Bbase": np.array([0, 5.0, 20.0, 10.0]),
+        "B_BaseRef": np.array([0, 5.0, 20.0, 10.0]),
+        "PP_type": np.array([0, 0, 2, 2]),
+        "NoIntegrate": np.array([0, 0, 0, 0]),
+        "ActiveLink": np.zeros((4, 4), dtype=bool),
+        "VV": np.ones((4, 4)) * 2.0,
+        "DD": np.ones((4, 4)) * 1000.0,
+        "QQbase": np.zeros((4, 4)),
+        "DetFrac": np.zeros((4, 2)),
+        "DetFrom": np.array([]),
+        "DetTo": np.array([]),
+        "DetLinkFrom": np.array([0, 1, 2]),
+        "DetLinkTo": np.array([0, 2, 3]),
+        "DetLinkFrac": np.array([0.0, 1.0, 1.0]),
+        "DetPassedProp": np.array([0.0, 0.0, 0.1, 0.0]),
+        "DetBA": np.zeros(4),
+        "_det_out": np.array([0.0, 0.0, 0.01, 0.01]),
+        "FishFrom": np.array([0]),
+        "FishThrough": np.array([0]),
+        "FishQ": np.array([0.0]),
+    }
+
+
+@pytest.mark.parametrize("pass_on", [False, True])
+def test_a_direct_spatial_derivative_takes_the_switch(pass_on):
+    from pypath.spatial import deriv_vector_spatial
+
+    grid = create_1d_grid(n_patches=2, spacing=1.0)
+    eco = EcospaceParams(
+        grid=grid,
+        habitat_preference=np.ones((3, 2)),
+        habitat_capacity=np.ones((3, 2)),
+        dispersal_rate=np.zeros(3),
+        advection_enabled=np.zeros(3, dtype=bool),
+        gravity_strength=np.zeros(3),
+        detritus_pass_on=pass_on,
+    )
+    state = np.array([[0.0, 0.0], [2.5, 2.5], [10.0, 10.0], [5.0, 5.0]])
+    forcing = {
+        "Ftime": np.ones(4),
+        "ForcedBio": np.zeros(4),
+        "ForcedMigrate": np.zeros(4),
+        "ForcedPrey": np.ones(4),
+        "PP_forcing": np.ones(4),
+    }
+    fishing = {
+        "FishFrom": np.array([0]),
+        "FishThrough": np.array([0]),
+        "FishQ": np.array([0.0]),
+    }
+    params = _toy_params()
+    deriv = deriv_vector_spatial(state, params, forcing, fishing, eco, None)
+    other = _toy_params()
+    other["_detritus_pass_on"] = not pass_on
+    deriv_other = deriv_vector_spatial(state, other, forcing, fishing, eco, None)
+    # A passes 0.1 x B_A to B in each patch with the pass-on, nothing without
+    gap = 0.1 * state[2] * (1 if pass_on else -1)
+    np.testing.assert_allclose(deriv[3] - deriv_other[3], gap, rtol=1e-9)
+    np.testing.assert_allclose(deriv[:3], deriv_other[:3])
+    assert "_detritus_pass_on" not in params  # the caller's dict is left alone
