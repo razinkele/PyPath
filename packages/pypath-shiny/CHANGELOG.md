@@ -6,6 +6,40 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.4.0 (2026-11-14)
+
+### Bug Fixes
+
+- **deploy**: Keep the package's examples folder
+  ([`9db7d1c`](https://github.com/razinkele/PyPath/commit/9db7d1ce842002ada6ba1a1d5b530e3600e2e6d3))
+
+- **shiny**: Consumer P/B limit 200 a year
+  ([`8288750`](https://github.com/razinkele/PyPath/commit/828875073b113ff31e16e9ffc855edb1d58f3b80))
+
+- **shiny**: Dispersal note: wizard precedence, a rate on square cells (review)
+  ([`4ba6767`](https://github.com/razinkele/PyPath/commit/4ba6767e5c8fbebf27575438666d7e572d5eaaac))
+
+- **shiny**: Ecospace page gives group 1 its habitat and movement (no Outside row)
+  ([`2d561f9`](https://github.com/razinkele/PyPath/commit/2d561f926e7adfdc69763f2409a4bcb0c5f0401f))
+
+- **shiny**: Ecospace page runs the Ecospace Wizard's configuration
+  ([`bea26b5`](https://github.com/razinkele/PyPath/commit/bea26b5dfdfa4dd1aa4109aa61c2a098b0b44066))
+
+- **shiny**: Ecospace Wizard builds its configuration when depth or salinity is loaded
+  ([`1dec86d`](https://github.com/razinkele/PyPath/commit/1dec86d2576c75a106081f538c74358f5db79f17))
+
+- **shiny**: Label the Ecospace dispersal input as a rate per year
+  ([`4441d84`](https://github.com/razinkele/PyPath/commit/4441d84477752a80d7a615e855975e9b95151828))
+
+- **shiny**: Loading a model on the Home page clears old results
+  ([`3e4f780`](https://github.com/razinkele/PyPath/commit/3e4f7802907dc7b847685e52a8a5206d0d0219d9))
+
+### Features
+
+- **shiny**: Open the example models from the Home page
+  ([`9909684`](https://github.com/razinkele/PyPath/commit/990968442f129800b6218687efbd9d14689c6404))
+
+
 ## v1.3.1 (2026-11-12)
 
 ### Bug Fixes
