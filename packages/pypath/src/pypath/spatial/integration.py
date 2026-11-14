@@ -86,6 +86,7 @@ def _ecosim_detritus_out(params, forcing, fishing, biomass, hden_start):
     IBM groups are copies too (they step in every derivative).
     """
     ecosim = dict(params)
+    ecosim["_detritus_pass_on"] = True  # Ecosim's export rate, with the pass-on
     ecosim.pop("_hden_patches", None)
     ecosim.pop("_mediation_density_scale", None)
     if ecosim.get("ibm_groups"):
@@ -996,6 +997,11 @@ def rsim_run_spatial(
         _hden_start_pending = True
     # EwE6 DetritusOut: Ecosim's, shared by every patch (set in month 1)
     _det_out_pending = params_dict["DetPassedProp"] is not None
+    # EwE 6.7.144's Ecospace passes no detritus between pools (cSpaceSolver.vb
+    # 1519-1526); EcospaceParams.detritus_pass_on restores Ecosim's flow
+    params_dict["_detritus_pass_on"] = bool(
+        getattr(ecospace, "detritus_pass_on", False)
+    )
 
     # Build fishing dict (constant across timesteps, same as rsim_run)
     fishing_dict = {
