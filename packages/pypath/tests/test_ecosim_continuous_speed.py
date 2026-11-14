@@ -1,4 +1,4 @@
-"""First-step reuse, tolerances and the timing budget (continuous path)."""
+"""Tolerances, the timing budget and the first-step pass-through (continuous path)."""
 
 import copy
 import os
@@ -56,33 +56,16 @@ def _spy_solve_ivp(monkeypatch, fail_first=False):
     return calls
 
 
-def test_the_next_month_starts_from_the_last_step(monkeypatch):
+def test_no_month_passes_a_first_step(monkeypatch):
+    """Reusing the last step of the previous month was measured to add nfev
+    and, on LT2022, to cause clipped evaluations at year boundaries."""
     calls = _spy_solve_ivp(monkeypatch)
     out = rsim_run(scenario(reco_plain()), method="lsoda", years=range(1, 2))
     months = out.solver_info["months"]
     assert len(calls) == len(months) >= 3
-    assert "first_step" not in calls[0] or calls[0]["first_step"] is None
-    assert months[0]["first_step"] is None
-    for m in (1, 2):
-        assert months[m - 1]["last_step"] > 0
-        assert calls[m]["first_step"] == months[m - 1]["last_step"]
-        assert months[m]["first_step"] == months[m - 1]["last_step"]
-
-
-def test_a_failed_month_leaves_the_next_first_step_to_the_solver(monkeypatch):
-    calls = _spy_solve_ivp(monkeypatch, fail_first=True)
-    out = rsim_run(
-        scenario(reco_plain()),
-        method="lsoda",
-        years=range(1, 2),
-        solver_options={"on_failure": "warn"},
-    )
-    months = out.solver_info["months"]
-    assert months[0]["status"] < 0
-    assert calls[1].get("first_step") is None
-    assert months[1]["first_step"] is None
-    # month 2 was clean, so month 3 reuses its last step
-    assert calls[2]["first_step"] == months[1]["last_step"]
+    assert all(c.get("first_step") is None for c in calls)
+    assert all("first_step" not in m for m in months)
+    assert all(m["last_step"] > 0 for m in months)
 
 
 def test_first_step_is_passed_through(monkeypatch):

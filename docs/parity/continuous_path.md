@@ -1,6 +1,6 @@
 # The continuous integration path
 
-`rsim_run` has two kinds of integrator. RK4 (the default) and AB step EwE's and Rpath's monthly schemes; they are the parity paths and reproduce EwE 6.7.144 and Rpath. The continuous path, `method="lsoda"`, `"dop853"`, `"radau"` or `"bdf"`, solves the Ecosim equations themselves with SciPy's `solve_ivp`. It is **not EwE parity**: its numbers differ from EwE's and from the RK4 path, partly by design. This page says what it does, when to use it, how far it is from the RK4 path on three models, and what it costs. The measurements are from `packages/pypath/tests/test_ecosim_continuous_validation.py` and, where the text says so, from measurement scripts run beside it (phase 2 numbers: 2026-11-14 and 2026-11-15, SciPy 1.18.1, one process on one machine). Phase 2 added feeding time as a state, interpolated mediation, a faster handling-time solve, a mass budget and first-step reuse; the sections below describe the path as it is now. The design is in `docs/plans/2026-11-14-continuous-pathway-design.md`.
+`rsim_run` has two kinds of integrator. RK4 (the default) and AB step EwE's and Rpath's monthly schemes; they are the parity paths and reproduce EwE 6.7.144 and Rpath. The continuous path, `method="lsoda"`, `"dop853"`, `"radau"` or `"bdf"`, solves the Ecosim equations themselves with SciPy's `solve_ivp`. It is **not EwE parity**: its numbers differ from EwE's and from the RK4 path, partly by design. This page says what it does, when to use it, how far it is from the RK4 path on three models, and what it costs. The measurements are from `packages/pypath/tests/test_ecosim_continuous_validation.py` and, where the text says so, from measurement scripts run beside it (phase 2 numbers: 2026-11-14 and 2026-11-15, SciPy 1.18.1, one process on one machine). Phase 2 added feeding time as a state, interpolated mediation, a faster handling-time solve and a mass budget; the sections below describe the path as it is now. The design is in `docs/plans/2026-11-14-continuous-pathway-design.md`.
 
 ```python
 out = rsim_run(scenario, method="lsoda")  # rtol 1e-6, default atol
@@ -27,8 +27,8 @@ out.solver_info  # method, tolerances, corrections, ignored switches, per-month 
 - **Mediation is interpolated.** EwE's `EweMediation` lookup is interpolated in float64 (exactly 1 at the base state); the parity paths keep EwE's truncated float32 lookup.
 - **Month-end updates use month means.** The stanza age structure takes the month's mean food gain and loss rate (6-point Gauss-Legendre quadrature of the dense output); `out_Catch` is the month's F times the month-mean biomass / 12, the integral of F x B. EwE's F x month-end biomass / 12 is kept in `out_Catch_month_end`.
 - **Fixed detritus export.** DetritusOut is set once at the unforced base state, not by the first derivative of month 1.
-- **Positivity.** A negative biomass state is read as 0 inside the right-hand side and counted in `clips` (the solver's trial steps can reach one; LT2022 has 6 such evaluations in 10 years, below); month-end biomass is floored at 1e-20, and month-mean biomass (hence the catch) is clipped at 0.
-- **Diagnostics.** `out.solver_info` holds the method, `rtol`, `atol`, the corrections applied, the EwE switches ignored, and per month `nfev`, `njev`, `nlu`, `steps`, `status`, `t_reached`, `first_step` and `last_step`, `degraded`, `clips`, `hden_passes_max` (kernel passes of the month's largest handling-time solve; it was `hden_evals_max` in phase 1) and `min_state`, plus the budget keys below; `solver_info["hden_tol"]` is the tolerance of that solve (`solver_options`, default 1e-12, between 0 and 1e-8) and `solver_info["rhs_evals"]` counts every right-hand-side evaluation of the run. `degraded` is True when a month mean fell back to the start state (non-finite dense output or rates at a quadrature node); `status` can be 0 in that case, so check both.
+- **Positivity.** A negative biomass state is read as 0 inside the right-hand side and counted in `clips` (a solver's trial step can reach one); month-end biomass is floored at 1e-20, and month-mean biomass (hence the catch) is clipped at 0.
+- **Diagnostics.** `out.solver_info` holds the method, `rtol`, `atol`, the corrections applied, the EwE switches ignored, and per month `nfev`, `njev`, `nlu`, `steps`, `status`, `t_reached`, `last_step` (the last full step, a diagnostic), `degraded`, `clips`, `hden_passes_max` (kernel passes of the month's largest handling-time solve; it was `hden_evals_max` in phase 1) and `min_state`, plus the budget keys below; `solver_info["hden_tol"]` is the tolerance of that solve (`solver_options`, default 1e-12, between 0 and 1e-8) and `solver_info["rhs_evals"]` counts every right-hand-side evaluation of the run. `degraded` is True when a month mean fell back to the start state (non-finite dense output or rates at a quadrature node); `status` can be 0 in that case, so check both.
 - **Failures.** A failed month raises `RuntimeError` naming the month, unless `solver_options={"on_failure": "warn"}`, which logs it, with the month, and continues from the last state reached. Two failures raise even with `"warn"`: a handling-time solve that fails inside the right-hand side, and a non-finite derivative (or non-finite rates) at the start of a month.
 - **The parity paths are unchanged.** One scenario can be run on both paths; the continuous run does not modify it.
 
@@ -48,7 +48,7 @@ Which method:
 - **`dop853`**: an explicit high-order method, the reference for non-stiff models at tight tolerance. On a stiff model it is limited by stability, not accuracy.
 - **`radau`** and **`bdf`**: implicit alternatives for stiff models.
 
-Tolerances: the default is `rtol` 1e-6 and `atol` 1e-8 x (`rtol` / 1e-6) x max(B0, 1e-6 x max(B0)) per group, so **the default `atol` follows `rtol`** (in phase 1 it did not, and `rtol` 1e-10 with the default `atol` was good to 4.7e-9 only). A feeding-time state has `atol` 1e-2 x `rtol`. Pass `atol` to override (`pypath.core.ecosim_continuous.default_atol` gives the base-scale vector). The first step of every month after the first is the previous month's last full step; month 1, and any month after a failed or degraded one, leave it to the solver.
+Tolerances: the default is `rtol` 1e-6 and `atol` 1e-8 x (`rtol` / 1e-6) x max(B0, 1e-6 x max(B0)) per group, so **the default `atol` follows `rtol`** (in phase 1 it did not, and `rtol` 1e-10 with the default `atol` was good to 4.7e-9 only). A feeding-time state has `atol` 1e-2 x `rtol`. Pass `atol` to override (`pypath.core.ecosim_continuous.default_atol` gives the base-scale vector). Every month leaves its first step to the solver (reusing the previous month's last step was tried and dropped, see Cost).
 
 ## The corrections it applies
 
@@ -86,7 +86,7 @@ The residual measures the solver and the quadrature, not a leak: at the default 
 
 | Model | Months checked | `budget_residual` | `pool_budget_residual` | `nutrient_floor` | `negative_export` |
 |---|---|---|---|---|---|
-| REco, with stanzas | 120 of 120 | 2.9e-9 | 1.9e-6 | 0 | 0 |
+| REco, with stanzas | 120 of 120 | 3.9e-9 | 1.2e-7 | 0 | 0 |
 | Black Sea | 120 of 120 | 3.3e-6 | 2.3e-6 | 0 | 0 |
 | LT2022 | 0 of 120 (forced biomass in every month) | None | None | 0 | 0 |
 
@@ -100,7 +100,7 @@ There is no EwE oracle for this path, so it is checked against itself and agains
 | LSODA against DOP853, both rtol 1e-8 | REco with stanzas, EwE rule, effort 2, 2 years | 3.0e-8 max relative difference |
 | Radau and BDF against LSODA, rtol 1e-8 | REco without stanzas, EwE rule, effort 2, 1 year | Radau 7.9e-8, BDF 1.0e-6 |
 | A balanced model stays balanced, LSODA, default tolerances | REco without stanzas, base effort, no forcing, 50 years | 3.0e-7 (EwE rule), 3.1e-7 (`"rpath"`) from B0; flat over the 50 years, solver error at rtol 1e-6, not drift (the start derivative is 4e-14 x B) |
-| Ten years run, LSODA | REco, the Black Sea, LT2022 | Finite and positive; every month status 0, none degraded; `hden_passes_max` at most 6, 9 and 6 (the test bounds it at 25); clips 0, 0 and 6 (LT2022: 6 evaluations in months 13, 25, 49, 85 and 97, trial steps with a negative biomass, none in phase 1) |
+| Ten years run, LSODA | REco, the Black Sea, LT2022 | Finite and positive; every month status 0, none degraded; `hden_passes_max` at most 6, 9 and 6 (the test bounds it at 25); clips 0 on all three |
 
 A DOP853 reference at rtol 1e-10 is not accurate enough for the convergence check. Measured against rtol 1e-13 in phase 1, it was good to 4.7e-9 only at the then default `atol` (which did not follow `rtol`), and to 7e-12 to 1.1e-11 with an `atol` of 1e-10 x B0 or less, which still exceeds e_16. At rtol 1e-12 the error is 7.5e-14.
 
@@ -134,41 +134,42 @@ Setting `STANZA_STAGE_RATES`, `FTIME_START_OF_MONTH` or `DETRITUS_MO_UNSCALED` t
 
 Measured on 2026-11-14 and 2026-11-15 on one machine with no other heavy jobs, except where stated. The times are CPU time (`process_time`) from `test_ten_year_cost`: a warm-up of each method, three interleaved RK4 and LSODA runs of 10 years, the minimum of each. The call counts come from `solver_info` in `test_ten_years_on_three_models`.
 
-LSODA at the default tolerances, 10 years:
+LSODA at the default tolerances, 10 years (every month leaves its first step to the solver):
 
 | Model | Groups | `nfev` / month (mean, max) | Right-hand-side evaluations / month | `hden_passes_max` (largest month) | CPU s / year, RK4 | CPU s / year, LSODA | Ratio | CPU / evaluation | vs one exact derivative call |
 |---|---|---|---|---|---|---|---|---|---|
-| REco, with stanzas | 22 | 32, 38 | 40.4 | 6 | 0.100 | 0.789 | 7.9 x | 1.63 ms | 1.59 x |
-| Black Sea | 22 | 94, 122 | 102.0 | 9 | 0.047 | 1.61 | 34.5 x | 1.32 ms | 2.47 x |
-| LT2022 | 24 (17 feeding-time states) | 349, 796 (6.0 Jacobians) | 357.2 | 6 | 0.105 | 6.80 | 64.6 x | 1.59 ms | 1.76 x |
+| REco, with stanzas | 22 | 33, 37 | 41.5 | 6 | 0.100 | 0.817 | 8.2 x | 1.64 ms | 1.59 x |
+| Black Sea | 22 | 87, 115 | 95.4 | 9 | 0.047 | 1.53 | 32.5 x | 1.33 ms | 2.47 x |
+| LT2022 | 24 (17 feeding-time states) | 335, 787 (5.9 Jacobians) | 342.7 | 6 | 0.107 | 6.56 | 61.6 x | 1.60 ms | 1.59 x |
 
-Since phase 1 (same models, same scenarios; the phase 1 wall times were taken with other jobs running, so the comparison is indicative): the Black Sea went from 40.7 s to 1.6 s per simulated year (914 x RK4 to 34.5 x), REco from 2.6 s to 0.79 s, and LT2022 from 13.1 s to 6.8 s although it now carries 17 more states and about 60 % more `nfev` (349 per month against 214). The handling-time solve takes at most 9 kernel passes where the Black Sea's undamped iteration took up to 132 derivative evaluations. One evaluation on REco at CmCo 2 went from 41.5 ms to about 1.9 ms (Task 6, a separate measurement).
+Since phase 1 (same models, same scenarios; the phase 1 wall times were taken with other jobs running, so the comparison is indicative): the Black Sea went from 40.7 s to 1.5 s per simulated year (914 x RK4 to 32.5 x), REco from 2.6 s to 0.82 s, and LT2022 from 13.1 s to 6.6 s although it now carries 17 more states and about 55 % more `nfev` (335 per month against 214). The handling-time solve takes at most 9 kernel passes where the Black Sea's undamped iteration took up to 132 derivative evaluations. One evaluation on REco at CmCo 2 went from 41.5 ms to about 1.9 ms (Task 6, a separate measurement).
 
-The test asserts for REco that CPU per evaluation is at most 2.5 x one exact single-pass derivative call (the evaluation adds the handling-time solve, 6-9 kernel passes, to a derivative call; the plan's 1.5 x could not hold) and for the Black Sea that the RK4 ratio is at most 35. The other figures are printed. **The Black Sea bound is not reliably met**: three runs of the same test gave 34.5 (quiet machine, load average about 1.2), 35.2 (inside the full suite, load average about 1.2, a failure) and 36.0 (load average 6.7, a failure), with identical call counts (12237 evaluations); the minimum LSODA CPU moved by 2 % between the first two runs, and RK4's by 1 %. The bound of 35 was kept as ruled and the test fails on some runs. Design section 4's 10-20 x is not reached for the Black Sea and LT2022; it needs fewer evaluations (phase 3: an analytic Jacobian and linear forcing).
+The test asserts for REco that CPU per evaluation is at most 2.5 x one exact single-pass derivative call (the evaluation adds the handling-time solve, 6-9 kernel passes, to a derivative call; the plan's 1.5 x could not hold) and for the Black Sea that the RK4 ratio is at most 40. The other figures are printed. The Black Sea bound was 35 first; the ratio measured 34.5 to 36.0 (with first-step reuse, below) on identical call counts, so 35 failed on load alone, and it was set to 40.
 
-First-step reuse (month m starts from the last full step of month m - 1) was measured on the Black Sea and LT2022, 10 years, with and without it (a measurement script that drops `first_step`; the two runs agree to 3.9e-7 and 1.3e-6 in biomass):
+**First-step reuse was tried and dropped.** The design asked for each month to start from the last full step of the month before. Measured on 10-year runs with and without it (a measurement script that drops `first_step`; the runs agree to 3.9e-7 and 1.3e-6 in biomass), it added evaluations on all three models:
 
-| Model | `nfev` / month with reuse (mean, median, max) | without reuse | Right-hand-side evaluations with | without |
-|---|---|---|---|---|
-| Black Sea | 94.0, 97, 122 | 87.4, 91, 115 | 12237 | 11453 |
-| LT2022 | 349.2, 300, 796 | 334.7, 297, 787 | 42868 | 41127 |
+| Model | `nfev` / month with reuse (mean) | without reuse |
+|---|---|---|
+| REco (Task 6, 1 year, CmCo 1000) | 22.0 | 20.1 |
+| Black Sea | 94.0 | 87.4 |
+| LT2022 | 349.2 | 334.7 |
 
-Reuse costs about 7 % more evaluations on the Black Sea and 4 % more on LT2022, and gained nothing on REco in Task 6 (20.1 to 22.0 `nfev` per month at CmCo 1000, 20.8 to 20.7 at CmCo 2). The code keeps it as the design asks; turning it off would be a one-line change, and it is not worth the cost on these three models.
+On LT2022 it also caused 6 clipped evaluations (a trial step with a negative biomass, read as 0) in months 13, 25, 49, 85 and 97, the first months of a year, where forcing steps while the reused step was sized for December; with no reuse LT2022 clips none in 10 years. So the code leaves every month's first step to the solver. `integrate_month(..., first_step=)` remains as a pass-through, and `months[m]["last_step"]` as a diagnostic. Design section 4's step reuse is not implemented.
 
-REco by method, 2 years at the default tolerances, EwE rule, effort 2 (CPU time, minimum of two runs against the minimum of three RK4 runs, measured 2026-11-15 after the ten-year runs):
+REco by method, 2 years at the default tolerances, EwE rule, effort 2 (CPU time, minimum of two runs against the minimum of three RK4 runs, measured 2026-11-15 after the first-step change):
 
 | Model | Method | `nfev` / month | Jacobians / month | All right-hand-side calls / month | CPU s / year | Ratio to RK4 |
 |---|---|---|---|---|---|---|
-| REco, no stanzas | lsoda | 19.9 | 0 | 27.9 | 0.54 | 5.6 x |
-| | dop853 | 32.0 | 0 | 40.1 | 0.77 | 8.1 x |
-| | radau | 15.3 | 1.0 | 45.4 | 0.89 | 9.3 x |
-| | bdf | 14.5 | 1.0 | 45.6 | 0.91 | 9.5 x |
-| REco, stanzas | lsoda | 36.0 | 0 | 44.0 | 0.87 | 8.6 x |
-| | dop853 | 32.0 | 0 | 40.1 | 0.78 | 7.8 x |
-| | radau | 20.1 | 1.4 | 58.4 | 1.16 | 11.5 x |
-| | bdf | 17.9 | 1.8 | 68.1 | 1.35 | 13.4 x |
+| REco, no stanzas | lsoda | 19.3 | 0 | 27.3 | 0.53 | 5.5 x |
+| | dop853 | 18.6 | 0 | 26.7 | 0.52 | 5.4 x |
+| | radau | 16.3 | 1.0 | 46.3 | 0.92 | 9.5 x |
+| | bdf | 18.4 | 1.0 | 49.5 | 0.99 | 10.2 x |
+| REco, stanzas | lsoda | 33.8 | 0 | 41.8 | 0.82 | 8.2 x |
+| | dop853 | 50.0 | 0 | 58.0 | 1.13 | 11.2 x |
+| | radau | 23.0 | 1.0 | 53.0 | 1.06 | 10.5 x |
+| | bdf | 18.8 | 1.0 | 49.8 | 1.00 | 9.9 x |
 
-RK4 takes 0.096 s per year without stanzas and 0.101 with.
+RK4 takes 0.097 s per year without stanzas and 0.101 with.
 
 What the call counts mean:
 
@@ -185,7 +186,6 @@ What the call counts mean:
 - A forced stanza group is overwritten by the age structure, on both paths.
 - Stanza models are first order in the monthly split whatever the tolerance: the age structure is updated once a month from the month's mean rates.
 - The budget residuals are None in a month with forced biomass, so a model that forces biomass in every month (LT2022) is not budget-checked on this path.
-- LT2022 has 6 evaluations in 10 years where a trial step of the solver reads a negative biomass (clipped to 0, counted in `clips`); the output is finite and positive and no month degrades, but phase 1 had none and the cause (the feeding-time states, or the changed step sequence) was not isolated.
-- The Black Sea costs 34.5 to 36 x RK4 (the 35 x bound of `test_ten_year_cost` fails on some runs) and LT2022 64.6 x; the 10-20 x of design section 4 needs an analytic Jacobian and linear forcing (phase 3). First-step reuse does not help on these two models.
+- The Black Sea costs 32.5 x RK4 and LT2022 61.6 x; the 10-20 x of design section 4 needs an analytic Jacobian and linear forcing (phase 3).
 - IBM groups are rejected.
 - Ecospace still uses its own scheme (RK4 sub-steps with implicit movement); the continuous path is Ecosim only.

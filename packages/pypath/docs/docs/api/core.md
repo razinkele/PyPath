@@ -137,7 +137,7 @@ lookup in float64, so it differs from EwE by design. Options go in
 `RsimOutput.solver_info` records the corrections that act, the EwE numerics
 switches ignored, `rhs_evals`, `ftime_groups` and per-month solver statistics:
 `nfev`, `steps`, `degraded` (a month whose means fell back to the start
-state), `hden_passes_max`, `ftime_range`, `first_step` and `last_step`, and
+state), `hden_passes_max`, `ftime_range` and `last_step` (the month's last full step; every month leaves its first step to the solver), and
 the mass budget: `budget_residual` and `pool_budget_residual` (None in a
 month with forced biomass; the month residual has a floor of about 1e-9 from
 the quadrature, it is not a leak), `nutrient_floor` and `negative_export`. A

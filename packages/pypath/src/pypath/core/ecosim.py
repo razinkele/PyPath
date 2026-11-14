@@ -485,8 +485,8 @@ class RsimOutput:
         (``ignored_switches``), ``rhs_evals`` (every right-hand side
         evaluation of the run: solver, start checks, quadrature and output
         rates) and per month (``months``) ``nfev``, ``njev``,
-        ``nlu``, ``steps``, ``first_step`` (None when the solver chose it),
-        ``last_step`` (the last full step, the next month's ``first_step``),
+        ``nlu``, ``steps``, ``last_step`` (the month's last full step, a
+        diagnostic: no month's first step is set),
         ``status``, ``t_reached``, ``degraded`` (a month
         mean fell back to the start state), ``clips``, ``hden_passes_max``
         (kernel passes of the month's largest handling-time solve) and
@@ -2687,7 +2687,6 @@ def rsim_run(
             "ftime_groups": [] if _ft_groups is None else _ft_groups.tolist(),
             "months": [],
         }
-        _next_first_step = None  # month 1, and after a failed month: the solver's
         out_catch_month_end = np.zeros((n_months + 1, n_groups))
 
     # Main simulation loop
@@ -2897,7 +2896,6 @@ def rsim_run(
                     on_failure=_on_failure,
                     label=_month_label,
                     n_bio=_n_bio_c,
-                    first_step=_next_first_step,
                 )
             except RuntimeError as e:
                 if _month_label in str(e):  # already names the month
@@ -2929,7 +2927,6 @@ def rsim_run(
                     "njev": res.njev,
                     "nlu": res.nlu,
                     "steps": res.steps,
-                    "first_step": _next_first_step,
                     "last_step": res.last_step,
                     "status": res.status,
                     "t_reached": res.t_reached,
@@ -2943,13 +2940,6 @@ def rsim_run(
                     "nutrient_floor": int(rhs.stats["nutrient_floor"]),
                     "negative_export": int(rhs.stats["negative_export"]),
                 }
-            )
-            # the next month starts from this month's last full step, unless
-            # this one failed or fell back (its last step is then no guide)
-            _next_first_step = (
-                res.last_step
-                if res.status == 0 and not res.degraded and res.t_reached == dt
-                else None
             )
         if np.any(_forced_mask):
             state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
