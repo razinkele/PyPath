@@ -127,9 +127,12 @@ updates, feeding-time updates and fleet dynamics run at the month
 boundaries from the month's quadrature means. The pathway applies the
 defect corrections (R2, R4, R5, detritus fate applied once, handling time
 solved exactly from a recalibrated Hden0), so it differs from EwE by
-design. Options go in `solver_options` (`rtol`, `atol`, `on_failure`);
+design. Options go in `solver_options` (`rtol`, `atol`, `corrections`,
+`on_failure`); `corrections=False` leaves out R2, R4, R5 and DF once.
 `RsimOutput.solver_info` records the corrections, the EwE numerics
-switches ignored and per-month solver statistics. `out_Catch` is the
+switches ignored and per-month solver statistics (including `steps` and
+`degraded`, a month whose means fell back to the start state). A failed
+month raises `RuntimeError` naming the month. `out_Catch` is the
 integral of F x B over the month; EwE's month-end booking is in
 `out_Catch_month_end`.
 

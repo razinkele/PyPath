@@ -25,8 +25,9 @@ out.solver_info  # method, tolerances, corrections, ignored switches, per-month 
 - **Handling time is exact.** Hden is solved at every state as the fixed point of the disc equation, from a recalibrated Hden0, instead of EwE's one damped pass per derivative call.
 - **Month-end updates use month means.** The stanza age structure takes the month's mean food gain and loss rate (6-point Gauss-Legendre quadrature of the dense output); feeding time takes the month-mean consumption; `out_Catch` is the month's F times the month-mean biomass / 12, the integral of F x B. EwE's F x month-end biomass / 12 is kept in `out_Catch_month_end`.
 - **Fixed detritus export.** DetritusOut is set once at the unforced base state, not by the first derivative of month 1.
-- **Positivity.** A negative state is read as 0 inside the right-hand side and counted in `clips`; month-end biomass is floored at 1e-20.
-- **Diagnostics.** `out.solver_info` holds the method, `rtol`, `atol`, the corrections applied, the EwE switches ignored, and per month `nfev`, `njev`, `nlu`, `status`, `t_reached`, `clips`, `hden_evals_max` and `min_state`. A failed month raises unless `on_failure="warn"`.
+- **Positivity.** A negative state is read as 0 inside the right-hand side and counted in `clips`; month-end biomass is floored at 1e-20, and month-mean biomass (hence the catch) is clipped at 0.
+- **Diagnostics.** `out.solver_info` holds the method, `rtol`, `atol`, the corrections applied, the EwE switches ignored, and per month `nfev`, `njev`, `nlu`, `steps`, `status`, `t_reached`, `degraded`, `clips`, `hden_evals_max` and `min_state`. `degraded` is True when a month mean fell back to the start state (non-finite dense output or rates at a quadrature node); `status` can be 0 in that case, so check both.
+- **Failures.** A failed month raises `RuntimeError` naming the month, unless `solver_options={"on_failure": "warn"}`, which logs it, with the month, and continues from the last state reached. Two failures raise even with `"warn"`: a handling-time solve that fails inside the right-hand side, and a non-finite derivative (or non-finite rates) at the start of a month.
 - **The parity paths are unchanged.** One scenario can be run on both paths; the continuous run does not modify it.
 
 ## When to use it
@@ -49,7 +50,7 @@ Tolerances: the default is `rtol` 1e-6 and `atol` 1e-8 x max(B0, 1e-6 x max(B0))
 
 ## The corrections it applies
 
-The continuous path applies these by default and lists them in `solver_info["corrections"]`; the parity paths keep EwE's behaviour. IDs refer to `docs/parity/deviations.md`.
+The continuous path applies these by default and lists them in `solver_info["corrections"]`; the parity paths keep EwE's behaviour. `solver_options={"corrections": False}` leaves out R2, R4, R5 and DF once; the handling-time rows (R3, Hden0, Hden) and the rows below DF once are part of the path and stay. IDs refer to `docs/parity/deviations.md`.
 
 | Item | RK4 path (EwE rule) | Continuous path |
 |---|---|---|
@@ -78,7 +79,7 @@ There is no EwE oracle for this path, so it is checked against itself and agains
 | LSODA against DOP853, both rtol 1e-8 | REco with stanzas, EwE rule, effort 2, 2 years | 3.0e-8 max relative difference |
 | Radau and BDF against LSODA, rtol 1e-8 | REco without stanzas, EwE rule, effort 2, 1 year | Radau 7.9e-8, BDF 1.0e-6 |
 | A balanced model stays balanced, LSODA, default tolerances | REco without stanzas, base effort, no forcing, 50 years | 3.0e-7 (EwE rule), 3.1e-7 (`"rpath"`) from B0; flat over the 50 years, solver error at rtol 1e-6, not drift (the start derivative is 4e-14 x B) |
-| Ten years run, LSODA | REco, the Black Sea, LT2022 | Finite and positive; every month status 0, no clips |
+| Ten years run, LSODA | REco, the Black Sea, LT2022 | Finite and positive; every month status 0, none degraded, no clips |
 
 A DOP853 reference at rtol 1e-10 is not accurate enough for the convergence check. Measured against rtol 1e-13, it is good to 4.7e-9 only at the default `atol`, and to 7e-12 to 1.1e-11 with an `atol` of 1e-10 x B0 or less, which still exceeds e_16. At rtol 1e-12 the error is 7.5e-14.
 
@@ -103,12 +104,14 @@ Most of these differences are definitional. To see which, the RK4 path was moved
 | and DetritusOut at the base state | 0.0017 % / 0.069 % | 2.7 % / 31 % | 0.44 % / 9.6 % |
 
 - **REco: where DetritusOut is set.** The scenario doubles effort from month 1. The RK4 path, as EwE, sets each detritus pool's export rate in the first derivative of month 1, with the doubled discards already flowing, so Discards stays near its base (1.15 at year 10, B0 1.22). The continuous path sets it at the base state, so Discards rises to 2.21, and the Seabirds follow. DetritusOut at the base state alone brings the paths within 0.069 %; so does running month 1 at base effort on both paths (0.072 %).
-- **Black Sea: one step a month, then handling time.** Half the median difference is RK4's single step a month (32 and 128 sub-steps give the same result). Most of the rest is handling time at the model's CmCo 2: with CmCo 1000 for every group on both paths, the RK4 path with 32 sub-steps and fast groups integrated comes within 0.43 % median of LSODA. The handling-time items are the recalibrated Hden0 (lower for predators with diet import) and the exact fixed point in place of EwE's damped pass carried between calls. The maximum is juvenile anchovy (Anchovy 0-0+), still 26 % at CmCo 1000 and 5.5 % apart at the end of month 1, when the scenario's nutrient forcing moves the whole web (both paths leave the base by up to 17 % in month 1; with neutral forcing the two anchovy stanzas stay within 0.2 % of their base on both). That is the stanza update: fed EwE's rates (consumption at the month-end state, 5.6 % below the month mean in month 1), the continuous path's anchovy follows the RK4 path's (32 sub-steps, fast groups integrated) to 4 digits, and over 10 years the paths then come within 0.38 % median. The largest remaining difference is Aurelia: 5e-6 in month 1, growing to 23 % by year 10. It was not attributed further; the corrections still active on this model are DF once and the exact handling time (R2, R4, R5 and feeding time do nothing here, and DetritusOut was measured to change nothing).
+- **Black Sea: one step a month, then handling time.** Half the median difference is RK4's single step a month (32 and 128 sub-steps give the same result). Most of the rest is handling time at the model's CmCo 2: with CmCo 1000 for every group on both paths, the RK4 path with 32 sub-steps and fast groups integrated comes within 0.43 % median of LSODA. The handling-time items are the recalibrated Hden0 (lower for predators with diet import) and the exact fixed point in place of EwE's damped pass carried between calls. The maximum is juvenile anchovy (Anchovy 0-0+), still 26 % at CmCo 1000 and 5.5 % apart at the end of month 1, when the scenario's nutrient forcing moves the whole web (both paths leave the base by up to 17 % in month 1; with neutral forcing the two anchovy stanzas stay within 0.2 % of their base on both over the first three months, the span measured). That is the stanza update: fed EwE's rates (consumption at the month-end state, 5.6 % below the month mean in month 1), the continuous path's anchovy follows the RK4 path's (32 sub-steps, fast groups integrated) to 4 digits, and over 10 years the paths then come within 0.38 % median. The largest remaining difference is Aurelia: 5e-6 in month 1, growing to 23 % by year 10. It was not attributed further; the corrections still active on this model are DF once and the exact handling time (R2, R4, R5 and feeding time do nothing here, and DetritusOut was measured to change nothing).
 - **LT2022: one step a month, then the fast-group blend.** 128 sub-steps (its stiffest eigenvalue, about 3300 per year, needs more than about 100 for RK4 to be stable; 256 give the same result) take the median from 3.7 % to 0.56 %. The maximum is Zooplankton, a fast group, under EwE's blend with the equilibrium; integrating it takes the maximum from 161 % to 9.6 %. R3 and DetritusOut change nothing here. What remains, 0.44 % median, comes from the other corrections (handling time, the stanza update, feeding time from month means, R2, R4, R5, DF once) and was not attributed further.
 
 Setting `STANZA_STAGE_RATES`, `FTIME_START_OF_MONTH` or `DETRITUS_MO_UNSCALED` to False on the RK4 path is not a step towards the continuous path: the first two select Rpath's rules, not month means, and moved LT2022 further away (1.9 % median, 34 % max).
 
 ## Cost
+
+The wall times in this section were measured with other jobs running on the machine, so they are indicative only; the call counts are not affected.
 
 LSODA at the default tolerances, 10 years, from `solver_info` and the test's wall clock:
 

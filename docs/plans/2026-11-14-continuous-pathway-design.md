@@ -1,6 +1,6 @@
 # A third integration pathway for PyPath: continuous dynamics with DOP853 and LSODA
 
-Status: approved 2026-11-14 (decisions in section 11); phase 1 in progress.
+Status: approved 2026-11-14; phase 1 complete (decisions in section 11).
 
 Paths are relative to the repository root. `ecosim.py` and `ecosim_deriv.py` are in `packages/pypath/src/pypath/core/`. Line numbers are from `main` at 36ae98b. Numbers marked "measured" come from read-only spikes (section 8).
 
@@ -91,7 +91,7 @@ F = sum(effort x q) on the current biomass is already continuous (`fishing_morta
 | R3 | Run starts from Hden = CmCo / (CmCo + 1) | Dropped |
 | R4 | Ecosim ignores EmigRate for living groups; a balanced model drifts | Use EmigRate x B |
 | R5 | With PaddP < 1 detritus gets mo x B; the group loses moTot x B | Closed budget. Needs a new flag: the moTot factor (`ecosim_deriv.py:2152-2161`) is applied after `_M0_detritus` is set |
-| DF | DetPassedProp x DF applies DF twice | Kept in phase 1 (DetritusOut absorbs it at base) |
+| DF | DetPassedProp x DF applies DF twice | Kept in phase 1 (DetritusOut absorbs it at base). Superseded by decision 1 (section 11): applied once, on by default |
 
 ## 3. Discrete events
 
@@ -157,13 +157,13 @@ LSODA makes about 7 to 30 times the derivative calls of RK4. Wall time in the sp
 
 ## 6. API and placement
 
-**Selection.** `rsim_run(scenario, method="lsoda" | "dop853", solver_options=None)` (`ecosim.py:1665`); options are `rtol`, `atol`, `corrections`, `on_failure`, and later `forcing_interpolation`, `fast_groups`, `positivity`.
+**Selection.** `rsim_run(scenario, method="lsoda" | "dop853", solver_options=None)` (`ecosim.py:1665`; four methods with `"radau"` and `"bdf"`, decision 3); options are `rtol`, `atol`, `corrections`, `on_failure`, and later `forcing_interpolation`, `fast_groups`, `positivity`.
 
 **With EwE-rule switches.** The rule is fixed when parameters are built (`rsim_params`, `ecosim.py:541`); the method arrives at run time. The new path reads the equation switches, ignores the numerics switches, applies the defect corrections, and logs once at INFO which switches it ignored and which corrections it applied. It does not mutate the scenario, so one scenario can be run on both paths. Roadmap decision D1 is unaffected: `compat` picks the functional forms; `method` picks the stepping and, for the continuous methods, the corrections.
 
 **Behaviour change.** An unknown method silently runs RK4 today (`ecosim.py:2582-2587`), so `method="lsoda"` currently returns RK4 output. Phase 1 makes an unknown method raise `ValueError`.
 
-**Placement.** The run setup and monthly forcing build are inline in `rsim_run` (about `ecosim.py:1700-2440`), so an early dispatch would duplicate them. Phase 1 instead **branches at the integration step** (`ecosim.py:2500`) into a new module `core/ecosim_continuous.py` (wrapper, Hden solver, month integrator, quadrature), with guarded branches for the Hden start, the DetritusOut pre-fill, the stanza rates and the catch. The parity branches are untouched and the existing suite must pass unchanged. Extracting the setup into a shared helper is left for phase 2. `ecosim_deriv.py` gains only flags read from `params`: exact-Hden mode, R5 closure, interpolated mediation.
+**Placement.** The run setup and monthly forcing build are inline in `rsim_run` (about `ecosim.py:1700-2440`), so an early dispatch would duplicate them. Phase 1 instead **branches at the integration step** (`ecosim.py:2500`) into a new module `core/ecosim_continuous.py` (wrapper, Hden solver, month integrator, quadrature), with guarded branches for the Hden start, the DetritusOut pre-fill, the stanza rates and the catch. The parity branches are untouched and the existing suite must pass unchanged. Extracting the setup into a shared helper is left for phase 2. `ecosim_deriv.py` gains only flags read from `params`: exact-Hden mode, R5 closure, interpolated mediation (moved to phase 2, decision 8).
 
 **Diagnostics.** `RsimOutput.solver_info`: method, tolerances, per-month `nfev`, `njev`, steps, status, Hden iterations, minimum state, clip count, ignored switches, applied corrections, conservation residual. A failed month raises unless `on_failure="warn"`.
 
@@ -223,3 +223,4 @@ The recommendations were adopted; questions 4 and 7 had no recommendation and we
 6. The primary catch figure is the integral of F x B over the month; EwE's month-end booking is kept in `out_Catch_month_end`.
 7. Diet imports stay out of the handling budget; Hden0 is recalibrated to the base fixed point.
 8. Mediation lookup interpolation (section 2.8) moved to phase 2, with the other smoothness items; phase 1 keeps EwE's lookup.
+9. The month-integral conservation test and the nutrient check (section 5.5) and the conservation residual in `solver_info` (section 6) move to phase 2; phase 1 tests the detritus closure of the right-hand side and the balanced start.
