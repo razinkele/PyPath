@@ -92,13 +92,41 @@ def test_no_fixed_point_raises_a_clear_error(reco_plain):
 @needs_reco
 def test_solving_does_not_touch_params(reco_plain):
     params, forcing, fishing = _setup(reco_plain)
-    before = (params["_hden"].copy(), params["_hden0"].copy())
+    dicts = (params, forcing, fishing)
+
+    def snap(d):
+        return {
+            k: np.array(v, copy=True) for k, v in d.items() if isinstance(v, np.ndarray)
+        }
+
+    before = [snap(d) for d in dicts]
+    keys = [set(d) for d in dicts]
     y = _perturbed(params)
     idx = hden_index(y, params, forcing)
     solve_hden(y, params, forcing, fishing, idx, params["_cmco_qb"])
-    assert np.array_equal(params["_hden"], before[0])
-    assert np.array_equal(params["_hden0"], before[1])
+    for d, snapshot, k in zip(dicts, before, keys):
+        assert set(d) == k
+        for name, arr in snapshot.items():
+            assert np.array_equal(d[name], arr, equal_nan=True), name
     assert "_hden_exact" not in params
+
+
+@needs_reco
+def test_a_fallback_result_above_tol_raises(reco_plain):
+    params, forcing, fishing = _setup(reco_plain)
+    y = _perturbed(params)
+    idx = hden_index(y, params, forcing)
+    with pytest.raises(RuntimeError, match="handling time"):
+        solve_hden(
+            y,
+            params,
+            forcing,
+            fishing,
+            idx,
+            params["_cmco_qb"],
+            tol=1e-30,
+            max_iter=3,
+        )
 
 
 def test_hden_index_uses_the_stanza_ratio_where_finite():

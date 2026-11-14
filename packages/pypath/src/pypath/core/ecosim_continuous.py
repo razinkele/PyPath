@@ -74,6 +74,9 @@ def solve_hden(
     relative residual ``max|g(H) - H| / H`` is still above ``tol`` and
     ``fallback`` is set, ``scipy.optimize.root(method="hybr")`` finishes.
 
+    ``tol`` is honoured in both phases: a fallback result whose re-measured
+    residual is above ``tol`` raises; pass a larger ``tol`` for a looser solve.
+
     Returns ``(H, n_evaluations)``; raises ``RuntimeError`` naming the
     unconverged groups when no solution is found.
     """
@@ -87,6 +90,8 @@ def solve_hden(
     pd_local = dict(params_dict)
     pd_local["_hden_exact"] = True
     pd_local["_hden"] = h.copy()
+    if pd_local.get("_det_out") is not None:  # output buffer deriv_vector writes
+        pd_local["_det_out"] = np.array(pd_local["_det_out"], copy=True)
     state = np.array(y_full, dtype=float, copy=True)
     denom = np.where(active, cmco_qb * index, 1.0)
     n_eval = 0
@@ -106,7 +111,7 @@ def solve_hden(
     def residual(hv, gv):
         if not active.any():
             return 0.0
-        return float(np.max(np.abs(gv[active] - hv[active]) / hv[active]))
+        return float(np.max(np.abs(gv[active] - hv[active]) / np.abs(hv[active])))
 
     for _ in range(max_iter):
         gh = g(h)
@@ -133,10 +138,12 @@ def solve_hden(
         hv[idx] = sol.x
         gv = g(hv)
         res = residual(hv, gv)
-        if res <= max(tol, 1e-10) and np.all(hv[idx] > 0):
+        if res <= tol:
             return hv, n_eval
         h = hv
-    bad = np.flatnonzero(active & (np.abs(g(h) - h) / h > tol))
+    bad = np.flatnonzero(active & (np.abs(g(h) - h) / np.abs(h) > tol))
+    if bad.size == 0:  # e.g. NaN residuals: name every active group
+        bad = np.flatnonzero(active)
     raise RuntimeError(
         f"handling time did not converge (residual {res:.3e}) for groups "
         f"{bad.tolist()}"
