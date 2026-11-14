@@ -38,6 +38,69 @@ def lsoda_plain(reco_plain):
     return scen, rsim_run(scen, method="lsoda", years=TWO_YEARS)
 
 
+@pytest.fixture(scope="module")
+def spied_stanzas(reco_stanzas):
+    """A 1-year LSODA run of REco with stanzas, spying on the month integrator
+    and the stanza update.
+
+    Returns ``(scenario, output, months, splits)``: per month, the
+    ``MonthResult`` and Hden recomputed from the RHS at its ``y_end``; per
+    ``split_update`` call, copies of its arguments.
+    """
+    import pypath.core.ecosim as ecosim_mod
+    import pypath.core.ecosim_continuous as cont_mod
+
+    real_integrate = cont_mod.integrate_month
+    real_split = ecosim_mod.split_update
+    months, splits = [], []
+
+    def integrate_spy(rhs, *args, **kwargs):
+        res = real_integrate(rhs, *args, **kwargs)
+        hden = np.array(rhs.rates(res.y_end)["Hden"], dtype=float, copy=True)
+        months.append({"res": res, "hden": hden})
+        return res
+
+    def split_spy(stanzas, sstate, biomass, food_gain, loss, **kwargs):
+        splits.append(
+            {
+                "biomass": np.array(biomass, dtype=float, copy=True),
+                "food_gain": np.array(food_gain, dtype=float, copy=True),
+                "loss": np.array(loss, dtype=float, copy=True),
+                "month_index": kwargs.get("month_index"),
+            }
+        )
+        return real_split(stanzas, sstate, biomass, food_gain, loss, **kwargs)
+
+    scen = scenario(reco_stanzas, rule="ewe")
+    with pytest.MonkeyPatch.context() as mp:
+        # rsim_run imports integrate_month from the module at call time
+        mp.setattr(cont_mod, "integrate_month", integrate_spy)
+        mp.setattr(ecosim_mod, "split_update", split_spy)
+        out = rsim_run(scen, method="lsoda", years=range(1, 2))
+    return scen, out, months, splits
+
+
+def handled_groups(scen):
+    """``(mask, cmco, recalibrated Hden0)`` of the groups with handling time."""
+    from pypath.core.ecosim_continuous import recalibrated_hden0
+
+    _, pd, _, _ = run_dicts(scen)
+    cmco_qb = np.asarray(pd["_cmco_qb"], dtype=float)
+    mask = cmco_qb > 0
+    cmco = np.asarray(scen.params.CmCo, dtype=float)[: len(mask)]
+    return mask, cmco, recalibrated_hden0(pd, cmco_qb)
+
+
+def forced_f(fishing, year_idx, g):
+    """Whether group ``g`` has a forced F or forced catch in that year."""
+    for name in ("ForcedFRate", "ForcedCatch"):
+        arr = getattr(fishing, name, None)
+        if arr is not None and year_idx < len(arr):
+            if np.nan_to_num(np.asarray(arr[year_idx], dtype=float))[g] > 0:
+                return True
+    return False
+
+
 def test_an_unknown_method_raises(reco_plain):
     with pytest.raises(ValueError, match="lsoda"):
         rsim_run(scenario(reco_plain), method="rk45", years=range(1, 2))
@@ -81,6 +144,18 @@ def test_lsoda_runs_reco(reco_stanzas, lsoda_stanzas):
         assert m["status"] == 0 and m["nfev"] > 0
     # handling time is on under the EwE rule: Hden solved at each month end
     assert out.out_Hden is not None and np.all(np.isfinite(out.out_Hden))
+    handled, cmco, hden0 = handled_groups(scenario(reco_stanzas, rule="ewe"))
+    assert handled.sum() > 0
+    # row 0: Hden at the start state, the recalibrated base fixed point
+    # (about 1000 / 999 at CmCo 1000), not EwE's start CmCo / (CmCo + 1)
+    np.testing.assert_allclose(out.out_Hden[0, handled], hden0[handled], rtol=1e-6)
+    np.testing.assert_allclose(out.out_Hden[0, handled], 1000 / 999, rtol=1e-3)
+    ewe_start = cmco[handled] / (cmco[handled] + 1.0)
+    later = out.out_Hden[1:, handled]
+    assert not np.any(np.isclose(later, ewe_start, rtol=1e-9, atol=0))
+    assert np.all(later > 1.0)  # H = 1 + H q / (CmCo QB B) > 1
+    # under effort 2 the solved Hden moves from month to month
+    assert np.ptp(later, axis=0).max() > 1e-8
     upper = rsim_run(
         scenario(reco_stanzas, rule="ewe"), method="LSODA", years=TWO_YEARS
     )
@@ -89,21 +164,47 @@ def test_lsoda_runs_reco(reco_stanzas, lsoda_stanzas):
     assert upper.solver_info["method"] == "lsoda"
 
 
+# Measured on REco without stanzas, EwE rule, effort 2: the month-mean catch
+# is within 3.1e-5 of the trapezoid, catch at month-end or month-start biomass
+# up to 4.3e-3 off. 2e-4 leaves a factor 6 on one side and 20 on the other.
+CATCH_RTOL = 2e-4
+
+
 def test_the_catch_is_the_month_integral(lsoda_plain):
-    _, out = lsoda_plain
+    scen, out = lsoda_plain
     n_bio = out.params["NUM_LIVING"] + 2
+    fish_from = np.asarray(scen.params.FishFrom)
     B = out.out_Biomass
-    checked = 0
+    checked = gear_checked = 0
+    month_end_departure = 0.0
     for m in range(1, B.shape[0]):
         f_m = out.out_FishMort[m]
         for g in range(1, n_bio + 1):
             if f_m[g] <= 0:
                 continue
             trapezoid = f_m[g] * (B[m - 1, g] + B[m, g]) / 2 / 12
-            assert out.out_Catch[m, g] == pytest.approx(trapezoid, rel=1e-2), (m, g)
+            assert out.out_Catch[m, g] == pytest.approx(trapezoid, rel=CATCH_RTOL), (
+                m,
+                g,
+            )
             assert out.out_Catch_month_end[m, g] == f_m[g] * B[m, g] / 12, (m, g)
+            month_end_departure = max(
+                month_end_departure,
+                abs(out.out_Catch[m, g] / out.out_Catch_month_end[m, g] - 1.0),
+            )
             checked += 1
-    assert checked > 0
+            if not forced_f(scen.fishing, (m - 1) // 12, g):
+                links = np.flatnonzero(fish_from == g)
+                links = links[links > 0]
+                gear_sum = out.out_Gear_Catch[m, links].sum()
+                assert gear_sum == pytest.approx(out.out_Catch[m, g], rel=1e-12), (
+                    m,
+                    g,
+                )
+                gear_checked += 1
+    assert checked > 0 and gear_checked > 0
+    # the month-end booking is a different figure, beyond the tolerance
+    assert month_end_departure > CATCH_RTOL
 
 
 def test_stanza_totals_follow_the_age_structure(lsoda_stanzas):
@@ -113,6 +214,27 @@ def test_stanza_totals_follow_the_age_structure(lsoda_stanzas):
     np.testing.assert_allclose(
         out.stanza_biomass[1:, idx], out.out_Biomass[1:, idx], rtol=1e-12
     )
+
+
+def test_the_stanza_update_takes_the_month_means(spied_stanzas):
+    scen, out, months, splits = spied_stanzas
+    n1 = scen.params.NUM_GROUPS + 1
+    assert len(months) == 12 and len(splits) == 12
+    for k, (month, call) in enumerate(zip(months, splits)):
+        res = month["res"]
+        assert call["month_index"] == k
+        # unit biomass, so survival is exp(-integral of Z dt)
+        assert call["biomass"].shape == (n1,)
+        assert np.all(call["biomass"] == 1.0)
+        assert np.array_equal(call["food_gain"], res.food_gain_mean)
+        assert np.array_equal(call["loss"], res.loss_rate_mean)
+
+
+def test_hden_is_solved_at_the_month_end_state(spied_stanzas):
+    _, out, months, _ = spied_stanzas
+    assert out.out_Hden is not None and len(months) == 12
+    for m, month in enumerate(months, start=1):
+        np.testing.assert_allclose(out.out_Hden[m], month["hden"], rtol=1e-12, atol=0)
 
 
 def test_forced_biomass_is_held(reco_plain):
