@@ -266,8 +266,8 @@ def test_black_sea_and_lt2022_run(model):
     print(
         f"{model}: nfev per month mean {nfev.mean():.0f}, median "
         f"{np.median(nfev):.0f}, max {nfev.max()}; njev per month mean "
-        f"{np.mean([m['njev'] for m in months]):.1f}; Hden evaluations per "
-        f"RHS call, max {max(m['hden_evals_max'] for m in months)}; clips "
+        f"{np.mean([m['njev'] for m in months]):.1f}; Hden kernel passes per "
+        f"RHS call, max {max(m['hden_passes_max'] for m in months)}; clips "
         f"{sum(m['clips'] for m in months)}"
     )
     print(

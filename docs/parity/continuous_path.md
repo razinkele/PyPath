@@ -26,7 +26,7 @@ out.solver_info  # method, tolerances, corrections, ignored switches, per-month 
 - **Month-end updates use month means.** The stanza age structure takes the month's mean food gain and loss rate (6-point Gauss-Legendre quadrature of the dense output); feeding time takes the month-mean consumption; `out_Catch` is the month's F times the month-mean biomass / 12, the integral of F x B. EwE's F x month-end biomass / 12 is kept in `out_Catch_month_end`.
 - **Fixed detritus export.** DetritusOut is set once at the unforced base state, not by the first derivative of month 1.
 - **Positivity.** A negative state is read as 0 inside the right-hand side and counted in `clips`; month-end biomass is floored at 1e-20, and month-mean biomass (hence the catch) is clipped at 0.
-- **Diagnostics.** `out.solver_info` holds the method, `rtol`, `atol`, the corrections applied, the EwE switches ignored, and per month `nfev`, `njev`, `nlu`, `steps`, `status`, `t_reached`, `degraded`, `clips`, `hden_evals_max` and `min_state`. `degraded` is True when a month mean fell back to the start state (non-finite dense output or rates at a quadrature node); `status` can be 0 in that case, so check both.
+- **Diagnostics.** `out.solver_info` holds the method, `rtol`, `atol`, the corrections applied, the EwE switches ignored, and per month `nfev`, `njev`, `nlu`, `steps`, `status`, `t_reached`, `degraded`, `clips`, `hden_passes_max` (kernel passes of the month's largest handling-time solve) and `min_state`; `solver_info["hden_tol"]` is the tolerance of that solve (`solver_options`, default 1e-12). `degraded` is True when a month mean fell back to the start state (non-finite dense output or rates at a quadrature node); `status` can be 0 in that case, so check both.
 - **Failures.** A failed month raises `RuntimeError` naming the month, unless `solver_options={"on_failure": "warn"}`, which logs it, with the month, and continues from the last state reached. Two failures raise even with `"warn"`: a handling-time solve that fails inside the right-hand side, and a non-finite derivative (or non-finite rates) at the start of a month.
 - **The parity paths are unchanged.** One scenario can be run on both paths; the continuous run does not modify it.
 
@@ -115,7 +115,7 @@ The wall times in this section were measured with other jobs running on the mach
 
 LSODA at the default tolerances, 10 years, from `solver_info` and the test's wall clock:
 
-| Model | Groups | `nfev` / month (mean, max) | `hden_evals_max` (largest month) | Wall s / year, RK4 | Wall s / year, LSODA | Ratio |
+| Model | Groups | `nfev` / month (mean, max) | `hden_passes_max` (largest month) | Wall s / year, RK4 | Wall s / year, LSODA | Ratio |
 |---|---|---|---|---|---|---|
 | REco, with stanzas | 22 | 33, 37 | 4 | 0.12 | 2.6 | 21 x |
 | Black Sea | 22 | 87, 115 | 132 | 0.045 | 40.7 | 914 x |
@@ -138,7 +138,7 @@ What the call counts mean:
 
 - `nfev` counts the solver's calls of the right-hand side. For LSODA it includes the finite-difference Jacobian columns; for Radau and BDF it does not (SciPy builds their Jacobian outside the count), hence the separate column: about `nfev` + Jacobians x groups.
 - Each month adds calls that are not in `nfev`: one start check, six quadrature evaluations, and the rate evaluations for the outputs (Hden at the month end; the month-start predation when RiskTime is set).
-- Under the EwE rule each right-hand-side call solves handling time first: `hden_evals_max` derivative evaluations at most, then one more. At CmCo 1000 that is 4 or fewer. At the Black Sea's CmCo 2 the undamped iteration does not always reach its tolerance (1e-12) in 30 passes, and SciPy's `hybr` finishes, so a call can take up to 132 derivative evaluations. That is where the Black Sea's time goes: with CmCo 1000 for every group (a measurement script) the same 10 years take 3.3 s a year, with the same `nfev`.
+- Under the EwE rule each right-hand-side call is one derivative evaluation, inside which handling time is solved first on the consumption kernel alone: a bracketed secant per predator, `hden_passes_max` kernel passes at most, with SciPy's `hybr` finishing if 30 passes leave the tolerance `hden_tol` unmet. The `hden_passes_max` column and the wall times above were measured before that change, when each pass was a whole derivative evaluation and the Black Sea's undamped iteration took up to 132 of them in a call; with CmCo 1000 for every group (a measurement script) the Black Sea's 10 years then took 3.3 s a year, with the same `nfev`.
 - LT2022 is stiff (one eigenvalue of about 3300 per year at base, design section 2.2), so LSODA runs its stiff method there, with about 5 Jacobians a month.
 
 ## Known limitations

@@ -357,6 +357,140 @@ _compute_consumption_sparse = _compute_consumption_sparse_python
 
 
 # =============================================================================
+# HANDLING-TIME KERNEL (continuous path)
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class KernelInputs:
+    """What the consumption loop reads in one ``deriv_vector`` call.
+
+    Handed to ``params["_hden_solver"]`` on the continuous path
+    (``_hden_exact``) so that handling time can be solved on the kernel
+    alone. ``predYY`` is unscaled: the loop's predator term is
+    ``predYY * hden0 / Hden``. ``VV`` and ``QQbase`` are after the
+    prey-switching, arena and search remaps; ``link_prey`` / ``link_pred``
+    are the links the loop visits, in its order; ``eat_eff`` is the loop's
+    (producers at 1) and ``index`` the predator abundance of the Hden update.
+    The pooling arrays, ``HandleSwitch``, ``med_multipliers`` and ``eat_eff``
+    are None when the loop gets None. ``BB`` is a copy; the other arrays may
+    be shared with the call, so read them only.
+    """
+
+    BB: np.ndarray
+    preyYY: np.ndarray
+    predYY: np.ndarray
+    hden0: np.ndarray
+    VV: np.ndarray
+    DD: np.ndarray
+    QQbase: np.ndarray
+    link_prey: np.ndarray
+    link_pred: np.ndarray
+    ScrambleSelf: Optional[np.ndarray]
+    HandleSelf: Optional[np.ndarray]
+    PredPredWeight: Optional[np.ndarray]
+    PreyPreyWeight: Optional[np.ndarray]
+    HandleSwitch: Optional[np.ndarray]
+    COUPLED: float
+    med_multipliers: Optional[np.ndarray]
+    eat_eff: Optional[np.ndarray]
+    index: np.ndarray
+    cmco_qb: np.ndarray
+
+
+class HdenKernel:
+    """The link loop's consumption as a vector function of Hden.
+
+    Only the predator term (``PDY``, the VV denominator and the predator
+    suite) depends on Hden. The prey term, the DD factor, the base flow and
+    the mediation multiplier are computed once here, with the loop's skips
+    (B <= 0 at either end, ``QQbase <= 0``); :meth:`q` applies its clamp at 0.
+    """
+
+    def __init__(self, inputs: KernelInputs):
+        self.inputs = inputs
+        prey = np.asarray(inputs.link_prey, dtype=np.int64)
+        pred = np.asarray(inputs.link_pred, dtype=np.int64)
+        self.n = len(inputs.BB)
+        bb = inputs.BB
+        qbase = np.asarray(inputs.QQbase, dtype=float)[prey, pred]
+        live = ~((bb[prey] <= 0.0) | (bb[pred] <= 0.0) | (qbase <= 0.0))
+        # the consuming links; prey-0 links enter the suites, not the sum
+        s = live & (prey >= 1)
+        pyy = inputs.preyYY[prey]
+        hs_exp = np.zeros(len(prey))
+        if inputs.HandleSwitch is not None:
+            hs_exp = np.asarray(inputs.HandleSwitch, dtype=float)[prey, pred]
+            hs_exp = hs_exp * inputs.COUPLED
+        switch = hs_exp > 0.0
+        pyy_term = pyy.copy()
+        pyy_term[switch] = np.maximum(pyy[switch], 1e-10) ** hs_exp[switch]
+        pooling = (
+            inputs.ScrambleSelf is not None
+            and inputs.HandleSelf is not None
+            and inputs.PredPredWeight is not None
+            and inputs.PreyPreyWeight is not None
+        )
+        if pooling:
+            handle_suite = np.bincount(
+                pred,
+                weights=pyy * np.asarray(inputs.PreyPreyWeight)[prey, pred],
+                minlength=self.n,
+            )
+            hself = np.asarray(inputs.HandleSelf, dtype=float)[prey, pred]
+            dd_prey_eff = (1.0 - hself) * pyy + hself * handle_suite[pred]
+        else:
+            dd_prey_eff = pyy
+        dd_denom = np.maximum(dd_prey_eff, 1e-10)
+        dd_denom[switch] = dd_denom[switch] ** hs_exp[switch]
+        dd = np.asarray(inputs.DD, dtype=float)[prey, pred]
+        dd_term = dd / np.maximum(dd - 1.0 + dd_denom, 1e-10)
+        base = qbase * pyy_term * dd_term
+        if inputs.med_multipliers is not None:
+            base = base * np.asarray(inputs.med_multipliers)[prey, pred]
+        self.prey, self.pred = prey[s], pred[s]
+        self.base = base[s]
+        self.vv = np.asarray(inputs.VV, dtype=float)[prey, pred][s]
+        # EatEff divides the predator term of the VV denominator and suite
+        eat = None if inputs.eat_eff is None else np.asarray(inputs.eat_eff, float)
+        self.eat = None if eat is None else eat[self.pred]
+        # the predator suite: every visited link's (prey, pred, weight,
+        # EatEff), and the consuming links' ScrambleSelf
+        self.suite: Optional[tuple] = None
+        if pooling:
+            self.suite = (
+                prey,
+                pred,
+                np.asarray(inputs.PredPredWeight, dtype=float)[prey, pred],
+                None if eat is None else eat[pred],
+                np.asarray(inputs.ScrambleSelf, dtype=float)[prey, pred][s],
+            )
+
+    def coupled(self) -> bool:
+        """Whether one predator's Hden reaches another's consumption: a
+        consuming link with ``ScrambleSelf > 0`` shares its prey's suite."""
+        return self.suite is not None and bool(np.any(self.suite[4] > 0.0))
+
+    def q(self, hden: np.ndarray) -> np.ndarray:
+        """``sum over prey >= 1 of Q[prey, j]`` at ``hden``, per group ``j``,
+        as the loop's ``HdenConsumption``."""
+        inputs = self.inputs
+        pred_yy = inputs.predYY * (inputs.hden0 / hden)
+        pdy = pred_yy[self.pred]
+        vv_pred_eff = pdy if self.eat is None else pdy / self.eat
+        if self.suite is not None:
+            s_prey, s_pred, s_weight, s_eat, sself = self.suite
+            s_pdy = pred_yy[s_pred] if s_eat is None else pred_yy[s_pred] / s_eat
+            pred_suite = np.bincount(s_prey, weights=s_pdy * s_weight, minlength=self.n)
+            vv_pred_eff = (1.0 - sself) * vv_pred_eff + sself * pred_suite[self.prey]
+        vv = self.vv
+        vv_term = vv / np.maximum(vv - 1.0 + np.maximum(vv_pred_eff, 1e-10), 1e-10)
+        flow = self.base * pdy * vv_term
+        flow = np.where(flow > 0.0, flow, 0.0)
+        return np.bincount(self.pred, weights=flow, minlength=self.n)
+
+
+# =============================================================================
 # NUMBA-ACCELERATED LIVING-GROUP DERIVATIVE KERNEL
 # =============================================================================
 
@@ -1950,12 +2084,53 @@ def deriv_vector(
     # (Derivt, cEcoSimModel.vb 2890-2969). rsim_run keeps Hden between calls
     # and freezes it for calls that are not integration stages. With
     # ``_hden_exact`` (the continuous path) the caller solves Hden and it is
-    # used as given, with no update.
+    # used as given, with no update; or ``params["_hden_solver"]`` solves it
+    # here on the kernel's inputs.
     _hden = params.get("_hden")
     if _hden is not None:
         _hden0 = params["_hden0"]
         _cmco_qb = params["_cmco_qb"]
-        if params.get("_hden_exact", False):
+        _hden_exact = params.get("_hden_exact", False)
+        _hden_solver = params.get("_hden_solver") if _hden_exact else None
+        if _hden_solver is not None:
+            # Continuous path: Hden from the solver, given what the loop
+            # reads, then one kernel pass at it
+            _index = np.array(BB, dtype=float, copy=True)
+            if _stanza_ratio is not None:
+                _index[_has_ratio] = Bbase[_has_ratio] * _stanza_ratio[_has_ratio]
+            if _link_prey is not None and _link_pred is not None:
+                _lp, _lq = _link_prey, _link_pred
+            else:  # the dense loop's links: predators 1..NUM_LIVING
+                _lp, _lq = np.nonzero(
+                    ActiveLink[1 : NUM_GROUPS + 1, 1 : NUM_LIVING + 1]
+                )
+                _lp, _lq = _lp + 1, _lq + 1
+            _inputs = KernelInputs(
+                BB=BB.copy(),
+                preyYY=preyYY,
+                predYY=predYY,
+                hden0=np.asarray(_hden0, dtype=float),
+                VV=VV,
+                DD=DD,
+                QQbase=QQbase,
+                link_prey=_lp,
+                link_pred=_lq,
+                ScrambleSelf=_ScrambleSelf,
+                HandleSelf=_HandleSelf,
+                PredPredWeight=_PredPredWeight,
+                PreyPreyWeight=_PreyPreyWeight,
+                HandleSwitch=_HandleSwitch,
+                COUPLED=_COUPLED,
+                med_multipliers=_med_multipliers,
+                eat_eff=_kernel_eat_eff,
+                index=_index,
+                cmco_qb=np.asarray(_cmco_qb, dtype=float),
+            )
+            _hden_solved = np.array(_hden_solver(_inputs), dtype=float, copy=True)
+            _run_kernel(predYY * (_hden0 / _hden_solved))
+            if rates is not None:
+                rates["Hden"] = _hden_solved
+        elif _hden_exact:
             # Continuous path: one kernel pass at the given Hden, which is
             # neither updated nor written; the caller carries Hden.
             _run_kernel(predYY * (_hden0 / _hden))

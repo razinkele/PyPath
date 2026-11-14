@@ -1,7 +1,7 @@
 """Continuous integration pathway for Ecosim (independent of the EwE pathway).
 
-The pathway's pieces: the handling-time solver (``solve_hden``), the pure
-right-hand side (``ContinuousRHS``) and the month integrator
+The pathway's pieces: the handling-time solver (``solve_hden_kernel``, with
+``solve_hden`` its full-derivative reference), the pure right-hand side (``ContinuousRHS``) and the month integrator
 (``integrate_month``) that ``rsim_run`` calls for the continuous methods.
 Under EwE's rule the derivative scales each predator's search rate by
 ``Hden0 / Hden`` where ``Hden`` satisfies the disc-equation fixed point
@@ -9,18 +9,20 @@ Under EwE's rule the derivative scales each predator's search rate by
     Hden = 1 + Hden * q(Hden) / (CmCo * QB * index)
 
 EwE takes one damped pass of that per derivative call; here it is solved
-exactly at each state.
+exactly at each state, on the consumption kernel alone (``HdenKernel``),
+with a bracketed secant per predator (``iterate_hden``).
 """
 
 import logging
+import numbers
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import root
 
-from pypath.core.ecosim_deriv import deriv_vector
+from pypath.core.ecosim_deriv import HdenKernel, KernelInputs, deriv_vector
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +32,22 @@ def recalibrated_hden0(params_dict: dict, cmco_qb: np.ndarray) -> np.ndarray:
 
     ``1 / (1 - q0 / cmco_qb)`` for groups with ``cmco_qb > 0``, else 1, where
     ``q0_j = QQbase[1:, j].sum() / Bbase[j]`` (link flows only; diet import is
-    row 0 and stays out).
+    row 0 and stays out). Raises ``ValueError`` naming the groups where
+    ``q0 >= cmco_qb``, which have no positive Hden0.
     """
     cmco_qb = np.asarray(cmco_qb, dtype=float)
     qbase = np.asarray(params_dict["QQbase"], dtype=float)
     bbase = np.asarray(params_dict["Bbase"], dtype=float)
     out = np.ones_like(cmco_qb)
     ok = (cmco_qb > 0) & (bbase > 0)
-    q0 = qbase[1:, :].sum(axis=0)[ok] / bbase[ok]
-    out[ok] = 1.0 / (1.0 - q0 / cmco_qb[ok])
+    ratio = qbase[1:, :].sum(axis=0)[ok] / bbase[ok] / cmco_qb[ok]
+    bad = np.flatnonzero(ok)[ratio >= 1.0]
+    if bad.size:
+        raise ValueError(
+            "handling time: the base link consumption reaches CmCo x QB for "
+            f"groups {bad.tolist()}, so they have no positive Hden0"
+        )
+    out[ok] = 1.0 / (1.0 - ratio)
     return out
 
 
@@ -56,6 +65,143 @@ def hden_index(y_full: np.ndarray, params_dict: dict, forcing: dict) -> np.ndarr
     return index
 
 
+def iterate_hden(
+    g: Callable[[np.ndarray], np.ndarray],
+    h0: np.ndarray,
+    active: np.ndarray,
+    *,
+    tol: float = 1e-12,
+    max_iter: int = 30,
+    fallback: bool = True,
+    accel: str = "bracketed",
+    coupled: bool = False,
+) -> tuple[np.ndarray, int]:
+    """Solve ``H = g(H)`` on the ``active`` components, from ``h0``.
+
+    ``g`` maps a full-length H to a full-length array; the inactive
+    components stay at ``h0``. An iterate is accepted when its residual
+    ``max |g(H) - H| / H`` over the active components is <= ``tol`` and
+    every active H is finite and > 0; the accepted iterate is the one whose
+    residual was measured.
+
+    ``accel="bracketed"`` (with ``coupled`` False, i.e. each component of
+    ``g`` depending on its own H only) runs a secant per component inside a
+    bracket, with the Illinois modification: the start ``a = h0``, the
+    second end 1e6 where ``F = g - H`` is > 0 at ``a``, else 1. A component
+    whose two ends do not straddle a sign change takes undamped passes
+    (``H <- g(H)``) instead, as every component does with ``accel="none"``
+    or ``coupled`` True. A component that converges is held there. After
+    ``max_iter`` passes beyond the start (and the bracket end), ``fallback``
+    hands the active components to ``scipy.optimize.root(method="hybr")``.
+
+    Returns ``(H, passes)``, ``passes`` being the calls of ``g``. Raises
+    ``RuntimeError`` naming "handling time" and the unconverged components
+    when nothing is accepted.
+    """
+    if accel not in ("bracketed", "none"):
+        raise ValueError(f"accel must be 'bracketed' or 'none', got {accel!r}")
+    active = np.asarray(active, dtype=bool)
+    h_start = np.array(h0, dtype=float, copy=True)
+    idx = np.flatnonzero(active)
+    if idx.size == 0:
+        return h_start, 0
+    passes = 0
+
+    def full(x):
+        hv = h_start.copy()
+        hv[idx] = x
+        return hv
+
+    def F(x):
+        nonlocal passes
+        passes += 1
+        return np.asarray(g(full(x)), dtype=float)[idx] - x
+
+    def rel(x, fx):
+        """Per-component residual; inf where H is not finite and > 0."""
+        good = np.isfinite(x) & (x > 0.0) & np.isfinite(fx)
+        out = np.full(x.shape, np.inf)
+        out[good] = np.abs(fx[good]) / x[good]
+        return out
+
+    a = h_start[idx].copy()
+    fa = F(a)
+    r = rel(a, fa)
+    if np.all(r <= tol):
+        return full(a), passes
+    held = r <= tol  # converged components, held at x_held
+    x_held = a.copy()
+    n = idx.size
+    secant = np.zeros(n, dtype=bool)
+    b, fb = a.copy(), fa.copy()
+    side = np.zeros(n, dtype=int)  # -1: a was kept last pass; +1: b was
+    x = a
+    if accel == "bracketed" and not coupled:
+        b = np.where(held, a, np.where(fa > 0.0, 1e6, 1.0))
+        fb = F(b)
+        r = rel(b, fb)
+        if np.all(r <= tol):
+            return full(b), passes
+        new = ~held & (r <= tol)
+        x_held[new] = b[new]
+        held |= new
+        secant = ~held & (np.sign(fa) * np.sign(fb) < 0.0)
+    x_cur, f_cur = a, fa  # undamped components: the last point they took
+    for _ in range(max_iter):
+        prop = x_cur + f_cur  # g(x_cur)
+        if secant.any():
+            with np.errstate(divide="ignore", invalid="ignore"):
+                xs = (a * fb - b * fa) / (fb - fa)
+            xs = np.where(np.isfinite(xs), xs, 0.5 * (a + b))
+            prop = np.where(secant, xs, prop)
+        x = np.where(held, x_held, prop)
+        fx = F(x)
+        r = rel(x, fx)
+        if np.all(r <= tol):
+            return full(x), passes
+        x_cur = np.where(secant, x_cur, x)
+        f_cur = np.where(secant, f_cur, fx)
+        new = ~held & (r <= tol)
+        x_held[new] = x[new]
+        held |= new
+        if secant.any():
+            # a non-finite F leaves no bracket: undamped from the end a
+            lost = secant & ~np.isfinite(fx)
+            secant &= ~held & ~lost
+            to_b = secant & (np.sign(fx) == np.sign(fb))
+            to_a = secant & ~to_b
+            # Illinois: halve the kept end's F when it is kept twice running
+            fa = np.where(to_b & (side == -1), 0.5 * fa, fa)
+            fb = np.where(to_a & (side == 1), 0.5 * fb, fb)
+            b, fb = np.where(to_b, x, b), np.where(to_b, fx, fb)
+            a, fa = np.where(to_a, x, a), np.where(to_a, fx, fa)
+            side = np.where(to_b, -1, np.where(to_a, 1, side))
+            x_cur = np.where(lost, a, x_cur)
+            f_cur = np.where(lost, fa, f_cur)
+    if fallback:
+        logger.debug(
+            "handling time: %d passes left residual %.3e; hybr finishes",
+            passes,
+            float(np.max(r)),
+        )
+        x0 = np.where(held, x_held, x)
+        x0 = np.where(np.isfinite(x0) & (x0 > 0.0), x0, h_start[idx])
+        sol = root(F, x0, method="hybr", tol=tol)
+        x = np.asarray(sol.x, dtype=float)
+        r = np.full(n, np.inf)
+        if np.all(np.isfinite(x)):
+            r = rel(x, F(x))
+            if np.all(r <= tol):
+                return full(x), passes
+    bad = idx[~(r <= tol)]
+    positive = bool(np.all(np.isfinite(x) & (x > 0.0)))
+    raise RuntimeError(
+        f"handling time did not converge (residual {float(np.max(r)):.3e}"
+        f"{'' if positive else '; an Hden is not finite and > 0'}) for groups "
+        f"{bad.tolist()}"
+    )
+
+
 def solve_hden(
     y_full,
     params_dict,
@@ -71,16 +217,14 @@ def solve_hden(
 ):
     """Solve ``H = 1 + H * q(H) / (cmco_qb * index)`` at the state ``y_full``.
 
-    Groups with ``cmco_qb > 0`` and ``index > 0`` are solved; the rest keep
-    H = 1. ``q(H)`` is the link consumption of one ``deriv_vector`` call with
-    ``_hden_exact`` on a shallow copy of ``params_dict``; the caller's dict
-    and arrays are never written. Undamped iteration from ``h0`` (default
-    ``params_dict["_hden0"]``) runs up to ``max_iter`` passes; if the maximum
-    relative residual ``max|g(H) - H| / H`` is still above ``tol`` and
-    ``fallback`` is set, ``scipy.optimize.root(method="hybr")`` finishes.
-
-    ``tol`` is honoured in both phases: a fallback result whose re-measured
-    residual is above ``tol`` raises; pass a larger ``tol`` for a looser solve.
+    The full-derivative reference of :func:`solve_hden_kernel`. Groups with
+    ``cmco_qb > 0`` and ``index > 0`` are solved; the rest keep H = 1.
+    ``q(H)`` is the link consumption of one ``deriv_vector`` call with
+    ``_hden_exact`` (and no ``_hden_solver``) on a shallow copy of
+    ``params_dict``; the caller's dict and arrays are never written.
+    :func:`iterate_hden` iterates from ``h0`` (default
+    ``params_dict["_hden0"]``) with ``tol``, ``max_iter`` and ``fallback``,
+    as a coupled map when a link has ``ScrambleSelf > 0``.
 
     Returns ``(H, n_evaluations)``; raises ``RuntimeError`` naming the
     unconverged groups when no solution is found.
@@ -94,16 +238,18 @@ def solve_hden(
 
     pd_local = dict(params_dict)
     pd_local["_hden_exact"] = True
+    pd_local.pop("_hden_solver", None)  # iterate the given H, not a solve
     pd_local["_hden"] = h.copy()
     if pd_local.get("_det_out") is not None:  # output buffer deriv_vector writes
         pd_local["_det_out"] = np.array(pd_local["_det_out"], copy=True)
     state = np.array(y_full, dtype=float, copy=True)
     denom = np.where(active, cmco_qb * index, 1.0)
-    n_eval = 0
+    scramble = pd_local.get("ScrambleSelf")
+    coupled = scramble is not None and bool(
+        np.any(np.asarray(scramble)[np.asarray(pd_local["ActiveLink"]) != 0] > 0)
+    )
 
     def g(hv):
-        nonlocal n_eval
-        n_eval += 1
         pd_local["_hden"] = np.array(hv, dtype=float, copy=True)
         rates: dict = {}
         deriv_vector(state.copy(), pd_local, forcing, fishing, rates=rates)
@@ -113,44 +259,47 @@ def solve_hden(
         )
         return new
 
-    def residual(hv, gv):
-        if not active.any():
-            return 0.0
-        return float(np.max(np.abs(gv[active] - hv[active]) / np.abs(hv[active])))
+    return iterate_hden(
+        g, h, active, tol=tol, max_iter=max_iter, fallback=fallback, coupled=coupled
+    )
 
-    for _ in range(max_iter):
-        gh = g(h)
-        res = residual(h, gh)
-        h = gh
-        if res <= tol:
-            return h, n_eval
-    # the loop updated h after measuring; confirm at the final iterate
-    gh = g(h)
-    res = residual(h, gh)
-    if res <= tol:
-        return h, n_eval
-    if fallback:
-        logger.debug("handling time: undamped passes left residual %.3e", res)
-        idx = np.flatnonzero(active)
 
-        def F(x):
-            hv = h.copy()
-            hv[idx] = x
-            return (g(hv) - hv)[idx]
+def solve_hden_kernel(
+    inputs: KernelInputs,
+    *,
+    tol: float = 1e-12,
+    max_iter: int = 30,
+    fallback: bool = True,
+) -> tuple[np.ndarray, int]:
+    """Solve Hden on the consumption kernel alone, at the state ``inputs``
+    describe (``deriv_vector`` hands them to ``params["_hden_solver"]``).
 
-        sol = root(F, h[idx], method="hybr", tol=tol)
-        hv = h.copy()
-        hv[idx] = sol.x
-        gv = g(hv)
-        res = residual(hv, gv)
-        if res <= tol:
-            return hv, n_eval
-        h = hv
-    bad = np.flatnonzero(active & (np.abs(g(h) - h) / np.abs(h) > tol))
-    if bad.size == 0:  # e.g. NaN residuals: name every active group
-        bad = np.flatnonzero(active)
-    raise RuntimeError(
-        f"handling time did not converge (residual {res:.3e}) for groups {bad.tolist()}"
+    As :func:`solve_hden` with ``q(H) = HdenKernel(inputs).q(H)``, from
+    ``inputs.hden0``: groups with ``cmco_qb > 0`` and ``index > 0`` are
+    solved, the rest keep H = 1. The map is coupled when a consuming link has
+    ``ScrambleSelf > 0``. Returns ``(H, passes)``; raises ``RuntimeError``
+    naming "handling time" and the groups when no solution is found.
+    """
+    cmco_qb = np.asarray(inputs.cmco_qb, dtype=float)
+    index = np.asarray(inputs.index, dtype=float)
+    active = (cmco_qb > 0) & (index > 0)
+    denom = np.where(active, cmco_qb * index, 1.0)
+    kernel = HdenKernel(inputs)
+
+    def g(hv):
+        new = np.ones_like(hv)
+        new[active] = 1.0 + hv[active] * kernel.q(hv)[active] / denom[active]
+        return new
+
+    h0 = np.where(active, np.asarray(inputs.hden0, dtype=float), 1.0)
+    return iterate_hden(
+        g,
+        h0,
+        active,
+        tol=tol,
+        max_iter=max_iter,
+        fallback=fallback,
+        coupled=kernel.coupled(),
     )
 
 
@@ -215,14 +364,14 @@ class ContinuousRHS:
     ``y`` holds the biomass states of groups ``1..n_bio``. The month's
     forcing, the non-state slots of the full state vector (slot 0, gears) and
     the forced groups are held from :meth:`set_month`. Evaluation is a pure
-    function of ``(t, y)``: handling time is solved exactly at each state from
-    a fixed start. After construction the only change to the private copy of
-    ``params_dict`` is that each evaluation rebinds its ``_hden`` entry to the
-    Hden solved at that state before its final ``deriv_vector`` call (the
-    solve starts from ``_hden0``, not from that entry, so no evaluation
-    depends on an earlier one). No array is written in place: ``_det_out`` is
-    pre-filled at the unforced base state so ``deriv_vector`` has nothing left
-    to set.
+    function of ``(t, y)`` and one ``deriv_vector`` call: handling time is
+    solved inside it, on the consumption kernel, by the solver installed as
+    the private ``params_dict``'s ``_hden_solver`` (:func:`solve_hden_kernel`
+    at ``hden_tol``), always from Hden0, so no evaluation depends on an
+    earlier one. The private copy of ``params_dict`` is not changed after
+    construction (its ``_hden`` array is its own and never read by the
+    solve), and no array is written in place: ``_det_out`` is pre-filled at
+    the unforced base state so ``deriv_vector`` has nothing left to set.
 
     With ``corrections`` True (the default) the defect corrections R2, R4, R5
     and DF once are applied; with False none of them is, and the scenario's
@@ -230,6 +379,12 @@ class ContinuousRHS:
     are not defect corrections and apply either way. Differences from the EwE
     pathway are listed in ``self.corrections``; EwE numerics switches this
     pathway does not honour are in ``ignored_switches``.
+
+    ``stats`` (reset by :meth:`set_month`) holds ``clips``, ``min_state``,
+    ``hden_passes_max`` (kernel passes of the largest Hden solve) and
+    ``hden_residual_max``, the largest relative residual of the solved Hden
+    under the consumption of the final ``deriv_vector`` pass (the link loop,
+    not the vectorised kernel).
     """
 
     def __init__(
@@ -241,9 +396,11 @@ class ContinuousRHS:
         switches: Optional[dict] = None,
         *,
         corrections: bool = True,
+        hden_tol: float = 1e-12,
     ):
         self.n_bio = int(n_bio)
         self.fishing = fishing_dict
+        self.hden_tol = float(hden_tol)
         pd = dict(params_dict)
         pd["_hden_exact"] = True
         self.corrections = []
@@ -259,6 +416,7 @@ class ContinuousRHS:
         if pd.get("_hden") is not None and pd.get("_cmco_qb") is not None:
             self.cmco_qb = np.array(pd["_cmco_qb"], dtype=float, copy=True)
             pd["_hden0"] = recalibrated_hden0(pd, self.cmco_qb)
+            pd["_hden"] = np.array(pd["_hden0"], copy=True)  # not the caller's
             self.corrections.append("Hden0 recalibrated")
         n_full = int(pd["NUM_GROUPS"]) + 1
         base = np.zeros(n_full)
@@ -268,9 +426,10 @@ class ContinuousRHS:
         if pd.get("DetPassedProp") is not None:
             # fix DetritusOut at the unforced base state (EwE's FirstTime)
             pd["_det_out"] = np.full(n_full, np.nan)
-            if self.cmco_qb is not None:
-                pd["_hden"] = np.array(pd["_hden0"], copy=True)
             deriv_vector(base.copy(), pd, neutral_forcing(pd), fishing_dict)
+        self._solved: Optional[tuple] = None  # (KernelInputs, passes)
+        if self.cmco_qb is not None:
+            pd["_hden_solver"] = self._solve_hden
         self.ignored_switches = [
             name
             for name in SWITCH_NAMES
@@ -290,7 +449,18 @@ class ContinuousRHS:
         self._reset_stats()
 
     def _reset_stats(self) -> None:
-        self.stats = {"clips": 0, "min_state": np.inf, "hden_evals_max": 0}
+        self.stats = {
+            "clips": 0,
+            "min_state": np.inf,
+            "hden_passes_max": 0,
+            "hden_residual_max": 0.0,
+        }
+
+    def _solve_hden(self, inputs: KernelInputs) -> np.ndarray:
+        """``deriv_vector``'s ``_hden_solver``: Hden on the kernel."""
+        h, passes = solve_hden_kernel(inputs, tol=self.hden_tol)
+        self._solved = (inputs, passes)
+        return h
 
     def set_month(
         self,
@@ -320,17 +490,24 @@ class ContinuousRHS:
         live = np.maximum(y, 0.0)
         live[self._forced] = self._forced_values[self._forced]
         full[1 : self.n_bio + 1] = live
-        pd = self._pd
-        h = None
-        if self.cmco_qb is not None:
-            index = hden_index(full, pd, self._forcing)
-            h, n_eval = solve_hden(
-                full, pd, self._forcing, self.fishing, index, self.cmco_qb
-            )
-            pd["_hden"] = h
-            if count:
-                self.stats["hden_evals_max"] = max(self.stats["hden_evals_max"], n_eval)
-        deriv = deriv_vector(full, pd, self._forcing, self.fishing, rates=rates)
+        # rates carry the solved Hden and the loop's consumption at it
+        out = {} if rates is None and self.cmco_qb is not None else rates
+        self._solved = None
+        deriv = deriv_vector(full, self._pd, self._forcing, self.fishing, rates=out)
+        h = None if out is None else out.get("Hden")
+        if count and self._solved is not None and out is not None:
+            inputs, passes = self._solved
+            self.stats["hden_passes_max"] = max(self.stats["hden_passes_max"], passes)
+            # the residual under the link loop's consumption at the solved H
+            act = (inputs.cmco_qb > 0) & (inputs.index > 0)
+            if act.any():
+                g = 1.0 + h[act] * out["HdenConsumption"][act] / (
+                    inputs.cmco_qb[act] * inputs.index[act]
+                )
+                res = float(np.max(np.abs(g - h[act]) / h[act]))
+                self.stats["hden_residual_max"] = float(
+                    np.maximum(self.stats["hden_residual_max"], res)
+                )
         dy = np.array(deriv[1 : self.n_bio + 1], dtype=float, copy=True)
         dy[self._forced] = 0.0
         return dy, h
@@ -339,7 +516,8 @@ class ContinuousRHS:
         return self._evaluate(y, None, True)[0]
 
     def rates(self, y: np.ndarray) -> dict:
-        """``deriv_vector``'s rates at ``y`` plus ``"Hden"`` (no stats)."""
+        """``deriv_vector``'s rates at ``y``, with ``"Hden"`` the solved Hden
+        (None without handling time); no stats."""
         out: dict = {}
         _, h = self._evaluate(y, out, False)
         out["Hden"] = h
@@ -362,12 +540,13 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
     (``rsim_run`` calls this for every method but RK4 and AB).
     ``solver_options`` takes ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar
     > 0 or ``n_bio`` values > 0), ``corrections`` (True or False, default
-    True) and ``on_failure`` (``"raise"``, the default, or ``"warn"``); other
-    keys and invalid values raise ``ValueError``.
+    True), ``on_failure`` (``"raise"``, the default, or ``"warn"``) and
+    ``hden_tol`` (the handling-time tolerance, a number in (0, 1e-8],
+    default 1e-12); other keys and invalid values raise ``ValueError``.
 
     Returns a dict with keys ``method`` (lower case), ``rtol`` (float),
     ``atol`` (None when not given, else an ndarray, 0-d for a scalar),
-    ``on_failure`` and ``corrections`` (bool).
+    ``on_failure``, ``corrections`` (bool) and ``hden_tol`` (float).
     """
     if not isinstance(method, str) or method.lower() not in METHOD_NAMES:
         raise ValueError(
@@ -376,12 +555,12 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
         )
     _cont_opts = dict(solver_options or {})
     _unknown_opts = sorted(
-        set(_cont_opts) - {"rtol", "atol", "corrections", "on_failure"}
+        set(_cont_opts) - {"rtol", "atol", "corrections", "on_failure", "hden_tol"}
     )
     if _unknown_opts:
         raise ValueError(
             f"Unknown solver_options {_unknown_opts}: use 'rtol', 'atol', "
-            "'corrections', 'on_failure'"
+            "'corrections', 'on_failure', 'hden_tol'"
         )
     _on_failure = _cont_opts.get("on_failure", "raise")
     if _on_failure not in ("raise", "warn"):
@@ -415,12 +594,24 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
                 f"{n_bio} values > 0 (groups 1..NUM_LIVING + "
                 f"NUM_DEAD), got {_atol_opt!r}"
             )
+    # LSODA's finite-difference Jacobian perturbs states by about 1.5e-8
+    # relative: a looser Hden would show in its columns
+    _hden_tol = _cont_opts.get("hden_tol", 1e-12)
+    if not (
+        isinstance(_hden_tol, numbers.Real)
+        and not isinstance(_hden_tol, (bool, np.bool_))
+        and 0.0 < float(_hden_tol) <= 1e-8
+    ):
+        raise ValueError(
+            f"solver_options hden_tol must be in (0, 1e-8], got {_hden_tol!r}"
+        )
     return {
         "method": method.lower(),
         "rtol": float(_rtol_opt),
         "atol": _atol_arr,
         "on_failure": _on_failure,
         "corrections": bool(_corrections),
+        "hden_tol": float(_hden_tol),
     }
 
 

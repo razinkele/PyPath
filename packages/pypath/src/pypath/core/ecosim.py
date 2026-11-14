@@ -480,11 +480,12 @@ class RsimOutput:
     params : dict
         Summary parameters
     solver_info : dict or None
-        Continuous path only: ``method``, ``rtol``, ``atol``, the
-        ``corrections`` applied, the EwE numerics switches ignored
+        Continuous path only: ``method``, ``rtol``, ``atol``, ``hden_tol``,
+        the ``corrections`` applied, the EwE numerics switches ignored
         (``ignored_switches``) and per month (``months``) ``nfev``, ``njev``,
         ``nlu``, ``steps``, ``status``, ``t_reached``, ``degraded`` (a month
-        mean fell back to the start state), ``clips``, ``hden_evals_max`` and
+        mean fell back to the start state), ``clips``, ``hden_passes_max``
+        (kernel passes of the month's largest handling-time solve) and
         ``min_state``. None for RK4 and AB.
     out_Catch_month_end : np.ndarray or None
         Continuous path only: EwE's booking, the month's F times the
@@ -2460,8 +2461,10 @@ def rsim_run(
         > 0 per group 1..NUM_LIVING + NUM_DEAD; default
         ``1e-8 x max(B0, 1e-6 x max(B0))``), ``corrections`` (bool, default
         True; False leaves out R2, R4, R5 and DF once, while handling time is
-        still solved exactly from the recalibrated Hden0) and ``on_failure``
-        (``"raise"``, the default, or ``"warn"``). A failed month raises
+        still solved exactly from the recalibrated Hden0), ``on_failure``
+        (``"raise"``, the default, or ``"warn"``) and ``hden_tol`` (the
+        relative residual to which handling time is solved, in (0, 1e-8],
+        default 1e-12). A failed month raises
         ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
         the month, and the run continues from the last state reached. Even
         with ``"warn"``, a handling-time solve that fails inside the
@@ -2645,6 +2648,7 @@ def rsim_run(
                 )
             },
             corrections=_cont_opts["corrections"],
+            hden_tol=_cont_opts["hden_tol"],
         )
         _hden_start_pending = False
         _det_out_pending = False
@@ -2659,6 +2663,7 @@ def rsim_run(
             "method": _cont_method,
             "rtol": _rtol,
             "atol": _atol.tolist() if _atol.ndim else float(_atol),
+            "hden_tol": _cont_opts["hden_tol"],
             "corrections": list(rhs.corrections),
             "ignored_switches": list(rhs.ignored_switches),
             "months": [],
@@ -2900,7 +2905,7 @@ def rsim_run(
                     "t_reached": res.t_reached,
                     "degraded": bool(res.degraded),
                     "clips": int(rhs.stats["clips"]),
-                    "hden_evals_max": int(rhs.stats["hden_evals_max"]),
+                    "hden_passes_max": int(rhs.stats["hden_passes_max"]),
                     "min_state": float(rhs.stats["min_state"]),
                 }
             )
