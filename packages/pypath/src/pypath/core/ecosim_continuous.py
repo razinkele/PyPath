@@ -11,6 +11,7 @@ exactly at each state.
 """
 
 import logging
+from typing import Optional
 
 import numpy as np
 from scipy.optimize import root
@@ -148,3 +149,183 @@ def solve_hden(
         f"handling time did not converge (residual {res:.3e}) for groups "
         f"{bad.tolist()}"
     )
+
+
+SWITCH_NAMES = (
+    "RK4_FAST_EQUILIBRIUM",
+    "STANZA_STAGE_RATES",
+    "FTIME_START_OF_MONTH",
+    "RK4_STEPS",
+)
+
+
+def continuous_emig(
+    emig: Optional[np.ndarray], emig_rate: Optional[np.ndarray], n_living: int
+) -> Optional[np.ndarray]:
+    """R4: emigration rates of living groups for the continuous path.
+
+    EwE sets ``Emig = Emigration / B0`` for living groups (so ``emig == 0``
+    means no Emigration was entered) and never reads ``EmigRate`` for them.
+    Here a living group with ``emig == 0`` and ``emig_rate > 0`` takes the
+    rate; every other entry keeps ``emig``. With ``emig`` None, the rates
+    start from zeros. Returns a new array, or None when both inputs are None
+    or the result is all zero.
+    """
+    if emig is None and emig_rate is None:
+        return None
+    rate = None if emig_rate is None else np.asarray(emig_rate, dtype=float)
+    living = slice(1, n_living + 1)
+    if emig is None:
+        if rate is None or not np.any(rate[living] > 0):
+            return None
+        out = np.zeros(len(rate))
+    else:
+        out = np.array(emig, dtype=float, copy=True)
+    if rate is not None:
+        take = (out[living] == 0) & (rate[living] > 0)
+        out[living] = np.where(take, rate[living], out[living])
+    if not np.any(out != 0):
+        return None
+    return out
+
+
+def neutral_forcing(params_dict: dict) -> dict:
+    """Unforced monthly forcing: ones for time/prey/search/mortality/effort,
+    zeros for forced biomass and migration."""
+    n1 = int(params_dict["NUM_GROUPS"]) + 1
+    ones = np.ones(n1)
+    return {
+        "Ftime": ones.copy(),
+        "ForcedBio": np.zeros(n1),
+        "ForcedMigrate": np.zeros(n1),
+        "ForcedPrey": ones.copy(),
+        "PP_forcing": ones.copy(),
+        "ForcedSearch": ones.copy(),
+        "ForcedMort": ones.copy(),
+        "ForcedEffort": np.ones(int(params_dict.get("NUM_GEARS", 0)) + 1),
+    }
+
+
+class ContinuousRHS:
+    """Pure right-hand side ``dy/dt = f(t, y)`` of the continuous pathway.
+
+    ``y`` holds the biomass states of groups ``1..n_bio``. The month's
+    forcing, the non-state slots of the full state vector (slot 0, gears) and
+    the forced groups are held from :meth:`set_month`. Evaluation is a pure
+    function of ``(t, y)``: handling time is solved exactly at each state from
+    a fixed start, and the private copy of ``params_dict`` is never written
+    after construction (``_det_out`` is pre-filled at the unforced base state
+    so ``deriv_vector`` has nothing left to set).
+
+    Differences from the EwE pathway are listed in ``corrections``; EwE
+    numerics switches this pathway does not honour are in ``ignored_switches``.
+    """
+
+    def __init__(
+        self,
+        params_dict: dict,
+        fishing_dict: dict,
+        n_bio: int,
+        b0: np.ndarray,
+        switches: Optional[dict] = None,
+    ):
+        self.n_bio = int(n_bio)
+        self.fishing = fishing_dict
+        pd = dict(params_dict)
+        pd["DETRITUS_MO_UNSCALED"] = False
+        pd["DETRITUS_MO_TOT"] = True
+        pd["DETRITUS_DF_ONCE"] = True
+        pd["_hden_exact"] = True
+        self.corrections = ["R2", "R4", "R5", "DF once"]
+        self.cmco_qb = None
+        if pd.get("_hden") is not None and pd.get("_cmco_qb") is not None:
+            self.cmco_qb = np.array(pd["_cmco_qb"], dtype=float, copy=True)
+            pd["_hden0"] = recalibrated_hden0(pd, self.cmco_qb)
+            self.corrections.append("Hden0 recalibrated")
+        pd["Emig"] = continuous_emig(
+            pd.get("Emig"), pd.get("EmigRate"), int(pd["NUM_LIVING"])
+        )
+        n_full = int(pd["NUM_GROUPS"]) + 1
+        base = np.zeros(n_full)
+        b0 = np.asarray(b0, dtype=float)
+        base[: min(len(b0), n_full)] = b0[:n_full]
+        self._pd = pd
+        if pd.get("DetPassedProp") is not None:
+            # fix DetritusOut at the unforced base state (EwE's FirstTime)
+            pd["_det_out"] = np.full(n_full, np.nan)
+            if self.cmco_qb is not None:
+                pd["_hden"] = np.array(pd["_hden0"], copy=True)
+            deriv_vector(base.copy(), pd, neutral_forcing(pd), fishing_dict)
+        self.ignored_switches = [
+            name
+            for name in SWITCH_NAMES
+            if (switches or {}).get(name) is not None
+            and (name == "RK4_STEPS" or bool((switches or {}).get(name)))
+        ]
+        logger.info(
+            "continuous RHS: corrections %s; ignored EwE switches %s",
+            self.corrections,
+            self.ignored_switches,
+        )
+        self._forcing = neutral_forcing(pd)
+        self._state_full = base
+        self._forced = np.zeros(self.n_bio, dtype=bool)
+        self._forced_values = np.zeros(self.n_bio)
+        self.stats: dict = {}
+        self._reset_stats()
+
+    def _reset_stats(self) -> None:
+        self.stats = {"clips": 0, "min_state": np.inf, "hden_evals_max": 0}
+
+    def set_month(
+        self,
+        forcing_dict: dict,
+        state_full: np.ndarray,
+        forced_mask: np.ndarray,
+        forced_values: np.ndarray,
+    ) -> None:
+        """Hold the month's forcing, non-state slots and forced groups."""
+        self._forcing = forcing_dict
+        self._state_full = np.array(state_full, dtype=float, copy=True)
+        sl = slice(1, self.n_bio + 1)
+        mask = np.asarray(forced_mask, dtype=bool)
+        vals = np.asarray(forced_values, dtype=float)
+        self._forced = np.array(mask[sl] if len(mask) > self.n_bio else mask, copy=True)
+        self._forced_values = np.array(
+            vals[sl] if len(vals) > self.n_bio else vals, dtype=float, copy=True
+        )
+        self._reset_stats()
+
+    def _evaluate(self, y: np.ndarray, rates: Optional[dict], count: bool):
+        y = np.asarray(y, dtype=float)
+        if count:
+            self.stats["clips"] += int(np.count_nonzero(y < 0))
+            self.stats["min_state"] = min(self.stats["min_state"], float(y.min()))
+        full = self._state_full.copy()
+        live = np.maximum(y, 0.0)
+        live[self._forced] = self._forced_values[self._forced]
+        full[1 : self.n_bio + 1] = live
+        pd = self._pd
+        h = None
+        if self.cmco_qb is not None:
+            index = hden_index(full, pd, self._forcing)
+            h, n_eval = solve_hden(
+                full, pd, self._forcing, self.fishing, index, self.cmco_qb
+            )
+            pd["_hden"] = h
+            if count:
+                self.stats["hden_evals_max"] = max(self.stats["hden_evals_max"], n_eval)
+        deriv = deriv_vector(full, pd, self._forcing, self.fishing, rates=rates)
+        dy = np.array(deriv[1 : self.n_bio + 1], dtype=float, copy=True)
+        dy[self._forced] = 0.0
+        return dy, h
+
+    def __call__(self, t: float, y: np.ndarray) -> np.ndarray:
+        return self._evaluate(y, None, True)[0]
+
+    def rates(self, y: np.ndarray) -> dict:
+        """``deriv_vector``'s rates at ``y`` plus ``"Hden"`` (no stats)."""
+        out: dict = {}
+        _, h = self._evaluate(y, out, False)
+        out["Hden"] = h
+        return out

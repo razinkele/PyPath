@@ -278,6 +278,9 @@ class RsimParams:
     # Ecosim does not use EmigRate for living groups). None = no migration.
     Immigration: Optional[np.ndarray] = None
     Emig: Optional[np.ndarray] = None
+    # Rpath's EmigRate (emigration per unit of B), kept for the continuous
+    # path only; index 0 unused. None = the Rpath object has no EmigRate.
+    EmigRate: Optional[np.ndarray] = None
     # EwE6 pred/prey mediation functions (core.mediation.EweMediation, D3),
     # applied under the EwE rule; None = no mediation
     EweMediation: Optional[object] = None
@@ -975,6 +978,7 @@ def rsim_params(
         DetBA=det_ba,
         Immigration=immigration_sim,
         Emig=emig_sim,
+        EmigRate=_emig_rate_vector(rpath, len(b_baseref)),
         VbK=np.zeros(ngroups + 1),
         AssimEff=np.zeros(ngroups + 1),
         HandleSelf=handle_self,
@@ -1397,6 +1401,20 @@ def _migration_vectors(
                 )
             emig_sim[det] = np.where(emig_rate[dead] > 0, emig_rate[dead], by_flow)
     return immigration_sim, emig_sim
+
+
+def _emig_rate_vector(rpath, n: int):
+    """Rpath.EmigRate as an rsim vector (index 0 unused), or None."""
+    rate = getattr(rpath, "EmigRate", None)
+    if rate is None:
+        return None
+    rate = np.asarray(rate, dtype=float)
+    if len(rate) == 0:
+        return None
+    out = np.zeros(n)
+    m = min(len(rate), n - 1)
+    out[1 : m + 1] = np.nan_to_num(rate[:m], nan=0.0)
+    return out
 
 
 def _ewe_detritus_vectors(
@@ -1839,6 +1857,7 @@ def rsim_run(
         # EwE6 migration of living groups (A1-s2; None = none)
         "Immigration": getattr(params, "Immigration", None),
         "Emig": getattr(params, "Emig", None),
+        "EmigRate": getattr(params, "EmigRate", None),
         "EweMediation": getattr(params, "EweMediation", None),
         # EwE6 other mortality moTot (None = mo for every group)
         "_mo_tot": _mo_tot_params(params),
