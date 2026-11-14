@@ -47,7 +47,7 @@ Status values:
 
 ## EwE 6.7.144 behaviour reproduced on purpose
 
-PyPath follows what EwE 6.7.144 actually does, even where that comes from an EwE defect. The headless EwE oracle run is the evidence.
+PyPath follows what EwE 6.7.144 actually does, even where that comes from an EwE defect. The headless EwE oracle run is the evidence. This holds for the parity paths (`method="RK4"` and `"AB"`); the continuous methods (`"lsoda"`, `"dop853"`, `"radau"`, `"bdf"`) correct R2 to R5 by default and are not EwE parity: see `continuous_path.md`.
 
 | ID | Area | EwE behaviour | PyPath |
 |---|---|---|---|
