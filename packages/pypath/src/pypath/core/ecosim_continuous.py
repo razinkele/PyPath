@@ -150,8 +150,7 @@ def solve_hden(
     if bad.size == 0:  # e.g. NaN residuals: name every active group
         bad = np.flatnonzero(active)
     raise RuntimeError(
-        f"handling time did not converge (residual {res:.3e}) for groups "
-        f"{bad.tolist()}"
+        f"handling time did not converge (residual {res:.3e}) for groups {bad.tolist()}"
     )
 
 
