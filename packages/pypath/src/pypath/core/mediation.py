@@ -257,6 +257,7 @@ class EweMediation:
     links: list
     fleet_weights: np.ndarray | None = None
     xbase: np.ndarray | None = None
+    xbase64: np.ndarray | None = None
     ybase: np.ndarray | None = None
     used: np.ndarray | None = None
 
@@ -266,18 +267,24 @@ class EweMediation:
         imed = np.asarray(self.imedbase, dtype=int)
         n_shapes = pts.shape[0]
         self.xbase = np.zeros(n_shapes, dtype=np.float32)
+        self.xbase64 = np.zeros(n_shapes, dtype=np.float64)
         self.ybase = np.zeros(n_shapes, dtype=np.float32)
         self.used = np.zeros(n_shapes, dtype=bool)
         b0 = np.asarray(start_biomass, dtype=np.float32)
+        b64 = np.asarray(start_biomass, dtype=np.float64)
         for s in range(n_shapes):
             w = np.asarray(self.weights[s], dtype=np.float32)
             wf = self._fleet_row(s)
             x = np.float32(0.0)
+            x64 = 0.0
             for j in np.nonzero(w > 0)[0]:
                 x = np.float32(x + w[j] * b0[j])
+                x64 += float(b64[j] * np.float64(self.weights[s][j]))
             for g in np.nonzero(wf > 0)[0]:
                 x = np.float32(x + wf[g] * np.float32(1.0))  # base effort
+                x64 += float(np.asarray(self._fleet_row(s), dtype=np.float64)[g])
             self.xbase[s] = x
+            self.xbase64[s] = x64
             ip = min(max(int(imed[s]), 1), N_MED_POINTS)
             self.ybase[s] = pts[s, ip - 1]
             has_mediator = bool(np.any(w > 0) or np.any(wf > 0))
@@ -289,8 +296,21 @@ class EweMediation:
             return np.zeros(0, dtype=np.float32)
         return np.asarray(self.fleet_weights[s], dtype=np.float32)
 
-    def lookup(self, shape: int, x: float) -> float:
-        """getMedValue: the shape's value at mediator sum ``x``."""
+    def lookup(self, shape: int, x: float, *, interpolate: bool = False) -> float:
+        """getMedValue: the shape's value at mediator sum ``x``.
+
+        With ``interpolate`` (the continuous path) the value is linear in
+        ``ratio = IMedBase x x / xbase64`` between the points, in float64 and
+        clamped at the end points, so the base gives exactly 1 and the value
+        is continuous in ``x``. EwE's truncating single-precision lookup is
+        the default.
+        """
+        if interpolate:
+            ip_base = min(max(int(self.imedbase[shape]), 1), N_MED_POINTS)
+            pts = np.asarray(self.points[shape], dtype=np.float64)
+            ratio = float(ip_base) * (float(x) / float(self.xbase64[shape]))
+            grid = np.arange(1, N_MED_POINTS + 1, dtype=np.float64)
+            return float(np.interp(ratio, grid, pts) / pts[ip_base - 1])
         ratio = np.float32(np.float32(self.imedbase[shape]) * np.float32(x))
         ratio = np.float32(ratio / self.xbase[shape])
         ip = int(math.trunc(float(ratio) + 0.01))
@@ -298,17 +318,32 @@ class EweMediation:
         return float(np.float32(self.points[shape][ip - 1]) / self.ybase[shape])
 
     def values(
-        self, biomass: np.ndarray, effort: np.ndarray | None = None
+        self,
+        biomass: np.ndarray,
+        effort: np.ndarray | None = None,
+        *,
+        interpolate: bool = False,
     ) -> np.ndarray:
         """MedVal of every shape at ``biomass`` and ``effort`` (by gear, as a
         row of ForcedEffort; None or a missing gear counts as the base effort,
-        1). Unused shapes are 1."""
+        1). Unused shapes are 1. With ``interpolate`` the sum is in float64
+        without EwE's 1e-10 (see :meth:`lookup`)."""
         out = np.ones(len(self.used))
-        b = np.asarray(biomass, dtype=np.float32)
-        e = None if effort is None else np.asarray(effort, dtype=np.float32)
+        dt = np.float64 if interpolate else np.float32
+        b = np.asarray(biomass, dtype=dt)
+        e = None if effort is None else np.asarray(effort, dtype=dt)
         for s in np.nonzero(self.used)[0]:
-            w = np.asarray(self.weights[s], dtype=np.float32)
-            wf = self._fleet_row(s)
+            w = np.asarray(self.weights[s], dtype=dt)
+            wf = np.asarray(self._fleet_row(s), dtype=dt)
+            if interpolate:
+                x = 0.0
+                for j in np.nonzero(w > 0)[0]:
+                    x += float(b[j] * w[j])
+                for g in np.nonzero(wf > 0)[0]:
+                    eff = float(e[g]) if e is not None and g < len(e) else 1.0
+                    x += eff * float(wf[g])
+                out[s] = self.lookup(s, x, interpolate=True)
+                continue
             x = np.float32(1e-10)
             for j in np.nonzero(w > 0)[0]:
                 x = np.float32(x + b[j] * w[j])
@@ -319,14 +354,22 @@ class EweMediation:
         return out
 
     def link_factors(
-        self, biomass: np.ndarray, n: int, effort: np.ndarray | None = None
+        self,
+        biomass: np.ndarray,
+        n: int,
+        effort: np.ndarray | None = None,
+        *,
+        interpolate: bool = False,
     ):
         """Search-rate and vulnerability multipliers by link, (n, n) arrays
         indexed [prey, pred], or None where no link has that application.
         ``effort`` is the fleets' effort by gear (see :meth:`values`)."""
         if not self.links:
             return None, None
-        vals = self.values(biomass, effort)
+        if interpolate:
+            vals = self.values(biomass, effort, interpolate=True)
+        else:
+            vals = self.values(biomass, effort)
         search = vul = None
         for prey, pred, shape, application in self.links:
             if application == SEARCH_RATE:

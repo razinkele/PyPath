@@ -504,19 +504,36 @@ class ContinuousRHS:
         pd["_hden_exact"] = True
         self.corrections = []
         if corrections:
+            if pd.get("DETRITUS_MO_UNSCALED", False):
+                self.corrections.append("R2")
             pd["DETRITUS_MO_UNSCALED"] = False
             pd["DETRITUS_MO_TOT"] = True
             pd["DETRITUS_DF_ONCE"] = True
-            pd["Emig"] = continuous_emig(
-                pd.get("Emig"), pd.get("EmigRate"), int(pd["NUM_LIVING"])
-            )
-            self.corrections += ["R2", "R4", "R5", "DF once"]
+            n_living = int(pd["NUM_LIVING"])
+            emig = continuous_emig(pd.get("Emig"), pd.get("EmigRate"), n_living)
+            old_emig = pd.get("Emig")
+            if emig is not None and (
+                old_emig is None
+                or not np.array_equal(
+                    np.asarray(old_emig, dtype=float)[1 : n_living + 1],
+                    emig[1 : n_living + 1],
+                )
+            ):
+                self.corrections.append("R4")
+            pd["Emig"] = emig
+            if pd.get("_mo_tot") is not None:
+                self.corrections.append("R5")
+            if pd.get("DetPassedProp") is not None:
+                self.corrections.append("DF once")
         self.cmco_qb = None
         if pd.get("_hden") is not None and pd.get("_cmco_qb") is not None:
             self.cmco_qb = np.array(pd["_cmco_qb"], dtype=float, copy=True)
             pd["_hden0"] = recalibrated_hden0(pd, self.cmco_qb)
             pd["_hden"] = np.array(pd["_hden0"], copy=True)  # not the caller's
             self.corrections.append("Hden0 recalibrated")
+        if pd.get("EweMediation") is not None:
+            pd["MEDIATION_INTERPOLATE"] = True
+            self.corrections.append("mediation interpolated")
         n_full = int(pd["NUM_GROUPS"]) + 1
         base = np.zeros(n_full)
         b0 = np.asarray(b0, dtype=float)

@@ -1979,7 +1979,10 @@ def deriv_vector(
         _med_bb = BB * params.get("_mediation_density_scale", 1.0)
         _med_effort = forcing.get("MediationEffort", forcing.get("ForcedEffort"))
         _med_search, _med_vul = _ewe_med.link_factors(
-            _med_bb, NUM_GROUPS + 1, _med_effort
+            _med_bb,
+            NUM_GROUPS + 1,
+            _med_effort,
+            interpolate=params.get("MEDIATION_INTERPOLATE", False),
         )
     if _ewe_prey_f is not None:
         _f_arena = _ewe_prey_f

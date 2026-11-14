@@ -215,6 +215,8 @@ def test_living_emigration_uses_the_rate():
 
 def test_the_corrections_and_ignored_switches_are_recorded():
     scen = scenario(reco_plain(), rule="ewe", effort=1.0)
+    scen.params.EmigRate[12] = 0.1  # R4 applies
+    scen.params.PaddP[1 : scen.params.NUM_LIVING + 1] = 0.5  # R5 applies
     rhs, *_ = build(scen, neutral)
     for name in ("R2", "R4", "R5", "DF once", "Hden0 recalibrated"):
         assert name in rhs.corrections
@@ -226,6 +228,8 @@ def test_corrections_can_be_turned_off():
     """``corrections=False`` leaves R2, R4, R5 and DF once out; handling time
     keeps the recalibrated Hden0 and the exact solve."""
     scen = scenario(reco_plain(), rule="ewe", effort=1.0)
+    scen.params.EmigRate[12] = 0.1
+    scen.params.PaddP[1 : scen.params.NUM_LIVING + 1] = 0.5
     rhs, pd, *_ = build(scen, neutral, corrections=False)
     assert pd["DETRITUS_MO_UNSCALED"]  # the EwE rule's value
     assert rhs._pd["DETRITUS_MO_UNSCALED"] == pd["DETRITUS_MO_UNSCALED"]

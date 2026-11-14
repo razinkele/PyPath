@@ -354,8 +354,11 @@ def test_hden_tol_is_an_option(reco_plain):
 
 
 def test_corrections_off_are_recorded(reco_plain):
+    scen = scenario(reco_plain, rule="ewe")
+    scen.params.EmigRate[12] = 0.1  # R4 applies
+    scen.params.PaddP[1 : scen.params.NUM_LIVING + 1] = 0.5  # R5 applies
     out = rsim_run(
-        scenario(reco_plain, rule="ewe"),
+        scen,
         method="lsoda",
         years=range(1, 2),
         solver_options={"corrections": False},
@@ -364,7 +367,7 @@ def test_corrections_off_are_recorded(reco_plain):
     for name in ("R2", "R4", "R5", "DF once"):
         assert name not in corrections
     assert corrections == ["Hden0 recalibrated"]
-    on = rsim_run(scenario(reco_plain, rule="ewe"), method="lsoda", years=range(1, 2))
+    on = rsim_run(scen, method="lsoda", years=range(1, 2))
     assert {"R2", "R4", "R5", "DF once"} <= set(on.solver_info["corrections"])
 
 
