@@ -80,6 +80,17 @@ pip install -e packages/pypath-shiny
 The packages on PyPI are out of date for now, so install with conda or from
 source.
 
+Two features need more than the Python packages:
+
+- **EwE database import** reads Microsoft Access files, so it needs an Access
+  backend: [mdbtools](https://github.com/mdbtools/mdbtools) on Linux or macOS
+  (`sudo apt install mdbtools`, `brew install mdbtools`), or `pyodbc` with the
+  Microsoft Access ODBC driver on Windows.
+- **The Biodiversity tab** (WoRMS, OBIS and FishBase lookups) needs `pyworms`
+  and `pyobis`. From source, install the extra with
+  `pip install -e "packages/pypath-shiny[biodata]"`; with conda, add
+  `pip install pyworms pyobis`.
+
 ## Running
 
 ```bash
