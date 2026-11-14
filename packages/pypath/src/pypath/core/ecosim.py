@@ -414,6 +414,10 @@ class RsimScenario:
     environmental_drivers: Optional["EnvironmentalDrivers"] = None
 
 
+#: SciPy ``solve_ivp`` methods of the continuous integration pathway.
+CONTINUOUS_METHODS = ("lsoda", "dop853", "radau", "bdf")
+
+
 @dataclass
 class RsimOutput:
     """Output from Ecosim simulation run.
@@ -490,6 +494,8 @@ class RsimOutput:
     fleet_dynamics: "FleetDynamicsResult | None" = None
     out_FishMort: Optional[np.ndarray] = None
     out_Hden: Optional[np.ndarray] = None
+    solver_info: Optional[dict] = None
+    out_Catch_month_end: Optional[np.ndarray] = None
 
 
 def detritus_self_fates(rpath, nliving: int, ndead: int) -> dict:
@@ -1670,6 +1676,7 @@ def rsim_run(
     mediation=None,
     ecotracer=None,
     fleet_dynamics=None,
+    solver_options: Optional[dict] = None,
 ) -> RsimOutput:
     """Run Ecosim simulation.
 
@@ -1678,9 +1685,13 @@ def rsim_run(
     scenario : RsimScenario
         Simulation scenario
     method : str
-        Integration method: 'RK4' (Runge-Kutta 4) or 'AB' (Adams-Bashforth)
+        Integration method: 'RK4' (Runge-Kutta 4) or 'AB' (Adams-Bashforth),
+        or a continuous SciPy method (``CONTINUOUS_METHODS``). Anything else
+        raises ``ValueError``.
     years : range, optional
         Years to run (default: all years in scenario)
+    solver_options : dict, optional
+        Options of the continuous methods (unused by RK4 and AB)
 
     Returns
     -------
@@ -1688,6 +1699,14 @@ def rsim_run(
         Simulation results
     """
     from pypath.core.ecosim_deriv import integrate_ab, integrate_rk4
+
+    if method.upper() not in ("RK4", "AB"):
+        if method.lower() not in CONTINUOUS_METHODS:
+            raise ValueError(
+                f"Unknown integration method {method!r}: use "
+                f"{', '.join(repr(m) for m in ('RK4', 'AB') + CONTINUOUS_METHODS)}"
+            )
+        raise NotImplementedError(f"continuous method {method!r}: phase 1 in progress")
 
     params = scenario.params
     forcing = scenario.forcing
@@ -2579,12 +2598,6 @@ def rsim_run(
                 derivs_history.insert(0, new_deriv)
                 if len(derivs_history) > 1:
                     derivs_history.pop()
-        else:
-            # Unknown method: fallback to RK4 to be safe
-            old_state = state.copy()
-            state = integrate_rk4(
-                state, params_dict, forcing_dict, fishing_dict, dt, n_steps=rk4_steps
-            )
         if np.any(_forced_mask):
             state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
 
