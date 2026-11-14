@@ -482,8 +482,12 @@ class RsimOutput:
     solver_info : dict or None
         Continuous path only: ``method``, ``rtol``, ``atol``, ``hden_tol``,
         the ``corrections`` applied, the EwE numerics switches ignored
-        (``ignored_switches``) and per month (``months``) ``nfev``, ``njev``,
-        ``nlu``, ``steps``, ``status``, ``t_reached``, ``degraded`` (a month
+        (``ignored_switches``), ``rhs_evals`` (every right-hand side
+        evaluation of the run: solver, start checks, quadrature and output
+        rates) and per month (``months``) ``nfev``, ``njev``,
+        ``nlu``, ``steps``, ``first_step`` (None when the solver chose it),
+        ``last_step`` (the last full step, the next month's ``first_step``),
+        ``status``, ``t_reached``, ``degraded`` (a month
         mean fell back to the start state), ``clips``, ``hden_passes_max``
         (kernel passes of the month's largest handling-time solve) and
         ``min_state``. None for RK4 and AB.
@@ -2661,7 +2665,7 @@ def rsim_run(
         _atol = _cont_opts["atol"]
         if _atol is None:
             _atol = default_atol(
-                np.asarray(params.B_BaseRef, dtype=float)[1 : _n_bio_c + 1]
+                np.asarray(params.B_BaseRef, dtype=float)[1 : _n_bio_c + 1], _rtol
             )
         _atol = np.asarray(_atol, dtype=float)
         _atol_run = _atol
@@ -2683,6 +2687,7 @@ def rsim_run(
             "ftime_groups": [] if _ft_groups is None else _ft_groups.tolist(),
             "months": [],
         }
+        _next_first_step = None  # month 1, and after a failed month: the solver's
         out_catch_month_end = np.zeros((n_months + 1, n_groups))
 
     # Main simulation loop
@@ -2892,6 +2897,7 @@ def rsim_run(
                     on_failure=_on_failure,
                     label=_month_label,
                     n_bio=_n_bio_c,
+                    first_step=_next_first_step,
                 )
             except RuntimeError as e:
                 if _month_label in str(e):  # already names the month
@@ -2923,6 +2929,8 @@ def rsim_run(
                     "njev": res.njev,
                     "nlu": res.nlu,
                     "steps": res.steps,
+                    "first_step": _next_first_step,
+                    "last_step": res.last_step,
                     "status": res.status,
                     "t_reached": res.t_reached,
                     "degraded": bool(res.degraded),
@@ -2935,6 +2943,13 @@ def rsim_run(
                     "nutrient_floor": int(rhs.stats["nutrient_floor"]),
                     "negative_export": int(rhs.stats["negative_export"]),
                 }
+            )
+            # the next month starts from this month's last full step, unless
+            # this one failed or fell back (its last step is then no guide)
+            _next_first_step = (
+                res.last_step
+                if res.status == 0 and not res.degraded and res.t_reached == dt
+                else None
             )
         if np.any(_forced_mask):
             state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
@@ -3328,6 +3343,11 @@ def rsim_run(
     # Return full monthly time series including the initial snapshot (index 0).
     # Tests and downstream code expect the initial state to be included as row 0.
 
+    if solver_info is not None:
+        assert rhs is not None
+        # every right-hand side evaluation of the run: solver, start checks,
+        # quadrature and output rates
+        solver_info["rhs_evals"] = int(rhs.evals)
     return RsimOutput(
         out_Biomass=out_biomass,
         out_Catch=out_catch,

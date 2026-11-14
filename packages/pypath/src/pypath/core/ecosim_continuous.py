@@ -560,6 +560,10 @@ class ContinuousRHS:
     the number of evaluations (under the EwE rule) where a pool's DetExport
     is below ``-NEGATIVE_EXPORT_TOL x DetritusOut x B``.
 
+    ``evals`` counts every evaluation of the right-hand side over the object's
+    life (solver, start checks, quadrature and :meth:`rates` calls alike; not
+    reset by :meth:`set_month`).
+
     :meth:`exchange` is the net external flux of the biomass states
     (:func:`exchange_rate`) at an evaluation's rates.
     """
@@ -646,6 +650,7 @@ class ContinuousRHS:
         self._forced = np.zeros(self.n_bio, dtype=bool)
         self._forced_values = np.zeros(self.n_bio)
         self.stats: dict = {}
+        self.evals = 0
         self._reset_stats()
 
     def _reset_stats(self) -> None:
@@ -702,6 +707,7 @@ class ContinuousRHS:
         return full
 
     def _evaluate(self, y: np.ndarray, rates: Optional[dict], count: bool):
+        self.evals += 1
         y = np.asarray(y, dtype=float)
         feeding = self.feeding
         forcing = self._forcing
@@ -910,10 +916,11 @@ _Y_FLOOR = 1e-20
 _GL_X, _GL_W = np.polynomial.legendre.leggauss(6)
 
 
-def default_atol(b0_bio: np.ndarray) -> np.ndarray:
-    """Absolute tolerance per state, scaled to the base biomass."""
+def default_atol(b0_bio: np.ndarray, rtol: float = 1e-6) -> np.ndarray:
+    """Absolute tolerance per state, scaled to the base biomass and, so that
+    a tighter ``rtol`` is not capped by ``atol``, to ``rtol / 1e-6``."""
     b0_bio = np.asarray(b0_bio, dtype=float)
-    return 1e-8 * np.maximum(b0_bio, 1e-6 * b0_bio.max())
+    return 1e-8 * (rtol / 1e-6) * np.maximum(b0_bio, 1e-6 * b0_bio.max())
 
 
 @dataclass
@@ -939,7 +946,10 @@ class MonthResult:
     length like ``food_gain_mean`` (None when the rates carry no
     ``DetGain``). Both come from the quadrature's evaluations of the rates.
 
-    ``steps`` is the number of solver steps (``len(sol.t) - 1``). ``status``
+    ``steps`` is the number of solver steps (``len(sol.t) - 1``).
+    ``last_step`` is the last full step, to start the next month from: the
+    second-to-last step (the last is truncated at ``dt``), or the only step
+    of a one-step month. ``status``
     and ``message`` are as SciPy reports them; ``t_reached`` is the end of the
     interval reached (``dt`` unless the solve failed).
     ``degraded`` is True when any of the means fell back to the start state:
@@ -962,6 +972,7 @@ class MonthResult:
     degraded: bool
     exchange_mean: float = float("nan")
     pool_net_mean: Optional[np.ndarray] = None
+    last_step: Optional[float] = None
 
 
 def integrate_month(
@@ -975,6 +986,7 @@ def integrate_month(
     on_failure: str = "raise",
     label: Optional[str] = None,
     n_bio: Optional[int] = None,
+    first_step: Optional[float] = None,
 ) -> MonthResult:
     """Solve one month with ``solve_ivp`` and average rates by quadrature.
 
@@ -991,7 +1003,8 @@ def integrate_month(
     use those, the rest are other states (feeding times). The quadrature
     nodes' biomass states are clipped at 0 before ``rhs.rates`` and the
     loss-rate division; when the rates fall back on the start state (with
-    "warn"), ``y_mean`` does too.
+    "warn"), ``y_mean`` does too. ``first_step`` (default: the solver's own
+    choice) is passed to ``solve_ivp``.
 
     ``rhs.stats``, when the right-hand side keeps one (``ContinuousRHS``,
     reset by its ``set_month``), counts the solver's evaluations, the start
@@ -1012,6 +1025,7 @@ def integrate_month(
         atol=atol,
         dense_output=True,
         max_step=dt,
+        first_step=first_step,
     )
     warn = on_failure == "warn"
     prefix = f"{label}: " if label else ""
@@ -1100,6 +1114,10 @@ def integrate_month(
     food, loss, exch_mean, pool_mean = means
 
     y_end = np.maximum(y_last, _Y_FLOOR)
+    steps = np.diff(sol.t)
+    last_step = (
+        float(steps[-2]) if len(steps) >= 2 else float(steps[0]) if len(steps) else None
+    )
     return MonthResult(
         y_end=y_end,
         y_mean=y_mean,
@@ -1115,6 +1133,7 @@ def integrate_month(
         degraded=degraded,
         exchange_mean=exch_mean,
         pool_net_mean=pool_mean,
+        last_step=last_step,
     )
 
 
