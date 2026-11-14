@@ -11,9 +11,11 @@ exactly at each state.
 """
 
 import logging
+from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
+from scipy.integrate import solve_ivp
 from scipy.optimize import root
 
 from pypath.core.ecosim_deriv import deriv_vector
@@ -329,3 +331,126 @@ class ContinuousRHS:
         _, h = self._evaluate(y, out, False)
         out["Hden"] = h
         return out
+
+
+METHOD_NAMES = {
+    "lsoda": "LSODA",
+    "dop853": "DOP853",
+    "radau": "Radau",
+    "bdf": "BDF",
+}
+
+_Y_FLOOR = 1e-20
+_GL_X, _GL_W = np.polynomial.legendre.leggauss(6)
+
+
+def default_atol(b0_bio: np.ndarray) -> np.ndarray:
+    """Absolute tolerance per state, scaled to the base biomass."""
+    b0_bio = np.asarray(b0_bio, dtype=float)
+    return 1e-8 * np.maximum(b0_bio, 1e-6 * b0_bio.max())
+
+
+@dataclass
+class MonthResult:
+    """One integrated month.
+
+    ``y_end`` and ``y_mean`` hold the biomass states (groups ``1..n_bio``).
+    ``food_gain_mean`` and ``loss_rate_mean`` are full length, indexed by group
+    like ``deriv_vector``'s rates (index 0 = Outside), so
+    ``food_gain_mean[1:n_bio + 1]`` lines up with ``y_mean``. A test double
+    must follow the same convention: ``rates(y)`` returns full-length arrays
+    whose entries ``1..n_bio`` correspond to ``y``.
+
+    ``y_end`` is floored at 1e-20; ``y_mean`` is the quadrature mean of the
+    dense output, unfloored. ``loss_rate_mean`` is the time mean of
+    ``LossPropToB / B`` (0 where B = 0 at a node).
+    """
+
+    y_end: np.ndarray
+    y_mean: np.ndarray
+    food_gain_mean: np.ndarray
+    loss_rate_mean: np.ndarray
+    nfev: int
+    njev: int
+    nlu: int
+    status: int
+    message: str
+
+
+def integrate_month(
+    rhs,
+    y0: np.ndarray,
+    dt: float,
+    method: str,
+    rtol: float,
+    atol,
+    *,
+    on_failure: str = "raise",
+) -> MonthResult:
+    """Solve one month with ``solve_ivp`` and average rates by quadrature.
+
+    The means are 6-point Gauss-Legendre quadrature of the dense output over
+    the month (over the interval actually reached after a failure). With
+    ``on_failure="warn"`` a failed solve logs a warning and returns the last
+    state reached; otherwise it raises ``RuntimeError``.
+    """
+    y0 = np.asarray(y0, dtype=float)
+    n = len(y0)
+    sol = solve_ivp(
+        rhs,
+        (0.0, dt),
+        y0,
+        method=METHOD_NAMES[method],
+        rtol=rtol,
+        atol=atol,
+        dense_output=True,
+        max_step=dt,
+    )
+    failed = sol.status < 0
+    if failed:
+        if on_failure != "warn":
+            raise RuntimeError(f"month integration failed: {sol.message}")
+        logger.warning(
+            "month integration failed (%s); continuing from the last state reached",
+            sol.message,
+        )
+    t_reach = float(sol.t[-1]) if failed else float(dt)
+    y_last = np.array(sol.y[:, -1], dtype=float)
+
+    dense = sol.sol
+    use_dense = dense is not None and t_reach > 0.0
+    if use_dense:
+        nodes = 0.5 * t_reach * (_GL_X + 1.0)
+        weights = 0.5 * _GL_W
+        ys = np.array([np.asarray(dense(t), dtype=float) for t in nodes])
+    else:
+        weights = np.array([1.0])
+        ys = y0[None, :]
+    if not np.all(np.isfinite(ys)):
+        ys = y0[None, :]
+        weights = np.array([1.0])
+
+    y_mean = weights @ ys
+    food = loss = None
+    for w, y in zip(weights, ys):
+        r = rhs.rates(y)
+        fg = np.asarray(r["FoodGain"], dtype=float)
+        lp = np.asarray(r["LossPropToB"], dtype=float)
+        b = np.zeros(len(lp))
+        b[1 : n + 1] = y
+        lr = np.divide(lp, b, out=np.zeros_like(lp), where=b != 0.0)
+        food = w * fg if food is None else food + w * fg
+        loss = w * lr if loss is None else loss + w * lr
+
+    y_end = np.maximum(y_last, _Y_FLOOR)
+    return MonthResult(
+        y_end=y_end,
+        y_mean=y_mean,
+        food_gain_mean=food,
+        loss_rate_mean=loss,
+        nfev=int(sol.nfev),
+        njev=int(getattr(sol, "njev", 0) or 0),
+        nlu=int(getattr(sol, "nlu", 0) or 0),
+        status=int(sol.status),
+        message=str(sol.message),
+    )
