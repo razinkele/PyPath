@@ -63,7 +63,33 @@ def test_a_failed_month_raises_or_warns(caplog):
     assert np.all(np.isfinite(res.y_end)) and np.all(res.y_end > 0)
     assert np.all(np.isfinite(res.y_mean))
     assert res.status < 0
+    assert 0.0 < res.t_reached < 1.0
+    tr = res.t_reached
+    np.testing.assert_allclose(res.y_end, Y0 * np.exp(-K * tr), rtol=1e-6)
+    np.testing.assert_allclose(
+        res.y_mean, Y0 * (1 - np.exp(-K * tr)) / (K * tr), rtol=1e-6
+    )
     assert any(r.levelname == "WARNING" for r in caplog.records)
+
+
+@pytest.mark.parametrize("on_failure", ["raise", "warn"])
+def test_a_nan_start_derivative_raises_without_solving(monkeypatch, on_failure):
+    import pypath.core.ecosim_continuous as mod
+
+    def boom(*a, **k):
+        raise AssertionError("solve_ivp must not be called")
+
+    monkeypatch.setattr(mod, "solve_ivp", boom)
+    with pytest.raises(RuntimeError, match="non-finite start derivative"):
+        integrate_month(
+            Decay(nan_after=-1.0),
+            Y0,
+            1.0,
+            "lsoda",
+            1e-8,
+            np.full(2, 1e-10),
+            on_failure=on_failure,
+        )
 
 
 def test_loss_rate_is_zero_where_biomass_is_zero():

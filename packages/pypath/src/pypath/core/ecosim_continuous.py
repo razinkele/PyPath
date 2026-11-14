@@ -375,6 +375,7 @@ class MonthResult:
     nlu: int
     status: int
     message: str
+    t_reached: float
 
 
 def integrate_month(
@@ -396,6 +397,10 @@ def integrate_month(
     """
     y0 = np.asarray(y0, dtype=float)
     n = len(y0)
+    if not np.all(np.isfinite(np.asarray(rhs(0.0, y0), dtype=float))):
+        raise RuntimeError(
+            "month integration cannot start: non-finite start derivative"
+        )
     sol = solve_ivp(
         rhs,
         (0.0, dt),
@@ -406,29 +411,40 @@ def integrate_month(
         dense_output=True,
         max_step=dt,
     )
+    warn = on_failure == "warn"
+
+    def _fail(reason: str, tail: str) -> None:
+        if not warn:
+            raise RuntimeError(f"month integration failed: {reason}")
+        logger.warning("month integration failed (%s); %s", reason, tail)
+
     failed = sol.status < 0
     if failed:
-        if on_failure != "warn":
-            raise RuntimeError(f"month integration failed: {sol.message}")
-        logger.warning(
-            "month integration failed (%s); continuing from the last state reached",
-            sol.message,
-        )
-    t_reach = float(sol.t[-1]) if failed else float(dt)
-    y_last = np.array(sol.y[:, -1], dtype=float)
+        _fail(str(sol.message), "continuing from the last state reached")
+    cols = np.all(np.isfinite(sol.y), axis=0)
+    if not cols[-1]:
+        if not failed:
+            failed = True
+            _fail("non-finite final state", "continuing from the last finite state")
+        good = np.flatnonzero(cols)
+        last = int(good[-1]) if len(good) else 0
+    else:
+        last = len(sol.t) - 1
+    t_reach = float(sol.t[last]) if failed else float(dt)
+    y_last = np.array(sol.y[:, last], dtype=float)
 
     dense = sol.sol
-    use_dense = dense is not None and t_reach > 0.0
-    if use_dense:
+    weights = np.array([1.0])
+    ys = y0[None, :]
+    if dense is not None and t_reach > 0.0:
         nodes = 0.5 * t_reach * (_GL_X + 1.0)
-        weights = 0.5 * _GL_W
-        ys = np.array([np.asarray(dense(t), dtype=float) for t in nodes])
+        cand = np.array([np.asarray(dense(t), dtype=float) for t in nodes])
+        if np.all(np.isfinite(cand)):
+            weights, ys = 0.5 * _GL_W, cand
+        else:
+            _fail("non-finite dense output", "using the start state for the means")
     else:
-        weights = np.array([1.0])
-        ys = y0[None, :]
-    if not np.all(np.isfinite(ys)):
-        ys = y0[None, :]
-        weights = np.array([1.0])
+        logger.warning("month means use the start state (no dense output)")
 
     y_mean = weights @ ys
     food = loss = None
@@ -453,4 +469,5 @@ def integrate_month(
         nlu=int(getattr(sol, "nlu", 0) or 0),
         status=int(sol.status),
         message=str(sol.message),
+        t_reached=t_reach,
     )
