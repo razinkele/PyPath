@@ -330,13 +330,65 @@ def test_the_bracketed_iteration_needs_few_passes(reco_plain):
         s = hv / (0.1 + hv)
         return 1.0 + 0.45 * s + 0.45 * s[::-1]
 
-    h, n = iterate_hden(coupled, h0, np.ones(4, dtype=bool), coupled=True)
+    h, n = iterate_hden(
+        coupled, h0, np.ones(4, dtype=bool), coupled=True, fallback=False
+    )
     np.testing.assert_allclose(h, root, rtol=1e-12)
     # an inactive component keeps its start value
     act = np.array([True, False, True, True])
     h, n = iterate_hden(double, h0, act)
     assert h[1] == 1.5
     np.testing.assert_allclose(h[act], root, rtol=1e-12)
+
+
+@needs_reco
+def test_a_pooled_map_converges_by_undamped_passes(reco_plain):
+    """With ScrambleSelf > 0 one predator's Hden reaches another's
+    consumption, so no component may be held at an early value: plain
+    undamped passes converge within ``max_iter``, without ``hybr``."""
+    params, forcing, fishing = _setup(reco_plain)
+    active = np.asarray(params["ActiveLink"]) != 0
+    params["HandleSelf"] = np.where(active, 0.5, 0.0)
+    params["ScrambleSelf"] = np.where(active, 0.5, 0.0)
+    for y in _states(params):
+        seen, _ = _kernel_call(y, params, forcing, fishing)
+        assert HdenKernel(seen["inputs"]).coupled()
+        g, h0, act = _kernel_map(seen["inputs"])
+        h, passes = iterate_hden(g, h0, act, coupled=True, fallback=False)
+        print("pooled map passes", passes)
+        assert passes <= 31  # the start and max_iter = 30 passes
+        hn, _ = iterate_hden(g, h0, act, accel="none", fallback=False)
+        np.testing.assert_array_equal(h, hn)  # coupled means undamped
+        hk, _ = solve_hden_kernel(seen["inputs"], fallback=False)
+        np.testing.assert_array_equal(h, hk)
+        # the full-derivative reference takes the same undamped passes
+        idx = hden_index(y, params, forcing)
+        hf, nf = solve_hden(
+            y, params, forcing, fishing, idx, params["_cmco_qb"], fallback=False
+        )
+        assert nf <= 31
+        assert np.max(np.abs(hk / hf - 1.0)) < 1e-11
+
+
+def test_undamped_passes_move_every_component():
+    """``accel="none"`` is the plain map: H <- g(H) for every active
+    component on every pass, one that converged early included."""
+
+    def f(hv):
+        return 1.0 + 0.5 * hv / (1.0 + hv)  # root (0.5 + sqrt(4.25)) / 2
+
+    seen = []
+
+    def g(hv):
+        seen.append(hv.copy())
+        return f(hv)
+
+    h0 = np.array([1.2808, 1000.0])  # the first starts near its root
+    h, n = iterate_hden(g, h0, np.ones(2, dtype=bool), accel="none", fallback=False)
+    assert n == len(seen) >= 5
+    for before, after in zip(seen, seen[1:]):
+        np.testing.assert_array_equal(after, f(before))
+    np.testing.assert_allclose(h, (0.5 + np.sqrt(4.25)) / 2, rtol=1e-12)
 
 
 def test_a_non_positive_hden_is_never_accepted():

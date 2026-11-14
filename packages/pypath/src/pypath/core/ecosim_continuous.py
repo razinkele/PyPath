@@ -89,10 +89,13 @@ def iterate_hden(
     bracket, with the Illinois modification: the start ``a = h0``, the
     second end 1e6 where ``F = g - H`` is > 0 at ``a``, else 1. A component
     whose two ends do not straddle a sign change takes undamped passes
-    (``H <- g(H)``) instead, as every component does with ``accel="none"``
-    or ``coupled`` True. A component that converges is held there. After
-    ``max_iter`` passes beyond the start (and the bracket end), ``fallback``
-    hands the active components to ``scipy.optimize.root(method="hybr")``.
+    (``H <- g(H)``) instead. A component that converges is held there, which
+    is sound only because the components are independent. With
+    ``accel="none"`` or ``coupled`` True every pass is the plain map
+    ``H <- g(H)`` on every active component, none held: on a coupled map a
+    converged component's residual moves with the others. After ``max_iter``
+    passes beyond the start (and the bracket end), ``fallback`` hands the
+    active components to ``scipy.optimize.root(method="hybr")``.
 
     Returns ``(H, passes)``, ``passes`` being the calls of ``g``. Raises
     ``RuntimeError`` naming "handling time" and the unconverged components
@@ -112,10 +115,14 @@ def iterate_hden(
         hv[idx] = x
         return hv
 
-    def F(x):
+    def G(x):
+        """``g`` on the active components; one pass."""
         nonlocal passes
         passes += 1
-        return np.asarray(g(full(x)), dtype=float)[idx] - x
+        return np.asarray(g(full(x)), dtype=float)[idx]
+
+    def F(x):
+        return G(x) - x
 
     def rel(x, fx):
         """Per-component residual; inf where H is not finite and > 0."""
@@ -125,18 +132,21 @@ def iterate_hden(
         return out
 
     a = h_start[idx].copy()
-    fa = F(a)
+    ga = G(a)  # g at the end a, kept with it
+    fa = ga - a
     r = rel(a, fa)
     if np.all(r <= tol):
         return full(a), passes
-    held = r <= tol  # converged components, held at x_held
-    x_held = a.copy()
     n = idx.size
+    # the bracketed mode holds converged components (independent ones only)
+    bracketed = accel == "bracketed" and not coupled
+    held = (r <= tol) if bracketed else np.zeros(n, dtype=bool)
+    x_held = a.copy()
     secant = np.zeros(n, dtype=bool)
     b, fb = a.copy(), fa.copy()
     side = np.zeros(n, dtype=int)  # -1: a was kept last pass; +1: b was
     x = a
-    if accel == "bracketed" and not coupled:
+    if bracketed:
         b = np.where(held, a, np.where(fa > 0.0, 1e6, 1.0))
         fb = F(b)
         r = rel(b, fb)
@@ -146,24 +156,25 @@ def iterate_hden(
         x_held[new] = b[new]
         held |= new
         secant = ~held & (np.sign(fa) * np.sign(fb) < 0.0)
-    x_cur, f_cur = a, fa  # undamped components: the last point they took
+    g_cur = ga  # undamped components: g at the last point they took
     for _ in range(max_iter):
-        prop = x_cur + f_cur  # g(x_cur)
+        prop = g_cur  # the plain map, H <- g(H)
         if secant.any():
             with np.errstate(divide="ignore", invalid="ignore"):
                 xs = (a * fb - b * fa) / (fb - fa)
             xs = np.where(np.isfinite(xs), xs, 0.5 * (a + b))
             prop = np.where(secant, xs, prop)
         x = np.where(held, x_held, prop)
-        fx = F(x)
+        gx = G(x)
+        fx = gx - x
         r = rel(x, fx)
         if np.all(r <= tol):
             return full(x), passes
-        x_cur = np.where(secant, x_cur, x)
-        f_cur = np.where(secant, f_cur, fx)
-        new = ~held & (r <= tol)
-        x_held[new] = x[new]
-        held |= new
+        g_cur = np.where(secant, g_cur, gx)
+        if bracketed:
+            new = ~held & (r <= tol)
+            x_held[new] = x[new]
+            held |= new
         if secant.any():
             # a non-finite F leaves no bracket: undamped from the end a
             lost = secant & ~np.isfinite(fx)
@@ -175,9 +186,9 @@ def iterate_hden(
             fb = np.where(to_a & (side == 1), 0.5 * fb, fb)
             b, fb = np.where(to_b, x, b), np.where(to_b, fx, fb)
             a, fa = np.where(to_a, x, a), np.where(to_a, fx, fa)
+            ga = np.where(to_a, gx, ga)
             side = np.where(to_b, -1, np.where(to_a, 1, side))
-            x_cur = np.where(lost, a, x_cur)
-            f_cur = np.where(lost, fa, f_cur)
+            g_cur = np.where(lost, ga, g_cur)
     if fallback:
         logger.debug(
             "handling time: %d passes left residual %.3e; hybr finishes",
