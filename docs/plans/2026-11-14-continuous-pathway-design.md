@@ -222,3 +222,4 @@ The recommendations were adopted; questions 4 and 7 had no recommendation and we
 5. An unknown `method` raises `ValueError`.
 6. The primary catch figure is the integral of F x B over the month; EwE's month-end booking is kept in `out_Catch_month_end`.
 7. Diet imports stay out of the handling budget; Hden0 is recalibrated to the base fixed point.
+8. Mediation lookup interpolation (section 2.8) moved to phase 2, with the other smoothness items; phase 1 keeps EwE's lookup.

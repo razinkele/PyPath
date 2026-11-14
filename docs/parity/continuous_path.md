@@ -36,7 +36,7 @@ Use **RK4** (the default) whenever the result should be EwE's: comparing with Ew
 Use the **continuous path** when you want the solution of the equations rather than of EwE's monthly scheme:
 
 - to check that a result is not an artefact of one RK4 step a month or of the fast-group blend;
-- for closed mass budgets (R2, R5) and a balanced model that stays balanced (R3, R4): REco (without stanzas, EwE rule) at base effort stays within 3e-7 of its base over 50 years on LSODA, against 1.2e-4 on the RK4 path, all of which comes from EwE's Hden start (R3; with R3 removed the RK4 path stays within 6e-14);
+- for closed mass budgets (R2, R5) and a balanced model that stays balanced (R3, R4): REco (without stanzas, EwE rule) at base effort stays within 3e-7 of its base over 50 years on LSODA, against 1.16e-4 on the RK4 path, all of which comes from EwE's Hden start (R3; with R3 removed the RK4 path stays within 6e-14);
 - as a reference when testing a numerical change to the parity paths.
 
 Which method:
@@ -145,7 +145,7 @@ What the call counts mean:
 - RiskTime reads the month-start predation over the month-end biomass.
 - A forced stanza group is overwritten by the age structure, on both paths.
 - Stanza models are first order in the monthly split whatever the tolerance: the age structure is updated once a month from the month's mean rates.
-- EwE's mediation lookup is still truncated to its 1200 points, so a mediated model's right-hand side is piecewise constant in the state; design section 2.8 plans to interpolate it.
+- EwE's mediation lookup is still truncated to its 1200 points, so a mediated model's right-hand side is piecewise constant in the state; interpolating it (design section 2.8) is moved to phase 2.
 - Feeding time, forcing, effort and forced catch are held within the month (feeding time becomes a state in phase 2).
 - IBM groups are rejected.
 - Ecospace still uses its own scheme (RK4 sub-steps with implicit movement); the continuous path is Ecosim only.
