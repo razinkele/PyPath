@@ -432,11 +432,14 @@ class RsimOutput:
     out_Catch : np.ndarray
         Monthly catch (n_months x n_groups+1): the month-end biomass times
         the month's fishing mortality (``out_FishMort``), / 12, so forced F
-        and forced catch are included (EwE6's BB x FishTime)
+        and forced catch are included (EwE6's BB x FishTime). On the
+        continuous path, the month-mean biomass instead (the integral of
+        F x B over the month).
     out_Gear_Catch : np.ndarray
         Monthly catch by gear link: the gears' share (effort and fleet
         mediation). A forced F has no fleet breakdown, so where it replaces
-        the gears their links carry 0
+        the gears their links carry 0. Month-mean biomass on the continuous
+        path, as ``out_Catch``.
     annual_Biomass : np.ndarray
         Annual biomass (n_years x n_groups+1)
     annual_Catch : np.ndarray
@@ -458,7 +461,9 @@ class RsimOutput:
         EwE6's handling-time term Hden of each predator at the end of each
         month (n_months+1 x n_groups+1; row 0 the run's start, CmCo / (CmCo +
         1)). None when ``EWE_HANDLING_TIME`` is off. Recorded by ``rsim_run``;
-        Ecospace keeps one Hden per patch and does not record it.
+        Ecospace keeps one Hden per patch and does not record it. On the
+        continuous path, Hden solved exactly at each month-end state, and at
+        the start state (month-1 forcing) in row 0.
     end_state : RsimState
         Final state at end of simulation
     crash_year : int
@@ -473,6 +478,15 @@ class RsimOutput:
         Initial state (copy)
     params : dict
         Summary parameters
+    solver_info : dict or None
+        Continuous path only: ``method``, ``rtol``, ``atol``, the
+        ``corrections`` applied, the EwE numerics switches ignored
+        (``ignored_switches``) and per month (``months``) ``nfev``, ``njev``,
+        ``nlu``, ``status``, ``t_reached``, ``clips``, ``hden_evals_max`` and
+        ``min_state``. None for RK4 and AB.
+    out_Catch_month_end : np.ndarray or None
+        Continuous path only: EwE's booking, the month's F times the
+        month-end biomass / 12 (n_months+1 x n_groups+1). None for RK4 and AB.
     """
 
     out_Biomass: np.ndarray
@@ -1703,13 +1717,31 @@ def rsim_run(
     scenario : RsimScenario
         Simulation scenario
     method : str
-        Integration method: 'RK4' (Runge-Kutta 4) or 'AB' (Adams-Bashforth),
-        or a continuous SciPy method (``CONTINUOUS_METHODS``). Anything else
-        raises ``ValueError``.
+        Integration method, case-insensitive:
+
+        - ``'RK4'`` (Runge-Kutta 4) and ``'AB'`` (Adams-Bashforth) step
+          EwE's and Rpath's monthly scheme (the parity paths);
+        - ``'lsoda'`` (the choice for stiff models), ``'dop853'``,
+          ``'radau'`` and ``'bdf'`` (``CONTINUOUS_METHODS``) solve the
+          continuous Ecosim equations month by month with SciPy's
+          ``solve_ivp``, with the defect corrections of the continuous
+          pathway (R2, R4, R5, detritus fate applied once, Hden solved
+          exactly from a recalibrated Hden0). They differ from EwE by
+          design; ``RsimOutput.solver_info`` lists the corrections applied
+          and the EwE numerics switches ignored.
+
+        Anything else raises ``ValueError``.
     years : range, optional
         Years to run (default: all years in scenario)
     solver_options : dict, optional
-        Options of the continuous methods (unused by RK4 and AB)
+        Options of the continuous methods (unused by RK4 and AB):
+        ``rtol`` (default 1e-6), ``atol`` (a scalar or one value per group
+        1..NUM_LIVING + NUM_DEAD; default ``1e-8 x max(B0, 1e-6 x max(B0))``)
+        and ``on_failure`` (``"raise"``, the default, or ``"warn"`` to log a
+        failed month and continue from the last state reached). Other keys
+        raise ``ValueError``. On the continuous path ``out_Catch`` is the
+        month's F times the month-mean biomass / 12 (the integral of F x B)
+        and ``out_Catch_month_end`` is EwE's F x month-end biomass / 12.
 
     Returns
     -------
@@ -1718,13 +1750,33 @@ def rsim_run(
     """
     from pypath.core.ecosim_deriv import integrate_ab, integrate_rk4
 
-    if method.upper() not in ("RK4", "AB"):
+    _continuous = method.upper() not in ("RK4", "AB")
+    if _continuous:
         if method.lower() not in CONTINUOUS_METHODS:
             raise ValueError(
                 f"Unknown integration method {method!r}: use "
                 f"{', '.join(repr(m) for m in ('RK4', 'AB') + CONTINUOUS_METHODS)}"
             )
-        raise NotImplementedError(f"continuous method {method!r}: phase 1 in progress")
+        _cont_method = method.lower()
+        _cont_opts = dict(solver_options or {})
+        _unknown_opts = sorted(set(_cont_opts) - {"rtol", "atol", "on_failure"})
+        if _unknown_opts:
+            raise ValueError(
+                f"Unknown solver_options {_unknown_opts}: use 'rtol', 'atol', "
+                "'on_failure'"
+            )
+        _on_failure = _cont_opts.get("on_failure", "raise")
+        if _on_failure not in ("raise", "warn"):
+            raise ValueError(
+                "solver_options on_failure must be 'raise' or 'warn', got "
+                f"{_on_failure!r}"
+            )
+        # params_dict["ibm_groups"] is taken from params.ibm_groups below
+        if getattr(scenario.params, "ibm_groups", None):
+            raise ValueError(
+                "IBM groups are not supported by the continuous methods; use "
+                "method='RK4' or 'AB'"
+            )
 
     params = scenario.params
     forcing = scenario.forcing
@@ -2388,6 +2440,56 @@ def rsim_run(
         out_hden[0] = _hden_start
         _hden_start_pending = True
 
+    # Continuous path: one pure right-hand side for the run. It holds its own
+    # copy of params_dict with the corrections, the recalibrated Hden0 and
+    # DetritusOut fixed at the base state, so EwE's start-of-run Hden step
+    # and the DetritusOut reset do not apply.
+    rhs = None
+    solver_info = None
+    out_catch_month_end = None
+    if _continuous:
+        from pypath.core.ecosim_continuous import (
+            ContinuousRHS,
+            default_atol,
+            hden_index,
+            integrate_month,
+        )
+
+        _n_bio_c = params.NUM_LIVING + params.NUM_DEAD
+        rhs = ContinuousRHS(
+            params_dict,
+            fishing_dict,
+            _n_bio_c,
+            params.B_BaseRef,
+            switches={
+                k: getattr(params, k, None)
+                for k in (
+                    "RK4_FAST_EQUILIBRIUM",
+                    "STANZA_STAGE_RATES",
+                    "FTIME_START_OF_MONTH",
+                    "RK4_STEPS",
+                )
+            },
+        )
+        _hden_start_pending = False
+        _det_out_pending = False
+        _rtol = float(_cont_opts.get("rtol", 1e-6))
+        _atol = _cont_opts.get("atol")
+        if _atol is None:
+            _atol = default_atol(
+                np.asarray(params.B_BaseRef, dtype=float)[1 : _n_bio_c + 1]
+            )
+        _atol = np.asarray(_atol, dtype=float)
+        solver_info = {
+            "method": _cont_method,
+            "rtol": _rtol,
+            "atol": _atol.tolist() if _atol.ndim else float(_atol),
+            "corrections": list(rhs.corrections),
+            "ignored_switches": list(rhs.ignored_switches),
+            "months": [],
+        }
+        out_catch_month_end = np.zeros((n_months + 1, n_groups))
+
     for month in range(1, n_months + 1):
         # Debug: indicate loop iteration for first few months
         if month <= 6:
@@ -2501,7 +2603,11 @@ def rsim_run(
         # Derivt), so prey Ftime and mediation are included: take the
         # derivative's FoodGain now.
         _fg_ftime = None
-        if _has_ftime_adj and getattr(params, "FTIME_START_OF_MONTH", False):
+        if (
+            _has_ftime_adj
+            and getattr(params, "FTIME_START_OF_MONTH", False)
+            and not _continuous
+        ):
             _fg_rates: dict = {}
             with _frozen_hden(params_dict):
                 deriv_vector(
@@ -2617,13 +2723,56 @@ def rsim_run(
                 derivs_history.insert(0, new_deriv)
                 if len(derivs_history) > 1:
                     derivs_history.pop()
+        else:
+            # Continuous path: solve_ivp over the month with the month's
+            # forcing, effort, forced F, forced biomass, StanzaPredRatio and
+            # Ftime held; slot 0 and the gear slots keep their values.
+            rhs.set_month(forcing_dict, state, _forced_mask, _forced_now)
+            _y0 = np.array(state[1 : _n_bio_c + 1], dtype=float, copy=True)
+            _start_rates = (
+                rhs.rates(_y0)
+                if _has_risk or (month == 1 and out_hden is not None)
+                else None
+            )
+            if month == 1 and out_hden is not None:
+                out_hden[0] = _start_rates["Hden"]  # Hden solved at the start
+            if _has_risk:
+                # RiskTime below reads the predation of the month-start state
+                _fg_rates = _start_rates
+            res = integrate_month(
+                rhs, _y0, dt, _cont_method, _rtol, _atol, on_failure=_on_failure
+            )
+            state = state.copy()
+            state[1 : _n_bio_c + 1] = res.y_end
+            _y_mean_full = np.zeros(n_groups)
+            _y_mean_full[1 : _n_bio_c + 1] = res.y_mean
+            if _has_ftime_adj:
+                # Feeding time from the month means: FoodGain over the mean
+                # predator index (B, or B0 x StanzaPredRatio for stanzas)
+                _fg_ftime = np.asarray(res.food_gain_mean, dtype=float)
+                _ftime_index = hden_index(_y_mean_full, params_dict, forcing_dict)
+            solver_info["months"].append(
+                {
+                    "month": month,
+                    "nfev": res.nfev,
+                    "njev": res.njev,
+                    "nlu": res.nlu,
+                    "status": res.status,
+                    "t_reached": res.t_reached,
+                    "clips": int(rhs.stats["clips"]),
+                    "hden_evals_max": int(rhs.stats["hden_evals_max"]),
+                    "min_state": float(rhs.stats["min_state"]),
+                }
+            )
         if np.any(_forced_mask):
             state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
 
         # Replace invalid numeric values to prevent NaN/inf runaway and
-        # ensure non-negative biomass
-        state = np.where(np.isfinite(state), state, EPSILON)
-        state = np.maximum(state, EPSILON)
+        # ensure non-negative biomass (the continuous path's month end is
+        # finite and floored at 1e-20 already)
+        if not _continuous:
+            state = np.where(np.isfinite(state), state, EPSILON)
+            state = np.maximum(state, EPSILON)
         # EwE6's RiskRate divides by BBAvg, the biomass after the month's RK4
         # and before the stanza update overwrites the stanza groups.
         _b_integrated = state.copy() if _has_risk else None
@@ -2632,7 +2781,20 @@ def rsim_run(
         # come from the derivative where Rpath takes them: after the month's
         # integration for RK4, at the start of the month for AB.
         if stanza_state is not None:
-            if _stanza_stages:
+            if _continuous:
+                # Continuous path: the month means of FoodGain and of
+                # LossPropToB / B, the latter at unit biomass so survival is
+                # exp(-integral of Z dt)
+                split_update(
+                    stanzas_obj,
+                    stanza_state,
+                    np.ones(len(state)),
+                    res.food_gain_mean,
+                    res.loss_rate_mean,
+                    forced_recs=forcing_dict.get("ForcedRecs"),
+                    month_index=month - 1,
+                )
+            elif _stanza_stages:
                 # EwE6 rule: growth from the last stage's consumption,
                 # survival from the first stage's loss over the stanza
                 # groups' start-of-month biomass (cEcoSimModel.rk4).
@@ -2685,7 +2847,12 @@ def rsim_run(
         # Store results
         out_biomass[month] = state
         if out_hden is not None:
-            out_hden[month] = params_dict["_hden"]
+            if _continuous:
+                # Hden solved at the month-end state (before the feeding-time
+                # update below changes the Ftime the RHS holds)
+                out_hden[month] = rhs.rates(res.y_end)["Hden"]
+            else:
+                out_hden[month] = params_dict["_hden"]
 
         # Compute consumption QQ matrix for this month to track Qlinks
         QQ_month = _compute_Q_matrix(params_dict, state, forcing_dict)
@@ -2715,8 +2882,10 @@ def rsim_run(
             _ftime_max = getattr(params, "FtimeMax", None)
             _b_src = _ftime_index if _fg_ftime is not None else state
             # EwE updates integrated groups only (NoIntegrate = i or < 0,
-            # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime.
-            _skip_fast = _fg_ftime is not None
+            # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime. The
+            # continuous path integrates fast groups as states and updates
+            # them all.
+            _skip_fast = _fg_ftime is not None and not _continuous
             _no_int = np.asarray(params.NoIntegrate)
             _end_rates = None  # 'rpath' rule RiskTime: month-end derivative
             for i in range(1, params.NUM_LIVING + 1):
@@ -2731,7 +2900,9 @@ def rsim_run(
                     if _has_risk and _risk_time[i] > 0:
                         # EwE rule: predation of the start-of-month Derivt
                         # (EatenOfAvg) over the biomass after RK4 (BBAvg);
-                        # 'rpath' rule: both from the month-end state.
+                        # 'rpath' rule: both from the month-end state. The
+                        # continuous path takes the EwE-rule arm, with the
+                        # predation of the RHS at the month-start state.
                         if _fg_ftime is not None:
                             eaten_of = float(_fg_rates["FoodLoss"][i])
                             b_risk = float(_b_integrated[i])
@@ -2785,6 +2956,17 @@ def rsim_run(
         out_catch[month, 1 : _n_bio + 1] = (
             _month_f[1 : _n_bio + 1] * state[1 : _n_bio + 1] / 12.0
         )
+        if _continuous:
+            # Continuous path: the month's F times the month-mean biomass, the
+            # integral of F x B over the month; EwE's month-end booking above
+            # is kept in out_Catch_month_end.
+            out_catch_month_end[month] = out_catch[month]
+            for i in range(1, len(params.FishFrom)):
+                grp = params.FishFrom[i]
+                out_gear_catch[month, i] = _month_link_f[i] * _y_mean_full[grp] / 12.0
+            out_catch[month, 1 : _n_bio + 1] = (
+                _month_f[1 : _n_bio + 1] * _y_mean_full[1 : _n_bio + 1] / 12.0
+            )
 
         # Fleet dynamics step (after catch computation)
         if _fleet_capacity is not None:
@@ -2996,6 +3178,8 @@ def rsim_run(
         },
         ecotracer=_ecotracer_result,
         fleet_dynamics=_fleet_result,
+        solver_info=solver_info,
+        out_Catch_month_end=out_catch_month_end,
     )
 
 
