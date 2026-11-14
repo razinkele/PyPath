@@ -28,18 +28,24 @@ def test_exact_hden_leaves_hden_unchanged_and_uses_it(reco_plain):
     d2 = deriv_vector(state.copy(), params, forcing, fishing, rates=r2)
     np.testing.assert_array_equal(params["_hden"], h)
     np.testing.assert_array_equal(d1, d2)
-    # the kernel ran once at H: compare with a frozen, non-exact call at H
-    # whose first pass is the same and whose second pass is at the updated H
     assert r1["HdenConsumption"].shape == (scen.params.NUM_GROUPS + 1,)
     np.testing.assert_array_equal(r1["HdenConsumption"], r2["HdenConsumption"])
-    # the exact call equals the first kernel pass of the iterating path:
-    # an iterating call that starts at H and is frozen runs its last pass at
-    # the updated Hden, so it differs from the exact result
-    p2 = dict(params, _hden=h.copy(), _hden_exact=False, _hden_frozen=True)
-    r3 = {}
-    deriv_vector(state.copy(), p2, forcing, fishing, rates=r3)
-    assert not np.allclose(r3["HdenConsumption"], r1["HdenConsumption"], rtol=1e-9)
-    assert (r1["HdenConsumption"] > 0).any()
+    # independent check at a converged Hden: the iterating path is then at a
+    # fixed point, so its consumption is the kernel's at that Hden and the
+    # exact call at the same H must equal it
+    conv = dict(params, _hden=np.array(params["_hden0"], dtype=float))
+    for _ in range(400):
+        rc = {}
+        deriv_vector(state.copy(), conv, forcing, fishing, rates=rc)
+    h_conv = conv["_hden"].copy()
+    ref = rc["HdenConsumption"]
+    ex = dict(params, _hden=h_conv.copy(), _hden_exact=True)
+    re = {}
+    deriv_vector(state.copy(), ex, forcing, fishing, rates=re)
+    np.testing.assert_allclose(re["HdenConsumption"], ref, rtol=1e-9)
+    # the exact result is sensitive to H: at 1.3 x Hden0 it differs
+    assert not np.allclose(r1["HdenConsumption"], ref, rtol=1e-6)
+    assert not np.allclose(h_conv, h)
 
 
 @needs_reco
@@ -101,3 +107,31 @@ def test_df_once_counts_the_fate_once():
     assert gain_twice[3] == pytest.approx(1.0)  # 0.2 * 10 * 0.5
     # independent of pass_on: dropping the received flow still works
     assert _flows(True, pass_on=False)[0][3] == 0.0
+
+
+def test_df_once_sums_only_over_pool_destinations():
+    # pool A (2): 0.4 to Outside (dest 0), 0.3 to B (3), 0.3 to itself
+    det_from = np.array([0, 1, 2, 2, 2, 3])
+    det_to = np.array([0, 2, 0, 3, 2, 3])
+    frac = np.array([0.0, 1.0, 0.4, 0.3, 0.3, 1.0])
+    gain, _ = _rpath_detritus_derivs(
+        np.zeros(4),
+        QQ,
+        BB,
+        np.array([0.0, 0.5, 0.1, 0.0]),
+        np.array([0.0, 0.2, 0.0, 0.0]),
+        det_from,
+        det_to,
+        frac,
+        np.zeros(1),
+        np.zeros(1),
+        np.zeros(1),
+        NUM_LIVING,
+        NUM_DEAD,
+        det_passed_prop=np.array([0.0, 0.0, 0.2, 0.0]),
+        det_ba=np.zeros(4),
+        det_out=np.array([0.0, 0.0, 0.02, 0.03]),
+        df_once=True,
+    )
+    # pool-only sum is 0.3 (B), so B gets DetPassedProp x B x 0.3 / 0.3
+    assert gain[3] == pytest.approx(0.2 * 10.0)

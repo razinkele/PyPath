@@ -851,7 +851,8 @@ def _rpath_detritus_derivs(
     if ewe and df_once:
         for k in range(1, len(det_from)):
             src = int(det_from[k])
-            if NUM_LIVING < src <= n_bio and int(det_to[k]) != src:
+            dest = int(det_to[k])
+            if NUM_LIVING < src <= n_bio and NUM_LIVING < dest <= n_bio and dest != src:
                 other_df[src] += det_frac[k]
     for k in range(1, len(det_from)):
         src = int(det_from[k])
@@ -863,7 +864,7 @@ def _rpath_detritus_derivs(
             if dest != src and NUM_LIVING < dest <= n_bio and received:
                 share = det_frac[k]
                 if df_once:
-                    share = share / other_df[src]
+                    share = share / other_df[src] if other_df[src] > 0 else 0.0
                 det_gain[dest] += det_passed_prop[src] * share * BB[src]
             continue
         flow = float(det_frac[k]) * (mzero_loss[src] + unassim_loss[src])
