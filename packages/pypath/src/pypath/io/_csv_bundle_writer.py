@@ -423,6 +423,10 @@ class CsvBundleWriter:
                         "CellSize": getattr(grid, "cell_size", 1.0),
                         "MinLat": getattr(grid, "origin_lat", 0.0),
                         "MinLon": getattr(grid, "origin_lon", 0.0),
+                        # EwE's stanza model: 2 NewMultiStanza, 0 the old one
+                        "ModelType": (
+                            2 if getattr(eco, "new_multi_stanza", True) else 0
+                        ),
                     }
                 ]
             )

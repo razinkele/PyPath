@@ -139,6 +139,16 @@ habitat capacity.
       show_root_heading: true
 
 
+## Multi-stanza Distribution
+
+EwE's NewMultiStanza model: a population index per patch and life stage that
+spreads each stage's map-wide total and weights the age structure's update.
+`EcospaceParams.new_multi_stanza` switches it.
+
+::: pypath.spatial.stanza_space
+    options:
+      show_root_heading: true
+
 ## Advanced Movement
 
 Higher-level movement utilities for behavioral migration, ontogenetic shifts,

@@ -5496,6 +5496,20 @@ class EcospaceReadResult:
     habitat_fishery: Optional[pd.DataFrame] = None
 
 
+def _uses_new_multi_stanza(model_type) -> bool:
+    """EwE's stanza model for an EcospaceScenario ModelType.
+
+    0 is the old multi-stanza model and 1 the IBM; any other value, and
+    a new scenario (2), is the NewMultiStanza model (cDBDataSource.vb
+    7569-7579). PyPath runs the old model and the IBM as its own
+    patch-share rule.
+    """
+    try:
+        return int(model_type) not in (0, 1)
+    except (TypeError, ValueError):
+        return True
+
+
 def read_ecospace(
     db_path: str,
     n_groups: int,
@@ -5580,6 +5594,7 @@ def read_ecospace(
         "MinLat",
         "TotalTime",
         "TimeStep",
+        "ModelType",
     ]:
         if col in scenario_row.index:
             scenario_meta[col] = scenario_row[col]
@@ -5815,6 +5830,7 @@ def read_ecospace(
         dispersal_rate=dispersal_rate,
         advection_enabled=advection_enabled,
         gravity_strength=gravity_strength,
+        new_multi_stanza=_uses_new_multi_stanza(scenario_row.get("ModelType")),
     )
 
     return EcospaceReadResult(
