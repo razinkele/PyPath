@@ -7681,21 +7681,7 @@ cannot be read, or the maps leave no water cell.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5499</span>
-<span class="normal">5500</span>
-<span class="normal">5501</span>
-<span class="normal">5502</span>
-<span class="normal">5503</span>
-<span class="normal">5504</span>
-<span class="normal">5505</span>
-<span class="normal">5506</span>
-<span class="normal">5507</span>
-<span class="normal">5508</span>
-<span class="normal">5509</span>
-<span class="normal">5510</span>
-<span class="normal">5511</span>
-<span class="normal">5512</span>
-<span class="normal">5513</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">5513</span>
 <span class="normal">5514</span>
 <span class="normal">5515</span>
 <span class="normal">5516</span>
@@ -8009,7 +7995,23 @@ cannot be read, or the maps leave no water cell.</p>
 <span class="normal">5824</span>
 <span class="normal">5825</span>
 <span class="normal">5826</span>
-<span class="normal">5827</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecospace</span><span class="p">(</span>
+<span class="normal">5827</span>
+<span class="normal">5828</span>
+<span class="normal">5829</span>
+<span class="normal">5830</span>
+<span class="normal">5831</span>
+<span class="normal">5832</span>
+<span class="normal">5833</span>
+<span class="normal">5834</span>
+<span class="normal">5835</span>
+<span class="normal">5836</span>
+<span class="normal">5837</span>
+<span class="normal">5838</span>
+<span class="normal">5839</span>
+<span class="normal">5840</span>
+<span class="normal">5841</span>
+<span class="normal">5842</span>
+<span class="normal">5843</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecospace</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
@@ -8093,6 +8095,7 @@ cannot be read, or the maps leave no water cell.</p>
         <span class="s2">"MinLat"</span><span class="p">,</span>
         <span class="s2">"TotalTime"</span><span class="p">,</span>
         <span class="s2">"TimeStep"</span><span class="p">,</span>
+        <span class="s2">"ModelType"</span><span class="p">,</span>
     <span class="p">]:</span>
         <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">scenario_row</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
             <span class="n">scenario_meta</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">scenario_row</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
@@ -8328,6 +8331,7 @@ cannot be read, or the maps leave no water cell.</p>
         <span class="n">dispersal_rate</span><span class="o">=</span><span class="n">dispersal_rate</span><span class="p">,</span>
         <span class="n">advection_enabled</span><span class="o">=</span><span class="n">advection_enabled</span><span class="p">,</span>
         <span class="n">gravity_strength</span><span class="o">=</span><span class="n">gravity_strength</span><span class="p">,</span>
+        <span class="n">new_multi_stanza</span><span class="o">=</span><span class="n">_uses_new_multi_stanza</span><span class="p">(</span><span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ModelType"</span><span class="p">)),</span>
     <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">EcospaceReadResult</span><span class="p">(</span>
@@ -8715,23 +8719,7 @@ If sample_id is None, returns a dict mapping SampleID → SampleContainer.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6757</span>
-<span class="normal">6758</span>
-<span class="normal">6759</span>
-<span class="normal">6760</span>
-<span class="normal">6761</span>
-<span class="normal">6762</span>
-<span class="normal">6763</span>
-<span class="normal">6764</span>
-<span class="normal">6765</span>
-<span class="normal">6766</span>
-<span class="normal">6767</span>
-<span class="normal">6768</span>
-<span class="normal">6769</span>
-<span class="normal">6770</span>
-<span class="normal">6771</span>
-<span class="normal">6772</span>
-<span class="normal">6773</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6773</span>
 <span class="normal">6774</span>
 <span class="normal">6775</span>
 <span class="normal">6776</span>
@@ -8931,7 +8919,23 @@ If sample_id is None, returns a dict mapping SampleID → SampleContainer.</p>
 <span class="normal">6970</span>
 <span class="normal">6971</span>
 <span class="normal">6972</span>
-<span class="normal">6973</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewe_samples</span><span class="p">(</span>
+<span class="normal">6973</span>
+<span class="normal">6974</span>
+<span class="normal">6975</span>
+<span class="normal">6976</span>
+<span class="normal">6977</span>
+<span class="normal">6978</span>
+<span class="normal">6979</span>
+<span class="normal">6980</span>
+<span class="normal">6981</span>
+<span class="normal">6982</span>
+<span class="normal">6983</span>
+<span class="normal">6984</span>
+<span class="normal">6985</span>
+<span class="normal">6986</span>
+<span class="normal">6987</span>
+<span class="normal">6988</span>
+<span class="normal">6989</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewe_samples</span><span class="p">(</span>
     <span class="n">filepath</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
     <span class="n">sample_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">SampleContainer</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">SampleContainer</span><span class="p">]]:</span>
@@ -13152,23 +13156,7 @@ print(groups.columns)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6451</span>
-<span class="normal">6452</span>
-<span class="normal">6453</span>
-<span class="normal">6454</span>
-<span class="normal">6455</span>
-<span class="normal">6456</span>
-<span class="normal">6457</span>
-<span class="normal">6458</span>
-<span class="normal">6459</span>
-<span class="normal">6460</span>
-<span class="normal">6461</span>
-<span class="normal">6462</span>
-<span class="normal">6463</span>
-<span class="normal">6464</span>
-<span class="normal">6465</span>
-<span class="normal">6466</span>
-<span class="normal">6467</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6467</span>
 <span class="normal">6468</span>
 <span class="normal">6469</span>
 <span class="normal">6470</span>
@@ -13258,7 +13246,23 @@ print(groups.columns)</p>
 <span class="normal">6554</span>
 <span class="normal">6555</span>
 <span class="normal">6556</span>
-<span class="normal">6557</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mpa_config</span><span class="p">(</span>
+<span class="normal">6557</span>
+<span class="normal">6558</span>
+<span class="normal">6559</span>
+<span class="normal">6560</span>
+<span class="normal">6561</span>
+<span class="normal">6562</span>
+<span class="normal">6563</span>
+<span class="normal">6564</span>
+<span class="normal">6565</span>
+<span class="normal">6566</span>
+<span class="normal">6567</span>
+<span class="normal">6568</span>
+<span class="normal">6569</span>
+<span class="normal">6570</span>
+<span class="normal">6571</span>
+<span class="normal">6572</span>
+<span class="normal">6573</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mpa_config</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">fleet_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
@@ -13658,23 +13662,7 @@ Empty defaults if tables are missing.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6613</span>
-<span class="normal">6614</span>
-<span class="normal">6615</span>
-<span class="normal">6616</span>
-<span class="normal">6617</span>
-<span class="normal">6618</span>
-<span class="normal">6619</span>
-<span class="normal">6620</span>
-<span class="normal">6621</span>
-<span class="normal">6622</span>
-<span class="normal">6623</span>
-<span class="normal">6624</span>
-<span class="normal">6625</span>
-<span class="normal">6626</span>
-<span class="normal">6627</span>
-<span class="normal">6628</span>
-<span class="normal">6629</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6629</span>
 <span class="normal">6630</span>
 <span class="normal">6631</span>
 <span class="normal">6632</span>
@@ -13756,7 +13744,23 @@ Empty defaults if tables are missing.</p>
 <span class="normal">6708</span>
 <span class="normal">6709</span>
 <span class="normal">6710</span>
-<span class="normal">6711</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_taxonomy</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaxonomyData</span><span class="p">:</span>
+<span class="normal">6711</span>
+<span class="normal">6712</span>
+<span class="normal">6713</span>
+<span class="normal">6714</span>
+<span class="normal">6715</span>
+<span class="normal">6716</span>
+<span class="normal">6717</span>
+<span class="normal">6718</span>
+<span class="normal">6719</span>
+<span class="normal">6720</span>
+<span class="normal">6721</span>
+<span class="normal">6722</span>
+<span class="normal">6723</span>
+<span class="normal">6724</span>
+<span class="normal">6725</span>
+<span class="normal">6726</span>
+<span class="normal">6727</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_taxonomy</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaxonomyData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read taxonomy tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
@@ -14515,23 +14519,7 @@ None reads every series.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6714</span>
-<span class="normal">6715</span>
-<span class="normal">6716</span>
-<span class="normal">6717</span>
-<span class="normal">6718</span>
-<span class="normal">6719</span>
-<span class="normal">6720</span>
-<span class="normal">6721</span>
-<span class="normal">6722</span>
-<span class="normal">6723</span>
-<span class="normal">6724</span>
-<span class="normal">6725</span>
-<span class="normal">6726</span>
-<span class="normal">6727</span>
-<span class="normal">6728</span>
-<span class="normal">6729</span>
-<span class="normal">6730</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6730</span>
 <span class="normal">6731</span>
 <span class="normal">6732</span>
 <span class="normal">6733</span>
@@ -14555,7 +14543,23 @@ None reads every series.</p>
 <span class="normal">6751</span>
 <span class="normal">6752</span>
 <span class="normal">6753</span>
-<span class="normal">6754</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_value_chain</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValueChainData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">6754</span>
+<span class="normal">6755</span>
+<span class="normal">6756</span>
+<span class="normal">6757</span>
+<span class="normal">6758</span>
+<span class="normal">6759</span>
+<span class="normal">6760</span>
+<span class="normal">6761</span>
+<span class="normal">6762</span>
+<span class="normal">6763</span>
+<span class="normal">6764</span>
+<span class="normal">6765</span>
+<span class="normal">6766</span>
+<span class="normal">6767</span>
+<span class="normal">6768</span>
+<span class="normal">6769</span>
+<span class="normal">6770</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_value_chain</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValueChainData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read value chain economics tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
