@@ -798,6 +798,7 @@ def _rpath_detritus_derivs(
     det_out=None,
     det_emig=None,
     pass_on=True,
+    df_once=False,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -827,6 +828,11 @@ def _rpath_detritus_derivs(
     indices 1 to nDet, living groups); the donor's losses and a pool's flow
     to itself are unchanged.
 
+    ``df_once=True`` (EwE rule) counts DF once: DetPassedProp already holds a
+    pool's passed share, so a flow to another pool is DetPassedProp x B x
+    DF / s, s being the sum of the source's DF to pools other than itself.
+    It acts independently of ``pass_on``.
+
     Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
     can build Rpath's TotGain / TotLoss for the dead groups.
     """
@@ -841,6 +847,13 @@ def _rpath_detritus_derivs(
     ewe = det_passed_prop is not None
     det_gain = np.zeros(n_bio + 1)
     det_loss = np.zeros(n_bio + 1)
+    other_df = np.zeros(n_bio + 1)
+    if ewe and df_once:
+        for k in range(1, len(det_from)):
+            src = int(det_from[k])
+            dest = int(det_to[k])
+            if NUM_LIVING < src <= n_bio and NUM_LIVING < dest <= n_bio and dest != src:
+                other_df[src] += det_frac[k]
     for k in range(1, len(det_from)):
         src = int(det_from[k])
         dest = int(det_to[k])
@@ -849,7 +862,10 @@ def _rpath_detritus_derivs(
         received = pass_on or src <= NUM_LIVING or dest == src
         if ewe and src > NUM_LIVING:
             if dest != src and NUM_LIVING < dest <= n_bio and received:
-                det_gain[dest] += det_passed_prop[src] * det_frac[k] * BB[src]
+                share = det_frac[k]
+                if df_once:
+                    share = share / other_df[src] if other_df[src] > 0 else 0.0
+                det_gain[dest] += det_passed_prop[src] * share * BB[src]
             continue
         flow = float(det_frac[k]) * (mzero_loss[src] + unassim_loss[src])
         if 0 < dest <= n_bio and received:
@@ -1932,19 +1948,28 @@ def deriv_vector(
     # scaled by Hden0 / Hden. Hden is updated once per call from the
     # consumption at the previous Hden, then the consumption is recomputed
     # (Derivt, cEcoSimModel.vb 2890-2969). rsim_run keeps Hden between calls
-    # and freezes it for calls that are not integration stages.
+    # and freezes it for calls that are not integration stages. With
+    # ``_hden_exact`` (the continuous path) the caller solves Hden and it is
+    # used as given, with no update.
     _hden = params.get("_hden")
     if _hden is not None:
         _hden0 = params["_hden0"]
         _cmco_qb = params["_cmco_qb"]
-        _run_kernel(predYY * (_hden0 / _hden))
-        _index = np.array(BB, dtype=float, copy=True)
-        if _stanza_ratio is not None:
-            _index[_has_ratio] = Bbase[_has_ratio] * _stanza_ratio[_has_ratio]
-        _hden_new = _ewe_hden_update(_hden, QQ[1:, :].sum(axis=0), _index, _cmco_qb)
-        if not params.get("_hden_frozen", False):
-            _hden[:] = _hden_new
-        _run_kernel(predYY * (_hden0 / _hden_new))
+        if params.get("_hden_exact", False):
+            # Continuous path: one kernel pass at the given Hden, which is
+            # neither updated nor written; the caller carries Hden.
+            _run_kernel(predYY * (_hden0 / _hden))
+        else:
+            _run_kernel(predYY * (_hden0 / _hden))
+            _index = np.array(BB, dtype=float, copy=True)
+            if _stanza_ratio is not None:
+                _index[_has_ratio] = Bbase[_has_ratio] * _stanza_ratio[_has_ratio]
+            _hden_new = _ewe_hden_update(_hden, QQ[1:, :].sum(axis=0), _index, _cmco_qb)
+            if not params.get("_hden_frozen", False):
+                _hden[:] = _hden_new
+            _run_kernel(predYY * (_hden0 / _hden_new))
+        if rates is not None:
+            rates["HdenConsumption"] = QQ[1:, :].sum(axis=0)
     else:
         _run_kernel(predYY)
 
@@ -2151,11 +2176,13 @@ def deriv_vector(
     # detritus budget stays closed.
     if not params.get("DETRITUS_MO_UNSCALED", False):
         _M0_detritus = _M0_effective
+    _mo_tot_gate = params.get("DETRITUS_MO_TOT", False)
     # EwE6 other mortality moTot = moMax / (1 + Qh x Eatenof / StartEatenOf)
     # in place of mo for every eaten group (Derivt, vb 3058-3081): with
     # PaddP < 1 other mortality compensates for predation, and an eaten group
     # with mo <= 0 (EE > 1) loses none. The detritus flow keeps mo
-    # (SimDetritusMT, vb 3165).
+    # (SimDetritusMT, vb 3165) unless ``DETRITUS_MO_TOT`` is set (the
+    # continuous path's R5 closure), when it receives moTot x B as well.
     _mo_tot = params.get("_mo_tot")
     if _mo_tot is not None:
         _mo_max, _qh, _start_eaten_of = _mo_tot
@@ -2163,9 +2190,11 @@ def deriv_vector(
         _eaten_of[1 : NUM_LIVING + 1] = QQ[1 : NUM_LIVING + 1, 1 : NUM_LIVING + 1].sum(
             axis=1
         )
-        _M0_effective = _M0_effective * _mo_tot_factor(
-            _eaten_of, _start_eaten_of, _M0_safe, _mo_max, _qh
-        )
+        _mo_tot_f = _mo_tot_factor(_eaten_of, _start_eaten_of, _M0_safe, _mo_max, _qh)
+        _M0_effective = _M0_effective * _mo_tot_f
+        if _mo_tot_gate:
+            # R5 closure: detritus receives the same moTot x B the group loses.
+            _M0_detritus = _M0_detritus * _mo_tot_f
     # EwE6 UseVarPQ: gross efficiency follows the total loss rate Z,
     # GE = AssimEff * Z / (Z + 3 K); AssimEff is set so GE = GE0 at Z = PB.
     if params.get("UseVarPQ", False):
@@ -2358,6 +2387,7 @@ def deriv_vector(
             det_out=params.get("_det_out"),
             det_emig=_emig,
             pass_on=params.get("_detritus_pass_on", True),
+            df_once=params.get("DETRITUS_DF_ONCE", False),
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)

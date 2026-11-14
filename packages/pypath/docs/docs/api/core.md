@@ -49,7 +49,8 @@ The Ecosim engine runs time-dynamic food web simulations using foraging
 arena theory. Key entry points:
 
 - `rsim_scenario()` — create a scenario from a balanced Ecopath model
-- `rsim_run()` — run the simulation with RK4 or Adams-Bashforth integration
+- `rsim_run()` — run the simulation with RK4 or Adams-Bashforth integration,
+  or with a continuous SciPy solver (see below)
 
 ### Integration methods
 
@@ -57,6 +58,7 @@ arena theory. Key entry points:
 |--------|-------------|
 | `"RK4"` | 4th-order Runge-Kutta. Stable, self-starting. Good for short runs. |
 | `"AB"` | Adams-Bashforth 2-step (matches Rpath). Uses 1 month RK4 warmup then AB2: `B_{n+1} = B_n + dt/2 * (3*f_n - f_{n-1})`. Includes dynamic fast equilibrium for NoIntegrate groups and Rpath-style biomass bounds. Recommended for calibration and comparison with EwE/Rpath. |
+| `"lsoda"`, `"dop853"`, `"radau"`, `"bdf"` | Continuous pathway (not EwE parity): SciPy's `solve_ivp`, one call per month, with the defect corrections applied. Results differ from EwE by design; see [Continuous Integration Pathway](#continuous-integration-pathway). |
 
 ### Consumption formula
 
@@ -112,6 +114,34 @@ Key functions:
 - `integrate_ab()` — single AB2 step with Rpath-style biomass bounds
 
 ::: pypath.core.ecosim_deriv
+    options:
+      show_root_heading: true
+      members_order: source
+
+## Continuous Integration Pathway
+
+`rsim_run(scenario, method="lsoda")` (or `"dop853"`, `"radau"`, `"bdf"`)
+solves the continuous Ecosim equations month by month with SciPy's
+`solve_ivp`. The month's forcing, effort and feeding time are held; stanza
+updates, feeding-time updates and fleet dynamics run at the month
+boundaries from the month's quadrature means. The pathway applies the
+defect corrections (R2, R4, R5, detritus fate applied once, handling time
+solved exactly from a recalibrated Hden0), so it differs from EwE by
+design. Options go in `solver_options` (`rtol`, `atol`, `corrections`,
+`on_failure`); `corrections=False` leaves out R2, R4, R5 and DF once.
+`RsimOutput.solver_info` records the corrections, the EwE numerics
+switches ignored and per-month solver statistics (including `steps` and
+`degraded`, a month whose means fell back to the start state). A failed
+month raises `RuntimeError` naming the month. `out_Catch` is the
+integral of F x B over the month; EwE's month-end booking is in
+`out_Catch_month_end`.
+
+```python
+out = rsim_run(scenario, method="lsoda", solver_options={"rtol": 1e-8})
+out.solver_info["corrections"]
+```
+
+::: pypath.core.ecosim_continuous
     options:
       show_root_heading: true
       members_order: source
