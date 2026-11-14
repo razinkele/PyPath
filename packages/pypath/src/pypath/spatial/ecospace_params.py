@@ -384,6 +384,13 @@ class EcospaceParams:
         If provided for a group, overrides model-calculated dispersal
     environmental_drivers : Optional[object]
         Time-varying environmental drivers (EnvironmentalDrivers instance)
+    new_multi_stanza : bool
+        Distribute multi-stanza groups as EwE's NewMultiStanza model
+        (Ecospace ModelType 2, EwE's default for a new scenario): each life
+        stage keeps a population index per patch and its map-wide total is
+        spread by it (``pypath.spatial.stanza_space``). False spreads each
+        stage's total by the patches' current shares of it.
+        ``read_ecospace`` sets it from the scenario's ModelType.
     """
 
     grid: EcospaceGrid
@@ -396,6 +403,7 @@ class EcospaceParams:
     environmental_drivers: Optional[object] = (
         None  # EnvironmentalDrivers when available
     )
+    new_multi_stanza: bool = True
 
     def __post_init__(self):
         """Validate spatial parameters."""

@@ -108,4 +108,15 @@ This case is the yardstick for each step. Step 3 and the nutrient pool are hypot
 
    Pinned in `test_ecospace_capacity_movement.py`: the medians at months 1 and 12 must stay below 0.03 and 0.06. The oracle's month 1 and 12 maps are in `ecospace_maps.csv` of the test data.
 
+6. Distribute multi-stanza groups as EwE's NewMultiStanza model (B6). **Done** (`pypath.spatial.stanza_space`, `test_ecospace_new_multistanza.py`). The Black Sea scenario has ModelType 2, which EwE also gives every new scenario. EwE then leaves the stage groups out of the integration, keeps a population index per cell and stage, and spreads each stage's map-wide total by it every month.
+   - **Two parts, both needed.** In a spike, the index alone brought the anchovy maps close to EwE's but made the totals worse (juvenile anchovy max 62 % -> 79 %). The age structure's update averaging the cells' rates weighted by the index is what brought the totals in line: in EwE a cell counts roughly by the square of its density, in a plain sum by its density.
+   - **The start.** The index has to exist before the first update weights by it: setting it there moved the month-1 juvenile anchovy deviation from -16 % to -8 %.
+
+   | | area mean: median / max | Anchovy 0-0+ max / median | anchovy maps at month 12 (0-0+ / 1-1+) | cell maps (median distance), months 12 / 60 / 120 |
+   |---|---|---|---|---|
+   | B5 | 3.9 % / 62 % | 62 % / 23 % | 0.138 / 0.044 | 0.008 / 0.020 / 0.035 |
+   | B6 | 3.4 % / 35 % | 35 % / 8 % | 0.006 / 0.004 | 0.005 / 0.011 / 0.017 |
+
+   The remaining juvenile anchovy maximum is late drift in year 10, where EwE has 0.004 t/km². Aurelia (27 %) and POM (22 %) are untouched.
+
 Each step can then be pinned against the oracle, as the Ecosim fixes were. The oracle numbers (area means, cell maps, grid) can be committed as test data when the first of these steps lands. The water cells are committed (`packages/pypath/tests/data/ewe_oracle/blacksea/`); the rest follows with the steps that use it.

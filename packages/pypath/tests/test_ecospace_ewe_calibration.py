@@ -228,9 +228,10 @@ def test_black_sea_area_means_and_maps_follow_ewes():
     deviation = np.concatenate(deviation)
     # plain diffusion and the old capacity rule gave 21 % / 416 %, B2 alone
     # 13.6 % / 225 %; with the calibration and the nutrient rule
-    # 3.9 % / 62 % (juvenile anchovy)
-    assert np.median(deviation) < 0.06
-    assert deviation.max() < 0.8
+    # 3.9 % / 62 % (juvenile anchovy); with EwE's NewMultiStanza model
+    # 3.4 % / 35 % (juvenile anchovy in year 10)
+    assert np.median(deviation) < 0.05
+    assert deviation.max() < 0.45
 
     grid = eco.grid
     density = (
@@ -251,4 +252,4 @@ def test_black_sea_area_means_and_maps_follow_ewes():
         py = density[12, names.index(g), mm.p.to_numpy()]
         ewe = mm[g].to_numpy()
         tvd.append(0.5 * np.abs(py / py.sum() - ewe / ewe.sum()).sum())
-    assert np.median(tvd) < 0.02  # 0.034 with B2 alone, 0.008 now
+    assert np.median(tvd) < 0.02  # 0.034 with B2 alone, 0.008 with B5, 0.005 now

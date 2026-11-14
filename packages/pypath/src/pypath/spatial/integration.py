@@ -1043,6 +1043,35 @@ def rsim_run_spatial(
         ecospace, params_dict, n_groups, fast_mask if use_fast else None
     )
     diffusion_lu: dict = {}  # this run's factorisations (not stored on the grid)
+
+    # EwE's NewMultiStanza model: each life stage's map-wide total is spread
+    # by a population index per patch (pypath.spatial.stanza_space)
+    stanza_space = None
+    if (
+        stanza_state is not None
+        and density_form
+        and getattr(ecospace, "new_multi_stanza", True)
+    ):
+        from pypath.spatial.stanza_space import StanzaSpaceIndex
+
+        stanza_space = StanzaSpaceIndex.from_stanzas(stanzas_obj, patch_w)
+        index_rates = dict(_moving_rows(ecospace, params_dict, n_groups, None))
+
+        def _move_index(row, amounts):
+            # the index moves like its stage group, over EwE's monthly step
+            rate = index_rates.get(row, 0.0)
+            if rate <= 0:
+                return amounts
+            return implicit_diffusion_step(
+                amounts,
+                rate,
+                ecospace.grid,
+                ecospace.grid.adjacency_matrix,
+                DELTA_T,
+                cache=diffusion_lu,
+                capacity=movement_capacity(ecospace, row - 1),
+            )
+
     if not implicit_movement:
         _warn_explicit_rates(
             moving_rows, rk4_steps, list(getattr(scenario.params, "spname", []))
@@ -1261,20 +1290,35 @@ def rsim_run_spatial(
             # with the rates rsim_run's RK4 uses: under the EwE rule growth
             # from the step's last stage and survival from its first, over
             # the start-of-month biomass; otherwise the end of the month.
-            # Summing each patch's consumption and losses gives the age
-            # structure the biomass-weighted map averages EwE uses; each life
-            # stage's new total is then spread back over the patches by their
-            # current share of it.
+            # With EwE's NewMultiStanza model the patches' rates are averaged
+            # by the population index and each stage's new total is spread
+            # by it; otherwise the sums over the patches give the age
+            # structure biomass-weighted averages and each stage's total is
+            # spread by the patches' current shares of it.
             total = current_biomass.sum(axis=1)
+            if stanza_space is not None:
+                # each patch's loss rates at the start of the month (EwE's
+                # FlowoutRate, read before the step's solve)
+                if use_stanza_stages:
+                    start_loss = first_stage["LossPropToB"]
+                else:
+                    _start_rates = {"LossPropToB": np.zeros((n_groups + 1, n_patches))}
+                    with _frozen_hden(params_dict):
+                        _f(month_start_biomass, t, DELTA_T, rates_out=_start_rates)
+                    start_loss = _start_rates["LossPropToB"]
+                if not stanza_space.started:
+                    stanza_space.start(month_start_biomass, start_loss)
+                _map_sums = stanza_space.weighted_sums
+            else:
+
+                def _map_sums(b, fg, lo):
+                    return b.sum(axis=1), fg.sum(axis=1), lo.sum(axis=1)
+
             if use_stanza_stages:
-                split_update(
-                    stanzas_obj,
-                    stanza_state,
-                    month_start_biomass.sum(axis=1),
-                    last_stage["FoodGain"].sum(axis=1),
-                    first_stage["LossPropToB"].sum(axis=1),
-                    forced_recs=forcing_dict.get("ForcedRecs"),
-                    month_index=mi,
+                b_map, fg_map, lo_map = _map_sums(
+                    month_start_biomass,
+                    last_stage["FoodGain"],
+                    first_stage["LossPropToB"],
                 )
             else:
                 month_rates = {
@@ -1283,20 +1327,33 @@ def rsim_run_spatial(
                 }
                 with _frozen_hden(params_dict):
                     _f(current_biomass, t, DELTA_T, rates_out=month_rates)
-                split_update(
-                    stanzas_obj,
-                    stanza_state,
-                    total,
-                    month_rates["FoodGain"].sum(axis=1),
-                    month_rates["LossPropToB"].sum(axis=1),
-                    forced_recs=forcing_dict.get("ForcedRecs"),
-                    month_index=mi,
+                b_map, fg_map, lo_map = _map_sums(
+                    current_biomass,
+                    month_rates["FoodGain"],
+                    month_rates["LossPropToB"],
                 )
+            split_update(
+                stanzas_obj,
+                stanza_state,
+                b_map,
+                fg_map,
+                lo_map,
+                forced_recs=forcing_dict.get("ForcedRecs"),
+                month_index=mi,
+            )
             split_set_pred(stanzas_obj, stanza_state, total)
-            for i in stanza_idx:
-                current_biomass[i] = _spread_over_patches(
-                    total[i], current_biomass[i], patch_w
+            if stanza_space is not None:
+                # EwE spreads by the index read before the step's solve, then
+                # advances it from the start of the month
+                current_biomass = stanza_space.distribute(total, current_biomass)
+                stanza_space.advance(
+                    month_start_biomass, start_loss, DELTA_T, move=_move_index
                 )
+            for i in stanza_idx:
+                if stanza_space is None or int(i) not in stanza_space.index:
+                    current_biomass[i] = _spread_over_patches(
+                        total[i], current_biomass[i], patch_w
+                    )
             stanza_biomass[month_idx, stanza_idx] = total[stanza_idx]
 
         # Store results
