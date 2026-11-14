@@ -23259,20 +23259,20 @@ Controls predator-prey functional response:
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">970</span>
-<span class="normal">971</span>
-<span class="normal">972</span>
-<span class="normal">973</span>
-<span class="normal">974</span>
-<span class="normal">975</span>
-<span class="normal">976</span>
-<span class="normal">977</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">977</span>
 <span class="normal">978</span>
 <span class="normal">979</span>
 <span class="normal">980</span>
 <span class="normal">981</span>
 <span class="normal">982</span>
-<span class="normal">983</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">983</span>
+<span class="normal">984</span>
+<span class="normal">985</span>
+<span class="normal">986</span>
+<span class="normal">987</span>
+<span class="normal">988</span>
+<span class="normal">989</span>
+<span class="normal">990</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Current state of the simulation."""</span>
 
@@ -23335,14 +23335,7 @@ out. Row 0 (imports) gets no weight.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 991</span>
-<span class="normal"> 992</span>
-<span class="normal"> 993</span>
-<span class="normal"> 994</span>
-<span class="normal"> 995</span>
-<span class="normal"> 996</span>
-<span class="normal"> 997</span>
-<span class="normal"> 998</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 998</span>
 <span class="normal"> 999</span>
 <span class="normal">1000</span>
 <span class="normal">1001</span>
@@ -23358,7 +23351,14 @@ out. Row 0 (imports) gets no weight.</p>
 <span class="normal">1011</span>
 <span class="normal">1012</span>
 <span class="normal">1013</span>
-<span class="normal">1014</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">prey_switch_weights</span><span class="p">(</span><span class="n">VV</span><span class="p">,</span> <span class="n">QQbase</span><span class="p">,</span> <span class="n">Bbase</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span>
+<span class="normal">1017</span>
+<span class="normal">1018</span>
+<span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">prey_switch_weights</span><span class="p">(</span><span class="n">VV</span><span class="p">,</span> <span class="n">QQbase</span><span class="p">,</span> <span class="n">Bbase</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""EwE6 base search rates ``A[prey, pred]`` up to a per-predator factor.</span>
 
 <span class="sd">    EwE6 MakeAMatrixCell: with the vulnerability exchange rate</span>
@@ -23415,14 +23415,7 @@ the inputs are not modified.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1017</span>
-<span class="normal">1018</span>
-<span class="normal">1019</span>
-<span class="normal">1020</span>
-<span class="normal">1021</span>
-<span class="normal">1022</span>
-<span class="normal">1023</span>
-<span class="normal">1024</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1024</span>
 <span class="normal">1025</span>
 <span class="normal">1026</span>
 <span class="normal">1027</span>
@@ -23460,7 +23453,14 @@ the inputs are not modified.</p>
 <span class="normal">1059</span>
 <span class="normal">1060</span>
 <span class="normal">1061</span>
-<span class="normal">1062</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_prey_multiplier_arena</span><span class="p">(</span><span class="n">VV</span><span class="p">,</span> <span class="n">QQbase</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span>
+<span class="normal">1066</span>
+<span class="normal">1067</span>
+<span class="normal">1068</span>
+<span class="normal">1069</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_prey_multiplier_arena</span><span class="p">(</span><span class="n">VV</span><span class="p">,</span> <span class="n">QQbase</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""EwE6 prey Ftime / vulnerability forcing in the arena (audit D1).</span>
 
 <span class="sd">    EwE scales only the flow into the vulnerable pool, Veff = VulArena * f</span>
@@ -23536,14 +23536,7 @@ Returns new arrays; the inputs are not modified.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1065</span>
-<span class="normal">1066</span>
-<span class="normal">1067</span>
-<span class="normal">1068</span>
-<span class="normal">1069</span>
-<span class="normal">1070</span>
-<span class="normal">1071</span>
-<span class="normal">1072</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1072</span>
 <span class="normal">1073</span>
 <span class="normal">1074</span>
 <span class="normal">1075</span>
@@ -23558,7 +23551,14 @@ Returns new arrays; the inputs are not modified.</p>
 <span class="normal">1084</span>
 <span class="normal">1085</span>
 <span class="normal">1086</span>
-<span class="normal">1087</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_link_search_arena</span><span class="p">(</span><span class="n">VV</span><span class="p">,</span> <span class="n">QQbase</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+<span class="normal">1087</span>
+<span class="normal">1088</span>
+<span class="normal">1089</span>
+<span class="normal">1090</span>
+<span class="normal">1091</span>
+<span class="normal">1092</span>
+<span class="normal">1093</span>
+<span class="normal">1094</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ewe_link_search_arena</span><span class="p">(</span><span class="n">VV</span><span class="p">,</span> <span class="n">QQbase</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""EwE6 search-rate forcing on single links (ApplyAVmodifiers per link).</span>
 
 <span class="sd">    A multiplier s on a link's search rate replaces the predator term y by</span>
@@ -23614,14 +23614,7 @@ normalises by (Ecospace: the map-wide Ecosim base).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1090</span>
-<span class="normal">1091</span>
-<span class="normal">1092</span>
-<span class="normal">1093</span>
-<span class="normal">1094</span>
-<span class="normal">1095</span>
-<span class="normal">1096</span>
-<span class="normal">1097</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1097</span>
 <span class="normal">1098</span>
 <span class="normal">1099</span>
 <span class="normal">1100</span>
@@ -23663,7 +23656,14 @@ normalises by (Ecospace: the map-wide Ecosim base).</p>
 <span class="normal">1136</span>
 <span class="normal">1137</span>
 <span class="normal">1138</span>
-<span class="normal">1139</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_prey_switching</span><span class="p">(</span><span class="n">BB</span><span class="p">,</span> <span class="n">VV</span><span class="p">,</span> <span class="n">QQbase</span><span class="p">,</span> <span class="n">switch_power</span><span class="p">,</span> <span class="n">Bbase</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="normal">1139</span>
+<span class="normal">1140</span>
+<span class="normal">1141</span>
+<span class="normal">1142</span>
+<span class="normal">1143</span>
+<span class="normal">1144</span>
+<span class="normal">1145</span>
+<span class="normal">1146</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_prey_switching</span><span class="p">(</span><span class="n">BB</span><span class="p">,</span> <span class="n">VV</span><span class="p">,</span> <span class="n">QQbase</span><span class="p">,</span> <span class="n">switch_power</span><span class="p">,</span> <span class="n">Bbase</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""EwE6 prey switching as an effective vulnerability and base flow.</span>
 
 <span class="sd">    EwE6 (SetRelaSwitch) multiplies the search rate of link (i, j) by</span>
@@ -23863,14 +23863,7 @@ prey, stabilizing the system. Uses a power function of relative abundance.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1142</span>
-<span class="normal">1143</span>
-<span class="normal">1144</span>
-<span class="normal">1145</span>
-<span class="normal">1146</span>
-<span class="normal">1147</span>
-<span class="normal">1148</span>
-<span class="normal">1149</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1149</span>
 <span class="normal">1150</span>
 <span class="normal">1151</span>
 <span class="normal">1152</span>
@@ -23924,7 +23917,14 @@ prey, stabilizing the system. Uses a power function of relative abundance.</p>
 <span class="normal">1200</span>
 <span class="normal">1201</span>
 <span class="normal">1202</span>
-<span class="normal">1203</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">prey_switching</span><span class="p">(</span>
+<span class="normal">1203</span>
+<span class="normal">1204</span>
+<span class="normal">1205</span>
+<span class="normal">1206</span>
+<span class="normal">1207</span>
+<span class="normal">1208</span>
+<span class="normal">1209</span>
+<span class="normal">1210</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">prey_switching</span><span class="p">(</span>
     <span class="n">BB</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">Bbase</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">pred</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -24121,14 +24121,7 @@ interaction, representing effects like habitat provision or fear.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1206</span>
-<span class="normal">1207</span>
-<span class="normal">1208</span>
-<span class="normal">1209</span>
-<span class="normal">1210</span>
-<span class="normal">1211</span>
-<span class="normal">1212</span>
-<span class="normal">1213</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1213</span>
 <span class="normal">1214</span>
 <span class="normal">1215</span>
 <span class="normal">1216</span>
@@ -24175,7 +24168,14 @@ interaction, representing effects like habitat provision or fear.</p>
 <span class="normal">1257</span>
 <span class="normal">1258</span>
 <span class="normal">1259</span>
-<span class="normal">1260</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mediation_function</span><span class="p">(</span>
+<span class="normal">1260</span>
+<span class="normal">1261</span>
+<span class="normal">1262</span>
+<span class="normal">1263</span>
+<span class="normal">1264</span>
+<span class="normal">1265</span>
+<span class="normal">1266</span>
+<span class="normal">1267</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mediation_function</span><span class="p">(</span>
     <span class="n">mediation_type</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">med_bio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">med_base</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">med_params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">""".. deprecated::</span>
@@ -24394,14 +24394,7 @@ increases above baseline, mimicking nutrient limitation.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1263</span>
-<span class="normal">1264</span>
-<span class="normal">1265</span>
-<span class="normal">1266</span>
-<span class="normal">1267</span>
-<span class="normal">1268</span>
-<span class="normal">1269</span>
-<span class="normal">1270</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1270</span>
 <span class="normal">1271</span>
 <span class="normal">1272</span>
 <span class="normal">1273</span>
@@ -24457,7 +24450,14 @@ increases above baseline, mimicking nutrient limitation.</p>
 <span class="normal">1323</span>
 <span class="normal">1324</span>
 <span class="normal">1325</span>
-<span class="normal">1326</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">primary_production_forcing</span><span class="p">(</span>
+<span class="normal">1326</span>
+<span class="normal">1327</span>
+<span class="normal">1328</span>
+<span class="normal">1329</span>
+<span class="normal">1330</span>
+<span class="normal">1331</span>
+<span class="normal">1332</span>
+<span class="normal">1333</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">primary_production_forcing</span><span class="p">(</span>
     <span class="n">BB</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">Bbase</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">PB</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -24551,14 +24551,7 @@ FishTime. Returns <code>(FishMort, link_fish_rate)</code>: F by group
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1499</span>
-<span class="normal">1500</span>
-<span class="normal">1501</span>
-<span class="normal">1502</span>
-<span class="normal">1503</span>
-<span class="normal">1504</span>
-<span class="normal">1505</span>
-<span class="normal">1506</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1506</span>
 <span class="normal">1507</span>
 <span class="normal">1508</span>
 <span class="normal">1509</span>
@@ -24627,7 +24620,14 @@ FishTime. Returns <code>(FishMort, link_fish_rate)</code>: F by group
 <span class="normal">1572</span>
 <span class="normal">1573</span>
 <span class="normal">1574</span>
-<span class="normal">1575</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fishing_mortality</span><span class="p">(</span>
+<span class="normal">1575</span>
+<span class="normal">1576</span>
+<span class="normal">1577</span>
+<span class="normal">1578</span>
+<span class="normal">1579</span>
+<span class="normal">1580</span>
+<span class="normal">1581</span>
+<span class="normal">1582</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fishing_mortality</span><span class="p">(</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">fishing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -24908,14 +24908,7 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1578</span>
-<span class="normal">1579</span>
-<span class="normal">1580</span>
-<span class="normal">1581</span>
-<span class="normal">1582</span>
-<span class="normal">1583</span>
-<span class="normal">1584</span>
-<span class="normal">1585</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1585</span>
 <span class="normal">1586</span>
 <span class="normal">1587</span>
 <span class="normal">1588</span>
@@ -25983,7 +25976,15 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
 <span class="normal">2650</span>
 <span class="normal">2651</span>
 <span class="normal">2652</span>
-<span class="normal">2653</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
+<span class="normal">2653</span>
+<span class="normal">2654</span>
+<span class="normal">2655</span>
+<span class="normal">2656</span>
+<span class="normal">2657</span>
+<span class="normal">2658</span>
+<span class="normal">2659</span>
+<span class="normal">2660</span>
+<span class="normal">2661</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -26758,6 +26759,7 @@ and <code>LossPropToB</code> (their sum). Multi-stanza updates use these.</p>
             <span class="n">det_ba</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DetBA"</span><span class="p">),</span>
             <span class="n">det_out</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_det_out"</span><span class="p">),</span>
             <span class="n">det_emig</span><span class="o">=</span><span class="n">_emig</span><span class="p">,</span>
+            <span class="n">pass_on</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_detritus_pass_on"</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">rates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">dead</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="n">NUM_DEAD</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
@@ -27236,15 +27238,7 @@ stanza update reads (<code>rsim_run</code>, <code>STANZA_STAGE_RATES</code>).</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2702</span>
-<span class="normal">2703</span>
-<span class="normal">2704</span>
-<span class="normal">2705</span>
-<span class="normal">2706</span>
-<span class="normal">2707</span>
-<span class="normal">2708</span>
-<span class="normal">2709</span>
-<span class="normal">2710</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2710</span>
 <span class="normal">2711</span>
 <span class="normal">2712</span>
 <span class="normal">2713</span>
@@ -27432,7 +27426,15 @@ stanza update reads (<code>rsim_run</code>, <code>STANZA_STAGE_RATES</code>).</p
 <span class="normal">2895</span>
 <span class="normal">2896</span>
 <span class="normal">2897</span>
-<span class="normal">2898</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
+<span class="normal">2898</span>
+<span class="normal">2899</span>
+<span class="normal">2900</span>
+<span class="normal">2901</span>
+<span class="normal">2902</span>
+<span class="normal">2903</span>
+<span class="normal">2904</span>
+<span class="normal">2905</span>
+<span class="normal">2906</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -27655,17 +27657,17 @@ Then: new_B = (1-SORWT)<em>biomeq + SORWT</em>old_B</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2912</span>
-<span class="normal">2913</span>
-<span class="normal">2914</span>
-<span class="normal">2915</span>
-<span class="normal">2916</span>
-<span class="normal">2917</span>
-<span class="normal">2918</span>
-<span class="normal">2919</span>
-<span class="normal">2920</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2920</span>
 <span class="normal">2921</span>
-<span class="normal">2922</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+<span class="normal">2922</span>
+<span class="normal">2923</span>
+<span class="normal">2924</span>
+<span class="normal">2925</span>
+<span class="normal">2926</span>
+<span class="normal">2927</span>
+<span class="normal">2928</span>
+<span class="normal">2929</span>
+<span class="normal">2930</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Compute fast-equilibrium biomass for NoIntegrate groups.</span>
 
 <span class="sd">    Rpath formula: biomeq = TotGain / (TotLoss / B)</span>
@@ -27836,15 +27838,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2925</span>
-<span class="normal">2926</span>
-<span class="normal">2927</span>
-<span class="normal">2928</span>
-<span class="normal">2929</span>
-<span class="normal">2930</span>
-<span class="normal">2931</span>
-<span class="normal">2932</span>
-<span class="normal">2933</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2933</span>
 <span class="normal">2934</span>
 <span class="normal">2935</span>
 <span class="normal">2936</span>
@@ -28238,7 +28232,15 @@ available, falls back to Euler with no history.</p>
 <span class="normal">3324</span>
 <span class="normal">3325</span>
 <span class="normal">3326</span>
-<span class="normal">3327</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
+<span class="normal">3327</span>
+<span class="normal">3328</span>
+<span class="normal">3329</span>
+<span class="normal">3330</span>
+<span class="normal">3331</span>
+<span class="normal">3332</span>
+<span class="normal">3333</span>
+<span class="normal">3334</span>
+<span class="normal">3335</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">derivs_history</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -28834,15 +28836,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3330</span>
-<span class="normal">3331</span>
-<span class="normal">3332</span>
-<span class="normal">3333</span>
-<span class="normal">3334</span>
-<span class="normal">3335</span>
-<span class="normal">3336</span>
-<span class="normal">3337</span>
-<span class="normal">3338</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3338</span>
 <span class="normal">3339</span>
 <span class="normal">3340</span>
 <span class="normal">3341</span>
@@ -28924,7 +28918,15 @@ available, falls back to Euler with no history.</p>
 <span class="normal">3417</span>
 <span class="normal">3418</span>
 <span class="normal">3419</span>
-<span class="normal">3420</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
+<span class="normal">3420</span>
+<span class="normal">3421</span>
+<span class="normal">3422</span>
+<span class="normal">3423</span>
+<span class="normal">3424</span>
+<span class="normal">3425</span>
+<span class="normal">3426</span>
+<span class="normal">3427</span>
+<span class="normal">3428</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
     <span class="n">initial_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
