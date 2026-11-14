@@ -123,14 +123,17 @@ def test_the_age_structure_averages_the_cells_by_the_index():
     loss = np.array([[0.0, 0.0], [0.2, 0.5], [0.6, 0.1], [0.2, 0.1]])
     b, fg, lo = idx.weighted_sums(B, food, loss)
     for s in (1, 2):
-        dens, ldens, fdens = B[s] / AREA, loss[s] / AREA, food[s] / AREA
         # TotLoss / TotBiom and TotEatenBy / TotPred, with each cell's pred
-        # its share of the map's (cEcoSpace.vb 7464-7470)
-        assert lo[s] / b[s] == pytest.approx(np.sum(ldens * w[s]) / np.sum(dens * w[s]))
+        # its share of the map's (cEcoSpace.vb 7464-7470). EwE's cells all
+        # count alike (ThabArea counts them); a patch counts by its area, so
+        # these sum the patch amounts weighted by W
+        assert lo[s] / b[s] == pytest.approx(
+            np.sum(loss[s] * w[s]) / np.sum(B[s] * w[s])
+        )
         pred = 0.37
-        pred_cell = pred * (B[s] / B[s].sum()) / AREA
+        pred_patch = pred * B[s] / B[s].sum()
         assert fg[s] / pred == pytest.approx(
-            np.sum(fdens * w[s]) / np.sum(pred_cell * w[s])
+            np.sum(food[s] * w[s]) / np.sum(pred_patch * w[s])
         )
     np.testing.assert_allclose([b[3], fg[3], lo[3]], [0.4, 0.4, 0.3])
 
@@ -138,13 +141,22 @@ def test_the_age_structure_averages_the_cells_by_the_index():
 def test_a_uniform_index_gives_the_plain_sums():
     idx = _index()
     idx.index = {1: np.ones(2), 2: np.full(2, 4.0)}
-    biomass = np.outer([0.0, 1.0, 2.0, 1.0], AREA)
-    food, loss = 0.5 * biomass, 0.3 * biomass
+    # patches of unequal area, with different rates per unit biomass
+    biomass = np.array([[0.0, 0.0], [0.25, 0.75], [0.5, 1.0], [0.2, 0.2]])
+    food = np.array([[0.0, 0.0], [0.1, 0.9], [0.4, 0.1], [0.1, 0.3]])
+    loss = np.array([[0.0, 0.0], [0.25, 0.0], [0.05, 0.6], [0.2, 0.1]])
     for got, want in zip(
         idx.weighted_sums(biomass, food, loss),
         (biomass.sum(axis=1), food.sum(axis=1), loss.sum(axis=1)),
     ):
         np.testing.assert_allclose(got, want)
+
+
+def test_a_species_left_out_keeps_no_index():
+    idx = StanzaSpaceIndex.from_stanzas(STANZAS, AREA, leave_out={2})
+    assert idx.species == []
+    idx.start(B, 0.5 * B)
+    assert not idx.index
 
 
 # --- in rsim_run_spatial ---
@@ -261,6 +273,27 @@ def test_the_switch_changes_a_run_with_a_habitat_pattern(reco, rule):
             rtol=1e-10,
         )
     assert not np.allclose(runs[0].out_Biomass_spatial, runs[1].out_Biomass_spatial)
+
+
+@needs_reco
+def test_a_species_moved_by_advection_keeps_its_transport(reco):
+    # The index carries diffusion only: a species with habitat-directed
+    # movement (or an external flux) keeps the patch-share rule, so its
+    # transport is not spread back to the index every month
+    model, params = reco
+    scenario = _scenario(reco)
+    ng = scenario.params.NUM_GROUPS
+    names = list(model.Group)
+    rows = [names.index(g) + 1 for g in ("JuvRoundfish1", "AduRoundfish1")]
+    eco = _ecospace(ng, np.ones((ng, 3)), [1.0, 1.0, 1.0])
+    for r in rows:
+        eco.habitat_preference[r - 1] = [0.1, 1.0, 0.1]
+        eco.advection_enabled[r - 1] = True
+        eco.gravity_strength[r - 1] = 5.0
+    out = rsim_run_spatial(scenario, ecospace=eco, years=range(1, 3))
+    for r in rows:
+        b = out.out_Biomass_spatial[-1, r]
+        assert b[1] / b[[0, 2]].mean() > 1.5, names[r - 1]
 
 
 def test_the_reader_takes_ewes_model_type():

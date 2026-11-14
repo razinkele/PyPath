@@ -12,7 +12,10 @@ groups each time step (``cSpaceSolver.vb`` 665-720):
 - Rflow is RelR (1 - exp(-Z Tstanza)) for the first stage, with RelR the
   cell's adult density over the adults' start biomass (``RelRepStanza``), and
   the previous stage's density for the others;
-- W moves between cells like the stage group itself.
+- W moves between cells like the stage group itself. PyPath's index
+  carries the capacity-weighted diffusion only, so a species with a stage
+  moved by an external flux or habitat-directed advection keeps the
+  patch-share rule (``rsim_run_spatial`` leaves it out).
 
 EwE leaves the stage groups out of the integration (``ByPassIntegrate``).
 Every step it updates the map-wide age structure with the cells' rates
@@ -62,8 +65,12 @@ class StanzaSpaceIndex:
     adult_start: Dict[int, float] = field(default_factory=dict)
 
     @classmethod
-    def from_stanzas(cls, stanzas, patch_share) -> "StanzaSpaceIndex":
-        """Read the stages from an ``RsimStanzas``-like object."""
+    def from_stanzas(cls, stanzas, patch_share, leave_out=()) -> "StanzaSpaceIndex":
+        """Read the stages from an ``RsimStanzas``-like object.
+
+        A species with a stage row in ``leave_out`` gets no index.
+        """
+        leave_out = {int(r) for r in leave_out}
         code = np.asarray(stanzas.ecopath_code, dtype=float)
         age1 = np.asarray(stanzas.age1, dtype=float)
         age2 = np.asarray(stanzas.age2, dtype=float)
@@ -71,6 +78,8 @@ class StanzaSpaceIndex:
         species = []
         for isp in range(1, int(stanzas.n_split) + 1):
             stages = range(1, int(n_stanzas[isp]) + 1)
+            if leave_out & {int(code[isp, ist]) for ist in stages}:
+                continue
             species.append(
                 (
                     [int(code[isp, ist]) for ist in stages],
@@ -121,10 +130,12 @@ class StanzaSpaceIndex:
 
         Groups without stanzas get the plain sums over the patches. A stage
         gets EwE's averages over the cells weighted by W (TotBiom, TotEatenBy,
-        TotLoss), scaled so that the plain sums come back when W is uniform:
-        each is the sum of x W / area over the sum of share W / area, with
-        share the patch's part of the stage's biomass. Divided by the
-        age structure's map-wide pred, the consumption gives EwE's
+        TotLoss). EwE's cells all count alike (ThabArea counts them); here a
+        patch counts by its area, so each is the sum of the patch amounts x W
+        over the sum of share x W, with share the patch's part of the stage's
+        biomass: the plain sums when W is uniform, and EwE's sums of cell
+        densities x W when the patches have equal areas. Divided by the age
+        structure's map-wide pred, the consumption gives EwE's
         TotEatenBy / TotPred, as each cell's pred is its share of the map's.
         """
         sums = [
@@ -134,11 +145,10 @@ class StanzaSpaceIndex:
         for row, w in self.index.items():
             total = biomass[row].sum()
             share = biomass[row] / total if total > 0 else self.patch_share
-            weight = w / self.patch_share
-            norm = float(np.sum(share * weight))
+            norm = float(np.sum(share * w))
             if norm > 0:
                 for out, a in zip(sums, (biomass, food_gain, loss_prop_to_b)):
-                    out[row] = float(np.sum(a[row] * weight)) / norm
+                    out[row] = float(np.sum(a[row] * w)) / norm
         return tuple(sums)
 
     def distribute(self, total: np.ndarray, biomass: np.ndarray) -> np.ndarray:

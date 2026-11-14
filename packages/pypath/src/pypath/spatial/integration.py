@@ -1054,7 +1054,32 @@ def rsim_run_spatial(
     ):
         from pypath.spatial.stanza_space import StanzaSpaceIndex
 
-        stanza_space = StanzaSpaceIndex.from_stanzas(stanzas_obj, patch_w)
+        # the index carries diffusion only: a species with a stage moved by
+        # an external flux or habitat-directed advection keeps its transport
+        # under the patch-share rule
+        _flux = ecospace.external_flux
+        _flux_rows = (
+            {g + 1 for g in _flux.group_indices} if _flux is not None else set()
+        )
+        _transported = {
+            int(r)
+            for r in stanza_idx
+            if int(r) in _flux_rows
+            or (
+                ecospace.dispersal_rate[int(r) - 1] > 0
+                and ecospace.advection_enabled[int(r) - 1]
+                and ecospace.gravity_strength[int(r) - 1] > 0
+            )
+        }
+        stanza_space = StanzaSpaceIndex.from_stanzas(
+            stanzas_obj, patch_w, leave_out=_transported
+        )
+        if _transported:
+            logger.info(
+                "Stanza groups %s move by external flux or advection; their "
+                "species keep the patch-share rule, not EwE's stanza index",
+                sorted(_transported),
+            )
         index_rates = dict(_moving_rows(ecospace, params_dict, n_groups, None))
 
         def _move_index(row, amounts):
