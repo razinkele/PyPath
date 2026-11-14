@@ -1,6 +1,6 @@
 # A third integration pathway for PyPath: continuous dynamics with DOP853 and LSODA
 
-Status: approved 2026-11-14; phase 1 complete (decisions in section 11).
+Status: approved 2026-11-14; phases 1 and 2 complete (decisions in section 11).
 
 Paths are relative to the repository root. `ecosim.py` and `ecosim_deriv.py` are in `packages/pypath/src/pypath/core/`. Line numbers are from `main` at 36ae98b. Numbers marked "measured" come from read-only spikes (section 8).
 
@@ -224,3 +224,11 @@ The recommendations were adopted; questions 4 and 7 had no recommendation and we
 7. Diet imports stay out of the handling budget; Hden0 is recalibrated to the base fixed point.
 8. Mediation lookup interpolation (section 2.8) moved to phase 2, with the other smoothness items; phase 1 keeps EwE's lookup.
 9. The month-integral conservation test and the nutrient check (section 5.5) and the conservation residual in `solver_info` (section 6) move to phase 2; phase 1 tests the detritus closure of the right-hand side and the balanced start.
+10. Phase 2 (2026-11-14; plan `docs/plans/2026-11-14-continuous-pathway-phase2.md`). Mediation interpolation, feeding time as a state, the budget and the cost work were built as planned; the planner's calls were accepted with the plan: the setup helpers (`_run_setup`, `_month_forcing`) are private; handling time is solved on a vectorised kernel (`HdenKernel`); a bracketed (Illinois) secant per predator replaces the Anderson iteration; `hden_tol` is limited to (0, 1e-8]; RiskTime is instantaneous (it reads the current FoodLoss and biomass, not the month-start predation); a feeding-time state has `atol` 1e-2 x `rtol`; the feeding-time target is clipped, not the state, so one forward-Euler month equals the monthly rule; the first step of a month is the previous month's last full step; budget residuals are None in months with forced biomass; pools are checked against their own DetGain - DetLoss; `hden_evals_max` is renamed `hden_passes_max`; a non-string `method` raises `ValueError`; `rhs.corrections` lists an item only where it acts; the default `atol` follows `rtol`. Controller rulings during execution:
+    - Bracketing (P2): a predator whose start pair does not bracket a root takes undamped passes, then `hybr`, accepted only if finite, positive and within tolerance.
+    - Pooled handling time (Task 2): with ScrambleSelf > 0 the iteration is plain undamped passes over every predator; pooled REco converges in 19-29 passes.
+    - Detritus export and landed catch (T5a): under the EwE rule a pool's export is (DetritusOut - DetPassedProp) x B from parameters, and landed catch is summed from fishing links that end outside the detritus pools (plus forced F), so a pass-on or discard defect shows as a budget residual instead of cancelling; months report `negative_export`.
+    - Cost gate (T6a): CPU per right-hand-side evaluation at most 2.5 x one exact derivative call (the plan said 1.5; the handling-time solve adds 6-9 kernel passes); the RK4-ratio target for REco stays at most 12x.
+    - Ten-year cost test (T6b): the per-evaluation bound is asserted for REco only; the Black Sea and LT2022 print it; the Black Sea RK4 ratio at most 35 is asserted.
+    - First-step reuse (T6c): kept as the spec asks, although it gained nothing on REco; Task 7 measured it on the Black Sea and LT2022 and it costs 7 % (Black Sea) and 4 % (LT2022) more `nfev` (`docs/parity/continuous_path.md`, Cost).
+    - Spec section 4's 10-20x for the Black Sea and LT2022 is not reached: the call-count floors alone are about 19x and 32x. It needs fewer evaluations (phase 3: an analytic Jacobian and linear forcing).
