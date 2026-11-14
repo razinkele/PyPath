@@ -2628,11 +2628,14 @@ def rsim_run(
         from pypath.core.ecosim_continuous import (
             ContinuousRHS,
             default_atol,
-            hden_index,
+            feeding_time,
             integrate_month,
         )
 
         _n_bio_c = params.NUM_LIVING + params.NUM_DEAD
+        # feeding time is integrated as a state (None without FtimeAdj)
+        _feeding = feeding_time(params, _risk0) if _has_ftime_adj else None
+        _ft_groups = None if _feeding is None else _feeding.groups
         rhs = ContinuousRHS(
             params_dict,
             fishing_dict,
@@ -2649,6 +2652,7 @@ def rsim_run(
             },
             corrections=_cont_opts["corrections"],
             hden_tol=_cont_opts["hden_tol"],
+            feeding=_feeding,
         )
         _hden_start_pending = False
         _det_out_pending = False
@@ -2659,6 +2663,15 @@ def rsim_run(
                 np.asarray(params.B_BaseRef, dtype=float)[1 : _n_bio_c + 1]
             )
         _atol = np.asarray(_atol, dtype=float)
+        _atol_run = _atol
+        if _ft_groups is not None:
+            # a feeding time is about 1: rtol governs and atol is a floor
+            _atol_run = np.concatenate(
+                [
+                    np.broadcast_to(_atol, (_n_bio_c,)),
+                    np.full(len(_ft_groups), 1e-2 * _rtol),
+                ]
+            )
         solver_info = {
             "method": _cont_method,
             "rtol": _rtol,
@@ -2666,6 +2679,7 @@ def rsim_run(
             "hden_tol": _cont_opts["hden_tol"],
             "corrections": list(rhs.corrections),
             "ignored_switches": list(rhs.ignored_switches),
+            "ftime_groups": [] if _ft_groups is None else _ft_groups.tolist(),
             "months": [],
         }
         out_catch_month_end = np.zeros((n_months + 1, n_groups))
@@ -2858,13 +2872,13 @@ def rsim_run(
             # Ftime held; slot 0 and the gear slots keep their values.
             rhs.set_month(forcing_dict, state, _forced_mask, _forced_now)
             _y0 = np.array(state[1 : _n_bio_c + 1], dtype=float, copy=True)
+            if _ft_groups is not None:
+                _y0 = np.concatenate([_y0, _ftime_current[_ft_groups]])
             # a failure in this month names it (start rates and integration)
             _month_label = f"month {month} (year {year_idx + scenario.start_year})"
             try:
                 _start_rates = (
-                    rhs.rates(_y0)
-                    if _has_risk or (month == 1 and out_hden is not None)
-                    else None
+                    rhs.rates(_y0) if month == 1 and out_hden is not None else None
                 )
                 res = integrate_month(
                     rhs,
@@ -2872,9 +2886,10 @@ def rsim_run(
                     dt,
                     _cont_method,
                     _rtol,
-                    _atol,
+                    _atol_run,
                     on_failure=_on_failure,
                     label=_month_label,
+                    n_bio=_n_bio_c,
                 )
             except RuntimeError as e:
                 if _month_label in str(e):  # already names the month
@@ -2882,18 +2897,14 @@ def rsim_run(
                 raise RuntimeError(f"{_month_label}: {e}") from e
             if month == 1 and out_hden is not None:
                 out_hden[0] = _start_rates["Hden"]  # Hden solved at the start
-            if _has_risk:
-                # RiskTime below reads the predation of the month-start state
-                _fg_rates = _start_rates
             state = state.copy()
-            state[1 : _n_bio_c + 1] = res.y_end
+            state[1 : _n_bio_c + 1] = res.y_end[:_n_bio_c]
             _y_mean_full = np.zeros(n_groups)
             _y_mean_full[1 : _n_bio_c + 1] = res.y_mean
-            if _has_ftime_adj:
-                # Feeding time from the month means: FoodGain over the mean
-                # predator index (B, or B0 x StanzaPredRatio for stanzas)
-                _fg_ftime = np.asarray(res.food_gain_mean, dtype=float)
-                _ftime_index = hden_index(_y_mean_full, params_dict, forcing_dict)
+            _ftime_range = None
+            if _ft_groups is not None:
+                _ft_end = res.y_end[_n_bio_c:]
+                _ftime_range = [float(_ft_end.min()), float(_ft_end.max())]
             solver_info["months"].append(
                 {
                     "month": month,
@@ -2907,6 +2918,7 @@ def rsim_run(
                     "clips": int(rhs.stats["clips"]),
                     "hden_passes_max": int(rhs.stats["hden_passes_max"]),
                     "min_state": float(rhs.stats["min_state"]),
+                    "ftime_range": _ftime_range,
                 }
             )
         if np.any(_forced_mask):
@@ -2995,8 +3007,7 @@ def rsim_run(
             if _continuous:
                 # Hden solved at the integrated month-end state res.y_end, as
                 # it was before the stanza update above overwrote the stanza
-                # groups (and before the feeding-time update below changes
-                # the Ftime the RHS holds)
+                # groups
                 try:
                     out_hden[month] = rhs.rates(res.y_end)["Hden"]
                 except RuntimeError as e:
@@ -3029,15 +3040,18 @@ def rsim_run(
         # EwE rule: FoodGain per predator index of the start-of-month state
         # (CBlast; B for simple groups, B0 * StanzaPredRatio for stanza
         # groups); 'rpath' rule: FoodGain/B of the end-of-month state.
-        if _has_ftime_adj:
+        # The continuous path integrates feeding time as states instead: the
+        # month-end states are the next month's Ftime (after the Qlinks and
+        # tracer above, which belong to this month's).
+        if _continuous and _ft_groups is not None:
+            _ftime_current[_ft_groups] = _ft_end
+        if _has_ftime_adj and not _continuous:
             _ftime_lower = float(getattr(params, "ForagingTimeLowerLimit", 0.1))
             _ftime_max = getattr(params, "FtimeMax", None)
             _b_src = _ftime_index if _fg_ftime is not None else state
             # EwE updates integrated groups only (NoIntegrate = i or < 0,
-            # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime. The
-            # continuous path integrates fast groups as states and updates
-            # them all.
-            _skip_fast = _fg_ftime is not None and not _continuous
+            # cEcoSimModel.vb ~1761-1771): fast groups keep their Ftime.
+            _skip_fast = _fg_ftime is not None
             _no_int = np.asarray(params.NoIntegrate)
             _end_rates = None  # 'rpath' rule RiskTime: month-end derivative
             for i in range(1, params.NUM_LIVING + 1):
@@ -3052,9 +3066,7 @@ def rsim_run(
                     if _has_risk and _risk_time[i] > 0:
                         # EwE rule: predation of the start-of-month Derivt
                         # (EatenOfAvg) over the biomass after RK4 (BBAvg);
-                        # 'rpath' rule: both from the month-end state. The
-                        # continuous path takes the EwE-rule arm, with the
-                        # predation of the RHS at the month-start state.
+                        # 'rpath' rule: both from the month-end state.
                         if _fg_ftime is not None:
                             eaten_of = float(_fg_rates["FoodLoss"][i])
                             b_risk = float(_b_integrated[i])

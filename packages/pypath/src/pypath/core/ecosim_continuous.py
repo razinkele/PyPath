@@ -22,6 +22,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import root
 
+from pypath.core.ecosim import _risk_qopt
 from pypath.core.ecosim_deriv import HdenKernel, KernelInputs, deriv_vector
 
 logger = logging.getLogger(__name__)
@@ -369,10 +370,86 @@ def neutral_forcing(params_dict: dict) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class FeedingTime:
+    """The groups whose feeding time is a state of the continuous path.
+
+    ``groups`` are the living groups with ``FtimeAdj > 0``. The other arrays
+    are full length (index 0 = Outside): ``adj`` (FtimeAdj), ``qbopt``
+    (FtimeQBOpt), ``cap`` (FtimeMax, 2.0 when the scenario has none),
+    ``risk_time`` and ``risk0`` (RiskTime and its base predation risk; zeros
+    when RiskTime is off) and ``mo`` (MzeroMort). ``lower`` is
+    ForagingTimeLowerLimit.
+    """
+
+    groups: np.ndarray
+    adj: np.ndarray
+    qbopt: np.ndarray
+    cap: np.ndarray
+    risk_time: np.ndarray
+    risk0: np.ndarray
+    mo: np.ndarray
+    lower: float
+
+
+def feeding_time(params, risk0: Optional[np.ndarray]) -> Optional[FeedingTime]:
+    """The feeding-time states of a scenario's ``params``, or None.
+
+    ``risk0`` is the setup's base predation risk (None when RiskTime is
+    off). None is returned when no living group has ``FtimeAdj > 0``.
+    """
+    adj = np.asarray(params.FtimeAdj, dtype=float)
+    n_full = len(adj)
+    living = np.zeros(n_full, dtype=bool)
+    living[1 : int(params.NUM_LIVING) + 1] = True
+    groups = np.flatnonzero(living & (adj > 0))
+    if groups.size == 0:
+        return None
+    cap_src = getattr(params, "FtimeMax", None)
+    cap = (
+        np.full(n_full, 2.0)
+        if cap_src is None
+        else np.array(cap_src, dtype=float, copy=True)
+    )
+    if risk0 is None:
+        risk_time = np.zeros(n_full)
+        risk = np.zeros(n_full)
+    else:
+        risk_time = np.array(params.RiskTime, dtype=float, copy=True)
+        risk = np.array(risk0, dtype=float, copy=True)
+    return FeedingTime(
+        groups=groups,
+        adj=adj.copy(),
+        qbopt=np.array(params.FtimeQBOpt, dtype=float, copy=True),
+        cap=cap,
+        risk_time=risk_time,
+        risk0=risk,
+        mo=np.array(params.MzeroMort, dtype=float, copy=True),
+        lower=float(getattr(params, "ForagingTimeLowerLimit", 0.1)),
+    )
+
+
+def ftime_target(ft, adj, qopt, food_gain, index, lower, cap) -> np.ndarray:
+    """``_ftime_update_rpath`` over arrays, clipped to ``[lower, cap]``.
+
+    ``lower + (1 - lower) * ft * ((1 - adj) + adj * qopt / (food_gain /
+    index))``, in the scalar rule's order of operations. Where ``food_gain``,
+    ``index`` or ``qopt`` is <= 0 the feeding time is kept (no division at a
+    zero index).
+    """
+    ft = np.asarray(ft, dtype=float)
+    ok = (food_gain > 0) & (index > 0) & (qopt > 0)
+    safe_index = np.where(ok, index, 1.0)
+    actual_qb = np.where(ok, food_gain, 1.0) / safe_index
+    new = lower + (1.0 - lower) * ft * ((1.0 - adj) + adj * qopt / actual_qb)
+    return np.clip(np.where(ok, new, ft), lower, cap)
+
+
 class ContinuousRHS:
     """Pure right-hand side ``dy/dt = f(t, y)`` of the continuous pathway.
 
-    ``y`` holds the biomass states of groups ``1..n_bio``. The month's
+    ``y`` holds the biomass states of groups ``1..n_bio``, then (with
+    ``feeding``) the feeding times of ``feeding.groups``. The month's
     forcing, the non-state slots of the full state vector (slot 0, gears) and
     the forced groups are held from :meth:`set_month`. Evaluation is a pure
     function of ``(t, y)`` and one ``deriv_vector`` call: handling time is
@@ -391,6 +468,14 @@ class ContinuousRHS:
     pathway are listed in ``self.corrections``; EwE numerics switches this
     pathway does not honour are in ``ignored_switches``.
 
+    Feeding time obeys ``dFt/dt = 12 * (clip(target, L, FtimeMax) - Ft)``
+    per year, ``target`` being the monthly rule (``_ftime_update_rpath``) at
+    the current state: one forward-Euler month equals the monthly update.
+    Each evaluation writes ``clip(Ft, L, FtimeMax)`` into a copy of the
+    month's ``Ftime`` (the held array is never written) and takes FoodGain
+    and FoodLoss from the same ``deriv_vector`` call. Qopt is ``_risk_qopt``
+    at the current FoodLoss and biomass.
+
     ``stats`` (reset by :meth:`set_month`) holds ``clips``, ``min_state``,
     ``hden_passes_max`` (kernel passes of the largest Hden solve) and
     ``hden_residual_max``, the largest relative residual of the solved Hden
@@ -408,8 +493,11 @@ class ContinuousRHS:
         *,
         corrections: bool = True,
         hden_tol: float = 1e-12,
+        feeding: Optional[FeedingTime] = None,
     ):
         self.n_bio = int(n_bio)
+        self.feeding = feeding
+        self.n_state = self.n_bio + (0 if feeding is None else len(feeding.groups))
         self.fishing = fishing_dict
         self.hden_tol = float(hden_tol)
         pd = dict(params_dict)
@@ -480,20 +568,41 @@ class ContinuousRHS:
         forced_mask: np.ndarray,
         forced_values: np.ndarray,
     ) -> None:
-        """Hold the month's forcing, non-state slots and forced groups."""
+        """Hold the month's forcing, non-state slots and forced groups.
+
+        ``forced_mask`` and ``forced_values`` have one entry per group
+        (``NUM_GROUPS + 1``, slot 0 included), else ``ValueError``.
+        """
+        n_full = int(self._pd["NUM_GROUPS"]) + 1
+        mask = np.asarray(forced_mask, dtype=bool)
+        vals = np.asarray(forced_values, dtype=float)
+        if mask.shape != (n_full,) or vals.shape != (n_full,):
+            raise ValueError(
+                f"forced_mask and forced_values need {n_full} entries "
+                f"(NUM_GROUPS + 1), got {mask.shape} and {vals.shape}"
+            )
         self._forcing = forcing_dict
         self._state_full = np.array(state_full, dtype=float, copy=True)
         sl = slice(1, self.n_bio + 1)
-        mask = np.asarray(forced_mask, dtype=bool)
-        vals = np.asarray(forced_values, dtype=float)
-        self._forced = np.array(mask[sl] if len(mask) > self.n_bio else mask, copy=True)
-        self._forced_values = np.array(
-            vals[sl] if len(vals) > self.n_bio else vals, dtype=float, copy=True
-        )
+        self._forced = np.array(mask[sl], copy=True)
+        self._forced_values = np.array(vals[sl], dtype=float, copy=True)
         self._reset_stats()
 
     def _evaluate(self, y: np.ndarray, rates: Optional[dict], count: bool):
         y = np.asarray(y, dtype=float)
+        feeding = self.feeding
+        forcing = self._forcing
+        ftime = ft = None
+        if feeding is not None:
+            # the feeding times held by this evaluation, in a copy
+            ft = y[self.n_bio :]
+            y = y[: self.n_bio]
+            ftime = np.array(forcing["Ftime"], dtype=float, copy=True)
+            ftime[feeding.groups] = np.clip(
+                ft, feeding.lower, feeding.cap[feeding.groups]
+            )
+            forcing = dict(forcing)
+            forcing["Ftime"] = ftime
         if count:
             self.stats["clips"] += int(np.count_nonzero(y < 0))
             self.stats["min_state"] = min(self.stats["min_state"], float(y.min()))
@@ -502,9 +611,10 @@ class ContinuousRHS:
         live[self._forced] = self._forced_values[self._forced]
         full[1 : self.n_bio + 1] = live
         # rates carry the solved Hden and the loop's consumption at it
-        out = {} if rates is None and self.cmco_qb is not None else rates
+        need_rates = self.cmco_qb is not None or feeding is not None
+        out = {} if rates is None and need_rates else rates
         self._solved = None
-        deriv = deriv_vector(full, self._pd, self._forcing, self.fishing, rates=out)
+        deriv = deriv_vector(full, self._pd, forcing, self.fishing, rates=out)
         h = None if out is None else out.get("Hden")
         if count and self._solved is not None and out is not None:
             inputs, passes = self._solved
@@ -521,14 +631,48 @@ class ContinuousRHS:
                 )
         dy = np.array(deriv[1 : self.n_bio + 1], dtype=float, copy=True)
         dy[self._forced] = 0.0
+        if feeding is not None:
+            dft = self._feeding_derivative(full, forcing, out, ft, ftime)
+            dy = np.concatenate([dy, dft])
+        if out is not None:
+            out["Ftime"] = np.array(forcing["Ftime"], dtype=float, copy=True)
         return dy, h
+
+    def _feeding_derivative(self, full, forcing, rates, ft, ftime) -> np.ndarray:
+        """``dFt/dt`` of the feeding-time states, from the evaluation's rates."""
+        fd = self.feeding
+        g = fd.groups
+        index = hden_index(full, self._pd, forcing)[g]
+        food_loss = np.asarray(rates["FoodLoss"], dtype=float)
+        qopt = fd.qbopt[g].copy()
+        for k, i in enumerate(g):
+            if fd.risk_time[i] > 0:
+                qopt[k] = _risk_qopt(
+                    float(fd.qbopt[i]),
+                    float(fd.risk_time[i]),
+                    float(fd.risk0[i]),
+                    float(food_loss[i]),
+                    float(full[i]),
+                    float(fd.mo[i]),
+                )
+        target = ftime_target(
+            ftime[g],
+            fd.adj[g],
+            qopt,
+            np.asarray(rates["FoodGain"], dtype=float)[g],
+            index,
+            fd.lower,
+            fd.cap[g],
+        )
+        return 12.0 * (target - ft)
 
     def __call__(self, t: float, y: np.ndarray) -> np.ndarray:
         return self._evaluate(y, None, True)[0]
 
     def rates(self, y: np.ndarray) -> dict:
         """``deriv_vector``'s rates at ``y``, with ``"Hden"`` the solved Hden
-        (None without handling time); no stats."""
+        (None without handling time) and ``"Ftime"`` the month's feeding time
+        as the evaluation used it (full length); no stats."""
         out: dict = {}
         _, h = self._evaluate(y, out, False)
         out["Hden"] = h
@@ -640,7 +784,9 @@ def default_atol(b0_bio: np.ndarray) -> np.ndarray:
 class MonthResult:
     """One integrated month.
 
-    ``y_end`` and ``y_mean`` hold the biomass states (groups ``1..n_bio``).
+    ``y_end`` holds every state; ``y_mean`` only the biomass states (groups
+    ``1..n_bio``; any states beyond them are feeding times, which
+    ``rsim_run`` reads from ``y_end[n_bio:]``).
     ``food_gain_mean`` and ``loss_rate_mean`` are full length, indexed by group
     like ``deriv_vector``'s rates (index 0 = Outside), so
     ``food_gain_mean[1:n_bio + 1]`` lines up with ``y_mean``. A test double
@@ -685,6 +831,7 @@ def integrate_month(
     *,
     on_failure: str = "raise",
     label: Optional[str] = None,
+    n_bio: Optional[int] = None,
 ) -> MonthResult:
     """Solve one month with ``solve_ivp`` and average rates by quadrature.
 
@@ -696,10 +843,12 @@ def integrate_month(
     so does any exception from ``rhs`` itself (such as a handling-time solve
     that fails inside the right-hand side). ``label`` (``rsim_run`` passes
     ``"month m (year y)"``) prefixes the logged warnings; ``rsim_run`` adds
-    the month to raised errors itself.
+    the month to raised errors itself. ``n_bio`` (default ``len(y0)``) is the
+    number of leading biomass states: the rates, loss rates and ``y_mean``
+    use those, the rest are other states (feeding times).
     """
     y0 = np.asarray(y0, dtype=float)
-    n = len(y0)
+    n = len(y0) if n_bio is None else int(n_bio)
     if not np.all(np.isfinite(np.asarray(rhs(0.0, y0), dtype=float))):
         raise RuntimeError(
             "month integration cannot start: non-finite start derivative"
@@ -765,13 +914,13 @@ def integrate_month(
             ):
                 return None
             b = np.zeros(len(lp))
-            b[1 : n + 1] = y
+            b[1 : n + 1] = y[:n]
             lr = np.divide(lp, b, out=np.zeros_like(lp), where=b != 0.0)
             food = w * fg if food is None else food + w * fg
             loss = w * lr if loss is None else loss + w * lr
         return food, loss
 
-    y_mean = np.maximum(weights @ ys, 0.0)
+    y_mean = np.maximum(weights @ ys[:, :n], 0.0)
     means = _mean_rates(weights, ys)
     if means is None:
         _fail("non-finite rates at a quadrature node", "using the start state's rates")
