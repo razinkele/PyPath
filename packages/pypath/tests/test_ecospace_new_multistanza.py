@@ -170,13 +170,25 @@ def reco():
     return model, params
 
 
-def _scenario(reco):
+def _scenario(reco, rule="ewe"):
     model, params = reco
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        scenario = rsim_scenario(model, params, years=range(1, 3))
+        scenario = rsim_scenario(model, params, years=range(1, 3), fast_group_rule=rule)
     scenario.fishing.ForcedEffort[:] = 2.0
+    # EwE's rule takes the stanza rates from the RK4 step's stages; Rpath's
+    # from a derivative at the end of the month
+    assert scenario.params.STANZA_STAGE_RATES == (rule == "ewe")
     return scenario
+
+
+def _stanza_rows(reco):
+    model, params = reco
+    names = list(model.Group)
+    return [names.index(g) + 1 for g in params.stanzas.stindiv["Group"]]
+
+
+RULES = pytest.mark.parametrize("rule", ["ewe", "rpath"])
 
 
 def _ecospace(ng, capacity, areas, new_multi_stanza=True):
@@ -207,10 +219,11 @@ def test_ewes_default_is_the_new_multistanza_model():
 
 
 @needs_reco
-def test_a_uniform_map_still_equals_ecosim(reco):
-    scenario = _scenario(reco)
+@RULES
+def test_a_uniform_map_still_equals_ecosim(reco, rule):
+    scenario = _scenario(reco, rule)
     ng = scenario.params.NUM_GROUPS
-    expected = rsim_run(_scenario(reco), years=range(1, 3))
+    expected = rsim_run(_scenario(reco, rule), years=range(1, 3))
     got = rsim_run_spatial(
         scenario,
         ecospace=_ecospace(ng, np.ones((ng, 3)), [1.0, 2.0, 4.0]),
@@ -225,22 +238,27 @@ def test_a_uniform_map_still_equals_ecosim(reco):
 
 
 @needs_reco
-def test_the_switch_changes_a_run_with_a_habitat_pattern(reco):
-    ng = _scenario(reco).params.NUM_GROUPS
+@RULES
+def test_the_switch_changes_a_run_with_a_habitat_pattern(reco, rule):
+    ng = _scenario(reco, rule).params.NUM_GROUPS
     cap = np.ones((ng, 3))
     cap[:, 0], cap[:, 2] = 0.2, 0.6
     runs = [
         rsim_run_spatial(
-            _scenario(reco),
+            _scenario(reco, rule),
             ecospace=_ecospace(ng, cap, [1.0, 2.0, 4.0], new_multi_stanza=on),
             years=range(1, 3),
         )
         for on in (True, False)
     ]
+    rows = _stanza_rows(reco)
     for out in runs:
         assert np.all(np.isfinite(out.out_Biomass_spatial))
-        np.testing.assert_allclose(  # the totals still come from the age structure
-            out.out_Biomass_spatial.sum(axis=2)[:, 1:], out.out_Biomass[:, 1:]
+        # each stage's patches hold the age structure's total
+        np.testing.assert_allclose(
+            out.out_Biomass_spatial[1:, rows].sum(axis=2),
+            out.stanza_biomass[1:, rows],
+            rtol=1e-10,
         )
     assert not np.allclose(runs[0].out_Biomass_spatial, runs[1].out_Biomass_spatial)
 

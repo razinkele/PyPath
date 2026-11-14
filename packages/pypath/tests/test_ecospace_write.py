@@ -648,6 +648,34 @@ class TestWriter:
             again.ecospace.dispersal_rate, [1.0, 2.0, 0.0], rtol=1e-6
         )
 
+    @pytest.mark.parametrize("new_model", [True, False])
+    def test_the_stanza_model_survives_a_write_and_read(self, tmp_path, new_model):
+        """new_multi_stanza is written as EwE's ModelType, 2 or 0, and read back."""
+        import dataclasses
+
+        from pypath.io.ewemdb import read_ecospace
+
+        params = _make_test_params()
+        result = _make_ecospace_read_result()
+        result = dataclasses.replace(
+            result,
+            ecospace=dataclasses.replace(result.ecospace, new_multi_stanza=new_model),
+        )
+        writer = CsvBundleWriter(params, str(tmp_path / "test.csv"), scenario_id=1)
+        writer.write_ecospace(result)
+        scen = writer._tables["EcospaceScenario"]
+        assert int(scen["ModelType"].iloc[0]) == (2 if new_model else 0)
+        tables = {"EcospaceScenario": scen}
+        with patch("pypath.io.ewemdb.list_ewemdb_tables", return_value=list(tables)):
+            with patch(
+                "pypath.io.ewemdb.read_ewemdb_table",
+                side_effect=lambda path, tbl: tables[tbl],
+            ):
+                again = read_ecospace(
+                    "fake.eweaccdb", n_groups=3, grid=result.ecospace.grid
+                )
+        assert again.ecospace.new_multi_stanza is new_model
+
 
 class TestAccessWriter:
     """Access writer table list tests."""
