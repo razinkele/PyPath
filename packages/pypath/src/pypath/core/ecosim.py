@@ -37,6 +37,7 @@ from pypath.core.ecopath import (  # noqa: E402
 from pypath.core.ecosim_continuous import (  # noqa: E402
     INTERPOLATED_KEYS,
     METHOD_NAMES,
+    SIGNED_KEYS,
     ForcingInterpolant,
 )
 from pypath.core.ecosim_deriv import deriv_vector, fishing_mortality  # noqa: E402
@@ -2563,7 +2564,9 @@ def _forcing_interpolant(
     filled by its defaults; a key absent from some months' dicts
     (NutForcing, the link forcing) takes its neutral value 1 there. Keys
     constant in time are left out: their interpolant is exactly the held
-    value.
+    value. A key that varies in time and is not signed (every key but
+    ForcedMigrate) must be >= 0, which the interpolant's limiter needs to
+    keep it >= 0; a negative value raises ``ValueError`` naming the key.
     """
     months = [
         _month_forcing(scenario, setup, month, setup.ftime)
@@ -2581,8 +2584,16 @@ def _forcing_interpolant(
                 for m in months
             ]
         )
-        if not np.all(series == series[0]):
-            monthly[key] = series
+        if np.all(series == series[0]):
+            continue
+        if key not in SIGNED_KEYS and np.any(series < 0.0):
+            month, *_ = np.unravel_index(np.argmin(series), series.shape)
+            raise ValueError(
+                f"forcing_interpolation={kind!r}: {key} is negative in month "
+                f"{int(month) + 1} ({float(series.min())!r}); only "
+                f"{', '.join(sorted(SIGNED_KEYS))} may be negative"
+            )
+        monthly[key] = series
     if not monthly:
         return None
     return ForcingInterpolant(monthly, kind=kind)
@@ -3133,7 +3144,11 @@ def rsim_run(
                     label=_month_label,
                     n_bio=_n_bio_c,
                     jac=_jac,
-                    forcing_interpolation=_interp_kind,
+                    # the split rule only where a tent has a kink: with no
+                    # key varying in time the forcing is held
+                    forcing_interpolation=(
+                        "constant" if _interp is None else _interp_kind
+                    ),
                 )
             except RuntimeError as e:
                 if _month_label in str(e):  # already names the month

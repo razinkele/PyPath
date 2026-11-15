@@ -513,6 +513,10 @@ INTERPOLATED_KEYS = (
     "ForcedVulLink",
 )
 
+#: The interpolated keys that may be negative (a migration flux); every
+#: other one is a multiplier, >= 0.
+SIGNED_KEYS = frozenset({"ForcedMigrate"})
+
 
 class ForcingInterpolant:
     """Mean-preserving interpolation of monthly forcing inside each month.
@@ -541,7 +545,7 @@ class ForcingInterpolant:
     def __init__(
         self,
         monthly: dict,
-        signed: frozenset = frozenset({"ForcedMigrate"}),
+        signed: frozenset = SIGNED_KEYS,
         kind: str = "linear",
     ):
         if kind not in ("linear", "smooth"):
@@ -1292,20 +1296,22 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
 
 _Y_FLOOR = 1e-20
 _GL_X, _GL_W = np.polynomial.legendre.leggauss(6)
-_GL3_X, _GL3_W = np.polynomial.legendre.leggauss(3)
 
 
 def _split_nodes(t_reach: float, dt: float) -> tuple[np.ndarray, np.ndarray]:
     """Nodes and weights of the mean over ``[0, t_reach]`` for the tent's
-    kink at ``dt / 2``: 3-point Gauss-Legendre on ``[0, dt / 2]`` and on
-    ``[dt / 2, t_reach]``, each weighted by its length; the 6-point rule on
-    ``[0, t_reach]`` when ``t_reach <= dt / 2`` (no kink inside)."""
+    kink at ``dt / 2``: 6-point Gauss-Legendre on ``[0, dt / 2]`` and on
+    ``[dt / 2, t_reach]`` (12 nodes), each weighted by its length; the
+    6-point rule on ``[0, t_reach]`` when ``t_reach <= dt / 2`` (no kink
+    inside). Six points a half, not three: a month-start transient (a state
+    out of balance with the month's forcing) left 1.9e-5 of the month
+    budget with 3 + 3 points, 2e-8 with 6 + 6."""
     half = 0.5 * dt
     if t_reach <= half:
         return 0.5 * t_reach * (_GL_X + 1.0), 0.5 * _GL_W
     pieces = ((0.0, half), (half, t_reach))
-    nodes = np.concatenate([a + 0.5 * (b - a) * (_GL3_X + 1.0) for a, b in pieces])
-    weights = np.concatenate([0.5 * (b - a) / t_reach * _GL3_W for a, b in pieces])
+    nodes = np.concatenate([a + 0.5 * (b - a) * (_GL_X + 1.0) for a, b in pieces])
+    weights = np.concatenate([0.5 * (b - a) / t_reach * _GL_W for a, b in pieces])
     return nodes, weights
 
 
@@ -1505,11 +1511,12 @@ def integrate_month(
 
     ``forcing_interpolation`` (one of ``FORCING_INTERPOLATIONS``, else
     ``ValueError``) is the run's: with ``"linear"`` the tent's kink at
-    mid-month splits the quadrature into 3-point Gauss-Legendre on each
-    half (still six nodes; :func:`_split_nodes`), and with ``"linear"`` or
+    mid-month splits the quadrature into 6-point Gauss-Legendre on each
+    half (12 nodes; :func:`_split_nodes`), and with ``"linear"`` or
     ``"smooth"`` the rates are evaluated as ``rhs.rates(y, t)`` at the node
     times, so they see the forcing applied there. With ``"constant"`` the
-    6-point rule and ``rhs.rates(y)`` stay as they were.
+    6-point rule and ``rhs.rates(y)`` stay as they were (``rsim_run``
+    passes ``"constant"`` when no forcing varies in time, so no kink).
 
     ``rhs.stats``, when the right-hand side keeps one (``ContinuousRHS``,
     reset by its ``set_month``), counts the solver's evaluations, the start

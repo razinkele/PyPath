@@ -107,9 +107,9 @@ def test_the_tent_preserves_means():
 
 def test_the_split_rule():
     """Under ``"linear"`` the month means split at the tent's kink, ``dt /
-    2`` in time (also when a failed solve reached only part of the month):
-    exact on a function with a kink there; the 6-point rule when the kink
-    is not reached."""
+    2`` in time (also when a failed solve reached only part of the month),
+    with 6-point Gauss-Legendre on each side: exact on a function with a
+    kink there; the 6-point rule alone when the kink is not reached."""
 
     def kinked(t):
         return np.where(t <= 0.5 * DT, 3.0 + 2.0 * t / DT, 4.0 - 5.0 * (t / DT - 0.5))
@@ -125,9 +125,9 @@ def test_the_split_rule():
 
     for frac in (1.0, 0.8):
         nodes, weights = cont._split_nodes(frac * DT, DT)
-        assert len(nodes) == 6 and weights.sum() == pytest.approx(1.0, rel=1e-14)
+        assert len(nodes) == 12 and weights.sum() == pytest.approx(1.0, rel=1e-14)
         assert np.all((nodes > 0.0) & (nodes < frac * DT))
-        assert np.sum(nodes < 0.5 * DT) == 3
+        assert np.sum(nodes < 0.5 * DT) == 6
         assert weights @ kinked(nodes) == pytest.approx(
             exact_mean(frac * DT), rel=1e-13
         )
@@ -152,20 +152,18 @@ def _max_rel(a, b, n):
 
 @needs_reco
 def test_constant_forcing_is_unchanged():
-    """REco with stanzas has no forcing: ``"linear"`` changes only the
-    quadrature of the month means (3 + 3 points against 6), which reach the
-    biomass through the stanza update: 1.5e-9 at most (measured; the plan's
-    estimate was 1e-9). Two parts, measured: the node sets sample the
-    dense output at different times (6 + 6 against 6: 8.3e-10 at rtol 1e-6,
-    1.1e-11 at 1e-9) and the 3 + 3 rule is of lower order (3 + 3 against 6
-    at rtol 1e-9: 3.4e-10)."""
+    """REco with stanzas has no forcing, so no key varies in time: there is
+    no tent and no kink, and ``"linear"`` keeps the constant path's
+    quadrature, giving exactly its results; ``solver_info`` still says
+    ``"linear"``."""
     scen = scenario(reco_stanzas())
+    built = copy.deepcopy(scen)
+    assert _forcing_interpolant(built, _run_setup(built, range(1, 3)), "linear") is None
     const = _run(scen)
     linear = _run(scen, forcing_interpolation="linear")
-    n = _n_bio(scen)
-    diff = _max_rel(linear, const, n)
-    print(f"\nREco stanzas, linear against constant: max rel diff {diff:.2e}")
-    assert diff <= 1e-8
+    for name in ("out_Biomass", "out_Catch", "out_Hden"):
+        assert np.array_equal(getattr(linear, name), getattr(const, name)), name
+    assert linear.solver_info["rhs_evals"] == const.solver_info["rhs_evals"]
     assert linear.solver_info["forcing_interpolation"] == "linear"
 
 
@@ -183,9 +181,10 @@ def _seasonal_prey(scen, rows):
 @pytest.mark.parametrize("kind", ["linear", "smooth"])
 def test_series_ends_and_short_arrays(kind, monkeypatch):
     """A ForcedPrey of 18 rows in a two-year run: every month's mean is
-    ``_month_forcing``'s value (ones from month 19 on), the forcing that each
-    evaluation of the rates used is the interpolant's at its time, and the
-    non-negative keys stay >= 0."""
+    ``_month_forcing``'s value (ones from month 19 on), also as realised by
+    the run's own ``forcing_at`` (Gauss on each half month, exact for both
+    kinds), the forcing that each evaluation of the rates used is the
+    interpolant's at its time, and the non-negative keys stay >= 0."""
     scen = _seasonal_prey(scenario(reco_plain(), effort=1.0), 18)
     years = range(1, 3)
     built = copy.deepcopy(scen)
@@ -211,6 +210,7 @@ def test_series_ends_and_short_arrays(kind, monkeypatch):
 
     seen = []
     month = {"k": -1}
+    forcing_at = []  # the run's own, one per month
     real_rates = cont.ContinuousRHS.rates
     real_set_month = cont.ContinuousRHS.set_month
 
@@ -221,6 +221,7 @@ def test_series_ends_and_short_arrays(kind, monkeypatch):
 
     def set_month(self, *args, **kwargs):
         month["k"] += 1
+        forcing_at.append(kwargs.get("forcing_at"))
         return real_set_month(self, *args, **kwargs)
 
     monkeypatch.setattr(cont.ContinuousRHS, "rates", rates)
@@ -228,6 +229,13 @@ def test_series_ends_and_short_arrays(kind, monkeypatch):
     out = _run(scen, years=years, forcing_interpolation=kind)
     assert month["k"] == 23
     assert all(m["status"] == 0 for m in out.solver_info["months"])
+    assert len(forcing_at) == 24 and all(f is not None for f in forcing_at)
+    for k, f_at in enumerate(forcing_at):
+        held = _month_forcing(built, setup, k + 1, setup.ftime)
+        realised = sum(
+            np.asarray(f_at(s * DT)["ForcedPrey"], dtype=float) for s in GAUSS_HALVES
+        )
+        np.testing.assert_allclose(realised / 4, held["ForcedPrey"], rtol=1e-14, atol=0)
     inside = [0] * 24
     for k, t, used in seen:
         want = interp.at(k, t / DT)
@@ -238,10 +246,34 @@ def test_series_ends_and_short_arrays(kind, monkeypatch):
 
 
 @needs_reco
+def test_a_negative_forcing_is_refused():
+    """The limiter keeps a non-negative key >= 0 only from non-negative
+    monthly values: a negative value in a non-signed key that varies in
+    time raises ``ValueError`` naming the key (a signed key, ForcedMigrate,
+    may be negative)."""
+    scen = _seasonal_prey(scenario(reco_plain(), effort=1.0), 24)
+    scen.forcing.ForcedPrey[5, 13] = -0.1
+    built = copy.deepcopy(scen)
+    setup = _run_setup(built, range(1, 3))
+    with pytest.raises(ValueError, match="ForcedPrey"):
+        _forcing_interpolant(built, setup, "linear")
+    with pytest.raises(ValueError, match="ForcedPrey"):
+        _run(scen, years=range(1, 2), forcing_interpolation="smooth")
+    signed = _seasonal_budget_scenario(production=False)
+    built = copy.deepcopy(signed)
+    interp = _forcing_interpolant(built, _run_setup(built, range(1, 2)), "linear")
+    assert np.min(interp.mean(9, "ForcedMigrate")) < 0.0  # sin at 3 pi / 2
+
+
+@needs_reco
 def test_the_smooth_interpolant():
     _check_interpolant("smooth")
     scen = scenario(reco_stanzas())
     scen.forcing.ForcedPrey[:, 13] = 1.2  # constant in time
+    # no key varies in time: the run holds the forcing, so "smooth" (the
+    # 6-point rule already) runs the constant path
+    built = copy.deepcopy(scen)
+    assert _forcing_interpolant(built, _run_setup(built, range(1, 3)), "smooth") is None
     const = _run(scen)
     smooth = _run(scen, forcing_interpolation="smooth")
     n = _n_bio(scen)
@@ -250,37 +282,39 @@ def test_the_smooth_interpolant():
     assert diff <= 1e-12
 
 
-def _seasonal_budget_scenario(production=True):
+def _seasonal_budget_scenario(production=True, phase="sin"):
     """REco without stanzas: a seasonal migration flux into group 5 and,
     with ``production``, seasonal production (ForcedSearch of the
-    producers), both starting from their base value so month 1 starts in
-    balance (a start transient, as with a production forcing of 1.3 in
-    month 1, is resolved worse by the 3 + 3 point rule than by the 6-point
-    one: a budget residual of 1.9e-5 against 3e-7 in month 1, measured)."""
+    producers). With ``phase="sin"`` production starts from its base value,
+    so month 1 starts in balance; with ``"cos"`` it is 1.3 in month 1, and
+    the base state starts with a transient."""
     scen = scenario(reco_plain(), effort=1.0)
     p = scen.params
     k = np.arange(scen.forcing.ForcedSearch.shape[0])
+    wave = np.sin if phase == "sin" else np.cos
     producers = [i for i in range(1, p.NUM_LIVING + 1) if np.asarray(p.PP_type)[i] > 0]
     for i in producers if production else []:
-        scen.forcing.ForcedSearch[:, i] = 1.0 + 0.3 * np.sin(2.0 * np.pi * k / 12.0)
+        scen.forcing.ForcedSearch[:, i] = 1.0 + 0.3 * wave(2.0 * np.pi * k / 12.0)
     b5 = float(np.asarray(p.B_BaseRef)[5])
     scen.forcing.ForcedMigrate[:, 5] = 0.2 * b5 * np.sin(2.0 * np.pi * k / 12.0)
     return scen
 
 
 @needs_reco
+@pytest.mark.parametrize("phase", ["sin", "cos"])
 @pytest.mark.parametrize("kind", ["constant", "linear", "smooth"])
-def test_the_budget_uses_the_applied_forcing(kind):
+def test_the_budget_uses_the_applied_forcing(kind, phase):
     """With production and migration varying in time the month budget closes
     at the solver's level: the means of the rates are taken under the forcing
-    each quadrature node applied (measured: constant 1.6e-7, linear 2.3e-7,
-    smooth 1.1e-8; with the rates under the month's held forcing instead,
-    5.6e-5)."""
-    scen = _seasonal_budget_scenario()
+    each quadrature node applied (with the rates under the month's held
+    forcing instead, 5.6e-5), and the start transient of the cos phase is
+    resolved (3 + 3 points on the halves of a linear month left 1.9e-5 in
+    month 1)."""
+    scen = _seasonal_budget_scenario(phase=phase)
     out = _run(scen, years=range(1, 2), forcing_interpolation=kind)
     months = out.solver_info["months"]
     worst = max(abs(m["budget_residual"]) for m in months)
-    print(f"\nseasonal REco, {kind}: max |budget_residual| {worst:.2e}")
+    print(f"\nseasonal REco ({phase}), {kind}: max |budget_residual| {worst:.2e}")
     assert all(m["status"] == 0 for m in months)
     assert worst <= 1e-6
 
