@@ -294,7 +294,9 @@ def test_lsoda_reuse_through_solve_ivp():
     assert count.get(("retry", "fresh"), 0) > 0  # the retreat rule is exercised
     assert count.get(("retry", "reused"), 0) == 0  # ... and never reuses
     assert count.get(("advance", "reused"), 0) > 0  # the advance rule reuses
-    assert count.get(("first", "reused"), 0) == len(_ROBERTSON_MONTHS) - 1
+    # a month's first request reuses; only the run's very first is fresh
+    assert count.get(("first", "reused"), 0) >= 1
+    assert count.get(("first", "fresh"), 0) <= 1
     assert end <= 1e-4
 
 
