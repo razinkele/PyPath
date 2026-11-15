@@ -946,7 +946,9 @@ def _rpath_detritus_derivs(
     ``det_passed_prop`` a fished pool loses ``fish_mort x B``, its catch, as
     in Rpath (``FishingLoss`` is in every group's ``LossPropToB``,
     ``ecosim.cpp``); under the EwE rule it is ignored, as EwE6's detritus
-    Derivt has no fishing term (cEcoSimModel.vb:3121).
+    Derivt has no fishing term (cEcoSimModel.vb:3121), and the discards of a
+    catch from a pool reach no pool, as EwE6 sends discards to detritus from
+    living groups only (SimDetritusMT, vb 3154-3176).
     ``import_q`` is each consumer's intake of imported diet, which is
     unassimilated like any other food. ``det_input`` is a constant import per
     group (EwE DetInFlow, cEcoSimModel.vb:3119-3124), counted as gain so the
@@ -1029,8 +1031,11 @@ def _rpath_detritus_derivs(
     fish_gain = np.zeros(n_bio + 1)
     for k in range(1, min(len(fish_from), len(fish_to), len(link_fish_rate))):
         dest = int(fish_to[k])
+        src = int(fish_from[k])
+        if ewe and NUM_LIVING < src <= n_bio:
+            continue  # EwE6 discards from living groups only (vb 3154-3176)
         if NUM_LIVING < dest <= n_bio:
-            fish_gain[dest] += link_fish_rate[k] * BB[int(fish_from[k])]
+            fish_gain[dest] += link_fish_rate[k] * BB[src]
     gain = det_gain + fish_gain
     if det_input is not None:
         dead = slice(NUM_LIVING + 1, n_bio + 1)

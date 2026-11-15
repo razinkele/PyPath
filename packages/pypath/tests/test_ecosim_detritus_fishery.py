@@ -153,3 +153,69 @@ def test_the_month_budget_closes_with_a_detritus_fishery():
     for m in out.solver_info["months"]:
         assert abs(m["budget_residual"]) < 1e-5, (m["month"], m["budget_residual"])
         assert m["pool_budget_residual"] < 1e-5, (m["month"], m["pool_budget_residual"])
+
+
+# --- the EwE rule ignores the fishery entirely: no discards from a pool -----
+
+
+def _without_pool_fishery(scen):
+    """``scen`` with the catch rate of every fishing link from a pool set to
+    0 (the same Ecopath model and Ecosim parameters otherwise)."""
+    p = scen.params
+    nl, n_bio = p.NUM_LIVING, p.NUM_LIVING + p.NUM_DEAD
+    from_pool = (np.asarray(p.FishFrom) > nl) & (np.asarray(p.FishFrom) <= n_bio)
+    from_pool[0] = False
+    assert from_pool.any()
+    p.FishQ = np.where(from_pool, 0.0, np.asarray(p.FishQ, dtype=float))
+    return scen
+
+
+def _two_derivs(scen):
+    """Month 1's derivative and rates at the start state (which sets EwE's
+    DetritusOut), then at a state away from base (groups alternately 1.3 and
+    0.7 times B0)."""
+    state, pd_, fd, fi = run_dicts(scen)
+    base_rates, rates = {}, {}
+    base = deriv_vector(state.copy(), pd_, fd, fi, rates=base_rates)
+    y = state.copy()
+    n_bio = pd_["NUM_LIVING"] + pd_["NUM_DEAD"]
+    y[1 : n_bio + 1] *= np.where(np.arange(n_bio) % 2 == 0, 1.3, 0.7)
+    away = deriv_vector(y, pd_, fd, fi, rates=rates)
+    return (base, base_rates), (away, rates)
+
+
+def _discarded(rule):
+    return scenario(_reco(DISCARDED), rule=rule, effort=1.0)
+
+
+def test_the_ewe_rule_sends_no_discards_from_a_fished_pool():
+    """EwE6 sends discards to detritus from living groups only
+    (SimDetritusMT, cEcoSimModel.vb:3154-3176): under the EwE rule the
+    Discards pool gets nothing from Trawlers discarding 1 of Detritus. Under
+    the 'rpath' rule it gets the discard, as Rpath's FishingGain[FishTo]."""
+    for rule, extra in (("ewe", 0.0), ("rpath", 1.0)):
+        (_, fished), _ = _two_derivs(_discarded(rule))
+        (_, plain), _ = _two_derivs(_without_pool_fishery(_discarded(rule)))
+        assert fished["FishingLoss"][DETRITUS] == pytest.approx(1.0, rel=1e-12)
+        gained = fished["Discards"][DISCARDS] - plain["Discards"][DISCARDS]
+        assert gained == pytest.approx(extra, rel=1e-12, abs=0.0), rule
+
+
+def test_the_ewe_rule_leaves_every_derivative_unchanged_by_a_pool_fishery():
+    fished = _two_derivs(_discarded("ewe"))
+    plain = _two_derivs(_without_pool_fishery(_discarded("ewe")))
+    for (d_fished, _), (d_plain, _) in zip(fished, plain):
+        np.testing.assert_array_equal(d_fished, d_plain)
+
+
+def test_the_ewe_rule_budget_closes_with_a_discarding_pool_fishery():
+    rhs, y = _rhs(_discarded("ewe"))
+    r = rhs.rates(y)
+    assert r["FishingLoss"][DETRITUS] > 0.0
+    scale = float(np.abs(r["Production"]).sum() + r["FoodGain"].sum())
+    gap = abs(float(rhs(0.0, y)[: rhs.n_bio].sum()) - rhs.exchange(r, y))
+    assert gap <= 1e-12 * scale, gap / scale
+    out = rsim_run(_discarded("ewe"), method="lsoda", years=range(1, 2))
+    for m in out.solver_info["months"]:
+        assert abs(m["budget_residual"]) < 1e-5, (m["month"], m["budget_residual"])
+        assert m["pool_budget_residual"] < 1e-5, (m["month"], m["pool_budget_residual"])

@@ -188,7 +188,7 @@ What the call counts mean:
 - A forced stanza group is overwritten by the age structure, on both paths.
 - Stanza models are first order in the monthly split whatever the tolerance: the age structure is updated once a month from the month's mean rates.
 - The budget residuals are None in a month with forced biomass, so a model that forces biomass in every month (LT2022) is not budget-checked on this path.
-- Under the EwE rule a fishery on a detritus pool takes nothing from the pool, as in EwE (`deviations.md`, R6), but `exchange_rate` counts its landed catch, so `budget_residual` is off by that catch: 1.1e-4 a month on REco with 5 landed from Detritus (closed to 1e-8 under the 'rpath' rule, which takes the catch from the pool).
+- Under the EwE rule a fishery on a detritus pool takes nothing from the pool and sends no discards from it, as in EwE (`deviations.md`, R6), but `exchange_rate` counts the landed part of its catch, so `budget_residual` is off by that: 1.1e-4 a month on REco with 5 landed from Detritus. A catch that is all discarded closes (4e-9 with Trawlers discarding 1 of Detritus), and under the 'rpath' rule, which takes the catch from the pool, both close (1e-8).
 - The Black Sea costs 32.5 x RK4 and LT2022 61.6 x; the 10-20 x of design section 4 needs an analytic Jacobian and linear forcing (phase 3).
 - IBM groups are rejected.
 - Ecospace still uses its own scheme (RK4 sub-steps with implicit movement); the continuous path is Ecosim only.
