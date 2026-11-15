@@ -2650,7 +2650,10 @@ def rsim_run(
         BDF and Radau get finite-difference Jacobians that are reused across
         the monthly restarts, ``ecosim_continuous.JacobianReuse``;
         ``"solver"``: the solver forms its own; DOP853 uses none either
-        way). ``forcing_interpolation`` is a model option, not a numerical
+        way). ``positivity`` is a model option too (opt-in): ``"clip"``, the
+        default, clips biomass at 0 in the right-hand side; ``"log"``
+        integrates ``ln B`` (never negative, a group at the 1e-20 floor can
+        only grow; the monthly means stay of B). ``forcing_interpolation`` is a model option, not a numerical
         one (opt-in; it changes the equations and so the results):
         ``"constant"``, the default, holds each month's forcing;
         ``"linear"`` lets ForcedPrey, ForcedMort, ForcedSearch (with the
@@ -2902,10 +2905,10 @@ def rsim_run(
             ),
             "hden_tol": _cont_opts["hden_tol"],
             "jacobian": _cont_opts["jacobian"],
-            # the model options (opt-in; positivity and fast_groups are the
-            # path's fixed choices for now)
+            # the model options (opt-in; fast_groups is the path's fixed
+            # choice for now)
             "forcing_interpolation": _interp_kind,
-            "positivity": "clip",
+            "positivity": _cont_opts["positivity"],
             "fast_groups": "states",
             "corrections": list(rhs.corrections),
             "ignored_switches": list(rhs.ignored_switches),
@@ -3132,7 +3135,13 @@ def rsim_run(
                 _start_rates = (
                     rhs.rates(_y0) if month == 1 and out_hden is not None else None
                 )
-                _jac = None if _jac_reuse is None else _jac_reuse.for_month(rhs)
+                # under "log" the Jacobian is differentiated in z: the
+                # month's wrapped function is built inside integrate_month
+                _jac = (
+                    None
+                    if _jac_reuse is None or _cont_opts["positivity"] == "log"
+                    else _jac_reuse.for_month(rhs)
+                )
                 res = integrate_month(
                     rhs,
                     _y0,
@@ -3144,6 +3153,8 @@ def rsim_run(
                     label=_month_label,
                     n_bio=_n_bio_c,
                     jac=_jac,
+                    positivity=_cont_opts["positivity"],
+                    jac_factory=(None if _jac_reuse is None else _jac_reuse.for_month),
                     # the split rule only where a tent has a kink: with no
                     # key varying in time the forcing is held
                     forcing_interpolation=(
