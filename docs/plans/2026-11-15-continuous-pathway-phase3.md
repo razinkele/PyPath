@@ -190,6 +190,13 @@ unconverged: the bracketed secant from h, then hybr (as now)
 - Interpolated: `ForcedPrey`, `ForcedMort`, `ForcedSearch` with `PP_forcing`, `ForcedMigrate`, `ForcedActresp`, `NutForcing`, `ForcedSearchLink`, `ForcedVulLink`. Held monthly: `ForcedBio`, `ForcedRecs`, `ForcedEffort`, forced F and catch, fleet dynamics, quotas, `StanzaPredRatio`. Planner's call: spec 2.6 keeps effort monthly-held (against 2.5's "a step in effort becomes a ramp"), which keeps the catch integral exact.
 - Produces `ForcingInterpolant(monthly: dict[str, np.ndarray], signed=frozenset({"ForcedMigrate"}))`, arrays of shape (n_months, …): `at(month: int, s: float) -> dict` (s the fraction of the month) and `mean(month: int, key) -> np.ndarray` (exact).
 - **Algorithm (the tests do not determine it):** a continuous tent through `(0, b_k)`, `(½, c_k)`, `(1, b_{k+1})`; inside the series `b_k = min((m_{k−1} + m_k)/2, 2m_{k−1}, 2m_k)` for a non-negative key and `(m_{k−1} + m_k)/2` for a signed one; `b_0 = m_0`, `b_N = m_{N−1}`; `c_k = 2m_k − (b_k + b_{k+1})/2`. The mean is exactly `m_k`, the limiter keeps it ≥ 0, constant input gives exactly constant output.
+- **`"smooth"`** (the user's answer 5): per month, one quadratic through the same limited boundary values: `v(s) = b_k(1 − s) + b_{k+1}s + 6(m_k − (b_k + b_{k+1})/2)·s(1 − s)`.
+  - Its mean is exactly `m_k`.
+  - It is continuous at the boundaries, with no kink inside the month.
+  - It is ≥ 0 for non-negative keys, because `0 ≤ b ≤ 2m` on both sides.
+  - It keeps the 6-point quadrature unchanged.
+  - Measured (spike `m5c_interp.py`, mode "quad"): 16 % fewer evaluations than constant forcing on the Black Sea, where the tent costs 29 % more.
+  - `ForcingInterpolant(..., kind="linear" | "smooth")`.
 - Restarts stay at every month boundary (dropping them measured costlier: 111 against 102).
 - Quadrature: the tent has a kink at mid-month, so under `"linear"` `integrate_month` uses 3-point Gauss-Legendre on each half-month (still 6 evaluations); under `"constant"` the 6-point rule is unchanged.
 - `set_month(..., forcing_at=None)`; `__call__(t, y)` and `rates(y, t=0.0)` merge `forcing_at(t)`; `integrate_month` passes the node times; the rates carry the forcing used and `exchange` reads `ForcedMigrate` from it; `forcing.get("Ftime")` replaces the direct index (deferred minor).
@@ -200,6 +207,9 @@ unconverged: the bracketed secant from h, then hybr (as now)
   - `test_constant_forcing_is_unchanged`: REco with stanzas, two years, `"linear"` against `"constant"`: `rtol=1e-9` (the split quadrature moves the month means in the last digits).
   - `test_series_ends_and_short_arrays`: REco without stanzas, two years, `ForcedPrey` of 18 rows, seasonal on group 13: the forcing at a node (`rates(y, t)["_forcing"]`) equals `at(k, t / dt)`; `mean(k, key)` equals `_month_forcing`'s value in every month (`rel=1e-14`), ends included; months 19-24 are exactly 1.
   - `test_linear_forcing_runs_the_black_sea` (`integration`): two years, status 0, no clips; prints `nfev` (spike: 113 against 87.8), not asserted.
+  - `test_the_smooth_interpolant`: the same properties as `test_the_tent_preserves_means` for `kind="smooth"` (mean, ≥ 0 at 101 points per month, continuity at the boundaries, exact constants), and `"smooth"` against `"constant"` on constant forcing at `rtol=1e-12`.
+  - `test_smooth_forcing_runs_the_black_sea` (`integration`): two years, status 0, no clips; `nfev` printed (spike: 16 % below constant forcing), not asserted.
+  - `continuous_options` accepts `forcing_interpolation` in `{"constant", "linear", "smooth"}`.
 - [ ] **Step 2: Run, expect FAIL** (`ImportError: ForcingInterpolant`).
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run, expect PASS**, then the CI steps and the parity compare.
@@ -281,7 +291,7 @@ Consumes every earlier task.
 - [ ] **Step 3:** Run the full core and Shiny suites, `ruff`, `mkdocs build --strict` (use a scratch venv if mkdocs is missing) and the parity compare.
 - [ ] **Step 4: Commit** `docs(ecosim): continuous path phase 3a: cost, options, pooled fix`.
 
-### Task 9 (only if open question 1 is answered "build it"): Analytic Jacobian
+### Task 9 (designed; not built in 3a, per the user's answer 1): Analytic Jacobian
 
 Consumes `q_and_dq` (Task 2) and `JacobianReuse` (Task 3); produces `AnalyticJacobian(rhs).for_month(fun)` with `JacobianReuse`'s signature.
 
@@ -321,7 +331,17 @@ Of phase 2's 47:
 - **2 obsolete** (first-step reuse was removed): `_next_first_step`, the degraded-month first-step test.
 - **25 not taken:** parity-shared code (3: the `RunSetup.handling[1]` alias, the recomputed `_has_ftime_adj`, the repeated `_index` block); test strengthening outside 3a's files (11: the second month-label guard, the setup-test docstring, the feeding-time bound and clip tests, the `atol` spy, the per-group cap, the NaN note, the untested migration and pool-emigration flows, the `negative_export` wording, the looser first-step assertion); mediation tidy-ups (4); mypy asserts (CI non-blocking); the `_risk_qopt` import; the `QQ_month` / Ecotracer pairing (documented); the floored `y_end` in the budget; the duplicated nutrient arithmetic; the GL6 docstring; the `last_step` conditional.
 
-## Open questions for the user
+## The user's answers (2026-11-15), binding
+
+1. **Analytic Jacobian:** not now. Task 9 stays designed but is not built in 3a. Revisit it after Task 8's measurements.
+2. **Stiff method:** keep LSODA as the default. The docs (Task 8) and 3b's label recommend BDF for stiff models. No `method="auto"`.
+3. **Defaults:** `jacobian="reuse"` is the default. The three model options are opt-in and labelled.
+4. **numba:** later, not in 3a.
+5. **Forcing:** offer both `"linear"` (the tent) and `"smooth"` (Task 5, amended).
+6. **The weight fix:** applies on all methods. RK4 and AB move to Rpath's weights for pooled models, as Task 4 plans.
+7. **Effort:** held monthly under either interpolation (spec 2.6).
+
+## Open questions for the user (as asked; answered above)
 
 1. **Analytic Jacobian:** build Task 9 (3-4 days) or stop at FD with reuse? Spec section 9 lists it; on top of reuse it would take LT2022 LSODA from 14.8 x to about 10 x and BDF from 9.9 x to about 9 x, and REco and the Black Sea nowhere.
 2. **Recommended stiff method:** BDF with reuse beats LSODA on LT2022 (9.9 x against 14.8 x) and, with reuse, on REco (848 against 1035 evaluations over two years), but loses on the Black Sea (133 against 95.8 rhs/mo, today's code). Recommend BDF for stiff models, or add `method="auto"`?
