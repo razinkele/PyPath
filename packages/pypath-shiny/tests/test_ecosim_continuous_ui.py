@@ -5,6 +5,8 @@ import html
 import re
 from pathlib import Path
 
+import numpy as np
+import pytest
 from pypath.core.ecosim import CONTINUOUS_METHODS
 
 from pypath_shiny.pages import ecosim as ecosim_page
@@ -67,43 +69,43 @@ def test_continuous_inputs_are_static():
 
 def test_conditions_name_every_continuous_method():
     page = _ui()
-    solver_panel = page.index('id="solver_preset"')
-    diet_box = page.index('id="enable_diet_rewiring"')
     conditions = [
         c for c in _conditions(page) if "includes(input.integration_method)" in c
     ]
-    assert len(conditions) == 3  # solver panel, negated diet panel, note
-    for condition in conditions:
-        for method in CONTINUOUS_METHODS:
-            assert f'"{method}"' in condition
-    negated = [c for c in conditions if c.startswith("!")]
-    assert len(negated) == 1
-    # The solver controls come first; the diet checkbox follows the negated panel.
-    assert solver_panel < diet_box
-    negated_at = page.index(html.escape(negated[0], quote=True))
-    assert negated_at < diet_box
-    assert page.index('id="switching_power"') > diet_box
+    assert len(conditions) == 1  # the solver panel only; no diet panel remains
+    assert not conditions[0].startswith("!")
+    for method in CONTINUOUS_METHODS:
+        assert f'"{method}"' in conditions[0]
 
 
-def test_diet_rewiring_checkbox_sits_inside_the_negated_panel():
+DIET_NOTE = (
+    "Diet rewiring is not available in this version; prey switching "
+    "(EwE's SwitchPower) is planned as its replacement."
+)
+
+
+def test_diet_rewiring_controls_are_gone_and_a_note_replaces_them():
     page = _ui()
-    negated_start = None
-    for match in re.finditer(r'<div[^>]*data-display-if="([^"]*)"[^>]*>', page):
-        if html.unescape(match.group(1)).startswith("!"):
-            negated_start = match.start()
-    assert negated_start is not None
-    # Walk div nesting from the negated panel to find its closing tag.
-    depth = 0
-    end = None
-    for token in re.finditer(r"<div\b|</div>", page[negated_start:]):
-        depth += 1 if token.group().startswith("<div") else -1
-        if depth == 0:
-            end = negated_start + token.end()
-            break
-    assert end is not None
-    inside = page[negated_start:end]
-    assert 'id="enable_diet_rewiring"' in inside
-    assert 'id="switching_power"' in inside
+    for input_id in (
+        "enable_diet_rewiring",
+        "switching_power",
+        "rewiring_interval",
+        "min_diet_proportion",
+    ):
+        assert f'id="{input_id}"' not in page
+    assert "Dynamic Diet Rewiring" not in page
+    text = html.unescape(page)
+    assert DIET_NOTE in text
+    # Always visible: no open conditional <div> encloses the note.
+    at = text.index(DIET_NOTE)
+    stack = []
+    for token in re.finditer(r"<div[^>]*>|</div>", text[:at]):
+        if token.group().startswith("</div"):
+            if stack:
+                stack.pop()
+        else:
+            stack.append(token.group())
+    assert not any("data-display-if" in tag for tag in stack)
 
 
 def test_advanced_accordion_starts_closed_and_holds_only_model_options():
@@ -135,3 +137,119 @@ def test_fast_group_rule_label_and_id():
 def test_preset_default_is_checked():
     page = _ui()
     assert re.search(r'value="default"[^>]*checked', page)
+
+
+# --- server wiring ---------------------------------------------------------
+
+
+def _ecosim_tree():
+    return ast.parse(Path(ecosim_page.__file__).read_text(encoding="utf-8"))
+
+
+def _find_function(tree, name):
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"{name} not found")
+
+
+def _calls(node):
+    names = []
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call):
+            func = child.func
+            names.append(func.id if isinstance(func, ast.Name) else ast.unparse(func))
+    return names
+
+
+def _request_kwargs(**over):
+    kwargs = dict(
+        diet_rewiring=False,
+        preset="default",
+        log_states=False,
+        forcing_interpolation="constant",
+        quasi_steady=False,
+        qs_rate=365.0,
+    )
+    kwargs.update(over)
+    return kwargs
+
+
+@pytest.fixture
+def notices(monkeypatch):
+    seen = {"warning": [], "info": [], "error": []}
+    for kind in seen:
+        monkeypatch.setattr(
+            ecosim_page,
+            f"notify_{kind}",
+            lambda message, _kind=kind, **kwargs: seen[_kind].append(message),
+        )
+    return seen
+
+
+def test_diet_rewiring_with_a_continuous_method_notifies(notices):
+    result = ecosim_page._solver_request_or_notify(
+        "lsoda", **_request_kwargs(diet_rewiring=True)
+    )
+    assert result is None
+    assert len(notices["warning"]) == 1
+    assert "RK4 and AB" in notices["warning"][0]
+    assert notices["error"] == []
+
+
+def test_bad_qs_rate_notifies_instead_of_raising(notices):
+    result = ecosim_page._solver_request_or_notify(
+        "dop853", **_request_kwargs(quasi_steady=True, qs_rate=None)
+    )
+    assert result is None
+    assert len(notices["warning"]) == 1
+    assert notices["error"] == []
+
+
+def test_request_notes_are_shown_as_info(notices):
+    request = ecosim_page._solver_request_or_notify(
+        "lsoda", **_request_kwargs(quasi_steady=True)
+    )
+    assert request is not None
+    assert request.notes
+    assert notices["info"] == list(request.notes)
+
+
+def test_reference_atol_follows_rtol(balanced_rpath_model, rpath_params):
+    from pypath.core.ecosim import rsim_scenario
+    from pypath.core.ecosim_continuous import default_atol
+
+    from pypath_shiny.services.ecosim_solver import build_solver_request, run_ecosim
+
+    scen = rsim_scenario(balanced_rpath_model, rpath_params, years=range(1, 3))
+    out = run_ecosim(scen, build_solver_request("lsoda", preset="reference"))
+    p = scen.params
+    b0 = np.asarray(p.B_BaseRef, dtype=float)[1 : p.NUM_LIVING + p.NUM_DEAD + 1]
+    expected = default_atol(b0, 1e-10)
+    assert np.allclose(out.solver_info["atol"], expected, rtol=1e-12, atol=0)
+
+
+def test_continuous_failure_hint():
+    from pypath_shiny.services.ecosim_solver import continuous_failure_hint
+
+    assert continuous_failure_hint("RK4") == ""
+    assert continuous_failure_hint("lsoda") == (
+        "Try BDF for stiff models, or the Reference tolerance."
+    )
+
+
+def test_run_simulation_goes_through_the_service():
+    calls = _calls(_find_function(_ecosim_tree(), "_run_simulation"))
+    assert "run_ecosim" in calls
+    assert "_solver_request_or_notify" in calls
+    assert "rsim_run" not in calls
+    assert "rsim_run_advanced" not in calls
+    assert "DietRewiring" not in calls
+
+
+def test_run_simulation_never_builds_diet_rewiring_or_reports_it():
+    src = ast.unparse(_find_function(_ecosim_tree(), "_run_simulation"))
+    assert "Diet rewiring was applied" not in src
+    assert "enable_diet_rewiring" not in src
+    assert "diet_rewiring=False" in src
+    assert "diet_rewiring=None" in src

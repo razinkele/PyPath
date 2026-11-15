@@ -86,6 +86,13 @@ class SolverRequest:
     notes: tuple[str, ...] = ()
 
 
+def continuous_failure_hint(method: str) -> str:
+    """Advice to append to a failed continuous run's message; "" for parity."""
+    if not is_continuous(method):
+        return ""
+    return "Try BDF for stiff models, or the Reference tolerance."
+
+
 def _valid_qs_rate(value) -> float:
     ok = (
         isinstance(value, Real)

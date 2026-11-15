@@ -7,9 +7,7 @@ import pandas as pd
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.autofix import validate_and_fix_scenario
-from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
-from pypath.core.ecosim_advanced import rsim_run_advanced
-from pypath.core.forcing import DietRewiring
+from pypath.core.ecosim import RsimScenario, rsim_scenario
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shiny.types import SilentException
 
@@ -48,6 +46,11 @@ from pypath_shiny.services.ecosim_solver import (
     INTERPOLATION_CHOICES,
     METHOD_CHOICES,
     PRESET_CHOICES,
+    SolverRequest,
+    build_solver_request,
+    continuous_failure_hint,
+    is_continuous,
+    run_ecosim,
 )
 from pypath_shiny.services.notifications import (
     notify_error,
@@ -87,6 +90,35 @@ def _require_balanced_model_or_notify(model) -> bool:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _solver_request_or_notify(
+    method,
+    *,
+    diet_rewiring,
+    preset,
+    log_states,
+    forcing_interpolation,
+    quasi_steady,
+    qs_rate,
+) -> SolverRequest | None:
+    """Build the solver request, or notify and return None on a bad combination."""
+    try:
+        request = build_solver_request(
+            method,
+            preset=preset,
+            log_states=log_states,
+            forcing_interpolation=forcing_interpolation,
+            quasi_steady=quasi_steady,
+            qs_rate=qs_rate,
+            diet_rewiring=diet_rewiring,
+        )
+    except ValueError as e:
+        notify_warning(str(e), duration=8)
+        return None
+    for note in request.notes:
+        notify_info(note, duration=8)
+    return request
 
 
 def detritus_self_fate_message(model) -> str | None:
@@ -354,77 +386,11 @@ def ecosim_ui() -> ui.Tag:
                     class_="text-muted small",
                 ),
                 ui.tags.hr(),
-                # Diet Rewiring settings
-                ui.panel_conditional(
-                    "!" + CONTINUOUS_JS,
-                    ui.h5("Dynamic Diet Rewiring"),
-                    ui.input_checkbox(
-                        "enable_diet_rewiring",
-                        ui.span(
-                            "Enable Diet Rewiring ",
-                            ui.tags.i(
-                                class_="bi bi-info-circle",
-                                title="Allow predator diet preferences to change based on prey availability (prey switching, adaptive foraging). Predators shift to more abundant prey species.",
-                                style="cursor: help;",
-                            ),
-                        ),
-                        value=False,
-                    ),
-                    ui.panel_conditional(
-                        "input.enable_diet_rewiring",
-                        ui.input_slider(
-                            "switching_power",
-                            ui.span(
-                                "Switching Power ",
-                                ui.tags.i(
-                                    class_="bi bi-info-circle",
-                                    title="Controls strength of prey switching. 1.0 = proportional (no switching), 2-3 = moderate switching (typical), >3 = strong switching (opportunistic predators).",
-                                    style="cursor: help;",
-                                ),
-                            ),
-                            min=PARAM_RANGES.switching_power_min,
-                            max=PARAM_RANGES.switching_power_max,
-                            value=PARAM_RANGES.switching_power_default,
-                            step=0.1,
-                        ),
-                        ui.input_slider(
-                            "rewiring_interval",
-                            ui.span(
-                                "Update Interval (months) ",
-                                ui.tags.i(
-                                    class_="bi bi-info-circle",
-                                    title="How often diet is recalculated. 1 = monthly (responsive but slow), 12 = annual (fast but less responsive).",
-                                    style="cursor: help;",
-                                ),
-                            ),
-                            min=PARAM_RANGES.rewiring_interval_min,
-                            max=PARAM_RANGES.rewiring_interval_max,
-                            value=PARAM_RANGES.rewiring_interval_default,
-                            step=1,
-                        ),
-                        ui.input_numeric(
-                            "min_diet_proportion",
-                            ui.span(
-                                "Minimum Diet Proportion ",
-                                ui.tags.i(
-                                    class_="bi bi-info-circle",
-                                    title="Minimum fraction to maintain in diet. Prevents complete elimination of prey types.",
-                                    style="cursor: help;",
-                                ),
-                            ),
-                            value=THRESHOLDS.min_diet_proportion_range_default,
-                            min=THRESHOLDS.min_diet_proportion_range_min,
-                            max=THRESHOLDS.min_diet_proportion_range_max,
-                            step=0.001,
-                        ),
-                    ),
-                ),
-                ui.panel_conditional(
-                    CONTINUOUS_JS,
-                    ui.p(
-                        "Diet rewiring runs on the EwE parity methods (RK4, AB) only.",
-                        class_="text-muted small",
-                    ),
+                # Diet rewiring is not implemented; say so instead of offering it.
+                ui.p(
+                    "Diet rewiring is not available in this version; prey "
+                    "switching (EwE's SwitchPower) is planned as its replacement.",
+                    class_="text-muted small",
                 ),
                 ui.tags.hr(),
                 # Fishing scenarios
@@ -1984,6 +1950,7 @@ def ecosim_server(
                 apply_if_latest(sim_task_state.get(), run_id=run_id, updater=updater)
             )
 
+        method = _input_or_default("integration_method", "RK4")
         try:
             _update_latest(
                 lambda s: update_task_progress(
@@ -1992,10 +1959,38 @@ def ecosim_server(
                     progress=20.0,
                 )
             )
-            _apply_biomass_forcing(scen)
+            continuous = is_continuous(method)
+            # Diet rewiring is not implemented, so it is never requested.
+            request = _solver_request_or_notify(
+                method,
+                diet_rewiring=False,
+                preset=_input_or_default("solver_preset", "default")
+                if continuous
+                else "default",
+                log_states=bool(_input_or_default("solver_log_states", False))
+                if continuous
+                else False,
+                forcing_interpolation=_input_or_default(
+                    "solver_forcing_interpolation", "constant"
+                )
+                if continuous
+                else "constant",
+                quasi_steady=bool(_input_or_default("solver_quasi_steady", False))
+                if continuous
+                else False,
+                qs_rate=_input_or_default("solver_qs_rate", QS_RATE_DEFAULT)
+                if continuous
+                else QS_RATE_DEFAULT,
+            )
+            if request is None:
+                _update_latest(
+                    lambda s: finish_task(
+                        s, success=False, message="Simulation not started"
+                    )
+                )
+                return
 
-            # Check if diet rewiring is enabled
-            diet_rewiring_enabled = input.enable_diet_rewiring()
+            _apply_biomass_forcing(scen)
 
             _update_latest(
                 lambda s: update_task_progress(
@@ -2005,32 +2000,9 @@ def ecosim_server(
                 )
             )
 
-            if diet_rewiring_enabled:
-                notify_info(
-                    "Running simulation with diet rewiring...",
-                    duration=2,
-                )
-
-                # Create diet rewiring configuration
-                diet_rewiring = DietRewiring(
-                    enabled=True,
-                    switching_power=input.switching_power(),
-                    update_interval=int(input.rewiring_interval()),
-                    min_proportion=input.min_diet_proportion(),
-                )
-
-                # Run advanced simulation with diet rewiring
-                output = rsim_run_advanced(
-                    scen,
-                    state_forcing=None,
-                    diet_rewiring=diet_rewiring,
-                    method=input.integration_method(),
-                )
-            else:
-                notify_info("Running simulation...", duration=2)
-
-                # Run standard simulation
-                output = rsim_run(scen, method=input.integration_method())
+            notify_info("Running simulation...", duration=2)
+            output = run_ecosim(scen, request, diet_rewiring=None)
+            output.run_request = request
 
             _update_latest(
                 lambda s: update_task_progress(
@@ -2091,9 +2063,13 @@ def ecosim_server(
                 else:
                     notify_info(msg, duration=10)
             else:
-                success_msg = "Simulation completed successfully!"
-                if diet_rewiring_enabled:
-                    success_msg += " Diet rewiring was applied."
+                if continuous:
+                    success_msg = (
+                        f"Simulation completed with {method.upper()} "
+                        "(continuous, not EwE parity)."
+                    )
+                else:
+                    success_msg = "Simulation completed successfully!"
                 notify_success(success_msg)
 
             final_msg = (
@@ -2106,7 +2082,8 @@ def ecosim_server(
         except Exception as e:
             logger.exception("Simulation failed")
             err_text = str(e)
-            notify_error(f"Simulation error: {err_text}")
+            hint = continuous_failure_hint(method)
+            notify_error(f"Simulation error: {err_text}" + (f" {hint}" if hint else ""))
             _update_latest(
                 lambda s, err=err_text: finish_task(
                     s,
