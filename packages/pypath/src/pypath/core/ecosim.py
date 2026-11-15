@@ -510,8 +510,17 @@ class RsimOutput:
         mean fell back to the start state), ``clips``, ``hden_passes_max``
         (kernel passes of the month's largest handling-time solve),
         ``kernel_check`` (the month's check of the vectorised consumption
-        pass against the link loop, relative) and ``min_state``. None for
-        RK4 and AB.
+        pass against the link loop, relative; above
+        ``ecosim_continuous.KERNEL_CHECK_TOL`` a WARNING names the month)
+        and ``min_state``. The options in force: ``forcing_interpolation``
+        and ``fast_groups`` (model options), ``positivity`` (numerics) and
+        ``qs_rate``; under ``fast_groups="quasi-steady"`` the selected
+        groups ``qs_groups`` with their ``qs_base_rate`` (per year), the
+        qualifying groups kept as states ``qs_excluded`` (``"forced"``,
+        ``"stanza"``), ``qs_separation`` (set in month 1; None without
+        quasi-steady groups), the solve's tolerance ``qs_tol`` and per month
+        ``qs_inner_max`` and ``qs_fallbacks`` (None without quasi-steady
+        groups). None for RK4 and AB.
     out_Catch_month_end : np.ndarray or None
         Continuous path only: EwE's booking, the month's F times the
         month-end biomass / 12 (n_months+1 x n_groups+1). None for RK4 and AB.
@@ -2650,7 +2659,8 @@ def rsim_run(
         BDF and Radau get finite-difference Jacobians that are reused across
         the monthly restarts, ``ecosim_continuous.JacobianReuse``;
         ``"solver"``: the solver forms its own; DOP853 uses none either
-        way). ``positivity`` is a model option too (opt-in): ``"clip"``, the
+        way). ``positivity`` is a numerical option too (opt-in; the same
+        equations, so the same solution to the tolerance): ``"clip"``, the
         default, clips biomass at 0 in the right-hand side; ``"log"``
         integrates ``ln B`` (never negative, a group at the 1e-20 floor can
         only grow; the monthly means stay of B). ``forcing_interpolation`` is a model option, not a numerical
@@ -2842,6 +2852,7 @@ def rsim_run(
     out_catch_month_end = None
     if _continuous:
         from pypath.core.ecosim_continuous import (
+            KERNEL_CHECK_TOL,
             QS_TOL,
             ContinuousRHS,
             JacobianReuse,
@@ -2893,11 +2904,24 @@ def rsim_run(
                     np.full(len(_ft_groups), 1e-2 * _rtol),
                 ]
             )
-        # FD Jacobians reused across the months (the run's; not the RHS's)
+        # FD Jacobians reused across the months (the run's; not the RHS's).
+        # Their difference step's floor is atol / rtol, the biomass states'
+        # capped at the default atol's ratio, 0.01 x max(B0, 1e-6 x max B0),
+        # so a large user atol does not make the step large (the default
+        # atol gives its own ratio exactly)
         _jac_reuse = (
             JacobianReuse(_cont_method, _atol_run, _rtol)
             if _cont_opts["jacobian"] == "reuse"
             else None
+        )
+        _n_state_c = _n_bio_c + (0 if _ft_groups is None else len(_ft_groups))
+        _fd_floor = np.broadcast_to(_atol_run, (_n_state_c,)) / _rtol
+        _fd_floor[:_n_bio_c] = np.minimum(
+            _fd_floor[:_n_bio_c],
+            default_atol(
+                np.asarray(params.B_BaseRef, dtype=float)[1 : _n_bio_c + 1], _rtol
+            )
+            / _rtol,
         )
         # a model option: forcing varying inside each month (None when no
         # interpolated key varies in time, or under "constant")
@@ -2988,7 +3012,8 @@ def rsim_run(
             ),
             "hden_tol": _cont_opts["hden_tol"],
             "jacobian": _cont_opts["jacobian"],
-            # the model options (opt-in)
+            # the opt-in options: forcing_interpolation and fast_groups change
+            # the model, positivity is numerics (the same equations)
             "forcing_interpolation": _interp_kind,
             "positivity": _cont_opts["positivity"],
             "fast_groups": _cont_opts["fast_groups"],
@@ -3264,7 +3289,7 @@ def rsim_run(
                     if _jac_reuse is None
                     or _cont_opts["positivity"] == "log"
                     or _qs is not None
-                    else _jac_reuse.for_month(rhs)
+                    else _jac_reuse.for_month(rhs, step_floor=_fd_floor)
                 )
                 res = integrate_month(
                     rhs,
@@ -3285,6 +3310,7 @@ def rsim_run(
                         "constant" if _interp is None else _interp_kind
                     ),
                     quasi_steady=_qs,
+                    step_floor=_fd_floor,
                 )
             except RuntimeError as e:
                 if _month_label in str(e):  # already names the month
@@ -3341,13 +3367,23 @@ def rsim_run(
                     "qs_inner_max": (
                         None if _qs is None else int(_qs.stats["qs_inner_max"])
                     ),
-                    # solves that fell back to a full Newton and to hybr, and
-                    # the evaluations those stages took
+                    # solves that fell back to pseudo-transient continuation
+                    # and to hybr, and the evaluations those stages took
                     "qs_fallbacks": (
                         None if _qs is None else dict(_qs.stats["qs_fallbacks"])
                     ),
                 }
             )
+            _kernel_check = solver_info["months"][-1]["kernel_check"]
+            if _kernel_check > KERNEL_CHECK_TOL:  # NaN (no check) does not warn
+                logger.warning(
+                    "%s: kernel_check %.3g > %g: the vectorised consumption "
+                    "pass disagrees with the link loop at the month's checked "
+                    "evaluation, so this run's consumption is not the loop's",
+                    _month_label,
+                    _kernel_check,
+                    KERNEL_CHECK_TOL,
+                )
         if np.any(_forced_mask):
             state[_forced_mask] = np.asarray(_forced_now)[_forced_mask]
 

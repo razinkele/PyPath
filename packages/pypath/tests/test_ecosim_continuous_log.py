@@ -58,7 +58,6 @@ def test_log_states_never_clip():
 
 
 @needs_reco
-@pytest.mark.integration
 def test_log_states_agree():
     scen = scenario(reco_stanzas(), effort=2.0, years=range(1, 3))
     clip = _run_years(scen, 2, "clip")
@@ -117,13 +116,28 @@ def test_log_feeding_states_stay_linear(monkeypatch):
         def rates(self, y, t=0.0):
             return super().rates(y[:2], t)
 
+    def factory(fun, step_floor):
+        seen["floor"] = np.array(step_floor)
+        return JacobianReuse("lsoda", atol, 1e-6).for_month(fun, step_floor)
+
     y0 = np.array([2.0, 1e-3, 0.9])
     atol = np.array([1e-8, 1e-8, 1e-8])
     res = integrate_month(
-        _Ft(), y0, 1 / 12, "lsoda", 1e-6, atol, n_bio=2, positivity="log"
+        _Ft(),
+        y0,
+        1 / 12,
+        "lsoda",
+        1e-6,
+        atol,
+        n_bio=2,
+        positivity="log",
+        jac_factory=factory,
     )
     assert seen["y0"][2] == 0.9
     assert seen["atol"][2] == 1e-8
+    # the difference step's floor: 1 for the log states, atol / rtol for
+    # the linear feeding time
+    np.testing.assert_array_equal(seen["floor"], [1.0, 1.0, 1e-8 / 1e-6])
     assert res.y_end[0] == pytest.approx(2.0 * np.exp(-0.7 / 12), rel=1e-5)
     assert res.y_mean[0] == pytest.approx(
         2.0 * (1 - np.exp(-0.7 / 12)) / (0.7 / 12), rel=1e-5
@@ -226,38 +240,42 @@ def test_log_regrowth_needs_the_cap(monkeypatch):
 def test_log_jacobian_in_z():
     seen = {}
 
-    def factory(fun, atol):
-        seen["fun"], seen["atol"] = fun, atol
-        jr = JacobianReuse("lsoda", np.full(2, 7.0), 1e-6)
-        seen["jac_obj"] = jr
-        return jr.for_month(fun, atol=atol)
+    def factory(fun, step_floor):
+        seen["fun"], seen["floor"] = fun, np.array(step_floor)
+        jr = JacobianReuse("lsoda", np.full(2, 7.0), 1e-6)  # the run's: not used
+        return jr.for_month(fun, step_floor=step_floor)
 
-    y0 = np.array([2.0, 3.0])
+    # atol_z 1e-6, 1e-3 and (at the floor) the 0.1 cap: atol_z / rtol 1,
+    # 1e3 and 1e5
+    y0 = np.array([2.0, 1e-5, 1e-20])
     integrate_month(
         _Decay(),
         y0,
         1 / 12,
         "lsoda",
         1e-6,
-        np.array([1e-8, 1e-8]),
+        np.full(3, 1e-8),
         positivity="log",
         jac_factory=factory,
     )
-    # the z-space atol reaches the difference step's floor
-    assert np.array_equal(seen["jac_obj"]._month_atol, seen["atol"])
-    assert np.array_equal(seen["atol"], np.maximum(1e-8 / y0, 1e-6))
-    # ... and it sets the finite-difference step's floor
+    # a log state's difference-step floor is 1, h = 1.49e-8 max(|z|, 1):
+    # min(atol_z / rtol, 1), not atol_z / rtol (which gave h = 1.49e-5 in z
+    # for the second group and 1.49e-3 for the third)
+    assert np.array_equal(seen["floor"], np.ones(3))
+    # ... and the floor sets the finite-difference step
     calls = []
 
-    def probe(t, y):
-        calls.append(np.array(y))
-        return -0.7 * np.asarray(y)
+    def probe(t, z):
+        calls.append(np.array(z))
+        return -0.7 * np.ones_like(z)
 
     jr = JacobianReuse("lsoda", np.full(2, 7.0), 1e-6)  # the run's: not used
-    jr.for_month(probe, atol=np.full(2, 1e-6))(0.0, np.array([0.1, 0.1]))
-    assert calls[1][0] - 0.1 == pytest.approx(1.49e-8 * (1e-6 / 1e-6), rel=1e-6)
+    z = np.array([0.1, np.log(1e-5)])  # |z| 0.1 and 11.5
+    jr.for_month(probe, step_floor=seen["floor"][:2])(0.0, z)
+    assert calls[1][0] - z[0] == pytest.approx(1.49e-8 * 1.0, rel=1e-6)
+    assert calls[2][1] - z[1] == pytest.approx(1.49e-8 * abs(z[1]), rel=1e-6)
     # the wrapped function in z: dz = dy / B = -0.7
-    assert np.allclose(seen["fun"](0.0, np.log(y0)), -0.7)
+    assert np.allclose(seen["fun"](0.0, np.log(y0[:2])), -0.7)
     with pytest.raises(ValueError, match="jac_factory"):
         integrate_month(
             _Decay(),
@@ -285,7 +303,6 @@ def test_positivity_option():
 
 
 @needs_reco
-@pytest.mark.integration
 def test_log_forced_group_held():
     scen = scenario(reco_plain(), effort=2.0, years=range(1, 3))
     b0 = np.asarray(scen.params.B_BaseRef, dtype=float)

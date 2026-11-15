@@ -777,6 +777,14 @@ def exchange_rate(
 # this tolerance leaves out.
 NEGATIVE_EXPORT_TOL = 1e-6
 
+#: A month's ``kernel_check`` above this logs a WARNING naming the month
+#: (``rsim_run``). The vectorised pass repeats the link loop's arithmetic in
+#: the loop's order, so the two agree to roundoff: 0.0 in every month on REco,
+#: the Black Sea and LT2022, and a HandleSwitch exponent other than 1 can
+#: differ in the last bit (numpy's array power). 1e-9 is far above that and
+#: far below a real disagreement (a 1 + 1e-6 skew of the pass gives 1e-6).
+KERNEL_CHECK_TOL = 1e-9
+
 
 class ContinuousRHS:
     """Pure right-hand side ``dy/dt = f(t, y)`` of the continuous pathway.
@@ -1228,8 +1236,9 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
     :class:`JacobianReuse`; or ``"solver"``: the solver's own Jacobians) and
     ``forcing_interpolation`` (``"constant"``, the default, ``"linear"`` or
     ``"smooth"``: a model option, :class:`ForcingInterpolant`) and
-    ``positivity`` (``"clip"``, the default, or ``"log"``: a model option,
-    biomass states integrated as ``ln B``, see :func:`integrate_month`),
+    ``positivity`` (``"clip"``, the default, or ``"log"``: a numerical
+    option, the same equations with the biomass states integrated as
+    ``ln B``, see :func:`integrate_month`),
     ``fast_groups`` (``"states"``, the default, or ``"quasi-steady"``: a
     model option, :class:`QuasiSteady`) and ``qs_rate`` (a number > 0 per
     year, default 365: the base loss rate above which a flagged group is
@@ -1421,10 +1430,19 @@ class JacobianReuse:
       the step and asks again at an earlier ``t``) and gets a fresh one.
 
     A fresh Jacobian is forward differences in every state, ``h_k = 1.49e-8
-    x max(|y_k|, atol_k / rtol)``: ``fun`` at ``y`` and once per column,
+    x max(|y_k|, floor_k)``, ``floor`` the month's step floor
+    (:meth:`for_month`'s ``step_floor``, by default ``atol / rtol``; > 0, so
+    the step is too where ``y_k = 0``): ``fun`` at ``y`` and once per column,
     ``len(y) + 1`` evaluations (SciPy passes no ``f(t, y)`` to ``jac``), each
     a call of ``fun`` and so counted in ``ContinuousRHS.evals``. SciPy's
     ``nfev`` leaves them out, and its ``njev`` counts reused requests too.
+    ``rsim_run`` passes ``atol / rtol`` with the biomass states' capped at
+    the default atol's ratio, ``0.01 x max(B0_k, 1e-6 x max B0)`` (so a large
+    user atol does not make the step large; the default atol gives its own
+    ratio), and :func:`integrate_month` gives log states a floor of 1, ``h_k
+    = 1.49e-8 x max(|z_k|, 1)``. Only a finite fresh Jacobian is held: one
+    with a non-finite entry goes to the solver, and the held one is dropped,
+    so the next request forms a fresh one.
 
     ``stats`` (reset by :meth:`for_month`) counts the month's requests:
     ``jac_fresh`` formed, ``jac_reused`` answered with the held Jacobian.
@@ -1443,36 +1461,45 @@ class JacobianReuse:
         self.atol = np.asarray(atol, dtype=float)
         self.rtol = float(rtol)
         self.move = float(move)
-        self._month_atol = self.atol
-        # (the last Jacobian formed, the state y_J it was formed at)
+        self._month_floor = self.atol / self.rtol
+        # (the last Jacobian formed, when finite; the state y_J it was formed
+        # at)
         self._held: Optional[tuple[np.ndarray, np.ndarray]] = None
         self.stats = {"jac_fresh": 0, "jac_reused": 0}
 
     def _fresh(self, fun, t: float, y: np.ndarray) -> np.ndarray:
-        """Forward differences of ``fun`` at ``(t, y)``; held for reuse."""
+        """Forward differences of ``fun`` at ``(t, y)``; held for reuse when
+        finite."""
         n = len(y)
         f0 = np.asarray(fun(t, y), dtype=float)
-        floor = np.broadcast_to(self._month_atol, (n,)) / self.rtol
+        floor = np.broadcast_to(self._month_floor, (n,))
         jac = np.empty((n, n))
         for k in range(n):
             yk = y.copy()
             yk[k] = y[k] + 1.49e-8 * max(abs(y[k]), floor[k])
             h = yk[k] - y[k]  # the step as represented
             jac[:, k] = (np.asarray(fun(t, yk), dtype=float) - f0) / h
-        self._held = (jac, y.copy())
+        # a non-finite matrix is not reused, and neither is the older one
+        self._held = (jac, y.copy()) if np.all(np.isfinite(jac)) else None
         self.stats["jac_fresh"] += 1
         return jac.copy()
 
     def for_month(
-        self, fun: Callable, atol: Optional[np.ndarray] = None
+        self, fun: Callable, step_floor: Optional[np.ndarray] = None
     ) -> Callable[[float, np.ndarray], np.ndarray]:
         """The month's ``jac(t, y)`` over ``fun``; resets ``stats``.
 
-        ``atol`` (default: the object's) is the month's tolerance in the
-        states ``fun`` takes, which sets the difference step's floor; the
-        log-state path passes its z-space ``atol`` with the wrapped ``fun``."""
+        ``step_floor`` (a scalar or one value > 0 per state ``fun`` takes;
+        default: the object's ``atol / rtol``) is the floor of the difference
+        step, ``h_k = 1.49e-8 x max(|y_k|, step_floor_k)``. ``rsim_run``
+        passes its capped floor, and :func:`integrate_month`'s ``jac_factory``
+        call the floor of the solver's states (1 for log states)."""
         self.stats = {"jac_fresh": 0, "jac_reused": 0}
-        self._month_atol = self.atol if atol is None else np.asarray(atol, float)
+        self._month_floor = (
+            self.atol / self.rtol
+            if step_floor is None
+            else np.asarray(step_floor, dtype=float)
+        )
         first = True
         t_prev: Optional[float] = None
 
@@ -2068,6 +2095,7 @@ def integrate_month(
     positivity: str = "clip",
     jac_factory: Optional[Callable] = None,
     quasi_steady: Optional[QuasiSteady] = None,
+    step_floor: Optional[np.ndarray] = None,
 ) -> MonthResult:
     """Solve one month with ``solve_ivp`` and average rates by quadrature.
 
@@ -2098,11 +2126,12 @@ def integrate_month(
     6-point rule and ``rhs.rates(y)`` stay as they were (``rsim_run``
     passes ``"constant"`` when no forcing varies in time, so no kink).
 
-    ``positivity="log"`` (a model option; ``"clip"`` is the default and is
-    the code above unchanged) integrates ``z = ln max(B, 1e-20)`` for the
-    ``n_bio`` biomass states and leaves the feeding times linear. The
-    solver's function is ``B = exp(max(z, ln 1e-20))``, ``dz = dB / B`` from
-    ``rhs(t, [B, Ft])``, with ``dz = max(dz, 0)`` where ``z <= ln 1e-20``
+    ``positivity="log"`` (a numerical option: the same equations in other
+    variables, so the same solution to the tolerance; ``"clip"`` is the
+    default and is the code above unchanged) integrates ``z = ln max(B,
+    1e-20)`` for the ``n_bio`` biomass states and leaves the feeding times
+    linear. The solver's function is ``B = exp(max(z, ln 1e-20))``, ``dz =
+    dB / B`` from ``rhs(t, [B, Ft])``, with ``dz = max(dz, 0)`` where ``z <= ln 1e-20``
     (the floor absorbs: a group there can only grow). A forced group has
     ``dB = 0`` and so a constant ``z``. The log state's ``atol`` is
     ``min(max(atol_i / y0_i, rtol), 0.1)`` (the linear tolerance at the month-start
@@ -2112,9 +2141,12 @@ def integrate_month(
     everything downstream sees biomass. ``rhs`` always sees ``B >= 1e-20``,
     so ``rhs.stats["clips"]`` stays 0 and ``min_state`` is the smallest B
     evaluated. A Jacobian is differentiated in z: a linear-space ``jac`` with
-    ``positivity="log"`` raises ``ValueError``; ``jac_factory(fun, atol)``
-    (``JacobianReuse.for_month``) is called with the wrapped function and the
-    z-space ``atol`` instead.
+    ``positivity="log"`` raises ``ValueError``; ``jac_factory(fun,
+    step_floor)`` (``JacobianReuse.for_month``) is called with the wrapped
+    function and the difference step's floor in the solver's states instead:
+    ``min(atol_z / rtol, 1)`` for a log state (1 unless ``rtol > 0.1``, so
+    ``h = 1.49e-8 x max(|z|, 1)``, a relative step in B), and
+    ``step_floor``'s value for a feeding time.
 
     ``quasi_steady`` (a :class:`QuasiSteady` over ``rhs``, its month set by
     its ``set_month``; a model option) reduces the solver's state: the
@@ -2126,8 +2158,14 @@ def integrate_month(
     means, the rates, the exchange and ``y_end``, so ``MonthResult`` keeps
     its layout. A Jacobian is differentiated in the slow states: a ``jac``
     with ``quasi_steady`` raises ``ValueError``, and ``jac_factory`` is
-    called with the solver's function and ``atol`` (as under ``"log"``). A
-    quasi-steady solve that fails raises, as any error from ``rhs`` does.
+    called with the solver's function and the slow states' ``step_floor``
+    (as under ``"log"``). A quasi-steady solve that fails raises, as any
+    error from ``rhs`` does.
+
+    ``step_floor`` (a scalar or one value > 0 per state of ``y0``, in
+    biomass and feeding-time units; default ``atol / rtol``) is the floor of
+    ``jac_factory``'s difference step for the linear states (``rsim_run``
+    passes its capped floor, see :class:`JacobianReuse`).
 
     ``rhs.stats``, when the right-hand side keeps one (``ContinuousRHS``,
     reset by its ``set_month``), counts the solver's evaluations, the start
@@ -2171,6 +2209,18 @@ def integrate_month(
 
     fun, z0, atol_run = solver_rhs, y0_s, atol_s
     to_y = np.asarray  # solver state -> [biomass, feeding times]
+    # the floor of jac_factory's difference step, per solver state
+    floor_run = np.array(
+        np.broadcast_to(
+            np.asarray(atol, dtype=float) / rtol
+            if step_floor is None
+            else np.asarray(step_floor, dtype=float),
+            y0.shape,
+        ),
+        dtype=float,
+    )
+    if qs is not None:
+        floor_run = floor_run[qs.slow]
     if log_states:
         z0 = y0_s.copy()
         z0[:n_s] = np.log(np.maximum(y0_s[:n_s], _Y_FLOOR))
@@ -2180,6 +2230,9 @@ def integrate_month(
             _ATOL_Z_MAX,
         )
         atol_run = atol_z
+        # z is a relative measure of B: a step of 1.49e-8 x max(|z|, 1), not
+        # of atol_z / rtol, up to 0.1 / rtol at the cap
+        floor_run[:n_s] = np.minimum(atol_z[:n_s] / rtol, 1.0)
 
         def to_y(z):
             """The solver's z (any leading axes) as biomass (floored at
@@ -2206,7 +2259,7 @@ def integrate_month(
         and jac_factory is not None
         and method != "dop853"
     ):
-        jac = jac_factory(fun, atol_run)
+        jac = jac_factory(fun, floor_run)
     if not np.all(np.isfinite(np.asarray(fun(0.0, z0), dtype=float))):
         raise RuntimeError(
             "month integration cannot start: non-finite start derivative"

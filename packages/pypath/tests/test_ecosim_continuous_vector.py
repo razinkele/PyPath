@@ -1,10 +1,13 @@
 """The vectorised consumption pass of the continuous path (phase 3)."""
 
+import logging
+
 import numpy as np
 import pytest
 
 import pypath.core.ecosim_deriv as deriv_mod
 from pypath.core.ecosim import rsim_run
+from pypath.core.ecosim_continuous import KERNEL_CHECK_TOL
 from pypath.core.ecosim_deriv import (
     HdenKernel,
     _compute_consumption_sparse_python,
@@ -188,3 +191,29 @@ def test_kernel_check_is_reported(rule):
     print(rule, "kernel_check", checks)
     for m, check in zip(months, checks):
         assert np.isfinite(check) and 0.0 <= check <= 1e-13, (m["month"], check)
+
+
+def test_a_skewed_vector_pass_warns(monkeypatch, caplog):
+    """The kernel check's negative: with the vectorised pass skewed by
+    1 + 1e-6, a year of LSODA on REco reports ``kernel_check`` of about 1e-6
+    in every month and logs a WARNING naming each month."""
+    real = deriv_mod._compute_consumption_vector
+
+    def skewed(QQ, *args, **kwargs):
+        real(QQ, *args, **kwargs)
+        QQ *= 1.0 + 1e-6
+
+    monkeypatch.setattr(deriv_mod, "_compute_consumption_vector", skewed)
+    with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
+        out = rsim_run(
+            scenario(reco_plain(), rule="ewe"), method="lsoda", years=range(1, 2)
+        )
+    checks = [m["kernel_check"] for m in out.solver_info["months"]]
+    print("skewed kernel_check", checks)
+    assert len(checks) == 12
+    assert all(c == pytest.approx(1e-6, rel=1e-2) for c in checks)
+    assert KERNEL_CHECK_TOL < min(checks)
+    warned = [r for r in caplog.records if "kernel_check" in r.getMessage()]
+    assert [r.levelno for r in warned] == [logging.WARNING] * 12
+    for month, record in enumerate(warned, start=1):
+        assert record.getMessage().startswith(f"month {month} (year ")

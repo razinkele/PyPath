@@ -5,6 +5,7 @@ import warnings
 
 import numpy as np
 import pytest
+from scipy.integrate import solve_ivp
 
 import pypath.core.ecosim_continuous as cont
 from pypath.core.ecosim import rsim_run
@@ -23,6 +24,7 @@ from tests.continuous_support import (
 )
 
 N = 3
+PHYTOPLANKTON = 20  # REco's (240 /yr, flagged NoIntegrate)
 
 
 class _Linear:
@@ -187,6 +189,162 @@ def test_reuse_rules(monkeypatch):
         JacobianReuse("rk4", atol, 1e-6)
 
 
+def test_a_non_finite_jacobian_is_not_held():
+    """A fresh Jacobian with a non-finite entry goes to the solver but is not
+    held: the next month's first request forms a fresh one instead of
+    reusing it (the matrix held before it is dropped too)."""
+    y = np.array([1.0, 2.0, 3.0])
+    for method in ("bdf", "lsoda"):
+        fun = _Linear()
+        jr = JacobianReuse(method, np.full(N, 1e-8), 1e-6)
+        jr.for_month(fun)(0.0, y)  # month 1: a finite one, held
+
+        def broken(t, v):
+            # NaN once state 1 moves: column 1 of a fresh Jacobian
+            return fun(t, v) if v[1] == y[1] else np.full(N, np.nan)
+
+        jac = jr.for_month(broken)  # month 2
+        assert np.all(np.isfinite(jac(0.0, y)))  # the first request reuses
+        bad = jac(0.0, y)  # a later one (under LSODA a retry): fresh
+        assert jr.stats == {"jac_fresh": 1, "jac_reused": 1}
+        assert np.isnan(bad[:, 1]).all()
+        assert np.all(np.isfinite(np.delete(bad, 1, axis=1)))
+        good = jr.for_month(fun)(0.0, y)  # month 3: not the NaN matrix
+        assert jr.stats == {"jac_fresh": 1, "jac_reused": 0}
+        np.testing.assert_allclose(good, _Linear.A, rtol=1e-6, atol=1e-8)
+
+
+class _Robertson:
+    """Robertson's stiff kinetics, ``k1`` and ``k3`` changed between months
+    (a jump the reused Jacobian has to survive), counting its calls."""
+
+    def __init__(self, k1, k3):
+        self.k1, self.k3, self.calls = k1, k3, 0
+
+    def __call__(self, t, y):
+        self.calls += 1
+        a = self.k1 * y[0]
+        b = self.k3 * y[1] * y[2]
+        c = 3e7 * y[1] ** 2
+        return np.array([-a + b, a - b - c, c])
+
+
+#: Six "months" of 40/12 time units, ``(k1, k3)`` jumping at every restart.
+_ROBERTSON_MONTHS = [
+    (0.04, 1e4),
+    (4.0, 1e5),
+    (0.04, 1e3),
+    (4.0, 1e5),
+    (0.04, 1e3),
+    (4.0, 1e4),
+]
+
+
+def test_lsoda_reuse_through_solve_ivp():
+    """``JacobianReuse`` on SciPy's real LSODA (the default method), six
+    monthly restarts of a stiff system with a jump in its rates at each:
+    fresh and reused Jacobians both occur; every request at or before the
+    previous ``t`` (a retry) is fresh, and every reuse is a month's first
+    request or one at an advancing ``t``; the end state agrees with LSODA
+    without a callable (its own Jacobians).
+
+    Measured (SciPy 1.15.3 and 1.18.1 alike): 8 retries, all fresh; 38
+    fresh, 47 reused; end states 1.5e-6 apart relative (atol 1e-10 added to
+    the denominator), both rtol-1e-6 solutions; bounded at 1e-4."""
+    rtol, atol, dt = 1e-6, 1e-10, 40.0 / 12.0
+    jr = JacobianReuse("lsoda", np.full(3, atol), rtol)
+    y = np.array([1.0, 0.0, 0.0])
+    y_ref = y.copy()
+    events: list = []
+    fresh = reused = 0
+    for k1, k3 in _ROBERTSON_MONTHS:
+        fun = _Robertson(k1, k3)
+        jac = jr.for_month(fun)
+        last: list = []
+
+        def spy(t, v, jac=jac, last=last):
+            before = jr.stats["jac_fresh"]
+            out = jac(t, v)
+            kind = "fresh" if jr.stats["jac_fresh"] > before else "reused"
+            if not last:
+                where = "first"
+            else:
+                where = "advance" if t > last[0] else "retry"
+            events.append((where, kind))
+            last[:] = [t]
+            return out
+
+        sol = solve_ivp(
+            fun, (0.0, dt), y, method="LSODA", rtol=rtol, atol=atol, jac=spy
+        )
+        assert sol.status == 0, sol.message
+        y = sol.y[:, -1]
+        fresh += jr.stats["jac_fresh"]
+        reused += jr.stats["jac_reused"]
+        ref = solve_ivp(
+            _Robertson(k1, k3), (0.0, dt), y_ref, method="LSODA", rtol=rtol, atol=atol
+        )
+        y_ref = ref.y[:, -1]
+    count = {e: events.count(e) for e in set(events)}
+    end = float(np.max(np.abs(y - y_ref) / (np.abs(y_ref) + atol)))
+    print(
+        f"\nLSODA Jacobian requests {count}; fresh {fresh}, reused {reused}; end {end:.2e}"
+    )
+    assert fresh > 0 and reused > 0
+    assert count.get(("retry", "fresh"), 0) > 0  # the retreat rule is exercised
+    assert count.get(("retry", "reused"), 0) == 0  # ... and never reuses
+    assert count.get(("advance", "reused"), 0) > 0  # the advance rule reuses
+    assert count.get(("first", "reused"), 0) == len(_ROBERTSON_MONTHS) - 1
+    assert end <= 1e-4
+
+
+@needs_reco
+def test_the_difference_step_floor(monkeypatch):
+    """The finite-difference step is ``1.49e-8 x max(|y_k|, floor_k)``. On a
+    run the biomass floor is ``atol / rtol`` capped at the default atol's
+    ratio, ``0.01 x max(B0_k, 1e-6 x max B0)``: a large user atol (1e-3,
+    ratio 1000) does not make the step large, a small one (1e-12) lowers the
+    floor, and the default atol gives its own ratio exactly. Log states take
+    a floor of 1 in ``z``; quasi-steady groups leave the slow states'."""
+    seen: list = []
+    real = JacobianReuse._fresh
+
+    def spy(self, fun, t, y):
+        seen.append(np.array(self._month_floor, dtype=float))
+        return real(self, fun, t, y)
+
+    monkeypatch.setattr(JacobianReuse, "_fresh", spy)
+    scen = scenario(reco_plain(), rule="ewe", effort=2.0)
+    n = _n_bio(scen)
+    rtol = 1e-6
+    cap = default_atol(scen.params.B_BaseRef[1 : n + 1], rtol) / rtol
+    for opts, want in (
+        ({}, cap),
+        ({"atol": 1e-3}, cap),
+        ({"atol": 1e-12}, np.full(n, 1e-12 / rtol)),
+        ({"positivity": "log"}, np.ones(n)),
+        (
+            {"fast_groups": "quasi-steady", "qs_rate": 200.0},
+            np.delete(cap, PHYTOPLANKTON - 1),
+        ),
+    ):
+        seen.clear()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            out = rsim_run(
+                copy.deepcopy(scen),
+                method="bdf",
+                years=range(1, 2),
+                solver_options={"rtol": rtol, **opts},
+            )
+        assert out.solver_info["qs_groups"] == (
+            [PHYTOPLANKTON] if "fast_groups" in opts else []
+        )
+        assert seen, opts
+        for floor in seen:
+            np.testing.assert_array_equal(floor, want, err_msg=str(opts))
+
+
 def _effort_jump():
     """REco with stanzas, EwE rule, effort 2, x 5 from month 7, two years."""
     scen = scenario(reco_stanzas(), rule="ewe", effort=2.0, years=range(1, 3))
@@ -239,12 +397,14 @@ def test_reuse_agrees_with_the_solver(method):
         m["jac_fresh"] == m["jac_reused"] == 0 for m in solver.solver_info["months"]
     )
     if method == "lsoda":
-        # REco keeps LSODA non-stiff (Adams throughout): it never asks for a
-        # Jacobian, so the two runs are identical. LSODA's reuse is tested on
-        # LT2022 (test_lt2022_lsoda_reuse_agrees_with_the_solver).
-        assert fresh == reused == 0
-        assert ev["reuse"] == ev["solver"]
-        np.testing.assert_array_equal(reuse.out_Biomass, solver.out_Biomass)
+        # REco keeps LSODA non-stiff (Adams throughout here): when it never
+        # asks for a Jacobian the two runs are identical. A platform where
+        # LSODA switches to stiff stepping once is held to the bounds above
+        # only. LSODA's reuse is tested on a stiff system
+        # (test_lsoda_reuse_through_solve_ivp) and on LT2022.
+        if fresh == reused == 0:
+            assert ev["reuse"] == ev["solver"]
+            np.testing.assert_array_equal(reuse.out_Biomass, solver.out_Biomass)
     else:
         # every month after the first reuses at its first request
         assert all(m["jac_reused"] >= 1 for m in months[1:])
