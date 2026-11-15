@@ -4544,7 +4544,8 @@ def ecosim_scenario_from_ewemdb(
     Example
     -------
     >>> scen = ecosim_scenario_from_ewemdb('model.ewemdb', scenario=1)
-    >>> out = rsim_run(scen, method='RK4', years=range(1, 11))
+    >>> first = scen.start_year  # the scenario's first year, from the database
+    >>> out = rsim_run(scen, method='RK4', years=range(first, first + 10))
     """
     # Local imports to avoid circular dependencies at module import time
     from pypath.core.ecopath import rpath

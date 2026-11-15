@@ -1487,7 +1487,8 @@ def rsim_scenario(
     rpath_params : RpathParams
         Original model parameters
     years : range
-        Years to simulate
+        Years to simulate; ``years[0]`` becomes the scenario's
+        ``start_year``, where every ``rsim_run`` starts
     vulnerability : float, optional
         Base vulnerability parameter (default 2.0 = mixed response)
         Controls predator-prey functional response:
@@ -1723,6 +1724,26 @@ def _stanza_start_consistent(
     return False
 
 
+def _check_run_years(scenario: RsimScenario, years) -> None:
+    """Refuse ``years`` that do not start at the scenario's first year.
+
+    A run reads forcing, effort and annual fishing from the scenario's first
+    month on and uses only ``len(years)``, so a range starting later would
+    silently rerun the first years' forcing. ``scenario.start_year`` is the
+    first year (``rsim_scenario`` sets it to ``years[0]``).
+    """
+    if len(years) == 0:
+        return
+    first = getattr(scenario, "start_year", 1)
+    if years[0] != first:
+        raise ValueError(
+            f"years must start at the scenario's first year ({first}), got a "
+            f"range starting at {years[0]}. Only runs from the scenario's "
+            f"first year are supported: pass years=range({first}, {first} + n) "
+            "to run the first n years, or omit years to run the whole scenario."
+        )
+
+
 @dataclass
 class RunSetup:
     """The per-run inputs that ``rsim_run``'s paths share (``_run_setup``).
@@ -1785,6 +1806,7 @@ def _run_setup(
         n_months = forcing.ForcedBio.shape[0]
         n_years = n_months // 12
     else:
+        _check_run_years(scenario, years)
         n_years = len(years)
         n_months = n_years * 12
 
@@ -2471,7 +2493,12 @@ def rsim_run(
 
         Anything else raises ``ValueError``.
     years : range, optional
-        Years to run (default: all years in scenario)
+        Years to run (default: all years in scenario). It must start at the
+        scenario's first year (``scenario.start_year``) and runs the first
+        ``len(years)`` years: ``range(scenario.start_year,
+        scenario.start_year + n)``. A range starting at any other year raises
+        ``ValueError``, since the run always reads forcing and effort from
+        the scenario's first month on.
     solver_options : dict, optional
         Options of the continuous methods (unused by RK4 and AB):
         ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar > 0 or one value
