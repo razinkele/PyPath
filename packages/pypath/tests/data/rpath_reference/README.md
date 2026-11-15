@@ -28,6 +28,10 @@ This directory contains reference data extracted from the Rpath R package.
 
 - `suite_weights.csv`: Rpath's `PredPredWeight` and `PreyPreyWeight` per link
   (REco, mscramble 2, mhandle 1000, preyswitch 1; link 0 is the dummy row)
+- `biomass_pooled_rk4.csv`: a pooled model's trajectory, 10 years of RK4
+  (120 monthly rows of `out_Biomass`): REco with its stanzas, ScrambleSelf
+  and HandleSelf 0.5 on every link (`scrambleselfwt`, `handleselfwt`),
+  mscramble 2, mhandle 1000, preyswitch 1, fishing effort x2 for every fleet
 
 The baseline trajectories stay at equilibrium (flat to ~5e-5), so only the
 fishing scenarios exercise the dynamics.
@@ -50,3 +54,7 @@ Fishing-scenario files (`biomass_*_fishing*.csv`):
 
 `ecosim/suite_weights.csv` (Rpath 1.1.0):
 `Rscript -e 'library(Rpath); s <- rsim.params(rpath(REco.params), mscramble=2, mhandle=1000, preyswitch=1); write.csv(data.frame(from=s$PreyFrom, to=s$PreyTo, ppw=s$PredPredWeight, pyw=s$PreyPreyWeight), "packages/pypath/tests/data/rpath_reference/ecosim/suite_weights.csv", row.names=FALSE)'`
+
+`ecosim/biomass_pooled_rk4.csv` (Rpath 1.1.0, R 4.6.2, 2026-11-15), run from
+the repository root:
+`Rscript -e 'library(Rpath); REco <- rpath(REco.params, eco.name = "R Ecosystem"); sim <- rsim.scenario(REco, REco.params, years = 1:10); sim$params <- rsim.params(REco, mscramble = 2, mhandle = 1000, preyswitch = 1, scrambleselfwt = 0.5, handleselfwt = 0.5); sim$fishing$ForcedEffort <- sim$fishing$ForcedEffort * 2; run <- rsim.run(sim, method = "RK4", years = 1:10); write.csv(as.data.frame(run$out_Biomass), "packages/pypath/tests/data/rpath_reference/ecosim/biomass_pooled_rk4.csv", row.names = FALSE)'`

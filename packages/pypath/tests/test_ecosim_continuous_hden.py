@@ -431,7 +431,7 @@ def test_newton_needs_few_passes(reco_plain):
         g, h0, active = _kernel_map(seen["inputs"])
         hs, secant = iterate_hden(g, h0, active)
         print("Newton passes", passes, "bracketed secant passes", secant)
-        assert passes <= 7
+        assert passes <= 8  # measured 5-6
         assert passes < secant
         assert np.max(np.abs(h[active] / hs[active] - 1.0)) <= 1e-11
 

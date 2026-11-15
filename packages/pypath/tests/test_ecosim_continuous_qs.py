@@ -535,3 +535,20 @@ def test_poor_separation_warns(caplog):
     assert 22 in info["qs_groups"]  # Zooplankton
     assert info["qs_separation"] < 10
     assert any("separation" in r.getMessage() for r in caplog.records)
+
+
+@needs_reco
+def test_poor_separation_warns_on_reco(caplog):
+    """REco with ``qs_rate=50`` selects Phytoplankton (240 /yr) alone, and
+    Zooplankton (39 /yr), left a state, puts the reduced Jacobian's largest
+    ``|Re lambda|`` near 48 /yr: ``qs_separation`` 4.98, half the threshold
+    of 10, and a WARNING. (Below 39 /yr Zooplankton is selected too and the
+    separation is 9.8, too near 10 to test.)"""
+    scen = reco_scenario(reco_plain(), years=range(1, 3))
+    with caplog.at_level(logging.WARNING, logger="pypath.core.ecosim"):
+        out = _run(scen, fast_groups="quasi-steady", qs_rate=50.0)
+    info = out.solver_info
+    print(f"\nREco qs_rate 50: groups {info['qs_groups']}, sep {info['qs_separation']}")
+    assert info["qs_groups"] == [PHYTOPLANKTON]
+    assert info["qs_separation"] < 7.5
+    assert any("separation" in r.getMessage() for r in caplog.records)
