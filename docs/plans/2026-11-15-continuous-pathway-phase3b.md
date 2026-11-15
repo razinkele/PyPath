@@ -116,7 +116,8 @@ Spikes: `/tmp/claude-1000/-home-razinka-PyPath/3de35854-f464-4f7d-a354-0e5f9d63f
   - **Planner's call on log states:** here, with the tolerance, not under "changes the model". They solve the same equations (the page's Options table; REco with stanzas agrees with clipping to 1.3e-6), so listing them as a model change would tell users their results are a different model. The tooltip gives the use (runs that drive a group towards zero) and the cost (+40 % where groups sweep orders of magnitude).
   - **`ui.accordion(ui.accordion_panel("Advanced: changes the model", …), id="solver_advanced", open=False)`:** `ui.input_select("solver_forcing_interpolation", "Forcing within the month", INTERPOLATION_CHOICES, selected="constant")` with the note "Interpolates forcing that varies month to month (an imported EwE scenario's forcing functions); effort stays monthly; the page's own forcing card is constant in time"; `ui.input_checkbox("solver_quasi_steady", "Quasi-steady fast groups", value=False)`; and `ui.panel_conditional("input.solver_quasi_steady", ui.input_numeric("solver_qs_rate", "Quasi-steady above (per year)", value=QS_RATE_DEFAULT, min=1, step=5))`.
 - **The diet-rewiring block** is wrapped in `ui.panel_conditional("!" + CONTINUOUS_JS, …)`. A sibling `ui.panel_conditional(CONTINUOUS_JS, ui.p("Diet rewiring runs on the EwE parity methods (RK4, AB) only.", class_="text-muted small"))` shows instead.
-- **The `fast_group_rule` tooltip** gains: "Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below." The labels stay (open question 4).
+- **The `fast_group_rule` select is renamed** (user's answer 4): its label becomes "Equation rule (EwE6 / Rpath)" (the input id `fast_group_rule` and its values stay, so saved state and the core call are unchanged); choice labels "EwE6 (fast groups at equilibrium under RK4/AB)" and "Rpath (fast groups integrated)". Add a test that the label and the id are as stated.
+- **The `fast_group_rule` tooltip** gains: "Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below."
 
 - [ ] **Step 1: Write the failing tests** (on `str(ecosim_ui())`, as `test_demo_pages.py` does):
   - `test_method_select_has_two_optgroups`: `<optgroup label="EwE parity">` holds RK4 and AB; `<optgroup label="Continuous (not EwE parity)">` holds the four values in order; RK4 is `selected`.
@@ -235,7 +236,16 @@ Yes, a bump, in order. The tag `pypath-ewe-v1.6.0` has no `ecosim_continuous.py`
 - **Core follow-ups found here:** `solver_info` does not say whether any forcing key was interpolated (only an INFO log does); there is no exported constant for the separation threshold of 10; `rsim_run`'s docstring calls `'lsoda'` "the choice for stiff models", against answer 2.
 - **Other pages** (Ecospace, IBM, the demos) keep their integrators; Ecospace runs stay synchronous. No diagnostics CSV download. The releases themselves.
 
-## Open questions for the user
+## The user's answers (2026-11-16), binding
+
+1. RK4 stays the page's default method.
+2. Diagnostics shown by default (badges, summary, flagged months); the month table collapsed.
+3. Labels as planned.
+4. Rename the Fast Groups select (Task 2, amended).
+5. Diet rewiring: the core bug in `rsim_run_advanced` is investigated and fixed in a separate PR; 3b only disables the checkbox for continuous methods, as planned.
+6. Async runs (Task 5) accepted.
+
+## Open questions for the user (as asked; answered above)
 
 1. **Default method:** the page keeps RK4 selected (EwE parity, as now). Agree?
 2. **Diagnostics by default:** the badges, summary and flagged months show on the Progress tab after every continuous run; the full month table is collapsed. Agree, or collapse everything?
