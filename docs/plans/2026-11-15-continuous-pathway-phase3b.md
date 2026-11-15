@@ -232,6 +232,7 @@ Yes, a bump, in order. The tag `pypath-ewe-v1.6.0` has no `ecosim_continuous.py`
 
 - **Fixing `rsim_run_advanced`.** It integrates nothing for any method (f2b); that is a separate core fix (open question 5).
 - **Per-month progress.** It needs a callback in `rsim_run`, a core change.
+- **Cooperative cancellation.** Cancel cannot stop a running integration: a worker thread cannot be interrupted, so Cancel only discards the result. Stopping a run mid-way needs a per-month callback in `rsim_run` that can abort, a core change. Until then Task 5 bounds the cost (ruling S5): a process-wide executor of `MAX_CONCURRENT_RUNS` (2) threads, and a per-session slot held until the worker finishes, so a session cannot start a new run while its cancelled one still computes.
 - **API-only keys:** `atol`, `corrections`, `on_failure`, `hden_tol` and `jacobian`. `jacobian` is cost-only and `"reuse"` is better; `on_failure="warn"` would need a UI for partial results.
 - **Core follow-ups found here:** `solver_info` does not say whether any forcing key was interpolated (only an INFO log does); there is no exported constant for the separation threshold of 10; `rsim_run`'s docstring calls `'lsoda'` "the choice for stiff models", against answer 2.
 - **Other pages** (Ecospace, IBM, the demos) keep their integrators; Ecospace runs stay synchronous. No diagnostics CSV download. The releases themselves.

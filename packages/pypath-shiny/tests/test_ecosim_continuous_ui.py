@@ -251,20 +251,26 @@ def test_run_simulation_invokes_the_task():
     assert "rsim_run" not in calls
     assert "rsim_run_advanced" not in calls
     assert "DietRewiring" not in calls
-    # run_ecosim is reached only through the extended task, on a worker thread
+    # run_ecosim is reached only through the extended task, which submits it
+    # to the bounded process-wide executor (ruling S5), never asyncio.to_thread.
     task = _find_function(tree, "_ecosim_task")
     assert isinstance(task, ast.AsyncFunctionDef)
     assert [ast.unparse(d) for d in task.decorator_list] == ["reactive.extended_task"]
-    to_thread = [
+    submits = [
         c
         for c in ast.walk(task)
-        if isinstance(c, ast.Call) and ast.unparse(c.func) == "asyncio.to_thread"
+        if isinstance(c, ast.Call) and ast.unparse(c.func) == "RUN_EXECUTOR.submit"
     ]
-    assert len(to_thread) == 1
-    assert ast.unparse(to_thread[0].args[0]) == "run_ecosim"
+    assert len(submits) == 1
+    assert ast.unparse(submits[0].args[0]) == "run_ecosim"
+    task_calls = _calls(task)
+    assert "slot.acquire" in task_calls
+    assert "asyncio.wrap_future" in task_calls
     page_calls = _calls(tree)
     assert "run_ecosim" not in page_calls
     assert "DietRewiring" not in page_calls
+    assert "asyncio.to_thread" not in page_calls
+    assert "run_in_executor" not in ast.unparse(tree)
 
 
 def test_run_simulation_never_builds_diet_rewiring_or_reports_it():
@@ -346,7 +352,12 @@ def test_worker_is_session_free():
     params = {a.arg for a in task.args.args}
     local = {n.id for n in names if isinstance(n.ctx, ast.Store)}
     loads = {n.id for n in names if isinstance(n.ctx, ast.Load)}
-    assert loads - params - local == {"asyncio", "run_ecosim", "RunOutcome"}
+    assert loads - params - local == {
+        "asyncio",
+        "run_ecosim",
+        "RunOutcome",
+        "RUN_EXECUTOR",
+    }
     # The service imports no Shiny (and so no notifications); its one app
     # import, the task-state module, imports none either.
     from pypath_shiny.services import tasks
@@ -362,7 +373,7 @@ def test_worker_is_session_free():
             elif isinstance(node, ast.Import):
                 assert not any(a.name.startswith("shiny") for a in node.names)
     source = Path(ecosim_page.__file__).read_text(encoding="utf-8")
-    assert "asyncio.to_thread(run_ecosim" in source
+    assert "RUN_EXECUTOR.submit(run_ecosim" in source
 
 
 def test_result_effect_depends_on_the_task_status_only():
@@ -421,3 +432,20 @@ def test_run_simulation_refuses_while_running():
     refusal = src.index("A simulation is already running")
     assert src.index("sim_task_state.set(") > refusal
     assert src.index("_ecosim_task.invoke(") > refusal
+    # A cancelled run's thread runs on, and holds the session's slot until it
+    # finishes (ruling S5): no new run starts until then, even after a cancel.
+    assert "if run_slot.busy:" in src
+    finishing = src.index(
+        "The previous simulation is still finishing in the background; "
+        "try again in a moment."
+    )
+    assert src.index("sim_task_state.set(") > finishing
+    assert src.index("_ecosim_task.invoke(") > finishing
+    assert "slot=run_slot" in src
+
+
+def test_queued_run_says_it_is_waiting():
+    # With the process-wide executor full, a run queues; the ticking text says so.
+    src = ast.unparse(_find_function(_ecosim_tree(), "sim_elapsed"))
+    assert "run_slot.waiting" in src
+    assert "MAX_CONCURRENT_RUNS" in src

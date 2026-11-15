@@ -5,6 +5,7 @@ import copy
 import itertools
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pytest
@@ -17,11 +18,14 @@ from pypath_shiny.services import ecosim_solver as svc
 from pypath_shiny.services.ecosim_solver import (
     CONTINUOUS_JS,
     INTERPOLATION_CHOICES,
+    MAX_CONCURRENT_RUNS,
     METHOD_CHOICES,
     PARITY_METHODS,
     PRESET_CHOICES,
+    RUN_EXECUTOR,
     TOLERANCE_PRESETS,
     RunOutcome,
+    RunSlot,
     SolverRequest,
     build_solver_request,
     is_continuous,
@@ -234,10 +238,87 @@ def test_threaded_runs_match_serial(rpath_params, balanced_rpath_model):
         return run_ecosim(scen, request)
 
     async def both():
+        # The page's path: the bounded executor, awaited from the loop.
         return await asyncio.gather(
-            *(asyncio.to_thread(run_together, copy.deepcopy(s), r) for s, r in jobs)
+            *(
+                asyncio.wrap_future(
+                    RUN_EXECUTOR.submit(run_together, copy.deepcopy(s), r)
+                )
+                for s, r in jobs
+            )
         )
 
     threaded = [out.out_Biomass for out in asyncio.run(both())]
     for alone, together in zip(serial, threaded):
         assert np.array_equal(alone, together)
+
+
+def test_run_executor_is_bounded():
+    assert MAX_CONCURRENT_RUNS == 2
+    assert isinstance(RUN_EXECUTOR, ThreadPoolExecutor)
+    assert RUN_EXECUTOR._max_workers == MAX_CONCURRENT_RUNS
+
+
+def _cancel_like_the_page(future):
+    """Cancel the asyncio side of a run, as ExtendedTask.cancel() does."""
+
+    async def go():
+        wrapper = asyncio.wrap_future(future)
+        wrapper.cancel()
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+    asyncio.run(go())
+
+
+def _blocking_job(started, gate):
+    def job():
+        started.set()
+        assert gate.wait(timeout=10)
+        return "out"
+
+    return job
+
+
+def test_run_slot_is_held_until_the_worker_finishes_even_after_a_cancel():
+    slot = RunSlot()
+    assert not slot.busy and not slot.waiting
+    started, gate = threading.Event(), threading.Event()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        try:
+            future = pool.submit(_blocking_job(started, gate))
+            slot.acquire(future)
+            assert started.wait(timeout=5)
+            assert slot.busy and not slot.waiting
+            # The cancel reaches asyncio, not the thread: the slot stays taken.
+            _cancel_like_the_page(future)
+            assert future.running()
+            assert slot.busy
+            with pytest.raises(RuntimeError):
+                slot.acquire(pool.submit(lambda: None))
+        finally:
+            gate.set()
+        assert future.result(timeout=5) == "out"
+        assert not slot.busy
+        # Released: the session may start its next run.
+        slot.acquire(pool.submit(lambda: None))
+
+
+def test_run_slot_waits_for_a_free_worker_and_a_cancel_frees_a_queued_run():
+    started, gate = threading.Event(), threading.Event()
+    first, second = RunSlot(), RunSlot()  # two sessions
+    with ThreadPoolExecutor(max_workers=1) as pool:  # a full executor
+        try:
+            first.acquire(pool.submit(_blocking_job(started, gate)))
+            assert started.wait(timeout=5)
+            queued = pool.submit(lambda: "never")
+            second.acquire(queued)
+            assert second.busy and second.waiting
+            assert not first.waiting
+            # A queued run is cancelled outright, and frees its slot at once.
+            _cancel_like_the_page(queued)
+            assert queued.cancelled()
+            assert not second.busy and not second.waiting
+            assert first.busy
+        finally:
+            gate.set()

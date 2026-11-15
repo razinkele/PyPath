@@ -48,9 +48,12 @@ from pypath_shiny.services.ecosim_controls import (
 from pypath_shiny.services.ecosim_solver import (
     CONTINUOUS_JS,
     INTERPOLATION_CHOICES,
+    MAX_CONCURRENT_RUNS,
     METHOD_CHOICES,
     PRESET_CHOICES,
+    RUN_EXECUTOR,
     RunOutcome,
+    RunSlot,
     SolverRequest,
     build_solver_request,
     continuous_failure_hint,
@@ -889,16 +892,23 @@ def ecosim_server(
     # written on the loop only; the worker never reads it.
     launched = {"run_id": None, "method": None, "started": None}
     retired_runs = itertools.count(1)
+    # This session's run in the process-wide executor. It stays taken until
+    # the worker thread finishes, through a cancel (the thread cannot be
+    # stopped), so Run-then-Cancel cannot pile up threads.
+    run_slot = RunSlot()
 
     @reactive.extended_task
-    async def _ecosim_task(run_id, source, scen, request, diet):
+    async def _ecosim_task(run_id, source, scen, request, diet, slot):
         """Integrate on a worker thread, off the event loop.
 
         ``scen`` is a deep copy of ``source``, the page's scenario object. The
-        worker reads no input and sends no notification: the result effect
-        does both, on the loop.
+        run goes to the bounded process-wide executor and ``slot`` holds its
+        future until the thread finishes. The worker reads no input and sends
+        no notification: the result effect does both, on the loop.
         """
-        out = await asyncio.to_thread(run_ecosim, scen, request, diet_rewiring=diet)
+        future = RUN_EXECUTOR.submit(run_ecosim, scen, request, diet_rewiring=diet)
+        slot.acquire(future)
+        out = await asyncio.wrap_future(future)
         return RunOutcome(run_id, source, out, request, diet is not None)
 
     def _finish_run(
@@ -2078,6 +2088,13 @@ def ecosim_server(
         ):
             notify_warning("A simulation is already running. Cancel it first.")
             return
+        # A cancelled run's thread computes on until it ends, holding the slot.
+        if run_slot.busy:
+            notify_warning(
+                "The previous simulation is still finishing in the background; "
+                "try again in a moment."
+            )
+            return
 
         run_id = f"ecosim-run-{input.btn_run_sim()}"
         method = _input_or_default("integration_method", "RK4")
@@ -2121,7 +2138,9 @@ def ecosim_server(
                 new_running_task(run_id, f"Integrating with {name}, {years} years")
             )
             notify_info("Running simulation...", duration=2)
-            _ecosim_task.invoke(run_id, scen, run_scen, request, diet=None)
+            _ecosim_task.invoke(
+                run_id, scen, run_scen, request, diet=None, slot=run_slot
+            )
 
         except Exception as e:
             logger.exception("Simulation could not start")
@@ -2281,7 +2300,8 @@ def ecosim_server(
             )
             notify_warning(
                 "Simulation cancelled. The computation finishes in the "
-                "background and its result is discarded."
+                "background and its result is discarded; a new run can start "
+                "once it has finished."
             )
 
     @output
@@ -2351,7 +2371,14 @@ def ecosim_server(
         if state.status is not TaskStatus.RUNNING or state.run_id != launched["run_id"]:
             return ""
         reactive.invalidate_later(1)
-        return f"Elapsed: {time.monotonic() - launched['started']:.0f} s"
+        seconds = time.monotonic() - launched["started"]
+        if run_slot.waiting:
+            return (
+                f"Queued: the server runs at most {MAX_CONCURRENT_RUNS} "
+                "simulations at once, and yours starts when one finishes "
+                f"(waiting {seconds:.0f} s)."
+            )
+        return f"Elapsed: {seconds:.0f} s"
 
     @output
     @render.ui

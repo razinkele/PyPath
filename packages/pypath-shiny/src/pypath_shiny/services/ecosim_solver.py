@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 import logging
 import math
+import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from numbers import Real
 
@@ -61,6 +63,16 @@ CONTINUOUS_JS = (
 _QS_NOTE = (
     "Quasi-steady groups suit DOP853; on LSODA, BDF and Radau they usually "
     "cost more than integrating the fast groups."
+)
+
+
+# At most this many Ecosim integrations run at once in the app's process, over
+# all sessions. A run cannot be stopped once its thread starts (Cancel only
+# discards the result), and each is CPU-bound: an unbounded pool would let
+# Run-then-Cancel pile up threads that starve every session. Further runs queue.
+MAX_CONCURRENT_RUNS = 2
+RUN_EXECUTOR = ThreadPoolExecutor(
+    max_workers=MAX_CONCURRENT_RUNS, thread_name_prefix="ecosim-run"
 )
 
 
@@ -260,3 +272,51 @@ def result_is_current(state: TaskState, outcome: RunOutcome, current_scenario) -
         and state.run_id == outcome.run_id
         and current_scenario is outcome.source
     )
+
+
+class RunSlot:
+    """One session's in-flight background run.
+
+    Holds the run's ``concurrent.futures.Future`` from submission until the
+    worker finishes. Cancelling the asyncio side does not free the slot while
+    the thread still computes (a thread cannot be stopped); a run cancelled
+    while still queued for a worker is done at once, and frees it.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._future: Future | None = None
+
+    @property
+    def busy(self) -> bool:
+        """True until the held run's future is done (finished or cancelled)."""
+        with self._lock:
+            return self._future is not None and not self._future.done()
+
+    @property
+    def waiting(self) -> bool:
+        """True while the held run is queued for a free worker."""
+        with self._lock:
+            future = self._future
+        return future is not None and not future.running() and not future.done()
+
+    def acquire(self, future: Future) -> None:
+        """Hold ``future``; it is released when it completes.
+
+        Raises
+        ------
+        RuntimeError
+            When the slot still holds a run that is not done.
+        """
+        with self._lock:
+            if self._future is not None and not self._future.done():
+                raise RuntimeError("This session already has a run in flight.")
+            self._future = future
+        # Outside the lock: a future that is already done calls back at once.
+        future.add_done_callback(self.release)
+
+    def release(self, future: Future) -> None:
+        """Forget ``future`` if it is the one held (its done callback)."""
+        with self._lock:
+            if self._future is future:
+                self._future = None
