@@ -34,7 +34,11 @@ from pypath.core.ecopath import (  # noqa: E402
     Rpath,
     ewe_detritus_fate,
 )
-from pypath.core.ecosim_continuous import METHOD_NAMES  # noqa: E402
+from pypath.core.ecosim_continuous import (  # noqa: E402
+    INTERPOLATED_KEYS,
+    METHOD_NAMES,
+    ForcingInterpolant,
+)
 from pypath.core.ecosim_deriv import deriv_vector, fishing_mortality  # noqa: E402
 from pypath.core.params import RpathParams  # noqa: E402
 from pypath.core.stanzas import (  # noqa: E402
@@ -2548,6 +2552,42 @@ def _month_forcing(
     return forcing_dict
 
 
+def _forcing_interpolant(
+    scenario: RsimScenario, setup: RunSetup, kind: str
+) -> Optional[ForcingInterpolant]:
+    """The run's ``ForcingInterpolant`` (``kind`` ``"linear"`` or
+    ``"smooth"``) of the interpolated keys that vary in time, or None.
+
+    The monthly values are ``_month_forcing``'s for months ``1..n_months``
+    of the run (none past it), so a forcing array shorter than the run is
+    filled by its defaults; a key absent from some months' dicts
+    (NutForcing, the link forcing) takes its neutral value 1 there. Keys
+    constant in time are left out: their interpolant is exactly the held
+    value.
+    """
+    months = [
+        _month_forcing(scenario, setup, month, setup.ftime)
+        for month in range(1, setup.n_months + 1)
+    ]
+    monthly = {}
+    for key in INTERPOLATED_KEYS:
+        present = [m[key] for m in months if key in m]
+        if not present:
+            continue
+        shape = np.shape(present[0])
+        series = np.stack(
+            [
+                np.asarray(m[key], dtype=float) if key in m else np.ones(shape)
+                for m in months
+            ]
+        )
+        if not np.all(series == series[0]):
+            monthly[key] = series
+    if not monthly:
+        return None
+    return ForcingInterpolant(monthly, kind=kind)
+
+
 def rsim_run(
     scenario: RsimScenario,
     method: str = "RK4",
@@ -2599,7 +2639,17 @@ def rsim_run(
         BDF and Radau get finite-difference Jacobians that are reused across
         the monthly restarts, ``ecosim_continuous.JacobianReuse``;
         ``"solver"``: the solver forms its own; DOP853 uses none either
-        way). A failed month raises
+        way). ``forcing_interpolation`` is a model option, not a numerical
+        one (opt-in; it changes the equations and so the results):
+        ``"constant"``, the default, holds each month's forcing;
+        ``"linear"`` lets ForcedPrey, ForcedMort, ForcedSearch (with the
+        production forcing), ForcedMigrate, ForcedActresp, NutForcing and
+        the link forcing vary inside the month as a continuous tent through
+        mid-month, and ``"smooth"`` as one quadratic per month, both keeping
+        every monthly mean and non-negative forcing >= 0
+        (``ecosim_continuous.ForcingInterpolant``). Effort, forced F and
+        catch, forced biomass, ForcedRecs, fleet dynamics and quotas stay
+        monthly-held either way. A failed month raises
         ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
         the month, and the run continues from the last state reached. Even
         with ``"warn"``, a handling-time solve that fails inside the
@@ -2815,6 +2865,22 @@ def rsim_run(
             if _cont_opts["jacobian"] == "reuse"
             else None
         )
+        # a model option: forcing varying inside each month (None when no
+        # interpolated key varies in time, or under "constant")
+        _interp_kind = _cont_opts["forcing_interpolation"]
+        _interp = (
+            None
+            if _interp_kind == "constant"
+            else _forcing_interpolant(scenario, setup, _interp_kind)
+        )
+        if _interp_kind != "constant":
+            logger.info(
+                "continuous path: forcing_interpolation=%r (a model option: "
+                "forcing varies inside each month, monthly means kept); "
+                "interpolated keys %s",
+                _interp_kind,
+                [] if _interp is None else list(_interp.keys),
+            )
         solver_info = {
             "method": _cont_method,
             "rtol": _rtol,
@@ -2825,6 +2891,11 @@ def rsim_run(
             ),
             "hden_tol": _cont_opts["hden_tol"],
             "jacobian": _cont_opts["jacobian"],
+            # the model options (opt-in; positivity and fast_groups are the
+            # path's fixed choices for now)
+            "forcing_interpolation": _interp_kind,
+            "positivity": "clip",
+            "fast_groups": "states",
             "corrections": list(rhs.corrections),
             "ignored_switches": list(rhs.ignored_switches),
             "ftime_groups": [] if _ft_groups is None else _ft_groups.tolist(),
@@ -3017,9 +3088,19 @@ def rsim_run(
         else:
             # Continuous path: solve_ivp over the month with the month's
             # forcing, effort, forced F, forced biomass, StanzaPredRatio and
-            # Ftime held; slot 0 and the gear slots keep their values.
+            # Ftime held (with forcing_interpolation, the interpolated keys
+            # vary in time instead); slot 0 and the gear slots keep their
+            # values.
             assert rhs is not None  # built above for the continuous methods
-            rhs.set_month(forcing_dict, state, _forced_mask, _forced_now)
+            rhs.set_month(
+                forcing_dict,
+                state,
+                _forced_mask,
+                _forced_now,
+                forcing_at=None
+                if _interp is None
+                else _interp.for_month(month - 1, dt),
+            )
             _y0 = np.array(state[1 : _n_bio_c + 1], dtype=float, copy=True)
             if _ft_groups is not None:
                 # a start Ftime outside [lower, cap] is clipped (the RHS
@@ -3052,6 +3133,7 @@ def rsim_run(
                     label=_month_label,
                     n_bio=_n_bio_c,
                     jac=_jac,
+                    forcing_interpolation=_interp_kind,
                 )
             except RuntimeError as e:
                 if _month_label in str(e):  # already names the month
@@ -3193,7 +3275,8 @@ def rsim_run(
                 # it was before the stanza update above overwrote the stanza
                 # groups
                 try:
-                    out_hden[month] = rhs.rates(res.y_end)["Hden"]
+                    # under the forcing at the time reached
+                    out_hden[month] = rhs.rates(res.y_end, res.t_reached)["Hden"]
                 except RuntimeError as e:
                     if _month_label in str(e):  # already names the month
                         raise

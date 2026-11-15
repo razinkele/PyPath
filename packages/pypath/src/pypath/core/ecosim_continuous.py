@@ -492,6 +492,142 @@ def neutral_forcing(params_dict: dict) -> dict:
     }
 
 
+#: ``solver_options["forcing_interpolation"]``: each month's forcing held
+#: (the default), or varying inside the month with the monthly means kept
+#: (:class:`ForcingInterpolant`'s two kinds).
+FORCING_INTERPOLATIONS = ("constant", "linear", "smooth")
+
+#: The forcing keys interpolated inside a month. The others (ForcedBio,
+#: ForcedRecs, ForcedEffort, forced F and catch, fleet dynamics, quotas,
+#: StanzaPredRatio) stay monthly-held, so the catch integral F x mean(B)
+#: stays exact.
+INTERPOLATED_KEYS = (
+    "ForcedPrey",
+    "ForcedMort",
+    "ForcedSearch",
+    "PP_forcing",
+    "ForcedMigrate",
+    "ForcedActresp",
+    "NutForcing",
+    "ForcedSearchLink",
+    "ForcedVulLink",
+)
+
+
+class ForcingInterpolant:
+    """Mean-preserving interpolation of monthly forcing inside each month.
+
+    ``monthly`` maps a forcing key to its monthly values, an array of shape
+    ``(n_months, ...)`` (the same ``n_months`` for every key, else
+    ``ValueError``); the arrays are copied, never written. Months are
+    0-based: month ``k`` is row ``k``, and ``s`` in ``[0, 1]`` (clipped) is
+    the fraction of the month.
+
+    The boundary values: inside the series ``b_k = min((m_{k-1} + m_k) / 2,
+    2 m_{k-1}, 2 m_k)`` for a non-negative key and ``(m_{k-1} + m_k) / 2``
+    for a key in ``signed``; at the ends ``b_0 = m_0`` and ``b_N =
+    m_{N-1}``, so nothing past the series is read. With ``kind="linear"``
+    month ``k`` is a continuous tent through ``(0, b_k)``, ``(1/2, c_k)``
+    and ``(1, b_{k+1})``, ``c_k = 2 m_k - (b_k + b_{k+1}) / 2``; it has a
+    kink at mid-month. With ``kind="smooth"`` it is one quadratic, ``b_k (1
+    - s) + b_{k+1} s + 6 (m_k - (b_k + b_{k+1}) / 2) s (1 - s)``. Either way
+    the month's mean is exactly ``m_k``, the values are continuous at the
+    month boundaries, a non-negative key (every key not in ``signed``,
+    whose monthly values are taken to be >= 0) stays >= 0 (``0 <= b <= 2
+    m`` on both sides of every month), and a series constant in time gives
+    exactly that constant.
+    """
+
+    def __init__(
+        self,
+        monthly: dict,
+        signed: frozenset = frozenset({"ForcedMigrate"}),
+        kind: str = "linear",
+    ):
+        if kind not in ("linear", "smooth"):
+            raise ValueError(
+                f"ForcingInterpolant kind must be 'linear' or 'smooth', got {kind!r}"
+            )
+        self.kind = kind
+        self.signed = frozenset(signed)
+        self._m: dict = {}
+        self._b: dict = {}
+        self._inner: dict = {}  # c (linear) or 6 (m - (b_k + b_{k+1}) / 2)
+        n_months: Optional[int] = None
+        for key, series in monthly.items():
+            m = np.array(series, dtype=float, copy=True)
+            if m.ndim == 0 or len(m) == 0:
+                raise ValueError(f"ForcingInterpolant: {key!r} needs one row per month")
+            if n_months is None:
+                n_months = len(m)
+            elif len(m) != n_months:
+                raise ValueError(
+                    f"ForcingInterpolant: {key!r} has {len(m)} months, "
+                    f"another key {n_months}"
+                )
+            b = np.empty((len(m) + 1,) + m.shape[1:])
+            b[0], b[-1] = m[0], m[-1]
+            avg = 0.5 * (m[:-1] + m[1:])
+            if key in self.signed:
+                b[1:-1] = avg
+            else:
+                b[1:-1] = np.minimum(avg, np.minimum(2.0 * m[:-1], 2.0 * m[1:]))
+            mid = 0.5 * (b[:-1] + b[1:])
+            self._m[key] = m
+            self._b[key] = b
+            self._inner[key] = 2.0 * m - mid if kind == "linear" else 6.0 * (m - mid)
+        self.n_months = 0 if n_months is None else n_months
+
+    @property
+    def keys(self) -> tuple:
+        """The interpolated keys."""
+        return tuple(self._m)
+
+    def at(self, month: int, s: float) -> dict:
+        """Every key's value at the fraction ``s`` of month ``month``.
+
+        Each half of the month is written from its own end (the start for
+        ``s <= 1/2``, the end beyond), so a month's ends are exactly its
+        boundary values and a constant series is exactly constant.
+        """
+        k = int(month)
+        if not 0 <= k < self.n_months:
+            raise IndexError(f"month {k} outside 0..{self.n_months - 1}")
+        s = min(max(float(s), 0.0), 1.0)
+        out = {}
+        for key, b in self._b.items():
+            b0, b1, inner = b[k], b[k + 1], self._inner[key][k]
+            if self.kind == "linear":  # inner = c, the mid-month value
+                if s <= 0.5:
+                    out[key] = b0 + (inner - b0) * (2.0 * s)
+                else:
+                    out[key] = b1 + (inner - b1) * (2.0 - 2.0 * s)
+            else:
+                if s <= 0.5:
+                    line = b0 + (b1 - b0) * s
+                else:
+                    line = b1 - (b1 - b0) * (1.0 - s)
+                out[key] = line + inner * (s * (1.0 - s))
+        return out
+
+    def mean(self, month: int, key: str) -> np.ndarray:
+        """Month ``month``'s mean of ``key``: its monthly value, exactly."""
+        return np.array(self._m[key][int(month)], copy=True)
+
+    def for_month(self, month: int, dt: float) -> Callable[[float], dict]:
+        """``forcing_at(t)`` for :meth:`ContinuousRHS.set_month`: the values at
+        time ``t`` of a month of length ``dt`` (``s = t / dt``)."""
+        k = int(month)
+        if not 0 <= k < self.n_months:
+            raise IndexError(f"month {k} outside 0..{self.n_months - 1}")
+        dt = float(dt)
+
+        def forcing_at(t: float) -> dict:
+            return self.at(k, t / dt)
+
+        return forcing_at
+
+
 @dataclass(frozen=True)
 class FeedingTime:
     """The groups whose feeding time is a state of the continuous path.
@@ -644,7 +780,10 @@ class ContinuousRHS:
     ``y`` holds the biomass states of groups ``1..n_bio``, then (with
     ``feeding``) the feeding times of ``feeding.groups``. The month's
     forcing, the non-state slots of the full state vector (slot 0, gears) and
-    the forced groups are held from :meth:`set_month`. Evaluation is a pure
+    the forced groups are held from :meth:`set_month`; with its
+    ``forcing_at`` (a :class:`ForcingInterpolant`'s month) the interpolated
+    keys take their values at the evaluation's ``t``, merged into a new dict
+    over the held one, which is never written. Evaluation is a pure
     function of ``(t, y)`` and one ``deriv_vector`` call: handling time is
     solved inside it, on the consumption kernel, by the solver installed as
     the private ``params_dict``'s ``_hden_solver`` (:func:`solve_hden_kernel`
@@ -692,7 +831,8 @@ class ContinuousRHS:
     :meth:`rates` calls alike; not reset by :meth:`set_month`).
 
     :meth:`exchange` is the net external flux of the biomass states
-    (:func:`exchange_rate`) at an evaluation's rates.
+    (:func:`exchange_rate`) at an evaluation's rates, under the forcing those
+    rates were evaluated with (``rates["_forcing"]``).
     """
 
     def __init__(
@@ -776,6 +916,7 @@ class ContinuousRHS:
             self.ignored_switches,
         )
         self._forcing = neutral_forcing(pd)
+        self._forcing_at: Optional[Callable[[float], dict]] = None
         self._state_full = base
         self._forced = np.zeros(self.n_bio, dtype=bool)
         self._forced_values = np.zeros(self.n_bio)
@@ -806,11 +947,16 @@ class ContinuousRHS:
         state_full: np.ndarray,
         forced_mask: np.ndarray,
         forced_values: np.ndarray,
+        forcing_at: Optional[Callable[[float], dict]] = None,
     ) -> None:
         """Hold the month's forcing, non-state slots and forced groups.
 
         ``forced_mask`` and ``forced_values`` have one entry per group
         (``NUM_GROUPS + 1``, slot 0 included), else ``ValueError``.
+        ``forcing_at(t)`` (None: the month's forcing is held) returns the
+        interpolated keys at the time ``t`` into the month
+        (:meth:`ForcingInterpolant.for_month`); each evaluation merges them
+        over ``forcing_dict``.
         """
         n_full = int(self._pd["NUM_GROUPS"]) + 1
         mask = np.asarray(forced_mask, dtype=bool)
@@ -821,6 +967,7 @@ class ContinuousRHS:
                 f"(NUM_GROUPS + 1), got {mask.shape} and {vals.shape}"
             )
         self._forcing = forcing_dict
+        self._forcing_at = forcing_at
         self._state_full = np.array(state_full, dtype=float, copy=True)
         sl = slice(1, self.n_bio + 1)
         self._forced = np.array(mask[sl], copy=True)
@@ -838,17 +985,35 @@ class ContinuousRHS:
         full[1 : self.n_bio + 1] = live
         return full
 
-    def _evaluate(self, y: np.ndarray, rates: Optional[dict], count: bool):
+    def _forcing_at_time(self, t: float) -> dict:
+        """The forcing at ``t``: the held dict itself, or (with
+        ``forcing_at``) a new dict with the interpolated keys at ``t``."""
+        if self._forcing_at is None:
+            return self._forcing
+        forcing = dict(self._forcing)
+        forcing.update(self._forcing_at(t))
+        return forcing
+
+    def _ftime_of(self, forcing: dict) -> np.ndarray:
+        """``forcing["Ftime"]``, or ones (``deriv_vector``'s default)."""
+        ftime = forcing.get("Ftime")
+        if ftime is None:
+            return np.ones(int(self._pd["NUM_GROUPS"]) + 1)
+        return np.array(ftime, dtype=float, copy=True)
+
+    def _evaluate(
+        self, y: np.ndarray, rates: Optional[dict], count: bool, t: float = 0.0
+    ):
         self.evals += 1
         y = np.asarray(y, dtype=float)
         feeding = self.feeding
-        forcing = self._forcing
+        forcing = self._forcing_at_time(t)
         ftime = ft = None
         if feeding is not None:
             # the feeding times held by this evaluation, in a copy
             ft = y[self.n_bio :]
             y = y[: self.n_bio]
-            ftime = np.array(forcing["Ftime"], dtype=float, copy=True)
+            ftime = self._ftime_of(forcing)
             ftime[feeding.groups] = np.clip(
                 ft, feeding.lower, feeding.cap[feeding.groups]
             )
@@ -900,7 +1065,8 @@ class ContinuousRHS:
             dft = self._feeding_derivative(full, forcing, out, ft, ftime)
             dy = np.concatenate([dy, dft])
         if out is not None:
-            out["Ftime"] = np.array(forcing["Ftime"], dtype=float, copy=True)
+            out["Ftime"] = self._ftime_of(forcing)
+            out["_forcing"] = forcing  # as applied; not to be written
         return dy, h
 
     def _kernel_check(
@@ -981,21 +1147,25 @@ class ContinuousRHS:
         return 12.0 * (target - ft)
 
     def __call__(self, t: float, y: np.ndarray) -> np.ndarray:
-        return self._evaluate(y, None, True)[0]
+        return self._evaluate(y, None, True, t)[0]
 
-    def rates(self, y: np.ndarray) -> dict:
-        """``deriv_vector``'s rates at ``y``, with ``"Hden"`` the solved Hden
-        (None without handling time) and ``"Ftime"`` the month's feeding time
-        as the evaluation used it (full length); no stats."""
+    def rates(self, y: np.ndarray, t: float = 0.0) -> dict:
+        """``deriv_vector``'s rates at ``(t, y)``, with ``"Hden"`` the solved
+        Hden (None without handling time), ``"Ftime"`` the month's feeding
+        time as the evaluation used it (full length) and ``"_forcing"`` the
+        forcing dict it applied (not to be written); no stats."""
         out: dict = {}
-        _, h = self._evaluate(y, out, False)
+        _, h = self._evaluate(y, out, False, t)
         out["Hden"] = h
         return out
 
     def exchange(self, rates: dict, y: np.ndarray) -> float:
         """:func:`exchange_rate` of ``rates`` (from :meth:`rates` at ``y``),
-        over the full state the evaluation saw; feeding times do not enter."""
-        return exchange_rate(rates, self._full_state(y), self._pd, self._forcing)
+        over the full state the evaluation saw and under the forcing it
+        applied (``rates["_forcing"]``, else the held forcing); feeding times
+        do not enter."""
+        forcing = rates.get("_forcing", self._forcing)
+        return exchange_rate(rates, self._full_state(y), self._pd, forcing)
 
 
 #: The continuous methods (lower case) and their ``solve_ivp`` names; the
@@ -1022,14 +1192,16 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
     > 0 or ``n_bio`` values > 0), ``corrections`` (True or False, default
     True), ``on_failure`` (``"raise"``, the default, or ``"warn"``),
     ``hden_tol`` (the handling-time tolerance, a number in (0, 1e-8],
-    default 1e-12) and ``jacobian`` (``"reuse"``, the default:
-    :class:`JacobianReuse`; or ``"solver"``: the solver's own Jacobians);
-    other keys and invalid values raise ``ValueError``.
+    default 1e-12), ``jacobian`` (``"reuse"``, the default:
+    :class:`JacobianReuse`; or ``"solver"``: the solver's own Jacobians) and
+    ``forcing_interpolation`` (``"constant"``, the default, ``"linear"`` or
+    ``"smooth"``: a model option, :class:`ForcingInterpolant`); other keys
+    and invalid values raise ``ValueError``.
 
     Returns a dict with keys ``method`` (lower case), ``rtol`` (float),
     ``atol`` (None when not given, else an ndarray, 0-d for a scalar),
-    ``on_failure``, ``corrections`` (bool), ``hden_tol`` (float) and
-    ``jacobian``.
+    ``on_failure``, ``corrections`` (bool), ``hden_tol`` (float),
+    ``jacobian`` and ``forcing_interpolation``.
     """
     if not isinstance(method, str) or method.lower() not in METHOD_NAMES:
         raise ValueError(
@@ -1037,14 +1209,26 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
             f"{', '.join(repr(m) for m in ('RK4', 'AB') + tuple(METHOD_NAMES))}"
         )
     _cont_opts = dict(solver_options or {})
-    _unknown_opts = sorted(
-        set(_cont_opts)
-        - {"rtol", "atol", "corrections", "on_failure", "hden_tol", "jacobian"}
+    _known_opts = (
+        "rtol",
+        "atol",
+        "corrections",
+        "on_failure",
+        "hden_tol",
+        "jacobian",
+        "forcing_interpolation",
     )
+    _unknown_opts = sorted(set(_cont_opts) - set(_known_opts))
     if _unknown_opts:
         raise ValueError(
-            f"Unknown solver_options {_unknown_opts}: use 'rtol', 'atol', "
-            "'corrections', 'on_failure', 'hden_tol', 'jacobian'"
+            f"Unknown solver_options {_unknown_opts}: use "
+            f"{', '.join(repr(k) for k in _known_opts)}"
+        )
+    _interp = _cont_opts.get("forcing_interpolation", "constant")
+    if not isinstance(_interp, str) or _interp not in FORCING_INTERPOLATIONS:
+        raise ValueError(
+            "solver_options forcing_interpolation must be 'constant', 'linear' "
+            f"or 'smooth', got {_interp!r}"
         )
     _jacobian = _cont_opts.get("jacobian", "reuse")
     if not isinstance(_jacobian, str) or _jacobian not in JACOBIAN_MODES:
@@ -1102,11 +1286,27 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
         "corrections": bool(_corrections),
         "hden_tol": float(_hden_tol),
         "jacobian": _jacobian,
+        "forcing_interpolation": _interp,
     }
 
 
 _Y_FLOOR = 1e-20
 _GL_X, _GL_W = np.polynomial.legendre.leggauss(6)
+_GL3_X, _GL3_W = np.polynomial.legendre.leggauss(3)
+
+
+def _split_nodes(t_reach: float, dt: float) -> tuple[np.ndarray, np.ndarray]:
+    """Nodes and weights of the mean over ``[0, t_reach]`` for the tent's
+    kink at ``dt / 2``: 3-point Gauss-Legendre on ``[0, dt / 2]`` and on
+    ``[dt / 2, t_reach]``, each weighted by its length; the 6-point rule on
+    ``[0, t_reach]`` when ``t_reach <= dt / 2`` (no kink inside)."""
+    half = 0.5 * dt
+    if t_reach <= half:
+        return 0.5 * t_reach * (_GL_X + 1.0), 0.5 * _GL_W
+    pieces = ((0.0, half), (half, t_reach))
+    nodes = np.concatenate([a + 0.5 * (b - a) * (_GL3_X + 1.0) for a, b in pieces])
+    weights = np.concatenate([0.5 * (b - a) / t_reach * _GL3_W for a, b in pieces])
+    return nodes, weights
 
 
 def default_atol(b0_bio: np.ndarray, rtol: float = 1e-6) -> np.ndarray:
@@ -1281,6 +1481,7 @@ def integrate_month(
     n_bio: Optional[int] = None,
     first_step: Optional[float] = None,
     jac: Optional[Callable] = None,
+    forcing_interpolation: str = "constant",
 ) -> MonthResult:
     """Solve one month with ``solve_ivp`` and average rates by quadrature.
 
@@ -1302,11 +1503,25 @@ def integrate_month(
     such as :meth:`JacobianReuse.for_month`'s) unless it is None or the method
     is DOP853, which uses none.
 
+    ``forcing_interpolation`` (one of ``FORCING_INTERPOLATIONS``, else
+    ``ValueError``) is the run's: with ``"linear"`` the tent's kink at
+    mid-month splits the quadrature into 3-point Gauss-Legendre on each
+    half (still six nodes; :func:`_split_nodes`), and with ``"linear"`` or
+    ``"smooth"`` the rates are evaluated as ``rhs.rates(y, t)`` at the node
+    times, so they see the forcing applied there. With ``"constant"`` the
+    6-point rule and ``rhs.rates(y)`` stay as they were.
+
     ``rhs.stats``, when the right-hand side keeps one (``ContinuousRHS``,
     reset by its ``set_month``), counts the solver's evaluations, the start
     check and ``jac``'s columns included; the quadrature's ``rhs.rates``
     calls do not count.
     """
+    if forcing_interpolation not in FORCING_INTERPOLATIONS:
+        raise ValueError(
+            "forcing_interpolation must be 'constant', 'linear' or 'smooth', "
+            f"got {forcing_interpolation!r}"
+        )
+    timed = forcing_interpolation != "constant"  # rates at the node times
     y0 = np.asarray(y0, dtype=float)
     n = len(y0) if n_bio is None else int(n_bio)
     if not np.all(np.isfinite(np.asarray(rhs(0.0, y0), dtype=float))):
@@ -1353,11 +1568,15 @@ def integrate_month(
     dense = sol.sol
     weights = np.array([1.0])
     ys = y0[None, :]
+    times = np.zeros(1)  # the start state's
     if dense is not None and t_reach > 0.0:
-        nodes = 0.5 * t_reach * (_GL_X + 1.0)
+        if forcing_interpolation == "linear":
+            nodes, w_nodes = _split_nodes(t_reach, dt)
+        else:
+            nodes, w_nodes = 0.5 * t_reach * (_GL_X + 1.0), 0.5 * _GL_W
         cand = np.array([np.asarray(dense(t), dtype=float) for t in nodes])
         if np.all(np.isfinite(cand)):
-            weights, ys = 0.5 * _GL_W, cand
+            weights, ys, times = w_nodes, cand, nodes
         else:
             _fail("non-finite dense output", "using the start state for the means")
             degraded = True
@@ -1373,11 +1592,11 @@ def integrate_month(
         out[:, :n] = np.maximum(out[:, :n], 0.0)
         return out
 
-    def _mean_rates(w_nodes, y_nodes):
+    def _mean_rates(w_nodes, y_nodes, t_nodes):
         food = loss = pool = None
         exch = 0.0 if exchange is not None else float("nan")
-        for w, y in zip(w_nodes, y_nodes):
-            r = rhs.rates(y)
+        for w, y, t in zip(w_nodes, y_nodes, t_nodes):
+            r = rhs.rates(y, float(t)) if timed else rhs.rates(y)
             fg = np.asarray(r["FoodGain"], dtype=float)
             lp = np.asarray(r["LossPropToB"], dtype=float)
             if not (
@@ -1401,13 +1620,13 @@ def integrate_month(
 
     ys = _clipped(ys)
     y_mean = weights @ ys[:, :n]
-    means = _mean_rates(weights, ys)
+    means = _mean_rates(weights, ys, times)
     if means is None:
         _fail("non-finite rates at a quadrature node", "using the start state's rates")
         degraded = True
         weights, ys = np.array([1.0]), _clipped(y0[None, :])
         y_mean = weights @ ys[:, :n]
-        means = _mean_rates(weights, ys)
+        means = _mean_rates(weights, ys, np.zeros(1))
         if means is None:
             raise RuntimeError("month integration failed: non-finite start rates")
     food, loss, exch_mean, pool_mean = means
