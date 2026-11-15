@@ -1,6 +1,10 @@
 """Ecosim simulation page module."""
 
+import asyncio
+import copy
+import itertools
 import logging
+import time
 
 import numpy as np
 import pandas as pd
@@ -46,10 +50,12 @@ from pypath_shiny.services.ecosim_solver import (
     INTERPOLATION_CHOICES,
     METHOD_CHOICES,
     PRESET_CHOICES,
+    RunOutcome,
     SolverRequest,
     build_solver_request,
     continuous_failure_hint,
     is_continuous,
+    result_is_current,
     run_ecosim,
 )
 from pypath_shiny.services.notifications import (
@@ -83,7 +89,6 @@ from pypath_shiny.services.tasks import (
     apply_if_latest,
     finish_task,
     new_running_task,
-    update_task_progress,
 )
 
 
@@ -137,6 +142,14 @@ def _solver_request_or_notify(
     for note in request.notes:
         notify_info(note, duration=8)
     return request
+
+
+# Short method names for messages: LSODA, BDF, DOP853, Radau, Runge-Kutta 4...
+_METHOD_NAMES = {
+    method: label.split(" (")[0]
+    for group in METHOD_CHOICES.values()
+    for method, label in group.items()
+}
 
 
 def detritus_self_fate_message(model) -> str | None:
@@ -870,6 +883,48 @@ def ecosim_server(
     show_help_timeseries = reactive.Value(False)
     show_help_catch = reactive.Value(False)
     show_help_summary = reactive.Value(False)
+
+    # The run last launched: its method names a failure that has no outcome
+    # to read, and its start time feeds the elapsed-seconds text. Plain state,
+    # written on the loop only; the worker never reads it.
+    launched = {"run_id": None, "method": None, "started": None}
+    retired_runs = itertools.count(1)
+
+    @reactive.extended_task
+    async def _ecosim_task(run_id, source, scen, request, diet):
+        """Integrate on a worker thread, off the event loop.
+
+        ``scen`` is a deep copy of ``source``, the page's scenario object. The
+        worker reads no input and sends no notification: the result effect
+        does both, on the loop.
+        """
+        out = await asyncio.to_thread(run_ecosim, scen, request, diet_rewiring=diet)
+        return RunOutcome(run_id, source, out, request, diet is not None)
+
+    def _finish_run(
+        run_id: str, *, success: bool, message: str, error: str | None = None
+    ) -> None:
+        """Finish the running task, if it is still ``run_id``."""
+        state = sim_task_state.get()
+        if state.status is not TaskStatus.RUNNING:
+            return
+        sim_task_state.set(
+            apply_if_latest(
+                state,
+                run_id=run_id,
+                updater=lambda s: finish_task(
+                    s, success=success, message=message, error=error
+                ),
+            )
+        )
+
+    @reactive.effect
+    @reactive.event(model_data, ignore_init=True)
+    def _retire_run_on_model_change():
+        """A new model retires the running simulation and clears the output."""
+        _ecosim_task.cancel()
+        sim_task_state.set(TaskState(run_id=f"ecosim-retired-{next(retired_runs)}"))
+        sim_output.set(None)
 
     def _input_or_default(name: str, default):
         """Read a UI input value with fallback for conditional controls."""
@@ -1879,7 +1934,11 @@ def ecosim_server(
             scenario.set(new_scenario)
             if sim_scenario is not None:
                 sim_scenario.set(new_scenario)
-            # A new scenario invalidates results from the previous one
+            # A new scenario invalidates results from the previous one, and
+            # retires a run still integrating it: a late outcome then fails
+            # result_is_current on both its run_id and its scenario.
+            _ecosim_task.cancel()
+            sim_task_state.set(TaskState(run_id=f"ecosim-retired-{next(retired_runs)}"))
             sim_output.set(None)
             if sim_results is not None:
                 sim_results.set(None)
@@ -2004,30 +2063,25 @@ def ecosim_server(
     @reactive.effect
     @reactive.event(input.btn_run_sim)
     def _run_simulation():
-        """Run the Ecosim simulation."""
+        """Start the Ecosim simulation on a worker thread (``_ecosim_task``)."""
         scen = scenario.get()
 
         if scen is None:
             notify_warning("Create a scenario first")
             return
 
+        # invoke() would queue behind a running task. Refuse instead, before
+        # any state change, so the live run keeps its run_id.
+        if (
+            sim_task_state.get().status is TaskStatus.RUNNING
+            or _ecosim_task.status() == "running"
+        ):
+            notify_warning("A simulation is already running. Cancel it first.")
+            return
+
         run_id = f"ecosim-run-{input.btn_run_sim()}"
-        sim_task_state.set(new_running_task(run_id, "Preparing simulation"))
-
-        def _update_latest(updater):
-            sim_task_state.set(
-                apply_if_latest(sim_task_state.get(), run_id=run_id, updater=updater)
-            )
-
         method = _input_or_default("integration_method", "RK4")
         try:
-            _update_latest(
-                lambda s: update_task_progress(
-                    s,
-                    message="Applying forcing and calibration settings",
-                    progress=20.0,
-                )
-            )
             continuous = is_continuous(method)
             # Diet rewiring is not implemented, so it is never requested.
             request = _solver_request_or_notify(
@@ -2052,34 +2106,40 @@ def ecosim_server(
                 else QS_RATE_DEFAULT,
             )
             if request is None:
-                _update_latest(
-                    lambda s: finish_task(
-                        s, success=False, message="Simulation not started"
-                    )
-                )
                 return
 
             _apply_biomass_forcing(scen)
-
-            _update_latest(
-                lambda s: update_task_progress(
-                    s,
-                    message="Integrating Ecosim equations",
-                    progress=50.0,
-                )
+            # The worker integrates its own copy; ``scen`` stays the page's
+            # scenario object, which the result is checked against.
+            run_scen = copy.deepcopy(scen)
+            years = run_scen.fishing.ForcedEffort.shape[0] // 12
+            name = _METHOD_NAMES.get(request.method, request.method)
+            launched.update(
+                run_id=run_id, method=request.method, started=time.monotonic()
             )
-
+            sim_task_state.set(
+                new_running_task(run_id, f"Integrating with {name}, {years} years")
+            )
             notify_info("Running simulation...", duration=2)
-            output = run_ecosim(scen, request, diet_rewiring=None)
-            output.run_request = request
+            _ecosim_task.invoke(run_id, scen, run_scen, request, diet=None)
 
-            _update_latest(
-                lambda s: update_task_progress(
-                    s,
-                    message="Post-processing outputs",
-                    progress=85.0,
-                )
+        except Exception as e:
+            logger.exception("Simulation could not start")
+            err_text = str(e)
+            hint = continuous_failure_hint(method)
+            notify_error(f"Simulation error: {err_text}" + (f" {hint}" if hint else ""))
+            _finish_run(
+                run_id, success=False, message="Simulation failed", error=err_text
             )
+
+    def _land_result(outcome: RunOutcome) -> None:
+        """Show a current run's output and its messages (on the loop)."""
+        output = outcome.output
+        scen = outcome.source
+        method = outcome.request.method
+        continuous = is_continuous(method)
+        try:
+            output.run_request = outcome.request
 
             controls_metadata = scenario_controls_metadata.get() or {}
             if isinstance(output.params, dict):
@@ -2146,33 +2206,71 @@ def ecosim_server(
                 if output is not None
                 else "Simulation complete."
             )
-            _update_latest(lambda s: finish_task(s, success=True, message=final_msg))
+            _finish_run(outcome.run_id, success=True, message=final_msg)
 
         except Exception as e:
-            logger.exception("Simulation failed")
+            logger.exception("Showing the simulation result failed")
             err_text = str(e)
-            hint = continuous_failure_hint(method)
-            notify_error(f"Simulation error: {err_text}" + (f" {hint}" if hint else ""))
-            _update_latest(
-                lambda s, err=err_text: finish_task(
-                    s,
-                    success=False,
-                    message="Simulation failed",
-                    error=err,
-                )
+            notify_error(f"Simulation error: {err_text}")
+            _finish_run(
+                outcome.run_id,
+                success=False,
+                message="Simulation failed",
+                error=err_text,
             )
+
+    @reactive.effect
+    def _apply_ecosim_result():
+        """Land the task's outcome. Depends on the task's status only."""
+        status = _ecosim_task.status()
+        # Everything else is read isolated, so this effect's own state
+        # changes (finish_task) do not re-trigger it.
+        with reactive.isolate():
+            if status == "success":
+                outcome = _ecosim_task.result()
+                if result_is_current(sim_task_state.get(), outcome, scenario.get()):
+                    _land_result(outcome)
+                else:
+                    logger.debug(
+                        "Dropped a stale Ecosim result (run %s)", outcome.run_id
+                    )
+            elif status == "error":
+                state = sim_task_state.get()
+                if (
+                    state.status is not TaskStatus.RUNNING
+                    or state.run_id != launched["run_id"]
+                ):
+                    logger.debug("Dropped a stale Ecosim error (state %s)", state)
+                    return
+                try:
+                    _ecosim_task.result()
+                except Exception as e:
+                    logger.error("Simulation failed", exc_info=e)
+                    err_text = str(e)
+                    hint = continuous_failure_hint(launched["method"])
+                    notify_error(
+                        f"Simulation error: {err_text}" + (f" {hint}" if hint else "")
+                    )
+                    _finish_run(
+                        state.run_id,
+                        success=False,
+                        message="Simulation failed",
+                        error=err_text,
+                    )
+            # "cancelled": whoever cancelled has already set the state.
 
     @reactive.effect
     @reactive.event(input.btn_cancel_sim)
     def _cancel_simulation():
-        """Handle simulation cancel button."""
+        """Cancel the running simulation; its result is discarded."""
         task_state = sim_task_state.get()
 
         # Only allow cancellation if task is running
         if task_state.status is TaskStatus.RUNNING:
-            # Mark as cancelled
-            from pypath_shiny.services.tasks import finish_task
-
+            # asyncio.to_thread cannot stop the worker thread: the computation
+            # runs to its end in the background, and the run_id guard
+            # (result_is_current) drops whatever it returns.
+            _ecosim_task.cancel()
             sim_task_state.set(
                 finish_task(
                     task_state,
@@ -2181,7 +2279,10 @@ def ecosim_server(
                     error="Simulation was cancelled",
                 )
             )
-            notify_warning("Simulation cancelled by user")
+            notify_warning(
+                "Simulation cancelled. The computation finishes in the "
+                "background and its result is discarded."
+            )
 
     @output
     @render.ui
@@ -2243,6 +2344,16 @@ def ecosim_server(
         )
 
     @output
+    @render.text
+    def sim_elapsed():
+        """Seconds since the running simulation started, ticking every second."""
+        state = sim_task_state.get()
+        if state.status is not TaskStatus.RUNNING or state.run_id != launched["run_id"]:
+            return ""
+        reactive.invalidate_later(1)
+        return f"Elapsed: {time.monotonic() - launched['started']:.0f} s"
+
+    @output
     @render.ui
     def progress_display():
         """Display progress/completion info."""
@@ -2251,18 +2362,22 @@ def ecosim_server(
         task_state = sim_task_state.get()
 
         if task_state.status is TaskStatus.RUNNING:
+            # Indeterminate: the core reports no per-month progress. The
+            # elapsed seconds tick in their own output, so this block and its
+            # Cancel button are not rebuilt every second.
             return ui.div(
                 ui.tags.h5("Simulation Progress"),
                 ui.div(
                     ui.div(
-                        f"{task_state.progress:.0f}%",
-                        class_="progress-bar",
+                        class_="progress-bar progress-bar-striped progress-bar-animated",
                         role="progressbar",
-                        style=f"width: {task_state.progress:.0f}%",
+                        style="width: 100%",
+                        aria_label="Simulation running",
                     ),
                     class_="progress",
                 ),
-                ui.p(task_state.message, class_="text-muted mt-2"),
+                ui.p(task_state.message, class_="text-muted mt-2 mb-0"),
+                ui.p(ui.output_text("sim_elapsed", inline=True), class_="text-muted"),
                 ui.input_action_button(
                     "btn_cancel_sim",
                     ui.span(

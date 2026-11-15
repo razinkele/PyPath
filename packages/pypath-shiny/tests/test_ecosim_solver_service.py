@@ -1,13 +1,17 @@
 """Tests for the Ecosim solver request service."""
 
+import asyncio
+import copy
 import itertools
 import logging
+import threading
 
 import numpy as np
 import pytest
 from pypath.core.ecosim import CONTINUOUS_METHODS, rsim_scenario
 from pypath.core.ecosim_continuous import QS_RATE_DEFAULT, continuous_options
 from pypath.core.forcing import DietRewiring
+from pypath.examples import example_ecosim_scenario
 
 from pypath_shiny.services import ecosim_solver as svc
 from pypath_shiny.services.ecosim_solver import (
@@ -17,11 +21,14 @@ from pypath_shiny.services.ecosim_solver import (
     PARITY_METHODS,
     PRESET_CHOICES,
     TOLERANCE_PRESETS,
+    RunOutcome,
     SolverRequest,
     build_solver_request,
     is_continuous,
+    result_is_current,
     run_ecosim,
 )
+from pypath_shiny.services.tasks import TaskState, finish_task, new_running_task
 
 ALL_METHODS = tuple(PARITY_METHODS) + tuple(CONTINUOUS_METHODS)
 
@@ -177,3 +184,60 @@ def test_short_runs_on_every_method(method, rpath_params, balanced_rpath_model):
         assert out.solver_info["method"] == method
     else:
         assert out.solver_info is None
+
+
+def test_result_is_current():
+    source = {"months": [1, 2, 3]}
+    request = SolverRequest("lsoda", {})
+    output = object()
+    running = new_running_task("ecosim-run-2", "Integrating with LSODA, 2 years")
+    outcome = RunOutcome("ecosim-run-2", source, output, request, False)
+    assert outcome.output is output
+    assert outcome.request is request
+    assert outcome.diet_enabled is False
+
+    assert result_is_current(running, outcome, source)
+    # superseded: an older run's outcome
+    older = RunOutcome("ecosim-run-1", source, output, request, False)
+    assert not result_is_current(running, older, source)
+    # finished, or cancelled by the user (finish_task with success=False)
+    done = finish_task(running, success=True, message="Simulation complete")
+    assert not result_is_current(done, outcome, source)
+    cancelled = finish_task(running, success=False, message="Cancelled by user")
+    assert not result_is_current(cancelled, outcome, source)
+    # retired by Create Scenario or a model load
+    retired = TaskState(run_id="ecosim-retired-1")
+    assert not result_is_current(retired, outcome, source)
+    assert not result_is_current(TaskState(run_id="ecosim-run-2"), outcome, source)
+    # the scenario was replaced, even by an equal deep copy
+    replica = copy.deepcopy(source)
+    assert replica == source
+    assert not result_is_current(running, outcome, replica)
+    assert not result_is_current(running, outcome, None)
+
+
+def test_threaded_runs_match_serial(rpath_params, balanced_rpath_model):
+    small = rsim_scenario(balanced_rpath_model, rpath_params, years=range(1, 3))
+    baltic = example_ecosim_scenario(
+        "Central_Baltic", years=range(1, 3), fast_group_rule="ewe"
+    )
+    jobs = [
+        (small, build_solver_request("lsoda")),
+        (baltic, build_solver_request("RK4")),
+    ]
+    serial = [run_ecosim(copy.deepcopy(s), r).out_Biomass for s, r in jobs]
+
+    start = threading.Barrier(len(jobs))
+
+    def run_together(scen, request):
+        start.wait(timeout=10)
+        return run_ecosim(scen, request)
+
+    async def both():
+        return await asyncio.gather(
+            *(asyncio.to_thread(run_together, copy.deepcopy(s), r) for s, r in jobs)
+        )
+
+    threaded = [out.out_Biomass for out in asyncio.run(both())]
+    for alone, together in zip(serial, threaded):
+        assert np.array_equal(alone, together)

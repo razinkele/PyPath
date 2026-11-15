@@ -19,6 +19,8 @@ from pypath.core.ecosim_advanced import rsim_run_advanced
 from pypath.core.ecosim_continuous import QS_RATE_DEFAULT
 from pypath.core.forcing import DietRewiring
 
+from pypath_shiny.services.tasks import TaskState, TaskStatus
+
 logger = logging.getLogger(__name__)
 
 PARITY_METHODS = ("RK4", "AB")
@@ -217,3 +219,44 @@ def run_ecosim(
             solver_options=request.solver_options,
         )
     return rsim_run(scenario, method=request.method)
+
+
+@dataclass(frozen=True, eq=False)
+class RunOutcome:
+    """A finished background run, as the page's extended task returns it.
+
+    Parameters
+    ----------
+    run_id : str
+        The ``TaskState.run_id`` the run was started under.
+    source : RsimScenario
+        The scenario object the run was started from (the run itself used a
+        deep copy of it).
+    output : RsimOutput
+        The run's output.
+    request : SolverRequest
+        The request the run used.
+    diet_enabled : bool
+        Whether diet rewiring was passed to the run.
+    """
+
+    run_id: str
+    source: object
+    output: RsimOutput
+    request: SolverRequest
+    diet_enabled: bool
+
+
+def result_is_current(state: TaskState, outcome: RunOutcome, current_scenario) -> bool:
+    """Whether a finished run may still land on the page.
+
+    True only while ``state`` is RUNNING under the outcome's ``run_id`` and the
+    page still holds the very scenario object the run started from. A run that
+    was superseded, cancelled or retired, or whose scenario was replaced (even
+    by an equal copy), is stale.
+    """
+    return (
+        state.status is TaskStatus.RUNNING
+        and state.run_id == outcome.run_id
+        and current_scenario is outcome.source
+    )

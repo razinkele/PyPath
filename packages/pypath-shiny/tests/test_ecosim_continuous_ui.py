@@ -148,7 +148,10 @@ def _ecosim_tree():
 
 def _find_function(tree, name):
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == name
+        ):
             return node
     raise AssertionError(f"{name} not found")
 
@@ -238,18 +241,183 @@ def test_continuous_failure_hint():
     )
 
 
-def test_run_simulation_goes_through_the_service():
-    calls = _calls(_find_function(_ecosim_tree(), "_run_simulation"))
-    assert "run_ecosim" in calls
+def test_run_simulation_invokes_the_task():
+    tree = _ecosim_tree()
+    calls = _calls(_find_function(tree, "_run_simulation"))
+    assert "_ecosim_task.invoke" in calls
+    assert "copy.deepcopy" in calls
+    assert "run_ecosim" not in calls
     assert "_solver_request_or_notify" in calls
     assert "rsim_run" not in calls
     assert "rsim_run_advanced" not in calls
     assert "DietRewiring" not in calls
+    # run_ecosim is reached only through the extended task, on a worker thread
+    task = _find_function(tree, "_ecosim_task")
+    assert isinstance(task, ast.AsyncFunctionDef)
+    assert [ast.unparse(d) for d in task.decorator_list] == ["reactive.extended_task"]
+    to_thread = [
+        c
+        for c in ast.walk(task)
+        if isinstance(c, ast.Call) and ast.unparse(c.func) == "asyncio.to_thread"
+    ]
+    assert len(to_thread) == 1
+    assert ast.unparse(to_thread[0].args[0]) == "run_ecosim"
+    page_calls = _calls(tree)
+    assert "run_ecosim" not in page_calls
+    assert "DietRewiring" not in page_calls
 
 
 def test_run_simulation_never_builds_diet_rewiring_or_reports_it():
-    src = ast.unparse(_find_function(_ecosim_tree(), "_run_simulation"))
-    assert "Diet rewiring was applied" not in src
-    assert "enable_diet_rewiring" not in src
-    assert "diet_rewiring=False" in src
-    assert "diet_rewiring=None" in src
+    tree = _ecosim_tree()
+    run_src = ast.unparse(_find_function(tree, "_run_simulation"))
+    land_src = ast.unparse(_find_function(tree, "_land_result"))
+    for src in (run_src, land_src):
+        assert "Diet rewiring was applied" not in src
+        assert "enable_diet_rewiring" not in src
+    assert "diet_rewiring=False" in run_src
+    # The task keeps a diet argument (ruling S3); the page always passes None.
+    assert "diet=None" in run_src
+    assert "diet_rewiring=diet" in ast.unparse(_find_function(tree, "_ecosim_task"))
+
+
+# --- runs off the event loop ------------------------------------------------
+
+
+def _is_effect_on(node, source):
+    decorators = [ast.unparse(d) for d in node.decorator_list]
+    return "reactive.effect" in decorators and any(
+        d.startswith("reactive.event(") and source in d for d in decorators
+    )
+
+
+def _invalidate_later_calls(node):
+    return [
+        c
+        for c in ast.walk(node)
+        if isinstance(c, ast.Call) and ast.unparse(c.func).endswith("invalidate_later")
+    ]
+
+
+def test_new_scenario_retires_the_run():
+    tree = _ecosim_tree()
+    create = _find_function(tree, "_create_scenario")
+    model_effects = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef) and _is_effect_on(n, "model_data")
+    ]
+    retirers = [n for n in model_effects if "_ecosim_task.cancel" in _calls(n)]
+    assert len(retirers) == 1
+    for fn in (create, retirers[0]):
+        assert "_ecosim_task.cancel" in _calls(fn), fn.name
+        src = ast.unparse(fn)
+        assert "ecosim-retired-" in src, fn.name
+        assert "sim_output.set(None)" in src, fn.name
+    # Only the elapsed-seconds text ticks; the Cancel button is never rebuilt.
+    elapsed = _find_function(tree, "sim_elapsed")
+    assert len(_invalidate_later_calls(elapsed)) >= 1
+    assert len(_invalidate_later_calls(tree)) == len(_invalidate_later_calls(elapsed))
+
+
+def _session_names(node):
+    found = []
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name) and (
+            child.id in {"input", "session", "ui"} or child.id.startswith("notify_")
+        ):
+            found.append(child.id)
+        elif isinstance(child, ast.Attribute) and child.attr.startswith("notify_"):
+            found.append(ast.unparse(child))
+    return found
+
+
+def test_worker_is_session_free():
+    from pypath_shiny.services import ecosim_solver
+
+    tree = _ecosim_tree()
+    task = _find_function(tree, "_ecosim_task")
+    service_tree = ast.parse(Path(ecosim_solver.__file__).read_text(encoding="utf-8"))
+    run = _find_function(service_tree, "run_ecosim")
+    assert _session_names(ast.Module(body=task.body, type_ignores=[])) == []
+    assert _session_names(run) == []
+    # The worker reads its arguments and its own locals, and nothing from the
+    # session's closure.
+    names = [n for stmt in task.body for n in ast.walk(stmt) if isinstance(n, ast.Name)]
+    params = {a.arg for a in task.args.args}
+    local = {n.id for n in names if isinstance(n.ctx, ast.Store)}
+    loads = {n.id for n in names if isinstance(n.ctx, ast.Load)}
+    assert loads - params - local == {"asyncio", "run_ecosim", "RunOutcome"}
+    # The service imports no Shiny (and so no notifications); its one app
+    # import, the task-state module, imports none either.
+    from pypath_shiny.services import tasks
+
+    tasks_tree = ast.parse(Path(tasks.__file__).read_text(encoding="utf-8"))
+    for module_tree in (service_tree, tasks_tree):
+        for node in ast.walk(module_tree):
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                assert not module.startswith("shiny"), module
+                if module.startswith("pypath_shiny"):
+                    assert module == "pypath_shiny.services.tasks", module
+            elif isinstance(node, ast.Import):
+                assert not any(a.name.startswith("shiny") for a in node.names)
+    source = Path(ecosim_page.__file__).read_text(encoding="utf-8")
+    assert "asyncio.to_thread(run_ecosim" in source
+
+
+def test_result_effect_depends_on_the_task_status_only():
+    tree = _ecosim_tree()
+    effect = _find_function(tree, "_apply_ecosim_result")
+    assert [ast.unparse(d) for d in effect.decorator_list] == ["reactive.effect"]
+    outside, inside = [], []
+
+    def visit(node, isolated):
+        if isinstance(node, ast.With) and any(
+            ast.unparse(item.context_expr) == "reactive.isolate()"
+            for item in node.items
+        ):
+            isolated = True
+        if isinstance(node, ast.Call):
+            (inside if isolated else outside).append(ast.unparse(node.func))
+        for child in ast.iter_child_nodes(node):
+            visit(child, isolated)
+
+    for stmt in effect.body:
+        visit(stmt, False)
+    assert outside == ["_ecosim_task.status"]
+    for name in (
+        "_ecosim_task.result",
+        "result_is_current",
+        "sim_task_state.get",
+        "scenario.get",
+        "_land_result",
+    ):
+        assert name in inside, name
+
+
+def test_cancel_discards_the_result():
+    cancel = _find_function(_ecosim_tree(), "_cancel_simulation")
+    assert "_ecosim_task.cancel" in _calls(cancel)
+    src = ast.unparse(cancel)
+    assert "background" in src
+    assert "discarded" in src
+
+
+def test_progress_is_indeterminate_and_keeps_cancel():
+    progress = _find_function(_ecosim_tree(), "progress_display")
+    src = ast.unparse(progress)
+    assert "progress-bar-striped progress-bar-animated" in src
+    assert "ui.output_text('sim_elapsed'" in src
+    assert "btn_cancel_sim" in src
+    assert "task_state.progress" not in src
+
+
+def test_run_simulation_refuses_while_running():
+    run = _find_function(_ecosim_tree(), "_run_simulation")
+    src = ast.unparse(run)
+    assert "A simulation is already running. Cancel it first." in src
+    # The refusal comes before any state change, so a refused click never
+    # replaces the live run's id.
+    refusal = src.index("A simulation is already running")
+    assert src.index("sim_task_state.set(") > refusal
+    assert src.index("_ecosim_task.invoke(") > refusal
