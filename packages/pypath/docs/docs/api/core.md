@@ -73,6 +73,10 @@ Q = QQbase * PDY * PYY^(HandleSwitch*COUPLED) *
 Where `PredSuite` and `HandleSuite` are pooled competitor biomass sums
 across all predator-prey links sharing the same prey or predator.
 
+The pooling weights (`PredPredWeight`, `PreyPreyWeight`) are Rpath's: VV is
+converted to a rate, `VV * QQ / B_prey`, before the weight formula, and each
+prey's (predator's) weights are normalised to sum to 1.
+
 ### Foraging time
 
 Predators dynamically adjust foraging time using the Rpath formula:
@@ -131,21 +135,48 @@ output); fleet dynamics does not. The pathway applies the defect corrections
 (R2, R4, R5, detritus fate applied once), solves handling time exactly from
 a recalibrated Hden0 on a vectorised kernel, and interpolates EwE's mediation
 lookup in float64, so it differs from EwE by design. Options go in
-`solver_options`: `rtol`, `atol` (the default follows `rtol`), `corrections`,
-`on_failure` and `hden_tol` (the handling-time tolerance, default 1e-12, in
-(0, 1e-8]); `corrections=False` leaves out R2, R4, R5 and DF once.
+`solver_options` (anything else raises `ValueError` naming the key): `rtol`,
+`atol` (the default follows `rtol`), `corrections` (`False` leaves out R2, R4,
+R5 and DF once), `on_failure`, `hden_tol` (the handling-time tolerance,
+default 1e-12, in (0, 1e-8]) and the options below.
+
+- `jacobian`: `"reuse"` (default) or `"solver"`. LSODA, Radau and BDF reuse
+  the finite-difference Jacobian across the monthly restarts, a fresh one
+  costing `n_state + 1` evaluations; with `"reuse"` LSODA's `nfev` no longer
+  counts the Jacobian columns, so compare cost by `rhs_evals`. Per month
+  `jac_fresh` and `jac_reused`.
+- `forcing_interpolation`: `"constant"` (default), `"linear"` or `"smooth"`.
+  **Linear and smooth change the model**: they replace the month-held forcing
+  by a mean-preserving tent or quadratic. Effort stays held monthly.
+- `positivity`: `"clip"` (default) or `"log"` (log-transformed biomass
+  states, the same equations).
+- `fast_groups`: `"states"` (default) or `"quasi-steady"`, with `qs_rate`
+  (per year, default 365). **Quasi-steady changes the model**: the selected
+  fast groups are solved for their equilibrium instead of integrated, which
+  suits DOP853; see `qs_groups` and `qs_separation` (a WARNING below 10) in
+  `solver_info`.
+
+**Which method:** LSODA is the default; use BDF for stiff models (LT2022:
+11.3 x RK4 against 17.3 x on LSODA); DOP853 for non-stiff models and under
+quasi-steady groups.
+
 `RsimOutput.solver_info` records the corrections that act, the EwE numerics
-switches ignored, `atol` (the biomass atol; `atol_ftime` lists the feeding-time
-states' atol, the tail of the solver's vector), `rhs_evals`, `ftime_groups` and per-month solver statistics:
-`nfev`, `steps`, `degraded` (a month whose means fell back to the start
-state), `hden_passes_max`, `hden_residual_max` (the largest relative residual of the solved handling time: the run-time check that the vectorised kernel agrees with the link loop on your model), `ftime_range` and `last_step` (the month's last full step; every month leaves its first step to the solver), and
-the mass budget: `budget_residual` and `pool_budget_residual` (None in a
-month with forced biomass; the month residual has a floor of about 1e-9 from
-the quadrature, it is not a leak), `nutrient_floor` and `negative_export`. A
+switches ignored, `atol` (the biomass atol; `atol_ftime` lists the
+feeding-time states' atol, the tail of the solver's vector), `rhs_evals`,
+`ftime_groups` and per-month solver statistics: `nfev`, `steps`, `degraded` (a
+month whose means fell back to the start state), `hden_passes_max`,
+`hden_residual_max` (the largest relative residual of the solved handling
+time), `kernel_check` (the vectorised consumption pass against the link loop),
+`ftime_range`, `last_step` (the month's last full step; every month leaves its
+first step to the solver), and the mass budget: `budget_residual` and
+`pool_budget_residual` (None in a month with forced biomass, and under
+quasi-steady groups; the month residual has a floor of about 1e-9 from the
+quadrature, it is not a leak), `nutrient_floor` and `negative_export`. A
 failed month raises `RuntimeError` naming the month. `out_Catch` is the
 integral of F x B over the month; EwE's month-end booking is in
-`out_Catch_month_end`. `docs/parity/continuous_path.md` has the corrections,
-the validation and the cost.
+`out_Catch_month_end`. Pooled models (ScrambleSelf > 0) now use Rpath's
+scramble weights on every method. `docs/parity/continuous_path.md` has the
+options, the corrections, the validation and the cost.
 
 ```python
 out = rsim_run(scenario, method="lsoda", solver_options={"rtol": 1e-8})

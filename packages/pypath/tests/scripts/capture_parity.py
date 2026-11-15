@@ -7,7 +7,7 @@ Usage::
 
 The first form runs two years of each case below with ``rsim_run`` and saves
 ``out_Biomass``, ``out_Catch``, ``out_Gear_Catch``, ``out_Hden``,
-``stanza_biomass`` and the end state (``Biomass``, ``N``, ``Ftime``) under
+``stanza_biomass``, ``out_FishMort``, ``annual_Qlink`` and the end state (``Biomass``, ``N``, ``Ftime``) under
 ``<case>/<method>/<name>``; arrays a run returns as None are left out.
 
 - REco (Rpath's reference model), effort 2: without stanzas under the
@@ -17,6 +17,10 @@ The first form runs two years of each case below with ``rsim_run`` and saves
   months 1-6. RK4 and AB each.
 - ``test_ewe_mediation._scenario`` with ``SHAPE_A`` mediating Zoo's
   availability to Fish (RK4).
+- REco with one weight per link for ScrambleSelf and HandleSelf and CmCo 2
+  (``reco_plain_ewe_pooled``, RK4 and AB); REco with forced F on group 5
+  (``reco_forced_f``, RK4); the fleet-dynamics test model with one fleet
+  (``fleet_dynamics``, RK4).
 - LT2022 scenario 16 (dataset 35) and the Black Sea scenario 1 (RK4), when
   ``Data/`` holds them and a database driver exists; otherwise they are
   skipped with a note.
@@ -41,7 +45,15 @@ YEARS = range(1, 3)
 DATA = Path(__file__).resolve().parents[4] / "Data"
 LT2022 = DATA / "LT2022_0.5ST_final7.eweaccdb"
 BLACK_SEA = DATA / "BlackSea_EwEF_testcase.eweaccdb"
-OUTPUTS = ("out_Biomass", "out_Catch", "out_Gear_Catch", "out_Hden", "stanza_biomass")
+OUTPUTS = (
+    "out_Biomass",
+    "out_Catch",
+    "out_Gear_Catch",
+    "out_Hden",
+    "stanza_biomass",
+    "out_FishMort",
+    "annual_Qlink",
+)
 END_STATE = ("Biomass", "N", "Ftime")
 
 
@@ -59,6 +71,43 @@ def _reco_feeding_time():
     p.PaddP[:] = 0.5
     scen.forcing.ForcedBio[0:6, 12] = 0.8 * p.B_BaseRef[12]
     return scen
+
+
+def _pooled():
+    """REco under the ``"ewe"`` rule, one pooled (per-link) weight, CmCo 2."""
+    scen = _reco(False, "ewe")
+    p = scen.params
+    p.ScrambleSelf = p.HandleSelf = np.full(len(p.PreyFrom), 0.5)
+    p.CmCo[1 : p.NUM_LIVING + 1] = 2.0
+    return scen
+
+
+def _forced_f():
+    scen = _reco(False, "ewe")
+    scen.fishing.ForcedFRate[0, 5] = 0.3
+    return scen
+
+
+def _fleet_dynamics():
+    from pypath.core.ecopath import rpath
+    from pypath.core.ecosim import rsim_scenario
+    from tests.test_fleet_dynamics_integration import _make_fleet_model
+
+    params = _make_fleet_model()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = rpath(params)
+    return rsim_scenario(model, params, years=YEARS)
+
+
+def _fleet_dynamics_kwargs(scen):
+    from pypath.core.fleet_dynamics import create_fleet_econ_params
+
+    fd = create_fleet_econ_params(1, len(scen.params.FishFrom))
+    fd.price[:] = 10.0
+    fd.cap_base_growth = np.array([0.3])
+    fd.cap_depreciate = np.array([0.05])
+    return {"fleet_dynamics": fd}
 
 
 def _mediated():
@@ -99,12 +148,18 @@ CASES = {
     "reco_stanzas_rpath": (lambda: _reco(True, "rpath"), ("RK4", "AB")),
     "reco_plain_ewe_ftime_risk_paddp_forced": (_reco_feeding_time, ("RK4", "AB")),
     "mediation_shape_a": (_mediated, ("RK4",)),
+    "reco_plain_ewe_pooled": (_pooled, ("RK4", "AB")),
+    "fleet_dynamics": (_fleet_dynamics, ("RK4",)),
+    "reco_forced_f": (_forced_f, ("RK4",)),
     "lt2022_s16": (
         lambda: _ewe_db(LT2022, scenario=16, timeseries_dataset=35),
         ("RK4",),
     ),
     "black_sea_s1": (lambda: _ewe_db(BLACK_SEA, scenario=1), ("RK4",)),
 }
+
+# extra rsim_run keyword arguments of a case, built from its scenario
+RUN_KWARGS = {"fleet_dynamics": _fleet_dynamics_kwargs}
 
 
 def capture(out_path):
@@ -121,7 +176,8 @@ def capture(out_path):
                     if scen is None:
                         print(f"skipped {case}: {reason}")
                         break
-                out = rsim_run(scen, method=method, years=YEARS)
+                extra = RUN_KWARGS.get(case, lambda scen: {})(scen)
+                out = rsim_run(scen, method=method, years=YEARS, **extra)
             for name in OUTPUTS:
                 value = getattr(out, name)
                 if value is not None:

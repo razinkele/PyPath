@@ -18,10 +18,13 @@ from tests.continuous_support import needs_reco, reco_plain, scenario
 
 pytestmark = needs_reco
 
-# Each evaluation is one derivative pass plus the Hden solve (6-9 kernel
-# passes), so 1.5x cannot hold; 2.5x still catches a second derivative call
-# per evaluation or a fallback to hybr.
-EVAL_COST_BOUND = 2.5
+# Each evaluation is one derivative pass, its consumption vectorised, plus
+# the Newton Hden solve (at most 4 kernel passes over a CmCo-2 year);
+# measured 0.88-0.91x one link-loop call at CmCo 1000, 1.02-1.04x at CmCo 2
+# (laguna, 2026-11-15). 1.2x catches a second derivative call per
+# evaluation, the link loop back in the final pass or a fallback to the
+# secant or hybr.
+EVAL_COST_BOUND = 1.2
 RK4_RATIO_BOUND = 12.0
 
 
@@ -38,19 +41,14 @@ class Decay:
         return {"FoodGain": full.copy(), "LossPropToB": 0.7 * full}
 
 
-def _spy_solve_ivp(monkeypatch, fail_first=False):
-    """Record the keyword arguments of every ``solve_ivp`` call; with
-    ``fail_first`` the first call's result is reported as failed."""
+def _spy_solve_ivp(monkeypatch):
+    """Record the keyword arguments of every ``solve_ivp`` call."""
     calls: list = []
     real = cont.solve_ivp
 
     def spy(*args, **kwargs):
         calls.append(kwargs)
-        res = real(*args, **kwargs)
-        if fail_first and len(calls) == 1:
-            res.status = -1
-            res.message = "forced failure"
-        return res
+        return real(*args, **kwargs)
 
     monkeypatch.setattr(cont, "solve_ivp", spy)
     return calls
@@ -150,10 +148,11 @@ def test_one_derivative_per_rhs_evaluation(monkeypatch):
     scen = _cmco(scenario(reco_plain(), rule="ewe", effort=2.0), 2.0)
     out = rsim_run(scen, method="lsoda", years=range(1, 2))
     info = out.solver_info
-    # +1: the DetritusOut pre-fill at the base state, outside any evaluation
-    assert calls["n"] == info["rhs_evals"] + 1
+    # +1: the DetritusOut pre-fill at the base state, outside any evaluation;
+    # + one per month: the link-loop cross-check of the vectorised pass
+    assert calls["n"] == info["rhs_evals"] + 1 + len(info["months"])
     assert info["rhs_evals"] > sum(m["nfev"] for m in info["months"])
-    assert max(m["hden_passes_max"] for m in info["months"]) <= 12
+    assert max(m["hden_passes_max"] for m in info["months"]) <= 6
 
 
 def _loadavg():
@@ -180,6 +179,7 @@ def _exact_call_cpu(scen):
     )
     pd = rhs._pd
     pd.pop("_hden_solver", None)  # Hden0 as given: one pass, no solve
+    pd.pop("_KERNEL_VECTOR", None)  # the reference is one link-loop pass
     forcing = _month_forcing(scen, setup, 1, setup.ftime)
     base = np.array(setup.state, dtype=float)
     samples = []

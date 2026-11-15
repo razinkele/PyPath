@@ -86,6 +86,16 @@ def test_the_continuous_path_interpolates_mediation(monkeypatch):
     assert seen and not any(seen)
 
 
+def test_corrections_false_keeps_mediation_interpolated():
+    out = rsim_run(
+        _mediated_scenario(),
+        method="lsoda",
+        years=range(1, 2),
+        solver_options={"corrections": False},
+    )
+    assert "mediation interpolated" in out.solver_info["corrections"]
+
+
 def test_the_rhs_does_not_flag_the_callers_params():
     sc = _mediated_scenario()
     _run(sc, "lsoda")
@@ -97,7 +107,7 @@ def test_corrections_list_what_applies(reco_plain):
         scenario(reco_plain, rule="rpath"), method="lsoda", years=range(1, 2)
     )
     corr = rpath_out.solver_info["corrections"]
-    assert "DF once" not in corr and "R2" not in corr
+    assert "DF once" not in corr and "R2" not in corr and "R5" not in corr
     scen = scenario(reco_plain, rule="ewe")
     scen.params.EmigRate[:] = 0.0
     ewe = rsim_run(scen, method="lsoda", years=range(1, 2))
