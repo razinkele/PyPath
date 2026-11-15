@@ -1506,8 +1506,9 @@ class JacobianReuse:
 #: and its cap on chord-Newton steps.
 QS_TOL = 1e-10
 QS_MAX_ITER = 20
-#: Halvings of one chord-Newton step allowed in keeping ``B_f > 0``.
+#: Halvings of one Newton step allowed in keeping ``B_f > 0``.
 _QS_MAX_HALVINGS = 60
+_TINY = float(np.finfo(float).tiny)
 
 
 def quasi_steady_groups(
@@ -1573,23 +1574,38 @@ class QuasiSteady:
     month-start ``J_ff``, forward differences of ``rhs`` in ``B_f`` formed
     by :meth:`set_month`. Each step is halved until every ``B_f > 0``. It
     stops when ``|dB_f/dt| <= tol x TotGain_f`` for every selected group
-    (``TotGain`` from ``deriv_vector``'s rates at the same evaluation), and
-    fails after ``max_iter`` steps. When the residual (its largest
+    (``TotGain`` from ``deriv_vector``'s rates at the same evaluation), in
+    at most ``max_iter`` steps. When the residual (its largest
     ``|dB_f/dt| / TotGain_f``) stops falling, ``J_ff`` is formed again,
-    once, at the iterate, for the rest of that solve only. Failure raises
-    ``RuntimeError`` naming "quasi-steady" and the groups. The start
-    ``B_f``, ``J_ff`` and the groups are fixed by :meth:`set_month` and an
+    once, at the iterate, for the rest of that solve only.
+
+    When the chord fails (a month start far from the solution: it converges
+    linearly at the ratio ``|1 - J*/J_ff|``, and a strongly nonlinear group
+    such as a producer whose quasi-steady value jumps 30 % can defeat it), a
+    full Newton follows from the best iterate so far, ``J_ff`` formed by
+    forward differences at every iterate and each step halved to keep
+    ``B_f > 0``, in at most ``max_iter`` steps; if that fails too,
+    ``scipy.optimize.root(method="hybr")`` in ``ln B_f`` (every iterate
+    positive) from the best iterate, scaled by its ``TotGain_f``. A
+    solution is accepted only finite, positive and within the tolerance
+    above; otherwise ``RuntimeError`` names "quasi-steady" and the groups.
+    The start ``B_f``, ``J_ff`` and the groups are fixed by
+    :meth:`set_month`, the fallback starts from the chord's iterates, and an
     evaluation keeps nothing it computes, so each evaluation is a function
     of ``(t, ys)`` and the month's data, as ``rhs``'s own are.
 
-    Every inner evaluation (residuals and difference columns) is an
-    evaluation of ``rhs`` and is counted in ``rhs.evals``. Those of the
+    Every inner evaluation (residuals and difference columns, of every
+    stage, ``hybr``'s own difference Jacobian included) is an evaluation of
+    ``rhs`` and is counted in ``rhs.evals``. Those of the
     solver's evaluations (:meth:`__call__`) and of :meth:`set_month`'s
     ``J_ff`` also count in ``rhs.stats``, as :class:`JacobianReuse`'s columns
     do; those of :meth:`expand` (the quadrature, the month end) and of
     :meth:`reduced_rate` do not. ``stats["qs_inner_max"]``, reset by
     :meth:`set_month`, is the largest number of chord-Newton steps one solve
-    of the month took (every solve counted; at most ``max_iter``).
+    of the month took (every solve counted; at most ``max_iter``), and
+    ``stats["qs_fallbacks"]`` counts the month's solves that fell back to
+    the full Newton (``"newton"``) and on to ``hybr`` (``"hybr"``), and the
+    evaluations those stages took (``"evals"``).
 
     A difference column ``k`` steps by ``1.49e-8 x max(|y_k|,
     step_floor_k)``, ``step_floor`` being a scalar or one value per state of
@@ -1634,7 +1650,14 @@ class QuasiSteady:
         self._ys0: Optional[np.ndarray] = None
         self._bf0: Optional[np.ndarray] = None
         self._jinv: Optional[np.ndarray] = None
-        self.stats = {"qs_inner_max": 0}
+        self.stats: dict = {}
+        self._reset_stats()
+
+    def _reset_stats(self) -> None:
+        self.stats = {
+            "qs_inner_max": 0,
+            "qs_fallbacks": {"newton": 0, "hybr": 0, "evals": 0},
+        }
 
     def set_month(
         self,
@@ -1665,7 +1688,7 @@ class QuasiSteady:
                 f"quasi-steady groups {self._label}: a forced group cannot be "
                 "quasi-steady"
             )
-        self.stats = {"qs_inner_max": 0}
+        self._reset_stats()
         self._ys0 = y0[self.slow]
         self._bf0 = np.maximum(y0[self.fast], _Y_FLOOR)
         y = y0.copy()
@@ -1697,57 +1720,148 @@ class QuasiSteady:
             )
         return jinv
 
+    @staticmethod
+    def _positive_step(bf: np.ndarray, delta: np.ndarray) -> Optional[np.ndarray]:
+        """``bf + s x delta`` for the first ``s`` in 1, 1/2, 1/4, ... that
+        keeps every ``B_f > 0`` (None if none does, or ``delta`` is not
+        finite)."""
+        if not np.all(np.isfinite(delta)):
+            return None
+        step = 1.0
+        for _ in range(_QS_MAX_HALVINGS):
+            trial = bf + step * delta
+            if np.all(trial > 0.0):
+                return trial
+            step *= 0.5
+        return None
+
     def _solve(
         self, t: float, ys: np.ndarray, count: bool
     ) -> tuple[np.ndarray, np.ndarray]:
         """``(y, dy)``: the full state with ``B_f`` solved at ``(t, ys)`` and
-        ``rhs``'s derivative there."""
+        ``rhs``'s derivative there: the chord Newton, then (when it fails)
+        :meth:`_fallback`."""
         if self._bf0 is None or self._jinv is None:
             raise RuntimeError("QuasiSteady: set_month has not been called")
         rhs = self.rhs
         y = np.empty(rhs.n_state)
         y[self.slow] = np.asarray(ys, dtype=float)
-        bf = self._bf0.copy()
-        jinv = self._jinv
-        refreshed = False
-        prev = np.inf
-        steps = 0
-        while True:
+        # the iterate with the smallest scaled residual, over every stage
+        best: dict = {"score": np.inf, "bf": self._bf0.copy(), "gain": None}
+
+        def residual(bf: np.ndarray):
+            """``(dy, dB_f/dt, score, ok)`` at ``B_f = bf`` (``y`` holds it
+            after the call): ``score`` is ``max |dB_f/dt| / TotGain_f`` (inf
+            when not finite) and ``ok`` whether ``bf`` is accepted (finite,
+            positive, ``|dB_f/dt| <= tol x TotGain_f``)."""
             y[self.fast] = bf
             out: dict = {}
             dy: np.ndarray = rhs._evaluate(y, out, count, t)[0]
             r = dy[self.fast]
             gain = np.abs(np.asarray(out["TotGain"], dtype=float)[self.groups])
-            if np.all(np.abs(r) <= self.tol * gain):
-                break
-            score = float(np.max(np.abs(r) / np.maximum(gain, np.finfo(float).tiny)))
-            if steps >= self.max_iter or not np.isfinite(score):
-                raise RuntimeError(
-                    f"quasi-steady solve failed for groups {self._label} at "
-                    f"t={t:.6g}: |dB_f/dt| / TotGain_f = {score:.3g} after "
-                    f"{steps} chord-Newton steps (tolerance {self.tol:g}, at "
-                    f"most {self.max_iter})"
-                )
+            finite = bool(
+                np.all(np.isfinite(bf))
+                and np.all(np.isfinite(r))
+                and np.all(np.isfinite(gain))
+            )
+            score = np.inf
+            if finite:
+                score = float(np.max(np.abs(r) / np.maximum(gain, _TINY)))
+            ok = finite and bool(
+                np.all(bf > 0.0) and np.all(np.abs(r) <= self.tol * gain)
+            )
+            if score < best["score"]:
+                best.update(score=score, bf=np.array(bf, copy=True), gain=gain)
+            return dy, r, score, ok
+
+        bf = self._bf0.copy()
+        jinv = self._jinv
+        refreshed = False
+        prev = np.inf
+        steps = 0
+        dy, r, score, ok = residual(bf)
+        while not ok and steps < self.max_iter and np.isfinite(score):
             if score >= prev and not refreshed:
-                jinv = self._chord(t, y, r, count)  # this solve's only
+                try:
+                    jinv = self._chord(t, y, r, count)  # this solve's only
+                except RuntimeError as e:
+                    logger.debug("quasi-steady chord refresh failed: %s", e)
+                    break
                 refreshed = True
             prev = score
-            delta = -(jinv @ r)
-            step = 1.0
-            for _ in range(_QS_MAX_HALVINGS):
-                trial = bf + step * delta
-                if np.all(trial > 0.0):
-                    break
-                step *= 0.5
-            else:
-                raise RuntimeError(
-                    f"quasi-steady solve failed for groups {self._label} at "
-                    f"t={t:.6g}: no step keeps B_f > 0"
-                )
+            trial = self._positive_step(bf, -(jinv @ r))
+            if trial is None:
+                break
             bf = trial
             steps += 1
+            dy, r, score, ok = residual(bf)
         self.stats["qs_inner_max"] = max(self.stats["qs_inner_max"], steps)
-        return y, dy
+        if ok:
+            return y, dy
+        return self._fallback(t, y, count, residual, best)
+
+    def _fallback(
+        self, t: float, y: np.ndarray, count: bool, residual: Callable, best: dict
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """After a failed chord Newton: a full Newton from the best iterate
+        (``J_ff`` by forward differences at every iterate, steps halved to
+        keep ``B_f > 0``, at most ``max_iter`` steps), then ``hybr``
+        (``scipy.optimize.root``) in ``ln B_f`` from the best iterate so far;
+        the first accepted iterate is returned as ``(y, dy)``, else
+        ``RuntimeError``. ``stats["qs_fallbacks"]`` counts the solves that
+        reach each stage and the evaluations they take."""
+        rhs = self.rhs
+        fallbacks = self.stats["qs_fallbacks"]
+        evals0 = rhs.evals
+        fallbacks["newton"] += 1
+        try:
+            # 1. full Newton from the best iterate
+            bf = np.array(best["bf"], copy=True)
+            dy, r, score, ok = residual(bf)
+            steps = 0
+            while not ok and steps < self.max_iter and np.isfinite(score):
+                try:
+                    jinv = self._chord(t, y, r, count)
+                except RuntimeError as e:
+                    logger.debug("quasi-steady full Newton: %s", e)
+                    break
+                trial = self._positive_step(bf, -(jinv @ r))
+                if trial is None:
+                    break
+                bf = trial
+                steps += 1
+                dy, r, score, ok = residual(bf)
+            if ok:
+                return y, dy
+            # 2. hybr in ln B_f (so every iterate is positive), scaled by the
+            # best iterate's gain
+            fallbacks["hybr"] += 1
+            if best["gain"] is not None:
+                scale = np.maximum(best["gain"], _TINY)
+                z_best = np.log(best["bf"])
+
+                def f(z):
+                    with np.errstate(over="ignore", invalid="ignore"):
+                        b = np.exp(np.asarray(z, dtype=float))
+                    return residual(b)[1] / scale
+
+                with np.errstate(over="ignore", invalid="ignore"):
+                    sol = root(f, z_best, method="hybr", options={"xtol": 1e-14})
+                    bf = np.exp(np.asarray(sol.x, dtype=float))
+                dy, r, score, ok = residual(bf)
+                if not ok and best["score"] <= self.tol:
+                    # hybr passed an accepted iterate and went on
+                    dy, r, score, ok = residual(np.array(best["bf"], copy=True))
+                if ok:
+                    return y, dy
+            raise RuntimeError(
+                f"quasi-steady solve failed for groups {self._label} at "
+                f"t={t:.6g}: the chord Newton, a full Newton and hybr found no "
+                f"B_f > 0 with |dB_f/dt| <= {self.tol:g} x TotGain_f (best "
+                f"|dB_f/dt| / TotGain_f = {best['score']:.3g})"
+            )
+        finally:
+            fallbacks["evals"] += rhs.evals - evals0
 
     def __call__(self, t: float, ys: np.ndarray) -> np.ndarray:
         """The slow states' derivative at ``(t, ys)``, ``B_f`` solved."""

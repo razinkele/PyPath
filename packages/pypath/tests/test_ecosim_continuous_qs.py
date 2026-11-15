@@ -54,12 +54,10 @@ def _stiff_qs(phyto_start=1.0, **kw):
     return qs, state[1 : n + 1]
 
 
-@pytest.mark.parametrize("phyto_start", [1.0, 0.9])
-def test_the_constraint_holds(phyto_start, monkeypatch):
-    """``|dB_f/dt| <= 1e-10 x TotGain_f`` at every state the run expands
-    (month 1's six quadrature nodes among them); ``phyto_start=0.9`` starts
-    Phyto 10 % off its quasi-steady value, so the chord Newton has work to
-    do (the chord converges linearly, about 10 steps from there)."""
+def _expanded_residuals(monkeypatch):
+    """Spy on ``QuasiSteady.expand``: the list it fills holds, for every
+    state the run expands (the month ends and quadrature nodes),
+    ``max |dB_f/dt| / TotGain_f`` there."""
     seen = []
     real = QuasiSteady.expand
 
@@ -68,24 +66,42 @@ def test_the_constraint_holds(phyto_start, monkeypatch):
         rates = self.rhs.rates(y, t)
         dy = self.rhs(t, y)
         f = self.groups
-        seen.append((dy[f - 1], np.asarray(rates["TotGain"], dtype=float)[f]))
+        gain = np.asarray(rates["TotGain"], dtype=float)[f]
+        seen.append(float(np.max(np.abs(dy[f - 1]) / gain)))
         return y
 
     monkeypatch.setattr(QuasiSteady, "expand", spy)
+    return seen
+
+
+@pytest.mark.parametrize("phyto_start", [1.0, 0.9, 0.5])
+def test_the_constraint_holds(phyto_start, monkeypatch):
+    """``|dB_f/dt| <= 1e-10 x TotGain_f`` at every state the run expands
+    (month 1's six quadrature nodes among them). ``phyto_start=0.9`` starts
+    Phyto 10 % off its quasi-steady value, so the chord Newton has work to
+    do (it converges linearly, about 10 steps from there); from 0.5 the
+    chord fails and the fallback solves month 1."""
+    seen = _expanded_residuals(monkeypatch)
     out = _run(_stiff(phyto_start), rtol=1e-8, fast_groups="quasi-steady", qs_rate=50)
     info = out.solver_info
     assert info["qs_groups"] == [PHYTO]
     assert len(seen) >= 12 * 7  # every month's end state and six nodes
-    worst = max(float(np.max(np.abs(r) / g)) for r, g in seen)
+    worst = max(seen)
     inner = [m["qs_inner_max"] for m in info["months"]]
+    fallbacks = [m["qs_fallbacks"] for m in info["months"]]
     print(
         f"\nstiff, Phyto start x {phyto_start}: worst |dB_f/dt| / TotGain_f "
-        f"{worst:.2e}; qs_inner_max by month {inner}"
+        f"{worst:.2e}; qs_inner_max by month {inner}; month-1 fallbacks "
+        f"{fallbacks[0]}"
     )
     assert worst <= 1e-10
     assert inner[0] >= 1  # the month-start Phyto is not quasi-steady
     if phyto_start != 1.0:
         assert inner[0] >= 3
+    if phyto_start == 0.5:
+        assert fallbacks[0]["newton"] > 0
+    else:
+        assert all(fb == {"newton": 0, "hybr": 0, "evals": 0} for fb in fallbacks)
 
 
 def test_qs_agrees_on_the_stiff_model():
@@ -115,11 +131,13 @@ def test_qs_agrees_on_the_stiff_model():
     assert tracked <= 0.5 * held
 
 
-def test_evaluation_is_pure():
+@pytest.mark.parametrize("phyto_start", [0.9, 0.5])
+def test_evaluation_is_pure(phyto_start):
     """The same ``(t, y)`` gives the same derivative, bit for bit, whatever
     was evaluated in between: the solve starts from the month's start value
-    with the month's chord Jacobian every time."""
-    qs, y0 = _stiff_qs(0.9)
+    with the month's chord Jacobian every time, and a fallback (from 0.5)
+    from the chord's iterates."""
+    qs, y0 = _stiff_qs(phyto_start)
     ys = y0[qs.slow]
     first = qs(0.04, ys)
     qs(0.07, ys * 1.01)
@@ -141,18 +159,62 @@ def test_inner_evaluations_are_counted():
     assert qs.rhs.evals - before in (iters + 1, iters + 2)
 
 
-def test_failure_names_the_groups():
-    qs, y0 = _stiff_qs(0.9, max_iter=1)
-    with pytest.raises(RuntimeError, match=r"quasi-steady.*\[4\]"):
-        qs(0.04, y0[qs.slow])
+def test_fallback_evaluations_are_counted():
+    """From Phyto at half its base the chord fails; the fallback's
+    evaluations (difference columns included) go through ``rhs`` and are
+    counted in ``rhs.evals``, and ``qs_fallbacks["evals"]`` is their number."""
+    qs, y0 = _stiff_qs(0.5)
+    before = qs.rhs.evals
+    qs.stats["qs_inner_max"] = 0
+    qs(0.04, y0[qs.slow])
+    fb = qs.stats["qs_fallbacks"]
+    assert fb["newton"] == 1 and fb["evals"] > 0
+    chord = qs.rhs.evals - before - fb["evals"]
+    # the chord's evaluations: one per iterate and the start, a refreshed
+    # Jacobian one more
+    assert chord in (qs.stats["qs_inner_max"] + 1, qs.stats["qs_inner_max"] + 2)
 
 
-def test_a_failed_solve_names_the_month_and_groups():
-    """Phyto starting at half its base is too far for the chord from the
-    month-start Jacobian (Phyto's production is far from linear there): the
-    run fails, naming the month, "quasi-steady" and the group."""
-    with pytest.raises(RuntimeError, match=r"month 1 .*quasi-steady.*\[4\] \(Phyto\)"):
-        _run(_stiff(0.5), fast_groups="quasi-steady", qs_rate=50)
+class _NoRoot:
+    """A two-state right-hand side whose second state, selected, has no
+    quasi-steady value: ``dB_f/dt = -(1 + B_f) < 0`` for every ``B_f > 0``
+    (gain 1)."""
+
+    n_bio = n_state = 2
+
+    def __init__(self):
+        self.evals = 0
+        self._forced = np.zeros(2, dtype=bool)
+
+    def set_month(self, *args, **kwargs):
+        pass
+
+    def _evaluate(self, y, rates, count, t=0.0):
+        self.evals += 1
+        if rates is not None:
+            rates["TotGain"] = np.array([0.0, 0.0, 1.0])
+        return np.array([-y[0], -(1.0 + y[1])]), None
+
+
+def test_no_positive_solution_raises():
+    """Chord, full Newton and hybr all fail: ``RuntimeError`` naming
+    "quasi-steady" and the group, every stage's evaluations counted."""
+    rhs = _NoRoot()
+    # a step floor of 1: near B_f = 0 a relative difference step would lose
+    # itself in the constant term and give J_ff = 0
+    qs = QuasiSteady([2], rhs, names=["Fake"], step_floor=1.0)
+    n1 = np.zeros(3)
+    qs.set_month({}, n1, n1 > 0, n1, y0=np.array([1.0, 1.0]))
+    before = rhs.evals
+    with pytest.raises(RuntimeError, match=r"quasi-steady.*\[2\] \(Fake\)"):
+        qs(0.01, np.array([1.0]))
+    fb = qs.stats["qs_fallbacks"]
+    assert fb["newton"] == 1 and fb["hybr"] == 1
+    # the full Newton's steps (a residual and a difference column each,
+    # until B_f near 1e-18 leaves no positive step), then hybr's
+    assert fb["evals"] > 20
+    chord = rhs.evals - before - fb["evals"]
+    assert chord in (qs.stats["qs_inner_max"] + 1, qs.stats["qs_inner_max"] + 2)
 
 
 def test_selection_rule():
@@ -287,6 +349,35 @@ def test_option_combinations(options, caplog):
         assert np.allclose(out.out_Biomass[1:7, ZOO], 0.8 * b0)
     else:
         assert info["fast_groups"] == "states" and info["qs_groups"] == []
+
+
+@needs_reco
+@pytest.mark.parametrize("zoo_forced", [0.7, 0.5])
+def test_fallback_on_forced_zooplankton(zoo_forced, monkeypatch):
+    """Zooplankton forced at 0.7 or 0.5 x B0 in months 1-6 moves the
+    quasi-steady Phytoplankton by 35 % or more at month 1, beyond the
+    chord's reach: the fallback solves it, a year runs, the constraint holds
+    at every expanded state (month 1's nodes among them) and month 1 reports
+    its fallbacks."""
+    scen = reco_scenario(reco_stanzas(), years=range(1, 3))
+    scen.forcing.ForcedBio[:6, ZOO] = zoo_forced * float(scen.params.B_BaseRef[ZOO])
+    seen = _expanded_residuals(monkeypatch)
+    out = _run(scen, fast_groups="quasi-steady", qs_rate=30.0)
+    info = out.solver_info
+    months = info["months"]
+    print(
+        f"\nREco, Zooplankton forced x {zoo_forced}: fallbacks by month "
+        f"{[m['qs_fallbacks'] for m in months]}; qs_inner_max "
+        f"{[m['qs_inner_max'] for m in months]}; rhs_evals {info['rhs_evals']}; "
+        f"worst |dB_f/dt| / TotGain_f {max(seen):.2e}"
+    )
+    assert info["qs_groups"] == [PHYTOPLANKTON]
+    assert np.all(np.isfinite(out.out_Biomass))
+    assert all(m["status"] == 0 for m in months)
+    assert len(seen) >= 12 * 7
+    assert max(seen) <= 1e-10
+    assert months[0]["qs_fallbacks"]["newton"] > 0
+    assert months[0]["qs_fallbacks"]["evals"] > 0
 
 
 def _lt2022():

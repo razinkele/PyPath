@@ -2675,7 +2675,7 @@ def rsim_run(
         their ``qs_base_rate``, ``qs_excluded`` and ``qs_separation`` (the
         slowest selected base loss rate over the largest ``|Re lambda|`` of
         the reduced Jacobian at the start of month 1; a WARNING below 10),
-        and each month's ``qs_inner_max``. A selected group's
+        and each month's ``qs_inner_max`` and ``qs_fallbacks``. A selected group's
         ``out_Biomass`` is its solved value (row 0 keeps the start value)
         and the monthly budget residuals are None. A failed month raises
         ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
@@ -3330,6 +3330,11 @@ def rsim_run(
                     "negative_export": int(rhs.stats["negative_export"]),
                     "qs_inner_max": (
                         None if _qs is None else int(_qs.stats["qs_inner_max"])
+                    ),
+                    # solves that fell back to a full Newton and to hybr, and
+                    # the evaluations those stages took
+                    "qs_fallbacks": (
+                        None if _qs is None else dict(_qs.stats["qs_fallbacks"])
                     ),
                 }
             )
