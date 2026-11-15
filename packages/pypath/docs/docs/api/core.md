@@ -122,19 +122,30 @@ Key functions:
 
 `rsim_run(scenario, method="lsoda")` (or `"dop853"`, `"radau"`, `"bdf"`)
 solves the continuous Ecosim equations month by month with SciPy's
-`solve_ivp`. The month's forcing, effort and feeding time are held; stanza
-updates, feeding-time updates and fleet dynamics run at the month
-boundaries from the month's quadrature means. The pathway applies the
-defect corrections (R2, R4, R5, detritus fate applied once, handling time
-solved exactly from a recalibrated Hden0), so it differs from EwE by
-design. Options go in `solver_options` (`rtol`, `atol`, `corrections`,
-`on_failure`); `corrections=False` leaves out R2, R4, R5 and DF once.
-`RsimOutput.solver_info` records the corrections, the EwE numerics
-switches ignored and per-month solver statistics (including `steps` and
-`degraded`, a month whose means fell back to the start state). A failed
-month raises `RuntimeError` naming the month. `out_Catch` is the
+`solve_ivp`. The month's forcing, effort, forced F or catch and forced
+biomass are held; feeding time is a state (`dFt/dt = 12 (clip(target) - Ft)`
+for groups with `FtimeAdj > 0`) and RiskTime is instantaneous. Stanza updates
+and fleet dynamics run at the month boundaries; the stanza update and the
+catch use the month's quadrature means (6-point Gauss-Legendre of the dense
+output); fleet dynamics does not. The pathway applies the defect corrections
+(R2, R4, R5, detritus fate applied once), solves handling time exactly from
+a recalibrated Hden0 on a vectorised kernel, and interpolates EwE's mediation
+lookup in float64, so it differs from EwE by design. Options go in
+`solver_options`: `rtol`, `atol` (the default follows `rtol`), `corrections`,
+`on_failure` and `hden_tol` (the handling-time tolerance, default 1e-12, in
+(0, 1e-8]); `corrections=False` leaves out R2, R4, R5 and DF once.
+`RsimOutput.solver_info` records the corrections that act, the EwE numerics
+switches ignored, `atol` (the biomass atol; `atol_ftime` lists the feeding-time
+states' atol, the tail of the solver's vector), `rhs_evals`, `ftime_groups` and per-month solver statistics:
+`nfev`, `steps`, `degraded` (a month whose means fell back to the start
+state), `hden_passes_max`, `hden_residual_max` (the largest relative residual of the solved handling time: the run-time check that the vectorised kernel agrees with the link loop on your model), `ftime_range` and `last_step` (the month's last full step; every month leaves its first step to the solver), and
+the mass budget: `budget_residual` and `pool_budget_residual` (None in a
+month with forced biomass; the month residual has a floor of about 1e-9 from
+the quadrature, it is not a leak), `nutrient_floor` and `negative_export`. A
+failed month raises `RuntimeError` naming the month. `out_Catch` is the
 integral of F x B over the month; EwE's month-end booking is in
-`out_Catch_month_end`.
+`out_Catch_month_end`. `docs/parity/continuous_path.md` has the corrections,
+the validation and the cost.
 
 ```python
 out = rsim_run(scenario, method="lsoda", solver_options={"rtol": 1e-8})

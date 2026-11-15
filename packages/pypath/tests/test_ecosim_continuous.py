@@ -118,8 +118,8 @@ def test_run_dicts_returns_the_per_run_dicts(reco_plain):
 
 
 def test_lsoda_runs_reco(reco_stanzas, lsoda_stanzas):
-    _, out = lsoda_stanzas
-    n_bio = out.params["NUM_LIVING"] + 2
+    scen, out = lsoda_stanzas
+    n_bio = scen.params.NUM_LIVING + scen.params.NUM_DEAD
     bio = out.out_Biomass[:, 1 : n_bio + 1]
     assert np.all(np.isfinite(bio)) and np.all(bio > 0)
     info = out.solver_info
@@ -140,7 +140,7 @@ def test_lsoda_runs_reco(reco_stanzas, lsoda_stanzas):
             "t_reached",
             "degraded",
             "clips",
-            "hden_evals_max",
+            "hden_passes_max",
             "min_state",
         } <= set(m)
         assert m["status"] == 0 and m["nfev"] > 0
@@ -175,7 +175,7 @@ CATCH_RTOL = 2e-4
 
 def test_the_catch_is_the_month_integral(lsoda_plain):
     scen, out = lsoda_plain
-    n_bio = out.params["NUM_LIVING"] + 2
+    n_bio = scen.params.NUM_LIVING + scen.params.NUM_DEAD
     fish_from = np.asarray(scen.params.FishFrom)
     B = out.out_Biomass
     checked = gear_checked = 0
@@ -333,9 +333,32 @@ def test_atol_must_be_positive_scalar_or_per_group(reco_plain, case):
         rsim_run(scen, method="lsoda", years=range(1, 2), solver_options={"atol": atol})
 
 
-def test_corrections_off_are_recorded(reco_plain):
+def test_hden_tol_is_an_option(reco_plain):
     out = rsim_run(
         scenario(reco_plain, rule="ewe"),
+        method="lsoda",
+        years=range(1, 2),
+        solver_options={"hden_tol": 1e-9},
+    )
+    assert out.solver_info["hden_tol"] == 1e-9
+    default = rsim_run(scenario(reco_plain), method="lsoda", years=range(1, 2))
+    assert default.solver_info["hden_tol"] == 1e-12
+    for bad in (0.0, 1e-7, "x"):
+        with pytest.raises(ValueError, match="hden_tol"):
+            rsim_run(
+                scenario(reco_plain),
+                method="lsoda",
+                years=range(1, 2),
+                solver_options={"hden_tol": bad},
+            )
+
+
+def test_corrections_off_are_recorded(reco_plain):
+    scen = scenario(reco_plain, rule="ewe")
+    scen.params.EmigRate[12] = 0.1  # R4 applies
+    scen.params.PaddP[1 : scen.params.NUM_LIVING + 1] = 0.5  # R5 applies
+    out = rsim_run(
+        scen,
         method="lsoda",
         years=range(1, 2),
         solver_options={"corrections": False},
@@ -344,7 +367,7 @@ def test_corrections_off_are_recorded(reco_plain):
     for name in ("R2", "R4", "R5", "DF once"):
         assert name not in corrections
     assert corrections == ["Hden0 recalibrated"]
-    on = rsim_run(scenario(reco_plain, rule="ewe"), method="lsoda", years=range(1, 2))
+    on = rsim_run(scen, method="lsoda", years=range(1, 2))
     assert {"R2", "R4", "R5", "DF once"} <= set(on.solver_info["corrections"])
 
 
@@ -402,20 +425,20 @@ def test_a_handling_time_failure_raises_even_with_warn(reco_plain, monkeypatch):
     import pypath.core.ecosim_continuous as cont_mod
 
     real_set_month = cont_mod.ContinuousRHS.set_month
-    real_solve_hden = cont_mod.solve_hden
+    real_solve = cont_mod.solve_hden_kernel
     month = {"n": 0}
 
     def set_month(self, *args, **kwargs):
         month["n"] += 1
         return real_set_month(self, *args, **kwargs)
 
-    def solve_hden(*args, **kwargs):
+    def solve_hden_kernel(*args, **kwargs):
         if month["n"] == 3:
             raise RuntimeError("handling time did not converge (stub)")
-        return real_solve_hden(*args, **kwargs)
+        return real_solve(*args, **kwargs)
 
     monkeypatch.setattr(cont_mod.ContinuousRHS, "set_month", set_month)
-    monkeypatch.setattr(cont_mod, "solve_hden", solve_hden)
+    monkeypatch.setattr(cont_mod, "solve_hden_kernel", solve_hden_kernel)
     with pytest.raises(RuntimeError, match=r"^month 3 \(year 1\): handling time"):
         rsim_run(
             scenario(reco_plain, rule="ewe"),

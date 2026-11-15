@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from pypath.core.ecopath import rpath
-from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.ecosim import rsim_scenario
 from pypath.core.params import create_rpath_params
 
 REF = Path(__file__).parent / "data" / "rpath_reference" / "ecopath"
@@ -22,6 +22,9 @@ needs_reco = pytest.mark.skipif(
 
 @lru_cache(maxsize=None)
 def _build(stanzas: bool):
+    """REco's ``(model, params)``, cached: every caller shares the two
+    objects, so they must not be mutated (``scenario`` builds a fresh
+    scenario from them)."""
     model_df = pd.read_csv(REF / "model_params.csv")
     params = create_rpath_params(model_df["Group"].tolist(), model_df["Type"].tolist())
     params.model = model_df
@@ -54,30 +57,21 @@ def scenario(reco, rule="ewe", effort=2.0, years=range(1, 3)):
     return scen
 
 
-class _Captured(Exception):
-    def __init__(self, args_):
-        super().__init__("captured")
-        self.args_ = args_
+def run_dicts(scen, method="RK4", years=range(1, 2)):
+    """``(state, params_dict, forcing_dict, fishing_dict)`` of month 1 of a run.
 
-
-def run_dicts(scen, method="RK4"):
-    """``(state, params_dict, forcing_dict, fishing_dict)`` of ``rsim_run``.
-
-    Captures the arguments of its first ``integrate_rk4`` call and aborts.
+    Built with ``rsim_run``'s shared setup (``_run_setup`` and
+    ``_month_forcing``), with month 1's forced biomass applied to the state,
+    as deep copies that a test may change. ``params_dict["_hden"]`` is EwE's
+    start value, not advanced: ``rsim_run`` advances it by one derivative at
+    the start biomass before month 1. A forced F is not added. ``method``
+    does not change the dicts (every method shares the setup).
     """
-    import pypath.core.ecosim_deriv as deriv
+    from pypath.core.ecosim import _month_forcing, _run_setup
 
-    original = deriv.integrate_rk4
-
-    def stub(*args, **kwargs):
-        raise _Captured(copy.deepcopy(args[:4]))
-
-    deriv.integrate_rk4 = stub
-    try:
-        rsim_run(scen, method=method, years=range(1, 2))
-    except _Captured as captured:
-        state, params_dict, forcing_dict, fishing_dict = captured.args_
-        return np.array(state), params_dict, forcing_dict, fishing_dict
-    finally:
-        deriv.integrate_rk4 = original
-    raise RuntimeError("rsim_run never called integrate_rk4")
+    setup = _run_setup(scen, years)
+    forcing_dict = _month_forcing(scen, setup, 1, setup.ftime)
+    state = np.array(setup.state)
+    forced = np.asarray(forcing_dict["ForcedBio"]) > 0
+    state[forced] = np.asarray(forcing_dict["ForcedBio"])[forced]
+    return copy.deepcopy((state, setup.params_dict, forcing_dict, setup.fishing_dict))

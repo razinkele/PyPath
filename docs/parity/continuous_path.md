@@ -1,6 +1,6 @@
 # The continuous integration path
 
-`rsim_run` has two kinds of integrator. RK4 (the default) and AB step EwE's and Rpath's monthly schemes; they are the parity paths and reproduce EwE 6.7.144 and Rpath. The continuous path, `method="lsoda"`, `"dop853"`, `"radau"` or `"bdf"`, solves the Ecosim equations themselves with SciPy's `solve_ivp`. It is **not EwE parity**: its numbers differ from EwE's and from the RK4 path, partly by design. This page says what it does, when to use it, how far it is from the RK4 path on three models, and what it costs. The measurements are from `packages/pypath/tests/test_ecosim_continuous_validation.py` and, where the text says so, from measurement scripts run beside it (2026-11-14, SciPy 1.18.1, one process on one machine). The design is in `docs/plans/2026-11-14-continuous-pathway-design.md`.
+`rsim_run` has two kinds of integrator. RK4 (the default) and AB step EwE's and Rpath's monthly schemes; they are the parity paths and reproduce EwE 6.7.144 and Rpath. The continuous path, `method="lsoda"`, `"dop853"`, `"radau"` or `"bdf"`, solves the Ecosim equations themselves with SciPy's `solve_ivp`. It is **not EwE parity**: its numbers differ from EwE's and from the RK4 path, partly by design. This page says what it does, when to use it, how far it is from the RK4 path on three models, and what it costs. The measurements are from `packages/pypath/tests/test_ecosim_continuous_validation.py` and, where the text says so, from measurement scripts run beside it (phase 2 numbers: 2026-11-14 and 2026-11-15, SciPy 1.18.1, one process on one machine). Phase 2 added feeding time as a state, interpolated mediation, a faster handling-time solve and a mass budget; the sections below describe the path as it is now. The design is in `docs/plans/2026-11-14-continuous-pathway-design.md`.
 
 ```python
 out = rsim_run(scenario, method="lsoda")  # rtol 1e-6, default atol
@@ -22,11 +22,13 @@ out.solver_info  # method, tolerances, corrections, ignored switches, per-month 
 
 - **Month by month.** Each month is one initial-value problem over 1/12 year with the month's forcing, effort, forced F or catch, feeding time and forced biomass held, and the solver restarts at each month boundary. Within the month the solver chooses its own steps, up to one month, under the error control of `rtol` and `atol`.
 - **Every group is a state.** Living and detritus biomass, fast groups included: `NoIntegrate` is ignored, and stiff groups are left to the stiff methods instead of EwE's blend with the equilibrium.
-- **Handling time is exact.** Hden is solved at every state as the fixed point of the disc equation, from a recalibrated Hden0, instead of EwE's one damped pass per derivative call.
-- **Month-end updates use month means.** The stanza age structure takes the month's mean food gain and loss rate (6-point Gauss-Legendre quadrature of the dense output); feeding time takes the month-mean consumption; `out_Catch` is the month's F times the month-mean biomass / 12, the integral of F x B. EwE's F x month-end biomass / 12 is kept in `out_Catch_month_end`.
+- **Handling time is exact.** Hden is solved at every state as the fixed point of the disc equation, from a recalibrated Hden0 and always from that cold start (never carried between evaluations), instead of EwE's one damped pass per derivative call. The solve runs on a vectorised copy of the consumption loop (`HdenKernel`): a bracketed (Illinois) secant per predator; a model with pooled predation (ScrambleSelf > 0) takes plain undamped passes over every predator; a predator the secant cannot bracket falls back to undamped passes, then SciPy's `hybr`. A handling time that is not finite, not positive or not within `hden_tol` raises `RuntimeError` naming "handling time" and the groups.
+- **Feeding time is a state.** For living groups with `FtimeAdj` > 0, `dFt/dt = 12 x (clip(target, L, FtimeMax) - Ft)` per year, where `target` is EwE's feeding-time update at the current state, `L` is `ForagingTimeLowerLimit` and `FtimeMax` is 2 when absent (the target is clipped, not the state, so one forward-Euler month equals EwE's monthly rule). RiskTime is instantaneous: the predation risk is read at the current state and food loss. `solver_info["ftime_groups"]` lists the groups and `months[m]["ftime_range"]` the min and max feeding time at the month end. Of the three models below, only LT2022 has such groups (17); REco and the Black Sea have `FtimeAdj` 0.
+- **Mediation is interpolated.** EwE's `EweMediation` lookup is interpolated in float64 (exactly 1 at the base state); the parity paths keep EwE's truncated float32 lookup.
+- **Month-end updates use month means.** The stanza age structure takes the month's mean food gain and loss rate (6-point Gauss-Legendre quadrature of the dense output); `out_Catch` is the month's F times the month-mean biomass / 12, the integral of F x B. EwE's F x month-end biomass / 12 is kept in `out_Catch_month_end`.
 - **Fixed detritus export.** DetritusOut is set once at the unforced base state, not by the first derivative of month 1.
-- **Positivity.** A negative state is read as 0 inside the right-hand side and counted in `clips`; month-end biomass is floored at 1e-20, and month-mean biomass (hence the catch) is clipped at 0.
-- **Diagnostics.** `out.solver_info` holds the method, `rtol`, `atol`, the corrections applied, the EwE switches ignored, and per month `nfev`, `njev`, `nlu`, `steps`, `status`, `t_reached`, `degraded`, `clips`, `hden_evals_max` and `min_state`. `degraded` is True when a month mean fell back to the start state (non-finite dense output or rates at a quadrature node); `status` can be 0 in that case, so check both.
+- **Positivity.** A negative biomass state is read as 0 inside the right-hand side and counted in `clips` (a solver's trial step can reach one); month-end biomass is floored at 1e-20, and month-mean biomass (hence the catch) is clipped at 0.
+- **Diagnostics.** `out.solver_info` holds the method, `rtol`, `atol`, the corrections applied, the EwE switches ignored, and per month `nfev`, `njev`, `nlu`, `steps`, `status`, `t_reached`, `last_step` (the last full step, a diagnostic), `degraded`, `clips`, `hden_passes_max` (kernel passes of the month's largest handling-time solve; it was `hden_evals_max` in phase 1), `hden_residual_max` (the month's largest relative residual of the solved handling time, checked against the link loop: the run-time check that the vectorised kernel agrees with the link loop on your model; at most 1e-11 on REco) and `atol_ftime` (the feeding-time states' atol, the tail of the solver's vector; `[]` without feeding time) and `min_state`, plus the budget keys below; `solver_info["hden_tol"]` is the tolerance of that solve (`solver_options`, default 1e-12, between 0 and 1e-8) and `solver_info["rhs_evals"]` counts every right-hand-side evaluation of the run. `degraded` is True when a month mean fell back to the start state (non-finite dense output or rates at a quadrature node); `status` can be 0 in that case, so check both.
 - **Failures.** A failed month raises `RuntimeError` naming the month, unless `solver_options={"on_failure": "warn"}`, which logs it, with the month, and continues from the last state reached. Two failures raise even with `"warn"`: a handling-time solve that fails inside the right-hand side, and a non-finite derivative (or non-finite rates) at the start of a month.
 - **The parity paths are unchanged.** One scenario can be run on both paths; the continuous run does not modify it.
 
@@ -46,11 +48,11 @@ Which method:
 - **`dop853`**: an explicit high-order method, the reference for non-stiff models at tight tolerance. On a stiff model it is limited by stability, not accuracy.
 - **`radau`** and **`bdf`**: implicit alternatives for stiff models.
 
-Tolerances: the default is `rtol` 1e-6 and `atol` 1e-8 x max(B0, 1e-6 x max(B0)) per group. **`atol` does not follow `rtol`**: with `rtol` 1e-10 and the default `atol`, REco's run is good to 4.7e-9 only. To tighten a run, pass both, for example `atol = default_atol(b0) * rtol / 1e-6` (`pypath.core.ecosim_continuous.default_atol`), which keeps the defaults' ratio and their floor for groups with a tiny or zero B0.
+Tolerances: the default is `rtol` 1e-6 and `atol` 1e-8 x (`rtol` / 1e-6) x max(B0, 1e-6 x max(B0)) per group, so **the default `atol` follows `rtol`** (in phase 1 it did not, and `rtol` 1e-10 with the default `atol` was good to 4.7e-9 only). A feeding-time state has `atol` 1e-2 x `rtol`. Pass `atol` to override (`pypath.core.ecosim_continuous.default_atol` gives the base-scale vector). Every month leaves its first step to the solver (reusing the previous month's last step was tried and dropped, see Cost).
 
 ## The corrections it applies
 
-The continuous path applies these by default and lists them in `solver_info["corrections"]`; the parity paths keep EwE's behaviour. `solver_options={"corrections": False}` leaves out R2, R4, R5 and DF once; the handling-time rows (R3, Hden0, Hden) and the rows below DF once are part of the path and stay. IDs refer to `docs/parity/deviations.md`.
+The continuous path applies these by default and lists them in `solver_info["corrections"]`; the parity paths keep EwE's behaviour. `solver_options={"corrections": False}` leaves out R2, R4, R5 and DF once; the handling-time rows (R3, Hden0, Hden) and the rows below DF once are part of the path and stay. `solver_info["corrections"]` lists only the items that act on the scenario (R2 if `DETRITUS_MO_UNSCALED` is set, R5 if a group has moTot, DF once if there is `DetPassedProp`, R4 if an EmigRate changes a living group), plus "Hden0 recalibrated" when handling time is on and "mediation interpolated" when there is a mediation lookup. IDs refer to `docs/parity/deviations.md`.
 
 | Item | RK4 path (EwE rule) | Continuous path |
 |---|---|---|
@@ -64,10 +66,29 @@ The continuous path applies these by default and lists them in `solver_info["cor
 | DetritusOut | Set by the first derivative of month 1, with month 1's forcing and effort | Set at the unforced base state |
 | Fast groups | `RK4_FAST_EQUILIBRIUM`: a blend with the equilibrium biomass | Integrated as states |
 | Stanza update | `STANZA_STAGE_RATES`: growth from the step's last RK4 stage, survival from its first | Month means by quadrature |
-| Feeding time | `FTIME_START_OF_MONTH`: from the start-of-month consumption | From the month-mean consumption, held within the month |
+| Feeding time | `FTIME_START_OF_MONTH`: from the start-of-month consumption, held within the month | A state: `dFt/dt = 12 x (clip(target, L, FtimeMax) - Ft)`, the target at the current state |
+| RiskTime | The month-start predation, held within the month | Instantaneous: read at the current state and food loss |
+| Mediation | EwE's lookup, truncated to its 1200 float32 points | Interpolated in float64, exactly 1 at the base |
 | Sub-steps | `RK4_STEPS` | Ignored; the solver picks its steps |
 
-The four switches in the last rows are reported in `solver_info["ignored_switches"]` when the scenario sets them. Under the `"rpath"` rule only `RK4_STEPS` is set, and handling time is off.
+The four switches (`RK4_FAST_EQUILIBRIUM`, `STANZA_STAGE_RATES`, `FTIME_START_OF_MONTH`, `RK4_STEPS`) are reported in `solver_info["ignored_switches"]` when the scenario sets them. Under the `"rpath"` rule only `RK4_STEPS` is set, and handling time is off.
+
+## The mass budget
+
+Each month's result carries a check of the integrated mass budget, computed from the right-hand side's own flows rather than from the biomass change, so it is not a tautology. `exchange_rate` is the net external flux of the biomass states: in, the production of producers and of groups with QB 0, import, immigration and forced migration, and the detritus inflow from outside; out, respiration, landed catch (fishing links that end outside the detritus pools, plus forced F), emigration, the pools' emigration and their DetritusOut export. Internal transfers are not used, so an unclosed transfer leaves a residual. Per month:
+
+- `budget_residual` = (sum of end biomass - sum of start biomass - t x the month-mean exchange) / sum of start biomass, over the biomass states (feeding-time states are not summed).
+- `pool_budget_residual`: the largest over the detritus pools of |end - start - t x the pool's mean (DetGain - DetLoss)| / start.
+- `nutrient_floor`: evaluations where the free nutrient was at its floor. `negative_export`: evaluations where a pool's DetPassedProp exceeded its DetritusOut by more than 1e-6 relative (the export is then negative; the Black Sea's Detritus pool passes on all of its DetritusOut, and float32 rounding puts it just above, which is within that tolerance).
+- Both residuals are None in a month with forced biomass: the forced groups' flows are imposed, not integrated.
+
+The residual measures the solver and the quadrature, not a leak: at the default `rtol` it is of the order of `rtol`; on a REco variant at `rtol` 1e-10 it falls to about 1e-9, the error of the 6-point Gauss-Legendre mean of the exchange. Ten years at the default tolerances (maximum over the months checked):
+
+| Model | Months checked | `budget_residual` | `pool_budget_residual` | `nutrient_floor` | `negative_export` |
+|---|---|---|---|---|---|
+| REco, with stanzas | 120 of 120 | 3.9e-9 | 1.2e-7 | 0 | 0 |
+| Black Sea | 120 of 120 | 3.3e-6 | 2.3e-6 | 0 | 0 |
+| LT2022 | 0 of 120 (forced biomass in every month) | None | None | 0 | 0 |
 
 ## Validation
 
@@ -79,76 +100,94 @@ There is no EwE oracle for this path, so it is checked against itself and agains
 | LSODA against DOP853, both rtol 1e-8 | REco with stanzas, EwE rule, effort 2, 2 years | 3.0e-8 max relative difference |
 | Radau and BDF against LSODA, rtol 1e-8 | REco without stanzas, EwE rule, effort 2, 1 year | Radau 7.9e-8, BDF 1.0e-6 |
 | A balanced model stays balanced, LSODA, default tolerances | REco without stanzas, base effort, no forcing, 50 years | 3.0e-7 (EwE rule), 3.1e-7 (`"rpath"`) from B0; flat over the 50 years, solver error at rtol 1e-6, not drift (the start derivative is 4e-14 x B) |
-| Ten years run, LSODA | REco, the Black Sea, LT2022 | Finite and positive; every month status 0, none degraded, no clips |
+| Ten years run, LSODA | REco, the Black Sea, LT2022 | Finite and positive; every month status 0, none degraded; `hden_passes_max` at most 6, 9 and 6 (the test bounds it at 25); clips 0 on all three |
 
-A DOP853 reference at rtol 1e-10 is not accurate enough for the convergence check. Measured against rtol 1e-13, it is good to 4.7e-9 only at the default `atol`, and to 7e-12 to 1.1e-11 with an `atol` of 1e-10 x B0 or less, which still exceeds e_16. At rtol 1e-12 the error is 7.5e-14.
+A DOP853 reference at rtol 1e-10 is not accurate enough for the convergence check. Measured against rtol 1e-13 in phase 1, it was good to 4.7e-9 only at the then default `atol` (which did not follow `rtol`), and to 7e-12 to 1.1e-11 with an `atol` of 1e-10 x B0 or less, which still exceeds e_16. At rtol 1e-12 the error is 7.5e-14.
 
 ## Differences from the RK4 path
 
-Ten years, LSODA at the default tolerances against `method="RK4"` on the same scenario. `|B_lsoda / B_RK4 - 1|` over months 1-120 and every living group (living and detritus groups in brackets):
+Ten years, LSODA at the default tolerances against `method="RK4"` on the same scenario. These differences, and rows 1-3 of the ladder below, were measured with first-step reuse on (its effect is about 1e-6; see Cost), so they hold to that order after the drop. `|B_lsoda / B_RK4 - 1|` over months 1-120 and every living group (living and detritus groups in brackets):
 
 | Model | Scenario | Median | Max |
 |---|---|---|---|
 | REco (Rpath), with stanzas | EwE rule, effort 2 from month 1 | 0.017 % (0.017 %) | 18 %, Seabirds (93 %, Discards) |
 | Black Sea (EwE-F test case) | scenario 1 | 5.5 % (5.0 %) | 38 %, Zooplankton (38 %) |
-| LT2022 | scenario 16, time series dataset 35 | 3.7 % (3.6 %) | 115 %, Zooplankton (115 %) |
+| LT2022 | scenario 16, time series dataset 35 | 3.6 % (3.4 %) | 122 %, Zooplankton (122 %) |
 
-Most of these differences are definitional. To see which, the RK4 path was moved towards the continuous definitions one item at a time and compared with the same LSODA run. These were measurement scripts, not tests: `RK4_STEPS` and `RK4_FAST_EQUILIBRIUM` set on the scenario; R3 removed by starting Hden at CmCo / (CmCo - 1); DetritusOut pre-filled at the unforced base state by wrapping `deriv_vector`. Median / max over living groups:
+Most of these differences are definitional. To see which, the RK4 path was moved towards the continuous definitions one item at a time and compared with the same LSODA run. These were measurement scripts, not tests: `RK4_STEPS` and `RK4_FAST_EQUILIBRIUM` set on the scenario; R3 removed by starting Hden at CmCo / (CmCo - 1); DetritusOut pre-filled at the unforced base state by wrapping `deriv_vector`. Median / max over living groups. The first three rows were re-measured on 2026-11-15 against the phase 2 LSODA run; the last two rows are phase 1 measurements against the phase 1 run and were not repeated (they depend on the LSODA side only through the same run's definitions; the numbers may have moved by the amount the first three rows moved):
 
 | RK4 path | REco | Black Sea | LT2022 |
 |---|---|---|---|
-| As is (one step a month, EwE rule) | 0.017 % / 18 % | 5.5 % / 38 % | 3.7 % / 115 % |
-| 32 sub-steps (LT2022: 128) | 0.017 % / 18 % | 2.7 % / 32 % | 0.56 % / 161 % |
-| and fast groups integrated | 0.017 % / 18 % | 2.7 % / 30 % | 0.44 % / 9.6 % |
+| As is (one step a month, EwE rule) | 0.017 % / 18 % | 5.5 % / 38 % | 3.6 % / 122 % |
+| 32 sub-steps (LT2022: 128) | 0.017 % / 18 % | 2.7 % / 32 % | 0.63 % / 154 % |
+| and fast groups integrated | 0.017 % / 18 % | 2.7 % / 30 % | 0.53 % / 13 % |
 | and R3 removed | 0.014 % / 18 % | 2.7 % / 31 % | 0.44 % / 9.6 % |
 | and DetritusOut at the base state | 0.0017 % / 0.069 % | 2.7 % / 31 % | 0.44 % / 9.6 % |
 
 - **REco: where DetritusOut is set.** The scenario doubles effort from month 1. The RK4 path, as EwE, sets each detritus pool's export rate in the first derivative of month 1, with the doubled discards already flowing, so Discards stays near its base (1.15 at year 10, B0 1.22). The continuous path sets it at the base state, so Discards rises to 2.21, and the Seabirds follow. DetritusOut at the base state alone brings the paths within 0.069 %; so does running month 1 at base effort on both paths (0.072 %).
-- **Black Sea: one step a month, then handling time.** Half the median difference is RK4's single step a month (32 and 128 sub-steps give the same result). Most of the rest is handling time at the model's CmCo 2: with CmCo 1000 for every group on both paths, the RK4 path with 32 sub-steps and fast groups integrated comes within 0.43 % median of LSODA. The handling-time items are the recalibrated Hden0 (lower for predators with diet import) and the exact fixed point in place of EwE's damped pass carried between calls. The maximum is juvenile anchovy (Anchovy 0-0+), still 26 % at CmCo 1000 and 5.5 % apart at the end of month 1, when the scenario's nutrient forcing moves the whole web (both paths leave the base by up to 17 % in month 1; with neutral forcing the two anchovy stanzas stay within 0.2 % of their base on both over the first three months, the span measured). That is the stanza update: fed EwE's rates (consumption at the month-end state, 5.6 % below the month mean in month 1), the continuous path's anchovy follows the RK4 path's (32 sub-steps, fast groups integrated) to 4 digits, and over 10 years the paths then come within 0.38 % median. The largest remaining difference is Aurelia: 5e-6 in month 1, growing to 23 % by year 10. It was not attributed further; the corrections still active on this model are DF once and the exact handling time (R2, R4, R5 and feeding time do nothing here, and DetritusOut was measured to change nothing).
-- **LT2022: one step a month, then the fast-group blend.** 128 sub-steps (its stiffest eigenvalue, about 3300 per year, needs more than about 100 for RK4 to be stable; 256 give the same result) take the median from 3.7 % to 0.56 %. The maximum is Zooplankton, a fast group, under EwE's blend with the equilibrium; integrating it takes the maximum from 161 % to 9.6 %. R3 and DetritusOut change nothing here. What remains, 0.44 % median, comes from the other corrections (handling time, the stanza update, feeding time from month means, R2, R4, R5, DF once) and was not attributed further.
+- **Black Sea: one step a month, then handling time.** Half the median difference is RK4's single step a month (32 and 128 sub-steps give the same result). Most of the rest is handling time at the model's CmCo 2: with CmCo 1000 for every group on both paths, the RK4 path with 32 sub-steps and fast groups integrated comes within 0.43 % median of LSODA. The handling-time items are the recalibrated Hden0 (lower for predators with diet import) and the exact fixed point in place of EwE's damped pass carried between calls. The maximum is juvenile anchovy (Anchovy 0-0+), still 26 % at CmCo 1000 and 5.5 % apart at the end of month 1, when the scenario's nutrient forcing moves the whole web (both paths leave the base by up to 17 % in month 1; with neutral forcing the two anchovy stanzas stay within 0.2 % of their base on both over the first three months, the span measured). That is the stanza update: fed EwE's rates (consumption at the month-end state, 5.6 % below the month mean in month 1), the continuous path's anchovy follows the RK4 path's (32 sub-steps, fast groups integrated) to 4 digits, and over 10 years the paths then come within 0.38 % median. The largest remaining difference among the groups is Aurelia: 2.3e-4 in month 1, 0.46 % at month 12 and 21 % at month 120 (measured against the RK4 path with 32 sub-steps and fast groups integrated; phase 1 measured 5e-6 in month 1 and 23 % at year 10). It was not attributed further; the corrections listed for this model are R2, DF once and the recalibrated Hden0 (no feeding-time groups, no mediation, R4 and R5 not listed); phase 1 measured R2, R4, R5 and feeding time to change nothing here, and DetritusOut likewise, and phase 2 did not repeat that.
+- **LT2022: one step a month, then the fast-group blend.** 128 sub-steps (its stiffest eigenvalue, about 3300 per year, needs more than about 100 for RK4 to be stable; 256 give the same result) take the median from 3.7 % to 0.56 %. The maximum is Zooplankton, a fast group, under EwE's blend with the equilibrium; integrating it takes the maximum from 161 % to 9.6 %. R3 and DetritusOut change nothing here. What remains, 0.53 % median and 13 % at most (Zooplankton; phase 1: 0.44 % and 9.6 %, before feeding time became a state), comes from the other corrections (handling time, the stanza update, feeding time as a state against RK4's monthly rule, interpolated mediation, R2, R4, R5, DF once) and was not attributed further.
 
 Setting `STANZA_STAGE_RATES`, `FTIME_START_OF_MONTH` or `DETRITUS_MO_UNSCALED` to False on the RK4 path is not a step towards the continuous path: the first two select Rpath's rules, not month means, and moved LT2022 further away (1.9 % median, 34 % max).
 
 ## Cost
 
-The wall times in this section were measured with other jobs running on the machine, so they are indicative only; the call counts are not affected.
+Measured on 2026-11-14 and 2026-11-15 on one machine with no other heavy jobs, except where stated. The times are CPU time (`process_time`) from `test_ten_year_cost`: a warm-up of each method, three interleaved RK4 and LSODA runs of 10 years, the minimum of each. The call counts come from `solver_info` in `test_ten_years_on_three_models`.
 
-LSODA at the default tolerances, 10 years, from `solver_info` and the test's wall clock:
+LSODA at the default tolerances, 10 years (every month leaves its first step to the solver):
 
-| Model | Groups | `nfev` / month (mean, max) | `hden_evals_max` (largest month) | Wall s / year, RK4 | Wall s / year, LSODA | Ratio |
+| Model | Groups | `nfev` / month (mean, max) | Right-hand-side evaluations / month | `hden_passes_max` (largest month) | CPU s / year, RK4 | CPU s / year, LSODA | Ratio | CPU / evaluation | vs one exact derivative call |
+|---|---|---|---|---|---|---|---|---|---|
+| REco, with stanzas | 22 | 33, 37 | 41.5 | 6 | 0.100 | 0.817 | 8.2 x | 1.64 ms | 1.59 x |
+| Black Sea | 22 | 87, 115 | 95.4 | 9 | 0.047 | 1.53 | 32.5 x | 1.33 ms | 2.47 x |
+| LT2022 | 24 (17 feeding-time states) | 335, 787 (5.9 Jacobians) | 342.7 | 6 | 0.107 | 6.56 | 61.6 x | 1.60 ms | 1.59 x |
+
+Since phase 1 (same models, same scenarios; the phase 1 wall times were taken with other jobs running, so the comparison is indicative): the Black Sea went from 40.7 s to 1.5 s per simulated year (914 x RK4 to 32.5 x), REco from 2.6 s to 0.82 s, and LT2022 from 13.1 s to 6.6 s although it now carries 17 more states and about 55 % more `nfev` (335 per month against 214). The handling-time solve takes at most 9 kernel passes where the Black Sea's undamped iteration took up to 132 derivative evaluations. One evaluation on REco at CmCo 2 went from 41.5 ms to about 1.9 ms (Task 6, a separate measurement).
+
+The test asserts for REco that CPU per evaluation is at most 2.5 x one exact single-pass derivative call (the evaluation adds the handling-time solve, 6-9 kernel passes, to a derivative call; the plan's 1.5 x could not hold) and for the Black Sea that the RK4 ratio is at most 40. The other figures are printed. The Black Sea bound was 35 first; the ratio measured 34.5 to 36.0 (with first-step reuse, below; after the drop: 32.5) on identical call counts, so 35 failed on load alone, and it was set to 40.
+
+**First-step reuse was tried and dropped.** The design asked for each month to start from the last full step of the month before. Measured on 10-year runs with and without it (a measurement script that drops `first_step`; the runs agree to 3.9e-7 and 1.3e-6 in biomass), it added evaluations on all three models:
+
+| Model | `nfev` / month with reuse (mean) | without reuse |
+|---|---|---|
+| REco (Task 6, 1 year, CmCo 1000) | 22.0 | 20.1 |
+| Black Sea | 94.0 | 87.4 |
+| LT2022 | 349.2 | 334.7 |
+
+On LT2022 it also caused 6 clipped evaluations (a trial step with a negative biomass, read as 0) in months 13, 25, 49, 85 and 97, the first months of a year, where forcing steps while the reused step was sized for December; with no reuse LT2022 clips none in 10 years. So the code leaves every month's first step to the solver. `integrate_month(..., first_step=)` remains as a pass-through, and `months[m]["last_step"]` as a diagnostic. Design section 4's step reuse is not implemented.
+
+REco by method, 2 years at the default tolerances, EwE rule, effort 2 (CPU time, minimum of two runs against the minimum of three RK4 runs, measured 2026-11-15 after the first-step change):
+
+| Model | Method | `nfev` / month | Jacobians / month | All right-hand-side calls / month | CPU s / year | Ratio to RK4 |
 |---|---|---|---|---|---|---|
-| REco, with stanzas | 22 | 33, 37 | 4 | 0.12 | 2.6 | 21 x |
-| Black Sea | 22 | 87, 115 | 132 | 0.045 | 40.7 | 914 x |
-| LT2022 | 24 | 214, 443 (5.1 Jacobians) | 4 | 0.105 | 13.1 | 125 x |
+| REco, no stanzas | lsoda | 19.3 | 0 | 27.3 | 0.53 | 5.5 x |
+| | dop853 | 18.6 | 0 | 26.7 | 0.52 | 5.4 x |
+| | radau | 16.3 | 1.0 | 46.3 | 0.92 | 9.5 x |
+| | bdf | 18.4 | 1.0 | 49.5 | 0.99 | 10.2 x |
+| REco, stanzas | lsoda | 33.8 | 0 | 41.8 | 0.82 | 8.2 x |
+| | dop853 | 50.0 | 0 | 58.0 | 1.13 | 11.2 x |
+| | radau | 23.0 | 1.0 | 53.0 | 1.06 | 10.5 x |
+| | bdf | 18.8 | 1.0 | 49.8 | 1.00 | 9.9 x |
 
-REco by method, 2 years at the default tolerances, EwE rule, effort 2:
-
-| Model | Method | `nfev` / month | Jacobians / month | All right-hand-side calls / month | Wall s / year | Ratio to RK4 |
-|---|---|---|---|---|---|---|
-| REco, no stanzas | lsoda | 19 | 0 | 20 | 1.8 | 11 x |
-| | dop853 | 19 | 0 | 20 | 1.8 | 11 x |
-| | radau | 16 | 1.0 | 39 | 3.1 | 18 x |
-| | bdf | 18 | 1.0 | 42 | 3.3 | 20 x |
-| REco, stanzas | lsoda | 34 | 0 | 35 | 2.8 | 23 x |
-| | dop853 | 50 | 0 | 51 | 3.8 | 32 x |
-| | radau | 23 | 1.0 | 46 | 3.5 | 29 x |
-| | bdf | 19 | 1.0 | 43 | 3.3 | 28 x |
+RK4 takes 0.097 s per year without stanzas and 0.101 with.
 
 What the call counts mean:
 
-- `nfev` counts the solver's calls of the right-hand side. For LSODA it includes the finite-difference Jacobian columns; for Radau and BDF it does not (SciPy builds their Jacobian outside the count), hence the separate column: about `nfev` + Jacobians x groups.
-- Each month adds calls that are not in `nfev`: one start check, six quadrature evaluations, and the rate evaluations for the outputs (Hden at the month end; the month-start predation when RiskTime is set).
-- Under the EwE rule each right-hand-side call solves handling time first: `hden_evals_max` derivative evaluations at most, then one more. At CmCo 1000 that is 4 or fewer. At the Black Sea's CmCo 2 the undamped iteration does not always reach its tolerance (1e-12) in 30 passes, and SciPy's `hybr` finishes, so a call can take up to 132 derivative evaluations. That is where the Black Sea's time goes: with CmCo 1000 for every group (a measurement script) the same 10 years take 3.3 s a year, with the same `nfev`.
-- LT2022 is stiff (one eigenvalue of about 3300 per year at base, design section 2.2), so LSODA runs its stiff method there, with about 5 Jacobians a month.
+- `nfev` counts the solver's calls of the right-hand side. For LSODA it includes the finite-difference Jacobian columns; for Radau and BDF it does not (SciPy builds their Jacobian outside the count), hence the separate column.
+- `rhs_evals` (the third column of the first table) counts every evaluation of the run: the solver's, one start check a month, six quadrature evaluations, and the rate evaluations for the outputs (month 1's start rates, for the start Hden, and the month-end Hden). It is always above the sum of `nfev`.
+- Under the EwE rule each right-hand-side evaluation is one derivative call, inside which handling time is solved first on the consumption kernel alone: a bracketed secant per predator, `hden_passes_max` kernel passes at most, with `hybr` finishing if 30 passes leave `hden_tol` unmet. A model with pooled predation takes undamped passes instead (pooled REco: 19 to 29, measured in Task 2).
+- LT2022 is stiff (one eigenvalue of about 3300 per year at base, design section 2.2), so LSODA runs its stiff method there, with about 6 Jacobians a month.
 
 ## Known limitations
 
+- Pooled models (ScrambleSelf > 0) can fail the handling-time solve far from base: with ScrambleSelf 0.5 under the EwE rule on an unbalanced setup, LSODA raised "handling time did not converge" (month 2 at CmCo 2, residual 0.15; month 6 at CmCo 1000, residual 2e-6), and more passes do not help (the undamped map stalls or cycles). The error is raised, not warned: `on_failure="warn"` does not cover it. Workarounds are loosening `hden_tol` (up to 1e-8) or using RK4. A damped or Anderson-accelerated fallback for coupled maps is a phase-3 item.
+- `annual_Qlink` and the Ecotracer step pair the month-end biomass with the month-start feeding time on the continuous path, as the parity paths order it. Feeding time moved at most 3.3 % in a month (median 1.5 %) on REco with FtimeAdj 0.5 and effort 2.
 - `annual_Qlink` and the ecotracer are month-end snapshots, without handling time or mediation, unlike the month-integral catch. `annual_QB` is never filled, on any path.
 - The catch integral is approximate under fleet mediation, because F is recomputed from the state within the month while the catch uses the month's F times the month-mean biomass.
-- RiskTime reads the month-start predation over the month-end biomass.
+- Forcing, effort, forced catch and forced biomass are held within the month, and fleet dynamics runs at the month boundaries.
 - A forced stanza group is overwritten by the age structure, on both paths.
 - Stanza models are first order in the monthly split whatever the tolerance: the age structure is updated once a month from the month's mean rates.
-- EwE's mediation lookup is still truncated to its 1200 points, so a mediated model's right-hand side is piecewise constant in the state; interpolating it (design section 2.8) is moved to phase 2.
-- Feeding time, forcing, effort and forced catch are held within the month (feeding time becomes a state in phase 2).
+- The budget residuals are None in a month with forced biomass, so a model that forces biomass in every month (LT2022) is not budget-checked on this path.
+- The Black Sea costs 32.5 x RK4 and LT2022 61.6 x; the 10-20 x of design section 4 needs an analytic Jacobian and linear forcing (phase 3).
 - IBM groups are rejected.
 - Ecospace still uses its own scheme (RK4 sub-steps with implicit movement); the continuous path is Ecosim only.

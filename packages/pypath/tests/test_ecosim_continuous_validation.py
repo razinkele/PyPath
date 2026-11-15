@@ -21,6 +21,12 @@ from pypath.core.ecosim import rsim_run
 from tests.continuous_support import REF, needs_reco, scenario
 from tests.continuous_support import reco_plain as _reco_plain
 from tests.continuous_support import reco_stanzas as _reco_stanzas
+from tests.test_ecosim_continuous_speed import (
+    EVAL_COST_BOUND,
+    _cpu,
+    _exact_call_cpu,
+    _loadavg,
+)
 
 DATA = Path(__file__).resolve().parents[3] / "Data"
 BLACK_SEA = DATA / "BlackSea_EwEF_testcase.eweaccdb"
@@ -223,19 +229,20 @@ def _timed_run(scen, method, years):
 @pytest.mark.integration
 @pytest.mark.slow
 @pytest.mark.parametrize("model", list(MODELS))
-def test_black_sea_and_lt2022_run(model):
+def test_ten_years_on_three_models(model):
     """Ten years of LSODA stay finite and positive; differences from RK4.
 
     The Black Sea (scenario 1) and LT2022 (scenario 16, dataset 35), plus
     REco with stanzas at effort 2 so that the page's three rows come from
     one printout. Prints, for ``docs/parity/continuous_path.md``: the median
     and maximum of ``|B_lsoda / B_RK4 - 1|`` over months 1-120 (living
-    groups, and living plus detritus), the derivative calls per month from
-    ``solver_info`` and the wall time per simulated year of both paths.
-    The differences are largely definitional (the page attributes them), so
-    they are printed, not asserted. The Black Sea takes about 400 s: at its
-    CmCo 2 each right-hand-side call solves handling time in up to 132
-    derivative evaluations.
+    groups, and living plus detritus), the solver calls per month, the
+    right-hand-side evaluations, the budget residuals and the wall time per
+    simulated year of both paths. The differences are largely definitional
+    (the page attributes them), so they are printed, not asserted. The
+    handling-time passes per evaluation are asserted (at most 25; the spike
+    saw 19). The timing bounds are in ``test_ten_year_cost``: a one-shot
+    timing here would fail on a loaded machine.
     """
     years = range(1, 11)
     scen = MODELS[model]()
@@ -251,6 +258,7 @@ def test_black_sea_and_lt2022_run(model):
     assert len(months) == 120 and all(m["status"] == 0 for m in months)
     assert not any(m["degraded"] for m in months)
     assert sum(m["clips"] for m in months) == 0
+    assert max(m["hden_passes_max"] for m in months) <= 25
 
     rel = np.abs(bio[1:] / rk4.out_Biomass[1:, 1 : n_bio + 1] - 1)
     living = rel[:, :n_living]
@@ -266,12 +274,79 @@ def test_black_sea_and_lt2022_run(model):
     print(
         f"{model}: nfev per month mean {nfev.mean():.0f}, median "
         f"{np.median(nfev):.0f}, max {nfev.max()}; njev per month mean "
-        f"{np.mean([m['njev'] for m in months]):.1f}; Hden evaluations per "
-        f"RHS call, max {max(m['hden_evals_max'] for m in months)}; clips "
+        f"{np.mean([m['njev'] for m in months]):.1f}; Hden kernel passes per "
+        f"RHS call, max {max(m['hden_passes_max'] for m in months)}; clips "
         f"{sum(m['clips'] for m in months)}"
+    )
+    info = lsoda.solver_info
+    budget = [m["budget_residual"] for m in months if m["budget_residual"] is not None]
+    pool = [
+        m["pool_budget_residual"]
+        for m in months
+        if m["pool_budget_residual"] is not None
+    ]
+    print(
+        f"{model}: rhs_evals {info['rhs_evals']} ({info['rhs_evals'] / 120:.1f} "
+        f"per month); budget residual max "
+        f"{max(abs(r) for r in budget) if budget else None}, pool budget "
+        f"residual max {max(pool) if pool else None} ({len(budget)} of 120 "
+        f"months checked); nutrient_floor {sum(m['nutrient_floor'] for m in months)}, "
+        f"negative_export {sum(m['negative_export'] for m in months)}; "
+        f"feeding-time groups {len(info['ftime_groups'])}"
     )
     print(
         f"{model}: seconds per simulated year: RK4 {t_rk4 / 10:.3f}, "
         f"lsoda {t_lsoda / 10:.3f} ({t_lsoda / t_rk4:.0f} x); "
         f"corrections {lsoda.solver_info['corrections']}"
     )
+
+
+# 34.5-36.0 measured on identical call counts: 35 fails on load alone
+RK4_RATIO_BLACK_SEA = 40.0
+COST_SAMPLES = 3
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+@pytest.mark.benchmark
+@pytest.mark.parametrize("model", list(MODELS))
+def test_ten_year_cost(model):
+    """CPU per right-hand-side evaluation and the ratio to RK4, 10 years.
+
+    Task 6's protocol: a warm-up of each method, interleaved pairs, the
+    minimum of the samples, ``process_time``. Asserted: for REco, CPU per
+    evaluation at most 2.5 x one exact derivative call; for the Black Sea,
+    the RK4 ratio at most 40. The per-evaluation figure of the Black Sea and
+    LT2022 and LT2022's ratio are printed (the page quotes them).
+    """
+    scen = MODELS[model]()
+    years = range(1, 11)
+
+    def run(method, yrs=years):
+        s = copy.deepcopy(scen)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return _cpu(lambda: rsim_run(s, method=method, years=yrs))
+
+    run("RK4", range(1, 2))  # warm-up of each method, untimed
+    run("lsoda", range(1, 2))
+    rk4, lsoda = [], []
+    evals = None
+    for _ in range(COST_SAMPLES):
+        rk4.append(run("RK4")[0])
+        cpu, out = run("lsoda")
+        lsoda.append(cpu)
+        evals = out.solver_info["rhs_evals"]
+    ratio = min(lsoda) / min(rk4)
+    exact = _exact_call_cpu(scen)
+    per_eval = min(lsoda) / evals
+    report = (
+        f"{model}: RK4 samples {rk4}, LSODA samples {lsoda}, ratio {ratio:.2f}, "
+        f"rhs_evals {evals}, CPU/eval {per_eval:.3e}, exact call {exact:.3e} "
+        f"(x{per_eval / exact:.2f}), loadavg {_loadavg()}"
+    )
+    print("\n" + report)
+    if model == "reco":
+        assert per_eval <= EVAL_COST_BOUND * exact, report
+    if model == "black_sea":
+        assert ratio <= RK4_RATIO_BLACK_SEA, report
