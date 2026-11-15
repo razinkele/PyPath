@@ -95,6 +95,14 @@ class RsimParams:
         Base production/biomass
     NoIntegrate : np.ndarray
         Fast equilibrium flag (0 = fast eq, else normal)
+    HandleSelf : np.ndarray
+        Prey-overlap weight of each predator's handling time, one value per
+        group (length NUM_GROUPS + 1, as Rpath); every link of a predator
+        takes that predator's value. An array of one value per link (length
+        ``len(PreyFrom)``) is also accepted.
+    ScrambleSelf : np.ndarray
+        Predator-overlap weight of the vulnerability term, per group and
+        keyed by the predator, as HandleSelf
 
     Predator-Prey Link Arrays
     -------------------------
@@ -592,9 +600,13 @@ def rsim_params(
     preyswitch : float
         Prey switching exponent (default 1.0 = off)
     scrambleselfwt : float
-        Predator overlap weight (0 = individual, 1 = all overlap)
+        Predator overlap weight (0 = individual, 1 = all overlap), the start
+        value of every group's ``ScrambleSelf`` (applied to each link of
+        that group as predator)
     handleselfwt : float
-        Prey overlap weight (0 = individual, 1 = all overlap)
+        Prey overlap weight (0 = individual, 1 = all overlap), the start
+        value of every group's ``HandleSelf`` (keyed by predator, as
+        ``ScrambleSelf``)
     steps_yr : int
         Timesteps per year (default 12 = monthly)
     steps_m : int
@@ -1884,15 +1896,16 @@ def _run_setup(
     params_dict["_link_pred"] = _links.pred
 
     # --- Suite-pooling parameters for Rpath-compatible Q formula ----------
-    # HandleSelf / ScrambleSelf are per-link 1-D arrays on RsimParams;
-    # convert them to 2-D matrices indexed [prey, pred] like VV / DD.
+    # HandleSelf / ScrambleSelf are per-group 1-D arrays on RsimParams (one
+    # weight per predator, as in Rpath); expand them to 2-D matrices indexed
+    # [prey, pred] like VV / DD, each link taking its predator's weight.
     params_dict["HandleSelf"] = (
-        _build_link_matrix(params, params.HandleSelf)
+        _group_link_matrix(params, params.HandleSelf, "HandleSelf")
         if hasattr(params, "HandleSelf")
         else None
     )
     params_dict["ScrambleSelf"] = (
-        _build_link_matrix(params, params.ScrambleSelf)
+        _group_link_matrix(params, params.ScrambleSelf, "ScrambleSelf")
         if hasattr(params, "ScrambleSelf")
         else None
     )
@@ -3410,6 +3423,38 @@ def _build_link_matrix(params: RsimParams, link_values: np.ndarray) -> np.ndarra
         if prey < n and pred < n and i < len(link_values):
             matrix[prey, pred] = link_values[i]
     return matrix
+
+
+def _group_link_matrix(params: RsimParams, values, name: str) -> np.ndarray:
+    """``[prey, pred]`` matrix of a per-predator weight (HandleSelf,
+    ScrambleSelf) for the consumption kernels.
+
+    ``rsim_params`` builds these as one value per group (length
+    ``NUM_GROUPS + 1``, Rpath's ``rep(x, NUM_GROUPS + 1)``), and Rpath's C++
+    unrolls them by the link's predator (``Hself = HandleSelf[PreyTo]``,
+    ``Sself = ScrambleSelf[PreyTo]``, ``ecosim.cpp``), so every link of a
+    predator gets that predator's value. An array of length
+    ``len(PreyFrom)`` is taken as one value per link, unchanged, for
+    backward compatibility; when both lengths are equal it is read per
+    group. Any other length raises ``ValueError``. Cells that are not links
+    stay 0.
+    """
+    n = params.NUM_GROUPS + 1
+    prey = np.asarray(params.PreyFrom, dtype=int)
+    pred = np.asarray(params.PreyTo, dtype=int)
+    values = np.asarray(values, dtype=float)
+    if values.ndim == 1 and len(values) == n:
+        matrix = np.zeros((n, n))
+        ok = (prey < n) & (pred < n)
+        matrix[prey[ok], pred[ok]] = values[pred[ok]]
+        return matrix
+    if values.ndim == 1 and len(values) == len(prey):
+        return _build_link_matrix(params, values)
+    raise ValueError(
+        f"{name} must hold one value per group (length NUM_GROUPS + 1 = {n}) "
+        f"or one per predator-prey link (length {len(prey)}); got shape "
+        f"{values.shape}"
+    )
 
 
 # With DD this large, Rpath's handling term DD / (DD - 1 + preyYY) is exactly 1
