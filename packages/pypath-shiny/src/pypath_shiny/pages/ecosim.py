@@ -65,6 +65,18 @@ from pypath_shiny.services.plotly_viz import (
     build_effort_figure,
     build_initial_final_figure,
 )
+from pypath_shiny.services.solver_diagnostics import (
+    flagged_months as _flagged_months,
+)
+from pypath_shiny.services.solver_diagnostics import (
+    solver_badges as _solver_badges,
+)
+from pypath_shiny.services.solver_diagnostics import (
+    solver_month_table as _month_table,
+)
+from pypath_shiny.services.solver_diagnostics import (
+    solver_summary as _solver_summary,
+)
 from pypath_shiny.services.tasks import (
     TaskState,
     TaskStatus,
@@ -76,6 +88,12 @@ from pypath_shiny.services.tasks import (
 
 
 # Helper to check model balance and show notification if not
+def _group_names(scen) -> list[str] | None:
+    """Group names of a scenario (index 0 is Outside), or None."""
+    spname = getattr(getattr(scen, "params", None), "spname", None)
+    return None if spname is None else [str(n) for n in spname]
+
+
 def _require_balanced_model_or_notify(model) -> bool:
     """Return True if model is balanced, otherwise show a UI error and return False."""
     from pypath_shiny.pages.utils import is_balanced_model
@@ -665,6 +683,7 @@ def ecosim_ui() -> ui.Tag:
                     ui.output_ui("help_progress"),
                     ui.output_ui("simulation_status"),
                     ui.output_ui("progress_display"),
+                    ui.output_ui("solver_diagnostics"),
                 ),
                 ui.nav_panel(
                     "Time Series",
@@ -1188,6 +1207,56 @@ def ecosim_server(
                         ui.tags.strong("Recovery:"),
                         f" Whether groups bounced back (final biomass > {THRESHOLDS.recovery_threshold})",
                     ),
+                ),
+                ui.h6("Solver diagnostics"),
+                ui.p(
+                    "Continuous methods (LSODA, BDF, DOP853, Radau) add a "
+                    "Solver diagnostics card below. Each badge reads one "
+                    "number the solver recorded:"
+                ),
+                ui.tags.ul(
+                    ui.tags.li(
+                        ui.tags.strong("Continuous path (not EwE parity):"),
+                        " the run does not reproduce EwE's RK4 numbers.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Solver did not finish (red):"),
+                        " the solver stopped before the month ended; "
+                        "the trajectory after it is unreliable.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Degraded month:"),
+                        " the solver fell back to a cruder step in that month.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Kernel check:"),
+                        " the right-hand side disagreed with the reference "
+                        "kernel by more than 1e-9.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("qs_separation:"),
+                        " below 10, the quasi-steady approximation is poor; "
+                        "raise the rate or integrate the fast groups.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("No group qualified:"),
+                        " quasi-steady was chosen but no group is fast "
+                        "enough, so every group was integrated.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Changes the model:"),
+                        " linear or smooth forcing, or quasi-steady groups, "
+                        "solve a different model from EwE's.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Clipped evaluations:"),
+                        " a biomass went negative inside a step and was "
+                        "clipped; log states avoid this.",
+                    ),
+                ),
+                ui.p(
+                    "Below the badges: a run summary, the flagged months, and "
+                    "(collapsed) a table of every month."
                 ),
                 ui.h6("What to Do If Crashes Occur"),
                 ui.tags.ol(
@@ -2220,6 +2289,25 @@ def ecosim_server(
         else:
             crashed_info = "None"
 
+        request = getattr(output, "run_request", None)
+        info = getattr(output, "solver_info", None)
+        method_rows = []
+        if request is not None:
+            summary = dict(_solver_summary(info, _group_names(scen)))
+            shown = (
+                summary["Method"]
+                if "Method" in summary
+                else {"RK4": "Runge-Kutta 4", "AB": "Adams-Bashforth"}.get(
+                    request.method, str(request.method)
+                )
+            )
+            method_rows.append(ui.tags.tr(ui.tags.td("Method:"), ui.tags.td(shown)))
+            for label in ("Tolerance", "Model options"):
+                if label in summary:
+                    method_rows.append(
+                        ui.tags.tr(ui.tags.td(f"{label}:"), ui.tags.td(summary[label]))
+                    )
+
         return ui.div(
             ui.tags.h5("Simulation Details"),
             ui.tags.table(
@@ -2241,9 +2329,69 @@ def ecosim_server(
                     ),
                 ),
                 ui.tags.tr(ui.tags.td("Crashed groups:"), ui.tags.td(crashed_info)),
+                *method_rows,
                 class_="table table-sm",
             ),
         )
+
+    @output
+    @render.ui
+    def solver_diagnostics():
+        """Badges, summary and flagged months for a continuous run."""
+        output = sim_output.get()
+        info = getattr(output, "solver_info", None)
+        if info is None:
+            return None
+        names = _group_names(scenario.get())
+        badges = _solver_badges(info, names)
+        flagged = _flagged_months(info)
+        flagged_view = (
+            ui.p("No month flagged.", class_="text-muted mb-2")
+            if flagged.empty
+            else ui.div(
+                ui.h6("Flagged months"),
+                ui.HTML(
+                    flagged.to_html(
+                        index=False,
+                        classes="table table-sm",
+                        border=0,
+                        float_format=lambda x: f"{x:.3g}",
+                    )
+                ),
+                style="overflow-x: auto;",
+            )
+        )
+        return ui.card(
+            ui.card_header("Solver diagnostics"),
+            ui.div(
+                *[
+                    ui.span(b.text, class_=f"badge text-bg-{b.level} me-1 mb-1")
+                    for b in badges
+                ],
+                class_="mb-2",
+            ),
+            ui.tags.table(
+                *[
+                    ui.tags.tr(ui.tags.th(label), ui.tags.td(value))
+                    for label, value in _solver_summary(info, names)
+                ],
+                class_="table table-sm",
+            ),
+            flagged_view,
+            ui.accordion(
+                ui.accordion_panel(
+                    "Every month", ui.output_data_frame("solver_month_table")
+                ),
+                open=False,
+            ),
+        )
+
+    @output
+    @render.data_frame
+    def solver_month_table():
+        """Every month's solver counters (a pandas frame, never GT)."""
+        info = getattr(sim_output.get(), "solver_info", None)
+        return render.DataGrid(_month_table(info), height="400px")
 
     @output
     @render_widget
