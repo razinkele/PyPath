@@ -66,8 +66,13 @@ def test_rsim_run_advanced_refuses_an_offset_range():
     scen = _scen(range(2000, 2002))
     with pytest.raises(ValueError, match="scenario's first year"):
         rsim_run_advanced(scen, years=range(2001, 2002))
-    assert rsim_run_advanced(scen).out_Biomass.shape[0] == 25
-    assert rsim_run_advanced(scen, years=range(2000, 2001)).out_Biomass.shape[0] == 13
+    full = rsim_run_advanced(scen)
+    part = rsim_run_advanced(scen, years=range(2000, 2001))
+    assert full.out_Biomass.shape[0] == 25
+    assert part.out_Biomass.shape[0] == 13
+    # the values too: a flat trajectory at the start biomass must not pass
+    np.testing.assert_array_equal(full.out_Biomass, rsim_run(scen).out_Biomass)
+    np.testing.assert_array_equal(part.out_Biomass, full.out_Biomass[:13])
 
 
 def test_rsim_run_spatial_refuses_an_offset_range_with_ecospace():

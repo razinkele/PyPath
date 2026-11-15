@@ -1,10 +1,16 @@
 """
-Advanced Ecosim features including state forcing and diet rewiring.
+Advanced Ecosim entry point: state forcing and diet rewiring (not implemented).
 
-This module extends the base Ecosim functionality with:
-1. Flexible state-variable forcing
-2. Dynamic diet rewiring
-3. Advanced forcing modes
+``rsim_run_advanced`` runs ``rsim_run``. State forcing (``StateForcing``)
+and diet rewiring (``DietRewiring``) are not implemented in this version and
+raise ``NotImplementedError``. Earlier versions ran a placeholder loop that
+never integrated, so they returned the start biomass in every month. Prey
+switching, EwE's per-predator ``SwitchPower``, is the planned replacement for
+diet rewiring. ``rsim_run`` already applies it from
+``scenario.params.SwitchPower``.
+
+``apply_state_forcing`` and ``apply_diet_rewiring`` are standalone helpers
+that no simulation calls.
 """
 
 from __future__ import annotations
@@ -14,7 +20,7 @@ from typing import Optional
 
 import numpy as np
 
-from pypath.core.ecosim import RsimOutput, RsimScenario, _check_run_years
+from pypath.core.ecosim import RsimOutput, RsimScenario, rsim_run
 from pypath.core.forcing import DietRewiring, ForcingMode, StateForcing, StateVariable
 
 # Get logger
@@ -128,242 +134,79 @@ def rsim_run_advanced(
     years: Optional[range] = None,
     verbose: bool = False,
 ) -> RsimOutput:
-    """Run Ecosim simulation with advanced forcing and diet rewiring.
+    """Run Ecosim with ``rsim_run``. Diet rewiring and state forcing are refused.
 
-    This function extends the standard rsim_run with:
-    - Flexible state-variable forcing (biomass, catch, recruitment, etc.)
-    - Dynamic diet rewiring based on prey availability
-    - Multiple forcing modes (replace, add, multiply, rescale)
+    Without diet rewiring or state forcing, this is
+    ``rsim_run(scenario, method=method, years=years)``. Its output is
+    returned unchanged. An unknown ``method``, or a ``years`` range that
+    does not start at ``scenario.start_year``, raises ``rsim_run``'s
+    ``ValueError``.
+
+    Diet rewiring and state forcing are not implemented in this version.
+    Either one raises ``NotImplementedError``. Earlier versions ran a
+    placeholder loop that never integrated: every ``method``, even an
+    unknown one, returned the start biomass of every unforced group in
+    every month, and zero catch. The rewired diet was computed but never
+    applied.
 
     Parameters
     ----------
     scenario : RsimScenario
         Standard Ecosim scenario
     state_forcing : StateForcing, optional
-        State-variable forcing configuration
+        Must be None or empty (no forcing functions). Any forcing function
+        raises ``NotImplementedError``. ``rsim_run`` takes forced biomass
+        from ``scenario.forcing.ForcedBio`` (values > 0 replace the
+        biomass), a recruitment multiplier from ``scenario.forcing.ForcedRecs``
+        and forced catch from ``scenario.fishing.ForcedCatch``.
     diet_rewiring : DietRewiring, optional
-        Diet rewiring configuration
+        Must be None or disabled (``enabled=False``). An enabled one
+        raises ``NotImplementedError``. Prey switching is the planned
+        replacement: EwE's per-predator ``SwitchPower``
+        (``scenario.params.SwitchPower``), which ``rsim_run`` already
+        applies.
     method : str
-        Integration method ('RK4' or 'AB')
+        Integration method, passed to ``rsim_run``: ``'RK4'``, ``'AB'``
+        or one of its continuous methods. Anything else raises
+        ``ValueError``.
     years : range, optional
-        Years to simulate; as in ``rsim_run`` it must start at
+        Years to simulate, passed to ``rsim_run``. It must start at
         ``scenario.start_year`` (the first ``len(years)`` years are run),
-        else ``ValueError``
+        else ``ValueError``.
     verbose : bool
-        Print progress information
+        Unused, kept for compatibility.
 
     Returns
     -------
     RsimOutput
-        Simulation results with applied forcing
+        ``rsim_run``'s output.
 
-    Examples
-    --------
-    >>> from pypath.core.forcing import create_biomass_forcing, create_diet_rewiring
-    >>>
-    >>> # Force phytoplankton biomass to observed values
-    >>> biomass_forcing = create_biomass_forcing(
-    ...     group_idx=0,
-    ...     observed_biomass={2000: 15.0, 2005: 18.0, 2010: 16.0},
-    ...     mode='replace'
-    ... )
-    >>>
-    >>> # Enable prey switching
-    >>> diet_rewiring = create_diet_rewiring(switching_power=2.5)
-    >>>
-    >>> # Run simulation
-    >>> result = rsim_run_advanced(
-    ...     scenario,
-    ...     state_forcing=biomass_forcing,
-    ...     diet_rewiring=diet_rewiring
-    ... )
+    Raises
+    ------
+    NotImplementedError
+        If ``diet_rewiring`` is enabled, or ``state_forcing`` has a forcing
+        function.
+    ValueError
+        From ``rsim_run``: an unknown ``method`` or an offset ``years``.
     """
-
-    params = scenario.params
-    forcing = scenario.forcing
-    _fishing = scenario.fishing
-
-    # Initialize diet rewiring with base diet
     if diet_rewiring is not None and diet_rewiring.enabled:
-        # Extract diet matrix from params
-        # Need to reconstruct diet from predator-prey links
-        n_prey = params.NUM_BIO
-        n_pred = params.NUM_LIVING
-
-        base_diet = np.zeros((n_prey + 1, n_pred + 1))
-
-        for link in range(params.NumPredPreyLinks):
-            prey_idx = params.PreyFrom[link]
-            pred_idx = params.PreyTo[link]
-
-            # Base proportion (will be normalized)
-            base_diet[prey_idx, pred_idx] = params.QQ[link]
-
-        # Normalize
-        for pred in range(n_pred + 1):
-            total = np.sum(base_diet[:, pred])
-            if total > 0:
-                base_diet[:, pred] /= total
-
-        diet_rewiring.initialize(base_diet)
-
-        if verbose:
-            logger.info(
-                f"Initialized diet rewiring (power={diet_rewiring.switching_power})"
-            )
-
-    # Determine years to run
-    if years is None:
-        n_months = forcing.ForcedBio.shape[0]
-        n_years = n_months // 12
-    else:
-        _check_run_years(scenario, years)
-        n_years = len(years)
-        n_months = n_years * 12
-
-    n_groups = params.NUM_GROUPS + 1
-
-    # Initialize output arrays
-    out_biomass = np.zeros((n_months + 1, n_groups))
-    out_catch = np.zeros((n_months + 1, n_groups))
-    out_gear_catch = np.zeros((n_months + 1, params.NumFishingLinks + 1))
-
-    # Initialize state
-    state = scenario.start_state.Biomass.copy()
-    out_biomass[0] = state
-
-    # Track diet changes
-    diet_changes = 0
-
-    # Main simulation loop
-    for month in range(n_months):
-        year_num = month // 12
-        month_in_year = month % 12
-        current_year = scenario.start_year + year_num + month_in_year / 12.0
-
-        if verbose and month % 12 == 0:
-            logger.debug(
-                f"Year {year_num + 1}/{n_years}: mean biomass = {np.mean(state[1 : params.NUM_LIVING + 1]):.2f}"
-            )
-
-        # Apply diet rewiring if enabled
-        if diet_rewiring is not None:
-            new_diet = apply_diet_rewiring(state, diet_rewiring, month)
-
-            if new_diet is not None:
-                # Update QQ values in params based on new diet
-                # This would require modifying the params.QQ array
-                # For now, just track that it happened
-                diet_changes += 1
-
-                if verbose:
-                    logger.debug(f"  Diet rewiring applied at month {month}")
-
-        # Get derivative
-        # Note: This simplified version doesn't actually integrate
-        # In full implementation, would call integrate_rk4 or integrate_ab
-        # For now, just demonstrate the forcing application
-
-        # Simulate one time step (placeholder - real version would integrate)
-        # This is where the actual RK4 or AB integration would happen
-        # state_new = integrate_rk4(state, params_dict, forcing_matrices, ...)
-
-        # For demonstration, use simple Euler step
-        # In real implementation, this would be the full RK4/AB integration
-        # that's already in ecosim_deriv.py
-
-        # Apply biomass forcing AFTER integration (replace computed biomass)
-        if state_forcing is not None:
-            state = apply_state_forcing(
-                state, current_year, state_forcing, StateVariable.BIOMASS
-            )
-
-        # Store results
-        out_biomass[month + 1] = state
-
-        # Check for crashes
-        living_biomass = state[1 : params.NUM_LIVING + 1]
-        if np.any(living_biomass < 1e-4):
-            if verbose:
-                crashed = np.where(living_biomass < 1e-4)[0]
-                logger.warning(f"Crash detected at month {month}, groups: {crashed}")
-
-    # Convert to annual (simplified - real version aggregates properly)
-    annual_biomass = out_biomass[::12]  # Every 12th month
-
-    # Create output (simplified - real version fills all fields)
-    from pypath.core.ecosim import RsimState
-
-    # Create end state with all required fields
-    # Use start_state N and Ftime since this simplified version doesn't track them
-    end_state = RsimState(
-        Biomass=state.copy(),
-        N=scenario.start_state.N.copy(),
-        Ftime=scenario.start_state.Ftime.copy(),
-        SpawnBio=(
-            scenario.start_state.SpawnBio.copy()
-            if scenario.start_state.SpawnBio is not None
-            else None
-        ),
-        StanzaPred=(
-            scenario.start_state.StanzaPred.copy()
-            if scenario.start_state.StanzaPred is not None
-            else None
-        ),
-        EggsStanza=(
-            scenario.start_state.EggsStanza.copy()
-            if scenario.start_state.EggsStanza is not None
-            else None
-        ),
-        NageS=(
-            scenario.start_state.NageS.copy()
-            if scenario.start_state.NageS is not None
-            else None
-        ),
-        WageS=(
-            scenario.start_state.WageS.copy()
-            if scenario.start_state.WageS is not None
-            else None
-        ),
-        QageS=(
-            scenario.start_state.QageS.copy()
-            if scenario.start_state.QageS is not None
-            else None
-        ),
-    )
-
-    output = RsimOutput(
-        out_Biomass=out_biomass,
-        out_Catch=out_catch,
-        out_Gear_Catch=out_gear_catch,
-        annual_Biomass=annual_biomass,
-        annual_Catch=np.zeros_like(annual_biomass),
-        annual_QB=np.zeros((n_years + 1, n_groups)),
-        annual_Qlink=np.zeros((n_years + 1, params.NumPredPreyLinks + 1)),
-        stanza_biomass=None,
-        end_state=end_state,
-        crash_year=-1,
-        crashed_groups=set(),
-        pred=np.array([]),
-        prey=np.array([]),
-        Gear_Catch_sp=np.array([]),
-        Gear_Catch_gear=np.array([]),
-        Gear_Catch_disp=np.array([]),
-        start_state=scenario.start_state,
-        params={
-            "NUM_GROUPS": params.NUM_GROUPS,
-            "NUM_LIVING": params.NUM_LIVING,
-            "years": n_years,
-        },
-    )
-
-    if verbose:
-        logger.info("Simulation complete:")
-        logger.info(f"  Total diet rewiring updates: {diet_changes}")
-        if state_forcing:
-            logger.info(f"  Active forcing functions: {len(state_forcing.functions)}")
-
-    return output
+        raise NotImplementedError(
+            "Diet rewiring is not implemented in this version: "
+            "rsim_run_advanced never applied the rewired diet (it returned "
+            "the start biomass). Prey switching, EwE's per-predator "
+            "SwitchPower (scenario.params.SwitchPower, applied by rsim_run), "
+            "is the planned replacement. Pass diet_rewiring=None, or "
+            "DietRewiring(enabled=False), to run rsim_run."
+        )
+    if state_forcing is not None and state_forcing.functions:
+        raise NotImplementedError(
+            "State forcing is not implemented in rsim_run_advanced in this "
+            "version: it never integrated the unforced groups. Force biomass "
+            "with scenario.forcing.ForcedBio (values > 0 replace the "
+            "biomass), recruitment with scenario.forcing.ForcedRecs or catch "
+            "with scenario.fishing.ForcedCatch, and run rsim_run."
+        )
+    return rsim_run(scenario, method=method, years=years)
 
 
 def create_advanced_scenario(

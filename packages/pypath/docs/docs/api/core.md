@@ -190,7 +190,9 @@ out.solver_info["corrections"]
 
 ## Advanced Ecosim (State Forcing & Diet Rewiring)
 
-State-variable forcing and dynamic diet rewiring extensions for Ecosim.
+`rsim_run_advanced` runs `rsim_run`. State forcing and diet rewiring are not
+implemented in this version and raise `NotImplementedError`. Prey switching
+(EwE `SwitchPower`) is the planned replacement for diet rewiring.
 
 ::: pypath.core.ecosim_advanced
     options:
