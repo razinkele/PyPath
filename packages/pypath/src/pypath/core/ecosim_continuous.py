@@ -1309,6 +1309,9 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
 
 _Y_FLOOR = 1e-20
 _LOG_FLOOR = float(np.log(_Y_FLOOR))
+#: Cap of a log state's atol: a group near the floor keeps error control
+#: (a relative error of about 10 % at most, since z is a relative measure).
+_ATOL_Z_MAX = 0.1
 _GL_X, _GL_W = np.polynomial.legendre.leggauss(6)
 
 
@@ -1549,7 +1552,7 @@ def integrate_month(
     ``rhs(t, [B, Ft])``, with ``dz = max(dz, 0)`` where ``z <= ln 1e-20``
     (the floor absorbs: a group there can only grow). A forced group has
     ``dB = 0`` and so a constant ``z``. The log state's ``atol`` is
-    ``max(atol_i / y0_i, rtol)`` (the linear tolerance at the month-start
+    ``min(max(atol_i / y0_i, rtol), 0.1)`` (the linear tolerance at the month-start
     biomass; ``atol`` is broadcast to ``y0``'s length first). ``sol.y`` and
     the dense output are transformed back to biomass before the means,
     ``y_end``, the stats and the budget, so the quadrature means are of B and
@@ -1586,7 +1589,10 @@ def integrate_month(
         z0 = y0.copy()
         z0[:n] = np.log(np.maximum(y0[:n], _Y_FLOOR))
         atol_z = np.array(np.broadcast_to(atol, y0.shape), dtype=float)
-        atol_z[:n] = np.maximum(atol_z[:n] / np.maximum(y0[:n], _Y_FLOOR), rtol)
+        atol_z[:n] = np.minimum(
+            np.maximum(atol_z[:n] / np.maximum(y0[:n], _Y_FLOOR), rtol),
+            _ATOL_Z_MAX,
+        )
         atol_run = atol_z
 
         def to_y(z):

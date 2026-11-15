@@ -81,9 +81,22 @@ def test_log_tolerance(monkeypatch):
     y0 = np.array([2.0, 1e-3, 50.0])
     atol = np.array([1e-8, 1e-8, 1e-3])
     integrate_month(_Decay(), y0, 1 / 12, "lsoda", 1e-6, atol, positivity="log")
-    want = np.maximum(atol / y0, 1e-6)
+    want = np.minimum(np.maximum(atol / y0, 1e-6), 0.1)
     assert np.allclose(seen["atol"], want, rtol=0, atol=0)
+    assert seen["atol"][2] == 2e-5  # an uncapped value
     assert np.allclose(seen["y0"], np.log(y0))
+    # a group at the floor is capped at 0.1, not 1e12
+    seen.clear()
+    integrate_month(
+        _Decay(),
+        np.array([1e-20, 1.0]),
+        1 / 12,
+        "lsoda",
+        1e-6,
+        1e-8,
+        positivity="log",
+    )
+    assert seen["atol"][0] == 0.1
 
 
 def test_log_feeding_states_stay_linear(monkeypatch):
@@ -117,10 +130,30 @@ def test_log_feeding_states_stay_linear(monkeypatch):
     )
 
 
-def test_log_floor_absorbs():
+class _Spy:
+    """Records the z the solver saw (``solve_ivp``'s solution)."""
+
+    def __init__(self, monkeypatch):
+        self.sols = []
+        real = cont.solve_ivp
+
+        def spy(*a, **k):
+            sol = real(*a, **k)
+            self.sols.append(sol)
+            return sol
+
+        monkeypatch.setattr(cont, "solve_ivp", spy)
+
+
+def test_log_floor_absorbs(monkeypatch):
+    """A group at the floor with dy < 0 cannot fall: its z stays constant
+    (the dz = max(dz, 0) rule; the back-transform's clamp alone would hide a
+    falling z), and its biomass is exactly 1e-20."""
+    spy = _Spy(monkeypatch)
+
     class _Shrink(_Decay):
         def __call__(self, t, y):
-            return -5.0 * np.asarray(y, dtype=float) - 1e-3
+            return -5.0 * np.asarray(y, dtype=float) - 1e-3 * np.array([0.0, 1.0])
 
     res = integrate_month(
         _Shrink(),
@@ -131,8 +164,63 @@ def test_log_floor_absorbs():
         1e-8,
         positivity="log",
     )
-    assert np.all(np.isfinite(res.y_end))
-    assert np.all(res.y_end >= 1e-20)
+    z = spy.sols[0].y[1]
+    assert np.all(z == np.log(1e-20))
+    assert res.y_end[1] == 1e-20
+    assert res.y_end[0] == pytest.approx(np.exp(-5.0 / 12), rel=1e-5)
+
+
+class _Regrow:
+    """dB = r(t) B with r(t) = A (1 + sin(w t)): B(t) = B0 exp(R(t))."""
+
+    A = 300.0
+    W = 2 * np.pi * 36.0  # three cycles in a month
+    stats: dict = {}
+
+    def __call__(self, t, y):
+        return self.A * (1 + np.sin(self.W * t)) * np.asarray(y, dtype=float)
+
+    def rates(self, y, t=0.0):
+        full = np.concatenate([[0.0], y])
+        return {"FoodGain": full.copy(), "LossPropToB": 0.0 * full}
+
+    def exact(self, b0, t):
+        return b0 * np.exp(self.A * (t + (1 - np.cos(self.W * t)) / self.W))
+
+
+def _regrow_month(**kw):
+    dt = 1 / 12
+    rhs = _Regrow()
+    res = integrate_month(
+        rhs,
+        np.array([1e-20]),
+        dt,
+        "lsoda",
+        1e-6,
+        np.array([1e-8]),
+        positivity="log",
+        **kw,
+    )
+    return res, rhs.exact(1e-20, dt)
+
+
+def test_log_regrowth_from_the_floor():
+    """A group starting at the floor regrows at the right rate (exact B =
+    1e-20 exp(R(t)), 11 orders of magnitude). The capped z tolerance (0.1)
+    keeps error control, a relative error of a few percent at most; the
+    measured one is 6e-3, bounded here by 2e-2."""
+    res, want = _regrow_month()
+    assert want > 1e-10
+    assert res.y_end[0] == pytest.approx(want, rel=2e-2)
+
+
+def test_log_regrowth_needs_the_cap(monkeypatch):
+    """Without the cap atol_z = 1e12 at the floor: no control (7 evaluations,
+    a value 60 % off)."""
+    monkeypatch.setattr(cont, "_ATOL_Z_MAX", 1e30)
+    with np.errstate(all="ignore"):
+        res, want = _regrow_month()
+    assert abs(res.y_end[0] / want - 1) > 0.3
 
 
 def test_log_jacobian_in_z():
@@ -140,7 +228,9 @@ def test_log_jacobian_in_z():
 
     def factory(fun, atol):
         seen["fun"], seen["atol"] = fun, atol
-        return JacobianReuse("lsoda", atol, 1e-6).for_month(fun, atol=atol)
+        jr = JacobianReuse("lsoda", np.full(2, 7.0), 1e-6)
+        seen["jac_obj"] = jr
+        return jr.for_month(fun, atol=atol)
 
     y0 = np.array([2.0, 3.0])
     integrate_month(
@@ -153,6 +243,19 @@ def test_log_jacobian_in_z():
         positivity="log",
         jac_factory=factory,
     )
+    # the z-space atol reaches the difference step's floor
+    assert np.array_equal(seen["jac_obj"]._month_atol, seen["atol"])
+    assert np.array_equal(seen["atol"], np.maximum(1e-8 / y0, 1e-6))
+    # ... and it sets the finite-difference step's floor
+    calls = []
+
+    def probe(t, y):
+        calls.append(np.array(y))
+        return -0.7 * np.asarray(y)
+
+    jr = JacobianReuse("lsoda", np.full(2, 7.0), 1e-6)  # the run's: not used
+    jr.for_month(probe, atol=np.full(2, 1e-6))(0.0, np.array([0.1, 0.1]))
+    assert calls[1][0] - 0.1 == pytest.approx(1.49e-8 * (1e-6 / 1e-6), rel=1e-6)
     # the wrapped function in z: dz = dy / B = -0.7
     assert np.allclose(seen["fun"](0.0, np.log(y0)), -0.7)
     with pytest.raises(ValueError, match="jac_factory"):
