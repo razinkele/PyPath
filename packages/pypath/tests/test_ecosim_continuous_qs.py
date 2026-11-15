@@ -92,7 +92,9 @@ def test_qs_agrees_on_the_stiff_model():
     """One year against full states at rtol 1e-8. The stiff model stays
     close to its base (Phyto drifts 3.8e-7 in the year), so Phyto held at
     its start would also pass the 1e-5 bound: the quasi-steady Phyto must
-    also follow that drift, ten times closer than the held value does."""
+    also follow that drift, at least twice as closely as the held value
+    does (measured: 50 times; the tracking error is at the solver's
+    tolerance, so the bound leaves room for other platforms)."""
     scen = _stiff()
     full = _run(scen, rtol=1e-8)
     qs = _run(scen, rtol=1e-8, fast_groups="quasi-steady", qs_rate=50)
@@ -110,7 +112,7 @@ def test_qs_agrees_on_the_stiff_model():
     assert qs.solver_info["qs_groups"] == [PHYTO]
     assert full.solver_info["qs_groups"] == []
     assert rel.max() <= 1e-5
-    assert tracked <= 0.1 * held
+    assert tracked <= 0.5 * held
 
 
 def test_evaluation_is_pure():
