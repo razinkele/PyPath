@@ -25302,7 +25302,9 @@ FishTime. Returns <code>(FishMort, link_fish_rate)</code>: F by group
 <span class="normal">1767</span>
 <span class="normal">1768</span>
 <span class="normal">1769</span>
-<span class="normal">1770</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fishing_mortality</span><span class="p">(</span>
+<span class="normal">1770</span>
+<span class="normal">1771</span>
+<span class="normal">1772</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fishing_mortality</span><span class="p">(</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">fishing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -25357,8 +25359,10 @@ FishTime. Returns <code>(FishMort, link_fish_rate)</code>: F by group
         <span class="n">effort_mult</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">ForcedEffort</span><span class="p">[</span><span class="n">gear_idx</span><span class="p">]</span> <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">gear_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ForcedEffort</span><span class="p">)</span> <span class="k">else</span> <span class="mf">1.0</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">fleet_med</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">effort_mult</span> <span class="o">*=</span> <span class="n">fleet_med</span><span class="p">[</span><span class="n">gear_idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">fleet_med</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">gear_idx</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">fleet_med</span><span class="p">):</span>
+            <span class="c1"># fleet_med is indexed by the 0-based fleet (MediationLink</span>
+            <span class="c1"># .fleet_idx); gear_idx is the 1-based gear (ForcedEffort column)</span>
+            <span class="n">effort_mult</span> <span class="o">*=</span> <span class="n">fleet_med</span><span class="p">[</span><span class="n">gear_idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
         <span class="n">FishMort</span><span class="p">[</span><span class="n">grp</span><span class="p">]</span> <span class="o">+=</span> <span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span>
         <span class="n">_link_fish_rate</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">FishQ</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">effort_mult</span>
     <span class="c1"># Forced fishing (rsim_run's ForcedF: forced F plus forced catch / B).</span>
@@ -25590,9 +25594,7 @@ detritus links, <code>Discards</code> and <code>DetExport</code> (see
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1773</span>
-<span class="normal">1774</span>
-<span class="normal">1775</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1775</span>
 <span class="normal">1776</span>
 <span class="normal">1777</span>
 <span class="normal">1778</span>
@@ -26792,7 +26794,9 @@ detritus links, <code>Discards</code> and <code>DetExport</code> (see
 <span class="normal">2972</span>
 <span class="normal">2973</span>
 <span class="normal">2974</span>
-<span class="normal">2975</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
+<span class="normal">2975</span>
+<span class="normal">2976</span>
+<span class="normal">2977</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -28172,9 +28176,7 @@ stanza update reads (<code>rsim_run</code>, <code>STANZA_STAGE_RATES</code>).</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3024</span>
-<span class="normal">3025</span>
-<span class="normal">3026</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3026</span>
 <span class="normal">3027</span>
 <span class="normal">3028</span>
 <span class="normal">3029</span>
@@ -28368,7 +28370,9 @@ stanza update reads (<code>rsim_run</code>, <code>STANZA_STAGE_RATES</code>).</p
 <span class="normal">3217</span>
 <span class="normal">3218</span>
 <span class="normal">3219</span>
-<span class="normal">3220</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
+<span class="normal">3220</span>
+<span class="normal">3221</span>
+<span class="normal">3222</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_rk4</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -28591,9 +28595,7 @@ Then: new_B = (1-SORWT)<em>biomeq + SORWT</em>old_B</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3234</span>
-<span class="normal">3235</span>
-<span class="normal">3236</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3236</span>
 <span class="normal">3237</span>
 <span class="normal">3238</span>
 <span class="normal">3239</span>
@@ -28601,7 +28603,9 @@ Then: new_B = (1-SORWT)<em>biomeq + SORWT</em>old_B</p>
 <span class="normal">3241</span>
 <span class="normal">3242</span>
 <span class="normal">3243</span>
-<span class="normal">3244</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+<span class="normal">3244</span>
+<span class="normal">3245</span>
+<span class="normal">3246</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_biomeq</span><span class="p">(</span><span class="n">total_gain</span><span class="p">,</span> <span class="n">total_loss</span><span class="p">,</span> <span class="n">biomass</span><span class="p">,</span> <span class="n">sorwt</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Compute fast-equilibrium biomass for NoIntegrate groups.</span>
 
 <span class="sd">    Rpath formula: biomeq = TotGain / (TotLoss / B)</span>
@@ -28772,9 +28776,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3247</span>
-<span class="normal">3248</span>
-<span class="normal">3249</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3249</span>
 <span class="normal">3250</span>
 <span class="normal">3251</span>
 <span class="normal">3252</span>
@@ -29174,7 +29176,9 @@ available, falls back to Euler with no history.</p>
 <span class="normal">3646</span>
 <span class="normal">3647</span>
 <span class="normal">3648</span>
-<span class="normal">3649</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
+<span class="normal">3649</span>
+<span class="normal">3650</span>
+<span class="normal">3651</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_ab</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">derivs_history</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -29770,9 +29774,7 @@ available, falls back to Euler with no history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim_deriv.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3652</span>
-<span class="normal">3653</span>
-<span class="normal">3654</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">3654</span>
 <span class="normal">3655</span>
 <span class="normal">3656</span>
 <span class="normal">3657</span>
@@ -29860,7 +29862,9 @@ available, falls back to Euler with no history.</p>
 <span class="normal">3739</span>
 <span class="normal">3740</span>
 <span class="normal">3741</span>
-<span class="normal">3742</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
+<span class="normal">3742</span>
+<span class="normal">3743</span>
+<span class="normal">3744</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_ecosim</span><span class="p">(</span>
     <span class="n">initial_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
