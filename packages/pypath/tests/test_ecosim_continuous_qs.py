@@ -281,6 +281,24 @@ def test_only_an_unstable_root_raises():
     assert fb["ptc"] == 1 and fb["hybr"] == 1 and fb["unstable"] >= 2
 
 
+def test_the_continuation_rejects_an_unstable_root():
+    """A month start on the unstable root (``B_f = eps``, residual exactly
+    0): the chord's root, the start, is rejected; the pseudo-transient
+    continuation starts there, stops at once (a root within the tolerance)
+    and must reject it too, as hybr's, from the same root, is: the
+    quasi-steady ``RuntimeError``. A continuation that skipped its
+    attracting-root check would return ``B_f = eps``. (In one dimension the
+    continuation moves away from an unstable root it does not start on.)"""
+    rhs = _Roots()
+    qs = _roots_qs(rhs, rhs.eps)
+    with pytest.raises(RuntimeError, match=r"quasi-steady.*\[2\] \(Fake\)"):
+        qs(0.01, np.array([1.0]))
+    fb = qs.stats["qs_fallbacks"]
+    assert fb["ptc"] == 1 and fb["hybr"] == 1
+    # the chord's root, the continuation's and hybr's (one or two candidates)
+    assert fb["unstable"] >= 3
+
+
 @pytest.mark.parametrize("phyto_start", [0.5, 2.0])
 def test_hybr_stage_solves(phyto_start):
     """With the chord and the continuation held to one step each, hybr
