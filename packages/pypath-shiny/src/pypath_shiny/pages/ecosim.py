@@ -911,6 +911,10 @@ def ecosim_server(
         out = await asyncio.wrap_future(future)
         return RunOutcome(run_id, source, out, request, diet is not None)
 
+    # A closed or reloaded tab must not leave its run queued for a worker with
+    # no owner; a run already computing finishes and its result is discarded.
+    session.on_ended(_ecosim_task.cancel)
+
     def _finish_run(
         run_id: str, *, success: bool, message: str, error: str | None = None
     ) -> None:

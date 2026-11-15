@@ -449,3 +449,10 @@ def test_queued_run_says_it_is_waiting():
     src = ast.unparse(_find_function(_ecosim_tree(), "sim_elapsed"))
     assert "run_slot.waiting" in src
     assert "MAX_CONCURRENT_RUNS" in src
+
+
+def test_closed_session_cancels_its_run():
+    # A closed or reloaded tab gets a fresh RunSlot; its old run must not stay
+    # queued for a worker with no owner (a running thread computes on).
+    server = _find_function(_ecosim_tree(), "ecosim_server")
+    assert "session.on_ended(_ecosim_task.cancel)" in ast.unparse(server)
