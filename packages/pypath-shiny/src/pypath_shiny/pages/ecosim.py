@@ -26,6 +26,8 @@ except ImportError:  # pragma: no cover
 
 
 # Import centralized configuration
+from pypath.core.ecosim_continuous import QS_RATE_DEFAULT
+
 from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
 from pypath_shiny.pages.ewe_scenario import (
     build_ewe_scenario,
@@ -40,6 +42,12 @@ from pypath_shiny.services.ecosim_controls import (
     validate_fishing_management_control,
     validate_metabolism_control,
     validate_recruitment_control,
+)
+from pypath_shiny.services.ecosim_solver import (
+    CONTINUOUS_JS,
+    INTERPOLATION_CHOICES,
+    METHOD_CHOICES,
+    PRESET_CHOICES,
 )
 from pypath_shiny.services.notifications import (
     notify_error,
@@ -237,26 +245,89 @@ def ecosim_ui() -> ui.Tag:
                         "Integration Method ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title="Numerical integration method. RK4 (Runge-Kutta 4th order) is more accurate but slower. AB (Adams-Bashforth) is faster but less stable.",
+                            title="The EwE parity methods reproduce EwE (RK4) and Rpath (AB). The continuous methods solve the equations to a tolerance and differ from EwE by design. BDF suits stiff models.",
                             style="cursor: help;",
                         ),
                     ),
-                    choices={"RK4": "Runge-Kutta 4", "AB": "Adams-Bashforth"},
+                    choices=METHOD_CHOICES,
                     selected="RK4",
+                ),
+                ui.panel_conditional(
+                    CONTINUOUS_JS,
+                    ui.h6("Numerics (same model)"),
+                    ui.input_radio_buttons(
+                        "solver_preset",
+                        "Tolerance",
+                        PRESET_CHOICES,
+                        selected="default",
+                    ),
+                    ui.input_checkbox(
+                        "solver_log_states",
+                        ui.span(
+                            "Log-transformed biomass ",
+                            ui.tags.i(
+                                class_="bi bi-info-circle",
+                                title="Solves the same equations on the log of biomass. Use it for runs that drive a group towards zero. It costs about 40 % more where groups sweep orders of magnitude.",
+                                style="cursor: help;",
+                            ),
+                        ),
+                        value=False,
+                    ),
+                    ui.p(
+                        "Fast saves time only where the solver takes many steps a "
+                        "month (Black Sea 37 %, REco 8 %); Reference costs 2-3.5 "
+                        "\u00d7 Default; continuous runs cost about 2-25 \u00d7 RK4.",
+                        class_="text-muted small",
+                    ),
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "Advanced: changes the model",
+                            ui.input_select(
+                                "solver_forcing_interpolation",
+                                "Forcing within the month",
+                                INTERPOLATION_CHOICES,
+                                selected="constant",
+                            ),
+                            ui.p(
+                                "Interpolates forcing that varies month to month "
+                                "(an imported EwE scenario's forcing functions); "
+                                "effort stays monthly; the page's own forcing card "
+                                "is constant in time",
+                                class_="text-muted small",
+                            ),
+                            ui.input_checkbox(
+                                "solver_quasi_steady",
+                                "Quasi-steady fast groups",
+                                value=False,
+                            ),
+                            ui.panel_conditional(
+                                "input.solver_quasi_steady",
+                                ui.input_numeric(
+                                    "solver_qs_rate",
+                                    "Quasi-steady above (per year)",
+                                    value=QS_RATE_DEFAULT,
+                                    min=1,
+                                    step=5,
+                                ),
+                            ),
+                        ),
+                        id="solver_advanced",
+                        open=False,
+                    ),
                 ),
                 ui.input_select(
                     "fast_group_rule",
                     ui.span(
-                        "Fast Groups ",
+                        "Equation rule (EwE6 / Rpath) ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month.",
+                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month. Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below.",
                             style="cursor: help;",
                         ),
                     ),
                     choices={
-                        "ewe": "EwE6: at equilibrium",
-                        "rpath": "Rpath: integrated",
+                        "ewe": "EwE6 (fast groups at equilibrium under RK4/AB)",
+                        "rpath": "Rpath (fast groups integrated)",
                     },
                     selected="ewe",
                 ),
@@ -284,65 +355,75 @@ def ecosim_ui() -> ui.Tag:
                 ),
                 ui.tags.hr(),
                 # Diet Rewiring settings
-                ui.h5("Dynamic Diet Rewiring"),
-                ui.input_checkbox(
-                    "enable_diet_rewiring",
-                    ui.span(
-                        "Enable Diet Rewiring ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Allow predator diet preferences to change based on prey availability (prey switching, adaptive foraging). Predators shift to more abundant prey species.",
-                            style="cursor: help;",
+                ui.panel_conditional(
+                    "!" + CONTINUOUS_JS,
+                    ui.h5("Dynamic Diet Rewiring"),
+                    ui.input_checkbox(
+                        "enable_diet_rewiring",
+                        ui.span(
+                            "Enable Diet Rewiring ",
+                            ui.tags.i(
+                                class_="bi bi-info-circle",
+                                title="Allow predator diet preferences to change based on prey availability (prey switching, adaptive foraging). Predators shift to more abundant prey species.",
+                                style="cursor: help;",
+                            ),
+                        ),
+                        value=False,
+                    ),
+                    ui.panel_conditional(
+                        "input.enable_diet_rewiring",
+                        ui.input_slider(
+                            "switching_power",
+                            ui.span(
+                                "Switching Power ",
+                                ui.tags.i(
+                                    class_="bi bi-info-circle",
+                                    title="Controls strength of prey switching. 1.0 = proportional (no switching), 2-3 = moderate switching (typical), >3 = strong switching (opportunistic predators).",
+                                    style="cursor: help;",
+                                ),
+                            ),
+                            min=PARAM_RANGES.switching_power_min,
+                            max=PARAM_RANGES.switching_power_max,
+                            value=PARAM_RANGES.switching_power_default,
+                            step=0.1,
+                        ),
+                        ui.input_slider(
+                            "rewiring_interval",
+                            ui.span(
+                                "Update Interval (months) ",
+                                ui.tags.i(
+                                    class_="bi bi-info-circle",
+                                    title="How often diet is recalculated. 1 = monthly (responsive but slow), 12 = annual (fast but less responsive).",
+                                    style="cursor: help;",
+                                ),
+                            ),
+                            min=PARAM_RANGES.rewiring_interval_min,
+                            max=PARAM_RANGES.rewiring_interval_max,
+                            value=PARAM_RANGES.rewiring_interval_default,
+                            step=1,
+                        ),
+                        ui.input_numeric(
+                            "min_diet_proportion",
+                            ui.span(
+                                "Minimum Diet Proportion ",
+                                ui.tags.i(
+                                    class_="bi bi-info-circle",
+                                    title="Minimum fraction to maintain in diet. Prevents complete elimination of prey types.",
+                                    style="cursor: help;",
+                                ),
+                            ),
+                            value=THRESHOLDS.min_diet_proportion_range_default,
+                            min=THRESHOLDS.min_diet_proportion_range_min,
+                            max=THRESHOLDS.min_diet_proportion_range_max,
+                            step=0.001,
                         ),
                     ),
-                    value=False,
                 ),
                 ui.panel_conditional(
-                    "input.enable_diet_rewiring",
-                    ui.input_slider(
-                        "switching_power",
-                        ui.span(
-                            "Switching Power ",
-                            ui.tags.i(
-                                class_="bi bi-info-circle",
-                                title="Controls strength of prey switching. 1.0 = proportional (no switching), 2-3 = moderate switching (typical), >3 = strong switching (opportunistic predators).",
-                                style="cursor: help;",
-                            ),
-                        ),
-                        min=PARAM_RANGES.switching_power_min,
-                        max=PARAM_RANGES.switching_power_max,
-                        value=PARAM_RANGES.switching_power_default,
-                        step=0.1,
-                    ),
-                    ui.input_slider(
-                        "rewiring_interval",
-                        ui.span(
-                            "Update Interval (months) ",
-                            ui.tags.i(
-                                class_="bi bi-info-circle",
-                                title="How often diet is recalculated. 1 = monthly (responsive but slow), 12 = annual (fast but less responsive).",
-                                style="cursor: help;",
-                            ),
-                        ),
-                        min=PARAM_RANGES.rewiring_interval_min,
-                        max=PARAM_RANGES.rewiring_interval_max,
-                        value=PARAM_RANGES.rewiring_interval_default,
-                        step=1,
-                    ),
-                    ui.input_numeric(
-                        "min_diet_proportion",
-                        ui.span(
-                            "Minimum Diet Proportion ",
-                            ui.tags.i(
-                                class_="bi bi-info-circle",
-                                title="Minimum fraction to maintain in diet. Prevents complete elimination of prey types.",
-                                style="cursor: help;",
-                            ),
-                        ),
-                        value=THRESHOLDS.min_diet_proportion_range_default,
-                        min=THRESHOLDS.min_diet_proportion_range_min,
-                        max=THRESHOLDS.min_diet_proportion_range_max,
-                        step=0.001,
+                    CONTINUOUS_JS,
+                    ui.p(
+                        "Diet rewiring runs on the EwE parity methods (RK4, AB) only.",
+                        class_="text-muted small",
                     ),
                 ),
                 ui.tags.hr(),
