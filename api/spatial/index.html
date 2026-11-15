@@ -23626,8 +23626,10 @@ Currently only RK4 is implemented</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Years to simulate (default: use scenario years)
-Example: range(1, 101) for 100 years</p>
+                <p>Years to simulate (default: use scenario years). As in <code>rsim_run</code>
+it must start at <code>scenario.start_year</code> (the first <code>len(years)</code>
+years are run), else <code>ValueError</code>. Example: range(1, 101) for 100
+years of a scenario starting in year 1</p>
               </div>
             </td>
             <td>
@@ -24568,7 +24570,15 @@ in the derivative, as before B3; it is stable only to about
 <span class="normal">1441</span>
 <span class="normal">1442</span>
 <span class="normal">1443</span>
-<span class="normal">1444</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1444</span>
+<span class="normal">1445</span>
+<span class="normal">1446</span>
+<span class="normal">1447</span>
+<span class="normal">1448</span>
+<span class="normal">1449</span>
+<span class="normal">1450</span>
+<span class="normal">1451</span>
+<span class="normal">1452</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -24594,8 +24604,10 @@ in the derivative, as before B3; it is stable only to about
 <span class="sd">        Integration method (default: 'RK4')</span>
 <span class="sd">        Currently only RK4 is implemented</span>
 <span class="sd">    years : range, optional</span>
-<span class="sd">        Years to simulate (default: use scenario years)</span>
-<span class="sd">        Example: range(1, 101) for 100 years</span>
+<span class="sd">        Years to simulate (default: use scenario years). As in ``rsim_run``</span>
+<span class="sd">        it must start at ``scenario.start_year`` (the first ``len(years)``</span>
+<span class="sd">        years are run), else ``ValueError``. Example: range(1, 101) for 100</span>
+<span class="sd">        years of a scenario starting in year 1</span>
 <span class="sd">    ecospace : EcospaceParams, optional</span>
 <span class="sd">        Spatial parameters</span>
 <span class="sd">        If None, runs standard non-spatial Ecosim</span>
@@ -24656,7 +24668,12 @@ in the derivative, as before B3; it is stable only to about
         <span class="k">return</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">years</span><span class="p">)</span>
 
     <span class="c1"># Import necessary functions</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="n">DELTA_T</span><span class="p">,</span> <span class="n">STEPS_PER_YEAR</span><span class="p">,</span> <span class="n">rsim_run</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">DELTA_T</span><span class="p">,</span>
+        <span class="n">STEPS_PER_YEAR</span><span class="p">,</span>
+        <span class="n">_check_run_years</span><span class="p">,</span>
+        <span class="n">rsim_run</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial.ecospace_params</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpatialState</span>
 
     <span class="c1"># Validate method</span>
@@ -24670,6 +24687,7 @@ in the derivative, as before B3; it is stable only to about
         <span class="n">n_years</span> <span class="o">=</span> <span class="n">n_months</span> <span class="o">//</span> <span class="n">STEPS_PER_YEAR</span>
         <span class="n">years</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">start_year</span><span class="p">,</span> <span class="n">scenario</span><span class="o">.</span><span class="n">start_year</span> <span class="o">+</span> <span class="n">n_years</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
+        <span class="n">_check_run_years</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">years</span><span class="p">)</span>
         <span class="n">n_years</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">years</span><span class="p">)</span>
 
     <span class="n">n_months</span> <span class="o">=</span> <span class="n">n_years</span> <span class="o">*</span> <span class="n">STEPS_PER_YEAR</span>
