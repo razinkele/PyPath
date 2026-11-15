@@ -723,8 +723,10 @@ def rsim_run_spatial(
         Integration method (default: 'RK4')
         Currently only RK4 is implemented
     years : range, optional
-        Years to simulate (default: use scenario years)
-        Example: range(1, 101) for 100 years
+        Years to simulate (default: use scenario years). As in ``rsim_run``
+        it must start at ``scenario.start_year`` (the first ``len(years)``
+        years are run), else ``ValueError``. Example: range(1, 101) for 100
+        years of a scenario starting in year 1
     ecospace : EcospaceParams, optional
         Spatial parameters
         If None, runs standard non-spatial Ecosim
@@ -785,7 +787,12 @@ def rsim_run_spatial(
         return rsim_run(scenario, method=method, years=years)
 
     # Import necessary functions
-    from pypath.core.ecosim import DELTA_T, STEPS_PER_YEAR, rsim_run
+    from pypath.core.ecosim import (
+        DELTA_T,
+        STEPS_PER_YEAR,
+        _check_run_years,
+        rsim_run,
+    )
     from pypath.spatial.ecospace_params import SpatialState
 
     # Validate method
@@ -799,6 +806,7 @@ def rsim_run_spatial(
         n_years = n_months // STEPS_PER_YEAR
         years = range(scenario.start_year, scenario.start_year + n_years)
     else:
+        _check_run_years(scenario, years)
         n_years = len(years)
 
     n_months = n_years * STEPS_PER_YEAR
