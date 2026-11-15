@@ -1776,6 +1776,40 @@ def _check_run_years(scenario: RsimScenario, years) -> None:
         )
 
 
+def _warn_forced_fishing_on_pools(scenario: RsimScenario) -> None:
+    """Warn (EwE rule) when ForcedFRate or ForcedCatch is set on a detritus
+    pool: the EwE rule ignores fishing on a pool, as EwE6 does (R6). These
+    arrays are set after the scenario is built, so ``rsim_params``' warning
+    cannot see them."""
+    params = scenario.params
+    if getattr(params, "DetPassedProp", None) is None:
+        return
+    nl, n_bio = params.NUM_LIVING, params.NUM_LIVING + params.NUM_DEAD
+    forced = np.zeros(n_bio + 1, dtype=bool)
+    for name in ("ForcedFRate", "ForcedCatch"):
+        arr = getattr(scenario.fishing, name, None)
+        if arr is None:
+            continue
+        arr = np.nan_to_num(np.atleast_2d(np.asarray(arr, dtype=float)))
+        m = min(arr.shape[1], n_bio + 1)
+        forced[:m] |= np.any(arr[:, :m] > 0.0, axis=0)
+    pools = [g for g in range(nl + 1, n_bio + 1) if forced[g]]
+    if pools:
+        spname = getattr(params, "spname", None)
+        names = ", ".join(
+            str(spname[g]) if spname is not None and g < len(spname) else str(g)
+            for g in pools
+        )
+        warnings.warn(
+            f"Forced F or forced catch on detritus group(s) {names}: the 'ewe' "
+            "rule ignores it, as EwE's Ecosim ignores fishing on a detritus "
+            "pool (the catch is still reported). Use fast_group_rule='rpath' "
+            "to take it from the pool, as Rpath does.",
+            UserWarning,
+            stacklevel=4,
+        )
+
+
 @dataclass
 class RunSetup:
     """The per-run inputs that ``rsim_run``'s paths share (``_run_setup``).
@@ -1841,6 +1875,7 @@ def _run_setup(
         _check_run_years(scenario, years)
         n_years = len(years)
         n_months = n_years * 12
+    _warn_forced_fishing_on_pools(scenario)
 
     n_groups = params.NUM_GROUPS + 1
 
@@ -3495,14 +3530,23 @@ def _group_link_matrix(params: RsimParams, values, name: str) -> np.ndarray:
     predator gets that predator's value. An array of length
     ``len(PreyFrom)`` is taken as one value per link, unchanged, for
     backward compatibility; when both lengths are equal it is read per
-    group. Any other length raises ``ValueError``. Cells that are not links
-    stay 0.
+    group, with a warning if its values differ (a uniform array gives the
+    same matrix either way). Any other length raises ``ValueError``. Cells
+    that are not links stay 0.
     """
     n = params.NUM_GROUPS + 1
     prey = np.asarray(params.PreyFrom, dtype=int)
     pred = np.asarray(params.PreyTo, dtype=int)
     values = np.asarray(values, dtype=float)
     if values.ndim == 1 and len(values) == n:
+        if len(prey) == n and np.unique(values).size > 1:
+            warnings.warn(
+                f"{name} has {n} values, both NUM_GROUPS + 1 and the number of "
+                "predator-prey links; it is read per group (one value per "
+                "predator), as rsim_params builds it, not per link.",
+                UserWarning,
+                stacklevel=3,
+            )
         matrix = np.zeros((n, n))
         ok = (prey < n) & (pred < n)
         matrix[prey[ok], pred[ok]] = values[pred[ok]]

@@ -77,11 +77,35 @@ def test_a_fished_pool_loses_its_catch_under_the_rpath_rule():
     )
 
 
+def _base_then_more_effort(scen):
+    """Month 1's derivative and rates at the start state (which sets EwE's
+    DetritusOut), then at a state away from base (groups alternately 1.3 and
+    0.7 times B0) with every gear's effort doubled."""
+    state, pd_, fd, fi = run_dicts(scen)
+    base_rates, rates = {}, {}
+    base = deriv_vector(state.copy(), pd_, fd, fi, rates=base_rates)
+    y = state.copy()
+    n_bio = pd_["NUM_LIVING"] + pd_["NUM_DEAD"]
+    y[1 : n_bio + 1] *= np.where(np.arange(n_bio) % 2 == 0, 1.3, 0.7)
+    more = dict(fd, ForcedEffort=np.asarray(fd["ForcedEffort"], dtype=float) * 2.0)
+    away = deriv_vector(y, pd_, more, fi, rates=rates)
+    return (base, base_rates), (away, rates)
+
+
 def test_the_ewe_rule_ignores_the_catch_as_ewe_does():
-    plain, _ = _deriv((), "ewe")
-    fished, rates = _deriv(LANDING, "ewe")
-    assert rates["FishingLoss"][DETRITUS] == pytest.approx(5.0, rel=1e-12)
-    assert fished[DETRITUS] == plain[DETRITUS]
+    """Compared with the same scenario without the pool fishery. At the
+    start state DetritusOut absorbs any change in a pool's loss, and as both
+    scale with B it absorbs a fixed F x B at any state, so the second check
+    doubles the effort: a catch applied under the EwE rule would move the
+    pool's derivative by F x B there."""
+    fished = _base_then_more_effort(scenario(_reco(LANDING), rule="ewe", effort=1.0))
+    plain = _base_then_more_effort(
+        _without_pool_fishery(scenario(_reco(LANDING), rule="ewe", effort=1.0))
+    )
+    assert fished[0][1]["FishingLoss"][DETRITUS] == pytest.approx(5.0, rel=1e-12)
+    assert fished[1][1]["FishingLoss"][DETRITUS] > 0.0
+    for (d_fished, _), (d_plain, _) in zip(fished, plain):
+        np.testing.assert_array_equal(d_fished, d_plain)
 
 
 def _ewe_fishery_warnings(landings, rule):
@@ -123,8 +147,8 @@ def _rhs(scen):
     return rhs, y0 * np.where(np.arange(len(y0)) % 2 == 0, 1.3, 0.7)
 
 
-def _forced_f_on_detritus():
-    scen = scenario(_reco(()), rule="rpath", effort=1.0)
+def _forced_f_on_detritus(rule="rpath"):
+    scen = scenario(_reco(()), rule=rule, effort=1.0)
     scen.fishing.ForcedFRate[:, DETRITUS] = 0.1
     return scen
 
@@ -134,6 +158,10 @@ CASES = {
     "two pools": lambda: scenario(_reco(TWO_POOLS), rule="rpath", effort=1.0),
     "discarded": lambda: scenario(_reco(DISCARDED), rule="rpath", effort=1.0),
     "forced F": _forced_f_on_detritus,
+    # the EwE rule ignores the catch, so nothing of it may leave the budget
+    "ewe landed": lambda: scenario(_reco(LANDING), rule="ewe", effort=1.0),
+    "ewe two pools": lambda: scenario(_reco(TWO_POOLS), rule="ewe", effort=1.0),
+    "ewe forced F": lambda: _forced_f_on_detritus("ewe"),
 }
 
 
@@ -147,9 +175,18 @@ def test_the_system_budget_closes_with_a_detritus_fishery(case):
     assert gap <= 1e-12 * scale, gap / scale
 
 
-def test_the_month_budget_closes_with_a_detritus_fishery():
-    scen = scenario(_reco(LANDING), rule="rpath", effort=1.0)
-    out = rsim_run(scen, method="lsoda", years=range(1, 2))
+MONTH_CASES = {
+    "rpath landed": lambda: scenario(_reco(LANDING), rule="rpath", effort=1.0),
+    "ewe landed": lambda: scenario(_reco(LANDING), rule="ewe", effort=1.0),
+    "ewe forced F": lambda: _forced_f_on_detritus("ewe"),
+}
+
+
+@pytest.mark.parametrize("case", list(MONTH_CASES))
+def test_the_month_budget_closes_with_a_detritus_fishery(case):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # the EwE rule warns about forced F
+        out = rsim_run(MONTH_CASES[case](), method="lsoda", years=range(1, 2))
     for m in out.solver_info["months"]:
         assert abs(m["budget_residual"]) < 1e-5, (m["month"], m["budget_residual"])
         assert m["pool_budget_residual"] < 1e-5, (m["month"], m["pool_budget_residual"])
@@ -219,3 +256,30 @@ def test_the_ewe_rule_budget_closes_with_a_discarding_pool_fishery():
     for m in out.solver_info["months"]:
         assert abs(m["budget_residual"]) < 1e-5, (m["month"], m["budget_residual"])
         assert m["pool_budget_residual"] < 1e-5, (m["month"], m["pool_budget_residual"])
+
+
+# --- forced F / forced catch on a pool under the EwE rule ------------------
+
+
+def _forced_warnings(rule, frate=0.0, fcatch=0.0, group=DETRITUS):
+    scen = scenario(_reco(()), rule=rule, effort=1.0)
+    scen.fishing.ForcedFRate[:, group] = frate
+    scen.fishing.ForcedCatch[:, group] = fcatch
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        rsim_run(scen, method="RK4", years=range(1, 2))
+    return [w for w in caught if "forced" in str(w.message).lower()]
+
+
+def test_forced_fishing_on_a_pool_warns_once_under_the_ewe_rule():
+    for kwargs in ({"frate": 0.1}, {"fcatch": 1.0}):
+        hits = _forced_warnings("ewe", **kwargs)
+        assert len(hits) == 1, kwargs
+        assert issubclass(hits[0].category, UserWarning)
+        assert "Detritus" in str(hits[0].message)
+
+
+def test_no_forced_fishing_warning_under_the_rpath_rule_or_on_living_groups():
+    assert _forced_warnings("rpath", frate=0.1) == []
+    assert _forced_warnings("ewe", frate=0.1, group=5) == []
+    assert _forced_warnings("ewe") == []

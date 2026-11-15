@@ -2570,6 +2570,10 @@ def deriv_vector(
             _ff = np.asarray(_forced_f, dtype=float)
             _nf = min(len(_ff), _n_bio + 1)
             _landed[1:_nf] += _ff[1:_nf] * BB[1:_nf]
+        if params.get("DetPassedProp") is not None:
+            # EwE rule: a pool's catch never leaves the pool (R6), so none of
+            # it is landed; FishingLoss still reports it
+            _landed[NUM_LIVING + 1 : _n_bio + 1] = 0.0
         rates["Landed"] = _landed
 
     # Post-kernel instrumentation / debug logging for living groups

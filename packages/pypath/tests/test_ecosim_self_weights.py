@@ -120,9 +120,26 @@ def test_per_group_wins_when_the_lengths_coincide():
         PreyFrom=np.array([0, 1, 1, 2]),
         PreyTo=np.array([0, 2, 3, 3]),
     )
-    m = ecosim._group_link_matrix(p, np.array([0.0, 0.0, 0.2, 0.4]), "ScrambleSelf")
+    with pytest.warns(UserWarning, match="per group"):
+        m = ecosim._group_link_matrix(p, np.array([0.0, 0.0, 0.2, 0.4]), "ScrambleSelf")
     expected = np.zeros((4, 4))
     expected[1, 2] = 0.2
     expected[1, 3] = 0.4
     expected[2, 3] = 0.4
     np.testing.assert_array_equal(m, expected)
+
+
+def test_no_ambiguity_warning_for_a_uniform_array_or_unequal_lengths():
+    """A uniform array gives the same matrix read either way; with lengths
+    that differ the reading is not ambiguous."""
+    tie = SimpleNamespace(
+        NUM_GROUPS=3, PreyFrom=np.array([0, 1, 1, 2]), PreyTo=np.array([0, 2, 3, 3])
+    )
+    other = SimpleNamespace(
+        NUM_GROUPS=3, PreyFrom=np.array([0, 1, 1]), PreyTo=np.array([0, 2, 3])
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        ecosim._group_link_matrix(tie, np.full(4, 0.3), "HandleSelf")
+        ecosim._group_link_matrix(other, np.array([0.0, 0.1, 0.2, 0.4]), "HandleSelf")
+        ecosim._group_link_matrix(other, np.array([0.0, 0.1, 0.2]), "HandleSelf")
