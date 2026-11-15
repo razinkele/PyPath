@@ -294,6 +294,12 @@ def test_ten_years_on_three_models(model):
         f"negative_export {sum(m['negative_export'] for m in months)}; "
         f"feeding-time groups {len(info['ftime_groups'])}"
     )
+    kc = [m["kernel_check"] for m in months if np.isfinite(m["kernel_check"])]
+    print(
+        f"{model}: kernel_check max {max(kc) if kc else None} ({len(kc)} months); "
+        f"jac_fresh {sum(m['jac_fresh'] for m in months)}, jac_reused "
+        f"{sum(m['jac_reused'] for m in months)}"
+    )
     print(
         f"{model}: seconds per simulated year: RK4 {t_rk4 / 10:.3f}, "
         f"lsoda {t_lsoda / 10:.3f} ({t_lsoda / t_rk4:.0f} x); "
@@ -301,53 +307,57 @@ def test_ten_years_on_three_models(model):
     )
 
 
-# 34.5-36.0 measured on identical call counts: 35 fails on load alone
-RK4_RATIO_BLACK_SEA = 40.0
+# (model, method): (bound on the CPU ratio to RK4, or None). Plan Task 8; a
+# failed bound is a finding, not a number to move.
+COST_BOUNDS = {
+    ("reco", "lsoda"): 6.0,
+    ("black_sea", "lsoda"): 25.0,
+    ("lt2022", "bdf"): 14.0,
+    ("lt2022", "lsoda"): 20.0,
+}
 COST_SAMPLES = 3
 
 
 @pytest.mark.integration
 @pytest.mark.slow
 @pytest.mark.benchmark
-@pytest.mark.parametrize("model", list(MODELS))
-def test_ten_year_cost(model):
+@pytest.mark.parametrize("model,method", list(COST_BOUNDS))
+def test_ten_year_cost(model, method):
     """CPU per right-hand-side evaluation and the ratio to RK4, 10 years.
 
-    Task 6's protocol: a warm-up of each method, interleaved pairs, the
-    minimum of the samples, ``process_time``. Asserted: for REco, CPU per
-    evaluation at most ``EVAL_COST_BOUND`` x one exact derivative call; for
-    the Black Sea, the RK4 ratio at most 40. The per-evaluation figure of the
-    Black Sea and LT2022 and LT2022's ratio are printed (the page quotes
-    them).
+    Phase 2's protocol: a warm-up of each method, interleaved pairs, the
+    minimum of the samples, ``process_time``. Asserted: the RK4 ratio against
+    ``COST_BOUNDS``; for REco also CPU per evaluation at most
+    ``EVAL_COST_BOUND`` x one exact derivative call. The per-evaluation
+    figures are printed (the page quotes them).
     """
     scen = MODELS[model]()
     years = range(1, 11)
 
-    def run(method, yrs=years):
+    def run(m, yrs=years):
         s = copy.deepcopy(scen)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            return _cpu(lambda: rsim_run(s, method=method, years=yrs))
+            return _cpu(lambda: rsim_run(s, method=m, years=yrs))
 
     run("RK4", range(1, 2))  # warm-up of each method, untimed
-    run("lsoda", range(1, 2))
-    rk4, lsoda = [], []
+    run(method, range(1, 2))
+    rk4, cand = [], []
     evals = None
     for _ in range(COST_SAMPLES):
         rk4.append(run("RK4")[0])
-        cpu, out = run("lsoda")
-        lsoda.append(cpu)
+        cpu, out = run(method)
+        cand.append(cpu)
         evals = out.solver_info["rhs_evals"]
-    ratio = min(lsoda) / min(rk4)
+    ratio = min(cand) / min(rk4)
     exact = _exact_call_cpu(scen)
-    per_eval = min(lsoda) / evals
+    per_eval = min(cand) / evals
     report = (
-        f"{model}: RK4 samples {rk4}, LSODA samples {lsoda}, ratio {ratio:.2f}, "
-        f"rhs_evals {evals}, CPU/eval {per_eval:.3e}, exact call {exact:.3e} "
-        f"(x{per_eval / exact:.2f}), loadavg {_loadavg()}"
+        f"{model} {method}: RK4 samples {rk4}, samples {cand}, ratio "
+        f"{ratio:.2f}, rhs_evals {evals}, CPU/eval {per_eval:.3e}, exact "
+        f"call {exact:.3e} (x{per_eval / exact:.2f}), loadavg {_loadavg()}"
     )
     print("\n" + report)
     if model == "reco":
         assert per_eval <= EVAL_COST_BOUND * exact, report
-    if model == "black_sea":
-        assert ratio <= RK4_RATIO_BLACK_SEA, report
+    assert ratio <= COST_BOUNDS[(model, method)], report

@@ -41,19 +41,14 @@ class Decay:
         return {"FoodGain": full.copy(), "LossPropToB": 0.7 * full}
 
 
-def _spy_solve_ivp(monkeypatch, fail_first=False):
-    """Record the keyword arguments of every ``solve_ivp`` call; with
-    ``fail_first`` the first call's result is reported as failed."""
+def _spy_solve_ivp(monkeypatch):
+    """Record the keyword arguments of every ``solve_ivp`` call."""
     calls: list = []
     real = cont.solve_ivp
 
     def spy(*args, **kwargs):
         calls.append(kwargs)
-        res = real(*args, **kwargs)
-        if fail_first and len(calls) == 1:
-            res.status = -1
-            res.message = "forced failure"
-        return res
+        return real(*args, **kwargs)
 
     monkeypatch.setattr(cont, "solve_ivp", spy)
     return calls
