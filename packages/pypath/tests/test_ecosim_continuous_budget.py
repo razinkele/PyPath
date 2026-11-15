@@ -334,7 +334,7 @@ class _Dip:
 
 
 def test_quadrature_nodes_are_clipped_before_the_rates(monkeypatch):
-    import pypath.core.ecosim_continuous as mod
+    import pypath.core.ecosim_continuous.month as mod
 
     y0 = np.array([1.0, 2.0])
 
