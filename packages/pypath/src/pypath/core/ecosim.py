@@ -34,6 +34,7 @@ from pypath.core.ecopath import (  # noqa: E402
     Rpath,
     ewe_detritus_fate,
 )
+from pypath.core.ecosim_continuous import METHOD_NAMES  # noqa: E402
 from pypath.core.ecosim_deriv import deriv_vector, fishing_mortality  # noqa: E402
 from pypath.core.params import RpathParams  # noqa: E402
 from pypath.core.stanzas import (  # noqa: E402
@@ -426,7 +427,7 @@ class RsimScenario:
 
 
 #: SciPy ``solve_ivp`` methods of the continuous integration pathway.
-CONTINUOUS_METHODS = ("lsoda", "dop853", "radau", "bdf")
+CONTINUOUS_METHODS = tuple(METHOD_NAMES)
 
 
 @dataclass
@@ -489,12 +490,17 @@ class RsimOutput:
         Summary parameters
     solver_info : dict or None
         Continuous path only: ``method``, ``rtol``, ``atol``, ``hden_tol``,
-        the ``corrections`` applied, the EwE numerics switches ignored
-        (``ignored_switches``), ``rhs_evals`` (every right-hand side
-        evaluation of the run: solver, start checks, quadrature and output
-        rates) and per month (``months``) ``nfev``, ``njev``,
-        ``nlu``, ``steps``, ``last_step`` (the month's last full step, a
-        diagnostic: no month's first step is set),
+        ``jacobian`` (``"reuse"`` or ``"solver"``), the ``corrections``
+        applied, the EwE numerics switches ignored (``ignored_switches``),
+        ``rhs_evals`` (every right-hand side evaluation of the run: solver,
+        Jacobian columns, start checks, quadrature and output rates; the
+        measure of cost) and per month (``months``) ``nfev``, ``njev``,
+        ``nlu`` (as SciPy reports them: under ``"reuse"`` ``nfev`` leaves out
+        the Jacobian columns and ``njev`` counts reused Jacobians too),
+        ``jac_fresh`` and ``jac_reused`` (the month's Jacobians formed by
+        finite differences and reused under ``"reuse"``; 0 under
+        ``"solver"`` and for DOP853), ``steps``, ``last_step`` (the month's
+        last full step, a diagnostic: no month's first step is set),
         ``status``, ``t_reached``, ``degraded`` (a month
         mean fell back to the start state), ``clips``, ``hden_passes_max``
         (kernel passes of the month's largest handling-time solve),
@@ -2582,9 +2588,13 @@ def rsim_run(
         ``1e-8 * (rtol / 1e-6) * max(B0_i, 1e-6 * max(B0))``),
         ``corrections`` (bool, default True; False leaves out R2, R4, R5 and DF once, while handling time is
         still solved exactly from the recalibrated Hden0), ``on_failure``
-        (``"raise"``, the default, or ``"warn"``) and ``hden_tol`` (the
+        (``"raise"``, the default, or ``"warn"``), ``hden_tol`` (the
         relative residual to which handling time is solved, in (0, 1e-8],
-        default 1e-12). A failed month raises
+        default 1e-12) and ``jacobian`` (``"reuse"``, the default: LSODA,
+        BDF and Radau get finite-difference Jacobians that are reused across
+        the monthly restarts, ``ecosim_continuous.JacobianReuse``;
+        ``"solver"``: the solver forms its own; DOP853 uses none either
+        way). A failed month raises
         ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
         the month, and the run continues from the last state reached. Even
         with ``"warn"``, a handling-time solve that fails inside the
@@ -2747,6 +2757,7 @@ def rsim_run(
     if _continuous:
         from pypath.core.ecosim_continuous import (
             ContinuousRHS,
+            JacobianReuse,
             default_atol,
             feeding_time,
             integrate_month,
@@ -2793,6 +2804,12 @@ def rsim_run(
                     np.full(len(_ft_groups), 1e-2 * _rtol),
                 ]
             )
+        # FD Jacobians reused across the months (the run's; not the RHS's)
+        _jac_reuse = (
+            JacobianReuse(_cont_method, _atol_run, _rtol)
+            if _cont_opts["jacobian"] == "reuse"
+            else None
+        )
         solver_info = {
             "method": _cont_method,
             "rtol": _rtol,
@@ -2802,6 +2819,7 @@ def rsim_run(
                 _atol_run[_n_bio_c:].tolist() if _ft_groups is not None else []
             ),
             "hden_tol": _cont_opts["hden_tol"],
+            "jacobian": _cont_opts["jacobian"],
             "corrections": list(rhs.corrections),
             "ignored_switches": list(rhs.ignored_switches),
             "ftime_groups": [] if _ft_groups is None else _ft_groups.tolist(),
@@ -3017,6 +3035,7 @@ def rsim_run(
                 _start_rates = (
                     rhs.rates(_y0) if month == 1 and out_hden is not None else None
                 )
+                _jac = None if _jac_reuse is None else _jac_reuse.for_month(rhs)
                 res = integrate_month(
                     rhs,
                     _y0,
@@ -3027,6 +3046,7 @@ def rsim_run(
                     on_failure=_on_failure,
                     label=_month_label,
                     n_bio=_n_bio_c,
+                    jac=_jac,
                 )
             except RuntimeError as e:
                 if _month_label in str(e):  # already names the month
@@ -3057,6 +3077,12 @@ def rsim_run(
                     "nfev": res.nfev,
                     "njev": res.njev,
                     "nlu": res.nlu,
+                    "jac_fresh": (
+                        0 if _jac_reuse is None else _jac_reuse.stats["jac_fresh"]
+                    ),
+                    "jac_reused": (
+                        0 if _jac_reuse is None else _jac_reuse.stats["jac_reused"]
+                    ),
                     "steps": res.steps,
                     "last_step": res.last_step,
                     "status": res.status,

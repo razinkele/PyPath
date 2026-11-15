@@ -24,7 +24,6 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import root
 
-from pypath.core.ecosim import _risk_qopt
 from pypath.core.ecosim_deriv import (
     HdenKernel,
     KernelInputs,
@@ -673,8 +672,8 @@ class ContinuousRHS:
     DetritusOut x B``.
 
     ``evals`` counts every evaluation of the right-hand side over the object's
-    life (solver, start checks, quadrature and :meth:`rates` calls alike; not
-    reset by :meth:`set_month`).
+    life (solver, Jacobian columns, start checks, quadrature and
+    :meth:`rates` calls alike; not reset by :meth:`set_month`).
 
     :meth:`exchange` is the net external flux of the biomass states
     (:func:`exchange_rate`) at an evaluation's rates.
@@ -936,6 +935,9 @@ class ContinuousRHS:
 
     def _feeding_derivative(self, full, forcing, rates, ft, ftime) -> np.ndarray:
         """``dFt/dt`` of the feeding-time states, from the evaluation's rates."""
+        # imported here: ecosim imports this module (METHOD_NAMES) at load
+        from pypath.core.ecosim import _risk_qopt
+
         fd = self.feeding
         g = fd.groups
         index = hden_index(full, self._pd, forcing)[g]
@@ -980,12 +982,18 @@ class ContinuousRHS:
         return exchange_rate(rates, self._full_state(y), self._pd, self._forcing)
 
 
+#: The continuous methods (lower case) and their ``solve_ivp`` names; the
+#: one source of ``ecosim.CONTINUOUS_METHODS``.
 METHOD_NAMES = {
     "lsoda": "LSODA",
     "dop853": "DOP853",
     "radau": "Radau",
     "bdf": "BDF",
 }
+
+#: ``solver_options["jacobian"]``: finite-difference Jacobians reused across
+#: months (:class:`JacobianReuse`, the default) or the solver's own.
+JACOBIAN_MODES = ("reuse", "solver")
 
 
 def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> dict:
@@ -996,13 +1004,16 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
     (``rsim_run`` calls this for every method but RK4 and AB).
     ``solver_options`` takes ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar
     > 0 or ``n_bio`` values > 0), ``corrections`` (True or False, default
-    True), ``on_failure`` (``"raise"``, the default, or ``"warn"``) and
+    True), ``on_failure`` (``"raise"``, the default, or ``"warn"``),
     ``hden_tol`` (the handling-time tolerance, a number in (0, 1e-8],
-    default 1e-12); other keys and invalid values raise ``ValueError``.
+    default 1e-12) and ``jacobian`` (``"reuse"``, the default:
+    :class:`JacobianReuse`; or ``"solver"``: the solver's own Jacobians);
+    other keys and invalid values raise ``ValueError``.
 
     Returns a dict with keys ``method`` (lower case), ``rtol`` (float),
     ``atol`` (None when not given, else an ndarray, 0-d for a scalar),
-    ``on_failure``, ``corrections`` (bool) and ``hden_tol`` (float).
+    ``on_failure``, ``corrections`` (bool), ``hden_tol`` (float) and
+    ``jacobian``.
     """
     if not isinstance(method, str) or method.lower() not in METHOD_NAMES:
         raise ValueError(
@@ -1011,12 +1022,18 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
         )
     _cont_opts = dict(solver_options or {})
     _unknown_opts = sorted(
-        set(_cont_opts) - {"rtol", "atol", "corrections", "on_failure", "hden_tol"}
+        set(_cont_opts)
+        - {"rtol", "atol", "corrections", "on_failure", "hden_tol", "jacobian"}
     )
     if _unknown_opts:
         raise ValueError(
             f"Unknown solver_options {_unknown_opts}: use 'rtol', 'atol', "
-            "'corrections', 'on_failure', 'hden_tol'"
+            "'corrections', 'on_failure', 'hden_tol', 'jacobian'"
+        )
+    _jacobian = _cont_opts.get("jacobian", "reuse")
+    if not isinstance(_jacobian, str) or _jacobian not in JACOBIAN_MODES:
+        raise ValueError(
+            f"solver_options jacobian must be 'reuse' or 'solver', got {_jacobian!r}"
         )
     _on_failure = _cont_opts.get("on_failure", "raise")
     if _on_failure not in ("raise", "warn"):
@@ -1068,6 +1085,7 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
         "on_failure": _on_failure,
         "corrections": bool(_corrections),
         "hden_tol": float(_hden_tol),
+        "jacobian": _jacobian,
     }
 
 
@@ -1080,6 +1098,102 @@ def default_atol(b0_bio: np.ndarray, rtol: float = 1e-6) -> np.ndarray:
     a tighter ``rtol`` is not capped by ``atol``, to ``rtol / 1e-6``."""
     b0_bio = np.asarray(b0_bio, dtype=float)
     return 1e-8 * (rtol / 1e-6) * np.maximum(b0_bio, 1e-6 * b0_bio.max())
+
+
+def _moved(y: np.ndarray, y_jac: np.ndarray) -> float:
+    """``max |y - y_J| / (|y_J| + 1e-12)``, how far ``y`` is from ``y_J``."""
+    return float(np.max(np.abs(y - y_jac) / (np.abs(y_jac) + 1e-12)))
+
+
+class JacobianReuse:
+    """Finite-difference Jacobians for ``solve_ivp``, reused across the
+    monthly restarts of a run.
+
+    :meth:`for_month` returns the month's ``jac(t, y)`` callable, a new
+    closure each month over the month's right-hand side ``fun``. The object
+    holds only the last Jacobian formed and the state ``y_J`` it was formed
+    at; the right-hand side holds nothing of it.
+
+    The rule, per request:
+
+    - a month's first request returns the run's last Jacobian when one of
+      the right shape (``len(y)`` square) is held;
+    - later requests: BDF and Radau always form a fresh one (SciPy asks
+      again only after a failed Newton iteration, or for Radau after a slowly
+      converging step); LSODA reuses the held one unless the request repeats
+      the previous request's ``t`` (a retry after a failed corrector) or the
+      state moved, ``max |y - y_J| / (|y_J| + 1e-12) > move``.
+
+    A fresh Jacobian is forward differences in every state, ``h_k = 1.49e-8
+    x max(|y_k|, atol_k / rtol)``: ``fun`` at ``y`` and once per column,
+    ``len(y) + 1`` evaluations (SciPy passes no ``f(t, y)`` to ``jac``), each
+    a call of ``fun`` and so counted in ``ContinuousRHS.evals``. SciPy's
+    ``nfev`` leaves them out, and its ``njev`` counts reused requests too.
+
+    ``stats`` (reset by :meth:`for_month`) counts the month's requests:
+    ``jac_fresh`` formed, ``jac_reused`` answered with the held Jacobian.
+    Every request returns a copy, so a solver cannot change the held one.
+    """
+
+    def __init__(
+        self, method: str, atol: np.ndarray, rtol: float, *, move: float = 0.1
+    ):
+        if not isinstance(method, str) or method.lower() not in METHOD_NAMES:
+            raise ValueError(
+                f"JacobianReuse: unknown method {method!r}: use "
+                f"{', '.join(repr(m) for m in METHOD_NAMES)}"
+            )
+        self.method = method.lower()
+        self.atol = np.asarray(atol, dtype=float)
+        self.rtol = float(rtol)
+        self.move = float(move)
+        # (the last Jacobian formed, the state y_J it was formed at)
+        self._held: Optional[tuple[np.ndarray, np.ndarray]] = None
+        self.stats = {"jac_fresh": 0, "jac_reused": 0}
+
+    def _fresh(self, fun, t: float, y: np.ndarray) -> np.ndarray:
+        """Forward differences of ``fun`` at ``(t, y)``; held for reuse."""
+        n = len(y)
+        f0 = np.asarray(fun(t, y), dtype=float)
+        floor = np.broadcast_to(self.atol, (n,)) / self.rtol
+        jac = np.empty((n, n))
+        for k in range(n):
+            yk = y.copy()
+            yk[k] = y[k] + 1.49e-8 * max(abs(y[k]), floor[k])
+            h = yk[k] - y[k]  # the step as represented
+            jac[:, k] = (np.asarray(fun(t, yk), dtype=float) - f0) / h
+        self._held = (jac, y.copy())
+        self.stats["jac_fresh"] += 1
+        return jac.copy()
+
+    def for_month(self, fun: Callable) -> Callable[[float, np.ndarray], np.ndarray]:
+        """The month's ``jac(t, y)`` over ``fun``; resets ``stats``."""
+        self.stats = {"jac_fresh": 0, "jac_reused": 0}
+        first = True
+        t_prev: Optional[float] = None
+
+        def jac(t: float, y: np.ndarray) -> np.ndarray:
+            nonlocal first, t_prev
+            y = np.array(y, dtype=float)
+            held = self._held
+            if held is not None and held[0].shape != (len(y), len(y)):
+                held = None
+            keep = held is not None and (
+                first
+                or (
+                    self.method == "lsoda"
+                    and t != t_prev  # an LSODA retry repeats t
+                    and _moved(y, held[1]) <= self.move
+                )
+            )
+            first = False
+            t_prev = t
+            if held is None or not keep:
+                return self._fresh(fun, t, y)
+            self.stats["jac_reused"] += 1
+            return held[0].copy()
+
+        return jac
 
 
 @dataclass
@@ -1146,6 +1260,7 @@ def integrate_month(
     label: Optional[str] = None,
     n_bio: Optional[int] = None,
     first_step: Optional[float] = None,
+    jac: Optional[Callable] = None,
 ) -> MonthResult:
     """Solve one month with ``solve_ivp`` and average rates by quadrature.
 
@@ -1163,11 +1278,14 @@ def integrate_month(
     nodes' biomass states are clipped at 0 before ``rhs.rates`` and the
     loss-rate division; when the rates fall back on the start state (with
     "warn"), ``y_mean`` does too. ``first_step`` (default: the solver's own
-    choice) is passed to ``solve_ivp``.
+    choice) is passed to ``solve_ivp``, and so is ``jac`` (a Jacobian callable,
+    such as :meth:`JacobianReuse.for_month`'s) unless it is None or the method
+    is DOP853, which uses none.
 
     ``rhs.stats``, when the right-hand side keeps one (``ContinuousRHS``,
     reset by its ``set_month``), counts the solver's evaluations, the start
-    check included; the quadrature's ``rhs.rates`` calls do not count.
+    check and ``jac``'s columns included; the quadrature's ``rhs.rates``
+    calls do not count.
     """
     y0 = np.asarray(y0, dtype=float)
     n = len(y0) if n_bio is None else int(n_bio)
@@ -1175,6 +1293,7 @@ def integrate_month(
         raise RuntimeError(
             "month integration cannot start: non-finite start derivative"
         )
+    extra = {} if jac is None or method == "dop853" else {"jac": jac}
     sol = solve_ivp(
         rhs,
         (0.0, dt),
@@ -1185,6 +1304,7 @@ def integrate_month(
         dense_output=True,
         max_step=dt,
         first_step=first_step,
+        **extra,
     )
     warn = on_failure == "warn"
     prefix = f"{label}: " if label else ""
