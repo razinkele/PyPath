@@ -283,3 +283,27 @@ def test_no_forced_fishing_warning_under_the_rpath_rule_or_on_living_groups():
     assert _forced_warnings("rpath", frate=0.1) == []
     assert _forced_warnings("ewe", frate=0.1, group=5) == []
     assert _forced_warnings("ewe") == []
+
+
+# --- EwE's fast-group test sees the derivative's pool: no pool fishery -----
+
+FAST_CASES = {
+    # 40 landed from Discards (B 1.2, inflow 0.6): the catch must not count
+    # as the pool's loss
+    "landed from a pool": (("Discards", "Midwater", 40.0),),
+    # Trawlers discard 40 of Detritus into Discards: not an inflow, as EwE
+    # sends discards from living groups only
+    "discarded from a pool": (("Detritus", "Trawlers.disc", 40.0),),
+}
+
+
+@pytest.mark.parametrize("case", list(FAST_CASES))
+def test_the_ewe_fast_group_test_ignores_a_pool_fishery(case):
+    """Under the EwE rule the fishery takes nothing from the pool and sends
+    no discards from it, so the fast-group test (EwE's first Derivt loss
+    rate, threshold 24 /yr) must see the pool as without it: Discards stays
+    integrated (0.5 /yr), as in plain REco."""
+    fished = scenario(_reco(FAST_CASES[case]), rule="ewe", effort=1.0)
+    plain = scenario(_reco(()), rule="ewe", effort=1.0)
+    assert fished.params.NoIntegrate[DISCARDS] == 0
+    np.testing.assert_array_equal(fished.params.NoIntegrate, plain.params.NoIntegrate)

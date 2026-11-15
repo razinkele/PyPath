@@ -1268,7 +1268,9 @@ def _fast_group_flags(
     the detritus budget, so the loss equals the inflow minus the biomass
     accumulation: other-mortality and unassimilated flows routed by the
     detritus fate, plus discards, plus the detritus import (DtImp enters the
-    export rate, cEcoSimModel.vb:3207). With ``ewe_fate`` (EwE's detritus
+    export rate, cEcoSimModel.vb:3207). A fishery on a pool counts neither
+    as the pool's loss nor, through its discards, as another pool's inflow,
+    as the derivative ignores it (R6). With ``ewe_fate`` (EwE's detritus
     routing) the inflow includes what the other pools pass on and the
     biomass accumulation the share a pool sends to itself. Evaluated at the
     Ecopath base, which is where EwE evaluates its first derivative.
@@ -1291,8 +1293,13 @@ def _fast_group_flags(
             loss[prey_from[k]] += qq[k]
             consumption[prey_to[k]] += qq[k]
     eaten = loss[1 : nliving + 1] > 0  # base predation (StartEatenOf > 0)
+    # A fishery on a detritus pool is ignored by EwE's Derivt and by the EwE
+    # rule's derivative, with its discards (R6): left out of the pool's loss
+    # and of the inflow of the pool its discards go to
+    from_pool = (np.asarray(fish_from) > nliving) & (np.asarray(fish_from) <= nbio)
     for k in range(1, len(fish_q)):
-        loss[fish_from[k]] += fish_q[k] * b_baseref[fish_from[k]]
+        if not from_pool[k]:
+            loss[fish_from[k]] += fish_q[k] * b_baseref[fish_from[k]]
     # EwE's first Derivt loses moTot, which at the base is mo except for an
     # eaten group with mo <= 0: 1e-20 (CalcBaseAdditiveMort, vb 3807-3815)
     living_mo = mzero[1 : nliving + 1]
@@ -1318,7 +1325,7 @@ def _fast_group_flags(
                     + unassim[i + 1] * consumption[i + 1]
                 ) * frac
         for k in range(1, len(fish_q)):
-            if fish_to[k] == d:
+            if fish_to[k] == d and not from_pool[k]:
                 inflow += fish_q[k] * b_baseref[fish_from[k]]
         det_input = getattr(rpath, "DetInput", None)
         if det_input is not None and d - 1 < len(det_input):
