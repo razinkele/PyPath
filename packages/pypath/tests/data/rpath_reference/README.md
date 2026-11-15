@@ -26,6 +26,9 @@ This directory contains reference data extracted from the Rpath R package.
 - `biomass_zero_fishing.csv`, `biomass_zero_fishing_ab.csv`: 50 years, no
   fishing (RK4 / Adams-Bashforth)
 
+- `suite_weights.csv`: Rpath's `PredPredWeight` and `PreyPreyWeight` per link
+  (REco, mscramble 2, mhandle 1000, preyswitch 1; link 0 is the dummy row)
+
 The baseline trajectories stay at equilibrium (flat to ~5e-5), so only the
 fishing scenarios exercise the dynamics.
 
@@ -44,3 +47,6 @@ Fishing-scenario files (`biomass_*_fishing*.csv`):
 - The 2026-01-12 versions scaled `forcing$ForcedEffort`, which `rsim.run` does
   not read, so they were baseline runs. Effort is in `fishing$ForcedEffort`.
 
+
+`ecosim/suite_weights.csv` (Rpath 1.1.0):
+`Rscript -e 'library(Rpath); s <- rsim.params(rpath(REco.params), mscramble=2, mhandle=1000, preyswitch=1); write.csv(data.frame(from=s$PreyFrom, to=s$PreyTo, ppw=s$PredPredWeight, pyw=s$PreyPreyWeight), "packages/pypath/tests/data/rpath_reference/ecosim/suite_weights.csv", row.names=FALSE)'`

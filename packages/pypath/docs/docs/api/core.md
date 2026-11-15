@@ -73,6 +73,10 @@ Q = QQbase * PDY * PYY^(HandleSwitch*COUPLED) *
 Where `PredSuite` and `HandleSuite` are pooled competitor biomass sums
 across all predator-prey links sharing the same prey or predator.
 
+The pooling weights (`PredPredWeight`, `PreyPreyWeight`) are Rpath's: VV is
+converted to a rate, `VV * QQ / B_prey`, before the weight formula, and each
+prey's (predator's) weights are normalised to sum to 1.
+
 ### Foraging time
 
 Predators dynamically adjust foraging time using the Rpath formula:

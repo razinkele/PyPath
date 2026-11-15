@@ -272,11 +272,30 @@ def iterate_hden(
                 return full(x), passes
     bad = idx[~(r <= tol)]
     positive = bool(np.all(np.isfinite(x) & (x > 0.0)))
+    what = "for a pooled (ScrambleSelf > 0) map " if coupled else ""
     raise RuntimeError(
-        f"handling time did not converge (residual {float(np.max(r)):.3e}"
+        f"handling time did not converge {what}(residual {float(np.max(r)):.3e}"
         f"{'' if positive else '; an Hden is not finite and > 0'}) for groups "
         f"{bad.tolist()}"
     )
+
+
+def _pooled_map(params_dict, state) -> bool:
+    """``HdenKernel.coupled()``'s rule on the dict form: pooling parameters
+    present, and a consuming link (live at both ends, ``QQbase > 0``, prey
+    not Outside) with ``ScrambleSelf > 0``."""
+    for key in ("ScrambleSelf", "HandleSelf", "PredPredWeight", "PreyPreyWeight"):
+        if params_dict.get(key) is None:
+            return False
+    scramble = np.asarray(params_dict["ScrambleSelf"], dtype=float)
+    live = np.asarray(params_dict["ActiveLink"]) != 0
+    live[0, :] = False
+    b_pos = np.asarray(state, dtype=float) > 0.0
+    live &= b_pos[:, None] & b_pos[None, :]
+    qbase = params_dict.get("QQbase")
+    if qbase is not None:
+        live &= np.asarray(qbase, dtype=float) > 0.0
+    return bool(np.any(scramble[live] > 0.0))
 
 
 def solve_hden(
@@ -321,10 +340,7 @@ def solve_hden(
         pd_local["_det_out"] = np.array(pd_local["_det_out"], copy=True)
     state = np.array(y_full, dtype=float, copy=True)
     denom = np.where(active, cmco_qb * index, 1.0)
-    scramble = pd_local.get("ScrambleSelf")
-    coupled = scramble is not None and bool(
-        np.any(np.asarray(scramble)[np.asarray(pd_local["ActiveLink"]) != 0] > 0)
-    )
+    coupled = _pooled_map(pd_local, state)
 
     def g(hv):
         pd_local["_hden"] = np.array(hv, dtype=float, copy=True)

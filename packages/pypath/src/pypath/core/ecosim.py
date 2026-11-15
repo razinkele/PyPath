@@ -825,15 +825,20 @@ def rsim_params(
     # Calculate predator and prey weights for scramble
     btmp = b_baseref
 
-    # Safe division for VV calculation
+    # Rpath's scramble weights: VV is converted to a per-prey-biomass rate
+    # (VV * QQ / B_prey; 0 where B_prey <= 0) before the weight formula, whose
+    # denominator is then B_pred * QQ * (VV - 1), positive for VV > 1.
     aa = np.zeros(len(qq))
+    vv_rate = np.zeros(len(qq))
 
     for i in range(1, len(qq)):
         prey_b = btmp[prey_from[i]]
         pred_b = btmp[prey_to[i]]
+        if prey_b > 0:
+            vv_rate[i] = vv[i] * qq[i] / prey_b
         if prey_b > 0 and pred_b > 0:
-            numerator = 2.0 * qq[i] * vv[i]
-            denominator = vv[i] * pred_b * prey_b - qq[i] * pred_b
+            numerator = 2.0 * qq[i] * vv_rate[i]
+            denominator = vv_rate[i] * pred_b * prey_b - qq[i] * pred_b
             if abs(denominator) > EPSILON:
                 aa[i] = numerator / denominator
 

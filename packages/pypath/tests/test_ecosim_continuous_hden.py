@@ -493,3 +493,40 @@ def test_a_component_without_a_bracket_converges(monkeypatch):
         assert np.all(h > 0.0)
         np.testing.assert_allclose(h, [1.5, 5.0, 0.5], rtol=1e-12)
         assert hybr["n"] == 1, accel
+
+
+def test_a_pooled_failure_names_the_pooled_map(reco_plain):
+    """The coupled rule is HdenKernel's, and its failure says so."""
+    params, forcing, fishing = _setup(reco_plain)
+    y = _states(params)[0]
+    idx = hden_index(y, params, forcing)
+    with pytest.raises(RuntimeError, match="handling time did not converge") as plain:
+        solve_hden(
+            y,
+            params,
+            forcing,
+            fishing,
+            idx,
+            params["_cmco_qb"],
+            max_iter=0,
+            tol=1e-300,
+            fallback=False,
+            h0=np.full(len(idx), 5.0),
+        )
+    assert "pooled" not in str(plain.value)
+    active = np.asarray(params["ActiveLink"]) != 0
+    params["HandleSelf"] = np.where(active, 0.5, 0.0)
+    params["ScrambleSelf"] = np.where(active, 0.5, 0.0)
+    with pytest.raises(RuntimeError, match=r"for a pooled \(ScrambleSelf > 0\) map"):
+        solve_hden(
+            y,
+            params,
+            forcing,
+            fishing,
+            idx,
+            params["_cmco_qb"],
+            max_iter=0,
+            tol=1e-300,
+            fallback=False,
+            h0=np.full(len(idx), 5.0),
+        )
