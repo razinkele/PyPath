@@ -1746,8 +1746,10 @@ def fishing_mortality(
         effort_mult = (
             ForcedEffort[gear_idx] if 0 < gear_idx < len(ForcedEffort) else 1.0
         )
-        if fleet_med is not None:
-            effort_mult *= fleet_med[gear_idx]
+        if fleet_med is not None and 0 < gear_idx <= len(fleet_med):
+            # fleet_med is indexed by the 0-based fleet (MediationLink
+            # .fleet_idx); gear_idx is the 1-based gear (ForcedEffort column)
+            effort_mult *= fleet_med[gear_idx - 1]
         FishMort[grp] += FishQ[i] * effort_mult
         _link_fish_rate[i] = FishQ[i] * effort_mult
     # Forced fishing (rsim_run's ForcedF: forced F plus forced catch / B).

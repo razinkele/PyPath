@@ -188,23 +188,13 @@ def _kernel_call(y, params, forcing, fishing, hden_of=None):
     return seen, rates
 
 
-class _GroupMediation(MediationCollection):
-    """Group multipliers only. ``compute_fleet_multipliers`` returns
-    ``n_fleets`` values, but ``fishing_mortality`` indexes them by the
-    1-based gear number (an IndexError at the last gear, before this task);
-    one value more keeps the fishing part out of this test."""
-
-    def compute_fleet_multipliers(self, BB, Bbase, n_fleets):
-        return np.ones(n_fleets + 1)
-
-
 def _mediated(params):
     """A mediation collection: group 12 mediates the first three links."""
     prey, pred = params["_link_prey"], params["_link_pred"]
     pairs = [(a, b) for a, b in zip(prey, pred) if a >= 1 and b >= 1][:3]
     shape = MediationShape(1, "m", np.array([0.0, 1.0, 4.0]), np.array([0.4, 1, 1.6]))
     links = [MediationLink(1, 11, prey_idx=a - 1, pred_idx=b - 1) for a, b in pairs]
-    return _GroupMediation(shapes=[shape], links=links)
+    return MediationCollection(shapes=[shape], links=links)
 
 
 KERNEL_CASES = [
