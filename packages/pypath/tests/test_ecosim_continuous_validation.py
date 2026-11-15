@@ -315,9 +315,10 @@ def test_ten_year_cost(model):
 
     Task 6's protocol: a warm-up of each method, interleaved pairs, the
     minimum of the samples, ``process_time``. Asserted: for REco, CPU per
-    evaluation at most 2.5 x one exact derivative call; for the Black Sea,
-    the RK4 ratio at most 40. The per-evaluation figure of the Black Sea and
-    LT2022 and LT2022's ratio are printed (the page quotes them).
+    evaluation at most ``EVAL_COST_BOUND`` x one exact derivative call; for
+    the Black Sea, the RK4 ratio at most 40. The per-evaluation figure of the
+    Black Sea and LT2022 and LT2022's ratio are printed (the page quotes
+    them).
     """
     scen = MODELS[model]()
     years = range(1, 11)

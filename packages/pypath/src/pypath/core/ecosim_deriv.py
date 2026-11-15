@@ -356,6 +356,114 @@ def _compute_consumption_sparse_python(
 _compute_consumption_sparse = _compute_consumption_sparse_python
 
 
+def _compute_consumption_vector(
+    QQ,
+    BB,
+    VV,
+    DD,
+    QQbase,
+    preyYY,
+    predYY,
+    link_prey,
+    link_pred,
+    n_links,
+    ScrambleSelf=None,
+    HandleSelf=None,
+    PredPredWeight=None,
+    PreyPreyWeight=None,
+    HandleSwitch=None,
+    COUPLED=1,
+    med_multipliers=None,
+    eat_eff=None,
+):
+    """Vectorised twin of :func:`_compute_consumption_sparse_python`.
+
+    Same arguments and the same result: the loop's per-link arithmetic, in
+    its order of operations, over the same links, writing only the links the
+    loop writes (both ends with B > 0 and ``QQbase > 0``; other entries of
+    ``QQ`` are left as they are). Pooling follows the loop's ``use_pooling``
+    (all four arrays given, so HandleSelf acts with ScrambleSelf at 0); the
+    suites are ``np.bincount`` over every link in link order, which adds
+    each group's terms in the loop's sequence. A HandleSwitch exponent of 1
+    takes the clamped prey term as it is (``x ** 1 == x``); other exponents
+    go through numpy's array power, which can differ from the loop's scalar
+    power in the last bit. Used only on the continuous path
+    (``params["_KERNEL_VECTOR"]``, set by ``ContinuousRHS``).
+    """
+    prey = np.asarray(link_prey, dtype=np.int64)[:n_links]
+    pred = np.asarray(link_pred, dtype=np.int64)[:n_links]
+    VV = np.asarray(VV)
+    QQbase = np.asarray(QQbase)
+    use_pooling = (
+        ScrambleSelf is not None
+        and HandleSelf is not None
+        and PredPredWeight is not None
+        and PreyPreyWeight is not None
+    )
+    # _pdy of every link: the predator term of the VV denominator and suite
+    pdy_eat = predYY[pred] if eat_eff is None else predYY[pred] / eat_eff[pred]
+    if use_pooling:
+        n_g = QQ.shape[0]
+        pred_suite = np.bincount(
+            prey,
+            weights=pdy_eat * np.asarray(PredPredWeight)[prey, pred],
+            minlength=n_g,
+        )
+        handle_suite = np.bincount(
+            pred,
+            weights=preyYY[prey] * np.asarray(PreyPreyWeight)[prey, pred],
+            minlength=n_g,
+        )
+
+    # the links the loop does not skip
+    qbase = QQbase[prey, pred]
+    live = ~((BB[prey] <= 0.0) | (BB[pred] <= 0.0) | (qbase <= 0.0))
+    prey, pred = prey[live], pred[live]
+    qbase = qbase[live]
+    pdy_eat = pdy_eat[live]
+    PYY = preyYY[prey]
+    PDY = predYY[pred]
+    vv = VV[prey, pred]
+    dd = np.asarray(DD)[prey, pred]
+
+    if HandleSwitch is not None:
+        hs_exp = np.asarray(HandleSwitch)[prey, pred] * COUPLED
+    else:
+        hs_exp = np.zeros(len(prey))
+    switch = hs_exp > 0.0
+    power = switch & (hs_exp != 1.0)
+
+    # PYY term with HandleSwitch exponent
+    PYY_term = np.where(switch, np.maximum(PYY, 1e-10), PYY)
+    PYY_term[power] = PYY_term[power] ** hs_exp[power]
+
+    # Handling time term (DD denominator) with suite pooling
+    if use_pooling:
+        Hself = np.asarray(HandleSelf)[prey, pred]
+        dd_prey_eff = (1.0 - Hself) * PYY + Hself * handle_suite[pred]
+    else:
+        dd_prey_eff = PYY
+    dd_denom = np.maximum(dd_prey_eff, 1e-10)
+    dd_denom[power] = dd_denom[power] ** hs_exp[power]
+    dd_term = dd / np.maximum(dd - 1.0 + dd_denom, 1e-10)
+
+    # Vulnerability term (VV denominator) with suite pooling
+    if use_pooling:
+        Sself = np.asarray(ScrambleSelf)[prey, pred]
+        vv_pred_eff = (1.0 - Sself) * pdy_eat + Sself * pred_suite[prey]
+    else:
+        vv_pred_eff = pdy_eat
+    vv_pred_safe = np.maximum(vv_pred_eff, 1e-10)
+    vv_term = vv / np.maximum(vv - 1.0 + vv_pred_safe, 1e-10)
+
+    Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
+
+    if med_multipliers is not None:
+        Q_calc = Q_calc * np.asarray(med_multipliers)[prey, pred]
+
+    QQ[prey, pred] = np.where(Q_calc > 0.0, Q_calc, 0.0)
+
+
 # =============================================================================
 # HANDLING-TIME KERNEL (continuous path)
 # =============================================================================
@@ -488,6 +596,53 @@ class HdenKernel:
         flow = self.base * pdy * vv_term
         flow = np.where(flow > 0.0, flow, 0.0)
         return np.bincount(self.pred, weights=flow, minlength=self.n)
+
+    def q_and_dq(self, hden: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """``(q, dq)`` at ``hden``: ``q`` as :meth:`q`, and ``dq[j]`` the
+        derivative of ``q[j]`` with respect to ``hden[j]``.
+
+        With ``pdy = predYY * hden0 / H_j``, ``eff`` the predator term of the
+        VV denominator and ``den = max(vv - 1 + max(eff, 1e-10), 1e-10)``:
+        ``dq[j] = sum over j's links of base * (vv_term - pdy * vv / den**2
+        * d eff / d pdy) * (-pdy / H_j)``. A clamped ``eff`` or ``den``
+        contributes no ``d eff`` term, and a link whose flow is clamped at 0
+        contributes nothing. Each ``q[j]`` depends on ``H_j`` alone only when
+        no consuming link has ``ScrambleSelf > 0``: raises ``ValueError`` when
+        :meth:`coupled`.
+        """
+        if getattr(self, "_coupled", None) is None:
+            self._coupled = self.coupled()  # the inputs are fixed: once
+        if self._coupled:
+            raise ValueError(
+                "handling time: q_and_dq needs independent predators; the map "
+                "is coupled (a consuming link has ScrambleSelf > 0)"
+            )
+        inputs = self.inputs
+        pred_yy = inputs.predYY * (inputs.hden0 / hden)
+        pdy = pred_yy[self.pred]
+        vv_pred_eff = pdy if self.eat is None else pdy / self.eat
+        deff = 1.0 if self.eat is None else 1.0 / self.eat
+        if self.suite is not None:
+            s_prey, s_pred, s_weight, s_eat, sself = self.suite
+            s_pdy = pred_yy[s_pred] if s_eat is None else pred_yy[s_pred] / s_eat
+            pred_suite = np.bincount(s_prey, weights=s_pdy * s_weight, minlength=self.n)
+            vv_pred_eff = (1.0 - sself) * vv_pred_eff + sself * pred_suite[self.prey]
+            deff = (1.0 - sself) * deff  # no ScrambleSelf: no suite term
+        vv = self.vv
+        eff = np.maximum(vv_pred_eff, 1e-10)
+        den = np.maximum(vv - 1.0 + eff, 1e-10)
+        vv_term = vv / den
+        flow = self.base * pdy * vv_term
+        keep = flow > 0.0
+        flow = np.where(keep, flow, 0.0)
+        q = np.bincount(self.pred, weights=flow, minlength=self.n)
+        free = (vv_pred_eff > 1e-10) & (vv - 1.0 + eff > 1e-10)
+        dden = np.where(free, pdy * vv / den**2 * deff, 0.0)
+        dflow = self.base * (vv_term - dden) * (-pdy / hden[self.pred])
+        dq = np.bincount(
+            self.pred, weights=np.where(keep, dflow, 0.0), minlength=self.n
+        )
+        return q, dq
 
 
 # =============================================================================
@@ -2106,10 +2261,19 @@ def deriv_vector(
     # over inactive links); otherwise fall back to the dense kernel.
     _link_prey = params.get("_link_prey", None)
     _link_pred = params.get("_link_pred", None)
+    # The continuous path (``_KERNEL_VECTOR``, set by ContinuousRHS on its
+    # own params only) runs the sparse loop's vectorised twin; the dense
+    # loop, without link arrays, is kept as it is.
+    _kernel_vector = bool(params.get("_KERNEL_VECTOR", False))
 
     def _run_kernel(pred_yy):
         if _link_prey is not None and _link_pred is not None:
-            _compute_consumption_sparse(
+            _sparse_kernel = (
+                _compute_consumption_vector
+                if _kernel_vector
+                else _compute_consumption_sparse
+            )
+            _sparse_kernel(
                 QQ,
                 BB,
                 VV,
@@ -2664,7 +2828,8 @@ def deriv_vector(
     # rsim_run passes Rpath's detritus links; use Rpath's budget then.
     _det_link_from = params.get("DetLinkFrom", None)
     if _det_link_from is not None:
-        _det_flows: dict = {}  # Discards and DetExport, for the rates
+        # Discards and DetExport, for the rates only
+        _det_flows: Optional[dict] = None if rates is None else {}
         det_gain, det_loss = _rpath_detritus_derivs(
             deriv,
             QQ,
@@ -2689,10 +2854,10 @@ def deriv_vector(
             det_emig=_emig,
             pass_on=params.get("_detritus_pass_on", True),
             df_once=params.get("DETRITUS_DF_ONCE", False),
-            flows=None if rates is None else _det_flows,
+            flows=_det_flows,
             fish_mort=FishMort,
         )
-        if rates is not None:
+        if rates is not None and _det_flows is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)
             rates["DetGain"] = np.zeros(NUM_GROUPS + 1)
             rates["DetLoss"] = np.zeros(NUM_GROUPS + 1)

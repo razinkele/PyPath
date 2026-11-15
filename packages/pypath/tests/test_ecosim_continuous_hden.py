@@ -387,3 +387,109 @@ def test_a_non_positive_hden_is_never_accepted():
 
     with pytest.raises(RuntimeError, match=r"handling time.*groups \[0, 1\]"):
         iterate_hden(g, np.array([2.0, 3.0]), np.ones(2, dtype=bool))
+
+
+# ---------------------------------------------------------------------------
+# Newton on the analytic dq/dH (phase 3)
+# ---------------------------------------------------------------------------
+
+
+@needs_reco
+def test_q_and_dq_matches_central_differences(reco_plain):
+    params, forcing, fishing = _setup(reco_plain)
+    seen, _ = _kernel_call(_perturbed(params), params, forcing, fishing)
+    kernel = HdenKernel(seen["inputs"])
+    assert not kernel.coupled()
+    hden0 = np.asarray(seen["inputs"].hden0, dtype=float)
+    h = hden0 * np.where(np.arange(len(hden0)) % 2 == 0, 1.3, 0.7)
+    q, dq = kernel.q_and_dq(h)
+    np.testing.assert_array_equal(q, kernel.q(h))
+    # each q_j depends on H_j alone, so one perturbed vector gives every
+    # column's diagonal entry
+    delta = 1e-6 * h
+    central = (kernel.q(h + delta) - kernel.q(h - delta)) / (2.0 * delta)
+    assert np.count_nonzero(dq) >= 10
+    assert np.all(dq <= 0.0)  # a larger Hden lowers the predator term
+    np.testing.assert_allclose(dq, central, rtol=1e-7, atol=0)
+
+    active = np.asarray(params["ActiveLink"]) != 0
+    params["HandleSelf"] = np.where(active, 0.5, 0.0)
+    params["ScrambleSelf"] = np.where(active, 0.5, 0.0)
+    seen, _ = _kernel_call(_perturbed(params), params, forcing, fishing)
+    pooled = HdenKernel(seen["inputs"])
+    assert pooled.coupled()
+    with pytest.raises(ValueError, match="coupled"):
+        pooled.q_and_dq(h)
+
+
+@needs_reco
+def test_newton_needs_few_passes(reco_plain):
+    params, forcing, fishing = _setup(reco_plain)
+    for y in _states(params):
+        seen, _ = _kernel_call(y, params, forcing, fishing)
+        h, passes = solve_hden_kernel(seen["inputs"])
+        g, h0, active = _kernel_map(seen["inputs"])
+        hs, secant = iterate_hden(g, h0, active)
+        print("Newton passes", passes, "bracketed secant passes", secant)
+        assert passes <= 7
+        assert passes < secant
+        assert np.max(np.abs(h[active] / hs[active] - 1.0)) <= 1e-11
+
+
+def test_newton_accepts_the_root_at_the_known_end():
+    """A predator that eats nothing has g = 1: Newton's step lands exactly on
+    H = 1, the end of the bracket known from g >= 1 (never evaluated), and is
+    taken there, not bisected towards 1e6."""
+    h, n = iterate_hden(
+        np.ones_like,
+        np.array([3.0, 1.7]),
+        np.ones(2, dtype=bool),
+        accel="newton",
+        dg=np.zeros_like,
+        fallback=False,
+    )
+    np.testing.assert_array_equal(h, [1.0, 1.0])
+    assert n == 2
+
+
+def test_newton_needs_dg_and_independent_components():
+    def g(h):
+        return 1.0 + 0.5 * h / (1.0 + h)
+
+    one = np.ones(1, dtype=bool)
+    with pytest.raises(ValueError, match="dg"):
+        iterate_hden(g, np.array([2.0]), one, accel="newton")
+    with pytest.raises(ValueError, match="coupled"):
+        iterate_hden(
+            g, np.array([2.0]), one, accel="newton", dg=np.zeros_like, coupled=True
+        )
+
+
+def test_a_component_without_a_bracket_converges(monkeypatch):
+    """Ruling P2's other branch, positively. The first two maps straddle a
+    sign change between the ends 1 and 1e6; the third (root 0.5, so
+    F(1) < 0) does not, takes undamped passes and is finished by ``hybr``."""
+    import pypath.core.ecosim_continuous as cont_mod
+
+    hybr = {"n": 0}
+    real_root = cont_mod.root
+
+    def spy(*args, **kwargs):
+        hybr["n"] += 1
+        return real_root(*args, **kwargs)
+
+    monkeypatch.setattr(cont_mod, "root", spy)
+
+    def g(h):
+        return np.array([1.5, 0.5 + 0.9 * h[1], 0.25 + 0.5 * h[2]])
+
+    def dg(h):
+        return np.array([0.0, 0.9, 0.5])
+
+    h0 = np.array([3.0, 2.0, 2.0])
+    for accel, kw in (("bracketed", {}), ("newton", {"dg": dg})):
+        hybr["n"] = 0
+        h, n = iterate_hden(g, h0, np.ones(3, dtype=bool), accel=accel, **kw)
+        assert np.all(h > 0.0)
+        np.testing.assert_allclose(h, [1.5, 5.0, 0.5], rtol=1e-12)
+        assert hybr["n"] == 1, accel

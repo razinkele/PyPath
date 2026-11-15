@@ -497,8 +497,10 @@ class RsimOutput:
         diagnostic: no month's first step is set),
         ``status``, ``t_reached``, ``degraded`` (a month
         mean fell back to the start state), ``clips``, ``hden_passes_max``
-        (kernel passes of the month's largest handling-time solve) and
-        ``min_state``. None for RK4 and AB.
+        (kernel passes of the month's largest handling-time solve),
+        ``kernel_check`` (the month's check of the vectorised consumption
+        pass against the link loop, relative) and ``min_state``. None for
+        RK4 and AB.
     out_Catch_month_end : np.ndarray or None
         Continuous path only: EwE's booking, the month's F times the
         month-end biomass / 12 (n_months+1 x n_groups+1). None for RK4 and AB.
@@ -3063,6 +3065,7 @@ def rsim_run(
                     "clips": int(rhs.stats["clips"]),
                     "hden_passes_max": int(rhs.stats["hden_passes_max"]),
                     "hden_residual_max": float(rhs.stats["hden_residual_max"]),
+                    "kernel_check": float(rhs.stats["kernel_check"]),
                     "min_state": float(rhs.stats["min_state"]),
                     "ftime_range": _ftime_range,
                     "budget_residual": _budget,

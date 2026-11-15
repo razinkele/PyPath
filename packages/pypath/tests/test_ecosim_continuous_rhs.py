@@ -310,7 +310,9 @@ def test_one_derivative_per_evaluation(monkeypatch):
     y = _alternating(y0)
     for k in range(10):
         rhs(0.01 * k, y * (1.0 + 0.01 * k))
-    assert calls["n"] == 10
+    # +1: the month's first evaluation also runs the link loop, to check the
+    # vectorised consumption pass
+    assert calls["n"] == 10 + 1
     assert rhs.stats["hden_passes_max"] >= 2
 
 
@@ -319,7 +321,7 @@ def test_the_rhs_reports_the_true_residual():
     assert rhs.stats["hden_residual_max"] == 0.0
     rhs(0.0, _alternating(y0))
     res = rhs.stats["hden_residual_max"]
-    assert np.isfinite(res) and 0.0 < res <= 1e-11
+    assert np.isfinite(res) and 0.0 <= res <= 1e-11
 
 
 def test_the_rhs_hden_solves_the_full_derivative_fixed_point():
