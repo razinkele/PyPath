@@ -2663,12 +2663,26 @@ def rsim_run(
         every monthly mean and non-negative forcing >= 0
         (``ecosim_continuous.ForcingInterpolant``). Effort, forced F and
         catch, forced biomass, ForcedRecs, fleet dynamics and quotas stay
-        monthly-held either way. A failed month raises
+        monthly-held either way. ``fast_groups`` is a model option too
+        (opt-in): ``"states"``, the default, integrates every group;
+        ``"quasi-steady"`` takes the ``NoIntegrate`` groups whose base loss
+        rate (``LossPropToB / B`` at the unforced base) exceeds ``qs_rate``
+        (a number > 0 per year, default 365) out of the state and solves
+        their ``dB/dt = 0`` at every evaluation
+        (``ecosim_continuous.QuasiSteady``); groups forced in any month and
+        stanza groups stay states, and when none qualifies a WARNING says
+        so and every group is a state. ``solver_info`` lists ``qs_groups``,
+        their ``qs_base_rate``, ``qs_excluded`` and ``qs_separation`` (the
+        slowest selected base loss rate over the largest ``|Re lambda|`` of
+        the reduced Jacobian at the start of month 1; a WARNING below 10),
+        and each month's ``qs_inner_max``. A selected group's
+        ``out_Biomass`` is its solved value (row 0 keeps the start value)
+        and the monthly budget residuals are None. A failed month raises
         ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
         the month, and the run continues from the last state reached. Even
-        with ``"warn"``, a handling-time solve that fails inside the
-        right-hand side, and a non-finite derivative or non-finite rates at a
-        month's start state, raise. Other keys and invalid values raise
+        with ``"warn"``, a handling-time or quasi-steady solve that fails
+        inside the right-hand side, and a non-finite derivative or non-finite
+        rates at a month's start state, raise. Other keys and invalid values raise
         ``ValueError``. On the continuous path ``out_Catch`` is the month's F
         times the month-mean biomass / 12 (the integral of F x B) and
         ``out_Catch_month_end`` is EwE's F x month-end biomass / 12;
@@ -2827,10 +2841,12 @@ def rsim_run(
         from pypath.core.ecosim_continuous import (
             ContinuousRHS,
             JacobianReuse,
+            QuasiSteady,
             default_atol,
             feeding_time,
             integrate_month,
             month_budget,
+            quasi_steady_groups,
         )
 
         _n_bio_c = params.NUM_LIVING + params.NUM_DEAD
@@ -2895,6 +2911,65 @@ def rsim_run(
                 _interp_kind,
                 [] if _interp is None else list(_interp.keys),
             )
+        # a model option: fast groups solved quasi-steady (QuasiSteady): the
+        # NoIntegrate groups whose base loss rate exceeds qs_rate, less those
+        # forced in any month of the run and the stanza groups
+        _qs = None
+        _qs_groups: list = []
+        _qs_excluded: dict = {"forced": [], "stanza": []}
+        _qs_rates: list = []
+        if _cont_opts["fast_groups"] == "quasi-steady":
+            _qs_rate = _cont_opts["qs_rate"]
+            _base_rate = rhs.base_loss_rate()
+            _fb = np.asarray(scenario.forcing.ForcedBio, dtype=float)[:n_months]
+            _forced_any = np.zeros(_n_bio_c, dtype=bool)
+            _n_fb = min(_fb.shape[1] - 1, _n_bio_c)
+            _forced_any[:_n_fb] = np.any(_fb[:, 1 : _n_fb + 1] > 0, axis=0)
+            _qs_groups, _qs_excluded = quasi_steady_groups(
+                _base_rate,
+                params.NoIntegrate,
+                _qs_rate,
+                forced=_forced_any,
+                stanza=stanza_idx,
+            )
+            _qs_rates = [float(_base_rate[g - 1]) for g in _qs_groups]
+            if _qs_excluded["forced"] or _qs_excluded["stanza"]:
+                logger.info(
+                    "continuous path: quasi-steady candidates excluded (kept "
+                    "as states for the whole run): forced in some month %s, "
+                    "stanza groups %s",
+                    _qs_excluded["forced"],
+                    _qs_excluded["stanza"],
+                )
+            if _qs_groups:
+                _qs = QuasiSteady(
+                    _qs_groups,
+                    rhs,
+                    step_floor=_atol_run / _rtol,
+                    names=[params.spname[g] for g in _qs_groups],
+                )
+                logger.info(
+                    "continuous path: fast_groups='quasi-steady' (a model "
+                    "option: their dB/dt = 0 is solved at every evaluation); "
+                    "groups %s, base loss rates %s /yr > qs_rate %g",
+                    [f"{g} {params.spname[g]}" for g in _qs_groups],
+                    [round(r, 1) for r in _qs_rates],
+                    _qs_rate,
+                )
+            else:
+                _flagged = [
+                    i
+                    for i in range(1, _n_bio_c + 1)
+                    if np.asarray(params.NoIntegrate)[i] != 0
+                ]
+                logger.warning(
+                    "fast_groups='quasi-steady': no group qualifies (NoIntegrate "
+                    "groups' base loss rates %s /yr, qs_rate %g; excluded %s); "
+                    "every group is a state",
+                    {g: round(float(_base_rate[g - 1]), 1) for g in _flagged},
+                    _qs_rate,
+                    _qs_excluded,
+                )
         solver_info = {
             "method": _cont_method,
             "rtol": _rtol,
@@ -2905,11 +2980,18 @@ def rsim_run(
             ),
             "hden_tol": _cont_opts["hden_tol"],
             "jacobian": _cont_opts["jacobian"],
-            # the model options (opt-in; fast_groups is the path's fixed
-            # choice for now)
+            # the model options (opt-in)
             "forcing_interpolation": _interp_kind,
             "positivity": _cont_opts["positivity"],
-            "fast_groups": "states",
+            "fast_groups": _cont_opts["fast_groups"],
+            "qs_rate": _cont_opts["qs_rate"],
+            # the quasi-steady groups, their base loss rates (per year), the
+            # qualifying groups kept as states, and the separation (set in
+            # month 1; None without quasi-steady groups)
+            "qs_groups": list(_qs_groups),
+            "qs_base_rate": list(_qs_rates),
+            "qs_excluded": _qs_excluded,
+            "qs_separation": None,
             "corrections": list(rhs.corrections),
             "ignored_switches": list(rhs.ignored_switches),
             "ftime_groups": [] if _ft_groups is None else _ft_groups.tolist(),
@@ -3106,15 +3188,6 @@ def rsim_run(
             # vary in time instead); slot 0 and the gear slots keep their
             # values.
             assert rhs is not None  # built above for the continuous methods
-            rhs.set_month(
-                forcing_dict,
-                state,
-                _forced_mask,
-                _forced_now,
-                forcing_at=None
-                if _interp is None
-                else _interp.for_month(month - 1, dt),
-            )
             _y0 = np.array(state[1 : _n_bio_c + 1], dtype=float, copy=True)
             if _ft_groups is not None:
                 # a start Ftime outside [lower, cap] is clipped (the RHS
@@ -3131,15 +3204,56 @@ def rsim_run(
                 )
             # a failure in this month names it (start rates and integration)
             _month_label = f"month {month} (year {year_idx + scenario.start_year})"
+            _forcing_at = None if _interp is None else _interp.for_month(month - 1, dt)
             try:
+                if _qs is None:
+                    rhs.set_month(
+                        forcing_dict,
+                        state,
+                        _forced_mask,
+                        _forced_now,
+                        forcing_at=_forcing_at,
+                    )
+                else:
+                    # also fixes the quasi-steady solve's start and chord
+                    # Jacobian for the month
+                    _qs.set_month(
+                        forcing_dict,
+                        state,
+                        _forced_mask,
+                        _forced_now,
+                        forcing_at=_forcing_at,
+                        y0=_y0,
+                    )
+                if _qs is not None and month == 1:
+                    # the separation of time scales, once: the slowest
+                    # quasi-steady group against the reduced Jacobian
+                    _lam = _qs.reduced_rate()
+                    _sep = min(_qs_rates) / _lam if _lam > 0.0 else float("inf")
+                    assert solver_info is not None
+                    solver_info["qs_separation"] = _sep
+                    if _sep < 10.0:
+                        logger.warning(
+                            "fast_groups='quasi-steady': poor separation "
+                            "qs_separation = %.3g < 10 (slowest quasi-steady "
+                            "group %.3g /yr, largest |Re lambda| of the reduced "
+                            "Jacobian %.3g /yr): the reduction may be "
+                            "inaccurate; raise qs_rate",
+                            _sep,
+                            min(_qs_rates),
+                            _lam,
+                        )
                 _start_rates = (
                     rhs.rates(_y0) if month == 1 and out_hden is not None else None
                 )
-                # under "log" the Jacobian is differentiated in z: the
-                # month's wrapped function is built inside integrate_month
+                # under "log" the Jacobian is differentiated in z, and under
+                # quasi-steady groups in the slow states: the month's solver
+                # function is built inside integrate_month
                 _jac = (
                     None
-                    if _jac_reuse is None or _cont_opts["positivity"] == "log"
+                    if _jac_reuse is None
+                    or _cont_opts["positivity"] == "log"
+                    or _qs is not None
                     else _jac_reuse.for_month(rhs)
                 )
                 res = integrate_month(
@@ -3160,6 +3274,7 @@ def rsim_run(
                     forcing_interpolation=(
                         "constant" if _interp is None else _interp_kind
                     ),
+                    quasi_steady=_qs,
                 )
             except RuntimeError as e:
                 if _month_label in str(e):  # already names the month
@@ -3177,12 +3292,14 @@ def rsim_run(
                 _ftime_range = [float(_ft_end.min()), float(_ft_end.max())]
             # the month's mass budget over the integrated biomass states,
             # before the stanza overwrite, forced re-apply and floor below
+            # (None under quasi-steady groups)
             _budget, _pool_budget = month_budget(
                 _y0,
                 res,
                 params.NUM_LIVING,
                 _n_bio_c,
                 forced=bool(np.any(_forced_mask)),
+                quasi_steady=_qs is not None,
             )
             solver_info["months"].append(
                 {
@@ -3211,6 +3328,9 @@ def rsim_run(
                     "pool_budget_residual": _pool_budget,
                     "nutrient_floor": int(rhs.stats["nutrient_floor"]),
                     "negative_export": int(rhs.stats["negative_export"]),
+                    "qs_inner_max": (
+                        None if _qs is None else int(_qs.stats["qs_inner_max"])
+                    ),
                 }
             )
         if np.any(_forced_mask):

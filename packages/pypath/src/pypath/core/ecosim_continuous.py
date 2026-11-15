@@ -921,6 +921,7 @@ class ContinuousRHS:
         )
         self._forcing = neutral_forcing(pd)
         self._forcing_at: Optional[Callable[[float], dict]] = None
+        self._base = base.copy()  # the unforced base state (base_loss_rate)
         self._state_full = base
         self._forced = np.zeros(self.n_bio, dtype=bool)
         self._forced_values = np.zeros(self.n_bio)
@@ -1171,6 +1172,21 @@ class ContinuousRHS:
         forcing = rates.get("_forcing", self._forcing)
         return exchange_rate(rates, self._full_state(y), self._pd, forcing)
 
+    def base_loss_rate(self) -> np.ndarray:
+        """``LossPropToB / B`` of groups ``1..n_bio`` at the unforced base:
+        the base biomass, :func:`neutral_forcing` (feeding time 1, effort 1)
+        and nothing forced, whatever month :meth:`set_month` holds. One
+        evaluation, counted in ``evals`` (no stats); 0 where B0 = 0."""
+        self.evals += 1
+        base = self._base.copy()
+        out: dict = {}
+        deriv_vector(base, self._pd, neutral_forcing(self._pd), self.fishing, rates=out)
+        sl = slice(1, self.n_bio + 1)
+        loss = np.asarray(out["LossPropToB"], dtype=float)[sl]
+        b = base[sl]
+        rate: np.ndarray = np.divide(loss, b, out=np.zeros_like(loss), where=b > 0.0)
+        return rate
+
 
 #: The continuous methods (lower case) and their ``solve_ivp`` names; the
 #: one source of ``ecosim.CONTINUOUS_METHODS``.
@@ -1189,6 +1205,14 @@ JACOBIAN_MODES = ("reuse", "solver")
 #: right-hand side (the default) or integrated as ``z = ln B``.
 POSITIVITY_MODES = ("clip", "log")
 
+#: ``solver_options["fast_groups"]``: every group a state (the default), or
+#: the fast groups solved quasi-steady (:class:`QuasiSteady`).
+FAST_GROUP_MODES = ("states", "quasi-steady")
+
+#: ``solver_options["qs_rate"]``'s default, per year: a flagged group is
+#: quasi-steady when its base loss rate exceeds it.
+QS_RATE_DEFAULT = 365.0
+
 
 def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> dict:
     """``rsim_run``'s checks of a continuous method and its ``solver_options``.
@@ -1205,13 +1229,18 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
     ``forcing_interpolation`` (``"constant"``, the default, ``"linear"`` or
     ``"smooth"``: a model option, :class:`ForcingInterpolant`) and
     ``positivity`` (``"clip"``, the default, or ``"log"``: a model option,
-    biomass states integrated as ``ln B``, see :func:`integrate_month`);
-    other keys and invalid values raise ``ValueError``.
+    biomass states integrated as ``ln B``, see :func:`integrate_month`),
+    ``fast_groups`` (``"states"``, the default, or ``"quasi-steady"``: a
+    model option, :class:`QuasiSteady`) and ``qs_rate`` (a number > 0 per
+    year, default 365: the base loss rate above which a flagged group is
+    quasi-steady; given with ``fast_groups="states"`` it is unused, which
+    logs a WARNING); other keys and invalid values raise ``ValueError``.
 
     Returns a dict with keys ``method`` (lower case), ``rtol`` (float),
     ``atol`` (None when not given, else an ndarray, 0-d for a scalar),
     ``on_failure``, ``corrections`` (bool), ``hden_tol`` (float),
-    ``jacobian``, ``forcing_interpolation`` and ``positivity``.
+    ``jacobian``, ``forcing_interpolation``, ``positivity``, ``fast_groups``
+    and ``qs_rate`` (float).
     """
     if not isinstance(method, str) or method.lower() not in METHOD_NAMES:
         raise ValueError(
@@ -1228,6 +1257,8 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
         "jacobian",
         "forcing_interpolation",
         "positivity",
+        "fast_groups",
+        "qs_rate",
     )
     _unknown_opts = sorted(set(_cont_opts) - set(_known_opts))
     if _unknown_opts:
@@ -1245,6 +1276,28 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
     if not isinstance(_positivity, str) or _positivity not in POSITIVITY_MODES:
         raise ValueError(
             f"solver_options positivity must be 'clip' or 'log', got {_positivity!r}"
+        )
+    _fast_groups = _cont_opts.get("fast_groups", "states")
+    if not isinstance(_fast_groups, str) or _fast_groups not in FAST_GROUP_MODES:
+        raise ValueError(
+            "solver_options fast_groups must be 'states' or 'quasi-steady', "
+            f"got {_fast_groups!r}"
+        )
+    _qs_rate = _cont_opts.get("qs_rate", QS_RATE_DEFAULT)
+    if not (
+        isinstance(_qs_rate, numbers.Real)
+        and not isinstance(_qs_rate, (bool, np.bool_))
+        and np.isfinite(float(_qs_rate))
+        and float(_qs_rate) > 0.0
+    ):
+        raise ValueError(
+            f"solver_options qs_rate must be a number > 0 (per year), got {_qs_rate!r}"
+        )
+    if "qs_rate" in _cont_opts and _fast_groups == "states":
+        logger.warning(
+            "solver_options qs_rate=%r is unused: it selects quasi-steady "
+            "groups, and fast_groups is 'states'",
+            _qs_rate,
         )
     _jacobian = _cont_opts.get("jacobian", "reuse")
     if not isinstance(_jacobian, str) or _jacobian not in JACOBIAN_MODES:
@@ -1304,6 +1357,8 @@ def continuous_options(method, solver_options: Optional[dict], n_bio: int) -> di
         "jacobian": _jacobian,
         "forcing_interpolation": _interp,
         "positivity": _positivity,
+        "fast_groups": _fast_groups,
+        "qs_rate": float(_qs_rate),
     }
 
 
@@ -1447,6 +1502,292 @@ class JacobianReuse:
         return jac
 
 
+#: The quasi-steady solve's tolerance (``|dB_f/dt| <= QS_TOL x TotGain_f``)
+#: and its cap on chord-Newton steps.
+QS_TOL = 1e-10
+QS_MAX_ITER = 20
+#: Halvings of one chord-Newton step allowed in keeping ``B_f > 0``.
+_QS_MAX_HALVINGS = 60
+
+
+def quasi_steady_groups(
+    base_rate: np.ndarray,
+    no_integrate,
+    qs_rate: float,
+    *,
+    forced: Optional[np.ndarray] = None,
+    stanza=(),
+) -> tuple[list[int], dict[str, list[int]]]:
+    """The run's quasi-steady groups (``fast_groups="quasi-steady"``).
+
+    ``base_rate[i - 1]`` is group ``i``'s base loss rate, ``LossPropToB /
+    B`` at the unforced base (:meth:`ContinuousRHS.base_loss_rate`), for
+    groups ``1..n``; ``no_integrate`` holds the scenario's ``NoIntegrate``
+    flags, slot 0 first (``RsimParams.NoIntegrate``). A group qualifies when
+    it is flagged and its base loss rate exceeds ``qs_rate`` (EwE's flag,
+    24 /yr, also flags groups that are not fast: LT2022's Zooplankton turns
+    over at 25 /yr). A qualifying group that is forced in any month of the
+    run (``forced[i - 1]``) or is a stanza group (in ``stanza``) stays a
+    state for the whole run.
+
+    Returns ``(selected, excluded)``: the selected group numbers, ascending,
+    and ``{"forced": [...], "stanza": [...]}``, the qualifying groups kept
+    as states (a forced stanza group is listed as forced).
+    """
+    rate = np.asarray(base_rate, dtype=float)
+    n = len(rate)
+    flagged = np.asarray(no_integrate)[1 : n + 1] != 0
+    is_forced = (
+        np.zeros(n, dtype=bool) if forced is None else np.asarray(forced, dtype=bool)
+    )
+    stanza_set = {int(i) for i in stanza}
+    selected: list[int] = []
+    excluded: dict[str, list[int]] = {"forced": [], "stanza": []}
+    for i in range(1, n + 1):
+        if not (flagged[i - 1] and rate[i - 1] > qs_rate):
+            continue
+        if is_forced[i - 1]:
+            excluded["forced"].append(i)
+        elif i in stanza_set:
+            excluded["stanza"].append(i)
+        else:
+            selected.append(i)
+    return selected, excluded
+
+
+class QuasiSteady:
+    """Quasi-steady fast groups: the reduced right-hand side of a
+    :class:`ContinuousRHS` (a model option, ``solver_options["fast_groups"]
+    = "quasi-steady"``).
+
+    ``groups`` (group numbers in ``1..rhs.n_bio``) leave the state.
+    ``slow`` holds the indices of ``rhs``'s states that stay (the other
+    biomass states, then any feeding times), ``n_state`` their number and
+    ``n_bio`` the number of biomass states among them, which lead. An
+    evaluation at ``(t, ys)`` solves ``dB_f/dt = 0`` for the selected
+    groups' biomass ``B_f`` with the slow states at ``ys`` and returns the
+    slow states' derivative at the solution; :meth:`expand` returns the full
+    state there.
+
+    The solve is a chord Newton from the month-start ``B_f`` with the
+    month-start ``J_ff``, forward differences of ``rhs`` in ``B_f`` formed
+    by :meth:`set_month`. Each step is halved until every ``B_f > 0``. It
+    stops when ``|dB_f/dt| <= tol x TotGain_f`` for every selected group
+    (``TotGain`` from ``deriv_vector``'s rates at the same evaluation), and
+    fails after ``max_iter`` steps. When the residual (its largest
+    ``|dB_f/dt| / TotGain_f``) stops falling, ``J_ff`` is formed again,
+    once, at the iterate, for the rest of that solve only. Failure raises
+    ``RuntimeError`` naming "quasi-steady" and the groups. The start
+    ``B_f``, ``J_ff`` and the groups are fixed by :meth:`set_month` and an
+    evaluation keeps nothing it computes, so each evaluation is a function
+    of ``(t, ys)`` and the month's data, as ``rhs``'s own are.
+
+    Every inner evaluation (residuals and difference columns) is an
+    evaluation of ``rhs`` and is counted in ``rhs.evals``. Those of the
+    solver's evaluations (:meth:`__call__`) and of :meth:`set_month`'s
+    ``J_ff`` also count in ``rhs.stats``, as :class:`JacobianReuse`'s columns
+    do; those of :meth:`expand` (the quadrature, the month end) and of
+    :meth:`reduced_rate` do not. ``stats["qs_inner_max"]``, reset by
+    :meth:`set_month`, is the largest number of chord-Newton steps one solve
+    of the month took (every solve counted; at most ``max_iter``).
+
+    A difference column ``k`` steps by ``1.49e-8 x max(|y_k|,
+    step_floor_k)``, ``step_floor`` being a scalar or one value per state of
+    ``rhs`` (default 0; ``rsim_run`` passes ``atol / rtol``, the floor
+    :class:`JacobianReuse` uses). ``names`` (optional, one per group) label
+    the groups in errors.
+    """
+
+    def __init__(
+        self,
+        groups,
+        rhs: ContinuousRHS,
+        *,
+        step_floor=0.0,
+        tol: float = QS_TOL,
+        max_iter: int = QS_MAX_ITER,
+        names=None,
+    ):
+        groups = np.unique(np.asarray(groups, dtype=int))
+        if groups.size == 0 or groups[0] < 1 or groups[-1] > rhs.n_bio:
+            raise ValueError(
+                f"QuasiSteady: groups must be in 1..{rhs.n_bio}, got {groups.tolist()}"
+            )
+        self.rhs = rhs
+        self.groups = groups
+        self.fast = groups - 1  # their indices in rhs's state
+        keep = np.ones(rhs.n_state, dtype=bool)
+        keep[self.fast] = False
+        self.slow = np.flatnonzero(keep)
+        self.n_state = len(self.slow)
+        self.n_bio = rhs.n_bio - len(groups)
+        self.tol = float(tol)
+        self.max_iter = int(max_iter)
+        self._floor = np.array(
+            np.broadcast_to(np.asarray(step_floor, dtype=float), (rhs.n_state,))
+        )
+        label = str(groups.tolist())
+        if names is not None:
+            label += f" ({', '.join(str(name) for name in names)})"
+        self._label = label
+        # month data, set by set_month
+        self._ys0: Optional[np.ndarray] = None
+        self._bf0: Optional[np.ndarray] = None
+        self._jinv: Optional[np.ndarray] = None
+        self.stats = {"qs_inner_max": 0}
+
+    def set_month(
+        self,
+        forcing_dict: dict,
+        state_full: np.ndarray,
+        forced_mask: np.ndarray,
+        forced_values: np.ndarray,
+        forcing_at: Optional[Callable[[float], dict]] = None,
+        *,
+        y0: np.ndarray,
+    ) -> None:
+        """:meth:`ContinuousRHS.set_month`, then the month's data at the
+        month start ``y0`` (every state of ``rhs``): the start ``B_f``
+        (``y0``'s, floored at 1e-20) and ``J_ff`` there at ``t = 0``.
+
+        A selected group forced this month raises ``ValueError`` (the run
+        excludes groups forced in any month); a singular or non-finite
+        ``J_ff`` raises ``RuntimeError``."""
+        rhs = self.rhs
+        rhs.set_month(forcing_dict, state_full, forced_mask, forced_values, forcing_at)
+        y0 = np.array(y0, dtype=float)
+        if y0.shape != (rhs.n_state,):
+            raise ValueError(
+                f"QuasiSteady.set_month: y0 needs {rhs.n_state} states, got {y0.shape}"
+            )
+        if np.any(rhs._forced[self.fast]):
+            raise ValueError(
+                f"quasi-steady groups {self._label}: a forced group cannot be "
+                "quasi-steady"
+            )
+        self.stats = {"qs_inner_max": 0}
+        self._ys0 = y0[self.slow]
+        self._bf0 = np.maximum(y0[self.fast], _Y_FLOOR)
+        y = y0.copy()
+        y[self.fast] = self._bf0
+        r0 = rhs._evaluate(y, None, True, 0.0)[0][self.fast]
+        self._jinv = self._chord(0.0, y, r0, True)
+
+    def _chord(self, t: float, y: np.ndarray, r: np.ndarray, count: bool) -> np.ndarray:
+        """The inverse of ``J_ff`` at ``(t, y)``, ``r`` being ``dB_f/dt``
+        there: forward differences, one evaluation per selected group."""
+        nf = len(self.fast)
+        jff = np.empty((nf, nf))
+        for j, k in enumerate(self.fast):
+            yk = y.copy()
+            yk[k] = y[k] + 1.49e-8 * max(abs(y[k]), self._floor[k])
+            h = yk[k] - y[k]  # the step as represented
+            dyk = self.rhs._evaluate(yk, None, count, t)[0]
+            jff[:, j] = (dyk[self.fast] - r) / h
+        jinv = None
+        if np.all(np.isfinite(jff)):
+            try:
+                jinv = np.linalg.inv(jff)
+            except np.linalg.LinAlgError:
+                jinv = None
+        if jinv is None or not np.all(np.isfinite(jinv)):
+            raise RuntimeError(
+                f"quasi-steady groups {self._label}: J_ff is singular or not "
+                f"finite at t={t:.6g}"
+            )
+        return jinv
+
+    def _solve(
+        self, t: float, ys: np.ndarray, count: bool
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """``(y, dy)``: the full state with ``B_f`` solved at ``(t, ys)`` and
+        ``rhs``'s derivative there."""
+        if self._bf0 is None or self._jinv is None:
+            raise RuntimeError("QuasiSteady: set_month has not been called")
+        rhs = self.rhs
+        y = np.empty(rhs.n_state)
+        y[self.slow] = np.asarray(ys, dtype=float)
+        bf = self._bf0.copy()
+        jinv = self._jinv
+        refreshed = False
+        prev = np.inf
+        steps = 0
+        while True:
+            y[self.fast] = bf
+            out: dict = {}
+            dy: np.ndarray = rhs._evaluate(y, out, count, t)[0]
+            r = dy[self.fast]
+            gain = np.abs(np.asarray(out["TotGain"], dtype=float)[self.groups])
+            if np.all(np.abs(r) <= self.tol * gain):
+                break
+            score = float(np.max(np.abs(r) / np.maximum(gain, np.finfo(float).tiny)))
+            if steps >= self.max_iter or not np.isfinite(score):
+                raise RuntimeError(
+                    f"quasi-steady solve failed for groups {self._label} at "
+                    f"t={t:.6g}: |dB_f/dt| / TotGain_f = {score:.3g} after "
+                    f"{steps} chord-Newton steps (tolerance {self.tol:g}, at "
+                    f"most {self.max_iter})"
+                )
+            if score >= prev and not refreshed:
+                jinv = self._chord(t, y, r, count)  # this solve's only
+                refreshed = True
+            prev = score
+            delta = -(jinv @ r)
+            step = 1.0
+            for _ in range(_QS_MAX_HALVINGS):
+                trial = bf + step * delta
+                if np.all(trial > 0.0):
+                    break
+                step *= 0.5
+            else:
+                raise RuntimeError(
+                    f"quasi-steady solve failed for groups {self._label} at "
+                    f"t={t:.6g}: no step keeps B_f > 0"
+                )
+            bf = trial
+            steps += 1
+        self.stats["qs_inner_max"] = max(self.stats["qs_inner_max"], steps)
+        return y, dy
+
+    def __call__(self, t: float, ys: np.ndarray) -> np.ndarray:
+        """The slow states' derivative at ``(t, ys)``, ``B_f`` solved."""
+        _, dy = self._solve(t, ys, True)
+        return dy[self.slow]
+
+    def expand(self, t: float, ys: np.ndarray, count: bool = False) -> np.ndarray:
+        """The full state of ``rhs`` at ``(t, ys)``: ``ys`` in the slow
+        states, the solved ``B_f`` in the selected groups' (``count``: the
+        inner evaluations count in ``rhs.stats``)."""
+        y, _ = self._solve(t, ys, count)
+        return y
+
+    def reduced_rate(self) -> float:
+        """The largest ``|Re lambda|`` (per year) of the reduced Jacobian at
+        the month start (``t = 0``, the month-start slow states, ``B_f``
+        solved): the Schur complement ``J_ss - J_sf J_ff^-1 J_fs`` of
+        ``rhs``'s forward-difference Jacobian there, ``rhs.n_state + 1``
+        evaluations after the solve's (no stats). 0 when no state stays."""
+        if self._ys0 is None:
+            raise RuntimeError("QuasiSteady: set_month has not been called")
+        if self.n_state == 0:
+            return 0.0
+        rhs = self.rhs
+        y = self.expand(0.0, self._ys0)
+        f0 = rhs._evaluate(y, None, False, 0.0)[0]
+        n = len(y)
+        jac = np.empty((n, n))
+        for k in range(n):
+            yk = y.copy()
+            yk[k] = y[k] + 1.49e-8 * max(abs(y[k]), self._floor[k])
+            h = yk[k] - y[k]
+            jac[:, k] = (rhs._evaluate(yk, None, False, 0.0)[0] - f0) / h
+        s, f = self.slow, self.fast
+        schur = jac[np.ix_(s, s)] - jac[np.ix_(s, f)] @ np.linalg.solve(
+            jac[np.ix_(f, f)], jac[np.ix_(f, s)]
+        )
+        return float(np.max(np.abs(np.linalg.eigvals(schur).real)))
+
+
 @dataclass
 class MonthResult:
     """One integrated month.
@@ -1515,6 +1856,7 @@ def integrate_month(
     forcing_interpolation: str = "constant",
     positivity: str = "clip",
     jac_factory: Optional[Callable] = None,
+    quasi_steady: Optional[QuasiSteady] = None,
 ) -> MonthResult:
     """Solve one month with ``solve_ivp`` and average rates by quadrature.
 
@@ -1563,6 +1905,19 @@ def integrate_month(
     (``JacobianReuse.for_month``) is called with the wrapped function and the
     z-space ``atol`` instead.
 
+    ``quasi_steady`` (a :class:`QuasiSteady` over ``rhs``, its month set by
+    its ``set_month``; a model option) reduces the solver's state: the
+    solver integrates ``quasi_steady``'s slow states (from ``y0``'s, with
+    ``atol`` broadcast to ``y0`` and taken at them; ``"log"`` transforms the
+    slow biomass states), and the state reached and every quadrature node
+    are expanded to every state, the selected groups at their solved
+    biomass (:meth:`QuasiSteady.expand` at the node's time), before the
+    means, the rates, the exchange and ``y_end``, so ``MonthResult`` keeps
+    its layout. A Jacobian is differentiated in the slow states: a ``jac``
+    with ``quasi_steady`` raises ``ValueError``, and ``jac_factory`` is
+    called with the solver's function and ``atol`` (as under ``"log"``). A
+    quasi-steady solve that fails raises, as any error from ``rhs`` does.
+
     ``rhs.stats``, when the right-hand side keeps one (``ContinuousRHS``,
     reset by its ``set_month``), counts the solver's evaluations, the start
     check and ``jac``'s columns included; the quadrature's ``rhs.rates``
@@ -1580,17 +1935,37 @@ def integrate_month(
         raise ValueError(
             "positivity='log' differentiates in z: pass jac_factory, not jac"
         )
+    qs = quasi_steady
+    if qs is not None:
+        if qs.rhs is not rhs:
+            raise ValueError("quasi_steady must reduce rhs itself")
+        if jac is not None:
+            raise ValueError(
+                "quasi_steady differentiates in the slow states: pass "
+                "jac_factory, not jac"
+            )
     timed = forcing_interpolation != "constant"  # rates at the node times
     y0 = np.asarray(y0, dtype=float)
     n = len(y0) if n_bio is None else int(n_bio)
-    fun, z0, atol_run = rhs, y0, atol
+    # the solver's states: y0's, or (quasi-steady) its slow states, of which
+    # the leading n_s are biomass
+    solver_rhs, y0_s, n_s, atol_s = rhs, y0, n, atol
+    if qs is not None:
+        solver_rhs, y0_s, n_s = qs, y0[qs.slow], n - len(qs.fast)
+        atol_s = np.broadcast_to(np.asarray(atol, dtype=float), y0.shape)[qs.slow]
+
+    def expand(t, y):
+        """A solver state, as [biomass, feeding times], as every state."""
+        return y if qs is None else qs.expand(float(t), y)
+
+    fun, z0, atol_run = solver_rhs, y0_s, atol_s
     to_y = np.asarray  # solver state -> [biomass, feeding times]
     if log_states:
-        z0 = y0.copy()
-        z0[:n] = np.log(np.maximum(y0[:n], _Y_FLOOR))
-        atol_z = np.array(np.broadcast_to(atol, y0.shape), dtype=float)
-        atol_z[:n] = np.minimum(
-            np.maximum(atol_z[:n] / np.maximum(y0[:n], _Y_FLOOR), rtol),
+        z0 = y0_s.copy()
+        z0[:n_s] = np.log(np.maximum(y0_s[:n_s], _Y_FLOOR))
+        atol_z = np.array(np.broadcast_to(atol_s, y0_s.shape), dtype=float)
+        atol_z[:n_s] = np.minimum(
+            np.maximum(atol_z[:n_s] / np.maximum(y0_s[:n_s], _Y_FLOOR), rtol),
             _ATOL_Z_MAX,
         )
         atol_run = atol_z
@@ -1600,23 +1975,27 @@ def integrate_month(
             1e-20) and linear feeding times."""
             out = np.array(z, dtype=float, copy=True)
             # exp(ln 1e-20) can round just below 1e-20
-            out[..., :n] = np.maximum(
-                np.exp(np.maximum(out[..., :n], _LOG_FLOOR)), _Y_FLOOR
+            out[..., :n_s] = np.maximum(
+                np.exp(np.maximum(out[..., :n_s], _LOG_FLOOR)), _Y_FLOOR
             )
             return out
 
         def fun(t, z):
             z = np.asarray(z, dtype=float)
             y = to_y(z)
-            dy = np.asarray(rhs(t, y), dtype=float)
+            dy = np.asarray(solver_rhs(t, y), dtype=float)
             dz = dy.copy()
-            dz[:n] = dy[:n] / y[:n]
-            floored = z[:n] <= _LOG_FLOOR
-            dz[:n][floored] = np.maximum(dz[:n][floored], 0.0)
+            dz[:n_s] = dy[:n_s] / y[:n_s]
+            floored = z[:n_s] <= _LOG_FLOOR
+            dz[:n_s][floored] = np.maximum(dz[:n_s][floored], 0.0)
             return dz
 
-        if jac_factory is not None and method != "dop853":
-            jac = jac_factory(fun, atol_z)
+    if (
+        (log_states or qs is not None)
+        and jac_factory is not None
+        and method != "dop853"
+    ):
+        jac = jac_factory(fun, atol_run)
     if not np.all(np.isfinite(np.asarray(fun(0.0, z0), dtype=float))):
         raise RuntimeError(
             "month integration cannot start: non-finite start derivative"
@@ -1656,7 +2035,7 @@ def integrate_month(
     else:
         last = len(sol.t) - 1
     t_reach = float(sol.t[last]) if failed else float(dt)
-    y_last = to_y(np.array(sol.y[:, last], dtype=float))
+    y_last = expand(sol.t[last], to_y(np.array(sol.y[:, last], dtype=float)))
 
     dense = sol.sol
     weights = np.array([1.0])
@@ -1669,6 +2048,8 @@ def integrate_month(
             nodes, w_nodes = 0.5 * t_reach * (_GL_X + 1.0), 0.5 * _GL_W
         cand = to_y(np.array([np.asarray(dense(t), dtype=float) for t in nodes]))
         if np.all(np.isfinite(cand)):
+            if qs is not None:
+                cand = np.array([expand(t, y) for t, y in zip(nodes, cand)])
             weights, ys, times = w_nodes, cand, nodes
         else:
             _fail("non-finite dense output", "using the start state for the means")
@@ -1749,7 +2130,13 @@ def integrate_month(
 
 
 def month_budget(
-    y0: np.ndarray, res: MonthResult, n_living: int, n_bio: int, forced: bool
+    y0: np.ndarray,
+    res: MonthResult,
+    n_living: int,
+    n_bio: int,
+    forced: bool,
+    *,
+    quasi_steady: bool = False,
 ) -> tuple[Optional[float], Optional[float]]:
     """``(budget_residual, pool_budget_residual)`` of an integrated month.
 
@@ -1758,12 +2145,15 @@ def month_budget(
     ``budget_residual = (sum(y_end) - sum(y0) - t * exchange_mean) /
     sum(y0)`` and ``pool_budget_residual`` the largest over the detritus
     pools of ``|y_end_d - y0_d - t * pool_net_mean_d| / y0_d``. Both are None
-    when ``forced`` (forced biomass: its flows are imposed) or the month is
-    ``degraded`` (its means are the start state's); the pool residual is None
-    without ``pool_net_mean`` or pools, and skips pools starting at or below
-    the 1e-20 floor (None if every pool is skipped).
+    when ``forced`` (forced biomass: its flows are imposed), under
+    ``quasi_steady`` groups (the reduction sets their ``dB_f/dt`` to 0 while
+    ``B_f`` moves, so the budget does not close to the solver's tolerance)
+    or when the month is ``degraded`` (its means are the start state's);
+    the pool residual is None without ``pool_net_mean`` or pools, and skips
+    pools starting at or below the 1e-20 floor (None if every pool is
+    skipped).
     """
-    if forced or res.degraded:
+    if forced or quasi_steady or res.degraded:
         return None, None
     b0 = np.asarray(y0, dtype=float)[:n_bio]
     b1 = np.asarray(res.y_end, dtype=float)[:n_bio]
