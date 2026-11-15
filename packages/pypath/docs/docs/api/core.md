@@ -141,7 +141,7 @@ R5 and DF once), `on_failure`, `hden_tol` (the handling-time tolerance,
 default 1e-12, in (0, 1e-8]) and the options below.
 
 - `jacobian`: `"reuse"` (default) or `"solver"`. LSODA, Radau and BDF reuse
-  the finite-difference Jacobian across the month's requests, a fresh one
+  the finite-difference Jacobian across the monthly restarts, a fresh one
   costing `n_state + 1` evaluations; with `"reuse"` LSODA's `nfev` no longer
   counts the Jacobian columns, so compare cost by `rhs_evals`. Per month
   `jac_fresh` and `jac_reused`.
