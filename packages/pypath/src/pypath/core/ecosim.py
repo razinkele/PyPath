@@ -576,6 +576,35 @@ def _warn_detritus_self_fate(rpath, nliving: int, ndead: int) -> None:
         )
 
 
+def _warn_detritus_fishery(rpath, fish_from) -> None:
+    """Warn (EwE rule) about fishing links that take from a detritus pool.
+
+    EwE6's detritus Derivt has no fishing term (loss = Eatenof + (Emig +
+    DetritusOut) x B, cEcoSimModel.vb:3121), so its Ecosim leaves the catch
+    in the pool, and so does the 'ewe' rule. Rpath (the 'rpath' rule) takes
+    it from the pool.
+    """
+    types = np.asarray(rpath.type)
+    fished = sorted(
+        {
+            int(g)
+            for g in np.asarray(fish_from)[1:]
+            if 0 < g <= len(types) and types[int(g) - 1] == 2
+        }
+    )
+    if fished:
+        names = ", ".join(str(rpath.Group[g - 1]) for g in fished)
+        warnings.warn(
+            f"Fishing on detritus group(s) {names}: EwE's Ecosim ignores fishing "
+            "on a detritus pool, and so does the 'ewe' rule, so the pool keeps "
+            "its catch (the catch is still reported). Use "
+            "fast_group_rule='rpath' to take the catch from the pool, as Rpath "
+            "does.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def rsim_params(
     rpath: Rpath,
     mscramble: float = 2.0,
@@ -869,6 +898,8 @@ def rsim_params(
     fish_through = np.array(fish_through)
     fish_q = np.array(fish_q)
     fish_to = np.array(fish_to)
+    if fast_group_rule == "ewe":
+        _warn_detritus_fishery(rpath, fish_from)
 
     # Build detritus links
     det_from = [0]
