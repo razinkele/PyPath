@@ -466,7 +466,8 @@ def exchange_rate(
     - out: respiration ``(1 - Unassim) x rates["FoodGain"]`` of the living
       groups, less ``rates["Production"]`` for consumers;
       ``rates["Landed"]`` of groups ``1..n_bio`` (the catch of the fishing
-      links to no detritus pool, plus the forced F); ``rates["EmigLoss"]``
+      links to no detritus pool, plus the forced F; under the EwE rule none
+      from a pool, whose catch stays in it); ``rates["EmigLoss"]``
       of the living groups; under the EwE rule (``DetPassedProp`` set) a
       pool's ``params_dict["Emig"] x y_full``; and ``rates["DetExport"]``
       (link flows to outside and, under the EwE rule, (DetritusOut -

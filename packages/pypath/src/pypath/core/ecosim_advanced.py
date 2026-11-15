@@ -14,7 +14,7 @@ from typing import Optional
 
 import numpy as np
 
-from pypath.core.ecosim import RsimOutput, RsimScenario
+from pypath.core.ecosim import RsimOutput, RsimScenario, _check_run_years
 from pypath.core.forcing import DietRewiring, ForcingMode, StateForcing, StateVariable
 
 # Get logger
@@ -146,7 +146,9 @@ def rsim_run_advanced(
     method : str
         Integration method ('RK4' or 'AB')
     years : range, optional
-        Years to simulate
+        Years to simulate; as in ``rsim_run`` it must start at
+        ``scenario.start_year`` (the first ``len(years)`` years are run),
+        else ``ValueError``
     verbose : bool
         Print progress information
 
@@ -215,6 +217,7 @@ def rsim_run_advanced(
         n_months = forcing.ForcedBio.shape[0]
         n_years = n_months // 12
     else:
+        _check_run_years(scenario, years)
         n_years = len(years)
         n_months = n_years * 12
 

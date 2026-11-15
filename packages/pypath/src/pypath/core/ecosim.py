@@ -95,6 +95,14 @@ class RsimParams:
         Base production/biomass
     NoIntegrate : np.ndarray
         Fast equilibrium flag (0 = fast eq, else normal)
+    HandleSelf : np.ndarray
+        Prey-overlap weight of each predator's handling time, one value per
+        group (length NUM_GROUPS + 1, as Rpath); every link of a predator
+        takes that predator's value. An array of one value per link (length
+        ``len(PreyFrom)``) is also accepted.
+    ScrambleSelf : np.ndarray
+        Predator-overlap weight of the vulnerability term, per group and
+        keyed by the predator, as HandleSelf
 
     Predator-Prey Link Arrays
     -------------------------
@@ -568,6 +576,36 @@ def _warn_detritus_self_fate(rpath, nliving: int, ndead: int) -> None:
         )
 
 
+def _warn_detritus_fishery(rpath, fish_from) -> None:
+    """Warn (EwE rule) about fishing links that take from a detritus pool.
+
+    EwE6's detritus Derivt has no fishing term (loss = Eatenof + (Emig +
+    DetritusOut) x B, cEcoSimModel.vb:3121) and its discards reach detritus
+    from living groups only (SimDetritusMT, vb 3154-3176), so its Ecosim
+    leaves the catch in the pool and sends no discards from it, and so does
+    the 'ewe' rule. Rpath (the 'rpath' rule) takes it from the pool.
+    """
+    types = np.asarray(rpath.type)
+    fished = sorted(
+        {
+            int(g)
+            for g in np.asarray(fish_from)[1:]
+            if 0 < g <= len(types) and types[int(g) - 1] == 2
+        }
+    )
+    if fished:
+        names = ", ".join(str(rpath.Group[g - 1]) for g in fished)
+        warnings.warn(
+            f"Fishing on detritus group(s) {names}: EwE's Ecosim ignores fishing "
+            "on a detritus pool, and so does the 'ewe' rule: the pool keeps its "
+            "catch and sends no discards (the catch is still reported). Use "
+            "fast_group_rule='rpath' to take the catch from the pool, as Rpath "
+            "does.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def rsim_params(
     rpath: Rpath,
     mscramble: float = 2.0,
@@ -592,9 +630,13 @@ def rsim_params(
     preyswitch : float
         Prey switching exponent (default 1.0 = off)
     scrambleselfwt : float
-        Predator overlap weight (0 = individual, 1 = all overlap)
+        Predator overlap weight (0 = individual, 1 = all overlap), the start
+        value of every group's ``ScrambleSelf`` (applied to each link of
+        that group as predator)
     handleselfwt : float
-        Prey overlap weight (0 = individual, 1 = all overlap)
+        Prey overlap weight (0 = individual, 1 = all overlap), the start
+        value of every group's ``HandleSelf`` (keyed by predator, as
+        ``ScrambleSelf``)
     steps_yr : int
         Timesteps per year (default 12 = monthly)
     steps_m : int
@@ -857,6 +899,8 @@ def rsim_params(
     fish_through = np.array(fish_through)
     fish_q = np.array(fish_q)
     fish_to = np.array(fish_to)
+    if fast_group_rule == "ewe":
+        _warn_detritus_fishery(rpath, fish_from)
 
     # Build detritus links
     det_from = [0]
@@ -1224,7 +1268,9 @@ def _fast_group_flags(
     the detritus budget, so the loss equals the inflow minus the biomass
     accumulation: other-mortality and unassimilated flows routed by the
     detritus fate, plus discards, plus the detritus import (DtImp enters the
-    export rate, cEcoSimModel.vb:3207). With ``ewe_fate`` (EwE's detritus
+    export rate, cEcoSimModel.vb:3207). A fishery on a pool counts neither
+    as the pool's loss nor, through its discards, as another pool's inflow,
+    as the derivative ignores it (R6). With ``ewe_fate`` (EwE's detritus
     routing) the inflow includes what the other pools pass on and the
     biomass accumulation the share a pool sends to itself. Evaluated at the
     Ecopath base, which is where EwE evaluates its first derivative.
@@ -1247,8 +1293,13 @@ def _fast_group_flags(
             loss[prey_from[k]] += qq[k]
             consumption[prey_to[k]] += qq[k]
     eaten = loss[1 : nliving + 1] > 0  # base predation (StartEatenOf > 0)
+    # A fishery on a detritus pool is ignored by EwE's Derivt and by the EwE
+    # rule's derivative, with its discards (R6): left out of the pool's loss
+    # and of the inflow of the pool its discards go to
+    from_pool = (np.asarray(fish_from) > nliving) & (np.asarray(fish_from) <= nbio)
     for k in range(1, len(fish_q)):
-        loss[fish_from[k]] += fish_q[k] * b_baseref[fish_from[k]]
+        if not from_pool[k]:
+            loss[fish_from[k]] += fish_q[k] * b_baseref[fish_from[k]]
     # EwE's first Derivt loses moTot, which at the base is mo except for an
     # eaten group with mo <= 0: 1e-20 (CalcBaseAdditiveMort, vb 3807-3815)
     living_mo = mzero[1 : nliving + 1]
@@ -1274,7 +1325,7 @@ def _fast_group_flags(
                     + unassim[i + 1] * consumption[i + 1]
                 ) * frac
         for k in range(1, len(fish_q)):
-            if fish_to[k] == d:
+            if fish_to[k] == d and not from_pool[k]:
                 inflow += fish_q[k] * b_baseref[fish_from[k]]
         det_input = getattr(rpath, "DetInput", None)
         if det_input is not None and d - 1 < len(det_input):
@@ -1475,7 +1526,8 @@ def rsim_scenario(
     rpath_params : RpathParams
         Original model parameters
     years : range
-        Years to simulate
+        Years to simulate; ``years[0]`` becomes the scenario's
+        ``start_year``, where every ``rsim_run`` starts
     vulnerability : float, optional
         Base vulnerability parameter (default 2.0 = mixed response)
         Controls predator-prey functional response:
@@ -1711,6 +1763,60 @@ def _stanza_start_consistent(
     return False
 
 
+def _check_run_years(scenario: RsimScenario, years) -> None:
+    """Refuse ``years`` that do not start at the scenario's first year.
+
+    A run reads forcing, effort and annual fishing from the scenario's first
+    month on and uses only ``len(years)``, so a range starting later would
+    silently rerun the first years' forcing. ``scenario.start_year`` is the
+    first year (``rsim_scenario`` sets it to ``years[0]``).
+    """
+    if len(years) == 0:
+        return
+    first = getattr(scenario, "start_year", 1)
+    if years[0] != first:
+        raise ValueError(
+            f"years must start at the scenario's first year ({first}), got a "
+            f"range starting at {years[0]}. Only runs from the scenario's "
+            f"first year are supported: pass years=range({first}, {first} + n) "
+            "to run the first n years, or omit years to run the whole scenario."
+        )
+
+
+def _warn_forced_fishing_on_pools(scenario: RsimScenario) -> None:
+    """Warn (EwE rule) when ForcedFRate or ForcedCatch is set on a detritus
+    pool: the EwE rule ignores fishing on a pool, as EwE6 does (R6). These
+    arrays are set after the scenario is built, so ``rsim_params``' warning
+    cannot see them."""
+    params = scenario.params
+    if getattr(params, "DetPassedProp", None) is None:
+        return
+    nl, n_bio = params.NUM_LIVING, params.NUM_LIVING + params.NUM_DEAD
+    forced = np.zeros(n_bio + 1, dtype=bool)
+    for name in ("ForcedFRate", "ForcedCatch"):
+        arr = getattr(scenario.fishing, name, None)
+        if arr is None:
+            continue
+        arr = np.nan_to_num(np.atleast_2d(np.asarray(arr, dtype=float)))
+        m = min(arr.shape[1], n_bio + 1)
+        forced[:m] |= np.any(arr[:, :m] > 0.0, axis=0)
+    pools = [g for g in range(nl + 1, n_bio + 1) if forced[g]]
+    if pools:
+        spname = getattr(params, "spname", None)
+        names = ", ".join(
+            str(spname[g]) if spname is not None and g < len(spname) else str(g)
+            for g in pools
+        )
+        warnings.warn(
+            f"Forced F or forced catch on detritus group(s) {names}: the 'ewe' "
+            "rule ignores it, as EwE's Ecosim ignores fishing on a detritus "
+            "pool (the catch is still reported). Use fast_group_rule='rpath' "
+            "to take it from the pool, as Rpath does.",
+            UserWarning,
+            stacklevel=4,
+        )
+
+
 @dataclass
 class RunSetup:
     """The per-run inputs that ``rsim_run``'s paths share (``_run_setup``).
@@ -1773,8 +1879,10 @@ def _run_setup(
         n_months = forcing.ForcedBio.shape[0]
         n_years = n_months // 12
     else:
+        _check_run_years(scenario, years)
         n_years = len(years)
         n_months = n_years * 12
+    _warn_forced_fishing_on_pools(scenario)
 
     n_groups = params.NUM_GROUPS + 1
 
@@ -1884,15 +1992,16 @@ def _run_setup(
     params_dict["_link_pred"] = _links.pred
 
     # --- Suite-pooling parameters for Rpath-compatible Q formula ----------
-    # HandleSelf / ScrambleSelf are per-link 1-D arrays on RsimParams;
-    # convert them to 2-D matrices indexed [prey, pred] like VV / DD.
+    # HandleSelf / ScrambleSelf are per-group 1-D arrays on RsimParams (one
+    # weight per predator, as in Rpath); expand them to 2-D matrices indexed
+    # [prey, pred] like VV / DD, each link taking its predator's weight.
     params_dict["HandleSelf"] = (
-        _build_link_matrix(params, params.HandleSelf)
+        _group_link_matrix(params, params.HandleSelf, "HandleSelf")
         if hasattr(params, "HandleSelf")
         else None
     )
     params_dict["ScrambleSelf"] = (
-        _build_link_matrix(params, params.ScrambleSelf)
+        _group_link_matrix(params, params.ScrambleSelf, "ScrambleSelf")
         if hasattr(params, "ScrambleSelf")
         else None
     )
@@ -2458,7 +2567,12 @@ def rsim_run(
 
         Anything else raises ``ValueError``.
     years : range, optional
-        Years to run (default: all years in scenario)
+        Years to run (default: all years in scenario). It must start at the
+        scenario's first year (``scenario.start_year``) and runs the first
+        ``len(years)`` years: ``range(scenario.start_year,
+        scenario.start_year + n)``. A range starting at any other year raises
+        ``ValueError``, since the run always reads forcing and effort from
+        the scenario's first month on.
     solver_options : dict, optional
         Options of the continuous methods (unused by RK4 and AB):
         ``rtol`` (> 0, default 1e-6), ``atol`` (a scalar > 0 or one value
@@ -3410,6 +3524,47 @@ def _build_link_matrix(params: RsimParams, link_values: np.ndarray) -> np.ndarra
         if prey < n and pred < n and i < len(link_values):
             matrix[prey, pred] = link_values[i]
     return matrix
+
+
+def _group_link_matrix(params: RsimParams, values, name: str) -> np.ndarray:
+    """``[prey, pred]`` matrix of a per-predator weight (HandleSelf,
+    ScrambleSelf) for the consumption kernels.
+
+    ``rsim_params`` builds these as one value per group (length
+    ``NUM_GROUPS + 1``, Rpath's ``rep(x, NUM_GROUPS + 1)``), and Rpath's C++
+    unrolls them by the link's predator (``Hself = HandleSelf[PreyTo]``,
+    ``Sself = ScrambleSelf[PreyTo]``, ``ecosim.cpp``), so every link of a
+    predator gets that predator's value. An array of length
+    ``len(PreyFrom)`` is taken as one value per link, unchanged, for
+    backward compatibility; when both lengths are equal it is read per
+    group, with a warning if its values differ (a uniform array gives the
+    same matrix either way). Any other length raises ``ValueError``. Cells
+    that are not links stay 0.
+    """
+    n = params.NUM_GROUPS + 1
+    prey = np.asarray(params.PreyFrom, dtype=int)
+    pred = np.asarray(params.PreyTo, dtype=int)
+    values = np.asarray(values, dtype=float)
+    if values.ndim == 1 and len(values) == n:
+        if len(prey) == n and np.unique(values).size > 1:
+            warnings.warn(
+                f"{name} has {n} values, both NUM_GROUPS + 1 and the number of "
+                "predator-prey links; it is read per group (one value per "
+                "predator), as rsim_params builds it, not per link.",
+                UserWarning,
+                stacklevel=3,
+            )
+        matrix = np.zeros((n, n))
+        ok = (prey < n) & (pred < n)
+        matrix[prey[ok], pred[ok]] = values[pred[ok]]
+        return matrix
+    if values.ndim == 1 and len(values) == len(prey):
+        return _build_link_matrix(params, values)
+    raise ValueError(
+        f"{name} must hold one value per group (length NUM_GROUPS + 1 = {n}) "
+        f"or one per predator-prey link (length {len(prey)}); got shape "
+        f"{values.shape}"
+    )
 
 
 # With DD this large, Rpath's handling term DD / (DD - 1 + preyYY) is exactly 1

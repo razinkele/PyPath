@@ -934,6 +934,7 @@ def _rpath_detritus_derivs(
     pass_on=True,
     df_once=False,
     flows: Optional[dict] = None,
+    fish_mort=None,
 ):
     """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
 
@@ -941,6 +942,13 @@ def _rpath_detritus_derivs(
     unassimilated consumption)`` along each of its detritus links; a dead
     source loses that flow. Discards gain the catch of every fishing link
     whose ``FishTo`` is that pool. Detritivore consumption is the food loss.
+    ``fish_mort`` is F per group (``fishing_mortality``): without
+    ``det_passed_prop`` a fished pool loses ``fish_mort x B``, its catch, as
+    in Rpath (``FishingLoss`` is in every group's ``LossPropToB``,
+    ``ecosim.cpp``); under the EwE rule it is ignored, as EwE6's detritus
+    Derivt has no fishing term (cEcoSimModel.vb:3121), and the discards of a
+    catch from a pool reach no pool, as EwE6 sends discards to detritus from
+    living groups only (SimDetritusMT, vb 3154-3176).
     ``import_q`` is each consumer's intake of imported diet, which is
     unassimilated like any other food. ``det_input`` is a constant import per
     group (EwE DetInFlow, cEcoSimModel.vb:3119-3124), counted as gain so the
@@ -1023,8 +1031,11 @@ def _rpath_detritus_derivs(
     fish_gain = np.zeros(n_bio + 1)
     for k in range(1, min(len(fish_from), len(fish_to), len(link_fish_rate))):
         dest = int(fish_to[k])
+        src = int(fish_from[k])
+        if ewe and NUM_LIVING < src <= n_bio:
+            continue  # EwE6 discards from living groups only (vb 3154-3176)
         if NUM_LIVING < dest <= n_bio:
-            fish_gain[dest] += link_fish_rate[k] * BB[int(fish_from[k])]
+            fish_gain[dest] += link_fish_rate[k] * BB[src]
     gain = det_gain + fish_gain
     if det_input is not None:
         dead = slice(NUM_LIVING + 1, n_bio + 1)
@@ -1032,6 +1043,12 @@ def _rpath_detritus_derivs(
     loss = det_loss.copy()
     for d in range(NUM_LIVING + 1, n_bio + 1):
         loss[d] += QQ[d, 1 : NUM_LIVING + 1].sum()
+    if fish_mort is not None and not ewe:
+        # Rpath: a fished pool loses its catch (gear links and forced F)
+        dead = slice(NUM_LIVING + 1, n_bio + 1)
+        f_dead = np.asarray(fish_mort, dtype=float)[dead]
+        if np.any(f_dead != 0.0):
+            loss[dead] += f_dead * BB[dead]
     if ewe:
         dead = slice(NUM_LIVING + 1, n_bio + 1)
         if det_out is None:
@@ -2555,6 +2572,10 @@ def deriv_vector(
             _ff = np.asarray(_forced_f, dtype=float)
             _nf = min(len(_ff), _n_bio + 1)
             _landed[1:_nf] += _ff[1:_nf] * BB[1:_nf]
+        if params.get("DetPassedProp") is not None:
+            # EwE rule: a pool's catch never leaves the pool (R6), so none of
+            # it is landed; FishingLoss still reports it
+            _landed[NUM_LIVING + 1 : _n_bio + 1] = 0.0
         rates["Landed"] = _landed
 
     # Post-kernel instrumentation / debug logging for living groups
@@ -2669,6 +2690,7 @@ def deriv_vector(
             pass_on=params.get("_detritus_pass_on", True),
             df_once=params.get("DETRITUS_DF_ONCE", False),
             flows=None if rates is None else _det_flows,
+            fish_mort=FishMort,
         )
         if rates is not None:
             dead = slice(NUM_LIVING + 1, NUM_LIVING + NUM_DEAD + 1)
