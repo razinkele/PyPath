@@ -1120,9 +1120,11 @@ class JacobianReuse:
       the right shape (``len(y)`` square) is held;
     - later requests: BDF and Radau always form a fresh one (SciPy asks
       again only after a failed Newton iteration, or for Radau after a slowly
-      converging step); LSODA reuses the held one unless the request repeats
-      the previous request's ``t`` (a retry after a failed corrector) or the
-      state moved, ``max |y - y_J| / (|y_J| + 1e-12) > move``.
+      converging step); LSODA reuses the held one only when ``t`` strictly
+      advances past the previous request's and the state has not moved,
+      ``max |y - y_J| / (|y_J| + 1e-12) <= move``. A request at or before
+      the previous ``t`` is a retry (after a corrector failure ODEPACK cuts
+      the step and asks again at an earlier ``t``) and gets a fresh one.
 
     A fresh Jacobian is forward differences in every state, ``h_k = 1.49e-8
     x max(|y_k|, atol_k / rtol)``: ``fun`` at ``y`` and once per column,
@@ -1182,7 +1184,9 @@ class JacobianReuse:
                 first
                 or (
                     self.method == "lsoda"
-                    and t != t_prev  # an LSODA retry repeats t
+                    # a retry asks at or before the previous t
+                    and t_prev is not None
+                    and t > t_prev
                     and _moved(y, held[1]) <= self.move
                 )
             )

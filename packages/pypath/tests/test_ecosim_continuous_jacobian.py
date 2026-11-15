@@ -76,8 +76,13 @@ def _alternating(y0):
 def test_the_fd_jacobian_matches_central_differences():
     """Forward differences at ``h_k = 1.49e-8 max(|y_k|, atol_k / rtol)``
     against central differences, column by column (relative column norm),
-    on the columns whose norm exceeds 1e-8. Handling time is solved to 1e-14,
-    so the forward columns' noise is about 1e-14 / 1.49e-8 = 7e-7."""
+    on the columns whose norm exceeds 1e-8. Handling time is solved to 1e-14.
+
+    Measured: 6.1e-5 (laguna, 2026-11-15), roundoff noise in the derivative
+    (about 1e-12 relative per evaluation, the same at ``hden_tol`` 1e-12),
+    which falls as the step grows (1.6e-6 at 1e-7). The bound 1e-3 leaves
+    room for other hardware and still catches a transposed, mis-scaled or
+    sign-flipped column (an error of order 1)."""
     rhs, y0 = _cmco2_rhs(hden_tol=1e-14)
     y = _alternating(y0)
     rtol = 1e-6
@@ -101,7 +106,7 @@ def test_the_fd_jacobian_matches_central_differences():
     assert cols.sum() >= n // 2
     err = np.linalg.norm(J - ref, axis=0)[cols] / norms[cols]
     print(f"\nFD vs central: max relative column error {err.max():.2e}")
-    assert err.max() <= 1e-4
+    assert err.max() <= 1e-3
 
 
 def test_reuse_rules(monkeypatch):
@@ -129,8 +134,9 @@ def test_reuse_rules(monkeypatch):
         J3 = jr.for_month(fun)(0.0, y)
         np.testing.assert_allclose(J3, _Linear.A, rtol=1e-6, atol=1e-8)
 
-    # LSODA: reuses at a new t within 10 % of the Jacobian's state; fresh at
-    # the same t (a retry) and after a 20 % move
+    # LSODA: reuses only when t advances and the state is within 10 % of the
+    # Jacobian's; fresh at the same t or an earlier one (a retry: ODEPACK cuts
+    # the step after a corrector failure) and after a 20 % move
     fun = _Linear()
     jr = JacobianReuse("lsoda", atol, 1e-6)
     jac = jr.for_month(fun)
@@ -139,14 +145,18 @@ def test_reuse_rules(monkeypatch):
     jac(0.1, 1.05 * y)
     assert fun.calls == fresh
     assert jr.stats == {"jac_fresh": 1, "jac_reused": 1}
-    jac(0.1, 1.05 * y)
+    jac(0.1, 1.05 * y)  # the same t
     assert fun.calls == 2 * fresh
-    jac(0.2, 1.05 * 1.2 * y)  # 20 % from the state of the last fresh one
+    jac(0.05, 1.05 * y)  # an earlier t, the state within 10 %
     assert fun.calls == 3 * fresh
-    assert jr.stats == {"jac_fresh": 3, "jac_reused": 1}
+    jac(0.08, 1.06 * y)  # t advances again, within 10 %: reused
+    assert fun.calls == 3 * fresh
+    jac(0.2, 1.05 * 1.2 * y)  # 20 % from the state of the last fresh one
+    assert fun.calls == 4 * fresh
+    assert jr.stats == {"jac_fresh": 4, "jac_reused": 2}
     jac = jr.for_month(fun)
     jac(0.0, 3.0 * y)  # the month's first request
-    assert fun.calls == 3 * fresh
+    assert fun.calls == 4 * fresh
     assert jr.stats == {"jac_fresh": 0, "jac_reused": 1}
 
     # a held Jacobian of another shape is not reused
@@ -228,7 +238,14 @@ def test_reuse_agrees_with_the_solver(method):
     assert all(
         m["jac_fresh"] == m["jac_reused"] == 0 for m in solver.solver_info["months"]
     )
-    if method != "lsoda":
+    if method == "lsoda":
+        # REco keeps LSODA non-stiff (Adams throughout): it never asks for a
+        # Jacobian, so the two runs are identical. LSODA's reuse is tested on
+        # LT2022 (test_lt2022_lsoda_reuse_agrees_with_the_solver).
+        assert fresh == reused == 0
+        assert ev["reuse"] == ev["solver"]
+        np.testing.assert_array_equal(reuse.out_Biomass, solver.out_Biomass)
+    else:
         # every month after the first reuses at its first request
         assert all(m["jac_reused"] >= 1 for m in months[1:])
 
@@ -283,6 +300,50 @@ def test_jacobian_option():
             assert all(m["jac_fresh"] == m["jac_reused"] == 0 for m in months)
         else:
             assert sum(m["jac_fresh"] + m["jac_reused"] for m in months) > 0
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_lt2022_lsoda_reuse_agrees_with_the_solver():
+    """LT2022 makes LSODA stiff, so its reuse rule is exercised: two years of
+    LSODA with ``"reuse"`` against ``"solver"`` agree to 1e-5 with no more
+    evaluations and no clips."""
+    from tests.test_ecosim_continuous_validation import LT2022, _load_ewe
+
+    base = _load_ewe(LT2022, scenario=16, timeseries_dataset=35)
+    outs = {}
+    for mode in ("solver", "reuse"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            outs[mode] = rsim_run(
+                copy.deepcopy(base),
+                method="lsoda",
+                years=range(1, 3),
+                solver_options={"jacobian": mode},
+            )
+    n = _n_bio(base)
+    reuse, solver = outs["reuse"], outs["solver"]
+    diff = float(
+        np.max(
+            np.abs(
+                reuse.out_Biomass[1:, 1 : n + 1] / solver.out_Biomass[1:, 1 : n + 1] - 1
+            )
+        )
+    )
+    ev = {mode: out.solver_info["rhs_evals"] for mode, out in outs.items()}
+    months = reuse.solver_info["months"]
+    fresh = sum(m["jac_fresh"] for m in months)
+    reused = sum(m["jac_reused"] for m in months)
+    print(
+        f"\nLT2022 lsoda, two years: rhs_evals solver {ev['solver']} reuse "
+        f"{ev['reuse']}; jac_fresh {fresh}, jac_reused {reused}; max rel diff "
+        f"{diff:.2e}"
+    )
+    assert fresh + reused > 0
+    assert diff <= 1e-5
+    assert ev["reuse"] <= ev["solver"]
+    for out in outs.values():
+        assert sum(m["clips"] for m in out.solver_info["months"]) == 0
 
 
 @pytest.mark.integration
