@@ -1506,6 +1506,8 @@ class JacobianReuse:
 #: and its cap on chord-Newton steps.
 QS_TOL = 1e-10
 QS_MAX_ITER = 20
+#: The cap on steps of the pseudo-transient continuation (the fallback).
+QS_PTC_MAX_ITER = 50
 #: Halvings of one Newton step allowed in keeping ``B_f > 0``.
 _QS_MAX_HALVINGS = 60
 _TINY = float(np.finfo(float).tiny)
@@ -1579,20 +1581,46 @@ class QuasiSteady:
     ``|dB_f/dt| / TotGain_f``) stops falling, ``J_ff`` is formed again,
     once, at the iterate, for the rest of that solve only.
 
-    When the chord fails (a month start far from the solution: it converges
-    linearly at the ratio ``|1 - J*/J_ff|``, and a strongly nonlinear group
-    such as a producer whose quasi-steady value jumps 30 % can defeat it), a
-    full Newton follows from the best iterate so far, ``J_ff`` formed by
-    forward differences at every iterate and each step halved to keep
-    ``B_f > 0``, in at most ``max_iter`` steps; if that fails too,
-    ``scipy.optimize.root(method="hybr")`` in ``ln B_f`` (every iterate
-    positive) from the best iterate, scaled by its ``TotGain_f``. A
-    solution is accepted only finite, positive and within the tolerance
-    above; otherwise ``RuntimeError`` names "quasi-steady" and the groups.
-    The start ``B_f``, ``J_ff`` and the groups are fixed by
-    :meth:`set_month`, the fallback starts from the chord's iterates, and an
-    evaluation keeps nothing it computes, so each evaluation is a function
-    of ``(t, ys)`` and the month's data, as ``rhs``'s own are.
+    A root is accepted only if it is finite, positive, within the tolerance
+    above and attracting: every eigenvalue of ``J_ff`` there has a negative
+    real part, so the fast dynamics relax to it. A producer has a second
+    root near ``B = 1e-10``, where a loss term that does not scale with B
+    meets its production: the slope there is positive, an unstable branch
+    that a root finder can walk into. The check forms ``J_ff`` by forward
+    differences at the root (one evaluation per selected group). A chord
+    root of a single group skips it when the chord's matrix (the month's, or
+    the refreshed one) is negative: the chord converges only to a root
+    whose slope has its matrix's sign. With several groups every chord root
+    is checked (no such guarantee holds for matrices).
+
+    When the chord fails or its root is rejected (a month start far from
+    the solution: the chord converges linearly at the ratio
+    ``|1 - J*/J_ff|``, and a producer whose quasi-steady value jumps 30 %
+    can defeat it), a pseudo-transient continuation follows the fast
+    dynamics, the slow states held, from the month-start ``B_f``: each step
+    solves ``(I / dtau - J_ff) delta = dB_f/dt`` with ``J_ff`` formed by
+    forward differences at the iterate, halving ``delta`` to keep
+    ``B_f > 0``; ``dtau`` starts at ``0.5 / max |diag J_ff|`` (half the
+    fastest relaxation time, so that ``I / dtau - J_ff`` stays regular where
+    a slope is positive) and grows by switched evolution relaxation,
+    ``dtau x r_prev / r`` (``r`` the largest ``|dB_f/dt| / TotGain_f``),
+    capped at ``1e12`` times its start, which ends as Newton's method; at
+    most ``ptc_max_iter`` steps. It starts from the month-start ``B_f``, not
+    the chord's best iterate, which may be the unstable root, where the
+    continuation would stall. If it fails too,
+    ``scipy.optimize.root(method="hybr")`` runs in ``ln B_f`` (every
+    iterate positive) from the continuation's best iterate, scaled by its
+    ``TotGain_f``, with the same acceptance. Otherwise ``RuntimeError``
+    names "quasi-steady" and the groups. The start ``B_f``, ``J_ff`` and
+    the groups are fixed by :meth:`set_month`, the fallback starts from them
+    and the evaluation's own iterates, and an evaluation keeps nothing it
+    computes, so each evaluation is a function of ``(t, ys)`` and the
+    month's data, as ``rhs``'s own are.
+
+    ``tol`` defaults to 1e-10; ``rsim_run`` passes ``min(1e-10, max(1e-2 x
+    rtol, 1e-13))``, so that a user ``rtol`` below 1e-8 keeps the solve's
+    error two orders under the solver's (the floor 1e-13 is about the
+    roundoff of ``dB_f/dt`` relative to ``TotGain_f``).
 
     Every inner evaluation (residuals and difference columns, of every
     stage, ``hybr``'s own difference Jacobian included) is an evaluation of
@@ -1604,8 +1632,10 @@ class QuasiSteady:
     :meth:`set_month`, is the largest number of chord-Newton steps one solve
     of the month took (every solve counted; at most ``max_iter``), and
     ``stats["qs_fallbacks"]`` counts the month's solves that fell back to
-    the full Newton (``"newton"``) and on to ``hybr`` (``"hybr"``), and the
-    evaluations those stages took (``"evals"``).
+    the continuation (``"ptc"``) and on to ``hybr`` (``"hybr"``), the roots
+    rejected as not attracting (``"unstable"``, every stage), and the
+    evaluations the two fallback stages took (``"evals"``, measured as
+    ``rhs.evals`` across them; a chord root's check is the chord's).
 
     A difference column ``k`` steps by ``1.49e-8 x max(|y_k|,
     step_floor_k)``, ``step_floor`` being a scalar or one value per state of
@@ -1622,6 +1652,7 @@ class QuasiSteady:
         step_floor=0.0,
         tol: float = QS_TOL,
         max_iter: int = QS_MAX_ITER,
+        ptc_max_iter: int = QS_PTC_MAX_ITER,
         names=None,
     ):
         groups = np.unique(np.asarray(groups, dtype=int))
@@ -1639,6 +1670,7 @@ class QuasiSteady:
         self.n_bio = rhs.n_bio - len(groups)
         self.tol = float(tol)
         self.max_iter = int(max_iter)
+        self.ptc_max_iter = int(ptc_max_iter)
         self._floor = np.array(
             np.broadcast_to(np.asarray(step_floor, dtype=float), (rhs.n_state,))
         )
@@ -1656,7 +1688,7 @@ class QuasiSteady:
     def _reset_stats(self) -> None:
         self.stats = {
             "qs_inner_max": 0,
-            "qs_fallbacks": {"newton": 0, "hybr": 0, "evals": 0},
+            "qs_fallbacks": {"ptc": 0, "hybr": 0, "unstable": 0, "evals": 0},
         }
 
     def set_month(
@@ -1696,9 +1728,9 @@ class QuasiSteady:
         r0 = rhs._evaluate(y, None, True, 0.0)[0][self.fast]
         self._jinv = self._chord(0.0, y, r0, True)
 
-    def _chord(self, t: float, y: np.ndarray, r: np.ndarray, count: bool) -> np.ndarray:
-        """The inverse of ``J_ff`` at ``(t, y)``, ``r`` being ``dB_f/dt``
-        there: forward differences, one evaluation per selected group."""
+    def _jff(self, t: float, y: np.ndarray, r: np.ndarray, count: bool) -> np.ndarray:
+        """``J_ff`` at ``(t, y)``, ``r`` being ``dB_f/dt`` there: forward
+        differences, one evaluation per selected group."""
         nf = len(self.fast)
         jff = np.empty((nf, nf))
         for j, k in enumerate(self.fast):
@@ -1707,6 +1739,12 @@ class QuasiSteady:
             h = yk[k] - y[k]  # the step as represented
             dyk = self.rhs._evaluate(yk, None, count, t)[0]
             jff[:, j] = (dyk[self.fast] - r) / h
+        return jff
+
+    def _chord(self, t: float, y: np.ndarray, r: np.ndarray, count: bool) -> np.ndarray:
+        """The inverse of :meth:`_jff`; ``RuntimeError`` when ``J_ff`` is
+        singular or not finite."""
+        jff = self._jff(t, y, r, count)
         jinv = None
         if np.all(np.isfinite(jff)):
             try:
@@ -1719,6 +1757,29 @@ class QuasiSteady:
                 f"finite at t={t:.6g}"
             )
         return jinv
+
+    @staticmethod
+    def _hurwitz(m: np.ndarray) -> bool:
+        """Whether every eigenvalue of ``m`` has a negative real part (the
+        same holds for its inverse)."""
+        if not np.all(np.isfinite(m)):
+            return False
+        if m.shape == (1, 1):
+            return bool(m[0, 0] < 0.0)
+        try:
+            return bool(np.all(np.linalg.eigvals(m).real < 0.0))
+        except np.linalg.LinAlgError:
+            return False
+
+    def _attracting(self, t: float, y: np.ndarray, r: np.ndarray, count: bool) -> bool:
+        """Whether the root at ``(t, y)`` (``r = dB_f/dt`` there) attracts
+        the fast dynamics: :meth:`_hurwitz` of ``J_ff`` there (one evaluation
+        per selected group). A rejected root counts in
+        ``stats["qs_fallbacks"]["unstable"]``."""
+        if self._hurwitz(self._jff(t, y, r, count)):
+            return True
+        self.stats["qs_fallbacks"]["unstable"] += 1
+        return False
 
     @staticmethod
     def _positive_step(bf: np.ndarray, delta: np.ndarray) -> Optional[np.ndarray]:
@@ -1739,21 +1800,22 @@ class QuasiSteady:
         self, t: float, ys: np.ndarray, count: bool
     ) -> tuple[np.ndarray, np.ndarray]:
         """``(y, dy)``: the full state with ``B_f`` solved at ``(t, ys)`` and
-        ``rhs``'s derivative there: the chord Newton, then (when it fails)
-        :meth:`_fallback`."""
+        ``rhs``'s derivative there: the chord Newton, then (when it fails or
+        its root does not attract) :meth:`_fallback`."""
         if self._bf0 is None or self._jinv is None:
             raise RuntimeError("QuasiSteady: set_month has not been called")
         rhs = self.rhs
         y = np.empty(rhs.n_state)
         y[self.slow] = np.asarray(ys, dtype=float)
-        # the iterate with the smallest scaled residual, over every stage
+        # the iterate with the smallest scaled residual (reset by the fallback)
         best: dict = {"score": np.inf, "bf": self._bf0.copy(), "gain": None}
 
         def residual(bf: np.ndarray):
             """``(dy, dB_f/dt, score, ok)`` at ``B_f = bf`` (``y`` holds it
             after the call): ``score`` is ``max |dB_f/dt| / TotGain_f`` (inf
-            when not finite) and ``ok`` whether ``bf`` is accepted (finite,
-            positive, ``|dB_f/dt| <= tol x TotGain_f``)."""
+            when not finite) and ``ok`` whether ``bf`` is a root (finite,
+            positive, ``|dB_f/dt| <= tol x TotGain_f``; whether it attracts
+            is checked apart)."""
             y[self.fast] = bf
             out: dict = {}
             dy: np.ndarray = rhs._evaluate(y, out, count, t)[0]
@@ -1796,49 +1858,71 @@ class QuasiSteady:
             steps += 1
             dy, r, score, ok = residual(bf)
         self.stats["qs_inner_max"] = max(self.stats["qs_inner_max"], steps)
-        if ok:
+        # a single group's chord converges only to a root whose slope has
+        # the sign of the chord's matrix: a negative one needs no check
+        if ok and (
+            (len(self.fast) == 1 and self._hurwitz(jinv))
+            or self._attracting(t, y, r, count)
+        ):
             return y, dy
         return self._fallback(t, y, count, residual, best)
+
+    def _ptc(
+        self, t: float, y: np.ndarray, count: bool, residual: Callable
+    ) -> Optional[tuple[np.ndarray, np.ndarray]]:
+        """The pseudo-transient continuation from the month-start ``B_f``
+        (see the class docstring): ``(y, dy)`` at an attracting root, or
+        None."""
+        nf = len(self.fast)
+        bf = np.array(self._bf0, copy=True)
+        dy, r, score, ok = residual(bf)
+        dtau = dtau_max = 0.0
+        prev = score
+        for k in range(self.ptc_max_iter):
+            if ok or not np.isfinite(score):
+                break
+            jff = self._jff(t, y, r, count)
+            if not np.all(np.isfinite(jff)):
+                break
+            if k == 0:
+                fastest = float(np.max(np.abs(np.diag(jff))))
+                dtau = 0.5 / fastest if fastest > 0.0 else 1.0
+                dtau_max = 1e12 * dtau
+            else:
+                dtau = min(dtau * prev / score, dtau_max)  # SER
+            prev = score
+            try:
+                delta = np.linalg.solve(np.eye(nf) / dtau - jff, r)
+            except np.linalg.LinAlgError as e:
+                logger.debug("quasi-steady continuation: %s", e)
+                break
+            trial = self._positive_step(bf, delta)
+            if trial is None:
+                break
+            bf = trial
+            dy, r, score, ok = residual(bf)
+        if ok and self._attracting(t, y, r, count):
+            return y, dy
+        return None
 
     def _fallback(
         self, t: float, y: np.ndarray, count: bool, residual: Callable, best: dict
     ) -> tuple[np.ndarray, np.ndarray]:
-        """After a failed chord Newton: a full Newton from the best iterate
-        (``J_ff`` by forward differences at every iterate, steps halved to
-        keep ``B_f > 0``, at most ``max_iter`` steps), then ``hybr``
-        (``scipy.optimize.root``) in ``ln B_f`` from the best iterate so far;
-        the first accepted iterate is returned as ``(y, dy)``, else
-        ``RuntimeError``. ``stats["qs_fallbacks"]`` counts the solves that
-        reach each stage and the evaluations they take."""
+        """After the chord: :meth:`_ptc`, then ``hybr`` in ``ln B_f`` from the
+        continuation's best iterate; the first attracting root is returned as
+        ``(y, dy)``, else ``RuntimeError``."""
         rhs = self.rhs
         fallbacks = self.stats["qs_fallbacks"]
         evals0 = rhs.evals
-        fallbacks["newton"] += 1
         try:
-            # 1. full Newton from the best iterate
-            bf = np.array(best["bf"], copy=True)
-            dy, r, score, ok = residual(bf)
-            steps = 0
-            while not ok and steps < self.max_iter and np.isfinite(score):
-                try:
-                    jinv = self._chord(t, y, r, count)
-                except RuntimeError as e:
-                    logger.debug("quasi-steady full Newton: %s", e)
-                    break
-                trial = self._positive_step(bf, -(jinv @ r))
-                if trial is None:
-                    break
-                bf = trial
-                steps += 1
-                dy, r, score, ok = residual(bf)
-            if ok:
-                return y, dy
-            # 2. hybr in ln B_f (so every iterate is positive), scaled by the
-            # best iterate's gain
-            fallbacks["hybr"] += 1
+            fallbacks["ptc"] += 1
+            best.update(score=np.inf, bf=np.array(self._bf0, copy=True), gain=None)
+            found = self._ptc(t, y, count, residual)
+            if found is not None:
+                return found
             if best["gain"] is not None:
+                fallbacks["hybr"] += 1
                 scale = np.maximum(best["gain"], _TINY)
-                z_best = np.log(best["bf"])
 
                 def f(z):
                     with np.errstate(over="ignore", invalid="ignore"):
@@ -1846,19 +1930,26 @@ class QuasiSteady:
                     return residual(b)[1] / scale
 
                 with np.errstate(over="ignore", invalid="ignore"):
-                    sol = root(f, z_best, method="hybr", options={"xtol": 1e-14})
-                    bf = np.exp(np.asarray(sol.x, dtype=float))
-                dy, r, score, ok = residual(bf)
-                if not ok and best["score"] <= self.tol:
-                    # hybr passed an accepted iterate and went on
-                    dy, r, score, ok = residual(np.array(best["bf"], copy=True))
-                if ok:
-                    return y, dy
+                    sol = root(
+                        f, np.log(best["bf"]), method="hybr", options={"xtol": 1e-14}
+                    )
+                    candidates = [np.exp(np.asarray(sol.x, dtype=float))]
+                # hybr may pass a root and go on
+                if best["score"] <= self.tol and not np.array_equal(
+                    best["bf"], candidates[0]
+                ):
+                    candidates.append(np.array(best["bf"], copy=True))
+                for bf in candidates:
+                    dy, r, score, ok = residual(bf)
+                    if ok and self._attracting(t, y, r, count):
+                        return y, dy
             raise RuntimeError(
                 f"quasi-steady solve failed for groups {self._label} at "
-                f"t={t:.6g}: the chord Newton, a full Newton and hybr found no "
-                f"B_f > 0 with |dB_f/dt| <= {self.tol:g} x TotGain_f (best "
-                f"|dB_f/dt| / TotGain_f = {best['score']:.3g})"
+                f"t={t:.6g}: the chord Newton, a pseudo-transient continuation "
+                f"and hybr found no attracting B_f > 0 with |dB_f/dt| <= "
+                f"{self.tol:g} x TotGain_f (best |dB_f/dt| / TotGain_f = "
+                f"{best['score']:.3g}; {fallbacks['unstable']} unstable roots "
+                "rejected this month)"
             )
         finally:
             fallbacks["evals"] += rhs.evals - evals0
@@ -1896,10 +1987,16 @@ class QuasiSteady:
             h = yk[k] - y[k]
             jac[:, k] = (rhs._evaluate(yk, None, False, 0.0)[0] - f0) / h
         s, f = self.slow, self.fast
-        schur = jac[np.ix_(s, s)] - jac[np.ix_(s, f)] @ np.linalg.solve(
-            jac[np.ix_(f, f)], jac[np.ix_(f, s)]
-        )
-        return float(np.max(np.abs(np.linalg.eigvals(schur).real)))
+        try:
+            schur = jac[np.ix_(s, s)] - jac[np.ix_(s, f)] @ np.linalg.solve(
+                jac[np.ix_(f, f)], jac[np.ix_(f, s)]
+            )
+            return float(np.max(np.abs(np.linalg.eigvals(schur).real)))
+        except np.linalg.LinAlgError as e:
+            raise RuntimeError(
+                f"quasi-steady groups {self._label}: the reduced Jacobian at "
+                f"the month start cannot be formed ({e})"
+            ) from e
 
 
 @dataclass

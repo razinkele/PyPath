@@ -2675,7 +2675,10 @@ def rsim_run(
         their ``qs_base_rate``, ``qs_excluded`` and ``qs_separation`` (the
         slowest selected base loss rate over the largest ``|Re lambda|`` of
         the reduced Jacobian at the start of month 1; a WARNING below 10),
-        and each month's ``qs_inner_max`` and ``qs_fallbacks``. A selected group's
+        and each month's ``qs_inner_max`` and ``qs_fallbacks``; ``qs_tol``
+        is the solve's tolerance, ``|dB_f/dt| <= qs_tol x TotGain_f``,
+        ``min(1e-10, max(1e-2 x rtol, 1e-13))``. Only attracting roots are
+        accepted (a producer also has an unstable one near B = 1e-10). A selected group's
         ``out_Biomass`` is its solved value (row 0 keeps the start value)
         and the monthly budget residuals are None. A failed month raises
         ``RuntimeError`` naming the month; with ``"warn"`` it is logged, with
@@ -2839,6 +2842,7 @@ def rsim_run(
     out_catch_month_end = None
     if _continuous:
         from pypath.core.ecosim_continuous import (
+            QS_TOL,
             ContinuousRHS,
             JacobianReuse,
             QuasiSteady,
@@ -2918,6 +2922,9 @@ def rsim_run(
         _qs_groups: list = []
         _qs_excluded: dict = {"forced": [], "stanza": []}
         _qs_rates: list = []
+        # the solve's tolerance, two orders under a user rtol below 1e-8
+        # (floored at about the residual's roundoff)
+        _qs_tol = min(QS_TOL, max(1e-2 * _rtol, 1e-13))
         if _cont_opts["fast_groups"] == "quasi-steady":
             _qs_rate = _cont_opts["qs_rate"]
             _base_rate = rhs.base_loss_rate()
@@ -2946,6 +2953,7 @@ def rsim_run(
                     _qs_groups,
                     rhs,
                     step_floor=_atol_run / _rtol,
+                    tol=_qs_tol,
                     names=[params.spname[g] for g in _qs_groups],
                 )
                 logger.info(
@@ -2992,6 +3000,8 @@ def rsim_run(
             "qs_base_rate": list(_qs_rates),
             "qs_excluded": _qs_excluded,
             "qs_separation": None,
+            # the quasi-steady solve's tolerance (|dB_f/dt| / TotGain_f)
+            "qs_tol": _qs_tol,
             "corrections": list(rhs.corrections),
             "ignored_switches": list(rhs.ignored_switches),
             "ftime_groups": [] if _ft_groups is None else _ft_groups.tolist(),
