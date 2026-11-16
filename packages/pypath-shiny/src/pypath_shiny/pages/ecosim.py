@@ -1184,11 +1184,11 @@ def ecosim_server(
                     ),
                     ui.tags.ul(
                         ui.tags.li("Simulation years (2-500)"),
-                        ui.tags.li("Integration method (RK4 recommended)"),
-                        ui.tags.li("Vulnerability (functional response type)"),
                         ui.tags.li(
-                            "Dynamic diet rewiring (optional - for adaptive foraging)"
+                            "Integration method (RK4 for EwE results; a continuous "
+                            "method to solve the equations to a tolerance)"
                         ),
+                        ui.tags.li("Vulnerability (functional response type)"),
                         ui.tags.li("Fishing scenario"),
                         ui.tags.li("Enable/disable autofix (keep enabled)"),
                     ),
@@ -1202,24 +1202,65 @@ def ecosim_server(
                     ),
                     ui.tags.li(ui.tags.strong("Click 'Run Simulation'"), " when ready"),
                 ),
-                ui.h6("Dynamic Diet Rewiring"),
-                ui.p(
-                    ui.tags.strong("Optional feature:"),
-                    " Allows predator diet preferences to adapt based on prey availability (prey switching).",
-                ),
+                ui.h6("Integration Methods"),
                 ui.tags.ul(
                     ui.tags.li(
-                        ui.tags.strong("Switching Power (1-5):"),
-                        " Controls how strongly predators switch to abundant prey. 1.0 = no switching, 2-3 = typical, >3 = opportunistic",
+                        ui.tags.strong("RK4 (default) and AB:"),
+                        " the EwE parity methods. Use RK4 for results that "
+                        "should match EwE; AB reproduces Rpath's Adams-Bashforth.",
                     ),
                     ui.tags.li(
-                        ui.tags.strong("Update Interval:"),
-                        " How often diet is recalculated. Monthly (1) = responsive but slower, Annual (12) = faster but less responsive",
+                        ui.tags.strong("LSODA, BDF, DOP853, Radau:"),
+                        " continuous methods (not EwE parity). They solve the "
+                        "Ecosim equations to a tolerance, so their numbers "
+                        "differ from EwE's. BDF suits stiff models; LSODA picks "
+                        "stiff or non-stiff stepping itself.",
                     ),
                     ui.tags.li(
-                        ui.tags.strong("Min Proportion:"),
-                        " Prevents complete elimination of prey types from diet",
+                        ui.tags.strong("Tolerance (Fast / Default / Reference):"),
+                        " the same model solved to a looser or tighter "
+                        "tolerance. Fast saves time only where the solver takes "
+                        "many steps a month (measured 2026-11-15, ten years: "
+                        "37 % on the Black Sea, 8 % on REco, 1-4 % on the three "
+                        "shipped examples); Reference costs 2-3.5 \u00d7 Default.",
                     ),
+                    ui.tags.li(
+                        ui.tags.strong("Log-transformed biomass:"),
+                        " the same equations on the log of biomass; for runs "
+                        "that drive a group towards zero.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Advanced: changes the model:"),
+                        " forcing interpolation and quasi-steady fast groups "
+                        "solve a different model from EwE's.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Equation rule (EwE6 / Rpath):"),
+                        " under a continuous method this picks only the "
+                        "equations; every group is integrated.",
+                    ),
+                ),
+                ui.h6("Running a Simulation"),
+                ui.p(
+                    "A continuous run costs about 2-25 \u00d7 RK4. At the "
+                    "default 50 years one takes about a minute (Lithuanian "
+                    "Coast, LSODA: 58 s against 15 s for RK4, measured "
+                    "2026-11-15). Runs go in the background, up to 2 at a "
+                    "time on the server, so a run may wait in a queue. Cancel "
+                    "discards the result, but a cancelled run still finishes "
+                    "in the background, so a new run starts only when it has "
+                    "finished. Closing the tab cancels its run. Loading or "
+                    "re-balancing a model clears the results and the "
+                    "scenario: create the scenario again."
+                ),
+                ui.h6("Dynamic Diet Rewiring"),
+                ui.p(
+                    ui.tags.strong("Not available in this version."),
+                    " Predators shifting to abundant prey is not offered on "
+                    "this page; prey switching (EwE's SwitchPower) is planned "
+                    "as its replacement. The core function rsim_run_advanced "
+                    "raises NotImplementedError for diet rewiring in this "
+                    "version.",
                 ),
                 ui.h6("Fishing Scenarios"),
                 ui.tags.ul(

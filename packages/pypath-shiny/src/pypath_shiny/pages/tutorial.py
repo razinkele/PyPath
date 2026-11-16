@@ -468,8 +468,10 @@ def tutorial_ui():
                     ),
                     ui.tags.li(
                         ui.tags.strong("Integration methods"),
-                        " \u2014 RK4 (Runge-Kutta 4th order) for accuracy, "
-                        "or AB (Adams-Bashforth 2-step) to match Rpath/EwE output",
+                        " \u2014 RK4 (Runge-Kutta 4th order) for EwE results, "
+                        "AB (Adams-Bashforth 2-step) to match Rpath, or a "
+                        "continuous method (LSODA, BDF, DOP853, Radau) to solve "
+                        "the equations to a tolerance (not EwE parity)",
                     ),
                     ui.tags.li(
                         ui.tags.strong("NoIntegrate groups"),

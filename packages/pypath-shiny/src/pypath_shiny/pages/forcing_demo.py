@@ -170,6 +170,13 @@ def forcing_demo_ui():
                             "State-Variable Forcing Use Cases",
                         ),
                         ui.markdown("""
+                        > **Not available in this version.** `rsim_run_advanced`
+                        > with state forcing functions raises `NotImplementedError`
+                        > (the core stopgap, PR #125). Use `ForcedBio` on the
+                        > scenario to force biomass; prey switching is planned for
+                        > diet rewiring. The examples below show the intended API
+                        > only.
+
                         ## What is State-Variable Forcing?
 
                         State-variable forcing allows you to **override computed values** with observed
@@ -317,6 +324,10 @@ def build_forcing_code(forcing_type, mode, group_idx, pattern, pattern_args=None
     pattern_args = pattern_args or {}
     code = f"""# State-Variable Forcing Example
 # Generated from PyPath Demo
+#
+# NOTE: in this version rsim_run_advanced with state forcing functions raises
+# NotImplementedError (the core stopgap, PR #125). To force biomass, use the
+# scenario's ForcedBio instead; prey switching is planned for diet rewiring.
 
 import numpy as np
 from pypath.core.forcing import create_biomass_forcing, StateForcing

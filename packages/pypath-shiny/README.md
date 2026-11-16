@@ -28,8 +28,10 @@ The left-hand menu is organised as follows.
 - **Pre-Balance**: diagnostics run before balancing (biomasses, vital rates,
   predator-prey relationships), based on the Prebal routine.
 - **Ecosim**: set up and run time-dynamic scenarios, with a choice of
-  Runge-Kutta 4 (RK4) or Adams-Bashforth integration. View time series, catch
-  and summaries. After importing an EwE database, run its own Ecosim scenarios.
+  Runge-Kutta 4 (RK4, the default) or Adams-Bashforth integration for EwE
+  parity, or a continuous method (LSODA, BDF, DOP853, Radau) that solves the
+  equations to a tolerance, with run diagnostics. View time series, catch and
+  summaries. After importing an EwE database, run its own Ecosim scenarios.
 
 **Advanced**
 

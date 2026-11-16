@@ -155,6 +155,12 @@ def diet_rewiring_demo_ui():
                             "Dynamic Diet Rewiring Guide",
                         ),
                         ui.markdown("""
+                        > **Not available in this version.** `rsim_run_advanced`
+                        > with diet rewiring raises `NotImplementedError` (the core
+                        > stopgap, PR #125). Prey switching (EwE's SwitchPower) is
+                        > planned as its replacement. The examples on this page show
+                        > the intended API only.
+
                         ## What is Dynamic Diet Rewiring?
 
                         Diet rewiring allows **predator diet preferences to change over time**
@@ -336,6 +342,11 @@ def build_diet_rewiring_code(switching_power, update_interval, min_proportion):
     """
     return f"""# Dynamic Diet Rewiring Example
 # Generated from PyPath Demo
+#
+# NOTE: in this version rsim_run_advanced with diet rewiring raises
+# NotImplementedError (the core stopgap, PR #125). Prey switching (EwE's
+# SwitchPower) is planned as the replacement. The code below shows the
+# intended API and will not run to completion until then.
 
 from pypath.core.forcing import create_diet_rewiring
 from pypath.core.ecosim_advanced import rsim_run_advanced
