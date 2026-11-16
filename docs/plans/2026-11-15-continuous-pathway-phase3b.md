@@ -1,5 +1,11 @@
 # Continuous Pathway, Phase 3b (Shiny) Implementation Plan
 
+> **As built (2026-11-16).** The rest of this plan is a dated record and is not rewritten. Four rulings in the execution ledger (kept outside the repository) changed what was built:
+> - **S3.** The diet-rewiring block is hidden for every method, not only the continuous ones, and a note replaces it. Diet rewiring was never implemented (`rsim_run_advanced` integrates nothing), so the server builds no `DietRewiring`; prey switching is planned instead.
+> - **S5.** Runs go to a bounded process-wide executor (`MAX_CONCURRENT_RUNS` = 2), not `asyncio.to_thread`. A per-session `RunSlot` refuses a new run while a cancelled one still computes.
+> - **S6.** Any model load (an import, or a re-balance on the Ecopath page) clears the Ecosim results, the app-wide results and the scenario. When it cleared something it says "Model changed: create the scenario again before running."
+> - **S8.** The sidebar note and the help say continuous runs cost "about 5-25 × RK4", as measured (4.4-23.9 ×), not the 2-25 × this plan gives.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** On the Ecosim page, offer the continuous methods beside the EwE parity methods, with a tolerance preset, opt-in options, a diagnostics panel built from `solver_info`, and runs that no longer block the server. Invalid combinations notify and never raise. RK4 and AB runs from the page are unchanged.
