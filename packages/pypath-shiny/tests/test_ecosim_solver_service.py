@@ -220,15 +220,35 @@ def test_result_is_current():
     assert not result_is_current(running, outcome, None)
 
 
-def test_threaded_runs_match_serial(rpath_params, balanced_rpath_model):
+@pytest.mark.parametrize(
+    "second_model, second_request",
+    [
+        ("Central_Baltic", build_solver_request("RK4")),
+        # With two workers, production runs LSODA beside LSODA, and older
+        # SciPy's LSODA was non-re-entrant Fortran: this pins the pair on
+        # whatever SciPy CI installs. A second, different LSODA problem on the
+        # 3-group model (Fast, rtol 1e-4) keeps the test well under 3 s.
+        (None, build_solver_request("lsoda", preset="fast")),
+    ],
+    ids=["lsoda-rk4", "lsoda-lsoda"],
+)
+def test_threaded_runs_match_serial(
+    second_model, second_request, rpath_params, balanced_rpath_model
+):
     small = rsim_scenario(balanced_rpath_model, rpath_params, years=range(1, 3))
-    baltic = example_ecosim_scenario(
-        "Central_Baltic", years=range(1, 3), fast_group_rule="ewe"
+    second = (
+        small
+        if second_model is None
+        else example_ecosim_scenario(
+            second_model, years=range(1, 3), fast_group_rule="ewe"
+        )
     )
     jobs = [
         (small, build_solver_request("lsoda")),
-        (baltic, build_solver_request("RK4")),
+        (second, second_request),
     ]
+    # Exactly two jobs: the barrier below needs both executor workers.
+    assert len(jobs) == MAX_CONCURRENT_RUNS
     serial = [run_ecosim(copy.deepcopy(s), r).out_Biomass for s, r in jobs]
 
     start = threading.Barrier(len(jobs))
