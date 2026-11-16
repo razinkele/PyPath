@@ -322,3 +322,27 @@ def test_run_slot_waits_for_a_free_worker_and_a_cancel_frees_a_queued_run():
             assert first.busy
         finally:
             gate.set()
+
+
+def test_run_slot_is_released_when_the_worker_raises():
+    slot = RunSlot()
+    started, gate = threading.Event(), threading.Event()
+
+    def failing():
+        started.set()
+        assert gate.wait(timeout=10)
+        raise RuntimeError("solver failed")
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        try:
+            future = pool.submit(failing)
+            slot.acquire(future)
+            assert started.wait(timeout=5)
+            assert slot.busy and slot.running and not slot.waiting
+        finally:
+            gate.set()
+        with pytest.raises(RuntimeError, match="solver failed"):
+            future.result(timeout=5)
+        assert not slot.busy and not slot.running
+        # Released: the session may start its next run.
+        slot.acquire(pool.submit(lambda: None))

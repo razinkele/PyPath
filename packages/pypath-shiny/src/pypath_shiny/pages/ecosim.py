@@ -92,6 +92,7 @@ from pypath_shiny.services.tasks import (
     apply_if_latest,
     finish_task,
     new_running_task,
+    update_task_progress,
 )
 
 
@@ -147,6 +148,18 @@ def _solver_request_or_notify(
     return request
 
 
+MODEL_CHANGED_NOTE = "Model changed: create the scenario again before running."
+
+
+def _model_change_notice(*cleared) -> str | None:
+    """The note for a model load, or None when it cleared nothing.
+
+    ``cleared`` are the scenario and results the load dropped; a first model
+    load, with none of them, says nothing.
+    """
+    return MODEL_CHANGED_NOTE if any(v is not None for v in cleared) else None
+
+
 # Short method names for messages: LSODA, BDF, DOP853, Radau, Runge-Kutta 4...
 _METHOD_NAMES = {
     method: label.split(" (")[0]
@@ -184,10 +197,12 @@ def _notify_detritus_self_fate(model) -> None:
 def build_task_status_alert(task_state: TaskState) -> tuple[str, str, str]:
     """Map task state to bootstrap alert class, icon, and message."""
     if task_state.status is TaskStatus.RUNNING:
+        # No percentage at 0: the Ecosim bar is indeterminate.
+        pct = f" ({task_state.progress:.0f}%)" if task_state.progress > 0 else ""
         return (
             "alert alert-info",
             "bi bi-arrow-repeat me-2",
-            f"{task_state.message} ({task_state.progress:.0f}%)",
+            f"{task_state.message}{pct}",
         )
     if task_state.status is TaskStatus.ERROR:
         msg = task_state.error or task_state.message or "Simulation failed."
@@ -888,9 +903,16 @@ def ecosim_server(
     show_help_summary = reactive.Value(False)
 
     # The run last launched: its method names a failure that has no outcome
-    # to read, and its start time feeds the elapsed-seconds text. Plain state,
-    # written on the loop only; the worker never reads it.
-    launched = {"run_id": None, "method": None, "started": None}
+    # to read; its label and its start and integration-start times feed the
+    # progress texts. Plain state, written on the loop only; the worker never
+    # reads it.
+    launched = {
+        "run_id": None,
+        "method": None,
+        "label": None,
+        "started": None,
+        "integrating_since": None,
+    }
     retired_runs = itertools.count(1)
     # This session's run in the process-wide executor. It stays taken until
     # the worker thread finishes, through a cancel (the thread cannot be
@@ -935,10 +957,23 @@ def ecosim_server(
     @reactive.effect
     @reactive.event(model_data, ignore_init=True)
     def _retire_run_on_model_change():
-        """A new model retires the running simulation and clears the output."""
+        """A new model retires the run and drops the old model's scenario and
+        results, so neither the Results pages nor a Run use them."""
+        note = _model_change_notice(
+            scenario.get(),
+            sim_output.get(),
+            sim_results.get() if sim_results is not None else None,
+        )
         _ecosim_task.cancel()
         sim_task_state.set(TaskState(run_id=f"ecosim-retired-{next(retired_runs)}"))
         sim_output.set(None)
+        if sim_results is not None:
+            sim_results.set(None)
+        scenario.set(None)
+        if sim_scenario is not None:
+            sim_scenario.set(None)
+        if note:
+            notify_info(note, duration=6)
 
     def _input_or_default(name: str, default):
         """Read a UI input value with fallback for conditional controls."""
@@ -2135,12 +2170,17 @@ def ecosim_server(
             run_scen = copy.deepcopy(scen)
             years = run_scen.fishing.ForcedEffort.shape[0] // 12
             name = _METHOD_NAMES.get(request.method, request.method)
+            label = f"{name}, {years} years"
             launched.update(
-                run_id=run_id, method=request.method, started=time.monotonic()
+                run_id=run_id,
+                method=request.method,
+                label=label,
+                started=time.monotonic(),
+                integrating_since=None,
             )
-            sim_task_state.set(
-                new_running_task(run_id, f"Integrating with {name}, {years} years")
-            )
+            # "Starting" until a worker picks the run up (_note_worker_start):
+            # with the process-wide executor full, the run queues first.
+            sim_task_state.set(new_running_task(run_id, f"Starting {label}"))
             notify_info("Running simulation...", duration=2)
             _ecosim_task.invoke(
                 run_id, scen, run_scen, request, diet=None, slot=run_slot
@@ -2290,9 +2330,10 @@ def ecosim_server(
 
         # Only allow cancellation if task is running
         if task_state.status is TaskStatus.RUNNING:
-            # asyncio.to_thread cannot stop the worker thread: the computation
-            # runs to its end in the background, and the run_id guard
-            # (result_is_current) drops whatever it returns.
+            # A worker thread cannot be stopped: a run already computing goes
+            # on to its end in the background (holding the session's slot),
+            # and the run_id guard (result_is_current) drops its result. A
+            # run still queued for a worker is cancelled outright.
             _ecosim_task.cancel()
             sim_task_state.set(
                 finish_task(
@@ -2370,19 +2411,45 @@ def ecosim_server(
     @output
     @render.text
     def sim_elapsed():
-        """Seconds since the running simulation started, ticking every second."""
+        """Queue wait, then integration time, ticking every second."""
         state = sim_task_state.get()
         if state.status is not TaskStatus.RUNNING or state.run_id != launched["run_id"]:
             return ""
         reactive.invalidate_later(1)
-        seconds = time.monotonic() - launched["started"]
+        now = time.monotonic()
         if run_slot.waiting:
             return (
                 f"Queued: the server runs at most {MAX_CONCURRENT_RUNS} "
                 "simulations at once, and yours starts when one finishes "
-                f"(waiting {seconds:.0f} s)."
+                f"(waiting {now - launched['started']:.0f} s)."
             )
-        return f"Elapsed: {seconds:.0f} s"
+        since = launched["integrating_since"]
+        if since is None:
+            return "Starting..."
+        # From the worker's start: queue time is not counted.
+        return f"Elapsed: {now - since:.0f} s"
+
+    @reactive.effect
+    def _note_worker_start():
+        """Switch "Starting" to "Integrating" once a worker picks the run up.
+
+        Polls only until then; the progress block (and its Cancel button) is
+        rebuilt once, at the switch.
+        """
+        state = sim_task_state.get()
+        if (
+            state.status is not TaskStatus.RUNNING
+            or state.run_id != launched["run_id"]
+            or launched["integrating_since"] is not None
+        ):
+            return
+        if not run_slot.running:
+            reactive.invalidate_later(0.5)
+            return
+        launched["integrating_since"] = time.monotonic()
+        sim_task_state.set(
+            update_task_progress(state, message=f"Integrating with {launched['label']}")
+        )
 
     @output
     @render.ui

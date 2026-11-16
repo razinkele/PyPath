@@ -319,10 +319,57 @@ def test_new_scenario_retires_the_run():
         src = ast.unparse(fn)
         assert "ecosim-retired-" in src, fn.name
         assert "sim_output.set(None)" in src, fn.name
-    # Only the elapsed-seconds text ticks; the Cancel button is never rebuilt.
+        assert "sim_results.set(None)" in src, fn.name
+    # A model load also drops the old model's scenario, here and app-wide, and
+    # says so (ruling S6).
+    model_src = ast.unparse(retirers[0])
+    assert "scenario.set(None)" in model_src
+    assert "sim_scenario.set(None)" in model_src
+    model_calls = _calls(retirers[0])
+    assert "_model_change_notice" in model_calls
+    assert "notify_info" in model_calls
+    # The polls: the elapsed text ticks for the whole run; the "Starting" ->
+    # "Integrating" switch polls only until a worker picks the run up. The
+    # progress block with the Cancel button never polls (ruling S7 changed
+    # this test, which first allowed sim_elapsed alone).
     elapsed = _find_function(tree, "sim_elapsed")
-    assert len(_invalidate_later_calls(elapsed)) >= 1
-    assert len(_invalidate_later_calls(tree)) == len(_invalidate_later_calls(elapsed))
+    start = _find_function(tree, "_note_worker_start")
+    assert len(_invalidate_later_calls(elapsed)) == 1
+    assert len(_invalidate_later_calls(start)) == 1
+    assert "integrating_since" in ast.unparse(start)
+    assert len(_invalidate_later_calls(tree)) == 2
+    assert _invalidate_later_calls(_find_function(tree, "progress_display")) == []
+
+
+def test_model_change_notice_only_when_something_was_cleared():
+    assert ecosim_page._model_change_notice(None, None, None) is None
+    expected = "Model changed: create the scenario again before running."
+    assert ecosim_page._model_change_notice(object(), None, None) == expected
+    assert ecosim_page._model_change_notice(None, None, object()) == expected
+
+
+def test_run_starts_neutral_and_says_integrating_when_a_worker_begins():
+    tree = _ecosim_tree()
+    run_src = ast.unparse(_find_function(tree, "_run_simulation"))
+    assert "new_running_task(run_id, f'Starting {label}')" in run_src
+    assert "Integrating" not in run_src
+    start = _find_function(tree, "_note_worker_start")
+    start_src = ast.unparse(start)
+    assert "run_slot.running" in start_src
+    assert "Integrating with" in start_src
+    # Elapsed counts from the worker's start, not from the click.
+    elapsed_src = ast.unparse(_find_function(tree, "sim_elapsed"))
+    assert "integrating_since" in elapsed_src
+
+
+def test_indeterminate_running_alert_has_no_percentage():
+    from pypath_shiny.services.tasks import new_running_task
+
+    _cls, _icon, message = ecosim_page.build_task_status_alert(
+        new_running_task("r", "Starting LSODA, 50 years")
+    )
+    assert message == "Starting LSODA, 50 years"
+    assert "%" not in message
 
 
 def _session_names(node):

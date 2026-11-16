@@ -294,6 +294,13 @@ class RunSlot:
             return self._future is not None and not self._future.done()
 
     @property
+    def running(self) -> bool:
+        """True while a worker thread is computing the held run."""
+        with self._lock:
+            future = self._future
+        return future is not None and future.running()
+
+    @property
     def waiting(self) -> bool:
         """True while the held run is queued for a free worker."""
         with self._lock:
