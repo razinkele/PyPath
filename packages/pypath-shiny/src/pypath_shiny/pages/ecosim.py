@@ -357,7 +357,7 @@ def ecosim_ui() -> ui.Tag:
                     ui.p(
                         "Fast saves time only where the solver takes many steps a "
                         "month (Black Sea 37 %, REco 8 %); Reference costs 2-3.5 "
-                        "\u00d7 Default; continuous runs cost about 2-25 \u00d7 RK4.",
+                        "\u00d7 Default; continuous runs cost about 5-25 \u00d7 RK4.",
                         class_="text-muted small",
                     ),
                     ui.accordion(
@@ -1242,7 +1242,7 @@ def ecosim_server(
                 ),
                 ui.h6("Running a Simulation"),
                 ui.p(
-                    "A continuous run costs about 2-25 \u00d7 RK4. At the "
+                    "A continuous run costs about 5-25 \u00d7 RK4. At the "
                     "default 50 years one takes about a minute (Lithuanian "
                     "Coast, LSODA: 58 s against 15 s for RK4, measured "
                     "2026-11-15). Runs go in the background, up to 2 at a "
