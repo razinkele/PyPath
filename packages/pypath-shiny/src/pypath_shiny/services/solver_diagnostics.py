@@ -74,7 +74,11 @@ def _group_name(index: int, group_names: Sequence[str] | None) -> str:
 
 
 def _qs_group_names(info: dict, group_names: Sequence[str] | None) -> list[str]:
-    return [_group_name(int(g), group_names) for g in info.get("qs_groups") or []]
+    # A list, a tuple or a numpy array: no truth test, which an array refuses.
+    groups = info.get("qs_groups")
+    if groups is None:
+        return []
+    return [_group_name(int(g), group_names) for g in list(groups)]
 
 
 def solver_badges(
@@ -183,8 +187,8 @@ def solver_summary(
     if info is None:
         return []
     n_months = len(_months(info))
-    rhs = info.get("rhs_evals")
-    if rhs is None:
+    rhs = _finite(info.get("rhs_evals"))
+    if rhs is None or not math.isfinite(rhs):
         rhs_text = "not recorded"
     elif n_months:
         rhs_text = f"{int(rhs)} in total, {rhs / n_months:.0f} per month"
@@ -204,6 +208,9 @@ def solver_summary(
         f"fast groups: {info.get('fast_groups', 'states')}",
     ]
     if info.get("fast_groups") == "quasi-steady":
+        rate = _finite(info.get("qs_rate"))
+        if rate is not None:
+            options.append(f"quasi-steady above {rate:g} per year")
         names = _qs_group_names(info, group_names)
         options.append("quasi-steady groups: " + (", ".join(names) or "none"))
         separation = _finite(info.get("qs_separation"))

@@ -168,6 +168,45 @@ _METHOD_NAMES = {
 }
 
 
+def _success_message(method: str) -> str:
+    """The notification for a run that finished without a crash."""
+    if is_continuous(method):
+        name = _METHOD_NAMES.get(method, method)
+        return f"Simulation completed with {name} (continuous, not EwE parity)."
+    return "Simulation completed successfully!"
+
+
+def _failure_message(error: str, method: str, preset: str) -> str:
+    """The notification for a failed run, with advice only where it can help."""
+    hint = continuous_failure_hint(method, preset, error)
+    return f"Simulation error: {error}" + (f" {hint}" if hint else "")
+
+
+def _flagged_months_view(flagged):
+    """The flagged-months table, scrolling inside a box of capped height.
+
+    A long run can flag hundreds of months; the box keeps the panel short,
+    and every month stays in the table.
+    """
+    if flagged.empty:
+        return ui.p("No month flagged.", class_="text-muted mb-2")
+    return ui.div(
+        ui.h6("Flagged months"),
+        ui.div(
+            ui.HTML(
+                flagged.to_html(
+                    index=False,
+                    classes="table table-sm",
+                    border=0,
+                    float_format=lambda x: f"{x:.3g}",
+                )
+            ),
+            style="max-height: 320px; overflow-y: auto; overflow-x: auto;",
+        ),
+        class_="mb-2",
+    )
+
+
 def detritus_self_fate_message(model) -> str | None:
     """User-facing warning for detritus pools that flow to themselves."""
     from pypath.core.ecosim import detritus_self_fates
@@ -836,19 +875,53 @@ def ecosim_ui() -> ui.Tag:
     )
 
 
-def read_optional_input(input, name: str, default):
+def read_optional_input(input, name: str, default, *, keep_none: bool = False):
     """Read an input that may not exist in the browser.
 
     Inputs created by an ``output_ui`` inside a hidden conditional panel are
     never rendered, and reading one raises ``SilentException``.
     ``hasattr(input, name)`` is always True for Shiny's Inputs, so it is no
-    guard. Returns ``default`` when the input is missing or None.
+    guard. Returns ``default`` when the input is missing or None; with
+    ``keep_none``, a None value (an empty numeric field) is returned as None.
     """
     try:
         value = getattr(input, name)()
     except (SilentException, AttributeError, KeyError, TypeError):
         return default
-    return default if value is None else value
+    if value is None and not keep_none:
+        return default
+    return value
+
+
+def _solver_inputs(input, method: str) -> dict:
+    """The solver keyword arguments the page's inputs give for ``method``.
+
+    A parity method reads none of the continuous inputs, so a stale one can
+    never block its run. With quasi-steady ticked, an empty rate field reaches
+    the request builder as None and is refused there, not run at the default.
+    """
+    if not is_continuous(method):
+        return dict(
+            preset="default",
+            log_states=False,
+            forcing_interpolation="constant",
+            quasi_steady=False,
+            qs_rate=QS_RATE_DEFAULT,
+        )
+    quasi_steady = bool(read_optional_input(input, "solver_quasi_steady", False))
+    return dict(
+        preset=read_optional_input(input, "solver_preset", "default"),
+        log_states=bool(read_optional_input(input, "solver_log_states", False)),
+        forcing_interpolation=read_optional_input(
+            input, "solver_forcing_interpolation", "constant"
+        ),
+        quasi_steady=quasi_steady,
+        qs_rate=read_optional_input(
+            input, "solver_qs_rate", QS_RATE_DEFAULT, keep_none=True
+        )
+        if quasi_steady
+        else QS_RATE_DEFAULT,
+    )
 
 
 def ecosim_server(
@@ -902,13 +975,14 @@ def ecosim_server(
     show_help_catch = reactive.Value(False)
     show_help_summary = reactive.Value(False)
 
-    # The run last launched: its method names a failure that has no outcome
-    # to read; its label and its start and integration-start times feed the
+    # The run last launched: its method and preset advise on a failure that
+    # has no outcome to read; its label and its start and integration-start times feed the
     # progress texts. Plain state, written on the loop only; the worker never
     # reads it.
     launched = {
         "run_id": None,
         "method": None,
+        "preset": None,
         "label": None,
         "started": None,
         "integrating_since": None,
@@ -2171,36 +2245,21 @@ def ecosim_server(
         # A cancelled run's thread computes on until it ends, holding the slot.
         if run_slot.busy:
             notify_warning(
-                "The previous simulation is still finishing in the background; "
-                "try again in a moment."
+                "The previous simulation is still finishing in the background (a "
+                "cancelled run keeps computing until it would have ended). Try "
+                "again when it finishes."
             )
             return
 
         run_id = f"ecosim-run-{input.btn_run_sim()}"
         method = _input_or_default("integration_method", "RK4")
+        preset = "default"
         try:
-            continuous = is_continuous(method)
+            solver_inputs = _solver_inputs(input, method)
+            preset = solver_inputs["preset"]
             # Diet rewiring is not implemented, so it is never requested.
             request = _solver_request_or_notify(
-                method,
-                diet_rewiring=False,
-                preset=_input_or_default("solver_preset", "default")
-                if continuous
-                else "default",
-                log_states=bool(_input_or_default("solver_log_states", False))
-                if continuous
-                else False,
-                forcing_interpolation=_input_or_default(
-                    "solver_forcing_interpolation", "constant"
-                )
-                if continuous
-                else "constant",
-                quasi_steady=bool(_input_or_default("solver_quasi_steady", False))
-                if continuous
-                else False,
-                qs_rate=_input_or_default("solver_qs_rate", QS_RATE_DEFAULT)
-                if continuous
-                else QS_RATE_DEFAULT,
+                method, diet_rewiring=False, **solver_inputs
             )
             if request is None:
                 return
@@ -2215,6 +2274,7 @@ def ecosim_server(
             launched.update(
                 run_id=run_id,
                 method=request.method,
+                preset=preset,
                 label=label,
                 started=time.monotonic(),
                 integrating_since=None,
@@ -2230,8 +2290,7 @@ def ecosim_server(
         except Exception as e:
             logger.exception("Simulation could not start")
             err_text = str(e)
-            hint = continuous_failure_hint(method)
-            notify_error(f"Simulation error: {err_text}" + (f" {hint}" if hint else ""))
+            notify_error(_failure_message(err_text, method, preset))
             _finish_run(
                 run_id, success=False, message="Simulation failed", error=err_text
             )
@@ -2241,7 +2300,6 @@ def ecosim_server(
         output = outcome.output
         scen = outcome.source
         method = outcome.request.method
-        continuous = is_continuous(method)
         try:
             output.run_request = outcome.request
 
@@ -2296,14 +2354,7 @@ def ecosim_server(
                 else:
                     notify_info(msg, duration=10)
             else:
-                if continuous:
-                    success_msg = (
-                        f"Simulation completed with {method.upper()} "
-                        "(continuous, not EwE parity)."
-                    )
-                else:
-                    success_msg = "Simulation completed successfully!"
-                notify_success(success_msg)
+                notify_success(_success_message(method))
 
             final_msg = (
                 f"Simulation complete ({output.params['years']} years)."
@@ -2351,9 +2402,10 @@ def ecosim_server(
                 except Exception as e:
                     logger.error("Simulation failed", exc_info=e)
                     err_text = str(e)
-                    hint = continuous_failure_hint(launched["method"])
                     notify_error(
-                        f"Simulation error: {err_text}" + (f" {hint}" if hint else "")
+                        _failure_message(
+                            err_text, launched["method"], launched["preset"]
+                        )
                     )
                     _finish_run(
                         state.run_id,
@@ -2385,9 +2437,9 @@ def ecosim_server(
                 )
             )
             notify_warning(
-                "Simulation cancelled. The computation finishes in the "
-                "background and its result is discarded; a new run can start "
-                "once it has finished."
+                "Cancelled: the result will be discarded, but the computation "
+                "continues in the background until it would have finished; a "
+                "new run can start after that."
             )
 
     @output
@@ -2598,23 +2650,7 @@ def ecosim_server(
             return None
         names = _group_names(scenario.get())
         badges = _solver_badges(info, names)
-        flagged = _flagged_months(info)
-        flagged_view = (
-            ui.p("No month flagged.", class_="text-muted mb-2")
-            if flagged.empty
-            else ui.div(
-                ui.h6("Flagged months"),
-                ui.HTML(
-                    flagged.to_html(
-                        index=False,
-                        classes="table table-sm",
-                        border=0,
-                        float_format=lambda x: f"{x:.3g}",
-                    )
-                ),
-                style="overflow-x: auto;",
-            )
-        )
+        flagged_view = _flagged_months_view(_flagged_months(info))
         return ui.card(
             ui.card_header("Solver diagnostics"),
             ui.div(

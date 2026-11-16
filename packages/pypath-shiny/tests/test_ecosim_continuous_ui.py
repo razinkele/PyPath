@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 from pypath.core.ecosim import CONTINUOUS_METHODS
+from pypath.core.ecosim_continuous import QS_RATE_DEFAULT
+from shiny.types import SilentException
 
 from pypath_shiny.pages import ecosim as ecosim_page
 from pypath_shiny.pages.ecosim import ecosim_ui
@@ -209,6 +211,100 @@ def test_bad_qs_rate_notifies_instead_of_raising(notices):
     assert notices["error"] == []
 
 
+class _FakeInputs:
+    """Shiny's Inputs, as far as read_optional_input uses them."""
+
+    def __init__(self, values):
+        self._values = values
+
+    def __getattr__(self, name):
+        def getter():
+            if name not in self._values:
+                raise SilentException()
+            return self._values[name]
+
+        return getter
+
+
+QS_RATE_WARNING = "Quasi-steady rate must be a number above 0 (per year)."
+PARITY_INPUTS = dict(
+    preset="default",
+    log_states=False,
+    forcing_interpolation="constant",
+    quasi_steady=False,
+    qs_rate=QS_RATE_DEFAULT,
+)
+
+
+def _page_inputs(method, **values):
+    base = {
+        "solver_preset": "default",
+        "solver_log_states": False,
+        "solver_forcing_interpolation": "constant",
+        "solver_quasi_steady": False,
+        "solver_qs_rate": QS_RATE_DEFAULT,
+    }
+    base.update(values)
+    return ecosim_page._solver_inputs(_FakeInputs(base), method)
+
+
+def test_empty_qs_rate_with_quasi_steady_warns(notices):
+    # An empty "Quasi-steady above" field reads as None: it must reach the
+    # request builder and be refused, not silently run at 365.
+    kwargs = _page_inputs("dop853", solver_quasi_steady=True, solver_qs_rate=None)
+    assert kwargs["qs_rate"] is None
+    request = ecosim_page._solver_request_or_notify(
+        "dop853", diet_rewiring=False, **kwargs
+    )
+    assert request is None
+    assert notices["warning"] == [QS_RATE_WARNING]
+    assert notices["error"] == []
+
+
+def test_empty_qs_rate_is_not_read_when_unused(notices):
+    # The box unticked: the rate is unused, so an empty field blocks nothing.
+    kwargs = _page_inputs("dop853", solver_qs_rate=None)
+    assert kwargs["qs_rate"] == QS_RATE_DEFAULT
+    request = ecosim_page._solver_request_or_notify(
+        "dop853", diet_rewiring=False, **kwargs
+    )
+    assert request is not None and "qs_rate" not in request.solver_options
+    # A parity method reads no continuous input, even a stale ticked box.
+    kwargs = _page_inputs("RK4", solver_quasi_steady=True, solver_qs_rate=None)
+    assert kwargs == PARITY_INPUTS
+    request = ecosim_page._solver_request_or_notify(
+        "RK4", diet_rewiring=False, **kwargs
+    )
+    assert request is not None and request.solver_options is None
+    assert notices["warning"] == []
+
+
+def test_solver_inputs_read_the_page():
+    kwargs = _page_inputs(
+        "lsoda",
+        solver_preset="reference",
+        solver_log_states=True,
+        solver_forcing_interpolation="smooth",
+        solver_quasi_steady=True,
+        solver_qs_rate=50,
+    )
+    assert kwargs == dict(
+        preset="reference",
+        log_states=True,
+        forcing_interpolation="smooth",
+        quasi_steady=True,
+        qs_rate=50,
+    )
+    # Inputs missing from the browser give the defaults.
+    assert ecosim_page._solver_inputs(_FakeInputs({}), "lsoda") == PARITY_INPUTS
+
+
+def test_run_simulation_reads_the_solver_inputs_through_the_helper():
+    run = _find_function(_ecosim_tree(), "_run_simulation")
+    assert "_solver_inputs" in _calls(run)
+    assert "solver_qs_rate" not in ast.unparse(run)
+
+
 def test_request_notes_are_shown_as_info(notices):
     request = ecosim_page._solver_request_or_notify(
         "lsoda", **_request_kwargs(quasi_steady=True)
@@ -239,6 +335,63 @@ def test_continuous_failure_hint():
     assert continuous_failure_hint("lsoda") == (
         "Try BDF for stiff models, or the Reference tolerance."
     )
+
+
+FULL_HINT = "Try BDF for stiff models, or the Reference tolerance."
+# The core's own texts: a month the solver could not finish (the hint can
+# help), and errors about the run's options (it cannot).
+MONTH_FAILED = (
+    "month integration failed: Required step size is less than spacing between numbers."
+)
+QS_FORCED = (  # ecosim_continuous.py, QuasiSteady.set_month
+    "quasi-steady groups Phytoplankton: a forced group cannot be quasi-steady"
+)
+
+
+def _option_error():
+    from pypath.core.ecosim_continuous import continuous_options
+
+    with pytest.raises(ValueError) as caught:
+        continuous_options("lsoda", {"qs_rate": -1.0}, 3)
+    return str(caught.value)
+
+
+def test_failure_hint_only_when_it_can_help():
+    from pypath_shiny.services.ecosim_solver import continuous_failure_hint as hint
+
+    assert hint("lsoda", "default", MONTH_FAILED) == FULL_HINT
+    assert hint("radau", "fast", MONTH_FAILED) == FULL_HINT
+    # Drop what the run already used.
+    assert hint("bdf", "default", MONTH_FAILED) == "Try the Reference tolerance."
+    assert hint("lsoda", "reference", MONTH_FAILED) == "Try BDF for stiff models."
+    assert hint("bdf", "reference", MONTH_FAILED) == ""
+    # No advice for an error about the run's options.
+    ibm = "IBM groups are not supported by the continuous methods; use method='RK4'"
+    for message in (QS_FORCED, _option_error(), ibm):
+        assert hint("lsoda", "default", message) == "", message
+    assert hint("RK4", "default", MONTH_FAILED) == ""
+
+
+def test_both_failure_paths_use_the_relevant_hint():
+    assert ecosim_page._failure_message(MONTH_FAILED, "lsoda", "default") == (
+        f"Simulation error: {MONTH_FAILED} {FULL_HINT}"
+    )
+    assert ecosim_page._failure_message(QS_FORCED, "dop853", "default") == (
+        f"Simulation error: {QS_FORCED}"
+    )
+    assert ecosim_page._failure_message("boom", "RK4", "default") == (
+        "Simulation error: boom"
+    )
+    tree = _ecosim_tree()
+    run_src = ast.unparse(_find_function(tree, "_run_simulation"))
+    assert "_failure_message(err_text, method, preset)" in run_src
+    assert "preset=preset" in run_src  # remembered in ``launched``
+    error_src = ast.unparse(_find_function(tree, "_apply_ecosim_result"))
+    assert (
+        "_failure_message(err_text, launched['method'], launched['preset'])"
+        in error_src
+    )
+    assert "continuous_failure_hint" not in run_src + error_src
 
 
 def test_run_simulation_invokes_the_task():
@@ -457,8 +610,11 @@ def test_cancel_discards_the_result():
     cancel = _find_function(_ecosim_tree(), "_cancel_simulation")
     assert "_ecosim_task.cancel" in _calls(cancel)
     src = ast.unparse(cancel)
-    assert "background" in src
-    assert "discarded" in src
+    assert (
+        "Cancelled: the result will be discarded, but the computation continues "
+        "in the background until it would have finished; a new run can start "
+        "after that."
+    ) in src
 
 
 def test_progress_is_indeterminate_and_keeps_cancel():
@@ -482,9 +638,13 @@ def test_run_simulation_refuses_while_running():
     # A cancelled run's thread runs on, and holds the session's slot until it
     # finishes (ruling S5): no new run starts until then, even after a cancel.
     assert "if run_slot.busy:" in src
+    # A cancelled run computes on until it would have ended, which can be many
+    # minutes: the refusal must not promise "a moment".
+    assert "try again in a moment" not in src
     finishing = src.index(
-        "The previous simulation is still finishing in the background; "
-        "try again in a moment."
+        "The previous simulation is still finishing in the background (a "
+        "cancelled run keeps computing until it would have ended). Try again "
+        "when it finishes."
     )
     assert src.index("sim_task_state.set(") > finishing
     assert src.index("_ecosim_task.invoke(") > finishing
@@ -503,3 +663,23 @@ def test_closed_session_cancels_its_run():
     # queued for a worker with no owner (a running thread computes on).
     server = _find_function(_ecosim_tree(), "ecosim_server")
     assert "session.on_ended(_ecosim_task.cancel)" in ast.unparse(server)
+
+
+@pytest.mark.parametrize(
+    "method, shown",
+    [("lsoda", "LSODA"), ("bdf", "BDF"), ("dop853", "DOP853"), ("radau", "Radau")],
+)
+def test_success_message_uses_the_display_name(method, shown):
+    assert ecosim_page._success_message(method) == (
+        f"Simulation completed with {shown} (continuous, not EwE parity)."
+    )
+
+
+def test_success_message_for_parity_methods_is_unchanged():
+    for method in ("RK4", "AB"):
+        assert ecosim_page._success_message(method) == (
+            "Simulation completed successfully!"
+        )
+    land = ast.unparse(_find_function(_ecosim_tree(), "_land_result"))
+    assert "notify_success(_success_message(method))" in land
+    assert ".upper()" not in land

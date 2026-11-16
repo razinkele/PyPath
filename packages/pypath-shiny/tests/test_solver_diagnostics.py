@@ -4,6 +4,7 @@ import ast
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 from pypath.core.ecosim_continuous import KERNEL_CHECK_TOL
 from pypath.examples import example_ecosim_scenario
@@ -214,3 +215,77 @@ def test_progress_tab_holds_the_placeholder():
 @pytest.mark.parametrize("bad", [None, float("nan")])
 def test_flagged_ignores_unchecked_kernel(bad):
     assert flagged_months(_info([_month(kernel_check=bad)])).empty
+
+
+def test_summary_shows_the_quasi_steady_rate():
+    names = ["Outside", "Phyto"]
+    qs = _info(fast_groups="quasi-steady", qs_groups=[1], qs_rate=50.0)
+    options = dict(solver_summary(qs, names))["Model options"]
+    assert "fast groups: quasi-steady; quasi-steady above 50 per year" in options
+    # Unused without quasi-steady, so not shown.
+    assert "quasi-steady above" not in dict(solver_summary(_info()))["Model options"]
+    # The progress display's "Model options" row is this same summary row.
+    tree = ast.parse(PAGE.read_text(encoding="utf-8"))
+    progress = next(
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef) and n.name == "progress_display"
+    )
+    src = ast.unparse(progress)
+    assert "_solver_summary(info" in src
+    assert "'Model options'" in src
+
+
+def test_flagged_months_view_scrolls_instead_of_growing():
+    from pypath_shiny.pages.ecosim import _flagged_months_view
+
+    assert "No month flagged." in str(_flagged_months_view(flagged_months(_info())))
+    months = [_month(i, degraded=True) for i in range(1, 601)]
+    view = str(_flagged_months_view(flagged_months(_info(months))))
+    assert "Flagged months" in view
+    # Every flagged month stays in the table, inside a box of capped height.
+    assert view.count("<tr") == 601  # header and 600 months
+    box = view[view.index("Flagged months") :]
+    style = box[box.index('style="') :].split('"', 2)[1]
+    assert "max-height:" in style
+    assert "overflow-y: auto" in style
+    tree = ast.parse(PAGE.read_text(encoding="utf-8"))
+    panel = next(
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef) and n.name == "solver_diagnostics"
+    )
+    assert "_flagged_months_view(" in ast.unparse(panel)
+
+
+@pytest.mark.parametrize("rhs", [None, float("nan"), math.inf])
+def test_summary_survives_unrecorded_rhs_evals(rhs):
+    summary = dict(solver_summary(_info(rhs_evals=rhs)))
+    assert summary["Right-hand-side evaluations"] == "not recorded"
+    assert dict(solver_summary(_info(rhs_evals=240)))[
+        "Right-hand-side evaluations"
+    ] == ("240 in total, 240 per month")
+
+
+@pytest.mark.parametrize(
+    "groups",
+    [
+        np.array([1, 2]),
+        (1, 2),
+        [np.int64(1), np.int64(2)],
+        np.array([], dtype=int),
+        (),
+    ],
+    ids=["array", "tuple", "numpy-ints", "empty-array", "empty-tuple"],
+)
+def test_qs_groups_as_array_or_tuple(groups):
+    names = ["Outside", "Phyto", "Detritus"]
+    info = _info(fast_groups="quasi-steady", qs_groups=groups)
+    options = dict(solver_summary(info, names))["Model options"]
+    texts = [b.text for b in solver_badges(info, names)]
+    if len(groups):
+        assert "quasi-steady groups: Phyto, Detritus" in options
+        assert "Changes the model: quasi-steady Phyto, Detritus" in texts
+    else:
+        assert "quasi-steady groups: none" in options
+        assert any(t.startswith("No group qualified as quasi-steady") for t in texts)

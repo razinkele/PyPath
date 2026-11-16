@@ -100,11 +100,40 @@ class SolverRequest:
     notes: tuple[str, ...] = ()
 
 
-def continuous_failure_hint(method: str) -> str:
-    """Advice to append to a failed continuous run's message; "" for parity."""
+# Words of an error about the run's options (a quasi-steady or forced group,
+# a bad solver option, an unsupported model), which neither BDF nor a tighter
+# tolerance fixes.
+_OPTION_ERROR_WORDS = ("quasi-steady", "forced", "solver_options", "not supported")
+
+
+def continuous_failure_hint(
+    method: str, preset: str = "default", error: str = ""
+) -> str:
+    """Advice to append to a failed run's message, or "" when none can help.
+
+    Parameters
+    ----------
+    method : str
+        The run's method; parity methods get no advice.
+    preset : str
+        The run's tolerance preset: Reference is not suggested again.
+    error : str
+        The error's text: an error about the run's options gets no advice.
+    """
     if not is_continuous(method):
         return ""
-    return "Try BDF for stiff models, or the Reference tolerance."
+    text = str(error).lower()
+    if any(word in text for word in _OPTION_ERROR_WORDS):
+        return ""
+    try_bdf = method != "bdf"
+    try_reference = preset != "reference"
+    if try_bdf and try_reference:
+        return "Try BDF for stiff models, or the Reference tolerance."
+    if try_bdf:
+        return "Try BDF for stiff models."
+    if try_reference:
+        return "Try the Reference tolerance."
+    return ""
 
 
 def _valid_qs_rate(value) -> float:

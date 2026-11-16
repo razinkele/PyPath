@@ -59,3 +59,14 @@ def test_no_page_guards_inputs_with_hasattr():
             ):
                 offenders.append(f"{page.name}:{node.lineno}")
     assert not offenders, f"hasattr(input, ...) is always True: {offenders}"
+
+
+def test_none_value_can_be_kept():
+    # An empty numeric field reads as None; a caller can ask to see it.
+    inputs = _FakeInputs({"solver_qs_rate": None})
+    assert read_optional_input(inputs, "solver_qs_rate", 365.0, keep_none=True) is None
+    # A missing input still gives the default.
+    missing = read_optional_input(
+        _FakeInputs({}), "solver_qs_rate", 365.0, keep_none=True
+    )
+    assert missing == 365.0
