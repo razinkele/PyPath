@@ -13,7 +13,7 @@ import pandas as pd
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.autofix import validate_and_fix_scenario
-from pypath.core.ecosim import RsimScenario, rsim_scenario
+from pypath.core.ecosim import RsimScenario, RunCancelled, rsim_scenario
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shiny.types import SilentException
 
@@ -55,6 +55,7 @@ from pypath_shiny.services.ecosim_solver import (
     METHOD_CHOICES,
     PRESET_CHOICES,
     RUN_EXECUTOR,
+    RunControl,
     RunOutcome,
     RunSlot,
     SolverRequest,
@@ -254,10 +255,58 @@ def _notify_detritus_self_fate(model) -> None:
         notify_warning(msg, duration=12)
 
 
+def month_progress_text(progress: tuple[int, int] | None) -> str | None:
+    """``"Month m of n (p%)"`` for a run's ``(month, n_months)``, else None.
+
+    None until the run has completed its first month.
+    """
+    if progress is None:
+        return None
+    month, n_months = progress
+    return f"Month {month} of {n_months} ({round(100 * month / n_months)}%)"
+
+
+def month_progress_tags(progress: tuple[int, int] | None, message: str):
+    """The running run's bar and its text line.
+
+    Before the first month completes (``progress`` None) the bar is
+    indeterminate and the line is ``message`` (the run's "Starting" or
+    "Integrating" text); afterwards the bar's width is the share of months
+    done and the line is :func:`month_progress_text`.
+    """
+    text = month_progress_text(progress)
+    if text is None:
+        bar = ui.div(
+            class_="progress-bar progress-bar-striped progress-bar-animated",
+            role="progressbar",
+            style="width: 100%",
+            aria_label="Simulation running",
+        )
+        line = message
+    else:
+        month, n_months = progress
+        pct = round(100 * month / n_months)
+        bar = ui.div(
+            class_="progress-bar",
+            role="progressbar",
+            style=f"width: {pct}%",
+            aria_label="Months simulated",
+            aria_valuenow=str(pct),
+            aria_valuemin="0",
+            aria_valuemax="100",
+        )
+        line = text
+    return ui.TagList(
+        ui.div(bar, class_="progress"),
+        ui.p(line, class_="text-muted mt-2 mb-0"),
+    )
+
+
 def build_task_status_alert(task_state: TaskState) -> tuple[str, str, str]:
     """Map task state to bootstrap alert class, icon, and message."""
     if task_state.status is TaskStatus.RUNNING:
-        # No percentage at 0: the Ecosim bar is indeterminate.
+        # No percentage at 0: an Ecosim run's month progress shows in the
+        # progress block (month_progress_tags), not in this alert.
         pct = f" ({task_state.progress:.0f}%)" if task_state.progress > 0 else ""
         return (
             "alert alert-info",
@@ -1116,8 +1165,9 @@ def ecosim_server(
 
     # The run last launched: its method and preset advise on a failure that
     # has no outcome to read; its label and its start and integration-start times feed the
-    # progress texts. Plain state, written on the loop only; the worker never
-    # reads it.
+    # progress texts; its RunControl stops it and holds its month progress.
+    # Plain state, written on the loop only; the worker never reads it (it is
+    # handed the control itself, whose on_month is all it calls).
     launched = {
         "run_id": None,
         "method": None,
@@ -1125,30 +1175,49 @@ def ecosim_server(
         "label": None,
         "started": None,
         "integrating_since": None,
+        "control": None,
     }
     retired_runs = itertools.count(1)
     # This session's run in the process-wide executor. It stays taken until
-    # the worker thread finishes, through a cancel (the thread cannot be
-    # stopped), so Run-then-Cancel cannot pile up threads.
+    # the worker thread finishes, through a cancel (a stopped run ends at its
+    # next month boundary), so Run-then-Cancel cannot pile up threads.
     run_slot = RunSlot()
 
     @reactive.extended_task
-    async def _ecosim_task(run_id, source, scen, request, diet, slot):
+    async def _ecosim_task(run_id, source, scen, request, diet, slot, control):
         """Integrate on a worker thread, off the event loop.
 
         ``scen`` is a deep copy of ``source``, the page's scenario object. The
         run goes to the bounded process-wide executor and ``slot`` holds its
-        future until the thread finishes. The worker reads no input and sends
-        no notification: the result effect does both, on the loop.
+        future until the thread finishes. ``control`` (a ``RunControl``) is
+        passed on to ``run_ecosim``: the thread records each month on it and
+        stops at the month boundary after a stop. The worker reads no input
+        and sends no notification: the result effect does both, on the loop.
         """
-        future = RUN_EXECUTOR.submit(run_ecosim, scen, request, diet_rewiring=diet)
+        future = RUN_EXECUTOR.submit(
+            run_ecosim, scen, request, diet_rewiring=diet, control=control
+        )
         slot.acquire(future)
         out = await asyncio.wrap_future(future)
         return RunOutcome(run_id, source, out, request, diet is not None)
 
+    def _stop_run() -> None:
+        """Stop the session's run, on the loop.
+
+        The control's stop ends a computing run at its next month boundary
+        (its future then completes with ``RunCancelled``, which frees the
+        slot); the task's cancel drops the outcome, and cancels a run still
+        queued for a worker outright.
+        """
+        control = launched["control"]
+        if control is not None:
+            control.request_stop()
+        _ecosim_task.cancel()
+
     # A closed or reloaded tab must not leave its run queued for a worker with
-    # no owner; a run already computing finishes and its result is discarded.
-    session.on_ended(_ecosim_task.cancel)
+    # no owner; a run already computing stops at its next month boundary and
+    # its result is discarded.
+    session.on_ended(_stop_run)
 
     def _finish_run(
         run_id: str, *, success: bool, message: str, error: str | None = None
@@ -1185,7 +1254,7 @@ def ecosim_server(
             sim_output.get(),
             sim_results.get() if sim_results is not None else None,
         )
-        _ecosim_task.cancel()
+        _stop_run()
         sim_task_state.set(TaskState(run_id=f"ecosim-retired-{next(retired_runs)}"))
         sim_output.set(None)
         if sim_results is not None:
@@ -2397,9 +2466,10 @@ def ecosim_server(
             scenario_switching_key.set(switching_key)
             switching_generation.set(switching_generation.get() + 1)
             # A new scenario invalidates results from the previous one, and
-            # retires a run still integrating it: a late outcome then fails
-            # result_is_current on both its run_id and its scenario.
-            _ecosim_task.cancel()
+            # retires a run still integrating it (it stops at its next month
+            # boundary): a late outcome then fails result_is_current on both
+            # its run_id and its scenario.
+            _stop_run()
             sim_task_state.set(TaskState(run_id=f"ecosim-retired-{next(retired_runs)}"))
             sim_output.set(None)
             if sim_results is not None:
@@ -2540,7 +2610,8 @@ def ecosim_server(
         ):
             notify_warning("A simulation is already running. Cancel it first.")
             return
-        # A cancelled run's thread computes on until it ends, holding the slot.
+        # A cancelled run's thread computes on to its next month boundary,
+        # holding the slot until then.
         if run_slot.busy:
             notify_warning(
                 "The previous simulation is still finishing in the background (a "
@@ -2569,6 +2640,9 @@ def ecosim_server(
             years = run_scen.fishing.ForcedEffort.shape[0] // 12
             name = _METHOD_NAMES.get(request.method, request.method)
             label = f"{name}, {years} years"
+            # One control per run, made on the loop: the worker records its
+            # months on it, and _stop_run stops it.
+            control = RunControl()
             launched.update(
                 run_id=run_id,
                 method=request.method,
@@ -2576,13 +2650,20 @@ def ecosim_server(
                 label=label,
                 started=time.monotonic(),
                 integrating_since=None,
+                control=control,
             )
             # "Starting" until a worker picks the run up (_note_worker_start):
             # with the process-wide executor full, the run queues first.
             sim_task_state.set(new_running_task(run_id, f"Starting {label}"))
             notify_info("Running simulation...", duration=2)
             _ecosim_task.invoke(
-                run_id, scen, run_scen, request, diet=None, slot=run_slot
+                run_id,
+                scen,
+                run_scen,
+                request,
+                diet=None,
+                slot=run_slot,
+                control=control,
             )
 
         except Exception as e:
@@ -2702,6 +2783,10 @@ def ecosim_server(
                     return
                 try:
                     _ecosim_task.result()
+                except RunCancelled as e:
+                    # The cancelled path, never an error: whoever stopped the
+                    # run has set the state; the result is discarded.
+                    logger.debug("Ecosim run %s stopped: %s", state.run_id, e)
                 except Exception as e:
                     logger.error("Simulation failed", exc_info=e)
                     err_text = str(e)
@@ -2726,11 +2811,12 @@ def ecosim_server(
 
         # Only allow cancellation if task is running
         if task_state.status is TaskStatus.RUNNING:
-            # A worker thread cannot be stopped: a run already computing goes
-            # on to its end in the background (holding the session's slot),
-            # and the run_id guard (result_is_current) drops its result. A
-            # run still queued for a worker is cancelled outright.
-            _ecosim_task.cancel()
+            # A run already computing stops at its next month boundary (a
+            # month in progress is not interrupted), holding the session's
+            # slot until then, and the run_id guard (result_is_current) drops
+            # its result. A run still queued for a worker is cancelled
+            # outright.
+            _stop_run()
             sim_task_state.set(
                 finish_task(
                     task_state,
@@ -2843,6 +2929,23 @@ def ecosim_server(
         # From the worker's start: queue time is not counted.
         return f"Elapsed: {now - since:.0f} s"
 
+    @output
+    @render.ui
+    def sim_month_progress():
+        """The running run's bar and text, ticking every second.
+
+        Reads the run's ``RunControl`` here, on the loop (the worker only
+        writes it): indeterminate with the run's "Starting" or "Integrating"
+        text until the first month completes, then ``Month m of n (p%)``.
+        """
+        state = sim_task_state.get()
+        if state.status is not TaskStatus.RUNNING or state.run_id != launched["run_id"]:
+            return None
+        reactive.invalidate_later(1)
+        control = launched["control"]
+        progress = control.progress() if control is not None else None
+        return month_progress_tags(progress, state.message)
+
     @reactive.effect
     def _note_worker_start():
         """Switch "Starting" to "Integrating" once a worker picks the run up.
@@ -2874,21 +2977,12 @@ def ecosim_server(
         task_state = sim_task_state.get()
 
         if task_state.status is TaskStatus.RUNNING:
-            # Indeterminate: the core reports no per-month progress. The
-            # elapsed seconds tick in their own output, so this block and its
-            # Cancel button are not rebuilt every second.
+            # The month progress (bar and text) and the elapsed seconds tick
+            # in their own outputs, so this block and its Cancel button are
+            # not rebuilt every second.
             return ui.div(
                 ui.tags.h5("Simulation Progress"),
-                ui.div(
-                    ui.div(
-                        class_="progress-bar progress-bar-striped progress-bar-animated",
-                        role="progressbar",
-                        style="width: 100%",
-                        aria_label="Simulation running",
-                    ),
-                    class_="progress",
-                ),
-                ui.p(task_state.message, class_="text-muted mt-2 mb-0"),
+                ui.output_ui("sim_month_progress"),
                 ui.p(ui.output_text("sim_elapsed", inline=True), class_="text-muted"),
                 ui.input_action_button(
                     "btn_cancel_sim",

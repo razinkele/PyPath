@@ -478,10 +478,12 @@ def test_new_scenario_retires_the_run():
         for n in ast.walk(tree)
         if isinstance(n, ast.FunctionDef) and _is_effect_on(n, "model_data")
     ]
-    retirers = [n for n in model_effects if "_ecosim_task.cancel" in _calls(n)]
+    # Both retire the run through _stop_run (its control's stop, then the
+    # task's cancel; test_ecosim_run_abort pins that no bare cancel remains).
+    retirers = [n for n in model_effects if "_stop_run" in _calls(n)]
     assert len(retirers) == 1
     for fn in (create, retirers[0]):
-        assert "_ecosim_task.cancel" in _calls(fn), fn.name
+        assert "_stop_run" in _calls(fn), fn.name
         src = ast.unparse(fn)
         assert "ecosim-retired-" in src, fn.name
         assert "sim_output.set(None)" in src, fn.name
@@ -494,16 +496,19 @@ def test_new_scenario_retires_the_run():
     model_calls = _calls(retirers[0])
     assert "_model_change_notice" in model_calls
     assert "notify_info" in model_calls
-    # The polls: the elapsed text ticks for the whole run; the "Starting" ->
-    # "Integrating" switch polls only until a worker picks the run up. The
-    # progress block with the Cancel button never polls (ruling S7 changed
-    # this test, which first allowed sim_elapsed alone).
+    # The polls: the elapsed text and the month progress (bar and text) tick
+    # for the whole run; the "Starting" -> "Integrating" switch polls only
+    # until a worker picks the run up. The progress block with the Cancel
+    # button never polls (ruling S7 changed this test, which first allowed
+    # sim_elapsed alone; the month progress added sim_month_progress).
     elapsed = _find_function(tree, "sim_elapsed")
+    months = _find_function(tree, "sim_month_progress")
     start = _find_function(tree, "_note_worker_start")
     assert len(_invalidate_later_calls(elapsed)) == 1
+    assert len(_invalidate_later_calls(months)) == 1
     assert len(_invalidate_later_calls(start)) == 1
     assert "integrating_since" in ast.unparse(start)
-    assert len(_invalidate_later_calls(tree)) == 2
+    assert len(_invalidate_later_calls(tree)) == 3
     assert _invalidate_later_calls(_find_function(tree, "progress_display")) == []
 
 
@@ -585,8 +590,8 @@ def test_worker_is_session_free():
                     assert module == "pypath_shiny.services.tasks", module
             elif isinstance(node, ast.Import):
                 assert not any(a.name.startswith("shiny") for a in node.names)
-    source = Path(ecosim_page.__file__).read_text(encoding="utf-8")
-    assert "RUN_EXECUTOR.submit(run_ecosim" in source
+    # Read through the AST: with control= the call no longer fits one line.
+    assert "RUN_EXECUTOR.submit(run_ecosim" in ast.unparse(task)
 
 
 def test_result_effect_depends_on_the_task_status_only():
@@ -621,7 +626,7 @@ def test_result_effect_depends_on_the_task_status_only():
 
 def test_cancel_discards_the_result():
     cancel = _find_function(_ecosim_tree(), "_cancel_simulation")
-    assert "_ecosim_task.cancel" in _calls(cancel)
+    assert "_stop_run" in _calls(cancel)
     src = ast.unparse(cancel)
     assert (
         "Cancelled: the result will be discarded, but the computation continues "
@@ -630,13 +635,28 @@ def test_cancel_discards_the_result():
     ) in src
 
 
-def test_progress_is_indeterminate_and_keeps_cancel():
-    progress = _find_function(_ecosim_tree(), "progress_display")
+def test_progress_counts_months_and_keeps_cancel():
+    # Indeterminate until the run's first month completes, then the months
+    # done (sim_month_progress, in its own output); the Cancel button stays in
+    # the block, which is not rebuilt by the ticks.
+    tree = _ecosim_tree()
+    progress = _find_function(tree, "progress_display")
     src = ast.unparse(progress)
-    assert "progress-bar-striped progress-bar-animated" in src
+    assert "ui.output_ui('sim_month_progress')" in src
     assert "ui.output_text('sim_elapsed'" in src
     assert "btn_cancel_sim" in src
     assert "task_state.progress" not in src
+    months = ast.unparse(_find_function(tree, "sim_month_progress"))
+    assert "month_progress_tags(progress, state.message)" in months
+    from pypath_shiny.services.tasks import new_running_task
+
+    message = new_running_task("r", "Integrating with LSODA, 50 years").message
+    before = str(ecosim_page.month_progress_tags(None, message))
+    assert "progress-bar-striped progress-bar-animated" in before
+    assert message in before
+    during = str(ecosim_page.month_progress_tags((120, 600), message))
+    assert "Month 120 of 600 (20%)" in during
+    assert 'style="width: 20%"' in during
 
 
 def test_run_simulation_refuses_while_running():
@@ -673,9 +693,10 @@ def test_queued_run_says_it_is_waiting():
 
 def test_closed_session_cancels_its_run():
     # A closed or reloaded tab gets a fresh RunSlot; its old run must not stay
-    # queued for a worker with no owner (a running thread computes on).
+    # queued for a worker with no owner, and a running thread stops at its
+    # next month boundary (_stop_run).
     server = _find_function(_ecosim_tree(), "ecosim_server")
-    assert "session.on_ended(_ecosim_task.cancel)" in ast.unparse(server)
+    assert "session.on_ended(_stop_run)" in ast.unparse(server)
 
 
 @pytest.mark.parametrize(
