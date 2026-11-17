@@ -200,6 +200,26 @@ def test_a_zero_feeding_efficiency_gives_the_loops_result(pooling):
     assert np.all(ref[:, 1] == 0.0) and np.all(ref[:, 2] == 0.0)
 
 
+@pytest.mark.parametrize("short", ["prey", "pred"])
+def test_more_links_than_the_link_arrays_raise_before_the_kernel(short):
+    """numba does no bounds checking: an ``n_links`` past either link array
+    raises ValueError, and the kernel writes nothing."""
+    _needs_numba()
+    n, args, kwargs, _ = _trial(1)  # pooling and HandleSwitch, no eat_eff
+    args = list(args)
+    prey, pred = args[6], args[7]
+    assert len(prey) > 3
+    if short == "prey":
+        args[6] = prey[:-1]
+    else:
+        args[7] = pred[:-1]
+    args[8] = len(prey)
+    qq = np.full((n, n), SENTINEL)
+    with pytest.raises(ValueError, match="n_links"):
+        deriv_mod._compute_consumption_sparse_numba(qq, *args, **kwargs)
+    assert np.all(qq == SENTINEL)
+
+
 # --- dispatch -------------------------------------------------------------
 
 

@@ -500,8 +500,11 @@ def _compute_consumption_sparse_numba(
     Same arguments, same in-place result, bit for bit: the None arguments
     become flags and dummy arrays, the arrays float64 (the link arrays
     int64), for :func:`_compute_consumption_sparse_flat` compiled with
-    ``nogil`` and numpy's division rules. The loop's numpy warnings (x / 0)
-    are not raised. Without numba it runs the Python loop.
+    ``nogil`` and numpy's division rules. The jitted kernel raises none of
+    the loop's numpy RuntimeWarnings (x / 0, overflow); the values are the
+    same. numba does no bounds checking, so an ``n_links`` past the end of
+    either link array raises ValueError before the kernel runs (the loop
+    raises IndexError). Without numba it runs the Python loop.
     """
     if _compute_consumption_sparse_numba_kernel is None:
         return _compute_consumption_sparse_python(
@@ -534,6 +537,14 @@ def _compute_consumption_sparse_numba(
     def _f64(a, dummy):
         return dummy if a is None else np.asarray(a, dtype=np.float64)
 
+    link_prey = np.asarray(link_prey, dtype=np.int64)
+    link_pred = np.asarray(link_pred, dtype=np.int64)
+    n_links = int(n_links)
+    if n_links > len(link_prey) or n_links > len(link_pred):
+        raise ValueError(
+            f"n_links {n_links} exceeds the link arrays "
+            f"({len(link_prey)} prey, {len(link_pred)} predator entries)"
+        )
     _compute_consumption_sparse_numba_kernel(
         QQ,
         np.asarray(BB, dtype=np.float64),
@@ -542,9 +553,9 @@ def _compute_consumption_sparse_numba(
         np.asarray(QQbase, dtype=np.float64),
         np.asarray(preyYY, dtype=np.float64),
         np.asarray(predYY, dtype=np.float64),
-        np.asarray(link_prey, dtype=np.int64),
-        np.asarray(link_pred, dtype=np.int64),
-        int(n_links),
+        link_prey,
+        link_pred,
+        n_links,
         use_pooling,
         _f64(ScrambleSelf, _DUMMY_2D) if use_pooling else _DUMMY_2D,
         _f64(HandleSelf, _DUMMY_2D) if use_pooling else _DUMMY_2D,
