@@ -157,7 +157,9 @@ default 1e-12, in (0, 1e-8]) and the options below.
   `solver_info`.
 
 **Which method:** LSODA is the default; use BDF for stiff models (LT2022:
-11.3 x RK4 against 17.3 x on LSODA); DOP853 for non-stiff models and under
+11.3 x RK4 against 17.3 x on LSODA without numba; 32.5-33.3 x against
+50.5-54.1 x with numba installed, where RK4 runs about 3 x faster, measured
+2026-11-17); DOP853 for non-stiff models and under
 quasi-steady groups.
 
 `RsimOutput.solver_info` records the corrections that act, the EwE numerics
