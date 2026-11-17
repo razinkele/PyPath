@@ -302,8 +302,29 @@ def test_pending_note_text(exists, built, is_pending, has_overrides, expected):
         built_from_current_key=built,
         is_pending=is_pending,
         has_overrides=has_overrides,
+        control_has_boxes=True,
     )
     assert text == expected
+
+
+@pytest.mark.parametrize("exists", [False, True])
+@pytest.mark.parametrize("built", [False, True])
+@pytest.mark.parametrize("is_pending", [False, True])
+@pytest.mark.parametrize("has_overrides", [False, True])
+def test_no_pending_note_when_the_control_shows_a_message(
+    exists, built, is_pending, has_overrides
+):
+    """The message already says to create the scenario: no second note."""
+    assert (
+        ecosim_page.switching_pending_text(
+            scenario_exists=exists,
+            built_from_current_key=built,
+            is_pending=is_pending,
+            has_overrides=has_overrides,
+            control_has_boxes=False,
+        )
+        is None
+    )
 
 
 def test_pending_note_uses_the_helper():
@@ -320,6 +341,7 @@ def test_pending_note_uses_the_helper():
     assert kwargs["scenario_exists"] == "scen is not None"
     # pending() reads scen.params: only reached for a scenario of this key.
     assert kwargs["is_pending"].startswith("built and pending(")
+    assert kwargs["control_has_boxes"] == "spec.message is None"
 
 
 # --- the EwE route ----------------------------------------------------------
