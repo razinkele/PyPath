@@ -2,9 +2,12 @@
 
 import asyncio
 import copy
+import dataclasses
 import itertools
 import logging
 import time
+from collections.abc import Mapping
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -36,6 +39,7 @@ from pypath_shiny.pages.ewe_scenario import (
     ewe_source_matches,
     scenario_source_choices,
 )
+from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
 from pypath_shiny.services.ecosim_controls import (
     apply_fishing_management_control,
     apply_metabolism_control,
@@ -73,6 +77,21 @@ from pypath_shiny.services.plotly_viz import (
     build_catch_figure,
     build_effort_figure,
     build_initial_final_figure,
+)
+from pypath_shiny.services.prey_switching import (
+    BALANCED_SOURCE,
+    DISPLAY_DECIMALS,
+    SWITCH_POWER_MAX,
+    SwitchingStore,
+    above_range,
+    consumers_from_model,
+    consumers_from_params,
+    effective_values,
+    fold_edits,
+    pending,
+    snapshot_source,
+    source_key,
+    switch_power_with_overrides,
 )
 from pypath_shiny.services.solver_diagnostics import (
     flagged_months as _flagged_months,
@@ -474,12 +493,15 @@ def ecosim_ui() -> ui.Tag:
                     class_="text-muted small",
                 ),
                 ui.tags.hr(),
-                # Diet rewiring is not implemented; say so instead of offering it.
+                ui.h5("Prey Switching"),
                 ui.p(
-                    "Diet rewiring is not available in this version; prey "
-                    "switching (EwE's SwitchPower) is planned as its replacement.",
+                    "Predators turn towards prey that become more abundant. "
+                    "0 = off; higher values switch more sharply (EwE allows 0 "
+                    "to 2). Values apply when you create the scenario.",
                     class_="text-muted small",
                 ),
+                ui.output_ui("switching_control"),
+                ui.output_ui("switching_pending_note"),
                 ui.tags.hr(),
                 # Fishing scenarios
                 ui.h5("Fishing Scenario"),
@@ -924,6 +946,61 @@ def _solver_inputs(input, method: str) -> dict:
     )
 
 
+NO_CONSUMERS_TEXT = "This model has no consumers to switch."
+
+
+def switching_inputs(
+    prefix: str,
+    groups: list[str],
+    values: Mapping[str, float],
+    extra_readonly: Mapping[str, float],
+) -> ui.Tag:
+    """The prey-switching control's body: one box per consumer.
+
+    ``values`` are the values in force (the source's, with the edits applied).
+    ``extra_readonly`` holds imported nonzero values of groups that cannot
+    switch: they are shown and kept, not offered.
+    """
+    if groups:
+        body = ui.div(
+            *[
+                ui.input_numeric(
+                    f"{prefix}{i}",
+                    name,
+                    value=round(values[name], DISPLAY_DECIMALS),
+                    min=0,
+                    max=SWITCH_POWER_MAX,
+                    step=0.1,
+                )
+                for i, name in enumerate(groups)
+            ],
+            style="max-height: 320px; overflow-y: auto;",
+        )
+    else:
+        body = ui.p(NO_CONSUMERS_TEXT, class_="text-muted small")
+    readonly = [
+        ui.p(
+            f"{name}: {round(value, DISPLAY_DECIMALS):g} (imported; this group "
+            "cannot switch, kept as imported)",
+            class_="text-muted small",
+        )
+        for name, value in extra_readonly.items()
+    ]
+    return ui.div(body, *readonly)
+
+
+class _SwitchingSpec(NamedTuple):
+    """What the prey-switching control shows, and under which input ids."""
+
+    prefix: str
+    key: str
+    groups: list[str]
+    base: dict[str, float]
+    values: dict[str, float]
+    readonly: dict[str, float]
+    message: str | None
+
+
 def ecosim_server(
     input: Inputs,
     output: Outputs,
@@ -974,6 +1051,16 @@ def ecosim_server(
     show_help_timeseries = reactive.Value(False)
     show_help_catch = reactive.Value(False)
     show_help_summary = reactive.Value(False)
+    # Prey switching: the edits by source key; a counter that the model-change
+    # effect and Create Scenario bump once they have updated the store, so
+    # the control re-renders after them; and the source key that built the
+    # current scenario.
+    switching_store = reactive.Value(SwitchingStore())
+    switching_generation = reactive.Value(0)
+    scenario_switching_key = reactive.Value(None)
+    # A fresh input-id prefix on every render of the control, so that a stale
+    # browser value can never land on a new list of groups.
+    switching_renders = itertools.count()
 
     # The run last launched: its method and preset advise on a failure that
     # has no outcome to read; its label and its start and integration-start times feed the
@@ -1048,6 +1135,9 @@ def ecosim_server(
             sim_scenario.set(None)
         if note:
             notify_info(note, duration=6)
+        scenario_switching_key.set(None)
+        # Last: the control re-renders once the switching state is updated.
+        switching_generation.set(switching_generation.get() + 1)
 
     def _input_or_default(name: str, default):
         """Read a UI input value with fallback for conditional controls."""
@@ -1059,6 +1149,117 @@ def ecosim_server(
             return None
         source = ewe_source.get()
         return source if ewe_source_matches(source, model_data.get()) else None
+
+    def _current_switching_key() -> str:
+        """The source key Create Scenario would build from now.
+
+        The same route test as Create Scenario's: the "ewe" source selected
+        and matching the model, else the balanced model.
+        """
+        source = _matching_ewe_source()
+        if source is None or _input_or_default("scenario_source", "model") != "ewe":
+            return BALANCED_SOURCE
+        return source_key(
+            source, _input_or_default("ewe_scenario_id", source["scenario"])
+        )
+
+    @reactive.calc
+    def _switching_spec() -> _SwitchingSpec:
+        """What the prey-switching control shows.
+
+        Recomputes on a generation bump (after a model change or Create
+        Scenario has updated the store), a new scenario key, a new imported
+        source, or a change of scenario source. The model, the scenario and
+        the store are read isolated, so an edit never re-renders the control.
+        """
+        switching_generation.get()
+        built_key = scenario_switching_key.get()
+        if ewe_source is not None:
+            ewe_source.get()
+        _input_or_default("scenario_source", "model")
+        _input_or_default("ewe_scenario_id", None)
+        with reactive.isolate():
+            key = _current_switching_key()
+            model = model_data.get()
+            scen = scenario.get()
+            store = switching_store.get()
+        prefix = f"switch_power_{next(switching_renders)}_"
+        groups: list[str] = []
+        base: dict[str, float] = {}
+        readonly: dict[str, float] = {}
+        message = None
+        if key == BALANCED_SOURCE:
+            if is_balanced_model(model) or is_rpath_params(model):
+                groups = consumers_from_model(model)
+            base = dict.fromkeys(groups, 0.0)
+            if not groups:
+                message = NO_CONSUMERS_TEXT
+        elif built_key != key or scen is None:
+            message = "Create the scenario to see and change its switching powers."
+        else:
+            groups = consumers_from_params(scen.params)
+            base = dict(store.source_values.get(key, {}))
+            consumers = set(groups)
+            readonly = {
+                name: value
+                for name, value in base.items()
+                if name not in consumers and value != 0
+            }
+        values = effective_values(store, key, base)
+        return _SwitchingSpec(prefix, key, groups, base, values, readonly, message)
+
+    @output
+    @render.ui
+    def switching_control():
+        spec = _switching_spec()
+        if spec.message:
+            return ui.p(spec.message, class_="text-muted small")
+        return switching_inputs(spec.prefix, spec.groups, spec.values, spec.readonly)
+
+    @reactive.effect(priority=1)
+    def _collect_switching_edits():
+        """Fold the boxes into the store; refuse and reset values out of range.
+
+        The priority runs this before Create Scenario when a box's new value
+        and the click arrive together.
+        """
+        spec = _switching_spec()
+        if not spec.groups:
+            return
+        boxes = {
+            name: input[f"{spec.prefix}{i}"]() for i, name in enumerate(spec.groups)
+        }
+        with reactive.isolate():
+            old = switching_store.get()
+            new, errors = fold_edits(old, spec.key, boxes, spec.base)
+            if new != old:
+                switching_store.set(new)
+        if errors:
+            in_force = effective_values(new, spec.key, spec.base)
+            for name, message in errors.items():
+                notify_warning(message)
+                ui.update_numeric(
+                    f"{spec.prefix}{spec.groups.index(name)}",
+                    value=round(in_force[name], DISPLAY_DECIMALS),
+                )
+
+    @output
+    @render.ui
+    def switching_pending_note():
+        spec = _switching_spec()
+        store = switching_store.get()
+        scen = scenario.get()
+        if (
+            scen is not None
+            and scenario_switching_key.get() == spec.key
+            and pending(store, spec.key, spec.base, scen.params)
+        ):
+            text = "Changed values apply when you create the scenario again."
+        elif store.overrides.get(spec.key):
+            text = "Values apply when you create the scenario."
+        else:
+            return ui.div()
+        return ui.p(text, class_="text-muted small fst-italic")
 
     @output
     @render.ui
@@ -1090,7 +1291,8 @@ def ecosim_server(
                     "Runs the database's Ecopath inputs with the scenario's own "
                     "vulnerabilities, feeding time, switching, forcing and "
                     "length, as EwE does. Edits made in this app and the "
-                    "vulnerability slider are not used.",
+                    "vulnerability slider are not used; prey switching set in "
+                    "the sidebar is.",
                     class_="text-muted small",
                 ),
             ]
@@ -1100,7 +1302,7 @@ def ecosim_server(
                     "Runs the example's Ecopath inputs with its own EwE-F "
                     "vulnerabilities, group settings, fishing and run length. "
                     "Edits made in this app and the vulnerability slider are "
-                    "not used.",
+                    "not used; prey switching set in the sidebar is.",
                     class_="text-muted small",
                 )
             ]
@@ -1327,14 +1529,14 @@ def ecosim_server(
                     "re-balancing a model clears the results and the "
                     "scenario: create the scenario again."
                 ),
-                ui.h6("Dynamic Diet Rewiring"),
+                ui.h6("Prey Switching"),
                 ui.p(
-                    ui.tags.strong("Not available in this version."),
-                    " Predators shifting to abundant prey is not offered on "
-                    "this page; prey switching (EwE's SwitchPower) is planned "
-                    "as its replacement. The core function rsim_run_advanced "
-                    "raises NotImplementedError for diet rewiring in this "
-                    "version.",
+                    "Set a predator's switching power in the sidebar to let it "
+                    "turn towards prey that become more abundant (EwE's "
+                    "SwitchPower, 0 to 2; 0 = off). Values apply when the "
+                    "scenario is created; an imported EwE scenario starts from "
+                    "its own values. Every run shows the switching it used. "
+                    "Diet rewiring is deprecated: it never integrated."
                 ),
                 ui.h6("Fishing Scenarios"),
                 ui.tags.ul(
@@ -2013,6 +2215,32 @@ def ecosim_server(
                     fast_group_rule=rule,
                 )
                 built_years = input.sim_years()
+
+            # Prey switching: on the EwE route, record the source's own values
+            # before any edit is applied; then write the edits. Untouched, the
+            # scenario keeps the very SwitchPower array its source built.
+            switching_key = _current_switching_key()
+            new_store = switching_store.get()
+            if switching_key != BALANCED_SOURCE:
+                new_store = dataclasses.replace(
+                    new_store,
+                    source_values={
+                        **new_store.source_values,
+                        switching_key: snapshot_source(new_scenario.params),
+                    },
+                )
+            switch_power = switch_power_with_overrides(
+                new_scenario.params, new_store.overrides.get(switching_key, {})
+            )
+            if switch_power is not None:
+                new_scenario.params.SwitchPower = switch_power
+            for name, value in above_range(
+                snapshot_source(new_scenario.params)
+            ).items():
+                notify_warning(
+                    f"{name} has an imported switching power of {value:g}, "
+                    "above EwE's range of 0 to 2; it is kept."
+                )
             _notify_detritus_self_fate(model)
 
             # Apply fishing scenario
@@ -2098,6 +2326,9 @@ def ecosim_server(
             scenario.set(new_scenario)
             if sim_scenario is not None:
                 sim_scenario.set(new_scenario)
+            switching_store.set(new_store)
+            scenario_switching_key.set(switching_key)
+            switching_generation.set(switching_generation.get() + 1)
             # A new scenario invalidates results from the previous one, and
             # retires a run still integrating it: a late outcome then fails
             # result_is_current on both its run_id and its scenario.
