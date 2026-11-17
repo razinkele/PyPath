@@ -82,6 +82,10 @@ def test_module_copy_is_reworded():
     assert "Diet rewiring is deprecated: it never integrated." in text
     assert DATABASE_NOTE in text
     assert EXAMPLE_NOTE in text
+    assert (
+        "Diet rewiring is deprecated: it never integrated. "
+        "Values are kept to 3 decimals; a change smaller than 0.001 is ignored."
+    ) in text
     assert re.search(r"(?i)prey switching[^.]{0,60}planned", text) is None
 
 

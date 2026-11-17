@@ -1611,7 +1611,9 @@ def ecosim_server(
                     "SwitchPower, 0 to 2; 0 = off). Values apply when the "
                     "scenario is created; an imported EwE scenario starts from "
                     "its own values. Every run shows the switching it used. "
-                    "Diet rewiring is deprecated: it never integrated."
+                    "Diet rewiring is deprecated: it never integrated. "
+                    "Values are kept to 3 decimals; a change smaller than "
+                    "0.001 is ignored."
                 ),
                 ui.h6("Fishing Scenarios"),
                 ui.tags.ul(
