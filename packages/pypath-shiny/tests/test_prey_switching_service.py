@@ -143,8 +143,9 @@ def test_load_clears_and_rebalance_keeps_consumers():
     cleared, note = on_model_change(
         s, rebalance=False, consumers=["Cod"], keep_ewe=True
     )
-    assert cleared == SwitchingStore() and note.startswith(
-        "Prey switching settings cleared (3 group(s))"
+    assert cleared == SwitchingStore()
+    assert note == (
+        "Prey switching settings cleared (3 group(s)): a different model is now in use."
     )
     kept, note = on_model_change(s, rebalance=True, consumers=["Cod"], keep_ewe=False)
     assert dict(kept.overrides) == {"model": {"Cod": 1.0}}

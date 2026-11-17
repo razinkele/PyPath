@@ -968,14 +968,20 @@ def switching_pending_text(
     built_from_current_key: bool,
     is_pending: bool,
     has_overrides: bool,
+    control_has_boxes: bool,
 ) -> str | None:
     """The note under the switching control, or None for no note.
+
+    When the control shows a message instead of boxes (it already says to
+    create the scenario) there is no note.
 
     A scenario built from another source (the scenario source changed since)
     runs its own values, not the control's, so the note always shows. One
     built from the current source shows it only while the settings differ
     from it; before any scenario, it shows only when there are edits.
     """
+    if not control_has_boxes:
+        return None
     if scenario_exists:
         if not built_from_current_key or is_pending:
             return "Changed values apply when you create the scenario again."
@@ -1324,6 +1330,7 @@ def ecosim_server(
             built_from_current_key=built,
             is_pending=built and pending(store, spec.key, spec.base, scen.params),
             has_overrides=bool(store.overrides.get(spec.key)),
+            control_has_boxes=spec.message is None,
         )
         if text is None:
             return ui.div()
@@ -1604,7 +1611,10 @@ def ecosim_server(
                     "SwitchPower, 0 to 2; 0 = off). Values apply when the "
                     "scenario is created; an imported EwE scenario starts from "
                     "its own values. Every run shows the switching it used. "
-                    "Diet rewiring is deprecated: it never integrated."
+                    "Diet rewiring is deprecated: it never integrated. "
+                    "Values are compared at 3 decimals: a typed value that "
+                    "rounds to the starting value (0, or the scenario's own "
+                    "value) counts as no change."
                 ),
                 ui.h6("Fishing Scenarios"),
                 ui.tags.ul(
