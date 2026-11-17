@@ -253,7 +253,7 @@ app_ui = ui.page_fluid(
                 value="Forcing",
             ),
             ui.nav_panel(
-                _icon_label("bi-arrow-repeat", "Diet Rewiring"),
+                _icon_label("bi-arrow-repeat", "Prey Switching"),
                 diet_rewiring_demo.diet_rewiring_demo_ui(),
                 value="Diet Rewiring",
             ),

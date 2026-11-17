@@ -378,17 +378,18 @@ def home_ui():
                             ui.div(
                                 ui.h5(
                                     ui.tags.i(class_="bi bi-shuffle text-primary me-2"),
-                                    "Diet Rewiring",
+                                    "Prey Switching",
                                     class_="mb-2",
                                 ),
                                 ui.p(
-                                    "Advanced prey switching behavior! Predators now adapt their diet "
-                                    "based on prey availability with configurable switching power.",
+                                    "Predators turn towards prey that become more abundant: "
+                                    "EwE's switching power, set per predator on the Ecosim page.",
                                     class_="mb-1",
                                 ),
                                 ui.p(
                                     ui.tags.strong("Explore: "),
-                                    "Check out the Diet Rewiring Demo page for interactive examples.",
+                                    "The Prey Switching demo page shows how the switching power "
+                                    "shapes a predator's diet.",
                                     class_="text-muted small",
                                 ),
                             ),
@@ -547,7 +548,7 @@ def home_ui():
                 feature_card(
                     "Advanced Features",
                     [
-                        "Diet rewiring (prey switching)",
+                        "Prey switching (EwE's switching power)",
                         "Environmental forcing functions",
                         "Multi-stanza age structure",
                         "Optimization and sensitivity analysis",

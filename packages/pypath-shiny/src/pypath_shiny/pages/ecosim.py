@@ -1418,7 +1418,7 @@ def ecosim_server(
                             f" Raised to ≥ {THRESHOLDS.min_biomass} (prevents instant extinction)",
                         ),
                         ui.tags.li(
-                            ui.tags.strong("DD (Prey Switching):"),
+                            ui.tags.strong("DD (handling time):"),
                             " Normalized to 1-2 range (stabilizes predation)",
                         ),
                     ),
