@@ -44,8 +44,9 @@ def _importer_model(import_frac=0.5):
 
 def _year_ratios(balanced, params):
     scenario = rsim_scenario(balanced, params, years=YEARS)
-    # isolates the mechanism under test; EwE's handling time (D5)
-    # has its own tests (test_handling_time.py)
+    # A no-op under Rpath's rule, this code-built model's default (D1); under
+    # the EwE rule it would leave EwE's handling time (D5) out, which has its
+    # own tests (test_handling_time.py)
     scenario.params.EWE_HANDLING_TIME = False
     out = rsim_run(scenario, years=YEARS)
     annual = np.asarray(out.annual_Biomass, dtype=float)
@@ -98,8 +99,9 @@ def test_import_intake_is_proportional_to_predator_biomass():
     p = _importer_model(import_frac=1.0)
     balanced = rpath(p, eco_name="import")
     scenario = rsim_scenario(balanced, p, years=YEARS)
-    # isolates the mechanism under test; EwE's handling time (D5)
-    # has its own tests (test_handling_time.py)
+    # A no-op under Rpath's rule, this code-built model's default (D1); under
+    # the EwE rule it would leave EwE's handling time (D5) out, which has its
+    # own tests (test_handling_time.py)
     scenario.params.EWE_HANDLING_TIME = False
     params, forcing, fishing = _derivative_inputs(scenario)
     fish = list(balanced.Group).index("Fish") + 1

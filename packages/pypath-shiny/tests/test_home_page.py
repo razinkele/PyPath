@@ -106,7 +106,7 @@ def test_example_model_starts_ecosim_at_equilibrium():
     b = runs["rpath"].out_Biomass[:, 1 : living + 1]
     drift = np.abs(b[-1] / b[0] - 1.0)
     assert drift.max() < 1e-3, dict(zip(model.Group[:living], drift.round(4)))
-    # EwE's plus group (the default rule) steps once in month 1 and moves
+    # EwE's plus group (the EwE rule) steps once in month 1 and moves
     # recruitment a little (pypath tests/test_stanza_plus_group.py).
     b = runs["ewe"].out_Biomass[:, 1 : living + 1]
     drift = np.abs(b[1:] / b[0] - 1.0).max(axis=0)

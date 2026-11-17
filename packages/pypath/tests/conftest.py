@@ -20,8 +20,9 @@ def spatial_scenario():
 
     Returns (scenario, rpath_params) tuple.
     Model: Phyto (producer) -> Zoo -> Fish (fished) + Det + Fleet.
-    Under the EwE rule, named: the spatial tests follow EwE's Ecospace, and
-    a model built in code would otherwise get Rpath's (roadmap D1).
+    The EwE rule is named: a model built in code now defaults to Rpath's
+    (roadmap D1), and the spatial tests and the other files that share this
+    fixture were written under the EwE rule, so they keep it.
     """
     params = create_rpath_params(
         groups=["Phyto", "Zoo", "Fish", "Det", "Fleet"],

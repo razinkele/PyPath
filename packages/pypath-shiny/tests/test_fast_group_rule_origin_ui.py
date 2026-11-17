@@ -82,6 +82,19 @@ def test_the_rule_input_is_a_select_updated_by_update_select():
     assert ast.unparse(updates[0].func) == "ui.update_select"
 
 
+def test_the_tooltip_says_the_select_follows_the_models_origin():
+    import html
+
+    page = html.unescape(str(ecosim_page.ecosim_ui()))
+    match = re.search(r'title="(Groups that turn over[^"]*)"', page)
+    assert match
+    tip = match.group(1)
+    assert "Loading a model sets it to the model's origin" in tip
+    assert "EwE imports: EwE6" in tip
+    assert "models built from CSV or in code: Rpath" in tip
+    assert "a re-balance keeps your choice" in tip
+
+
 def test_the_select_is_set_to_the_origin_only_when_not_rebalancing():
     fn = _retire()
     (update,) = _origin_updates(fn)

@@ -19,8 +19,9 @@ def test_nointegrate_groups_stay_at_baseline():
 
     p = rpath(params)
     scenario = rsim_scenario(p, params, years=range(1, 3))  # 2 years = initial + 1 year
-    # isolates the mechanism under test; EwE's handling time (D5)
-    # has its own tests (test_handling_time.py)
+    # A no-op under Rpath's rule, which this Rpath CSV model gets by default
+    # (D1); under the EwE rule it would leave EwE's handling time (D5) out,
+    # which has its own tests (test_handling_time.py)
     scenario.params.EWE_HANDLING_TIME = False
     out = rsim_run(scenario, method="RK4", years=range(1, 3))
 

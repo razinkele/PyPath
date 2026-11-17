@@ -73,6 +73,16 @@ class TestRecreateParamsFromModel:
         recreated = _recreate_params_from_model(balanced_rpath_model)
         assert recreated.model["PB"].iloc[0] == pytest.approx(1.0)
 
+    @pytest.mark.parametrize("compat", ["ewe", "rpath"])
+    def test_origin_preserved(self, balanced_rpath_model, compat):
+        """compat (the model's origin, roadmap D1) survives the rebuild, so a
+        re-balanced EwE import keeps EwE's rules."""
+        import copy
+
+        model = copy.copy(balanced_rpath_model)  # the fixture is session scoped
+        model.compat = compat
+        assert _recreate_params_from_model(model).compat == compat
+
     def test_types_preserved(self, balanced_rpath_model):
         recreated = _recreate_params_from_model(balanced_rpath_model)
         types = list(recreated.model["Type"])

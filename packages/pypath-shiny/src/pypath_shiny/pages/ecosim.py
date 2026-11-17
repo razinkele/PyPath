@@ -550,7 +550,7 @@ def ecosim_ui() -> ui.Tag:
                         "Equation rule (EwE6 / Rpath) ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month. Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below.",
+                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month. Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below. Loading a model sets it to the model's origin (EwE imports: EwE6; models built from CSV or in code: Rpath); a re-balance keeps your choice.",
                             style="cursor: help;",
                         ),
                     ),

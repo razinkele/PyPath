@@ -172,6 +172,7 @@ def _recreate_params_from_model(model: Rpath) -> RpathParams:
     - Biomass, PB, QB, EE, Unassim, BioAcc from balanced model
     - Diet matrix from DC (diet composition) matrix
     - Group types preserved
+    - The model's origin (``compat``), which picks Ecosim's default rule
 
     - Landings/discards per fleet and detritus fate columns
 
@@ -206,6 +207,8 @@ def _recreate_params_from_model(model: Rpath) -> RpathParams:
         raise ValueError("Cannot determine types from model object")
 
     params = create_rpath_params(groups, types)
+    # The model's origin (roadmap D1): an EwE import keeps EwE's rules.
+    params.compat = getattr(model, "compat", "rpath")
 
     # Fill in the balanced parameter values
     params.model["Biomass"] = model.Biomass
