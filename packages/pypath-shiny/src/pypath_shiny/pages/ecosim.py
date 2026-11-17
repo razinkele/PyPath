@@ -2783,9 +2783,18 @@ def ecosim_server(
                 try:
                     _ecosim_task.result()
                 except RunCancelled as e:
-                    # The cancelled path, never an error: whoever stopped the
-                    # run has set the state; the result is discarded.
+                    # Defensive: today _stop_run cancels the task before the
+                    # worker reaches its month boundary, so the task ends
+                    # "cancelled" and never lands here. If a stopped run's
+                    # outcome ever does, it is the cancelled path, never an
+                    # error: finish the run as cancelled, with no notification.
                     logger.debug("Ecosim run %s stopped: %s", state.run_id, e)
+                    _finish_run(
+                        state.run_id,
+                        success=False,
+                        message="Cancelled by user",
+                        error="Simulation was cancelled",
+                    )
                 except Exception as e:
                     logger.error("Simulation failed", exc_info=e)
                     err_text = str(e)

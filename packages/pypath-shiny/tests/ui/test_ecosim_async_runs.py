@@ -259,15 +259,20 @@ def _start_run(page) -> None:
     assert _wait_text(page, "#simulation_status", "Integrating", 30), _status(page)
 
 
-def _month(page) -> tuple[int, int, int] | None:
-    """The progress block's ``(month, n_months, percent)``, or None."""
-    match = MONTH.search(_text(page, "#sim_month_progress"))
-    return None if match is None else tuple(int(g) for g in match.groups())
-
-
-def _bar_width(page) -> str:
-    loc = page.locator("#sim_month_progress .progress-bar")
-    return (loc.get_attribute("style") or "") if loc.count() else ""
+def _month(page) -> tuple[tuple[int, int, int] | None, str]:
+    """The progress block's ``(month, n_months, percent)`` (or None) and its
+    bar's style, read in one evaluate so a re-render cannot split them."""
+    text, style = page.evaluate(
+        """() => {
+            const el = document.querySelector('#sim_month_progress');
+            if (!el) return ['', ''];
+            const bar = el.querySelector('.progress-bar');
+            return [el.innerText, bar ? bar.getAttribute('style') || '' : ''];
+        }"""
+    )
+    match = MONTH.search(text)
+    month = None if match is None else tuple(int(g) for g in match.groups())
+    return month, style
 
 
 def _run_accepted(page, since: float, limit: float) -> tuple[float, int]:
@@ -330,22 +335,22 @@ def test_cancel_stops_at_a_month_and_a_new_run_starts_at_once(server, browser):
     _start_run(page)
     time.sleep(0.3)  # past the one Starting -> Integrating rebuild
     cancel = page.locator("#btn_cancel_sim").element_handle()
-    ticks, months = [], []
+    ticks, readings = [], []
     for _ in range(5):
         ticks.append(_text(page, "#sim_elapsed"))
-        months.append(_month(page))
+        readings.append(_month(page))
         time.sleep(1.2)
     assert all(t.startswith("Elapsed:") for t in ticks), ticks
     assert len(set(ticks)) >= 3, ticks  # it ticks while the run computes
-    # The months done appear and grow, out of 50 years' 600.
-    seen = [m for m in months if m is not None]
-    assert len(seen) >= 3, months
-    assert all(total == 600 for _, total, _ in seen), seen
-    done = [m for m, _, _ in seen]
+    # The months done appear and grow, out of 50 years' 600, and each
+    # reading's bar is as wide as its percentage.
+    seen = [(m, style) for m, style in readings if m is not None]
+    assert len(seen) >= 3, readings
+    assert all(total == 600 for (_, total, _), _ in seen), seen
+    done = [m for (m, _, _), _ in seen]
     assert done == sorted(done) and done[-1] > done[0], seen
-    assert all(pct == round(100 * m / 600) for m, _, pct in seen), seen
-    last = _month(page)
-    assert last is not None and _bar_width(page) == f"width: {last[2]}%"
+    assert all(pct == round(100 * m / 600) for (m, _, pct), _ in seen), seen
+    assert all(style == f"width: {pct}%" for (_, _, pct), style in seen), seen
     assert cancel.evaluate("e => e.isConnected")  # not rebuilt every second
     assert page.locator("#btn_cancel_sim").is_enabled()
 
@@ -387,25 +392,26 @@ def test_create_scenario_mid_run_retires_it(server, browser):
 
     _start_run(page)
     time.sleep(3)
+    retired_at = time.monotonic()
     _create_scenario(page)
     _progress_tab(page)
     assert NOT_RUN in _status(page)
     assert _text(page, "#progress_display") == ""
-
-    # The retired run stops at its next month boundary: the server goes idle
-    # long before the 50-year run would have ended.
-    idle = server.wait_idle(limit=60)
-    assert idle is not None and idle < 10, idle
-    assert NOT_RUN in _status(page)
-    assert _text(page, "#progress_display") == ""
     assert _text(page, "#solver_diagnostics") == ""
 
-    # The slot is free: a new run is accepted at once (then cancelled).
-    _run_accepted(page, time.monotonic(), RESTART_LIMIT)
+    # The retired run stops at its next month boundary and frees the
+    # session's slot: a new run is accepted within seconds of the retire,
+    # long before the 50-year run would have ended (then it is cancelled).
+    restart, clicks = _run_accepted(page, retired_at, RESTART_LIMIT)
+    print(f"new run accepted {restart:.2f} s after the retire ({clicks} click(s))")
     page.wait_for_selector("#btn_cancel_sim", state="visible", timeout=30000)
     assert _click_for_note(page, "#btn_cancel_sim", CANCELLED), _notes(page)
     idle = server.wait_idle(limit=60)
     assert idle is not None and idle < 10, idle
+    # Neither the retired run nor the cancelled one landed.
+    assert "Simulation was cancelled" in _status(page)
+    assert _text(page, "#solver_diagnostics") == ""
+    assert "Simulation Details" not in _text(page, "#progress_display")
     assert errors == []
     assert server.tracebacks() == 0
 

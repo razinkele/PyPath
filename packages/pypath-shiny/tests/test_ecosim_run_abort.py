@@ -165,15 +165,32 @@ def test_month_progress_polls_on_the_loop_without_rebuilding_cancel():
 
 
 def test_run_cancelled_is_not_shown_as_an_error():
+    # Defensive (today _stop_run cancels the task before the worker stops, so
+    # the task ends "cancelled"): if a RunCancelled outcome ever reaches the
+    # error branch, the run is finished as cancelled, without a notification.
     effect = _find_function(_tree(), "_apply_ecosim_result")
     handlers = [n for n in ast.walk(effect) if isinstance(n, ast.ExceptHandler)]
     names = [ast.unparse(h.type) if h.type is not None else None for h in handlers]
     assert "RunCancelled" in names
     assert names.index("RunCancelled") < names.index("Exception")
     cancelled = handlers[names.index("RunCancelled")]
-    calls = _calls(ast.Module(body=cancelled.body, type_ignores=[]))
+    body = ast.Module(body=cancelled.body, type_ignores=[])
+    calls = _calls(body)
     assert not any(c.startswith("notify_") for c in calls), calls
     assert "_failure_message" not in calls
+    finishes = [
+        c
+        for c in ast.walk(body)
+        if isinstance(c, ast.Call) and ast.unparse(c.func) == "_finish_run"
+    ]
+    assert len(finishes) == 1
+    finish = finishes[0]
+    assert [ast.unparse(a) for a in finish.args] == ["state.run_id"]
+    assert {k.arg: ast.unparse(k.value) for k in finish.keywords} == {
+        "success": "False",
+        "message": "'Cancelled by user'",
+        "error": "'Simulation was cancelled'",
+    }
 
 
 # --- the texts --------------------------------------------------------------
