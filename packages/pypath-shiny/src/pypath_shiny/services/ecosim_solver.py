@@ -67,9 +67,10 @@ _QS_NOTE = (
 
 
 # At most this many Ecosim integrations run at once in the app's process, over
-# all sessions. A run cannot be stopped once its thread starts (Cancel only
-# discards the result), and each is CPU-bound: an unbounded pool would let
-# Run-then-Cancel pile up threads that starve every session. Further runs queue.
+# all sessions. A cancelled run stops only at its next month boundary (a
+# RunControl; a month in progress is not interrupted), and each is CPU-bound:
+# an unbounded pool would let Run-then-Cancel pile up threads that starve every
+# session. Further runs queue.
 MAX_CONCURRENT_RUNS = 2
 RUN_EXECUTOR = ThreadPoolExecutor(
     max_workers=MAX_CONCURRENT_RUNS, thread_name_prefix="ecosim-run"
@@ -79,6 +80,44 @@ RUN_EXECUTOR = ThreadPoolExecutor(
 def is_continuous(method: str) -> bool:
     """Return True when ``method`` is one of the continuous solvers."""
     return method in CONTINUOUS_METHODS
+
+
+class RunControl:
+    """Stop and progress for one run, shared by its worker thread and the loop.
+
+    The worker thread calls only :meth:`on_month`, which ``rsim_run`` calls
+    at the end of every simulated month; the event loop calls
+    :meth:`request_stop` and reads :meth:`progress`. A stop takes effect at
+    the next month boundary (``rsim_run`` raises ``RunCancelled``).
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._progress: tuple[int, int] | None = None
+
+    def on_month(self, month: int, n_months: int) -> bool:
+        """Record ``(month, n_months)``; True when a stop was requested.
+
+        Passed to ``rsim_run`` as its ``on_month`` callback.
+        """
+        with self._lock:
+            self._progress = (month, n_months)
+        return self._stop.is_set()
+
+    def request_stop(self) -> None:
+        """Ask the run to stop at its next month boundary."""
+        self._stop.set()
+
+    def progress(self) -> tuple[int, int] | None:
+        """The latest ``(month, n_months)``, or None before the first month."""
+        with self._lock:
+            return self._progress
+
+    @property
+    def stop_requested(self) -> bool:
+        """Whether a stop has been requested."""
+        return self._stop.is_set()
 
 
 @dataclass(frozen=True)
@@ -218,6 +257,7 @@ def run_ecosim(
     request: SolverRequest,
     *,
     diet_rewiring: DietRewiring | None = None,
+    control: RunControl | None = None,
 ) -> RsimOutput:
     """Run the scenario's whole length with the requested solver.
 
@@ -229,6 +269,10 @@ def run_ecosim(
         From :func:`build_solver_request`.
     diet_rewiring : DietRewiring, optional
         Used on the parity methods only.
+    control : RunControl, optional
+        Its ``on_month`` is passed to the run, which records each month's
+        progress on it and stops at the month boundary after
+        ``control.request_stop()``.
 
     Returns
     -------
@@ -239,6 +283,8 @@ def run_ecosim(
     ValueError
         Diet rewiring with a continuous method (it would run through
         ``rsim_run_advanced``, which has no continuous solver).
+    RunCancelled
+        When ``control`` asked the run to stop.
     """
     continuous = is_continuous(request.method)
     if diet_rewiring is not None and continuous:
@@ -246,20 +292,24 @@ def run_ecosim(
             "Diet rewiring runs on RK4 and AB only. "
             "Turn it off, or choose an EwE parity method."
         )
+    # Only with a control, so a run without one calls the core as before.
+    hook = {} if control is None else {"on_month": control.on_month}
     if diet_rewiring is not None:
         return rsim_run_advanced(
             scenario,
             state_forcing=None,
             diet_rewiring=diet_rewiring,
             method=request.method,
+            **hook,
         )
     if continuous:
         return rsim_run(
             scenario,
             method=request.method,
             solver_options=request.solver_options,
+            **hook,
         )
-    return rsim_run(scenario, method=request.method)
+    return rsim_run(scenario, method=request.method, **hook)
 
 
 @dataclass(frozen=True, eq=False)
@@ -308,8 +358,10 @@ class RunSlot:
 
     Holds the run's ``concurrent.futures.Future`` from submission until the
     worker finishes. Cancelling the asyncio side does not free the slot while
-    the thread still computes (a thread cannot be stopped); a run cancelled
-    while still queued for a worker is done at once, and frees it.
+    the thread still computes: a run stopped through its ``RunControl`` ends
+    at its next month boundary (with ``RunCancelled``), and frees it then; a
+    run cancelled while still queued for a worker is done at once, and frees
+    it.
     """
 
     def __init__(self) -> None:

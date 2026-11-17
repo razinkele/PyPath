@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pytest
-from pypath.core.ecosim import CONTINUOUS_METHODS, rsim_scenario
+from pypath.core.ecosim import CONTINUOUS_METHODS, RunCancelled, rsim_scenario
 from pypath.core.ecosim_continuous import QS_RATE_DEFAULT, continuous_options
 from pypath.core.forcing import DietRewiring
 from pypath.examples import example_ecosim_scenario
@@ -24,6 +24,7 @@ from pypath_shiny.services.ecosim_solver import (
     PRESET_CHOICES,
     RUN_EXECUTOR,
     TOLERANCE_PRESETS,
+    RunControl,
     RunOutcome,
     RunSlot,
     SolverRequest,
@@ -366,3 +367,118 @@ def test_run_slot_is_released_when_the_worker_raises():
         assert not slot.busy and not slot.running
         # Released: the session may start its next run.
         slot.acquire(pool.submit(lambda: None))
+
+
+# --- stopping a run between months (RunControl) -----------------------------
+
+
+def test_run_control_round_trip():
+    control = RunControl()
+    assert control.progress() is None
+    assert not control.stop_requested
+    assert control.on_month(1, 24) is False
+    assert control.progress() == (1, 24)
+    assert control.on_month(2, 24) is False
+    assert control.progress() == (2, 24)
+    control.request_stop()
+    assert control.stop_requested
+    assert control.on_month(3, 24) is True
+    assert control.progress() == (3, 24)
+
+
+def test_run_control_is_read_on_the_loop_while_a_worker_writes():
+    control = RunControl()
+    n = 2000
+    seen = []
+
+    def worker():
+        for m in range(1, n + 1):
+            control.on_month(m, n)
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    while thread.is_alive():
+        pair = control.progress()
+        if pair is not None:
+            seen.append(pair)
+    thread.join()
+    # Every pair read is one the worker wrote whole, in order.
+    assert all(total == n and 1 <= m <= n for m, total in seen)
+    assert [m for m, _ in seen] == sorted(m for m, _ in seen)
+    assert control.progress() == (n, n)
+
+
+def test_run_dispatch_passes_the_control_only_when_given(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        svc, "rsim_run", lambda *a, **k: calls.append(("run", a, k)) or "R"
+    )
+    monkeypatch.setattr(
+        svc,
+        "rsim_run_advanced",
+        lambda *a, **k: calls.append(("adv", a, k)) or "A",
+    )
+    sc, dr, control = object(), DietRewiring(), RunControl()
+    opts = {"rtol": 1e-4}
+
+    run_ecosim(sc, SolverRequest("AB", None), diet_rewiring=dr, control=control)
+    assert calls[-1] == (
+        "adv",
+        (sc,),
+        {
+            "state_forcing": None,
+            "diet_rewiring": dr,
+            "method": "AB",
+            "on_month": control.on_month,
+        },
+    )
+    run_ecosim(sc, SolverRequest("RK4", None), control=control)
+    assert calls[-1] == ("run", (sc,), {"method": "RK4", "on_month": control.on_month})
+    run_ecosim(sc, SolverRequest("bdf", opts), control=control)
+    assert calls[-1] == (
+        "run",
+        (sc,),
+        {"method": "bdf", "solver_options": opts, "on_month": control.on_month},
+    )
+    run_ecosim(sc, SolverRequest("RK4", None), control=None)
+    assert calls[-1] == ("run", (sc,), {"method": "RK4"})
+
+
+@pytest.mark.parametrize("method", ["RK4", "AB", "lsoda"])
+def test_run_ecosim_with_a_stopped_control_stops_after_month_one(
+    method, rpath_params, balanced_rpath_model
+):
+    sc = rsim_scenario(balanced_rpath_model, rpath_params, years=range(1, 3))
+    control = RunControl()
+    control.request_stop()
+    with pytest.raises(RunCancelled, match=r"^run cancelled after month 1 of 24$"):
+        run_ecosim(sc, build_solver_request(method), control=control)
+    assert control.progress() == (1, 24)
+
+
+def test_run_ecosim_with_a_stopped_control_stops_the_advanced_path(
+    rpath_params, balanced_rpath_model
+):
+    sc = rsim_scenario(balanced_rpath_model, rpath_params, years=range(1, 3))
+    control = RunControl()
+    control.request_stop()
+    with pytest.raises(RunCancelled, match=r"^run cancelled after month 1 of 24$"):
+        run_ecosim(
+            sc,
+            build_solver_request("RK4"),
+            diet_rewiring=DietRewiring(enabled=False),
+            control=control,
+        )
+    assert control.progress() == (1, 24)
+
+
+@pytest.mark.parametrize("method", ["RK4", "lsoda"])
+def test_run_ecosim_with_a_fresh_control_completes(
+    method, rpath_params, balanced_rpath_model
+):
+    sc = rsim_scenario(balanced_rpath_model, rpath_params, years=range(1, 3))
+    control = RunControl()
+    out = run_ecosim(sc, build_solver_request(method), control=control)
+    assert np.all(np.isfinite(out.out_Biomass))
+    assert control.progress() == (24, 24)
+    assert not control.stop_requested
