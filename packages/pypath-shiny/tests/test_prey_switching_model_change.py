@@ -104,8 +104,32 @@ def test_only_create_parameters_marks_the_params_new():
     assert any(_flag_assigned(s, "True") for s in block)
 
 
-def test_only_the_balance_clears_the_flag():
-    assert _functions_setting_the_flag(_ecopath_tree(), "False") == ["_balance_model"]
+# Loads supersede the created params and clear the switching settings
+# themselves, so their first Balance is a re-balance of the loaded model.
+LOAD_PATHS = ("_sync_model_data", "_load_params_from_csv")
+
+
+def test_the_balance_and_the_loads_clear_the_flag():
+    tree = _ecopath_tree()
+    assert set(_functions_setting_the_flag(tree, "False")) == {
+        "_balance_model",
+        *LOAD_PATHS,
+    }
+    for name in LOAD_PATHS:
+        fn = _find_function(tree, name)
+        blocks = [b for b in _blocks(fn) if any(_is_params_set(s) for s in b)]
+        assert blocks, name
+        for block in blocks:  # beside every params.set of a loaded model
+            assert any(_flag_assigned(s, "False") for s in block), name
+
+
+def test_a_load_clears_the_flag_only_after_the_own_model_check():
+    sync = _find_function(_ecopath_tree(), "_sync_model_data")
+    for node in ast.walk(sync):
+        if isinstance(node, ast.If) and ast.unparse(node.test) == "own is imported":
+            assert not any(_flag_assigned(s, "False") for s in node.body)
+    # Never at the top of the effect: the page's own balance passes it too.
+    assert not any(_flag_assigned(s, "False") for s in sync.body)
 
 
 def test_the_mark_is_set_only_while_the_params_are_not_new():
