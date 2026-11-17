@@ -91,6 +91,27 @@ class TestParamRangesConfig:
     def test_vulnerability_range(self):
         assert PARAM_RANGES.vulnerability_min < PARAM_RANGES.vulnerability_max
 
+    def test_retired_diet_rewiring_ranges_are_gone(self):
+        # The old diet-rewiring demo's slider; prey switching uses 0 to 2.
+        for name in (
+            "switching_power_min",
+            "switching_power_max",
+            "switching_power_default",
+        ):
+            assert not hasattr(PARAM_RANGES, name), name
+
+
+class TestDefaultsConfig:
+    def test_retired_diet_rewiring_defaults_are_gone(self):
+        # Read only by the old diet-rewiring demo.
+        for name in (
+            "max_dc",
+            "switching_power",
+            "diet_update_interval",
+            "min_diet_proportion",
+        ):
+            assert not hasattr(DEFAULTS, name), name
+
 
 class TestIBMConfigMatchesSmelt:
     """IBM UI defaults must align with SmeltParams.baltic_defaults()."""

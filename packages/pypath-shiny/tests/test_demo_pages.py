@@ -58,17 +58,20 @@ def test_optimization_demo_page_uses_notification_service_not_direct_ui_calls():
 def test_demo_texts_name_no_pull_request():
     # User-visible text (the page and its example scripts) says what is not
     # implemented and what is planned, without internal PR numbers.
-    from pypath_shiny.pages.diet_rewiring_demo import build_diet_rewiring_code
+    from pypath_shiny.pages.diet_rewiring_demo import build_prey_switching_code
     from pypath_shiny.pages.forcing_demo import build_forcing_code
 
     texts = {
         "forcing page": str(forcing_demo_ui()),
         "forcing code": build_forcing_code("biomass", "replace", 3, "sine"),
         "diet page": str(diet_rewiring_demo_ui()),
-        "diet code": build_diet_rewiring_code(2.5, 12, 0.01),
+        "diet code": build_prey_switching_code(1.5),
     }
     for where, text in texts.items():
         words = " ".join(text.split())
         assert "PR #" not in words, where
-        assert "NotImplementedError" in words, where
+        if where.startswith("forcing"):
+            assert "NotImplementedError" in words, where
+        else:
+            assert "SwitchPower" in words, where
         assert "prey switching" in words.lower(), where

@@ -5,9 +5,9 @@ Advanced Ecosim entry point: state forcing and diet rewiring (not implemented).
 and diet rewiring (``DietRewiring``) are not implemented in this version and
 raise ``NotImplementedError``. Earlier versions ran a placeholder loop that
 never integrated, so they returned the start biomass in every month. Prey
-switching, EwE's per-predator ``SwitchPower``, is the planned replacement for
-diet rewiring. ``rsim_run`` already applies it from
-``scenario.params.SwitchPower``.
+switching, EwE's per-predator ``SwitchPower``, is available instead of diet
+rewiring: set ``scenario.params.SwitchPower``, which ``rsim_run`` applies, or
+use the Prey Switching control on the app's Ecosim page.
 
 ``apply_state_forcing`` and ``apply_diet_rewiring`` are standalone helpers
 that no simulation calls.
@@ -161,10 +161,10 @@ def rsim_run_advanced(
         and forced catch from ``scenario.fishing.ForcedCatch``.
     diet_rewiring : DietRewiring, optional
         Must be None or disabled (``enabled=False``). An enabled one
-        raises ``NotImplementedError``. Prey switching is the planned
-        replacement: EwE's per-predator ``SwitchPower``
-        (``scenario.params.SwitchPower``), which ``rsim_run`` already
-        applies.
+        raises ``NotImplementedError``. Prey switching is available
+        instead: set EwE's per-predator ``SwitchPower``
+        (``scenario.params.SwitchPower``), which ``rsim_run`` applies, or
+        use the Prey Switching control on the app's Ecosim page.
     method : str
         Integration method, passed to ``rsim_run``: ``'RK4'``, ``'AB'``
         or one of its continuous methods. Anything else raises
@@ -193,9 +193,10 @@ def rsim_run_advanced(
         raise NotImplementedError(
             "Diet rewiring is not implemented in this version: "
             "rsim_run_advanced never applied the rewired diet (it returned "
-            "the start biomass). Prey switching, EwE's per-predator "
-            "SwitchPower (scenario.params.SwitchPower, applied by rsim_run), "
-            "is the planned replacement. Pass diet_rewiring=None, or "
+            "the start biomass). Prey switching is available instead: set "
+            "EwE's per-predator SwitchPower (scenario.params.SwitchPower, "
+            "applied by rsim_run), or use the Prey Switching control on the "
+            "app's Ecosim page. Pass diet_rewiring=None, or "
             "DietRewiring(enabled=False), to run rsim_run."
         )
     if state_forcing is not None and state_forcing.functions:

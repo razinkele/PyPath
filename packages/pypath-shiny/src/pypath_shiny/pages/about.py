@@ -88,7 +88,7 @@ def about_ui():
                                 ),
                                 ui.tags.li("Fishing effort scenarios"),
                                 ui.tags.li("Environmental forcing"),
-                                ui.tags.li("Diet rewiring (prey switching)"),
+                                ui.tags.li("Prey switching (EwE's switching power)"),
                             ),
                         ),
                         ui.div(

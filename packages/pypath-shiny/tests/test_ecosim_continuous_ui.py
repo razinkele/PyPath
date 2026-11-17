@@ -80,13 +80,10 @@ def test_conditions_name_every_continuous_method():
         assert f'"{method}"' in conditions[0]
 
 
-DIET_NOTE = (
-    "Diet rewiring is not available in this version; prey switching "
-    "(EwE's SwitchPower) is planned as its replacement."
-)
+SWITCHING_CONTROL = 'id="switching_control"'
 
 
-def test_diet_rewiring_controls_are_gone_and_a_note_replaces_them():
+def test_diet_rewiring_controls_are_gone_and_prey_switching_replaces_them():
     page = _ui()
     for input_id in (
         "enable_diet_rewiring",
@@ -97,9 +94,11 @@ def test_diet_rewiring_controls_are_gone_and_a_note_replaces_them():
         assert f'id="{input_id}"' not in page
     assert "Dynamic Diet Rewiring" not in page
     text = html.unescape(page)
-    assert DIET_NOTE in text
-    # Always visible: no open conditional <div> encloses the note.
-    assert not any("data-display-if" in tag for tag in _enclosing_divs(text, DIET_NOTE))
+    assert SWITCHING_CONTROL in text
+    # Always visible: no open conditional <div> encloses the control.
+    assert not any(
+        "data-display-if" in tag for tag in _enclosing_divs(text, SWITCHING_CONTROL)
+    )
 
 
 def _enclosing_divs(text: str, marker: str) -> list[str]:

@@ -66,10 +66,6 @@ class ModelDefaults:
 
     # Diet rewiring defaults
     min_dc: float = 0.1  # Minimum diet coefficient
-    max_dc: float = 5.0  # Maximum diet coefficient
-    switching_power: float = 2.0  # Switching power exponent (also used in forcing_demo)
-    diet_update_interval: int = 12  # Months between diet updates
-    min_diet_proportion: float = 0.001  # Minimum proportion in diet
 
 
 @dataclass
@@ -220,11 +216,6 @@ class ParameterRangesConfig:
     vulnerability_min: int = 1
     vulnerability_max: int = 100
     vulnerability_default: int = 2
-
-    # Switching power ranges
-    switching_power_min: float = 1.0
-    switching_power_max: float = 5.0
-    switching_power_default: float = 2.5
 
     # Rewiring interval ranges
     rewiring_interval_min: int = 1

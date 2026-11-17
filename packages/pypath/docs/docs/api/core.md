@@ -192,7 +192,9 @@ out.solver_info["corrections"]
 
 `rsim_run_advanced` runs `rsim_run`. State forcing and diet rewiring are not
 implemented in this version and raise `NotImplementedError`. Prey switching
-(EwE `SwitchPower`) is the planned replacement for diet rewiring.
+(EwE `SwitchPower`) is available instead of diet rewiring: set
+`scenario.params.SwitchPower`, or use the Prey Switching control on the app's
+Ecosim page.
 
 ::: pypath.core.ecosim_advanced
     options:

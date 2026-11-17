@@ -15,7 +15,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from pypath_shiny.pages import analysis, results  # noqa: E402
-from pypath_shiny.pages.diet_rewiring_demo import build_diet_rewiring_code  # noqa: E402
+from pypath_shiny.pages.diet_rewiring_demo import (
+    build_prey_switching_code,  # noqa: E402
+)
 from pypath_shiny.pages.forcing_demo import build_forcing_code  # noqa: E402
 from pypath_shiny.pages.optimization_demo import build_optimization_code  # noqa: E402
 
@@ -39,9 +41,8 @@ class TestDemoCodeBuilders:
         assert "np.linspace(1, 2, len(years))" in code
 
     def test_diet_code(self):
-        code = build_diet_rewiring_code(2.5, 12, 0.01)
-        assert "switching_power=2.5" in code
-        assert "update_interval=12" in code
+        code = build_prey_switching_code(1.5)
+        assert "SwitchPower" in code
         compile(code, "<diet_example>", "exec")
 
     def test_optimization_code(self):

@@ -33,6 +33,7 @@ from pypath_shiny.services.plotly_viz import (
     build_ibm_size_figure,
     ibm_energy_fractions,
 )
+from pypath_shiny.services.prey_switching import summary, summary_line
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +278,7 @@ def ibm_ui():
                     output_widget(
                         "ibm_biomass_comparison", height="500px", fillable=True
                     ),
+                    ui.output_ui("ibm_switching_line"),
                     ui.p(
                         "Compares standard Ecosim trajectory with IBM-enhanced "
                         "simulation for the selected group.",
@@ -361,6 +363,7 @@ def ibm_server(
     ibm_params = reactive.Value(None)
     ibm_enhanced_output = reactive.Value(None)
     standard_output = reactive.Value(None)
+    ibm_switching = reactive.Value(None)
 
     # ----------------------------------------------------------------
     # Update group choices when scenario changes
@@ -567,10 +570,13 @@ def ibm_server(
         try:
             _notify_legacy("Running standard Ecosim...", type="message", duration=2)
 
+            used = summary(scenario.params)
+
             # Run standard Ecosim (on a deep copy)
             std_scenario = copy.deepcopy(scenario)
             std_result = rsim_run(std_scenario)
             standard_output.set(std_result)
+            ibm_switching.set(used)
 
             _notify_legacy("Running IBM-enhanced Ecosim...", type="message", duration=2)
 
@@ -749,6 +755,16 @@ def ibm_server(
         return pd.DataFrame(rows, columns=["Statistic", "Value"])
 
     # -- Biomass Comparison tab --
+
+    @render.ui
+    def ibm_switching_line():
+        """The prey switching the compared runs used."""
+        if standard_output.get() is None:
+            return None
+        return ui.p(
+            summary_line(ibm_switching.get()),
+            class_="text-muted small mt-2",
+        )
 
     @render_widget
     def ibm_biomass_comparison():

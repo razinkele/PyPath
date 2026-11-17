@@ -172,9 +172,8 @@ def forcing_demo_ui():
                         ui.markdown("""
                         > **Not available in this version.** `rsim_run_advanced`
                         > with state forcing functions raises `NotImplementedError`.
-                        > Use `ForcedBio` on the scenario to force biomass; prey
-                        > switching is planned for diet rewiring. The examples
-                        > below show the intended API only.
+                        > Use `ForcedBio` on the scenario to force biomass. Diet rewiring is deprecated; prey switching is set per predator (`scenario.params.SwitchPower`, or the Ecosim page).
+                        > The examples below show the intended API only.
 
                         ## What is State-Variable Forcing?
 
@@ -325,8 +324,9 @@ def build_forcing_code(forcing_type, mode, group_idx, pattern, pattern_args=None
 # Generated from PyPath Demo
 #
 # NOTE: in this version rsim_run_advanced with state forcing functions raises
-# NotImplementedError. To force biomass, use the scenario's ForcedBio instead;
-# prey switching is planned for diet rewiring.
+# NotImplementedError. To force biomass, use the scenario's ForcedBio instead.
+# Diet rewiring is deprecated; prey switching is set per predator
+# (scenario.params.SwitchPower, or the Ecosim page).
 
 import numpy as np
 from pypath.core.forcing import create_biomass_forcing, StateForcing
