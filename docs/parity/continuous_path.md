@@ -223,7 +223,16 @@ The Ecosim page offers the methods of this page (phase 3b, 2026-11-16). The numb
     - REco's juvenile stages: StanzaPred falls 9-16 % and biomass rises 2-8 %.
     - The Black Sea's Anchovy 0-0+ (3 monthly cohorts, total mortality 23 per year): StanzaPred falls 85 %.
   - **Unperturbed REco.** EwE rule, base effort, LSODA at rtol 1e-9, two years. With survival and growth refined to 16 steps a month (the limit 4a would have reached), it drifts up to 6.1 % from its base (median 0.40 %, worst JuvRoundfish2). With the monthly update it drifts 0.85 % at most (median 7e-5).
-  - **The earlier "gain" was this artefact.** The phase-4 study measured the same refinement on perturbed runs as an error of the monthly split: 0.42 % median and 5.9 % max on REco, worst JuvRoundfish2. That is the same size and the same group, so it measured the artefact, not an accuracy gain.
+  - **The earlier "gain" was almost entirely this artefact.** The phase-4 study measured the same refinement on perturbed runs (REco at effort 2) as an error of the monthly split: 0.42 % median and 5.9 % max, worst JuvRoundfish2.
+    - **Separating the two.** Same settings, ten years, K = 16 against the monthly update, the largest difference per group over the run:
+
+      | Run | Median | Max |
+      |---|---|---|
+      | Effort 2 (the study's scenario) | 0.85 % | 5.85 % (JuvRoundfish2) |
+      | Effort 1, unperturbed (the artefact alone) | 0.74 % | 5.82 % (JuvRoundfish2) |
+      | The part that depends on the perturbation | 0.09 % | 0.37 % (JuvRoundfish1) |
+
+    - **What it leaves.** At most a few tenths of a percent could be a gain from finer coupling. That remainder was not separated further.
   - **What would work instead.** Continuous ageing would be a different model, an age-structured transport, with no EwE reference. Design section 3 rejected that model.
 - The budget residuals are None in a month with forced biomass, so a model that forces biomass in every month (LT2022) is not budget-checked on this path.
 - A fishery on a detritus pool closes the budget under both rules: the 'rpath' rule takes the catch from the pool and `exchange_rate` counts its landed part; the EwE rule leaves the catch and its discards in place, as EwE does (`deviations.md`, R6), and books none of it as landed. On REco with 5 landed from Detritus, or forced F 0.1 on Detritus, `budget_residual` stays within 4e-9 a month under the EwE rule (1e-8 under 'rpath').
