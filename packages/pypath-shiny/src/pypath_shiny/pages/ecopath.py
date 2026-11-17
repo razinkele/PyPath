@@ -614,6 +614,11 @@ def ecopath_server(
     params = reactive.Value(None)
     balanced_model = reactive.Value(None)
     balance_task_state = reactive.Value(TaskState(run_id="ecopath-balance-idle"))
+    # Plain state, not reactive: set when the working params are replaced by
+    # another model's, cleared by a successful Balance. A Balance of new
+    # params publishes a different model, not a re-balance, so it leaves
+    # the re-balance mark clear.
+    params_status = {"new_since_balance": False}
 
     # Watch for changes in model_data (from imports or other sources)
     @reactive.effect
@@ -625,6 +630,7 @@ def ecopath_server(
             if is_rpath_params(imported) and hasattr(imported, "diet"):
                 # It's RpathParams - use it
                 params.set(imported)
+                params_status["new_since_balance"] = True
                 n_groups = len(imported.model)
                 n_diet = imported.diet.iloc[:, 1:].notna().sum().sum()
                 _notify_legacy(
@@ -642,6 +648,7 @@ def ecopath_server(
                 # A balanced Rpath from elsewhere - recreate editable params
                 recreated_params = _recreate_params_from_model(imported)
                 params.set(recreated_params)
+                params_status["new_since_balance"] = True
                 _notify_legacy(
                     f"Loaded balanced model: {imported.NUM_GROUPS} groups",
                     type="message",
@@ -670,6 +677,7 @@ def ecopath_server(
             # Create parameters
             new_params = create_rpath_params(names, types)
             params.set(new_params)
+            params_status["new_since_balance"] = True
 
             _notify_legacy(
                 f"Created parameter template with {len(names)} groups", type="message"
@@ -1273,6 +1281,7 @@ def ecopath_server(
             return
 
         params.set(new_params)
+        params_status["new_since_balance"] = True
         model_data.set(new_params)
         _notify_legacy(
             f"Loaded {len(new_params.model)} groups from uploaded CSVs",
@@ -1366,9 +1375,10 @@ def ecopath_server(
             # Balance the model
             model = rpath(p, eco_name=input.eco_name())
             balanced_model.set(model)
-            if rebalance_mark is not None:
+            if rebalance_mark is not None and not params_status["new_since_balance"]:
                 rebalance_mark.set(True)
             model_data.set(model)
+            params_status["new_since_balance"] = False
 
             _notify_legacy("Model balanced successfully!", type="message")
             balance_task_state.set(

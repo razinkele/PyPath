@@ -66,6 +66,108 @@ def test_only_the_rebalance_sets_the_mark_before_model_data():
     assert len(mark_sets) == 1
 
 
+# The Ecopath page's plain flag: the working params are new since the last
+# balance, so the next Balance publishes a different model, not a re-balance.
+FLAG = "params_status['new_since_balance']"
+
+
+def _flag_assigned(stmt, value):
+    return (
+        isinstance(stmt, ast.Assign)
+        and [ast.unparse(t) for t in stmt.targets] == [FLAG]
+        and ast.unparse(stmt.value) == value
+    )
+
+
+def _is_params_set(stmt):
+    return isinstance(stmt, ast.Expr) and _is_call(stmt.value, "params.set")
+
+
+def test_every_replacement_of_the_working_params_marks_them_new():
+    server = _find_function(_ecopath_tree(), "ecopath_server")
+    flagged = set()
+    for fn in ast.walk(server):
+        if not isinstance(fn, ast.FunctionDef) or fn is server:
+            continue
+        for block in _blocks(fn):
+            if any(_is_params_set(stmt) for stmt in block):
+                assert any(_flag_assigned(stmt, "True") for stmt in block), fn.name
+                flagged.add(fn.name)
+    # Create parameters, the CSV upload, and a model loaded from elsewhere.
+    assert {"_create_params", "_load_params_from_csv", "_sync_model_data"} <= flagged
+
+
+def test_a_load_marks_the_params_new_only_after_the_own_model_check():
+    sync = _find_function(_ecopath_tree(), "_sync_model_data")
+    for node in ast.walk(sync):
+        if isinstance(node, ast.If) and ast.unparse(node.test) == "own is imported":
+            assert not any(_flag_assigned(s, "True") for s in node.body)
+    # Never at the top of the effect: our own balance must keep it clear.
+    assert not any(_flag_assigned(s, "True") for s in sync.body)
+
+
+def test_the_mark_is_set_only_while_the_params_are_not_new():
+    balance = _find_function(_ecopath_tree(), "_balance_model")
+    for block in _blocks(balance):
+        for i, stmt in enumerate(block):
+            if _is_model_data_set(stmt):
+                guard = block[i - 1]
+                assert isinstance(guard, ast.If) and _is_mark_true(guard)
+                assert f"not {FLAG}" in ast.unparse(guard.test)
+                # Cleared after the model is published, on the success path.
+                assert any(_flag_assigned(s, "False") for s in block[i + 1 :])
+                return
+    raise AssertionError("_balance_model publishes no model")
+
+
+def test_the_flag_starts_clear_and_is_plain_state():
+    server = _find_function(_ecopath_tree(), "ecopath_server")
+    inits = [
+        n
+        for n in server.body
+        if isinstance(n, ast.Assign)
+        and [ast.unparse(t) for t in n.targets] == ["params_status"]
+    ]
+    assert len(inits) == 1
+    assert ast.unparse(inits[0].value) == "{'new_since_balance': False}"
+
+
+def test_retire_handler_consumes_the_mark_first():
+    fn = _find_function(_ecosim_tree(), "_retire_run_on_model_change")
+    body = fn.body
+    if isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        body = body[1:]  # the docstring
+    first = body[0]
+    assert isinstance(first, ast.With)
+    assert [ast.unparse(i.context_expr) for i in first.items] == ["reactive.isolate()"]
+    inside = [ast.unparse(n.func) for n in ast.walk(first) if isinstance(n, ast.Call)]
+    assert "rebalance_mark.get" in inside
+    assert "rebalance_mark.set" in inside
+    # The mark is touched nowhere else in the handler.
+    rest = [
+        n
+        for stmt in body[1:]
+        for n in ast.walk(stmt)
+        if isinstance(n, ast.Name) and n.id == "rebalance_mark"
+    ]
+    assert rest == []
+
+
+def test_retire_handler_reads_consumers_only_when_they_are_needed():
+    fn = _find_function(_ecosim_tree(), "_retire_run_on_model_change")
+    calls = [n for n in ast.walk(fn) if _is_call(n, "consumers_from_model")]
+    assert calls
+    guarded = set()
+    for node in ast.walk(fn):
+        if isinstance(node, (ast.If, ast.IfExp)):
+            test = ast.unparse(node.test)
+            if "rebalance" in test and "overrides" in test:
+                branch = node.body if isinstance(node, ast.If) else [node.body]
+                for part in branch:
+                    guarded.update(id(n) for n in ast.walk(part))
+    assert all(id(c) in guarded for c in calls)
+
+
 def test_retire_handler_consumes_the_mark_and_applies_the_store_rule():
     fn = _find_function(_ecosim_tree(), "_retire_run_on_model_change")
     calls = [n for n in ast.walk(fn) if isinstance(n, ast.Call)]

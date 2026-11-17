@@ -1154,6 +1154,14 @@ def ecosim_server(
     def _retire_run_on_model_change():
         """A new model retires the run and drops the old model's scenario and
         results, so neither the Results pages nor a Run use them."""
+        # One-shot, consumed first, whatever happens below: only the
+        # re-balance that published this model keeps the overrides.
+        with reactive.isolate():
+            rebalance = (
+                bool(rebalance_mark.get()) if rebalance_mark is not None else False
+            )
+            if rebalance_mark is not None:
+                rebalance_mark.set(False)
         note = _model_change_notice(
             scenario.get(),
             sim_output.get(),
@@ -1171,17 +1179,18 @@ def ecosim_server(
             notify_info(note, duration=6)
         scenario_switching_key.set(None)
         with reactive.isolate():
-            # One-shot: only the re-balance that published this model keeps the
-            # overrides; the mark is consumed either way.
-            rebalance = (
-                bool(rebalance_mark.get()) if rebalance_mark is not None else False
+            store = switching_store.get()
+            # Read only when a re-balance has overrides to filter, so an odd
+            # model value cannot raise here and close the session.
+            consumers = (
+                consumers_from_model(model_data.get())
+                if rebalance and store.overrides
+                else []
             )
-            if rebalance_mark is not None:
-                rebalance_mark.set(False)
             new_store, switching_note = on_model_change(
-                switching_store.get(),
+                store,
                 rebalance=rebalance,
-                consumers=consumers_from_model(model_data.get()),
+                consumers=consumers,
                 keep_ewe=_matching_ewe_source() is not None,
             )
             switching_store.set(new_store)
