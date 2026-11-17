@@ -9,6 +9,7 @@ The last test prints the differences from the RK4 path and the cost that
 ``docs/parity/continuous_path.md`` quotes.
 """
 
+import contextlib
 import copy
 import time
 import warnings
@@ -26,6 +27,7 @@ from tests.test_ecosim_continuous_speed import (
     _cpu,
     _exact_call_cpu,
     _loadavg,
+    python_loop_reference,
 )
 
 DATA = Path(__file__).resolve().parents[3] / "Data"
@@ -328,15 +330,20 @@ def test_ten_year_cost(model, method):
     Phase 2's protocol: a warm-up of each method, interleaved pairs, the
     minimum of the samples, ``process_time``. Asserted: the RK4 ratio against
     ``COST_BOUNDS``; for REco also CPU per evaluation at most
-    ``EVAL_COST_BOUND`` x one exact derivative call. The per-evaluation
-    figures are printed (the page quotes them).
+    ``EVAL_COST_BOUND`` x one exact derivative call. RK4 and the exact call
+    run on the Python consumption loop, as the bounds were calibrated, also
+    when numba is installed. The per-evaluation figures are printed (the
+    page quotes them).
     """
     scen = MODELS[model]()
     years = range(1, 11)
 
     def run(m, yrs=years):
         s = copy.deepcopy(scen)
-        with warnings.catch_warnings():
+        # the RK4 reference runs on the Python consumption loop, as the
+        # bounds were calibrated (python_loop_reference says why)
+        ref = python_loop_reference() if m == "RK4" else contextlib.nullcontext()
+        with warnings.catch_warnings(), ref:
             warnings.simplefilter("ignore")
             return _cpu(lambda: rsim_run(s, method=m, years=yrs))
 
