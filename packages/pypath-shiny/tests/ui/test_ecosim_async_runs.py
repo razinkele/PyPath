@@ -65,6 +65,7 @@ MONTH = re.compile(r"Month (\d+) of (\d+) \((\d+)%\)")
 # cancelled run stops at its next month boundary (a 50-year run takes about a
 # minute to end on its own).
 RESTART_LIMIT = 5.0
+PROGRESS_WAIT = 20.0  # longest wait for three advancing month readings
 
 
 # --- the server ------------------------------------------------------------
@@ -282,10 +283,19 @@ def _run_accepted(page, since: float, limit: float) -> tuple[float, int]:
     month boundary yet); fails after ``limit`` seconds from ``since``.
     """
     clicks = 0
-    while time.monotonic() - since < limit:
+    while (remaining := limit - (time.monotonic() - since)) > 0:
         clicks += 1
-        if _click_for_note(page, "#btn_run_sim", ACCEPTED, timeout=3):
-            return time.monotonic() - since, clicks
+        # never wait for the note past the deadline, and never count a late
+        # acceptance as a timely one
+        accepted = _click_for_note(
+            page, "#btn_run_sim", ACCEPTED, timeout=min(3.0, remaining)
+        )
+        elapsed = time.monotonic() - since
+        if accepted:
+            assert elapsed <= limit, (
+                f"run accepted {elapsed:.2f} s after, past the {limit} s limit"
+            )
+            return elapsed, clicks
         notes = _notes(page)
         assert any(FINISHING in n for n in notes), notes
         time.sleep(0.25)
@@ -335,17 +345,24 @@ def test_cancel_stops_at_a_month_and_a_new_run_starts_at_once(server, browser):
     _start_run(page)
     time.sleep(0.3)  # past the one Starting -> Integrating rebuild
     cancel = page.locator("#btn_cancel_sim").element_handle()
-    ticks, readings = [], []
-    for _ in range(5):
+    # Poll (bounded) until three advancing month readings and three distinct
+    # elapsed ticks have been seen, rather than sampling at fixed times: the
+    # first month may complete late on a slow machine.
+    ticks, seen = [], []
+    deadline = time.monotonic() + PROGRESS_WAIT
+    while time.monotonic() < deadline:
         ticks.append(_text(page, "#sim_elapsed"))
-        readings.append(_month(page))
-        time.sleep(1.2)
+        month, style = _month(page)
+        if month is not None and (not seen or month[0] > seen[-1][0][0]):
+            seen.append((month, style))
+        if len(seen) >= 3 and len(set(ticks)) >= 3:
+            break
+        time.sleep(0.5)
     assert all(t.startswith("Elapsed:") for t in ticks), ticks
     assert len(set(ticks)) >= 3, ticks  # it ticks while the run computes
     # The months done appear and grow, out of 50 years' 600, and each
     # reading's bar is as wide as its percentage.
-    seen = [(m, style) for m, style in readings if m is not None]
-    assert len(seen) >= 3, readings
+    assert len(seen) >= 3, (seen, ticks)
     assert all(total == 600 for (_, total, _), _ in seen), seen
     done = [m for (m, _, _), _ in seen]
     assert done == sorted(done) and done[-1] > done[0], seen
