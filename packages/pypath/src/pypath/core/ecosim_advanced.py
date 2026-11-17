@@ -16,7 +16,7 @@ that no simulation calls.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -133,14 +133,16 @@ def rsim_run_advanced(
     method: str = "RK4",
     years: Optional[range] = None,
     verbose: bool = False,
+    *,
+    on_month: Optional[Callable[[int, int], Optional[bool]]] = None,
 ) -> RsimOutput:
     """Run Ecosim with ``rsim_run``. Diet rewiring and state forcing are refused.
 
     Without diet rewiring or state forcing, this is
-    ``rsim_run(scenario, method=method, years=years)``. Its output is
-    returned unchanged. An unknown ``method``, or a ``years`` range that
-    does not start at ``scenario.start_year``, raises ``rsim_run``'s
-    ``ValueError``.
+    ``rsim_run(scenario, method=method, years=years, on_month=on_month)``.
+    Its output is returned unchanged. An unknown ``method``, or a ``years``
+    range that does not start at ``scenario.start_year``, raises
+    ``rsim_run``'s ``ValueError``.
 
     Diet rewiring and state forcing are not implemented in this version.
     Either one raises ``NotImplementedError``. Earlier versions ran a
@@ -175,6 +177,10 @@ def rsim_run_advanced(
         else ``ValueError``.
     verbose : bool
         Unused, kept for compatibility.
+    on_month : callable, optional
+        Passed to ``rsim_run``: called as ``on_month(month, n_months)`` at
+        the end of every simulated month; returning True stops the run with
+        ``RunCancelled``.
 
     Returns
     -------
@@ -188,6 +194,8 @@ def rsim_run_advanced(
         function.
     ValueError
         From ``rsim_run``: an unknown ``method`` or an offset ``years``.
+    RunCancelled
+        From ``rsim_run``, when ``on_month`` returns True.
     """
     if diet_rewiring is not None and diet_rewiring.enabled:
         raise NotImplementedError(
@@ -207,7 +215,7 @@ def rsim_run_advanced(
             "biomass), recruitment with scenario.forcing.ForcedRecs or catch "
             "with scenario.fishing.ForcedCatch, and run rsim_run."
         )
-    return rsim_run(scenario, method=method, years=years)
+    return rsim_run(scenario, method=method, years=years, on_month=on_month)
 
 
 def create_advanced_scenario(

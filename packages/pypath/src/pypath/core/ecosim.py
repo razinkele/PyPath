@@ -10,7 +10,7 @@ from __future__ import annotations
 import copy
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
 
 import numpy as np
 
@@ -60,6 +60,10 @@ DELTA_T = 1.0 / 12.0  # Monthly timestep in years
 STEPS_PER_YEAR = 12
 EPSILON = 1e-10
 BIGNUM = 1e10
+
+
+class RunCancelled(RuntimeError):
+    """Raised by ``rsim_run`` when its ``on_month`` callback asks the run to stop."""
 
 
 @dataclass
@@ -2617,6 +2621,7 @@ def rsim_run(
     ecotracer=None,
     fleet_dynamics=None,
     solver_options: Optional[dict] = None,
+    on_month: Optional[Callable[[int, int], Optional[bool]]] = None,
 ) -> RsimOutput:
     """Run Ecosim simulation.
 
@@ -2701,11 +2706,26 @@ def rsim_run(
         ``out_Catch_month_end`` is EwE's F x month-end biomass / 12;
         ``out_Hden[m]`` is solved at the integrated month-end state, before
         the stanza update.
+    on_month : callable, optional
+        Called as ``on_month(month, n_months)`` once per simulated month, on
+        every method, at the very end of that month's iteration, after every
+        output for the month is stored (the year's annual Qlink included).
+        ``month`` is the number of months completed so far, from 1;
+        ``n_months`` is the run's total. Returning True stops the run with
+        ``RunCancelled``; only the bool True stops the run, and any other
+        value (None or False) continues it. An exception the callback raises
+        propagates unchanged. A month already in progress is never
+        interrupted. Without it (None, the default) the run is unchanged.
 
     Returns
     -------
     RsimOutput
         Simulation results
+
+    Raises
+    ------
+    RunCancelled
+        When ``on_month`` returns True.
     """
     from pypath.core.ecosim_deriv import integrate_ab, integrate_rk4
 
@@ -3667,6 +3687,11 @@ def rsim_run(
             _fleet_out_revenue[month] = _revenue
             _fleet_out_cost[month] = _cost
             _fleet_out_profit[month] = _revenue - _cost
+
+        # Last in the month, with every output for it stored: the caller may
+        # stop the run here, between months (never inside one).
+        if on_month is not None and on_month(month, n_months) is True:
+            raise RunCancelled(f"run cancelled after month {month} of {n_months}")
 
     # Calculate annual values
     annual_biomass = np.zeros((n_years, n_groups))
