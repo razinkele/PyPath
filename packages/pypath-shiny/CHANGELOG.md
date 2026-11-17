@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.6.0 (2026-11-17)
+
+### Bug Fixes
+
+- **d1**: Harden the origin rule after review
+  ([`c033978`](https://github.com/razinkele/PyPath/commit/c0339786e787a8ef4050ff42faad53d113681c65))
+
+### Features
+
+- **shiny**: The Ecosim rule select follows the model's origin (D1)
+  ([`153d698`](https://github.com/razinkele/PyPath/commit/153d698c45ecc50f6c778d620b519a2ba2cede37))
+
+
 ## v1.5.0 (2026-11-17)
 
 ### Bug Fixes
