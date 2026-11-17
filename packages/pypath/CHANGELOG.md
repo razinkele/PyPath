@@ -6,6 +6,158 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.7.0 (2026-11-17)
+
+### Bug Fixes
+
+- **ecosim**: 6+6 quadrature under linear forcing; constant rule without a kink; interpolant checks
+  ([`4f7fa3a`](https://github.com/razinkele/PyPath/commit/4f7fa3acdfca04b67a833ce099aac048d5df8fba))
+
+- **ecosim**: A fished detritus pool loses its catch under the rpath rule
+  ([`a7c673f`](https://github.com/razinkele/PyPath/commit/a7c673f745184a389ea90fbb136901fabb01747b))
+
+- **ecosim**: Cap the log state's atol at 0.1; strengthen the floor and Jacobian tests
+  ([`beaef00`](https://github.com/razinkele/PyPath/commit/beaef00d4b589795b8b21597a6439031e06f84f8))
+
+- **ecosim**: Continuous failures name the month; degraded, steps, corrections
+  ([`bf7f1ee`](https://github.com/razinkele/PyPath/commit/bf7f1ee562c3962be0add22919262dc1067e45bd))
+
+- **ecosim**: Continuous final review fixes (hden residual export, ftime start clip, budget guards,
+  atol_ftime)
+  ([`5dfb15d`](https://github.com/razinkele/PyPath/commit/5dfb15d821641d7a125b4e89a33ff3dd82d91897))
+
+- **ecosim**: Coupled and undamped handling-time passes hold no component
+  ([`3b7e916`](https://github.com/razinkele/PyPath/commit/3b7e91680fa23c37b45761c21c20640627ea9394))
+
+- **ecosim**: Drop first-step reuse; Black Sea ratio bound 40
+  ([`5c0c78c`](https://github.com/razinkele/PyPath/commit/5c0c78c9da3288f999d49f7e9605b0c15b8d7f63))
+
+- **ecosim**: EwE fast-group flags ignore detritus fisheries; note the matrix detritus path
+  ([`1480da5`](https://github.com/razinkele/PyPath/commit/1480da529a016a381256bb8dada12d443a482f43))
+
+- **ecosim**: EwE-rule pool fishery leaves the budget closed; warnings for ignored forced F and
+  ambiguous self-weights
+  ([`a8a30d7`](https://github.com/razinkele/PyPath/commit/a8a30d7d3365408ada1f1a3c5370683fcea8ff20))
+
+- **ecosim**: Export and landed catch from parameters and links; count negative export
+  ([`d33c40b`](https://github.com/razinkele/PyPath/commit/d33c40b3a7657915c310321f47a0831f9de38e32))
+
+- **ecosim**: FD step floor 1 for log states, capped for a large atol; finite Jacobians held;
+  kernel_check warns
+  ([`307e698`](https://github.com/razinkele/PyPath/commit/307e698d5b8b343eebc32031fde4eb14a2bf9327))
+
+- **ecosim**: HandleSelf / ScrambleSelf keyed by predator, not link index
+  ([`cd406e5`](https://github.com/razinkele/PyPath/commit/cd406e5011d00bf3d3b1502ce1dfd2fcdee77995))
+
+- **ecosim**: Honour tol after the hybr fallback; isolate _det_out; stronger no-mutation test
+  ([`e247c2d`](https://github.com/razinkele/PyPath/commit/e247c2d2f252dcb8cef2ae8e34f3bbd0bf96bda1))
+
+- **ecosim**: Independent Hden check; df_once sums over pool destinations only
+  ([`d4966b8`](https://github.com/razinkele/PyPath/commit/d4966b8aa7d52ab2e34735b60049f0da72501585))
+
+- **ecosim**: LSODA Jacobian reuse treats a retreat in t as a retry
+  ([`0f21961`](https://github.com/razinkele/PyPath/commit/0f219618084670c67d2458c962a6870f89ae17a1))
+
+- **ecosim**: Month integrator treats non-finite rates as failure; cover failure branches
+  ([`93de074`](https://github.com/razinkele/PyPath/commit/93de07487f8b7fdccc46229d4d6ada133da0cf41))
+
+- **ecosim**: Month integrator treats non-finite results as failure; t_reached
+  ([`05ed386`](https://github.com/razinkele/PyPath/commit/05ed386b88acef3ea8b02b916ecafff8cfa818f4))
+
+- **ecosim**: Offset years raise in rsim_run_advanced and rsim_run_spatial
+  ([`97d0a63`](https://github.com/razinkele/PyPath/commit/97d0a63dcf5776368b2868ae5d4d083683877552))
+
+- **ecosim**: Quasi-steady accepts only attracting roots; pseudo-transient fallback
+  ([`26a13a2`](https://github.com/razinkele/PyPath/commit/26a13a2415a747f60365a7c7d8a9ba42a3db8f05))
+
+- **ecosim**: Quasi-steady solve falls back to full Newton and hybr before failing
+  ([`6010e7c`](https://github.com/razinkele/PyPath/commit/6010e7ccd727dd91b277418e991caee7ee748894))
+
+- **ecosim**: Refuse rsim_run years that do not start at the scenario's first year
+  ([`7780ee7`](https://github.com/razinkele/PyPath/commit/7780ee7cc830ecc542d60fe7b8bd2958ffd0e642))
+
+- **ecosim**: Rpath's scramble-weight formula (pooled handling time)
+  ([`7810ef2`](https://github.com/razinkele/PyPath/commit/7810ef2fab60d21fe2c277542507c6b167d3be5c))
+
+- **ecosim**: Rsim_run_advanced delegates to rsim_run and refuses diet rewiring (never implemented)
+  ([`d13f567`](https://github.com/razinkele/PyPath/commit/d13f56731b06df88ab500fde54073844a7bfe752))
+
+- **ecosim**: Skip discards of an ignored detritus fishery under the EwE rule
+  ([`16d9b0a`](https://github.com/razinkele/PyPath/commit/16d9b0af2a61f3303e492462ddeca55f0952f8ed))
+
+- **mediation**: Index fleet multipliers by the 0-based fleet in fishing_mortality
+  ([`1d05b72`](https://github.com/razinkele/PyPath/commit/1d05b725a41b98859aa813e9b5c8e19d01633651))
+
+- **shiny**: Cancel texts say the run stops at the end of its month
+  ([`1093ef6`](https://github.com/razinkele/PyPath/commit/1093ef6be5ae9020aea2a6e0c788edd61a67a77d))
+
+### Features
+
+- **core**: Deprecate DietRewiring in favour of SwitchPower
+  ([`a42a28c`](https://github.com/razinkele/PyPath/commit/a42a28c1a5909cbe518bd94ee1e45b861a3669f5))
+
+- **core**: Rsim_run on_month hook and RunCancelled
+  ([`d5f9a14`](https://github.com/razinkele/PyPath/commit/d5f9a14566d692b2a968594a06f40994b73d6f71))
+
+- **ecosim**: Continuous path in rsim_run (lsoda, dop853, radau, bdf)
+  ([`0c2e7bc`](https://github.com/razinkele/PyPath/commit/0c2e7bc2e1c0aaaaf3f736bda4ec7c388c879530))
+
+- **ecosim**: Derivative flags for the continuous path (exact Hden, R5 closure, DF once)
+  ([`7594ff8`](https://github.com/razinkele/PyPath/commit/7594ff8c830543bdd5927b1403d8af8dacc6f937))
+
+- **ecosim**: Feeding time as a state of the continuous path
+  ([`8d64c6a`](https://github.com/razinkele/PyPath/commit/8d64c6a2a5185ca5a40b870bd35ad679f2848984))
+
+- **ecosim**: Handling time as a fixed point of the state (continuous path)
+  ([`8a3f502`](https://github.com/razinkele/PyPath/commit/8a3f502d3488c3fe5b226e75585025f46833c307))
+
+- **ecosim**: Interpolated mediation and applicable corrections on the continuous path
+  ([`46a629d`](https://github.com/razinkele/PyPath/commit/46a629d6273a4784afc337ae59cef7bb9f88a54f))
+
+- **ecosim**: Log-transformed biomass states on the continuous path (opt-in)
+  ([`e0f5442`](https://github.com/razinkele/PyPath/commit/e0f54426324e3e5ea004ff91a9c6ff0ae62731cf))
+
+- **ecosim**: Mean-preserving linear forcing on the continuous path (opt-in)
+  ([`45ddd2f`](https://github.com/razinkele/PyPath/commit/45ddd2fa956ebf5f397e9d8c9115fed4e82a627c))
+
+- **ecosim**: Month integrator with quadrature (continuous path)
+  ([`ab13290`](https://github.com/razinkele/PyPath/commit/ab13290eb1a2b263a916b208da65663de7b18b4f))
+
+- **ecosim**: Month-integral mass budget, nutrient check and residuals in solver_info
+  ([`3347ce1`](https://github.com/razinkele/PyPath/commit/3347ce1d9babcb5cc6fdde784f303debd728322b))
+
+- **ecosim**: Pure right-hand side for the continuous path
+  ([`d3beae5`](https://github.com/razinkele/PyPath/commit/d3beae55d4cf9cb18cb948d7d8ea75288f00a92c))
+
+- **ecosim**: Quasi-steady fast groups on the continuous path (opt-in)
+  ([`a41ee0a`](https://github.com/razinkele/PyPath/commit/a41ee0a8a2e1a6921df8c08f7cbd8f34388412ae))
+
+- **ecosim**: Reject unknown integration methods; solver_info field
+  ([`d511833`](https://github.com/razinkele/PyPath/commit/d5118330db437d527fc66e6ff7e21ff425257c61))
+
+### Performance Improvements
+
+- **ecosim**: First-step reuse, atol follows rtol, timing budget
+  ([`b53f761`](https://github.com/razinkele/PyPath/commit/b53f761c135710fe6c88b78cdd20c8e044cf3c9c))
+
+- **ecosim**: Handling time on a vectorised kernel with a bracketed iteration; hden_tol
+  ([`e54057c`](https://github.com/razinkele/PyPath/commit/e54057c40b92c05b1a9840584d161991ecdb7d2d))
+
+- **ecosim**: Newton handling time and a vectorised consumption pass on the continuous path
+  ([`b3fc62c`](https://github.com/razinkele/PyPath/commit/b3fc62cb911a37bad5d4de839782d16f3d7a02ad))
+
+- **ecosim**: Reuse finite-difference Jacobians across monthly restarts
+  ([`cb6d6f4`](https://github.com/razinkele/PyPath/commit/cb6d6f480452661653c1b5463abad66458368af9))
+
+### Refactoring
+
+- **ecosim**: Shared run setup and month forcing; parity capture script
+  ([`d26aa3d`](https://github.com/razinkele/PyPath/commit/d26aa3d54f51c28b8831c0409cadd5b2bdad34e5))
+
+- **ecosim**: Split ecosim_continuous into a package (no behaviour change)
+  ([`9d7b901`](https://github.com/razinkele/PyPath/commit/9d7b901a902ab357072462a9f9550c0d682b7e6d))
+
+
 ## v1.6.0 (2026-11-14)
 
 ### Bug Fixes
