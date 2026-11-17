@@ -1,15 +1,17 @@
 """Ecosim simulation page module."""
 
+import asyncio
+import copy
+import itertools
 import logging
+import time
 
 import numpy as np
 import pandas as pd
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.autofix import validate_and_fix_scenario
-from pypath.core.ecosim import RsimScenario, rsim_run, rsim_scenario
-from pypath.core.ecosim_advanced import rsim_run_advanced
-from pypath.core.forcing import DietRewiring
+from pypath.core.ecosim import RsimScenario, rsim_scenario
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shiny.types import SilentException
 
@@ -26,6 +28,8 @@ except ImportError:  # pragma: no cover
 
 
 # Import centralized configuration
+from pypath.core.ecosim_continuous import QS_RATE_DEFAULT
+
 from pypath_shiny.config import PARAM_RANGES, THRESHOLDS, UI
 from pypath_shiny.pages.ewe_scenario import (
     build_ewe_scenario,
@@ -41,6 +45,22 @@ from pypath_shiny.services.ecosim_controls import (
     validate_metabolism_control,
     validate_recruitment_control,
 )
+from pypath_shiny.services.ecosim_solver import (
+    CONTINUOUS_JS,
+    INTERPOLATION_CHOICES,
+    MAX_CONCURRENT_RUNS,
+    METHOD_CHOICES,
+    PRESET_CHOICES,
+    RUN_EXECUTOR,
+    RunOutcome,
+    RunSlot,
+    SolverRequest,
+    build_solver_request,
+    continuous_failure_hint,
+    is_continuous,
+    result_is_current,
+    run_ecosim,
+)
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -54,6 +74,18 @@ from pypath_shiny.services.plotly_viz import (
     build_effort_figure,
     build_initial_final_figure,
 )
+from pypath_shiny.services.solver_diagnostics import (
+    flagged_months as _flagged_months,
+)
+from pypath_shiny.services.solver_diagnostics import (
+    solver_badges as _solver_badges,
+)
+from pypath_shiny.services.solver_diagnostics import (
+    solver_month_table as _month_table,
+)
+from pypath_shiny.services.solver_diagnostics import (
+    solver_summary as _solver_summary,
+)
 from pypath_shiny.services.tasks import (
     TaskState,
     TaskStatus,
@@ -65,6 +97,12 @@ from pypath_shiny.services.tasks import (
 
 
 # Helper to check model balance and show notification if not
+def _group_names(scen) -> list[str] | None:
+    """Group names of a scenario (index 0 is Outside), or None."""
+    spname = getattr(getattr(scen, "params", None), "spname", None)
+    return None if spname is None else [str(n) for n in spname]
+
+
 def _require_balanced_model_or_notify(model) -> bool:
     """Return True if model is balanced, otherwise show a UI error and return False."""
     from pypath_shiny.pages.utils import is_balanced_model
@@ -79,6 +117,94 @@ def _require_balanced_model_or_notify(model) -> bool:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _solver_request_or_notify(
+    method,
+    *,
+    diet_rewiring,
+    preset,
+    log_states,
+    forcing_interpolation,
+    quasi_steady,
+    qs_rate,
+) -> SolverRequest | None:
+    """Build the solver request, or notify and return None on a bad combination."""
+    try:
+        request = build_solver_request(
+            method,
+            preset=preset,
+            log_states=log_states,
+            forcing_interpolation=forcing_interpolation,
+            quasi_steady=quasi_steady,
+            qs_rate=qs_rate,
+            diet_rewiring=diet_rewiring,
+        )
+    except ValueError as e:
+        notify_warning(str(e), duration=8)
+        return None
+    for note in request.notes:
+        notify_info(note, duration=8)
+    return request
+
+
+MODEL_CHANGED_NOTE = "Model changed: create the scenario again before running."
+
+
+def _model_change_notice(*cleared) -> str | None:
+    """The note for a model load, or None when it cleared nothing.
+
+    ``cleared`` are the scenario and results the load dropped; a first model
+    load, with none of them, says nothing.
+    """
+    return MODEL_CHANGED_NOTE if any(v is not None for v in cleared) else None
+
+
+# Short method names for messages: LSODA, BDF, DOP853, Radau, Runge-Kutta 4...
+_METHOD_NAMES = {
+    method: label.split(" (")[0]
+    for group in METHOD_CHOICES.values()
+    for method, label in group.items()
+}
+
+
+def _success_message(method: str) -> str:
+    """The notification for a run that finished without a crash."""
+    if is_continuous(method):
+        name = _METHOD_NAMES.get(method, method)
+        return f"Simulation completed with {name} (continuous, not EwE parity)."
+    return "Simulation completed successfully!"
+
+
+def _failure_message(error: str, method: str, preset: str) -> str:
+    """The notification for a failed run, with advice only where it can help."""
+    hint = continuous_failure_hint(method, preset, error)
+    return f"Simulation error: {error}" + (f" {hint}" if hint else "")
+
+
+def _flagged_months_view(flagged):
+    """The flagged-months table, scrolling inside a box of capped height.
+
+    A long run can flag hundreds of months; the box keeps the panel short,
+    and every month stays in the table.
+    """
+    if flagged.empty:
+        return ui.p("No month flagged.", class_="text-muted mb-2")
+    return ui.div(
+        ui.h6("Flagged months"),
+        ui.div(
+            ui.HTML(
+                flagged.to_html(
+                    index=False,
+                    classes="table table-sm",
+                    border=0,
+                    float_format=lambda x: f"{x:.3g}",
+                )
+            ),
+            style="max-height: 320px; overflow-y: auto; overflow-x: auto;",
+        ),
+        class_="mb-2",
+    )
 
 
 def detritus_self_fate_message(model) -> str | None:
@@ -110,10 +236,12 @@ def _notify_detritus_self_fate(model) -> None:
 def build_task_status_alert(task_state: TaskState) -> tuple[str, str, str]:
     """Map task state to bootstrap alert class, icon, and message."""
     if task_state.status is TaskStatus.RUNNING:
+        # No percentage at 0: the Ecosim bar is indeterminate.
+        pct = f" ({task_state.progress:.0f}%)" if task_state.progress > 0 else ""
         return (
             "alert alert-info",
             "bi bi-arrow-repeat me-2",
-            f"{task_state.message} ({task_state.progress:.0f}%)",
+            f"{task_state.message}{pct}",
         )
     if task_state.status is TaskStatus.ERROR:
         msg = task_state.error or task_state.message or "Simulation failed."
@@ -237,26 +365,89 @@ def ecosim_ui() -> ui.Tag:
                         "Integration Method ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title="Numerical integration method. RK4 (Runge-Kutta 4th order) is more accurate but slower. AB (Adams-Bashforth) is faster but less stable.",
+                            title="The EwE parity methods reproduce EwE (RK4) and Rpath (AB). The continuous methods solve the equations to a tolerance and differ from EwE by design. BDF suits stiff models.",
                             style="cursor: help;",
                         ),
                     ),
-                    choices={"RK4": "Runge-Kutta 4", "AB": "Adams-Bashforth"},
+                    choices=METHOD_CHOICES,
                     selected="RK4",
+                ),
+                ui.panel_conditional(
+                    CONTINUOUS_JS,
+                    ui.h6("Numerics (same model)"),
+                    ui.input_radio_buttons(
+                        "solver_preset",
+                        "Tolerance",
+                        PRESET_CHOICES,
+                        selected="default",
+                    ),
+                    ui.input_checkbox(
+                        "solver_log_states",
+                        ui.span(
+                            "Log-transformed biomass ",
+                            ui.tags.i(
+                                class_="bi bi-info-circle",
+                                title="Solves the same equations on the log of biomass. Use it for runs that drive a group towards zero. It costs about 40 % more where groups sweep orders of magnitude.",
+                                style="cursor: help;",
+                            ),
+                        ),
+                        value=False,
+                    ),
+                    ui.p(
+                        "Fast saves time only where the solver takes many steps a "
+                        "month (Black Sea 37 %, REco 8 %); Reference costs 2-3.5 "
+                        "\u00d7 Default; continuous runs cost about 5-25 \u00d7 RK4.",
+                        class_="text-muted small",
+                    ),
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "Advanced: changes the model",
+                            ui.input_select(
+                                "solver_forcing_interpolation",
+                                "Forcing within the month",
+                                INTERPOLATION_CHOICES,
+                                selected="constant",
+                            ),
+                            ui.p(
+                                "Interpolates forcing that varies month to month "
+                                "(an imported EwE scenario's forcing functions); "
+                                "effort stays monthly; the page's own forcing card "
+                                "is constant in time",
+                                class_="text-muted small",
+                            ),
+                            ui.input_checkbox(
+                                "solver_quasi_steady",
+                                "Quasi-steady fast groups",
+                                value=False,
+                            ),
+                            ui.panel_conditional(
+                                "input.solver_quasi_steady",
+                                ui.input_numeric(
+                                    "solver_qs_rate",
+                                    "Quasi-steady above (per year)",
+                                    value=QS_RATE_DEFAULT,
+                                    min=1,
+                                    step=5,
+                                ),
+                            ),
+                        ),
+                        id="solver_advanced",
+                        open=False,
+                    ),
                 ),
                 ui.input_select(
                     "fast_group_rule",
                     ui.span(
-                        "Fast Groups ",
+                        "Equation rule (EwE6 / Rpath) ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month.",
+                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month. Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below.",
                             style="cursor: help;",
                         ),
                     ),
                     choices={
-                        "ewe": "EwE6: at equilibrium",
-                        "rpath": "Rpath: integrated",
+                        "ewe": "EwE6 (fast groups at equilibrium under RK4/AB)",
+                        "rpath": "Rpath (fast groups integrated)",
                     },
                     selected="ewe",
                 ),
@@ -283,67 +474,11 @@ def ecosim_ui() -> ui.Tag:
                     class_="text-muted small",
                 ),
                 ui.tags.hr(),
-                # Diet Rewiring settings
-                ui.h5("Dynamic Diet Rewiring"),
-                ui.input_checkbox(
-                    "enable_diet_rewiring",
-                    ui.span(
-                        "Enable Diet Rewiring ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Allow predator diet preferences to change based on prey availability (prey switching, adaptive foraging). Predators shift to more abundant prey species.",
-                            style="cursor: help;",
-                        ),
-                    ),
-                    value=False,
-                ),
-                ui.panel_conditional(
-                    "input.enable_diet_rewiring",
-                    ui.input_slider(
-                        "switching_power",
-                        ui.span(
-                            "Switching Power ",
-                            ui.tags.i(
-                                class_="bi bi-info-circle",
-                                title="Controls strength of prey switching. 1.0 = proportional (no switching), 2-3 = moderate switching (typical), >3 = strong switching (opportunistic predators).",
-                                style="cursor: help;",
-                            ),
-                        ),
-                        min=PARAM_RANGES.switching_power_min,
-                        max=PARAM_RANGES.switching_power_max,
-                        value=PARAM_RANGES.switching_power_default,
-                        step=0.1,
-                    ),
-                    ui.input_slider(
-                        "rewiring_interval",
-                        ui.span(
-                            "Update Interval (months) ",
-                            ui.tags.i(
-                                class_="bi bi-info-circle",
-                                title="How often diet is recalculated. 1 = monthly (responsive but slow), 12 = annual (fast but less responsive).",
-                                style="cursor: help;",
-                            ),
-                        ),
-                        min=PARAM_RANGES.rewiring_interval_min,
-                        max=PARAM_RANGES.rewiring_interval_max,
-                        value=PARAM_RANGES.rewiring_interval_default,
-                        step=1,
-                    ),
-                    ui.input_numeric(
-                        "min_diet_proportion",
-                        ui.span(
-                            "Minimum Diet Proportion ",
-                            ui.tags.i(
-                                class_="bi bi-info-circle",
-                                title="Minimum fraction to maintain in diet. Prevents complete elimination of prey types.",
-                                style="cursor: help;",
-                            ),
-                        ),
-                        value=THRESHOLDS.min_diet_proportion_range_default,
-                        min=THRESHOLDS.min_diet_proportion_range_min,
-                        max=THRESHOLDS.min_diet_proportion_range_max,
-                        step=0.001,
-                    ),
+                # Diet rewiring is not implemented; say so instead of offering it.
+                ui.p(
+                    "Diet rewiring is not available in this version; prey "
+                    "switching (EwE's SwitchPower) is planned as its replacement.",
+                    class_="text-muted small",
                 ),
                 ui.tags.hr(),
                 # Fishing scenarios
@@ -618,6 +753,7 @@ def ecosim_ui() -> ui.Tag:
                     ui.output_ui("help_progress"),
                     ui.output_ui("simulation_status"),
                     ui.output_ui("progress_display"),
+                    ui.output_ui("solver_diagnostics"),
                 ),
                 ui.nav_panel(
                     "Time Series",
@@ -739,19 +875,53 @@ def ecosim_ui() -> ui.Tag:
     )
 
 
-def read_optional_input(input, name: str, default):
+def read_optional_input(input, name: str, default, *, keep_none: bool = False):
     """Read an input that may not exist in the browser.
 
     Inputs created by an ``output_ui`` inside a hidden conditional panel are
     never rendered, and reading one raises ``SilentException``.
     ``hasattr(input, name)`` is always True for Shiny's Inputs, so it is no
-    guard. Returns ``default`` when the input is missing or None.
+    guard. Returns ``default`` when the input is missing or None; with
+    ``keep_none``, a None value (an empty numeric field) is returned as None.
     """
     try:
         value = getattr(input, name)()
     except (SilentException, AttributeError, KeyError, TypeError):
         return default
-    return default if value is None else value
+    if value is None and not keep_none:
+        return default
+    return value
+
+
+def _solver_inputs(input, method: str) -> dict:
+    """The solver keyword arguments the page's inputs give for ``method``.
+
+    A parity method reads none of the continuous inputs, so a stale one can
+    never block its run. With quasi-steady ticked, an empty rate field reaches
+    the request builder as None and is refused there, not run at the default.
+    """
+    if not is_continuous(method):
+        return dict(
+            preset="default",
+            log_states=False,
+            forcing_interpolation="constant",
+            quasi_steady=False,
+            qs_rate=QS_RATE_DEFAULT,
+        )
+    quasi_steady = bool(read_optional_input(input, "solver_quasi_steady", False))
+    return dict(
+        preset=read_optional_input(input, "solver_preset", "default"),
+        log_states=bool(read_optional_input(input, "solver_log_states", False)),
+        forcing_interpolation=read_optional_input(
+            input, "solver_forcing_interpolation", "constant"
+        ),
+        quasi_steady=quasi_steady,
+        qs_rate=read_optional_input(
+            input, "solver_qs_rate", QS_RATE_DEFAULT, keep_none=True
+        )
+        if quasi_steady
+        else QS_RATE_DEFAULT,
+    )
 
 
 def ecosim_server(
@@ -804,6 +974,80 @@ def ecosim_server(
     show_help_timeseries = reactive.Value(False)
     show_help_catch = reactive.Value(False)
     show_help_summary = reactive.Value(False)
+
+    # The run last launched: its method and preset advise on a failure that
+    # has no outcome to read; its label and its start and integration-start times feed the
+    # progress texts. Plain state, written on the loop only; the worker never
+    # reads it.
+    launched = {
+        "run_id": None,
+        "method": None,
+        "preset": None,
+        "label": None,
+        "started": None,
+        "integrating_since": None,
+    }
+    retired_runs = itertools.count(1)
+    # This session's run in the process-wide executor. It stays taken until
+    # the worker thread finishes, through a cancel (the thread cannot be
+    # stopped), so Run-then-Cancel cannot pile up threads.
+    run_slot = RunSlot()
+
+    @reactive.extended_task
+    async def _ecosim_task(run_id, source, scen, request, diet, slot):
+        """Integrate on a worker thread, off the event loop.
+
+        ``scen`` is a deep copy of ``source``, the page's scenario object. The
+        run goes to the bounded process-wide executor and ``slot`` holds its
+        future until the thread finishes. The worker reads no input and sends
+        no notification: the result effect does both, on the loop.
+        """
+        future = RUN_EXECUTOR.submit(run_ecosim, scen, request, diet_rewiring=diet)
+        slot.acquire(future)
+        out = await asyncio.wrap_future(future)
+        return RunOutcome(run_id, source, out, request, diet is not None)
+
+    # A closed or reloaded tab must not leave its run queued for a worker with
+    # no owner; a run already computing finishes and its result is discarded.
+    session.on_ended(_ecosim_task.cancel)
+
+    def _finish_run(
+        run_id: str, *, success: bool, message: str, error: str | None = None
+    ) -> None:
+        """Finish the running task, if it is still ``run_id``."""
+        state = sim_task_state.get()
+        if state.status is not TaskStatus.RUNNING:
+            return
+        sim_task_state.set(
+            apply_if_latest(
+                state,
+                run_id=run_id,
+                updater=lambda s: finish_task(
+                    s, success=success, message=message, error=error
+                ),
+            )
+        )
+
+    @reactive.effect
+    @reactive.event(model_data, ignore_init=True)
+    def _retire_run_on_model_change():
+        """A new model retires the run and drops the old model's scenario and
+        results, so neither the Results pages nor a Run use them."""
+        note = _model_change_notice(
+            scenario.get(),
+            sim_output.get(),
+            sim_results.get() if sim_results is not None else None,
+        )
+        _ecosim_task.cancel()
+        sim_task_state.set(TaskState(run_id=f"ecosim-retired-{next(retired_runs)}"))
+        sim_output.set(None)
+        if sim_results is not None:
+            sim_results.set(None)
+        scenario.set(None)
+        if sim_scenario is not None:
+            sim_scenario.set(None)
+        if note:
+            notify_info(note, duration=6)
 
     def _input_or_default(name: str, default):
         """Read a UI input value with fallback for conditional controls."""
@@ -1014,11 +1258,11 @@ def ecosim_server(
                     ),
                     ui.tags.ul(
                         ui.tags.li("Simulation years (2-500)"),
-                        ui.tags.li("Integration method (RK4 recommended)"),
-                        ui.tags.li("Vulnerability (functional response type)"),
                         ui.tags.li(
-                            "Dynamic diet rewiring (optional - for adaptive foraging)"
+                            "Integration method (RK4 for EwE results; a continuous "
+                            "method to solve the equations to a tolerance)"
                         ),
+                        ui.tags.li("Vulnerability (functional response type)"),
                         ui.tags.li("Fishing scenario"),
                         ui.tags.li("Enable/disable autofix (keep enabled)"),
                     ),
@@ -1032,24 +1276,65 @@ def ecosim_server(
                     ),
                     ui.tags.li(ui.tags.strong("Click 'Run Simulation'"), " when ready"),
                 ),
-                ui.h6("Dynamic Diet Rewiring"),
-                ui.p(
-                    ui.tags.strong("Optional feature:"),
-                    " Allows predator diet preferences to adapt based on prey availability (prey switching).",
-                ),
+                ui.h6("Integration Methods"),
                 ui.tags.ul(
                     ui.tags.li(
-                        ui.tags.strong("Switching Power (1-5):"),
-                        " Controls how strongly predators switch to abundant prey. 1.0 = no switching, 2-3 = typical, >3 = opportunistic",
+                        ui.tags.strong("RK4 (default) and AB:"),
+                        " the EwE parity methods. Use RK4 for results that "
+                        "should match EwE; AB reproduces Rpath's Adams-Bashforth.",
                     ),
                     ui.tags.li(
-                        ui.tags.strong("Update Interval:"),
-                        " How often diet is recalculated. Monthly (1) = responsive but slower, Annual (12) = faster but less responsive",
+                        ui.tags.strong("LSODA, BDF, DOP853, Radau:"),
+                        " continuous methods (not EwE parity). They solve the "
+                        "Ecosim equations to a tolerance, so their numbers "
+                        "differ from EwE's. BDF suits stiff models; LSODA picks "
+                        "stiff or non-stiff stepping itself.",
                     ),
                     ui.tags.li(
-                        ui.tags.strong("Min Proportion:"),
-                        " Prevents complete elimination of prey types from diet",
+                        ui.tags.strong("Tolerance (Fast / Default / Reference):"),
+                        " the same model solved to a looser or tighter "
+                        "tolerance. Fast saves time only where the solver takes "
+                        "many steps a month (measured 2026-11-15, ten years: "
+                        "37 % on the Black Sea, 8 % on REco, 1-4 % on the three "
+                        "shipped examples); Reference costs 2-3.5 \u00d7 Default.",
                     ),
+                    ui.tags.li(
+                        ui.tags.strong("Log-transformed biomass:"),
+                        " the same equations on the log of biomass; for runs "
+                        "that drive a group towards zero.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Advanced: changes the model:"),
+                        " forcing interpolation and quasi-steady fast groups "
+                        "solve a different model from EwE's.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Equation rule (EwE6 / Rpath):"),
+                        " under a continuous method this picks only the "
+                        "equations; every group is integrated.",
+                    ),
+                ),
+                ui.h6("Running a Simulation"),
+                ui.p(
+                    "A continuous run costs about 5-25 \u00d7 RK4. At the "
+                    "default 50 years one takes about a minute (Lithuanian "
+                    "Coast, LSODA: 58 s against 15 s for RK4, measured "
+                    "2026-11-15). Runs go in the background, up to 2 at a "
+                    "time on the server, so a run may wait in a queue. Cancel "
+                    "discards the result, but a cancelled run still finishes "
+                    "in the background, so a new run starts only when it has "
+                    "finished. Closing the tab cancels its run. Loading or "
+                    "re-balancing a model clears the results and the "
+                    "scenario: create the scenario again."
+                ),
+                ui.h6("Dynamic Diet Rewiring"),
+                ui.p(
+                    ui.tags.strong("Not available in this version."),
+                    " Predators shifting to abundant prey is not offered on "
+                    "this page; prey switching (EwE's SwitchPower) is planned "
+                    "as its replacement. The core function rsim_run_advanced "
+                    "raises NotImplementedError for diet rewiring in this "
+                    "version.",
                 ),
                 ui.h6("Fishing Scenarios"),
                 ui.tags.ul(
@@ -1141,6 +1426,56 @@ def ecosim_server(
                         ui.tags.strong("Recovery:"),
                         f" Whether groups bounced back (final biomass > {THRESHOLDS.recovery_threshold})",
                     ),
+                ),
+                ui.h6("Solver diagnostics"),
+                ui.p(
+                    "Continuous methods (LSODA, BDF, DOP853, Radau) add a "
+                    "Solver diagnostics card below. Each badge reads one "
+                    "number the solver recorded:"
+                ),
+                ui.tags.ul(
+                    ui.tags.li(
+                        ui.tags.strong("Continuous path (not EwE parity):"),
+                        " the run does not reproduce EwE's RK4 numbers.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Solver did not finish (red):"),
+                        " the solver stopped before the month ended; "
+                        "the trajectory after it is unreliable.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Degraded month:"),
+                        " the solver fell back to a cruder step in that month.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Kernel check:"),
+                        " the right-hand side disagreed with the reference "
+                        "kernel by more than 1e-9.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("qs_separation:"),
+                        " below 10, the quasi-steady approximation is poor; "
+                        "raise the rate or integrate the fast groups.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("No group qualified:"),
+                        " quasi-steady was chosen but no group is fast "
+                        "enough, so every group was integrated.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Changes the model:"),
+                        " linear or smooth forcing, or quasi-steady groups, "
+                        "solve a different model from EwE's.",
+                    ),
+                    ui.tags.li(
+                        ui.tags.strong("Clipped evaluations:"),
+                        " a biomass went negative inside a step and was "
+                        "clipped; log states avoid this.",
+                    ),
+                ),
+                ui.p(
+                    "Below the badges: a run summary, the flagged months, and "
+                    "(collapsed) a table of every month."
                 ),
                 ui.h6("What to Do If Crashes Occur"),
                 ui.tags.ol(
@@ -1763,7 +2098,11 @@ def ecosim_server(
             scenario.set(new_scenario)
             if sim_scenario is not None:
                 sim_scenario.set(new_scenario)
-            # A new scenario invalidates results from the previous one
+            # A new scenario invalidates results from the previous one, and
+            # retires a run still integrating it: a late outcome then fails
+            # result_is_current on both its run_id and its scenario.
+            _ecosim_task.cancel()
+            sim_task_state.set(TaskState(run_id=f"ecosim-retired-{next(retired_runs)}"))
             sim_output.set(None)
             if sim_results is not None:
                 sim_results.set(None)
@@ -1888,76 +2227,81 @@ def ecosim_server(
     @reactive.effect
     @reactive.event(input.btn_run_sim)
     def _run_simulation():
-        """Run the Ecosim simulation."""
+        """Start the Ecosim simulation on a worker thread (``_ecosim_task``)."""
         scen = scenario.get()
 
         if scen is None:
             notify_warning("Create a scenario first")
             return
 
+        # invoke() would queue behind a running task. Refuse instead, before
+        # any state change, so the live run keeps its run_id.
+        if (
+            sim_task_state.get().status is TaskStatus.RUNNING
+            or _ecosim_task.status() == "running"
+        ):
+            notify_warning("A simulation is already running. Cancel it first.")
+            return
+        # A cancelled run's thread computes on until it ends, holding the slot.
+        if run_slot.busy:
+            notify_warning(
+                "The previous simulation is still finishing in the background (a "
+                "cancelled run keeps computing until it would have ended). Try "
+                "again when it finishes."
+            )
+            return
+
         run_id = f"ecosim-run-{input.btn_run_sim()}"
-        sim_task_state.set(new_running_task(run_id, "Preparing simulation"))
-
-        def _update_latest(updater):
-            sim_task_state.set(
-                apply_if_latest(sim_task_state.get(), run_id=run_id, updater=updater)
-            )
-
+        method = _input_or_default("integration_method", "RK4")
+        preset = "default"
         try:
-            _update_latest(
-                lambda s: update_task_progress(
-                    s,
-                    message="Applying forcing and calibration settings",
-                    progress=20.0,
-                )
+            solver_inputs = _solver_inputs(input, method)
+            preset = solver_inputs["preset"]
+            # Diet rewiring is not implemented, so it is never requested.
+            request = _solver_request_or_notify(
+                method, diet_rewiring=False, **solver_inputs
             )
+            if request is None:
+                return
+
             _apply_biomass_forcing(scen)
-
-            # Check if diet rewiring is enabled
-            diet_rewiring_enabled = input.enable_diet_rewiring()
-
-            _update_latest(
-                lambda s: update_task_progress(
-                    s,
-                    message="Integrating Ecosim equations",
-                    progress=50.0,
-                )
+            # The worker integrates its own copy; ``scen`` stays the page's
+            # scenario object, which the result is checked against.
+            run_scen = copy.deepcopy(scen)
+            years = run_scen.fishing.ForcedEffort.shape[0] // 12
+            name = _METHOD_NAMES.get(request.method, request.method)
+            label = f"{name}, {years} years"
+            launched.update(
+                run_id=run_id,
+                method=request.method,
+                preset=preset,
+                label=label,
+                started=time.monotonic(),
+                integrating_since=None,
+            )
+            # "Starting" until a worker picks the run up (_note_worker_start):
+            # with the process-wide executor full, the run queues first.
+            sim_task_state.set(new_running_task(run_id, f"Starting {label}"))
+            notify_info("Running simulation...", duration=2)
+            _ecosim_task.invoke(
+                run_id, scen, run_scen, request, diet=None, slot=run_slot
             )
 
-            if diet_rewiring_enabled:
-                notify_info(
-                    "Running simulation with diet rewiring...",
-                    duration=2,
-                )
-
-                # Create diet rewiring configuration
-                diet_rewiring = DietRewiring(
-                    enabled=True,
-                    switching_power=input.switching_power(),
-                    update_interval=int(input.rewiring_interval()),
-                    min_proportion=input.min_diet_proportion(),
-                )
-
-                # Run advanced simulation with diet rewiring
-                output = rsim_run_advanced(
-                    scen,
-                    state_forcing=None,
-                    diet_rewiring=diet_rewiring,
-                    method=input.integration_method(),
-                )
-            else:
-                notify_info("Running simulation...", duration=2)
-
-                # Run standard simulation
-                output = rsim_run(scen, method=input.integration_method())
-
-            _update_latest(
-                lambda s: update_task_progress(
-                    s,
-                    message="Post-processing outputs",
-                    progress=85.0,
-                )
+        except Exception as e:
+            logger.exception("Simulation could not start")
+            err_text = str(e)
+            notify_error(_failure_message(err_text, method, preset))
+            _finish_run(
+                run_id, success=False, message="Simulation failed", error=err_text
             )
+
+    def _land_result(outcome: RunOutcome) -> None:
+        """Show a current run's output and its messages (on the loop)."""
+        output = outcome.output
+        scen = outcome.source
+        method = outcome.request.method
+        try:
+            output.run_request = outcome.request
 
             controls_metadata = scenario_controls_metadata.get() or {}
             if isinstance(output.params, dict):
@@ -2010,42 +2354,80 @@ def ecosim_server(
                 else:
                     notify_info(msg, duration=10)
             else:
-                success_msg = "Simulation completed successfully!"
-                if diet_rewiring_enabled:
-                    success_msg += " Diet rewiring was applied."
-                notify_success(success_msg)
+                notify_success(_success_message(method))
 
             final_msg = (
                 f"Simulation complete ({output.params['years']} years)."
                 if output is not None
                 else "Simulation complete."
             )
-            _update_latest(lambda s: finish_task(s, success=True, message=final_msg))
+            _finish_run(outcome.run_id, success=True, message=final_msg)
 
         except Exception as e:
-            logger.exception("Simulation failed")
+            logger.exception("Showing the simulation result failed")
             err_text = str(e)
             notify_error(f"Simulation error: {err_text}")
-            _update_latest(
-                lambda s, err=err_text: finish_task(
-                    s,
-                    success=False,
-                    message="Simulation failed",
-                    error=err,
-                )
+            _finish_run(
+                outcome.run_id,
+                success=False,
+                message="Simulation failed",
+                error=err_text,
             )
+
+    @reactive.effect
+    def _apply_ecosim_result():
+        """Land the task's outcome. Depends on the task's status only."""
+        status = _ecosim_task.status()
+        # Everything else is read isolated, so this effect's own state
+        # changes (finish_task) do not re-trigger it.
+        with reactive.isolate():
+            if status == "success":
+                outcome = _ecosim_task.result()
+                if result_is_current(sim_task_state.get(), outcome, scenario.get()):
+                    _land_result(outcome)
+                else:
+                    logger.debug(
+                        "Dropped a stale Ecosim result (run %s)", outcome.run_id
+                    )
+            elif status == "error":
+                state = sim_task_state.get()
+                if (
+                    state.status is not TaskStatus.RUNNING
+                    or state.run_id != launched["run_id"]
+                ):
+                    logger.debug("Dropped a stale Ecosim error (state %s)", state)
+                    return
+                try:
+                    _ecosim_task.result()
+                except Exception as e:
+                    logger.error("Simulation failed", exc_info=e)
+                    err_text = str(e)
+                    notify_error(
+                        _failure_message(
+                            err_text, launched["method"], launched["preset"]
+                        )
+                    )
+                    _finish_run(
+                        state.run_id,
+                        success=False,
+                        message="Simulation failed",
+                        error=err_text,
+                    )
+            # "cancelled": whoever cancelled has already set the state.
 
     @reactive.effect
     @reactive.event(input.btn_cancel_sim)
     def _cancel_simulation():
-        """Handle simulation cancel button."""
+        """Cancel the running simulation; its result is discarded."""
         task_state = sim_task_state.get()
 
         # Only allow cancellation if task is running
         if task_state.status is TaskStatus.RUNNING:
-            # Mark as cancelled
-            from pypath_shiny.services.tasks import finish_task
-
+            # A worker thread cannot be stopped: a run already computing goes
+            # on to its end in the background (holding the session's slot),
+            # and the run_id guard (result_is_current) drops its result. A
+            # run still queued for a worker is cancelled outright.
+            _ecosim_task.cancel()
             sim_task_state.set(
                 finish_task(
                     task_state,
@@ -2054,7 +2436,11 @@ def ecosim_server(
                     error="Simulation was cancelled",
                 )
             )
-            notify_warning("Simulation cancelled by user")
+            notify_warning(
+                "Cancelled: the result will be discarded, but the computation "
+                "continues in the background until it would have finished; a "
+                "new run can start after that."
+            )
 
     @output
     @render.ui
@@ -2116,6 +2502,49 @@ def ecosim_server(
         )
 
     @output
+    @render.text
+    def sim_elapsed():
+        """Queue wait, then integration time, ticking every second."""
+        state = sim_task_state.get()
+        if state.status is not TaskStatus.RUNNING or state.run_id != launched["run_id"]:
+            return ""
+        reactive.invalidate_later(1)
+        now = time.monotonic()
+        if run_slot.waiting:
+            return (
+                f"Queued: the server runs at most {MAX_CONCURRENT_RUNS} "
+                "simulations at once, and yours starts when one finishes "
+                f"(waiting {now - launched['started']:.0f} s)."
+            )
+        since = launched["integrating_since"]
+        if since is None:
+            return "Starting..."
+        # From the worker's start: queue time is not counted.
+        return f"Elapsed: {now - since:.0f} s"
+
+    @reactive.effect
+    def _note_worker_start():
+        """Switch "Starting" to "Integrating" once a worker picks the run up.
+
+        Polls only until then; the progress block (and its Cancel button) is
+        rebuilt once, at the switch.
+        """
+        state = sim_task_state.get()
+        if (
+            state.status is not TaskStatus.RUNNING
+            or state.run_id != launched["run_id"]
+            or launched["integrating_since"] is not None
+        ):
+            return
+        if not run_slot.running:
+            reactive.invalidate_later(0.5)
+            return
+        launched["integrating_since"] = time.monotonic()
+        sim_task_state.set(
+            update_task_progress(state, message=f"Integrating with {launched['label']}")
+        )
+
+    @output
     @render.ui
     def progress_display():
         """Display progress/completion info."""
@@ -2124,18 +2553,22 @@ def ecosim_server(
         task_state = sim_task_state.get()
 
         if task_state.status is TaskStatus.RUNNING:
+            # Indeterminate: the core reports no per-month progress. The
+            # elapsed seconds tick in their own output, so this block and its
+            # Cancel button are not rebuilt every second.
             return ui.div(
                 ui.tags.h5("Simulation Progress"),
                 ui.div(
                     ui.div(
-                        f"{task_state.progress:.0f}%",
-                        class_="progress-bar",
+                        class_="progress-bar progress-bar-striped progress-bar-animated",
                         role="progressbar",
-                        style=f"width: {task_state.progress:.0f}%",
+                        style="width: 100%",
+                        aria_label="Simulation running",
                     ),
                     class_="progress",
                 ),
-                ui.p(task_state.message, class_="text-muted mt-2"),
+                ui.p(task_state.message, class_="text-muted mt-2 mb-0"),
+                ui.p(ui.output_text("sim_elapsed", inline=True), class_="text-muted"),
                 ui.input_action_button(
                     "btn_cancel_sim",
                     ui.span(
@@ -2162,6 +2595,25 @@ def ecosim_server(
         else:
             crashed_info = "None"
 
+        request = getattr(output, "run_request", None)
+        info = getattr(output, "solver_info", None)
+        method_rows = []
+        if request is not None:
+            summary = dict(_solver_summary(info, _group_names(scen)))
+            shown = (
+                summary["Method"]
+                if "Method" in summary
+                else {"RK4": "Runge-Kutta 4", "AB": "Adams-Bashforth"}.get(
+                    request.method, str(request.method)
+                )
+            )
+            method_rows.append(ui.tags.tr(ui.tags.td("Method:"), ui.tags.td(shown)))
+            for label in ("Tolerance", "Model options"):
+                if label in summary:
+                    method_rows.append(
+                        ui.tags.tr(ui.tags.td(f"{label}:"), ui.tags.td(summary[label]))
+                    )
+
         return ui.div(
             ui.tags.h5("Simulation Details"),
             ui.tags.table(
@@ -2183,9 +2635,53 @@ def ecosim_server(
                     ),
                 ),
                 ui.tags.tr(ui.tags.td("Crashed groups:"), ui.tags.td(crashed_info)),
+                *method_rows,
                 class_="table table-sm",
             ),
         )
+
+    @output
+    @render.ui
+    def solver_diagnostics():
+        """Badges, summary and flagged months for a continuous run."""
+        output = sim_output.get()
+        info = getattr(output, "solver_info", None)
+        if info is None:
+            return None
+        names = _group_names(scenario.get())
+        badges = _solver_badges(info, names)
+        flagged_view = _flagged_months_view(_flagged_months(info))
+        return ui.card(
+            ui.card_header("Solver diagnostics"),
+            ui.div(
+                *[
+                    ui.span(b.text, class_=f"badge text-bg-{b.level} me-1 mb-1")
+                    for b in badges
+                ],
+                class_="mb-2",
+            ),
+            ui.tags.table(
+                *[
+                    ui.tags.tr(ui.tags.th(label), ui.tags.td(value))
+                    for label, value in _solver_summary(info, names)
+                ],
+                class_="table table-sm",
+            ),
+            flagged_view,
+            ui.accordion(
+                ui.accordion_panel(
+                    "Every month", ui.output_data_frame("solver_month_table")
+                ),
+                open=False,
+            ),
+        )
+
+    @output
+    @render.data_frame
+    def solver_month_table():
+        """Every month's solver counters (a pandas frame, never GT)."""
+        info = getattr(sim_output.get(), "solver_info", None)
+        return render.DataGrid(_month_table(info), height="400px")
 
     @output
     @render_widget
