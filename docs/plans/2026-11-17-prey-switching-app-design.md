@@ -101,7 +101,7 @@ What is missing is the app:
   - the Ecopath page's re-balance: `ecopath.py` around line 1365.
 
   The rules:
-  - **A re-balance** keeps the balanced-route overrides of groups that are still present and still consumers. Only that call site marks the change as a re-balance.
+  - **A re-balance** keeps the balanced-route overrides of groups that are still present and still consumers. Only that call site marks the change as a re-balance. The mark is one-shot: the Ecopath page sets it just before its `model_data.set`, and the Ecosim page clears it as soon as it reads it. Otherwise the next load would be taken for a re-balance.
   - **Any other model change** clears all overrides. Models often share group names, so keeping them would carry values onto an unrelated model.
   - **EwE-route overrides** are dropped when the source no longer matches the model.
   - **A notice** reports kept or cleared overrides whenever there were any. It is separate from the existing model-change notice, which says nothing when no scenario or results were cleared.
@@ -126,5 +126,5 @@ What is missing is the app:
   - an EwE scenario or example keeps its values to the bit unless they are changed, with a value such as 0.30000001 surviving a rounded display;
   - consumers (`PP_type == 0`) are offered, and producers, detritus and fleets are not;
   - the switching line appears for RK4, AB and a continuous run, and on the Ecospace and IBM pages;
-  - re-balancing keeps the overrides of groups that remain, and loading another model clears them;
+  - re-balancing keeps the overrides of groups that remain, and loading another model clears them, also when the load comes right after a re-balance;
   - the Ecospace and IBM lines show the switching their run used after the Ecosim scenario is re-created with other values.
