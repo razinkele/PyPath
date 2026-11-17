@@ -497,14 +497,24 @@ def _compute_consumption_sparse_numba(
 ):
     """:func:`_compute_consumption_sparse_python` as a numba kernel.
 
-    Same arguments, same in-place result, bit for bit: the None arguments
-    become flags and dummy arrays, the arrays float64 (the link arrays
-    int64), for :func:`_compute_consumption_sparse_flat` compiled with
-    ``nogil`` and numpy's division rules. The jitted kernel raises none of
-    the loop's numpy RuntimeWarnings (x / 0, overflow); the values are the
-    same. numba does no bounds checking, so an ``n_links`` past the end of
-    either link array raises ValueError before the kernel runs (the loop
-    raises IndexError). Without numba it runs the Python loop.
+    Same arguments, same in-place result: the None arguments become flags
+    and dummy arrays, the arrays float64 (the link arrays int64), for
+    :func:`_compute_consumption_sparse_flat` compiled with ``nogil`` and
+    numpy's division rules. The jitted kernel raises none of the loop's
+    numpy RuntimeWarnings (x / 0, overflow); the values are the same.
+    Without numba it runs the Python loop.
+
+    The result is bit for bit the loop's for float64 inputs, which is what
+    ``deriv_vector`` passes (float64 arrays, ``COUPLED`` 1). Other dtypes
+    are widened first, so they can differ: a float32 ``HandleSwitch`` with
+    a ``COUPLED`` that is not a dyadic fraction gives an exponent about
+    1e-8 apart, as the loop multiplies in float32.
+
+    The link indices and the lengths of the arrays are trusted: only
+    ``n_links`` is checked (ValueError when it is past the end of either
+    link array, before the kernel runs). numba does no bounds checking, so
+    an index out of range is undefined behaviour here, where the loop raises
+    IndexError.
     """
     if _compute_consumption_sparse_numba_kernel is None:
         return _compute_consumption_sparse_python(
