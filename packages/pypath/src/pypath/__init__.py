@@ -38,6 +38,7 @@ from pypath.core.ecosim import (  # noqa: E402
     RsimParams,
     RsimScenario,
     RsimState,
+    RunCancelled,
     rsim_fishing,
     rsim_forcing,
     rsim_params,
@@ -161,6 +162,7 @@ __all__ = [
     "rsim_fishing",
     "rsim_scenario",
     "rsim_run",
+    "RunCancelled",
     # Stanzas
     "StanzaGroup",
     "StanzaIndividual",
