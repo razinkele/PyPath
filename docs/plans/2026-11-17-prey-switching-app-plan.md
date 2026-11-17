@@ -150,6 +150,8 @@ def snapshot_source(params) -> dict[str, float]           # switching_by_name re
 def check_power(value) -> float                           # float in [0, 2]; ValueError with the exact message below otherwise
 def set_override(store, key, group, value, source_value) -> SwitchingStore
 def effective_values(store, key, base: Mapping[str, float]) -> dict[str, float]   # base with the key's overrides applied
+def fold_edits(store, key, boxes: Mapping[str, object], base: Mapping[str, float],
+               shown: Mapping[str, float]) -> tuple[SwitchingStore, dict[str, str]]
 def switch_power_with_overrides(params, overrides: Mapping[str, float]) -> np.ndarray | None
 def summary(params) -> dict[str, float]                   # nonzero switching powers by name, in group order
 def summary_line(values: Mapping[str, float] | None) -> str
@@ -164,6 +166,11 @@ Behaviour. All inner mappings are plain dicts, and nothing is mutated:
   1. `value` None, or not convertible to float: the store is returned unchanged.
   2. If `round(value, 3) == round(source_value, 3)`, the group's override is removed and no range check runs. The full-precision source value then applies, which keeps an untouched imported 2.5 legal.
   3. Otherwise `check_power(value)` runs, letting `ValueError` propagate, and the override is stored.
+- **`fold_edits`.** It folds the boxes' current values into the store.
+  - `boxes` maps a group to its box's value; `shown` maps a group to the value the render put in that box (the effective value).
+  - A box whose value equals `round(shown[name], 3)` is untouched since the render and is skipped. This keeps an override with more than 3 decimals (say 0.1234, shown as 0.123) from being rewritten whenever the boxes are recreated.
+  - Every other box goes through `set_override` against `base[name]`.
+  - It returns the new store and `{name: message}` for the boxes `set_override` refused. The message is `check_power`'s, with `"Switching power"` replaced by `f"Switching power for {name}"`.
 - **`switch_power_with_overrides`.** Returns None when `overrides` is empty, so the caller leaves the scenario's array alone. Otherwise it returns a new array: a copy of `params.SwitchPower`, or zeros of length `NUM_GROUPS + 1` when that is None or short, with each named override written at the group's index. A name that is not a consumer of `params` is skipped.
 - **`pending`.** True when `effective_values(store, key, base)` differs from `switching_by_name(params)` on any consumer of `params` by more than 1e-12.
 - **`summary_line`.** Gives `"Prey switching: none"` for None or empty input, otherwise `"Prey switching: " + ", ".join(f"{name} {value:g}" ...)` in the mapping's order.
@@ -224,6 +231,18 @@ def test_editing_back_to_the_displayed_source_value_removes_the_override():
 def test_out_of_range_is_refused():
     with pytest.raises(ValueError, match="between 0 and 2; 3.0 was not applied"):
         set_override(SwitchingStore(), "model", "Cod", 3.0, 0.0)
+
+def test_fold_skips_boxes_untouched_since_the_render():
+    s = set_override(SwitchingStore(), "model", "Cod", 0.1234, 0.0)
+    shown = effective_values(s, "model", {"Cod": 0.0})           # {"Cod": 0.1234}
+    new, errors = fold_edits(s, "model", {"Cod": 0.123}, {"Cod": 0.0}, shown)
+    assert new == s and errors == {}
+
+def test_fold_applies_edits_and_reports_refusals():
+    new, errors = fold_edits(SwitchingStore(), "model", {"Cod": 1.0, "Seals": 3.0},
+                             {"Cod": 0.0, "Seals": 0.0}, {"Cod": 0.0, "Seals": 0.0})
+    assert dict(new.overrides) == {"model": {"Cod": 1.0}}
+    assert errors == {"Seals": "Switching power for Seals must be between 0 and 2; 3.0 was not applied."}
 
 def test_effective_values_apply_overrides_on_the_base():
     s = set_override(SwitchingStore(), "model", "Cod", 1.0, 0.0)
@@ -308,8 +327,10 @@ def test_a_load_right_after_a_rebalance_clears():
 **Behaviour.** This is the reactivity design; follow it exactly.
 
 - **`_switching_spec()`** is a `@reactive.calc` returning a small frozen record `(prefix, key, groups, base, values, readonly, message)`.
-  - **What it depends on.** Only `switching_generation.get()`, `input.scenario_source` (through `_input_or_default`), `input.ewe_scenario_id` and `scenario_switching_key.get()`.
-  - **What it reads inside `reactive.isolate()`.** `model_data`, `scenario`, `ewe_source` (through `_current_switching_key`) and `switching_store`.
+  - **What it depends on.** Only `switching_generation.get()`, `scenario_switching_key.get()`, `ewe_source.get()` (when `ewe_source` is not None) and the two inputs, read exactly as `_input_or_default("scenario_source", "model")` and `_input_or_default("ewe_scenario_id", None)` outside `isolate`.
+    - `ewe_source` is needed because Data Import sets it without a model change, and the radio then disappears while its input keeps its last value.
+    - `_input_or_default` catches `SilentException` (`ecosim.py` around lines 878-893). A bare `input.ewe_scenario_id()` would raise inside the calc whenever no database is imported, and blank the control.
+  - **What it reads inside `reactive.isolate()`.** `model_data`, `scenario` and `switching_store`, and the key, computed by calling `_current_switching_key()`, which reads the same inputs through `_input_or_default`.
 
     So no edit, and no model change before the model-change effect has run, re-renders the control. The model-change effect and Create Scenario bump `switching_generation` after they have updated the store, which fixes the order.
   - **`prefix`** is `f"switch_power_{n}_"`, with n taken from an `itertools.count()` on every recompute. Fresh ids mean a stale browser value can never land on a new group list.
@@ -322,12 +343,12 @@ def test_a_load_right_after_a_rebalance_clears():
     - otherwise `groups = consumers_from_params(scenario.params)`, `base = store.source_values[key]`, and `readonly` holds the nonzero entries of `base` that are not consumers.
   - **`values = effective_values(store, key, base)`.** The boxes show the source's values plus the edits, so a re-render never deletes an edit.
 - **`switching_control`** renders `ui.p(message)` when there is a message, else `switching_inputs(prefix, groups, values, readonly)`.
-- **Collecting edits.** One `@reactive.effect`:
+- **Collecting edits.** One `@reactive.effect(priority=1)`. The priority makes it run before Create Scenario's handler when a box's value and the click arrive in one message.
   1. `spec = _switching_spec()`.
-  2. Read `input[f"{spec.prefix}{i}"]()` for every group. An input not yet bound raises `SilentException`, and the effect waits.
-  3. Then, inside `reactive.isolate()`, fold `set_override` over the groups, starting from `switching_store.get()` and comparing against `spec.base[name]`.
+  2. Read `input[f"{spec.prefix}{i}"]()` for every group. An input not yet bound raises `SilentException`; Shiny 1.9.0 registers the dependency first and the effect waits (verified in review).
+  3. Then, inside `reactive.isolate()`, call `new, errors = fold_edits(old, spec.key, boxes, spec.base, spec.values)`, with `old = switching_store.get()`.
   4. Call `switching_store.set(new)` only when `new != old`; `reactive.Value` compares by identity, so an unconditional set would loop.
-  5. On a `ValueError`, call `notify_warning(str(e).replace("Switching power", f"Switching power for {name}"))`. Then reset that box with `ui.update_numeric(id, value=round(effective, 3))`, so the box shows the value that still applies.
+  5. For each refused box, call `notify_warning(message)`. Then reset the box with `ui.update_numeric(id, value=round(effective, 3))`, so it shows the value that still applies.
 - **The pending note.**
   - With a scenario built from the current key (`scenario_switching_key.get() == key`) and `pending(...)` true, it reads `"Changed values apply when you create the scenario again."`.
   - Otherwise, when the key has overrides, it reads `"Values apply when you create the scenario."`.
@@ -359,7 +380,11 @@ def test_a_load_right_after_a_rebalance_clears():
     - its `switch_power_with_overrides` call comes before `_apply_fishing_scenario`, by line number;
     - it calls `scenario_switching_key.set` and `switching_generation.set`;
     - `_retire_run_on_model_change` calls `scenario_switching_key.set` and `switching_generation.set`;
-    - the effect that calls `set_override` calls `switching_store.set` only inside an `if` whose test compares with `!=`.
+    - the effect that calls `fold_edits` calls `switching_store.set` only inside an `if` whose test compares with `!=`;
+    - that effect is decorated `reactive.effect(priority=1)`;
+    - `_switching_spec` calls `_input_or_default` with `"scenario_source"` and with `"ewe_scenario_id"` outside any `with reactive.isolate()` block;
+    - `_switching_spec` calls `ewe_source.get` outside isolate;
+    - `_switching_spec` never calls `input.ewe_scenario_id` or `input.scenario_source` directly.
   - **`test_create_scenario_warns_about_imported_values_above_range`.** `_create_scenario` contains a `notify_warning` call whose f-string includes `"above EwE's range of 0 to 2; it is kept."`.
   - **Control tests** on `switching_inputs`:
     - **`test_control_renders_fifty_consumers_in_a_scroll_box`.** 50 names with prefix `"switch_power_0_"` give exactly 50 `<input id="switch_power_0_` matches (labels carry `-label` ids, so count the `<input` tag) and `overflow-y: auto`.
