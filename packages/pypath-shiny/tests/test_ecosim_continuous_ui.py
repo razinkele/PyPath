@@ -99,15 +99,29 @@ def test_diet_rewiring_controls_are_gone_and_a_note_replaces_them():
     text = html.unescape(page)
     assert DIET_NOTE in text
     # Always visible: no open conditional <div> encloses the note.
-    at = text.index(DIET_NOTE)
+    assert not any("data-display-if" in tag for tag in _enclosing_divs(text, DIET_NOTE))
+
+
+def _enclosing_divs(text: str, marker: str) -> list[str]:
+    """Opening ``<div>`` tags still open where ``marker`` first appears."""
     stack = []
-    for token in re.finditer(r"<div[^>]*>|</div>", text[:at]):
+    for token in re.finditer(r"<div\b[^>]*>|</div>", text[: text.index(marker)]):
         if token.group().startswith("</div"):
             if stack:
                 stack.pop()
         else:
             stack.append(token.group())
-    assert not any("data-display-if" in tag for tag in stack)
+    return stack
+
+
+def test_enclosing_divs_sees_a_conditional_wrapper():
+    wrapped = '<div class="a"><div data-display-if="x"><p>NOTE</p></div></div>'
+    assert _enclosing_divs(wrapped, "NOTE") == [
+        '<div class="a">',
+        '<div data-display-if="x">',
+    ]
+    closed = '<div data-display-if="x"></div><div class="a"><p>NOTE</p></div>'
+    assert _enclosing_divs(closed, "NOTE") == ['<div class="a">']
 
 
 def test_advanced_accordion_starts_closed_and_holds_only_model_options():
