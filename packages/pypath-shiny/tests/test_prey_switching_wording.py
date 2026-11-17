@@ -66,3 +66,9 @@ def test_nav_label():
     app = (SRC / "app.py").read_text(encoding="utf-8")
     assert '_icon_label("bi-arrow-repeat", "Prey Switching")' in app
     assert 'value="Diet Rewiring"' in app
+
+
+def test_readme_names_the_prey_switching_demo():
+    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
+    assert "**Prey Switching**" in readme
+    assert "Diet Rewiring" not in readme

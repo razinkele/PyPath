@@ -5,7 +5,9 @@ commit (490fa84, v0.3.0): every method, even an unknown one, returned the
 start biomass in every month, and the rewired diet was counted and dropped.
 It now delegates to ``rsim_run``. Diet rewiring and state forcing were never
 implemented, so it refuses them with ``NotImplementedError``. Prey switching
-(EwE ``SwitchPower``) is the planned replacement for diet rewiring.
+(EwE ``SwitchPower``) is available instead of diet rewiring: set
+``scenario.params.SwitchPower``, or use the Prey Switching control on the
+app's Ecosim page.
 """
 
 import numpy as np
@@ -71,9 +73,20 @@ def test_an_unknown_method_raises_value_error():
 @pytest.mark.parametrize("method", ["RK4", "AB", "lsoda", "nonsense"])
 def test_enabled_diet_rewiring_is_refused(method):
     rewiring = create_diet_rewiring(switching_power=2.5, update_interval=12)
-    with pytest.raises(NotImplementedError, match="SwitchPower"):
+    with pytest.raises(NotImplementedError, match="SwitchPower") as info:
         rsim_run_advanced(_scen(), diet_rewiring=rewiring, method=method)
     assert rewiring.base_diet is None  # refused before anything ran
+    # It says prey switching is available, and where.
+    assert "planned" not in str(info.value)
+    assert "Prey Switching control" in str(info.value)
+
+
+def test_module_docs_say_prey_switching_is_available():
+    import pypath.core.ecosim_advanced as advanced
+
+    for doc in (advanced.__doc__, rsim_run_advanced.__doc__):
+        assert "planned" not in doc
+        assert "Prey Switching control" in " ".join(doc.split())
 
 
 def test_state_forcing_is_refused():

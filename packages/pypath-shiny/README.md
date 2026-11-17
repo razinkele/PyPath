@@ -42,7 +42,7 @@ The left-hand menu is organised as follows.
 - **Multi-Stanza**: age-structured groups with von Bertalanffy growth.
 - **Individual-Based Model**: couple super-individuals to Ecosim for a chosen
   group and compare standard and IBM runs.
-- **Forcing**, **Diet Rewiring** and **Optimization**: interactive demo pages
+- **Forcing**, **Prey Switching** and **Optimization**: interactive demo pages
   for those features.
 
 **Output**
