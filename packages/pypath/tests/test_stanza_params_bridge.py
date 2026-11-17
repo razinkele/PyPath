@@ -210,7 +210,7 @@ class TestEcosimRunsStanzas:
     def scenario(self):
         params = _reference_params()
         model = rpath(params)
-        return rsim_scenario(model, params, years=range(1, 11))
+        return rsim_scenario(model, params, years=range(1, 11), fast_group_rule="ewe")
 
     def test_scenario_has_stanzas(self, scenario):
         assert scenario.stanzas is not None
@@ -238,7 +238,7 @@ class TestEcosimRunsStanzas:
         assert drift < 1e-3
 
     def test_ewe_rule_baseline_steps_only_at_the_plus_group(self, scenario):
-        """Under the EwE rule (the default) EwE's plus group is not exactly in
+        """Under the EwE rule (the fixture names it) EwE's plus group is not exactly in
         equilibrium: in month 1 only the oldest stanzas step (EwE's growth
         coefficient below the plus group comes from its corrected weight;
         test_stanza_plus_group.py), by 1e-3 here. The extra eggs then move

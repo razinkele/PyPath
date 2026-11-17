@@ -5,8 +5,10 @@ solution when its total loss *rate* at the start, |loss|/B, exceeds 24 per
 year: predation + other mortality + fishing for living groups, the whole
 inflow (minus biomass accumulation) for detritus. Rpath compares the other
 mortality *flow* M0*B with 24, which flags large slow pools and misses fast
-groups whose losses are mostly predation. The EwE rule is the default; the Rpath rule stays available for
-parity with Rpath outputs.
+groups whose losses are mostly predation. The default follows the model's
+origin (roadmap D1): the EwE rule for EwE imports, the Rpath rule for models
+built from CSV or in code, as the ones here are (so the EwE-rule tests name
+it). The Rpath rule also gives parity with Rpath outputs.
 """
 
 import warnings
@@ -54,7 +56,7 @@ def _flags(sim_params):
 
 def test_ewe_rule_flags_fast_turnover_not_large_flows():
     model, _ = _stiff_model()
-    sim = rsim_params(model)
+    sim = rsim_params(model, fast_group_rule="ewe")
     #           Fish Zoo Benthos Phyto Det
     assert _flags(sim) == [0, 1, 0, 1, 0]
 
@@ -69,10 +71,13 @@ def test_rpath_rule_is_available_for_parity():
 
 def test_scenario_passes_the_rule_through():
     model, params = _stiff_model()
-    default = rsim_scenario(model, params, years=range(1, 3))
-    assert _flags(default.params) == [0, 1, 0, 1, 0]
+    ewe = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
+    assert _flags(ewe.params) == [0, 1, 0, 1, 0]
     parity = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="rpath")
     assert _flags(parity.params) == [0, 0, 1, 1, 1]
+    # No rule: the model's origin (built in code, compat "rpath"; roadmap D1)
+    default = rsim_scenario(model, params, years=range(1, 3))
+    assert _flags(default.params) == [0, 0, 1, 1, 1]
 
 
 def test_unknown_rule_is_rejected():
@@ -128,7 +133,7 @@ def test_ewe_rk4_fast_consumer_uses_net_production(monkeypatch):
     from pypath.core.ecosim import rsim_run
 
     model, params = _stiff_model()
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     sc.forcing.ForcedSearch[:, PHYTO] = 0.8  # production cut pushes Zoo off balance
     calls = []
     real = D._rk4_fast_equilibrium

@@ -212,7 +212,7 @@ def test_importer_routes_a_consumer_search_rate_shape(monkeypatch):
     import pypath.io.ewemdb as ew
 
     model, params = _simple_model()
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     tables = {
         "EcosimScenarioPredPreyShape": pd.DataFrame(
             {

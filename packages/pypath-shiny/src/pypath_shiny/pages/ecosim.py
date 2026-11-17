@@ -13,7 +13,12 @@ import pandas as pd
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.autofix import validate_and_fix_scenario
-from pypath.core.ecosim import RsimScenario, RunCancelled, rsim_scenario
+from pypath.core.ecosim import (
+    RsimScenario,
+    RunCancelled,
+    default_fast_group_rule,
+    rsim_scenario,
+)
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shiny.types import SilentException
 
@@ -388,18 +393,32 @@ def kept_selection(current, options, default, *, same_source: bool) -> str:
     return default
 
 
+def origin_fast_group_rule(model) -> str:
+    """The fast-group rule of a model's origin (roadmap D1).
+
+    "ewe" when the model, an ``RpathParams`` or a balanced ``Rpath``, has
+    ``compat == "ewe"`` (read from EwE, EwE-F or EcoBase), else "rpath".
+    Never raises: anything without that ``compat`` is "rpath".
+    """
+    return default_fast_group_rule(model)
+
+
 def scenario_from_balanced_model(
-    model, groups, types, years, vulnerability, fast_group_rule="ewe"
+    model, groups, types, years, vulnerability, fast_group_rule=None
 ) -> RsimScenario:
     """Ecosim scenario from the app's balanced model.
 
     One vulnerability for every link (the page's slider) and the chosen
-    fast-group rule ('ewe' or 'rpath').
+    fast-group rule ('ewe' or 'rpath'). Without a rule, ``rsim_scenario``
+    takes the model's origin (``compat``): 'ewe' for EwE imports, 'rpath'
+    otherwise.
     """
     # rsim_scenario needs a params object next to the balanced model
     from pypath.core.params import create_rpath_params
 
     orig_params = create_rpath_params(groups, types)
+    # The params' compat decides the default rule: keep the model's origin.
+    orig_params.compat = getattr(model, "compat", "rpath")
 
     # Fill in the balanced parameter values
     orig_params.model["Biomass"] = model.Biomass
@@ -531,7 +550,7 @@ def ecosim_ui() -> ui.Tag:
                         "Equation rule (EwE6 / Rpath) ",
                         ui.tags.i(
                             class_="bi bi-info-circle",
-                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month. Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below.",
+                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month. Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below. Loading a model sets it to the model's origin (EwE imports: EwE6; models built from CSV or in code: Rpath); a re-balance keeps your choice.",
                             style="cursor: help;",
                         ),
                     ),
@@ -1308,6 +1327,12 @@ def ecosim_server(
             switching_store.set(new_store)
         if switching_note is not None:
             notify_info(switching_note, duration=6)
+        # A different model sets the rule select to its origin (D1); a
+        # re-balance keeps the user's choice, as the scenario source does.
+        with reactive.isolate():
+            loaded = model_data.get()
+        if not rebalance and loaded is not None:
+            ui.update_select("fast_group_rule", selected=origin_fast_group_rule(loaded))
         # Last: the control re-renders once the switching state is updated.
         switching_generation.set(switching_generation.get() + 1)
 
@@ -2381,7 +2406,7 @@ def ecosim_server(
                     "Model object must be either Rpath or RpathParams type"
                 )
 
-            rule = _input_or_default("fast_group_rule", "ewe")
+            rule = _input_or_default("fast_group_rule", origin_fast_group_rule(model))
             # The source key, computed once, also picks the route: an EwE key
             # only when the "ewe" source is selected and matches the model.
             switching_key = _current_switching_key()

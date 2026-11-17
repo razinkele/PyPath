@@ -28,9 +28,11 @@ LT2022 = Path(__file__).parents[3] / "Data" / "LT2022_0.5ST_final7.eweaccdb"
 
 
 def test_integrate_rk4_reports_its_first_and_last_stage_rates(monkeypatch):
-    """No fast groups here, so the fourth stage is exactly y0 + h k3."""
+    """No fast groups here, so the fourth stage is exactly y0 + h k3. Under
+    the EwE rule, named, so that the no-fast-group check below means
+    something (Rpath's rule has no fast-group mask at all)."""
     model, params = _simple_model()
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     # isolates the mechanism under test; EwE's handling time (D5)
     # has its own tests (test_handling_time.py)
     sc.params.EWE_HANDLING_TIME = False

@@ -15,12 +15,12 @@ The first form runs two years of each case below with ``rsim_run`` and saves
   without stanzas under the ``"ewe"`` rule with feeding time (FtimeAdj 0.5),
   RiskTime 0.3 on group 13, PaddP 0.5 and group 12 forced to 0.8 x B0 in
   months 1-6. RK4 and AB each.
-- ``test_ewe_mediation._scenario`` with ``SHAPE_A`` mediating Zoo's
-  availability to Fish (RK4).
+- ``test_ewe_mediation._scenario`` (``"ewe"`` rule) with ``SHAPE_A``
+  mediating Zoo's availability to Fish (RK4).
 - REco with one weight per link for ScrambleSelf and HandleSelf and CmCo 2
   (``reco_plain_ewe_pooled``, RK4 and AB); REco with forced F on group 5
   (``reco_forced_f``, RK4); the fleet-dynamics test model with one fleet
-  (``fleet_dynamics``, RK4).
+  under the ``"ewe"`` rule (``fleet_dynamics``, RK4).
 - LT2022 scenario 16 (dataset 35) and the Black Sea scenario 1 (RK4), when
   ``Data/`` holds them and a database driver exists; otherwise they are
   skipped with a note.
@@ -97,7 +97,9 @@ def _fleet_dynamics():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         model = rpath(params)
-    return rsim_scenario(model, params, years=YEARS)
+    # The rule is named: a model built in code defaults to Rpath's (D1), and
+    # the case was captured under the EwE rule.
+    return rsim_scenario(model, params, years=YEARS, fast_group_rule="ewe")
 
 
 def _fleet_dynamics_kwargs(scen):

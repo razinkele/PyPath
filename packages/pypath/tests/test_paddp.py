@@ -37,7 +37,9 @@ def _scenario(paddp_zoo=1.0):
     params.diet["Fish"] = [0.0, 1.0, 0.0, 0.0, 0.0]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sc = rsim_scenario(rpath(params), params, years=range(1, 3))
+        sc = rsim_scenario(
+            rpath(params), params, years=range(1, 3), fast_group_rule="ewe"
+        )
     # isolates PaddP; EwE's handling time (D5) has its own tests
     sc.params.EWE_HANDLING_TIME = False
     sc.params.PaddP[ZOO] = paddp_zoo

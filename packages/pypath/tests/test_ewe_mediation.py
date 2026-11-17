@@ -174,7 +174,9 @@ def _scenario():
     params.diet["Phyto"] = [0.0] * 6
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sc = rsim_scenario(rpath(params), params, years=range(1, 3))
+        sc = rsim_scenario(
+            rpath(params), params, years=range(1, 3), fast_group_rule="ewe"
+        )
     # Benthos is the mediator, held at half its base biomass
     sc.forcing.ForcedBio[:, BENTHOS] = 0.5 * sc.params.B_BaseRef[BENTHOS]
     return sc
@@ -274,7 +276,9 @@ def _fleet_scenario():
     params.diet["Phyto"] = [0.0] * 6
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sc = rsim_scenario(rpath(params), params, years=range(1, 3))
+        sc = rsim_scenario(
+            rpath(params), params, years=range(1, 3), fast_group_rule="ewe"
+        )
     sc.fishing.ForcedEffort[12:, TRAWL] = 0.5
     return sc
 

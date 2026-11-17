@@ -20,6 +20,9 @@ def spatial_scenario():
 
     Returns (scenario, rpath_params) tuple.
     Model: Phyto (producer) -> Zoo -> Fish (fished) + Det + Fleet.
+    The EwE rule is named: a model built in code now defaults to Rpath's
+    (roadmap D1), and the spatial tests and the other files that share this
+    fixture were written under the EwE rule, so they keep it.
     """
     params = create_rpath_params(
         groups=["Phyto", "Zoo", "Fish", "Det", "Fleet"],
@@ -62,7 +65,7 @@ def spatial_scenario():
         warnings.simplefilter("ignore")
         model = rpath(params)
 
-    scenario = rsim_scenario(model, params, years=range(1, 11))
+    scenario = rsim_scenario(model, params, years=range(1, 11), fast_group_rule="ewe")
     return scenario, params
 
 

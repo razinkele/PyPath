@@ -99,7 +99,7 @@ def test_ewe_rule_ftime_update_uses_the_derivatives_consumption(monkeypatch):
     from .test_fast_group_rule import ZOO
 
     model, params = _stiff_model()
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     # isolates the mechanism under test; EwE's handling time (D5)
     # has its own tests (test_handling_time.py)
     sc.params.EWE_HANDLING_TIME = False

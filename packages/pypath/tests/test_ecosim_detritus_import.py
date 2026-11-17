@@ -147,7 +147,7 @@ def test_t0_living_derivative_equals_ba():
 @pytest.mark.parametrize("noint", [True, False])
 def test_detritus_flat_over_a_year(method, noint):
     model, params = _model(det_input=50.0)
-    scen = rsim_scenario(model, params, years=range(1, 3))
+    scen = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     # isolates the import: EwE's handling time starts with a transient (R3)
     # that the first derivative, which fixes the detritus export rate
     # (DetritusOut, test_ewe_detritus_fate.py), would see
@@ -164,12 +164,13 @@ def test_fast_group_rule_counts_det_import(det_input, fast):
     # loss set from flows that include DtImp (:3207). Det B = 2: inflow from
     # flows is about 13.5 (6.75 /yr); with the import it is 63.5 (31.75 /yr).
     model, _ = _model(det_input=det_input, det_biomass=2.0)
-    assert int(rsim_params(model).NoIntegrate[DET] != 0) == fast
+    sim = rsim_params(model, fast_group_rule="ewe")
+    assert int(sim.NoIntegrate[DET] != 0) == fast
 
 
 def test_det_input_zero_is_bit_identical():
     model, params = _model(det_input=0.0)
-    scen = rsim_scenario(model, params, years=range(1, 3))
+    scen = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     with_key = rsim_run(scen, method="RK4").out_Biomass
     scen.params.DetInput = None
     without = rsim_run(scen, method="RK4").out_Biomass
@@ -224,7 +225,7 @@ def test_ecospace_detritus_flat_with_import():
     from pypath.spatial import EcospaceParams, create_1d_grid, rsim_run_spatial
 
     model, params = _model(det_input=50.0)
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     # isolates the import: EwE's handling time starts with a transient (R3)
     # that the first derivative, which fixes the detritus export rate
     # (DetritusOut, test_ewe_detritus_fate.py), would see

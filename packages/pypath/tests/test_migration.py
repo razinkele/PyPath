@@ -87,8 +87,11 @@ def _run(params, years=2):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sc = rsim_scenario(_balance(params), params, years=range(1, years + 1))
-        # isolates migration; EwE's handling time (D5) has its own tests
+        sc = rsim_scenario(
+            _balance(params), params, years=range(1, years + 1), fast_group_rule="ewe"
+        )
+        # EwE6 migration, under the EwE rule (named: these models are built in
+        # code); isolates migration: EwE's handling time (D5) has its own tests
         sc.params.EWE_HANDLING_TIME = False
         return rsim_run(sc, method="RK4")
 
@@ -121,7 +124,9 @@ def test_the_fast_group_test_counts_emigration():
     m.loc[m["Group"] == "Zoo", ["Biomass", "PB", "QB"]] = [2.0, 24.5, 100.0]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sc = rsim_scenario(_balance(params), params, years=range(1, 3))
+        sc = rsim_scenario(
+            _balance(params), params, years=range(1, 3), fast_group_rule="ewe"
+        )
     assert sc.params.Emig[ZOO] == pytest.approx(1.0)
     assert sc.params.NoIntegrate[ZOO] == 1
 

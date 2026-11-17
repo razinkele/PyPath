@@ -632,6 +632,33 @@ def _warn_detritus_fishery(rpath, fish_from) -> None:
         )
 
 
+def default_fast_group_rule(rpath, rpath_params=None) -> str:
+    """The fast-group rule a model gets when none is named (roadmap D1).
+
+    ``"ewe"`` when the model's origin, its ``compat``, is ``"ewe"`` (models
+    read from EwE: ``read_ewemdb``, ``read_ewef``, ``ecobase_to_rpath``) and
+    ``"rpath"`` otherwise (models built from CSV or in code). ``compat`` is
+    read from ``rpath_params`` when it is given and has one, else from
+    ``rpath``; a missing ``compat`` counts as ``"rpath"``.
+
+    Parameters
+    ----------
+    rpath : Rpath
+        Balanced Ecopath model (or anything with a ``compat`` attribute).
+    rpath_params : RpathParams, optional
+        The model's parameters; their ``compat`` takes precedence.
+
+    Returns
+    -------
+    str
+        ``"ewe"`` or ``"rpath"``.
+    """
+    source = rpath
+    if rpath_params is not None and hasattr(rpath_params, "compat"):
+        source = rpath_params
+    return "ewe" if getattr(source, "compat", "rpath") == "ewe" else "rpath"
+
+
 def rsim_params(
     rpath: Rpath,
     mscramble: float = 2.0,
@@ -641,7 +668,7 @@ def rsim_params(
     handleselfwt: float = 0.0,
     steps_yr: int = 12,
     steps_m: int = 1,
-    fast_group_rule: str = "ewe",
+    fast_group_rule: Optional[str] = None,
 ) -> RsimParams:
     """Convert Rpath model to Ecosim simulation parameters.
 
@@ -667,9 +694,11 @@ def rsim_params(
         Timesteps per year (default 12 = monthly)
     steps_m : int
         Sub-timesteps per month (default 1)
-    fast_group_rule : {"ewe", "rpath"}
+    fast_group_rule : {"ewe", "rpath"}, optional
         Which groups are solved as fast equilibria (``NoIntegrate``) instead
-        of being integrated. ``"ewe"`` (default) follows EwE6: a group whose
+        of being integrated. Default: by the model's origin (``compat``):
+        ``'ewe'`` for EwE imports, ``'rpath'`` otherwise (see
+        :func:`default_fast_group_rule`). ``"ewe"`` follows EwE6: a group whose
         total loss rate at the start, |loss|/B, exceeds 24 per year
         (predation + other mortality + fishing; for detritus the inflow minus
         biomass accumulation). ``"rpath"`` follows Rpath: other-mortality
@@ -686,6 +715,8 @@ def rsim_params(
     RsimParams
         Parameters object for simulation
     """
+    if fast_group_rule is None:
+        fast_group_rule = default_fast_group_rule(rpath)
     if fast_group_rule not in ("ewe", "rpath"):
         raise ValueError(
             f"fast_group_rule must be 'ewe' or 'rpath', got {fast_group_rule!r}"
@@ -1571,7 +1602,10 @@ def rsim_scenario(
         - 'vv_overrides': dict mapping (prey_0based, pred_0based) -> VV value
         - 'forced_bio': dict mapping 0-based group index -> array of annual biomass values
     fast_group_rule : {"ewe", "rpath"}, optional
-        Passed to :func:`rsim_params`; None keeps its default ("ewe").
+        Passed to :func:`rsim_params`. Default: by the model's origin
+        (``compat``): ``'ewe'`` for EwE imports, ``'rpath'`` otherwise. The
+        ``compat`` of ``rpath_params`` takes precedence over the balanced
+        model's (:func:`default_fast_group_rule`); an explicit rule wins.
 
     Returns
     -------
@@ -1581,10 +1615,11 @@ def rsim_scenario(
     if len(years) < 2:
         raise ValueError("Years must be a range of at least 2 years")
 
-    rule_kwargs = (
-        {} if fast_group_rule is None else {"fast_group_rule": fast_group_rule}
+    if fast_group_rule is None:
+        fast_group_rule = default_fast_group_rule(rpath, rpath_params)
+    params = rsim_params(
+        rpath, mscramble=vulnerability, fast_group_rule=fast_group_rule
     )
-    params = rsim_params(rpath, mscramble=vulnerability, **rule_kwargs)
     # Apply scenario-level overrides from EwE database
     if scenario_overrides:
         # Apply FtimeAdjust per group

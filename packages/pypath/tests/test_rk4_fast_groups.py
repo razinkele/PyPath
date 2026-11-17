@@ -46,7 +46,7 @@ def _stiff_model():
 
 def test_fast_groups_are_flagged_in_the_stiff_model():
     model, params = _stiff_model()
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     names = [str(n) for n in sc.params.spname]
     fast = {names[i] for i, v in enumerate(sc.params.NoIntegrate) if v}
     assert fast == {"Zoo", "Phyto", "Det"}
@@ -55,7 +55,7 @@ def test_fast_groups_are_flagged_in_the_stiff_model():
 def test_rk4_keeps_the_stiff_model_at_its_equilibrium():
     """Balanced model, no forcing: nothing moves, under RK4 as under AB."""
     model, params = _stiff_model()
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     out = rsim_run(sc, method="RK4")
     assert not out.crashed_groups
     bio = out.out_Biomass
@@ -70,7 +70,7 @@ def test_rpath_rule_leaves_rk4_fast_equilibrium_off():
     model, params = _stiff_model()
     sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="rpath")
     assert sc.params.RK4_FAST_EQUILIBRIUM is False
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     assert sc.params.RK4_FAST_EQUILIBRIUM is True
 
 
@@ -100,7 +100,7 @@ def test_rk4_takes_one_step_per_month_under_the_ewe_rule():
     stage that applies the blend four times as often and changes their path
     (LT2022 Zooplankton ends at 1 % of its start instead of 12 %)."""
     model, params = _stiff_model()
-    sc = rsim_scenario(model, params, years=range(1, 3))
+    sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="ewe")
     assert sc.params.RK4_STEPS == 1
     sc = rsim_scenario(model, params, years=range(1, 3), fast_group_rule="rpath")
     assert sc.params.RK4_STEPS == 4
