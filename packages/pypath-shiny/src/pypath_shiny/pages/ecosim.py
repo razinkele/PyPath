@@ -947,6 +947,32 @@ def _solver_inputs(input, method: str) -> dict:
 
 
 NO_CONSUMERS_TEXT = "This model has no consumers to switch."
+NO_MODEL_SWITCHING_TEXT = "Balance a model to set prey switching."
+
+
+def balanced_switching_groups(model) -> tuple[list[str], str | None]:
+    """The balanced route's consumers, or the message shown instead of boxes."""
+    if not (is_balanced_model(model) or is_rpath_params(model)):
+        return [], NO_MODEL_SWITCHING_TEXT
+    groups = consumers_from_model(model)
+    return groups, None if groups else NO_CONSUMERS_TEXT
+
+
+def switching_pending_text(
+    built_from_current_key: bool, is_pending: bool, has_overrides: bool
+) -> str | None:
+    """The note under the switching control, or None for no note.
+
+    Once a scenario is built from the current source, the note shows only
+    while the settings differ from it; before that, only when there are edits.
+    """
+    if built_from_current_key:
+        if is_pending:
+            return "Changed values apply when you create the scenario again."
+        return None
+    if has_overrides:
+        return "Values apply when you create the scenario."
+    return None
 
 
 def switching_inputs(
@@ -1189,11 +1215,8 @@ def ecosim_server(
         readonly: dict[str, float] = {}
         message = None
         if key == BALANCED_SOURCE:
-            if is_balanced_model(model) or is_rpath_params(model):
-                groups = consumers_from_model(model)
+            groups, message = balanced_switching_groups(model)
             base = dict.fromkeys(groups, 0.0)
-            if not groups:
-                message = NO_CONSUMERS_TEXT
         elif built_key != key or scen is None:
             message = "Create the scenario to see and change its switching powers."
         else:
@@ -1249,15 +1272,13 @@ def ecosim_server(
         spec = _switching_spec()
         store = switching_store.get()
         scen = scenario.get()
-        if (
-            scen is not None
-            and scenario_switching_key.get() == spec.key
-            and pending(store, spec.key, spec.base, scen.params)
-        ):
-            text = "Changed values apply when you create the scenario again."
-        elif store.overrides.get(spec.key):
-            text = "Values apply when you create the scenario."
-        else:
+        built = scen is not None and scenario_switching_key.get() == spec.key
+        text = switching_pending_text(
+            built,
+            built and pending(store, spec.key, spec.base, scen.params),
+            bool(store.overrides.get(spec.key)),
+        )
+        if text is None:
             return ui.div()
         return ui.p(text, class_="text-muted small fst-italic")
 

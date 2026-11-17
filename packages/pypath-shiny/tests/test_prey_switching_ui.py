@@ -235,6 +235,61 @@ def test_readonly_imported_non_consumer():
     assert "Phyto: 1 (imported; this group cannot switch, kept as imported)" in html
 
 
+def test_balanced_route_without_a_model_asks_for_one():
+    groups, message = ecosim_page.balanced_switching_groups(None)
+    assert groups == []
+    assert message == "Balance a model to set prey switching."
+
+
+def test_balanced_route_model_without_consumers_says_so():
+    from pypath.core.params import create_rpath_params
+
+    model = create_rpath_params(["Phyto", "Detritus"], [1, 2])
+    groups, message = ecosim_page.balanced_switching_groups(model)
+    assert groups == []
+    assert message == "This model has no consumers to switch."
+
+
+def test_balanced_route_lists_the_consumers(balanced_rpath_model):
+    groups, message = ecosim_page.balanced_switching_groups(balanced_rpath_model)
+    assert groups == ["Fish"]
+    assert message is None
+
+
+def test_switching_spec_takes_the_balanced_route_from_the_helper():
+    spec = _find_function(_ecosim_tree(), "_switching_spec")
+    assert "balanced_switching_groups" in _calls(spec)
+
+
+# --- the pending note -------------------------------------------------------
+
+CHANGED = "Changed values apply when you create the scenario again."
+NOT_YET = "Values apply when you create the scenario."
+
+
+@pytest.mark.parametrize(
+    "built, is_pending, has_overrides, expected",
+    [
+        (True, True, True, CHANGED),
+        (True, True, False, CHANGED),  # a value set back from an applied edit
+        (True, False, True, None),  # just created with the edits: nothing to say
+        (False, False, True, NOT_YET),
+        (False, False, False, None),
+    ],
+)
+def test_pending_note_text(built, is_pending, has_overrides, expected):
+    assert (
+        ecosim_page.switching_pending_text(built, is_pending, has_overrides) == expected
+    )
+
+
+def test_pending_note_uses_the_helper():
+    note = _find_function(_ecosim_tree(), "switching_pending_note")
+    calls = _calls(note)
+    assert "switching_pending_text" in calls
+    assert "pending" in calls
+
+
 # --- the EwE route ----------------------------------------------------------
 
 
