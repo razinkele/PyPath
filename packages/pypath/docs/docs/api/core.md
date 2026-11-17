@@ -186,7 +186,7 @@ out.solver_info["corrections"]
 ::: pypath.core.ecosim_continuous
     options:
       show_root_heading: true
-      members_order: source
+      members_order: [__all__, source]
 
 ## Advanced Ecosim (State Forcing & Diet Rewiring)
 

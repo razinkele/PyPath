@@ -374,9 +374,9 @@ def test_corrections_off_are_recorded(reco_plain):
 def _counting_solve_ivp(monkeypatch, fail_at):
     """Patch the month integrator's ``solve_ivp``: call ``fail_at`` (one call
     per month) returns the real solution marked as failed (status -1)."""
-    import pypath.core.ecosim_continuous as cont_mod
+    import pypath.core.ecosim_continuous.month as cont_month
 
-    real = cont_mod.solve_ivp
+    real = cont_month.solve_ivp
     calls = {"n": 0}
 
     def wrapper(*args, **kwargs):
@@ -387,7 +387,7 @@ def _counting_solve_ivp(monkeypatch, fail_at):
             sol.message = "forced failure"
         return sol
 
-    monkeypatch.setattr(cont_mod, "solve_ivp", wrapper)
+    monkeypatch.setattr(cont_month, "solve_ivp", wrapper)
     return calls
 
 
@@ -422,10 +422,10 @@ def test_a_warned_month_names_the_month(reco_plain, monkeypatch, caplog):
 
 def test_a_handling_time_failure_raises_even_with_warn(reco_plain, monkeypatch):
     """A failure inside the right-hand side is not caught by ``on_failure``."""
-    import pypath.core.ecosim_continuous as cont_mod
+    import pypath.core.ecosim_continuous.rhs as cont_rhs
 
-    real_set_month = cont_mod.ContinuousRHS.set_month
-    real_solve = cont_mod.solve_hden_kernel
+    real_set_month = cont_rhs.ContinuousRHS.set_month
+    real_solve = cont_rhs.solve_hden_kernel
     month = {"n": 0}
 
     def set_month(self, *args, **kwargs):
@@ -437,8 +437,8 @@ def test_a_handling_time_failure_raises_even_with_warn(reco_plain, monkeypatch):
             raise RuntimeError("handling time did not converge (stub)")
         return real_solve(*args, **kwargs)
 
-    monkeypatch.setattr(cont_mod.ContinuousRHS, "set_month", set_month)
-    monkeypatch.setattr(cont_mod, "solve_hden_kernel", solve_hden_kernel)
+    monkeypatch.setattr(cont_rhs.ContinuousRHS, "set_month", set_month)
+    monkeypatch.setattr(cont_rhs, "solve_hden_kernel", solve_hden_kernel)
     with pytest.raises(RuntimeError, match=r"^month 3 \(year 1\): handling time"):
         rsim_run(
             scenario(reco_plain, rule="ewe"),

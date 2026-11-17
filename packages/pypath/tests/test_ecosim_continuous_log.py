@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import pytest
 
-import pypath.core.ecosim_continuous as cont
+import pypath.core.ecosim_continuous.month as cont_month
 from pypath.core.ecosim import rsim_run
 from pypath.core.ecosim_continuous import JacobianReuse, integrate_month
 from tests.continuous_support import needs_reco, reco_plain, reco_stanzas, scenario
@@ -69,14 +69,14 @@ def test_log_states_agree():
 
 def test_log_tolerance(monkeypatch):
     seen = {}
-    real = cont.solve_ivp
+    real = cont_month.solve_ivp
 
     def spy(fun, span, y0, **kw):
         seen["atol"] = np.array(kw["atol"])
         seen["y0"] = np.array(y0)
         return real(fun, span, y0, **kw)
 
-    monkeypatch.setattr(cont, "solve_ivp", spy)
+    monkeypatch.setattr(cont_month, "solve_ivp", spy)
     y0 = np.array([2.0, 1e-3, 50.0])
     atol = np.array([1e-8, 1e-8, 1e-3])
     integrate_month(_Decay(), y0, 1 / 12, "lsoda", 1e-6, atol, positivity="log")
@@ -100,14 +100,14 @@ def test_log_tolerance(monkeypatch):
 
 def test_log_feeding_states_stay_linear(monkeypatch):
     seen = {}
-    real = cont.solve_ivp
+    real = cont_month.solve_ivp
 
     def spy(fun, span, y0, **kw):
         seen["atol"] = np.array(kw["atol"])
         seen["y0"] = np.array(y0)
         return real(fun, span, y0, **kw)
 
-    monkeypatch.setattr(cont, "solve_ivp", spy)
+    monkeypatch.setattr(cont_month, "solve_ivp", spy)
 
     class _Ft(_Decay):
         def __call__(self, t, y):
@@ -149,14 +149,14 @@ class _Spy:
 
     def __init__(self, monkeypatch):
         self.sols = []
-        real = cont.solve_ivp
+        real = cont_month.solve_ivp
 
         def spy(*a, **k):
             sol = real(*a, **k)
             self.sols.append(sol)
             return sol
 
-        monkeypatch.setattr(cont, "solve_ivp", spy)
+        monkeypatch.setattr(cont_month, "solve_ivp", spy)
 
 
 def test_log_floor_absorbs(monkeypatch):
@@ -231,7 +231,7 @@ def test_log_regrowth_from_the_floor():
 def test_log_regrowth_needs_the_cap(monkeypatch):
     """Without the cap atol_z = 1e12 at the floor: no control (7 evaluations,
     a value 60 % off)."""
-    monkeypatch.setattr(cont, "_ATOL_Z_MAX", 1e30)
+    monkeypatch.setattr(cont_month, "_ATOL_Z_MAX", 1e30)
     with np.errstate(all="ignore"):
         res, want = _regrow_month()
     assert abs(res.y_end[0] / want - 1) > 0.3

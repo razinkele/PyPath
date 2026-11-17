@@ -8,6 +8,8 @@ import pytest
 from scipy.integrate import solve_ivp
 
 import pypath.core.ecosim_continuous as cont
+import pypath.core.ecosim_continuous.month as cont_month
+import pypath.core.ecosim_continuous.rhs as cont_rhs
 from pypath.core.ecosim import rsim_run
 from pypath.core.ecosim_continuous import (
     ContinuousRHS,
@@ -170,13 +172,13 @@ def test_reuse_rules(monkeypatch):
 
     # integrate_month passes jac to solve_ivp, except for DOP853 and None
     calls: list = []
-    real = cont.solve_ivp
+    real = cont_month.solve_ivp
 
     def spy(*args, **kwargs):
         calls.append(kwargs)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(cont, "solve_ivp", spy)
+    monkeypatch.setattr(cont_month, "solve_ivp", spy)
     y0 = np.array([2.0, 5.0])
     for method, with_jac in (("dop853", True), ("lsoda", False), ("bdf", True)):
         rhs = _Decay()
@@ -418,13 +420,13 @@ def test_jacobian_columns_are_counted_evaluations(monkeypatch):
     deriv-call identity holds with Jacobians formed (BDF), and ``rhs_evals``
     covers SciPy's ``nfev`` plus ``n_state + 1`` per fresh Jacobian."""
     calls = {"n": 0}
-    real = cont.deriv_vector
+    real = cont_rhs.deriv_vector
 
     def counting(*args, **kwargs):
         calls["n"] += 1
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(cont, "deriv_vector", counting)
+    monkeypatch.setattr(cont_rhs, "deriv_vector", counting)
     scen = scenario(reco_plain(), rule="ewe", effort=2.0)
     scen.params.CmCo[1 : scen.params.NUM_LIVING + 1] = 2.0
     out = rsim_run(scen, method="bdf", years=range(1, 2))

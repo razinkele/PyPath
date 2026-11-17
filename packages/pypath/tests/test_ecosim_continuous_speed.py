@@ -7,7 +7,8 @@ import time
 import numpy as np
 import pytest
 
-import pypath.core.ecosim_continuous as cont
+import pypath.core.ecosim_continuous.month as cont_month
+import pypath.core.ecosim_continuous.rhs as cont_rhs
 from pypath.core.ecosim import rsim_run
 from pypath.core.ecosim_continuous import (
     ContinuousRHS,
@@ -44,13 +45,13 @@ class Decay:
 def _spy_solve_ivp(monkeypatch):
     """Record the keyword arguments of every ``solve_ivp`` call."""
     calls: list = []
-    real = cont.solve_ivp
+    real = cont_month.solve_ivp
 
     def spy(*args, **kwargs):
         calls.append(kwargs)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(cont, "solve_ivp", spy)
+    monkeypatch.setattr(cont_month, "solve_ivp", spy)
     return calls
 
 
@@ -138,13 +139,13 @@ def _cmco(scen, value):
 
 def test_one_derivative_per_rhs_evaluation(monkeypatch):
     calls = {"n": 0}
-    real = cont.deriv_vector
+    real = cont_rhs.deriv_vector
 
     def counting(*args, **kwargs):
         calls["n"] += 1
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(cont, "deriv_vector", counting)
+    monkeypatch.setattr(cont_rhs, "deriv_vector", counting)
     scen = _cmco(scenario(reco_plain(), rule="ewe", effort=2.0), 2.0)
     out = rsim_run(scen, method="lsoda", years=range(1, 2))
     info = out.solver_info

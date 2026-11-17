@@ -469,16 +469,16 @@ def test_a_component_without_a_bracket_converges(monkeypatch):
     """Ruling P2's other branch, positively. The first two maps straddle a
     sign change between the ends 1 and 1e6; the third (root 0.5, so
     F(1) < 0) does not, takes undamped passes and is finished by ``hybr``."""
-    import pypath.core.ecosim_continuous as cont_mod
+    import pypath.core.ecosim_continuous.hden as cont_hden
 
     hybr = {"n": 0}
-    real_root = cont_mod.root
+    real_root = cont_hden.root
 
     def spy(*args, **kwargs):
         hybr["n"] += 1
         return real_root(*args, **kwargs)
 
-    monkeypatch.setattr(cont_mod, "root", spy)
+    monkeypatch.setattr(cont_hden, "root", spy)
 
     def g(h):
         return np.array([1.5, 0.5 + 0.9 * h[1], 0.25 + 0.5 * h[2]])

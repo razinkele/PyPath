@@ -77,7 +77,7 @@ def test_a_failed_month_raises_or_warns(caplog):
 
 @pytest.mark.parametrize("on_failure", ["raise", "warn"])
 def test_a_nan_start_derivative_raises_without_solving(monkeypatch, on_failure):
-    import pypath.core.ecosim_continuous as mod
+    import pypath.core.ecosim_continuous.month as mod
 
     def boom(*a, **k):
         raise AssertionError("solve_ivp must not be called")
@@ -122,7 +122,7 @@ class _Sol:
 
 
 def _patched(monkeypatch, y_end, dense):
-    import pypath.core.ecosim_continuous as mod
+    import pypath.core.ecosim_continuous.month as mod
 
     monkeypatch.setattr(mod, "solve_ivp", lambda *a, **k: _Sol(y_end, dense))
 

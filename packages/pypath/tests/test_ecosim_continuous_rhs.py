@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from pandas import DataFrame
 
-import pypath.core.ecosim_continuous as cont_mod
+import pypath.core.ecosim_continuous.rhs as cont_rhs
 from pypath.core.ecosim_continuous import (
     ContinuousRHS,
     continuous_emig,
@@ -300,13 +300,13 @@ def _alternating(y0):
 def test_one_derivative_per_evaluation(monkeypatch):
     rhs, pd, fd, fi, y0 = _cmco2_rhs()
     calls = {"n": 0}
-    real = cont_mod.deriv_vector
+    real = cont_rhs.deriv_vector
 
     def counting(*args, **kwargs):
         calls["n"] += 1
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(cont_mod, "deriv_vector", counting)
+    monkeypatch.setattr(cont_rhs, "deriv_vector", counting)
     y = _alternating(y0)
     for k in range(10):
         rhs(0.01 * k, y * (1.0 + 0.01 * k))
