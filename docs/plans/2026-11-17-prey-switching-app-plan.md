@@ -166,6 +166,7 @@ Behaviour. All inner mappings are plain dicts, and nothing is mutated:
   1. `value` None, or not convertible to float: the store is returned unchanged.
   2. If `round(value, 3) == round(source_value, 3)`, the group's override is removed and no range check runs. The full-precision source value then applies, which keeps an untouched imported 2.5 legal.
   3. Otherwise `check_power(value)` runs, letting `ValueError` propagate, and the override is stored.
+  4. When the last override of a key is removed, the key is dropped, so a store with no overrides equals `SwitchingStore()`.
 - **`fold_edits`.** It folds the boxes' current values into the store.
   - `boxes` maps a group to its box's value.
   - The current values are computed inside it as `current = effective_values(store, key, base)`, from the store as it is now, never from the last render.
