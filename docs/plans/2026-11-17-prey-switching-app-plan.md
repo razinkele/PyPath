@@ -150,8 +150,8 @@ def snapshot_source(params) -> dict[str, float]           # switching_by_name re
 def check_power(value) -> float                           # float in [0, 2]; ValueError with the exact message below otherwise
 def set_override(store, key, group, value, source_value) -> SwitchingStore
 def effective_values(store, key, base: Mapping[str, float]) -> dict[str, float]   # base with the key's overrides applied
-def fold_edits(store, key, boxes: Mapping[str, object], base: Mapping[str, float],
-               shown: Mapping[str, float]) -> tuple[SwitchingStore, dict[str, str]]
+def fold_edits(store, key, boxes: Mapping[str, object],
+               base: Mapping[str, float]) -> tuple[SwitchingStore, dict[str, str]]
 def switch_power_with_overrides(params, overrides: Mapping[str, float]) -> np.ndarray | None
 def summary(params) -> dict[str, float]                   # nonzero switching powers by name, in group order
 def summary_line(values: Mapping[str, float] | None) -> str
@@ -167,8 +167,10 @@ Behaviour. All inner mappings are plain dicts, and nothing is mutated:
   2. If `round(value, 3) == round(source_value, 3)`, the group's override is removed and no range check runs. The full-precision source value then applies, which keeps an untouched imported 2.5 legal.
   3. Otherwise `check_power(value)` runs, letting `ValueError` propagate, and the override is stored.
 - **`fold_edits`.** It folds the boxes' current values into the store.
-  - `boxes` maps a group to its box's value; `shown` maps a group to the value the render put in that box (the effective value).
-  - A box whose value equals `round(shown[name], 3)` is untouched since the render and is skipped. This keeps an override with more than 3 decimals (say 0.1234, shown as 0.123) from being rewritten whenever the boxes are recreated.
+  - `boxes` maps a group to its box's value.
+  - The current values are computed inside it as `current = effective_values(store, key, base)`, from the store as it is now, never from the last render.
+  - A box whose value equals `round(current[name], 3)` is skipped. This keeps an override with more than 3 decimals (say 0.1234, shown as 0.123) from being rewritten when the boxes are recreated, and leaves a box reset after a refusal alone.
+  - A revert, typing 0 again over a current 1, differs from the current value, so it goes through `set_override` and removes the override.
   - Every other box goes through `set_override` against `base[name]`.
   - It returns the new store and `{name: message}` for the boxes `set_override` refused. The message is `check_power`'s, with `"Switching power"` replaced by `f"Switching power for {name}"`.
 - **`switch_power_with_overrides`.** Returns None when `overrides` is empty, so the caller leaves the scenario's array alone. Otherwise it returns a new array: a copy of `params.SwitchPower`, or zeros of length `NUM_GROUPS + 1` when that is None or short, with each named override written at the group's index. A name that is not a consumer of `params` is skipped.
@@ -233,14 +235,19 @@ def test_out_of_range_is_refused():
         set_override(SwitchingStore(), "model", "Cod", 3.0, 0.0)
 
 def test_fold_skips_boxes_untouched_since_the_render():
-    s = set_override(SwitchingStore(), "model", "Cod", 0.1234, 0.0)
-    shown = effective_values(s, "model", {"Cod": 0.0})           # {"Cod": 0.1234}
-    new, errors = fold_edits(s, "model", {"Cod": 0.123}, {"Cod": 0.0}, shown)
+    s = set_override(SwitchingStore(), "model", "Cod", 0.1234, 0.0)  # shown as 0.123
+    new, errors = fold_edits(s, "model", {"Cod": 0.123}, {"Cod": 0.0})
     assert new == s and errors == {}
+
+def test_fold_applies_a_revert():
+    s, _ = fold_edits(SwitchingStore(), "model", {"Cod": 1.0}, {"Cod": 0.0})
+    assert dict(s.overrides) == {"model": {"Cod": 1.0}}
+    s, _ = fold_edits(s, "model", {"Cod": 0.0}, {"Cod": 0.0})
+    assert s == SwitchingStore()
 
 def test_fold_applies_edits_and_reports_refusals():
     new, errors = fold_edits(SwitchingStore(), "model", {"Cod": 1.0, "Seals": 3.0},
-                             {"Cod": 0.0, "Seals": 0.0}, {"Cod": 0.0, "Seals": 0.0})
+                             {"Cod": 0.0, "Seals": 0.0})
     assert dict(new.overrides) == {"model": {"Cod": 1.0}}
     assert errors == {"Seals": "Switching power for Seals must be between 0 and 2; 3.0 was not applied."}
 
@@ -346,7 +353,7 @@ def test_a_load_right_after_a_rebalance_clears():
 - **Collecting edits.** One `@reactive.effect(priority=1)`. The priority makes it run before Create Scenario's handler when a box's value and the click arrive in one message.
   1. `spec = _switching_spec()`.
   2. Read `input[f"{spec.prefix}{i}"]()` for every group. An input not yet bound raises `SilentException`; Shiny 1.9.0 registers the dependency first and the effect waits (verified in review).
-  3. Then, inside `reactive.isolate()`, call `new, errors = fold_edits(old, spec.key, boxes, spec.base, spec.values)`, with `old = switching_store.get()`.
+  3. Then, inside `reactive.isolate()`, call `new, errors = fold_edits(old, spec.key, boxes, spec.base)`, with `old = switching_store.get()`. Never pass the render-time values: `fold_edits` compares against the store's current values itself.
   4. Call `switching_store.set(new)` only when `new != old`; `reactive.Value` compares by identity, so an unconditional set would loop.
   5. For each refused box, call `notify_warning(message)`. Then reset the box with `ui.update_numeric(id, value=round(effective, 3))`, so it shows the value that still applies.
 - **The pending note.**
