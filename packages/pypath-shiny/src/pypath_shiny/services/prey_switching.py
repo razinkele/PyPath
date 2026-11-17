@@ -222,7 +222,7 @@ def on_model_change(
         return (
             SwitchingStore(),
             f"Prey switching settings cleared ({total} group(s)): "
-            "a different model was loaded.",
+            "a different model is now in use.",
         )
     allowed = set(consumers)
     overrides: dict[str, dict[str, float]] = {}
