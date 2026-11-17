@@ -84,7 +84,8 @@ def test_module_copy_is_reworded():
     assert EXAMPLE_NOTE in text
     assert (
         "Diet rewiring is deprecated: it never integrated. "
-        "Values are kept to 3 decimals; a change smaller than 0.001 is ignored."
+        "Values are compared at 3 decimals: a typed value that rounds to the "
+        "starting value (0, or the scenario's own value) counts as no change."
     ) in text
     assert re.search(r"(?i)prey switching[^.]{0,60}planned", text) is None
 

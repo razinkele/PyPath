@@ -38,12 +38,7 @@ import pypath_shiny  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [
-    pytest.mark.slow,
-    pytest.mark.skipif(
-        not Path("/proc/self/stat").exists(), reason="reads CPU time from /proc"
-    ),
-]
+pytestmark = [pytest.mark.slow]
 
 APP = Path(pypath_shiny.__file__).resolve().parent / "app.py"
 RESERVED_PORTS = (3838, 8140)
