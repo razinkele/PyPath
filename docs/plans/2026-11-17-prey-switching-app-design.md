@@ -30,6 +30,8 @@ What is missing is the app:
 5. **Every run shows its switching, for every method.**
    - **Ecosim page.** It shows a line such as "Prey switching: Cod 1.0, Seals 0.5" or "Prey switching: none" with every run's results: RK4, AB and the continuous methods alike. The line sits outside the solver-diagnostics card, which appears only for continuous runs.
    - **Ecospace and IBM pages.** They run the Ecosim page's scenario (`_sim_scenario`), so its switching applies there too. Each shows the same line with its run.
+     - The values are captured from the scenario that page runs (`ecospace.py` around line 1493, `ibm.py` around line 558) when its run starts, and stored with that page's result.
+     - The line is rendered from that stored copy, never from the current `_sim_scenario()`. Neither page clears its result when the Ecosim scenario changes, so the current scenario can differ from the one a shown result used.
    - **Where the values come from.** The line is built when the result lands, from the scenario that ran (`outcome.source.params.SwitchPower` on the Ecosim page), never from the control. It therefore includes imported values that were not edited.
 6. **Accurate wording everywhere diet rewiring or switching is described:**
    - the Ecosim sidebar note and help text ("prey switching is planned");
@@ -86,14 +88,23 @@ What is missing is the app:
 
 - **Placement.** The new control replaces the sidebar's diet-rewiring note in the same place, with the other scenario controls (fishing, recruitment, metabolism).
 - **Overrides.** The control keeps them on top of the source's own values: 0 on the balanced route, the scenario's on the EwE route.
+  - **The source's values** on the EwE route are those of the scenario as the source builds it, before any override is applied. At each Create Scenario they are taken from the newly built scenario before the overrides are applied, and kept per source.
+  - The comparisons below are made against those values, never against a scenario that already carries overrides.
   - An override exists only for a value the user edited. An untouched value never writes, so a rounded display cannot change an imported full-precision value.
   - Editing a value back to the source's value, as displayed, removes its override, and the source's full-precision value is used.
   - With no override, Create Scenario leaves `params.SwitchPower` exactly as the source built it.
 - **Overrides per source.** There is one set for the balanced route and one for each EwE scenario or example. Switching routes discards nothing, and a value never carries over to an unrelated scenario.
-- **On a model change** (`model_data.set`, including each re-balance):
-  - balanced-route overrides are kept for groups that are still present and still consumers, and dropped otherwise;
-  - EwE-route overrides are dropped when the source no longer matches the model;
-  - the existing model-change notice says which overrides were kept.
+- **On a model change.** Every load and every re-balance goes through `model_data.set`:
+  - Home examples: `home.py` around lines 658 and 723;
+  - Data Import: `data_import.py` around lines 979, 994 and 1398;
+  - the CSV upload: `ecopath.py` around line 1272;
+  - the Ecopath page's re-balance: `ecopath.py` around line 1365.
+
+  The rules:
+  - **A re-balance** keeps the balanced-route overrides of groups that are still present and still consumers. Only that call site marks the change as a re-balance.
+  - **Any other model change** clears all overrides. Models often share group names, so keeping them would carry values onto an unrelated model.
+  - **EwE-route overrides** are dropped when the source no longer matches the model.
+  - **A notice** reports kept or cleared overrides whenever there were any. It is separate from the existing model-change notice, which says nothing when no scenario or results were cleared.
 - **On the EwE route the scenario's own groups drive the control.** Their names and the producer test come from the scenario's own parameters, not the app's loaded model.
   - A group that cannot switch is not editable.
   - A nonzero imported value on such a group is kept and shown read-only with a note.
@@ -115,4 +126,5 @@ What is missing is the app:
   - an EwE scenario or example keeps its values to the bit unless they are changed, with a value such as 0.30000001 surviving a rounded display;
   - consumers (`PP_type == 0`) are offered, and producers, detritus and fleets are not;
   - the switching line appears for RK4, AB and a continuous run, and on the Ecospace and IBM pages;
-  - re-balancing keeps the overrides of groups that remain.
+  - re-balancing keeps the overrides of groups that remain, and loading another model clears them;
+  - the Ecospace and IBM lines show the switching their run used after the Ecosim scenario is re-created with other values.
