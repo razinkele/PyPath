@@ -19,6 +19,12 @@ from pypath_shiny.pages.ecosim import (
 )
 from tests.test_ecosim_continuous_ui import _ecosim_tree, _find_function
 
+# The shared fixture model's detritus has no source fraction, so rsim_params
+# warns on every scenario built from it; that is not what these tests are about.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:DetFate columns with zero source fractions:UserWarning"
+)
+
 # --- origin_fast_group_rule ---------------------------------------------------
 
 
