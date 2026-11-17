@@ -2,7 +2,6 @@
 
 import asyncio
 import copy
-import dataclasses
 import itertools
 import logging
 import time
@@ -84,6 +83,7 @@ from pypath_shiny.services.prey_switching import (
     SWITCH_POWER_MAX,
     SwitchingStore,
     above_range,
+    apply_at_create,
     consumers_from_model,
     consumers_from_params,
     effective_values,
@@ -94,7 +94,6 @@ from pypath_shiny.services.prey_switching import (
     source_key,
     summary,
     summary_line,
-    switch_power_with_overrides,
 )
 from pypath_shiny.services.solver_diagnostics import (
     flagged_months as _flagged_months,
@@ -2238,11 +2237,11 @@ def ecosim_server(
                 )
 
             rule = _input_or_default("fast_group_rule", "ewe")
-            source = _matching_ewe_source()
-            if (
-                source is not None
-                and _input_or_default("scenario_source", "model") == "ewe"
-            ):
+            # The source key, computed once, also picks the route: an EwE key
+            # only when the "ewe" source is selected and matches the model.
+            switching_key = _current_switching_key()
+            if switching_key != BALANCED_SOURCE:
+                source = _matching_ewe_source()
                 # The database's own scenario, as EwE6 runs it: its Ecopath
                 # inputs, settings, forcing and length.
                 new_scenario = build_ewe_scenario(
@@ -2265,22 +2264,11 @@ def ecosim_server(
 
             # Prey switching: on the EwE route, record the source's own values
             # before any edit is applied; then write the edits. Untouched, the
-            # scenario keeps the very SwitchPower array its source built.
-            switching_key = _current_switching_key()
-            new_store = switching_store.get()
-            if switching_key != BALANCED_SOURCE:
-                new_store = dataclasses.replace(
-                    new_store,
-                    source_values={
-                        **new_store.source_values,
-                        switching_key: snapshot_source(new_scenario.params),
-                    },
-                )
-            switch_power = switch_power_with_overrides(
-                new_scenario.params, new_store.overrides.get(switching_key, {})
+            # scenario keeps the very SwitchPower array its source built. The
+            # store is committed after scenario.set, below.
+            new_store = apply_at_create(
+                new_scenario.params, switching_store.get(), switching_key
             )
-            if switch_power is not None:
-                new_scenario.params.SwitchPower = switch_power
             for name, value in above_range(
                 snapshot_source(new_scenario.params)
             ).items():

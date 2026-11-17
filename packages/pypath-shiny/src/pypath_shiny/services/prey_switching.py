@@ -1,15 +1,16 @@
 """Prey-switching (EwE ``SwitchPower``) settings for the app.
 
 Pure Python and numpy: no Shiny imports, so it can be used and tested without
-a session. Overrides live in an immutable :class:`SwitchingStore`; nothing here
-mutates its inputs.
+a session. Overrides live in an immutable :class:`SwitchingStore`. Nothing here
+mutates its inputs, except :func:`apply_at_create`, which writes the overrides
+into the scenario's params.
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 
@@ -165,6 +166,24 @@ def switch_power_with_overrides(params, overrides: Mapping[str, float]):
         if name in consumers:
             arr[names.index(name)] = value
     return arr
+
+
+def apply_at_create(params, store: SwitchingStore, key: str) -> SwitchingStore:
+    """Create Scenario's switching step; returns the store to commit.
+
+    On an EwE key, the source's own values are recorded first, before any
+    override is written. ``params.SwitchPower`` is replaced only when the key
+    has overrides: untouched, it stays the very array the source built.
+    """
+    if key != BALANCED_SOURCE:
+        store = replace(
+            store,
+            source_values={**store.source_values, key: snapshot_source(params)},
+        )
+    arr = switch_power_with_overrides(params, store.overrides.get(key, {}))
+    if arr is not None:
+        params.SwitchPower = arr
+    return store
 
 
 def summary(params) -> dict[str, float]:

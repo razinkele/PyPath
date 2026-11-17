@@ -4,8 +4,10 @@ import numpy as np
 import pytest
 
 from pypath_shiny.services.prey_switching import (
+    BALANCED_SOURCE,
     SwitchingStore,
     above_range,
+    apply_at_create,
     consumers_from_params,
     effective_values,
     fold_edits,
@@ -175,3 +177,48 @@ def test_consumers_from_model_accepts_balanced_and_params(switching_scenario):
         type = [1, 0, 2]
 
     assert consumers_from_model(Bal()) == ["Cod"]
+
+
+# --- Create Scenario's step ---------------------------------------------------
+
+EWE_KEY = "ewemdb|/x.eweaccdb|16"
+
+
+def _cod(params):
+    return [str(n).strip() for n in params.spname].index("Cod")
+
+
+def test_create_without_override_keeps_the_very_array(switching_scenario):
+    p = switching_scenario.params
+    original = p.SwitchPower
+    assert isinstance(original, np.ndarray)
+    other = set_override(SwitchingStore(), "ewemdb|/other|1", "Cod", 1.0, 0.0)
+    for key in (BALANCED_SOURCE, EWE_KEY):
+        apply_at_create(p, other, key)
+        assert p.SwitchPower is original
+
+
+def test_create_on_an_ewe_key_records_the_source_before_the_override(
+    switching_scenario,
+):
+    p = switching_scenario.params
+    p.SwitchPower = np.array(p.SwitchPower, dtype=float)
+    p.SwitchPower[_cod(p)] = 0.25
+    store = set_override(SwitchingStore(), EWE_KEY, "Cod", 1.0, 0.25)
+    before = SwitchingStore(
+        overrides={k: dict(v) for k, v in store.overrides.items()},
+        source_values={},
+    )
+    new = apply_at_create(p, store, EWE_KEY)
+    assert dict(new.source_values[EWE_KEY]) == {"Cod": 0.25, "Seals": 0.0}
+    assert dict(new.overrides) == {EWE_KEY: {"Cod": 1.0}}
+    assert p.SwitchPower[_cod(p)] == 1.0
+    assert store == before  # the input store is left as it was
+
+
+def test_create_on_the_balanced_key_records_no_source(switching_scenario):
+    p = switching_scenario.params
+    store = set_override(SwitchingStore(), BALANCED_SOURCE, "Cod", 1.0, 0.0)
+    new = apply_at_create(p, store, BALANCED_SOURCE)
+    assert new.source_values == {}
+    assert p.SwitchPower[_cod(p)] == 1.0

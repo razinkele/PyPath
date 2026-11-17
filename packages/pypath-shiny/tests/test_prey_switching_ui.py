@@ -91,9 +91,22 @@ def test_module_copy_is_reworded():
 def test_create_scenario_applies_the_overrides_before_fishing():
     create = _find_function(_ecosim_tree(), "_create_scenario")
     calls = _calls(create)
-    for name in ("switch_power_with_overrides", "snapshot_source", "above_range"):
+    for name in ("apply_at_create", "snapshot_source", "above_range"):
         assert name in calls, name
-    assert _first_call_line(create, "switch_power_with_overrides") < (
+    # The service step owns the route test and the write: no inline copy.
+    assert "switch_power_with_overrides" not in calls
+    # One route test: the key, computed once, picks the build.
+    assert calls.count("_current_switching_key") == 1
+    read_inputs = [
+        c.args[0].value
+        for c in ast.walk(create)
+        if isinstance(c, ast.Call)
+        and ast.unparse(c.func) == "_input_or_default"
+        and c.args
+        and isinstance(c.args[0], ast.Constant)
+    ]
+    assert "scenario_source" not in read_inputs
+    assert _first_call_line(create, "apply_at_create") < (
         _first_call_line(create, "_apply_fishing_scenario")
     )
     assert "scenario_switching_key.set" in calls
