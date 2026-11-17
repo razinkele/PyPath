@@ -950,6 +950,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pypath.core.ecosim.default_fast_group_rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default_fast_group_rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pypath.core.ecosim.rsim_params" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7330,6 +7341,17 @@
     <span class="md-ellipsis">
       
         detritus_self_fates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.core.ecosim.default_fast_group_rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default_fast_group_rule
       
     </span>
   </a>
@@ -15773,8 +15795,9 @@ with string values containing remarks for each cell.</p>
 models read from EwE (<code>read_ewemdb</code>, <code>read_ewef</code>,
 <code>ecobase_to_rpath</code>), "rpath" (the default) for models built here or
 read from Rpath CSVs. <code>rpath()</code> reports EwE's detritus routing for
-"ewe" (see <code>ewe_detritus_fate</code>). Ecosim's rules are chosen
-separately (<code>rsim_scenario(fast_group_rule=...)</code>).</p>
+"ewe" (see <code>ewe_detritus_fate</code>). Ecosim's fast-group rule defaults
+to it (<code>rsim_scenario</code>, <code>rsim_params</code>: <code>'ewe'</code> for "ewe",
+<code>'rpath'</code> otherwise); an explicit <code>fast_group_rule</code> wins.</p>
               </div>
             </td>
           </tr>
@@ -15870,7 +15893,8 @@ separately (<code>rsim_scenario(fast_group_rule=...)</code>).</p>
 <span class="normal">109</span>
 <span class="normal">110</span>
 <span class="normal">111</span>
-<span class="normal">112</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">112</span>
+<span class="normal">113</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RpathParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Container for Rpath model parameters.</span>
 
@@ -15911,8 +15935,9 @@ separately (<code>rsim_scenario(fast_group_rule=...)</code>).</p>
 <span class="sd">        models read from EwE (``read_ewemdb``, ``read_ewef``,</span>
 <span class="sd">        ``ecobase_to_rpath``), "rpath" (the default) for models built here or</span>
 <span class="sd">        read from Rpath CSVs. ``rpath()`` reports EwE's detritus routing for</span>
-<span class="sd">        "ewe" (see ``ewe_detritus_fate``). Ecosim's rules are chosen</span>
-<span class="sd">        separately (``rsim_scenario(fast_group_rule=...)``).</span>
+<span class="sd">        "ewe" (see ``ewe_detritus_fate``). Ecosim's fast-group rule defaults</span>
+<span class="sd">        to it (``rsim_scenario``, ``rsim_params``: ``'ewe'`` for "ewe",</span>
+<span class="sd">        ``'rpath'`` otherwise); an explicit ``fast_group_rule`` wins.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -16056,8 +16081,7 @@ separately (<code>rsim_scenario(fast_group_rule=...)</code>).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">115</span>
-<span class="normal">116</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">116</span>
 <span class="normal">117</span>
 <span class="normal">118</span>
 <span class="normal">119</span>
@@ -16081,7 +16105,8 @@ separately (<code>rsim_scenario(fast_group_rule=...)</code>).</p>
 <span class="normal">137</span>
 <span class="normal">138</span>
 <span class="normal">139</span>
-<span class="normal">140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_groups_by_type</span><span class="p">(</span><span class="n">groups</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">types</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="normal">140</span>
+<span class="normal">141</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_groups_by_type</span><span class="p">(</span><span class="n">groups</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">types</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""Return dict mapping type names to group lists.</span>
 
 <span class="sd">    Parameters</span>
@@ -16238,8 +16263,7 @@ Groups with the same stanza group name will be linked (e.g., juvenile/adult).</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">143</span>
-<span class="normal">144</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">144</span>
 <span class="normal">145</span>
 <span class="normal">146</span>
 <span class="normal">147</span>
@@ -16383,7 +16407,8 @@ Groups with the same stanza group name will be linked (e.g., juvenile/adult).</p
 <span class="normal">285</span>
 <span class="normal">286</span>
 <span class="normal">287</span>
-<span class="normal">288</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_rpath_params</span><span class="p">(</span>
+<span class="normal">288</span>
+<span class="normal">289</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_rpath_params</span><span class="p">(</span>
     <span class="n">groups</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">types</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">stgroups</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RpathParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create a shell RpathParams object with empty parameter values.</span>
@@ -16676,8 +16701,7 @@ Groups with the same stanza group name will be linked (e.g., juvenile/adult).</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">291</span>
-<span class="normal">292</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">292</span>
 <span class="normal">293</span>
 <span class="normal">294</span>
 <span class="normal">295</span>
@@ -16733,7 +16757,8 @@ Groups with the same stanza group name will be linked (e.g., juvenile/adult).</p
 <span class="normal">345</span>
 <span class="normal">346</span>
 <span class="normal">347</span>
-<span class="normal">348</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_rpath_params</span><span class="p">(</span>
+<span class="normal">348</span>
+<span class="normal">349</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_rpath_params</span><span class="p">(</span>
     <span class="n">model_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
     <span class="n">diet_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
     <span class="n">pedigree_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -16883,8 +16908,7 @@ Groups with the same stanza group name will be linked (e.g., juvenile/adult).</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">351</span>
-<span class="normal">352</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">352</span>
 <span class="normal">353</span>
 <span class="normal">354</span>
 <span class="normal">355</span>
@@ -16915,7 +16939,8 @@ Groups with the same stanza group name will be linked (e.g., juvenile/adult).</p
 <span class="normal">380</span>
 <span class="normal">381</span>
 <span class="normal">382</span>
-<span class="normal">383</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">write_rpath_params</span><span class="p">(</span>
+<span class="normal">383</span>
+<span class="normal">384</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">write_rpath_params</span><span class="p">(</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span> <span class="n">eco_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="s2">""</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Write Rpath parameters to CSV files.</span>
@@ -17056,8 +17081,7 @@ is in the expected locations.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">386</span>
-<span class="normal">387</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">387</span>
 <span class="normal">388</span>
 <span class="normal">389</span>
 <span class="normal">390</span>
@@ -17158,7 +17182,8 @@ is in the expected locations.</p>
 <span class="normal">485</span>
 <span class="normal">486</span>
 <span class="normal">487</span>
-<span class="normal">488</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_rpath_params</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="normal">488</span>
+<span class="normal">489</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_rpath_params</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Check Rpath parameter files for consistency.</span>
 
 <span class="sd">    Validates that parameter files are filled out correctly and data</span>
@@ -19565,33 +19590,33 @@ start value, before the run's start-of-run derivative advances it.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1851</span>
-<span class="normal">1852</span>
-<span class="normal">1853</span>
-<span class="normal">1854</span>
-<span class="normal">1855</span>
-<span class="normal">1856</span>
-<span class="normal">1857</span>
-<span class="normal">1858</span>
-<span class="normal">1859</span>
-<span class="normal">1860</span>
-<span class="normal">1861</span>
-<span class="normal">1862</span>
-<span class="normal">1863</span>
-<span class="normal">1864</span>
-<span class="normal">1865</span>
-<span class="normal">1866</span>
-<span class="normal">1867</span>
-<span class="normal">1868</span>
-<span class="normal">1869</span>
-<span class="normal">1870</span>
-<span class="normal">1871</span>
-<span class="normal">1872</span>
-<span class="normal">1873</span>
-<span class="normal">1874</span>
-<span class="normal">1875</span>
-<span class="normal">1876</span>
-<span class="normal">1877</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1886</span>
+<span class="normal">1887</span>
+<span class="normal">1888</span>
+<span class="normal">1889</span>
+<span class="normal">1890</span>
+<span class="normal">1891</span>
+<span class="normal">1892</span>
+<span class="normal">1893</span>
+<span class="normal">1894</span>
+<span class="normal">1895</span>
+<span class="normal">1896</span>
+<span class="normal">1897</span>
+<span class="normal">1898</span>
+<span class="normal">1899</span>
+<span class="normal">1900</span>
+<span class="normal">1901</span>
+<span class="normal">1902</span>
+<span class="normal">1903</span>
+<span class="normal">1904</span>
+<span class="normal">1905</span>
+<span class="normal">1906</span>
+<span class="normal">1907</span>
+<span class="normal">1908</span>
+<span class="normal">1909</span>
+<span class="normal">1910</span>
+<span class="normal">1911</span>
+<span class="normal">1912</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RunSetup</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The per-run inputs that ``rsim_run``'s paths share (``_run_setup``).</span>
 
@@ -19701,12 +19726,170 @@ fraction &gt; 0 to its own pool.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="pypath.core.ecosim.default_fast_group_rule" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">default_fast_group_rule</span>
+
+
+<a href="#pypath.core.ecosim.default_fast_group_rule" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">default_fast_group_rule</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">rpath_params</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The fast-group rule a model gets when none is named (roadmap D1).</p>
+<p><code>"ewe"</code> when the model's origin, its <code>compat</code>, is <code>"ewe"</code> (models
+read from EwE: <code>read_ewemdb</code>, <code>read_ewef</code>, <code>ecobase_to_rpath</code>) and
+<code>"rpath"</code> otherwise (models built from CSV or in code). <code>compat</code> is
+read from <code>rpath_params</code> when it is given and has one, else from
+<code>rpath</code>; a missing <code>compat</code> counts as <code>"rpath"</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>rpath</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Rpath
+
+
+  
+      dataclass
+   (pypath.core.ecopath.Rpath)" href="#pypath.core.ecopath.Rpath">Rpath</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Balanced Ecopath model (or anything with a <code>compat</code> attribute).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>rpath_params</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="RpathParams
+
+
+  
+      dataclass
+   (pypath.core.params.RpathParams)" href="#pypath.core.params.RpathParams">RpathParams</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model's parameters; their <code>compat</code> takes precedence.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"ewe"</code> or <code>"rpath"</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">default_fast_group_rule</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">rpath_params</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The fast-group rule a model gets when none is named (roadmap D1).</span>
+
+<span class="sd">    ``"ewe"`` when the model's origin, its ``compat``, is ``"ewe"`` (models</span>
+<span class="sd">    read from EwE: ``read_ewemdb``, ``read_ewef``, ``ecobase_to_rpath``) and</span>
+<span class="sd">    ``"rpath"`` otherwise (models built from CSV or in code). ``compat`` is</span>
+<span class="sd">    read from ``rpath_params`` when it is given and has one, else from</span>
+<span class="sd">    ``rpath``; a missing ``compat`` counts as ``"rpath"``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rpath : Rpath</span>
+<span class="sd">        Balanced Ecopath model (or anything with a ``compat`` attribute).</span>
+<span class="sd">    rpath_params : RpathParams, optional</span>
+<span class="sd">        The model's parameters; their ``compat`` takes precedence.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        ``"ewe"`` or ``"rpath"``.</span>
+<span class="sd">    """</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">rpath</span>
+    <span class="k">if</span> <span class="n">rpath_params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rpath_params</span><span class="p">,</span> <span class="s2">"compat"</span><span class="p">):</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">rpath_params</span>
+    <span class="k">return</span> <span class="s2">"ewe"</span> <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="s2">"compat"</span><span class="p">,</span> <span class="s2">"rpath"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"ewe"</span> <span class="k">else</span> <span class="s2">"rpath"</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="pypath.core.ecosim.rsim_params" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">rsim_params</span>
 
 
 <a href="#pypath.core.ecosim.rsim_params" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">rsim_params</span><span class="p">(</span><span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span> <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span> <span class="n">preyswitch</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">scrambleselfwt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">handleselfwt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">steps_yr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span> <span class="n">steps_m</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fast_group_rule</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'ewe'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimParams</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">rsim_params</span><span class="p">(</span><span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span> <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span> <span class="n">preyswitch</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">scrambleselfwt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">handleselfwt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">steps_yr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span> <span class="n">steps_m</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fast_group_rule</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimParams</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -19872,7 +20055,9 @@ value of every group's <code>HandleSelf</code> (keyed by predator, as
             <td>
               <div class="doc-md-description">
                 <p>Which groups are solved as fast equilibria (<code>NoIntegrate</code>) instead
-of being integrated. <code>"ewe"</code> (default) follows EwE6: a group whose
+of being integrated. Default: by the model's origin (<code>compat</code>):
+<code>'ewe'</code> for EwE imports, <code>'rpath'</code> otherwise (see
+:func:<code>default_fast_group_rule</code>). <code>"ewe"</code> follows EwE6: a group whose
 total loss rate at the start, |loss|/B, exceeds 24 per year
 (predation + other mortality + fishing; for detritus the inflow minus
 biomass accumulation). <code>"rpath"</code> follows Rpath: other-mortality
@@ -19923,34 +20108,7 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 635</span>
-<span class="normal"> 636</span>
-<span class="normal"> 637</span>
-<span class="normal"> 638</span>
-<span class="normal"> 639</span>
-<span class="normal"> 640</span>
-<span class="normal"> 641</span>
-<span class="normal"> 642</span>
-<span class="normal"> 643</span>
-<span class="normal"> 644</span>
-<span class="normal"> 645</span>
-<span class="normal"> 646</span>
-<span class="normal"> 647</span>
-<span class="normal"> 648</span>
-<span class="normal"> 649</span>
-<span class="normal"> 650</span>
-<span class="normal"> 651</span>
-<span class="normal"> 652</span>
-<span class="normal"> 653</span>
-<span class="normal"> 654</span>
-<span class="normal"> 655</span>
-<span class="normal"> 656</span>
-<span class="normal"> 657</span>
-<span class="normal"> 658</span>
-<span class="normal"> 659</span>
-<span class="normal"> 660</span>
-<span class="normal"> 661</span>
-<span class="normal"> 662</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 662</span>
 <span class="normal"> 663</span>
 <span class="normal"> 664</span>
 <span class="normal"> 665</span>
@@ -20390,7 +20548,38 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="normal">1099</span>
 <span class="normal">1100</span>
 <span class="normal">1101</span>
-<span class="normal">1102</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
+<span class="normal">1102</span>
+<span class="normal">1103</span>
+<span class="normal">1104</span>
+<span class="normal">1105</span>
+<span class="normal">1106</span>
+<span class="normal">1107</span>
+<span class="normal">1108</span>
+<span class="normal">1109</span>
+<span class="normal">1110</span>
+<span class="normal">1111</span>
+<span class="normal">1112</span>
+<span class="normal">1113</span>
+<span class="normal">1114</span>
+<span class="normal">1115</span>
+<span class="normal">1116</span>
+<span class="normal">1117</span>
+<span class="normal">1118</span>
+<span class="normal">1119</span>
+<span class="normal">1120</span>
+<span class="normal">1121</span>
+<span class="normal">1122</span>
+<span class="normal">1123</span>
+<span class="normal">1124</span>
+<span class="normal">1125</span>
+<span class="normal">1126</span>
+<span class="normal">1127</span>
+<span class="normal">1128</span>
+<span class="normal">1129</span>
+<span class="normal">1130</span>
+<span class="normal">1131</span>
+<span class="normal">1132</span>
+<span class="normal">1133</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
     <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
@@ -20399,7 +20588,7 @@ Ford-Walford plus group, or Rpath's.</p>
     <span class="n">handleselfwt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
     <span class="n">steps_yr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span>
     <span class="n">steps_m</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">fast_group_rule</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ewe"</span><span class="p">,</span>
+    <span class="n">fast_group_rule</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Convert Rpath model to Ecosim simulation parameters.</span>
 
@@ -20425,9 +20614,11 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="sd">        Timesteps per year (default 12 = monthly)</span>
 <span class="sd">    steps_m : int</span>
 <span class="sd">        Sub-timesteps per month (default 1)</span>
-<span class="sd">    fast_group_rule : {"ewe", "rpath"}</span>
+<span class="sd">    fast_group_rule : {"ewe", "rpath"}, optional</span>
 <span class="sd">        Which groups are solved as fast equilibria (``NoIntegrate``) instead</span>
-<span class="sd">        of being integrated. ``"ewe"`` (default) follows EwE6: a group whose</span>
+<span class="sd">        of being integrated. Default: by the model's origin (``compat``):</span>
+<span class="sd">        ``'ewe'`` for EwE imports, ``'rpath'`` otherwise (see</span>
+<span class="sd">        :func:`default_fast_group_rule`). ``"ewe"`` follows EwE6: a group whose</span>
 <span class="sd">        total loss rate at the start, |loss|/B, exceeds 24 per year</span>
 <span class="sd">        (predation + other mortality + fishing; for detritus the inflow minus</span>
 <span class="sd">        biomass accumulation). ``"rpath"`` follows Rpath: other-mortality</span>
@@ -20444,6 +20635,8 @@ Ford-Walford plus group, or Rpath's.</p>
 <span class="sd">    RsimParams</span>
 <span class="sd">        Parameters object for simulation</span>
 <span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">fast_group_rule</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fast_group_rule</span> <span class="o">=</span> <span class="n">default_fast_group_rule</span><span class="p">(</span><span class="n">rpath</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">fast_group_rule</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"ewe"</span><span class="p">,</span> <span class="s2">"rpath"</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">"fast_group_rule must be 'ewe' or 'rpath', got </span><span class="si">{</span><span class="n">fast_group_rule</span><span class="si">!r}</span><span class="s2">"</span>
@@ -20946,24 +21139,24 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1105</span>
-<span class="normal">1106</span>
-<span class="normal">1107</span>
-<span class="normal">1108</span>
-<span class="normal">1109</span>
-<span class="normal">1110</span>
-<span class="normal">1111</span>
-<span class="normal">1112</span>
-<span class="normal">1113</span>
-<span class="normal">1114</span>
-<span class="normal">1115</span>
-<span class="normal">1116</span>
-<span class="normal">1117</span>
-<span class="normal">1118</span>
-<span class="normal">1119</span>
-<span class="normal">1120</span>
-<span class="normal">1121</span>
-<span class="normal">1122</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1136</span>
+<span class="normal">1137</span>
+<span class="normal">1138</span>
+<span class="normal">1139</span>
+<span class="normal">1140</span>
+<span class="normal">1141</span>
+<span class="normal">1142</span>
+<span class="normal">1143</span>
+<span class="normal">1144</span>
+<span class="normal">1145</span>
+<span class="normal">1146</span>
+<span class="normal">1147</span>
+<span class="normal">1148</span>
+<span class="normal">1149</span>
+<span class="normal">1150</span>
+<span class="normal">1151</span>
+<span class="normal">1152</span>
+<span class="normal">1153</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create initial state vectors for simulation.</span>
 
 <span class="sd">    Parameters</span>
@@ -21085,38 +21278,38 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1125</span>
-<span class="normal">1126</span>
-<span class="normal">1127</span>
-<span class="normal">1128</span>
-<span class="normal">1129</span>
-<span class="normal">1130</span>
-<span class="normal">1131</span>
-<span class="normal">1132</span>
-<span class="normal">1133</span>
-<span class="normal">1134</span>
-<span class="normal">1135</span>
-<span class="normal">1136</span>
-<span class="normal">1137</span>
-<span class="normal">1138</span>
-<span class="normal">1139</span>
-<span class="normal">1140</span>
-<span class="normal">1141</span>
-<span class="normal">1142</span>
-<span class="normal">1143</span>
-<span class="normal">1144</span>
-<span class="normal">1145</span>
-<span class="normal">1146</span>
-<span class="normal">1147</span>
-<span class="normal">1148</span>
-<span class="normal">1149</span>
-<span class="normal">1150</span>
-<span class="normal">1151</span>
-<span class="normal">1152</span>
-<span class="normal">1153</span>
-<span class="normal">1154</span>
-<span class="normal">1155</span>
-<span class="normal">1156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1156</span>
+<span class="normal">1157</span>
+<span class="normal">1158</span>
+<span class="normal">1159</span>
+<span class="normal">1160</span>
+<span class="normal">1161</span>
+<span class="normal">1162</span>
+<span class="normal">1163</span>
+<span class="normal">1164</span>
+<span class="normal">1165</span>
+<span class="normal">1166</span>
+<span class="normal">1167</span>
+<span class="normal">1168</span>
+<span class="normal">1169</span>
+<span class="normal">1170</span>
+<span class="normal">1171</span>
+<span class="normal">1172</span>
+<span class="normal">1173</span>
+<span class="normal">1174</span>
+<span class="normal">1175</span>
+<span class="normal">1176</span>
+<span class="normal">1177</span>
+<span class="normal">1178</span>
+<span class="normal">1179</span>
+<span class="normal">1180</span>
+<span class="normal">1181</span>
+<span class="normal">1182</span>
+<span class="normal">1183</span>
+<span class="normal">1184</span>
+<span class="normal">1185</span>
+<span class="normal">1186</span>
+<span class="normal">1187</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create forcing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -21252,36 +21445,36 @@ Ford-Walford plus group, or Rpath's.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1159</span>
-<span class="normal">1160</span>
-<span class="normal">1161</span>
-<span class="normal">1162</span>
-<span class="normal">1163</span>
-<span class="normal">1164</span>
-<span class="normal">1165</span>
-<span class="normal">1166</span>
-<span class="normal">1167</span>
-<span class="normal">1168</span>
-<span class="normal">1169</span>
-<span class="normal">1170</span>
-<span class="normal">1171</span>
-<span class="normal">1172</span>
-<span class="normal">1173</span>
-<span class="normal">1174</span>
-<span class="normal">1175</span>
-<span class="normal">1176</span>
-<span class="normal">1177</span>
-<span class="normal">1178</span>
-<span class="normal">1179</span>
-<span class="normal">1180</span>
-<span class="normal">1181</span>
-<span class="normal">1182</span>
-<span class="normal">1183</span>
-<span class="normal">1184</span>
-<span class="normal">1185</span>
-<span class="normal">1186</span>
-<span class="normal">1187</span>
-<span class="normal">1188</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1190</span>
+<span class="normal">1191</span>
+<span class="normal">1192</span>
+<span class="normal">1193</span>
+<span class="normal">1194</span>
+<span class="normal">1195</span>
+<span class="normal">1196</span>
+<span class="normal">1197</span>
+<span class="normal">1198</span>
+<span class="normal">1199</span>
+<span class="normal">1200</span>
+<span class="normal">1201</span>
+<span class="normal">1202</span>
+<span class="normal">1203</span>
+<span class="normal">1204</span>
+<span class="normal">1205</span>
+<span class="normal">1206</span>
+<span class="normal">1207</span>
+<span class="normal">1208</span>
+<span class="normal">1209</span>
+<span class="normal">1210</span>
+<span class="normal">1211</span>
+<span class="normal">1212</span>
+<span class="normal">1213</span>
+<span class="normal">1214</span>
+<span class="normal">1215</span>
+<span class="normal">1216</span>
+<span class="normal">1217</span>
+<span class="normal">1218</span>
+<span class="normal">1219</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create fishing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -21451,7 +21644,10 @@ Controls predator-prey functional response:
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Passed to :func:<code>rsim_params</code>; None keeps its default ("ewe").</p>
+                <p>Passed to :func:<code>rsim_params</code>. Default: by the model's origin
+(<code>compat</code>): <code>'ewe'</code> for EwE imports, <code>'rpath'</code> otherwise. The
+<code>compat</code> of <code>rpath_params</code> takes precedence over the balanced
+model's (:func:<code>default_fast_group_rule</code>); an explicit rule wins.</p>
               </div>
             </td>
             <td>
@@ -21492,38 +21688,7 @@ Controls predator-prey functional response:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1543</span>
-<span class="normal">1544</span>
-<span class="normal">1545</span>
-<span class="normal">1546</span>
-<span class="normal">1547</span>
-<span class="normal">1548</span>
-<span class="normal">1549</span>
-<span class="normal">1550</span>
-<span class="normal">1551</span>
-<span class="normal">1552</span>
-<span class="normal">1553</span>
-<span class="normal">1554</span>
-<span class="normal">1555</span>
-<span class="normal">1556</span>
-<span class="normal">1557</span>
-<span class="normal">1558</span>
-<span class="normal">1559</span>
-<span class="normal">1560</span>
-<span class="normal">1561</span>
-<span class="normal">1562</span>
-<span class="normal">1563</span>
-<span class="normal">1564</span>
-<span class="normal">1565</span>
-<span class="normal">1566</span>
-<span class="normal">1567</span>
-<span class="normal">1568</span>
-<span class="normal">1569</span>
-<span class="normal">1570</span>
-<span class="normal">1571</span>
-<span class="normal">1572</span>
-<span class="normal">1573</span>
-<span class="normal">1574</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1574</span>
 <span class="normal">1575</span>
 <span class="normal">1576</span>
 <span class="normal">1577</span>
@@ -21668,7 +21833,42 @@ Controls predator-prey functional response:
 <span class="normal">1716</span>
 <span class="normal">1717</span>
 <span class="normal">1718</span>
-<span class="normal">1719</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
+<span class="normal">1719</span>
+<span class="normal">1720</span>
+<span class="normal">1721</span>
+<span class="normal">1722</span>
+<span class="normal">1723</span>
+<span class="normal">1724</span>
+<span class="normal">1725</span>
+<span class="normal">1726</span>
+<span class="normal">1727</span>
+<span class="normal">1728</span>
+<span class="normal">1729</span>
+<span class="normal">1730</span>
+<span class="normal">1731</span>
+<span class="normal">1732</span>
+<span class="normal">1733</span>
+<span class="normal">1734</span>
+<span class="normal">1735</span>
+<span class="normal">1736</span>
+<span class="normal">1737</span>
+<span class="normal">1738</span>
+<span class="normal">1739</span>
+<span class="normal">1740</span>
+<span class="normal">1741</span>
+<span class="normal">1742</span>
+<span class="normal">1743</span>
+<span class="normal">1744</span>
+<span class="normal">1745</span>
+<span class="normal">1746</span>
+<span class="normal">1747</span>
+<span class="normal">1748</span>
+<span class="normal">1749</span>
+<span class="normal">1750</span>
+<span class="normal">1751</span>
+<span class="normal">1752</span>
+<span class="normal">1753</span>
+<span class="normal">1754</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span>
@@ -21699,7 +21899,10 @@ Controls predator-prey functional response:
 <span class="sd">        - 'vv_overrides': dict mapping (prey_0based, pred_0based) -&gt; VV value</span>
 <span class="sd">        - 'forced_bio': dict mapping 0-based group index -&gt; array of annual biomass values</span>
 <span class="sd">    fast_group_rule : {"ewe", "rpath"}, optional</span>
-<span class="sd">        Passed to :func:`rsim_params`; None keeps its default ("ewe").</span>
+<span class="sd">        Passed to :func:`rsim_params`. Default: by the model's origin</span>
+<span class="sd">        (``compat``): ``'ewe'`` for EwE imports, ``'rpath'`` otherwise. The</span>
+<span class="sd">        ``compat`` of ``rpath_params`` takes precedence over the balanced</span>
+<span class="sd">        model's (:func:`default_fast_group_rule`); an explicit rule wins.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -21709,10 +21912,11 @@ Controls predator-prey functional response:
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">years</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Years must be a range of at least 2 years"</span><span class="p">)</span>
 
-    <span class="n">rule_kwargs</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">{}</span> <span class="k">if</span> <span class="n">fast_group_rule</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{</span><span class="s2">"fast_group_rule"</span><span class="p">:</span> <span class="n">fast_group_rule</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">fast_group_rule</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fast_group_rule</span> <span class="o">=</span> <span class="n">default_fast_group_rule</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">rpath_params</span><span class="p">)</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">rsim_params</span><span class="p">(</span>
+        <span class="n">rpath</span><span class="p">,</span> <span class="n">mscramble</span><span class="o">=</span><span class="n">vulnerability</span><span class="p">,</span> <span class="n">fast_group_rule</span><span class="o">=</span><span class="n">fast_group_rule</span>
     <span class="p">)</span>
-    <span class="n">params</span> <span class="o">=</span> <span class="n">rsim_params</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">mscramble</span><span class="o">=</span><span class="n">vulnerability</span><span class="p">,</span> <span class="o">**</span><span class="n">rule_kwargs</span><span class="p">)</span>
     <span class="c1"># Apply scenario-level overrides from EwE database</span>
     <span class="k">if</span> <span class="n">scenario_overrides</span><span class="p">:</span>
         <span class="c1"># Apply FtimeAdjust per group</span>
@@ -22101,42 +22305,7 @@ interrupted. Without it (None, the default) the run is unchanged.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2615</span>
-<span class="normal">2616</span>
-<span class="normal">2617</span>
-<span class="normal">2618</span>
-<span class="normal">2619</span>
-<span class="normal">2620</span>
-<span class="normal">2621</span>
-<span class="normal">2622</span>
-<span class="normal">2623</span>
-<span class="normal">2624</span>
-<span class="normal">2625</span>
-<span class="normal">2626</span>
-<span class="normal">2627</span>
-<span class="normal">2628</span>
-<span class="normal">2629</span>
-<span class="normal">2630</span>
-<span class="normal">2631</span>
-<span class="normal">2632</span>
-<span class="normal">2633</span>
-<span class="normal">2634</span>
-<span class="normal">2635</span>
-<span class="normal">2636</span>
-<span class="normal">2637</span>
-<span class="normal">2638</span>
-<span class="normal">2639</span>
-<span class="normal">2640</span>
-<span class="normal">2641</span>
-<span class="normal">2642</span>
-<span class="normal">2643</span>
-<span class="normal">2644</span>
-<span class="normal">2645</span>
-<span class="normal">2646</span>
-<span class="normal">2647</span>
-<span class="normal">2648</span>
-<span class="normal">2649</span>
-<span class="normal">2650</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2650</span>
 <span class="normal">2651</span>
 <span class="normal">2652</span>
 <span class="normal">2653</span>
@@ -23327,7 +23496,42 @@ interrupted. Without it (None, the default) the run is unchanged.</p>
 <span class="normal">3838</span>
 <span class="normal">3839</span>
 <span class="normal">3840</span>
-<span class="normal">3841</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
+<span class="normal">3841</span>
+<span class="normal">3842</span>
+<span class="normal">3843</span>
+<span class="normal">3844</span>
+<span class="normal">3845</span>
+<span class="normal">3846</span>
+<span class="normal">3847</span>
+<span class="normal">3848</span>
+<span class="normal">3849</span>
+<span class="normal">3850</span>
+<span class="normal">3851</span>
+<span class="normal">3852</span>
+<span class="normal">3853</span>
+<span class="normal">3854</span>
+<span class="normal">3855</span>
+<span class="normal">3856</span>
+<span class="normal">3857</span>
+<span class="normal">3858</span>
+<span class="normal">3859</span>
+<span class="normal">3860</span>
+<span class="normal">3861</span>
+<span class="normal">3862</span>
+<span class="normal">3863</span>
+<span class="normal">3864</span>
+<span class="normal">3865</span>
+<span class="normal">3866</span>
+<span class="normal">3867</span>
+<span class="normal">3868</span>
+<span class="normal">3869</span>
+<span class="normal">3870</span>
+<span class="normal">3871</span>
+<span class="normal">3872</span>
+<span class="normal">3873</span>
+<span class="normal">3874</span>
+<span class="normal">3875</span>
+<span class="normal">3876</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>

@@ -1763,15 +1763,17 @@ README with its source and the changes made to it.</p>
                 <code>fast_group_rule</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code>(&#39;ewe&#39;, &#39;rpath&#39;)</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Passed to :func:<code>pypath.core.ecosim.rsim_scenario</code>.</p>
+                <p>Passed to :func:<code>pypath.core.ecosim.rsim_scenario</code>. Default: by the
+model's origin (<code>compat</code>): <code>'ewe'</code> for EwE imports, <code>'rpath'</code>
+otherwise, so <code>'ewe'</code> for these EwE-F models.</p>
               </div>
             </td>
             <td>
-                  <code>None</code>
+                  <code>&#39;ewe&#39;</code>
             </td>
           </tr>
       </tbody>
@@ -1839,7 +1841,9 @@ model with the example's vulnerabilities, group settings and fishing.</p>
 <span class="normal">181</span>
 <span class="normal">182</span>
 <span class="normal">183</span>
-<span class="normal">184</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_ecosim_scenario</span><span class="p">(</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_ecosim_scenario</span><span class="p">(</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">fast_group_rule</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1852,8 +1856,10 @@ model with the example's vulnerabilities, group settings and fishing.</p>
 <span class="sd">        An example's name (see :func:`list_example_models`).</span>
 <span class="sd">    years : range, optional</span>
 <span class="sd">        Simulation years; the default is the model's EwE-F run length.</span>
-<span class="sd">    fast_group_rule : str, optional</span>
-<span class="sd">        Passed to :func:`pypath.core.ecosim.rsim_scenario`.</span>
+<span class="sd">    fast_group_rule : {'ewe', 'rpath'}, optional</span>
+<span class="sd">        Passed to :func:`pypath.core.ecosim.rsim_scenario`. Default: by the</span>
+<span class="sd">        model's origin (``compat``): ``'ewe'`` for EwE imports, ``'rpath'``</span>
+<span class="sd">        otherwise, so ``'ewe'`` for these EwE-F models.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
