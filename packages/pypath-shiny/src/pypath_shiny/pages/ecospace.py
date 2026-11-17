@@ -54,6 +54,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.prey_switching import summary, summary_line
 from pypath_shiny.services.tasks import (
     TaskState,
     TaskStatus,
@@ -797,6 +798,7 @@ def ecospace_ui():
                     disabled=True,
                 ),
                 ui.output_ui("spatial_run_status"),
+                ui.output_ui("spatial_switching_line"),
                 width=350,
             ),
             # Main panel with tabs
@@ -905,6 +907,7 @@ def ecospace_server(
     boundary_polygon = reactive.Value(None)  # Store uploaded boundary for visualization
     _ecospace_params = reactive.Value(None)
     _spatial_results = reactive.Value(None)
+    _spatial_switching = reactive.Value(None)
     spatial_task_state = reactive.Value(TaskState(run_id="spatial-idle"))
 
     @reactive.effect
@@ -920,6 +923,7 @@ def ecospace_server(
         if wizard_grid is not None:
             grid.set(wizard_grid)
             _spatial_results.set(None)
+            _spatial_switching.set(None)
             _notify_legacy(
                 f"Loaded wizard configuration: {wizard_grid.n_patches} patches",
                 type="message",
@@ -1069,6 +1073,7 @@ def ecospace_server(
                 grid.set(new_grid)
                 # Results from a previous grid no longer match this geometry
                 _spatial_results.set(None)
+                _spatial_switching.set(None)
 
                 _notify_legacy(
                     f"Created {nx}×{ny} regular grid ({new_grid.n_patches} patches)",
@@ -1092,6 +1097,7 @@ def ecospace_server(
                 grid.set(new_grid)
                 # Results from a previous grid no longer match this geometry
                 _spatial_results.set(None)
+                _spatial_switching.set(None)
 
                 _notify_legacy(
                     f"Created 1D transect with {n_patches} patches",
@@ -1234,6 +1240,7 @@ def ecospace_server(
                         grid.set(new_grid)
                         # Results from a previous grid no longer match this geometry
                         _spatial_results.set(None)
+                        _spatial_switching.set(None)
 
                     finally:
                         # Clean up temporary directory
@@ -1491,6 +1498,7 @@ def ecospace_server(
 
         try:
             scenario = _sim_scenario()
+            used = summary(scenario.params)
             n_groups = scenario.params.NUM_GROUPS
 
             _update_latest(
@@ -1532,6 +1540,7 @@ def ecospace_server(
                 spatial_fishing=spatial_fishing,
             )
             _spatial_results.set(result)
+            _spatial_switching.set(used)
 
             # Post-run: update biomass group dropdown with group names
             spname = getattr(scenario.params, "spname", None)
@@ -1574,6 +1583,16 @@ def ecospace_server(
                     error=msg,
                 )
             )
+
+    @render.ui
+    def spatial_switching_line():
+        """The prey switching the shown spatial run used."""
+        if _spatial_results.get() is None:
+            return None
+        return ui.p(
+            summary_line(_spatial_switching.get()),
+            class_="text-muted small",
+        )
 
     @render.ui
     def spatial_run_status():

@@ -91,6 +91,8 @@ from pypath_shiny.services.prey_switching import (
     pending,
     snapshot_source,
     source_key,
+    summary,
+    summary_line,
     switch_power_with_overrides,
 )
 from pypath_shiny.services.solver_diagnostics import (
@@ -774,6 +776,7 @@ def ecosim_ui() -> ui.Tag:
                     ),
                     ui.output_ui("help_progress"),
                     ui.output_ui("simulation_status"),
+                    ui.output_ui("switching_line"),
                     ui.output_ui("progress_display"),
                     ui.output_ui("solver_diagnostics"),
                 ),
@@ -2556,8 +2559,13 @@ def ecosim_server(
             output.run_request = outcome.request
 
             controls_metadata = scenario_controls_metadata.get() or {}
+            # What this run used, read from the scenario that ran
+            output.switching_used = summary(outcome.source.params)
             if isinstance(output.params, dict):
-                output.params["applied_controls"] = controls_metadata
+                output.params["applied_controls"] = {
+                    **controls_metadata,
+                    "prey_switching": output.switching_used,
+                }
             setattr(output, "applied_controls_metadata", controls_metadata)
 
             sim_output.set(output)
@@ -2693,6 +2701,18 @@ def ecosim_server(
                 "continues in the background until it would have finished; a "
                 "new run can start after that."
             )
+
+    @output
+    @render.ui
+    def switching_line():
+        """The prey switching the shown run used."""
+        out = sim_output.get()
+        if out is None:
+            return None
+        return ui.p(
+            summary_line(getattr(out, "switching_used", None)),
+            class_="text-muted small",
+        )
 
     @output
     @render.ui
