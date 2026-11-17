@@ -6,6 +6,105 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.5.0 (2026-11-17)
+
+### Bug Fixes
+
+- **shiny**: A Balance of new parameters is not a re-balance
+  ([`22dd1c3`](https://github.com/razinkele/PyPath/commit/22dd1c3e521d786df9d09216a74de4517370e9b3))
+
+- **shiny**: A closed Ecosim tab cancels its run
+  ([`a9c27b2`](https://github.com/razinkele/PyPath/commit/a9c27b291bb05094b4db99fa66edb0ae36f07e83))
+
+- **shiny**: A load clears the new-params flag
+  ([`ac72773`](https://github.com/razinkele/PyPath/commit/ac72773056afde2933f34f40e0a8c5c9b2705e8b))
+
+- **shiny**: A model load drops the old scenario and results; runs say Starting until a worker
+  begins
+  ([`44b826b`](https://github.com/razinkele/PyPath/commit/44b826bc753ff38f853e6973ffe8fe12da55cca5))
+
+- **shiny**: Bound Ecosim worker threads; a session waits for its cancelled run to finish
+  ([`f990400`](https://github.com/razinkele/PyPath/commit/f99040030dba5d1cd1794367e99010c2d34add79))
+
+- **shiny**: Cancel texts say the run stops at the end of its month
+  ([`1093ef6`](https://github.com/razinkele/PyPath/commit/1093ef6be5ae9020aea2a6e0c788edd61a67a77d))
+
+- **shiny**: Ecosim final-review fixes: empty qs rate warns, honest cancel texts, relevant hints
+  ([`b0f91bd`](https://github.com/razinkele/PyPath/commit/b0f91bd53c9876f18c462232d870f66d6d0f1d38))
+
+- **shiny**: Finish a stopped run as cancelled; firmer abort drives
+  ([`1c78b6c`](https://github.com/razinkele/PyPath/commit/1c78b6c8bc452e6dd4b978329cbc2d2e55ffb513))
+
+- **shiny**: Help states the 3-decimal rule as it is; ui drives run off Linux
+  ([`cf7443b`](https://github.com/razinkele/PyPath/commit/cf7443bf4bc2011589071c5f89d6b87a2abed783))
+
+- **shiny**: No pending note beside a control that shows a message
+  ([`1544b2d`](https://github.com/razinkele/PyPath/commit/1544b2d7675287ff8a5ddae45c5f7248a48a3a6f))
+
+- **shiny**: Only "Create parameters" makes the next Balance a new model
+  ([`1a5e58d`](https://github.com/razinkele/PyPath/commit/1a5e58d116ec4eec115922e57446555bc219d47c))
+
+- **shiny**: Pin "untouched means unchanged" in one Create-time step
+  ([`1a3260a`](https://github.com/razinkele/PyPath/commit/1a3260a507e1c1590b745857d76f2a430c84abea))
+
+- **shiny**: Prey-switching note only while values differ; ask for a model
+  ([`7055010`](https://github.com/razinkele/PyPath/commit/7055010f8a31c4b2f4703434426e2ace16fe61db))
+
+- **shiny**: The cleared-settings note no longer claims a load
+  ([`16bd2e2`](https://github.com/razinkele/PyPath/commit/16bd2e202f65d1fd125b8b8fb75e9351c33db275))
+
+- **shiny**: The prey switching example code runs as written
+  ([`c74bb40`](https://github.com/razinkele/PyPath/commit/c74bb4000935711dbab56bdf7dc37aea79ceaa6a))
+
+- **shiny**: The scenario-source radio keeps the user's choice on re-render
+  ([`4de5651`](https://github.com/razinkele/PyPath/commit/4de5651e343bfd57bdb686d41247e9c951de4080))
+
+- **shiny**: The switching note shows when the scenario came from another source
+  ([`ad7936e`](https://github.com/razinkele/PyPath/commit/ad7936e3b48b81bf60fdfee4e5c53af8e591e744))
+
+### Features
+
+- **shiny**: Continuous methods, tolerance preset and model options on the Ecosim page
+  ([`a0b597b`](https://github.com/razinkele/PyPath/commit/a0b597bcf139f579542678924898392ab0c955d4))
+
+- **shiny**: Ecosim page stops a run at its next month and shows months done
+  ([`c98805d`](https://github.com/razinkele/PyPath/commit/c98805dcf52f658d9335ad33d3130e29a00d4bfa))
+
+- **shiny**: Every run shows the prey switching it used
+  ([`722705a`](https://github.com/razinkele/PyPath/commit/722705a38e221aa4ff60cad4f68d1e0ce4690792))
+
+- **shiny**: Per-predator prey switching on the Ecosim page
+  ([`4b89f78`](https://github.com/razinkele/PyPath/commit/4b89f78e978d654062340a925416d6fb531aa099))
+
+- **shiny**: Prey-switching service
+  ([`8465121`](https://github.com/razinkele/PyPath/commit/8465121698535b10d7c4382e03a26dbc990d7c4a))
+
+- **shiny**: Re-balancing keeps prey-switching settings, a new model clears them
+  ([`a094fbf`](https://github.com/razinkele/PyPath/commit/a094fbfd0914553d8998f00b7f21aaca18409470))
+
+- **shiny**: Run Ecosim off the event loop (extended task); cancel discards the result
+  ([`026bf0d`](https://github.com/razinkele/PyPath/commit/026bf0d4ff494610d52bfe2a4b277432aa359f63))
+
+- **shiny**: Run the continuous methods from the Ecosim page; invalid combinations notify; diet
+  rewiring hidden
+  ([`2aef2a5`](https://github.com/razinkele/PyPath/commit/2aef2a507b4d813ec11414bdb33d9b8965eec76a))
+
+- **shiny**: RunControl stops a run at its next month and reports progress
+  ([`6ee4bf3`](https://github.com/razinkele/PyPath/commit/6ee4bf3b63c30f72663520a02c73b25bc15e27e0))
+
+- **shiny**: Solver diagnostics panel for continuous Ecosim runs
+  ([`2fe6340`](https://github.com/razinkele/PyPath/commit/2fe6340f845798735d75d7b84e647ed084574771))
+
+- **shiny**: Solver request service for the continuous Ecosim methods
+  ([`4889356`](https://github.com/razinkele/PyPath/commit/4889356a1733fcfe7cef98a2ae857cda05ff4bc8))
+
+- **shiny**: The demo page shows EwE's prey switching
+  ([`c1881e7`](https://github.com/razinkele/PyPath/commit/c1881e7d3bdd165f3f1ec0e32add1801f1ded9b8))
+
+- **shiny**: The switching line also sits on the Ecosim Summary tab
+  ([`4e11cc2`](https://github.com/razinkele/PyPath/commit/4e11cc278a4b883d075cbf8f939723b731cacf0e))
+
+
 ## v1.4.0 (2026-11-14)
 
 ### Bug Fixes
