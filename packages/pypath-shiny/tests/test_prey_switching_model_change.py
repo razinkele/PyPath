@@ -83,27 +83,29 @@ def _is_params_set(stmt):
     return isinstance(stmt, ast.Expr) and _is_call(stmt.value, "params.set")
 
 
-def test_every_replacement_of_the_working_params_marks_them_new():
-    server = _find_function(_ecopath_tree(), "ecopath_server")
-    flagged = set()
+def _functions_setting_the_flag(tree, value):
+    server = _find_function(tree, "ecopath_server")
+    found = []
     for fn in ast.walk(server):
-        if not isinstance(fn, ast.FunctionDef) or fn is server:
-            continue
-        for block in _blocks(fn):
-            if any(_is_params_set(stmt) for stmt in block):
-                assert any(_flag_assigned(stmt, "True") for stmt in block), fn.name
-                flagged.add(fn.name)
-    # Create parameters, the CSV upload, and a model loaded from elsewhere.
-    assert {"_create_params", "_load_params_from_csv", "_sync_model_data"} <= flagged
+        if isinstance(fn, ast.FunctionDef) and fn is not server:
+            for block in _blocks(fn):
+                found += [fn.name for s in block if _flag_assigned(s, value)]
+    return found
 
 
-def test_a_load_marks_the_params_new_only_after_the_own_model_check():
-    sync = _find_function(_ecopath_tree(), "_sync_model_data")
-    for node in ast.walk(sync):
-        if isinstance(node, ast.If) and ast.unparse(node.test) == "own is imported":
-            assert not any(_flag_assigned(s, "True") for s in node.body)
-    # Never at the top of the effect: our own balance must keep it clear.
-    assert not any(_flag_assigned(s, "True") for s in sync.body)
+def test_only_create_parameters_marks_the_params_new():
+    # A load clears the switching settings when it lands, and its first
+    # Balance re-balances the same model; only "Create parameters" builds a
+    # different model without a load.
+    tree = _ecopath_tree()
+    assert _functions_setting_the_flag(tree, "True") == ["_create_params"]
+    create = _find_function(tree, "_create_params")
+    (block,) = [b for b in _blocks(create) if any(_is_params_set(s) for s in b)]
+    assert any(_flag_assigned(s, "True") for s in block)
+
+
+def test_only_the_balance_clears_the_flag():
+    assert _functions_setting_the_flag(_ecopath_tree(), "False") == ["_balance_model"]
 
 
 def test_the_mark_is_set_only_while_the_params_are_not_new():
