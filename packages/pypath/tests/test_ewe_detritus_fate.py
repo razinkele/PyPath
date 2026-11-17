@@ -220,7 +220,9 @@ def test_ewe_fast_group_test_reads_the_routed_loss():
     params.model.loc[params.model["Group"] == "POM", "Biomass"] = 20.0
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sc = rsim_scenario(rpath(params), params, years=range(1, 3))
+        sc = rsim_scenario(
+            rpath(params), params, years=range(1, 3), fast_group_rule="ewe"
+        )
     assert sc.params.NoIntegrate[POM] == 0
 
 

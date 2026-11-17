@@ -121,7 +121,9 @@ def test_the_fast_group_test_counts_emigration():
     m.loc[m["Group"] == "Zoo", ["Biomass", "PB", "QB"]] = [2.0, 24.5, 100.0]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sc = rsim_scenario(_balance(params), params, years=range(1, 3))
+        sc = rsim_scenario(
+            _balance(params), params, years=range(1, 3), fast_group_rule="ewe"
+        )
     assert sc.params.Emig[ZOO] == pytest.approx(1.0)
     assert sc.params.NoIntegrate[ZOO] == 1
 

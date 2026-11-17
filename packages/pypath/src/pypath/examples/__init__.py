@@ -164,8 +164,10 @@ def example_ecosim_scenario(
         An example's name (see :func:`list_example_models`).
     years : range, optional
         Simulation years; the default is the model's EwE-F run length.
-    fast_group_rule : str, optional
-        Passed to :func:`pypath.core.ecosim.rsim_scenario`.
+    fast_group_rule : {'ewe', 'rpath'}, optional
+        Passed to :func:`pypath.core.ecosim.rsim_scenario`. Default: by the
+        model's origin (``compat``): ``'ewe'`` for EwE imports, ``'rpath'``
+        otherwise, so ``'ewe'`` for these EwE-F models.
 
     Returns
     -------

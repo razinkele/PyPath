@@ -20,6 +20,8 @@ def spatial_scenario():
 
     Returns (scenario, rpath_params) tuple.
     Model: Phyto (producer) -> Zoo -> Fish (fished) + Det + Fleet.
+    Under the EwE rule, named: the spatial tests follow EwE's Ecospace, and
+    a model built in code would otherwise get Rpath's (roadmap D1).
     """
     params = create_rpath_params(
         groups=["Phyto", "Zoo", "Fish", "Det", "Fleet"],
@@ -62,7 +64,7 @@ def spatial_scenario():
         warnings.simplefilter("ignore")
         model = rpath(params)
 
-    scenario = rsim_scenario(model, params, years=range(1, 11))
+    scenario = rsim_scenario(model, params, years=range(1, 11), fast_group_rule="ewe")
     return scenario, params
 
 

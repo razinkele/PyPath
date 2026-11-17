@@ -164,7 +164,8 @@ def test_fast_group_rule_counts_det_import(det_input, fast):
     # loss set from flows that include DtImp (:3207). Det B = 2: inflow from
     # flows is about 13.5 (6.75 /yr); with the import it is 63.5 (31.75 /yr).
     model, _ = _model(det_input=det_input, det_biomass=2.0)
-    assert int(rsim_params(model).NoIntegrate[DET] != 0) == fast
+    sim = rsim_params(model, fast_group_rule="ewe")
+    assert int(sim.NoIntegrate[DET] != 0) == fast
 
 
 def test_det_input_zero_is_bit_identical():

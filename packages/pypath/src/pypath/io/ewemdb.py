@@ -4534,7 +4534,9 @@ def ecosim_scenario_from_ewemdb(
         ``DatasetID`` of the time-series dataset whose driver series force
         the run, as the dataset loaded in EwE6 Ecosim does.
     fast_group_rule : {'ewe', 'rpath'}, optional
-        Passed to :func:`pypath.core.ecosim.rsim_scenario` (default 'ewe').
+        Passed to :func:`pypath.core.ecosim.rsim_scenario`. Default: by the
+        model's origin (``compat``): ``'ewe'`` for EwE imports, ``'rpath'``
+        otherwise, so ``'ewe'`` for a database read here.
 
     Returns
     -------

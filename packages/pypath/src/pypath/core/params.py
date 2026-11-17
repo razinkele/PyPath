@@ -79,8 +79,9 @@ class RpathParams:
         models read from EwE (``read_ewemdb``, ``read_ewef``,
         ``ecobase_to_rpath``), "rpath" (the default) for models built here or
         read from Rpath CSVs. ``rpath()`` reports EwE's detritus routing for
-        "ewe" (see ``ewe_detritus_fate``). Ecosim's rules are chosen
-        separately (``rsim_scenario(fast_group_rule=...)``).
+        "ewe" (see ``ewe_detritus_fate``). Ecosim's fast-group rule defaults
+        to it (``rsim_scenario``, ``rsim_params``: ``'ewe'`` for "ewe",
+        ``'rpath'`` otherwise); an explicit ``fast_group_rule`` wins.
 
     Examples
     --------

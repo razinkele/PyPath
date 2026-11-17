@@ -629,7 +629,10 @@ def ecosim_scenario_from_ewef(
 
     ``years`` defaults to EwE-F's run length ``tf`` (years) from the Ecosim
     namelist. Fishing stays at the Ecopath rates, as in EwE-F for forcing of
-    type 1.
+    type 1. ``fast_group_rule`` is passed to
+    :func:`pypath.core.ecosim.rsim_scenario`. Default: by the model's origin
+    (``compat``): ``'ewe'`` for EwE imports, ``'rpath'`` otherwise, so
+    ``'ewe'`` for an EwE-F model read here.
     """
     from pypath.core.ecopath import rpath
     from pypath.core.ecosim import rsim_scenario
