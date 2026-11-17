@@ -21,7 +21,10 @@ from pypath.core.forcing import (
 )
 from tests.continuous_support import needs_reco, reco_plain, scenario
 
-pytestmark = needs_reco
+pytestmark = [
+    needs_reco,
+    pytest.mark.filterwarnings("ignore:DietRewiring is deprecated:DeprecationWarning"),
+]
 
 
 def _scen():

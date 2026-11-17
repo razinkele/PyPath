@@ -11,6 +11,7 @@ This module provides:
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Union
@@ -252,6 +253,13 @@ class StateForcing:
         ]
 
 
+_DIET_REWIRING_DEPRECATION = (
+    "DietRewiring is deprecated: it never integrated. Use prey switching "
+    "instead: scenario.params.SwitchPower (EwE's switching power, 0 to 2), "
+    "or the Ecosim page's Prey Switching control."
+)
+
+
 @dataclass
 class DietRewiring:
     """Dynamic diet matrix rewiring based on prey availability.
@@ -281,6 +289,11 @@ class DietRewiring:
     update_interval: int = 12  # Monthly
     base_diet: Optional[np.ndarray] = None
     current_diet: Optional[np.ndarray] = None
+
+    def __post_init__(self) -> None:
+        if self.enabled:
+            # stacklevel=3: __post_init__ -> __init__ -> the caller
+            warnings.warn(_DIET_REWIRING_DEPRECATION, DeprecationWarning, stacklevel=3)
 
     def initialize(self, diet_matrix: np.ndarray):
         """Initialize with base diet matrix.
@@ -494,12 +507,16 @@ def create_diet_rewiring(
     >>> # Enable strong prey switching
     >>> rewiring = create_diet_rewiring(switching_power=3.0)
     """
-    return DietRewiring(
-        enabled=True,
-        switching_power=switching_power,
-        min_proportion=min_proportion,
-        update_interval=update_interval,
-    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        rewiring = DietRewiring(
+            enabled=True,
+            switching_power=switching_power,
+            min_proportion=min_proportion,
+            update_interval=update_interval,
+        )
+    warnings.warn(_DIET_REWIRING_DEPRECATION, DeprecationWarning, stacklevel=2)
+    return rewiring
 
 
 # Export main classes and functions

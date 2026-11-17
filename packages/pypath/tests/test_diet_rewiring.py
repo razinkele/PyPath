@@ -10,6 +10,10 @@ import pytest
 
 from pypath.core.forcing import DietRewiring, create_diet_rewiring
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:DietRewiring is deprecated:DeprecationWarning"
+)
+
 
 class TestDietRewiringInitialization:
     """Test diet rewiring initialization."""
