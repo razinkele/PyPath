@@ -2712,10 +2712,10 @@ def rsim_run(
         output for the month is stored (the year's annual Qlink included).
         ``month`` is the number of months completed so far, from 1;
         ``n_months`` is the run's total. Returning True stops the run with
-        ``RunCancelled``; any other value (None or False) continues it. An
-        exception the callback raises propagates unchanged. A month already
-        in progress is never interrupted. Without it (None, the default) the
-        run is unchanged.
+        ``RunCancelled``; only the bool True stops the run, and any other
+        value (None or False) continues it. An exception the callback raises
+        propagates unchanged. A month already in progress is never
+        interrupted. Without it (None, the default) the run is unchanged.
 
     Returns
     -------

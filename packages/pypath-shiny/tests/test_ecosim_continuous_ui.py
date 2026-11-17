@@ -629,10 +629,11 @@ def test_cancel_discards_the_result():
     assert "_stop_run" in _calls(cancel)
     src = ast.unparse(cancel)
     assert (
-        "Cancelled: the result will be discarded, but the computation continues "
-        "in the background until it would have finished; a new run can start "
-        "after that."
+        "Cancelled: the run stops at the end of its current month and its result "
+        "is discarded."
     ) in src
+    # The old toast said the run computed on to its natural end.
+    assert "would have finished" not in src
 
 
 def test_progress_counts_months_and_keeps_cancel():
@@ -668,16 +669,15 @@ def test_run_simulation_refuses_while_running():
     refusal = src.index("A simulation is already running")
     assert src.index("sim_task_state.set(") > refusal
     assert src.index("_ecosim_task.invoke(") > refusal
-    # A cancelled run's thread runs on, and holds the session's slot until it
-    # finishes (ruling S5): no new run starts until then, even after a cancel.
+    # A cancelled run's thread runs on to the end of its current month, and
+    # holds the session's slot until then (ruling S5): no new run starts
+    # before it stops, even after a cancel.
     assert "if run_slot.busy:" in src
-    # A cancelled run computes on until it would have ended, which can be many
-    # minutes: the refusal must not promise "a moment".
-    assert "try again in a moment" not in src
+    # It stops at its next month boundary, so the refusal may say "a moment";
+    # it no longer says the run computes on to its natural end.
+    assert "would have ended" not in src
     finishing = src.index(
-        "The previous simulation is still finishing in the background (a "
-        "cancelled run keeps computing until it would have ended). Try again "
-        "when it finishes."
+        "The cancelled run is finishing its current month. Try again in a moment."
     )
     assert src.index("sim_task_state.set(") > finishing
     assert src.index("_ecosim_task.invoke(") > finishing

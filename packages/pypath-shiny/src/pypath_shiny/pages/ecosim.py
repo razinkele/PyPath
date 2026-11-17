@@ -1667,9 +1667,9 @@ def ecosim_server(
                     "Coast, LSODA: 58 s against 15 s for RK4, measured "
                     "2026-11-15). Runs go in the background, up to 2 at a "
                     "time on the server, so a run may wait in a queue. Cancel "
-                    "discards the result, but a cancelled run still finishes "
-                    "in the background, so a new run starts only when it has "
-                    "finished. Closing the tab cancels its run. Loading or "
+                    "stops the run at the end of its current month and "
+                    "discards its result; a new run can start as soon as it "
+                    "has stopped. Closing the tab cancels its run. Loading or "
                     "re-balancing a model clears the results and the "
                     "scenario: create the scenario again."
                 ),
@@ -2614,9 +2614,8 @@ def ecosim_server(
         # holding the slot until then.
         if run_slot.busy:
             notify_warning(
-                "The previous simulation is still finishing in the background (a "
-                "cancelled run keeps computing until it would have ended). Try "
-                "again when it finishes."
+                "The cancelled run is finishing its current month. "
+                "Try again in a moment."
             )
             return
 
@@ -2826,9 +2825,8 @@ def ecosim_server(
                 )
             )
             notify_warning(
-                "Cancelled: the result will be discarded, but the computation "
-                "continues in the background until it would have finished; a "
-                "new run can start after that."
+                "Cancelled: the run stops at the end of its current month and "
+                "its result is discarded."
             )
 
     @output

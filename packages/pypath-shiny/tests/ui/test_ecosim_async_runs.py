@@ -53,8 +53,8 @@ LIVE_PORT = 3838
 YEARS = "50"  # long enough on Central Baltic for LSODA to be cancelled mid-run
 
 RUNNING = "A simulation is already running. Cancel it first."
-FINISHING = "The previous simulation is still finishing in the background"
-CANCELLED = "Cancelled: the result will be discarded"
+FINISHING = "The cancelled run is finishing its current month."
+CANCELLED = "Cancelled: the run stops at the end of its current month"
 QUEUED = "Queued: the server runs at most 2 simulations at once"
 MODEL_CHANGED = "Model changed: create the scenario again before running."
 NOT_RUN = "Simulation not yet run"

@@ -174,3 +174,34 @@ def test_run_cancelled_is_not_shown_as_an_error():
     calls = _calls(ast.Module(body=cancelled.body, type_ignores=[]))
     assert not any(c.startswith("notify_") for c in calls), calls
     assert "_failure_message" not in calls
+
+
+# --- the texts --------------------------------------------------------------
+
+
+def test_texts_describe_the_stop_at_the_month_boundary():
+    # Adjacent string literals are joined in the AST, so the whole texts can
+    # be read from it: the Cancel toast, the refusal while the stopped run
+    # finishes its month, and the help paragraph.
+    tree = _tree()
+    cancel = ast.unparse(_find_function(tree, "_cancel_simulation"))
+    assert (
+        "Cancelled: the run stops at the end of its current month and its "
+        "result is discarded."
+    ) in cancel
+    run = ast.unparse(_find_function(tree, "_run_simulation"))
+    assert (
+        "The cancelled run is finishing its current month. Try again in a moment."
+    ) in run
+    page = ast.unparse(tree)
+    assert (
+        "time on the server, so a run may wait in a queue. Cancel stops the run "
+        "at the end of its current month and discards its result; a new run can "
+        "start as soon as it has stopped. Closing the tab cancels its run."
+    ) in page
+    for stale in (
+        "still finishes in the background",
+        "keeps computing until it would have ended",
+        "continues in the background until it would have finished",
+    ):
+        assert stale not in page, stale
