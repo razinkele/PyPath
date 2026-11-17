@@ -144,6 +144,49 @@ def test_ecosim_ui_has_line_after_status():
     assert html.index('id="simulation_status"') < html.index('id="switching_line"')
 
 
+def test_ecosim_summary_tab_has_the_line_with_the_cards():
+    html = str(ecosim_ui())
+    assert html.count('id="switching_line_summary"') == 1
+    assert html.index('id="summary_cards"') < html.index('id="switching_line_summary"')
+
+
+# Names whose reading would tie the line to the control or the current
+# scenario rather than to the run shown.
+NOT_THE_RUN = {
+    "scenario",
+    "sim_scenario",
+    "scenario_switching_key",
+    "switching_store",
+    "_switching_spec",
+    "input",
+}
+
+
+@pytest.mark.parametrize("name", ["switching_line", "switching_line_summary"])
+def test_ecosim_lines_read_the_stored_record_only(name):
+    fn = _find_function(_tree(ecosim_page), name)
+    calls = _calls(fn)
+    assert "sim_output.get" in calls
+    assert "switching_line_tag" in calls
+    reads = {
+        c.args[1].value
+        for c in ast.walk(fn)
+        if isinstance(c, ast.Call)
+        and ast.unparse(c.func) == "getattr"
+        and isinstance(c.args[1], ast.Constant)
+    }
+    assert "switching_used" in reads
+    names = {n.id for n in ast.walk(fn) if isinstance(n, ast.Name)}
+    assert not names & NOT_THE_RUN
+
+
+def test_switching_line_tag_text():
+    assert "Prey switching: Cod 1, Seals 0.5" in str(
+        ecosim_page.switching_line_tag({"Cod": 1.0, "Seals": 0.5})
+    )
+    assert "Prey switching: none" in str(ecosim_page.switching_line_tag(None))
+
+
 def test_ecospace_and_ibm_ui_have_lines():
     assert 'id="spatial_switching_line"' in str(ecospace_ui())
     assert 'id="ibm_switching_line"' in str(ibm_ui())

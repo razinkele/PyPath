@@ -880,6 +880,7 @@ def ecosim_ui() -> ui.Tag:
                     ),
                     ui.output_ui("help_summary"),
                     ui.output_ui("summary_cards"),
+                    ui.output_ui("switching_line_summary"),
                     ui.layout_columns(
                         output_widget(
                             "final_biomass_plot",
@@ -1022,6 +1023,11 @@ def switching_inputs(
         for name, value in extra_readonly.items()
     ]
     return ui.div(body, *readonly)
+
+
+def switching_line_tag(switching_used: Mapping[str, float] | None) -> ui.Tag:
+    """The line naming the prey switching a run used, from its stored record."""
+    return ui.p(summary_line(switching_used), class_="text-muted small")
 
 
 class _SwitchingSpec(NamedTuple):
@@ -2732,14 +2738,20 @@ def ecosim_server(
     @output
     @render.ui
     def switching_line():
-        """The prey switching the shown run used."""
+        """The prey switching the shown run used (Simulation Progress tab)."""
         out = sim_output.get()
         if out is None:
             return None
-        return ui.p(
-            summary_line(getattr(out, "switching_used", None)),
-            class_="text-muted small",
-        )
+        return switching_line_tag(getattr(out, "switching_used", None))
+
+    @output
+    @render.ui
+    def switching_line_summary():
+        """The same line on the Summary tab, with the run's summary."""
+        out = sim_output.get()
+        if out is None:
+            return None
+        return switching_line_tag(getattr(out, "switching_used", None))
 
     @output
     @render.ui
