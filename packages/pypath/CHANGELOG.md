@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.8.0 (2026-11-17)
+
+### Bug Fixes
+
+- **d1**: Harden the origin rule after review
+  ([`c033978`](https://github.com/razinkele/PyPath/commit/c0339786e787a8ef4050ff42faad53d113681c65))
+
+### Features
+
+- **ecosim**: The fast-group rule defaults by the model's origin (D1)
+  ([`4b5974a`](https://github.com/razinkele/PyPath/commit/4b5974a4dae519ef12d672067d11dfc59285c81b))
+
+
 ## v1.7.0 (2026-11-17)
 
 ### Bug Fixes
