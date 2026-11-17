@@ -216,7 +216,24 @@ The Ecosim page offers the methods of this page (phase 3b, 2026-11-16). The numb
 - The catch integral is approximate under fleet mediation, because F is recomputed from the state within the month while the catch uses the month's F times the month-mean biomass.
 - Forcing is held within the month unless `forcing_interpolation` is `"linear"` or `"smooth"` (which change the model); effort, forced F and catch and forced biomass are held within the month under every setting, and fleet dynamics runs at the month boundaries.
 - A forced stanza group is overwritten by the age structure, on both paths.
-- Stanza models are first order in the monthly split whatever the tolerance: the age structure is updated once a month from the month's mean rates.
+- **Stanza models are first order in the monthly split whatever the tolerance.** The age structure is updated once a month from the month's mean rates, and this stays.
+  - **What was tried.** Phase 4a planned to make cohort survival and growth continuous within the month, with ageing kept at the month boundary. It was dropped on 2026-11-17, because the split it would have removed is what keeps a balanced model balanced.
+  - **Why it fails.** At the Ecopath base, a month of survival and growth takes each stage's cohorts to the base values one month older, and ageing then shifts them back. With survival and growth continuous but stage membership changing only at the boundary, each stage's biomass and consumption index (StanzaPred) move through the month and jump back at the boundary. The food web sees that sawtooth.
+  - **Size of the sawtooth at the base, over one month.**
+    - REco's juvenile stages: StanzaPred falls 9-16 % and biomass rises 2-8 %.
+    - The Black Sea's Anchovy 0-0+ (3 monthly cohorts, total mortality 23 per year): StanzaPred falls 85 %.
+  - **Unperturbed REco.** EwE rule, base effort, LSODA at rtol 1e-9, two years. With survival and growth refined to 16 steps a month (the limit 4a would have reached), it drifts up to 6.1 % from its base (median 0.40 %, worst JuvRoundfish2). With the monthly update it drifts 0.85 % at most (median 7e-5).
+  - **The earlier "gain" was almost entirely this artefact.** The phase-4 study measured the same refinement on perturbed runs (REco at effort 2) as an error of the monthly split: 0.42 % median and 5.9 % max, worst JuvRoundfish2.
+    - **Separating the two.** Same settings, ten years, K = 16 against the monthly update, the largest difference per group over the run:
+
+      | Run | Median | Max |
+      |---|---|---|
+      | Effort 2 (the study's scenario) | 0.85 % | 5.85 % (JuvRoundfish2) |
+      | Effort 1, unperturbed (the artefact alone) | 0.74 % | 5.82 % (JuvRoundfish2) |
+      | The part that depends on the perturbation | 0.09 % | 0.37 % (JuvRoundfish1) |
+
+    - **What it leaves.** At most a few tenths of a percent could be a gain from finer coupling. That remainder was not separated further.
+  - **What would work instead.** Continuous ageing would be a different model, an age-structured transport, with no EwE reference. Design section 3 rejected that model.
 - The budget residuals are None in a month with forced biomass, so a model that forces biomass in every month (LT2022) is not budget-checked on this path.
 - A fishery on a detritus pool closes the budget under both rules: the 'rpath' rule takes the catch from the pool and `exchange_rate` counts its landed part; the EwE rule leaves the catch and its discards in place, as EwE does (`deviations.md`, R6), and books none of it as landed. On REco with 5 landed from Detritus, or forced F 0.1 on Detritus, `budget_residual` stays within 4e-9 a month under the EwE rule (1e-8 under 'rpath').
 - The Black Sea costs 24.2 x RK4, LT2022 17.3 x on LSODA and 11.3 x on BDF (Cost); the Black Sea does not reach the 10-20 x of design section 4, which would need fewer evaluations (an analytic Jacobian, designed but not built).

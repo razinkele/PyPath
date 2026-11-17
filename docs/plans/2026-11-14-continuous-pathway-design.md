@@ -109,6 +109,8 @@ Order in month m:
 
 **Limit.** Within the month the stanza groups are integrated as ordinary states, then overwritten by sum(N x W) (`ecosim.py:2637`), with `StanzaPredRatio` held. For models with stanzas the result is first order in the monthly split whatever the tolerance. Moving cohort numbers and weights into the state vector is phase-4 material.
 
+**Phase 4 outcome (2026-11-17): cohorts as states dropped.** The reduced form (two states per stage carrying every cohort exactly) keeps ageing at the month boundary. A check before planning showed that this breaks the balanced start. Within the month each stage's sum(N x W) and StanzaPred then move from the base sums towards the sums one month older, and jump back at the boundary. Unperturbed REco drifts up to 6.1 % in two years, against 0.85 % with the monthly update. The phase-4 study's "first-order error" (0.42 % median and 5.9 % max on REco) was almost entirely this artefact. Over ten years, the part of the K = 16 difference that depends on the perturbation is 0.09 % median and 0.37 % at most. The monthly update stays; the figures are in `docs/parity/continuous_path.md` (Known limitations).
+
 **Catch** is the integral of F x B over the month. EwE books F x month-end B / 12 (`ecosim.py:2751-2755`); that figure is kept in a second field for `ewe_sum_of_squares`.
 
 ## 4. Solver use
@@ -190,7 +192,7 @@ Not verified: the cause of LT2022's three base residuals; DOP853's stability lim
 | **1. Ecosim core** | Pure wrapper (2.1, 2.4, 2.8, 2.9); LSODA and DOP853, month-segmented; fast groups as states; Ftime monthly-held; quadrature for stanzas and catch; `solver_info`; `ValueError`; IBM rejected | Purity (same `(t, y)` gives identical output after unrelated calls); balanced start; RK4-to-DOP853 convergence; LSODA against DOP853; conservation; parity suite unchanged | 6 to 9 days |
 | **2. Feeding time, speed** | Ftime as a state; Hden on the kernel only; step reuse; shared setup helper; `docs/parity/continuous_path.md` | Ftime ODE against the monthly rule; timing budget | 5 to 7 days |
 | **3. Options** | Analytic Jacobian; linear forcing; quasi-steady fast groups; log-transform; Shiny | Jacobian against finite differences; monthly means preserved; Shiny smoke test | 5 to 8 days |
-| **4. Stanzas, Ecospace** | Cohorts as states; per-patch continuous reaction | Stanza convergence; a uniform map reproduces Ecosim | 2 to 3 weeks; decide after phase 2 |
+| **4. Stanzas, Ecospace** | Cohorts as states; per-patch continuous reaction | Stanza convergence; a uniform map reproduces Ecosim | 2 to 3 weeks; decide after phase 2. Decided: Ecospace deferred (2026-11-16); cohorts as states dropped (2026-11-17, section 3) |
 
 Risks:
 
