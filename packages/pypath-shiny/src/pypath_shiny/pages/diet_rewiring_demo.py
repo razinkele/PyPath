@@ -61,17 +61,18 @@ def build_prey_switching_code(power: float) -> str:
     return f"""# Prey switching (EwE's SwitchPower) example
 # Generated from PyPath Demo
 
-from pypath.core.ecosim import rsim_run, rsim_scenario
+from pypath.core.ecosim import rsim_run
+from pypath.examples import example_ecosim_scenario
 
-# `rpath_model` is a balanced Ecopath model and `params` its parameters.
-scenario = rsim_scenario(rpath_model, params, years=range(1, 51))
+scenario = example_ecosim_scenario("Central_Baltic")
 
 # Set the switching power of one predator (0 = off; EwE's range is 0 to 2).
-predator = "Cod"  # name of the predator group
-idx = list(scenario.params.spname).index(predator)
-scenario.params.SwitchPower[idx] = {power}
+predator = "Ad. Cod"  # a consumer group of this model
+names = [str(n).strip() for n in scenario.params.spname]
+scenario.params.SwitchPower[names.index(predator)] = {power}
 
-result = rsim_run(scenario, method="RK4", years=range(1, 51))
+result = rsim_run(scenario, years=range(1, 2))
+print("Final biomass of", predator, result.out_Biomass[-1, names.index(predator)])
 """
 
 

@@ -45,3 +45,17 @@ def test_code_snippet_sets_switchpower():
     code = build_prey_switching_code(1.5)
     assert "SwitchPower" in code and "1.5" in code and "rsim_run" in code
     compile(code, "<switching_example>", "exec")
+
+
+def test_code_snippet_runs_as_written():
+    import warnings
+
+    code = build_prey_switching_code(1.5)
+    ns: dict = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        exec(compile(code, "<switching_example>", "exec"), ns)
+    names = [str(n).strip() for n in ns["scenario"].params.spname]
+    assert ns["scenario"].params.SwitchPower[names.index(ns["predator"])] == 1.5
+    assert ns["result"].out_Biomass.shape[0] > 1
+    assert np.all(np.isfinite(ns["result"].out_Biomass))
