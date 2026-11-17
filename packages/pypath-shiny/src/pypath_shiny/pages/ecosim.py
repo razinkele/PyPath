@@ -368,6 +368,26 @@ def apply_prey_forcing(scen, group, multiplier):
     return True
 
 
+def source_identity(source: dict | None) -> tuple | None:
+    """Which recorded EwE source the scenario-source block is rendered for:
+    ``(kind, path)``, a database's kind being ``"ewemdb"``; None without one."""
+    if not source:
+        return None
+    return (source.get("kind") or "ewemdb", source.get("path"))
+
+
+def kept_selection(current, options, default, *, same_source: bool) -> str:
+    """The value a re-rendered radio or select starts at.
+
+    The user's current choice when the block is re-rendered for the same
+    source (a re-balance or another load of the same model re-renders it) and
+    the choice is still offered; otherwise the source's default.
+    """
+    if same_source and current is not None and str(current) in options:
+        return str(current)
+    return default
+
+
 def scenario_from_balanced_model(
     model, groups, types, years, vulnerability, fast_group_rule="ewe"
 ) -> RsimScenario:
@@ -1163,6 +1183,11 @@ def ecosim_server(
     # browser value can never land on a new list of groups.
     switching_renders = itertools.count()
 
+    # The source the scenario-source block was last rendered for, so a
+    # re-render for the same source keeps the user's choices. Plain state,
+    # written by that render only.
+    source_ui_rendered = {"identity": None}
+
     # The run last launched: its method and preset advise on a failure that
     # has no outcome to read; its label and its start and integration-start times feed the
     # progress texts; its RunControl stops it and holds its month progress.
@@ -1412,13 +1437,30 @@ def ecosim_server(
         Ecosim settings of the example model opened from the Home page."""
         source = _matching_ewe_source()
         if source is None:
+            source_ui_rendered["identity"] = None
             return ui.div()
+        # A model load or re-balance re-renders this block: keep the user's
+        # choices when it is still the same source, start from the source's
+        # defaults when it is a new one.
+        identity = source_identity(source)
+        same_source = identity == source_ui_rendered["identity"]
+        source_ui_rendered["identity"] = identity
+        with reactive.isolate():
+            current_source = _input_or_default("scenario_source", None)
+            current_scenario = _input_or_default("ewe_scenario_id", None)
+            current_dataset = _input_or_default("ewe_dataset_id", None)
         choices, selected, offers_datasets = scenario_source_choices(source)
+        selected = kept_selection(
+            current_source, choices, selected, same_source=same_source
+        )
         if offers_datasets:
             scenarios = {str(k): v for k, v in source["scenarios"].items()}
             default = str(source.get("scenario"))
             if default not in scenarios:
                 default = next(iter(scenarios))
+            default = kept_selection(
+                current_scenario, scenarios, default, same_source=same_source
+            )
             datasets = {"": "None"}
             datasets.update({str(k): v for k, v in source.get("datasets", {}).items()})
             details = [
@@ -1429,7 +1471,9 @@ def ecosim_server(
                     "ewe_dataset_id",
                     "Time-series dataset (drivers)",
                     datasets,
-                    selected="",
+                    selected=kept_selection(
+                        current_dataset, datasets, "", same_source=same_source
+                    ),
                 ),
                 ui.p(
                     "Runs the database's Ecopath inputs with the scenario's own "

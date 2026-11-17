@@ -255,12 +255,27 @@ def _to_ecosim(page) -> None:
     page.wait_for_selector("#btn_create_scenario", state="visible")
 
 
+def _source_choice_holds(page, value: str, seconds: float = 3.0) -> bool:
+    """True when the source radio shows ``value`` on every poll for
+    ``seconds``; a poll that finds no radio (mid re-render) is skipped."""
+    end = time.monotonic() + seconds
+    seen = 0
+    while time.monotonic() < end:
+        radio = page.locator(f"input[name='scenario_source'][value='{value}']")
+        if radio.count():
+            if not radio.is_checked():
+                return False
+            seen += 1
+        time.sleep(0.3)
+    return seen > 0
+
+
 def _to_model_route(page) -> None:
     """Select the balanced route and wait for its boxes to settle.
 
-    The source radio is re-rendered when a model opens or balances and can
-    fall back to its default after being checked, so the choice is repeated
-    until the boxes have been there for two polls in a row.
+    The source radio is re-rendered when a model opens: a newly opened model
+    starts from its source's default, so the choice is repeated until the
+    boxes have been there for two polls in a row.
     """
     stable = 0
     end = time.monotonic() + 30
@@ -364,6 +379,9 @@ def test_rebalance_keeps_and_a_load_clears(server, browser):
     _nav(page, "Ecopath Model")
     _balance(page, KEPT)
     _to_ecosim(page)
+    # A re-balance of the same model keeps the source radio's choice (it
+    # used to fall back to the example's default, "ewe").
+    assert _source_choice_holds(page, "model"), "the source radio lost its choice"
     _to_model_route(page)
     _wait_box(page, 0, 0.5)
 
