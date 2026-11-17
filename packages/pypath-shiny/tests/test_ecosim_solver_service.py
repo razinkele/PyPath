@@ -444,6 +444,14 @@ def test_run_dispatch_passes_the_control_only_when_given(monkeypatch):
     assert calls[-1] == ("run", (sc,), {"method": "RK4"})
 
 
+# The fixture model's detritus has no source fraction: rsim_params warns about
+# it on every scenario built, which is not what these tests are about.
+_DETFATE_WARNING = pytest.mark.filterwarnings(
+    "ignore:DetFate columns with zero source fractions:UserWarning"
+)
+
+
+@_DETFATE_WARNING
 @pytest.mark.parametrize("method", ["RK4", "AB", "lsoda"])
 def test_run_ecosim_with_a_stopped_control_stops_after_month_one(
     method, rpath_params, balanced_rpath_model
@@ -456,6 +464,7 @@ def test_run_ecosim_with_a_stopped_control_stops_after_month_one(
     assert control.progress() == (1, 24)
 
 
+@_DETFATE_WARNING
 def test_run_ecosim_with_a_stopped_control_stops_the_advanced_path(
     rpath_params, balanced_rpath_model
 ):
@@ -472,6 +481,7 @@ def test_run_ecosim_with_a_stopped_control_stops_the_advanced_path(
     assert control.progress() == (1, 24)
 
 
+@_DETFATE_WARNING
 @pytest.mark.parametrize("method", ["RK4", "lsoda"])
 def test_run_ecosim_with_a_fresh_control_completes(
     method, rpath_params, balanced_rpath_model
