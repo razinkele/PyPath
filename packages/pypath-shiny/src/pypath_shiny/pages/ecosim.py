@@ -88,6 +88,7 @@ from pypath_shiny.services.prey_switching import (
     consumers_from_params,
     effective_values,
     fold_edits,
+    on_model_change,
     pending,
     snapshot_source,
     source_key,
@@ -1038,6 +1039,7 @@ def ecosim_server(
     sim_results: reactive.Value,
     sim_scenario: reactive.Value = None,
     ewe_source: reactive.Value = None,
+    rebalance_mark: reactive.Value | None = None,
 ) -> None:
     """Ecosim simulation page server logic.
 
@@ -1060,6 +1062,10 @@ def ecosim_server(
         The EwE database last imported on the Data Import page (see
         :func:`pypath_shiny.pages.ewe_scenario.ewe_source_record`); its
         Ecosim scenarios are offered while the model has its groups.
+    rebalance_mark : reactive.Value, optional
+        Set by the Ecopath page's re-balance just before it publishes its
+        model; a model change that finds it set keeps the prey-switching
+        overrides, any other clears them.
 
     Returns
     -------
@@ -1165,6 +1171,23 @@ def ecosim_server(
         if note:
             notify_info(note, duration=6)
         scenario_switching_key.set(None)
+        with reactive.isolate():
+            # One-shot: only the re-balance that published this model keeps the
+            # overrides; the mark is consumed either way.
+            rebalance = (
+                bool(rebalance_mark.get()) if rebalance_mark is not None else False
+            )
+            if rebalance_mark is not None:
+                rebalance_mark.set(False)
+            new_store, switching_note = on_model_change(
+                switching_store.get(),
+                rebalance=rebalance,
+                consumers=consumers_from_model(model_data.get()),
+                keep_ewe=_matching_ewe_source() is not None,
+            )
+            switching_store.set(new_store)
+        if switching_note is not None:
+            notify_info(switching_note, duration=6)
         # Last: the control re-renders once the switching state is updated.
         switching_generation.set(switching_generation.get() + 1)
 

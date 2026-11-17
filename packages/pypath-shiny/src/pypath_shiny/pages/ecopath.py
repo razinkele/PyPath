@@ -602,7 +602,11 @@ def ecopath_ui():
 
 
 def ecopath_server(
-    input: Inputs, output: Outputs, session: Session, model_data: reactive.Value
+    input: Inputs,
+    output: Outputs,
+    session: Session,
+    model_data: reactive.Value,
+    rebalance_mark: reactive.Value | None = None,
 ):
     """Ecopath model page server logic."""
 
@@ -1362,6 +1366,8 @@ def ecopath_server(
             # Balance the model
             model = rpath(p, eco_name=input.eco_name())
             balanced_model.set(model)
+            if rebalance_mark is not None:
+                rebalance_mark.set(True)
             model_data.set(model)
 
             _notify_legacy("Model balanced successfully!", type="message")

@@ -410,6 +410,9 @@ def server(input: Inputs, output: Outputs, session: Session):
     sim_scenario = reactive.Value(None)  # RsimScenario: shared Ecosim scenario
     # dict: the EwE database last imported (path, groups, Ecosim scenarios)
     ewe_source = reactive.Value(None)
+    # True only while the Ecopath page's re-balance is publishing its model, so
+    # the Ecosim page can tell a re-balance from any other model change
+    rebalance_mark = reactive.Value(False)
 
     # Create shared data object for pages that need structured access
     class SharedData:
@@ -466,7 +469,12 @@ def server(input: Inputs, output: Outputs, session: Session):
                 input, output, session, model_data, ewe_source=ewe_source
             ),
         ),
-        ("Ecopath", lambda: ecopath.ecopath_server(input, output, session, model_data)),
+        (
+            "Ecopath",
+            lambda: ecopath.ecopath_server(
+                input, output, session, model_data, rebalance_mark=rebalance_mark
+            ),
+        ),
         (
             "Pre-Balance Diagnostics",
             lambda: prebalance.prebalance_server(input, output, session, model_data),
@@ -481,6 +489,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 sim_results,
                 sim_scenario,
                 ewe_source=ewe_source,
+                rebalance_mark=rebalance_mark,
             ),
         ),
         (
