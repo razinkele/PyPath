@@ -1,27 +1,28 @@
 """Headless drives of the Ecosim page's background runs (Review Focus 5).
 
 They check what the page-level AST tests can only pin by reading the source:
-Cancel, the per-session slot after a cancel, a stale result dropped, the
-queued text, a closed tab's queued run, and a model load clearing the old
-results and scenario. One more drive checks the browser's empty
-"Quasi-steady above" field.
+the month progress, Cancel stopping the run at its next month so a new run
+starts at once, a stale result dropped, the queued text, a closed tab's
+queued run, and a model load clearing the old results and scenario. One more
+drive checks the browser's empty "Quasi-steady above" field.
 
 CI ignores ``tests/ui``. Run by hand (several minutes):
 
     pytest packages/pypath-shiny/tests/ui/test_ecosim_async_runs.py -v
 
 Needs Playwright with Chromium (``python -m playwright install chromium``)
-and Linux: a cancelled run's thread computes on, and the drives read the
-server's CPU time from ``/proc`` to tell when it has finished. Each test
-starts its own server on a free port, never the live 3838, and stops it by
-PID: the run executor is process-wide, so a cancelled run left by one test
-would hold a worker in the next.
+and Linux: a cancelled or retired run's thread stops at its next month
+boundary, and the drives read the server's CPU time from ``/proc`` to tell
+that it has stopped. Each test starts its own server on a free port, never
+the live 3838, and stops it by PID: the run executor is process-wide, so a
+run left computing by one test would hold a worker in the next.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -58,6 +59,12 @@ QUEUED = "Queued: the server runs at most 2 simulations at once"
 MODEL_CHANGED = "Model changed: create the scenario again before running."
 NOT_RUN = "Simulation not yet run"
 NO_RESULTS = "No simulation results available"
+ACCEPTED = "Running simulation..."
+MONTH = re.compile(r"Month (\d+) of (\d+) \((\d+)%\)")
+# A new run is accepted within this many seconds of the Cancel click: the
+# cancelled run stops at its next month boundary (a 50-year run takes about a
+# minute to end on its own).
+RESTART_LIMIT = 5.0
 
 
 # --- the server ------------------------------------------------------------
@@ -252,6 +259,34 @@ def _start_run(page) -> None:
     assert _wait_text(page, "#simulation_status", "Integrating", 30), _status(page)
 
 
+def _month(page) -> tuple[int, int, int] | None:
+    """The progress block's ``(month, n_months, percent)``, or None."""
+    match = MONTH.search(_text(page, "#sim_month_progress"))
+    return None if match is None else tuple(int(g) for g in match.groups())
+
+
+def _bar_width(page) -> str:
+    loc = page.locator("#sim_month_progress .progress-bar")
+    return (loc.get_attribute("style") or "") if loc.count() else ""
+
+
+def _run_accepted(page, since: float, limit: float) -> tuple[float, int]:
+    """Click Run until it is accepted; (seconds since ``since``, clicks).
+
+    Only a FINISHING refusal is retried (the stopped run has not reached its
+    month boundary yet); fails after ``limit`` seconds from ``since``.
+    """
+    clicks = 0
+    while time.monotonic() - since < limit:
+        clicks += 1
+        if _click_for_note(page, "#btn_run_sim", ACCEPTED, timeout=3):
+            return time.monotonic() - since, clicks
+        notes = _notes(page)
+        assert any(FINISHING in n for n in notes), notes
+        time.sleep(0.25)
+    raise AssertionError(f"no run accepted within {limit} s ({clicks} clicks)")
+
+
 def _results_page_text(page) -> str:
     page.click("a.nav-link[data-value='Results']")
     page.click("a[data-value='Simulation Results']")
@@ -285,7 +320,7 @@ def test_empty_quasi_steady_rate_warns(server, browser):
     assert server.tracebacks() == 0
 
 
-def test_cancel_holds_the_slot_and_drops_the_stale_result(server, browser):
+def test_cancel_stops_at_a_month_and_a_new_run_starts_at_once(server, browser):
     errors = []
     page = _new_page(browser, errors)
     _setup(page, server.url)
@@ -295,34 +330,44 @@ def test_cancel_holds_the_slot_and_drops_the_stale_result(server, browser):
     _start_run(page)
     time.sleep(0.3)  # past the one Starting -> Integrating rebuild
     cancel = page.locator("#btn_cancel_sim").element_handle()
-    ticks = []
-    for _ in range(4):
+    ticks, months = [], []
+    for _ in range(5):
         ticks.append(_text(page, "#sim_elapsed"))
+        months.append(_month(page))
         time.sleep(1.2)
     assert all(t.startswith("Elapsed:") for t in ticks), ticks
     assert len(set(ticks)) >= 3, ticks  # it ticks while the run computes
+    # The months done appear and grow, out of 50 years' 600.
+    seen = [m for m in months if m is not None]
+    assert len(seen) >= 3, months
+    assert all(total == 600 for _, total, _ in seen), seen
+    done = [m for m, _, _ in seen]
+    assert done == sorted(done) and done[-1] > done[0], seen
+    assert all(pct == round(100 * m / 600) for m, _, pct in seen), seen
+    last = _month(page)
+    assert last is not None and _bar_width(page) == f"width: {last[2]}%"
     assert cancel.evaluate("e => e.isConnected")  # not rebuilt every second
     assert page.locator("#btn_cancel_sim").is_enabled()
 
     assert _click_for_note(page, "#btn_run_sim", RUNNING), _notes(page)
     assert "Integrating" in _status(page)
 
+    cancelled_at = time.monotonic()
     assert _click_for_note(page, "#btn_cancel_sim", CANCELLED), _notes(page)
     assert "Simulation was cancelled" in _status(page)
     page.select_option("#integration_method", "RK4")
     time.sleep(0.5)
-    # The cancelled thread computes on and holds the session's slot.
-    assert _click_for_note(page, "#btn_run_sim", FINISHING), _notes(page)
+    # The cancelled run stops at its next month boundary and frees the
+    # session's slot: a new run is accepted within seconds, long before the
+    # cancelled one would have ended.
+    restart, clicks = _run_accepted(page, cancelled_at, RESTART_LIMIT)
+    print(
+        f"months seen {done}; new run accepted {restart:.2f} s after the "
+        f"Cancel click ({clicks} click(s))"
+    )
+    assert "Simulation failed" not in _status(page)
 
-    assert server.wait_idle() is not None, "the cancelled run never finished"
-    time.sleep(1)
-    # Its result was dropped: nothing landed.
-    assert "Simulation was cancelled" in _status(page)
-    assert _text(page, "#solver_diagnostics") == ""
-    assert "Simulation Details" not in _text(page, "#progress_display")
-
-    # The slot is free again: an RK4 run lands and stays.
-    page.click("#btn_run_sim")
+    # The RK4 run lands and stays; the cancelled LSODA result never landed.
     assert _wait_text(page, "#simulation_status", "completed successfully", 180)
     details = _text(page, "#progress_display")
     assert "Runge-Kutta 4" in details
@@ -346,13 +391,21 @@ def test_create_scenario_mid_run_retires_it(server, browser):
     _progress_tab(page)
     assert NOT_RUN in _status(page)
     assert _text(page, "#progress_display") == ""
-    assert _click_for_note(page, "#btn_run_sim", FINISHING), _notes(page)
 
-    assert server.wait_idle() is not None, "the retired run never finished"
-    time.sleep(1)
+    # The retired run stops at its next month boundary: the server goes idle
+    # long before the 50-year run would have ended.
+    idle = server.wait_idle(limit=60)
+    assert idle is not None and idle < 10, idle
     assert NOT_RUN in _status(page)
     assert _text(page, "#progress_display") == ""
     assert _text(page, "#solver_diagnostics") == ""
+
+    # The slot is free: a new run is accepted at once (then cancelled).
+    _run_accepted(page, time.monotonic(), RESTART_LIMIT)
+    page.wait_for_selector("#btn_cancel_sim", state="visible", timeout=30000)
+    assert _click_for_note(page, "#btn_cancel_sim", CANCELLED), _notes(page)
+    idle = server.wait_idle(limit=60)
+    assert idle is not None and idle < 10, idle
     assert errors == []
     assert server.tracebacks() == 0
 
