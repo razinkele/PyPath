@@ -29,6 +29,7 @@ COUPLED_VALUES = (1, 0, 2, 0.5)
 POOLING_MODES = ("none", "full", "full", "partial")
 SWITCH_MODES = ("none", "ones", "random", "exact", "mixed")
 EAT_MODES = ("none", "none", "none", "positive", "positive", "zeros", "view")
+INPUT_MODES = ("plain", "plain", "nan_inf", "layout")
 
 
 def _needs_numba():
@@ -46,7 +47,9 @@ def _trial(trial):
     """The arguments of one random kernel call, and the branches it takes.
 
     Each trial has its own seed; the optional branches follow the trial
-    number with coprime periods, so that every combination occurs.
+    number with coprime periods, so that every combination occurs. A quarter
+    of the trials get NaN and inf in their inputs (``nan_inf``), and a
+    quarter Fortran-ordered and strided arrays (``layout``).
     """
     rng = np.random.default_rng(1000 + trial)
     n = int(rng.integers(3, 30))
@@ -120,8 +123,44 @@ def _trial(trial):
     tags["eat"] = eat != "none"
     tags["eat_zero"] = eat == "zeros"
 
-    args = (BB, VV, DD, QQbase, preyYY, predYY, prey, pred, n_links)
-    return n, args, kwargs, tags
+    args = [BB, VV, DD, QQbase, preyYY, predYY, prey, pred, n_links]
+    mode = INPUT_MODES[(trial // 3) % len(INPUT_MODES)]
+    tags["input"] = mode
+    mrng = np.random.default_rng(5000 + trial)  # plain trials keep their draws
+    if mode == "nan_inf":
+        for i, nan, inf in ((0, 0.05, 0.03), (4, 0.05, 0.03), (5, 0.05, 0.03)):
+            args[i] = _sprinkle(
+                mrng, _sprinkle(mrng, args[i], np.nan, nan), np.inf, inf
+            )
+        for i in (1, 2, 3):  # VV, DD, QQbase
+            a = _sprinkle(mrng, _sprinkle(mrng, args[i], np.nan, 0.03), np.inf, 0.02)
+            args[i] = _sprinkle(mrng, a, -np.inf, 0.01)
+        for key in ("HandleSwitch", "med_multipliers", "ScrambleSelf", "HandleSelf"):
+            if key in kwargs:
+                a = _sprinkle(mrng, kwargs[key], np.nan, 0.03)
+                kwargs[key] = _sprinkle(mrng, a, np.inf, 0.01)
+        if "eat_eff" in kwargs:
+            kwargs["eat_eff"] = _sprinkle(mrng, kwargs["eat_eff"], np.nan, 0.05)
+    elif mode == "layout":
+        wide = np.zeros((n, 2 * n))  # a strided 2D view
+        wide[:, ::2] = args[1]
+        args[1] = wide[:, ::2]
+        args[2] = np.asfortranarray(args[2])
+        args[3] = np.asfortranarray(args[3])
+        long = np.zeros(2 * n)  # a strided 1D view
+        long[::2] = args[5]
+        args[5] = long[::2]
+        for key in (
+            "HandleSwitch",
+            "med_multipliers",
+            "ScrambleSelf",
+            "HandleSelf",
+            "PredPredWeight",
+            "PreyPreyWeight",
+        ):
+            if key in kwargs:
+                kwargs[key] = np.asfortranarray(kwargs[key])
+    return n, tuple(args), kwargs, tags
 
 
 def _qq(kernel, n, args, kwargs):
@@ -148,20 +187,28 @@ def test_random_inputs_give_identical_consumption_on_every_branch():
         n, args, kwargs, tags = _trial(trial)
         ref = _qq(_compute_consumption_sparse_python, n, args, kwargs)
         got = _qq(deriv_mod._compute_consumption_sparse_numba, n, args, kwargs)
-        if not np.array_equal(got, ref):
+        # bit for bit (NaN equal to NaN, and the sign of zero counts)
+        if got.tobytes() != ref.tobytes():
             with np.errstate(all="ignore"):
                 diff = np.abs(got - ref) / np.maximum(np.abs(ref), 1e-300)
             bad.append((trial, tags, kwargs.get("COUPLED"), float(np.max(diff))))
         written += int(np.count_nonzero(ref != SENTINEL))
         combos[(tags["pooling"], tags["switch"], tags["med"], tags["eat"])] += 1
-        seen.update(k for k, v in tags.items() if v)
+        seen.update(k for k, v in tags.items() if v is True)
         if tags["switch"]:
             seen[("COUPLED", kwargs["COUPLED"])] += 1
+        for branch in ("pooling", "switch", "med", "eat"):
+            if tags[branch]:
+                seen[(tags["input"], branch)] += 1
     assert not bad, f"{len(bad)} of {N_TRIALS} trials differ: {bad[:5]}"
     # the trials reach every branch, and every combination of the four
     assert len(combos) == 16, combos
     assert seen["eat_zero"] >= 20
     assert all(seen[("COUPLED", c)] >= 40 for c in COUPLED_VALUES), seen
+    # NaN / inf and the array layouts meet every optional branch
+    for mode in ("nan_inf", "layout"):
+        for branch in ("pooling", "switch", "med", "eat"):
+            assert seen[(mode, branch)] >= 10, (mode, branch, seen)
     assert written > 10 * N_TRIALS
 
 
