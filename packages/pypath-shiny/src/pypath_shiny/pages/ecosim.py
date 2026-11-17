@@ -962,15 +962,21 @@ def balanced_switching_groups(model) -> tuple[list[str], str | None]:
 
 
 def switching_pending_text(
-    built_from_current_key: bool, is_pending: bool, has_overrides: bool
+    *,
+    scenario_exists: bool,
+    built_from_current_key: bool,
+    is_pending: bool,
+    has_overrides: bool,
 ) -> str | None:
     """The note under the switching control, or None for no note.
 
-    Once a scenario is built from the current source, the note shows only
-    while the settings differ from it; before that, only when there are edits.
+    A scenario built from another source (the scenario source changed since)
+    runs its own values, not the control's, so the note always shows. One
+    built from the current source shows it only while the settings differ
+    from it; before any scenario, it shows only when there are edits.
     """
-    if built_from_current_key:
-        if is_pending:
+    if scenario_exists:
+        if not built_from_current_key or is_pending:
             return "Changed values apply when you create the scenario again."
         return None
     if has_overrides:
@@ -1308,9 +1314,10 @@ def ecosim_server(
         scen = scenario.get()
         built = scen is not None and scenario_switching_key.get() == spec.key
         text = switching_pending_text(
-            built,
-            built and pending(store, spec.key, spec.base, scen.params),
-            bool(store.overrides.get(spec.key)),
+            scenario_exists=scen is not None,
+            built_from_current_key=built,
+            is_pending=built and pending(store, spec.key, spec.base, scen.params),
+            has_overrides=bool(store.overrides.get(spec.key)),
         )
         if text is None:
             return ui.div()

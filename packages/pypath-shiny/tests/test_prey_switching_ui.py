@@ -280,20 +280,30 @@ CHANGED = "Changed values apply when you create the scenario again."
 NOT_YET = "Values apply when you create the scenario."
 
 
+# Every combination the caller can pass: a scenario built from the current
+# key exists, and only such a scenario can be pending.
 @pytest.mark.parametrize(
-    "built, is_pending, has_overrides, expected",
+    "exists, built, is_pending, has_overrides, expected",
     [
-        (True, True, True, CHANGED),
-        (True, True, False, CHANGED),  # a value set back from an applied edit
-        (True, False, True, None),  # just created with the edits: nothing to say
-        (False, False, True, NOT_YET),
-        (False, False, False, None),
+        (False, False, False, False, None),
+        (False, False, False, True, NOT_YET),
+        # The scenario in force came from another source: Run uses its values.
+        (True, False, False, False, CHANGED),
+        (True, False, False, True, CHANGED),
+        (True, True, False, False, None),
+        (True, True, False, True, None),  # just created with the edits
+        (True, True, True, False, CHANGED),  # a value set back from an applied edit
+        (True, True, True, True, CHANGED),
     ],
 )
-def test_pending_note_text(built, is_pending, has_overrides, expected):
-    assert (
-        ecosim_page.switching_pending_text(built, is_pending, has_overrides) == expected
+def test_pending_note_text(exists, built, is_pending, has_overrides, expected):
+    text = ecosim_page.switching_pending_text(
+        scenario_exists=exists,
+        built_from_current_key=built,
+        is_pending=is_pending,
+        has_overrides=has_overrides,
     )
+    assert text == expected
 
 
 def test_pending_note_uses_the_helper():
@@ -301,6 +311,15 @@ def test_pending_note_uses_the_helper():
     calls = _calls(note)
     assert "switching_pending_text" in calls
     assert "pending" in calls
+    (call,) = [
+        c
+        for c in ast.walk(note)
+        if isinstance(c, ast.Call) and ast.unparse(c.func) == "switching_pending_text"
+    ]
+    kwargs = {k.arg: ast.unparse(k.value) for k in call.keywords}
+    assert kwargs["scenario_exists"] == "scen is not None"
+    # pending() reads scen.params: only reached for a scenario of this key.
+    assert kwargs["is_pending"].startswith("built and pending(")
 
 
 # --- the EwE route ----------------------------------------------------------
