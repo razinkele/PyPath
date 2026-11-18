@@ -126,3 +126,45 @@ class TestSobolRuns:
         first, second = self._run(seed=seed), self._run(seed=seed)
         for name in ("S1", "ST", "S1_conf", "ST_conf"):
             assert getattr(first, name).tobytes() == getattr(second, name).tobytes()
+
+
+class TestMorrisLevels:
+    """The Morris unit grid maps inside the quantile endpoints.
+
+    It maps linearly onto quantiles 1/(2p) to 1 - 1/(2p), so levels j/(p-1)
+    stand for the centres of p equally likely bins. The unit grid used to
+    pass straight through the lognormal quantile function, so its levels 0
+    and 1 became parameter values of 0 and infinity and most evaluations
+    failed.
+    """
+
+    def test_grid_maps_onto_bin_midpoint_quantiles(self):
+        from pypath.core.sensitivity import _morris_quantiles
+
+        grid = np.array([[0.0, 1 / 3], [2 / 3, 1.0]])
+        q = _morris_quantiles(grid, n_levels=4)
+        np.testing.assert_allclose(q, [[0.125, 0.375], [0.625, 0.875]])
+
+    def test_trajectory_quantiles_stay_inside_the_unit_interval(self):
+        from pypath.core.sensitivity import _morris_quantiles
+
+        for p in (4, 6, 8):
+            traj = _generate_morris_trajectories(
+                7, 20, n_levels=p, rng=np.random.default_rng(p)
+            )
+            q = _morris_quantiles(traj, n_levels=p)
+            assert q.min() >= 1 / (2 * p) - 1e-12
+            assert q.max() <= 1 - 1 / (2 * p) + 1e-12
+
+    def test_every_parameter_gets_a_finite_effect(self):
+        from pypath.core.sensitivity import run_sensitivity
+        from tests.test_mc_integration import _make_mc_model
+
+        config = SensitivityConfig(method="morris", n_trajectories=10, seed=42)
+        result = run_sensitivity(_make_mc_model(), config)
+        assert np.all(np.isfinite(result.mu_star))
+        assert np.all(np.isfinite(result.sigma))
+        assert np.all(np.isfinite(result.mu))
+        # The output is total biomass, so the two given biomasses move it
+        biomass = [n.startswith("Biomass") for n in result.parameter_names]
+        assert np.all(result.mu_star[biomass] > 0)

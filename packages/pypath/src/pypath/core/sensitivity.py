@@ -109,6 +109,18 @@ def _generate_morris_trajectories(
     return np.array(trajectories)
 
 
+def _morris_quantiles(trajectories: np.ndarray, n_levels: int) -> np.ndarray:
+    """Quantiles that Morris unit-grid points stand for.
+
+    The unit interval maps linearly onto ``[1/(2p), 1 - 1/(2p)]`` for ``p``
+    levels: the grid's ends become the centres of the outermost of ``p``
+    equally likely bins, so every point is a finite parameter value (the
+    lognormal quantile function sends 0 and 1 to 0 and infinity).
+    """
+    edge = 1.0 / (2 * n_levels)
+    return edge + trajectories * (1.0 - 2 * edge)
+
+
 def _compute_elementary_effects(
     trajectories: np.ndarray,
     y_values: np.ndarray,
@@ -225,10 +237,11 @@ def run_sensitivity(
             config.n_levels,
             rng,
         )
+        points = _morris_quantiles(trajectories, config.n_levels)
         n_evals = len(trajectories)
         y_values = np.empty(n_evals)
         for i in range(n_evals):
-            y_values[i] = _evaluate(trajectories[i])
+            y_values[i] = _evaluate(points[i])
             if progress_callback:
                 progress_callback(i + 1, n_evals)
 
