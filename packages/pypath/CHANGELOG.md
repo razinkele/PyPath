@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.9.0 (2026-11-18)
+
+### Performance Improvements
+
+- **ecosim**: Numba kernel for the sparse consumption loop
+  ([`7c85dbd`](https://github.com/razinkele/PyPath/commit/7c85dbdfffe6819ac38fc378d90d55f833dbaa13))
+
+- **ecosim**: The numba consumption wrapper checks n_links first
+  ([`db615fd`](https://github.com/razinkele/PyPath/commit/db615fd8ce8a6f4194d9d1a511ce791d64e75f80))
+
+
 ## v1.8.0 (2026-11-17)
 
 ### Bug Fixes
