@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
+from scipy.stats import lognorm
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -107,6 +108,14 @@ def _generate_morris_trajectories(
         trajectories.extend(trajectory)
 
     return np.array(trajectories)
+
+
+def _lognormal_shape(cv: float, base_value: float) -> tuple[float, float]:
+    """Shape ``s`` and ``scale`` of the lognormal with mean ``base_value``
+    and coefficient of variation ``cv``, as scipy's ``lognorm`` takes them."""
+    sigma = math.sqrt(math.log(1 + cv**2))
+    mu = math.log(base_value) - sigma**2 / 2
+    return sigma, math.exp(mu)
 
 
 def _morris_quantiles(trajectories: np.ndarray, n_levels: int) -> np.ndarray:
@@ -206,17 +215,24 @@ def run_sensitivity(
     k = len(scalars)
     param_names = [f"{d.param_name}_{d.group_idx}" for d in scalars]
 
-    def _evaluate(x_unit: np.ndarray) -> float:
-        """Map unit hypercube point to params, run model, extract output."""
-        sample = {}
-        for j, dist in enumerate(scalars):
-            sigma = math.sqrt(math.log(1 + dist.cv**2))
-            mu = math.log(dist.base_value) - sigma**2 / 2
-            from scipy.stats import lognorm
+    keys = [(d.param_name, d.group_idx) for d in scalars]
+    shapes = [_lognormal_shape(d.cv, d.base_value) for d in scalars]
+    sigmas = np.array([sigma for sigma, _ in shapes])
+    scales = np.array([scale for _, scale in shapes])
+    n_bio = int((params.model["Type"] != 3).sum())
 
-            val = float(lognorm.ppf(x_unit[j], s=sigma, scale=math.exp(mu)))
-            sample[(dist.param_name, dist.group_idx)] = val
+    def _parameter_values(points: np.ndarray) -> np.ndarray:
+        """Each unit-hypercube point's parameter values, one row per point.
 
+        One vectorised call; it gives the same values, bit for bit, as
+        calling the quantile function point by point and parameter by
+        parameter.
+        """
+        return lognorm.ppf(points, s=sigmas, scale=scales)
+
+    def _evaluate(values: np.ndarray) -> float:
+        """Run the model on one point's parameter values, extract output."""
+        sample = {key: float(v) for key, v in zip(keys, values)}
         sampled_params = apply_sample(params, sample)
         try:
             with warnings.catch_warnings():
@@ -225,7 +241,6 @@ def run_sensitivity(
             if config.output_group_idx is not None:
                 return float(rpath_result.Biomass[config.output_group_idx])
             # Use nansum to skip fleet groups (which have NaN biomass)
-            n_bio = int((params.model["Type"] != 3).sum())
             return float(np.nansum(rpath_result.Biomass[:n_bio]))
         except Exception:
             return np.nan
@@ -237,11 +252,11 @@ def run_sensitivity(
             config.n_levels,
             rng,
         )
-        points = _morris_quantiles(trajectories, config.n_levels)
+        values = _parameter_values(_morris_quantiles(trajectories, config.n_levels))
         n_evals = len(trajectories)
         y_values = np.empty(n_evals)
         for i in range(n_evals):
-            y_values[i] = _evaluate(points[i])
+            y_values[i] = _evaluate(values[i])
             if progress_callback:
                 progress_callback(i + 1, n_evals)
 
@@ -271,9 +286,10 @@ def run_sensitivity(
         }
         # Scrambled Sobol' points, reproducible from the seed
         X = sobol_sampler.sample(problem, config.n_samples, seed=config.seed)
+        values = _parameter_values(X)
         Y = np.empty(len(X))
         for i in range(len(X)):
-            Y[i] = _evaluate(X[i])
+            Y[i] = _evaluate(values[i])
             if progress_callback:
                 progress_callback(i + 1, len(X))
 
