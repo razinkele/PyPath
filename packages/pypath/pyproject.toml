@@ -76,6 +76,8 @@ dev = [
     # So that CI runs the default numba consumption kernel and its
     # equivalence tests; the fallback is tested with numba blocked.
     "numba>=0.57",
+    # So that CI runs Sobol sensitivity analysis (sample.sobol with a seed).
+    "SALib>=1.5",
 ]
 all = [
     "pypath-ewe[interactive,spatial,spatial-data,biodata,numba,ewedb,docs,dev]",

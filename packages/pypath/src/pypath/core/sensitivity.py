@@ -1,7 +1,9 @@
 """Sensitivity analysis for Ecopath/Ecosim models.
 
 Morris elementary effects screening and optional Sobol variance-based
-sensitivity analysis (requires SALib).
+sensitivity analysis (requires SALib). ``SensitivityConfig.n_jobs`` runs the
+evaluations in worker processes; the results are the serial run's, bit for
+bit.
 """
 
 from __future__ import annotations
@@ -13,6 +15,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
+from scipy.stats import lognorm
+
+from pypath.core._parallel import (
+    NUMPY_DEFAULT_ERRSTATE,
+    mp_context,
+    outputs_in_order,
+    resolve_n_jobs,
+)
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -23,7 +33,7 @@ logger = logging.getLogger(__name__)
 try:
     import SALib  # noqa: F401  (availability probe)
     from SALib.analyze import sobol as salib_sobol
-    from SALib.sample import saltelli
+    from SALib.sample import sobol as sobol_sampler
 
     HAS_SALIB = True
 except ImportError:
@@ -55,7 +65,66 @@ class SobolResult:
 
 @dataclass
 class SensitivityConfig:
-    """Sensitivity analysis configuration."""
+    """Sensitivity analysis configuration.
+
+    Every evaluation balances the model with Ecopath and reads its biomass.
+
+    Attributes
+    ----------
+    method : str
+        "morris" (elementary effects screening) or "sobol" (variance-based
+        indices, needs SALib).
+    n_trajectories : int
+        Morris trajectories; each costs one evaluation per parameter, plus
+        one.
+    n_levels : int
+        Morris grid levels ``p``. The unit grid maps linearly onto each
+        parameter's quantiles ``1/(2p)`` to ``1 - 1/(2p)``, the centres of
+        the outermost of ``p`` equally likely bins.
+    n_samples : int
+        Sobol base sample size ``N``, best a power of 2. The analysis costs
+        ``N * (2k + 2)`` evaluations for ``k`` parameters.
+    seed : int, optional
+        Seed for the design and for Sobol's bootstrap confidence intervals;
+        None draws fresh ones.
+    n_jobs : int
+        Worker processes for the evaluations. 1 (the default) runs them
+        serially in this process. A larger number runs that many processes,
+        never more than there are evaluations; -1 uses one per CPU this
+        process may use. The design is drawn up front from ``seed``, each
+        point is evaluated with warnings ignored and numpy's default
+        floating-point error handling, and the outputs come back in order,
+        so a parallel run gives the serial run's results, bit for bit.
+        Starting workers takes from a fraction of a second to about 2 s, so
+        they pay off on long designs (Sobol, or Morris on a large model).
+    output_variable : str
+        Name stored as the result's ``output_name``.
+    output_group_idx : int, optional
+        Group whose biomass is the output; None sums the biomass of every
+        group that is not a fleet.
+    ecopath_only : bool
+        Not used: every evaluation is an Ecopath balance.
+    ecosim_years : range, optional
+        Not used: every evaluation is an Ecopath balance.
+    mp_context : str, optional
+        The multiprocessing start method for the workers: "forkserver",
+        "spawn" or "fork". None uses forkserver on Linux and spawn on macOS
+        and Windows, as CPython's own defaults do from Python 3.14.
+
+        forkserver and spawn start clean worker processes:
+
+        - a script that calls ``run_sensitivity`` must do so under
+          ``if __name__ == "__main__":``;
+        - ``params`` must be picklable;
+        - workers do not see the caller's warning filters, logging
+          configuration or later changes to ``os.environ``;
+        - starting the workers takes about 2 s per call when the caller is
+          not a script that imports pypath (a notebook, for example).
+
+        "fork" starts workers fastest but is unsafe in a multi-threaded
+        process (Python warns, and numpy's BLAS threads count), so ask for it
+        only from a single-threaded script.
+    """
 
     method: str = "morris"
     n_trajectories: int = 10
@@ -67,6 +136,7 @@ class SensitivityConfig:
     output_group_idx: int | None = None
     ecopath_only: bool = False
     ecosim_years: range | None = None
+    mp_context: str | None = None
 
 
 def _generate_morris_trajectories(
@@ -109,6 +179,26 @@ def _generate_morris_trajectories(
     return np.array(trajectories)
 
 
+def _lognormal_shape(cv: float, base_value: float) -> tuple[float, float]:
+    """Shape ``s`` and ``scale`` of the lognormal with mean ``base_value``
+    and coefficient of variation ``cv``, as scipy's ``lognorm`` takes them."""
+    sigma = math.sqrt(math.log(1 + cv**2))
+    mu = math.log(base_value) - sigma**2 / 2
+    return sigma, math.exp(mu)
+
+
+def _morris_quantiles(trajectories: np.ndarray, n_levels: int) -> np.ndarray:
+    """Quantiles that Morris unit-grid points stand for.
+
+    The unit interval maps linearly onto ``[1/(2p), 1 - 1/(2p)]`` for ``p``
+    levels: the grid's ends become the centres of the outermost of ``p``
+    equally likely bins, so every point is a finite parameter value (the
+    lognormal quantile function sends 0 and 1 to 0 and infinity).
+    """
+    edge = 1.0 / (2 * n_levels)
+    return edge + trajectories * (1.0 - 2 * edge)
+
+
 def _compute_elementary_effects(
     trajectories: np.ndarray,
     y_values: np.ndarray,
@@ -147,6 +237,51 @@ def _compute_elementary_effects(
     )
 
 
+def _evaluate_point(params, keys, values, output_group_idx, n_bio) -> float:
+    """One design point's output: the model's biomass, or NaN when the
+    balance fails.
+
+    Runs with warnings ignored and numpy's default floating-point error
+    handling, so the output does not depend on the process it runs in.
+    """
+    from pypath.core.ecopath import rpath
+    from pypath.core.pedigree import apply_sample
+
+    with warnings.catch_warnings(), np.errstate(**NUMPY_DEFAULT_ERRSTATE):
+        warnings.simplefilter("ignore")
+        sample = {key: float(v) for key, v in zip(keys, values)}
+        sampled_params = apply_sample(params, sample)
+        try:
+            rpath_result = rpath(sampled_params)
+            if output_group_idx is not None:
+                return float(rpath_result.Biomass[output_group_idx])
+            # Use nansum to skip fleet groups (which have NaN biomass)
+            return float(np.nansum(rpath_result.Biomass[:n_bio]))
+        except Exception:
+            return np.nan
+
+
+# A worker process's model and output settings, set once when the worker
+# starts so that each task carries only its point's parameter values
+_WORKER: dict = {}
+
+
+def _init_worker(params, keys, output_group_idx, n_bio):
+    _WORKER.update(
+        params=params, keys=keys, output_group_idx=output_group_idx, n_bio=n_bio
+    )
+
+
+def _evaluate_in_worker(values):
+    return _evaluate_point(
+        _WORKER["params"],
+        _WORKER["keys"],
+        values,
+        _WORKER["output_group_idx"],
+        _WORKER["n_bio"],
+    )
+
+
 def run_sensitivity(
     params: "RpathParams",
     config: SensitivityConfig | None = None,
@@ -165,24 +300,23 @@ def run_sensitivity(
     pedigree_config : PedigreeConfig, optional
         EwE pedigree mapping.
     progress_callback : callable, optional
-        Called with (current, total) after each model evaluation.
+        Called with (current, total) after each model evaluation, in order,
+        in this process (also when ``config.n_jobs`` runs workers).
 
     Returns
     -------
     MorrisResult or SobolResult
     """
-    from pypath.core.ecopath import rpath as run_rpath
-    from pypath.core.pedigree import (
-        ScalarDistribution,
-        apply_sample,
-        build_distributions,
-    )
+    from pypath.core.pedigree import ScalarDistribution, build_distributions
 
     if config is None:
         config = SensitivityConfig()
 
+    if config.method not in ("morris", "sobol"):
+        raise ValueError(f"Unknown method: {config.method}")
     if config.method == "sobol" and not HAS_SALIB:
         raise ImportError("Install SALib for Sobol analysis: pip install SALib")
+    context = mp_context(config.mp_context)  # refuses an unknown method
 
     rng = np.random.default_rng(config.seed)
     distributions = build_distributions(params, pedigree_config)
@@ -193,30 +327,11 @@ def run_sensitivity(
 
     k = len(scalars)
     param_names = [f"{d.param_name}_{d.group_idx}" for d in scalars]
-
-    def _evaluate(x_unit: np.ndarray) -> float:
-        """Map unit hypercube point to params, run model, extract output."""
-        sample = {}
-        for j, dist in enumerate(scalars):
-            sigma = math.sqrt(math.log(1 + dist.cv**2))
-            mu = math.log(dist.base_value) - sigma**2 / 2
-            from scipy.stats import lognorm
-
-            val = float(lognorm.ppf(x_unit[j], s=sigma, scale=math.exp(mu)))
-            sample[(dist.param_name, dist.group_idx)] = val
-
-        sampled_params = apply_sample(params, sample)
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                rpath_result = run_rpath(sampled_params)
-            if config.output_group_idx is not None:
-                return float(rpath_result.Biomass[config.output_group_idx])
-            # Use nansum to skip fleet groups (which have NaN biomass)
-            n_bio = int((params.model["Type"] != 3).sum())
-            return float(np.nansum(rpath_result.Biomass[:n_bio]))
-        except Exception:
-            return np.nan
+    keys = [(d.param_name, d.group_idx) for d in scalars]
+    shapes = [_lognormal_shape(d.cv, d.base_value) for d in scalars]
+    sigmas = np.array([sigma for sigma, _ in shapes])
+    scales = np.array([scale for _, scale in shapes])
+    n_bio = int((params.model["Type"] != 3).sum())
 
     if config.method == "morris":
         trajectories = _generate_morris_trajectories(
@@ -225,13 +340,52 @@ def run_sensitivity(
             config.n_levels,
             rng,
         )
-        n_evals = len(trajectories)
-        y_values = np.empty(n_evals)
-        for i in range(n_evals):
-            y_values[i] = _evaluate(trajectories[i])
+        points = _morris_quantiles(trajectories, config.n_levels)
+    else:
+        n_runs = config.n_samples * (2 * k + 2)
+        if n_runs > 10000:
+            warnings.warn(
+                f"Sobol analysis requires {n_runs} model evaluations.",
+                UserWarning,
+            )
+        problem = {
+            "num_vars": k,
+            "names": param_names,
+            "bounds": [[0.0, 1.0]] * k,
+        }
+        # Scrambled Sobol' points, reproducible from the seed
+        points = sobol_sampler.sample(problem, config.n_samples, seed=config.seed)
+
+    # Every point's parameter values in one vectorised call; it gives the
+    # same values, bit for bit, as the quantile function point by point
+    values = lognorm.ppf(points, s=sigmas, scale=scales)
+    n_evals = len(values)
+    n_workers = resolve_n_jobs(config.n_jobs, n_evals)
+
+    y_values = np.empty(n_evals)
+    with outputs_in_order(
+        _evaluate_in_worker,
+        values,
+        n_workers=n_workers,
+        context=context,
+        serial=lambda row: _evaluate_point(
+            params, keys, row, config.output_group_idx, n_bio
+        ),
+        # Workers get the model once; each task carries a point's values
+        initializer=_init_worker,
+        initargs=(params, keys, config.output_group_idx, n_bio),
+        broken_message=(
+            "A sensitivity worker process died. It may have run out of "
+            "memory, or failed to unpickle the model. Try n_jobs=1, or "
+            "mp_context='fork' from a single-threaded script."
+        ),
+    ) as outputs:
+        for i, y in enumerate(outputs):
+            y_values[i] = y
             if progress_callback:
                 progress_callback(i + 1, n_evals)
 
+    if config.method == "morris":
         result = _compute_elementary_effects(
             trajectories,
             y_values,
@@ -243,43 +397,25 @@ def run_sensitivity(
         result.output_name = config.output_variable
         return result
 
-    elif config.method == "sobol":
-        n_runs = config.n_samples * (2 * k + 2)
-        if n_runs > 10000:
-            warnings.warn(
-                f"Sobol analysis requires {n_runs} model evaluations.",
-                UserWarning,
-            )
+    # Impute NaN with mean (SALib requires exact N*(2k+2) rows)
+    nan_mask = np.isnan(y_values)
+    n_nan = np.sum(nan_mask)
+    if n_nan > len(y_values) * 0.5:
+        raise RuntimeError("More than 50% of model evaluations failed.")
+    if n_nan > 0:
+        y_values[nan_mask] = np.nanmean(y_values)
+        logger.warning("Imputed %d NaN evaluations with mean for Sobol.", n_nan)
 
-        problem = {
-            "num_vars": k,
-            "names": param_names,
-            "bounds": [[0.0, 1.0]] * k,
-        }
-        X = saltelli.sample(problem, config.n_samples, seed=config.seed)
-        Y = np.empty(len(X))
-        for i in range(len(X)):
-            Y[i] = _evaluate(X[i])
-            if progress_callback:
-                progress_callback(i + 1, len(X))
-
-        # Impute NaN with mean (SALib requires exact N*(2k+2) rows)
-        nan_mask = np.isnan(Y)
-        n_nan = np.sum(nan_mask)
-        if n_nan > len(Y) * 0.5:
-            raise RuntimeError("More than 50% of model evaluations failed.")
-        if n_nan > 0:
-            Y[nan_mask] = np.nanmean(Y)
-            logger.warning("Imputed %d NaN evaluations with mean for Sobol.", n_nan)
-
-        Si = salib_sobol.analyze(problem, Y)
-        return SobolResult(
-            parameter_names=param_names,
-            S1=Si["S1"],
-            ST=Si["ST"],
-            S1_conf=Si["S1_conf"],
-            ST_conf=Si["ST_conf"],
-            output_name=config.output_variable,
-        )
-
-    raise ValueError(f"Unknown method: {config.method}")
+    # The seed also fixes the bootstrap behind the confidence intervals. SALib
+    # reads a seed of 0 as no seed, so hand it a generator: for any other
+    # seed it draws the same numbers as SALib's own default_rng(seed)
+    bootstrap_rng = None if config.seed is None else np.random.default_rng(config.seed)
+    Si = salib_sobol.analyze(problem, y_values, seed=bootstrap_rng)
+    return SobolResult(
+        parameter_names=param_names,
+        S1=Si["S1"],
+        ST=Si["ST"],
+        S1_conf=Si["S1_conf"],
+        ST_conf=Si["ST_conf"],
+        output_name=config.output_variable,
+    )
