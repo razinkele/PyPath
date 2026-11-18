@@ -384,6 +384,58 @@ def write_rpath_params(
         st.stindiv.to_csv(path / f"{eco_name}_stanzas.csv", index=False)
 
 
+_BLOCKS = ("living", "detritus", "fleet")
+
+
+def _block_order_problem(groups, types) -> Optional[str]:
+    """Why Ecosim would refuse these groups, or None.
+
+    Ecosim needs every group typed 0 to 1 (living), 2 (detritus) or 3
+    (fleet), and the groups in block order: living groups, then detritus,
+    then fleets. Ecopath balances groups in any order.
+    """
+    leader = None  # the first group of the latest block so far
+    for group, value in zip(groups, types):
+        # Plain float(), not pandas: pandas' conversions reset the warnings
+        # registry, so Ecosim's once-per-place warnings would repeat
+        try:
+            t = float(value)
+        except (TypeError, ValueError):  # pd.NA, None, text
+            t = float("nan")
+        if not (0 <= t <= 1 or t == 2 or t == 3):  # NaN fails every test
+            return (
+                f"group {str(group)!r} has type {t:g}, which is no block "
+                "(0 to 1 living, 2 detritus, 3 fleet)"
+            )
+        block = 0 if t <= 1 else (1 if t == 2 else 2)
+        if leader is not None and block < leader[1]:
+            return (
+                f"{str(group)!r} ({_BLOCKS[block]}) comes after "
+                f"{str(leader[0])!r} ({_BLOCKS[leader[1]]})"
+            )
+        if leader is None or block > leader[1]:
+            leader = (group, block)
+    return None
+
+
+def _require_block_order(groups, types, hint: str = "") -> None:
+    """Refuse groups Ecosim cannot simulate correctly.
+
+    Raises
+    ------
+    ValueError
+        Naming a group out of block order, or a group with no block.
+    """
+    problem = _block_order_problem(groups, types)
+    if problem is not None:
+        raise ValueError(
+            "Ecosim needs the model's groups in block order: living groups "
+            "(types 0 to 1), then detritus (type 2), then fleets (type 3); "
+            f"here {problem}. Reorder or retype the groups; Ecopath balances "
+            "them in any order." + hint
+        )
+
+
 def check_rpath_params(params: RpathParams) -> bool:
     """Check Rpath parameter files for consistency.
 
@@ -473,6 +525,16 @@ def check_rpath_params(params: RpathParams) -> bool:
                     f"Diet column '{pred}' sums to {col_sum:.3f}, expected ~{expected}"
                 )
                 n_warnings += 1
+
+    # Ecosim needs the groups in block order, each with a block's type
+    problem = _block_order_problem(model["Group"], model["Type"])
+    if problem is not None:
+        warnings.warn(
+            "Groups are not in block order (living, then detritus, then "
+            f"fleets): {problem}. Ecopath balances the model, but Ecosim "
+            "refuses it."
+        )
+        n_warnings += 1
 
     # Check Import row exists
     if "Import" not in diet["Group"].values and "import" not in diet["Group"].values:

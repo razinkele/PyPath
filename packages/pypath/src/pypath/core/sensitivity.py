@@ -237,7 +237,7 @@ def _compute_elementary_effects(
     )
 
 
-def _evaluate_point(params, keys, values, output_group_idx, n_bio) -> float:
+def _evaluate_point(params, keys, values, output_group_idx, bio_idx) -> float:
     """One design point's output: the model's biomass, or NaN when the
     balance fails.
 
@@ -255,8 +255,8 @@ def _evaluate_point(params, keys, values, output_group_idx, n_bio) -> float:
             rpath_result = rpath(sampled_params)
             if output_group_idx is not None:
                 return float(rpath_result.Biomass[output_group_idx])
-            # Use nansum to skip fleet groups (which have NaN biomass)
-            return float(np.nansum(rpath_result.Biomass[:n_bio]))
+            # Every group but the fleets (nansum skips missing biomass)
+            return float(np.nansum(rpath_result.Biomass[bio_idx]))
         except Exception:
             return np.nan
 
@@ -266,9 +266,9 @@ def _evaluate_point(params, keys, values, output_group_idx, n_bio) -> float:
 _WORKER: dict = {}
 
 
-def _init_worker(params, keys, output_group_idx, n_bio):
+def _init_worker(params, keys, output_group_idx, bio_idx):
     _WORKER.update(
-        params=params, keys=keys, output_group_idx=output_group_idx, n_bio=n_bio
+        params=params, keys=keys, output_group_idx=output_group_idx, bio_idx=bio_idx
     )
 
 
@@ -278,7 +278,7 @@ def _evaluate_in_worker(values):
         _WORKER["keys"],
         values,
         _WORKER["output_group_idx"],
-        _WORKER["n_bio"],
+        _WORKER["bio_idx"],
     )
 
 
@@ -331,7 +331,10 @@ def run_sensitivity(
     shapes = [_lognormal_shape(d.cv, d.base_value) for d in scalars]
     sigmas = np.array([sigma for sigma, _ in shapes])
     scales = np.array([scale for _, scale in shapes])
-    n_bio = int((params.model["Type"] != 3).sum())
+    # Every group but the fleets, by type: Ecopath keeps the model's order
+    bio_idx = np.flatnonzero(
+        params.model["Type"].to_numpy(dtype=float, na_value=np.nan) != 3
+    )
 
     if config.method == "morris":
         trajectories = _generate_morris_trajectories(
@@ -369,11 +372,11 @@ def run_sensitivity(
         n_workers=n_workers,
         context=context,
         serial=lambda row: _evaluate_point(
-            params, keys, row, config.output_group_idx, n_bio
+            params, keys, row, config.output_group_idx, bio_idx
         ),
         # Workers get the model once; each task carries a point's values
         initializer=_init_worker,
-        initargs=(params, keys, config.output_group_idx, n_bio),
+        initargs=(params, keys, config.output_group_idx, bio_idx),
         broken_message=(
             "A sensitivity worker process died. It may have run out of "
             "memory, or failed to unpickle the model. Try n_jobs=1, or "

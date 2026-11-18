@@ -1,8 +1,11 @@
 """
 Tests for gear index resolution in ecosim_deriv.py.
 
-Verifies that FishThrough (fleet group indices) are correctly mapped to
-gear indices when groups are in non-canonical order (e.g., detritus first).
+FishThrough holds the 1-based group position of the fleet behind each
+fishing link; Ecosim finds that fleet's gear by looking it up in
+``fleet_idx``. Ecosim needs the groups in block order (living, detritus,
+fleets), so a fleet-first model is refused; the lookup is tested on a
+block-ordered model with two fleets.
 """
 
 import warnings
@@ -15,180 +18,98 @@ from pypath.core.ecosim import rsim_params
 from pypath.core.params import create_rpath_params
 
 
-@pytest.fixture
-def noncanonical_model():
-    """Create a model with non-canonical ordering: detritus first.
-
-    Group order: Det(type=2), Phyto(type=1), Zoo(type=0), Fish(type=0), Fleet(type=3)
-    Original 0-based indices: Det=0, Phyto=1, Zoo=2, Fish=3, Fleet=4
-    1-based Ecosim positions: Det=1, Phyto=2, Zoo=3, Fish=4, Fleet=5
-
-    In canonical ordering, fleets would be at position NUM_LIVING+NUM_DEAD+1 = 3+1+1 = 5.
-    Here Fleet IS at position 5 (0-based index 4), but the arithmetic
-    gear_group_idx - NUM_LIVING - NUM_DEAD = 5 - 3 - 1 = 1 is correct by coincidence.
-
-    So let's use a truly non-canonical order: Fleet first.
-    Group order: Fleet(type=3), Det(type=2), Phyto(type=1), Zoo(type=0), Fish(type=0)
-    0-based indices: Fleet=0, Det=1, Phyto=2, Zoo=3, Fish=4
-    1-based Ecosim positions: Fleet=1, Det=2, Phyto=3, Zoo=4, Fish=5
-
-    The arithmetic would compute: gear_idx = 1 - 3 - 1 = -3 (WRONG!)
-    Correct gear_idx should be 1 (1-based, it's the first fleet).
-    """
-    params = create_rpath_params(
-        groups=["Fleet", "Det", "Phyto", "Zoo", "Fish"],
-        types=[3, 2, 1, 0, 0],
-    )
-
-    # Phyto (producer) - index 2
-    params.model.loc[2, "Biomass"] = 10.0
-    params.model.loc[2, "PB"] = 200.0
-    params.model.loc[2, "EE"] = 0.8
-
-    # Zoo (consumer) - index 3
-    params.model.loc[3, "Biomass"] = 5.0
-    params.model.loc[3, "PB"] = 50.0
-    params.model.loc[3, "QB"] = 150.0
-    params.model.loc[3, "EE"] = 0.9
-
-    # Fish (consumer) - index 4
-    params.model.loc[4, "Biomass"] = 2.0
-    params.model.loc[4, "PB"] = 1.0
-    params.model.loc[4, "QB"] = 5.0
-    params.model.loc[4, "EE"] = 0.5
-
-    # Det (detritus) - index 1
-    params.model.loc[1, "Biomass"] = 100.0
-
-    params.model["BioAcc"] = 0.0
-    params.model["Unassim"] = 0.2
-    params.model.loc[2, "Unassim"] = 0.0  # Phyto
-    params.model.loc[1, "Unassim"] = 0.0  # Det
-    params.model.loc[0, "BioAcc"] = np.nan  # Fleet
-    params.model.loc[0, "Unassim"] = np.nan  # Fleet
-
-    # Detrital fate: everything goes to Det
-    params.model["Det"] = 1.0
-    params.model.loc[0, "Det"] = np.nan  # Fleet
-
-    # Diet: Zoo eats Phyto, Fish eats Zoo
-    params.diet["Zoo"] = [0.0, 0.0, 1.0, 0.0, 0.0]  # Zoo eats Phyto
-    params.diet["Fish"] = [0.0, 0.0, 0.0, 1.0, 0.0]  # Fish eats Zoo
-
-    # Fishing: Fleet catches Fish (index 4 in model, column "Fleet")
-    params.model.loc[4, "Fleet"] = 0.5  # Landing of Fish by Fleet
-
+def _balanced(groups, types, catches):
+    """A four-group food chain plus fleets; ``catches`` maps (group, fleet)
+    to landings."""
+    params = create_rpath_params(groups=groups, types=types)
+    m = params.model
+    sel = lambda g: m["Group"] == g  # noqa: E731
+    m.loc[sel("Phyto"), ["Biomass", "PB", "EE"]] = [10.0, 200.0, 0.8]
+    m.loc[sel("Zoo"), ["Biomass", "PB", "QB", "EE"]] = [5.0, 50.0, 150.0, 0.9]
+    m.loc[sel("Fish"), ["Biomass", "PB", "QB", "EE"]] = [2.0, 1.0, 5.0, 0.5]
+    m.loc[sel("Det"), "Biomass"] = 100.0
+    m["BioAcc"] = 0.0
+    m["Unassim"] = 0.2
+    m.loc[sel("Phyto"), "Unassim"] = 0.0
+    m.loc[sel("Det"), "Unassim"] = 0.0
+    m["Det"] = 1.0
+    m.loc[sel("Det"), "Det"] = 0.0
+    for t, g in zip(types, groups):
+        if t == 3:
+            m.loc[sel(g), ["BioAcc", "Unassim", "Det"]] = np.nan
+    prey = list(params.diet["Group"])
+    params.diet["Zoo"] = [1.0 if g == "Phyto" else 0.0 for g in prey]
+    params.diet["Fish"] = [1.0 if g == "Zoo" else 0.0 for g in prey]
+    for (group, fleet), landed in catches.items():
+        m.loc[sel(group), fleet] = landed
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        model = rpath(params)
-
-    return model, params
+        return rpath(params)
 
 
-def test_fleet_idx_present_in_rsim_params(noncanonical_model):
-    """Verify that rsim_params stores fleet_idx on the RsimParams object."""
-    model, _ = noncanonical_model
-    sim_params = rsim_params(model)
-
-    assert hasattr(sim_params, "fleet_idx"), (
-        "RsimParams should have a fleet_idx attribute"
-    )
-    # Fleet is at original 0-based index 0 in our model
-    assert 0 in sim_params.fleet_idx, (
-        f"fleet_idx should contain 0 (Fleet's 0-based index), got {sim_params.fleet_idx}"
+@pytest.fixture
+def two_fleet_model():
+    """Block order, two fleets: Trawl (gear 1) lands Fish, Seine (gear 2)
+    lands Zoo. 0-based positions: Phyto 0, Zoo 1, Fish 2, Det 3, Trawl 4,
+    Seine 5."""
+    return _balanced(
+        ["Phyto", "Zoo", "Fish", "Det", "Trawl", "Seine"],
+        [1, 0, 0, 2, 3, 3],
+        {("Fish", "Trawl"): 0.3, ("Zoo", "Seine"): 0.2},
     )
 
 
-def test_fish_through_maps_to_fleet_idx(noncanonical_model):
-    """Verify FishThrough values correspond to fleet positions in fleet_idx.
-
-    FishThrough contains 1-based group indices of the fleet that does the fishing.
-    For our model, Fleet is at 0-based index 0, so FishThrough should contain 1
-    (the 1-based position of Fleet).
-    """
-    model, _ = noncanonical_model
-    sim_params = rsim_params(model)
-
-    # There should be fishing links (Fleet catches Fish)
-    assert len(sim_params.FishFrom) > 1, (
-        f"Expected fishing links, got FishFrom={sim_params.FishFrom}"
+def test_rsim_params_refuses_a_fleet_first_model():
+    model = _balanced(
+        ["Trawl", "Det", "Phyto", "Zoo", "Fish"],
+        [3, 2, 1, 0, 0],
+        {("Fish", "Trawl"): 0.5},
     )
+    with pytest.raises(ValueError, match="block order"):
+        rsim_params(model)
 
-    # Every FishThrough value (skip index 0 placeholder) should reference a fleet
-    fleet_idx = sim_params.fleet_idx  # 0-based indices of fleet groups
+
+def test_fleet_idx_present_in_rsim_params(two_fleet_model):
+    """rsim_params stores the fleets' 0-based positions as fleet_idx."""
+    sim_params = rsim_params(two_fleet_model)
+    assert list(sim_params.fleet_idx) == [4, 5]
+
+
+def test_fish_through_maps_to_fleet_idx(two_fleet_model):
+    """Every FishThrough value is the 1-based position of a fleet."""
+    sim_params = rsim_params(two_fleet_model)
+    assert len(sim_params.FishFrom) > 2, "expected a link for each fleet"
     for i in range(1, len(sim_params.FishThrough)):
-        gear_group_1based = int(sim_params.FishThrough[i])
-        gear_group_0based = gear_group_1based - 1
-        assert gear_group_0based in fleet_idx, (
-            f"FishThrough[{i}]={gear_group_1based} (0-based={gear_group_0based}) "
-            f"not found in fleet_idx={fleet_idx}"
-        )
+        assert int(sim_params.FishThrough[i]) - 1 in sim_params.fleet_idx
 
 
-def test_gear_index_resolution_noncanonical(noncanonical_model):
-    """Verify gear index is correctly resolved for non-canonical ordering.
-
-    The old arithmetic: gear_idx = gear_group_idx - NUM_LIVING - NUM_DEAD
-    would give: gear_idx = 1 - 3 - 1 = -3 (WRONG for Fleet at position 1)
-
-    The correct gear_idx should be 1 (1-based), because Fleet is the first
-    (and only) fleet.
-    """
-    model, _ = noncanonical_model
-    sim_params = rsim_params(model)
-
-    fleet_idx = sim_params.fleet_idx
-
+def test_gear_index_resolution(two_fleet_model):
+    """Looking a link's fleet up in fleet_idx gives its gear: in block order
+    that is the fleet's position after the living and detritus groups, and
+    each fleet is its own gear."""
+    sim_params = rsim_params(two_fleet_model)
+    gears = set()
     for i in range(1, len(sim_params.FishThrough)):
-        gear_group_1based = int(sim_params.FishThrough[i])
-
-        # Old (broken) arithmetic
-        old_gear_idx = gear_group_1based - sim_params.NUM_LIVING - sim_params.NUM_DEAD
-        # New (correct) lookup: find position of this fleet in fleet_idx
-        gear_0based = gear_group_1based - 1
-        matches = np.where(fleet_idx == gear_0based)[0]
-        assert len(matches) == 1, (
-            f"Fleet at 0-based index {gear_0based} should appear exactly once "
-            f"in fleet_idx={fleet_idx}"
-        )
-        correct_gear_idx = int(matches[0]) + 1  # 1-based gear index
-
-        # The old arithmetic should give WRONG results for non-canonical ordering
-        assert old_gear_idx != correct_gear_idx or old_gear_idx <= 0, (
-            "Expected old arithmetic to fail for non-canonical ordering"
-        )
-        # The correct gear index should be valid (1-based, within range)
-        assert 1 <= correct_gear_idx <= sim_params.NUM_GEARS, (
-            f"Correct gear_idx={correct_gear_idx} out of range [1, {sim_params.NUM_GEARS}]"
-        )
+        position = int(sim_params.FishThrough[i])
+        matches = np.flatnonzero(sim_params.fleet_idx == position - 1)
+        assert len(matches) == 1
+        gear = int(matches[0]) + 1
+        assert gear == position - sim_params.NUM_LIVING - sim_params.NUM_DEAD
+        gears.add(gear)
+    assert gears == {1, 2}
 
 
-def test_deriv_fishing_mort_noncanonical(noncanonical_model):
-    """End-to-end: verify FishMort is applied correctly with non-canonical ordering.
-
-    When ForcedEffort is set, FishMort should scale by effort for the correct gear.
-    """
+def _deriv(sim_params, forced_effort):
+    from pypath.core.ecosim import _build_active_link_matrix, _build_link_matrix
     from pypath.core.ecosim_deriv import deriv_vector
-
-    model, _ = noncanonical_model
-    sim_params = rsim_params(model)
+    from pypath.core.link_array import ActiveLinkArray
 
     ngroups = sim_params.NUM_GROUPS
-    nliving = sim_params.NUM_LIVING
-    ndead = sim_params.NUM_DEAD
-    ngears = sim_params.NUM_GEARS
-
-    # Build a minimal params dict for deriv_vector
-    from pypath.core.ecosim import (
-        _build_active_link_matrix,
-        _build_link_matrix,
-    )
-
     params_dict = {
         "NUM_GROUPS": ngroups,
-        "NUM_LIVING": nliving,
-        "NUM_DEAD": ndead,
-        "NUM_GEARS": ngears,
+        "NUM_LIVING": sim_params.NUM_LIVING,
+        "NUM_DEAD": sim_params.NUM_DEAD,
+        "NUM_GEARS": sim_params.NUM_GEARS,
         "PB": sim_params.PBopt,
         "QB": sim_params.FtimeQBOpt,
         "M0": sim_params.MzeroMort,
@@ -205,21 +126,9 @@ def test_deriv_fishing_mort_noncanonical(noncanonical_model):
         "FishQ": sim_params.FishQ,
         "fleet_idx": sim_params.fleet_idx,
     }
-
-    # Pre-compute sparse link arrays
-    from pypath.core.link_array import ActiveLinkArray
-
-    _links = ActiveLinkArray.from_bool_matrix(params_dict["ActiveLink"])
-    params_dict["_link_prey"] = _links.prey
-    params_dict["_link_pred"] = _links.pred
-
-    # State = baseline biomass
-    state = sim_params.B_BaseRef.copy()
-
-    # ForcedEffort: double the effort for gear 1
-    forced_effort = np.ones(ngears + 1)
-    forced_effort[1] = 2.0  # Double effort for fleet 1
-
+    links = ActiveLinkArray.from_bool_matrix(params_dict["ActiveLink"])
+    params_dict["_link_prey"] = links.prey
+    params_dict["_link_pred"] = links.pred
     forcing = {
         "ForcedBio": np.zeros(ngroups + 1),
         "ForcedMigrate": np.zeros(ngroups + 1),
@@ -228,27 +137,28 @@ def test_deriv_fishing_mort_noncanonical(noncanonical_model):
         "PP_forcing": np.ones(ngroups + 1),
         "Ftime": np.ones(ngroups + 1),
     }
-
     fishing = {
         "FishFrom": sim_params.FishFrom,
         "FishThrough": sim_params.FishThrough,
         "FishQ": sim_params.FishQ,
         "FishingMort": np.zeros(ngroups + 1),
     }
-
-    # Calculate base fishing mortality
     for i in range(1, len(sim_params.FishFrom)):
-        grp = int(sim_params.FishFrom[i])
-        fishing["FishingMort"][grp] += sim_params.FishQ[i]
+        fishing["FishingMort"][int(sim_params.FishFrom[i])] += sim_params.FishQ[i]
+    state = sim_params.B_BaseRef.copy()
+    return deriv_vector(state, params_dict, forcing, fishing)
 
-    # Run deriv_vector -- this should NOT crash or produce wrong results
-    deriv = deriv_vector(state, params_dict, forcing, fishing)
 
-    # The derivative should be a valid array of correct size
-    assert deriv.shape == (ngroups + 1,), (
-        f"Expected derivative shape ({ngroups + 1},), got {deriv.shape}"
-    )
-    # No NaN in derivative
-    assert not np.any(np.isnan(deriv[: ngroups + 1])), (
-        f"Derivative contains NaN: {deriv}"
-    )
+def test_forced_effort_scales_the_fishing_of_its_own_gear(two_fleet_model):
+    """Doubling Seine's effort (gear 2) changes Zoo, which Seine lands,
+    and leaves Fish, which only Trawl lands, alone."""
+    sim_params = rsim_params(two_fleet_model)
+    effort = np.ones(sim_params.NUM_GEARS + 1)
+    base = _deriv(sim_params, effort)
+    effort[2] = 2.0
+    doubled = _deriv(sim_params, effort)
+    assert base.shape == (sim_params.NUM_GROUPS + 1,)
+    assert np.all(np.isfinite(base)) and np.all(np.isfinite(doubled))
+    zoo, fish = 2, 3  # 1-based Ecosim positions
+    assert doubled[zoo] < base[zoo]
+    assert doubled[fish] == base[fish]

@@ -2551,7 +2551,7 @@ def ecosim_server(
                 sim_results.set(None)
 
             # Update group choices. Select biomass groups by type rather than
-            # by position: the core supports non-canonical group ordering.
+            # by position (Ecopath keeps the model's group order).
             if is_balanced_model(model) and hasattr(model, "type"):
                 type_arr = np.asarray(model.type)
                 group_names = [str(g) for g, t in zip(groups, type_arr) if t < 3]

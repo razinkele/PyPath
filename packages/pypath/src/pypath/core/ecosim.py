@@ -41,7 +41,7 @@ from pypath.core.ecosim_continuous import (  # noqa: E402
     ForcingInterpolant,
 )
 from pypath.core.ecosim_deriv import deriv_vector, fishing_mortality  # noqa: E402
-from pypath.core.params import RpathParams  # noqa: E402
+from pypath.core.params import RpathParams, _require_block_order  # noqa: E402
 from pypath.core.stanzas import (  # noqa: E402
     RsimStanzas,
     RsimStanzaState,
@@ -714,7 +714,17 @@ def rsim_params(
     -------
     RsimParams
         Parameters object for simulation
+
+    Raises
+    ------
+    ValueError
+        If the balanced model's groups are not in block order (living
+        groups, types 0 to 1, then detritus, 2, then fleets, 3), or a group
+        has some other type.
     """
+    # Ecosim's arrays assume living groups, then detritus, then fleets; any
+    # other order, or a group with no block, gave silently wrong results
+    _require_block_order(rpath.Group, rpath.type)
     if fast_group_rule is None:
         fast_group_rule = default_fast_group_rule(rpath)
     if fast_group_rule not in ("ewe", "rpath"):
@@ -1611,6 +1621,14 @@ def rsim_scenario(
     -------
     RsimScenario
         Complete scenario ready for simulation
+
+    Raises
+    ------
+    ValueError
+        If ``years`` has fewer than 2 years, or the balanced model's groups
+        are not in block order: living groups (types 0 to 1), then detritus
+        (2), then fleets (3). Ecopath balances groups in any order; Ecosim
+        needs the blocks (see :func:`rsim_params`).
     """
     if len(years) < 2:
         raise ValueError("Years must be a range of at least 2 years")

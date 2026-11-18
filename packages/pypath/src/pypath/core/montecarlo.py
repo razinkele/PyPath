@@ -19,6 +19,7 @@ from pypath.core._parallel import NUMPY_DEFAULT_ERRSTATE as _NUMPY_DEFAULT_ERRST
 from pypath.core._parallel import mp_context as _mp_context
 from pypath.core._parallel import outputs_in_order
 from pypath.core._parallel import resolve_n_jobs as _resolve_n_jobs
+from pypath.core.params import _require_block_order
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -172,7 +173,7 @@ def _run_single_ecosim(rpath_result, sampled_params, config):
         return None
 
 
-def _evaluate_sample(params, sample, config, n_groups):
+def _evaluate_sample(params, sample, config, bio_idx):
     """One sample: (feasible, Ecopath biomass, Ecosim out_Biomass).
 
     The biomass is None when the balance has none, and the Ecosim biomass is
@@ -187,9 +188,7 @@ def _evaluate_sample(params, sample, config, n_groups):
         if rpath_result is None:
             return False, None, None
         bio = (
-            rpath_result.Biomass[:n_groups].copy()
-            if hasattr(rpath_result, "Biomass")
-            else None
+            rpath_result.Biomass[bio_idx] if hasattr(rpath_result, "Biomass") else None
         )
         ecosim_bio = None
         if not config.ecopath_only:
@@ -202,13 +201,13 @@ def _evaluate_sample(params, sample, config, n_groups):
 _WORKER: dict = {}
 
 
-def _init_worker(params, config, n_groups):
-    _WORKER.update(params=params, config=config, n_groups=n_groups)
+def _init_worker(params, config, bio_idx):
+    _WORKER.update(params=params, config=config, bio_idx=bio_idx)
 
 
 def _evaluate_in_worker(sample):
     return _evaluate_sample(
-        _WORKER["params"], sample, _WORKER["config"], _WORKER["n_groups"]
+        _WORKER["params"], sample, _WORKER["config"], _WORKER["bio_idx"]
     )
 
 
@@ -246,6 +245,13 @@ def run_montecarlo(
         config = MCConfig()
     n_workers = _resolve_n_jobs(config.n_jobs, config.n_samples)
     mp_context = _mp_context(config.mp_context)  # refuses an unknown method
+    if not config.ecopath_only:
+        # Each sample's Ecosim would refuse the model and count as failed
+        _require_block_order(
+            params.model["Group"],
+            params.model["Type"],
+            hint=" Or balance the samples with Ecopath only (ecopath_only=True).",
+        )
 
     rng = np.random.default_rng(config.seed)
     distributions = build_distributions(params, pedigree_config)
@@ -256,7 +262,11 @@ def run_montecarlo(
     samples = sample_parameters(distributions, config.n_samples, config.method, rng)
 
     # Collect results — exclude fleet groups (type=3) from biomass stats
-    n_groups = int((params.model["Type"] != 3).sum())
+    # Every group but the fleets, by type: Ecopath keeps the model's order
+    bio_idx = np.flatnonzero(
+        params.model["Type"].to_numpy(dtype=float, na_value=np.nan) != 3
+    )
+    n_groups = len(bio_idx)
     ecopath_biomass = []
     ecopath_runs_list = [] if config.store_runs else None
     ecosim_biomass_list = []
@@ -269,10 +279,10 @@ def run_montecarlo(
         samples,
         n_workers=n_workers,
         context=mp_context,
-        serial=lambda sample: _evaluate_sample(params, sample, config, n_groups),
+        serial=lambda sample: _evaluate_sample(params, sample, config, bio_idx),
         # Workers get the model and config once; each task carries a sample
         initializer=_init_worker,
-        initargs=(params, config, n_groups),
+        initargs=(params, config, bio_idx),
         broken_message=(
             "A Monte Carlo worker process died. It may have run out of memory, "
             "or failed to unpickle the model or the mediation: a mediation "
