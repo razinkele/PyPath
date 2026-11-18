@@ -42,6 +42,8 @@ def _mock_rpath(
     rpath.NUM_GROUPS = n
     rpath.NUM_GEARS = 0
     rpath.Group = np.array([f"G{i}" for i in range(n)])
+    # The analyses pick living and detritus groups by type, as in Rpath
+    rpath.type = np.array([0.0] * n_living + [2.0] * n_dead)
     rpath.DC = (
         np.zeros((n + 1, n_living)) if dc is None else np.asarray(dc, dtype=float)
     )

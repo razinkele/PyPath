@@ -196,3 +196,86 @@ def test_montecarlo_points_to_its_ecopath_only_runs():
     config = MCConfig(n_samples=2, seed=3, ecosim_years=range(1, 3))
     with pytest.raises(ValueError, match="ecopath_only=True"):
         run_montecarlo(_build(FLEET_MID), config)
+
+
+# Ecopath's analyses take groups in any order, like Ecopath itself
+
+
+def _bio_names(balanced):
+    types = np.asarray(balanced.type, dtype=float)
+    return [str(g) for g, t in zip(balanced.Group, types) if t < 3]
+
+
+@pytest.mark.parametrize("order", [DETRITUS_FIRST, FLEET_FIRST, FLEET_MID])
+def test_mixed_trophic_impacts_and_keystoneness_follow_the_groups(order):
+    from pypath.core.analysis import keystoneness_index, mixed_trophic_impacts
+
+    results = []
+    for groups in (CANONICAL, order):
+        balanced = _balance(_build(groups))
+        names = _bio_names(balanced)
+        mti = pd.DataFrame(mixed_trophic_impacts(balanced), index=names, columns=names)
+        key = pd.Series(keystoneness_index(balanced), index=names)
+        results.append((mti, key))
+    (mti0, key0), (mti1, key1) = results
+    np.testing.assert_allclose(
+        mti1.loc[mti0.index, mti0.columns].to_numpy(), mti0.to_numpy(), rtol=1e-12
+    )
+    np.testing.assert_allclose(key1.loc[key0.index], key0.to_numpy(), rtol=1e-12)
+
+
+@pytest.mark.parametrize("order", [DETRITUS_FIRST, FLEET_FIRST, FLEET_MID])
+def test_network_indices_do_not_depend_on_group_order(order):
+    from pypath.core.analysis import calculate_network_indices
+
+    fields = (
+        "n_groups",
+        "n_living",
+        "n_links",
+        "connectance",
+        "linkage_density",
+        "omnivory_index",
+        "system_omnivory",
+        "mean_trophic_level",
+        "max_trophic_level",
+        "total_biomass",
+        "total_throughput",
+    )
+    reference = calculate_network_indices(_balance(_build(CANONICAL)))
+    shuffled = calculate_network_indices(_balance(_build(order)))
+    for field in fields:
+        np.testing.assert_allclose(
+            getattr(shuffled, field), getattr(reference, field), rtol=1e-12
+        )
+
+
+@pytest.mark.parametrize("order", [DETRITUS_FIRST, FLEET_FIRST, FLEET_MID])
+def test_balance_check_inspects_every_living_group(order):
+    from pypath.core.analysis import check_ecopath_balance
+
+    def fish_ge_above_one(groups):
+        params = _build(groups)
+        params.model.loc[params.model["Group"] == "Fish", "QB"] = 0.5  # GE = 2
+        return _balance(params)
+
+    reference = check_ecopath_balance(fish_ge_above_one(CANONICAL))
+    shuffled = check_ecopath_balance(fish_ge_above_one(order))
+    assert any(m.startswith("Fish: GE") for m in reference["messages"])
+    assert sorted(shuffled["messages"]) == sorted(reference["messages"])
+
+
+@pytest.mark.parametrize("order", [DETRITUS_FIRST, FLEET_FIRST, FLEET_MID])
+def test_ecopath_export_labels_every_group_correctly(order):
+    from pypath.core.analysis import export_ecopath_to_dataframe
+
+    reference = export_ecopath_to_dataframe(_balance(_build(CANONICAL)))
+    shuffled = export_ecopath_to_dataframe(_balance(_build(order)))
+    groups0 = reference["groups"].set_index("Group").sort_index()
+    groups1 = shuffled["groups"].set_index("Group").sort_index()
+    pd.testing.assert_frame_equal(groups1, groups0, check_exact=False, rtol=1e-12)
+    diet0 = reference["diet"].sort_index().sort_index(axis=1)
+    diet1 = shuffled["diet"].sort_index().sort_index(axis=1)
+    pd.testing.assert_frame_equal(diet1, diet0, check_exact=False, rtol=1e-12)
+    flows0 = reference["flows"].sort_values(["From", "To"]).reset_index(drop=True)
+    flows1 = shuffled["flows"].sort_values(["From", "To"]).reset_index(drop=True)
+    pd.testing.assert_frame_equal(flows1, flows0, check_exact=False, rtol=1e-12)
