@@ -279,3 +279,47 @@ def test_ecopath_export_labels_every_group_correctly(order):
     flows0 = reference["flows"].sort_values(["From", "To"]).reset_index(drop=True)
     flows1 = shuffled["flows"].sort_values(["From", "To"]).reset_index(drop=True)
     pd.testing.assert_frame_equal(flows1, flows0, check_exact=False, rtol=1e-12)
+
+
+# Mixotrophs (0 < type < 1): Ecopath balances them, Ecosim refuses them. On
+# Rpath's REco with Zooplankton at type 0.5, Ecopath matched Rpath (5.6e-13)
+# while PyPath's Ecosim ran Zooplankton up to 1.7e47 in five years (Rpath:
+# steady at 23).
+
+
+def _with_mixotroph(order=CANONICAL, group="Zoo", share=0.5):
+    params = _build(order)
+    params.model["Type"] = params.model["Type"].astype(float)
+    params.model.loc[params.model["Group"] == group, "Type"] = share
+    return params
+
+
+def test_ecopath_balances_a_mixotroph():
+    balanced = _balance(_with_mixotroph())
+    zoo = list(balanced.Group).index("Zoo")
+    assert np.isfinite(balanced.EE[zoo])
+    # Its diet is the consumed half of its intake
+    np.testing.assert_allclose(balanced.DC[:, 1].sum(), 0.5, rtol=1e-12)
+
+
+def test_ecosim_refuses_a_mixotroph_by_name():
+    params = _with_mixotroph()
+    with pytest.raises(ValueError, match="'Zoo' is a mixotroph"):
+        rsim_scenario(_balance(params), params, years=range(1, 3))
+
+
+def test_check_rpath_params_warns_about_a_mixotroph():
+    with pytest.warns(UserWarning, match="Ecosim refuses"):
+        with warnings.catch_warnings():
+            # Rpath's input convention wants a mixotroph's diet to sum to
+            # 1 - type; this model gives the whole diet (Ecopath scales it)
+            warnings.filterwarnings("ignore", message="Diet column 'Zoo'")
+            check_rpath_params(_with_mixotroph())
+
+
+def test_montecarlo_runs_a_mixotroph_through_ecopath_only():
+    config = MCConfig(n_samples=3, seed=2, ecosim_years=range(1, 3))
+    with pytest.raises(ValueError, match="mixotroph"):
+        run_montecarlo(_with_mixotroph(), config)
+    config.ecopath_only = True
+    assert run_montecarlo(_with_mixotroph(), config).n_feasible > 0

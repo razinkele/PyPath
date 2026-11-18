@@ -19,7 +19,7 @@ from pypath.core._parallel import NUMPY_DEFAULT_ERRSTATE as _NUMPY_DEFAULT_ERRST
 from pypath.core._parallel import mp_context as _mp_context
 from pypath.core._parallel import outputs_in_order
 from pypath.core._parallel import resolve_n_jobs as _resolve_n_jobs
-from pypath.core.params import _require_block_order
+from pypath.core.params import _require_ecosim_groups
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -247,7 +247,7 @@ def run_montecarlo(
     mp_context = _mp_context(config.mp_context)  # refuses an unknown method
     if not config.ecopath_only:
         # Each sample's Ecosim would refuse the model and count as failed
-        _require_block_order(
+        _require_ecosim_groups(
             params.model["Group"],
             params.model["Type"],
             hint=" Or balance the samples with Ecopath only (ecopath_only=True).",
