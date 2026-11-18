@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 try:
     import SALib  # noqa: F401  (availability probe)
     from SALib.analyze import sobol as salib_sobol
-    from SALib.sample import saltelli
+    from SALib.sample import sobol as sobol_sampler
 
     HAS_SALIB = True
 except ImportError:
@@ -256,7 +256,8 @@ def run_sensitivity(
             "names": param_names,
             "bounds": [[0.0, 1.0]] * k,
         }
-        X = saltelli.sample(problem, config.n_samples, seed=config.seed)
+        # Scrambled Sobol' points, reproducible from the seed
+        X = sobol_sampler.sample(problem, config.n_samples, seed=config.seed)
         Y = np.empty(len(X))
         for i in range(len(X)):
             Y[i] = _evaluate(X[i])
@@ -272,7 +273,13 @@ def run_sensitivity(
             Y[nan_mask] = np.nanmean(Y)
             logger.warning("Imputed %d NaN evaluations with mean for Sobol.", n_nan)
 
-        Si = salib_sobol.analyze(problem, Y)
+        # The seed also fixes the bootstrap behind the confidence intervals.
+        # SALib reads a seed of 0 as no seed, so hand it a generator: for any
+        # other seed it draws the same numbers as SALib's own default_rng(seed)
+        bootstrap_rng = (
+            None if config.seed is None else np.random.default_rng(config.seed)
+        )
+        Si = salib_sobol.analyze(problem, Y, seed=bootstrap_rng)
         return SobolResult(
             parameter_names=param_names,
             S1=Si["S1"],

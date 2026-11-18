@@ -97,3 +97,32 @@ class TestSensitivityConfig:
             config = SensitivityConfig(method="sobol")
             with pytest.raises(ImportError, match="SALib"):
                 run_sensitivity(params, config)
+
+
+class TestSobolRuns:
+    """Sobol analysis runs end to end on SALib's current API."""
+
+    def _run(self, seed):
+        pytest.importorskip("SALib")
+        from pypath.core.sensitivity import run_sensitivity
+        from tests.test_mc_integration import _make_mc_model
+
+        config = SensitivityConfig(method="sobol", n_samples=8, seed=seed)
+        return run_sensitivity(_make_mc_model(), config)
+
+    def test_sobol_gives_finite_indices(self):
+        from pypath.core.sensitivity import SobolResult
+
+        result = self._run(seed=3)
+        assert isinstance(result, SobolResult)
+        assert len(result.parameter_names) == 5
+        for indices in (result.S1, result.ST, result.S1_conf, result.ST_conf):
+            assert indices.shape == (5,)
+            assert np.all(np.isfinite(indices))
+
+    # SALib reads a seed of 0 as no seed at all
+    @pytest.mark.parametrize("seed", [0, 3])
+    def test_sobol_is_reproducible_from_its_seed(self, seed):
+        first, second = self._run(seed=seed), self._run(seed=seed)
+        for name in ("S1", "ST", "S1_conf", "ST_conf"):
+            assert getattr(first, name).tobytes() == getattr(second, name).tobytes()
