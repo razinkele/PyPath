@@ -160,7 +160,8 @@ def import_ui():
                     "EwE File",
                     ui.div(
                         ui.p(
-                            "Import from EwE 6.x database files (.ewemdb, .eweaccdb, .mdb, .accdb)",
+                            "Import from EwE 6.x database files (.ewemdb, .eweaccdb, .mdb, .accdb) "
+                            "or a SQLite copy of one (.sqlite)",
                             class_="small text-muted",
                         ),
                         # Check driver support
@@ -170,7 +171,7 @@ def import_ui():
                         ui.input_file(
                             "ewemdb_upload",
                             "Select file",
-                            accept=[".ewemdb", ".eweaccdb", ".mdb", ".accdb", ".ewe"],
+                            accept=[".ewemdb", ".eweaccdb", ".mdb", ".accdb", ".ewe", ".sqlite"],
                             multiple=False,
                         ),
                         ui.input_numeric(
@@ -546,7 +547,8 @@ def import_server(
         else:
             return ui.div(
                 ui.tags.i(class_="bi bi-exclamation-triangle-fill text-warning me-2"),
-                "No database drivers found. Install pyodbc or mdb-tools to read .ewemdb files.",
+                "No database drivers found. Install pyodbc or mdb-tools to read .ewemdb "
+                "files; SQLite copies (.sqlite) need neither.",
                 class_="alert alert-warning",
             )
 
