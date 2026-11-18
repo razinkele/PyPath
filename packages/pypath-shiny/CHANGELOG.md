@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.8.0 (2026-11-18)
+
+### Bug Fixes
+
+- **ecosim**: Refuse groups out of block order; ensembles read biomass by type
+  ([`c5befca`](https://github.com/razinkele/PyPath/commit/c5befcaff9368c6aca9424ff984539e6f037228a))
+
+### Features
+
+- **import**: Accept SQLite copies of EwE databases in the EwE File upload
+  ([`ea5c336`](https://github.com/razinkele/PyPath/commit/ea5c336130b82f0b8a26cfcd355f5b490f57a6d2))
+
+
 ## v1.7.0 (2026-11-18)
 
 
