@@ -6,6 +6,63 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.10.0 (2026-11-18)
+
+### Bug Fixes
+
+- **analysis**: Pick living and detritus groups by type, not position
+  ([`efe9b94`](https://github.com/razinkele/PyPath/commit/efe9b94c174ae17b5e07ef4810e2fa3c4b4eec31))
+
+- **ecosim**: Refuse groups out of block order; ensembles read biomass by type
+  ([`c5befca`](https://github.com/razinkele/PyPath/commit/c5befcaff9368c6aca9424ff984539e6f037228a))
+
+- **ecosim**: Refuse mixotrophs by name; Ecopath still balances them
+  ([`189966c`](https://github.com/razinkele/PyPath/commit/189966cc344812da3a6b93a65e95a0fbe7cf148d))
+
+- **io**: Do not trust the SQL or schema of an EwE database file
+  ([`f16fe1c`](https://github.com/razinkele/PyPath/commit/f16fe1c0f3a60db23af9745dc998b90bcdae841d))
+
+- **montecarlo**: Read a nullable group type as NaN when picking groups
+  ([`0878146`](https://github.com/razinkele/PyPath/commit/087814645c4e10a9bb137e91d815bff0c3551721))
+
+- **sensitivity**: Map the Morris grid inside the quantile endpoints
+  ([`81f7033`](https://github.com/razinkele/PyPath/commit/81f7033b4a78df74245fa357ac5d061afe2a0937))
+
+- **sensitivity**: Run Sobol on SALib's current sampler
+  ([`e164236`](https://github.com/razinkele/PyPath/commit/e164236092452fb7f8aff3f128dd59c99b6629ec))
+
+### Features
+
+- **data**: Curonian Lagoon models as SQLite copies of their EwE databases
+  ([`c64d5ee`](https://github.com/razinkele/PyPath/commit/c64d5ee7a01407738f67212ea8440117e54c1500))
+
+- **data**: EwE 6 Ecosim and Ecospace table definitions as SQLite schemas
+  ([`d9e505b`](https://github.com/razinkele/PyPath/commit/d9e505b76abecd0803b469578054cffd5b045d03))
+
+- **data**: EwE-F Ecosim and Ecospace set-ups as scenarios in the Curonian SQLite models
+  ([`2c064c5`](https://github.com/razinkele/PyPath/commit/2c064c5831e00a9a7200d7009aa1fe5985873376))
+
+- **data**: The 70-group Curonian Lagoon model as an EwE-format SQLite database
+  ([`59e0151`](https://github.com/razinkele/PyPath/commit/59e01516264f9c7402d83967576fd6fadd36c0a7))
+
+- **io**: Read and write EwE model databases in SQLite
+  ([`f421dc3`](https://github.com/razinkele/PyPath/commit/f421dc37548307344126a21f220852b16ab346bb))
+
+- **montecarlo**: Choose the workers' start method; results independent of the caller's process
+  ([`6b3dc21`](https://github.com/razinkele/PyPath/commit/6b3dc21bd7d0992730ee937e872b33f0d86f49c8))
+
+- **sensitivity**: Run evaluations in worker processes when n_jobs asks
+  ([`922c925`](https://github.com/razinkele/PyPath/commit/922c925180cd08c0f0753f1dff5d5cb13f4b30da))
+
+### Performance Improvements
+
+- **montecarlo**: Run samples in worker processes when n_jobs asks
+  ([`33702e1`](https://github.com/razinkele/PyPath/commit/33702e17970d933d3a9dccb370d1646730dcc6ff))
+
+- **sensitivity**: Compute every point's parameter values in one call
+  ([`63e1fca`](https://github.com/razinkele/PyPath/commit/63e1fca1e89e00934e59958ff8fa4cc19df784a8))
+
+
 ## v1.9.1 (2026-11-18)
 
 ### Performance Improvements
