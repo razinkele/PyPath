@@ -263,7 +263,9 @@ def run_montecarlo(
 
     # Collect results — exclude fleet groups (type=3) from biomass stats
     # Every group but the fleets, by type: Ecopath keeps the model's order
-    bio_idx = np.flatnonzero(params.model["Type"].to_numpy(dtype=float) != 3)
+    bio_idx = np.flatnonzero(
+        params.model["Type"].to_numpy(dtype=float, na_value=np.nan) != 3
+    )
     n_groups = len(bio_idx)
     ecopath_biomass = []
     ecopath_runs_list = [] if config.store_runs else None

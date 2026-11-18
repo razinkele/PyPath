@@ -332,7 +332,9 @@ def run_sensitivity(
     sigmas = np.array([sigma for sigma, _ in shapes])
     scales = np.array([scale for _, scale in shapes])
     # Every group but the fleets, by type: Ecopath keeps the model's order
-    bio_idx = np.flatnonzero(params.model["Type"].to_numpy(dtype=float) != 3)
+    bio_idx = np.flatnonzero(
+        params.model["Type"].to_numpy(dtype=float, na_value=np.nan) != 3
+    )
 
     if config.method == "morris":
         trajectories = _generate_morris_trajectories(
