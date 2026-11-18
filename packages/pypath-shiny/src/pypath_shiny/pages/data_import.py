@@ -171,7 +171,14 @@ def import_ui():
                         ui.input_file(
                             "ewemdb_upload",
                             "Select file",
-                            accept=[".ewemdb", ".eweaccdb", ".mdb", ".accdb", ".ewe", ".sqlite"],
+                            accept=[
+                                ".ewemdb",
+                                ".eweaccdb",
+                                ".mdb",
+                                ".accdb",
+                                ".ewe",
+                                ".sqlite",
+                            ],
                             multiple=False,
                         ),
                         ui.input_numeric(

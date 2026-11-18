@@ -81,7 +81,9 @@ def test_tables_are_listed_in_the_order_they_were_created(tmp_path):
 
 
 def test_a_table_reads_as_mdb_export_would_give_it(tmp_path):
-    groups = ewemdb.read_ewemdb_table(str(_model(tmp_path / "m.sqlite")), "EcopathGroup")
+    groups = ewemdb.read_ewemdb_table(
+        str(_model(tmp_path / "m.sqlite")), "EcopathGroup"
+    )
     assert list(groups["GroupName"]) == ["Fisher's prey", "Žuvys"]
     # a whole-number REAL column is int, as from mdb-export's CSV
     assert groups["Type"].dtype == np.int64
