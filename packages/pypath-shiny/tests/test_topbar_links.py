@@ -19,4 +19,4 @@ def test_topbar_about_button_routes_to_about_nav():
         encoding="utf-8"
     )
     assert "@reactive.event(input.btn_topbar_about)" in source
-    assert 'ui.update_navs("main_nav", selected="About")' in source
+    assert 'ui.update_navset("main_nav", selected="About")' in source

@@ -508,7 +508,7 @@ def results_server(
             return df
         return format_time_series_summary(df, title="Annual Catch", decimals=4)
 
-    @render.download(filename="pypath_model.csv")
+    @render.download_button(filename="pypath_model.csv")
     def download_model_csv():
         """Download model as CSV."""
         model = model_data.get()
@@ -522,7 +522,7 @@ def results_server(
                 return
         yield ""
 
-    @render.download(filename="pypath_simulation.csv")
+    @render.download_button(filename="pypath_simulation.csv")
     def download_sim_csv():
         """Download simulation results as CSV."""
         sim = sim_results.get()
@@ -538,7 +538,7 @@ def results_server(
             return
         yield ""
 
-    @render.download(filename="pypath_annual_summary.csv")
+    @render.download_button(filename="pypath_annual_summary.csv")
     def download_annual_csv():
         """Download annual summary as CSV."""
         sim = sim_results.get()

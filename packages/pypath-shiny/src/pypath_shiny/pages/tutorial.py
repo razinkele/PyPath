@@ -782,14 +782,14 @@ def tutorial_server(input: Inputs, output: Outputs, session: Session):
     @reactive.effect
     @reactive.event(input.btn_tut_prebalance)
     def _goto_prebalance():
-        ui.update_navs("main_nav", selected="Pre-Balance")
+        ui.update_navset("main_nav", selected="Pre-Balance")
 
     @reactive.effect
     @reactive.event(input.btn_tut_ecospace)
     def _goto_ecospace():
-        ui.update_navs("main_nav", selected="Ecospace")
+        ui.update_navset("main_nav", selected="Ecospace")
 
     @reactive.effect
     @reactive.event(input.btn_tut_ibm)
     def _goto_ibm():
-        ui.update_navs("main_nav", selected="Individual-Based Model")
+        ui.update_navset("main_nav", selected="Individual-Based Model")

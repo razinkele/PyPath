@@ -135,7 +135,7 @@ def forcing_demo_ui():
                     ui.card(
                         ui.card_header("Forced Values Over Time"),
                         ui.output_ui("forcing_plot"),
-                        ui.output_text_verbatim("forcing_summary"),
+                        ui.output_code("forcing_summary"),
                     ),
                 ),
                 ui.nav_panel(
@@ -538,7 +538,7 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
     @output
-    @render.text
+    @render.code
     def forcing_summary():
         """Display summary of forcing configuration."""
         df = time_series_data()
@@ -689,7 +689,7 @@ Data Points: {len(df)}
         """Generate Python code example."""
         return build_forcing_code(**_forcing_code_inputs())
 
-    @render.download(filename="forcing_example.py")
+    @render.download_button(filename="forcing_example.py")
     def forcing_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield build_forcing_code(**_forcing_code_inputs())

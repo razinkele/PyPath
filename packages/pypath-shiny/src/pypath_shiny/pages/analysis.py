@@ -779,7 +779,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["Could not extract diet matrix"]})
 
     @output
-    @render.download(filename="pypath_model_data.csv")
+    @render.download_button(filename="pypath_model_data.csv")
     def download_model_data():
         """Download model data as CSV."""
         model = get_balanced_model()

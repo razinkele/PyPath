@@ -528,7 +528,7 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="biomass_plot_fig"))
 
-    @render.download(filename="stanza_configuration.csv")
+    @render.download_button(filename="stanza_configuration.csv")
     def download_stanzas():
         """Download stanza configuration as CSV."""
         df = stanza_data()

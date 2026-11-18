@@ -391,28 +391,52 @@ class TestLoggerConfiguration:
 
 
 class TestAllDownloadHandlersYield:
-    """A @render.download that returns a str makes Shiny treat it as a path."""
+    """A download handler that returns a str makes Shiny treat it as a path."""
 
     def test_no_download_handler_returns_a_value(self):
+        import ast
         import pathlib
-        import re
 
         pages = pathlib.Path(inspect.getfile(analysis)).parent
         offenders = []
+        handlers = 0
         for path in sorted(pages.glob("*.py")):
-            src = path.read_text(encoding="utf-8")
-            for m in re.finditer(
-                r"@render\.download\([^)]*\)\s*\n\s*def (\w+)\(\):\n((?:.+\n)+?)(?=\n\s*@|\n\s*def |\Z)",
-                src,
-            ):
-                body = m.group(2)
-                returns = [
-                    r.strip()
-                    for r in re.findall(r"^\s+return (.+)$", body, re.M)
-                    if r.strip() not in ("", "None")
-                ]
-                if "yield" not in body or returns:
-                    offenders.append(f"{path.name}:{m.group(1)}")
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for fn in ast.walk(tree):
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if not any(
+                    "render.download" in ast.unparse(d) for d in fn.decorator_list
+                ):
+                    continue
+                handlers += 1
+                body = [n for stmt in fn.body for n in ast.walk(stmt)]
+                yields = any(isinstance(n, (ast.Yield, ast.YieldFrom)) for n in body)
+                returns_value = any(
+                    isinstance(n, ast.Return)
+                    and n.value is not None
+                    and not (
+                        isinstance(n.value, ast.Constant) and n.value.value is None
+                    )
+                    for n in body
+                )
+                if not yields or returns_value:
+                    offenders.append(f"{path.name}:{fn.name}")
+        assert offenders == []
+        # The check is not vacuous: it saw every handler the pages declare.
+        assert handlers == 9
+
+    def test_no_page_uses_a_deprecated_shiny_call(self):
+        import pathlib
+
+        root = pathlib.Path(inspect.getfile(analysis)).parent.parent
+        deprecated = ("@render.download(", "ui.update_navs(", "output_text_verbatim(")
+        offenders = [
+            f"{path.name}: {name}"
+            for path in sorted(root.rglob("*.py"))
+            for name in deprecated
+            if name in path.read_text(encoding="utf-8")
+        ]
         assert offenders == []
 
 
