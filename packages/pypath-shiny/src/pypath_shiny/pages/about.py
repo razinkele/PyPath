@@ -207,7 +207,7 @@ def about_ui():
                         ui.div(
                             ui.h5("Technology Stack"),
                             ui.tags.ul(
-                                ui.tags.li("Python 3.10+"),
+                                ui.tags.li("Python 3.11+"),
                                 ui.tags.li("NumPy for numerical computations"),
                                 ui.tags.li("SciPy for optimization and integration"),
                                 ui.tags.li("Pandas for data handling"),
