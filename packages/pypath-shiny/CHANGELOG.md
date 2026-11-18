@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.8.1 (2026-11-18)
+
+### Bug Fixes
+
+- **tutorial**: Adjust_fishing and set_vulnerability snippets use real keywords
+  ([`2a40086`](https://github.com/razinkele/PyPath/commit/2a40086b871f2dac175feacf4e794928949c3645))
+
+
 ## v1.8.0 (2026-11-18)
 
 ### Bug Fixes
