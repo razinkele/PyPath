@@ -171,7 +171,7 @@ ibm.initialize_from_ecosim(biomass=1.0, params={})
 - **Time Series Calibration**: SS fitting against observed data (EwE standard workflow)
 - **Mediation Functions**: Trophic mediation via third-party biomass
 - **Monte Carlo / Pedigree**: Uncertainty analysis with Morris/Sobol sensitivity
-- **Ecotracer**: Contaminant tracking through the food web
+- **Contaminant tracer**: Simplified contaminant tracking through the food web (not a port of EwE's Ecotracer)
 - **Fleet Dynamics / MSE**: Profit-driven effort, quota management
 - **Ecological Indicators**: Ascendency, cycling index, system maturity
 - **Autofix**: Automatic crash diagnostics and parameter repair
@@ -185,7 +185,7 @@ Baseline from automated parity audit (`packages/pypath/scripts/ewe_parity_audit.
 | Time Series & Calibration | `core.timeseries`, `core.calibration` | Done |
 | Mediation Functions | `core.mediation` | Done |
 | Monte Carlo / Pedigree | `core.montecarlo`, `core.pedigree` | Done |
-| Ecotracer (Contaminants) | `core.ecotracer` | Done |
+| Simplified contaminant tracer (not EwE's Ecotracer) | `core.ecotracer` | Done |
 | Fleet Dynamics & MSE | `core.fleet_dynamics` | Done |
 | Advanced Ecospace (16 tables) | `io.ewemdb` | Done |
 | Ecological Indicators | `core.indicators` | Done |
@@ -263,7 +263,7 @@ ibm.initialize_from_ecosim(biomass=1.0, params={})
 | Sensitivity/uncertainty/risk API | Implemented (`SensitivityAnalyzer`, `UncertaintyPropagation`, `RiskAssessment`) | Typically external/add-on analysis in R workflows | Built-in EwE analysis tools plus plugin ecosystem |
 | Time-series calibration API | Implemented (`fit_to_timeseries`) | Available in Rpath workflows (different API design) | Native EwE calibration workflow |
 | Mediation functions | Implemented (`pypath.core.mediation`) | Not a dedicated baseline module | Native EwE capability |
-| Ecotracer-like contaminant module | Implemented (`pypath.core.ecotracer`) | Not available in baseline package | Native EwE Ecotracer module |
+| Ecotracer-like contaminant module | Simplified tracer, not a port (`pypath.core.ecotracer`) | Not available in baseline package | Native EwE Ecotracer module |
 | Fleet dynamics / MSE extensions | Implemented (`pypath.core.fleet_dynamics`) | Not available in baseline package | Management workflows available in EwE ecosystem |
 | Automated parity governance | CI parity audit + release gate in this repository | Not part of baseline Rpath package | N/A (reference platform) |
 | Web application layer | `pypath-shiny` package (Python Shiny) | No built-in web app in baseline package | Desktop-first application |

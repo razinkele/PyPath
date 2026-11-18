@@ -501,10 +501,12 @@ Morris OAT screening and Sobol variance-based sensitivity analysis.
       show_root_heading: true
       members_order: source
 
-## Ecotracer (Contaminant Tracking)
+## Simplified contaminant tracer (`ecotracer`)
 
 Track contaminant concentrations through the food web coupled to
-Ecosim biomass dynamics.
+Ecosim biomass dynamics. This is PyPath's own simplified tracer, not a
+port of EwE's Ecotracer: it has no environment pool, and its uptake and
+loss terms differ, so its results are not EwE Ecotracer output.
 
 ::: pypath.core.ecotracer
     options:

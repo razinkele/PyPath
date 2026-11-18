@@ -1,8 +1,13 @@
-"""Ecotracer: contaminant tracking through the food web.
+"""Simplified contaminant tracer, coupled to Ecosim.
 
 Tracks contaminant concentrations alongside Ecosim biomass dynamics.
 Each group has initial concentration, environmental/immigration inputs,
 decay, assimilation, and metabolism rates.
+
+This is PyPath's own simplified tracer, not a port of EwE's Ecotracer:
+it has no environment pool, and its uptake and loss terms differ. Its
+results should not be read as EwE Ecotracer output (deviation F in
+``docs/parity/deviations.md``).
 """
 
 from __future__ import annotations

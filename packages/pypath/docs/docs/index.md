@@ -83,7 +83,7 @@ output = rsim_run(scenario, method="AB")
 | **Time Series & Calibration** | SS fitting against observed biomass, catch, effort, fishing mortality |
 | **Mediation Functions** | Trophic mediation: modify vulnerability based on third-party group biomass |
 | **Monte Carlo / Pedigree** | Pedigree-based uncertainty analysis with Morris and Sobol sensitivity |
-| **Ecotracer** | Contaminant tracking through the food web, coupled to Ecosim dynamics |
+| **Contaminant tracer** | Simplified contaminant tracking through the food web, coupled to Ecosim dynamics (not a port of EwE's Ecotracer) |
 | **Fleet Dynamics** | Profit-driven effort allocation, quota management, MSE framework |
 | **Ecological Indicators** | Ascendency, Finn Cycling Index, transfer efficiency, system maturity |
 | **Value Chain Economics** | Round-trip I/O for all 21 EwE value chain tables |
