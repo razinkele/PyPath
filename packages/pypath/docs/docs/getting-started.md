@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.10 or higher
+- Python 3.11 or higher
 - pip package manager
 - (Phase 1B) Enhanced integration with EwE native databases and extended I/O support
 

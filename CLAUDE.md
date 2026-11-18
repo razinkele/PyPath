@@ -98,7 +98,7 @@ pytest packages/pypath/tests/test_ecosim.py -v
 
 - Formatter: black (line-length 88)
 - Linter: ruff (E, F, I, W rules; E501 ignored)
-- Python: >=3.10
+- Python: >=3.11
 - Logging: use `logger = logging.getLogger(__name__)` with `logger.debug()`, never bare `except Exception: pass`
 
 ## Key Conventions

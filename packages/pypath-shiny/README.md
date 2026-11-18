@@ -59,7 +59,7 @@ The left-hand menu is organised as follows.
 
 ## Requirements
 
-Python 3.10 or later and pypath-ewe 1.6.0 or later. Ecosim and Ecospace follow
+Python 3.11 or later and pypath-ewe 1.6.0 or later. Ecosim and Ecospace follow
 EwE 6.7.144 closely. The
 [known differences](https://github.com/razinkele/PyPath/blob/main/docs/parity/deviations.md)
 are listed in the repository.

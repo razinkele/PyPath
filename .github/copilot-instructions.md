@@ -177,7 +177,7 @@ Commit messages must follow Conventional Commits: `feat:`, `fix:`, `perf:`, `ref
 
 | File | Purpose |
 |---|---|
-| `ci.yml` | Lint + typecheck + unit tests (Ubuntu + Windows, Python 3.10–3.12) |
+| `ci.yml` | Lint + typecheck + unit tests (Ubuntu + Windows, Python 3.11–3.12) |
 | `ci-shiny-smoke.yml` | Shiny app smoke test |
 | `ci-auto-fix.yml` | Auto-format PRs |
 | `release.yml` | Publishes to PyPI on tag push |
