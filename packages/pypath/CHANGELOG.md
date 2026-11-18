@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.9.1 (2026-11-18)
+
+### Performance Improvements
+
+- **spatial**: Run Ecospace patches serially, without the thread pool
+  ([`dbd8cc7`](https://github.com/razinkele/PyPath/commit/dbd8cc7c77fb5b20894c6ee952dfadd5591b031a))
+
+
 ## v1.9.0 (2026-11-18)
 
 ### Performance Improvements
