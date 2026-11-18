@@ -41,7 +41,8 @@ def adjust_fishing(
         - Single group name (str) or index (int)
         - List of group names or indices
     sim_year : Union[int, range, List[int]]
-        Year(s) to modify. Can be:
+        Year(s) to modify, counted from the scenario's first year
+        (``scenario.start_year``, 1 by default). Can be:
         - Single year (int)
         - Range of years (range object)
         - List of years
@@ -49,6 +50,8 @@ def adjust_fishing(
         New value(s) to set. Can be:
         - Single value applied to all specified cells
         - Array matching the shape of selected cells
+        - For ForcedEffort, one value per year, held through that year's
+          selected months
     sim_month : Optional[Union[int, range, List[int]]]
         Optional month(s) to modify (1-12). Only used for
         ForcedEffort which is monthly. If None, modifies all months.
@@ -57,6 +60,11 @@ def adjust_fishing(
     -------
     RsimScenario
         Modified scenario object
+
+    Raises
+    ------
+    ValueError
+        If a year lies outside the scenario or a month outside 1 to 12.
 
     Examples
     --------
@@ -88,14 +96,24 @@ def adjust_fishing(
     # Convert group to indices
     group_indices = _resolve_group_indices(scenario, group, parameter)
 
-    # Convert years to row indices
-    year_indices = _resolve_year_indices(scenario, sim_year, parameter)
+    # ForcedEffort has a row per month; the other two a row per year.
+    monthly = parameter == "ForcedEffort"
+    n_years = fishing_matrix.shape[0] // 12 if monthly else fishing_matrix.shape[0]
+    year_indices = _resolve_year_indices(scenario, sim_year, n_years)
 
-    # For ForcedEffort (monthly), handle month selection
-    if parameter == "ForcedEffort" and sim_month is not None:
+    if monthly:
+        # No sim_month means every month of each year.
         row_indices = _resolve_month_indices(
             year_indices, sim_month, fishing_matrix.shape[0]
         )
+        months_per_year = len(row_indices) // max(len(year_indices), 1)
+        if (
+            not np.isscalar(value)
+            and months_per_year > 1
+            and np.shape(value)[:1] == (len(year_indices),)
+        ):
+            # One value per year: hold it through that year's months.
+            value = np.repeat(np.asarray(value), months_per_year, axis=0)
     else:
         row_indices = year_indices
 
@@ -204,7 +222,9 @@ def adjust_forcing(
     group_indices = _resolve_group_indices(scenario, group, parameter, is_forcing=True)
 
     # Convert years to row indices
-    year_indices = _resolve_year_indices(scenario, sim_year, parameter)
+    year_indices = _resolve_year_indices(
+        scenario, sim_year, forcing_matrix.shape[0] // 12
+    )
 
     # Convert to monthly row indices
     row_indices = _resolve_month_indices(
@@ -453,25 +473,26 @@ def _resolve_group_indices(
 
 
 def _resolve_year_indices(
-    scenario, sim_year: Union[int, range, List[int]], parameter: str
+    scenario, sim_year: Union[int, range, List[int]], n_years: int
 ) -> List[int]:
-    """Resolve year specification to list of row indices."""
-    if isinstance(sim_year, int):
-        years = [sim_year]
-    elif isinstance(sim_year, range):
-        years = list(sim_year)
-    else:
-        years = list(sim_year)
+    """Resolve years to 0-based year indices, counted from the first year.
 
-    # Get year labels from fishing matrix row names
-    if parameter in ["ForcedEffort"]:
-        # Monthly matrix - get base years
-        _n_years = scenario.fishing.ForcedEffort.shape[0] // 12
-        start_year = 1  # Assume 1-based years
-        return [y - start_year for y in years]
+    The scenario's first year is ``scenario.start_year`` (1 if unset).
+    """
+    if isinstance(sim_year, (int, np.integer)):
+        years = [int(sim_year)]
     else:
-        # Annual matrix
-        return [y - 1 for y in years]  # Convert to 0-based
+        years = [int(y) for y in sim_year]
+
+    first = int(getattr(scenario, "start_year", 1))
+    last = first + n_years - 1
+    outside = [y for y in years if not first <= y <= last]
+    if outside:
+        raise ValueError(
+            f"sim_year {outside} lies outside the scenario, which covers "
+            f"years {first} to {last}."
+        )
+    return [y - first for y in years]
 
 
 def _resolve_month_indices(
@@ -481,12 +502,14 @@ def _resolve_month_indices(
     if sim_month is None:
         # All months
         months = list(range(1, 13))
-    elif isinstance(sim_month, int):
-        months = [sim_month]
-    elif isinstance(sim_month, range):
-        months = list(sim_month)
+    elif isinstance(sim_month, (int, np.integer)):
+        months = [int(sim_month)]
     else:
-        months = list(sim_month)
+        months = [int(m) for m in sim_month]
+
+    outside = [m for m in months if not 1 <= m <= 12]
+    if outside:
+        raise ValueError(f"sim_month {outside} is not in the range 1 to 12.")
 
     row_indices = []
     for y in year_indices:

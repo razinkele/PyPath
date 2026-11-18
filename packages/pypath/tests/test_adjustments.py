@@ -327,3 +327,81 @@ class TestIntegration:
 # Run tests
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestAdjustFishingMonths:
+    """ForcedEffort is monthly: a year selects all twelve of its months."""
+
+    def test_effort_without_month_sets_every_month_of_the_years(self):
+        from pypath.core.adjustments import adjust_fishing
+
+        scenario = create_mock_scenario(years=10)
+        adjust_fishing(scenario, "ForcedEffort", 0, range(2, 6), 3.0)
+
+        effort = scenario.fishing.ForcedEffort[:, 1]
+        expected = np.ones(120)
+        expected[12:60] = 3.0  # years 2-5, every month
+        np.testing.assert_array_equal(effort, expected)
+        # Other gears are untouched.
+        assert np.all(scenario.fishing.ForcedEffort[:, [0, 2, 3, 4]] == 1.0)
+
+    def test_effort_with_month_sets_only_those_months(self):
+        from pypath.core.adjustments import adjust_fishing
+
+        scenario = create_mock_scenario(years=10)
+        adjust_fishing(scenario, "ForcedEffort", 0, [2, 3], 0.5, sim_month=[6, 7])
+
+        changed = np.flatnonzero(scenario.fishing.ForcedEffort[:, 1] != 1.0)
+        assert changed.tolist() == [17, 18, 29, 30]
+
+    def test_effort_takes_one_value_per_year(self):
+        from pypath.core.adjustments import adjust_fishing
+
+        scenario = create_mock_scenario(years=10)
+        adjust_fishing(
+            scenario, "ForcedEffort", 0, [1, 2, 3], np.array([2.0, 3.0, 4.0])
+        )
+
+        effort = scenario.fishing.ForcedEffort[:, 1]
+        np.testing.assert_array_equal(effort[:36], np.repeat([2.0, 3.0, 4.0], 12))
+        assert np.all(effort[36:] == 1.0)
+
+    def test_effort_ramp_covers_whole_years(self):
+        from pypath.core.adjustments import create_fishing_ramp
+
+        scenario = create_mock_scenario(years=10)
+        create_fishing_ramp(scenario, 0, 2, 4, 1.0, 2.0, parameter="ForcedEffort")
+
+        effort = scenario.fishing.ForcedEffort[:, 1]
+        np.testing.assert_array_equal(effort[12:48], np.repeat([1.0, 1.5, 2.0], 12))
+        assert np.all(effort[:12] == 1.0) and np.all(effort[48:] == 1.0)
+
+    def test_years_count_from_the_scenario_start_year(self):
+        from pypath.core.adjustments import adjust_fishing
+
+        scenario = create_mock_scenario(years=10)
+        scenario.start_year = 2000
+        adjust_fishing(scenario, "ForcedEffort", 0, 2001, 2.0)
+        adjust_fishing(scenario, "ForcedFRate", 0, 2001, 0.3)
+
+        changed = np.flatnonzero(scenario.fishing.ForcedEffort[:, 1] != 1.0)
+        assert changed.tolist() == list(range(12, 24))
+        assert np.flatnonzero(scenario.fishing.ForcedFRate[:, 1] != 1.0).tolist() == [1]
+
+    @pytest.mark.parametrize("year", [0, 11, 2001])
+    def test_year_outside_the_scenario_is_refused(self, year):
+        from pypath.core.adjustments import adjust_fishing
+
+        scenario = create_mock_scenario(years=10)
+        scenario.fishing.ForcedFRate = np.ones((10, 5))
+        for parameter in ("ForcedEffort", "ForcedFRate"):
+            with pytest.raises(ValueError, match="years 1 to 10"):
+                adjust_fishing(scenario, parameter, 0, year, 2.0)
+        assert np.all(scenario.fishing.ForcedEffort == 1.0)
+
+    def test_month_outside_1_to_12_is_refused(self):
+        from pypath.core.adjustments import adjust_fishing
+
+        scenario = create_mock_scenario(years=10)
+        with pytest.raises(ValueError, match="1 to 12"):
+            adjust_fishing(scenario, "ForcedEffort", 0, 1, 2.0, sim_month=13)
