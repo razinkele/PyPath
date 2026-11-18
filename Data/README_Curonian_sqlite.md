@@ -89,6 +89,11 @@ Ecosim:
   Curonian_Lagoon and Curonian_Fish. For Curonian_Cohorts the observed effort
   of the logbooks 2003-2010 (relative to the 2003-2007 mean, 2010 held to the
   end) times each fleet's season, which is the case's default fishing.
+* Month 1 of the Curonian_Cohorts effort is January 2003, the case's first
+  year. The database's own time series dataset ("From clipboard", the catch
+  series) starts in 1999, the first year of the authors' scenario. EwE and
+  PyPath store no calendar year with a scenario, so anyone setting this
+  scenario against that dataset must shift it by four years.
 * The fishing-mortality shapes are EwE's empty ones ("0"): the cases force
   fishing as a multiplier of the Ecopath F, which EwE expresses through effort.
 
