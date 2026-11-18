@@ -12,15 +12,12 @@ from __future__ import annotations
 
 import copy
 import logging
-import os
-from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
 
 # Import ecosim_deriv at module level - no circular dependency exists
 from pypath.core.ecosim_deriv import (
-    HAS_NUMBA,
     _rk4_fast_equilibrium,
     _rk4_fast_mask,
     deriv_vector,
@@ -35,10 +32,19 @@ from pypath.core.stanzas import (
 from pypath.spatial.calibration import ewe_space_calibration
 from pypath.spatial.fishing import SpatialFishing, effort_multipliers
 
-# Cap the worker pool to avoid over-subscription on large machines.
-_N_WORKERS = min(os.cpu_count() or 4, 8)
-
 logger = logging.getLogger(__name__)
+
+_MISSING = object()  # stands for a key the caller's params did not have
+
+
+def _restore_keys(params: dict, saved: dict) -> None:
+    """Put back keys saved as ``{key: value or _MISSING}``; missing ones go."""
+    for key, value in saved.items():
+        if value is _MISSING:
+            params.pop(key, None)
+        else:
+            params[key] = value
+
 
 if TYPE_CHECKING:
     from pypath.core.ecosim import RsimOutput, RsimScenario
@@ -396,7 +402,7 @@ def deriv_vector_spatial(
     _eat_eff_patches = params.get("_eat_eff_patches")
     _saved_params = None
     if _space_cal is not None:
-        _saved_params = {key: params.get(key) for key in _space_cal}
+        _saved_params = {key: params.get(key, _MISSING) for key in _space_cal}
         params.update(_space_cal)
         params_need_modification = False
         if mpa_cap_mult is not None and _eat_eff_patches is not None:
@@ -485,126 +491,65 @@ def deriv_vector_spatial(
     # EwE6 handling time: each patch's Hden column (updated in place)
     _hden_patches = params.get("_hden_patches")
 
-    def _compute_patch(patch_idx, patch_params):
-        """Compute local Ecosim derivative for a single patch.
-
-        Each call receives its own *patch_params* dict so that concurrent
-        threads never share mutable state.
-        """
-        state_patch = state_spatial[:, patch_idx]
-        if _hden_patches is not None:
-            patch_params["_hden"] = _hden_patches[:, patch_idx]  # a view
-        if _space_cal is not None and _eat_eff_patches is not None:
-            patch_params["_eat_eff"] = _eat_eff_patches[:, patch_idx]
-        if _mediation_scale is not None:
-            patch_params["_mediation_density_scale"] = _mediation_scale[patch_idx]
-        if params_need_modification:
-            patch_params["B_BaseRef"] = b_base_ref_patches[:, patch_idx]
-            patch_params["Bbase"] = b_base_ref_patches[:, patch_idx]
-            if capacity_overlap is not None:
-                patch_params["QQbase"] = _patch_qq_base(patch_idx)
-        rates = {} if rates_out is not None else None
-        deriv_spatial[:, patch_idx] = _local_deriv(
-            state_patch,
-            patch_params,
-            _patch_forcing(patch_idx),
-            fishing,
-            t,
-            patch_share,
-            patch_idx,
-            rates=rates,
-        )
-        _store_rates(patch_idx, rates)
-
     # EcospaceParams.detritus_pass_on reaches each patch's derivative; a value
     # the caller set (rsim_run_spatial does) is kept
     _pass_on_added = "_detritus_pass_on" not in params
     if _pass_on_added:
         params["_detritus_pass_on"] = bool(getattr(ecospace, "detritus_pass_on", False))
 
+    # The loop writes each patch's values into the shared params dict. What
+    # was there goes back afterwards and a key the caller did not have is
+    # removed, so the dict comes back as it went in (a patch's _hden is a view
+    # into its own Hden column). Each patch takes its values from arrays made
+    # before the loop, so nothing needs restoring between patches.
+    _per_patch_keys = ["_hden", "_eat_eff", "_mediation_density_scale"]
+    if params_need_modification:
+        _per_patch_keys += ["B_BaseRef", "Bbase", "QQbase"]
+    _prior = {key: params.get(key, _MISSING) for key in _per_patch_keys}
+
     try:
-        # Parallelize across patches when numba is active (GIL-free kernels)
-        # and there are enough patches to amortize thread-pool overhead.
-        _use_parallel = n_patches > 4 and HAS_NUMBA
+        # Patches run one after another on this thread. The per-patch step is
+        # Python (deriv_vector), so threads cannot run patches in parallel
+        # under the GIL; a thread pool here only added overhead and was
+        # removed after profiling (2026-11-17).
+        for patch_idx in range(n_patches):
+            state_patch = state_spatial[:, patch_idx]
+            patch_forcing = _patch_forcing(patch_idx)
+            rates = {} if rates_out is not None else None
+            if _hden_patches is not None:
+                params["_hden"] = _hden_patches[:, patch_idx]  # a view
+            if _space_cal is not None and _eat_eff_patches is not None:
+                params["_eat_eff"] = _eat_eff_patches[:, patch_idx]
+            if _mediation_scale is not None:
+                params["_mediation_density_scale"] = _mediation_scale[patch_idx]
 
-        if _use_parallel:
-            # Each thread gets a shallow copy of the params dict so that
-            # per-patch B_BaseRef swaps are thread-safe.  The heavy arrays
-            # (ActiveLink, VV, DD, QQbase, _link_prey, _link_pred, ...) are
-            # shared read-only across threads.
-            patch_params_list = [params.copy() for _ in range(n_patches)]
-            with ThreadPoolExecutor(max_workers=_N_WORKERS) as pool:
-                futures = [
-                    pool.submit(_compute_patch, pidx, patch_params_list[pidx])
-                    for pidx in range(n_patches)
-                ]
-                # Raise any exception that occurred in a worker thread.
-                for f in futures:
-                    f.result()
-        else:
-            # Sequential fallback — reuse the same params dict (no copy needed
-            # when running single-threaded because B_BaseRef is restored after
-            # each iteration).
-            for patch_idx in range(n_patches):
-                state_patch = state_spatial[:, patch_idx]
-                patch_forcing = _patch_forcing(patch_idx)
-                rates = {} if rates_out is not None else None
-                if _hden_patches is not None:
-                    params["_hden"] = _hden_patches[:, patch_idx]  # a view
-                if _space_cal is not None and _eat_eff_patches is not None:
-                    params["_eat_eff"] = _eat_eff_patches[:, patch_idx]
-                if _mediation_scale is not None:
-                    params["_mediation_density_scale"] = _mediation_scale[patch_idx]
+            if params_need_modification:
+                modified = b_base_ref_patches[:, patch_idx]
+                params["B_BaseRef"] = modified
+                params["Bbase"] = modified
+                if capacity_overlap is not None:
+                    params["QQbase"] = _patch_qq_base(patch_idx)
 
-                if params_need_modification:
-                    b_base_ref_backup = params["B_BaseRef"]
-                    b_base_backup = params.get("Bbase")
-                    qq_base_backup = params.get("QQbase")
-                    modified = b_base_ref_patches[:, patch_idx]
-                    params["B_BaseRef"] = modified
-                    params["Bbase"] = modified
-                    if capacity_overlap is not None:
-                        params["QQbase"] = _patch_qq_base(patch_idx)
-                    try:
-                        deriv_local = _local_deriv(
-                            state_patch,
-                            params,
-                            patch_forcing,
-                            fishing,
-                            t,
-                            patch_share,
-                            patch_idx,
-                            rates=rates,
-                        )
-                    finally:
-                        params["B_BaseRef"] = b_base_ref_backup
-                        if b_base_backup is not None:
-                            params["Bbase"] = b_base_backup
-                        if qq_base_backup is not None:
-                            params["QQbase"] = qq_base_backup
-                else:
-                    deriv_local = _local_deriv(
-                        state_patch,
-                        params,
-                        patch_forcing,
-                        fishing,
-                        t,
-                        patch_share,
-                        patch_idx,
-                        rates=rates,
-                    )
-
-                deriv_spatial[:, patch_idx] = deriv_local
-                _store_rates(patch_idx, rates)
+            deriv_spatial[:, patch_idx] = _local_deriv(
+                state_patch,
+                params,
+                patch_forcing,
+                fishing,
+                t,
+                patch_share,
+                patch_idx,
+                rates=rates,
+            )
+            _store_rates(patch_idx, rates)
     finally:
         # Clean up injected spatial context keys
         for g_idx in ibm_spatial_contexts:
             params.pop("_ibm_spatial_context_%d" % g_idx, None)
-        params.pop("_eat_eff", None)
+        _restore_keys(params, _prior)
         if _pass_on_added:
             params.pop("_detritus_pass_on", None)
         if _saved_params is not None:
-            params.update(_saved_params)
+            _restore_keys(params, _saved_params)
 
     # Step 2: Add spatial fluxes (movement/dispersal)
     spatial_flux = calculate_spatial_flux(

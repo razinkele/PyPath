@@ -249,7 +249,11 @@ habitat_capacity: np.ndarray    # [n_groups, n_patches], multiplier
 
 2. **Local Dynamics Per Patch** (40% of time)
    - Solution: Reuse non-spatial `deriv_vector()` code
-   - Future: Parallelize across patches (embarrassingly parallel)
+   - Future: Parallelize across patches (embarrassingly parallel), but with
+     processes, not threads. The per-patch step is mostly Python, so a thread pool
+     cannot run patches at once under the GIL; the one PyPath had made runs
+     slower and was removed in 2026-11. A process pool over patch chunks
+     measured 3.4-5.4x with 8 workers (profiling spike, 2026-11-17).
 
 3. **Output Storage** (10% of time, but 90% of memory)
    - Solution: Store aggregated output by default
