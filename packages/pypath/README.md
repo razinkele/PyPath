@@ -10,7 +10,7 @@ Python implementation of Ecopath with Ecosim (EwE) for food web modeling.
 - **Time Series & Calibration** -- SS fitting against observed biomass, catch, effort data
 - **Mediation Functions** -- trophic mediation via third-party group biomass
 - **Monte Carlo / Pedigree** -- uncertainty analysis with pedigree-based sampling
-- **Ecotracer** -- contaminant tracking coupled to Ecosim dynamics
+- **Contaminant tracer** -- simplified contaminant tracking coupled to Ecosim dynamics (not a port of EwE's Ecotracer)
 - **Fleet Dynamics** -- profit-driven effort allocation and quota management
 - **Ecological Indicators** -- ascendency, cycling index, transfer efficiency, system maturity
 - **Stanza groups** -- multi-stanza (age-structured) population modeling

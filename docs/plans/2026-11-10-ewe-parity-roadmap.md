@@ -148,7 +148,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
 - **A1 slice 2:** OtherMort → EE = 1 − OtherMort; Immigration, Emigration and EmigRate in the Ecopath balance and in Ecosim (Emig·B loss, constant Immig, Immig into detritus).
 - **Ecopath reporting (G):**
   - no clipping of negative M0;
-  - a negative-respiration check;
+  - a negative-respiration check (**done 2026-11-18** as a report in `check_ecopath_balance`);
   - stanza BA reported;
   - detritus B required, not filled;
   - detritus export reported.
@@ -203,7 +203,7 @@ P2, P3 and P4 are independent of one another once P1 lands. P6 needs only P1, bu
 
 ### P8: Ecotracer (F)
 
-- **Under D5 = relabel:** rename it in the docs and on the Shiny page as a "simplified tracer (not EwE Ecotracer)", and add it to `deviations.md`.
+- **Under D5 = relabel:** rename it in the docs and on the Shiny page as a "simplified tracer (not EwE Ecotracer)", and add it to `deviations.md`. **Done (2026-11-18):** the module docstring, the API docs and the READMEs say so; the Shiny app has no tracer page; row F is under "Accepted".
 - **Under D5 = port:** a clean-room ConDeriv/Cupdate, with an environment pool, CassimProp, all loss terms, stanza transfer and adaptive AB.
 - **Exit:** the harness matches EwE Ecotracer on one model.
 
