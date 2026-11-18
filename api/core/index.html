@@ -71734,7 +71734,8 @@ only from a single-threaded script.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/montecarlo.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 40</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 39</span>
+<span class="normal"> 40</span>
 <span class="normal"> 41</span>
 <span class="normal"> 42</span>
 <span class="normal"> 43</span>
@@ -71797,8 +71798,7 @@ only from a single-threaded script.</p>
 <span class="normal">100</span>
 <span class="normal">101</span>
 <span class="normal">102</span>
-<span class="normal">103</span>
-<span class="normal">104</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">103</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MCConfig</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Monte Carlo run configuration.</span>
 
@@ -71917,7 +71917,8 @@ only from a single-threaded script.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/montecarlo.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">107</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">106</span>
+<span class="normal">107</span>
 <span class="normal">108</span>
 <span class="normal">109</span>
 <span class="normal">110</span>
@@ -71951,8 +71952,7 @@ only from a single-threaded script.</p>
 <span class="normal">138</span>
 <span class="normal">139</span>
 <span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">141</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MCResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Monte Carlo ensemble results."""</span>
 
@@ -72022,7 +72022,8 @@ only from a single-threaded script.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/montecarlo.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">121</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">120</span>
+<span class="normal">121</span>
 <span class="normal">122</span>
 <span class="normal">123</span>
 <span class="normal">124</span>
@@ -72030,8 +72031,7 @@ only from a single-threaded script.</p>
 <span class="normal">126</span>
 <span class="normal">127</span>
 <span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="normal">129</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Return ecopath_stats as a single flat DataFrame."""</span>
     <span class="n">frames</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">df</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ecopath_stats</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -72065,7 +72065,8 @@ only from a single-threaded script.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/montecarlo.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">132</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">131</span>
+<span class="normal">132</span>
 <span class="normal">133</span>
 <span class="normal">134</span>
 <span class="normal">135</span>
@@ -72074,8 +72075,7 @@ only from a single-threaded script.</p>
 <span class="normal">138</span>
 <span class="normal">139</span>
 <span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="normal">141</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Return JSON-serializable summary dict."""</span>
     <span class="k">return</span> <span class="p">{</span>
         <span class="s2">"n_total"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_total</span><span class="p">,</span>
@@ -72242,7 +72242,57 @@ order, in this process (also when <code>config.n_jobs</code> runs workers).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/montecarlo.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">265</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
 <span class="normal">266</span>
 <span class="normal">267</span>
 <span class="normal">268</span>
@@ -72331,71 +72381,7 @@ order, in this process (also when <code>config.n_jobs</code> runs workers).</p>
 <span class="normal">351</span>
 <span class="normal">352</span>
 <span class="normal">353</span>
-<span class="normal">354</span>
-<span class="normal">355</span>
-<span class="normal">356</span>
-<span class="normal">357</span>
-<span class="normal">358</span>
-<span class="normal">359</span>
-<span class="normal">360</span>
-<span class="normal">361</span>
-<span class="normal">362</span>
-<span class="normal">363</span>
-<span class="normal">364</span>
-<span class="normal">365</span>
-<span class="normal">366</span>
-<span class="normal">367</span>
-<span class="normal">368</span>
-<span class="normal">369</span>
-<span class="normal">370</span>
-<span class="normal">371</span>
-<span class="normal">372</span>
-<span class="normal">373</span>
-<span class="normal">374</span>
-<span class="normal">375</span>
-<span class="normal">376</span>
-<span class="normal">377</span>
-<span class="normal">378</span>
-<span class="normal">379</span>
-<span class="normal">380</span>
-<span class="normal">381</span>
-<span class="normal">382</span>
-<span class="normal">383</span>
-<span class="normal">384</span>
-<span class="normal">385</span>
-<span class="normal">386</span>
-<span class="normal">387</span>
-<span class="normal">388</span>
-<span class="normal">389</span>
-<span class="normal">390</span>
-<span class="normal">391</span>
-<span class="normal">392</span>
-<span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span>
-<span class="normal">396</span>
-<span class="normal">397</span>
-<span class="normal">398</span>
-<span class="normal">399</span>
-<span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span>
-<span class="normal">407</span>
-<span class="normal">408</span>
-<span class="normal">409</span>
-<span class="normal">410</span>
-<span class="normal">411</span>
-<span class="normal">412</span>
-<span class="normal">413</span>
-<span class="normal">414</span>
-<span class="normal">415</span>
-<span class="normal">416</span>
-<span class="normal">417</span>
-<span class="normal">418</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_montecarlo</span><span class="p">(</span>
+<span class="normal">354</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_montecarlo</span><span class="p">(</span>
     <span class="n">params</span><span class="p">:</span> <span class="s2">"RpathParams"</span><span class="p">,</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">MCConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -72447,24 +72433,23 @@ order, in this process (also when <code>config.n_jobs</code> runs workers).</p>
     <span class="n">n_feasible</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">n_ecosim</span> <span class="o">=</span> <span class="mi">0</span>
 
-    <span class="n">pool</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">finished</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">n_workers</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">outcomes</span> <span class="o">=</span> <span class="p">(</span><span class="n">_evaluate_sample</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Workers get the model and config once; map keeps sample order.</span>
-            <span class="c1"># One sample per task: an evaluation dwarfs the IPC, and a run</span>
-            <span class="c1"># that stops early (an error, or a raising progress callback)</span>
-            <span class="c1"># leaves little queued work behind.</span>
-            <span class="n">pool</span> <span class="o">=</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span>
-                <span class="n">max_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">,</span>
-                <span class="n">mp_context</span><span class="o">=</span><span class="n">mp_context</span><span class="p">,</span>
-                <span class="n">initializer</span><span class="o">=</span><span class="n">_init_worker</span><span class="p">,</span>
-                <span class="n">initargs</span><span class="o">=</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">),</span>
-            <span class="p">)</span>
-            <span class="n">outcomes</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_evaluate_in_worker</span><span class="p">,</span> <span class="n">samples</span><span class="p">)</span>
-
+    <span class="k">with</span> <span class="n">outputs_in_order</span><span class="p">(</span>
+        <span class="n">_evaluate_in_worker</span><span class="p">,</span>
+        <span class="n">samples</span><span class="p">,</span>
+        <span class="n">n_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">,</span>
+        <span class="n">context</span><span class="o">=</span><span class="n">mp_context</span><span class="p">,</span>
+        <span class="n">serial</span><span class="o">=</span><span class="k">lambda</span> <span class="n">sample</span><span class="p">:</span> <span class="n">_evaluate_sample</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">),</span>
+        <span class="c1"># Workers get the model and config once; each task carries a sample</span>
+        <span class="n">initializer</span><span class="o">=</span><span class="n">_init_worker</span><span class="p">,</span>
+        <span class="n">initargs</span><span class="o">=</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">),</span>
+        <span class="n">broken_message</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"A Monte Carlo worker process died. It may have run out of memory, "</span>
+            <span class="s2">"or failed to unpickle the model or the mediation: a mediation "</span>
+            <span class="s2">"class must be importable from a module, not defined in a notebook "</span>
+            <span class="s2">"or in __main__. Try n_jobs=1, or mp_context='fork' from a "</span>
+            <span class="s2">"single-threaded script."</span>
+        <span class="p">),</span>
+    <span class="p">)</span> <span class="k">as</span> <span class="n">outcomes</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">feasible</span><span class="p">,</span> <span class="n">bio</span><span class="p">,</span> <span class="n">ecosim_bio</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">outcomes</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">feasible</span><span class="p">:</span>
                 <span class="n">n_feasible</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -72484,19 +72469,6 @@ order, in this process (also when <code>config.n_jobs</code> runs workers).</p>
 
             <span class="k">if</span> <span class="n">progress_callback</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">progress_callback</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_samples</span><span class="p">)</span>
-        <span class="n">finished</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="k">except</span> <span class="n">BrokenProcessPool</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">BrokenProcessPool</span><span class="p">(</span>
-            <span class="s2">"A Monte Carlo worker process died. It may have run out of memory, "</span>
-            <span class="s2">"or failed to unpickle the model or the mediation: a mediation "</span>
-            <span class="s2">"class must be importable from a module, not defined in a notebook "</span>
-            <span class="s2">"or in __main__. Try n_jobs=1, or mp_context='fork' from a "</span>
-            <span class="s2">"single-threaded script."</span>
-        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">pool</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># After an error, return without waiting for running samples</span>
-            <span class="n">pool</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="n">finished</span><span class="p">,</span> <span class="n">cancel_futures</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># Compute ecopath statistics</span>
     <span class="n">ecopath_stats</span> <span class="o">=</span> <span class="p">{}</span>
@@ -90924,7 +90896,9 @@ optional; if omitted, matches all records.</p>
 
         <p>Sensitivity analysis for Ecopath/Ecosim models.</p>
 <p>Morris elementary effects screening and optional Sobol variance-based
-sensitivity analysis (requires SALib).</p>
+sensitivity analysis (requires SALib). <code>SensitivityConfig.n_jobs</code> runs the
+evaluations in worker processes; the results are the serial run's, bit for
+bit.</p>
 
 
 
@@ -90975,15 +90949,15 @@ sensitivity analysis (requires SALib).</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/sensitivity.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">33</span>
-<span class="normal">34</span>
-<span class="normal">35</span>
-<span class="normal">36</span>
-<span class="normal">37</span>
-<span class="normal">38</span>
-<span class="normal">39</span>
-<span class="normal">40</span>
-<span class="normal">41</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MorrisResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Morris elementary effects screening results."""</span>
 
@@ -91046,16 +91020,16 @@ sensitivity analysis (requires SALib).</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/sensitivity.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">44</span>
-<span class="normal">45</span>
-<span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SobolResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Sobol variance-based sensitivity indices."""</span>
 
@@ -91109,6 +91083,172 @@ sensitivity analysis (requires SALib).</p>
 
 
         <p>Sensitivity analysis configuration.</p>
+<p>Every evaluation balances the model with Ecopath and reads its biomass.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.method">method</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>"morris" (elementary effects screening) or "sobol" (variance-based
+indices, needs SALib).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.n_trajectories">n_trajectories</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Morris trajectories; each costs one evaluation per parameter, plus
+one.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.n_levels">n_levels</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Morris grid levels <code>p</code>. The unit grid maps linearly onto each
+parameter's quantiles <code>1/(2p)</code> to <code>1 - 1/(2p)</code>, the centres of
+the outermost of <code>p</code> equally likely bins.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.n_samples">n_samples</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Sobol base sample size <code>N</code>, best a power of 2. The analysis costs
+<code>N * (2k + 2)</code> evaluations for <code>k</code> parameters.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.seed">seed</span></code></td>
+            <td>
+                  <code>(<span title="int">int</span>, optional)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed for the design and for Sobol's bootstrap confidence intervals;
+None draws fresh ones.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.n_jobs">n_jobs</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Worker processes for the evaluations. 1 (the default) runs them
+serially in this process. A larger number runs that many processes,
+never more than there are evaluations; -1 uses one per CPU this
+process may use. The design is drawn up front from <code>seed</code>, each
+point is evaluated with warnings ignored and numpy's default
+floating-point error handling, and the outputs come back in order,
+so a parallel run gives the serial run's results, bit for bit.
+Starting workers takes from a fraction of a second to about 2 s, so
+they pay off on long designs (Sobol, or Morris on a large model).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.output_variable">output_variable</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name stored as the result's <code>output_name</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.output_group_idx">output_group_idx</span></code></td>
+            <td>
+                  <code>(<span title="int">int</span>, optional)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Group whose biomass is the output; None sums the biomass of every
+group that is not a fleet.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.ecopath_only">ecopath_only</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Not used: every evaluation is an Ecopath balance.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.ecosim_years">ecosim_years</span></code></td>
+            <td>
+                  <code>(<span title="range">range</span>, optional)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Not used: every evaluation is an Ecopath balance.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.core.sensitivity.SensitivityConfig.mp_context">mp_context</span></code></td>
+            <td>
+                  <code>(<span title="str">str</span>, optional)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The multiprocessing start method for the workers: "forkserver",
+"spawn" or "fork". None uses forkserver on Linux and spawn on macOS
+and Windows, as CPython's own defaults do from Python 3.14.</p>
+<p>forkserver and spawn start clean worker processes:</p>
+<ul>
+<li>a script that calls <code>run_sensitivity</code> must do so under
+  <code>if __name__ == "__main__":</code>;</li>
+<li><code>params</code> must be picklable;</li>
+<li>workers do not see the caller's warning filters, logging
+  configuration or later changes to <code>os.environ</code>;</li>
+<li>starting the workers takes about 2 s per call when the caller is
+  not a script that imports pypath (a notebook, for example).</li>
+</ul>
+<p>"fork" starts workers fastest but is unsafe in a multi-threaded
+process (Python warns, and numpy's BLAS threads count), so ask for it
+only from a single-threaded script.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
 
@@ -91119,22 +91259,141 @@ sensitivity analysis (requires SALib).</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/sensitivity.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">56</span>
-<span class="normal">57</span>
-<span class="normal">58</span>
-<span class="normal">59</span>
-<span class="normal">60</span>
-<span class="normal">61</span>
-<span class="normal">62</span>
-<span class="normal">63</span>
-<span class="normal">64</span>
-<span class="normal">65</span>
-<span class="normal">66</span>
-<span class="normal">67</span>
-<span class="normal">68</span>
-<span class="normal">69</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 66</span>
+<span class="normal"> 67</span>
+<span class="normal"> 68</span>
+<span class="normal"> 69</span>
+<span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
+<span class="normal"> 73</span>
+<span class="normal"> 74</span>
+<span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SensitivityConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Sensitivity analysis configuration."""</span>
+<span class="w">    </span><span class="sd">"""Sensitivity analysis configuration.</span>
+
+<span class="sd">    Every evaluation balances the model with Ecopath and reads its biomass.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    method : str</span>
+<span class="sd">        "morris" (elementary effects screening) or "sobol" (variance-based</span>
+<span class="sd">        indices, needs SALib).</span>
+<span class="sd">    n_trajectories : int</span>
+<span class="sd">        Morris trajectories; each costs one evaluation per parameter, plus</span>
+<span class="sd">        one.</span>
+<span class="sd">    n_levels : int</span>
+<span class="sd">        Morris grid levels ``p``. The unit grid maps linearly onto each</span>
+<span class="sd">        parameter's quantiles ``1/(2p)`` to ``1 - 1/(2p)``, the centres of</span>
+<span class="sd">        the outermost of ``p`` equally likely bins.</span>
+<span class="sd">    n_samples : int</span>
+<span class="sd">        Sobol base sample size ``N``, best a power of 2. The analysis costs</span>
+<span class="sd">        ``N * (2k + 2)`` evaluations for ``k`` parameters.</span>
+<span class="sd">    seed : int, optional</span>
+<span class="sd">        Seed for the design and for Sobol's bootstrap confidence intervals;</span>
+<span class="sd">        None draws fresh ones.</span>
+<span class="sd">    n_jobs : int</span>
+<span class="sd">        Worker processes for the evaluations. 1 (the default) runs them</span>
+<span class="sd">        serially in this process. A larger number runs that many processes,</span>
+<span class="sd">        never more than there are evaluations; -1 uses one per CPU this</span>
+<span class="sd">        process may use. The design is drawn up front from ``seed``, each</span>
+<span class="sd">        point is evaluated with warnings ignored and numpy's default</span>
+<span class="sd">        floating-point error handling, and the outputs come back in order,</span>
+<span class="sd">        so a parallel run gives the serial run's results, bit for bit.</span>
+<span class="sd">        Starting workers takes from a fraction of a second to about 2 s, so</span>
+<span class="sd">        they pay off on long designs (Sobol, or Morris on a large model).</span>
+<span class="sd">    output_variable : str</span>
+<span class="sd">        Name stored as the result's ``output_name``.</span>
+<span class="sd">    output_group_idx : int, optional</span>
+<span class="sd">        Group whose biomass is the output; None sums the biomass of every</span>
+<span class="sd">        group that is not a fleet.</span>
+<span class="sd">    ecopath_only : bool</span>
+<span class="sd">        Not used: every evaluation is an Ecopath balance.</span>
+<span class="sd">    ecosim_years : range, optional</span>
+<span class="sd">        Not used: every evaluation is an Ecopath balance.</span>
+<span class="sd">    mp_context : str, optional</span>
+<span class="sd">        The multiprocessing start method for the workers: "forkserver",</span>
+<span class="sd">        "spawn" or "fork". None uses forkserver on Linux and spawn on macOS</span>
+<span class="sd">        and Windows, as CPython's own defaults do from Python 3.14.</span>
+
+<span class="sd">        forkserver and spawn start clean worker processes:</span>
+
+<span class="sd">        - a script that calls ``run_sensitivity`` must do so under</span>
+<span class="sd">          ``if __name__ == "__main__":``;</span>
+<span class="sd">        - ``params`` must be picklable;</span>
+<span class="sd">        - workers do not see the caller's warning filters, logging</span>
+<span class="sd">          configuration or later changes to ``os.environ``;</span>
+<span class="sd">        - starting the workers takes about 2 s per call when the caller is</span>
+<span class="sd">          not a script that imports pypath (a notebook, for example).</span>
+
+<span class="sd">        "fork" starts workers fastest but is unsafe in a multi-threaded</span>
+<span class="sd">        process (Python warns, and numpy's BLAS threads count), so ask for it</span>
+<span class="sd">        only from a single-threaded script.</span>
+<span class="sd">    """</span>
 
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"morris"</span>
     <span class="n">n_trajectories</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
@@ -91146,6 +91405,7 @@ sensitivity analysis (requires SALib).</p>
     <span class="n">output_group_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">ecopath_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">ecosim_years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">mp_context</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -91270,7 +91530,8 @@ sensitivity analysis (requires SALib).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Called with (current, total) after each model evaluation.</p>
+                <p>Called with (current, total) after each model evaluation, in order,
+in this process (also when <code>config.n_jobs</code> runs workers).</p>
               </div>
             </td>
             <td>
@@ -91316,142 +91577,143 @@ sensitivity analysis (requires SALib).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/sensitivity.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
-<span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
-<span class="normal">173</span>
-<span class="normal">174</span>
-<span class="normal">175</span>
-<span class="normal">176</span>
-<span class="normal">177</span>
-<span class="normal">178</span>
-<span class="normal">179</span>
-<span class="normal">180</span>
-<span class="normal">181</span>
-<span class="normal">182</span>
-<span class="normal">183</span>
-<span class="normal">184</span>
-<span class="normal">185</span>
-<span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
-<span class="normal">189</span>
-<span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span>
-<span class="normal">194</span>
-<span class="normal">195</span>
-<span class="normal">196</span>
-<span class="normal">197</span>
-<span class="normal">198</span>
-<span class="normal">199</span>
-<span class="normal">200</span>
-<span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span>
-<span class="normal">247</span>
-<span class="normal">248</span>
-<span class="normal">249</span>
-<span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span>
-<span class="normal">253</span>
-<span class="normal">254</span>
-<span class="normal">255</span>
-<span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
-<span class="normal">259</span>
-<span class="normal">260</span>
-<span class="normal">261</span>
-<span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span>
-<span class="normal">266</span>
-<span class="normal">267</span>
-<span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span>
-<span class="normal">272</span>
-<span class="normal">273</span>
-<span class="normal">274</span>
-<span class="normal">275</span>
-<span class="normal">276</span>
-<span class="normal">277</span>
-<span class="normal">278</span>
-<span class="normal">279</span>
-<span class="normal">280</span>
-<span class="normal">281</span>
-<span class="normal">282</span>
-<span class="normal">283</span>
-<span class="normal">284</span>
-<span class="normal">285</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_sensitivity</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span>
+<span class="normal">375</span>
+<span class="normal">376</span>
+<span class="normal">377</span>
+<span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span>
+<span class="normal">403</span>
+<span class="normal">404</span>
+<span class="normal">405</span>
+<span class="normal">406</span>
+<span class="normal">407</span>
+<span class="normal">408</span>
+<span class="normal">409</span>
+<span class="normal">410</span>
+<span class="normal">411</span>
+<span class="normal">412</span>
+<span class="normal">413</span>
+<span class="normal">414</span>
+<span class="normal">415</span>
+<span class="normal">416</span>
+<span class="normal">417</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">run_sensitivity</span><span class="p">(</span>
     <span class="n">params</span><span class="p">:</span> <span class="s2">"RpathParams"</span><span class="p">,</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">SensitivityConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -91469,24 +91731,23 @@ sensitivity analysis (requires SALib).</p>
 <span class="sd">    pedigree_config : PedigreeConfig, optional</span>
 <span class="sd">        EwE pedigree mapping.</span>
 <span class="sd">    progress_callback : callable, optional</span>
-<span class="sd">        Called with (current, total) after each model evaluation.</span>
+<span class="sd">        Called with (current, total) after each model evaluation, in order,</span>
+<span class="sd">        in this process (also when ``config.n_jobs`` runs workers).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    MorrisResult or SobolResult</span>
 <span class="sd">    """</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecopath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rpath</span> <span class="k">as</span> <span class="n">run_rpath</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.pedigree</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-        <span class="n">ScalarDistribution</span><span class="p">,</span>
-        <span class="n">apply_sample</span><span class="p">,</span>
-        <span class="n">build_distributions</span><span class="p">,</span>
-    <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.pedigree</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalarDistribution</span><span class="p">,</span> <span class="n">build_distributions</span>
 
     <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">SensitivityConfig</span><span class="p">()</span>
 
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"morris"</span><span class="p">,</span> <span class="s2">"sobol"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown method: </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">method</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">"sobol"</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">HAS_SALIB</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">"Install SALib for Sobol analysis: pip install SALib"</span><span class="p">)</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">mp_context</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">mp_context</span><span class="p">)</span>  <span class="c1"># refuses an unknown method</span>
 
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
     <span class="n">distributions</span> <span class="o">=</span> <span class="n">build_distributions</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">pedigree_config</span><span class="p">)</span>
@@ -91497,30 +91758,11 @@ sensitivity analysis (requires SALib).</p>
 
     <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scalars</span><span class="p">)</span>
     <span class="n">param_names</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">d</span><span class="o">.</span><span class="n">param_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">d</span><span class="o">.</span><span class="n">group_idx</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">scalars</span><span class="p">]</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate</span><span class="p">(</span><span class="n">x_unit</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Map unit hypercube point to params, run model, extract output."""</span>
-        <span class="n">sample</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">dist</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">scalars</span><span class="p">):</span>
-            <span class="n">sigma</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">dist</span><span class="o">.</span><span class="n">cv</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
-            <span class="n">mu</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">base_value</span><span class="p">)</span> <span class="o">-</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">lognorm</span>
-
-            <span class="n">val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lognorm</span><span class="o">.</span><span class="n">ppf</span><span class="p">(</span><span class="n">x_unit</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">mu</span><span class="p">)))</span>
-            <span class="n">sample</span><span class="p">[(</span><span class="n">dist</span><span class="o">.</span><span class="n">param_name</span><span class="p">,</span> <span class="n">dist</span><span class="o">.</span><span class="n">group_idx</span><span class="p">)]</span> <span class="o">=</span> <span class="n">val</span>
-
-        <span class="n">sampled_params</span> <span class="o">=</span> <span class="n">apply_sample</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">sample</span><span class="p">)</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">"ignore"</span><span class="p">)</span>
-                <span class="n">rpath_result</span> <span class="o">=</span> <span class="n">run_rpath</span><span class="p">(</span><span class="n">sampled_params</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">output_group_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">rpath_result</span><span class="o">.</span><span class="n">Biomass</span><span class="p">[</span><span class="n">config</span><span class="o">.</span><span class="n">output_group_idx</span><span class="p">])</span>
-            <span class="c1"># Use nansum to skip fleet groups (which have NaN biomass)</span>
-            <span class="n">n_bio</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="p">[</span><span class="s2">"Type"</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
-            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">rpath_result</span><span class="o">.</span><span class="n">Biomass</span><span class="p">[:</span><span class="n">n_bio</span><span class="p">]))</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="p">[(</span><span class="n">d</span><span class="o">.</span><span class="n">param_name</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">group_idx</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">scalars</span><span class="p">]</span>
+    <span class="n">shapes</span> <span class="o">=</span> <span class="p">[</span><span class="n">_lognormal_shape</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">base_value</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">scalars</span><span class="p">]</span>
+    <span class="n">sigmas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">sigma</span> <span class="k">for</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">shapes</span><span class="p">])</span>
+    <span class="n">scales</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">scale</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">scale</span> <span class="ow">in</span> <span class="n">shapes</span><span class="p">])</span>
+    <span class="n">n_bio</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="p">[</span><span class="s2">"Type"</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
 
     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">"morris"</span><span class="p">:</span>
         <span class="n">trajectories</span> <span class="o">=</span> <span class="n">_generate_morris_trajectories</span><span class="p">(</span>
@@ -91529,13 +91771,52 @@ sensitivity analysis (requires SALib).</p>
             <span class="n">config</span><span class="o">.</span><span class="n">n_levels</span><span class="p">,</span>
             <span class="n">rng</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">n_evals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">trajectories</span><span class="p">)</span>
-        <span class="n">y_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_evals</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_evals</span><span class="p">):</span>
-            <span class="n">y_values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_evaluate</span><span class="p">(</span><span class="n">trajectories</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">_morris_quantiles</span><span class="p">(</span><span class="n">trajectories</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_levels</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">n_runs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">n_samples</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_runs</span> <span class="o">&gt;</span> <span class="mi">10000</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Sobol analysis requires </span><span class="si">{</span><span class="n">n_runs</span><span class="si">}</span><span class="s2"> model evaluations."</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">problem</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"num_vars"</span><span class="p">:</span> <span class="n">k</span><span class="p">,</span>
+            <span class="s2">"names"</span><span class="p">:</span> <span class="n">param_names</span><span class="p">,</span>
+            <span class="s2">"bounds"</span><span class="p">:</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">k</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="c1"># Scrambled Sobol' points, reproducible from the seed</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">sobol_sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+
+    <span class="c1"># Every point's parameter values in one vectorised call; it gives the</span>
+    <span class="c1"># same values, bit for bit, as the quantile function point by point</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">lognorm</span><span class="o">.</span><span class="n">ppf</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">sigmas</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scales</span><span class="p">)</span>
+    <span class="n">n_evals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="n">n_workers</span> <span class="o">=</span> <span class="n">resolve_n_jobs</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">,</span> <span class="n">n_evals</span><span class="p">)</span>
+
+    <span class="n">y_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_evals</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">outputs_in_order</span><span class="p">(</span>
+        <span class="n">_evaluate_in_worker</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">,</span>
+        <span class="n">n_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">,</span>
+        <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+        <span class="n">serial</span><span class="o">=</span><span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="n">_evaluate_point</span><span class="p">(</span>
+            <span class="n">params</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">output_group_idx</span><span class="p">,</span> <span class="n">n_bio</span>
+        <span class="p">),</span>
+        <span class="c1"># Workers get the model once; each task carries a point's values</span>
+        <span class="n">initializer</span><span class="o">=</span><span class="n">_init_worker</span><span class="p">,</span>
+        <span class="n">initargs</span><span class="o">=</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">output_group_idx</span><span class="p">,</span> <span class="n">n_bio</span><span class="p">),</span>
+        <span class="n">broken_message</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"A sensitivity worker process died. It may have run out of "</span>
+            <span class="s2">"memory, or failed to unpickle the model. Try n_jobs=1, or "</span>
+            <span class="s2">"mp_context='fork' from a single-threaded script."</span>
+        <span class="p">),</span>
+    <span class="p">)</span> <span class="k">as</span> <span class="n">outputs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">outputs</span><span class="p">):</span>
+            <span class="n">y_values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span>
             <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
                 <span class="n">progress_callback</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_evals</span><span class="p">)</span>
 
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">"morris"</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">_compute_elementary_effects</span><span class="p">(</span>
             <span class="n">trajectories</span><span class="p">,</span>
             <span class="n">y_values</span><span class="p">,</span>
@@ -91547,46 +91828,28 @@ sensitivity analysis (requires SALib).</p>
         <span class="n">result</span><span class="o">.</span><span class="n">output_name</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">output_variable</span>
         <span class="k">return</span> <span class="n">result</span>
 
-    <span class="k">elif</span> <span class="n">config</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">"sobol"</span><span class="p">:</span>
-        <span class="n">n_runs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">n_samples</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">n_runs</span> <span class="o">&gt;</span> <span class="mi">10000</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"Sobol analysis requires </span><span class="si">{</span><span class="n">n_runs</span><span class="si">}</span><span class="s2"> model evaluations."</span><span class="p">,</span>
-                <span class="ne">UserWarning</span><span class="p">,</span>
-            <span class="p">)</span>
+    <span class="c1"># Impute NaN with mean (SALib requires exact N*(2k+2) rows)</span>
+    <span class="n">nan_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">y_values</span><span class="p">)</span>
+    <span class="n">n_nan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">nan_mask</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_nan</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_values</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"More than 50</span><span class="si">% o</span><span class="s2">f model evaluations failed."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_nan</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">y_values</span><span class="p">[</span><span class="n">nan_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">y_values</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Imputed </span><span class="si">%d</span><span class="s2"> NaN evaluations with mean for Sobol."</span><span class="p">,</span> <span class="n">n_nan</span><span class="p">)</span>
 
-        <span class="n">problem</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">"num_vars"</span><span class="p">:</span> <span class="n">k</span><span class="p">,</span>
-            <span class="s2">"names"</span><span class="p">:</span> <span class="n">param_names</span><span class="p">,</span>
-            <span class="s2">"bounds"</span><span class="p">:</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">k</span><span class="p">,</span>
-        <span class="p">}</span>
-        <span class="n">X</span> <span class="o">=</span> <span class="n">saltelli</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
-        <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)):</span>
-            <span class="n">Y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">_evaluate</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-            <span class="k">if</span> <span class="n">progress_callback</span><span class="p">:</span>
-                <span class="n">progress_callback</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
-
-        <span class="c1"># Impute NaN with mean (SALib requires exact N*(2k+2) rows)</span>
-        <span class="n">nan_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span>
-        <span class="n">n_nan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">nan_mask</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">n_nan</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"More than 50</span><span class="si">% o</span><span class="s2">f model evaluations failed."</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">n_nan</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">Y</span><span class="p">[</span><span class="n">nan_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Imputed </span><span class="si">%d</span><span class="s2"> NaN evaluations with mean for Sobol."</span><span class="p">,</span> <span class="n">n_nan</span><span class="p">)</span>
-
-        <span class="n">Si</span> <span class="o">=</span> <span class="n">salib_sobol</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">SobolResult</span><span class="p">(</span>
-            <span class="n">parameter_names</span><span class="o">=</span><span class="n">param_names</span><span class="p">,</span>
-            <span class="n">S1</span><span class="o">=</span><span class="n">Si</span><span class="p">[</span><span class="s2">"S1"</span><span class="p">],</span>
-            <span class="n">ST</span><span class="o">=</span><span class="n">Si</span><span class="p">[</span><span class="s2">"ST"</span><span class="p">],</span>
-            <span class="n">S1_conf</span><span class="o">=</span><span class="n">Si</span><span class="p">[</span><span class="s2">"S1_conf"</span><span class="p">],</span>
-            <span class="n">ST_conf</span><span class="o">=</span><span class="n">Si</span><span class="p">[</span><span class="s2">"ST_conf"</span><span class="p">],</span>
-            <span class="n">output_name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">output_variable</span><span class="p">,</span>
-        <span class="p">)</span>
-
-    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown method: </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">method</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="c1"># The seed also fixes the bootstrap behind the confidence intervals. SALib</span>
+    <span class="c1"># reads a seed of 0 as no seed, so hand it a generator: for any other</span>
+    <span class="c1"># seed it draws the same numbers as SALib's own default_rng(seed)</span>
+    <span class="n">bootstrap_rng</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">Si</span> <span class="o">=</span> <span class="n">salib_sobol</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">y_values</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">bootstrap_rng</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">SobolResult</span><span class="p">(</span>
+        <span class="n">parameter_names</span><span class="o">=</span><span class="n">param_names</span><span class="p">,</span>
+        <span class="n">S1</span><span class="o">=</span><span class="n">Si</span><span class="p">[</span><span class="s2">"S1"</span><span class="p">],</span>
+        <span class="n">ST</span><span class="o">=</span><span class="n">Si</span><span class="p">[</span><span class="s2">"ST"</span><span class="p">],</span>
+        <span class="n">S1_conf</span><span class="o">=</span><span class="n">Si</span><span class="p">[</span><span class="s2">"S1_conf"</span><span class="p">],</span>
+        <span class="n">ST_conf</span><span class="o">=</span><span class="n">Si</span><span class="p">[</span><span class="s2">"ST_conf"</span><span class="p">],</span>
+        <span class="n">output_name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">output_variable</span><span class="p">,</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
