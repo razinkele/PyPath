@@ -305,3 +305,32 @@ def test_a_failed_conversion_leaves_no_file(tmp_path):
     with pytest.raises(EweSqliteError):
         access_to_sqlite(source)
     assert list(tmp_path.iterdir()) == [source]
+
+
+# --- the Curonian Lagoon models shipped in Data/ ---
+
+CURONIAN = {
+    "curonian_pelagic.sqlite": (19, 1, 0),
+    "Curonian_Edgaras.sqlite": (31, 3, 5),
+    "KM_Edgaras.sqlite": (65, 3, 6),
+}
+
+
+@pytest.mark.parametrize("name", CURONIAN)
+def test_the_curonian_models_read_without_an_access_driver(name, monkeypatch):
+    path = DATA / name
+    if not path.exists():
+        pytest.skip(f"{name} missing")
+    for flag in ("HAS_MDB_TOOLS", "HAS_PYODBC", "HAS_PYPYODBC"):
+        monkeypatch.setattr(ewemdb, flag, False)
+    groups, fleets, stanza_sets = CURONIAN[name]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        params = ewemdb.read_ewemdb(str(path))
+    assert len(params.model) == groups + fleets
+    assert params.stanzas.n_stanza_groups == stanza_sets
+    # EcopathGroup.ImpVar is the diet import: with it every diet sums to 1
+    diet = params.diet.set_index("Group")
+    assert diet.index[-1] == "Import"
+    sums = diet.apply(pd.to_numeric, errors="coerce").sum()
+    assert np.allclose(sums[sums > 0], 1.0, atol=1e-3)
