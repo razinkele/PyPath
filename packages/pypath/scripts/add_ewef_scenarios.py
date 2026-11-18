@@ -470,24 +470,29 @@ def add_ecospace(db: Database, case: Case, title: str, ecosim_scenario: int) -> 
     return scenario
 
 
+def add(testcases: Path, path: Path, name: str, first_year) -> None:
+    """Add the set-up of the case ``name`` to the model database ``path``."""
+    title = f"EwE-F {name}"
+    db = Database(path)
+    if db.query("SELECT 1 FROM EcosimScenario WHERE ScenarioName = ?", title):
+        print(f"{path.name}: already has {title!r}, left alone")
+        return
+    case = Case(testcases / name, name)
+    with db.con:
+        ecosim, unmatched, defaulted = add_ecosim(db, case, title, first_year)
+        ecospace = add_ecospace(db, case, title, ecosim)
+    db.con.close()
+    print(
+        f"{path.name}: Ecosim scenario {ecosim}, Ecospace scenario {ecospace}; "
+        f"groups without a case group: {unmatched or 'none'}; "
+        f"diet links at the default vulnerability: {defaulted}; "
+        f"columns this file does not have: {sorted(db.skipped) or 'none'}"
+    )
+
+
 def main(testcases: Path, data: Path) -> None:
     for name, file, first_year in CASES:
-        title = f"EwE-F {name}"
-        db = Database(data / file)
-        if db.query("SELECT 1 FROM EcosimScenario WHERE ScenarioName = ?", title):
-            print(f"{file}: already has {title!r}, left alone")
-            continue
-        case = Case(testcases / name, name)
-        with db.con:
-            ecosim, unmatched, defaulted = add_ecosim(db, case, title, first_year)
-            ecospace = add_ecospace(db, case, title, ecosim)
-        db.con.close()
-        print(
-            f"{file}: Ecosim scenario {ecosim}, Ecospace scenario {ecospace}; "
-            f"groups without a case group: {unmatched or 'none'}; "
-            f"diet links at the default vulnerability: {defaulted}; "
-            f"columns this file does not have: {sorted(db.skipped) or 'none'}"
-        )
+        add(testcases, data / file, name, first_year)
 
 
 if __name__ == "__main__":

@@ -313,6 +313,7 @@ CURONIAN = {
     "curonian_pelagic.sqlite": (19, 1, 0),
     "Curonian_Edgaras.sqlite": (31, 3, 5),
     "KM_Edgaras.sqlite": (65, 3, 6),
+    "Curonian_Cohorts.sqlite": (70, 3, 6),
 }
 
 
@@ -365,6 +366,7 @@ EWEF_SCENARIOS = {
     "curonian_pelagic.sqlite": ("Curonian_Lagoon", 1, 19, 1, 55, 19),
     "Curonian_Edgaras.sqlite": ("Curonian_Fish", 1, 31, 3, 191, 31),
     "KM_Edgaras.sqlite": ("Curonian_Cohorts", 2, 65, 3, 446, 63),
+    "Curonian_Cohorts.sqlite": ("Curonian_Cohorts", 1, 70, 3, 661, 70),
 }
 GRID = (94, 51, 1576)  # rows, columns, sea cells
 
@@ -484,3 +486,67 @@ def test_the_ewef_scenario_reads_through_pypath(name):
     assert len(read["scenario_group_df"]) == groups
     assert len(read["forcing_matrix_df"]) == links
     assert read["ecosim_settings"]["NutBaseFreeProp"] == pytest.approx(0.9999)
+
+
+# --- the 70-group Curonian model: the EwE-F case Curonian_Cohorts in EwE's tables ---
+
+
+def test_the_70_group_model_is_in_english_and_tonnes():
+    con = _open("Curonian_Cohorts.sqlite")
+    names = [row[0] for row in con.execute("SELECT GroupName FROM EcopathGroup")]
+    names += [row[0] for row in con.execute("SELECT FleetName FROM EcopathFleet")]
+    names += [row[0] for row in con.execute("SELECT StanzaName FROM Stanza")]
+    assert len(names) == 70 + 3 + 6
+    assert all(name.isascii() for name in names)
+    assert {"Roach 12y", "Bream 14y", "chironomids", "Fyke nets"} <= set(names)
+    # EwE's group types: 0 consumer, 1 producer, 2 detritus
+    types = dict(con.execute('SELECT "Type", COUNT(*) FROM EcopathGroup GROUP BY 1'))
+    assert types == {0: 67, 1: 2, 2: 1}
+    unit, custom = con.execute(
+        "SELECT UnitCurrency, UnitCurrencyCustom FROM EcopathModel"
+    ).fetchone()
+    assert (unit, custom) == (5, None)  # wet weight, t/km2
+    # every set is led from its oldest class, as EwE-F leads it
+    leaders = con.execute(
+        "SELECT s.LeadingLifeStage, s.LeadingCB, COUNT(*) FROM Stanza s "
+        "JOIN StanzaLifeStage l ON l.StanzaID = s.StanzaID GROUP BY s.StanzaID"
+    ).fetchall()
+    assert all(lead == cb == stages for lead, cb, stages in leaders)
+
+
+def test_the_70_group_model_balances():
+    path = DATA / "Curonian_Cohorts.sqlite"
+    if not path.exists():
+        pytest.skip(f"{path.name} missing")
+    from pypath.core.ecopath import rpath
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = rpath(ewemdb.read_ewemdb(str(path)))
+    ee = np.asarray(model.EE[:70], dtype=float)
+    assert np.all(np.isfinite(ee)) and ee.max() <= 1.0 and ee.min() >= 0
+    # Ecopath-F's balance of the case gives the same: Bream 1y 0.8722, Roach 1y 0.7696
+    by_name = dict(zip(model.Group[:70], ee))
+    assert by_name["Bream 1y"] == pytest.approx(0.8722, abs=5e-4)
+    assert by_name["Roach 1y"] == pytest.approx(0.7696, abs=5e-4)
+
+
+def test_the_70_group_model_has_its_series_from_the_first_year():
+    con = _open("Curonian_Cohorts.sqlite")
+    assert con.execute(
+        "SELECT FirstYear, NumPoints FROM EcosimTimeSeriesDataset"
+    ).fetchall() == [(2003, 8)]
+    assert dict(
+        con.execute("SELECT DatType, COUNT(*) FROM EcosimTimeSeries GROUP BY 1")
+    ) == {3: 3, 6: 48}
+    lengths = {
+        len(row[0].split())
+        for row in con.execute("SELECT TimeValues FROM EcosimTimeSeries")
+    }
+    assert lengths == {8}
+    # a catch series belongs to the group it is named after (by Ecopath group ID)
+    assert not con.execute(
+        "SELECT 1 FROM EcosimTimeSeries t JOIN EcosimTimeSeriesGroup x "
+        "USING (TimeSeriesID) JOIN EcopathGroup g ON g.GroupID = x.GroupID "
+        "WHERE t.DatName <> g.GroupName"
+    ).fetchall()

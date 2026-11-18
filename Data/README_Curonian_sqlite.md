@@ -16,6 +16,7 @@ scenario (see "The EwE-F scenarios" below). Every other row is as stored.
 | `curonian_pelagic.sqlite` | `curonian pelagic.eweaccdb` | "curonian pelagic": 19 groups, 1 fleet |
 | `Curonian_Edgaras.sqlite` | `Modelis modelis.ewemdb` | "Curonian_Edgaras": 31 groups, 5 multi-stanza sets (12 stages), 3 fleets, first year 2008 (source of EwE-F curonian_fish) |
 | `KM_Edgaras.sqlite` | `KM_Edgaras.ewemdb` | "Perdarytas": 65 groups, 6 age-class sets (58 stages), 3 fleets, kg/km², one Ecosim scenario (12 years), 48 catch series from 1999, one Ecospace scenario (source of EwE-F curonian_cohorts) |
+| `Curonian_Cohorts.sqlite` | none: built from the EwE-F case (see "The 70-group model" below) | "Curonian_Cohorts": 70 groups, 6 age-class sets (58 classes), 3 fleets, t/km², English names, first year 2003 |
 
 Credit: curonian pelagic, Marine Research Institute, Klaipėda University;
 Curonian_Edgaras and Perdarytas, A. Razinkovas-Baziukas and E. Ivanauskas,
@@ -132,3 +133,50 @@ What the cases hold that has no EwE table, and so is not here:
 
 The copies as stored, without these scenarios, are the first version of these
 files in the repository history.
+
+## The 70-group model: `Curonian_Cohorts.sqlite`
+
+The model EwE-F runs as Curonian_Cohorts: "Perdarytas" (KM_Edgaras) in English
+and in t/km², 70 groups, 6 age-class sets (58 annual classes), 3 fleets, first
+year 2003. No Access database of it exists, so this file is **not** a copy made
+by the mdb2sqlite bridge and EwE never saved it. It has the tables of
+`KM_Edgaras.sqlite` (the same EwE database version), created empty and filled
+from the EwE-F case's files by
+`packages/pypath/scripts/make_curonian_cohorts_sqlite.py <EwE-F> Data`.
+
+How it differs from KM_Edgaras (the EwE-F generator's adjustments, described in
+the case's README; none were made here):
+
+* names in English: Kuoja = Roach, Karšis = Bream, Plakis = White bream,
+  Starkis = Pikeperch, Ešerys = Perch, Pūgžlys = Ruffe, "Nm" (N metai) = "Ny";
+  fleets 40-69 mm, 70-99 mm, Fyke nets (G. ung);
+* amounts in t/km² (EwE's wet-weight unit) instead of the custom kg/km²;
+* the database's Zoobentosas and Zooplanktonas are replaced by seven groups of
+  the 19-group Curonian Lagoon model (deposit feeders gastropods, chironomids,
+  oligochets, Meiobenthos, Mysids, Grazing and Carnivorous zooplankton);
+* the generator's other adjustments of rates, landings and biomasses, which
+  the case's README describes (for one, unassimilated consumption is 0.2 for
+  every consumer; the database has other values);
+* each age-class set is led from its oldest class (`Stanza.LeadingLifeStage`
+  and `LeadingCB`), which is how EwE-F leads it; the biomass and Q/B stored
+  for the other classes are the ones derived from it.
+
+What it holds:
+
+* Ecopath: `EcopathGroup`, `EcopathDietComp` (661 diet links; detritus fate on
+  the same rows), `EcopathFleet`, `EcopathCatch` (landings per fleet),
+  `EcopathDiscardFate`, `Stanza`, `StanzaLifeStage`, `EcopathModel`. Inputs
+  left for Ecopath to estimate are -9999, as in EwE.
+* Ecosim scenario 1 and Ecospace scenario 1, "EwE-F Curonian_Cohorts", as
+  described above, here complete for all 70 groups: 661 vulnerabilities, 70
+  capacity maps, the logbook effort per fleet.
+* `EcosimTimeSeries`: the case's reference series from 2003 to 2010, 48 catch
+  series per age class (type 6, t/km²/yr) and 3 effort series per fleet (type
+  3, relative to the 2003-2007 mean). The dataset starts in the model's first
+  year, so it lines up with the scenario's effort. The catches of 1999-2002
+  are in `KM_Edgaras.sqlite` (kg/km²).
+
+Checks made: PyPath reads the same model, diet and stanza sets from this file
+as from the EwE-F case (`read_ewef`); balancing it with PyPath gives Ecopath-F's
+result for all 70 groups (biomass within 0.007%, EE within 0.00005, no EE above
+1); PyPath builds the Ecosim scenario from it.
