@@ -93,11 +93,17 @@ def test_land_result_sets_switching_before_sim_output():
 
 
 def test_spatial_run_records_switching_after_results():
-    fn = _find_function(_tree(ecospace_page), "_run_spatial_simulation")
-    assert "summary" in _calls(fn)
+    # The run is launched on a worker: the launch effect takes the summary of
+    # the scenario it starts from, and the landing stores it with the results.
+    tree = _tree(ecospace_page)
+    launch = _find_function(tree, "_run_spatial_simulation")
+    assert "summary" in _calls(launch)
+    assert "used=used" in ast.unparse(launch)
+    fn = _find_function(tree, "_land_spatial_result")
     results = _line_of_call(fn, "_spatial_results.set", in_text="result")
     switching = _line_of_call(fn, "_spatial_switching.set")
     assert results and switching and min(switching) > min(results)
+    assert "outcome.switching" in ast.unparse(fn)
 
 
 def test_every_spatial_reset_clears_switching():
@@ -118,9 +124,13 @@ def test_run_comparison_summarises_before_copying():
     summaries = _line_of_call(fn, "summary")
     copies = _line_of_call(fn, "copy.deepcopy")
     assert summaries and copies and min(summaries) < min(copies)
-    stored = _line_of_call(fn, "ibm_switching.set")
-    std = _line_of_call(fn, "standard_output.set")
+    assert "used=used" in ast.unparse(fn)
+    # The landing stores the launch's summary with the results.
+    land = _find_function(_tree(ibm_page), "_land_ibm_result")
+    stored = _line_of_call(land, "ibm_switching.set")
+    std = _line_of_call(land, "standard_output.set")
     assert stored and std and min(stored) > min(std)
+    assert "outcome.switching" in ast.unparse(land)
 
 
 @pytest.mark.parametrize(

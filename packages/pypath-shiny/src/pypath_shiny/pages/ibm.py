@@ -9,15 +9,25 @@ coupled with Ecosim. Users can:
 - Run standard vs. IBM-enhanced Ecosim and compare results
 """
 
+import asyncio
 import copy
+import itertools
 import logging
 
 import numpy as np
 import pandas as pd
+from pypath.core.ecosim import RunCancelled
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shinywidgets import output_widget, render_widget
 
 from pypath_shiny.config import IBM
+from pypath_shiny.services.background_runs import (
+    IbmOutcome,
+    IbmRunSpec,
+    ibm_result_is_current,
+    run_ibm_comparison,
+)
+from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunControl, RunSlot
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -543,11 +553,49 @@ def ibm_server(
     # ----------------------------------------------------------------
     # Run comparison: standard vs. IBM-enhanced Ecosim
     # ----------------------------------------------------------------
+    # This session's comparison in the process-wide executor, and the launch
+    # it belongs to. The slot stays taken until the worker thread finishes.
+    run_slot = RunSlot()
+    launch_ids = itertools.count(1)
+    launched = {"id": 0, "control": None}
+
+    @reactive.extended_task
+    async def _ibm_task(run_id, source, ibm, scen, spec, used, slot, control):
+        """Run both simulations on a worker thread, off the event loop.
+
+        ``scen`` is a deep copy of ``source``, the page's scenario object. The
+        worker reads no reactive value and shows nothing: ``_run_comparison``
+        gathers everything first and ``_apply_ibm_result`` lands the outcome,
+        both on the loop.
+        """
+        future = RUN_EXECUTOR.submit(run_ibm_comparison, scen, spec, control=control)
+        slot.acquire(future)
+        standard, enhanced = await asyncio.wrap_future(future)
+        return IbmOutcome(run_id, source, ibm, standard, enhanced, used)
+
+    def _stop_comparison() -> None:
+        """Stop the session's comparison at its next month boundary."""
+        control = launched["control"]
+        if control is not None:
+            control.request_stop()
+        _ibm_task.cancel()
+
+    # A closed or reloaded tab must not keep a worker busy with a comparison
+    # nobody will see.
+    _session.on_ended(_stop_comparison)
+
     @reactive.effect
     @reactive.event(input.ibm_run)
     def _run_comparison():
-        """Run both standard and IBM-enhanced Ecosim, store results."""
-        from pypath.core.ecosim import rsim_run
+        """Start the standard and IBM-enhanced runs on a worker (``_ibm_task``)."""
+        # invoke() would queue behind a running task; refuse instead.
+        if _ibm_task.status() == "running" or run_slot.busy:
+            _notify_legacy(
+                "A comparison is already running. Please wait for it.",
+                type="warning",
+                duration=5,
+            )
+            return
 
         ibm = ibm_group_instance()
         if ibm is None:
@@ -568,52 +616,74 @@ def ibm_server(
             return
 
         try:
-            _notify_legacy("Running standard Ecosim...", type="message", duration=2)
-
             used = summary(scenario.params)
-
-            # Run standard Ecosim (on a deep copy)
-            std_scenario = copy.deepcopy(scenario)
-            std_result = rsim_run(std_scenario)
-            standard_output.set(std_result)
-            ibm_switching.set(used)
-
-            _notify_legacy("Running IBM-enhanced Ecosim...", type="message", duration=2)
-
-            # Run IBM-enhanced Ecosim
-            ibm_scenario = copy.deepcopy(scenario)
-
-            # Inject IBM group into scenario
-            if not hasattr(ibm_scenario.params, "ibm_groups"):
-                ibm_scenario.params.ibm_groups = {}
-            # Re-initialize IBM for the fresh run
-            from pypath.ibm import SmeltIBM
-
-            ibm_fresh = SmeltIBM(
+            spec = IbmRunSpec(
                 group_index=ibm.group_index,
                 n_groups=ibm.n_groups,
                 params=ibm.params,
+                n_super=len(ibm.individuals),
             )
-            biomass = float(ibm_scenario.params.B_BaseRef[ibm.group_index])
-            ibm_fresh.initialize_from_ecosim(
-                biomass=biomass,
-                params={},
-                n_super_individuals=len(ibm.individuals),
-            )
-            ibm_scenario.params.ibm_groups[ibm.group_index] = ibm_fresh
-
-            ibm_result = rsim_run(ibm_scenario)
-            ibm_enhanced_output.set(ibm_result)
-
-            _notify_legacy("Comparison run complete!", type="message", duration=3)
-
-        except Exception as e:
-            logger.error("IBM comparison run failed: %s", e, exc_info=True)
+            # The worker integrates copies: the page's scenario stays usable
+            # while the comparison computes.
+            run_scenario = copy.deepcopy(scenario)
+            control = RunControl()
+            launched.update(id=next(launch_ids), control=control)
             _notify_legacy(
-                f"IBM run failed: {e!s}",
-                type="error",
-                duration=8,
+                "Running standard and IBM-enhanced Ecosim...",
+                type="message",
+                duration=3,
             )
+            _ibm_task.invoke(
+                launched["id"],
+                scenario,
+                ibm,
+                run_scenario,
+                spec,
+                used=used,
+                slot=run_slot,
+                control=control,
+            )
+        except Exception as e:
+            logger.error("IBM comparison could not start: %s", e, exc_info=True)
+            _notify_legacy(f"IBM run failed: {e!s}", type="error", duration=8)
+
+    def _land_ibm_result(outcome: IbmOutcome) -> None:
+        """Put a finished comparison on the page."""
+        standard_output.set(outcome.standard)
+        ibm_switching.set(outcome.switching)
+        ibm_enhanced_output.set(outcome.enhanced)
+        _notify_legacy("Comparison run complete!", type="message", duration=3)
+
+    @reactive.effect
+    def _apply_ibm_result():
+        """Land the task's outcome. Depends on the task's status only."""
+        status = _ibm_task.status()
+        with reactive.isolate():
+            if status == "success":
+                outcome = _ibm_task.result()
+                scenario = _sim_scenario() if _sim_scenario is not None else None
+                if ibm_result_is_current(
+                    launched["id"], outcome, scenario, ibm_group_instance()
+                ):
+                    _land_ibm_result(outcome)
+                else:
+                    # The page was not frozen during the run, and its scenario
+                    # or IBM was replaced: the result belongs to neither.
+                    _notify_legacy(
+                        "The scenario or the IBM changed during the comparison, "
+                        "so its result was discarded. Run it again.",
+                        type="warning",
+                        duration=8,
+                    )
+            elif status == "error":
+                try:
+                    _ibm_task.result()
+                except RunCancelled as e:
+                    logger.debug("IBM comparison stopped: %s", e)
+                except Exception as e:
+                    logger.error("IBM comparison run failed: %s", e, exc_info=True)
+                    _notify_legacy(f"IBM run failed: {e!s}", type="error", duration=8)
+            # "cancelled": only a closed session cancels, and it shows nothing.
 
     # ----------------------------------------------------------------
     # Renderers

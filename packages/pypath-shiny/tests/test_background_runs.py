@@ -1,0 +1,225 @@
+"""Tests for services/background_runs.py: the Ecospace and IBM worker
+functions and the checks that decide whether a finished run may still land."""
+
+import ast
+from pathlib import Path
+
+import numpy as np
+import pytest
+from pypath.spatial import EcospaceParams, create_regular_grid, rsim_run_spatial
+
+from pypath_shiny.pages import ecospace as ecospace_page
+from pypath_shiny.pages import ibm as ibm_page
+from pypath_shiny.pages.ecospace import page_ecospace_arrays
+from pypath_shiny.services import background_runs as runs
+from pypath_shiny.services.ecosim_solver import RunControl
+from pypath_shiny.services.tasks import TaskStatus, finish_task, new_running_task
+from tests.test_ecospace_page import _fished_scenario
+
+
+def _spatial_inputs():
+    scenario = _fished_scenario()
+    grid = create_regular_grid(bounds=(0, 0, 3, 1), nx=3, ny=1)
+    eco = EcospaceParams(
+        grid=grid,
+        **page_ecospace_arrays(
+            np.array([0.2, 0.6, 1.0]),
+            scenario.params.NUM_GROUPS,
+            dispersal_rate=5.0,
+            advection=False,
+            gravity=0.0,
+        ),
+    )
+    return scenario, grid, eco
+
+
+# --- Ecospace worker ---------------------------------------------------
+
+
+def test_run_spatial_gives_the_direct_run():
+    scenario, _, eco = _spatial_inputs()
+    direct = rsim_run_spatial(_fished_scenario(), ecospace=eco)
+    worker = runs.run_spatial(scenario, eco, None)
+    np.testing.assert_array_equal(
+        worker.out_Biomass_spatial, direct.out_Biomass_spatial
+    )
+
+
+# --- Ecospace staleness ------------------------------------------------
+
+
+def _spatial_outcome(run_id="spatial-run-1"):
+    scenario, grid, _ = _spatial_inputs()
+    return runs.SpatialOutcome(
+        run_id=run_id, source=scenario, grid=grid, output=object(), switching=None
+    )
+
+
+def test_spatial_result_lands_while_nothing_changed():
+    outcome = _spatial_outcome()
+    state = new_running_task(outcome.run_id, "Running")
+    assert runs.spatial_result_is_current(state, outcome, outcome.source, outcome.grid)
+
+
+def test_spatial_result_is_dropped_after_a_grid_change():
+    # The page is no longer frozen during a run, so the grid can be replaced
+    # under it: a result with the old patch count must not reach the maps.
+    outcome = _spatial_outcome()
+    state = new_running_task(outcome.run_id, "Running")
+    other_grid = create_regular_grid(bounds=(0, 0, 2, 1), nx=2, ny=1)
+    assert not runs.spatial_result_is_current(
+        state, outcome, outcome.source, other_grid
+    )
+    assert not runs.spatial_result_is_current(state, outcome, outcome.source, None)
+
+
+def test_spatial_result_is_dropped_after_a_scenario_change():
+    outcome = _spatial_outcome()
+    state = new_running_task(outcome.run_id, "Running")
+    assert not runs.spatial_result_is_current(
+        state, outcome, _fished_scenario(), outcome.grid
+    )
+    assert not runs.spatial_result_is_current(state, outcome, None, outcome.grid)
+
+
+def test_spatial_result_is_dropped_when_superseded_or_finished():
+    outcome = _spatial_outcome()
+    newer = new_running_task("spatial-run-2", "Running")
+    assert not runs.spatial_result_is_current(
+        newer, outcome, outcome.source, outcome.grid
+    )
+    done = finish_task(
+        new_running_task(outcome.run_id, "Running"), success=False, message="x"
+    )
+    assert done.status is not TaskStatus.RUNNING
+    assert not runs.spatial_result_is_current(
+        done, outcome, outcome.source, outcome.grid
+    )
+
+
+# --- IBM worker --------------------------------------------------------
+
+
+class _FakeIbm:
+    """Stands in for SmeltIBM: records how it was built and initialised."""
+
+    def __init__(self, group_index, n_groups, params):
+        self.built = (group_index, n_groups, params)
+        self.initialised = None
+
+    def initialize_from_ecosim(self, biomass, params, n_super_individuals):
+        self.initialised = (biomass, params, n_super_individuals)
+
+
+@pytest.fixture
+def ibm_calls(monkeypatch):
+    calls = []
+
+    def fake_rsim_run(scenario, **kwargs):
+        calls.append((scenario, kwargs))
+        return f"output-{len(calls)}"
+
+    monkeypatch.setattr(runs, "rsim_run", fake_rsim_run)
+    monkeypatch.setattr(runs, "SmeltIBM", _FakeIbm)
+    return calls
+
+
+def test_ibm_comparison_runs_standard_then_ibm_on_separate_copies(ibm_calls):
+    scenario = _fished_scenario()
+    spec = runs.IbmRunSpec(group_index=1, n_groups=4, params="P", n_super=7)
+
+    standard, enhanced = runs.run_ibm_comparison(scenario, spec)
+
+    assert (standard, enhanced) == ("output-1", "output-2")
+    std_scen, ibm_scen = ibm_calls[0][0], ibm_calls[1][0]
+    # Neither run touches the caller's scenario, nor each other's.
+    assert std_scen is not scenario and ibm_scen is not scenario
+    assert std_scen is not ibm_scen
+    assert not getattr(std_scen.params, "ibm_groups", None)
+    assert not getattr(scenario.params, "ibm_groups", None)
+    fresh = ibm_scen.params.ibm_groups[1]
+    assert fresh.built == (1, 4, "P")
+    biomass = float(scenario.params.B_BaseRef[1])
+    assert fresh.initialised == (biomass, {}, 7)
+
+
+def test_ibm_comparison_hands_the_stop_hook_to_both_runs(ibm_calls):
+    control = RunControl()
+    spec = runs.IbmRunSpec(group_index=1, n_groups=4, params="P", n_super=7)
+    runs.run_ibm_comparison(_fished_scenario(), spec, control=control)
+    assert [c[1].get("on_month") for c in ibm_calls] == [control.on_month] * 2
+
+
+def test_ibm_comparison_without_control_passes_no_hook(ibm_calls):
+    spec = runs.IbmRunSpec(group_index=1, n_groups=4, params="P", n_super=7)
+    runs.run_ibm_comparison(_fished_scenario(), spec)
+    assert all("on_month" not in c[1] for c in ibm_calls)
+
+
+def test_ibm_result_is_current_needs_the_same_scenario_and_ibm():
+    scenario, ibm = _fished_scenario(), object()
+    outcome = runs.IbmOutcome(
+        run_id=3, source=scenario, ibm=ibm, standard="s", enhanced="e", switching=None
+    )
+    assert runs.ibm_result_is_current(3, outcome, scenario, ibm)
+    assert not runs.ibm_result_is_current(4, outcome, scenario, ibm)
+    assert not runs.ibm_result_is_current(3, outcome, _fished_scenario(), ibm)
+    assert not runs.ibm_result_is_current(3, outcome, scenario, object())
+    assert not runs.ibm_result_is_current(3, outcome, None, ibm)
+
+
+# --- The pages run off the event loop ----------------------------------
+
+
+def _functions(page):
+    tree = ast.parse(Path(page.__file__).read_text(encoding="utf-8"))
+    return {
+        f.name: f
+        for f in ast.walk(tree)
+        if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+
+def _decorators(fn):
+    return [ast.unparse(d) for d in fn.decorator_list]
+
+
+@pytest.mark.parametrize(
+    "page,launcher,task,heavy",
+    [
+        (ecospace_page, "_run_spatial_simulation", "_spatial_task", "rsim_run_spatial"),
+        (ibm_page, "_run_comparison", "_ibm_task", "rsim_run"),
+    ],
+)
+def test_the_launch_effect_does_not_integrate_on_the_event_loop(
+    page, launcher, task, heavy
+):
+    fns = _functions(page)
+    launch = ast.unparse(fns[launcher])
+    # The effect only prepares and invokes; the integration is the task's.
+    assert f"{heavy}(" not in launch
+    assert f"{task}.invoke(" in launch
+    assert "reactive.extended_task" in _decorators(fns[task])
+    body = ast.unparse(fns[task])
+    assert "RUN_EXECUTOR.submit(" in body and "wrap_future" in body
+    # The worker reads no input and sends no notification.
+    assert "input." not in body and "_notify" not in body
+
+
+@pytest.mark.parametrize(
+    "page,launcher,task",
+    [
+        (ecospace_page, "_run_spatial_simulation", "_spatial_task"),
+        (ibm_page, "_run_comparison", "_ibm_task"),
+    ],
+)
+def test_a_second_click_is_refused_while_a_run_is_in_flight(page, launcher, task):
+    launch = ast.unparse(_functions(page)[launcher])
+    guard = launch.split(f"{task}.invoke(")[0]
+    assert f"{task}.status() == 'running'" in guard
+    assert "run_slot.busy" in guard
+
+
+@pytest.mark.parametrize("page", [ecospace_page, ibm_page])
+def test_a_closed_session_cancels_its_run(page):
+    assert "session.on_ended(" in Path(page.__file__).read_text(encoding="utf-8")
