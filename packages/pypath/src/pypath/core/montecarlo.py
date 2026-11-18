@@ -8,18 +8,17 @@ results are the serial run's, sample for sample.
 from __future__ import annotations
 
 import logging
-import multiprocessing
-import numbers
-import os
-import sys
 import warnings
-from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import pandas as pd
+
+from pypath.core._parallel import NUMPY_DEFAULT_ERRSTATE as _NUMPY_DEFAULT_ERRSTATE
+from pypath.core._parallel import mp_context as _mp_context
+from pypath.core._parallel import outputs_in_order
+from pypath.core._parallel import resolve_n_jobs as _resolve_n_jobs
 
 if TYPE_CHECKING:
     from pypath.core.params import RpathParams
@@ -142,14 +141,6 @@ class MCResult:
         }
 
 
-# numpy's default floating-point error handling. Each evaluation runs under it
-# with warnings ignored, so its outcome does not depend on the process it runs
-# in: a worker does not inherit the caller's warning filters or np.seterr.
-_NUMPY_DEFAULT_ERRSTATE = dict(
-    divide="warn", over="warn", under="ignore", invalid="warn"
-)
-
-
 def _run_single_ecopath(sampled_params, eco_area):
     """Run a single Ecopath mass balance, return result or None."""
     from pypath.core.ecopath import rpath
@@ -179,47 +170,6 @@ def _run_single_ecosim(rpath_result, sampled_params, config):
             return result.out_Biomass
     except Exception:
         return None
-
-
-def _resolve_n_jobs(n_jobs, n_samples: int) -> int:
-    """Number of worker processes for ``n_jobs``: 1 runs serially.
-
-    ``n_jobs`` >= 1 asks for that many workers and -1 for one per CPU this
-    process may use. The count never exceeds the number of samples, nor 61 on
-    Windows (ProcessPoolExecutor's limit there), and is at least 1.
-    """
-    if isinstance(n_jobs, bool) or not isinstance(n_jobs, numbers.Integral):
-        raise ValueError(f"n_jobs must be an integer >= 1 or -1, not {n_jobs!r}")
-    if n_jobs == -1:
-        wanted = _usable_cpus()
-    elif n_jobs >= 1:
-        wanted = int(n_jobs)
-    else:
-        raise ValueError(f"n_jobs must be an integer >= 1 or -1, not {n_jobs!r}")
-    if sys.platform == "win32":
-        wanted = min(wanted, 61)
-    return max(1, min(wanted, n_samples))
-
-
-def _usable_cpus() -> int:
-    """CPUs this process may run on (affinity, cgroup masks), at least 1."""
-    if hasattr(os, "process_cpu_count"):  # Python 3.13+
-        return os.process_cpu_count() or 1
-    if hasattr(os, "sched_getaffinity"):
-        return len(os.sched_getaffinity(0)) or 1
-    return os.cpu_count() or 1
-
-
-def _mp_context(name: str | None):
-    """The workers' start method: forkserver on Linux, spawn on macOS and
-    Windows (CPython's own defaults from 3.14), or the one named."""
-    if name is None:
-        methods = multiprocessing.get_all_start_methods()
-        if sys.platform in ("darwin", "win32") or "forkserver" not in methods:
-            name = "spawn"
-        else:
-            name = "forkserver"
-    return multiprocessing.get_context(name)
 
 
 def _evaluate_sample(params, sample, config, n_groups):
@@ -314,24 +264,23 @@ def run_montecarlo(
     n_feasible = 0
     n_ecosim = 0
 
-    pool = None
-    finished = False
-    try:
-        if n_workers == 1:
-            outcomes = (_evaluate_sample(params, s, config, n_groups) for s in samples)
-        else:
-            # Workers get the model and config once; map keeps sample order.
-            # One sample per task: an evaluation dwarfs the IPC, and a run
-            # that stops early (an error, or a raising progress callback)
-            # leaves little queued work behind.
-            pool = ProcessPoolExecutor(
-                max_workers=n_workers,
-                mp_context=mp_context,
-                initializer=_init_worker,
-                initargs=(params, config, n_groups),
-            )
-            outcomes = pool.map(_evaluate_in_worker, samples)
-
+    with outputs_in_order(
+        _evaluate_in_worker,
+        samples,
+        n_workers=n_workers,
+        context=mp_context,
+        serial=lambda sample: _evaluate_sample(params, sample, config, n_groups),
+        # Workers get the model and config once; each task carries a sample
+        initializer=_init_worker,
+        initargs=(params, config, n_groups),
+        broken_message=(
+            "A Monte Carlo worker process died. It may have run out of memory, "
+            "or failed to unpickle the model or the mediation: a mediation "
+            "class must be importable from a module, not defined in a notebook "
+            "or in __main__. Try n_jobs=1, or mp_context='fork' from a "
+            "single-threaded script."
+        ),
+    ) as outcomes:
         for i, (feasible, bio, ecosim_bio) in enumerate(outcomes):
             if feasible:
                 n_feasible += 1
@@ -351,19 +300,6 @@ def run_montecarlo(
 
             if progress_callback is not None:
                 progress_callback(i + 1, config.n_samples)
-        finished = True
-    except BrokenProcessPool as exc:
-        raise BrokenProcessPool(
-            "A Monte Carlo worker process died. It may have run out of memory, "
-            "or failed to unpickle the model or the mediation: a mediation "
-            "class must be importable from a module, not defined in a notebook "
-            "or in __main__. Try n_jobs=1, or mp_context='fork' from a "
-            "single-threaded script."
-        ) from exc
-    finally:
-        if pool is not None:
-            # After an error, return without waiting for running samples
-            pool.shutdown(wait=finished, cancel_futures=True)
 
     # Compute ecopath statistics
     ecopath_stats = {}
