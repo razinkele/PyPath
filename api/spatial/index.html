@@ -22771,13 +22771,7 @@ switches it on.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">237</span>
 <span class="normal">238</span>
 <span class="normal">239</span>
 <span class="normal">240</span>
@@ -23102,62 +23096,7 @@ switches it on.</p>
 <span class="normal">559</span>
 <span class="normal">560</span>
 <span class="normal">561</span>
-<span class="normal">562</span>
-<span class="normal">563</span>
-<span class="normal">564</span>
-<span class="normal">565</span>
-<span class="normal">566</span>
-<span class="normal">567</span>
-<span class="normal">568</span>
-<span class="normal">569</span>
-<span class="normal">570</span>
-<span class="normal">571</span>
-<span class="normal">572</span>
-<span class="normal">573</span>
-<span class="normal">574</span>
-<span class="normal">575</span>
-<span class="normal">576</span>
-<span class="normal">577</span>
-<span class="normal">578</span>
-<span class="normal">579</span>
-<span class="normal">580</span>
-<span class="normal">581</span>
-<span class="normal">582</span>
-<span class="normal">583</span>
-<span class="normal">584</span>
-<span class="normal">585</span>
-<span class="normal">586</span>
-<span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span>
-<span class="normal">595</span>
-<span class="normal">596</span>
-<span class="normal">597</span>
-<span class="normal">598</span>
-<span class="normal">599</span>
-<span class="normal">600</span>
-<span class="normal">601</span>
-<span class="normal">602</span>
-<span class="normal">603</span>
-<span class="normal">604</span>
-<span class="normal">605</span>
-<span class="normal">606</span>
-<span class="normal">607</span>
-<span class="normal">608</span>
-<span class="normal">609</span>
-<span class="normal">610</span>
-<span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span>
-<span class="normal">615</span>
-<span class="normal">616</span>
-<span class="normal">617</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
+<span class="normal">562</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
     <span class="n">state_spatial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
@@ -23325,7 +23264,7 @@ switches it on.</p>
     <span class="n">_eat_eff_patches</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_eat_eff_patches"</span><span class="p">)</span>
     <span class="n">_saved_params</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">_space_cal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">_saved_params</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_space_cal</span><span class="p">}</span>
+        <span class="n">_saved_params</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">_MISSING</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_space_cal</span><span class="p">}</span>
         <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_space_cal</span><span class="p">)</span>
         <span class="n">params_need_modification</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="n">mpa_cap_mult</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_eat_eff_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -23414,126 +23353,65 @@ switches it on.</p>
     <span class="c1"># EwE6 handling time: each patch's Hden column (updated in place)</span>
     <span class="n">_hden_patches</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_hden_patches"</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_patch</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">,</span> <span class="n">patch_params</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Compute local Ecosim derivative for a single patch.</span>
-
-<span class="sd">        Each call receives its own *patch_params* dict so that concurrent</span>
-<span class="sd">        threads never share mutable state.</span>
-<span class="sd">        """</span>
-        <span class="n">state_patch</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
-        <span class="k">if</span> <span class="n">_space_cal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_eat_eff_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_eat_eff"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_eat_eff_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">_mediation_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">patch_params</span><span class="p">[</span><span class="s2">"_mediation_density_scale"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_mediation_scale</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
-            <span class="n">patch_params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_ref_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
-            <span class="n">patch_params</span><span class="p">[</span><span class="s2">"Bbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_ref_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">capacity_overlap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">patch_params</span><span class="p">[</span><span class="s2">"QQbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_patch_qq_base</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">)</span>
-        <span class="n">rates</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">rates_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="n">deriv_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">_local_deriv</span><span class="p">(</span>
-            <span class="n">state_patch</span><span class="p">,</span>
-            <span class="n">patch_params</span><span class="p">,</span>
-            <span class="n">_patch_forcing</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">),</span>
-            <span class="n">fishing</span><span class="p">,</span>
-            <span class="n">t</span><span class="p">,</span>
-            <span class="n">patch_share</span><span class="p">,</span>
-            <span class="n">patch_idx</span><span class="p">,</span>
-            <span class="n">rates</span><span class="o">=</span><span class="n">rates</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">_store_rates</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">,</span> <span class="n">rates</span><span class="p">)</span>
-
     <span class="c1"># EcospaceParams.detritus_pass_on reaches each patch's derivative; a value</span>
     <span class="c1"># the caller set (rsim_run_spatial does) is kept</span>
     <span class="n">_pass_on_added</span> <span class="o">=</span> <span class="s2">"_detritus_pass_on"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">params</span>
     <span class="k">if</span> <span class="n">_pass_on_added</span><span class="p">:</span>
         <span class="n">params</span><span class="p">[</span><span class="s2">"_detritus_pass_on"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="s2">"detritus_pass_on"</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
 
+    <span class="c1"># The loop writes each patch's values into the shared params dict. What</span>
+    <span class="c1"># was there goes back afterwards and a key the caller did not have is</span>
+    <span class="c1"># removed, so the dict comes back as it went in (a patch's _hden is a view</span>
+    <span class="c1"># into its own Hden column). Each patch takes its values from arrays made</span>
+    <span class="c1"># before the loop, so nothing needs restoring between patches.</span>
+    <span class="n">_per_patch_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"_hden"</span><span class="p">,</span> <span class="s2">"_eat_eff"</span><span class="p">,</span> <span class="s2">"_mediation_density_scale"</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
+        <span class="n">_per_patch_keys</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">,</span> <span class="s2">"Bbase"</span><span class="p">,</span> <span class="s2">"QQbase"</span><span class="p">]</span>
+    <span class="n">_prior</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">_MISSING</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_per_patch_keys</span><span class="p">}</span>
+
     <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># Parallelize across patches when numba is active (GIL-free kernels)</span>
-        <span class="c1"># and there are enough patches to amortize thread-pool overhead.</span>
-        <span class="n">_use_parallel</span> <span class="o">=</span> <span class="n">n_patches</span> <span class="o">&gt;</span> <span class="mi">4</span> <span class="ow">and</span> <span class="n">HAS_NUMBA</span>
+        <span class="c1"># Patches run one after another on this thread. The per-patch step is</span>
+        <span class="c1"># Python (deriv_vector), so threads cannot run patches in parallel</span>
+        <span class="c1"># under the GIL; a thread pool here only added overhead and was</span>
+        <span class="c1"># removed after profiling (2026-11-17).</span>
+        <span class="k">for</span> <span class="n">patch_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_patches</span><span class="p">):</span>
+            <span class="n">state_patch</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
+            <span class="n">patch_forcing</span> <span class="o">=</span> <span class="n">_patch_forcing</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">)</span>
+            <span class="n">rates</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">rates_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
+            <span class="k">if</span> <span class="n">_space_cal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_eat_eff_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">params</span><span class="p">[</span><span class="s2">"_eat_eff"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_eat_eff_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">_mediation_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">params</span><span class="p">[</span><span class="s2">"_mediation_density_scale"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_mediation_scale</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span>
 
-        <span class="k">if</span> <span class="n">_use_parallel</span><span class="p">:</span>
-            <span class="c1"># Each thread gets a shallow copy of the params dict so that</span>
-            <span class="c1"># per-patch B_BaseRef swaps are thread-safe.  The heavy arrays</span>
-            <span class="c1"># (ActiveLink, VV, DD, QQbase, _link_prey, _link_pred, ...) are</span>
-            <span class="c1"># shared read-only across threads.</span>
-            <span class="n">patch_params_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">params</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_patches</span><span class="p">)]</span>
-            <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">_N_WORKERS</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
-                <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">_compute_patch</span><span class="p">,</span> <span class="n">pidx</span><span class="p">,</span> <span class="n">patch_params_list</span><span class="p">[</span><span class="n">pidx</span><span class="p">])</span>
-                    <span class="k">for</span> <span class="n">pidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_patches</span><span class="p">)</span>
-                <span class="p">]</span>
-                <span class="c1"># Raise any exception that occurred in a worker thread.</span>
-                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">:</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Sequential fallback — reuse the same params dict (no copy needed</span>
-            <span class="c1"># when running single-threaded because B_BaseRef is restored after</span>
-            <span class="c1"># each iteration).</span>
-            <span class="k">for</span> <span class="n">patch_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_patches</span><span class="p">):</span>
-                <span class="n">state_patch</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
-                <span class="n">patch_forcing</span> <span class="o">=</span> <span class="n">_patch_forcing</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">)</span>
-                <span class="n">rates</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">rates_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-                <span class="k">if</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">params</span><span class="p">[</span><span class="s2">"_hden"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hden_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>  <span class="c1"># a view</span>
-                <span class="k">if</span> <span class="n">_space_cal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_eat_eff_patches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">params</span><span class="p">[</span><span class="s2">"_eat_eff"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_eat_eff_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
-                <span class="k">if</span> <span class="n">_mediation_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">params</span><span class="p">[</span><span class="s2">"_mediation_density_scale"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_mediation_scale</span><span class="p">[</span><span class="n">patch_idx</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
+                <span class="n">modified</span> <span class="o">=</span> <span class="n">b_base_ref_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
+                <span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span> <span class="o">=</span> <span class="n">modified</span>
+                <span class="n">params</span><span class="p">[</span><span class="s2">"Bbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">modified</span>
+                <span class="k">if</span> <span class="n">capacity_overlap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">params</span><span class="p">[</span><span class="s2">"QQbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_patch_qq_base</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">)</span>
 
-                <span class="k">if</span> <span class="n">params_need_modification</span><span class="p">:</span>
-                    <span class="n">b_base_ref_backup</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span>
-                    <span class="n">b_base_backup</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Bbase"</span><span class="p">)</span>
-                    <span class="n">qq_base_backup</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"QQbase"</span><span class="p">)</span>
-                    <span class="n">modified</span> <span class="o">=</span> <span class="n">b_base_ref_patches</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span>
-                    <span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span> <span class="o">=</span> <span class="n">modified</span>
-                    <span class="n">params</span><span class="p">[</span><span class="s2">"Bbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">modified</span>
-                    <span class="k">if</span> <span class="n">capacity_overlap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">params</span><span class="p">[</span><span class="s2">"QQbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_patch_qq_base</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">)</span>
-                    <span class="k">try</span><span class="p">:</span>
-                        <span class="n">deriv_local</span> <span class="o">=</span> <span class="n">_local_deriv</span><span class="p">(</span>
-                            <span class="n">state_patch</span><span class="p">,</span>
-                            <span class="n">params</span><span class="p">,</span>
-                            <span class="n">patch_forcing</span><span class="p">,</span>
-                            <span class="n">fishing</span><span class="p">,</span>
-                            <span class="n">t</span><span class="p">,</span>
-                            <span class="n">patch_share</span><span class="p">,</span>
-                            <span class="n">patch_idx</span><span class="p">,</span>
-                            <span class="n">rates</span><span class="o">=</span><span class="n">rates</span><span class="p">,</span>
-                        <span class="p">)</span>
-                    <span class="k">finally</span><span class="p">:</span>
-                        <span class="n">params</span><span class="p">[</span><span class="s2">"B_BaseRef"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_ref_backup</span>
-                        <span class="k">if</span> <span class="n">b_base_backup</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                            <span class="n">params</span><span class="p">[</span><span class="s2">"Bbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_base_backup</span>
-                        <span class="k">if</span> <span class="n">qq_base_backup</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                            <span class="n">params</span><span class="p">[</span><span class="s2">"QQbase"</span><span class="p">]</span> <span class="o">=</span> <span class="n">qq_base_backup</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">deriv_local</span> <span class="o">=</span> <span class="n">_local_deriv</span><span class="p">(</span>
-                        <span class="n">state_patch</span><span class="p">,</span>
-                        <span class="n">params</span><span class="p">,</span>
-                        <span class="n">patch_forcing</span><span class="p">,</span>
-                        <span class="n">fishing</span><span class="p">,</span>
-                        <span class="n">t</span><span class="p">,</span>
-                        <span class="n">patch_share</span><span class="p">,</span>
-                        <span class="n">patch_idx</span><span class="p">,</span>
-                        <span class="n">rates</span><span class="o">=</span><span class="n">rates</span><span class="p">,</span>
-                    <span class="p">)</span>
-
-                <span class="n">deriv_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">deriv_local</span>
-                <span class="n">_store_rates</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">,</span> <span class="n">rates</span><span class="p">)</span>
+            <span class="n">deriv_spatial</span><span class="p">[:,</span> <span class="n">patch_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">_local_deriv</span><span class="p">(</span>
+                <span class="n">state_patch</span><span class="p">,</span>
+                <span class="n">params</span><span class="p">,</span>
+                <span class="n">patch_forcing</span><span class="p">,</span>
+                <span class="n">fishing</span><span class="p">,</span>
+                <span class="n">t</span><span class="p">,</span>
+                <span class="n">patch_share</span><span class="p">,</span>
+                <span class="n">patch_idx</span><span class="p">,</span>
+                <span class="n">rates</span><span class="o">=</span><span class="n">rates</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">_store_rates</span><span class="p">(</span><span class="n">patch_idx</span><span class="p">,</span> <span class="n">rates</span><span class="p">)</span>
     <span class="k">finally</span><span class="p">:</span>
         <span class="c1"># Clean up injected spatial context keys</span>
         <span class="k">for</span> <span class="n">g_idx</span> <span class="ow">in</span> <span class="n">ibm_spatial_contexts</span><span class="p">:</span>
             <span class="n">params</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"_ibm_spatial_context_</span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="n">g_idx</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">params</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"_eat_eff"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">_restore_keys</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">_prior</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">_pass_on_added</span><span class="p">:</span>
             <span class="n">params</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"_detritus_pass_on"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">_saved_params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_saved_params</span><span class="p">)</span>
+            <span class="n">_restore_keys</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">_saved_params</span><span class="p">)</span>
 
     <span class="c1"># Step 2: Add spatial fluxes (movement/dispersal)</span>
     <span class="n">spatial_flux</span> <span class="o">=</span> <span class="n">calculate_spatial_flux</span><span class="p">(</span>
@@ -23826,7 +23704,62 @@ in the derivative, as before B3; it is stable only to about
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 700</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 645</span>
+<span class="normal"> 646</span>
+<span class="normal"> 647</span>
+<span class="normal"> 648</span>
+<span class="normal"> 649</span>
+<span class="normal"> 650</span>
+<span class="normal"> 651</span>
+<span class="normal"> 652</span>
+<span class="normal"> 653</span>
+<span class="normal"> 654</span>
+<span class="normal"> 655</span>
+<span class="normal"> 656</span>
+<span class="normal"> 657</span>
+<span class="normal"> 658</span>
+<span class="normal"> 659</span>
+<span class="normal"> 660</span>
+<span class="normal"> 661</span>
+<span class="normal"> 662</span>
+<span class="normal"> 663</span>
+<span class="normal"> 664</span>
+<span class="normal"> 665</span>
+<span class="normal"> 666</span>
+<span class="normal"> 667</span>
+<span class="normal"> 668</span>
+<span class="normal"> 669</span>
+<span class="normal"> 670</span>
+<span class="normal"> 671</span>
+<span class="normal"> 672</span>
+<span class="normal"> 673</span>
+<span class="normal"> 674</span>
+<span class="normal"> 675</span>
+<span class="normal"> 676</span>
+<span class="normal"> 677</span>
+<span class="normal"> 678</span>
+<span class="normal"> 679</span>
+<span class="normal"> 680</span>
+<span class="normal"> 681</span>
+<span class="normal"> 682</span>
+<span class="normal"> 683</span>
+<span class="normal"> 684</span>
+<span class="normal"> 685</span>
+<span class="normal"> 686</span>
+<span class="normal"> 687</span>
+<span class="normal"> 688</span>
+<span class="normal"> 689</span>
+<span class="normal"> 690</span>
+<span class="normal"> 691</span>
+<span class="normal"> 692</span>
+<span class="normal"> 693</span>
+<span class="normal"> 694</span>
+<span class="normal"> 695</span>
+<span class="normal"> 696</span>
+<span class="normal"> 697</span>
+<span class="normal"> 698</span>
+<span class="normal"> 699</span>
+<span class="normal"> 700</span>
 <span class="normal"> 701</span>
 <span class="normal"> 702</span>
 <span class="normal"> 703</span>
@@ -24523,62 +24456,7 @@ in the derivative, as before B3; it is stable only to about
 <span class="normal">1394</span>
 <span class="normal">1395</span>
 <span class="normal">1396</span>
-<span class="normal">1397</span>
-<span class="normal">1398</span>
-<span class="normal">1399</span>
-<span class="normal">1400</span>
-<span class="normal">1401</span>
-<span class="normal">1402</span>
-<span class="normal">1403</span>
-<span class="normal">1404</span>
-<span class="normal">1405</span>
-<span class="normal">1406</span>
-<span class="normal">1407</span>
-<span class="normal">1408</span>
-<span class="normal">1409</span>
-<span class="normal">1410</span>
-<span class="normal">1411</span>
-<span class="normal">1412</span>
-<span class="normal">1413</span>
-<span class="normal">1414</span>
-<span class="normal">1415</span>
-<span class="normal">1416</span>
-<span class="normal">1417</span>
-<span class="normal">1418</span>
-<span class="normal">1419</span>
-<span class="normal">1420</span>
-<span class="normal">1421</span>
-<span class="normal">1422</span>
-<span class="normal">1423</span>
-<span class="normal">1424</span>
-<span class="normal">1425</span>
-<span class="normal">1426</span>
-<span class="normal">1427</span>
-<span class="normal">1428</span>
-<span class="normal">1429</span>
-<span class="normal">1430</span>
-<span class="normal">1431</span>
-<span class="normal">1432</span>
-<span class="normal">1433</span>
-<span class="normal">1434</span>
-<span class="normal">1435</span>
-<span class="normal">1436</span>
-<span class="normal">1437</span>
-<span class="normal">1438</span>
-<span class="normal">1439</span>
-<span class="normal">1440</span>
-<span class="normal">1441</span>
-<span class="normal">1442</span>
-<span class="normal">1443</span>
-<span class="normal">1444</span>
-<span class="normal">1445</span>
-<span class="normal">1446</span>
-<span class="normal">1447</span>
-<span class="normal">1448</span>
-<span class="normal">1449</span>
-<span class="normal">1450</span>
-<span class="normal">1451</span>
-<span class="normal">1452</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1397</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
