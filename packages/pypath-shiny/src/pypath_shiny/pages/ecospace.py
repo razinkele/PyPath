@@ -39,6 +39,8 @@ from pypath_shiny.config import SPATIAL
 from pypath_shiny.services.background_runs import (
     SpatialOutcome,
     run_spatial,
+    scenario_changed_since,
+    scenario_fingerprint,
     spatial_result_is_current,
 )
 
@@ -1456,7 +1458,15 @@ def ecospace_server(
 
     @reactive.extended_task
     async def _spatial_task(
-        run_id, source, source_grid, scen, ecospace_params, spatial_fishing, used, slot
+        run_id,
+        source,
+        source_grid,
+        scen,
+        ecospace_params,
+        spatial_fishing,
+        used,
+        slot,
+        fingerprint,
     ):
         """Integrate on a worker thread, off the event loop.
 
@@ -1471,7 +1481,7 @@ def ecospace_server(
         )
         slot.acquire(future)
         out = await asyncio.wrap_future(future)
-        return SpatialOutcome(run_id, source, source_grid, out, used)
+        return SpatialOutcome(run_id, source, source_grid, out, used, fingerprint)
 
     # A closed or reloaded tab must not leave its run queued for a worker with
     # no owner. A run already computing finishes and its result is dropped.
@@ -1593,6 +1603,7 @@ def ecospace_server(
                 spatial_fishing=spatial_fishing,
                 used=used,
                 slot=run_slot,
+                fingerprint=scenario_fingerprint(scenario),
             )
 
         except Exception as e:
@@ -1638,6 +1649,16 @@ def ecospace_server(
         ui.update_slider("animation_time", max=n_timesteps, value=0)
 
         _notify_legacy("Spatial simulation complete!", type="message", duration=3)
+        if scenario_changed_since(outcome, scenario):
+            # The page's scenario is edited in place (the Ecosim page's forcing
+            # card, for one), so the same object can hold other values now.
+            _notify_legacy(
+                "The Ecosim scenario's forcing, fishing or parameters changed "
+                "after this run started; the result shows the settings at the "
+                "start.",
+                type="warning",
+                duration=10,
+            )
         _finish_spatial_run(
             outcome.run_id,
             success=True,

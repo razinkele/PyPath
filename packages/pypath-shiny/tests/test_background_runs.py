@@ -223,3 +223,85 @@ def test_a_second_click_is_refused_while_a_run_is_in_flight(page, launcher, task
 @pytest.mark.parametrize("page", [ecospace_page, ibm_page])
 def test_a_closed_session_cancels_its_run(page):
     assert "session.on_ended(" in Path(page.__file__).read_text(encoding="utf-8")
+
+
+# --- The scenario was edited in place after the run started -------------
+
+
+def test_fingerprint_is_stable_for_an_untouched_scenario():
+    scenario = _fished_scenario()
+    first = runs.scenario_fingerprint(scenario)
+    assert first and first == runs.scenario_fingerprint(scenario)
+    # A deep copy has the same content, so the same fingerprint.
+    import copy
+
+    assert runs.scenario_fingerprint(copy.deepcopy(scenario)) == first
+
+
+def test_fingerprint_changes_with_an_in_place_forcing_edit():
+    # The Ecosim page's Biomass Forcing card edits ForcedPrey in place when an
+    # Ecosim run starts: the scenario object stays the same, its content not.
+    from pypath_shiny.pages.ecosim import apply_prey_forcing
+
+    scenario = _fished_scenario()
+    before = runs.scenario_fingerprint(scenario)
+    assert apply_prey_forcing(scenario, "Plankton", 2.0)
+    assert runs.scenario_fingerprint(scenario) != before
+    # Back at a multiplier of 1 the content, and so the fingerprint, returns.
+    apply_prey_forcing(scenario, "Plankton", 1.0)
+    assert runs.scenario_fingerprint(scenario) == before
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda s: s.fishing.ForcedEffort.__setitem__((0, 1), 3.0),
+        lambda s: s.fishing.ForcedFRate.__setitem__((0, 1), 0.7),
+        lambda s: s.forcing.ForcedMort.__setitem__((5, 1), 1.5),
+        lambda s: s.params.VV.__setitem__(1, s.params.VV[1] * 2),
+    ],
+    ids=["effort", "frate", "mortality", "vulnerability"],
+)
+def test_fingerprint_changes_with_other_in_place_edits(edit):
+    scenario = _fished_scenario()
+    before = runs.scenario_fingerprint(scenario)
+    edit(scenario)
+    assert runs.scenario_fingerprint(scenario) != before
+
+
+def test_scenario_changed_since_compares_with_the_launch_fingerprint():
+    scenario, grid, _ = _spatial_inputs()
+    outcome = runs.SpatialOutcome(
+        run_id="r",
+        source=scenario,
+        grid=grid,
+        output=object(),
+        switching=None,
+        fingerprint=runs.scenario_fingerprint(scenario),
+    )
+    assert not runs.scenario_changed_since(outcome, scenario)
+    scenario.fishing.ForcedEffort[0, 1] = 3.0
+    assert runs.scenario_changed_since(outcome, scenario)
+    # An outcome without a fingerprint makes no claim.
+    bare = runs.SpatialOutcome("r", scenario, grid, object(), None)
+    assert not runs.scenario_changed_since(bare, scenario)
+
+
+@pytest.mark.parametrize(
+    "page,launcher,lander",
+    [
+        (ecospace_page, "_run_spatial_simulation", "_land_spatial_result"),
+        (ibm_page, "_run_comparison", "_land_ibm_result"),
+    ],
+)
+def test_the_pages_take_the_fingerprint_at_launch_and_note_a_change(
+    page, launcher, lander
+):
+    fns = _functions(page)
+    launch = ast.unparse(fns[launcher])
+    assert "scenario_fingerprint(scenario)" in launch
+    assert "fingerprint=" in launch.split(".invoke(")[1]
+    land = ast.unparse(fns[lander])
+    assert "scenario_changed_since(" in land
+    # The result still lands: the note comes with it, it does not replace it.
+    assert ".set(" in land and "changed after this run started" in land

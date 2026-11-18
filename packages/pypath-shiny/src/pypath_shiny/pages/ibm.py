@@ -26,6 +26,8 @@ from pypath_shiny.services.background_runs import (
     IbmRunSpec,
     ibm_result_is_current,
     run_ibm_comparison,
+    scenario_changed_since,
+    scenario_fingerprint,
 )
 from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunControl, RunSlot
 from pypath_shiny.services.notifications import (
@@ -560,7 +562,9 @@ def ibm_server(
     launched = {"id": 0, "control": None}
 
     @reactive.extended_task
-    async def _ibm_task(run_id, source, ibm, scen, spec, used, slot, control):
+    async def _ibm_task(
+        run_id, source, ibm, scen, spec, used, slot, control, fingerprint
+    ):
         """Run both simulations on a worker thread, off the event loop.
 
         ``scen`` is a deep copy of ``source``, the page's scenario object. The
@@ -571,7 +575,7 @@ def ibm_server(
         future = RUN_EXECUTOR.submit(run_ibm_comparison, scen, spec, control=control)
         slot.acquire(future)
         standard, enhanced = await asyncio.wrap_future(future)
-        return IbmOutcome(run_id, source, ibm, standard, enhanced, used)
+        return IbmOutcome(run_id, source, ibm, standard, enhanced, used, fingerprint)
 
     def _stop_comparison() -> None:
         """Stop the session's comparison at its next month boundary."""
@@ -642,6 +646,7 @@ def ibm_server(
                 used=used,
                 slot=run_slot,
                 control=control,
+                fingerprint=scenario_fingerprint(scenario),
             )
         except Exception as e:
             logger.error("IBM comparison could not start: %s", e, exc_info=True)
@@ -653,6 +658,16 @@ def ibm_server(
         ibm_switching.set(outcome.switching)
         ibm_enhanced_output.set(outcome.enhanced)
         _notify_legacy("Comparison run complete!", type="message", duration=3)
+        if scenario_changed_since(outcome, outcome.source):
+            # The page's scenario is edited in place (the Ecosim page's forcing
+            # card, for one), so the same object can hold other values now.
+            _notify_legacy(
+                "The Ecosim scenario's forcing, fishing or parameters changed "
+                "after this run started; the result shows the settings at the "
+                "start.",
+                type="warning",
+                duration=10,
+            )
 
     @reactive.effect
     def _apply_ibm_result():
