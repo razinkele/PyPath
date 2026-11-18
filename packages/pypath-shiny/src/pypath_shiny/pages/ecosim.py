@@ -505,7 +505,9 @@ def ecosim_ui() -> ui.Tag:
                     ui.p(
                         "Fast saves time only where the solver takes many steps a "
                         "month (Black Sea 37 %, REco 8 %); Reference costs 2-3.5 "
-                        "\u00d7 Default; continuous runs cost about 5-25 \u00d7 RK4.",
+                        "\u00d7 Default; continuous runs cost about 5-25 \u00d7 RK4 "
+                        "on the Python loop, about 15-55 \u00d7 with numba's "
+                        "consumption kernel (RK4 runs about 2-3 \u00d7 faster).",
                         class_="text-muted small",
                     ),
                     ui.accordion(
@@ -1731,11 +1733,15 @@ def ecosim_server(
                 ),
                 ui.h6("Running a Simulation"),
                 ui.p(
-                    "A continuous run costs about 5-25 \u00d7 RK4. At the "
-                    "default 50 years one takes about a minute (Lithuanian "
-                    "Coast, LSODA: 58 s against 15 s for RK4, measured "
-                    "2026-11-15). Runs go in the background, up to 2 at a "
-                    "time on the server, so a run may wait in a queue. Cancel "
+                    "A continuous run costs about 5-25 \u00d7 RK4 on the "
+                    "Python loop and about 15-55 \u00d7 with numba's "
+                    "consumption kernel, where RK4 itself runs about 2-3 "
+                    "\u00d7 faster. At the default 50 years one takes about a "
+                    "minute (Lithuanian Coast, LSODA: 58 s against 15 s for "
+                    "RK4, measured 2026-11-15 on the Python loop). Runs go in "
+                    "the background, up "
+                    "to 2 at a time on the server, so a run may wait in a "
+                    "queue. Cancel "
                     "stops the run at the end of its current month and "
                     "discards its result; a new run can start as soon as it "
                     "has stopped. Closing the tab cancels its run. Loading or "

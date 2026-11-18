@@ -74,6 +74,9 @@ dev = [
     "mypy>=1.0",
     "build>=1.0",
     "python-semantic-release>=9.0",
+    # So that CI runs the default numba consumption kernel and its
+    # equivalence tests; the fallback is tested with numba blocked.
+    "numba>=0.57",
 ]
 all = [
     "pypath-ewe[interactive,spatial,spatial-data,biodata,numba,ewedb,docs,dev]",

@@ -8,9 +8,16 @@ This module contains the core numerical routines for Ecosim simulation:
 - Primary production forcing
 
 These are ported from the C++ ecosim.cpp file in Rpath.
+
+The sparse consumption loop runs as a numba kernel
+(``_compute_consumption_sparse_numba``, bit-identical to the Python loop
+``_compute_consumption_sparse_python``) when numba is installed. Setting the
+environment variable ``PYPATH_NUMBA_CONSUMPTION=0`` (or ``false``, ``no``,
+``off``) before this module is imported keeps the Python loop.
 """
 
 import logging
+import os
 import warnings
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
@@ -352,8 +359,247 @@ def _compute_consumption_sparse_python(
             QQ[prey, pred] = 0.0
 
 
-# Disable numba for the sparse kernel — the new signature uses keyword args.
-_compute_consumption_sparse = _compute_consumption_sparse_python
+def _compute_consumption_sparse_flat(
+    QQ,
+    BB,
+    VV,
+    DD,
+    QQbase,
+    preyYY,
+    predYY,
+    link_prey,
+    link_pred,
+    n_links,
+    use_pooling,
+    ScrambleSelf,
+    HandleSelf,
+    PredPredWeight,
+    PreyPreyWeight,
+    use_hs,
+    HandleSwitch,
+    COUPLED,
+    use_med,
+    med_multipliers,
+    use_eat,
+    eat_eff,
+):
+    """:func:`_compute_consumption_sparse_python` in a form numba compiles.
+
+    The same arithmetic in the same order; each optional array comes as a
+    flag (``use_pooling``, ``use_hs``, ``use_med``, ``use_eat``) and an
+    array, a dummy when the flag is False. Called through
+    :func:`_compute_consumption_sparse_numba`.
+    """
+    n_g = QQ.shape[0]
+    PredSuite = np.zeros(n_g)
+    HandleSuite = np.zeros(n_g)
+    if use_pooling:
+        for idx in range(n_links):
+            prey = link_prey[idx]
+            pred = link_pred[idx]
+            pdy = predYY[pred] / eat_eff[pred] if use_eat else predYY[pred]
+            PredSuite[prey] += pdy * PredPredWeight[prey, pred]
+            HandleSuite[pred] += preyYY[prey] * PreyPreyWeight[prey, pred]
+
+    for idx in range(n_links):
+        prey = link_prey[idx]
+        pred = link_pred[idx]
+
+        if BB[prey] <= 0.0 or BB[pred] <= 0.0:
+            continue
+
+        qbase = QQbase[prey, pred]
+        if qbase <= 0.0:
+            continue
+
+        PYY = preyYY[prey]
+        PDY = predYY[pred]
+
+        vv = VV[prey, pred]
+        dd = DD[prey, pred]
+
+        hs_exp = 0.0
+        if use_hs:
+            hs_exp = HandleSwitch[prey, pred] * COUPLED
+
+        if hs_exp > 0.0:
+            pyy_safe = max(PYY, 1e-10)
+            PYY_term = pyy_safe**hs_exp
+        else:
+            PYY_term = PYY
+
+        if use_pooling:
+            Hself = HandleSelf[prey, pred]
+            dd_prey_eff = (1.0 - Hself) * PYY + Hself * HandleSuite[pred]
+        else:
+            dd_prey_eff = PYY
+        dd_prey_safe = max(dd_prey_eff, 1e-10)
+        if hs_exp > 0.0:
+            dd_denom = dd_prey_safe**hs_exp
+        else:
+            dd_denom = dd_prey_safe
+        dd_term = dd / max(dd - 1.0 + dd_denom, 1e-10)
+
+        pdy = predYY[pred] / eat_eff[pred] if use_eat else predYY[pred]
+        if use_pooling:
+            Sself = ScrambleSelf[prey, pred]
+            vv_pred_eff = (1.0 - Sself) * pdy + Sself * PredSuite[prey]
+        else:
+            vv_pred_eff = pdy
+        vv_pred_safe = max(vv_pred_eff, 1e-10)
+        vv_term = vv / max(vv - 1.0 + vv_pred_safe, 1e-10)
+
+        Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
+
+        if use_med:
+            Q_calc *= med_multipliers[prey, pred]
+
+        if Q_calc > 0.0:
+            QQ[prey, pred] = Q_calc
+        else:
+            QQ[prey, pred] = 0.0
+
+
+# The flat kernel's stand-ins for an optional array that is not given (never
+# read: its flag is False)
+_DUMMY_1D = np.zeros(1)
+_DUMMY_2D = np.zeros((1, 1))
+
+if HAS_NUMBA:
+    # error_model="numpy": x / 0 gives inf or nan, as in the Python loop (an
+    # EatEff of 0), instead of numba's default ZeroDivisionError
+    _compute_consumption_sparse_numba_kernel = numba.njit(
+        cache=True, nogil=True, error_model="numpy"
+    )(_compute_consumption_sparse_flat)
+else:
+    _compute_consumption_sparse_numba_kernel = None
+
+
+def _compute_consumption_sparse_numba(
+    QQ,
+    BB,
+    VV,
+    DD,
+    QQbase,
+    preyYY,
+    predYY,
+    link_prey,
+    link_pred,
+    n_links,
+    ScrambleSelf=None,
+    HandleSelf=None,
+    PredPredWeight=None,
+    PreyPreyWeight=None,
+    HandleSwitch=None,
+    COUPLED=1,
+    med_multipliers=None,
+    eat_eff=None,
+):
+    """:func:`_compute_consumption_sparse_python` as a numba kernel.
+
+    Same arguments, same in-place result: the None arguments become flags
+    and dummy arrays, the arrays float64 (the link arrays int64), for
+    :func:`_compute_consumption_sparse_flat` compiled with ``nogil`` and
+    numpy's division rules. The jitted kernel raises none of the loop's
+    numpy RuntimeWarnings (x / 0, overflow); the values are the same.
+    Without numba it runs the Python loop.
+
+    The result is bit for bit the loop's for float64 inputs, which is what
+    ``deriv_vector`` passes (float64 arrays, ``COUPLED`` 1). Other dtypes
+    are widened first, so they can differ: a float32 ``HandleSwitch`` with
+    a ``COUPLED`` that is not a dyadic fraction gives an exponent about
+    1e-8 apart, as the loop multiplies in float32.
+
+    The link indices and the lengths of the arrays are trusted: only
+    ``n_links`` is checked (ValueError when it is past the end of either
+    link array, before the kernel runs). numba does no bounds checking, so
+    an index out of range is undefined behaviour here, where the loop raises
+    IndexError.
+    """
+    if _compute_consumption_sparse_numba_kernel is None:
+        return _compute_consumption_sparse_python(
+            QQ,
+            BB,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY,
+            link_prey,
+            link_pred,
+            n_links,
+            ScrambleSelf=ScrambleSelf,
+            HandleSelf=HandleSelf,
+            PredPredWeight=PredPredWeight,
+            PreyPreyWeight=PreyPreyWeight,
+            HandleSwitch=HandleSwitch,
+            COUPLED=COUPLED,
+            med_multipliers=med_multipliers,
+            eat_eff=eat_eff,
+        )
+    use_pooling = (
+        ScrambleSelf is not None
+        and HandleSelf is not None
+        and PredPredWeight is not None
+        and PreyPreyWeight is not None
+    )
+
+    def _f64(a, dummy):
+        return dummy if a is None else np.asarray(a, dtype=np.float64)
+
+    link_prey = np.asarray(link_prey, dtype=np.int64)
+    link_pred = np.asarray(link_pred, dtype=np.int64)
+    n_links = int(n_links)
+    if n_links > len(link_prey) or n_links > len(link_pred):
+        raise ValueError(
+            f"n_links {n_links} exceeds the link arrays "
+            f"({len(link_prey)} prey, {len(link_pred)} predator entries)"
+        )
+    _compute_consumption_sparse_numba_kernel(
+        QQ,
+        np.asarray(BB, dtype=np.float64),
+        np.asarray(VV, dtype=np.float64),
+        np.asarray(DD, dtype=np.float64),
+        np.asarray(QQbase, dtype=np.float64),
+        np.asarray(preyYY, dtype=np.float64),
+        np.asarray(predYY, dtype=np.float64),
+        link_prey,
+        link_pred,
+        n_links,
+        use_pooling,
+        _f64(ScrambleSelf, _DUMMY_2D) if use_pooling else _DUMMY_2D,
+        _f64(HandleSelf, _DUMMY_2D) if use_pooling else _DUMMY_2D,
+        _f64(PredPredWeight, _DUMMY_2D) if use_pooling else _DUMMY_2D,
+        _f64(PreyPreyWeight, _DUMMY_2D) if use_pooling else _DUMMY_2D,
+        HandleSwitch is not None,
+        _f64(HandleSwitch, _DUMMY_2D),
+        float(COUPLED),
+        med_multipliers is not None,
+        _f64(med_multipliers, _DUMMY_2D),
+        eat_eff is not None,
+        _f64(eat_eff, _DUMMY_1D),
+    )
+
+
+#: The environment variable that turns the numba consumption kernel off:
+#: ``0``, ``false``, ``no`` or ``off`` (any case) when this module is imported
+#: keeps the Python loop as ``_compute_consumption_sparse``.
+NUMBA_CONSUMPTION_ENV = "PYPATH_NUMBA_CONSUMPTION"
+
+
+def _numba_consumption_requested(environ=os.environ) -> bool:
+    """Whether ``environ`` leaves the numba consumption kernel on."""
+    value = environ.get(NUMBA_CONSUMPTION_ENV, "").strip().lower()
+    return value not in ("0", "false", "no", "off")
+
+
+# The sparse loop that deriv_vector calls (looked up at each call): the numba
+# kernel when numba is installed and PYPATH_NUMBA_CONSUMPTION is not 0 at
+# import time, else the Python loop, which stays the reference.
+if HAS_NUMBA and _numba_consumption_requested():
+    _compute_consumption_sparse = _compute_consumption_sparse_numba
+else:
+    _compute_consumption_sparse = _compute_consumption_sparse_python
 
 
 def _compute_consumption_vector(
@@ -2256,9 +2502,10 @@ def deriv_vector(
     if _mediation is not None:
         _fleet_med = _mediation.compute_fleet_multipliers(BB, Bbase, NUM_GEARS)
 
-    # Compute consumption matrix via pure-Python kernel.
-    # Use pre-computed sparse link arrays when available (avoids iterating
-    # over inactive links); otherwise fall back to the dense kernel.
+    # Compute the consumption matrix. Use pre-computed sparse link arrays
+    # when available (avoids iterating over inactive links) through
+    # _compute_consumption_sparse (the numba kernel, or the Python loop);
+    # otherwise fall back to the dense Python kernel.
     _link_prey = params.get("_link_prey", None)
     _link_pred = params.get("_link_pred", None)
     # The continuous path (``_KERNEL_VECTOR``, set by ContinuousRHS on its

@@ -33,16 +33,27 @@ from pypath.spatial import (  # noqa: E402
 
 @pytest.fixture(autouse=True, scope="module")
 def _warmup_scipy_paths():
-    """Warm up scipy sparse and numpy code paths before timing.
+    """Warm up scipy sparse, numpy and numba code paths before timing.
 
     The first call to diffusion_flux triggers lazy initialization in scipy
     sparse matrix operations (~40 ms on Windows).  Running one throwaway call
-    keeps that overhead out of the timed benchmarks.
+    keeps that overhead out of the timed benchmarks.  With numba installed,
+    the first call of each kernel also compiles it, or loads it from the
+    cache: diffusion_flux and habitat_advection (which calculate_spatial_flux
+    calls) are each called once here, with the argument types the tests use,
+    so that no compilation lands in a timed region on an empty numba cache.
     """
     grid = create_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
     diffusion_flux(
         biomass_vector=np.ones(9),
         dispersal_rate=5.0,
+        grid=grid,
+        adjacency=grid.adjacency_matrix,
+    )
+    habitat_advection(
+        biomass_vector=np.ones(9),
+        habitat_preference=np.linspace(0.1, 0.9, 9),
+        gravity_strength=0.5,
         grid=grid,
         adjacency=grid.adjacency_matrix,
     )

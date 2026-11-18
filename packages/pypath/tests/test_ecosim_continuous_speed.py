@@ -1,5 +1,6 @@
 """Tolerances, the timing budget and the first-step pass-through (continuous path)."""
 
+import contextlib
 import copy
 import os
 import time
@@ -9,6 +10,7 @@ import pytest
 
 import pypath.core.ecosim_continuous.month as cont_month
 import pypath.core.ecosim_continuous.rhs as cont_rhs
+import pypath.core.ecosim_deriv as ecosim_deriv
 from pypath.core.ecosim import rsim_run
 from pypath.core.ecosim_continuous import (
     ContinuousRHS,
@@ -21,8 +23,9 @@ pytestmark = needs_reco
 
 # Each evaluation is one derivative pass, its consumption vectorised, plus
 # the Newton Hden solve (at most 4 kernel passes over a CmCo-2 year);
-# measured 0.88-0.91x one link-loop call at CmCo 1000, 1.02-1.04x at CmCo 2
-# (laguna, 2026-11-15). 1.2x catches a second derivative call per
+# measured 0.88-0.91x one link-loop call (the Python loop: see
+# python_loop_reference) at CmCo 1000, 1.02-1.04x at CmCo 2 (laguna,
+# 2026-11-15). 1.2x catches a second derivative call per
 # evaluation, the link loop back in the final pass or a fallback to the
 # secant or hybr.
 EVAL_COST_BOUND = 1.2
@@ -137,6 +140,20 @@ def _cmco(scen, value):
     return scen
 
 
+def test_the_reference_runs_on_the_python_loop():
+    """python_loop_reference swaps in the Python loop and restores the
+    alias, also when the block raises."""
+    before = ecosim_deriv._compute_consumption_sparse
+    with pytest.raises(RuntimeError):
+        with python_loop_reference():
+            assert (
+                ecosim_deriv._compute_consumption_sparse
+                is ecosim_deriv._compute_consumption_sparse_python
+            )
+            raise RuntimeError
+    assert ecosim_deriv._compute_consumption_sparse is before
+
+
 def test_one_derivative_per_rhs_evaluation(monkeypatch):
     calls = {"n": 0}
     real = cont_rhs.deriv_vector
@@ -168,8 +185,32 @@ def _cpu(fn):
     return time.process_time() - t0, result
 
 
+@contextlib.contextmanager
+def python_loop_reference():
+    """Run the block with the Python consumption loop as the link loop.
+
+    The cost bounds (``EVAL_COST_BOUND``, ``RK4_RATIO_BOUND`` and
+    ``COST_BOUNDS`` in test_ecosim_continuous_validation.py) were calibrated
+    against references on the Python loop: the RK4 run and one link-loop
+    ``deriv_vector`` call. With numba installed ``_compute_consumption_sparse``
+    is the numba kernel, about 3x faster, which makes those references
+    cheaper while the continuous path, on the vectorised twin, costs the
+    same. Timing the references on the Python loop keeps the bounds guards
+    on the continuous path's own cost; the continuous runs keep the default.
+    """
+    saved = ecosim_deriv._compute_consumption_sparse
+    ecosim_deriv._compute_consumption_sparse = (
+        ecosim_deriv._compute_consumption_sparse_python
+    )
+    try:
+        yield
+    finally:
+        ecosim_deriv._compute_consumption_sparse = saved
+
+
 def _exact_call_cpu(scen):
-    """Min CPU of one single-pass ``deriv_vector`` call at the base state."""
+    """Min CPU of one single-pass ``deriv_vector`` call at the base state,
+    on the Python consumption loop (:func:`python_loop_reference`)."""
     from pypath.core.ecosim import _month_forcing, _run_setup
     from pypath.core.ecosim_deriv import deriv_vector
 
@@ -184,10 +225,11 @@ def _exact_call_cpu(scen):
     forcing = _month_forcing(scen, setup, 1, setup.ftime)
     base = np.array(setup.state, dtype=float)
     samples = []
-    for _ in range(200):
-        t0 = time.process_time()
-        deriv_vector(base.copy(), pd, forcing, setup.fishing_dict, rates={})
-        samples.append(time.process_time() - t0)
+    with python_loop_reference():
+        for _ in range(200):
+            t0 = time.process_time()
+            deriv_vector(base.copy(), pd, forcing, setup.fishing_dict, rates={})
+            samples.append(time.process_time() - t0)
     return min(samples)
 
 
@@ -200,8 +242,10 @@ def test_reco_is_within_its_budget(cmco):
 
     def run(method):
         s = copy.deepcopy(scen)
-        cpu, out = _cpu(lambda: rsim_run(s, method=method, years=years))
-        return cpu, out
+        if method == "RK4":  # the reference, on the Python loop
+            with python_loop_reference():
+                return _cpu(lambda: rsim_run(s, method=method, years=years))
+        return _cpu(lambda: rsim_run(s, method=method, years=years))
 
     run("RK4")  # warm-up of each method, untimed
     run("lsoda")
