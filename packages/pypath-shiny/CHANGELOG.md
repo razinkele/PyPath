@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.7.0 (2026-11-18)
+
+
 ## v1.6.0 (2026-11-17)
 
 ### Bug Fixes
