@@ -149,6 +149,76 @@ def test_a_sqlite_model_needs_no_access_driver(tmp_path, monkeypatch):
     assert len(ewemdb.read_ewemdb_table(str(path), "EcopathGroup")) == 2
 
 
+# --- files from outside are not trusted ---
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "ATTACH DATABASE '{other}' AS x; CREATE TABLE x.t (a);",
+        "PRAGMA writable_schema=ON;",
+        "CREATE VIEW v AS SELECT 1;",
+        "CREATE TRIGGER g AFTER INSERT ON t BEGIN SELECT 1; END;",
+        "INSERT INTO t VALUES (load_extension('x'));",
+        "DROP TABLE t;",
+    ],
+)
+def test_a_conversion_may_only_create_tables_and_insert_rows(tmp_path, statement):
+    other = tmp_path / "other.db"
+    con = sqlite3.connect(tmp_path / "new.sqlite")
+    con.set_authorizer(ewe_sqlite._conversion_authorizer)
+    con.executescript(
+        "BEGIN; CREATE TABLE t (a); CREATE INDEX i ON t (a);"
+        " INSERT INTO t VALUES (1); COMMIT;"
+    )
+    with pytest.raises(sqlite3.DatabaseError, match="not authorized|prohibited"):
+        con.executescript(statement.format(other=other))
+    con.close()
+    assert not other.exists()
+
+
+def test_a_view_is_not_read_as_a_table(tmp_path):
+    path = _model(tmp_path / "m.sqlite")
+    con = sqlite3.connect(path)
+    con.execute("CREATE VIEW Stanza AS SELECT randomblob(1000000) AS x")
+    con.commit()
+    con.close()
+    with pytest.raises(ewemdb.EwEDatabaseError, match="view"):
+        ewemdb.read_ewemdb_table(str(path), "Stanza")
+    assert ewemdb.list_ewemdb_tables(str(path)) == [
+        "EcopathModel",
+        "EcopathGroup",
+        "EcopathDietComp",
+    ]
+
+
+def test_a_read_connection_runs_selects_only(tmp_path):
+    con = ewe_sqlite._connect_read_only(_model(tmp_path / "m.sqlite"))
+    assert len(con.execute("SELECT * FROM EcopathGroup").fetchall()) == 2
+    for sql in (
+        "SELECT randomblob(10)",
+        "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) SELECT i FROM n",
+        "PRAGMA table_info(EcopathGroup)",
+        "DELETE FROM EcopathGroup",
+        "ATTACH DATABASE ':memory:' AS x",
+    ):
+        with pytest.raises(sqlite3.DatabaseError):
+            con.execute(sql).fetchall()
+    con.close()
+
+
+def test_a_runaway_query_is_stopped(tmp_path, monkeypatch):
+    monkeypatch.setattr(ewe_sqlite, "_READ_SECONDS", 0.0)
+    con = ewe_sqlite._connect_read_only(_model(tmp_path / "m.sqlite"))
+    # 2 rows joined with themselves 24 times: 16 million rows
+    endless = "SELECT a0.GroupID FROM " + ", ".join(
+        f"EcopathGroup a{i}" for i in range(24)
+    )
+    with pytest.raises(sqlite3.OperationalError, match="interrupted"):
+        con.execute(endless).fetchall()
+    con.close()
+
+
 def test_a_missing_source_is_reported(tmp_path):
     with pytest.raises(FileNotFoundError):
         access_to_sqlite(tmp_path / "absent.eweaccdb")

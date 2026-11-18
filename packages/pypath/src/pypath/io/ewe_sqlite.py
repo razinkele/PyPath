@@ -59,6 +59,41 @@ _EMPTY_KEY = re.compile(r"\s*,\s*PRIMARY KEY \(\s*\)")
 BRIDGE_MDBTOOLS = (1, 0, 1)
 
 
+# A database file is input from outside (the Shiny app takes uploads), so
+# neither the SQL mdb-tools writes from one nor a SQLite file's own schema is
+# trusted. What a conversion may do: create tables and indexes and insert rows.
+_WRITE_ACTIONS = frozenset(
+    {
+        sqlite3.SQLITE_CREATE_TABLE,
+        sqlite3.SQLITE_CREATE_INDEX,
+        sqlite3.SQLITE_INSERT,
+        sqlite3.SQLITE_TRANSACTION,
+        sqlite3.SQLITE_READ,
+        sqlite3.SQLITE_UPDATE,  # of sqlite_master, by CREATE
+        sqlite3.SQLITE_SELECT,
+        sqlite3.SQLITE_REINDEX,
+    }
+)
+# What a read may do: select from tables; LIKE is used to list them
+_READ_ACTIONS = frozenset({sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ})
+_READ_FUNCTIONS = frozenset({"like"})
+_READ_SECONDS = 60.0  # as the mdb-export timeout
+
+
+def _conversion_authorizer(action, arg1, arg2, database, source):
+    if action in _WRITE_ACTIONS and database in (None, "main"):
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
+def _read_authorizer(action, arg1, arg2, database, source):
+    if action in _READ_ACTIONS:
+        return sqlite3.SQLITE_OK
+    if action == sqlite3.SQLITE_FUNCTION and arg2 in _READ_FUNCTIONS:
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
 class EweSqliteError(Exception):
     """A conversion to SQLite failed, or a SQLite model could not be read."""
 
@@ -162,6 +197,10 @@ def access_to_sqlite(
     try:
         con = sqlite3.connect(tmp_name)
         try:
+            # only CREATE TABLE / CREATE INDEX / INSERT: no ATTACH, PRAGMA,
+            # trigger, view or function call, whatever the source's names
+            # and text values put into the SQL
+            con.set_authorizer(_conversion_authorizer)
             con.executescript("\n".join(script))
         finally:
             con.close()
@@ -180,8 +219,26 @@ def access_to_sqlite(
 
 
 def _connect_read_only(path: PathLike) -> sqlite3.Connection:
+    """Open a SQLite file for reading tables and nothing else.
+
+    Read-only, schema not trusted, only SELECT allowed (so a view or
+    generated column that calls a function fails), and a query is stopped
+    after ``_READ_SECONDS``.
+    """
+    import time
+
     # as_uri escapes '#', '?' and '%', which are special in a SQLite URI
-    return sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)
+    con = sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)
+    try:
+        con.execute("PRAGMA trusted_schema=OFF")
+        con.execute("PRAGMA query_only=ON")
+    except sqlite3.Error:
+        con.close()
+        raise
+    deadline = time.monotonic() + _READ_SECONDS
+    con.set_progress_handler(lambda: int(time.monotonic() > deadline), 100_000)
+    con.set_authorizer(_read_authorizer)
+    return con
 
 
 def list_sqlite_tables(path: PathLike) -> List[str]:
@@ -214,6 +271,9 @@ def read_sqlite_table(path: PathLike, table: str) -> pd.DataFrame:
     mdb-export's CSV gives "05/21/19 00:00:00"), and a value stored as
     infinity is missing.
 
+    Only tables are read: a view is refused, since its SQL comes with the
+    file.
+
     Raises:
         EweSqliteError: If the table is absent or the file cannot be read
     """
@@ -221,6 +281,14 @@ def read_sqlite_table(path: PathLike, table: str) -> pd.DataFrame:
     try:
         con = _connect_read_only(path)
         try:
+            kind = con.execute(
+                "SELECT type FROM sqlite_master WHERE name = ?", (table,)
+            ).fetchone()
+            if kind is None or kind[0] != "table":
+                raise EweSqliteError(
+                    f"{Path(path).name} has no table '{table}'"
+                    + ("" if kind is None else f" (it is a {kind[0]})")
+                )
             cursor = con.execute(f"SELECT * FROM {quoted} ORDER BY rowid")
             columns = [d[0] for d in cursor.description]
             rows = cursor.fetchall()
