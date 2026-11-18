@@ -65197,14 +65197,14 @@ a missing year, or a year beyond the data, leaves the driver untouched.</p>
         <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.timeseries_csv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_timeseries_csv</span>
 
         <span class="k">return</span> <span class="n">load_timeseries_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"simple"</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">".eweaccdb"</span><span class="p">,</span> <span class="s2">".ewemdb"</span><span class="p">,</span> <span class="s2">".accdb"</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">".eweaccdb"</span><span class="p">,</span> <span class="s2">".ewemdb"</span><span class="p">,</span> <span class="s2">".accdb"</span><span class="p">,</span> <span class="s2">".sqlite"</span><span class="p">):</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewemdb</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_timeseries</span>
 
         <span class="k">return</span> <span class="n">read_timeseries</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">"Unsupported file extension '</span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s2">'. "</span>
-            <span class="sa">f</span><span class="s2">"Use .csv, .eweaccdb, .ewemdb, or .accdb."</span>
+            <span class="sa">f</span><span class="s2">"Use .csv, .eweaccdb, .ewemdb, .accdb, or .sqlite."</span>
         <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
