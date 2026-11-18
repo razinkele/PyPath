@@ -33,6 +33,7 @@ from pypath.io.ecobase import (
     list_ecobase_models,
     search_ecobase_models,
 )
+from pypath.io.ewe_sqlite import access_to_sqlite, is_sqlite_file
 from pypath.io.ewe_writer import export_model_to_ewe, write_ewemdb
 from pypath.io.ewef import (
     ecosim_scenario_from_ewef,
@@ -118,6 +119,8 @@ __all__ = [
     "check_ewemdb_support",
     "EwEDatabaseError",
     # EwE Official (SQLite/Access)
+    "access_to_sqlite",
+    "is_sqlite_file",
     "read_ewe_model",
     "EweModel",
     # Model import/registry

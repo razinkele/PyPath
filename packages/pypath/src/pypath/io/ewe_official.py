@@ -7,6 +7,10 @@ through ``ewemdb.read_ewemdb_table`` (mdb-tools on Linux/macOS, or an ODBC
 driver): the same access ``read_ewemdb`` uses to build PyPath parameters, so
 it works wherever that does. For a model to run, use ``read_ewemdb``.
 
+A model copied into SQLite by EwE's ``Tools/mdb2sqlite`` bridge (or by
+``ewe_sqlite.access_to_sqlite``, which runs the same commands) has the same
+tables, and ``read_ewe_sqlite`` reads it the same way.
+
 EwE's ``.vc.sqlite`` files are not models: they hold its Value Chain
 plug-in's economic data (producer, processing, distribution, wholesaler,
 retailer and consumer units, trade links and landings). ``read_ewe_sqlite``
@@ -34,6 +38,9 @@ logger = logging.getLogger(__name__)
 PathLike = Union[str, Path]
 
 ACCESS_SUFFIXES = (".ewemdb", ".eweaccdb", ".accdb", ".mdb")
+
+# The table every EwE model database has
+MODEL_TABLE = "EcopathGroup"
 
 # EwE's Value Chain plug-in tables, as in EwE's sample "Anchovy Bay Spatial.vc.sqlite"
 VALUE_CHAIN_TABLES = {
@@ -88,8 +95,8 @@ def read_ewe_model(path: PathLike, **kwargs) -> EweModel:
     """Read an EwE model database.
 
     Args:
-        path: .ewemdb / .eweaccdb / .accdb / .mdb (Access). A .sqlite file
-            is checked and refused: see ``read_ewe_sqlite``.
+        path: .ewemdb / .eweaccdb / .accdb / .mdb (Access), or a .sqlite
+            copy of one: see ``read_ewe_sqlite``.
 
     Returns:
         EweModel with the database's tables
@@ -110,7 +117,7 @@ def read_ewe_model(path: PathLike, **kwargs) -> EweModel:
 
 
 def read_ewe_access(path: PathLike) -> EweModel:
-    """Read an EwE Access model database's tables.
+    """Read an EwE model database's tables (Access, or a SQLite copy).
 
     Reads EcopathModel, EcopathGroup (in Sequence order, as EwE loads it),
     EcopathDietComp, EcopathFleet and EcopathCatch through
@@ -186,16 +193,17 @@ def _quote_identifier(name: str) -> str:
 
 
 def read_ewe_sqlite(path: PathLike, **kwargs) -> EweModel:
-    """Refuse a SQLite file, explaining what it holds.
+    """Read an EwE model stored in SQLite.
 
-    EwE's ``.vc.sqlite`` files are Value Chain (economic) databases, not
-    Ecopath models; PyPath has no real EwE model in SQLite to read. Use the
-    model's Access database with ``read_ewe_access`` or ``read_ewemdb``.
+    The file must hold the model's tables as EwE's Access database does
+    (EcopathGroup and the rest), which is what EwE's ``mdb2sqlite`` bridge and
+    ``ewe_sqlite.access_to_sqlite`` write. EwE's ``.vc.sqlite`` files are
+    Value Chain (economic) databases, not Ecopath models, and are refused.
 
     Raises:
         FileNotFoundError: If the file does not exist
-        ValueError: Always, naming what the file looks like (or saying it is
-            not a SQLite database)
+        ValueError: If the file is a Value Chain database, holds no EwE model
+            tables, or is not a SQLite database; the message says which
     """
     path = Path(path)
     if not path.exists():
@@ -205,17 +213,21 @@ def read_ewe_sqlite(path: PathLike, **kwargs) -> EweModel:
         names = set(_table_names(con, path))
     finally:
         con.close()
+    if MODEL_TABLE in names:
+        return read_ewe_access(path)
     if names & VALUE_CHAIN_TABLES:
         raise ValueError(
             f"{path.name} is an EwE Value Chain database (economic units, "
             f"trade links and landings: {sorted(names & VALUE_CHAIN_TABLES)}), "
             "not an Ecopath model. Read the model from its Access database "
-            "(.ewemdb / .eweaccdb) with read_ewe_access or read_ewemdb."
+            "(.ewemdb / .eweaccdb) with read_ewe_access or read_ewemdb, or "
+            "from a SQLite copy made with ewe_sqlite.access_to_sqlite."
         )
     raise ValueError(
         f"{path.name} has no EwE model tables ({sorted(names)}). Read the model "
         "from its Access database (.ewemdb / .eweaccdb) with read_ewe_access "
-        "or read_ewemdb."
+        "or read_ewemdb, or from a SQLite copy made with "
+        "ewe_sqlite.access_to_sqlite."
     )
 
 

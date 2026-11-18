@@ -57,6 +57,7 @@ _SAFE_SQL_IDENT = re.compile(r"^[a-zA-Z0-9_ ]+$")
 
 # File extensions of EwE / MS Access databases (defined once in core.constants)
 from pypath.core.constants import EWE_DB_SUFFIXES, EWE_MISSING  # noqa: E402
+from pypath.io import ewe_sqlite  # noqa: E402
 
 # Shared month abbreviation → number map (English + common non-English).
 _MONTH_NAME_MAP = {
@@ -385,6 +386,13 @@ def list_ewemdb_tables(filepath: str) -> List[str]:
     if not Path(filepath).exists():
         raise FileNotFoundError(f"File not found: {filepath}")
 
+    # A model copied into SQLite (EwE's mdb2sqlite, ewe_sqlite.access_to_sqlite)
+    if ewe_sqlite.is_sqlite_file(filepath):
+        try:
+            return ewe_sqlite.list_sqlite_tables(filepath)
+        except ewe_sqlite.EweSqliteError as e:
+            raise EwEDatabaseError(str(e)) from e
+
     # Try mdb-tools first (cross-platform)
     if HAS_MDB_TOOLS:
         return _list_mdb_tables(filepath)
@@ -442,6 +450,16 @@ def read_ewemdb_table(
     if columns:
         for col in columns:
             _validate_sql_identifier(col, "column")
+
+    # A model copied into SQLite (EwE's mdb2sqlite, ewe_sqlite.access_to_sqlite)
+    if ewe_sqlite.is_sqlite_file(filepath):
+        try:
+            df = ewe_sqlite.read_sqlite_table(filepath, table)
+        except ewe_sqlite.EweSqliteError as e:
+            raise EwEDatabaseError(str(e)) from e
+        if columns:
+            df = df[[c for c in columns if c in df.columns]]
+        return df
 
     # Try mdb-tools first
     if HAS_MDB_TOOLS:
@@ -866,7 +884,7 @@ def read_ewemdb(
 
     # Check file extension
     suffix = Path(filepath).suffix.lower()
-    if suffix not in EWE_DB_SUFFIXES:
+    if suffix not in EWE_DB_SUFFIXES and not ewe_sqlite.is_sqlite_file(filepath):
         warnings.warn(f"Unexpected file extension: {suffix}")
 
     # Read main tables

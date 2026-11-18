@@ -35,7 +35,8 @@ from .validators import ValidationReport, validate_ecopath_scenario
 logger = logging.getLogger(__name__)
 PathLike = Union[str, Path]
 
-#: EwE model database files
+#: EwE model database files (Access; SQLite copies are read when asked for
+#: with patterns=("*.sqlite",))
 DEFAULT_PATTERNS = ("*.ewemdb", "*.eweaccdb")
 
 
