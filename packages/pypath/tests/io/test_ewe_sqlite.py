@@ -356,3 +356,131 @@ def test_the_schema_files_create_the_ewe_tables(part, tables):
     assert f"{part}Scenario" in names
     columns = [row[1] for row in con.execute(f"PRAGMA table_info({part}Scenario)")]
     assert columns[:2] == ["ScenarioID", "ScenarioName"]
+
+
+# --- the EwE-F test cases' set-ups, added to the Curonian models as scenarios ---
+
+# file: case, scenario ID, groups, fleets, diet links, groups with a capacity map
+EWEF_SCENARIOS = {
+    "curonian_pelagic.sqlite": ("Curonian_Lagoon", 1, 19, 1, 55, 19),
+    "Curonian_Edgaras.sqlite": ("Curonian_Fish", 1, 31, 3, 191, 31),
+    "KM_Edgaras.sqlite": ("Curonian_Cohorts", 2, 65, 3, 446, 63),
+}
+GRID = (94, 51, 1576)  # rows, columns, sea cells
+
+
+def _open(name):
+    path = DATA / name
+    if not path.exists():
+        pytest.skip(f"{name} missing")
+    return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+
+
+@pytest.mark.parametrize("name", EWEF_SCENARIOS)
+def test_the_ewef_ecosim_set_up_is_a_scenario_of_its_own(name):
+    case, scenario, groups, fleets, links, _ = EWEF_SCENARIOS[name]
+    con = _open(name)
+
+    def column(sql):
+        return [row[0] for row in con.execute(sql, (scenario,))]
+
+    assert column("SELECT ScenarioName FROM EcosimScenario WHERE ScenarioID = ?") == [
+        f"EwE-F {case}"
+    ]
+    ids = column("SELECT GroupID FROM EcosimScenarioGroup WHERE ScenarioID = ?")
+    assert len(ids) == len(set(ids)) == groups
+    # the cases' "does not apply" (-999, producers and detritus) is EwE's default here
+    assert set(
+        con.execute(
+            "SELECT Pbmaxs, FtimeMax, CmCo FROM EcosimScenarioGroup WHERE ScenarioID = ?",
+            (scenario,),
+        )
+    ) == {(2.0, 2.0, 1000.0)}
+    # EwE finds a vulnerability's predator and prey by the scenario's own group IDs
+    matrix = con.execute(
+        "SELECT PredID, PreyID, vulnerability FROM EcosimScenarioForcingMatrix "
+        "WHERE ScenarioID = ?",
+        (scenario,),
+    ).fetchall()
+    assert len(matrix) == links
+    assert {i for row in matrix for i in row[:2]} <= set(ids)
+    assert {row[2] for row in matrix} == {2.0}
+    effort = column(
+        "SELECT zScale FROM EcosimShapeFishRate WHERE ShapeID IN "
+        "(SELECT FishRateShapeID FROM EcosimScenarioFleet WHERE ScenarioID = ?)"
+    )
+    assert len(effort) == fleets
+    assert {len(shape.split()) for shape in effort} == {120}  # ten years, monthly
+    constant = all(set(shape.split()) == {"1"} for shape in effort)
+    assert constant == (case != "Curonian_Cohorts")  # that case follows the logbooks
+
+
+@pytest.mark.parametrize("name", EWEF_SCENARIOS)
+def test_the_ewef_ecospace_set_up_is_a_scenario_of_its_own(name):
+    case, scenario, groups, fleets, _, mapped = EWEF_SCENARIOS[name]
+    rows, columns, sea = GRID
+    con = _open(name)
+    title, linked, inrow, incol, depth = con.execute(
+        "SELECT ScenarioName, EcosimScenarioID, Inrow, Incol, DepthMap "
+        "FROM EcospaceScenario WHERE ScenarioID = ?",
+        (scenario,),
+    ).fetchone()
+    assert (title, linked, inrow, incol) == (f"EwE-F {case}", scenario, rows, columns)
+    cells = [line.split(",") for line in depth.split(";")[:-1]]
+    assert len(cells) == rows and {len(line) for line in cells} == {columns}
+    assert sum(float(v) > 0 for line in cells for v in line) == sea
+    # the other maps hold the water cells only, as EwE writes them
+    maps = con.execute(
+        "SELECT CapacityMap, CapacityCalType FROM EcospaceScenarioGroup "
+        "WHERE ScenarioID = ?",
+        (scenario,),
+    ).fetchall()
+    assert len(maps) == groups
+    given = [text for text, kind in maps if kind == 0]
+    assert len(given) == mapped
+    assert all(
+        len([v for v in text.replace(";", ",").split(",") if v]) == sea
+        for text in given
+    )
+    assert all(text == "" for text, kind in maps if kind != 0)
+    count = con.execute(
+        "SELECT COUNT(*) FROM EcospaceScenarioFleet WHERE ScenarioID = ?", (scenario,)
+    ).fetchone()[0]
+    assert count == fleets
+
+
+def test_the_authors_scenarios_in_km_edgaras_are_as_they_were():
+    con = _open("KM_Edgaras.sqlite")
+    counts = {
+        table: con.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE ScenarioID = 1"
+        ).fetchone()[0]
+        for table in (
+            "EcosimScenarioGroup",
+            "EcosimScenarioForcingMatrix",
+            "EcosimScenarioFleet",
+            "EcospaceScenarioGroup",
+            "EcospaceScenarioMonth",
+        )
+    }
+    assert list(counts.values()) == [65, 382, 3, 65, 12]
+    names = con.execute(
+        "SELECT (SELECT ScenarioName FROM EcosimScenario WHERE ScenarioID = 1), "
+        "(SELECT ScenarioName FROM EcospaceScenario WHERE ScenarioID = 1)"
+    ).fetchone()
+    assert names == ("Kuršių marių modelis", "New Ecospace scenario")
+
+
+@pytest.mark.parametrize("name", EWEF_SCENARIOS)
+def test_the_ewef_scenario_reads_through_pypath(name):
+    case, scenario, groups, _, links, _ = EWEF_SCENARIOS[name]
+    if not (DATA / name).exists():
+        pytest.skip(f"{name} missing")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        params = ewemdb.read_ewemdb(str(DATA / name), include_ecosim=True)
+    read = params.ecosim["scenarios"][-1]
+    assert (read["id"], read["name"]) == (scenario, f"EwE-F {case}")
+    assert len(read["scenario_group_df"]) == groups
+    assert len(read["forcing_matrix_df"]) == links
+    assert read["ecosim_settings"]["NutBaseFreeProp"] == pytest.approx(0.9999)
