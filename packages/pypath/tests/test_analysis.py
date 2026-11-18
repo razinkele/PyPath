@@ -52,6 +52,7 @@ def _mock_rpath(
     rpath.Biomass = np.ones(n) if biomass is None else np.asarray(biomass, dtype=float)
     rpath.TL = np.ones(n) if tl is None else np.asarray(tl, dtype=float)
     rpath.EE = np.full(n, 0.5) if ee is None else np.asarray(ee, dtype=float)
+    rpath.Unassim = np.full(n, 0.2)
     return rpath
 
 
@@ -254,6 +255,40 @@ class TestCheckEcopathBalance:
         assert result["is_balanced"] is True
         assert result["diet_issues"] == []
         assert result["messages"] == ["Model is properly balanced"]
+
+    def _respiration_case(self, pb, group_type=0.0):
+        rpath = _mock_rpath(
+            2, 0, biomass=[10.0, 5.0], pb=[1.0, pb], qb=[0, 3.0], ee=[0.9, 0.8]
+        )
+        rpath.DC[0, 1] = 1.0
+        rpath.Group = np.array(["Producer", "Consumer"])
+        rpath.type = np.array([1.0, group_type])
+        return rpath
+
+    def test_negative_respiration_is_reported_by_name(self):
+        """Production above assimilated food leaves a negative respiration."""
+        # Assimilated food is 3.0 x (1 - 0.2) = 2.4 per biomass; P/B is 2.7.
+        result = check_ecopath_balance(self._respiration_case(pb=2.7))
+
+        assert result["respiration_issues"] == [1]
+        # Like the GE check, it is reported without failing the mass balance.
+        assert result["is_balanced"] is True
+        assert any(
+            "Consumer" in m and "respiration" in m and "-0.3" in m
+            for m in result["messages"]
+        )
+
+    def test_respiration_of_zero_or_more_is_accepted(self):
+        for pb in (2.4, 1.0):
+            result = check_ecopath_balance(self._respiration_case(pb=pb))
+            assert result["respiration_issues"] == []
+            assert result["is_balanced"] is True
+
+    def test_mixotroph_respiration_counts_only_production_from_food(self):
+        """A half-producer needs food for half its production only."""
+        # (1 - 0.5) x 2.7 = 1.35 is below the assimilated 2.4.
+        result = check_ecopath_balance(self._respiration_case(pb=2.7, group_type=0.5))
+        assert result["respiration_issues"] == []
 
     def test_reports_issues_by_group_name(self):
         """EE > 1 and an incomplete diet are reported using group names."""

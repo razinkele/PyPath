@@ -568,7 +568,8 @@ def check_ecopath_balance(
 
     Verifies that the model satisfies mass-balance constraints:
     - EE <= 1 for all groups
-    - Consumption = Production + Respiration + Unassimilated for consumers
+    - Consumption = Production + Respiration + Unassimilated for consumers,
+      with a respiration of zero or more
     - Diet compositions sum to 1
 
     Parameters
@@ -588,6 +589,10 @@ def check_ecopath_balance(
         - is_balanced: bool
         - ee_issues: list of groups with EE > 1
         - diet_issues: list of groups with diet sum != 1
+        - balance_issues: list of consumers with P/Q outside 0 to 1
+        - respiration_issues: list of consumers with a negative respiration,
+          Q/B x (1 - Unassim) - (1 - producer share) x P/B per unit biomass.
+          Like balance_issues, they do not change is_balanced.
         - messages: list of diagnostic messages
     """
     results = {
@@ -596,6 +601,7 @@ def check_ecopath_balance(
         "diet_issues": [],
         "diet_warnings": [],
         "balance_issues": [],
+        "respiration_issues": [],
         "messages": [],
     }
 
@@ -633,6 +639,8 @@ def check_ecopath_balance(
                     )
 
     # Check production/consumption balance
+    unassim = np.nan_to_num(np.asarray(rpath.Unassim, dtype=float))
+    producer_share = np.clip(np.asarray(rpath.type, dtype=float), 0.0, 1.0)
     for i in living:
         if rpath.QB[i] > 0:
             _consumption = rpath.QB[i] * rpath.Biomass[i]
@@ -643,6 +651,20 @@ def check_ecopath_balance(
             if ge > 1.0 + tolerance or ge < 0:
                 results["balance_issues"].append(i)
                 results["messages"].append(f"{_name(i)}: GE = {ge:.4f} (should be 0-1)")
+
+            # Respiration is what is left of the assimilated food after the
+            # production it pays for. A mixotroph's producer share of the
+            # production needs no food.
+            respiration = (
+                rpath.QB[i] * (1.0 - unassim[i])
+                - (1.0 - producer_share[i]) * rpath.PB[i]
+            )
+            if respiration < -tolerance:
+                results["respiration_issues"].append(i)
+                results["messages"].append(
+                    f"{_name(i)}: respiration = {respiration:.4f} per unit "
+                    "biomass is negative: production exceeds assimilated food"
+                )
 
     if not results["messages"]:
         results["messages"].append("Model is properly balanced")
