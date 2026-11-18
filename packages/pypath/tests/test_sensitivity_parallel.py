@@ -144,7 +144,7 @@ def test_an_evaluation_ignores_the_caller_warning_filters_and_errstate(
 
     monkeypatch.setattr(pypath.core.pedigree, "apply_sample", noisy_apply_sample)
     monkeypatch.setattr(pypath.core.ecopath, "rpath", noisy_rpath)
-    point = (_make_mc_model(), [("Biomass", 0)], np.array([10.0]), None, 3)
+    point = (_make_mc_model(), [("Biomass", 0)], np.array([10.0]), None, np.arange(3))
     with warnings.catch_warnings(), np.errstate(all="raise"):
         warnings.simplefilter("error")
         assert sensitivity._evaluate_point(*point) == 6.0
