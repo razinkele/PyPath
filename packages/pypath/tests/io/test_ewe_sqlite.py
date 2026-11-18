@@ -334,3 +334,25 @@ def test_the_curonian_models_read_without_an_access_driver(name, monkeypatch):
     assert diet.index[-1] == "Import"
     sums = diet.apply(pd.to_numeric, errors="coerce").sum()
     assert np.allclose(sums[sums > 0], 1.0, atol=1e-3)
+
+
+# --- the EwE 6 Ecosim and Ecospace table definitions in Data/ewe6_schema ---
+
+
+@pytest.mark.parametrize("part, tables", [("Ecosim", 27), ("Ecospace", 16)])
+def test_the_schema_files_create_the_ewe_tables(part, tables):
+    path = DATA / "ewe6_schema" / f"ewe6_{part.lower()}.sql"
+    if not path.exists():
+        pytest.skip(f"{path.name} missing")
+    con = sqlite3.connect(":memory:")
+    con.set_authorizer(ewe_sqlite._conversion_authorizer)
+    con.executescript(path.read_text(encoding="utf-8"))
+    con.set_authorizer(None)
+    names = [
+        row[0]
+        for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    ]
+    assert len(names) == tables and all(name.startswith(part) for name in names)
+    assert f"{part}Scenario" in names
+    columns = [row[1] for row in con.execute(f"PRAGMA table_info({part}Scenario)")]
+    assert columns[:2] == ["ScenarioID", "ScenarioName"]
