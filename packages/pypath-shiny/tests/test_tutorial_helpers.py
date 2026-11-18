@@ -70,3 +70,45 @@ def test_tutorial_ui_renders():
 def test_tutorial_server_signature():
     params = list(inspect.signature(tutorial_server).parameters.keys())
     assert "input" in params and "output" in params and "session" in params
+
+
+class TestSnippetsMatchTheApi:
+    """The tutorial's Python snippets call pypath with keywords that exist."""
+
+    @staticmethod
+    def _pypath_calls():
+        import ast
+        import html
+        import re
+
+        import pypath
+
+        page = str(tutorial_ui())
+        calls = []
+        for block in re.findall(r"<code[^>]*>(.*?)</code>", page, flags=re.S):
+            try:
+                tree = ast.parse(html.unescape(block))
+            except SyntaxError:
+                continue  # prose, shell or a fragment, not a Python snippet
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                    target = getattr(pypath, node.func.id, None)
+                    if callable(target):
+                        calls.append((node.func.id, target, node))
+        return calls
+
+    def test_snippets_are_found(self):
+        names = {name for name, _, _ in self._pypath_calls()}
+        assert {"adjust_fishing", "set_vulnerability", "rsim_scenario"} <= names
+
+    def test_every_call_binds_to_the_real_signature(self):
+        problems = []
+        for name, target, node in self._pypath_calls():
+            signature = inspect.signature(target)
+            args = [None] * len(node.args)
+            kwargs = {k.arg: None for k in node.keywords if k.arg}
+            try:
+                signature.bind(*args, **kwargs)
+            except TypeError as err:
+                problems.append(f"{name}: {err}")
+        assert not problems, problems

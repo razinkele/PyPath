@@ -514,9 +514,10 @@ def tutorial_ui():
                 _code_block(
                     "from pypath import adjust_fishing",
                     "",
-                    "# Double fishing effort on Small Fish from year 10 to 30",
-                    'adjust_fishing(scenario, group="Small Fish",',
-                    "               value=2.0, years=range(10, 31))",
+                    "# Double the Trawlers' fishing effort from year 10 to 30",
+                    'adjust_fishing(scenario, parameter="ForcedEffort",',
+                    '               group="Trawlers", sim_year=range(10, 31),',
+                    "               value=2.0)",
                     "",
                     "output = rsim_run(scenario)",
                 ),
@@ -574,7 +575,7 @@ def tutorial_ui():
                     "",
                     "# Make Zooplankton highly vulnerable to Small Fish predation",
                     'set_vulnerability(scenario, prey="Zooplankton",',
-                    '                  pred="Small Fish", value=5.0)',
+                    '                  predator="Small Fish", value=5.0)',
                 ),
                 ui.h6("Calibration Tips", class_="mt-3"),
                 ui.tags.ul(
