@@ -6136,15 +6136,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ecotracer-contaminant-tracking" class="md-nav__link">
+  <a href="#simplified-contaminant-tracer-ecotracer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Ecotracer (Contaminant Tracking)
+        Simplified contaminant tracer (ecotracer)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Ecotracer (Contaminant Tracking)">
+    <nav class="md-nav" aria-label="Simplified contaminant tracer (ecotracer)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -12534,15 +12534,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ecotracer-contaminant-tracking" class="md-nav__link">
+  <a href="#simplified-contaminant-tracer-ecotracer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Ecotracer (Contaminant Tracking)
+        Simplified contaminant tracer (ecotracer)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Ecotracer (Contaminant Tracking)">
+    <nav class="md-nav" aria-label="Simplified contaminant tracer (ecotracer)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -61517,7 +61517,8 @@ order (the order of the MTI matrix).</p>
         <p>Check Ecopath model balance.</p>
 <p>Verifies that the model satisfies mass-balance constraints:
 - EE &lt;= 1 for all groups
-- Consumption = Production + Respiration + Unassimilated for consumers
+- Consumption = Production + Respiration + Unassimilated for consumers,
+  with a respiration of zero or more
 - Diet compositions sum to 1</p>
 
 
@@ -61609,6 +61610,10 @@ the remainder as unresolved/other food instead of a hard issue.</p>
 - is_balanced: bool
 - ee_issues: list of groups with EE &gt; 1
 - diet_issues: list of groups with diet sum != 1
+- balance_issues: list of consumers with P/Q outside 0 to 1
+- respiration_issues: list of consumers with a negative respiration,
+  Q/B x (1 - Unassim) - (1 - producer share) x P/B per unit biomass.
+  Like balance_issues, they do not change is_balanced.
 - messages: list of diagnostic messages</p>
               </div>
             </td>
@@ -61705,14 +61710,37 @@ the remainder as unresolved/other food instead of a hard issue.</p>
 <span class="normal">647</span>
 <span class="normal">648</span>
 <span class="normal">649</span>
-<span class="normal">650</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_ecopath_balance</span><span class="p">(</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_ecopath_balance</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">allow_partial_diet</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Check Ecopath model balance.</span>
 
 <span class="sd">    Verifies that the model satisfies mass-balance constraints:</span>
 <span class="sd">    - EE &lt;= 1 for all groups</span>
-<span class="sd">    - Consumption = Production + Respiration + Unassimilated for consumers</span>
+<span class="sd">    - Consumption = Production + Respiration + Unassimilated for consumers,</span>
+<span class="sd">      with a respiration of zero or more</span>
 <span class="sd">    - Diet compositions sum to 1</span>
 
 <span class="sd">    Parameters</span>
@@ -61732,6 +61760,10 @@ the remainder as unresolved/other food instead of a hard issue.</p>
 <span class="sd">        - is_balanced: bool</span>
 <span class="sd">        - ee_issues: list of groups with EE &gt; 1</span>
 <span class="sd">        - diet_issues: list of groups with diet sum != 1</span>
+<span class="sd">        - balance_issues: list of consumers with P/Q outside 0 to 1</span>
+<span class="sd">        - respiration_issues: list of consumers with a negative respiration,</span>
+<span class="sd">          Q/B x (1 - Unassim) - (1 - producer share) x P/B per unit biomass.</span>
+<span class="sd">          Like balance_issues, they do not change is_balanced.</span>
 <span class="sd">        - messages: list of diagnostic messages</span>
 <span class="sd">    """</span>
     <span class="n">results</span> <span class="o">=</span> <span class="p">{</span>
@@ -61740,6 +61772,7 @@ the remainder as unresolved/other food instead of a hard issue.</p>
         <span class="s2">"diet_issues"</span><span class="p">:</span> <span class="p">[],</span>
         <span class="s2">"diet_warnings"</span><span class="p">:</span> <span class="p">[],</span>
         <span class="s2">"balance_issues"</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="s2">"respiration_issues"</span><span class="p">:</span> <span class="p">[],</span>
         <span class="s2">"messages"</span><span class="p">:</span> <span class="p">[],</span>
     <span class="p">}</span>
 
@@ -61777,6 +61810,8 @@ the remainder as unresolved/other food instead of a hard issue.</p>
                     <span class="p">)</span>
 
     <span class="c1"># Check production/consumption balance</span>
+    <span class="n">unassim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rpath</span><span class="o">.</span><span class="n">Unassim</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">producer_share</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rpath</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">living</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">rpath</span><span class="o">.</span><span class="n">QB</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">_consumption</span> <span class="o">=</span> <span class="n">rpath</span><span class="o">.</span><span class="n">QB</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">rpath</span><span class="o">.</span><span class="n">Biomass</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
@@ -61787,6 +61822,20 @@ the remainder as unresolved/other food instead of a hard issue.</p>
             <span class="k">if</span> <span class="n">ge</span> <span class="o">&gt;</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">tolerance</span> <span class="ow">or</span> <span class="n">ge</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">results</span><span class="p">[</span><span class="s2">"balance_issues"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
                 <span class="n">results</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_name</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="si">}</span><span class="s2">: GE = </span><span class="si">{</span><span class="n">ge</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> (should be 0-1)"</span><span class="p">)</span>
+
+            <span class="c1"># Respiration is what is left of the assimilated food after the</span>
+            <span class="c1"># production it pays for. A mixotroph's producer share of the</span>
+            <span class="c1"># production needs no food.</span>
+            <span class="n">respiration</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">rpath</span><span class="o">.</span><span class="n">QB</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">unassim</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="o">-</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">producer_share</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">*</span> <span class="n">rpath</span><span class="o">.</span><span class="n">PB</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">respiration</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">tolerance</span><span class="p">:</span>
+                <span class="n">results</span><span class="p">[</span><span class="s2">"respiration_issues"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">results</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_name</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="si">}</span><span class="s2">: respiration = </span><span class="si">{</span><span class="n">respiration</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> per unit "</span>
+                    <span class="s2">"biomass is negative: production exceeds assimilated food"</span>
+                <span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">]:</span>
         <span class="n">results</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"Model is properly balanced"</span><span class="p">)</span>
@@ -61897,29 +61946,7 @@ reaches equilibrium.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">653</span>
-<span class="normal">654</span>
-<span class="normal">655</span>
-<span class="normal">656</span>
-<span class="normal">657</span>
-<span class="normal">658</span>
-<span class="normal">659</span>
-<span class="normal">660</span>
-<span class="normal">661</span>
-<span class="normal">662</span>
-<span class="normal">663</span>
-<span class="normal">664</span>
-<span class="normal">665</span>
-<span class="normal">666</span>
-<span class="normal">667</span>
-<span class="normal">668</span>
-<span class="normal">669</span>
-<span class="normal">670</span>
-<span class="normal">671</span>
-<span class="normal">672</span>
-<span class="normal">673</span>
-<span class="normal">674</span>
-<span class="normal">675</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">675</span>
 <span class="normal">676</span>
 <span class="normal">677</span>
 <span class="normal">678</span>
@@ -61964,7 +61991,29 @@ reaches equilibrium.</p>
 <span class="normal">717</span>
 <span class="normal">718</span>
 <span class="normal">719</span>
-<span class="normal">720</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_ecosim_stability</span><span class="p">(</span>
+<span class="normal">720</span>
+<span class="normal">721</span>
+<span class="normal">722</span>
+<span class="normal">723</span>
+<span class="normal">724</span>
+<span class="normal">725</span>
+<span class="normal">726</span>
+<span class="normal">727</span>
+<span class="normal">728</span>
+<span class="normal">729</span>
+<span class="normal">730</span>
+<span class="normal">731</span>
+<span class="normal">732</span>
+<span class="normal">733</span>
+<span class="normal">734</span>
+<span class="normal">735</span>
+<span class="normal">736</span>
+<span class="normal">737</span>
+<span class="normal">738</span>
+<span class="normal">739</span>
+<span class="normal">740</span>
+<span class="normal">741</span>
+<span class="normal">742</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_ecosim_stability</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span> <span class="n">burn_years</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Check Ecosim scenario stability.</span>
@@ -62118,29 +62167,7 @@ reaches equilibrium.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">728</span>
-<span class="normal">729</span>
-<span class="normal">730</span>
-<span class="normal">731</span>
-<span class="normal">732</span>
-<span class="normal">733</span>
-<span class="normal">734</span>
-<span class="normal">735</span>
-<span class="normal">736</span>
-<span class="normal">737</span>
-<span class="normal">738</span>
-<span class="normal">739</span>
-<span class="normal">740</span>
-<span class="normal">741</span>
-<span class="normal">742</span>
-<span class="normal">743</span>
-<span class="normal">744</span>
-<span class="normal">745</span>
-<span class="normal">746</span>
-<span class="normal">747</span>
-<span class="normal">748</span>
-<span class="normal">749</span>
-<span class="normal">750</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">750</span>
 <span class="normal">751</span>
 <span class="normal">752</span>
 <span class="normal">753</span>
@@ -62176,7 +62203,29 @@ reaches equilibrium.</p>
 <span class="normal">783</span>
 <span class="normal">784</span>
 <span class="normal">785</span>
-<span class="normal">786</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">export_ecopath_to_dataframe</span><span class="p">(</span><span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+<span class="normal">786</span>
+<span class="normal">787</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span>
+<span class="normal">791</span>
+<span class="normal">792</span>
+<span class="normal">793</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">export_ecopath_to_dataframe</span><span class="p">(</span><span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Export Ecopath model to DataFrames.</span>
 
 <span class="sd">    Parameters</span>
@@ -62342,29 +62391,7 @@ reaches equilibrium.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">789</span>
-<span class="normal">790</span>
-<span class="normal">791</span>
-<span class="normal">792</span>
-<span class="normal">793</span>
-<span class="normal">794</span>
-<span class="normal">795</span>
-<span class="normal">796</span>
-<span class="normal">797</span>
-<span class="normal">798</span>
-<span class="normal">799</span>
-<span class="normal">800</span>
-<span class="normal">801</span>
-<span class="normal">802</span>
-<span class="normal">803</span>
-<span class="normal">804</span>
-<span class="normal">805</span>
-<span class="normal">806</span>
-<span class="normal">807</span>
-<span class="normal">808</span>
-<span class="normal">809</span>
-<span class="normal">810</span>
-<span class="normal">811</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">811</span>
 <span class="normal">812</span>
 <span class="normal">813</span>
 <span class="normal">814</span>
@@ -62395,7 +62422,29 @@ reaches equilibrium.</p>
 <span class="normal">839</span>
 <span class="normal">840</span>
 <span class="normal">841</span>
-<span class="normal">842</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">export_ecosim_to_dataframe</span><span class="p">(</span>
+<span class="normal">842</span>
+<span class="normal">843</span>
+<span class="normal">844</span>
+<span class="normal">845</span>
+<span class="normal">846</span>
+<span class="normal">847</span>
+<span class="normal">848</span>
+<span class="normal">849</span>
+<span class="normal">850</span>
+<span class="normal">851</span>
+<span class="normal">852</span>
+<span class="normal">853</span>
+<span class="normal">854</span>
+<span class="normal">855</span>
+<span class="normal">856</span>
+<span class="normal">857</span>
+<span class="normal">858</span>
+<span class="normal">859</span>
+<span class="normal">860</span>
+<span class="normal">861</span>
+<span class="normal">862</span>
+<span class="normal">863</span>
+<span class="normal">864</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">export_ecosim_to_dataframe</span><span class="p">(</span>
     <span class="n">output</span><span class="p">:</span> <span class="n">RsimOutput</span><span class="p">,</span> <span class="n">scenario</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RsimScenario</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Export Ecosim results to DataFrames.</span>
@@ -92082,9 +92131,11 @@ in this process (also when <code>config.n_jobs</code> runs workers).</p>
 
     </div>
 
-</div><h2 id="ecotracer-contaminant-tracking">Ecotracer (Contaminant Tracking)<a class="headerlink" href="#ecotracer-contaminant-tracking" title="Permanent link">&para;</a></h2>
+</div><h2 id="simplified-contaminant-tracer-ecotracer">Simplified contaminant tracer (<code>ecotracer</code>)<a class="headerlink" href="#simplified-contaminant-tracer-ecotracer" title="Permanent link">&para;</a></h2>
 <p>Track contaminant concentrations through the food web coupled to
-Ecosim biomass dynamics.</p>
+Ecosim biomass dynamics. This is PyPath's own simplified tracer, not a
+port of EwE's Ecotracer: it has no environment pool, and its uptake and
+loss terms differ, so its results are not EwE Ecotracer output.</p>
 
 
 <div class="doc doc-object doc-module">
@@ -92099,10 +92150,14 @@ Ecosim biomass dynamics.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Ecotracer: contaminant tracking through the food web.</p>
+        <p>Simplified contaminant tracer, coupled to Ecosim.</p>
 <p>Tracks contaminant concentrations alongside Ecosim biomass dynamics.
 Each group has initial concentration, environmental/immigration inputs,
 decay, assimilation, and metabolism rates.</p>
+<p>This is PyPath's own simplified tracer, not a port of EwE's Ecotracer:
+it has no environment pool, and its uptake and loss terms differ. Its
+results should not be read as EwE Ecotracer output (deviation F in
+<code>docs/parity/deviations.md</code>).</p>
 
 
 
@@ -92266,12 +92321,7 @@ No fleets, no padding column.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecotracer.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">19</span>
-<span class="normal">20</span>
-<span class="normal">21</span>
-<span class="normal">22</span>
-<span class="normal">23</span>
-<span class="normal">24</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">24</span>
 <span class="normal">25</span>
 <span class="normal">26</span>
 <span class="normal">27</span>
@@ -92294,7 +92344,12 @@ No fleets, no padding column.</p>
 <span class="normal">44</span>
 <span class="normal">45</span>
 <span class="normal">46</span>
-<span class="normal">47</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EcotracerParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Per-group tracer parameters.</span>
 
@@ -92440,12 +92495,7 @@ No fleets, no padding column.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecotracer.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">55</span>
 <span class="normal">56</span>
 <span class="normal">57</span>
 <span class="normal">58</span>
@@ -92456,7 +92506,12 @@ No fleets, no padding column.</p>
 <span class="normal">63</span>
 <span class="normal">64</span>
 <span class="normal">65</span>
-<span class="normal">66</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span>
+<span class="normal">71</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EcotracerResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Output time series from Ecotracer simulation.</span>
 
@@ -92517,19 +92572,19 @@ No fleets, no padding column.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecotracer.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">69</span>
-<span class="normal">70</span>
-<span class="normal">71</span>
-<span class="normal">72</span>
-<span class="normal">73</span>
-<span class="normal">74</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">74</span>
 <span class="normal">75</span>
 <span class="normal">76</span>
 <span class="normal">77</span>
 <span class="normal">78</span>
 <span class="normal">79</span>
 <span class="normal">80</span>
-<span class="normal">81</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_ecotracer_params</span><span class="p">(</span><span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcotracerParams</span><span class="p">:</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span>
+<span class="normal">86</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_ecotracer_params</span><span class="p">(</span><span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcotracerParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create EcotracerParams with sensible defaults.</span>
 
 <span class="sd">    Defaults: czero=0, cenv=0, cimmig=0, cdecay=0, cassim=1.0, cmetab=0.</span>
@@ -92707,12 +92762,7 @@ n_living..n_groups-1 are detritus).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecotracer.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 87</span>
-<span class="normal"> 88</span>
-<span class="normal"> 89</span>
-<span class="normal"> 90</span>
-<span class="normal"> 91</span>
-<span class="normal"> 92</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 92</span>
 <span class="normal"> 93</span>
 <span class="normal"> 94</span>
 <span class="normal"> 95</span>
@@ -92776,7 +92826,12 @@ n_living..n_groups-1 are detritus).</p>
 <span class="normal">153</span>
 <span class="normal">154</span>
 <span class="normal">155</span>
-<span class="normal">156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecotracer_deriv</span><span class="p">(</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecotracer_deriv</span><span class="p">(</span>
     <span class="n">conc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">biomass</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">Q_matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -93032,12 +93087,7 @@ n_living..n_groups-1 are detritus).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecotracer.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">164</span>
 <span class="normal">165</span>
 <span class="normal">166</span>
 <span class="normal">167</span>
@@ -93109,7 +93159,12 @@ n_living..n_groups-1 are detritus).</p>
 <span class="normal">233</span>
 <span class="normal">234</span>
 <span class="normal">235</span>
-<span class="normal">236</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecotracer_step</span><span class="p">(</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ecotracer_step</span><span class="p">(</span>
     <span class="n">conc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">biomass</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">Q_matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
