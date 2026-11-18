@@ -402,7 +402,7 @@ def server(input: Inputs, output: Outputs, session: Session):
     @reactive.effect
     @reactive.event(input.btn_topbar_about)
     def goto_about_from_topbar():
-        ui.update_navs("main_nav", selected="About")
+        ui.update_navset("main_nav", selected="About")
 
     # Primary reactive state (shared across all pages)
     model_data = reactive.Value(None)  # RpathParams: Ecopath model parameters

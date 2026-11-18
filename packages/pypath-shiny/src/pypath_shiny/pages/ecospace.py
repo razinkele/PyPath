@@ -9,6 +9,8 @@ Interactive spatial ecosystem modeling with:
 - Spatial simulation and visualization
 """
 
+import asyncio
+import copy
 import logging
 import shutil
 import tempfile
@@ -34,6 +36,11 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shiny_deckgl import MapWidget
 
 from pypath_shiny.config import SPATIAL
+from pypath_shiny.services.background_runs import (
+    SpatialOutcome,
+    run_spatial,
+    spatial_result_is_current,
+)
 
 # Import centralized configuration
 from pypath_shiny.services.deckgl_maps import (
@@ -48,6 +55,7 @@ from pypath_shiny.services.deckgl_maps import (
     grid_overview_layers,
     patch_value_layers,
 )
+from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunSlot
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -1441,12 +1449,52 @@ def ecospace_server(
             return None
         return ports
 
+    # This session's spatial run in the process-wide executor. A spatial run
+    # cannot be stopped once a worker has it, so the slot stays taken until
+    # the thread finishes; a second click is refused meanwhile.
+    run_slot = RunSlot()
+
+    @reactive.extended_task
+    async def _spatial_task(
+        run_id, source, source_grid, scen, ecospace_params, spatial_fishing, used, slot
+    ):
+        """Integrate on a worker thread, off the event loop.
+
+        ``scen`` is a deep copy of ``source``, the page's scenario object. The
+        run goes to the bounded executor shared with the Ecosim page. The
+        worker reads no reactive value and shows nothing: the launch effect
+        gathers everything first and ``_apply_spatial_result`` lands the
+        outcome, both on the loop.
+        """
+        future = RUN_EXECUTOR.submit(
+            run_spatial, scen, ecospace_params, spatial_fishing
+        )
+        slot.acquire(future)
+        out = await asyncio.wrap_future(future)
+        return SpatialOutcome(run_id, source, source_grid, out, used)
+
+    # A closed or reloaded tab must not leave its run queued for a worker with
+    # no owner. A run already computing finishes and its result is dropped.
+    _session.on_ended(_spatial_task.cancel)
+
     # Run spatial simulation handler
     @reactive.effect
     @reactive.event(input.run_spatial_sim)
     def _run_spatial_simulation():
-        """Run spatial ECOSPACE simulation."""
-        from pypath.spatial import rsim_run_spatial
+        """Prepare a spatial run and start it on a worker (``_spatial_task``)."""
+        # invoke() would queue behind a running task. Refuse instead, before
+        # any state change, so the live run keeps its run_id.
+        if (
+            spatial_task_state.get().status is TaskStatus.RUNNING
+            or _spatial_task.status() == "running"
+            or run_slot.busy
+        ):
+            _notify_legacy(
+                "A spatial simulation is already running. Please wait for it.",
+                type="warning",
+                duration=5,
+            )
+            return
 
         # Guard: need both scenario and grid
         if _sim_scenario is None or _sim_scenario() is None:
@@ -1534,55 +1582,122 @@ def ecospace_server(
             )
 
             spatial_fishing = _build_spatial_fishing()
-            result = rsim_run_spatial(
+            # The worker integrates a copy: the page's scenario stays usable
+            # (and editable) while the run computes.
+            _spatial_task.invoke(
+                run_id,
                 scenario,
-                ecospace=ecospace_params,
+                current_grid,
+                copy.deepcopy(scenario),
+                ecospace_params,
                 spatial_fishing=spatial_fishing,
-            )
-            _spatial_results.set(result)
-            _spatial_switching.set(used)
-
-            # Post-run: update biomass group dropdown with group names
-            spname = getattr(scenario.params, "spname", None)
-            if spname is not None:
-                group_choices = {
-                    str(i): name
-                    for i, name in enumerate(spname)
-                    if i > 0 and i <= n_groups
-                }
-            else:
-                group_choices = {str(i): f"Group {i}" for i in range(1, n_groups + 1)}
-            ui.update_select("biomass_view_group", choices=group_choices)
-
-            # Update animation slider max to number of timesteps
-            n_timesteps = result.out_Biomass_spatial.shape[0] - 1
-            ui.update_slider("animation_time", max=n_timesteps, value=0)
-
-            _notify_legacy("Spatial simulation complete!", type="message", duration=3)
-            _update_latest(
-                lambda s, n=n_timesteps: finish_task(
-                    s,
-                    success=True,
-                    message=f"Spatial simulation complete ({n + 1} time steps).",
-                )
+                used=used,
+                slot=run_slot,
             )
 
         except Exception as e:
-            logger.error("Spatial simulation failed: %s", e, exc_info=True)
-            err = f"Spatial simulation failed: {e!s}"
-            _notify_legacy(
-                err,
-                type="error",
-                duration=8,
+            logger.error("Spatial simulation could not start: %s", e, exc_info=True)
+            _fail_spatial_run(run_id, f"Spatial simulation failed: {e!s}")
+
+    def _finish_spatial_run(run_id: str, **finish) -> None:
+        """Finish the running task, if it is still ``run_id``."""
+        spatial_task_state.set(
+            apply_if_latest(
+                spatial_task_state.get(),
+                run_id=run_id,
+                updater=lambda s: finish_task(s, **finish),
             )
-            _update_latest(
-                lambda s, msg=err: finish_task(
-                    s,
-                    success=False,
-                    message="Spatial simulation failed",
-                    error=msg,
+        )
+
+    def _fail_spatial_run(run_id: str, err: str) -> None:
+        _notify_legacy(err, type="error", duration=8)
+        _finish_spatial_run(
+            run_id, success=False, message="Spatial simulation failed", error=err
+        )
+
+    def _land_spatial_result(outcome: SpatialOutcome) -> None:
+        """Put a finished run on the page."""
+        result = outcome.output
+        scenario = outcome.source
+        n_groups = scenario.params.NUM_GROUPS
+        _spatial_results.set(result)
+        _spatial_switching.set(outcome.switching)
+
+        # Post-run: update biomass group dropdown with group names
+        spname = getattr(scenario.params, "spname", None)
+        if spname is not None:
+            group_choices = {
+                str(i): name for i, name in enumerate(spname) if i > 0 and i <= n_groups
+            }
+        else:
+            group_choices = {str(i): f"Group {i}" for i in range(1, n_groups + 1)}
+        ui.update_select("biomass_view_group", choices=group_choices)
+
+        # Update animation slider max to number of timesteps
+        n_timesteps = result.out_Biomass_spatial.shape[0] - 1
+        ui.update_slider("animation_time", max=n_timesteps, value=0)
+
+        _notify_legacy("Spatial simulation complete!", type="message", duration=3)
+        _finish_spatial_run(
+            outcome.run_id,
+            success=True,
+            message=f"Spatial simulation complete ({n_timesteps + 1} time steps).",
+        )
+
+    @reactive.effect
+    def _apply_spatial_result():
+        """Land the task's outcome. Depends on the task's status only."""
+        status = _spatial_task.status()
+        # Everything else is read isolated, so this effect's own state
+        # changes do not re-trigger it.
+        with reactive.isolate():
+            state = spatial_task_state.get()
+            if status == "success":
+                outcome = _spatial_task.result()
+                current_scenario = (
+                    _sim_scenario() if _sim_scenario is not None else None
                 )
-            )
+                if spatial_result_is_current(state, outcome, current_scenario, grid()):
+                    try:
+                        _land_spatial_result(outcome)
+                    except Exception as e:
+                        logger.error(
+                            "Spatial result could not be shown: %s", e, exc_info=True
+                        )
+                        _fail_spatial_run(
+                            outcome.run_id, f"Spatial simulation failed: {e!s}"
+                        )
+                elif (
+                    state.status is TaskStatus.RUNNING
+                    and state.run_id == outcome.run_id
+                ):
+                    # The page was not frozen during the run, and its grid or
+                    # scenario was replaced: this result belongs to neither.
+                    msg = (
+                        "The grid or the Ecosim scenario changed during the run, "
+                        "so its result was discarded. Run the simulation again."
+                    )
+                    _notify_legacy(msg, type="warning", duration=8)
+                    _finish_spatial_run(
+                        outcome.run_id,
+                        success=False,
+                        message="Spatial result discarded",
+                        error=msg,
+                    )
+                else:
+                    logger.debug(
+                        "Dropped a stale spatial result (run %s)", outcome.run_id
+                    )
+            elif status == "error":
+                if state.status is not TaskStatus.RUNNING:
+                    logger.debug("Dropped a stale spatial error (state %s)", state)
+                    return
+                try:
+                    _spatial_task.result()
+                except Exception as e:
+                    logger.error("Spatial simulation failed: %s", e, exc_info=True)
+                    _fail_spatial_run(state.run_id, f"Spatial simulation failed: {e!s}")
+            # "cancelled": only a closed session cancels, and it shows nothing.
 
     @render.ui
     def spatial_switching_line():

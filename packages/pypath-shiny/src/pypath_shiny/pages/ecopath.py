@@ -1624,7 +1624,7 @@ def ecopath_server(
         groups, n = _living_and_dead(model)
         return build_ee_figure(groups, np.asarray(model.EE[:n], dtype=float))
 
-    @render.download(filename="pypath_params.csv")
+    @render.download_button(filename="pypath_params.csv")
     def download_params():
         """Download parameters as CSV."""
         p = params.get()

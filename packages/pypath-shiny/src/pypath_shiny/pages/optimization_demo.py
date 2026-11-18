@@ -106,7 +106,7 @@ def optimization_demo_ui():
                     ui.card(
                         ui.card_header("Convergence Plot"),
                         ui.output_ui("convergence_plot"),
-                        ui.output_text_verbatim("optimization_summary"),
+                        ui.output_code("optimization_summary"),
                     ),
                 ),
                 ui.nav_panel(
@@ -647,7 +647,7 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
     @output
-    @render.text
+    @render.code
     def optimization_summary():
         """Display optimization summary."""
         results = optimization_results()
@@ -838,7 +838,7 @@ Objective Function: {cfg["objective"].upper()}
         """Generate Python code example."""
         return _opt_code()
 
-    @render.download(filename="optimization_example.py")
+    @render.download_button(filename="optimization_example.py")
     def opt_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield _opt_code()

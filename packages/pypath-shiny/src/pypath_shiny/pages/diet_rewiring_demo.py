@@ -155,7 +155,7 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
     def diet_code_example():
         return build_prey_switching_code(input.demo_switching_power())
 
-    @render.download(filename="prey_switching_example.py")
+    @render.download_button(filename="prey_switching_example.py")
     def diet_download_code():
         """Download code example (yield: a returned str is treated as a path)."""
         yield build_prey_switching_code(input.demo_switching_power())
