@@ -7,8 +7,10 @@ order, so a parallel run must give exactly the serial run's statistics, stored
 runs and progress calls.
 """
 
+import copy
 import multiprocessing
 import os
+import sys
 import warnings
 
 import numpy as np
@@ -21,10 +23,11 @@ from pypath.core.montecarlo import (
     _resolve_n_jobs,
     run_montecarlo,
 )
+from tests.continuous_support import needs_reco, reco_stanzas
 from tests.test_mc_integration import _make_mc_model
 
 
-def _run(n_jobs, **overrides):
+def _run(n_jobs, model=None, callback=None, **overrides):
     config = MCConfig(
         n_samples=overrides.pop("n_samples", 16),
         method="lhs",
@@ -36,9 +39,14 @@ def _run(n_jobs, **overrides):
         **overrides,
     )
     calls = []
-    result = run_montecarlo(
-        _make_mc_model(), config, progress_callback=lambda i, n: calls.append((i, n))
-    )
+
+    def progress(i, n):
+        calls.append((i, n))
+        if callback is not None:
+            callback(i, n)
+
+    params = _make_mc_model() if model is None else model
+    result = run_montecarlo(params, config, progress_callback=progress)
     return result, calls
 
 
@@ -82,40 +90,99 @@ def test_parallel_ecosim_matches_serial():
     _assert_same(serial, parallel)
 
 
-@pytest.mark.skipif(
-    "fork" not in multiprocessing.get_all_start_methods(),
-    reason="the patched evaluator reaches the workers only through fork",
-)
-# This test forks on purpose; the pytest process has threads (numpy's BLAS)
-@pytest.mark.filterwarnings(
-    "ignore:This process .* is multi-threaded:DeprecationWarning"
-)
-def test_samples_run_in_worker_processes(tmp_path, monkeypatch):
-    import pypath.core.montecarlo as mc
+def test_samples_run_in_worker_processes():
+    # The parent only collects results: while they arrive, its workers exist
+    children = []
+    _run(
+        2,
+        n_samples=6,
+        callback=lambda i, n: children.append(len(multiprocessing.active_children())),
+    )
+    assert children and min(children) >= 1
+    # ... and none is left once the run returns
+    assert multiprocessing.active_children() == [] or all(
+        not p.is_alive() for p in multiprocessing.active_children()
+    )
 
-    log = tmp_path / "pids.txt"
-    original = mc._run_single_ecopath
 
-    def recording(*args, **kwargs):
-        with open(log, "a") as fh:
-            fh.write(f"{os.getpid()}\n")
-        return original(*args, **kwargs)
+class _FailWhenProducerAbove:
+    """Mediation that fails a sample's Ecosim when its producer biomass > 10.
 
-    monkeypatch.setattr(mc, "_run_single_ecopath", recording)
-    _run(2, n_samples=8, mp_context="fork")
+    Module level, so spawned and forkserver workers can import it.
+    """
 
-    pids = {int(line) for line in log.read_text().split()}
-    assert len(log.read_text().split()) == 8
-    assert pids and os.getpid() not in pids
+    def compute_group_multipliers(self, BB, Bbase, ActiveLink):
+        if Bbase[1] > 10.0:
+            raise RuntimeError("sample-dependent Ecosim failure")
+        return np.ones((len(BB), len(BB)))
+
+    def compute_fleet_multipliers(self, BB, Bbase, n):
+        return np.ones(n)
+
+    def compute_landing_multipliers(self, BB, Bbase, nf, ng):
+        return np.ones((nf, ng))
+
+
+def test_failed_ecosim_samples_match_serial():
+    kwargs = dict(
+        n_samples=12,
+        ecopath_only=False,
+        ecosim_years=range(1, 3),
+        mediation=_FailWhenProducerAbove(),
+    )
+    serial, _ = _run(1, **kwargs)
+    parallel, _ = _run(3, **kwargs)
+    assert 0 < serial.n_ecosim < serial.n_feasible
+    _assert_same(serial, parallel)
+
+
+@needs_reco
+def test_the_caller_warning_filters_do_not_change_results():
+    # REco's stanza groups warn on every Ecosim scenario. Workers start with
+    # their own warning filters, so the evaluation must not depend on the
+    # caller's: under "error" a warning would otherwise fail the serial
+    # run's Ecosim but not the workers'.
+    model = copy.deepcopy(reco_stanzas()[1])
+    for col in model.pedigree.columns:
+        if col != "Group":
+            model.pedigree[col] = 0.1
+    kwargs = dict(n_samples=4, ecopath_only=False, ecosim_years=range(1, 3))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        serial, _ = _run(1, model=model, **kwargs)
+        parallel, _ = _run(2, model=model, **kwargs)
+    assert serial.n_ecosim == serial.n_feasible > 0
+    _assert_same(serial, parallel)
+
+
+class _Stop(Exception):
+    pass
+
+
+def test_an_error_in_the_progress_callback_stops_the_run():
+    def stop(i, n):
+        if i == 1:
+            raise _Stop
+
+    with pytest.raises(_Stop):
+        _run(2, n_samples=8, callback=stop)
+
+
+def test_an_unknown_start_method_is_refused_even_serially():
+    with pytest.raises(ValueError):
+        _run(1, n_samples=2, mp_context="no-such-method")
 
 
 def test_workers_are_not_forked_by_default():
-    # fork is unsafe in a multi-threaded process; forkserver and spawn start
-    # clean workers on every platform
+    # fork is unsafe in a multi-threaded process. Linux gets forkserver;
+    # macOS and Windows get spawn, as CPython's own defaults
     method = _mp_context(None).get_start_method()
-    assert method in {"forkserver", "spawn"}
-    if "forkserver" in multiprocessing.get_all_start_methods():
+    if sys.platform in ("darwin", "win32"):
+        assert method == "spawn"
+    elif "forkserver" in multiprocessing.get_all_start_methods():
         assert method == "forkserver"
+    else:
+        assert method == "spawn"
 
 
 def test_a_default_parallel_run_raises_no_fork_warning():
@@ -140,13 +207,21 @@ def test_spawned_workers_match_serial():
         (1, 10, 1),
         (4, 10, 4),
         (8, 3, 3),  # never more workers than samples
-        (-1, 10_000, os.cpu_count() or 1),
         (-1, 2, min(2, os.cpu_count() or 1)),
         (4, 0, 1),
     ],
 )
 def test_worker_count(n_jobs, n_samples, expected):
     assert _resolve_n_jobs(n_jobs, n_samples) == expected
+
+
+def test_all_cpus_means_the_ones_this_process_may_use():
+    n = _resolve_n_jobs(-1, 10_000)
+    assert 1 <= n <= (os.cpu_count() or 1)
+    if hasattr(os, "sched_getaffinity"):
+        assert n == len(os.sched_getaffinity(0))
+    if sys.platform == "win32":
+        assert n <= 61  # ProcessPoolExecutor's limit on Windows
 
 
 @pytest.mark.parametrize("n_jobs", [0, -2, 1.5, True, "4"])
