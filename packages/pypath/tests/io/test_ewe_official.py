@@ -7,7 +7,8 @@ EcopathGroup, EcopathDietComp, EcopathFleet, EcopathCatch, ...).
 
 EwE's ``.vc.sqlite`` files hold its Value Chain plug-in's economic data
 (producer, processing, wholesaler, retailer and consumer units, trade links
-and landings), not an Ecopath model; ``read_ewe_sqlite`` says so.
+and landings), not an Ecopath model; ``read_ewe_sqlite`` says so. A SQLite
+copy of a model database is read: see test_ewe_sqlite.py.
 """
 
 import os

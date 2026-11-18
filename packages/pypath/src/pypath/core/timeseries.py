@@ -364,12 +364,12 @@ def load_timeseries(path: str | Path) -> EweTimeSeriesCollection:
         from pypath.io.timeseries_csv import load_timeseries_csv
 
         return load_timeseries_csv(path, format="simple")
-    elif ext in (".eweaccdb", ".ewemdb", ".accdb"):
+    elif ext in (".eweaccdb", ".ewemdb", ".accdb", ".sqlite"):
         from pypath.io.ewemdb import read_timeseries
 
         return read_timeseries(str(path))
     else:
         raise ValueError(
             f"Unsupported file extension '{ext}'. "
-            f"Use .csv, .eweaccdb, .ewemdb, or .accdb."
+            f"Use .csv, .eweaccdb, .ewemdb, .accdb, or .sqlite."
         )
