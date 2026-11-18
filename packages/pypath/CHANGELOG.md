@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.10.1 (2026-11-18)
+
+### Bug Fixes
+
+- **ecosim**: Adjust_fishing sets whole years of ForcedEffort
+  ([`e03501b`](https://github.com/razinkele/PyPath/commit/e03501ba8521e7da1d68f9bea6cb94279de24c24))
+
+
 ## v1.10.0 (2026-11-18)
 
 ### Bug Fixes
