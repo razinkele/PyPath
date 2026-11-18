@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.11.0 (2026-11-18)
+
+### Features
+
+- **analysis**: Check_ecopath_balance reports negative respiration
+  ([`3fcee4b`](https://github.com/razinkele/PyPath/commit/3fcee4bc42f79f056f27fa64c6430f3adfe6a31d))
+
+
 ## v1.10.1 (2026-11-18)
 
 ### Bug Fixes
