@@ -9,8 +9,14 @@ name: Integration tests (weekly)
 # request only when that request changes this file. A red run is a signal to
 # look, and a live service being down is one possible cause.
 #
-# Tests also marked `benchmark` are left out: they assert CPU-time ratios,
-# which a shared runner cannot hold steady.
+# Left out:
+# - tests also marked `benchmark`: they assert CPU-time ratios, which a shared
+#   runner cannot hold steady;
+# - tests/test_biodata_integration.py: about 50 tests that each call WoRMS,
+#   OBIS or FishBase. On a GitHub runner WoRMS starts refusing connections
+#   partway through the file (the first run here lost 7 tests to it), so the
+#   file would make this job red for a reason that is not ours. Run it by
+#   hand: pytest packages/pypath/tests/test_biodata_integration.py -m integration
 
 on:
   schedule:
@@ -23,8 +29,10 @@ on:
 permissions:
   contents: read
 
+# One group per trigger and ref: a newer push to a pull request replaces its
+# older run, and a pull request cannot cancel the weekly run on main.
 concurrency:
-  group: integration-tests
+  group: integration-tests-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -57,4 +65,6 @@ jobs:
 
       - name: Run integration tests
         run: |
-          pytest packages/pypath/tests -m "integration and not benchmark" -q --disable-warnings --durations=15 -rs
+          pytest packages/pypath/tests -m "integration and not benchmark" \
+            --ignore=packages/pypath/tests/test_biodata_integration.py \
+            -q --disable-warnings --durations=15 -rs
