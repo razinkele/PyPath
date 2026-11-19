@@ -6,6 +6,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.9.0 (2026-11-19)
+
+### Bug Fixes
+
+- **shiny**: Ecospace and IBM runs no longer freeze every session
+  ([`0080602`](https://github.com/razinkele/PyPath/commit/0080602cea4ffff79082c0e33fafcfcaa2cb22e6))
+
+### Features
+
+- **shiny**: Note when the scenario was edited after a run started
+  ([`0c3384f`](https://github.com/razinkele/PyPath/commit/0c3384fae089b22b2660653ffea4116ad7f660b6))
+
+### Refactoring
+
+- **shiny**: Replace deprecated Shiny calls
+  ([`1722c36`](https://github.com/razinkele/PyPath/commit/1722c366adf3bc4e55cfdc29cde5674f6db31b6f))
+
+
 ## v1.8.1 (2026-11-18)
 
 ### Bug Fixes
