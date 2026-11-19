@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.12.1 (2026-11-19)
+
+### Bug Fixes
+
+- **biodata**: Retry a FishBase download that fails for a passing reason
+  ([`08497bf`](https://github.com/razinkele/PyPath/commit/08497bf843ada53f04df56653ba3a656502bded8))
+
+
 ## v1.12.0 (2026-11-19)
 
 ### Bug Fixes
