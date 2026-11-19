@@ -33,7 +33,7 @@ from pypath.spatial import (
     load_spatial_grid,
 )
 from shiny import Inputs, Outputs, Session, reactive, render, ui
-from shiny_deckgl import MapWidget
+from shiny_deckgl import CARTO_DARK, MapWidget
 
 from pypath_shiny.config import SPATIAL
 from pypath_shiny.services.background_runs import (
@@ -88,10 +88,13 @@ logger = logging.getLogger(__name__)
 
 # deck.gl maps (shiny-deckgl). Module-level like the rest of the page UI;
 # shiny-deckgl keeps per-session state, so sessions do not share layers.
-GRID_MAP = MapWidget("ecospace_grid_map", tooltip=MAP_TOOLTIP)
-HABITAT_MAP = MapWidget("ecospace_habitat_map", tooltip=MAP_TOOLTIP)
-EFFORT_MAP = MapWidget("ecospace_effort_map", tooltip=MAP_TOOLTIP)
-BIOMASS_MAP = MapWidget("ecospace_biomass_map", tooltip=MAP_TOOLTIP)
+# The maps follow the page's dark mode (the header toggle sets data-bs-theme):
+# with a dark basemap named, they swap to it and back.
+_MAP_OPTIONS = {"tooltip": MAP_TOOLTIP, "dark_style": CARTO_DARK}
+GRID_MAP = MapWidget("ecospace_grid_map", **_MAP_OPTIONS)
+HABITAT_MAP = MapWidget("ecospace_habitat_map", **_MAP_OPTIONS)
+EFFORT_MAP = MapWidget("ecospace_effort_map", **_MAP_OPTIONS)
+BIOMASS_MAP = MapWidget("ecospace_biomass_map", **_MAP_OPTIONS)
 _MAPS = (GRID_MAP, HABITAT_MAP, EFFORT_MAP, BIOMASS_MAP)
 
 
@@ -798,14 +801,15 @@ def ecospace_ui():
                 ui.hr(),
                 ui.output_ui("wizard_config_note"),
                 # Run simulation button
-                ui.input_action_button(
+                # A task button: busy while the run computes. It is never
+                # disabled; without a scenario or a grid the handler says so.
+                ui.input_task_button(
                     "run_spatial_sim",
-                    ui.tags.span(
-                        ui.tags.i(class_="bi bi-play-fill me-2"),
-                        "Run Spatial Simulation",
-                    ),
-                    class_="btn btn-success w-100 mt-3",
-                    disabled=True,
+                    "Run Spatial Simulation",
+                    icon=ui.tags.i(class_="bi bi-play-fill"),
+                    label_busy="Running...",
+                    type="success",
+                    class_="w-100 mt-3",
                 ),
                 ui.output_ui("spatial_run_status"),
                 ui.output_ui("spatial_switching_line"),
@@ -869,6 +873,7 @@ def ecospace_ui():
                     ),
                 ),
                 id="ecospace_tabs",
+                full_screen=True,
             ),
         ),
         # Page header
@@ -1272,9 +1277,6 @@ def ecospace_server(
                     )
                     return
 
-            # Enable run button
-            ui.update_action_button("run_spatial_sim", disabled=False)
-
         except (ValueError, TypeError, OSError, RuntimeError, ImportError) as e:
             logger.debug("Grid creation failed: %s", e)
             _notify_legacy(f"Error creating grid: {e!s}", type="error", duration=5)
@@ -1456,6 +1458,7 @@ def ecospace_server(
     # the thread finishes; a second click is refused meanwhile.
     run_slot = RunSlot()
 
+    @ui.bind_task_button(button_id="run_spatial_sim")
     @reactive.extended_task
     async def _spatial_task(
         run_id,

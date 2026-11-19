@@ -226,6 +226,7 @@ def results_ui():
                         ),
                     ),
                 ),
+                full_screen=True,
             ),
         ),
     )

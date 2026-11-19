@@ -974,3 +974,10 @@ button[data-theme-toggle="true"] .bi {
     scroll-behavior: auto !important;
   }
 }
+
+/* A deck.gl map has a fixed height; in a card opened full screen it fills
+   the card instead, leaving room for the tab strip and the note below it.
+   The map resizes its canvas with the container. */
+.card[data-full-screen="true"] .deckgl-map {
+  height: calc(100vh - 14rem) !important;
+}
