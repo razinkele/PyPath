@@ -99,34 +99,6 @@ def sample_obis_response():
 
 
 @pytest.fixture
-def sample_fishbase_species():
-    """Sample FishBase species response."""
-    return [{"SpecCode": 69, "Genus": "Gadus", "Species": "morhua", "Length": 180.0}]
-
-
-@pytest.fixture
-def sample_fishbase_ecology():
-    """Sample FishBase ecology response."""
-    return [{"SpecCode": 69, "FoodTroph": 4.4, "DemersPelag": "benthopelagic"}]
-
-
-@pytest.fixture
-def sample_fishbase_diet():
-    """Sample FishBase diet response."""
-    return [
-        {"SpecCode": 69, "FoodItem": "Crustacea", "Diet": 45.0},
-        {"SpecCode": 69, "FoodItem": "Pisces", "Diet": 35.0},
-        {"SpecCode": 69, "FoodItem": "Mollusca", "Diet": 20.0},
-    ]
-
-
-@pytest.fixture
-def sample_fishbase_growth():
-    """Sample FishBase growth parameters response."""
-    return [{"SpecCode": 69, "Loo": 150.0, "K": 0.15, "to": -0.5}]
-
-
-@pytest.fixture
 def sample_species_info():
     """Sample SpeciesInfo object."""
     return SpeciesInfo(
@@ -538,40 +510,7 @@ class TestMockedAPIs:
         assert result["geographic_extent"] is not None
         mock_occurrences.search.assert_called_once()
 
-    @patch("pypath.io.biodata.fetch_url")
-    def test_fetch_fishbase_traits(
-        self,
-        mock_fetch,
-        sample_fishbase_species,
-        sample_fishbase_ecology,
-        sample_fishbase_diet,
-        sample_fishbase_growth,
-    ):
-        """Test FishBase trait fetching with mocked responses."""
-        from pypath.io.biodata import _fetch_fishbase_traits
-
-        # Mock responses for different endpoints
-        def mock_fetch_side_effect(url, params=None, timeout=30):
-            if "species" in url:
-                return sample_fishbase_species
-            elif "ecology" in url:
-                return sample_fishbase_ecology
-            elif "diet" in url:
-                return sample_fishbase_diet
-            elif "popchar" in url:
-                return sample_fishbase_growth
-            return []
-
-        mock_fetch.side_effect = mock_fetch_side_effect
-
-        result = _fetch_fishbase_traits("Gadus morhua", cache=False)
-
-        assert result is not None
-        assert result.species_code == 69
-        assert result.trophic_level == 4.4
-        assert result.max_length == 180.0
-        assert len(result.diet_items) == 3
-        assert result.growth_params["K"] == 0.15
+    # FishBase lookups are tested in test_biodata_fishbase.py.
 
 
 # ============================================================================

@@ -162,10 +162,11 @@ class TestAPIConnectivity:
         logger.debug("OBIS API: status=%d", response.status_code)
 
     def test_fishbase_api(self):
+        # FishBase is read from parquet snapshots; the diet table is a small one.
         response = _get_or_skip(
             "FishBase",
-            "https://fishbase.ropensci.org/species",
-            params={"Genus": "Gadus", "Species": "morhua"},
+            "https://data.source.coop/cboettig/fishbase/fb/v26.06/parquet/diet.parquet",
         )
         assert response.status_code == 200
-        logger.debug("FishBase API: status=%d", response.status_code)
+        assert response.content[:4] == b"PAR1"  # a parquet file
+        logger.debug("FishBase snapshot: status=%d", response.status_code)
