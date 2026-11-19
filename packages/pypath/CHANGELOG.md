@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.12.0 (2026-11-19)
+
+### Bug Fixes
+
+- **biodata**: A missing trait source is checked before it is compared
+  ([`76b120e`](https://github.com/razinkele/PyPath/commit/76b120e4f2293c62bef9283aa1391d72f1db664f))
+
+### Features
+
+- **biodata**: SeaLifeBase for non-fish species, and synonym lookup
+  ([`50b62b0`](https://github.com/razinkele/PyPath/commit/50b62b04144d59e51737190ae25123021f5291e4))
+
+
 ## v1.11.2 (2026-11-19)
 
 ### Bug Fixes
