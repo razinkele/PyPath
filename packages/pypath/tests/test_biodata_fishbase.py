@@ -85,21 +85,144 @@ def _popgrowth():
     )
 
 
+def _synonyms():
+    # Names that are not the accepted one in the species table.
+    return pd.DataFrame(
+        {
+            "SpecCode": [7, 8, 7, 8, 7, 7, 99, 7],
+            "SynGenus": [
+                "Vetus",  # a plain synonym of species 7
+                "Duplex",  # the same old name is listed for two species
+                "Duplex",
+                "Falsus",  # a name wrongly applied to species 8
+                "Piscis",  # a subspecies name sharing a binomial
+                "Vetus",  # a trinomial: not a binomial match
+                "Orbus",  # points at a species the species table lacks
+                "Piscis",  # the accepted name itself
+            ],
+            "SynSpecies": [
+                "nomen",
+                "anceps",
+                "anceps",
+                "usus",
+                "minor",
+                "nomen antiquum",
+                "solus",
+                "exemplar",
+            ],
+            "Status": [
+                "synonym",
+                "synonym",
+                "synonym",
+                "misapplied name",
+                "synonym",
+                "synonym",
+                "synonym",
+                "accepted name",
+            ],
+            "TaxonLevel": [
+                "Species",
+                "species",
+                "Species",
+                "Species",
+                "Subspecies",
+                "Subspecies",
+                "Species",
+                "Species",
+            ],
+        }
+    )
+
+
+# The made-up SeaLifeBase: a mussel-like "Concha testa" (code 7, the same
+# number as the fish: the two databases number their species independently)
+# and a seal-like "Phoca ficta".
+def _slb_species():
+    return pd.DataFrame(
+        {
+            "SpecCode": [7, 20],
+            "Genus": ["Concha", "Phoca"],
+            "Species": ["testa", "ficta"],
+            "Length": [9.0, 180.0],
+            "DemersPelag": ["benthic", "pelagic"],
+        }
+    )
+
+
+def _slb_ecology():
+    return pd.DataFrame(
+        {"SpecCode": [7, 20], "FoodTroph": [2.1, 4.4], "DietTroph": [None, 4.5]}
+    )
+
+
+def _slb_diet():
+    return pd.DataFrame(
+        {"DietCode": [50], "SpecCode": [20], "SampleStage": ["juv./adults"]}
+    )
+
+
+def _slb_diet_items():
+    return pd.DataFrame(
+        {
+            "DietCode": [50, 50],
+            "FoodIII": ["bony fish", "squids"],
+            "DietPercent": [70.0, 30.0],
+        }
+    )
+
+
+def _slb_popgrowth():
+    return pd.DataFrame(
+        {
+            "SpecCode": [7, 7, 7, 20],
+            "Loo": [8.0, 7.0, 9.0, 170.0],
+            "K": [0.2, 0.3, 0.4, 0.25],
+            "to": [None, None, None, -1.0],
+            "Type": ["ShL", "ShL", "ShL", "TL"],
+        }
+    )
+
+
+def _slb_synonyms():
+    return pd.DataFrame(
+        {
+            "SpecCode": [7, 20],
+            "SynGenus": ["Mytilus", "Vetus"],
+            "SynSpecies": ["priscus", "nomen"],  # "Vetus nomen" is in FishBase too
+            "Status": ["synonym", "synonym"],
+            "TaxonLevel": ["Species", "Species"],
+        }
+    )
+
+
 TABLES = {
     "species": _species,
     "ecology": _ecology,
     "diet": _diet,
     "diet_items": _diet_items,
     "popgrowth": _popgrowth,
+    "synonyms": _synonyms,
 }
+SLB_TABLES = {
+    "species": _slb_species,
+    "ecology": _slb_ecology,
+    "diet": _slb_diet,
+    "diet_items": _slb_diet_items,
+    "popgrowth": _slb_popgrowth,
+    "synonyms": _slb_synonyms,
+}
+DATABASES = {"fishbase": TABLES, "sealifebase": SLB_TABLES}
+
+
+def _serve(name, timeout=60, source="fishbase"):
+    """The made-up tables, in place of a download."""
+    return DATABASES[source][name]()
 
 
 @pytest.fixture
 def tables():
     """Serve the made-up tables in place of a download."""
-    with patch.object(
-        biodata, "_fishbase_table", side_effect=lambda name, timeout=60: TABLES[name]()
-    ) as loader:
+    with patch.object(biodata, "_fishbase_table", side_effect=_serve) as loader:
         yield loader
 
 
@@ -209,8 +332,8 @@ def test_diet_is_empty_without_studies():
     assert biodata._fishbase_diet(_diet(), _diet_items(), 999) == []
 
 
-def test_a_species_that_is_not_a_fish_is_none(tables):
-    assert _fetch_fishbase_traits("Mytilus edulis", cache=False) is None
+def test_a_name_in_neither_database_is_none(tables):
+    assert _fetch_fishbase_traits("Ignotus ignotus", cache=False) is None
 
 
 def test_a_name_without_a_species_part_is_none(tables):
@@ -226,10 +349,10 @@ def test_a_failed_download_warns_and_gives_none():
 
 
 def test_a_missing_part_does_not_lose_the_rest():
-    def loader(name, timeout=60):
+    def loader(name, timeout=60, source="fishbase"):
         if name == "popgrowth":
             raise OSError("growth table unavailable")
-        return TABLES[name]()
+        return _serve(name, source=source)
 
     with patch.object(biodata, "_fishbase_table", side_effect=loader):
         with pytest.warns(UserWarning, match="growth"):
@@ -245,10 +368,10 @@ def test_an_incomplete_result_is_not_cached():
     biodata.clear_cache()
     failing = True
 
-    def loader(name, timeout=60):
+    def loader(name, timeout=60, source="fishbase"):
         if name == "popgrowth" and failing:
             raise OSError("timed out")
-        return TABLES[name]()
+        return _serve(name, source=source)
 
     with patch.object(biodata, "_fishbase_table", side_effect=loader):
         with pytest.warns(UserWarning, match="growth"):
@@ -262,6 +385,196 @@ def test_an_incomplete_result_is_not_cached():
         third = _fetch_fishbase_traits("Piscis exemplar", cache=True)
         assert third is second
     biodata.clear_cache()
+
+
+# --- SeaLifeBase, for what is not a fish -----------------------------------
+
+
+def test_a_fish_is_marked_as_from_fishbase(tables):
+    traits = _fetch_fishbase_traits("Piscis exemplar", cache=False)
+    assert traits.source == "fishbase"
+    assert traits.scientific_name == "Piscis exemplar"
+    assert traits.growth_length_type == "TL"
+    # A fish never needs SeaLifeBase, or a synonyms table.
+    asked = {
+        (c.kwargs.get("source", "fishbase"), c.args[0]) for c in tables.call_args_list
+    }
+    assert all(source == "fishbase" for source, _ in asked)
+    assert ("fishbase", "synonyms") not in asked
+
+
+def test_a_non_fish_comes_from_sealifebase(tables):
+    traits = _fetch_fishbase_traits("Concha testa", cache=False)
+
+    assert traits.source == "sealifebase"
+    # The same species code as the fish, in the other database's tables.
+    assert traits.species_code == 7
+    assert traits.max_length == 9.0
+    assert traits.habitat == "benthic"
+    assert traits.trophic_level == 2.1
+    assert traits.diet_items == []
+    # The median-K study, with the length it measured: a shell length here.
+    assert traits.growth_params == {"Loo": 7.0, "K": 0.3}
+    assert traits.growth_length_type == "ShL"
+
+
+def test_a_non_fish_with_a_diet_study(tables):
+    traits = _fetch_fishbase_traits("Phoca ficta", cache=False)
+    assert traits.source == "sealifebase"
+    assert traits.diet_items == [
+        {"prey": "bony fish", "percentage": 70.0},
+        {"prey": "squids", "percentage": 30.0},
+    ]
+    assert traits.growth_params == {"Loo": 170.0, "K": 0.25, "to": -1.0}
+
+
+def test_a_failing_sealifebase_is_not_reported_as_an_unknown_species():
+    def loader(name, timeout=60, source="fishbase"):
+        if source == "sealifebase":
+            raise OSError("no route")
+        return _serve(name, source=source)
+
+    with patch.object(biodata, "_fishbase_table", side_effect=loader):
+        with pytest.warns(UserWarning, match="Failed to query FishBase.*no route"):
+            assert _fetch_fishbase_traits("Concha testa", cache=False) is None
+
+
+# --- Synonyms ----------------------------------------------------------------
+
+
+def test_a_synonym_leads_to_the_accepted_species(tables):
+    traits = _fetch_fishbase_traits("Mytilus priscus", cache=False)
+    assert traits.source == "sealifebase"
+    assert traits.scientific_name == "Concha testa"
+    assert traits.max_length == 9.0
+
+
+def test_an_accepted_name_is_never_looked_up_as_a_synonym(tables):
+    # "Concha testa" is accepted in SeaLifeBase; no synonyms table is read.
+    _fetch_fishbase_traits("Concha testa", cache=False)
+    asked = {c.args[0] for c in tables.call_args_list}
+    assert "synonyms" not in asked
+
+
+def test_a_synonym_of_two_species_is_refused(tables):
+    with pytest.warns(UserWarning, match="Duplex anceps.*more than one species"):
+        assert _fetch_fishbase_traits("Duplex anceps", cache=False) is None
+
+
+def test_a_synonym_in_both_databases_is_refused(tables):
+    # "Vetus nomen" is a synonym of a fish and of a seal.
+    with pytest.warns(UserWarning, match="Vetus nomen.*more than one species"):
+        assert _fetch_fishbase_traits("Vetus nomen", cache=False) is None
+
+
+def test_a_misapplied_name_is_not_followed(tables):
+    # It was used for the species by mistake: it names another one.
+    assert _fetch_fishbase_traits("Falsus usus", cache=False) is None
+
+
+def test_a_subspecies_synonym_does_not_answer_for_its_binomial(tables):
+    assert _fetch_fishbase_traits("Piscis minor", cache=False) is None
+
+
+def test_a_synonym_of_a_species_missing_from_the_species_table_is_none(tables):
+    assert _fetch_fishbase_traits("Orbus solus", cache=False) is None
+
+
+# --- P/B from growth is for fish only ------------------------------------------
+
+
+def _info(name, source, k):
+    from pypath.io.biodata import SpeciesInfo
+
+    return SpeciesInfo(
+        common_name=name,
+        scientific_name=name,
+        aphia_id=1,
+        authority="",
+        trophic_level=3.0,
+        growth_params={"Loo": 50.0, "K": k},
+        traits_source=source,
+    )
+
+
+def test_a_fish_gets_pb_and_qb_from_its_growth():
+    params = biodata.biodata_to_rpath(
+        _info("Piscis exemplar", "fishbase", 0.2),
+        biomass_estimates={"Piscis exemplar": 1.0},
+    )
+    row = params.model[params.model["Group"] == "Piscis exemplar"].iloc[0]
+    assert row["PB"] == pytest.approx(0.5)  # 2.5 x K
+    assert pd.notna(row["QB"])
+
+
+def test_a_non_fish_keeps_pb_and_qb_blank():
+    # The 2.5 x K rule is a fish rule: it gives a seal several times the P/B
+    # an Ecopath model uses. The growth values are still reported.
+    params = biodata.biodata_to_rpath(
+        _info("Phoca ficta", "sealifebase", 0.25),
+        biomass_estimates={"Phoca ficta": 1.0},
+    )
+    row = params.model[params.model["Group"] == "Phoca ficta"].iloc[0]
+    assert pd.isna(row["PB"]) and pd.isna(row["QB"])
+
+
+def test_a_table_without_the_source_column_is_treated_as_fish():
+    # A caller's own table with a k column, as before.
+    table = pd.DataFrame(
+        {
+            "common_name": ["x"],
+            "scientific_name": ["Piscis exemplar"],
+            "trophic_level": [3.0],
+            "k": [0.2],
+        }
+    )
+    params = biodata.biodata_to_rpath(table, biomass_estimates={"Piscis exemplar": 1.0})
+    assert params.model.loc[0, "PB"] == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("missing", [None, float("nan"), pd.NA])
+def test_a_missing_source_value_is_treated_as_fish(missing):
+    # A nullable string column holds pd.NA, whose truth value is an error:
+    # the check must ask "is it missing?" before comparing it.
+    table = pd.DataFrame(
+        {
+            "common_name": ["x", "y"],
+            "scientific_name": ["Piscis exemplar", "Phoca ficta"],
+            "trophic_level": [3.0, 4.0],
+            "k": [0.2, 0.25],
+            "traits_source": pd.array([missing, "sealifebase"], dtype="object"),
+        }
+    )
+    params = biodata.biodata_to_rpath(
+        table, biomass_estimates={"Piscis exemplar": 1.0, "Phoca ficta": 1.0}
+    )
+    assert params.model.loc[0, "PB"] == pytest.approx(0.5)
+    # An explicit SeaLifeBase row still keeps its P/B blank.
+    assert pd.isna(params.model.loc[1, "PB"])
+
+
+def test_a_nullable_string_source_column_works():
+    table = pd.DataFrame(
+        {
+            "common_name": ["x"],
+            "scientific_name": ["Piscis exemplar"],
+            "trophic_level": [3.0],
+            "k": [0.2],
+            "traits_source": pd.array([pd.NA], dtype="string"),
+        }
+    )
+    params = biodata.biodata_to_rpath(table, biomass_estimates={"Piscis exemplar": 1.0})
+    assert params.model.loc[0, "PB"] == pytest.approx(0.5)
+
+
+def test_species_info_carries_the_source_and_length_type(tables):
+    info = biodata._merge_species_data(
+        {"scientificname": "Concha testa", "AphiaID": 5, "authority": ""},
+        fishbase_data=_fetch_fishbase_traits("Concha testa", cache=False),
+        common_name="shell",
+    )
+    assert info.traits_source == "sealifebase"
+    assert info.growth_length_type == "ShL"
 
 
 # --- The table loader -------------------------------------------------------
@@ -313,11 +626,12 @@ def test_loader_tolerates_a_column_the_snapshot_lacks(no_tables_loaded):
         table = biodata._fishbase_table("species")
     assert "DemersPelag" not in table.columns
 
-    with patch.object(
-        biodata,
-        "_fishbase_table",
-        side_effect=lambda n, timeout=60: table if n == "species" else TABLES[n](),
-    ):
+    def loader(name, timeout=60, source="fishbase"):
+        if (source, name) == ("fishbase", "species"):
+            return table
+        return _serve(name, source=source)
+
+    with patch.object(biodata, "_fishbase_table", side_effect=loader):
         traits = _fetch_fishbase_traits("Piscis exemplar", cache=False)
     assert traits.habitat is None and traits.max_length == 120.0
 
@@ -363,14 +677,62 @@ def test_loader_needs_requests(no_tables_loaded):
 def test_loader_rejects_a_table_it_does_not_know():
     with pytest.raises(KeyError):
         biodata._fishbase_table("countries")
+    with pytest.raises(KeyError):
+        biodata._fishbase_table("species", source="birdbase")
+
+
+def test_loader_reads_sealifebase_from_its_own_folder(no_tables_loaded):
+    with patch.object(biodata, "requests") as requests_:
+        requests_.get.return_value = _reply(_parquet(_slb_species()))
+        slb = biodata._fishbase_table("species", timeout=5, source="sealifebase")
+        requests_.get.assert_called_once_with(
+            "https://data.source.coop/cboettig/fishbase/slb/"
+            f"{biodata.FISHBASE_RELEASE}/parquet/species.parquet",
+            timeout=5,
+        )
+        # The two databases' tables are kept apart.
+        requests_.get.return_value = _reply(_parquet(_species()))
+        fb = biodata._fishbase_table("species", timeout=5)
+    assert list(slb["Genus"]) == ["Concha", "Phoca"]
+    assert list(fb["Genus"]) == ["Piscis", "Piscis"]
+
+
+def test_a_loaded_table_is_served_while_another_downloads(no_tables_loaded):
+    # A lookup of a fish must not wait behind another thread's download of a
+    # synonyms table.
+    biodata._fishbase_tables[("fishbase", "species")] = _species()
+    release = threading.Event()
+    downloading = threading.Event()
+    content = _parquet(_synonyms())
+
+    def slow_get(url, timeout):
+        downloading.set()
+        release.wait(5)
+        return _reply(content)
+
+    with patch.object(biodata, "requests") as requests_:
+        requests_.get.side_effect = slow_get
+        worker = threading.Thread(target=biodata._fishbase_table, args=("synonyms",))
+        worker.start()
+        assert downloading.wait(5)
+        result = []
+        reader = threading.Thread(
+            target=lambda: result.append(biodata._fishbase_table("species"))
+        )
+        reader.start()
+        reader.join(2)
+        served = not reader.is_alive()
+        release.set()
+        worker.join(5)
+    assert served and len(result) == 1
 
 
 def test_clear_cache_keeps_the_tables(no_tables_loaded):
     # The tables are a 6 MB download: clearing the per-species cache, which
     # the test suites do before every test, must not throw them away.
-    biodata._fishbase_tables["species"] = _species()
+    biodata._fishbase_tables[("fishbase", "species")] = _species()
     biodata.clear_cache()
-    assert "species" in biodata._fishbase_tables
+    assert ("fishbase", "species") in biodata._fishbase_tables
 
 
 # --- Live, against the published snapshot -----------------------------------
@@ -408,5 +770,39 @@ def test_live_atlantic_cod():
     assert sum(i["percentage"] for i in traits.diet_items) == pytest.approx(
         100, abs=0.5
     )
-    # Not a fish: FishBase does not have it.
-    assert _fetch_fishbase_traits("Mytilus edulis", cache=False, timeout=60) is None
+    assert traits.source == "fishbase"
+    assert traits.growth_length_type == "TL"
+
+
+@pytest.mark.integration
+@pytest.mark.fishbase
+def test_live_non_fish_and_synonym():
+    """The real snapshots: a mussel from SeaLifeBase, and a synonym followed.
+
+    The synonym is a row of the FishBase synonyms table: a plain synonym of
+    one species, and not an accepted name in either database.
+    """
+    import requests
+
+    pytest.importorskip("pyarrow")
+    try:
+        biodata._fishbase_table("species", timeout=60, source="sealifebase")
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+    ) as err:
+        pytest.skip(f"SeaLifeBase snapshot not reachable: {type(err).__name__}")
+
+    mussel = _fetch_fishbase_traits("Mytilus edulis", cache=False, timeout=60)
+    assert mussel is not None and mussel.source == "sealifebase"
+    assert mussel.scientific_name == "Mytilus edulis"
+    assert mussel.habitat == "benthic"
+    assert 1.9 <= mussel.trophic_level <= 2.5
+    assert mussel.growth_length_type == "ShL"  # a shell length
+    assert 0.05 < mussel.growth_params["K"] < 1.2
+
+    renamed = _fetch_fishbase_traits("Ageneiosus quadrifilis", cache=False, timeout=60)
+    assert renamed is not None and renamed.source == "fishbase"
+    assert renamed.scientific_name == "Tetranematichthys quadrifilis"
+
+    assert _fetch_fishbase_traits("Ignotus ignotus", cache=False, timeout=60) is None

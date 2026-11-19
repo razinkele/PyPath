@@ -99,10 +99,15 @@ from pypath.io.utils import (  # noqa: E402
     estimate_qb_from_tl_pb,
 )
 
-# FishBase: the parquet snapshots of its tables that the rfishbase project
-# publishes on Source Cooperative. The JSON API that used to serve them
-# (fishbase.ropensci.org) is gone.
-FISHBASE_DATA_URL = "https://data.source.coop/cboettig/fishbase/fb"
+# FishBase and SeaLifeBase: the parquet snapshots of their tables that the
+# rfishbase project publishes on Source Cooperative. The JSON API that used to
+# serve them (fishbase.ropensci.org) is gone.
+FISHBASE_DATA_URL = "https://data.source.coop/cboettig/fishbase"
+#: The databases read, in the order tried, with their folder in the snapshot.
+#: FishBase holds the fishes and SeaLifeBase everything else; no species is in
+#: both, but the two number their species independently, so a species code
+#: means nothing without its database.
+_FISHBASE_SOURCES = {"fishbase": "fb", "sealifebase": "slb"}
 #: The FishBase release read. Releases are listed at
 #: https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop?list-type=2&prefix=cboettig/fishbase/fb/&delimiter=/
 FISHBASE_RELEASE = "v26.06"
@@ -116,14 +121,19 @@ _FISHBASE_COLUMNS = {
     "diet": ("DietCode", "SpecCode", "SampleStage"),
     "diet_items": ("DietCode", "FoodI", "FoodII", "FoodIII", "DietPercent"),
     "popgrowth": ("SpecCode", "Loo", "K", "to", "Type"),
+    "synonyms": ("SpecCode", "SynGenus", "SynSpecies", "Status", "TaxonLevel"),
 }
 # Diet studies by the life stage sampled, most wanted first.
 _FISHBASE_DIET_STAGES = ("adults", "juv./adults")
 
-# Tables are downloaded once per process (about 6 MB together) and kept; the
-# lock keeps a batch's threads from each downloading the same table.
-_fishbase_tables: Dict[str, pd.DataFrame] = {}
-_fishbase_lock = threading.Lock()
+# Tables are downloaded once per process and kept, under (database, table).
+# A fish needs five FishBase tables, about 6 MB; a non-fish also SeaLifeBase's;
+# the synonyms tables (about 6 MB each) are read only for a name that is not
+# an accepted one. Each table has its own lock, so a batch's threads do not
+# download a table twice and a loaded table is never waited for.
+_fishbase_tables: Dict[Tuple[str, str], pd.DataFrame] = {}
+_fishbase_locks: Dict[Tuple[str, str], threading.Lock] = {}
+_fishbase_locks_guard = threading.Lock()
 
 
 # ============================================================================
@@ -180,6 +190,17 @@ class FishBaseTraits:
         Maximum observed length in cm
     habitat : str, optional
         Preferred habitat type
+    source : str
+        The database the traits come from: ``"fishbase"`` (fishes) or
+        ``"sealifebase"`` (everything else). ``species_code`` is that
+        database's code; the two number their species independently.
+    scientific_name : str, optional
+        The species' accepted name in that database. It differs from the name
+        asked for when that was a synonym.
+    growth_length_type : str, optional
+        The length ``growth_params["Loo"]`` is, as the database codes it:
+        ``"TL"`` total, ``"SL"`` standard, ``"ShL"`` shell, ``"CL"`` carapace
+        length and so on.
     """
 
     species_code: int
@@ -188,6 +209,9 @@ class FishBaseTraits:
     growth_params: Optional[Dict[str, float]] = None
     max_length: Optional[float] = None
     habitat: Optional[str] = None
+    source: str = "fishbase"
+    scientific_name: Optional[str] = None
+    growth_length_type: Optional[str] = None
 
 
 @dataclass
@@ -234,6 +258,10 @@ class SpeciesInfo:
     depth_range: Optional[Tuple[float, float]] = None
     geographic_extent: Optional[Dict[str, Any]] = None
     habitat: Optional[str] = None
+    #: Where the traits come from: "fishbase" or "sealifebase"; None without.
+    traits_source: Optional[str] = None
+    #: The length growth_params["Loo"] is ("TL", "ShL", "CL", ...).
+    growth_length_type: Optional[str] = None
 
 
 # ============================================================================
@@ -620,8 +648,10 @@ def _fetch_obis_occurrences(
         raise APIConnectionError(f"Failed to query OBIS for {scientific_name}: {e}")
 
 
-def _fishbase_table(name: str, timeout: int = 60) -> pd.DataFrame:
-    """One FishBase table, downloaded on first use and kept for the process.
+def _fishbase_table(
+    name: str, timeout: int = 60, source: str = "fishbase"
+) -> pd.DataFrame:
+    """One FishBase or SeaLifeBase table, downloaded on first use and kept.
 
     Parameters
     ----------
@@ -629,6 +659,8 @@ def _fishbase_table(name: str, timeout: int = 60) -> pd.DataFrame:
         A key of ``_FISHBASE_COLUMNS``.
     timeout : int
         Download timeout in seconds.
+    source : str
+        ``"fishbase"`` or ``"sealifebase"``.
 
     Returns
     -------
@@ -639,13 +671,20 @@ def _fishbase_table(name: str, timeout: int = 60) -> pd.DataFrame:
     Raises
     ------
     KeyError
-        If ``name`` is not a table this module reads.
+        If ``name`` or ``source`` is not one this module reads.
     ImportError
         If ``requests`` or a parquet reader (pyarrow) is not installed.
     """
     wanted = _FISHBASE_COLUMNS[name]
-    with _fishbase_lock:
-        table = _fishbase_tables.get(name)
+    folder = _FISHBASE_SOURCES[source]
+    key = (source, name)
+    table = _fishbase_tables.get(key)
+    if table is not None:  # loaded: no lock, so no waiting behind a download
+        return table
+    with _fishbase_locks_guard:
+        lock = _fishbase_locks.setdefault(key, threading.Lock())
+    with lock:
+        table = _fishbase_tables.get(key)
         if table is not None:
             return table
         if not HAS_REQUESTS:
@@ -653,7 +692,7 @@ def _fishbase_table(name: str, timeout: int = 60) -> pd.DataFrame:
                 "requests is required for FishBase data. "
                 "Install with: pip install requests"
             )
-        url = f"{FISHBASE_DATA_URL}/{FISHBASE_RELEASE}/parquet/{name}.parquet"
+        url = f"{FISHBASE_DATA_URL}/{folder}/{FISHBASE_RELEASE}/parquet/{name}.parquet"
         resp = requests.get(url, timeout=timeout)
         resp.raise_for_status()
         try:
@@ -666,7 +705,7 @@ def _fishbase_table(name: str, timeout: int = 60) -> pd.DataFrame:
         by_lower = {str(col).lower(): col for col in raw.columns}
         found = {by_lower[c.lower()]: c for c in wanted if c.lower() in by_lower}
         table = raw[list(found)].rename(columns=found)
-        _fishbase_tables[name] = table
+        _fishbase_tables[key] = table
         return table
 
 
@@ -706,27 +745,27 @@ def _fishbase_trophic_level(
     return None
 
 
-def _fishbase_growth(
+def _fishbase_growth_study(
     popgrowth: pd.DataFrame, species_code: int
-) -> Optional[Dict[str, float]]:
-    """Von Bertalanffy parameters of one real study, the one with the median K.
+) -> Tuple[Optional[Dict[str, float]], Optional[str]]:
+    """The species' median-K growth study and the length type it measured.
 
-    FishBase lists every published growth study of a species (over a hundred
-    for some). Loo and K trade off against each other, so medians taken
-    separately would pair numbers no study reported. Among the studies of the
-    species' commonest length type, the one whose K is the median is returned
-    (the lower of the two middle ones for an even count), with its own Loo and,
-    if it reported one, to.
+    See :func:`_fishbase_growth`. The length type is the database's code
+    (``"TL"``, ``"SL"``, ``"ShL"`` for a shell, ``"CL"`` for a carapace, ...),
+    or None when it gives none.
     """
     rows = _fishbase_rows(popgrowth, species_code)
     if not {"Loo", "K"} <= set(rows.columns):
-        return None
+        return None, None
     rows = rows[rows["K"].notna() & rows["Loo"].notna() & (rows["K"] > 0)]
     if rows.empty:
-        return None
+        return None, None
+    length_type = None
     if "Type" in rows.columns:
         types = rows["Type"].fillna("")
-        rows = rows[types == types.value_counts().idxmax()]
+        commonest = types.value_counts().idxmax()
+        rows = rows[types == commonest]
+        length_type = str(commonest) or None
     study = rows.sort_values(["K", "Loo"]).iloc[(len(rows) - 1) // 2]
     growth = {
         "Loo": _fishbase_number(study["Loo"]),
@@ -735,7 +774,22 @@ def _fishbase_growth(
     to = _fishbase_number(study.get("to"))
     if to is not None:
         growth["to"] = to
-    return growth
+    return growth, length_type
+
+
+def _fishbase_growth(
+    popgrowth: pd.DataFrame, species_code: int
+) -> Optional[Dict[str, float]]:
+    """Von Bertalanffy parameters of one real study, the one with the median K.
+
+    The databases list every published growth study of a species (over a
+    hundred for some). Loo and K trade off against each other, so medians taken
+    separately would pair numbers no study reported. Among the studies of the
+    species' commonest length type, the one whose K is the median is returned
+    (the lower of the two middle ones for an even count), with its own Loo and,
+    if it reported one, to.
+    """
+    return _fishbase_growth_study(popgrowth, species_code)[0]
 
 
 def _fishbase_diet(
@@ -791,20 +845,86 @@ def _fishbase_diet(
     ]
 
 
+def _fishbase_find_species(
+    genus: str, species: str, timeout: int = 60
+) -> Optional[Tuple[str, pd.Series]]:
+    """Find a species in FishBase or SeaLifeBase by its binomial.
+
+    The accepted names of both databases are tried first, so that a synonym in
+    one can never win over an accepted name in the other. Only then are the
+    synonyms tables read, and only rows the database marks as a plain
+    ``synonym`` of a species are followed: a misapplied name was used for the
+    species by mistake and names another one, and a subspecies or variety name
+    is not the binomial asked for. A synonym that leads to more than one
+    species, in one database or across the two, is refused with a warning.
+
+    Returns
+    -------
+    (source, row) or None
+        The database (``"fishbase"`` or ``"sealifebase"``) and the species
+        table's row; None when the name is in neither or is ambiguous.
+    """
+
+    def accepted(source: str) -> pd.DataFrame:
+        table = _fishbase_table("species", timeout=timeout, source=source)
+        return table[(table["Genus"] == genus) & (table["Species"] == species)]
+
+    for source in _FISHBASE_SOURCES:
+        match = accepted(source)
+        if not match.empty:
+            return source, match.iloc[0]
+
+    found = []
+    for source in _FISHBASE_SOURCES:
+        synonyms = _fishbase_table("synonyms", timeout=timeout, source=source)
+        if not {"SynGenus", "SynSpecies", "SpecCode", "Status"} <= set(
+            synonyms.columns
+        ):
+            continue
+        rows = synonyms[
+            (synonyms["SynGenus"] == genus)
+            & (synonyms["SynSpecies"] == species)
+            & (synonyms["Status"] == "synonym")
+        ]
+        if "TaxonLevel" in rows.columns:
+            rows = rows[rows["TaxonLevel"].fillna("").str.lower() == "species"]
+        if rows.empty:
+            continue
+        table = _fishbase_table("species", timeout=timeout, source=source)
+        for code in rows["SpecCode"].dropna().unique():
+            match = table[table["SpecCode"] == code]
+            if not match.empty:  # a few synonyms point at no listed species
+                found.append((source, match.iloc[0]))
+
+    if len(found) > 1:
+        names = ", ".join(
+            f"{row['Genus']} {row['Species']} ({source})" for source, row in found
+        )
+        warnings.warn(
+            f"{genus} {species} is a synonym of more than one species "
+            f"({names}); give the accepted name."
+        )
+        return None
+    return found[0] if found else None
+
+
 def _fetch_fishbase_traits(
     scientific_name: str, cache: bool = True, timeout: int = 30
 ) -> Optional[FishBaseTraits]:
-    """Fetch a species' traits from FishBase.
+    """Fetch a species' traits from FishBase, or from SeaLifeBase.
 
-    Reads the FishBase tables published as parquet snapshots (release
-    ``FISHBASE_RELEASE``). They are downloaded once per process, about 6 MB
-    together, so the first call takes a few seconds and later ones are local
-    lookups.
+    FishBase holds the fishes and SeaLifeBase all other marine life; both are
+    read from the parquet snapshots of their tables (release
+    ``FISHBASE_RELEASE``). The tables are downloaded once per process: about
+    6 MB for a fish, as much again for a non-fish, and two more synonyms tables
+    for a name that is not an accepted one. The first call therefore takes
+    some seconds and later ones are local lookups.
 
     Parameters
     ----------
     scientific_name : str
-        Scientific name (Genus species)
+        Scientific name (Genus species). A synonym is followed to its
+        accepted species when it leads to exactly one.
     cache : bool
         Whether to use cached results
     timeout : int
@@ -813,15 +933,17 @@ def _fetch_fishbase_traits(
     Returns
     -------
     FishBaseTraits or None
-        Trait data if found; None if the species is not in FishBase (it holds
-        fishes only) or the data could not be read, with a warning.
+        Trait data if found, with ``source`` naming the database; None if the
+        species is in neither database, its name is an ambiguous synonym, or
+        the data could not be read (with a warning).
 
     Notes
     -----
     - Maximum length and habitat come from the species table.
     - The trophic level is the food-based one, else the diet-based one.
     - Growth is one real study, the one with the median K
-      (:func:`_fishbase_growth`).
+      (:func:`_fishbase_growth`); ``growth_length_type`` says which length it
+      measured, which for a non-fish is often a shell or carapace length.
     - Diet is an average over the diet studies, adults first
       (:func:`_fishbase_diet`).
     """
@@ -840,26 +962,29 @@ def _fetch_fishbase_traits(
     genus, species = parts[0], parts[1]
 
     try:
-        table = _fishbase_table("species", timeout=timeout)
-        match = table[(table["Genus"] == genus) & (table["Species"] == species)]
-        if match.empty:
-            # Species not in FishBase
+        found = _fishbase_find_species(genus, species, timeout=timeout)
+        if found is None:
+            # In neither database (or an ambiguous synonym)
             if cache:
                 _biodata_cache.set("fishbase", scientific_name, None)
             return None
 
-        row = match.iloc[0]
+        source, row = found
         species_code = int(row["SpecCode"])
-        traits = FishBaseTraits(species_code=species_code)
+        traits = FishBaseTraits(species_code=species_code, source=source)
+        traits.scientific_name = f"{row['Genus']} {row['Species']}"
         traits.max_length = _fishbase_number(row.get("Length"))
         habitat = row.get("DemersPelag")
         traits.habitat = str(habitat) if isinstance(habitat, str) and habitat else None
+
+        def table(name: str) -> pd.DataFrame:
+            return _fishbase_table(name, timeout=timeout, source=source)
 
         # Each of the rest is optional: one table failing must not lose the others.
         complete = True
         try:
             traits.trophic_level = _fishbase_trophic_level(
-                _fishbase_table("ecology", timeout=timeout), species_code
+                table("ecology"), species_code
             )
         except Exception as e:
             warnings.warn(f"Failed to fetch ecology data: {e}")
@@ -867,17 +992,15 @@ def _fetch_fishbase_traits(
 
         try:
             traits.diet_items = _fishbase_diet(
-                _fishbase_table("diet", timeout=timeout),
-                _fishbase_table("diet_items", timeout=timeout),
-                species_code,
+                table("diet"), table("diet_items"), species_code
             )
         except Exception as e:
             warnings.warn(f"Failed to fetch diet data: {e}")
             complete = False
 
         try:
-            traits.growth_params = _fishbase_growth(
-                _fishbase_table("popgrowth", timeout=timeout), species_code
+            traits.growth_params, traits.growth_length_type = _fishbase_growth_study(
+                table("popgrowth"), species_code
             )
         except Exception as e:
             warnings.warn(f"Failed to fetch growth data: {e}")
@@ -998,6 +1121,8 @@ def _merge_species_data(
         info.growth_params = fishbase_data.growth_params
         info.max_length = fishbase_data.max_length
         info.habitat = fishbase_data.habitat
+        info.traits_source = fishbase_data.source
+        info.growth_length_type = fishbase_data.growth_length_type
 
     return info
 
@@ -1225,6 +1350,8 @@ def batch_get_species_info(
             "max_length": info.max_length,
             "occurrence_count": info.occurrence_count,
             "habitat": info.habitat,
+            "traits_source": info.traits_source,
+            "growth_length_type": info.growth_length_type,
         }
 
         # Add growth params as separate columns
@@ -1318,6 +1445,7 @@ def biodata_to_rpath(
                         if species_data.growth_params
                         else None
                     ),
+                    "traits_source": species_data.traits_source,
                 }
             ]
         )
@@ -1355,8 +1483,14 @@ def biodata_to_rpath(
             else:
                 params.model.loc[i, "Biomass"] = np.nan
 
-        # P/B from growth parameter K
-        if "k" in row and pd.notna(row["k"]):
+        # P/B from growth parameter K, for fish only. The 2.5 x K rule comes
+        # from fish: it gives a seal several times the P/B an Ecopath model
+        # uses. A SeaLifeBase species keeps P/B (and so Q/B) blank, to enter by
+        # hand. A table without the source column is taken as fish, as before.
+        source = row.get("traits_source")
+        # "Is it missing?" comes first: pd.NA cannot be compared.
+        from_fish = source is None or bool(pd.isna(source)) or source == "fishbase"
+        if "k" in row and pd.notna(row["k"]) and from_fish:
             pb = estimate_pb_from_growth(row["k"])
             params.model.loc[i, "PB"] = pb
         else:

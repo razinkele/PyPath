@@ -222,6 +222,12 @@ def import_ui():
                                 href="https://www.fishbase.org/",
                                 target="_blank",
                             ),
+                            ", ",
+                            ui.tags.a(
+                                "SeaLifeBase",
+                                href="https://www.sealifebase.org/",
+                                target="_blank",
+                            ),
                             class_="small text-muted",
                         ),
                         # Example data button
@@ -257,7 +263,7 @@ def import_ui():
                         ),
                         ui.input_checkbox(
                             "biodata_include_traits",
-                            "Include FishBase trait data",
+                            "Include FishBase / SeaLifeBase trait data",
                             value=True,
                         ),
                         ui.tags.hr(),
@@ -1045,7 +1051,7 @@ Phytoplankton"""
         biodata_task_state.set(
             new_running_task(
                 run_id,
-                f"Fetching data for {len(species_list)} species from WoRMS, OBIS, and FishBase",
+                f"Fetching data for {len(species_list)} species from WoRMS, OBIS, FishBase and SeaLifeBase",
             )
         )
 
@@ -1058,7 +1064,7 @@ Phytoplankton"""
 
         try:
             _notify_legacy(
-                f"Fetching data for {len(species_list)} species from WoRMS, OBIS, and FishBase...",
+                f"Fetching data for {len(species_list)} species from WoRMS, OBIS, FishBase and SeaLifeBase...",
                 duration=5,
             )
 
@@ -1246,6 +1252,9 @@ Phytoplankton"""
             "trophic_level",
             "max_length",
             "occurrence_count",
+            # Which database the traits came from. P/B and Q/B are estimated
+            # from growth for FishBase species only, so this explains a blank.
+            "traits_source",
         ]
         display_cols = [c for c in display_cols if c in df.columns]
         display_df = df[display_cols].copy()
@@ -1258,8 +1267,13 @@ Phytoplankton"""
                 "trophic_level": "TL",
                 "max_length": "Max Length (cm)",
                 "occurrence_count": "OBIS Records",
+                "traits_source": "Traits From",
             }
         )
+        if "Traits From" in display_df.columns:
+            display_df["Traits From"] = display_df["Traits From"].map(
+                {"fishbase": "FishBase", "sealifebase": "SeaLifeBase"}
+            )
 
         return format_dataframe(display_df, title="Biodiversity Data Results")
 

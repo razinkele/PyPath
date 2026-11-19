@@ -433,11 +433,13 @@ class TestFishBaseIntegration:
         assert stats["hits"] > 0
 
     def test_fishbase_nonfish_species(self):
-        """Test FishBase with non-fish species (should return None)."""
-        # Try an invertebrate
+        """A non-fish is not in FishBase: its traits come from SeaLifeBase."""
         traits = _fetch_fishbase_traits("Homarus gammarus", cache=False, timeout=30)
-        # Should return None for non-fish
-        assert traits is None or traits.species_code is None
+        assert traits is not None
+        assert traits.source == "sealifebase"
+        assert traits.habitat == "benthic"
+        # Lobsters are measured by their carapace.
+        assert traits.growth_length_type == "CL"
 
 
 # ============================================================================
