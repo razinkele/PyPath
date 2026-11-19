@@ -1,0 +1,70 @@
+name: Integration tests (weekly)
+
+# The core tests marked `integration`: they read the EwE databases in Data/
+# or call a live service (EcoBase, WoRMS, OBIS, FishBase). The CI test job
+# deselects them, so that a slow server cannot fail a build or a release;
+# this run keeps them exercised.
+#
+# It does not gate merges: it runs on a schedule, by hand, and on a pull
+# request only when that request changes this file. A red run is a signal to
+# look, and a live service being down is one possible cause.
+#
+# Left out:
+# - tests also marked `benchmark`: they assert CPU-time ratios, which a shared
+#   runner cannot hold steady;
+# - tests/test_biodata_integration.py: about 50 tests that each call WoRMS,
+#   OBIS or FishBase. On a GitHub runner WoRMS starts refusing connections
+#   partway through the file (the first run here lost 7 tests to it), so the
+#   file would make this job red for a reason that is not ours. Run it by
+#   hand: pytest packages/pypath/tests/test_biodata_integration.py -m integration
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays at 04:00 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/integration-tests.yml"
+
+permissions:
+  contents: read
+
+# One group per trigger and ref: a newer push to a pull request replaces its
+# older run, and a pull request cannot cancel the weekly run on main.
+concurrency:
+  group: integration-tests-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      # The EwE database tests skip without a driver; mdbtools is the one
+      # PyPath uses on Linux.
+      - name: Install mdbtools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mdbtools
+
+      # The extras the marked tests import: maps (spatial), the WoRMS, OBIS
+      # and FishBase clients (biodata) and plotting (interactive).
+      - name: Install pypath with the extras the tests use
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e 'packages/pypath[dev,spatial,biodata,interactive]'
+
+      - name: Run integration tests
+        run: |
+          pytest packages/pypath/tests -m "integration and not benchmark" \
+            --ignore=packages/pypath/tests/test_biodata_integration.py \
+            -q --disable-warnings --durations=15 -rs
