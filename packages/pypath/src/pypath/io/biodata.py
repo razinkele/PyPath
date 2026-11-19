@@ -84,11 +84,20 @@ except ImportError:
 
 try:
     import requests
+    from requests.exceptions import HTTPError as _HTTPError
+    from requests.exceptions import RequestException as _RequestException
 
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False
     requests = None
+
+    class _RequestException(Exception):  # never raised without requests
+        pass
+
+    class _HTTPError(_RequestException):
+        pass
+
 
 #: The WoRMS REST service, for what pyworms does not offer.
 WORMS_REST_URL = "https://www.marinespecies.org/rest"
@@ -132,6 +141,12 @@ _FISHBASE_DIET_STAGES = ("adults", "juv./adults")
 # an accepted one. Each table has its own lock, so a batch's threads do not
 # download a table twice and a loaded table is never waited for.
 _fishbase_tables: Dict[Tuple[str, str], pd.DataFrame] = {}
+# A download that fails for a passing reason is tried again: a dropped or
+# timed-out connection, or an answer that says the server is busy or failing.
+# Any other answer (a 404 for a release that moved) is final.
+_FISHBASE_DOWNLOAD_ATTEMPTS = 3
+_FISHBASE_RETRY_WAIT = 1.0  # seconds before the second attempt; then doubled
+_FISHBASE_RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 _fishbase_locks: Dict[Tuple[str, str], threading.Lock] = {}
 _fishbase_locks_guard = threading.Lock()
 
@@ -648,6 +663,46 @@ def _fetch_obis_occurrences(
         raise APIConnectionError(f"Failed to query OBIS for {scientific_name}: {e}")
 
 
+def _fishbase_download(url: str, timeout: int) -> bytes:
+    """Download ``url``, trying again after a failure that may pass.
+
+    Up to ``_FISHBASE_DOWNLOAD_ATTEMPTS`` attempts, waiting
+    ``_FISHBASE_RETRY_WAIT`` seconds before the second and twice as long before
+    each one after. Tried again: a connection that fails, drops or times out,
+    and the statuses in ``_FISHBASE_RETRY_STATUS`` (too many requests, server
+    errors). Not tried again: any other error status, such as 404.
+
+    Raises
+    ------
+    requests.exceptions.RequestException
+        The last attempt's error, or at once one that cannot pass.
+    """
+    wait = _FISHBASE_RETRY_WAIT
+    for attempt in range(1, _FISHBASE_DOWNLOAD_ATTEMPTS + 1):
+        try:
+            resp = requests.get(url, timeout=timeout)
+            resp.raise_for_status()
+            return resp.content
+        except _RequestException as e:
+            if isinstance(e, _HTTPError):
+                status = getattr(getattr(e, "response", None), "status_code", None)
+                passing = status in _FISHBASE_RETRY_STATUS
+            else:
+                passing = True
+            if not passing or attempt == _FISHBASE_DOWNLOAD_ATTEMPTS:
+                raise
+            logger.info(
+                "FishBase download failed (attempt %d of %d), trying again in %g s: %s",
+                attempt,
+                _FISHBASE_DOWNLOAD_ATTEMPTS,
+                wait,
+                e,
+            )
+        time.sleep(wait)
+        wait *= 2
+    raise AssertionError("unreachable")  # the loop returns or raises
+
+
 def _fishbase_table(
     name: str, timeout: int = 60, source: str = "fishbase"
 ) -> pd.DataFrame:
@@ -693,10 +748,9 @@ def _fishbase_table(
                 "Install with: pip install requests"
             )
         url = f"{FISHBASE_DATA_URL}/{folder}/{FISHBASE_RELEASE}/parquet/{name}.parquet"
-        resp = requests.get(url, timeout=timeout)
-        resp.raise_for_status()
+        content = _fishbase_download(url, timeout)
         try:
-            raw = pd.read_parquet(io.BytesIO(resp.content))
+            raw = pd.read_parquet(io.BytesIO(content))
         except ImportError as e:
             raise ImportError(
                 "pyarrow is required to read FishBase data. "
@@ -928,7 +982,9 @@ def _fetch_fishbase_traits(
     cache : bool
         Whether to use cached results
     timeout : int
-        Download timeout in seconds, per table
+        Download timeout in seconds, per attempt at a table. A download that
+        fails for a passing reason is tried up to three times
+        (:func:`_fishbase_download`).
 
     Returns
     -------

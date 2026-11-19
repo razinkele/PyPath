@@ -5,8 +5,10 @@ FishBase tables (its ``diet`` table spells the species key ``Speccode``), and
 no real FishBase values.
 """
 
+import contextlib
 import io
 import threading
+import warnings
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -193,6 +195,14 @@ def _slb_synonyms():
             "TaxonLevel": ["Species", "Species"],
         }
     )
+
+
+@contextlib.contextmanager
+def _no_user_warnings():
+    """Fail if the block warns the user."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        yield
 
 
 TABLES = {
@@ -594,10 +604,133 @@ def no_tables_loaded():
     biodata._fishbase_tables.clear()
 
 
-def _reply(content):
+def _reply(content, status_code=200):
     reply = MagicMock()
     reply.content = content
+    reply.status_code = status_code
+    if status_code >= 400:
+        import requests
+
+        error = requests.exceptions.HTTPError(f"{status_code} error", response=reply)
+        reply.raise_for_status.side_effect = error
     return reply
+
+
+# --- Transient download failures are retried ---------------------------------
+
+
+@pytest.fixture
+def no_waiting():
+    """Record the waits between attempts without sleeping through them."""
+    with patch.object(biodata.time, "sleep") as sleep:
+        yield sleep
+
+
+def _failing_then(*outcomes):
+    """A ``requests.get`` that raises or returns each outcome in turn."""
+    queue = list(outcomes)
+
+    def get(url, timeout):
+        outcome = queue.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    return get
+
+
+def test_a_dropped_connection_is_tried_again(no_tables_loaded, no_waiting):
+    import requests
+
+    good = _reply(_parquet(_species()))
+    with patch.object(biodata, "requests") as requests_:
+        requests_.get.side_effect = _failing_then(
+            requests.exceptions.ConnectionError("reset by peer"),
+            requests.exceptions.ReadTimeout("read timed out"),
+            good,
+        )
+        table = biodata._fishbase_table("species", timeout=5)
+
+    assert list(table["Genus"]) == ["Piscis", "Piscis"]
+    assert requests_.get.call_count == 3
+    # A short wait that grows: 1 s, then 2 s.
+    assert [c.args[0] for c in no_waiting.call_args_list] == [1.0, 2.0]
+
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
+def test_a_busy_or_failing_server_is_tried_again(no_tables_loaded, no_waiting, status):
+    with patch.object(biodata, "requests") as requests_:
+        requests_.get.side_effect = _failing_then(
+            _reply(b"", status_code=status), _reply(_parquet(_species()))
+        )
+        table = biodata._fishbase_table("species")
+    assert len(table) == 2 and requests_.get.call_count == 2
+
+
+@pytest.mark.parametrize("status", [400, 403, 404])
+def test_a_missing_file_is_not_tried_again(no_tables_loaded, no_waiting, status):
+    # The release moved or the table was renamed: asking again cannot help.
+    import requests
+
+    with patch.object(biodata, "requests") as requests_:
+        requests_.get.side_effect = _failing_then(_reply(b"", status_code=status))
+        with pytest.raises(requests.exceptions.HTTPError, match=str(status)):
+            biodata._fishbase_table("species")
+    assert requests_.get.call_count == 1
+    no_waiting.assert_not_called()
+
+
+def test_the_download_gives_up_after_three_attempts(no_tables_loaded, no_waiting):
+    import requests
+
+    errors = [requests.exceptions.ConnectionError(f"refused {i}") for i in (1, 2, 3)]
+    with patch.object(biodata, "requests") as requests_:
+        requests_.get.side_effect = _failing_then(*errors)
+        with pytest.raises(requests.exceptions.ConnectionError, match="refused 3"):
+            biodata._fishbase_table("species")
+    assert requests_.get.call_count == 3
+    assert len(no_waiting.call_args_list) == 2  # no wait after the last attempt
+    assert ("fishbase", "species") not in biodata._fishbase_tables
+
+
+def test_a_failed_download_can_be_asked_for_again(no_tables_loaded, no_waiting):
+    import requests
+
+    errors = [requests.exceptions.ConnectionError("down")] * 3
+    with patch.object(biodata, "requests") as requests_:
+        requests_.get.side_effect = _failing_then(*errors, _reply(_parquet(_species())))
+        with pytest.raises(requests.exceptions.ConnectionError):
+            biodata._fishbase_table("species")
+        assert len(biodata._fishbase_table("species")) == 2
+
+
+def test_a_lookup_survives_one_failed_download(no_tables_loaded, no_waiting):
+    # The whole point: one dropped connection must not cost the species.
+    import requests
+
+    contents = {
+        "species": _species(),
+        "ecology": _ecology(),
+        "diet": _diet(),
+        "diet_items": _diet_items(),
+        "popgrowth": _popgrowth(),
+    }
+    failed = set()
+
+    def get(url, timeout):
+        name = url.rsplit("/", 1)[1].removesuffix(".parquet")
+        if name not in failed:  # every table fails once
+            failed.add(name)
+            raise requests.exceptions.ConnectionError("reset by peer")
+        return _reply(_parquet(contents[name]))
+
+    with patch.object(biodata, "requests") as requests_:
+        requests_.get.side_effect = get
+        with _no_user_warnings():
+            traits = _fetch_fishbase_traits("Piscis exemplar", cache=False)
+    assert traits.trophic_level == 4.2
+    assert traits.growth_params == {"Loo": 110.0, "K": 0.2}
+    assert traits.diet_items
 
 
 def test_loader_downloads_a_table_once_and_keeps_only_what_is_read(no_tables_loaded):
