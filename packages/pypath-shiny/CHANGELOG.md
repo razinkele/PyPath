@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.10.0 (2026-11-19)
+
+### Bug Fixes
+
+- **shiny**: A full-screen map is never smaller than its normal height
+  ([`9c09c38`](https://github.com/razinkele/PyPath/commit/9c09c3871f90d222ff370a48aa2b7376f9a5f03b))
+
+### Features
+
+- **shiny**: An interactive food-web network on the Results page
+  ([`2361b06`](https://github.com/razinkele/PyPath/commit/2361b06b6fef2b82faf31b5445b499e26c35b1e6))
+
+- **shiny**: Busy run buttons, full-screen plot cards, dark Ecospace maps
+  ([`2bff3ef`](https://github.com/razinkele/PyPath/commit/2bff3efeeec3768e11b72035abd00019734082ca))
+
+
 ## v1.9.0 (2026-11-19)
 
 ### Bug Fixes
