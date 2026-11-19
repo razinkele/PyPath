@@ -119,4 +119,8 @@ def test_ecospace_maps_have_a_dark_basemap():
 def test_a_full_screen_card_lets_its_map_fill_it():
     css = (PAGES.parent / "static" / "custom.css").read_text(encoding="utf-8")
     rule = css.split('.card[data-full-screen="true"] .deckgl-map')[1].split("}")[0]
-    assert "height: calc(100vh" in rule and "!important" in rule
+    assert "calc(100vh" in rule and "!important" in rule
+    # Never smaller than the map's normal height: on a short screen
+    # calc(100vh - 14rem) alone falls to a sliver, or to nothing.
+    assert "height: max(500px, calc(100vh" in rule
+    assert 'height="500px"' in (PAGES / "ecospace.py").read_text(encoding="utf-8")
