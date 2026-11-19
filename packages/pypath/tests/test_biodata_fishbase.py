@@ -532,6 +532,41 @@ def test_a_table_without_the_source_column_is_treated_as_fish():
     assert params.model.loc[0, "PB"] == pytest.approx(0.5)
 
 
+@pytest.mark.parametrize("missing", [None, float("nan"), pd.NA])
+def test_a_missing_source_value_is_treated_as_fish(missing):
+    # A nullable string column holds pd.NA, whose truth value is an error:
+    # the check must ask "is it missing?" before comparing it.
+    table = pd.DataFrame(
+        {
+            "common_name": ["x", "y"],
+            "scientific_name": ["Piscis exemplar", "Phoca ficta"],
+            "trophic_level": [3.0, 4.0],
+            "k": [0.2, 0.25],
+            "traits_source": pd.array([missing, "sealifebase"], dtype="object"),
+        }
+    )
+    params = biodata.biodata_to_rpath(
+        table, biomass_estimates={"Piscis exemplar": 1.0, "Phoca ficta": 1.0}
+    )
+    assert params.model.loc[0, "PB"] == pytest.approx(0.5)
+    # An explicit SeaLifeBase row still keeps its P/B blank.
+    assert pd.isna(params.model.loc[1, "PB"])
+
+
+def test_a_nullable_string_source_column_works():
+    table = pd.DataFrame(
+        {
+            "common_name": ["x"],
+            "scientific_name": ["Piscis exemplar"],
+            "trophic_level": [3.0],
+            "k": [0.2],
+            "traits_source": pd.array([pd.NA], dtype="string"),
+        }
+    )
+    params = biodata.biodata_to_rpath(table, biomass_estimates={"Piscis exemplar": 1.0})
+    assert params.model.loc[0, "PB"] == pytest.approx(0.5)
+
+
 def test_species_info_carries_the_source_and_length_type(tables):
     info = biodata._merge_species_data(
         {"scientificname": "Concha testa", "AphiaID": 5, "authority": ""},

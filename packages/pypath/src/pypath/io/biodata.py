@@ -1487,9 +1487,9 @@ def biodata_to_rpath(
         # from fish: it gives a seal several times the P/B an Ecopath model
         # uses. A SeaLifeBase species keeps P/B (and so Q/B) blank, to enter by
         # hand. A table without the source column is taken as fish, as before.
-        from_fish = row.get("traits_source") in (None, "fishbase") or pd.isna(
-            row.get("traits_source")
-        )
+        source = row.get("traits_source")
+        # "Is it missing?" comes first: pd.NA cannot be compared.
+        from_fish = source is None or bool(pd.isna(source)) or source == "fishbase"
         if "k" in row and pd.notna(row["k"]) and from_fish:
             pb = estimate_pb_from_growth(row["k"])
             params.model.loc[i, "PB"] = pb
