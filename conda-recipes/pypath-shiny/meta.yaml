@@ -35,6 +35,13 @@ requirements:
     - httpx >=0.24
     - uvicorn >=0.23
     - pandas >=2.0
+  run_constrained:
+    # great_tables needs multimark, whose conda-forge build (0.4.0) loads
+    # libcmark-gfm.so.0.29.0.gfm.13 by its full name but only requires
+    # cmark-gfm >=0.29.0.gfm.13. With cmark-gfm 0.29.0.gfm.14 (conda-forge,
+    # 2026-11-19) the library has another name and `import great_tables`
+    # fails, so the app does not start. Remove once multimark is rebuilt.
+    - cmark-gfm <0.29.0.gfm.14
 
 test:
   imports:
