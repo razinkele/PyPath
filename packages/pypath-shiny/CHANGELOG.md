@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.11.0 (2026-11-19)
+
+### Features
+
+- **shiny**: The Data Import page names SeaLifeBase and shows the trait source
+  ([`6bf107a`](https://github.com/razinkele/PyPath/commit/6bf107a1894d88adb68dfbba84fb292293c1a2e0))
+
+
 ## v1.10.0 (2026-11-19)
 
 ### Bug Fixes
