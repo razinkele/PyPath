@@ -14,9 +14,11 @@ effect lands the outcome there.
 from __future__ import annotations
 
 import copy
+import hashlib
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import numpy as np
 from pypath.core.ecosim import rsim_run
 from pypath.ibm import SmeltIBM
 from pypath.spatial import rsim_run_spatial
@@ -31,8 +33,68 @@ __all__ = [
     "ibm_result_is_current",
     "run_ibm_comparison",
     "run_spatial",
+    "scenario_changed_since",
+    "scenario_fingerprint",
     "spatial_result_is_current",
 ]
+
+
+# --- In-place scenario edits -------------------------------------------
+
+# The parts of a scenario the pages edit in place: forcing and fishing series,
+# and parameters such as vulnerabilities.
+_FINGERPRINT_PARTS = ("forcing", "fishing", "params")
+
+
+def scenario_fingerprint(scenario) -> str:
+    """A digest of the scenario's forcing, fishing and parameter values.
+
+    The pages keep one scenario object and edit it in place (the Ecosim
+    page's forcing card rewrites ``ForcedPrey`` when an Ecosim run starts), so
+    the object's identity cannot tell whether a run's inputs still hold. Two
+    scenarios with equal arrays and scalars in ``forcing``, ``fishing`` and
+    ``params`` give the same digest.
+
+    Parameters
+    ----------
+    scenario : RsimScenario
+        The scenario to digest; it is only read.
+
+    Returns
+    -------
+    str
+        A hex digest.
+    """
+    digest = hashlib.blake2b(digest_size=16)
+    for part in _FINGERPRINT_PARTS:
+        obj = getattr(scenario, part, None)
+        if obj is None:
+            continue
+        for name, value in sorted(vars(obj).items()):
+            if isinstance(value, (bool, int, float, str)):
+                data = repr(value).encode()
+            elif isinstance(value, (np.ndarray, list, tuple)):
+                try:
+                    array = np.ascontiguousarray(value)
+                except (TypeError, ValueError):
+                    continue
+                if array.dtype == object:
+                    continue
+                data = str((array.dtype, array.shape)).encode() + array.tobytes()
+            else:
+                continue  # nested objects (IBM groups, stanzas) are not edited here
+            digest.update(f"{part}.{name}=".encode())
+            digest.update(data)
+    return digest.hexdigest()
+
+
+def scenario_changed_since(outcome, current_scenario) -> bool:
+    """Whether the scenario was edited in place after ``outcome``'s launch.
+
+    False for an outcome that carries no fingerprint.
+    """
+    launch = getattr(outcome, "fingerprint", "")
+    return bool(launch) and scenario_fingerprint(current_scenario) != launch
 
 
 # --- Ecospace ----------------------------------------------------------
@@ -55,6 +117,8 @@ class SpatialOutcome:
         The run's output.
     switching : object
         The prey-switching summary of ``source`` at launch.
+    fingerprint : str
+        ``scenario_fingerprint(source)`` at launch; empty when not taken.
     """
 
     run_id: str
@@ -62,6 +126,7 @@ class SpatialOutcome:
     grid: Any
     output: Any
     switching: Any
+    fingerprint: str = ""
 
 
 def run_spatial(scenario, ecospace_params, spatial_fishing):
@@ -149,6 +214,8 @@ class IbmOutcome:
         The IBM-enhanced run.
     switching : object
         The prey-switching summary of ``source`` at launch.
+    fingerprint : str
+        ``scenario_fingerprint(source)`` at launch; empty when not taken.
     """
 
     run_id: int
@@ -157,6 +224,7 @@ class IbmOutcome:
     standard: Any
     enhanced: Any
     switching: Any
+    fingerprint: str = ""
 
 
 def run_ibm_comparison(
