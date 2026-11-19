@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.11.2 (2026-11-19)
+
+### Bug Fixes
+
+- **biodata**: Do not cache FishBase traits after a failed table
+  ([`2637b21`](https://github.com/razinkele/PyPath/commit/2637b21c709fc268b7e097df90bb156b15a4c0e0))
+
+- **biodata**: Read FishBase from its parquet snapshots
+  ([`9e81d9a`](https://github.com/razinkele/PyPath/commit/9e81d9a85c18b75dd7da2713946700e1455b279d))
+
+
 ## v1.11.1 (2026-11-19)
 
 ### Bug Fixes
