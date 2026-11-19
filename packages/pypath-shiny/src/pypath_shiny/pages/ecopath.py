@@ -599,6 +599,7 @@ def ecopath_ui():
                         col_widths=[6, 6],
                     ),
                 ),
+                full_screen=True,
             ),
         ),
     )

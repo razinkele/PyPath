@@ -4,7 +4,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from shiny import Inputs, Outputs, Session, reactive, render, ui
+from shiny import Inputs, Outputs, Session, reactive, render, req, ui
 
 try:
     from shinywidgets import output_widget, render_widget
@@ -23,6 +23,7 @@ from pypath_shiny.components import empty_state
 from pypath_shiny.config import UI
 
 # Import great_tables formatters
+from ..services import network_viz
 from ..services.gt_formatters import (
     format_diet_matrix,
     format_params_table,
@@ -59,6 +60,39 @@ def choose_default_results_groups(
 
     limit = max(1, int(max_default))
     return groups[:limit]
+
+
+def _foodweb_views() -> list:
+    """The food web's outputs: the Plotly diagram, and with pyvis' Shiny
+    binding installed a second tab with an interactive network (drag, zoom,
+    search).
+
+    The two views are tabs, not conditional panels: a Plotly widget redrawn
+    after a conditional panel hid and showed it makes shinywidgets log an
+    error in the browser, and a tab does not.
+    """
+    diagram = output_widget(
+        "foodweb_plot", height=UI.plot_height_large_px, fillable=True
+    )
+    if not network_viz.HAS_PYVIS_SHINY:
+        return [diagram]
+    return [
+        ui.navset_pill(
+            ui.nav_panel("Diagram", diagram, value="diagram"),
+            ui.nav_panel(
+                "Interactive network",
+                network_viz.output_pyvis_network(
+                    "foodweb_network",
+                    height="650px",
+                    theme="auto",  # follows the page's dark mode
+                    show_layout_switcher=False,
+                ),
+                value="network",
+            ),
+            id="foodweb_view",
+            selected="diagram",
+        )
+    ]
 
 
 def results_ui():
@@ -155,9 +189,7 @@ def results_ui():
                         ),
                         col_widths=[12],
                     ),
-                    output_widget(
-                        "foodweb_plot", height=UI.plot_height_large_px, fillable=True
-                    ),
+                    *_foodweb_views(),
                 ),
                 ui.nav_panel(
                     "Simulation Results",
@@ -226,6 +258,7 @@ def results_ui():
                         ),
                     ),
                 ),
+                full_screen=True,
             ),
         ),
     )
@@ -318,10 +351,70 @@ def results_server(
             build_trophic_pyramid_figure(info["trophic_level"][:n_living], production)
         )
 
+    def _foodweb_settings() -> tuple:
+        return (
+            input.foodweb_min_flow(),
+            input.show_biomass_size(),
+            input.show_flow_width(),
+        )
+
+    # With two food-web views, each gets the slider and switch values only
+    # while its tab is the selected one, so the hidden view is left alone: no
+    # wasted redraw, and no Plotly widget closed while hidden, which makes
+    # shinywidgets log "Unexpected error while closing model" in the browser
+    # console. A view catches up when its tab is selected. One case still
+    # logs that message, with nothing wrong on screen: the diagram redrawn as
+    # its tab opens, after the settings changed on the network tab.
+    _view_settings = {
+        "diagram": reactive.value(None),
+        "network": reactive.value(None),
+    }
+
+    if network_viz.HAS_PYVIS_SHINY:
+
+        @reactive.effect
+        def _route_foodweb_settings():
+            held = _view_settings[input.foodweb_view()]
+            settings = _foodweb_settings()
+            with reactive.isolate():
+                unchanged = held.get() == settings
+            if not unchanged:  # an equal tuple would still redraw the view
+                held.set(settings)
+
+    def _settings_for(view: str) -> tuple:
+        """The settings ``view`` should draw with (it waits for its first)."""
+        if not network_viz.HAS_PYVIS_SHINY:
+            return _foodweb_settings()
+        held = _view_settings[view].get()
+        req(held is not None)
+        return held
+
+    if network_viz.HAS_PYVIS_SHINY:
+
+        @network_viz.render_pyvis_network
+        def foodweb_network():
+            """Interactive food web (pyvis): the same data as the diagram."""
+            min_flow, size_by_biomass, width_by_flow = _settings_for("network")
+            model = model_data.get()
+            info = get_model_info(model)
+            if info is None or not info["is_balanced"]:
+                return network_viz.build_foodweb_network([], [], [], [], [])
+            return network_viz.build_foodweb_network(
+                model.Group,
+                model.type,
+                model.TL,
+                model.Biomass,
+                model.DC,
+                min_flow=min_flow,
+                size_by_biomass=size_by_biomass,
+                width_by_flow=width_by_flow,
+            )
+
     @output
     @render_widget
     def foodweb_plot():
         """Interactive food web (Plotly): groups at their trophic level."""
+        min_flow, size_by_biomass, width_by_flow = _settings_for("diagram")
         model = model_data.get()
         info = get_model_info(model)
         if info is None or not info["is_balanced"]:
@@ -334,9 +427,9 @@ def results_server(
                 model.Biomass[:n_bio],
                 model.DC,
                 n_living=info["num_living"],
-                min_flow=input.foodweb_min_flow(),
-                size_by_biomass=input.show_biomass_size(),
-                width_by_flow=input.show_flow_width(),
+                min_flow=min_flow,
+                size_by_biomass=size_by_biomass,
+                width_by_flow=width_by_flow,
             )
         )
 

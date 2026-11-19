@@ -421,6 +421,9 @@ def test_run_simulation_invokes_the_task():
     # to the bounded process-wide executor (ruling S5), never asyncio.to_thread.
     task = _find_function(tree, "_ecosim_task")
     assert isinstance(task, ast.AsyncFunctionDef)
+    # The Run button stays a plain action button: a click during a run must
+    # reach the handler, which answers "already running, cancel it first"
+    # (tests/ui/test_ecosim_async_runs.py). A task button would be disabled.
     assert [ast.unparse(d) for d in task.decorator_list] == ["reactive.extended_task"]
     submits = [
         c

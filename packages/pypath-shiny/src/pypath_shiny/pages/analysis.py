@@ -111,6 +111,7 @@ def analysis_ui():
                                 "trophic_spectrum_plot", height=UI.plot_height_small_px
                             ),
                         ),
+                        full_screen=True,
                     ),
                     col_widths=[5, 7],
                 ),
@@ -170,6 +171,7 @@ def analysis_ui():
                                 fillable=True,
                             ),
                         ),
+                        full_screen=True,
                     ),
                     col_widths=[5, 7],
                 ),
@@ -193,6 +195,7 @@ def analysis_ui():
                             # height grows with the number of groups (set by the figure)
                             output_widget("analysis_ee_plot"),
                         ),
+                        full_screen=True,
                     ),
                     col_widths=[5, 7],
                 ),
@@ -227,6 +230,7 @@ def analysis_ui():
                     class_="btn-primary",
                 ),
             ),
+            full_screen=True,
         ),
     )
 

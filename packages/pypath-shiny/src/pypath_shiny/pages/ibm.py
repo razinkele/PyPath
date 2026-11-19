@@ -256,13 +256,14 @@ def ibm_ui():
                     ),
                     class_="btn btn-primary w-100 mt-2",
                 ),
-                ui.input_action_button(
+                # A task button: busy while the comparison computes.
+                ui.input_task_button(
                     "ibm_run",
-                    ui.tags.span(
-                        ui.tags.i(class_="bi bi-lightning-fill me-2"),
-                        "Run Comparison",
-                    ),
-                    class_="btn btn-success w-100 mt-2",
+                    "Run Comparison",
+                    icon=ui.tags.i(class_="bi bi-lightning-fill"),
+                    label_busy="Running...",
+                    type="success",
+                    class_="w-100 mt-2",
                 ),
                 width=350,
             ),
@@ -309,6 +310,7 @@ def ibm_ui():
                     ),
                 ),
                 id="ibm_tabs",
+                full_screen=True,
             ),
         ),
         # Page header
@@ -561,6 +563,7 @@ def ibm_server(
     launch_ids = itertools.count(1)
     launched = {"id": 0, "control": None}
 
+    @ui.bind_task_button(button_id="ibm_run")
     @reactive.extended_task
     async def _ibm_task(
         run_id, source, ibm, scen, spec, used, slot, control, fingerprint

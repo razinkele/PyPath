@@ -807,6 +807,7 @@ def ecosim_ui() -> ui.Tag:
                                 height=UI.plot_height_small_px,
                                 fillable=True,
                             ),
+                            full_screen=True,
                         ),
                         ui.card(
                             ui.card_header("Biomass Forcing"),
@@ -986,6 +987,7 @@ def ecosim_ui() -> ui.Tag:
                         fill=False,  # do not stretch to the tab height
                     ),
                 ),
+                full_screen=True,
             ),
         ),
     )

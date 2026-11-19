@@ -398,6 +398,7 @@ def prebalance_ui():
                           capabilities and limitations. *Ecological Modelling*, 172(2-4), 109-139.
                         """),
                 ),
+                full_screen=True,
             ),
         )
     )
