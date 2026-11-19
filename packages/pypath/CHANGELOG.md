@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.11.1 (2026-11-19)
+
+### Bug Fixes
+
+- **biodata**: The WoRMS common-name search asks the REST service directly
+  ([`7c59ead`](https://github.com/razinkele/PyPath/commit/7c59ead7dfde2b4e7ec40fb515784802fd34b063))
+
+
 ## v1.11.0 (2026-11-18)
 
 ### Features
