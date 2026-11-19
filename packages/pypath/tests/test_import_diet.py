@@ -20,6 +20,13 @@ from pypath.io.ecobase import (
 logger = logging.getLogger(__name__)
 
 
+# The EcoBase tests below download model 403 from the live EcoBase server
+# (sirs.agrocampus-ouest.fr). They carry the ``integration`` marker, which the
+# CI test job deselects: a slow or unreachable server must not fail a build
+# (it did, on a release commit, with a 60 s read timeout).
+
+
+@pytest.mark.integration
 class TestEcoBaseDietParsing:
     """Test diet matrix parsing from EcoBase XML."""
 
@@ -156,6 +163,7 @@ class TestEcoBaseDietParsing:
         assert non_zero > 0, "Diet matrix should have non-zero entries"
 
 
+@pytest.mark.integration
 class TestEcoBaseXMLStructure:
     """Deep dive into EcoBase XML structure to find diet data."""
 
@@ -256,6 +264,7 @@ class TestEwemdbDietParsing:
                 except Exception:
                     continue
 
+    @pytest.mark.integration
     def test_full_ecobase_import(self):
         """Test complete EcoBase import pipeline."""
         # Download model
