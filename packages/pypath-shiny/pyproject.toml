@@ -39,6 +39,12 @@ dependencies = [
 biodata = [
     "pypath-ewe[biodata]>=0.4.0",
 ]
+# The Results page's interactive food-web network. pyvis-optimized is the
+# maintained pyvis with a Shiny binding; it installs as the `pyvis` module, so
+# do not install it beside the original `pyvis`.
+network = [
+    "pyvis-optimized>=5.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
