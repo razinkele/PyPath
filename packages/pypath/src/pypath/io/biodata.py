@@ -434,13 +434,23 @@ def _fetch_worms_vernacular(
             "Install with: pip install requests"
         )
 
+    # WoRMS takes the name as one path segment and cannot be asked for one
+    # holding "/": it answers 404 to an encoded slash ("%2F") and its
+    # documentation page to a doubly encoded one. Say what to do instead of
+    # reporting that as a failed connection.
+    if "/" in common_name:
+        raise SpeciesNotFoundError(
+            f'WoRMS cannot search a common name containing "/": {common_name!r}. '
+            "Look up one name at a time."
+        )
+
     # Check cache
     if cache:
         cached = _biodata_cache.get("worms_vern", common_name)
         if cached is not None:
             return cached
 
-    # The name is one path segment: encode everything, "/" included.
+    # The name is one path segment: encode everything.
     url = f"{WORMS_REST_URL}/AphiaRecordsByVernacular/{quote(common_name, safe='')}"
     try:
         resp = requests.get(url, timeout=timeout)
@@ -1259,6 +1269,8 @@ def get_species_info(
 
         aphia_id = best_match.get("AphiaID")
 
+    except SpeciesNotFoundError:
+        raise  # it already says which name and why
     except Exception as e:
         if strict:
             raise
@@ -1719,7 +1731,10 @@ def auto_populate_taxonomy(
 
         traits = {
             "max_length": info.max_length,
-            "winf": (info.growth_params.get("Loo") if info.growth_params else None),
+            # Winf is the asymptotic weight. The lookup has only the
+            # asymptotic length Loo (cm, in SpeciesInfo.growth_params), and
+            # no length-weight relation to convert it, so it stays empty.
+            "winf": None,
             "vbgf_k": (info.growth_params.get("K") if info.growth_params else None),
             "mean_weight": None,
             "mean_length": None,

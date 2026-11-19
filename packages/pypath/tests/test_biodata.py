@@ -474,9 +474,30 @@ class TestMockedAPIs:
         from pypath.io.biodata import _fetch_worms_vernacular
 
         mock_requests.get.return_value = self._worms_reply(records=[{"AphiaID": 1}])
-        _fetch_worms_vernacular("ray/skate & chimaera?", cache=False)
+        _fetch_worms_vernacular("ray & chimaera?", cache=False)
         url = mock_requests.get.call_args.args[0]
-        assert url.endswith("/AphiaRecordsByVernacular/ray%2Fskate%20%26%20chimaera%3F")
+        assert url.endswith("/AphiaRecordsByVernacular/ray%20%26%20chimaera%3F")
+
+    @patch("pypath.io.biodata.requests")
+    @patch("pypath.io.biodata.HAS_REQUESTS", True)
+    def test_fetch_worms_vernacular_refuses_a_slash(self, mock_requests):
+        """WoRMS cannot be asked for a name with "/": say so, do not call it."""
+        from pypath.io.biodata import SpeciesNotFoundError, _fetch_worms_vernacular
+
+        with pytest.raises(SpeciesNotFoundError, match="one name at a time"):
+            _fetch_worms_vernacular("cod/haddock", cache=False)
+        mock_requests.get.assert_not_called()
+
+    @patch("pypath.io.biodata.requests")
+    @patch("pypath.io.biodata.HAS_REQUESTS", True)
+    def test_get_species_info_keeps_the_reason_a_name_was_not_found(
+        self, mock_requests
+    ):
+        """Outside strict mode too, the caller is told why, not just "not found"."""
+        from pypath.io.biodata import SpeciesNotFoundError, get_species_info
+
+        with pytest.raises(SpeciesNotFoundError, match="one name at a time"):
+            get_species_info("cod/haddock", cache=False)
 
     @patch("pypath.io.biodata.pyworms")
     @patch("pypath.io.biodata.HAS_PYWORMS", True)
