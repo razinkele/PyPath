@@ -5,7 +5,7 @@ Tests the WoRMS, OBIS, and FishBase integration functionality.
 """
 
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
@@ -447,24 +447,64 @@ class TestHelperFunctions:
 class TestMockedAPIs:
     """Test API functions with mocked responses."""
 
+    @staticmethod
+    def _worms_reply(status_code=200, records=None):
+        """A stand-in for the WoRMS REST service's reply."""
+        reply = MagicMock()
+        reply.status_code = status_code
+        reply.json.return_value = records
+        return reply
+
     @patch("pypath.io.biodata.pyworms")
-    @patch("pypath.io.biodata.HAS_PYWORMS", True)
+    @patch("pypath.io.biodata.requests")
+    @patch("pypath.io.biodata.HAS_REQUESTS", True)
     def test_fetch_worms_vernacular(
-        self, mock_pyworms, sample_worms_vernacular_response
+        self, mock_requests, mock_pyworms, sample_worms_vernacular_response
     ):
-        """Test WoRMS vernacular search with mocked response."""
+        """The common-name search asks the WoRMS REST service."""
         from pypath.io.biodata import _fetch_worms_vernacular
 
-        mock_pyworms.aphiaRecordsByVernacular.return_value = (
-            sample_worms_vernacular_response
+        mock_requests.get.return_value = self._worms_reply(
+            records=sample_worms_vernacular_response
         )
 
-        result = _fetch_worms_vernacular("Atlantic cod", cache=False)
+        result = _fetch_worms_vernacular("Atlantic cod", cache=False, timeout=12)
 
         assert len(result) == 1
         assert result[0]["AphiaID"] == 126436
         assert result[0]["scientificname"] == "Gadus morhua"
-        mock_pyworms.aphiaRecordsByVernacular.assert_called_once_with("Atlantic cod")
+        # The name is part of the URL path, so it is percent-encoded.
+        mock_requests.get.assert_called_once_with(
+            "https://www.marinespecies.org/rest/AphiaRecordsByVernacular/"
+            "Atlantic%20cod",
+            timeout=12,
+        )
+        # pyworms has no vernacular search: its aphiaRecordsByVernacular is a
+        # stub that takes no argument and raises "Method not implemented".
+        mock_pyworms.aphiaRecordsByVernacular.assert_not_called()
+
+    @patch("pypath.io.biodata.requests")
+    @patch("pypath.io.biodata.HAS_REQUESTS", True)
+    @patch("pypath.io.biodata.HAS_PYWORMS", False)
+    def test_fetch_worms_vernacular_does_not_need_pyworms(
+        self, mock_requests, sample_worms_vernacular_response
+    ):
+        from pypath.io.biodata import _fetch_worms_vernacular
+
+        mock_requests.get.return_value = self._worms_reply(
+            records=sample_worms_vernacular_response
+        )
+        assert _fetch_worms_vernacular("Atlantic cod", cache=False)
+
+    @patch("pypath.io.biodata.requests")
+    @patch("pypath.io.biodata.HAS_REQUESTS", True)
+    def test_fetch_worms_vernacular_encodes_awkward_names(self, mock_requests):
+        from pypath.io.biodata import _fetch_worms_vernacular
+
+        mock_requests.get.return_value = self._worms_reply(records=[{"AphiaID": 1}])
+        _fetch_worms_vernacular("ray/skate & chimaera?", cache=False)
+        url = mock_requests.get.call_args.args[0]
+        assert url.endswith("/AphiaRecordsByVernacular/ray%2Fskate%20%26%20chimaera%3F")
 
     @patch("pypath.io.biodata.pyworms")
     @patch("pypath.io.biodata.HAS_PYWORMS", True)
@@ -542,36 +582,59 @@ class TestMockedAPIs:
 class TestErrorHandling:
     """Test error handling and exceptions."""
 
-    @patch("pypath.io.biodata.pyworms")
-    @patch("pypath.io.biodata.HAS_PYWORMS", True)
-    def test_species_not_found_error(self, mock_pyworms):
-        """Test SpeciesNotFoundError is raised."""
+    @pytest.mark.parametrize(
+        "status_code,records",
+        [
+            (204, None),  # WoRMS answers "no content" when nothing matches
+            (200, []),
+        ],
+    )
+    @patch("pypath.io.biodata.requests")
+    @patch("pypath.io.biodata.HAS_REQUESTS", True)
+    def test_species_not_found_error(self, mock_requests, status_code, records):
+        """No match is SpeciesNotFoundError, not a connection failure."""
         from pypath.io.biodata import _fetch_worms_vernacular
 
-        mock_pyworms.aphiaRecordsByVernacular.return_value = []
+        reply = MagicMock()
+        reply.status_code = status_code
+        reply.json.return_value = records
+        if status_code == 204:
+            reply.json.side_effect = ValueError("no body")
+        mock_requests.get.return_value = reply
 
-        with pytest.raises(SpeciesNotFoundError):
+        with pytest.raises(SpeciesNotFoundError, match="Nonexistent species"):
             _fetch_worms_vernacular("Nonexistent species", cache=False)
 
-    @patch("pypath.io.biodata.pyworms")
-    @patch("pypath.io.biodata.HAS_PYWORMS", True)
-    def test_api_connection_error(self, mock_pyworms):
+    @patch("pypath.io.biodata.requests")
+    @patch("pypath.io.biodata.HAS_REQUESTS", True)
+    def test_api_connection_error(self, mock_requests):
         """Test APIConnectionError is raised on connection failure."""
         from pypath.io.biodata import _fetch_worms_vernacular
 
-        mock_pyworms.aphiaRecordsByVernacular.side_effect = Exception(
-            "Connection timeout"
-        )
+        mock_requests.get.side_effect = Exception("Connection timeout")
 
-        with pytest.raises(APIConnectionError):
+        with pytest.raises(APIConnectionError, match="Connection timeout"):
             _fetch_worms_vernacular("Atlantic cod", cache=False)
 
-    @patch("pypath.io.biodata.HAS_PYWORMS", False)
-    def test_missing_pyworms_import(self):
-        """Test ImportError when pyworms not available."""
+    @patch("pypath.io.biodata.requests")
+    @patch("pypath.io.biodata.HAS_REQUESTS", True)
+    def test_a_server_error_is_a_connection_error(self, mock_requests):
         from pypath.io.biodata import _fetch_worms_vernacular
 
-        with pytest.raises(ImportError, match="pyworms is required"):
+        reply = MagicMock()
+        reply.status_code = 503
+        reply.raise_for_status.side_effect = Exception("503 Service Unavailable")
+        mock_requests.get.return_value = reply
+
+        with pytest.raises(APIConnectionError, match="503"):
+            _fetch_worms_vernacular("Atlantic cod", cache=False)
+
+    @patch("pypath.io.biodata.HAS_REQUESTS", False)
+    def test_missing_requests_import(self):
+        """The common-name search needs requests, and says so."""
+        from pypath.io.biodata import _fetch_worms_vernacular
+
+        with pytest.raises(ImportError, match="requests is required"):
             _fetch_worms_vernacular("Atlantic cod", cache=False)
 
     @patch("pypath.io.biodata.HAS_PYOBIS", False)
