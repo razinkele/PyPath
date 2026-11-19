@@ -50,6 +50,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import quote
 
 import numpy as np
 import pandas as pd
@@ -84,6 +85,10 @@ try:
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False
+    requests = None
+
+#: The WoRMS REST service, for what pyworms does not offer.
+WORMS_REST_URL = "https://www.marinespecies.org/rest"
 
 from pypath.core.params import RpathParams, create_rpath_params  # noqa: E402
 from pypath.io.utils import (  # noqa: E402
@@ -347,11 +352,19 @@ def _fetch_worms_vernacular(
         If no matches found
     APIConnectionError
         If API connection fails
+    ImportError
+        If ``requests`` is not installed
+
+    Notes
+    -----
+    This asks the WoRMS REST service directly. pyworms has no vernacular
+    search: its ``aphiaRecordsByVernacular`` is a stub that takes no argument
+    and raises "Method not implemented" (pyworms 0.4.0).
     """
-    if not HAS_PYWORMS:
+    if not HAS_REQUESTS:
         raise ImportError(
-            "pyworms is required for WoRMS integration. "
-            "Install with: pip install pyworms"
+            "requests is required for the WoRMS common-name search. "
+            "Install with: pip install requests"
         )
 
     # Check cache
@@ -360,52 +373,26 @@ def _fetch_worms_vernacular(
         if cached is not None:
             return cached
 
-    # Query WoRMS
+    # The name is one path segment: encode everything, "/" included.
+    url = f"{WORMS_REST_URL}/AphiaRecordsByVernacular/{quote(common_name, safe='')}"
     try:
-        try:
-            # Preferred call (positional arg)
-            results = pyworms.aphiaRecordsByVernacular(common_name)
-        except TypeError:
-            # Some pyworms versions accept a keyword arg or different signature
-            try:
-                results = pyworms.aphiaRecordsByVernacular(vernacular=common_name)
-            except TypeError:
-                try:
-                    results = pyworms.aphiaRecordsByVernacular(
-                        vernaculars=[common_name]
-                    )
-                except Exception:
-                    # Last-resort: try the public WoRMS REST API if requests is available
-                    if HAS_REQUESTS:
-                        from urllib.parse import quote
-
-                        url = f"https://www.marinespecies.org/rest/AphiaRecordsByVernacular/{quote(common_name)}"
-                        resp = requests.get(url, timeout=timeout)
-                        resp.raise_for_status()
-                        try:
-                            results = resp.json()
-                        except ValueError:
-                            # Empty or invalid JSON -> treat as no matches
-                            results = []
-                    else:
-                        # Re-raise the original error to be handled below
-                        raise
-
-        if not results:
-            raise SpeciesNotFoundError(
-                f"No species found for common name: {common_name}"
-            )
-
-        # Cache results
-        if cache:
-            _biodata_cache.set("worms_vern", common_name, results)
-
-        return results
-
+        resp = requests.get(url, timeout=timeout)
+        if resp.status_code == 204:  # "no content": nothing matches
+            results = []
+        else:
+            resp.raise_for_status()
+            results = resp.json()
     except Exception as e:
-        if isinstance(e, SpeciesNotFoundError):
-            raise
-        raise APIConnectionError(f"Failed to query WoRMS: {e}")
+        raise APIConnectionError(f"Failed to query WoRMS: {e}") from e
+
+    if not results:
+        raise SpeciesNotFoundError(f"No species found for common name: {common_name}")
+
+    # Cache results
+    if cache:
+        _biodata_cache.set("worms_vern", common_name, results)
+
+    return results
 
 
 def _fetch_worms_accepted(
