@@ -856,12 +856,14 @@ def _fetch_fishbase_traits(
         traits.habitat = str(habitat) if isinstance(habitat, str) and habitat else None
 
         # Each of the rest is optional: one table failing must not lose the others.
+        complete = True
         try:
             traits.trophic_level = _fishbase_trophic_level(
                 _fishbase_table("ecology", timeout=timeout), species_code
             )
         except Exception as e:
             warnings.warn(f"Failed to fetch ecology data: {e}")
+            complete = False
 
         try:
             traits.diet_items = _fishbase_diet(
@@ -871,6 +873,7 @@ def _fetch_fishbase_traits(
             )
         except Exception as e:
             warnings.warn(f"Failed to fetch diet data: {e}")
+            complete = False
 
         try:
             traits.growth_params = _fishbase_growth(
@@ -878,9 +881,11 @@ def _fetch_fishbase_traits(
             )
         except Exception as e:
             warnings.warn(f"Failed to fetch growth data: {e}")
+            complete = False
 
-        # Cache results
-        if cache:
+        # Cache only a complete result: after a failed table the next call
+        # must try it again, not serve the gap for the cache's lifetime.
+        if cache and complete:
             _biodata_cache.set("fishbase", scientific_name, traits)
 
         return traits

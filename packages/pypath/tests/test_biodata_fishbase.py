@@ -239,6 +239,31 @@ def test_a_missing_part_does_not_lose_the_rest():
     assert traits.diet_items
 
 
+def test_an_incomplete_result_is_not_cached():
+    # A table that failed once must be tried again: the incomplete result
+    # would otherwise hide the species' growth for the cache's whole lifetime.
+    biodata.clear_cache()
+    failing = True
+
+    def loader(name, timeout=60):
+        if name == "popgrowth" and failing:
+            raise OSError("timed out")
+        return TABLES[name]()
+
+    with patch.object(biodata, "_fishbase_table", side_effect=loader):
+        with pytest.warns(UserWarning, match="growth"):
+            first = _fetch_fishbase_traits("Piscis exemplar", cache=True)
+        assert first.growth_params is None and first.trophic_level == 4.2
+        failing = False
+        second = _fetch_fishbase_traits("Piscis exemplar", cache=True)
+        assert second.growth_params == {"Loo": 110.0, "K": 0.2}
+        # A complete result is cached: the tables are not read again.
+        failing = True
+        third = _fetch_fishbase_traits("Piscis exemplar", cache=True)
+        assert third is second
+    biodata.clear_cache()
+
+
 # --- The table loader -------------------------------------------------------
 
 
@@ -358,11 +383,18 @@ def test_live_atlantic_cod():
 
     The snapshot is a static file host, so this belongs in the weekly run.
     """
+    import requests
+
     pytest.importorskip("pyarrow")
     try:
         biodata._fishbase_table("species", timeout=60)
-    except Exception as err:  # the host cannot be reached from here
+    except (
+        requests.exceptions.ConnectionError,  # refused, DNS, TLS
+        requests.exceptions.Timeout,
+    ) as err:  # the host cannot be reached from here
         pytest.skip(f"FishBase snapshot not reachable: {type(err).__name__}")
+    # Anything else fails the test: a moved release (HTTP error), a file that
+    # is not parquet or a changed layout is what the weekly run is there for.
 
     traits = _fetch_fishbase_traits("Gadus morhua", cache=False, timeout=60)
 
