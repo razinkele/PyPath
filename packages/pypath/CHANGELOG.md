@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.12.2 (2026-11-19)
+
+### Bug Fixes
+
+- **biodata**: Leave Winf empty and explain a common name with a slash
+  ([`28f6a41`](https://github.com/razinkele/PyPath/commit/28f6a417556163c5978e083912f2d6cf2df43041))
+
+
 ## v1.12.1 (2026-11-19)
 
 ### Bug Fixes
