@@ -12,7 +12,8 @@ Data sources:
 Requirements:
     - pyworms (pip install pyworms)
     - pyobis (pip install pyobis)
-    - requests (for FishBase API)
+    - requests (for the WoRMS common-name search and the FishBase tables)
+    - pyarrow (to read the FishBase tables, published as parquet)
 
 Main workflow:
     Common name → WoRMS → AphiaID → Scientific name → OBIS + FishBase → RpathParams
@@ -44,7 +45,9 @@ Example:
 
 from __future__ import annotations
 
+import io
 import logging
+import threading
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -94,12 +97,33 @@ from pypath.core.params import RpathParams, create_rpath_params  # noqa: E402
 from pypath.io.utils import (  # noqa: E402
     estimate_pb_from_growth,
     estimate_qb_from_tl_pb,
-    fetch_url,
-    safe_float,
 )
 
-# FishBase API endpoint
-FISHBASE_API_BASE = "https://fishbase.ropensci.org"
+# FishBase: the parquet snapshots of its tables that the rfishbase project
+# publishes on Source Cooperative. The JSON API that used to serve them
+# (fishbase.ropensci.org) is gone.
+FISHBASE_DATA_URL = "https://data.source.coop/cboettig/fishbase/fb"
+#: The FishBase release read. Releases are listed at
+#: https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop?list-type=2&prefix=cboettig/fishbase/fb/&delimiter=/
+FISHBASE_RELEASE = "v26.06"
+
+# The tables read and the columns kept from each, under these names. FishBase
+# is not consistent about case (its diet table has "Speccode"), so columns are
+# matched without regard to it.
+_FISHBASE_COLUMNS = {
+    "species": ("SpecCode", "Genus", "Species", "Length", "DemersPelag"),
+    "ecology": ("SpecCode", "FoodTroph", "DietTroph"),
+    "diet": ("DietCode", "SpecCode", "SampleStage"),
+    "diet_items": ("DietCode", "FoodI", "FoodII", "FoodIII", "DietPercent"),
+    "popgrowth": ("SpecCode", "Loo", "K", "to", "Type"),
+}
+# Diet studies by the life stage sampled, most wanted first.
+_FISHBASE_DIET_STAGES = ("adults", "juv./adults")
+
+# Tables are downloaded once per process (about 6 MB together) and kept; the
+# lock keeps a batch's threads from each downloading the same table.
+_fishbase_tables: Dict[str, pd.DataFrame] = {}
+_fishbase_lock = threading.Lock()
 
 
 # ============================================================================
@@ -323,8 +347,8 @@ _biodata_cache = BiodiversityCache()
 # ============================================================================
 # Helper Functions
 # ============================================================================
-# Note: safe_float, fetch_url, estimate_pb_from_growth, and estimate_qb_from_tl_pb
-# are now imported from pypath.io.utils to avoid code duplication
+# Note: estimate_pb_from_growth and estimate_qb_from_tl_pb are imported from
+# pypath.io.utils to avoid code duplication
 
 
 def _fetch_worms_vernacular(
@@ -596,12 +620,186 @@ def _fetch_obis_occurrences(
         raise APIConnectionError(f"Failed to query OBIS for {scientific_name}: {e}")
 
 
+def _fishbase_table(name: str, timeout: int = 60) -> pd.DataFrame:
+    """One FishBase table, downloaded on first use and kept for the process.
+
+    Parameters
+    ----------
+    name : str
+        A key of ``_FISHBASE_COLUMNS``.
+    timeout : int
+        Download timeout in seconds.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The columns listed for the table in ``_FISHBASE_COLUMNS``, under
+        those names; a column the snapshot lacks is left out.
+
+    Raises
+    ------
+    KeyError
+        If ``name`` is not a table this module reads.
+    ImportError
+        If ``requests`` or a parquet reader (pyarrow) is not installed.
+    """
+    wanted = _FISHBASE_COLUMNS[name]
+    with _fishbase_lock:
+        table = _fishbase_tables.get(name)
+        if table is not None:
+            return table
+        if not HAS_REQUESTS:
+            raise ImportError(
+                "requests is required for FishBase data. "
+                "Install with: pip install requests"
+            )
+        url = f"{FISHBASE_DATA_URL}/{FISHBASE_RELEASE}/parquet/{name}.parquet"
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+        try:
+            raw = pd.read_parquet(io.BytesIO(resp.content))
+        except ImportError as e:
+            raise ImportError(
+                "pyarrow is required to read FishBase data. "
+                "Install with: pip install pyarrow"
+            ) from e
+        by_lower = {str(col).lower(): col for col in raw.columns}
+        found = {by_lower[c.lower()]: c for c in wanted if c.lower() in by_lower}
+        table = raw[list(found)].rename(columns=found)
+        _fishbase_tables[name] = table
+        return table
+
+
+def _fishbase_number(value) -> Optional[float]:
+    """``value`` as a Python float; None when missing or not a number.
+
+    Rounded to four decimals: the tables store single-precision numbers, and
+    3.29 would otherwise read as 3.28999996.
+    """
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if np.isnan(number) else round(number, 4)
+
+
+def _fishbase_rows(table: pd.DataFrame, species_code: int) -> pd.DataFrame:
+    """The rows of ``table`` for one species (none when it has no key)."""
+    if "SpecCode" not in table.columns:
+        return table.iloc[0:0]
+    return table[table["SpecCode"] == species_code]
+
+
+def _fishbase_trophic_level(
+    ecology: pd.DataFrame, species_code: int
+) -> Optional[float]:
+    """The species' trophic level: food-based, else diet-based.
+
+    FishBase has a row per stock; the first one with a value is used.
+    """
+    rows = _fishbase_rows(ecology, species_code)
+    for column in ("FoodTroph", "DietTroph"):
+        if column in rows.columns:
+            values = rows[column].dropna()
+            if len(values):
+                return _fishbase_number(values.iloc[0])
+    return None
+
+
+def _fishbase_growth(
+    popgrowth: pd.DataFrame, species_code: int
+) -> Optional[Dict[str, float]]:
+    """Von Bertalanffy parameters of one real study, the one with the median K.
+
+    FishBase lists every published growth study of a species (over a hundred
+    for some). Loo and K trade off against each other, so medians taken
+    separately would pair numbers no study reported. Among the studies of the
+    species' commonest length type, the one whose K is the median is returned
+    (the lower of the two middle ones for an even count), with its own Loo and,
+    if it reported one, to.
+    """
+    rows = _fishbase_rows(popgrowth, species_code)
+    if not {"Loo", "K"} <= set(rows.columns):
+        return None
+    rows = rows[rows["K"].notna() & rows["Loo"].notna() & (rows["K"] > 0)]
+    if rows.empty:
+        return None
+    if "Type" in rows.columns:
+        types = rows["Type"].fillna("")
+        rows = rows[types == types.value_counts().idxmax()]
+    study = rows.sort_values(["K", "Loo"]).iloc[(len(rows) - 1) // 2]
+    growth = {
+        "Loo": _fishbase_number(study["Loo"]),
+        "K": _fishbase_number(study["K"]),
+    }
+    to = _fishbase_number(study.get("to"))
+    if to is not None:
+        growth["to"] = to
+    return growth
+
+
+def _fishbase_diet(
+    diet: pd.DataFrame, diet_items: pd.DataFrame, species_code: int
+) -> List[Dict[str, Any]]:
+    """The species' diet by prey category, averaged over its diet studies.
+
+    Studies of adults are used if there are any, else studies of juveniles
+    and adults together, else all of them: most studies sample juveniles, and
+    an average over everything would describe a juvenile. Each study's items
+    are summed by prey category (FishBase's FoodIII, such as "bony fish") and
+    rescaled to 100; the categories are then averaged over the studies, a
+    category absent from a study counting as 0.
+
+    Returns
+    -------
+    list of dict
+        ``{"prey": category, "percentage": share}``, largest first; empty
+        when the species has no usable diet study.
+    """
+    studies = _fishbase_rows(diet, species_code)
+    needed = {"DietCode", "DietPercent"}
+    if studies.empty or "DietCode" not in studies.columns:
+        return []
+    if not needed <= set(diet_items.columns):
+        return []
+    if "SampleStage" in studies.columns:
+        for stage in _FISHBASE_DIET_STAGES:
+            of_stage = studies[studies["SampleStage"] == stage]
+            if not of_stage.empty:
+                studies = of_stage
+                break
+
+    items = diet_items[diet_items["DietCode"].isin(studies["DietCode"])]
+    items = items[items["DietPercent"].notna() & (items["DietPercent"] > 0)]
+    if items.empty:
+        return []
+    category = pd.Series("unknown", index=items.index, dtype=object)
+    for column in ("FoodI", "FoodII", "FoodIII"):  # the finest one given wins
+        if column in items.columns:
+            category = items[column].where(items[column].notna(), category)
+    shares = (
+        items.assign(category=category)
+        .groupby(["DietCode", "category"])["DietPercent"]
+        .sum()
+        .unstack(fill_value=0.0)
+    )
+    shares = shares.div(shares.sum(axis=1), axis=0) * 100.0
+    mean = shares.mean(axis=0).sort_values(ascending=False, kind="stable")
+    return [
+        {"prey": str(prey), "percentage": round(float(share), 2)}
+        for prey, share in mean.items()
+    ]
+
+
 def _fetch_fishbase_traits(
     scientific_name: str, cache: bool = True, timeout: int = 30
 ) -> Optional[FishBaseTraits]:
-    """Fetch trait data from FishBase API.
+    """Fetch a species' traits from FishBase.
 
-    Queries multiple FishBase endpoints and combines results.
+    Reads the FishBase tables published as parquet snapshots (release
+    ``FISHBASE_RELEASE``). They are downloaded once per process, about 6 MB
+    together, so the first call takes a few seconds and later ones are local
+    lookups.
 
     Parameters
     ----------
@@ -610,17 +808,22 @@ def _fetch_fishbase_traits(
     cache : bool
         Whether to use cached results
     timeout : int
-        API timeout in seconds
+        Download timeout in seconds, per table
 
     Returns
     -------
     FishBaseTraits or None
-        Trait data if found, None if species not in FishBase
+        Trait data if found; None if the species is not in FishBase (it holds
+        fishes only) or the data could not be read, with a warning.
 
-    Raises
-    ------
-    APIConnectionError
-        If API connection fails
+    Notes
+    -----
+    - Maximum length and habitat come from the species table.
+    - The trophic level is the food-based one, else the diet-based one.
+    - Growth is one real study, the one with the median K
+      (:func:`_fishbase_growth`).
+    - Diet is an average over the diet studies, adults first
+      (:func:`_fishbase_diet`).
     """
     # Check cache
     if cache:
@@ -637,98 +840,42 @@ def _fetch_fishbase_traits(
     genus, species = parts[0], parts[1]
 
     try:
-        # Query species endpoint
-        species_url = f"{FISHBASE_API_BASE}/species"
-        species_params = {"Genus": genus, "Species": species}
-        species_data = fetch_url(species_url, params=species_params, timeout=timeout)
-
-        # Check if species found
-        if not species_data or (
-            isinstance(species_data, list) and len(species_data) == 0
-        ):
+        table = _fishbase_table("species", timeout=timeout)
+        match = table[(table["Genus"] == genus) & (table["Species"] == species)]
+        if match.empty:
             # Species not in FishBase
             if cache:
                 _biodata_cache.set("fishbase", scientific_name, None)
             return None
 
-        # Get species code
-        if isinstance(species_data, list):
-            species_info = species_data[0]
-        else:
-            species_info = species_data
-
-        species_code = species_info.get("SpecCode")
-        if not species_code:
-            return None
-
-        # Initialize traits
+        row = match.iloc[0]
+        species_code = int(row["SpecCode"])
         traits = FishBaseTraits(species_code=species_code)
+        traits.max_length = _fishbase_number(row.get("Length"))
+        habitat = row.get("DemersPelag")
+        traits.habitat = str(habitat) if isinstance(habitat, str) and habitat else None
 
-        # Get max length
-        traits.max_length = safe_float(species_info.get("Length"))
-
-        # Query ecology endpoint for trophic level
+        # Each of the rest is optional: one table failing must not lose the others.
         try:
-            ecology_url = f"{FISHBASE_API_BASE}/ecology"
-            ecology_params = {"SpecCode": species_code}
-            ecology_data = fetch_url(
-                ecology_url, params=ecology_params, timeout=timeout
+            traits.trophic_level = _fishbase_trophic_level(
+                _fishbase_table("ecology", timeout=timeout), species_code
             )
-
-            if (
-                ecology_data
-                and isinstance(ecology_data, list)
-                and len(ecology_data) > 0
-            ):
-                ecology_info = ecology_data[0]
-                traits.trophic_level = safe_float(ecology_info.get("FoodTroph"))
-                traits.habitat = ecology_info.get("DemersPelag")
         except Exception as e:
             warnings.warn(f"Failed to fetch ecology data: {e}")
 
-        # Query diet endpoint
         try:
-            diet_url = f"{FISHBASE_API_BASE}/diet"
-            diet_params = {"SpecCode": species_code}
-            diet_data = fetch_url(diet_url, params=diet_params, timeout=timeout)
-
-            if diet_data and isinstance(diet_data, list):
-                diet_items = []
-                for item in diet_data:
-                    prey = item.get("FoodItem")
-                    percentage = safe_float(item.get("Diet"))
-                    if prey and percentage:
-                        diet_items.append({"prey": prey, "percentage": percentage})
-                traits.diet_items = diet_items
+            traits.diet_items = _fishbase_diet(
+                _fishbase_table("diet", timeout=timeout),
+                _fishbase_table("diet_items", timeout=timeout),
+                species_code,
+            )
         except Exception as e:
             warnings.warn(f"Failed to fetch diet data: {e}")
 
-        # Query popchar endpoint for growth parameters
         try:
-            popchar_url = f"{FISHBASE_API_BASE}/popchar"
-            popchar_params = {"SpecCode": species_code}
-            popchar_data = fetch_url(
-                popchar_url, params=popchar_params, timeout=timeout
+            traits.growth_params = _fishbase_growth(
+                _fishbase_table("popgrowth", timeout=timeout), species_code
             )
-
-            if (
-                popchar_data
-                and isinstance(popchar_data, list)
-                and len(popchar_data) > 0
-            ):
-                growth_info = popchar_data[0]
-                loo = safe_float(growth_info.get("Loo"))
-                k = safe_float(growth_info.get("K"))
-                to = safe_float(growth_info.get("to"))
-
-                if loo or k or to:
-                    traits.growth_params = {}
-                    if loo:
-                        traits.growth_params["Loo"] = loo
-                    if k:
-                        traits.growth_params["K"] = k
-                    if to is not None:
-                        traits.growth_params["to"] = to
         except Exception as e:
             warnings.warn(f"Failed to fetch growth data: {e}")
 

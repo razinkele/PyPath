@@ -303,8 +303,10 @@ def _service_reachable(url: str, timeout: int = 5) -> bool:
 @pytest.mark.integration
 @pytest.mark.fishbase
 @pytest.mark.skipif(
-    not _service_reachable("https://fishbase.ropensci.org"),
-    reason="FishBase API not reachable",
+    not _service_reachable(
+        "https://data.source.coop/cboettig/fishbase/fb/v26.06/parquet/diet.parquet"
+    ),
+    reason="FishBase snapshot host not reachable",
 )
 class TestFishBaseIntegration:
     """Test FishBase API integration with real calls."""

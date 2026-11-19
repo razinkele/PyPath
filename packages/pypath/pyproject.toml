@@ -50,6 +50,8 @@ biodata = [
     "pyworms>=0.2.1",
     "pyobis>=0.3.0",
     "requests>=2.28",
+    # FishBase is read from parquet snapshots of its tables.
+    "pyarrow>=14",
 ]
 numba = [
     "numba>=0.57",
