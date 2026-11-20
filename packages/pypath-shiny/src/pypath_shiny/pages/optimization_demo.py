@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+from pypath_shiny.components import download_icon
 from pypath_shiny.config import PARAM_RANGES
 from pypath_shiny.services.cell_tables import with_cell_tips
 
@@ -143,7 +144,10 @@ def optimization_demo_ui():
                         ui.card_header("Python Code"),
                         ui.output_code("opt_code_example"),
                         ui.download_button(
-                            "opt_download_code", "Download Code", class_="mt-2"
+                            "opt_download_code",
+                            "Download Code",
+                            icon=download_icon(),
+                            class_="mt-2",
                         ),
                     ),
                 ),

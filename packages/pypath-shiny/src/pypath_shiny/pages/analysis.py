@@ -40,6 +40,7 @@ from pypath.core.plotting import (
     plot_trophic_spectrum,
 )
 
+from pypath_shiny.components import download_icon
 from pypath_shiny.config import UI
 from pypath_shiny.pages.utils import is_balanced_model
 from pypath_shiny.services.cell_tables import as_cell_table
@@ -228,6 +229,7 @@ def analysis_ui():
                 ui.download_button(
                     "download_model_data",
                     "Download All Data (CSV)",
+                    icon=download_icon(),
                     class_="btn-primary",
                 ),
             ),

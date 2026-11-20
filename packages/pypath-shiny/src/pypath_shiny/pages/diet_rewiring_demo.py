@@ -15,6 +15,8 @@ import plotly.graph_objects as go
 from pypath.core.ecosim_deriv import apply_prey_switching
 from shiny import Inputs, Outputs, Session, render, ui
 
+from pypath_shiny.components import download_icon
+
 PREY_NAMES = ("Prey 1", "Prey 2", "Prey 3")
 BASE_DIET = (0.5, 0.3, 0.2)
 VULNERABILITY = 2.0
@@ -111,7 +113,9 @@ def diet_rewiring_demo_ui():
                 ui.hr(),
                 ui.h5("Example code"),
                 ui.output_code("diet_code_example"),
-                ui.download_button("diet_download_code", "Download example"),
+                ui.download_button(
+                    "diet_download_code", "Download example", icon=download_icon()
+                ),
             ),
         ),
     )

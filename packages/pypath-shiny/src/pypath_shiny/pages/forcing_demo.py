@@ -17,6 +17,7 @@ from pypath.core.forcing import (
 )
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+from pypath_shiny.components import download_icon
 from pypath_shiny.config import PARAM_RANGES
 
 # Configuration imports
@@ -160,7 +161,10 @@ def forcing_demo_ui():
                         ui.card_header("Python Code for This Configuration"),
                         ui.output_code("forcing_code_example"),
                         ui.download_button(
-                            "forcing_download_code", "Download Code", class_="mt-2"
+                            "forcing_download_code",
+                            "Download Code",
+                            icon=download_icon(),
+                            class_="mt-2",
                         ),
                     ),
                 ),

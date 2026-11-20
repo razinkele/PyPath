@@ -24,6 +24,7 @@ except ImportError:  # pragma: no cover
 
 
 # Configuration imports
+from pypath_shiny.components import download_icon
 from pypath_shiny.config import DEFAULTS, THRESHOLDS, UI
 from pypath_shiny.services.cell_tables import (
     cell_tips_data,
@@ -427,6 +428,7 @@ def ecopath_ui():
                 ui.download_button(
                     "download_params",
                     "Download Parameters",
+                    icon=download_icon(),
                     class_="btn-outline-secondary w-100 mt-2",
                 ),
                 ui.tags.hr(),

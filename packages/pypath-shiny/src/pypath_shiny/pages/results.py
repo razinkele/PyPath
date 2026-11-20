@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover
 
 
 # Import centralized configuration
-from pypath_shiny.components import empty_state
+from pypath_shiny.components import download_icon, empty_state
 from pypath_shiny.config import UI
 from pypath_shiny.services.cell_tables import as_cell_table, with_cell_tips
 
@@ -107,6 +107,7 @@ def results_ui():
                 ui.download_button(
                     "download_model_csv",
                     "Download Model (CSV)",
+                    icon=download_icon(),
                     class_="btn-outline-primary w-100 mb-2",
                 ),
                 ui.tags.hr(),
@@ -114,11 +115,13 @@ def results_ui():
                 ui.download_button(
                     "download_sim_csv",
                     "Download Simulation (CSV)",
+                    icon=download_icon(),
                     class_="btn-outline-success w-100 mb-2",
                 ),
                 ui.download_button(
                     "download_annual_csv",
                     "Download Annual Summary",
+                    icon=download_icon(),
                     class_="btn-outline-success w-100 mb-2",
                 ),
                 ui.tags.hr(),
