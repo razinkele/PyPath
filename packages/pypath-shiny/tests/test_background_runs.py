@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from pypath.core.ecosim import RunCancelled
 from pypath.spatial import EcospaceParams, create_regular_grid, rsim_run_spatial
 
 from pypath_shiny.pages import ecospace as ecospace_page
@@ -43,6 +44,23 @@ def test_run_spatial_gives_the_direct_run():
     np.testing.assert_array_equal(
         worker.out_Biomass_spatial, direct.out_Biomass_spatial
     )
+
+
+def test_run_spatial_reports_each_month_to_its_control():
+    scenario, _, eco = _spatial_inputs()
+    control = RunControl()
+    out = runs.run_spatial(scenario, eco, None, control=control)
+    n_months = out.out_Biomass_spatial.shape[0] - 1
+    assert control.progress() == (n_months, n_months)
+
+
+def test_run_spatial_stops_when_its_control_is_asked_to():
+    scenario, _, eco = _spatial_inputs()
+    control = RunControl()
+    control.request_stop()
+    with pytest.raises(RunCancelled, match="month 1 of"):
+        runs.run_spatial(scenario, eco, None, control=control)
+    assert control.progress()[0] == 1
 
 
 # --- Ecospace staleness ------------------------------------------------
