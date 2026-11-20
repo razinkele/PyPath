@@ -158,7 +158,7 @@ def analysis_ui():
                 ui.output_ui("keystone_status"),
                 ui.layout_columns(
                     ui.card(
-                        ui.card_header("Top Keystone Species"),
+                        ui.card_header("Keystoneness by Group"),
                         ui.card_body(
                             ui.output_ui("keystoneness_table"),
                         ),
@@ -459,7 +459,7 @@ def analysis_server(
                     "Biomass": biomass,
                 }
             )
-            df = df.sort_values("Trophic Level", ascending=False).head(15)
+            df = df.sort_values("Trophic Level", ascending=False)
             return df
         except Exception as e:
             logger.error("Error extracting trophic data: %s", e, exc_info=True)
@@ -601,7 +601,7 @@ def analysis_server(
 
             # Create DataFrame with group names
             df = pd.DataFrame({"Group": groups, "Keystoneness": ks})
-            df = df.sort_values("Keystoneness", ascending=False).head(10)
+            df = df.sort_values("Keystoneness", ascending=False)
             return df
         except Exception as e:
             logger.error("Error extracting keystoneness data: %s", e, exc_info=True)
@@ -737,7 +737,7 @@ def analysis_server(
 
         try:
             df = model.summary()[["Group", "Type", "Biomass", "PB", "QB", "EE"]].copy()
-            return df.head(15)
+            return df
         except Exception as e:
             logger.error("Error extracting model parameters: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract parameters"]})
@@ -745,7 +745,7 @@ def analysis_server(
     @render.ui
     @as_cell_table()
     def export_diet_table():
-        """Display diet matrix preview."""
+        """Display the diet matrix (prey in rows, predators in columns)."""
         model = get_balanced_model()
         if model is None:
             return pd.DataFrame({"Message": ["No model available"]})
@@ -759,9 +759,9 @@ def analysis_server(
                 index=groups[:n_bio],
                 columns=groups[:n_living],
             )
-            # Show only first 10 columns
-            cols = diet.columns[:10].tolist()
-            return diet[cols].head(10)
+            # Each row is a prey: name it, as the table shows no index
+            diet.insert(0, "Prey", diet.index)
+            return diet
         except Exception as e:
             logger.error("Error extracting diet matrix: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract diet matrix"]})

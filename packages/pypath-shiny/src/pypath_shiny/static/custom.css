@@ -1085,3 +1085,21 @@ table.gt_table thead {
   font-style: italic;
   white-space: pre-wrap;
 }
+
+/* A wide table (a diet matrix) scrolls sideways under its row names too:
+   the first column stays, and the corner heading stays over both. */
+.cell-table tbody td:first-child,
+.cell-table thead th:first-child {
+  position: sticky;
+  left: 0;
+}
+
+.cell-table tbody td:first-child {
+  z-index: 1;
+  background: var(--bs-body-bg);
+  border-right: 1px solid var(--pp-border-light);
+}
+
+.cell-table thead th:first-child {
+  z-index: 3;
+}
