@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.14.0 (2026-11-20)
+
+### Features
+
+- **shiny**: Download buttons carry a download icon
+  ([`5e9746a`](https://github.com/razinkele/PyPath/commit/5e9746afc641290786438f355e7f1499f477b3e3))
+
+- **shiny**: Ecospace runs can use worker processes, opt-in
+  ([`b6ca6e7`](https://github.com/razinkele/PyPath/commit/b6ca6e7b9c58cc7630249a2c81d2226ae3dcb233))
+
+
 ## v1.13.0 (2026-11-20)
 
 ### Bug Fixes
