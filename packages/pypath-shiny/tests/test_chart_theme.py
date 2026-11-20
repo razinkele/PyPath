@@ -96,6 +96,42 @@ def test_markers_coloured_by_a_scale_get_an_outline_on_a_dark_page():
     assert fig.data[1].marker.line.color is None  # plain series are left alone
 
 
+@pytest.mark.parametrize("black", ["black", "#000", "#000000", "rgb(0, 0, 0)", "Black"])
+def test_black_lines_and_markers_take_the_text_colour_on_a_dark_page(black):
+    """An explicit colour is not replaced by a template: black on dark is lost."""
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=[1, 2], y=[1, 2], mode="lines", line={"color": black}))
+    fig.add_trace(go.Scatter(x=[1], y=[1], mode="markers", marker={"color": black}))
+    fig.add_trace(
+        go.Bar(x=[1], y=[1], marker={"color": black, "line": {"color": black}})
+    )
+    apply_page_theme(fig, dark=True)
+    assert fig.data[0].line.color.lower() == "#e2e8f0"
+    assert fig.data[1].marker.color.lower() == "#e2e8f0"
+    assert fig.data[2].marker.color.lower() == "#e2e8f0"
+    assert fig.data[2].marker.line.color.lower() == "#e2e8f0"
+
+
+def test_other_explicit_colours_are_kept():
+    fig = go.Figure(
+        go.Scatter(
+            x=[1, 2],
+            y=[1, 2],
+            line={"color": "orange"},
+            marker={"color": ["black", "red"]},  # a colour per point: left alone
+        )
+    )
+    apply_page_theme(fig, dark=True)
+    assert fig.data[0].line.color == "orange"
+    assert list(fig.data[0].marker.color) == ["black", "red"]
+
+
+def test_black_stays_black_on_a_light_page():
+    fig = go.Figure(go.Scatter(x=[1, 2], y=[1, 2], line={"color": "black"}))
+    apply_page_theme(fig, dark=False)
+    assert fig.data[0].line.color == "black"
+
+
 def test_other_heatmaps_keep_their_scale():
     fig = go.Figure(go.Heatmap(z=[[0, 1]], colorscale="Viridis"))
     before = fig.data[0].colorscale

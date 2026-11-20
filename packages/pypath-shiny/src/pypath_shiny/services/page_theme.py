@@ -27,6 +27,14 @@ _TRANSPARENT = "rgba(0,0,0,0)"
 _DARK_DIVERGING = [[0, "#ef4444"], [0.5, "#1e293b"], [1, "#3b82f6"]]
 
 
+_BLACK = {"black", "#000", "#000000", "rgb(0,0,0)", "rgba(0,0,0,1)"}
+
+
+def _is_black(colour) -> bool:
+    """Whether a trace colour is plain black (one colour, not one per point)."""
+    return isinstance(colour, str) and colour.replace(" ", "").lower() in _BLACK
+
+
 def page_is_dark(input) -> bool:
     """Whether this session's page is in dark mode.
 
@@ -44,7 +52,8 @@ def apply_page_theme(fig, dark: bool):
 
     The figure gets Plotly's dark template (axis, grid and legend colours) on
     a transparent sheet, so the card it sits on shows through, with the
-    page's text colour. Returns the same figure.
+    page's text colour; lines and markers set to plain black take that
+    colour too. Returns the same figure.
     """
     if not dark or fig is None:
         return fig
@@ -55,6 +64,16 @@ def apply_page_theme(fig, dark: bool):
         font_color=_DARK_TEXT,
     )
     for trace in fig.data:
+        # A colour set on a trace is not replaced by a template, and black
+        # ink (a theory curve, observed points) is lost on the dark page.
+        marker = getattr(trace, "marker", None)
+        for owner in (
+            getattr(trace, "line", None),
+            marker,
+            getattr(marker, "line", None),
+        ):
+            if owner is not None and _is_black(getattr(owner, "color", None)):
+                owner.color = _DARK_TEXT
         # A heatmap centred on a value (zmid) uses a scale that is white
         # there: most of a sparse matrix would be a white slab on the dark
         # page. Keep the sense of the scale, with a dark middle.
