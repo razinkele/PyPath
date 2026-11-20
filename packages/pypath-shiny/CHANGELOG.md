@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.12.0 (2026-11-20)
+
+### Bug Fixes
+
+- **shiny**: Clear a study area of any origin; area across the antimeridian
+  ([`1155cc3`](https://github.com/razinkele/PyPath/commit/1155cc3f6e3408d1ba6001b2ca9bc66ba60473a1))
+
+- **shiny**: The Ecospace wizard's study-area map works, on shiny-deckgl
+  ([`4dfd7ff`](https://github.com/razinkele/PyPath/commit/4dfd7ffa23a1703b4463f2b273560cdccb8671ed))
+
+### Features
+
+- **shiny**: Cancel and month progress for Ecospace runs
+  ([`a96d6fe`](https://github.com/razinkele/PyPath/commit/a96d6feaa7468ac35920ce0312921ef3639af0f7))
+
+
 ## v1.11.0 (2026-11-19)
 
 ### Features
