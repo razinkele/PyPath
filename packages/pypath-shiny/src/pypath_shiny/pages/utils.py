@@ -19,17 +19,20 @@ from pypath_shiny.config import DISPLAY, NO_DATA_VALUE, THRESHOLDS, TYPE_LABELS
 # =============================================================================
 
 # Style constants (UI-specific, not in config)
+# The colours are CSS variables defined in static/custom.css, with a light and
+# a dark value each, so the cells follow the page's theme; the value after
+# the comma is the light one, used if the stylesheet is missing.
 NO_DATA_STYLE = {
-    "background-color": "#f0f0f0",
-    "color": "#999",
+    "background-color": "var(--pp-cell-nodata-bg, #f0f0f0)",
+    "color": "var(--pp-cell-nodata-fg, #999)",
 }  # Light gray for no data cells
 REMARK_STYLE = {
-    "background-color": "#fff9e6",
-    "border-bottom": "2px dashed #f0ad4e",
+    "background-color": "var(--pp-cell-remark-bg, #fff9e6)",
+    "border-bottom": "2px dashed var(--pp-cell-remark-line, #f0ad4e)",
 }  # Yellow tint for cells with remarks
 STANZA_STYLE = {
-    "background-color": "#e6f3ff",
-    "border-left": "3px solid #0066cc",
+    "background-color": "var(--pp-cell-stanza-bg, #e6f3ff)",
+    "border-left": "3px solid var(--pp-cell-stanza-line, #0066cc)",
 }  # Light blue for stanza groups
 
 # Column tooltips for parameter documentation
@@ -364,8 +367,8 @@ def create_cell_styles(
 
     # Grey style for non-applicable parameters
     GREY_STYLE = {
-        "background-color": "#f8f9fa",
-        "color": "#6c757d",
+        "background-color": "var(--pp-cell-na-bg, #f8f9fa)",
+        "color": "var(--pp-cell-na-fg, #6c757d)",
         "font-style": "italic",
     }
 
