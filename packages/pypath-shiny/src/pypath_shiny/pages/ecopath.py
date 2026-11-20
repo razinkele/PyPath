@@ -25,7 +25,11 @@ except ImportError:  # pragma: no cover
 
 # Configuration imports
 from pypath_shiny.config import DEFAULTS, THRESHOLDS, UI
-from pypath_shiny.services.cell_tables import cell_tips_data, remarks_by_row
+from pypath_shiny.services.cell_tables import (
+    cell_tips_data,
+    remarks_by_row,
+    with_cell_tips,
+)
 from pypath_shiny.services.gt_formatters import (
     format_dataframe,
     format_results_summary,
@@ -585,6 +589,7 @@ def ecopath_ui():
                     ui.output_ui("stanza_status"),
                     ui.h5("Stanza Group Configuration", class_="mt-3"),
                     ui.output_data_frame("stanza_groups_table"),
+                    ui.output_ui("stanza_groups_table_tips"),
                     ui.h5("Individual Life Stages", class_="mt-3"),
                     ui.output_data_frame("stanza_indiv_table"),
                 ),
@@ -776,6 +781,16 @@ def ecopath_server(
             p.model,
             remarks=remarks_by_row(p.model, getattr(p, "remarks", None)),
         )
+
+    @render.ui
+    def stanza_groups_table_tips():
+        """The unrounded stanza parameters, for that grid's cell tooltips."""
+        p = params.get()
+        stanzas = getattr(p, "stanzas", None)
+        groups = getattr(stanzas, "stgroups", None)
+        if groups is None or len(groups) == 0:
+            return None
+        return cell_tips_data("stanza_groups_table", groups)
 
     @render.ui
     def diet_matrix_table_tips():
@@ -1563,7 +1578,9 @@ def ecopath_server(
         df = model.summary()
 
         # Format with great_tables
-        return format_results_summary(df, title="Balanced Model Results")
+        return with_cell_tips(
+            format_results_summary(df, title="Balanced Model Results"), df
+        )
 
     @render.ui
     def diagnostics_output():

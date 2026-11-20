@@ -22,6 +22,7 @@ from pypath_shiny.pages.utils import (  # noqa: E402
     is_rpath_params,
     load_rpath_diagnostics,
 )
+from pypath_shiny.services.cell_tables import with_cell_tips  # noqa: E402
 from pypath_shiny.services.gt_formatters import format_diagnostics_table  # noqa: E402
 from pypath_shiny.services.notifications import (  # noqa: E402
     notify_error,
@@ -748,7 +749,7 @@ def prebalance_server(
         # Sort by ratio descending
         df = df.sort_values("Ratio", ascending=False, key=lambda x: x.astype(float))
 
-        return format_diagnostics_table(df, "Predator-Prey Ratios")
+        return with_cell_tips(format_diagnostics_table(df, "Predator-Prey Ratios"), df)
 
     @render.ui
     def table_pb_ratios():
@@ -769,7 +770,9 @@ def prebalance_server(
         df["Predator_Rate"] = df["Predator_Rate"].apply(lambda x: f"{x:.3f}")
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
-        return format_diagnostics_table(df, "Production/Biomass Ratios")
+        return with_cell_tips(
+            format_diagnostics_table(df, "Production/Biomass Ratios"), df
+        )
 
     @render.ui
     def table_qb_ratios():
@@ -790,7 +793,9 @@ def prebalance_server(
         df["Predator_Rate"] = df["Predator_Rate"].apply(lambda x: f"{x:.3f}")
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
-        return format_diagnostics_table(df, "Consumption/Biomass Ratios")
+        return with_cell_tips(
+            format_diagnostics_table(df, "Consumption/Biomass Ratios"), df
+        )
 
     @render.plot
     def diagnostic_plot():

@@ -27,6 +27,7 @@ __all__ = [
     "cell_tips_data",
     "info_tip",
     "remarks_by_row",
+    "with_cell_tips",
 ]
 
 DEFAULT_DECIMALS = 3
@@ -79,6 +80,14 @@ def _shown_and_full(value, decimals: int) -> tuple[str, str | None]:
     return str(value), None
 
 
+def _all_whole(values: pd.Series) -> bool:
+    """Whether a column holds numbers and every one present is whole."""
+    if not pd.api.types.is_float_dtype(values):
+        return False
+    present = values[np.isfinite(values)]
+    return len(present) > 0 and bool((present == np.floor(present)).all())
+
+
 def _decimals_for(decimals, column) -> int:
     if isinstance(decimals, Mapping):
         return int(decimals.get(column, DEFAULT_DECIMALS))
@@ -123,11 +132,17 @@ def cell_table(
         return tags.p(empty, class_="text-muted")
 
     head = tags.tr(*(tags.th(str(column), scope="col") for column in df.columns))
+    # A column whose numbers are all whole (a group type or a count stored
+    # as a float) is not a measurement: it gets no decimals.
+    places = {
+        column: 0 if _all_whole(df[column]) else _decimals_for(decimals, column)
+        for column in df.columns
+    }
     rows = []
     for index, record in zip(df.index, df.itertuples(index=False, name=None)):
         cells = []
         for column, value in zip(df.columns, record):
-            shown, full = _shown_and_full(value, _decimals_for(decimals, column))
+            shown, full = _shown_and_full(value, places[column])
             attrs = {}
             if full is not None:
                 attrs["data-full"] = full
@@ -185,7 +200,7 @@ def remarks_by_row(
 
 
 def cell_tips_data(
-    output_id: str,
+    output_id: str | None,
     df: pd.DataFrame,
     *,
     remarks: pd.DataFrame | None = None,
@@ -199,8 +214,11 @@ def cell_tips_data(
 
     Parameters
     ----------
-    output_id : str
-        The id of the output that shows the table.
+    output_id : str or None
+        The id of the output that shows the table, when this block is
+        rendered by another output (a grid's own output holds only the
+        grid). None when the block is returned together with the table, in
+        the table's output (:func:`with_cell_tips`).
     df : pd.DataFrame
         The data at full precision.
     remarks : pd.DataFrame, optional
@@ -230,9 +248,25 @@ def cell_tips_data(
                 data[label] = entry
     # "<" escaped: the text must not be able to close the script element.
     payload = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
+    attrs = {} if output_id is None else {"data-for": output_id}
     return tags.script(
         ui.HTML(payload),
         type="application/json",
         class_="cell-tips-data",
-        **{"data-for": output_id},
+        **attrs,
     )
+
+
+def with_cell_tips(
+    table,
+    df: pd.DataFrame,
+    *,
+    remarks: pd.DataFrame | None = None,
+    key: str | None = None,
+):
+    """A rendered table (a great_tables table, say) with its tooltip data.
+
+    For a ``@render.ui`` function: ``return with_cell_tips(format_x(df), df)``.
+    *df* is the data at full precision, as for :func:`cell_tips_data`.
+    """
+    return ui.TagList(table, cell_tips_data(None, df, remarks=remarks, key=key))

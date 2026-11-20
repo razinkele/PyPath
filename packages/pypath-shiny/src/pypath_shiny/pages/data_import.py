@@ -27,9 +27,14 @@ from pypath.io.ewemdb import (  # noqa: E402
 )
 from shiny import Inputs, Outputs, Session, reactive, render, ui  # noqa: E402
 
-# Configuration imports
 from pypath_shiny.components import empty_state  # noqa: E402
 from pypath_shiny.config import PARAM_RANGES, UI  # noqa: E402
+
+# Configuration imports
+from pypath_shiny.services.cell_tables import (  # noqa: E402
+    remarks_by_row,
+    with_cell_tips,
+)
 from pypath_shiny.services.gt_formatters import format_dataframe  # noqa: E402
 from pypath_shiny.services.notifications import (  # noqa: E402
     notify_error,
@@ -749,7 +754,11 @@ def import_server(
             df, decimal_places=3, remarks_df=remarks_df
         )
 
-        return format_dataframe(formatted_df, title="Imported Groups")
+        return with_cell_tips(
+            format_dataframe(formatted_df, title="Imported Groups"),
+            df,  # the unrounded values, and the model's remarks
+            remarks=remarks_by_row(df, remarks_df),
+        )
 
     @render.ui
     def imported_diet_table():
@@ -763,7 +772,9 @@ def import_server(
             params.diet.copy(), decimal_places=3
         )
 
-        return format_dataframe(formatted_df, title="Diet Matrix")
+        return with_cell_tips(
+            format_dataframe(formatted_df, title="Diet Matrix"), params.diet
+        )
 
     @render.ui
     def imported_stanza_status():
@@ -821,7 +832,7 @@ def import_server(
             df, decimal_places=3
         )
 
-        return format_dataframe(formatted_df, title="Stanza Groups")
+        return with_cell_tips(format_dataframe(formatted_df, title="Stanza Groups"), df)
 
     @render.ui
     def imported_stanza_indiv_table():
@@ -863,7 +874,9 @@ def import_server(
             df, decimal_places=3
         )
 
-        return format_dataframe(formatted_df, title="Stanza Life Stages")
+        return with_cell_tips(
+            format_dataframe(formatted_df, title="Stanza Life Stages"), df
+        )
 
     @render.ui
     def imported_summary():
@@ -1261,7 +1274,9 @@ Phytoplankton"""
                 {"fishbase": "FishBase", "sealifebase": "SeaLifeBase"}
             )
 
-        return format_dataframe(display_df, title="Biodiversity Data Results")
+        return with_cell_tips(
+            format_dataframe(display_df, title="Biodiversity Data Results"), display_df
+        )
 
     @render.ui
     def biodata_biomass_section():

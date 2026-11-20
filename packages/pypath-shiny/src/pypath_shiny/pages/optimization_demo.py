@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 from pypath_shiny.config import PARAM_RANGES
+from pypath_shiny.services.cell_tables import with_cell_tips
 
 # Configuration imports
 from pypath_shiny.services.gt_formatters import format_dataframe
@@ -819,7 +820,7 @@ Objective Function: {cfg["objective"].upper()}
             }
         )
 
-        return format_dataframe(df, title="Results Comparison")
+        return with_cell_tips(format_dataframe(df, title="Results Comparison"), df)
 
     def _opt_code():
         return build_optimization_code(

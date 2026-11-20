@@ -104,16 +104,34 @@ def test_cells_have_tooltips_and_headings_stay_put(server, browser):  # noqa: F8
                 'script.cell-tips-data[data-for="model_params_table"]');
             const block = old.cloneNode(false);
             block.textContent = JSON.stringify(
-                {[group]: {Biomass: {full: "1.23456789", remark: "From <the> survey"}}});
+                {[group]: {Biomass: {full: "1.3500001234", remark: "From <the> survey"}}});
             old.replaceWith(block);
         }""",
         [group],
     )
     assert _tip(page, row.locator("td").nth(2)) == [
         f"{group} · Biomass",
-        "1.23456789",
+        "1.3500001234",
         "From <the> survey",
     ]
+    # An edited cell shows its new value at once; the full value sent for
+    # the old one must not be shown for it.
+    target = row.locator("td").nth(2)
+    target.dblclick()
+    editor = page.locator(
+        "#model_params_table tbody textarea, #model_params_table tbody input"
+    ).first
+    editor.wait_for(state="visible", timeout=5000)
+    editor.fill("7.5")
+    editor.press("Enter")
+    page.wait_for_function(
+        """() => document.querySelectorAll('#model_params_table tbody tr')[2]
+            .cells[2].textContent.trim().startsWith('7.5')""",
+        timeout=10000,
+    )
+    edited = _tip(page, row.locator("td").nth(2))
+    assert edited[0] == f"{group} · Biomass" and float(edited[1]) == 7.5
+    assert "From <the> survey" not in edited or len(edited) == 3
     grid = _fixed_heading(page, "#model_params_table .shiny-data-grid")
     assert grid["scrolled"] > 0 and grid["after"] == grid["before"]
 
@@ -125,7 +143,19 @@ def test_cells_have_tooltips_and_headings_stay_put(server, browser):  # noqa: F8
     page.wait_for_selector("table.gt_table td.gt_row", state="visible", timeout=30000)
     cell = page.locator("#model_results_table td.gt_row").nth(14)
     lines = _tip(page, cell)
-    assert len(lines) == 2 and " · " in lines[0] and lines[1] == cell.inner_text()
+    assert len(lines) == 2 and " · " in lines[0]
+    # the value is the cell's own, or the unrounded number behind it
+    assert float(lines[1]) == pytest.approx(float(cell.inner_text()), abs=5e-4)
+    # at least one cell of the table tells more than it shows (EE, GE, TL)
+    cells = page.locator("#model_results_table td.gt_row")
+    longer = False
+    for i in range(2, min(cells.count(), 40)):
+        shown = cells.nth(i).inner_text()
+        tip = _tip(page, cells.nth(i))
+        if len(tip) == 2 and len(tip[1]) > len(shown):
+            longer = True
+            break
+    assert longer
     gt = page.locator("#model_results_table table.gt_table").evaluate(
         "(t) => { const b = t.parentElement; b.style.maxHeight = '200px'; return null; }"
     )

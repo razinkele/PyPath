@@ -12,9 +12,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
-# Configuration imports
 from pypath_shiny.config import PARAM_RANGES
 from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
+
+# Configuration imports
+from pypath_shiny.services.cell_tables import with_cell_tips
 from pypath_shiny.services.gt_formatters import format_params_table
 from pypath_shiny.services.notifications import (
     notify_error,
@@ -473,7 +475,7 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
                 ),
                 title="Stanza Properties",
             )
-        return format_params_table(df, title="Stanza Properties")
+        return with_cell_tips(format_params_table(df, title="Stanza Properties"), df)
 
     @render.ui
     def biomass_plot():

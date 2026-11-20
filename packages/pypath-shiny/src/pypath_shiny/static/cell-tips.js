@@ -32,12 +32,17 @@
     return "";
   }
 
+  // The data for a table: a block returned with it, in its own output, or
+  // one another output rendered for it (a grid's output holds only the grid).
   function lookup(table, rowLabel, column) {
     var output = table.closest(".shiny-bound-output");
-    if (!output || !output.id) return null;
-    var block = document.querySelector(
-      'script.cell-tips-data[data-for="' + CSS.escape(output.id) + '"]'
-    );
+    if (!output) return null;
+    var block = output.querySelector("script.cell-tips-data:not([data-for])");
+    if (!block && output.id) {
+      block = document.querySelector(
+        'script.cell-tips-data[data-for="' + CSS.escape(output.id) + '"]'
+      );
+    }
     if (!block) return null;
     if (!parsed.has(block)) {
       var data = {};
@@ -50,6 +55,16 @@
     }
     var row = parsed.get(block)[rowLabel];
     return (row && row[column]) || null;
+  }
+
+  // Whether a full value is the number the cell shows, before rounding.
+  // A cell edited in a grid shows its new value before the server has sent
+  // new data, and the old full value must not be passed off as it.
+  function roundsTo(full, shown) {
+    var text = shown.replace(/,/g, "");
+    if (text === "" || isNaN(Number(text)) || isNaN(Number(full))) return false;
+    var places = (text.split(".")[1] || "").replace(/[^0-9].*$/, "").length;
+    return Math.abs(Number(full) - Number(text)) <= 0.5000001 * Math.pow(10, -places);
   }
 
   function escapeHtml(s) {
@@ -68,6 +83,7 @@
     var rowLabel = cell.cellIndex === 0 ? "" : text(row.cells[0]);
     var extra = lookup(table, text(row.cells[0]), column) || {};
     var full = cell.getAttribute("data-full") || extra.full || "";
+    if (full && !roundsTo(full, shown)) full = "";
     var remark = cell.getAttribute("data-remark") || extra.remark || "";
     var value = full || shown;
     if (!value && !remark) return "";

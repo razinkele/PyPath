@@ -19,6 +19,7 @@ from pypath_shiny.services.cell_tables import (
     cell_tips_data,
     info_tip,
     remarks_by_row,
+    with_cell_tips,
 )
 
 SRC = Path(pypath_shiny.__file__).resolve().parent
@@ -61,6 +62,14 @@ def test_whole_numbers_and_text_are_shown_as_they_are(groups):
     html = _html(cell_table(groups))
     assert ">3<" in html and ">12<" in html
     assert 'data-full="3"' not in html  # nothing was rounded away
+
+
+def test_a_column_of_whole_numbers_has_no_decimals():
+    """A group type or a count stored as a float is not a measurement."""
+    df = pd.DataFrame({"Group": ["a", "b"], "Type": [0.0, 1.0], "PB": [8.0, 0.25]})
+    html = _html(cell_table(df))
+    assert ">0<" in html and ">1<" in html and "1.000" not in html
+    assert ">8.000<" in html and ">0.250<" in html  # PB is a measurement
 
 
 def test_a_missing_value_is_an_empty_cell(groups):
@@ -128,6 +137,13 @@ def test_grid_tips_cannot_close_their_script_tag(groups):
     assert html.count("</script>") == 1
 
 
+def test_tips_inside_an_output_need_no_id(groups):
+    """A table and its tips returned together: the page finds them by place."""
+    html = _html(with_cell_tips(ui.div("the table"), groups))
+    assert "the table" in html and "cell-tips-data" in html
+    assert "data-for" not in html
+
+
 def test_rows_that_share_a_label_get_no_entry():
     df = pd.DataFrame({"Year": [1, 1], "Catch": [0.12345, 0.6789]})
     assert _payload(cell_tips_data("grid", df)) == {}
@@ -191,5 +207,35 @@ def test_the_page_loads_the_tooltip_script():
         encoding="utf-8"
     )
     script = (SRC / "static" / "cell-tips.js").read_text(encoding="utf-8")
-    for needed in ("bootstrap.Tooltip", "data-full", "data-remark", "cell-tips-data"):
+    for needed in (
+        "bootstrap.Tooltip",
+        "data-full",
+        "data-remark",
+        "cell-tips-data",
+        "roundsTo",  # a full value is used only while it matches the cell
+    ):
         assert needed in script, needed
+
+
+def test_great_tables_come_with_their_unrounded_values():
+    """Every great_tables table built from a frame carries that frame's values."""
+    formatters = {
+        "format_dataframe",
+        "format_params_table",
+        "format_results_summary",
+        "format_diagnostics_table",
+        "format_diet_matrix",
+        "format_time_series_summary",
+    }
+    bare = []
+    for path in PAGES:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Return) and isinstance(node.value, ast.Call)):
+                continue
+            call = node.value
+            if getattr(call.func, "id", None) in formatters and isinstance(
+                call.args[0], ast.Name
+            ):
+                bare.append(f"{path.name}:{node.lineno}")
+    assert bare == []

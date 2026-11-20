@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover
 # Import centralized configuration
 from pypath_shiny.components import empty_state
 from pypath_shiny.config import UI
-from pypath_shiny.services.cell_tables import as_cell_table
+from pypath_shiny.services.cell_tables import as_cell_table, with_cell_tips
 
 # Import great_tables formatters
 from ..services import network_viz
@@ -512,7 +512,7 @@ def results_server(
 
         if df.empty:
             return df
-        return format_params_table(df, title="Model Parameters")
+        return with_cell_tips(format_params_table(df, title="Model Parameters"), df)
 
     @render.ui
     def diet_data_table():
@@ -543,7 +543,9 @@ def results_server(
 
         if df.empty:
             return df
-        return format_diet_matrix(df, title="Diet Composition Matrix")
+        return with_cell_tips(
+            format_diet_matrix(df, title="Diet Composition Matrix"), df
+        )
 
     @render.ui
     def biomass_data_table():
@@ -569,7 +571,9 @@ def results_server(
 
         if df.empty:
             return df
-        return format_time_series_summary(df, title="Monthly Biomass", decimals=4)
+        return with_cell_tips(
+            format_time_series_summary(df, title="Monthly Biomass", decimals=4), df
+        )
 
     @render.ui
     def catch_data_table():
@@ -591,7 +595,9 @@ def results_server(
 
         if df.empty:
             return df
-        return format_time_series_summary(df, title="Annual Catch", decimals=4)
+        return with_cell_tips(
+            format_time_series_summary(df, title="Annual Catch", decimals=4), df
+        )
 
     @render.download_button(filename="pypath_model.csv")
     def download_model_csv():
