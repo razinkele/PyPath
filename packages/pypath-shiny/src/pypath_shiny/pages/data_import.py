@@ -299,6 +299,8 @@ def import_ui():
                 ),
                 id="import_tabs",
             ),
+            role="complementary",
+            aria_label="Data import settings",
             width=400,
             title="Import Source",
         ),
@@ -416,7 +418,6 @@ def import_server(
         except Exception as e:
             _notify_legacy(f"Error: {str(e)}", type="error")
 
-    @output
     @render.data_frame
     def ecobase_models_table():
         """Render EcoBase models as data frame."""
@@ -461,7 +462,6 @@ def import_server(
                 return
         selected_model_id.set(None)
 
-    @output
     @render.ui
     def ecobase_selected_info():
         """Show selected model info and download button."""
@@ -537,7 +537,6 @@ def import_server(
 
     # === EwE Database Functions ===
 
-    @output
     @render.ui
     def ewemdb_support_status():
         """Check and display ewemdb driver support."""
@@ -634,7 +633,6 @@ def import_server(
         except Exception as e:
             _notify_legacy(f"Import error: {str(e)}", type="error")
 
-    @output
     @render.ui
     def ewemdb_metadata_ui():
         """Show EwE file metadata."""
@@ -689,7 +687,6 @@ def import_server(
 
     # === Imported Model Preview ===
 
-    @output
     @render.ui
     def import_preview_status():
         """Show import status."""
@@ -727,7 +724,6 @@ def import_server(
             class_="alert alert-success",
         )
 
-    @output
     @render.ui
     def imported_groups_table():
         """Show imported groups."""
@@ -755,7 +751,6 @@ def import_server(
 
         return format_dataframe(formatted_df, title="Imported Groups")
 
-    @output
     @render.ui
     def imported_diet_table():
         """Show imported diet matrix."""
@@ -770,7 +765,6 @@ def import_server(
 
         return format_dataframe(formatted_df, title="Diet Matrix")
 
-    @output
     @render.ui
     def imported_stanza_status():
         """Show multi-stanza status in import preview."""
@@ -802,7 +796,6 @@ def import_server(
             class_="alert alert-success",
         )
 
-    @output
     @render.ui
     def imported_stanza_groups_table():
         """Show imported stanza groups."""
@@ -830,7 +823,6 @@ def import_server(
 
         return format_dataframe(formatted_df, title="Stanza Groups")
 
-    @output
     @render.ui
     def imported_stanza_indiv_table():
         """Show imported stanza life stages."""
@@ -873,7 +865,6 @@ def import_server(
 
         return format_dataframe(formatted_df, title="Stanza Life Stages")
 
-    @output
     @render.ui
     def imported_summary():
         """Show model summary statistics."""
@@ -948,7 +939,6 @@ def import_server(
             ),
         )
 
-    @output
     @render.ui
     def use_model_button_ecobase():
         """Show 'Use Model' button in EcoBase tab when model is loaded."""
@@ -965,7 +955,6 @@ def import_server(
             class_="btn-primary w-100",
         )
 
-    @output
     @render.ui
     def use_model_button_ewe():
         """Show 'Use Model' button in EwE tab when model is loaded."""
@@ -1160,7 +1149,6 @@ Phytoplankton"""
                 )
             )
 
-    @output
     @render.ui
     def biodata_fetch_status():
         """Show fetch status."""
@@ -1191,7 +1179,6 @@ Phytoplankton"""
             class_=alert_class,
         )
 
-    @output
     @render.ui
     def btn_cancel_biodata_ui():
         """Render cancel button when biodata fetch is running."""
@@ -1228,7 +1215,6 @@ Phytoplankton"""
             )
             notify_warning("Biodata fetch cancelled by user")
 
-    @output
     @render.ui
     def biodata_results_table():
         """Show fetched species data."""
@@ -1277,7 +1263,6 @@ Phytoplankton"""
 
         return format_dataframe(display_df, title="Biodiversity Data Results")
 
-    @output
     @render.ui
     def biodata_biomass_section():
         """Show biomass input section."""
@@ -1316,7 +1301,6 @@ Phytoplankton"""
 
         return ui.div(*inputs)
 
-    @output
     @render.ui
     def biodata_create_button():
         """Show create model button when data is fetched."""
@@ -1392,7 +1376,6 @@ Phytoplankton"""
         except Exception as e:
             _notify_legacy(f"Error creating model: {str(e)}", type="error", duration=5)
 
-    @output
     @render.ui
     def use_model_button_biodata():
         """Show 'Use Model' button in Biodiversity tab when model is created."""

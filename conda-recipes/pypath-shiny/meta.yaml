@@ -27,13 +27,13 @@ requirements:
     - geopandas >=0.12
     - folium >=0.14
     - shapely >=2.0
-    - shiny >=1.8.0
+    - shiny >=1.9.0
     - shinywidgets >=0.8.2
     - great_tables >=0.1.0
-    - shiny-deckgl >=1.14.0  # razinka channel
+    - shiny-deckgl >=1.16.0  # razinka channel
     - shinyswatch >=0.7.0
     - httpx >=0.24
-    - uvicorn >=0.23
+    - uvicorn >=0.50
     - pandas >=2.0
   run_constrained:
     # great_tables needs multimark, whose conda-forge build (0.4.0) loads

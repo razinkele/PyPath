@@ -96,6 +96,8 @@ def diet_rewiring_demo_ui():
                     choices=dict(enumerate(PREY_NAMES)),
                     selected=0,
                 ),
+                role="complementary",
+                aria_label="Diet rewiring settings",
                 width=300,
             ),
             ui.div(
@@ -118,7 +120,6 @@ def diet_rewiring_demo_ui():
 def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
     """Server logic for the prey switching demonstration."""
 
-    @output
     @render.ui
     def demo_switching_plot():
         power = float(input.demo_switching_power())
@@ -150,7 +151,6 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
         fig.update_layout(height=450, template="plotly_white", hovermode="x unified")
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
-    @output
     @render.code
     def diet_code_example():
         return build_prey_switching_code(input.demo_switching_power())

@@ -265,6 +265,8 @@ def ibm_ui():
                     type="success",
                     class_="w-100 mt-2",
                 ),
+                role="complementary",
+                aria_label="IBM settings",
                 width=350,
             ),
             # Main content tabs

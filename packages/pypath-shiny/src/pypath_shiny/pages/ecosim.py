@@ -775,6 +775,8 @@ def ecosim_ui() -> ui.Tag:
                 ui.input_action_button(
                     "btn_run_sim", "Run Simulation", class_="btn-success w-100 mt-2"
                 ),
+                role="complementary",
+                aria_label="Ecosim settings",
                 width=UI.sidebar_width,
             ),
             # Main content
@@ -1406,7 +1408,6 @@ def ecosim_server(
         values = effective_values(store, key, base)
         return _SwitchingSpec(prefix, key, groups, base, values, readonly, message)
 
-    @output
     @render.ui
     def switching_control():
         spec = _switching_spec()
@@ -1441,7 +1442,6 @@ def ecosim_server(
                     value=round(in_force[name], DISPLAY_DECIMALS),
                 )
 
-    @output
     @render.ui
     def switching_pending_note():
         spec = _switching_spec()
@@ -1459,7 +1459,6 @@ def ecosim_server(
             return ui.div()
         return ui.p(text, class_="text-muted small fst-italic")
 
-    @output
     @render.ui
     def ewe_scenario_source_ui():
         """Offer the Ecosim scenarios of the imported EwE database, or the
@@ -1649,7 +1648,6 @@ def ecosim_server(
             )
         )
 
-    @output
     @render.ui
     def help_scenario_setup():
         if not show_help_scenario.get():
@@ -1799,7 +1797,6 @@ def ecosim_server(
             )
         )
 
-    @output
     @render.ui
     def help_progress():
         if not show_help_progress.get():
@@ -1942,7 +1939,6 @@ def ecosim_server(
             )
         )
 
-    @output
     @render.ui
     def help_timeseries():
         if not show_help_timeseries.get():
@@ -2035,7 +2031,6 @@ def ecosim_server(
             )
         )
 
-    @output
     @render.ui
     def help_catch():
         if not show_help_catch.get():
@@ -2110,7 +2105,6 @@ def ecosim_server(
             )
         )
 
-    @output
     @render.ui
     def help_summary():
         if not show_help_summary.get():
@@ -2196,7 +2190,6 @@ def ecosim_server(
             )
         )
 
-    @output
     @render.ui
     def fishing_params_ui():
         """Dynamic UI for fishing scenario parameters."""
@@ -2301,7 +2294,6 @@ def ecosim_server(
 
         return ui.p("", class_="text-muted")
 
-    @output
     @render.ui
     def recruitment_params_ui():
         """Dynamic UI for recruitment model parameters."""
@@ -2333,7 +2325,6 @@ def ecosim_server(
 
         return ui.p("", class_="text-muted")
 
-    @output
     @render.ui
     def fishing_management_params_ui():
         """Dynamic UI for adaptive fishing-management parameters."""
@@ -2618,7 +2609,6 @@ def ecosim_server(
 
             scen.fishing.ForcedEffort[start_month:end_month, 1:] = 0.0
 
-    @output
     @render.ui
     def scenario_status():
         """Display scenario status."""
@@ -2648,7 +2638,6 @@ def ecosim_server(
             class_="alert alert-success",
         )
 
-    @output
     @render_widget
     def effort_preview_plot():
         """Interactive effort forcing preview, one line per fleet (Plotly)."""
@@ -2915,7 +2904,6 @@ def ecosim_server(
                 "its result is discarded."
             )
 
-    @output
     @render.ui
     def switching_line():
         """The prey switching the shown run used (Simulation Progress tab)."""
@@ -2924,7 +2912,6 @@ def ecosim_server(
             return None
         return switching_line_tag(getattr(out, "switching_used", None))
 
-    @output
     @render.ui
     def switching_line_summary():
         """The same line on the Summary tab, with the run's summary."""
@@ -2933,7 +2920,6 @@ def ecosim_server(
             return None
         return switching_line_tag(getattr(out, "switching_used", None))
 
-    @output
     @render.ui
     def simulation_status():
         """Display simulation status."""
@@ -2992,7 +2978,6 @@ def ecosim_server(
             class_="alert alert-success",
         )
 
-    @output
     @render.text
     def sim_elapsed():
         """Queue wait, then integration time, ticking every second."""
@@ -3013,7 +2998,6 @@ def ecosim_server(
         # From the worker's start: queue time is not counted.
         return f"Elapsed: {now - since:.0f} s"
 
-    @output
     @render.ui
     def sim_month_progress():
         """The running run's bar and text, ticking every second.
@@ -3052,7 +3036,6 @@ def ecosim_server(
             update_task_progress(state, message=f"Integrating with {launched['label']}")
         )
 
-    @output
     @render.ui
     def progress_display():
         """Display progress/completion info."""
@@ -3139,7 +3122,6 @@ def ecosim_server(
             ),
         )
 
-    @output
     @render.ui
     def solver_diagnostics():
         """Badges, summary and flagged months for a continuous run."""
@@ -3175,14 +3157,12 @@ def ecosim_server(
             ),
         )
 
-    @output
     @render.data_frame
     def solver_month_table():
         """Every month's solver counters (a pandas frame, never GT)."""
         info = getattr(sim_output.get(), "solver_info", None)
         return render.DataGrid(_month_table(info), height="400px")
 
-    @output
     @render_widget
     def biomass_timeseries():
         """Interactive biomass time series (Plotly)."""
@@ -3205,7 +3185,6 @@ def ecosim_server(
             empty_message="Select groups to plot",
         )
 
-    @output
     @render_widget
     def catch_timeseries():
         """Interactive total annual catch (Plotly)."""
@@ -3214,7 +3193,6 @@ def ecosim_server(
             output = None
         return build_catch_figure(output, title="Total Annual Catch")
 
-    @output
     @render.table
     def annual_catch_table():
         """Display annual catch summary."""
@@ -3235,7 +3213,6 @@ def ecosim_server(
         # Show every 5 years
         return catch_df[catch_df["Year"] % 5 == 0].round(3)
 
-    @output
     @render.ui
     def summary_cards():
         """Display summary statistics cards."""
@@ -3294,7 +3271,6 @@ def ecosim_server(
             output.out_Biomass[-1, 1 : n_living + 1],
         )
 
-    @output
     @render_widget
     def final_biomass_plot():
         """Interactive initial vs final biomass (Plotly)."""
@@ -3303,7 +3279,6 @@ def ecosim_server(
             return build_initial_final_figure([], [], [])
         return build_initial_final_figure(*data)
 
-    @output
     @render_widget
     def biomass_change_plot():
         """Interactive percent biomass change (Plotly)."""

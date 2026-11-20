@@ -142,6 +142,8 @@ def results_ui():
                         "viridis": "Viridis",
                     },
                 ),
+                role="complementary",
+                aria_label="Results settings",
                 width=280,
             ),
             # Main content
@@ -273,7 +275,6 @@ def results_server(
 ):
     """Results page server logic."""
 
-    @output
     @render.ui
     def model_summary_status():
         """Display model status."""
@@ -294,7 +295,6 @@ def results_server(
             class_="alert alert-success",
         )
 
-    @output
     @render.table
     def model_summary_table():
         """Display model summary table."""
@@ -320,7 +320,6 @@ def results_server(
         fig.update_layout(template=plotly_template_for(input.plot_style()))
         return fig
 
-    @output
     @render_widget
     def tl_bar_plot():
         """Interactive trophic-level bars (Plotly)."""
@@ -336,7 +335,6 @@ def results_server(
             )
         )
 
-    @output
     @render_widget
     def tl_flow_plot():
         """Interactive trophic pyramid of production (Plotly)."""
@@ -410,7 +408,6 @@ def results_server(
                 width_by_flow=width_by_flow,
             )
 
-    @output
     @render_widget
     def foodweb_plot():
         """Interactive food web (Plotly): groups at their trophic level."""
@@ -433,7 +430,6 @@ def results_server(
             )
         )
 
-    @output
     @render.ui
     def sim_summary_status():
         """Display simulation status."""
@@ -469,7 +465,6 @@ def results_server(
                 selected=selected,
             )
 
-    @output
     @render_widget
     def results_biomass_plot():
         """Simulation biomass results plot."""
@@ -489,7 +484,6 @@ def results_server(
             palette=input.color_palette(),
         ).update_layout(template=plotly_template_for(input.plot_style()))
 
-    @output
     @render_widget
     def results_catch_plot():
         """Simulation catch results plot."""
@@ -498,7 +492,6 @@ def results_server(
             template=plotly_template_for(input.plot_style())
         )
 
-    @output
     @render.ui
     def params_data_table():
         """Model parameters data table."""
@@ -519,7 +512,6 @@ def results_server(
             return df
         return format_params_table(df, title="Model Parameters")
 
-    @output
     @render.ui
     def diet_data_table():
         """Diet matrix data table."""
@@ -551,7 +543,6 @@ def results_server(
             return df
         return format_diet_matrix(df, title="Diet Composition Matrix")
 
-    @output
     @render.ui
     def biomass_data_table():
         """Monthly biomass data table."""
@@ -578,7 +569,6 @@ def results_server(
             return df
         return format_time_series_summary(df, title="Monthly Biomass", decimals=4)
 
-    @output
     @render.ui
     def catch_data_table():
         """Annual catch data table."""

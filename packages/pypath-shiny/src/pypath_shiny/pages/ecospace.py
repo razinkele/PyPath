@@ -822,6 +822,8 @@ def ecospace_ui():
                 ),
                 ui.output_ui("spatial_run_status"),
                 ui.output_ui("spatial_switching_line"),
+                role="complementary",
+                aria_label="Ecospace settings",
                 width=350,
             ),
             # Main panel with tabs
