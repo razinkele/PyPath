@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 import numpy as np
 
@@ -654,6 +654,7 @@ def rsim_run_spatial(
     initial_state_vector: Optional[np.ndarray] = None,
     store_state_vectors: bool = False,
     implicit_movement: bool = True,
+    on_month: Optional[Callable[[int, int], Optional[bool]]] = None,
 ) -> RsimOutput:
     """Run spatial Ecosim simulation.
 
@@ -703,6 +704,13 @@ def rsim_run_spatial(
         local equilibrium at every step (EwE rule). ``False`` keeps diffusion
         in the derivative, as before B3; it is stable only to about
         4.2 x RK4_STEPS per year per cell side on a rook grid.
+    on_month : callable, optional
+        Called as ``on_month(month, n_months)`` once per simulated month, on
+        the calling thread, after that month's biomass is stored; ``month``
+        counts from 1. Use it to report progress. Returning the bool True
+        stops the run with ``RunCancelled`` (any other value, truthy or not,
+        lets it go on), as in ``rsim_run``. Without ``ecospace`` it is passed
+        to ``rsim_run``.
 
     Returns
     -------
@@ -729,12 +737,13 @@ def rsim_run_spatial(
     if ecospace is None:
         from pypath.core.ecosim import rsim_run
 
-        return rsim_run(scenario, method=method, years=years)
+        return rsim_run(scenario, method=method, years=years, on_month=on_month)
 
     # Import necessary functions
     from pypath.core.ecosim import (
         DELTA_T,
         STEPS_PER_YEAR,
+        RunCancelled,
         _check_run_years,
         rsim_run,
     )
@@ -1353,6 +1362,11 @@ def rsim_run_spatial(
         out_Biomass[month_idx] = current_biomass.sum(axis=1)  # Sum over patches
         if out_StateVector is not None:
             out_StateVector[month_idx] = current_biomass.reshape(-1)
+
+        # Last in the month, with its biomass stored: the caller may stop the
+        # run here, between months (never inside one), as in rsim_run.
+        if on_month is not None and on_month(month_idx, n_months) is True:
+            raise RunCancelled(f"run cancelled after month {month_idx} of {n_months}")
 
     # Create output (simplified for now - full output would include catch, etc.)
     from pypath.core.ecosim import RsimOutput, RsimState
