@@ -312,9 +312,7 @@ def results_server(
             # Return params model table
             params = info["params"]
             if is_rpath_params(params):
-                return params.model[
-                    ["Group", "Type", "Biomass", "PB", "QB", "EE"]
-                ].head(20)
+                return params.model[["Group", "Type", "Biomass", "PB", "QB", "EE"]]
         return None
 
     def _styled(fig):

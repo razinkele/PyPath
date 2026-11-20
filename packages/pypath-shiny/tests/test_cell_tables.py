@@ -296,3 +296,37 @@ def test_great_tables_come_with_their_unrounded_values():
             ):
                 bare.append(f"{path.name}:{node.lineno}")
     assert bare == []
+
+
+def test_tables_that_scroll_show_every_group():
+    """They were cut to 10 to 20 rows when a long table pushed the page down."""
+    whole = {
+        "analysis.py": (
+            "trophic_summary_table",
+            "keystoneness_table",
+            "export_params_table",
+            "export_diet_table",
+        ),
+        "results.py": ("model_summary_table",),
+    }
+    for page, names in whole.items():
+        tree = ast.parse((SRC / "pages" / page).read_text(encoding="utf-8"))
+        functions = {
+            n.name: ast.unparse(n)
+            for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef)
+        }
+        for name in names:
+            assert ".head(" not in functions[name], f"{page}: {name}"
+            assert "[:10]" not in functions[name], f"{page}: {name}"
+
+
+def test_the_diet_table_names_its_rows():
+    source = (SRC / "pages" / "analysis.py").read_text(encoding="utf-8")
+    assert 'diet.insert(0, "Prey", diet.index)' in source
+
+
+def test_the_first_column_stays_when_a_wide_table_scrolls_sideways():
+    css = (SRC / "static" / "custom.css").read_text(encoding="utf-8")
+    rule = css[css.index(".cell-table tbody td:first-child,") :]
+    assert "position: sticky" in rule[:200] and "left: 0" in rule[:200]

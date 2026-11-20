@@ -194,6 +194,28 @@ def test_cells_have_tooltips_and_headings_stay_put(server, browser):  # noqa: F8
     assert plain["scrolled"] > 0 and plain["after"] == plain["before"]
     assert plain["background"] not in ("rgba(0, 0, 0, 0)", "transparent")
 
+    # Every group is listed (the tables were once cut to 10 to 20 rows), and
+    # a wide table keeps its row names in view when scrolled sideways.
+    _open(page, "Export Data")
+    page.wait_for_selector(
+        "#export_diet_table .cell-table", state="visible", timeout=30000
+    )
+    wide = page.locator("#export_diet_table .cell-table-wrap").evaluate(
+        """(box) => {
+            const table = box.querySelector('table');
+            const name = table.tBodies[0].rows[0].cells[0];
+            const gap = () => Math.round(
+                name.getBoundingClientRect().left - box.getBoundingClientRect().left);
+            const before = gap();
+            box.scrollLeft = 400;
+            return {rows: table.tBodies[0].rows.length, scrolled: box.scrollLeft,
+                    before: before, after: gap(),
+                    heading: table.tHead.rows[0].cells[0].textContent};
+        }"""
+    )
+    assert wide["rows"] > 20 and wide["heading"] == "Prey"
+    assert wide["scrolled"] > 0 and wide["after"] == wide["before"]
+
     # An input's hint: on hover and on keyboard focus.
     _open(page, "Ecosim")
     icon = page.locator(".info-tip").first
