@@ -26,6 +26,17 @@
   --pp-text: #0f172a;
   --pp-text-secondary: #475569;
   --pp-text-muted: #94a3b8;
+  --pp-heading: var(--pp-navy); /* headings, brand, card and modal titles */
+
+  /* Special cells in the data grids (pages/utils.py) */
+  --pp-cell-nodata-bg: #f0f0f0;
+  --pp-cell-nodata-fg: #999;
+  --pp-cell-na-bg: #f8f9fa;
+  --pp-cell-na-fg: #6c757d;
+  --pp-cell-remark-bg: #fff9e6;
+  --pp-cell-remark-line: #f0ad4e;
+  --pp-cell-stanza-bg: #e6f3ff;
+  --pp-cell-stanza-line: #0066cc;
 
   /* Feedback */
   --pp-success: #10b981;
@@ -49,56 +60,117 @@
   --pp-duration: 0.25s;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pp-bg: #0f172a;
-    --pp-card: #111827;
-    --pp-border: #334155;
-    --pp-border-light: #1e293b;
-    --pp-text: #e2e8f0;
-    --pp-text-secondary: #cbd5e1;
-    --pp-text-muted: #94a3b8;
-    --pp-navy: #dbeafe;
-    --pp-ocean: #1e3a5f;
-    --pp-deep: #0f172a;
-    --pp-marine: #60a5fa;
-    --pp-teal: #38bdf8;
-    --pp-teal-dark: #7dd3fc;
-    --pp-seafoam: #a5f3fc;
-  }
+/* --- Dark theme ---
+   Keyed on the page's data-bs-theme, which the header's toggle sets (and the
+   head script sets at load from the saved choice, or else from the system's
+   preference). The tokens below re-colour everything that uses them; the
+   rules after them cover what has colours of its own. */
+[data-bs-theme="dark"] {
+  --pp-bg: #0f172a;
+  --pp-card: #111827;
+  --pp-border: #334155;
+  --pp-border-light: #1e293b;
+  --pp-text: #e2e8f0;
+  --pp-text-secondary: #cbd5e1;
+  --pp-text-muted: #94a3b8;
+  --pp-heading: #dbeafe;
+  --pp-cell-nodata-bg: #1f2937;
+  --pp-cell-nodata-fg: #6b7280;
+  --pp-cell-na-bg: #172033;
+  --pp-cell-na-fg: #7c8aa0;
+  --pp-cell-remark-bg: #3a2f0b;
+  --pp-cell-remark-line: #f59e0b;
+  --pp-cell-stanza-bg: #12304d;
+  --pp-cell-stanza-line: #38bdf8;
+  --pp-marine: #60a5fa;
+  --pp-teal: #38bdf8;
+  --pp-teal-dark: #7dd3fc;
+  --pp-seafoam: #a5f3fc;
+  color-scheme: dark;
 
-  body {
-    background: var(--pp-bg);
-    color: var(--pp-text);
-  }
+  /* Bootstrap's own components follow the same surfaces. */
+  --bs-body-bg: var(--pp-bg);
+  --bs-body-color: var(--pp-text);
+  --bs-secondary-bg: #1e293b;
+  --bs-tertiary-bg: #172033;
+  --bs-border-color: var(--pp-border);
+  --bs-secondary-color: var(--pp-text-secondary);
+  --bs-emphasis-color: #f8fafc;
+}
 
-  .card,
-  .table,
-  .modal-content,
-  .well,
-  .shiny-data-grid {
-    background-color: var(--pp-card);
-    color: var(--pp-text);
-  }
+[data-bs-theme="dark"] body {
+  background: var(--pp-bg);
+  color: var(--pp-text);
+}
 
-  .btn-outline-secondary {
-    color: var(--pp-text);
-    border-color: var(--pp-border);
-  }
+[data-bs-theme="dark"] .card,
+[data-bs-theme="dark"] .table,
+[data-bs-theme="dark"] .modal-content,
+[data-bs-theme="dark"] .well,
+[data-bs-theme="dark"] .shiny-data-grid {
+  background-color: var(--pp-card);
+  color: var(--pp-text);
+}
 
-  .btn-outline-secondary:hover {
-    background: rgba(148, 163, 184, 0.12);
-    color: var(--pp-text);
-  }
+[data-bs-theme="dark"] .btn-outline-secondary {
+  color: var(--pp-text);
+  border-color: var(--pp-border);
+}
 
-  .table thead th {
-    background: rgba(148, 163, 184, 0.12);
-    color: var(--pp-text-secondary);
-  }
+[data-bs-theme="dark"] .btn-outline-secondary:hover {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--pp-text);
+}
 
-  .nav-pills .nav-link {
-    color: rgba(255, 255, 255, 0.8);
-  }
+[data-bs-theme="dark"] .table thead th {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--pp-text-secondary);
+}
+
+[data-bs-theme="dark"] .nav-pills .nav-link {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-bs-theme="dark"] .alert-info {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--pp-text);
+}
+
+[data-bs-theme="dark"] .btn-outline-primary {
+  color: var(--pp-teal-dark);
+  border-color: var(--pp-teal);
+}
+
+[data-bs-theme="dark"] .text-muted {
+  color: var(--pp-text-muted) !important;
+}
+
+/* ...but text inside a coloured alert keeps the alert's own colour. */
+[data-bs-theme="dark"] .alert .text-muted {
+  color: inherit !important;
+  opacity: 0.85;
+}
+
+/* great_tables tables carry their own white sheet and black text. */
+[data-bs-theme="dark"] table.gt_table,
+[data-bs-theme="dark"] table.gt_table th,
+[data-bs-theme="dark"] table.gt_table td {
+  background-color: var(--pp-card) !important;
+  color: var(--pp-text) !important;
+  border-color: var(--pp-border) !important;
+}
+
+[data-bs-theme="dark"] table.gt_table .gt_striped {
+  background-color: #172033 !important;
+}
+
+/* Charts are drawn for a white page (Plotly's white template, matplotlib
+   images). Inverting them and turning the hues back gives a dark chart whose
+   series keep their colours, without redrawing anything. */
+[data-bs-theme="dark"] .js-plotly-plot,
+[data-bs-theme="dark"] .shiny-plot-output img,
+[data-bs-theme="dark"] .shiny-image-output img {
+  filter: invert(0.92) hue-rotate(180deg) brightness(1.25) saturate(1.3);
 }
 
 /* =========================================================
@@ -134,7 +206,7 @@ button:focus-visible,
 h1, h2, h3 {
   font-family: "Lora", Georgia, serif;
   font-weight: 600;
-  color: var(--pp-navy);
+  color: var(--pp-heading);
   letter-spacing: -0.02em;
   line-height: 1.25;
 }
@@ -280,7 +352,7 @@ a:hover {
   font-family: "Lora", Georgia, serif;
   font-weight: 700;
   font-size: 1.4rem;
-  color: var(--pp-navy);
+  color: var(--pp-heading);
   letter-spacing: -0.03em;
 }
 
@@ -482,7 +554,7 @@ a:hover {
   font-family: "Outfit", sans-serif;
   font-weight: 600;
   font-size: 0.93rem;
-  color: var(--pp-navy);
+  color: var(--pp-heading);
   padding: 0.8rem 1.2rem;
 }
 
@@ -870,7 +942,7 @@ pre code {
 .modal-header .modal-title {
   font-family: "Outfit", sans-serif;
   font-weight: 600;
-  color: var(--pp-navy);
+  color: var(--pp-heading);
 }
 
 .modal-footer {

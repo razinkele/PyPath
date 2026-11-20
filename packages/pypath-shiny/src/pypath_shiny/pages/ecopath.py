@@ -487,7 +487,7 @@ def ecopath_ui():
                         ui.tags.span(
                             ui.tags.span(
                                 "",
-                                style="display: inline-block; width: 16px; height: 16px; background-color: #f0f0f0; border: 1px solid #ccc; margin-right: 4px; vertical-align: middle;",
+                                style="display: inline-block; width: 16px; height: 16px; background-color: var(--pp-cell-nodata-bg, #f0f0f0); border: 1px solid var(--pp-border, #ccc); margin-right: 4px; vertical-align: middle;",
                             ),
                             " No data (was 9999)",
                             style="margin-right: 16px; font-size: 0.85em; color: #666;",
@@ -495,7 +495,7 @@ def ecopath_ui():
                         ui.tags.span(
                             ui.tags.span(
                                 "",
-                                style="display: inline-block; width: 16px; height: 16px; background-color: #fff9e6; border-bottom: 2px dashed #f0ad4e; border-left: 1px solid #ccc; border-right: 1px solid #ccc; border-top: 1px solid #ccc; margin-right: 4px; vertical-align: middle;",
+                                style="display: inline-block; width: 16px; height: 16px; background-color: var(--pp-cell-remark-bg, #fff9e6); border-bottom: 2px dashed var(--pp-cell-remark-line, #f0ad4e); border-left: 1px solid #ccc; border-right: 1px solid #ccc; border-top: 1px solid #ccc; margin-right: 4px; vertical-align: middle;",
                             ),
                             " Has remark (from EwE file)",
                             style="font-size: 0.85em; color: #666;",

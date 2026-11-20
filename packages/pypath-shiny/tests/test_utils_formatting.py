@@ -3,7 +3,13 @@
 import pandas as pd
 import pytest
 
-from pypath_shiny.pages.utils import create_cell_styles, format_dataframe_for_display
+from pypath_shiny.pages.utils import (
+    NO_DATA_STYLE,
+    REMARK_STYLE,
+    STANZA_STYLE,
+    create_cell_styles,
+    format_dataframe_for_display,
+)
 
 
 @pytest.fixture
@@ -96,7 +102,10 @@ class TestCreateCellStyles:
         bio_col = df.columns.get_loc("Biomass")
         bio_styles = [s for s in styles if s["cols"] == bio_col]
         assert len(bio_styles) == 1
-        assert bio_styles[0]["style"]["background-color"] == "#f0f0f0"
+        assert (
+            bio_styles[0]["style"]["background-color"]
+            == NO_DATA_STYLE["background-color"]
+        )
 
     def test_no_styles_for_valid_data(self):
         df = pd.DataFrame({"Group": ["Fish"], "Type": ["Consumer"], "Biomass": [10.0]})
@@ -128,7 +137,10 @@ class TestCreateCellStyles:
         styles = create_cell_styles(df, no_data)
         qb_col = df.columns.get_loc("QB")
         qb_styles = [s for s in styles if s["cols"] == qb_col]
-        assert qb_styles[0]["style"]["background-color"] == "#f0f0f0"
+        assert (
+            qb_styles[0]["style"]["background-color"]
+            == NO_DATA_STYLE["background-color"]
+        )
 
     def test_remarks_style(self):
         df = pd.DataFrame({"Type": ["Consumer"], "Biomass": [10.0]})
@@ -137,14 +149,20 @@ class TestCreateCellStyles:
         styles = create_cell_styles(df, no_data, remarks)
         bio_col = df.columns.get_loc("Biomass")
         bio_styles = [s for s in styles if s["cols"] == bio_col]
-        assert bio_styles[0]["style"]["background-color"] == "#fff9e6"
+        assert (
+            bio_styles[0]["style"]["background-color"]
+            == REMARK_STYLE["background-color"]
+        )
 
     def test_stanza_style(self):
         df = pd.DataFrame({"Type": ["Consumer"], "Biomass": [10.0]})
         no_data = pd.DataFrame({"Type": [False], "Biomass": [False]})
         stanza = pd.DataFrame({"Type": [True], "Biomass": [True]})
         styles = create_cell_styles(df, no_data, stanza_mask=stanza)
-        assert any(s["style"].get("background-color") == "#e6f3ff" for s in styles)
+        assert any(
+            s["style"].get("background-color") == STANZA_STYLE["background-color"]
+            for s in styles
+        )
 
     def test_style_dicts_have_location_body(self):
         df = pd.DataFrame({"Biomass": [float("nan")]})
