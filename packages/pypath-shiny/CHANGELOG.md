@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.15.0 (2026-11-20)
+
+### Features
+
+- **shiny**: A dark theme that follows the header's toggle
+  ([`4879a27`](https://github.com/razinkele/PyPath/commit/4879a27f5a783adbdd1e88698dfc0507baeaa611))
+
+
 ## v1.14.0 (2026-11-20)
 
 ### Features
