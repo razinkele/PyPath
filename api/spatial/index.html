@@ -23436,7 +23436,7 @@ switches it on.</p>
 
 
 <a href="#pypath.spatial.integration.rsim_run_spatial" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">rsim_run_spatial</span><span class="p">(</span><span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'RK4'</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ecospace</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EcospaceParams</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">environmental_drivers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EnvironmentalDrivers</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mpa</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">'MPAConfig'</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">spatial_fishing</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">'SpatialFishing'</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">initial_state_vector</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">store_state_vectors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">implicit_movement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimOutput</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">rsim_run_spatial</span><span class="p">(</span><span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'RK4'</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ecospace</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EcospaceParams</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">environmental_drivers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EnvironmentalDrivers</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mpa</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">'MPAConfig'</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">spatial_fishing</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">'SpatialFishing'</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">initial_state_vector</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">store_state_vectors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">implicit_movement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">on_month</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimOutput</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -23651,6 +23651,27 @@ in the derivative, as before B3; it is stable only to about
             </td>
             <td>
                   <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>on_month</code>
+            </td>
+            <td>
+                  <code><span title="callable">callable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Called as <code>on_month(month, n_months)</code> once per simulated month, on
+the calling thread, after that month's biomass is stored; <code>month</code>
+counts from 1. Use it to report progress. Returning the bool True
+stops the run with <code>RunCancelled</code> (any other value, truthy or not,
+lets it go on), as in <code>rsim_run</code>. Without <code>ecospace</code> it is passed
+to <code>rsim_run</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -24456,7 +24477,21 @@ in the derivative, as before B3; it is stable only to about
 <span class="normal">1394</span>
 <span class="normal">1395</span>
 <span class="normal">1396</span>
-<span class="normal">1397</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1397</span>
+<span class="normal">1398</span>
+<span class="normal">1399</span>
+<span class="normal">1400</span>
+<span class="normal">1401</span>
+<span class="normal">1402</span>
+<span class="normal">1403</span>
+<span class="normal">1404</span>
+<span class="normal">1405</span>
+<span class="normal">1406</span>
+<span class="normal">1407</span>
+<span class="normal">1408</span>
+<span class="normal">1409</span>
+<span class="normal">1410</span>
+<span class="normal">1411</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -24468,6 +24503,7 @@ in the derivative, as before B3; it is stable only to about
     <span class="n">initial_state_vector</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">store_state_vectors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">implicit_movement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">on_month</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Run spatial Ecosim simulation.</span>
 
@@ -24517,6 +24553,13 @@ in the derivative, as before B3; it is stable only to about
 <span class="sd">        local equilibrium at every step (EwE rule). ``False`` keeps diffusion</span>
 <span class="sd">        in the derivative, as before B3; it is stable only to about</span>
 <span class="sd">        4.2 x RK4_STEPS per year per cell side on a rook grid.</span>
+<span class="sd">    on_month : callable, optional</span>
+<span class="sd">        Called as ``on_month(month, n_months)`` once per simulated month, on</span>
+<span class="sd">        the calling thread, after that month's biomass is stored; ``month``</span>
+<span class="sd">        counts from 1. Use it to report progress. Returning the bool True</span>
+<span class="sd">        stops the run with ``RunCancelled`` (any other value, truthy or not,</span>
+<span class="sd">        lets it go on), as in ``rsim_run``. Without ``ecospace`` it is passed</span>
+<span class="sd">        to ``rsim_run``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -24543,12 +24586,13 @@ in the derivative, as before B3; it is stable only to about
     <span class="k">if</span> <span class="n">ecospace</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_run</span>
 
-        <span class="k">return</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">years</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">years</span><span class="p">,</span> <span class="n">on_month</span><span class="o">=</span><span class="n">on_month</span><span class="p">)</span>
 
     <span class="c1"># Import necessary functions</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">DELTA_T</span><span class="p">,</span>
         <span class="n">STEPS_PER_YEAR</span><span class="p">,</span>
+        <span class="n">RunCancelled</span><span class="p">,</span>
         <span class="n">_check_run_years</span><span class="p">,</span>
         <span class="n">rsim_run</span><span class="p">,</span>
     <span class="p">)</span>
@@ -25167,6 +25211,11 @@ in the derivative, as before B3; it is stable only to about
         <span class="n">out_Biomass</span><span class="p">[</span><span class="n">month_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_biomass</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Sum over patches</span>
         <span class="k">if</span> <span class="n">out_StateVector</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">out_StateVector</span><span class="p">[</span><span class="n">month_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_biomass</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Last in the month, with its biomass stored: the caller may stop the</span>
+        <span class="c1"># run here, between months (never inside one), as in rsim_run.</span>
+        <span class="k">if</span> <span class="n">on_month</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">on_month</span><span class="p">(</span><span class="n">month_idx</span><span class="p">,</span> <span class="n">n_months</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">RunCancelled</span><span class="p">(</span><span class="sa">f</span><span class="s2">"run cancelled after month </span><span class="si">{</span><span class="n">month_idx</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">n_months</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
     <span class="c1"># Create output (simplified for now - full output would include catch, etc.)</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="n">RsimOutput</span><span class="p">,</span> <span class="n">RsimState</span>
