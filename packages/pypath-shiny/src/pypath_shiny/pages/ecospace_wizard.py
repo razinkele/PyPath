@@ -15,6 +15,7 @@ import logging
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shiny_deckgl import CARTO_DARK, MapWidget
 
+from pypath_shiny.services.cell_tables import as_cell_table
 from pypath_shiny.services.deckgl_maps import (
     MAP_FIT_PADDING,
     drawn_polygon_geometry,
@@ -745,14 +746,15 @@ def ecospace_wizard_server(
             *items,
         )
 
-    @render.table
+    @render.ui
+    @as_cell_table(empty="No habitat data downloaded yet.")
     def wizard_habitat_table():
         """Habitat types summary table."""
         hab = habitat_types_arr.get()
         if hab is None:
             import pandas as pd
 
-            return pd.DataFrame()
+            return None
 
         import numpy as np
         import pandas as pd
@@ -1122,7 +1124,7 @@ def _step4_review_habitats_ui():
         ui.card_header("Step 4: Review Habitats"),
         ui.p("Review EUNIS habitat types assigned to each grid patch."),
         ui.output_ui("wizard_habitat_map"),
-        ui.output_table("wizard_habitat_table"),
+        ui.output_ui("wizard_habitat_table"),
     )
 
 

@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover
 # Import centralized configuration
 from pypath_shiny.components import empty_state
 from pypath_shiny.config import UI
+from pypath_shiny.services.cell_tables import as_cell_table
 
 # Import great_tables formatters
 from ..services import network_viz
@@ -152,7 +153,7 @@ def results_ui():
                     "Model Summary",
                     ui.h4("Ecopath Model Summary", class_="mt-3"),
                     ui.output_ui("model_summary_status"),
-                    ui.output_table("model_summary_table"),
+                    ui.output_ui("model_summary_table"),
                     ui.tags.hr(),
                     ui.h5("Trophic Structure"),
                     ui.layout_columns(
@@ -295,14 +296,15 @@ def results_server(
             class_="alert alert-success",
         )
 
-    @render.table
+    @render.ui
+    @as_cell_table(empty="Balance a model to see its summary.")
     def model_summary_table():
         """Display model summary table."""
         model = model_data.get()
         info = get_model_info(model)
 
         if info is None:
-            return pd.DataFrame()
+            return None
 
         if is_balanced_model(model) and hasattr(model, "summary"):
             return model.summary()
@@ -313,7 +315,7 @@ def results_server(
                 return params.model[
                     ["Group", "Type", "Biomass", "PB", "QB", "EE"]
                 ].head(20)
-        return pd.DataFrame()
+        return None
 
     def _styled(fig):
         """Apply the sidebar "Plot Style" to a Plotly figure."""

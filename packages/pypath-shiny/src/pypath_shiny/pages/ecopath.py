@@ -25,6 +25,7 @@ except ImportError:  # pragma: no cover
 
 # Configuration imports
 from pypath_shiny.config import DEFAULTS, THRESHOLDS, UI
+from pypath_shiny.services.cell_tables import cell_tips_data, remarks_by_row
 from pypath_shiny.services.gt_formatters import (
     format_dataframe,
     format_results_summary,
@@ -496,6 +497,7 @@ def ecopath_ui():
                         class_="mb-2",
                     ),
                     ui.output_data_frame("model_params_table"),
+                    ui.output_ui("model_params_table_tips"),
                     # Parameter help section
                     ui.div(
                         ui.tags.details(
@@ -555,6 +557,7 @@ def ecopath_ui():
                         "Enter diet fractions (columns must sum to 1.0 for each predator)"
                     ),
                     ui.output_data_frame("diet_matrix_table"),
+                    ui.output_ui("diet_matrix_table_tips"),
                 ),
                 ui.nav_panel(
                     "Fisheries",
@@ -760,6 +763,27 @@ def ecopath_server(
         return render.DataGrid(
             formatted_df, editable=True, filters=False, styles=styles, width="100%"
         )
+
+    @render.ui
+    def model_params_table_tips():
+        """What the parameter grid's cell tooltips add: the unrounded values
+        and the model's remarks (the grid shows 3 decimals)."""
+        p = params.get()
+        if p is None:
+            return None
+        return cell_tips_data(
+            "model_params_table",
+            p.model,
+            remarks=remarks_by_row(p.model, getattr(p, "remarks", None)),
+        )
+
+    @render.ui
+    def diet_matrix_table_tips():
+        """The unrounded diet fractions, for the diet grid's cell tooltips."""
+        p = params.get()
+        if p is None:
+            return None
+        return cell_tips_data("diet_matrix_table", p.diet)
 
     @render.ui
     def remarks_panel():

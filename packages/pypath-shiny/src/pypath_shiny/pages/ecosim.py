@@ -44,6 +44,7 @@ from pypath_shiny.pages.ewe_scenario import (
     scenario_source_choices,
 )
 from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
+from pypath_shiny.services.cell_tables import as_cell_table, info_tip
 from pypath_shiny.services.ecosim_controls import (
     apply_fishing_management_control,
     apply_metabolism_control,
@@ -458,10 +459,8 @@ def ecosim_ui() -> ui.Tag:
                     "sim_years",
                     ui.span(
                         "Simulation Years ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Number of years to simulate. Longer periods show long-term dynamics but take more time to compute.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Number of years to simulate. Longer periods show long-term dynamics but take more time to compute."
                         ),
                     ),
                     value=PARAM_RANGES.years_default,
@@ -472,10 +471,8 @@ def ecosim_ui() -> ui.Tag:
                     "integration_method",
                     ui.span(
                         "Integration Method ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="The EwE parity methods reproduce EwE (RK4) and Rpath (AB). The continuous methods solve the equations to a tolerance and differ from EwE by design. BDF suits stiff models.",
-                            style="cursor: help;",
+                        info_tip(
+                            "The EwE parity methods reproduce EwE (RK4) and Rpath (AB). The continuous methods solve the equations to a tolerance and differ from EwE by design. BDF suits stiff models."
                         ),
                     ),
                     choices=METHOD_CHOICES,
@@ -494,10 +491,8 @@ def ecosim_ui() -> ui.Tag:
                         "solver_log_states",
                         ui.span(
                             "Log-transformed biomass ",
-                            ui.tags.i(
-                                class_="bi bi-info-circle",
-                                title="Solves the same equations on the log of biomass. Use it for runs that drive a group towards zero. It costs about 40 % more where groups sweep orders of magnitude.",
-                                style="cursor: help;",
+                            info_tip(
+                                "Solves the same equations on the log of biomass. Use it for runs that drive a group towards zero. It costs about 40 % more where groups sweep orders of magnitude."
                             ),
                         ),
                         value=False,
@@ -550,10 +545,8 @@ def ecosim_ui() -> ui.Tag:
                     "fast_group_rule",
                     ui.span(
                         "Equation rule (EwE6 / Rpath) ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month. Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below. Loading a model sets it to the model's origin (EwE imports: EwE6; models built from CSV or in code: Rpath); a re-balance keeps your choice.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Groups that turn over much faster than the time step (plankton, detritus). EwE6 solves them at equilibrium in every step and takes one RK4 step per month; Rpath integrates them like every other group with four RK4 steps per month. Under a continuous method this picks the equations only (handling time, detritus fate): every group is integrated, or solved quasi-steady if you ask for it below. Loading a model sets it to the model's origin (EwE imports: EwE6; models built from CSV or in code: Rpath); a re-balance keeps your choice."
                         ),
                     ),
                     choices={
@@ -569,10 +562,8 @@ def ecosim_ui() -> ui.Tag:
                     "vulnerability",
                     ui.span(
                         "Default Vulnerability ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Controls predator-prey functional response. 1 = bottom-up control (prey abundance limits predators), 2 = mixed control, higher values = top-down control (predators limit prey). Range: 1-100.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Controls predator-prey functional response. 1 = bottom-up control (prey abundance limits predators), 2 = mixed control, higher values = top-down control (predators limit prey). Range: 1-100."
                         ),
                     ),
                     min=PARAM_RANGES.vulnerability_min,
@@ -601,10 +592,8 @@ def ecosim_ui() -> ui.Tag:
                     "fishing_scenario",
                     ui.span(
                         "Scenario Type ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Fishing effort scenario: Baseline (constant), Increase (gradual ramp up), Decrease (gradual ramp down), Closure (fishing stops for period), Custom (upload CSV).",
-                            style="cursor: help;",
+                        info_tip(
+                            "Fishing effort scenario: Baseline (constant), Increase (gradual ramp up), Decrease (gradual ramp down), Closure (fishing stops for period), Custom (upload CSV)."
                         ),
                     ),
                     choices={
@@ -741,10 +730,8 @@ def ecosim_ui() -> ui.Tag:
                 ui.h5(
                     ui.span(
                         "Stability ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Automatic parameter calibration to prevent crashes and improve simulation stability.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Automatic parameter calibration to prevent crashes and improve simulation stability."
                         ),
                     )
                 ),
@@ -752,10 +739,8 @@ def ecosim_ui() -> ui.Tag:
                     "enable_autofix",
                     ui.span(
                         "Auto-fix parameters ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title=f"Automatically caps VV ≤ {THRESHOLDS.vv_cap}, QQ ≤ {THRESHOLDS.qq_cap}, ensures minimum biomass ≥ {THRESHOLDS.min_biomass}, and normalizes DD to 1-2. Can stop crashes caused by extreme parameter values, but QQ and DD are derived from the balanced model, so changing them moves the run off its starting equilibrium. Off by default.",
-                            style="cursor: help;",
+                        info_tip(
+                            f"Automatically caps VV ≤ {THRESHOLDS.vv_cap}, QQ ≤ {THRESHOLDS.qq_cap}, ensures minimum biomass ≥ {THRESHOLDS.min_biomass}, and normalizes DD to 1-2. Can stop crashes caused by extreme parameter values, but QQ and DD are derived from the balanced model, so changing them moves the run off its starting equilibrium. Off by default."
                         ),
                     ),
                     # Off by default: capping the derived QQ/DD made balanced
@@ -821,10 +806,8 @@ def ecosim_ui() -> ui.Tag:
                                     "forcing_group",
                                     ui.span(
                                         "Select Group ",
-                                        ui.tags.i(
-                                            class_="bi bi-info-circle",
-                                            title="Group to apply environmental forcing. Typically primary producers (phytoplankton) or lower trophic levels.",
-                                            style="cursor: help;",
+                                        info_tip(
+                                            "Group to apply environmental forcing. Typically primary producers (phytoplankton) or lower trophic levels."
                                         ),
                                     ),
                                     choices=["(Create scenario first)"],
@@ -833,10 +816,8 @@ def ecosim_ui() -> ui.Tag:
                                     "forcing_multiplier",
                                     ui.span(
                                         "Forcing Multiplier ",
-                                        ui.tags.i(
-                                            class_="bi bi-info-circle",
-                                            title="Multiplier for prey availability. 1.0 = normal, >1.0 = more productive (e.g., nutrient enrichment), <1.0 = less productive (e.g., climate stress).",
-                                            style="cursor: help;",
+                                        info_tip(
+                                            "Multiplier for prey availability. 1.0 = normal, >1.0 = more productive (e.g., nutrient enrichment), <1.0 = less productive (e.g., climate stress)."
                                         ),
                                     ),
                                     min=0,
@@ -897,10 +878,8 @@ def ecosim_ui() -> ui.Tag:
                             "plot_groups",
                             ui.span(
                                 "Select Groups to Plot ",
-                                ui.tags.i(
-                                    class_="bi bi-info-circle",
-                                    title="Choose which functional groups to display in the biomass trajectory plot. Select up to 10 groups for clarity.",
-                                    style="cursor: help;",
+                                info_tip(
+                                    "Choose which functional groups to display in the biomass trajectory plot. Select up to 10 groups for clarity."
                                 ),
                             ),
                             choices=[],
@@ -910,10 +889,8 @@ def ecosim_ui() -> ui.Tag:
                             "relative_biomass",
                             ui.span(
                                 "Show Relative Biomass ",
-                                ui.tags.i(
-                                    class_="bi bi-info-circle",
-                                    title="Normalize all trajectories to start at 1.0. Useful for comparing groups of different sizes. Value of 2.0 = doubled, 0.5 = halved.",
-                                    style="cursor: help;",
+                                info_tip(
+                                    "Normalize all trajectories to start at 1.0. Useful for comparing groups of different sizes. Value of 2.0 = doubled, 0.5 = halved."
                                 ),
                             ),
                             value=False,
@@ -951,7 +928,7 @@ def ecosim_ui() -> ui.Tag:
                         height=UI.plot_height_small_px,
                         fillable=True,
                     ),
-                    ui.output_table("annual_catch_table"),
+                    ui.output_ui("annual_catch_table"),
                 ),
                 ui.nav_panel(
                     "Summary",
@@ -2206,10 +2183,8 @@ def ecosim_server(
                     "effort_change_rate",
                     ui.span(
                         "Annual Increase (%) ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Percent increase in fishing effort per year. Example: 5% means effort multiplier increases by 0.05 each year.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Percent increase in fishing effort per year. Example: 5% means effort multiplier increases by 0.05 each year."
                         ),
                     ),
                     min=0,
@@ -2220,10 +2195,8 @@ def ecosim_server(
                     "effort_start_year",
                     ui.span(
                         "Start Year ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Year when effort starts increasing. Effort stays constant until this year.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Year when effort starts increasing. Effort stays constant until this year."
                         ),
                     ),
                     value=10,
@@ -2237,10 +2210,8 @@ def ecosim_server(
                     "effort_change_rate",
                     ui.span(
                         "Annual Decrease (%) ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Percent decrease in fishing effort per year. Example: 5% means effort multiplier decreases by 0.05 each year.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Percent decrease in fishing effort per year. Example: 5% means effort multiplier decreases by 0.05 each year."
                         ),
                     ),
                     min=0,
@@ -2251,10 +2222,8 @@ def ecosim_server(
                     "effort_start_year",
                     ui.span(
                         "Start Year ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Year when effort starts decreasing. Effort stays constant until this year.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Year when effort starts decreasing. Effort stays constant until this year."
                         ),
                     ),
                     value=10,
@@ -2268,10 +2237,8 @@ def ecosim_server(
                     "closure_start_year",
                     ui.span(
                         "Closure Start Year ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="Year when fishing stops completely. Effort = 0 during closure period.",
-                            style="cursor: help;",
+                        info_tip(
+                            "Year when fishing stops completely. Effort = 0 during closure period."
                         ),
                     ),
                     value=10,
@@ -2281,10 +2248,8 @@ def ecosim_server(
                     "closure_duration",
                     ui.span(
                         "Duration (years) ",
-                        ui.tags.i(
-                            class_="bi bi-info-circle",
-                            title="How many years the fishery closure lasts. After this, effort returns to baseline.",
-                            style="cursor: help;",
+                        info_tip(
+                            "How many years the fishery closure lasts. After this, effort returns to baseline."
                         ),
                     ),
                     value=10,
@@ -3193,14 +3158,15 @@ def ecosim_server(
             output = None
         return build_catch_figure(output, title="Total Annual Catch")
 
-    @render.table
+    @render.ui
+    @as_cell_table(empty="Run a simulation to see the annual catch.")
     def annual_catch_table():
         """Display annual catch summary."""
         output = sim_output.get()
         scen = scenario.get()
 
         if output is None or scen is None:
-            return pd.DataFrame()
+            return None
 
         # Create summary table
         group_names = scen.params.spname[1 : scen.params.NUM_LIVING + 1]
@@ -3211,7 +3177,7 @@ def ecosim_server(
         catch_df.insert(0, "Year", range(1, len(catch_df) + 1))
 
         # Show every 5 years
-        return catch_df[catch_df["Year"] % 5 == 0].round(3)
+        return catch_df[catch_df["Year"] % 5 == 0]
 
     @render.ui
     def summary_cards():
