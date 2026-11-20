@@ -110,6 +110,15 @@ python -m uvicorn pypath_shiny.app:app --host 127.0.0.1 --port 8080
 Set the environment variable `PYPATH_DEV=1` before `pypath-shiny` to reload
 the server when source files change.
 
+Set `PYPATH_ECOSPACE_JOBS=4` (or another number above 1) to run the patches of
+a spatial simulation in that many worker processes. It is off by default and
+applies to grids of 250 patches or more; smaller grids gain nothing. The
+results are the same either way. Each such run uses that many CPU cores, so
+think twice on a shared server. Under shiny-server worker processes cannot
+start (its launcher script is re-run in each worker and fails); the run then
+continues in one process and a warning is logged, so leave the variable unset
+there.
+
 ## Documentation and licence
 
 Documentation: <https://razinkele.github.io/PyPath/>

@@ -15,16 +15,23 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import logging
+import os
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
+from pypath.core._parallel import usable_cpus
 from pypath.core.ecosim import rsim_run
 from pypath.ibm import SmeltIBM
 from pypath.spatial import rsim_run_spatial
 
+from pypath_shiny.config import SPATIAL
 from pypath_shiny.services.ecosim_solver import RunControl
 from pypath_shiny.services.tasks import TaskState, TaskStatus
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "IbmOutcome",
@@ -129,7 +136,33 @@ class SpatialOutcome:
     fingerprint: str = ""
 
 
-def run_spatial(scenario, ecospace_params, spatial_fishing, control=None):
+#: Environment variable: worker processes for a spatial run (off unless set).
+ECOSPACE_JOBS_ENV = "PYPATH_ECOSPACE_JOBS"
+
+
+def spatial_jobs(n_patches: int) -> int:
+    """Worker processes for a spatial run on a grid of *n_patches*; 1 is serial.
+
+    Off unless the environment variable ``PYPATH_ECOSPACE_JOBS`` asks for a
+    number above 1, and only for grids of at least
+    ``SPATIAL.min_patches_for_workers`` patches. Never more than the CPUs
+    this process may use. Anything unreadable in the variable means "off".
+
+    It is opt-in because not every way of starting the app can start worker
+    processes: under shiny-server its launcher script is re-run in each
+    worker and fails (:func:`run_spatial` then falls back to one process),
+    and every run with workers takes several CPU cores on a shared server.
+    """
+    try:
+        wanted = int(os.environ.get(ECOSPACE_JOBS_ENV, "1"))
+    except ValueError:
+        return 1
+    if wanted <= 1 or n_patches < SPATIAL.min_patches_for_workers:
+        return 1
+    return max(1, min(wanted, usable_cpus()))
+
+
+def run_spatial(scenario, ecospace_params, spatial_fishing, control=None, n_jobs=1):
     """Run the spatial simulation; called on a worker thread.
 
     Parameters
@@ -144,6 +177,10 @@ def run_spatial(scenario, ecospace_params, spatial_fishing, control=None):
         Its ``on_month`` is passed to the run, which records each month's
         progress on it and stops at the next month boundary after a
         requested stop (``RunCancelled``).
+    n_jobs : int
+        Worker processes for the patches (:func:`spatial_jobs`). If they
+        cannot be started, or die, the run is done again in this process
+        alone: the numbers are the same either way.
 
     Returns
     -------
@@ -156,12 +193,30 @@ def run_spatial(scenario, ecospace_params, spatial_fishing, control=None):
         When ``control`` was asked to stop.
     """
     hook = {} if control is None else {"on_month": control.on_month}
-    return rsim_run_spatial(
-        scenario,
-        ecospace=ecospace_params,
-        spatial_fishing=spatial_fishing,
-        **hook,
-    )
+
+    def run(jobs):
+        return rsim_run_spatial(
+            scenario,
+            ecospace=ecospace_params,
+            spatial_fishing=spatial_fishing,
+            n_jobs=jobs,
+            **hook,
+        )
+
+    if n_jobs <= 1:
+        return run(1)
+    try:
+        return run(n_jobs)
+    except (BrokenProcessPool, EOFError, OSError) as exc:
+        # The workers, not the model: start over with none.
+        logger.warning(
+            "Ecospace worker processes failed (%s: %s); running in one process. "
+            "Unset %s where the app cannot start worker processes.",
+            type(exc).__name__,
+            exc,
+            ECOSPACE_JOBS_ENV,
+        )
+        return run(1)
 
 
 def spatial_result_is_current(

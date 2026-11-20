@@ -43,6 +43,7 @@ from pypath_shiny.services.background_runs import (
     run_spatial,
     scenario_changed_since,
     scenario_fingerprint,
+    spatial_jobs,
     spatial_result_is_current,
 )
 from pypath_shiny.services.cell_tables import as_cell_table
@@ -1496,7 +1497,13 @@ def ecospace_server(
         outcome, both on the loop.
         """
         future = RUN_EXECUTOR.submit(
-            run_spatial, scen, ecospace_params, spatial_fishing, control=control
+            run_spatial,
+            scen,
+            ecospace_params,
+            spatial_fishing,
+            control=control,
+            # worker processes, where asked for (PYPATH_ECOSPACE_JOBS)
+            n_jobs=spatial_jobs(ecospace_params.grid.n_patches),
         )
         slot.acquire(future)
         out = await asyncio.wrap_future(future)
