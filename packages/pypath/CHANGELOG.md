@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.13.1 (2026-11-20)
+
+### Performance Improvements
+
+- **spatial**: Rsim_run_spatial(n_jobs=...) runs the patches in worker processes
+  ([`e18c23f`](https://github.com/razinkele/PyPath/commit/e18c23f030df19e01d6168181f6f9f51a23d9614))
+
+
 ## v1.13.0 (2026-11-20)
 
 ### Features
