@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.13.0 (2026-11-20)
+
+### Features
+
+- **spatial**: Rsim_run_spatial takes on_month and can be stopped between months
+  ([`0168173`](https://github.com/razinkele/PyPath/commit/0168173907618ac2fb3613baa4a4f1eb929f3834))
+
+
 ## v1.12.2 (2026-11-19)
 
 ### Bug Fixes
