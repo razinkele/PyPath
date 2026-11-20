@@ -1,6 +1,7 @@
 """Tests for time series I/O (CSV and database)."""
 
 import numpy as np
+import pytest
 
 from pypath.core.timeseries import (
     DATTYPE_CATCH,
@@ -116,3 +117,50 @@ class TestCsvRoundtrip:
             ]
             assert len(matches) == 1
             np.testing.assert_array_almost_equal(matches[0].values, orig_s.values)
+
+
+class TestLoadTimeseriesCsvInterval:
+    """The collection's interval: given, or read from the ewe file's row labels."""
+
+    def _write(self, tmp_path, labels):
+        csv_path = tmp_path / "ts.csv"
+        rows = "".join(f"{lab},{1.0 + k}\n" for k, lab in enumerate(labels))
+        csv_path.write_text("Title,Phytoplankton\nDatType,1\n" + rows)
+        return csv_path
+
+    def test_month_labels_read_as_timestep(self, tmp_path):
+        csv_path = self._write(tmp_path, ["2012-01", "2012-02", "2012-12", "2013-01"])
+        assert load_timeseries_csv(csv_path).interval == "timestep"
+
+    def test_step_numbers_stay_annual(self, tmp_path):
+        csv_path = self._write(tmp_path, ["1", "2", "3"])
+        assert load_timeseries_csv(csv_path).interval == "annual"
+
+    def test_year_labels_stay_annual(self, tmp_path):
+        csv_path = self._write(tmp_path, ["2012", "2013", "2014"])
+        assert load_timeseries_csv(csv_path).interval == "annual"
+
+    def test_mixed_labels_stay_annual(self, tmp_path):
+        csv_path = self._write(tmp_path, ["2012-01", "2012-02", "2013"])
+        assert load_timeseries_csv(csv_path).interval == "annual"
+
+    def test_month_13_is_not_a_month(self, tmp_path):
+        csv_path = self._write(tmp_path, ["2012-12", "2012-13"])
+        assert load_timeseries_csv(csv_path).interval == "annual"
+
+    def test_given_interval_wins(self, tmp_path):
+        csv_path = self._write(tmp_path, ["2012-01", "2012-02"])
+        coll = load_timeseries_csv(csv_path, interval="annual")
+        assert coll.interval == "annual"
+
+    def test_simple_format_defaults_to_annual(self, tmp_path):
+        csv_path = tmp_path / "ts_simple.csv"
+        csv_path.write_text("time,group,value,dat_type\n1,0,1.0,0\n2,0,1.2,0\n")
+        assert load_timeseries_csv(csv_path, format="simple").interval == "annual"
+        coll = load_timeseries_csv(csv_path, format="simple", interval="timestep")
+        assert coll.interval == "timestep"
+
+    def test_unknown_interval_refused(self, tmp_path):
+        csv_path = self._write(tmp_path, ["1", "2"])
+        with pytest.raises(ValueError, match="Unknown interval"):
+            load_timeseries_csv(csv_path, interval="monthly")
