@@ -120,6 +120,13 @@ app_ui = ui.page_fluid(
                   }
                 }
                 localStorage.setItem(storageKey, darkMode ? 'dark' : 'light');
+                // Tell the server, so charts are drawn for the theme
+                // (services/page_theme.py). Before the session starts there
+                // is nothing to tell; the handler below does it then.
+                if (window.Shiny && Shiny.setInputValue && Shiny.shinyapp
+                    && Shiny.shinyapp.isConnected && Shiny.shinyapp.isConnected()) {
+                  Shiny.setInputValue('pypath_theme', darkMode ? 'dark' : 'light');
+                }
               };
               const savedTheme = localStorage.getItem(storageKey);
               const preferredDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -152,6 +159,9 @@ app_ui = ui.page_fluid(
         ui.tags.script(
             "jQuery(document).on('shiny:sessioninitialized', function(){"
             "Shiny.setInputValue('fb_browser_info', navigator.userAgent, {priority: 'event'});"
+            "Shiny.setInputValue('pypath_theme',"
+            " document.documentElement.getAttribute('data-bs-theme') === 'dark'"
+            " ? 'dark' : 'light');"
             "});"
         ),
         ui.tags.style(f"""

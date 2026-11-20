@@ -25,6 +25,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.page_theme import page_themed
 from pypath_shiny.services.plotly_viz import build_feedback_trend_figure
 
 logger = logging.getLogger(__name__)
@@ -324,6 +325,7 @@ def feedback_server(
         )
 
     @render_widget
+    @page_themed(input)
     def feedback_trend():
         dirty()
         return build_feedback_trend_figure(weekly_feedback_counts(weeks=10))

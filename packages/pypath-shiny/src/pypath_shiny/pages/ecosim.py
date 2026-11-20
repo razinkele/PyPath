@@ -77,6 +77,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.page_theme import page_themed
 from pypath_shiny.services.plotly_viz import (
     build_biomass_change_figure,
     build_biomass_figure,
@@ -2604,6 +2605,7 @@ def ecosim_server(
         )
 
     @render_widget
+    @page_themed(input)
     def effort_preview_plot():
         """Interactive effort forcing preview, one line per fleet (Plotly)."""
         scen = scenario.get()
@@ -3129,6 +3131,7 @@ def ecosim_server(
         return render.DataGrid(_month_table(info), height="400px")
 
     @render_widget
+    @page_themed(input)
     def biomass_timeseries():
         """Interactive biomass time series (Plotly)."""
         output = sim_output.get()
@@ -3151,6 +3154,7 @@ def ecosim_server(
         )
 
     @render_widget
+    @page_themed(input)
     def catch_timeseries():
         """Interactive total annual catch (Plotly)."""
         output = sim_output.get()
@@ -3238,6 +3242,7 @@ def ecosim_server(
         )
 
     @render_widget
+    @page_themed(input)
     def final_biomass_plot():
         """Interactive initial vs final biomass (Plotly)."""
         data = _start_end_living_biomass()
@@ -3246,6 +3251,7 @@ def ecosim_server(
         return build_initial_final_figure(*data)
 
     @render_widget
+    @page_themed(input)
     def biomass_change_plot():
         """Interactive percent biomass change (Plotly)."""
         data = _start_end_living_biomass()

@@ -25,6 +25,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.page_theme import apply_page_theme, page_is_dark
 
 logger = logging.getLogger(__name__)
 
@@ -462,7 +463,11 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             margin=dict(l=50, r=50, t=50, b=50),
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="growth_plot_fig"))
+        return ui.HTML(
+            apply_page_theme(fig, page_is_dark(input)).to_html(
+                include_plotlyjs="cdn", div_id="growth_plot_fig"
+            )
+        )
 
     @render.ui
     def stanza_table():
@@ -531,7 +536,11 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             margin=dict(l=50, r=50, t=50, b=50),
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="biomass_plot_fig"))
+        return ui.HTML(
+            apply_page_theme(fig, page_is_dark(input)).to_html(
+                include_plotlyjs="cdn", div_id="biomass_plot_fig"
+            )
+        )
 
     @render.download_button(filename="stanza_configuration.csv")
     def download_stanzas():

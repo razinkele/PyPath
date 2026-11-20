@@ -41,6 +41,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.page_theme import page_themed
 from pypath_shiny.services.plotly_viz import (  # noqa: E402
     build_ee_figure,
     build_tl_bar_figure,
@@ -1648,6 +1649,7 @@ def ecopath_server(
         return all_groups[:n], n
 
     @render_widget
+    @page_themed(input)
     def trophic_level_plot():
         """Interactive trophic levels, coloured by role (Plotly)."""
         model = balanced_model.get()
@@ -1662,6 +1664,7 @@ def ecopath_server(
         )
 
     @render_widget
+    @page_themed(input)
     def ee_plot():
         """Interactive ecotrophic efficiency (Plotly)."""
         model = balanced_model.get()

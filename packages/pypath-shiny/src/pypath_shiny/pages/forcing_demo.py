@@ -27,6 +27,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.page_theme import apply_page_theme, page_is_dark
 
 
 def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
@@ -540,7 +541,9 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
             hovermode="x unified",
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
+        return ui.HTML(
+            apply_page_theme(fig, page_is_dark(input)).to_html(include_plotlyjs="cdn")
+        )
 
     @render.code
     def forcing_summary():
@@ -665,7 +668,9 @@ Data Points: {len(df)}
             height=600, template="plotly_white", showlegend=True, hovermode="x unified"
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
+        return ui.HTML(
+            apply_page_theme(fig, page_is_dark(input)).to_html(include_plotlyjs="cdn")
+        )
 
     def _forcing_code_inputs():
         """Collect the UI state needed to build the example script."""

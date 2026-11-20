@@ -16,6 +16,7 @@ from pypath.core.ecosim_deriv import apply_prey_switching
 from shiny import Inputs, Outputs, Session, render, ui
 
 from pypath_shiny.components import download_icon
+from pypath_shiny.services.page_theme import apply_page_theme, page_is_dark
 
 PREY_NAMES = ("Prey 1", "Prey 2", "Prey 3")
 BASE_DIET = (0.5, 0.3, 0.2)
@@ -153,7 +154,9 @@ def diet_rewiring_demo_server(input: Inputs, output: Outputs, session: Session):
         )
         fig.update_yaxes(title_text=f"{PREY_NAMES[varied]} share of diet (%)")
         fig.update_layout(height=450, template="plotly_white", hovermode="x unified")
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
+        return ui.HTML(
+            apply_page_theme(fig, page_is_dark(input)).to_html(include_plotlyjs="cdn")
+        )
 
     @render.code
     def diet_code_example():

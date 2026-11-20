@@ -22,6 +22,7 @@ except ImportError:  # pragma: no cover
 from pypath_shiny.components import download_icon, empty_state
 from pypath_shiny.config import UI
 from pypath_shiny.services.cell_tables import as_cell_table, with_cell_tips
+from pypath_shiny.services.page_theme import apply_page_theme, page_is_dark
 
 # Import great_tables formatters
 from ..services import network_viz
@@ -319,8 +320,17 @@ def results_server(
         return None
 
     def _styled(fig):
-        """Apply the sidebar "Plot Style" to a Plotly figure."""
-        fig.update_layout(template=plotly_template_for(input.plot_style()))
+        """Apply the sidebar "Plot Style" to a Plotly figure.
+
+        The default style follows the page's theme; a style the user picked
+        is left as picked.
+        """
+        if fig is None:
+            return fig
+        style = input.plot_style()
+        fig.update_layout(template=plotly_template_for(style))
+        if style in (None, "default"):
+            apply_page_theme(fig, page_is_dark(input))
         return fig
 
     @render_widget
@@ -479,21 +489,21 @@ def results_server(
             return build_biomass_figure(sim, [], [], log_scale=input.log_scale())
 
         selected = input.results_groups() or []
-        return build_biomass_figure(
-            sim,
-            info["groups"],
-            selected,
-            log_scale=input.log_scale(),
-            palette=input.color_palette(),
-        ).update_layout(template=plotly_template_for(input.plot_style()))
+        return _styled(
+            build_biomass_figure(
+                sim,
+                info["groups"],
+                selected,
+                log_scale=input.log_scale(),
+                palette=input.color_palette(),
+            )
+        )
 
     @render_widget
     def results_catch_plot():
         """Simulation catch results plot."""
         sim = sim_results.get()
-        return build_catch_figure(sim, palette=input.color_palette()).update_layout(
-            template=plotly_template_for(input.plot_style())
-        )
+        return _styled(build_catch_figure(sim, palette=input.color_palette()))
 
     @render.ui
     def params_data_table():

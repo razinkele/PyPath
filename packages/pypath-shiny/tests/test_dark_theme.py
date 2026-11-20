@@ -71,4 +71,5 @@ def test_tables_and_charts_have_a_dark_form():
     assert '[data-bs-theme="dark"] table.gt_table' in CSS
     charts = _block('[data-bs-theme="dark"] .shiny-image-output img')
     assert "invert(" in charts and "hue-rotate(180deg)" in charts
-    assert '[data-bs-theme="dark"] .js-plotly-plot' in CSS
+    # Plotly charts are drawn for the theme on the server (test_chart_theme.py)
+    assert '[data-bs-theme="dark"] .js-plotly-plot' not in CSS
