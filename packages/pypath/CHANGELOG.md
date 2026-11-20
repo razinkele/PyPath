@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.14.0 (2026-11-20)
+
+### Features
+
+- **io**: Load_timeseries_csv takes interval and reads month labels as monthly
+  ([`8d052c6`](https://github.com/razinkele/PyPath/commit/8d052c6a8c634b3af8bf6eb4ba02290247508af4))
+
+
 ## v1.13.1 (2026-11-20)
 
 ### Performance Improvements
