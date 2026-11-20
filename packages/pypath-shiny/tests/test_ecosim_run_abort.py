@@ -149,7 +149,7 @@ def test_run_creates_one_control_and_hands_it_to_the_worker():
 def test_month_progress_polls_on_the_loop_without_rebuilding_cancel():
     tree = _tree()
     poll = _find_function(tree, "sim_month_progress")
-    assert [ast.unparse(d) for d in poll.decorator_list] == ["output", "render.ui"]
+    assert [ast.unparse(d) for d in poll.decorator_list] == ["render.ui"]
     assert len(_invalidate_later_calls(poll)) == 1
     poll_src = ast.unparse(poll)
     assert "launched['control']" in poll_src

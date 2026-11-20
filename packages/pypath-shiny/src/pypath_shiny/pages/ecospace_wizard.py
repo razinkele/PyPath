@@ -10,11 +10,17 @@ Steps:
 7. Review & Launch — summary and build EcospaceParams
 """
 
-import json
 import logging
 
 from shiny import Inputs, Outputs, Session, reactive, render, ui
+from shiny_deckgl import CARTO_DARK, MapWidget
 
+from pypath_shiny.services.deckgl_maps import (
+    MAP_FIT_PADDING,
+    drawn_polygon_geometry,
+    polygon_area_km2,
+    study_area_layers,
+)
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -41,6 +47,14 @@ from pypath_shiny.services.validation import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Step 1's map: the study area is drawn on it with shiny-deckgl's drawing
+# tools. It starts over the Baltic, and follows the app's dark mode.
+AREA_MAP = MapWidget(
+    "wizard_area_map",
+    view_state={"longitude": 15.0, "latitude": 55.0, "zoom": 4},
+    dark_style=CARTO_DARK,
+)
 
 _STEPS = [
     "Select Area",
@@ -215,6 +229,13 @@ def ecospace_wizard_ui():
     return ui.div(
         ui.h3("Ecospace Data Wizard"),
         _step_progress_ui(),
+        # Step 1's map stays in the page for the whole session and is shown on
+        # step 1 only: a map built with the step would not exist yet when the
+        # server sends it its drawing tools, and would forget what was drawn
+        # whenever the wizard left the step. The hidden checkbox tells the
+        # browser which step the server is on.
+        ui.div(ui.input_checkbox("wizard_on_step1", None, value=True), class_="d-none"),
+        ui.panel_conditional("input.wizard_on_step1", _step1_select_area_ui()),
         ui.output_ui("wizard_step_content"),
         ui.div(
             ui.input_action_button("wizard_back", "Back", class_="btn-secondary me-2"),
@@ -295,6 +316,8 @@ def ecospace_wizard_server(
 
     # Reactive state for wizard data
     drawn_polygon = reactive.value(None)
+    # Counts the times a draft set (or a reset cleared) the study area.
+    area_from_draft = reactive.value(0)
     ecospace_grid = reactive.value(None)
     habitat_gdf = reactive.value(None)
     depth_per_patch = reactive.value(None)
@@ -335,6 +358,7 @@ def ecospace_wizard_server(
             step = max(1, min(len(_STEPS), step))
             wizard_step.set(step)
             drawn_polygon.set(draft.get("polygon"))
+            area_from_draft.set(area_from_draft.get() + 1)
 
             if draft.get("grid_type") in {"regular", "hexagonal"}:
                 ui.update_select("wizard_grid_type", selected=draft["grid_type"])
@@ -361,18 +385,88 @@ def ecospace_wizard_server(
     def _reset_draft():
         wizard_step.set(1)
         drawn_polygon.set(None)
+        area_from_draft.set(area_from_draft.get() + 1)
         ui.update_text_area("wizard_draft_json", value="")
         _notify_legacy("Wizard draft reset.", type="message")
 
     @reactive.effect
-    @reactive.event(input.wizard_drawn_polygon, ignore_none=False)
-    def _capture_polygon():
-        raw = input.wizard_drawn_polygon()
-        if raw:
-            drawn_polygon.set(json.loads(raw))
-            logger.info("Polygon captured with coordinates")
-        else:
-            drawn_polygon.set(None)
+    @reactive.event(input[AREA_MAP.drawn_features_input_id], ignore_none=False)
+    async def _capture_polygon():
+        """Keep the last polygon drawn (or none, after the bin) as the area."""
+        drawn = input[AREA_MAP.drawn_features_input_id]()
+        geometry = drawn_polygon_geometry(drawn)
+        if geometry is None:
+            if not (drawn or {}).get("features") and shown_area["drawn"]:
+                drawn_polygon.set(None)  # the bin removed the drawn area
+                shown_area["drawn"] = False
+            return
+        drawn_polygon.set(geometry)
+        shown_area["drawn"] = True
+        logger.info("Polygon captured with coordinates")
+        # One study area: drop the polygons drawn before this one, and the
+        # outline of an area that came from a draft.
+        polygons = [
+            f
+            for f in drawn["features"]
+            if (f.get("geometry") or {}).get("type") == "Polygon"
+        ]
+        stale = [f["id"] for f in polygons[:-1] if f.get("id")]
+        if stale:
+            await AREA_MAP.delete_drawn_features(session, stale)
+        await AREA_MAP.update(session, [])
+
+    # Whether the current study area is a polygon drawn on the map (it can
+    # also come from a loaded draft, which the map shows as an outline).
+    shown_area = {"drawn": False}
+
+    @reactive.effect
+    async def _give_the_map_its_drawing_tools():
+        await AREA_MAP.enable_draw(session, modes=["draw_polygon"])
+
+    @reactive.effect
+    def _show_step_one_map():
+        ui.update_checkbox("wizard_on_step1", value=wizard_step.get() == 1)
+
+    @reactive.effect
+    @reactive.event(input.wizard_clear_area)
+    async def _clear_area():
+        """Remove the study area, drawn or from a draft (the map's bin only
+        removes a polygon drawn on it)."""
+        drawn_polygon.set(None)
+        shown_area["drawn"] = False
+        await AREA_MAP.delete_drawn_features(session)
+        await AREA_MAP.update(session, [])
+
+    @reactive.effect
+    @reactive.event(area_from_draft)
+    async def _show_the_drafts_area():
+        """Replace whatever the map shows with a loaded (or reset) draft's area."""
+        geometry = drawn_polygon.get()
+        shown_area["drawn"] = False
+        await AREA_MAP.delete_drawn_features(session)
+        await AREA_MAP.update(session, study_area_layers(geometry))
+        if geometry is not None:
+            ring = geometry["coordinates"][0]
+            lons = [point[0] for point in ring]
+            lats = [point[1] for point in ring]
+            await AREA_MAP.fit_bounds(
+                session,
+                [[min(lons), min(lats)], [max(lons), max(lats)]],
+                padding=MAP_FIT_PADDING,
+                max_zoom=12,
+            )
+
+    @render.ui
+    def wizard_area_info():
+        geometry = drawn_polygon.get()
+        if geometry is None:
+            return ui.p("No study area drawn yet.", class_="text-muted mt-2")
+        corners = len(geometry["coordinates"][0]) - 1
+        return ui.p(
+            ui.tags.strong("Study area: "),
+            f"about {polygon_area_km2(geometry):,.0f} km² ({corners} corners)",
+            class_="mt-2",
+        )
 
     @reactive.effect
     @reactive.event(input.wizard_next)
@@ -952,7 +1046,7 @@ def ecospace_wizard_server(
     def wizard_step_content():
         step = wizard_step.get()
         if step == 1:
-            return _step1_select_area_ui()
+            return None  # the study-area map is in the page layout
         elif step == 2:
             return _step2_configure_grid_ui()
         elif step == 3:
@@ -969,110 +1063,21 @@ def ecospace_wizard_server(
 
 
 def _step1_select_area_ui():
-    leaflet_html = """
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <div id="wizard-map"
-         style="height: 500px; width: 100%; border: 1px solid #ddd;
-                border-radius: 4px;"></div>
-    <div id="wizard-area-info" class="mt-2 text-muted"></div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js">
-    </script>
-    <script>
-    (function() {
-        // Wait for container to be ready
-        setTimeout(function() {
-            var map = L.map('wizard-map').setView([55, 15], 5);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                maxZoom: 18,
-            }).addTo(map);
-
-            var drawnItems = new L.FeatureGroup();
-            map.addLayer(drawnItems);
-
-            var drawControl = new L.Control.Draw({
-                draw: {
-                    polygon: {
-                        allowIntersection: false,
-                        shapeOptions: { color: '#3388ff' }
-                    },
-                    polyline: false,
-                    rectangle: false,
-                    circle: false,
-                    marker: false,
-                    circlemarker: false,
-                },
-                edit: { featureGroup: drawnItems }
-            });
-            map.addControl(drawControl);
-
-            // Approximate geodesic area using the shoelace formula on
-            // WGS-84 coordinates (Gauss / trapezoidal spherical excess).
-            // Falls back to a simple lat/lon bounding-box estimate when
-            // L.GeometryUtil is unavailable.
-            function computeAreaKm2(latlngs) {
-                if (L.GeometryUtil && L.GeometryUtil.geodesicArea) {
-                    return L.GeometryUtil.geodesicArea(latlngs) / 1e6;
-                }
-                // Fallback: spherical polygon area via shoelace on radians
-                var RAD = Math.PI / 180;
-                var R = 6371; // Earth radius in km
-                var n = latlngs.length;
-                if (n < 3) return 0;
-                var total = 0;
-                for (var i = 0; i < n; i++) {
-                    var j = (i + 1) % n;
-                    var lat1 = latlngs[i].lat * RAD;
-                    var lon1 = latlngs[i].lng * RAD;
-                    var lat2 = latlngs[j].lat * RAD;
-                    var lon2 = latlngs[j].lng * RAD;
-                    total += (lon2 - lon1) * (2 + Math.sin(lat1) + Math.sin(lat2));
-                }
-                return Math.abs(total * R * R / 2);
-            }
-
-            function updateArea(layer) {
-                var latlngs = layer.getLatLngs()[0];
-                var geojson = layer.toGeoJSON();
-                var areaKm2 = computeAreaKm2(latlngs).toFixed(1);
-                document.getElementById('wizard-area-info').innerHTML =
-                    '<strong>Study area:</strong> ~' + areaKm2 +
-                    ' km&sup2; (' + latlngs.length + ' vertices)';
-                // Send to Shiny
-                if (window.Shiny) {
-                    Shiny.setInputValue('wizard_drawn_polygon',
-                                        JSON.stringify(geojson.geometry));
-                }
-            }
-
-            map.on(L.Draw.Event.CREATED, function(e) {
-                drawnItems.clearLayers();
-                drawnItems.addLayer(e.layer);
-                updateArea(e.layer);
-            });
-
-            map.on(L.Draw.Event.EDITED, function(e) {
-                e.layers.eachLayer(function(layer) { updateArea(layer); });
-            });
-
-            map.on(L.Draw.Event.DELETED, function(e) {
-                document.getElementById('wizard-area-info').innerHTML = '';
-                if (window.Shiny) {
-                    Shiny.setInputValue('wizard_drawn_polygon', null);
-                }
-            });
-        }, 100);
-    })();
-    </script>
-    """
     return ui.card(
         ui.card_header("Step 1: Select Study Area"),
-        ui.p("Draw a polygon on the map to define your study area."),
-        ui.HTML(leaflet_html),
+        ui.p(
+            "Draw a polygon on the map to define your study area: pick the "
+            "polygon tool at the top left, click each corner, and double-click "
+            "the last one. Drawing again replaces the area."
+        ),
+        AREA_MAP.ui(height="500px"),
+        ui.output_ui("wizard_area_info"),
+        ui.input_action_button(
+            "wizard_clear_area",
+            "Clear study area",
+            class_="btn-outline-secondary btn-sm",
+        ),
+        full_screen=True,
     )
 
 

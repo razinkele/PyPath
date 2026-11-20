@@ -37,6 +37,9 @@ __all__ = [
     "grid_overview_layers",
     "gradient_legend",
     "grid_bounds",
+    "drawn_polygon_geometry",
+    "polygon_area_km2",
+    "study_area_layers",
     "MAP_TOOLTIP",
     "MAP_FIT_PADDING",
 ]
@@ -371,4 +374,60 @@ def grid_bounds(grid, boundary_bounds: Sequence[float] | None = None):
     return [
         [float(west - pad), float(south - pad)],
         [float(east + pad), float(north + pad)],
+    ]
+
+
+# --- a study area drawn on a map ---------------------------------------
+
+_EARTH_RADIUS_KM = 6371.0
+
+
+def drawn_polygon_geometry(drawn) -> dict | None:
+    """The study area among a map's drawn features: the last polygon's geometry.
+
+    *drawn* is the GeoJSON FeatureCollection a ``MapWidget`` reports through
+    its ``drawn_features`` input, or None. A polygon needs three distinct
+    corners (its ring repeats the first as the last).
+    """
+    features = (drawn or {}).get("features") or []
+    for feature in reversed(features):
+        geometry = (feature or {}).get("geometry") or {}
+        if geometry.get("type") != "Polygon":
+            continue
+        rings = geometry.get("coordinates") or []
+        if rings and len(rings[0]) >= 4:
+            return geometry
+    return None
+
+
+def polygon_area_km2(geometry: dict) -> float:
+    """Area of a GeoJSON polygon's outer ring on the sphere, in km².
+
+    Longitude and latitude in degrees. Good to about half a percent, which
+    is enough to tell the user how large the area they drew is.
+    """
+    ring = np.radians(np.asarray(geometry["coordinates"][0], dtype=float)[:, :2])
+    lon, lat = ring[:, 0], ring[:, 1]
+    lon_next, lat_next = np.roll(lon, -1), np.roll(lat, -1)
+    # An edge takes the short way round: 179 E to 179 W is 2 degrees.
+    step = (lon_next - lon + np.pi) % (2 * np.pi) - np.pi
+    total = np.sum(step * (2 + np.sin(lat) + np.sin(lat_next)))
+    return float(abs(total) * _EARTH_RADIUS_KM**2 / 2)
+
+
+def study_area_layers(geometry: dict | None) -> list[dict]:
+    """The study area's outline, for a map that shows one already chosen."""
+    if geometry is None:
+        return []
+    return [
+        geojson_layer(
+            "study-area",
+            {"type": "Feature", "properties": {}, "geometry": geometry},
+            filled=True,
+            stroked=True,
+            getFillColor=_LIGHT_BLUE,
+            getLineColor=_STEEL_BLUE,
+            lineWidthMinPixels=2,
+            pickable=False,
+        )
     ]

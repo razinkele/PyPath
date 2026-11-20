@@ -280,6 +280,8 @@ def prebalance_ui():
                         ),
                     )
                 ),
+                role="complementary",
+                aria_label="Pre-balance settings",
                 width=UI.sidebar_width,
                 position="left",
             ),
@@ -484,7 +486,6 @@ def prebalance_server(
                 f"Error running diagnostics: {str(e)}", type="error", duration=5
             )
 
-    @output
     @render.ui
     def report_summary():
         """Render diagnostic summary report."""
@@ -604,7 +605,6 @@ def prebalance_server(
             )
         )
 
-    @output
     @render.ui
     def rpath_diag_status():
         """Render an inline UI badge describing Rpath diagnostics state.
@@ -633,7 +633,6 @@ def prebalance_server(
         # support modals we'll expose the output inline in `rpath_modal_inline`.
         return make_rpath_status_badge(status, note=note, link=link)
 
-    @output
     @render.ui
     def rpath_modal_inline():
         """Inline fallback for modal content when `session.show_modal` is not present.
@@ -679,7 +678,6 @@ def prebalance_server(
             )
             rpath_modal_content.set(err_body)
 
-    @output
     @render.ui
     def report_warnings():
         """Render diagnostic warnings."""
@@ -728,7 +726,6 @@ def prebalance_server(
             ui.h5(f"Found {len(warnings)} Warning(s)"), ui.hr(), *warning_items
         )
 
-    @output
     @render.ui
     def table_predator_prey():
         """Render predator-prey ratios table."""
@@ -753,7 +750,6 @@ def prebalance_server(
 
         return format_diagnostics_table(df, "Predator-Prey Ratios")
 
-    @output
     @render.ui
     def table_pb_ratios():
         """Render P/B ratios table."""
@@ -775,7 +771,6 @@ def prebalance_server(
 
         return format_diagnostics_table(df, "Production/Biomass Ratios")
 
-    @output
     @render.ui
     def table_qb_ratios():
         """Render Q/B ratios table."""
@@ -797,7 +792,6 @@ def prebalance_server(
 
         return format_diagnostics_table(df, "Consumption/Biomass Ratios")
 
-    @output
     @render.plot
     def diagnostic_plot():
         """Render diagnostic visualization."""

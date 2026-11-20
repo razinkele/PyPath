@@ -97,6 +97,8 @@ def optimization_demo_ui():
                     "Generate Synthetic Data",
                     class_="btn-secondary w-100 mt-2",
                 ),
+                role="complementary",
+                aria_label="Optimization settings",
                 width=300,
             ),
             # Main content
@@ -606,7 +608,6 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
 
         optimization_results.set(results)
 
-    @output
     @render.ui
     def convergence_plot():
         """Plot optimization convergence."""
@@ -646,7 +647,6 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
-    @output
     @render.code
     def optimization_summary():
         """Display optimization summary."""
@@ -681,7 +681,6 @@ Objective Function: {cfg["objective"].upper()}
         """
         return summary
 
-    @output
     @render.ui
     def gp_plot():
         """Plot Gaussian Process model."""
@@ -742,7 +741,6 @@ Objective Function: {cfg["objective"].upper()}
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
-    @output
     @render.ui
     def opt_comparison_plot():
         """Plot observed vs optimized."""
@@ -791,7 +789,6 @@ Objective Function: {cfg["objective"].upper()}
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
-    @output
     @render.ui
     def results_table():
         """Display results comparison table."""
@@ -832,7 +829,6 @@ Objective Function: {cfg["objective"].upper()}
             input.acquisition(),
         )
 
-    @output
     @render.code
     def opt_code_example():
         """Generate Python code example."""

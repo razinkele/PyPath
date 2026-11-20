@@ -466,6 +466,8 @@ def ecopath_ui():
                         style="padding-top: 10px;",
                     ),
                 ),
+                role="complementary",
+                aria_label="Ecopath settings",
                 width=300,
             ),
             # Main content area
@@ -705,7 +707,6 @@ def ecopath_server(
             )
         return col_defs
 
-    @output
     @render.data_frame
     def model_params_table():
         """Render editable model parameters table."""
@@ -760,7 +761,6 @@ def ecopath_server(
             formatted_df, editable=True, filters=False, styles=styles, width="100%"
         )
 
-    @output
     @render.ui
     def remarks_panel():
         """Show remarks if any exist in the model."""
@@ -808,7 +808,6 @@ def ecopath_server(
             class_="text-muted small mt-3",
         )
 
-    @output
     @render.data_frame
     def diet_matrix_table():
         """Render editable diet matrix."""
@@ -829,7 +828,6 @@ def ecopath_server(
             formatted_df, editable=True, filters=False, styles=styles
         )
 
-    @output
     @render.data_frame
     def fisheries_table():
         """Render fisheries (landings/discards) table."""
@@ -917,7 +915,6 @@ def ecopath_server(
 
     # === Multi-Stanza Functions ===
 
-    @output
     @render.ui
     def stanza_status():
         """Show multi-stanza status."""
@@ -954,7 +951,6 @@ def ecopath_server(
             class_="alert alert-success",
         )
 
-    @output
     @render.data_frame
     def stanza_groups_table():
         """Render stanza groups configuration table."""
@@ -984,7 +980,6 @@ def ecopath_server(
 
         return render.DataGrid(formatted_df, styles=styles)
 
-    @output
     @render.data_frame
     def stanza_indiv_table():
         """Render individual stanza life stages table."""
@@ -1408,7 +1403,6 @@ def ecopath_server(
                 )
             )
 
-    @output
     @render.ui
     def balance_button_ui():
         """Render balance button with state based on validation errors."""
@@ -1440,7 +1434,6 @@ def ecopath_server(
             else ui.div(),
         )
 
-    @output
     @render.ui
     def balance_validation_summary():
         """Show validation summary panel with inline errors and quick fixes."""
@@ -1494,7 +1487,6 @@ def ecopath_server(
             class_=alert_class,
         )
 
-    @output
     @render.ui
     def balance_status():
         """Show balance status."""
@@ -1533,7 +1525,6 @@ def ecopath_server(
             class_="alert alert-success",
         )
 
-    @output
     @render.ui
     def model_results_table():
         """Display balanced model results with great_tables formatting."""
@@ -1550,7 +1541,6 @@ def ecopath_server(
         # Format with great_tables
         return format_results_summary(df, title="Balanced Model Results")
 
-    @output
     @render.ui
     def diagnostics_output():
         """Display model diagnostics."""
@@ -1600,7 +1590,6 @@ def ecopath_server(
         )
         return all_groups[:n], n
 
-    @output
     @render_widget
     def trophic_level_plot():
         """Interactive trophic levels, coloured by role (Plotly)."""
@@ -1615,7 +1604,6 @@ def ecopath_server(
             top_predator_tl=THRESHOLDS.type_threshold_consumer_toppred,
         )
 
-    @output
     @render_widget
     def ee_plot():
         """Interactive ecotrophic efficiency (Plotly)."""

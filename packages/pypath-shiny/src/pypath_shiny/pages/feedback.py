@@ -297,7 +297,6 @@ def feedback_server(
             logger.warning("Failed to load feedback entries", exc_info=True)
             return []
 
-    @output
     @render.ui
     def feedback_tiles():
         dirty()
@@ -329,7 +328,6 @@ def feedback_server(
         dirty()
         return build_feedback_trend_figure(weekly_feedback_counts(weeks=10))
 
-    @output
     @render.data_frame
     def feedback_grid():
         entries = _entries()
@@ -376,7 +374,6 @@ def feedback_server(
         )
         ui.update_selectize("fb_selected_id", choices=choices, selected=selected)
 
-    @output
     @render.ui
     def feedback_detail():
         selected = str(input.fb_selected_id() or "")

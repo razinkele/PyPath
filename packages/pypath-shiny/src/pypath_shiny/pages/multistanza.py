@@ -107,6 +107,8 @@ def multistanza_ui():
                     "Save to Model",
                     class_="btn-success w-100 mt-2",
                 ),
+                role="complementary",
+                aria_label="Multi-stanza settings",
                 width=300,
             ),
             # Main content
@@ -361,7 +363,6 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
         df = pd.DataFrame(stanzas)
         stanza_data.set(df)
 
-    @output
     @render.ui
     def growth_plot():
         """Render growth curves plot."""
@@ -457,7 +458,6 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn", div_id="growth_plot_fig"))
 
-    @output
     @render.ui
     def stanza_table():
         """Render stanza properties table."""
@@ -475,7 +475,6 @@ def multistanza_server(input: Inputs, output: Outputs, session: Session, shared_
             )
         return format_params_table(df, title="Stanza Properties")
 
-    @output
     @render.ui
     def biomass_plot():
         """Render biomass distribution plot."""

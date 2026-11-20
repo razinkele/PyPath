@@ -312,7 +312,6 @@ def analysis_server(
 
     # === Network Analysis ===
 
-    @output
     @render.ui
     def network_status():
         """Show network analysis status."""
@@ -325,7 +324,6 @@ def analysis_server(
             )
         return ui.div()
 
-    @output
     @render.ui
     def system_indices():
         """Display system-level indices."""
@@ -360,7 +358,6 @@ def analysis_server(
 
         return ui.tags.table(ui.tags.tbody(*rows), class_="table table-sm")
 
-    @output
     @render.ui
     def flow_indices():
         """Display flow-related indices."""
@@ -405,7 +402,6 @@ def analysis_server(
 
         return ui.tags.table(ui.tags.tbody(*rows), class_="table table-sm")
 
-    @output
     @render.plot
     def analysis_foodweb_plot():
         """Plot food web structure."""
@@ -430,7 +426,6 @@ def analysis_server(
 
     # === Trophic Analysis ===
 
-    @output
     @render.ui
     def trophic_status():
         """Show trophic analysis status."""
@@ -443,7 +438,6 @@ def analysis_server(
             )
         return None
 
-    @output
     @render.table
     def trophic_summary_table():
         """Display trophic level summary."""
@@ -469,7 +463,6 @@ def analysis_server(
             logger.error("Error extracting trophic data: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract trophic data"]})
 
-    @output
     @render.plot
     def trophic_spectrum_plot():
         """Plot trophic spectrum."""
@@ -512,7 +505,6 @@ def analysis_server(
             class_="alert alert-warning",
         )
 
-    @output
     @render.ui
     def mti_status():
         """Show MTI analysis status."""
@@ -521,7 +513,6 @@ def analysis_server(
             return _unavailable_alert("Mixed Trophic Impacts")
         return None
 
-    @output
     @render_widget
     def mti_heatmap_plot():
         """Interactive MTI heatmap (Plotly)."""
@@ -532,7 +523,6 @@ def analysis_server(
         n = mti.shape[0]
         return build_mti_heatmap(mti, [str(g) for g in model.Group[:n]])
 
-    @output
     @render.table
     def mti_positive_table():
         """Show top positive MTI impacts."""
@@ -559,7 +549,6 @@ def analysis_server(
             logger.error("Error extracting positive impacts: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract impacts"]})
 
-    @output
     @render.table
     def mti_negative_table():
         """Show top negative MTI impacts."""
@@ -588,7 +577,6 @@ def analysis_server(
 
     # === Keystoneness ===
 
-    @output
     @render.ui
     def keystone_status():
         """Show keystoneness status."""
@@ -597,7 +585,6 @@ def analysis_server(
             return _unavailable_alert("keystoneness")
         return None
 
-    @output
     @render.table
     def keystoneness_table():
         """Display keystoneness table."""
@@ -617,7 +604,6 @@ def analysis_server(
             logger.error("Error extracting keystoneness data: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract keystoneness"]})
 
-    @output
     @render_widget
     def keystoneness_plot():
         """Interactive keystoneness vs biomass (Plotly)."""
@@ -630,7 +616,6 @@ def analysis_server(
             list(model.Group[:n]), np.asarray(model.Biomass[:n], dtype=float), ks
         )
 
-    @output
     @render.ui
     def analysis_balance_status():
         """Show balance check status."""
@@ -643,7 +628,6 @@ def analysis_server(
             )
         return None
 
-    @output
     @render.ui
     def balance_summary():
         """Display balance summary."""
@@ -678,7 +662,6 @@ def analysis_server(
 
         return ui.div(*items)
 
-    @output
     @render_widget
     def analysis_ee_plot():
         """Interactive ecotrophic efficiency bars (Plotly)."""
@@ -692,7 +675,6 @@ def analysis_server(
             np.asarray(model.EE, dtype=float)[not_fleet],
         )
 
-    @output
     @render.table
     def balance_details_table():
         """Display detailed balance diagnostics."""
@@ -729,7 +711,6 @@ def analysis_server(
 
     # === Export Data ===
 
-    @output
     @render.ui
     def export_status():
         """Show export status."""
@@ -742,7 +723,6 @@ def analysis_server(
             )
         return None
 
-    @output
     @render.table
     def export_params_table():
         """Display basic parameters table."""
@@ -758,7 +738,6 @@ def analysis_server(
             logger.error("Error extracting model parameters: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract parameters"]})
 
-    @output
     @render.table
     def export_diet_table():
         """Display diet matrix preview."""
@@ -782,7 +761,6 @@ def analysis_server(
             logger.error("Error extracting diet matrix: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract diet matrix"]})
 
-    @output
     @render.download_button(filename="pypath_model_data.csv")
     def download_model_data():
         """Download model data as CSV."""

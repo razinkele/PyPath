@@ -126,6 +126,8 @@ def forcing_demo_ui():
                     "Run Demo Simulation",
                     class_="btn-success w-100 mt-2",
                 ),
+                role="complementary",
+                aria_label="Forcing settings",
                 width=300,
             ),
             # Main content
@@ -501,7 +503,6 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
 
         forcing_obj.set(forcing)
 
-    @output
     @render.ui
     def forcing_plot():
         """Plot forcing time series."""
@@ -537,7 +538,6 @@ def forcing_demo_server(input: Inputs, output: Outputs, session: Session):
 
         return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
 
-    @output
     @render.code
     def forcing_summary():
         """Display summary of forcing configuration."""
@@ -568,7 +568,6 @@ Data Points: {len(df)}
         """
         return summary
 
-    @output
     @render.ui
     def forcing_comparison_plot():
         """Plot comparison of forced vs unforced simulation."""
@@ -683,7 +682,6 @@ Data Points: {len(df)}
             "pattern_args": pattern_args,
         }
 
-    @output
     @render.code
     def forcing_code_example():
         """Generate Python code example."""
