@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.16.0 (2026-11-20)
+
+### Bug Fixes
+
+- **shiny**: Black lines and markers stay visible on a dark chart
+  ([`7a4643c`](https://github.com/razinkele/PyPath/commit/7a4643cc1db762e5a12a3220aa0353fea2752a0f))
+
+### Features
+
+- **shiny**: Charts drawn for the dark theme; dark fixes on the Home page
+  ([`d13ec68`](https://github.com/razinkele/PyPath/commit/d13ec688f9059977afa6bab705e5084a7c9eb8c1))
+
+
 ## v1.15.0 (2026-11-20)
 
 ### Features
