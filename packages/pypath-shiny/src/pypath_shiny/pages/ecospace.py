@@ -45,6 +45,7 @@ from pypath_shiny.services.background_runs import (
     scenario_fingerprint,
     spatial_result_is_current,
 )
+from pypath_shiny.services.cell_tables import as_cell_table
 
 # Import centralized configuration
 from pypath_shiny.services.deckgl_maps import (
@@ -877,7 +878,7 @@ def ecospace_ui():
                 ),
                 ui.nav_panel(
                     "Spatial Metrics",
-                    ui.output_table("spatial_metrics_table"),
+                    ui.output_ui("spatial_metrics_table"),
                     ui.p(
                         "Summary statistics for spatial distribution of biomass.",
                         class_="text-muted small mt-2",
@@ -2126,7 +2127,8 @@ def ecospace_server(
         )
 
     # Spatial metrics table
-    @render.table
+    @render.ui
+    @as_cell_table()
     def spatial_metrics_table():
         """Display spatial metrics from grid and simulation results."""
         g = grid()

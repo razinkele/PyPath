@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover
 # Import centralized configuration
 from pypath_shiny.components import empty_state
 from pypath_shiny.config import UI
+from pypath_shiny.services.cell_tables import as_cell_table, with_cell_tips
 
 # Import great_tables formatters
 from ..services import network_viz
@@ -152,7 +153,7 @@ def results_ui():
                     "Model Summary",
                     ui.h4("Ecopath Model Summary", class_="mt-3"),
                     ui.output_ui("model_summary_status"),
-                    ui.output_table("model_summary_table"),
+                    ui.output_ui("model_summary_table"),
                     ui.tags.hr(),
                     ui.h5("Trophic Structure"),
                     ui.layout_columns(
@@ -295,14 +296,15 @@ def results_server(
             class_="alert alert-success",
         )
 
-    @render.table
+    @render.ui
+    @as_cell_table(empty="Balance a model to see its summary.")
     def model_summary_table():
         """Display model summary table."""
         model = model_data.get()
         info = get_model_info(model)
 
         if info is None:
-            return pd.DataFrame()
+            return None
 
         if is_balanced_model(model) and hasattr(model, "summary"):
             return model.summary()
@@ -313,7 +315,7 @@ def results_server(
                 return params.model[
                     ["Group", "Type", "Biomass", "PB", "QB", "EE"]
                 ].head(20)
-        return pd.DataFrame()
+        return None
 
     def _styled(fig):
         """Apply the sidebar "Plot Style" to a Plotly figure."""
@@ -510,7 +512,7 @@ def results_server(
 
         if df.empty:
             return df
-        return format_params_table(df, title="Model Parameters")
+        return with_cell_tips(format_params_table(df, title="Model Parameters"), df)
 
     @render.ui
     def diet_data_table():
@@ -536,12 +538,14 @@ def results_server(
                 model.DC[:n_bio, :n_living],
                 index=groups[:n_bio],
                 columns=groups[:n_living],
-            ).round(4)
+            )
             df.insert(0, "Prey", df.index)
 
         if df.empty:
             return df
-        return format_diet_matrix(df, title="Diet Composition Matrix")
+        return with_cell_tips(
+            format_diet_matrix(df, title="Diet Composition Matrix"), df
+        )
 
     @render.ui
     def biomass_data_table():
@@ -556,9 +560,7 @@ def results_server(
         n_bio = info["num_living"] + info["num_dead"]
         groups = info["groups"]
 
-        df = pd.DataFrame(
-            sim.out_Biomass[:, 1 : n_bio + 1], columns=groups[:n_bio]
-        ).round(4)
+        df = pd.DataFrame(sim.out_Biomass[:, 1 : n_bio + 1], columns=groups[:n_bio])
         df.insert(0, "Month", range(len(df)))
         df.insert(1, "Year", df["Month"] / 12)
 
@@ -567,7 +569,9 @@ def results_server(
 
         if df.empty:
             return df
-        return format_time_series_summary(df, title="Monthly Biomass", decimals=4)
+        return with_cell_tips(
+            format_time_series_summary(df, title="Monthly Biomass", decimals=4), df
+        )
 
     @render.ui
     def catch_data_table():
@@ -584,12 +588,14 @@ def results_server(
 
         df = pd.DataFrame(
             sim.annual_Catch[:, 1 : n_living + 1], columns=groups[:n_living]
-        ).round(4)
+        )
         df.insert(0, "Year", range(1, len(df) + 1))
 
         if df.empty:
             return df
-        return format_time_series_summary(df, title="Annual Catch", decimals=4)
+        return with_cell_tips(
+            format_time_series_summary(df, title="Annual Catch", decimals=4), df
+        )
 
     @render.download_button(filename="pypath_model.csv")
     def download_model_csv():

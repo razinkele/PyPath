@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
 from pypath_shiny.config import PARAM_RANGES
+from pypath_shiny.services.cell_tables import with_cell_tips
 
 # Configuration imports
 from pypath_shiny.services.gt_formatters import format_dataframe
@@ -805,21 +806,22 @@ Objective Function: {cfg["objective"].upper()}
         years = np.arange(len(data))
         predicted = 20.0 * np.exp(-best_param * 0.05 * years)
 
-        df = pd.DataFrame(
+        full = pd.DataFrame(
             {
                 "Year": data["Year"],
-                "Observed": data["Observed_Biomass"].round(2),
-                "Predicted": predicted.round(2),
-                "Error": (data["Observed_Biomass"] - predicted).round(2),
+                "Observed": data["Observed_Biomass"],
+                "Predicted": predicted,
+                "Error": data["Observed_Biomass"] - predicted,
                 "Error_%": (
                     (data["Observed_Biomass"] - predicted)
                     / data["Observed_Biomass"]
                     * 100
-                ).round(1),
+                ),
             }
         )
+        df = full.round({"Observed": 2, "Predicted": 2, "Error": 2, "Error_%": 1})
 
-        return format_dataframe(df, title="Results Comparison")
+        return with_cell_tips(format_dataframe(df, title="Results Comparison"), full)
 
     def _opt_code():
         return build_optimization_code(

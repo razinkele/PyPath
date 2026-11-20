@@ -92,7 +92,7 @@ def test_the_tooltip_says_the_select_follows_the_models_origin():
     import html
 
     page = html.unescape(str(ecosim_page.ecosim_ui()))
-    match = re.search(r'title="(Groups that turn over[^"]*)"', page)
+    match = re.search(r"(Groups that turn over[^<]*)", page)
     assert match
     tip = match.group(1)
     assert "Loading a model sets it to the model's origin" in tip

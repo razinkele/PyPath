@@ -142,6 +142,8 @@ app_ui = ui.page_fluid(
             href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/flatly/bootstrap.min.css",
         ),
         ui.tags.link(rel="stylesheet", href="custom.css"),
+        # A tooltip on every table cell (services/cell_tables.py).
+        ui.tags.script(src="cell-tips.js", defer=""),
         # Browser info for feedback reports. Send it on 'shiny:sessioninitialized':
         # at window 'load' Shiny.setInputValue may not exist yet (it threw
         # "Shiny.setInputValue is not a function" on a cold page load), and on

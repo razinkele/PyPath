@@ -29,6 +29,7 @@ from pypath_shiny.services.background_runs import (
     scenario_changed_since,
     scenario_fingerprint,
 )
+from pypath_shiny.services.cell_tables import as_cell_table
 from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunControl, RunSlot
 from pypath_shiny.services.notifications import (
     notify_error,
@@ -274,7 +275,7 @@ def ibm_ui():
                 ui.nav_panel(
                     "Configuration",
                     ui.h5("Parameter Summary", class_="mt-3 mb-3"),
-                    ui.output_table("ibm_param_summary"),
+                    ui.output_ui("ibm_param_summary"),
                     ui.h5("Initialization Status", class_="mt-4 mb-3"),
                     ui.output_ui("ibm_init_status"),
                 ),
@@ -286,7 +287,7 @@ def ibm_ui():
                     output_widget(
                         "ibm_age_distribution", height="400px", fillable=True
                     ),
-                    ui.output_table("ibm_population_stats"),
+                    ui.output_ui("ibm_population_stats"),
                 ),
                 ui.nav_panel(
                     "Biomass Comparison",
@@ -709,7 +710,8 @@ def ibm_server(
     # Renderers
     # ----------------------------------------------------------------
 
-    @render.table
+    @render.ui
+    @as_cell_table()
     def ibm_param_summary():
         """Show parameter summary table."""
 
@@ -816,7 +818,8 @@ def ibm_server(
             [ind.age for ind in inds], [ind.n_represented for ind in inds]
         )
 
-    @render.table
+    @render.ui
+    @as_cell_table()
     def ibm_population_stats():
         """Summary statistics for the IBM population."""
         ibm = ibm_group_instance()

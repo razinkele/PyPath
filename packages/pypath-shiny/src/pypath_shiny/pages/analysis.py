@@ -42,6 +42,7 @@ from pypath.core.plotting import (
 
 from pypath_shiny.config import UI
 from pypath_shiny.pages.utils import is_balanced_model
+from pypath_shiny.services.cell_tables import as_cell_table
 from pypath_shiny.services.plotly_viz import (
     build_ee_figure,
     build_keystoneness_figure,
@@ -93,7 +94,7 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("Trophic Level Summary"),
                         ui.card_body(
-                            ui.output_table("trophic_summary_table"),
+                            ui.output_ui("trophic_summary_table"),
                         ),
                     ),
                     ui.card(
@@ -134,13 +135,13 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("Top Positive Impacts"),
                         ui.card_body(
-                            ui.output_table("mti_positive_table"),
+                            ui.output_ui("mti_positive_table"),
                         ),
                     ),
                     ui.card(
                         ui.card_header("Top Negative Impacts"),
                         ui.card_body(
-                            ui.output_table("mti_negative_table"),
+                            ui.output_ui("mti_negative_table"),
                         ),
                     ),
                     col_widths=[UI.col_width_medium, UI.col_width_medium],
@@ -159,7 +160,7 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("Top Keystone Species"),
                         ui.card_body(
-                            ui.output_table("keystoneness_table"),
+                            ui.output_ui("keystoneness_table"),
                         ),
                     ),
                     ui.card(
@@ -200,7 +201,7 @@ def analysis_ui():
                     col_widths=[5, 7],
                 ),
                 ui.h5("Detailed Diagnostics", class_="mt-4"),
-                ui.output_table("balance_details_table"),
+                ui.output_ui("balance_details_table"),
             ),
             # Model Export
             ui.nav_panel(
@@ -212,13 +213,13 @@ def analysis_ui():
                     ui.card(
                         ui.card_header("Basic Parameters"),
                         ui.card_body(
-                            ui.output_table("export_params_table"),
+                            ui.output_ui("export_params_table"),
                         ),
                     ),
                     ui.card(
                         ui.card_header("Diet Matrix"),
                         ui.card_body(
-                            ui.output_table("export_diet_table"),
+                            ui.output_ui("export_diet_table"),
                         ),
                     ),
                     col_widths=[UI.col_width_medium, UI.col_width_medium],
@@ -438,7 +439,8 @@ def analysis_server(
             )
         return None
 
-    @render.table
+    @render.ui
+    @as_cell_table(decimals={"Trophic Level": 2})
     def trophic_summary_table():
         """Display trophic level summary."""
         model = get_balanced_model()
@@ -453,8 +455,8 @@ def analysis_server(
             df = pd.DataFrame(
                 {
                     "Group": groups,
-                    "Trophic Level": np.round(tl, 2),
-                    "Biomass": np.round(biomass, 3),
+                    "Trophic Level": tl,
+                    "Biomass": biomass,
                 }
             )
             df = df.sort_values("Trophic Level", ascending=False).head(15)
@@ -523,7 +525,8 @@ def analysis_server(
         n = mti.shape[0]
         return build_mti_heatmap(mti, [str(g) for g in model.Group[:n]])
 
-    @render.table
+    @render.ui
+    @as_cell_table(decimals=4)
     def mti_positive_table():
         """Show top positive MTI impacts."""
         mti = get_mti_matrix()
@@ -543,13 +546,13 @@ def analysis_server(
 
             df = pd.DataFrame(impacts)
             df = df.nlargest(10, "Impact")
-            df["Impact"] = df["Impact"].round(4)
             return df
         except Exception as e:
             logger.error("Error extracting positive impacts: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract impacts"]})
 
-    @render.table
+    @render.ui
+    @as_cell_table(decimals=4)
     def mti_negative_table():
         """Show top negative MTI impacts."""
         mti = get_mti_matrix()
@@ -569,7 +572,6 @@ def analysis_server(
 
             df = pd.DataFrame(impacts)
             df = df.nsmallest(10, "Impact")
-            df["Impact"] = df["Impact"].round(4)
             return df
         except Exception as e:
             logger.error("Error extracting negative impacts: %s", e, exc_info=True)
@@ -585,7 +587,8 @@ def analysis_server(
             return _unavailable_alert("keystoneness")
         return None
 
-    @render.table
+    @render.ui
+    @as_cell_table(decimals=4)
     def keystoneness_table():
         """Display keystoneness table."""
         ks = get_keystoneness()
@@ -597,7 +600,7 @@ def analysis_server(
             groups = list(model.Group[: len(ks)])
 
             # Create DataFrame with group names
-            df = pd.DataFrame({"Group": groups, "Keystoneness": np.round(ks, 4)})
+            df = pd.DataFrame({"Group": groups, "Keystoneness": ks})
             df = df.sort_values("Keystoneness", ascending=False).head(10)
             return df
         except Exception as e:
@@ -675,7 +678,8 @@ def analysis_server(
             np.asarray(model.EE, dtype=float)[not_fleet],
         )
 
-    @render.table
+    @render.ui
+    @as_cell_table()
     def balance_details_table():
         """Display detailed balance diagnostics."""
         check = get_balance_check()
@@ -693,11 +697,11 @@ def analysis_server(
             df = pd.DataFrame(
                 {
                     "Group": groups,
-                    "EE": np.round(ee, 3),
-                    "Biomass": np.round(biomass, 3),
-                    "P/B": np.round(pb, 3),
-                    "Q/B": np.round(qb, 3),
-                    "P/Q": np.round(pb / np.where(qb > 0, qb, np.nan), 3),
+                    "EE": ee,
+                    "Biomass": biomass,
+                    "P/B": pb,
+                    "Q/B": qb,
+                    "P/Q": pb / np.where(qb > 0, qb, np.nan),
                 }
             )
 
@@ -723,7 +727,8 @@ def analysis_server(
             )
         return None
 
-    @render.table
+    @render.ui
+    @as_cell_table()
     def export_params_table():
         """Display basic parameters table."""
         model = get_balanced_model()
@@ -732,13 +737,13 @@ def analysis_server(
 
         try:
             df = model.summary()[["Group", "Type", "Biomass", "PB", "QB", "EE"]].copy()
-            df = df.round(3)
             return df.head(15)
         except Exception as e:
             logger.error("Error extracting model parameters: %s", e, exc_info=True)
             return pd.DataFrame({"Message": ["Could not extract parameters"]})
 
-    @render.table
+    @render.ui
+    @as_cell_table()
     def export_diet_table():
         """Display diet matrix preview."""
         model = get_balanced_model()
@@ -753,7 +758,7 @@ def analysis_server(
                 model.DC[:n_bio, :n_living],
                 index=groups[:n_bio],
                 columns=groups[:n_living],
-            ).round(3)
+            )
             # Show only first 10 columns
             cols = diet.columns[:10].tolist()
             return diet[cols].head(10)
