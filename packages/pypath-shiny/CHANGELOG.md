@@ -6,6 +6,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.13.0 (2026-11-20)
+
+### Bug Fixes
+
+- **shiny**: Cell tooltips follow edits, see unrounded numbers, match labels exactly
+  ([`1c6f238`](https://github.com/razinkele/PyPath/commit/1c6f238d57a1b544b4f91b3571354f07bd987cd8))
+
+### Features
+
+- **shiny**: A tooltip on every table cell, tables that scroll under fixed headings
+  ([`739439b`](https://github.com/razinkele/PyPath/commit/739439b38690a34e2468295c7630e20011eae845))
+
+- **shiny**: Tables that scroll show every group; a wide table keeps its row names
+  ([`f394a66`](https://github.com/razinkele/PyPath/commit/f394a663d7e53b901b6e3c79937ae936da32d19a))
+
+- **shiny**: Unrounded values on great_tables tables; no stale or false-precision tooltips
+  ([`6a5812a`](https://github.com/razinkele/PyPath/commit/6a5812a9f812d2be10ca74d47afeac23b24f19cd))
+
+
 ## v1.12.0 (2026-11-20)
 
 ### Bug Fixes
