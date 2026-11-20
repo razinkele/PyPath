@@ -37,6 +37,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.page_theme import page_themed
 from pypath_shiny.services.plotly_viz import (
     build_ibm_age_figure,
     build_ibm_biomass_comparison_figure,
@@ -801,6 +802,7 @@ def ibm_server(
     # -- Population Structure tab --
 
     @render_widget
+    @page_themed(input)
     def ibm_size_distribution():
         """Size (length) structure of the super-individuals."""
         ibm = ibm_group_instance()
@@ -810,6 +812,7 @@ def ibm_server(
         )
 
     @render_widget
+    @page_themed(input)
     def ibm_age_distribution():
         """Age structure of the super-individuals."""
         ibm = ibm_group_instance()
@@ -860,6 +863,7 @@ def ibm_server(
         )
 
     @render_widget
+    @page_themed(input)
     def ibm_biomass_comparison():
         """Overlay standard vs. IBM-enhanced biomass trajectories."""
         std = standard_output()
@@ -881,6 +885,7 @@ def ibm_server(
     # -- Energy & Growth tab --
 
     @render_widget
+    @page_themed(input)
     def ibm_growth_curves():
         """Von Bertalanffy growth curve with the IBM population."""
         ibm = ibm_group_instance()
@@ -896,6 +901,7 @@ def ibm_server(
         )
 
     @render_widget
+    @page_themed(input)
     def ibm_energy_budget():
         """Energy budget components from the bioenergetics parameters."""
         params_val = ibm_params()
@@ -911,6 +917,7 @@ def ibm_server(
     # -- Reproduction & Mortality tab --
 
     @render_widget
+    @page_themed(input)
     def ibm_recruitment_mortality():
         """Biomass and its monthly gain/loss from the IBM-enhanced run."""
         ibm_out = ibm_enhanced_output()

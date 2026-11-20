@@ -21,6 +21,7 @@ from pypath_shiny.services.notifications import (
     notify_success,
     notify_warning,
 )
+from pypath_shiny.services.page_theme import apply_page_theme, page_is_dark
 
 
 def _notify_legacy(message: str, type: str = "default", duration: int | None = None):
@@ -650,7 +651,9 @@ def optimization_demo_server(input: Inputs, output: Outputs, session: Session):
             hovermode="x unified",
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
+        return ui.HTML(
+            apply_page_theme(fig, page_is_dark(input)).to_html(include_plotlyjs="cdn")
+        )
 
     @render.code
     def optimization_summary():
@@ -744,7 +747,9 @@ Objective Function: {cfg["objective"].upper()}
             showlegend=True,
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
+        return ui.HTML(
+            apply_page_theme(fig, page_is_dark(input)).to_html(include_plotlyjs="cdn")
+        )
 
     @render.ui
     def opt_comparison_plot():
@@ -792,7 +797,9 @@ Objective Function: {cfg["objective"].upper()}
             hovermode="x unified",
         )
 
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn"))
+        return ui.HTML(
+            apply_page_theme(fig, page_is_dark(input)).to_html(include_plotlyjs="cdn")
+        )
 
     @render.ui
     def results_table():

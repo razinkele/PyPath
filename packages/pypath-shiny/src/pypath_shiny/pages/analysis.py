@@ -44,6 +44,7 @@ from pypath_shiny.components import download_icon
 from pypath_shiny.config import UI
 from pypath_shiny.pages.utils import is_balanced_model
 from pypath_shiny.services.cell_tables import as_cell_table
+from pypath_shiny.services.page_theme import page_themed
 from pypath_shiny.services.plotly_viz import (
     build_ee_figure,
     build_keystoneness_figure,
@@ -518,6 +519,7 @@ def analysis_server(
         return None
 
     @render_widget
+    @page_themed(input)
     def mti_heatmap_plot():
         """Interactive MTI heatmap (Plotly)."""
         mti = get_mti_matrix()
@@ -610,6 +612,7 @@ def analysis_server(
             return pd.DataFrame({"Message": ["Could not extract keystoneness"]})
 
     @render_widget
+    @page_themed(input)
     def keystoneness_plot():
         """Interactive keystoneness vs biomass (Plotly)."""
         model = get_balanced_model()
@@ -668,6 +671,7 @@ def analysis_server(
         return ui.div(*items)
 
     @render_widget
+    @page_themed(input)
     def analysis_ee_plot():
         """Interactive ecotrophic efficiency bars (Plotly)."""
         model = get_balanced_model()
