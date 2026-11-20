@@ -7,9 +7,8 @@ where workers cannot be used (IBM groups).
 """
 
 import copy
-import multiprocessing
 import warnings
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import Future, ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -211,22 +210,40 @@ def test_the_pool_is_shut_down_when_the_run_is_cancelled(spatial_scenario, pools
     assert pool.shutdowns == 1
 
 
-@pytest.mark.skipif(
-    "fork" not in multiprocessing.get_all_start_methods(),
-    reason="the worker must inherit the patched function (fork)",
-)
-def test_the_pool_is_shut_down_when_a_patch_fails(spatial_scenario, pools, monkeypatch):
+class _FailingPool:
+    """Stands in for the process pool: every task fails, in this process.
+
+    No worker is started. An earlier form of the test below patched
+    ``_local_deriv`` and ran real workers under the "fork" start method so
+    that they inherited the patch; a worker forked from the multi-threaded
+    test process could be left stuck, and then the test run never exited
+    (CI, 2026-11-20).
+    """
+
+    made: list = []
+
+    def __init__(self, max_workers, mp_context=None):
+        self.shutdowns = []
+        _FailingPool.made.append(self)
+
+    def submit(self, fn, *args, **kwargs):
+        future = Future()
+        future.set_exception(FloatingPointError("a patch failed"))
+        return future
+
+    def shutdown(self, wait=True, cancel_futures=False):
+        self.shutdowns.append({"wait": wait, "cancel_futures": cancel_futures})
+
+
+def test_the_pool_is_shut_down_when_a_patch_fails(spatial_scenario, monkeypatch):
+    """The error reaches the caller; the pool is shut down without waiting."""
     scenario, _ = spatial_scenario
-
-    def broken(*args, **kwargs):
-        raise FloatingPointError("a patch failed")
-
-    # fork: the worker inherits the patched function
-    monkeypatch.setattr(integ, "_local_deriv", broken)
+    _FailingPool.made = []
+    monkeypatch.setattr(integ, "ProcessPoolExecutor", _FailingPool)
     with pytest.raises(FloatingPointError, match="a patch failed"):
-        _run(scenario, n_jobs=2, mp_context="fork")
-    (pool,) = pools
-    assert pool.shutdowns == 1
+        _run(scenario, n_jobs=2)
+    (pool,) = _FailingPool.made
+    assert pool.shutdowns == [{"wait": False, "cancel_futures": True}]
 
 
 def test_the_scenario_is_left_as_it_was(spatial_scenario):
