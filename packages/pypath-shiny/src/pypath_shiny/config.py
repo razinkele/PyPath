@@ -91,6 +91,12 @@ class SpatialConfig:
     large_grid_threshold: int = 500  # Patches - use simplified rendering
     huge_grid_threshold: int = 1000  # Patches - show warning
 
+    # Worker processes for a spatial run are asked for with the environment
+    # variable PYPATH_ECOSPACE_JOBS (see services.background_runs.spatial_jobs).
+    # Below this many patches handing the work over costs more than it saves:
+    # a 120-patch run gained nothing, the 304-patch Black Sea model 2-3 times.
+    min_patches_for_workers: int = 250
+
 
 @dataclass
 class ValidationConfig:

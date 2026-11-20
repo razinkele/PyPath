@@ -2,6 +2,7 @@
 functions and the checks that decide whether a finished run may still land."""
 
 import ast
+from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
 
 import numpy as np
@@ -61,6 +62,98 @@ def test_run_spatial_stops_when_its_control_is_asked_to():
     with pytest.raises(RunCancelled, match="month 1 of"):
         runs.run_spatial(scenario, eco, None, control=control)
     assert control.progress()[0] == 1
+
+
+# --- Ecospace worker processes (opt-in) --------------------------------
+
+
+@pytest.mark.parametrize(
+    ("setting", "n_patches", "expected"),
+    [
+        (None, 400, 1),  # not asked for: serial
+        ("1", 400, 1),
+        ("4", 400, 4),
+        ("4", 249, 1),  # too small a grid to gain anything
+        ("4", 250, 4),
+        ("0", 400, 1),  # nonsense is "off", never an error at run time
+        ("many", 400, 1),
+        ("-1", 400, 1),
+    ],
+)
+def test_spatial_jobs_follow_the_setting_and_the_grid(
+    monkeypatch, setting, n_patches, expected
+):
+    if setting is None:
+        monkeypatch.delenv("PYPATH_ECOSPACE_JOBS", raising=False)
+    else:
+        monkeypatch.setenv("PYPATH_ECOSPACE_JOBS", setting)
+    assert runs.spatial_jobs(n_patches) == expected
+
+
+def test_spatial_jobs_never_exceed_the_machine(monkeypatch):
+    monkeypatch.setenv("PYPATH_ECOSPACE_JOBS", "512")
+    assert 1 <= runs.spatial_jobs(4000) <= runs.usable_cpus()
+
+
+def test_run_spatial_passes_the_workers_on(monkeypatch):
+    seen = {}
+
+    def fake(scenario, **kwargs):
+        seen.update(kwargs)
+        return "output"
+
+    monkeypatch.setattr(runs, "rsim_run_spatial", fake)
+    assert runs.run_spatial("scenario", "eco", None, n_jobs=3) == "output"
+    assert seen["n_jobs"] == 3
+    assert runs.run_spatial("scenario", "eco", None) == "output"
+    assert seen["n_jobs"] == 1
+
+
+@pytest.mark.parametrize("error", [BrokenProcessPool("died"), EOFError("no worker")])
+def test_run_spatial_falls_back_to_one_process_when_workers_cannot_start(
+    monkeypatch, caplog, error
+):
+    """Under shiny-server's launcher no worker process can start."""
+    calls = []
+
+    def fake(scenario, **kwargs):
+        calls.append(kwargs["n_jobs"])
+        if kwargs["n_jobs"] > 1:
+            raise error
+        return "output"
+
+    monkeypatch.setattr(runs, "rsim_run_spatial", fake)
+    with caplog.at_level("WARNING", logger=runs.__name__):
+        assert runs.run_spatial("scenario", "eco", None, n_jobs=4) == "output"
+    assert calls == [4, 1]
+    assert "PYPATH_ECOSPACE_JOBS" in caplog.text
+
+
+def test_run_spatial_does_not_hide_a_failure_of_the_run_itself(monkeypatch):
+    def fake(scenario, **kwargs):
+        raise FloatingPointError("a patch failed")
+
+    monkeypatch.setattr(runs, "rsim_run_spatial", fake)
+    with pytest.raises(FloatingPointError):
+        runs.run_spatial("scenario", "eco", None, n_jobs=4)
+
+
+def test_a_cancelled_run_is_not_started_again(monkeypatch):
+    calls = []
+
+    def fake(scenario, **kwargs):
+        calls.append(kwargs["n_jobs"])
+        raise RunCancelled("stopped")
+
+    monkeypatch.setattr(runs, "rsim_run_spatial", fake)
+    with pytest.raises(RunCancelled):
+        runs.run_spatial("scenario", "eco", None, n_jobs=4)
+    assert calls == [4]
+
+
+def test_the_ecospace_page_asks_for_the_workers():
+    source = Path(ecospace_page.__file__).read_text(encoding="utf-8")
+    assert "n_jobs=spatial_jobs(" in source
 
 
 # --- Ecospace staleness ------------------------------------------------
