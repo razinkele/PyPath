@@ -30,7 +30,7 @@ jobs:
           create-args: >-
             python=3.11
             pip
-            shiny-deckgl>=1.16.0
+            shiny-deckgl>=1.16.1
             -c razinka
             -c conda-forge
           cache-environment: true
