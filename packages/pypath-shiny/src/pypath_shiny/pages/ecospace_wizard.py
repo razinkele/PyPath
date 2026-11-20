@@ -428,6 +428,16 @@ def ecospace_wizard_server(
         ui.update_checkbox("wizard_on_step1", value=wizard_step.get() == 1)
 
     @reactive.effect
+    @reactive.event(input.wizard_clear_area)
+    async def _clear_area():
+        """Remove the study area, drawn or from a draft (the map's bin only
+        removes a polygon drawn on it)."""
+        drawn_polygon.set(None)
+        shown_area["drawn"] = False
+        await AREA_MAP.delete_drawn_features(session)
+        await AREA_MAP.update(session, [])
+
+    @reactive.effect
     @reactive.event(area_from_draft)
     async def _show_the_drafts_area():
         """Replace whatever the map shows with a loaded (or reset) draft's area."""
@@ -1058,10 +1068,15 @@ def _step1_select_area_ui():
         ui.p(
             "Draw a polygon on the map to define your study area: pick the "
             "polygon tool at the top left, click each corner, and double-click "
-            "the last one. Drawing again replaces the area; the bin removes it."
+            "the last one. Drawing again replaces the area."
         ),
         AREA_MAP.ui(height="500px"),
         ui.output_ui("wizard_area_info"),
+        ui.input_action_button(
+            "wizard_clear_area",
+            "Clear study area",
+            class_="btn-outline-secondary btn-sm",
+        ),
         full_screen=True,
     )
 

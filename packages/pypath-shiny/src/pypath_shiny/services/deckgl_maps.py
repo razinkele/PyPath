@@ -409,7 +409,9 @@ def polygon_area_km2(geometry: dict) -> float:
     ring = np.radians(np.asarray(geometry["coordinates"][0], dtype=float)[:, :2])
     lon, lat = ring[:, 0], ring[:, 1]
     lon_next, lat_next = np.roll(lon, -1), np.roll(lat, -1)
-    total = np.sum((lon_next - lon) * (2 + np.sin(lat) + np.sin(lat_next)))
+    # An edge takes the short way round: 179 E to 179 W is 2 degrees.
+    step = (lon_next - lon + np.pi) % (2 * np.pi) - np.pi
+    total = np.sum(step * (2 + np.sin(lat) + np.sin(lat_next)))
     return float(abs(total) * _EARTH_RADIUS_KM**2 / 2)
 
 

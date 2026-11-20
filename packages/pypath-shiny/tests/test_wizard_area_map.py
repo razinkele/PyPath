@@ -62,6 +62,37 @@ def test_area_does_not_depend_on_the_ring_direction():
     assert polygon_area_km2(reverse) == pytest.approx(polygon_area_km2(SQUARE))
 
 
+def test_area_across_the_antimeridian():
+    """179 E to 179 W is 2 degrees wide, not 358."""
+    across = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [179.0, 55.0],
+                [-179.0, 55.0],
+                [-179.0, 56.0],
+                [179.0, 56.0],
+                [179.0, 55.0],
+            ]
+        ],
+    }
+    assert polygon_area_km2(across) == pytest.approx(2 * polygon_area_km2(SQUARE))
+
+
+def test_the_area_can_be_cleared_with_a_button_whatever_its_origin():
+    """The map's bin only removes a drawn polygon, not a loaded draft's outline."""
+    html = str(ui.TagList(wizard._step1_select_area_ui()).tagify())
+    assert 'id="wizard_clear_area"' in html
+    source = Path(wizard.__file__).read_text(encoding="utf-8")
+    handler = source[source.index("def _clear_area") :][:900]
+    for needed in (
+        "drawn_polygon.set(None)",
+        "delete_drawn_features(session)",
+        "AREA_MAP.update(session, [])",
+    ):
+        assert needed in handler, needed
+
+
 def test_study_area_layers_draw_the_polygon_or_nothing():
     assert study_area_layers(None) == []
     (layer,) = study_area_layers(SQUARE)

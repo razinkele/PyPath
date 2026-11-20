@@ -98,5 +98,14 @@ def test_a_polygon_drawn_on_the_map_is_the_study_area(server, browser):  # noqa:
     page.click("#wizard_back")
     page.wait_for_selector(POLYGON_TOOL, state="visible", timeout=15000)
     assert _area(page) == second
+
+    # The button clears the area, and a new one can be drawn afterwards.
+    page.click("#wizard_clear_area")
+    end = time.monotonic() + 10
+    while "No study area" not in _text(page, "#wizard_area_info"):
+        assert time.monotonic() < end, _text(page, "#wizard_area_info")
+        time.sleep(0.25)
+    _draw(page, [(0.45, 0.40), (0.60, 0.40), (0.60, 0.60), (0.45, 0.60)])
+    assert _area(page) == first
     assert errors == []
     assert server.tracebacks() == 0
