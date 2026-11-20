@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from shiny import Inputs, Outputs, Session, reactive, render, ui
 
+from pypath_shiny.components import download_icon
 from pypath_shiny.config import PARAM_RANGES
 from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
 
@@ -137,7 +138,10 @@ def multistanza_ui():
                             "stanza_table", style="max-height: 400px; overflow: auto;"
                         ),
                         ui.download_button(
-                            "download_stanzas", "Download CSV", class_="mt-2"
+                            "download_stanzas",
+                            "Download CSV",
+                            icon=download_icon(),
+                            class_="mt-2",
                         ),
                     ),
                 ),

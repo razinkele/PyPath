@@ -140,6 +140,11 @@ def theme_toggle_button(
     )
 
 
+def download_icon() -> ui.Tag:
+    """The icon on a download button (decorative: the label says what it is)."""
+    return ui.tags.i(class_="bi bi-download me-1", aria_hidden="true")
+
+
 def empty_state(message: str) -> ui.Tag:
     """Muted placeholder for a table output that has nothing to show yet.
 
